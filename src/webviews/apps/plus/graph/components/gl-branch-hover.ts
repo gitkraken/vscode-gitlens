@@ -22,6 +22,7 @@ import type {
 } from '../../../../shared/overviewBranches.js';
 import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { ActionItem } from '../../../shared/components/actions/action-item.js';
+import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -381,7 +382,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 
 		return html`
 			${this.renderHeader(branch, contributors)} ${when(hasItems, () => this.renderItems(pr, issues, autolinks))}
-			${this.renderAgents()} ${this.renderActions(branch, pr != null)}
+			${this.renderAgents()} ${this.renderActions(branch, pr)}
 		`;
 	}
 
@@ -472,9 +473,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 							<pr-icon ?draft=${pr!.draft} state=${pr!.state} pr-id=${pr!.id}></pr-icon>
 						</span>
 						<span class="name">
-							<a href=${pr!.url} @click=${(e: Event) => this.onLinkClick(e, 'pullrequest')}
-								>${pr!.title}</a
-							>
+							<a href=${pr!.url} @click=${(e: MouseEvent) => this.onPrTitleClick(e, pr!)}>${pr!.title}</a>
 						</span>
 						<span class="identifier">#${pr!.id}</span>
 					</div>
@@ -608,9 +607,10 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		></gl-merge-target-status>`;
 	}
 
-	private renderActions(branch: OverviewBranch, hasPr: boolean) {
+	private renderActions(branch: OverviewBranch, pr: OverviewBranchEnrichment['pr']) {
 		// Curated set per #5170 — sync and "Open in View" live elsewhere (inline overlay / scope popover),
 		// so the rich hover focuses on diff/compare/checkout flows.
+		const hasPr = pr != null;
 		const opened = branch.opened;
 		const isWorktree = branch.worktree != null;
 		// Resolve the ref once — every `link()` below composes it, and the `branch` getter behind it does a
@@ -626,6 +626,11 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 					icon="diff-multiple"
 					href=${link('gitlens.openPullRequestChanges:')}
 				></action-item>`,
+			);
+			// The title link now opens the graph's PR sheet instead of the remote — this is the only
+			// remaining way to leave the hover for the pull request itself.
+			actions.push(
+				html`<action-item label="Open Pull Request on Remote" icon="globe" href=${pr.url}></action-item>`,
 			);
 		} else if (!opened) {
 			// Skipped for the opened branch without a PR — lhs == rhs, so the multi-diff would be empty.
@@ -709,6 +714,24 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			name: 'graph/overview/linkClicked',
 			data: { surface: this.surface, type: type },
 		});
+	}
+
+	/** Opens the graph's own pull request sheet instead of leaving the graph to read it on the
+	 *  remote — closes the enclosing popover so the sheet isn't left sitting underneath it. */
+	private onPrTitleClick(e: MouseEvent, pr: NonNullable<OverviewBranchEnrichment['pr']>) {
+		e.preventDefault();
+		this.onLinkClick(e, 'pullrequest');
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-show-pr-sheet', {
+				detail: { number: pr.number },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+
+		const popoverEl: GlPopover | null = this.closest('gl-popover');
+		void popoverEl?.hide();
 	}
 
 	private onActionItemClick(e: MouseEvent) {

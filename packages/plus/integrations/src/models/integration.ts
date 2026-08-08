@@ -749,7 +749,11 @@ export abstract class IntegrationBase<
 	}
 
 	@trace()
-	async getPullRequest(resource: T, id: string): Promise<PullRequest | undefined> {
+	async getPullRequest(
+		resource: T,
+		id: string,
+		options?: { expiryOverride?: boolean | number },
+	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -757,18 +761,24 @@ export abstract class IntegrationBase<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const pr = await this.ctx.cache.getPullRequest(id, resource, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequest?.(this._session!, resource, id);
-					this.resetRequestExceptionCount('getPullRequest');
-					return result;
-				} catch (ex) {
-					this.handleProviderException('getPullRequest', ex, { scope: scope });
-					return undefined;
-				}
-			})(),
-		}));
+		const pr = await this.ctx.cache.getPullRequest(
+			id,
+			resource,
+			this,
+			() => ({
+				value: (async () => {
+					try {
+						const result = await this.getProviderPullRequest?.(this._session!, resource, id);
+						this.resetRequestExceptionCount('getPullRequest');
+						return result;
+					} catch (ex) {
+						this.handleProviderException('getPullRequest', ex, { scope: scope });
+						return undefined;
+					}
+				})(),
+			}),
+			{ expiryOverride: options?.expiryOverride },
+		);
 		return pr;
 	}
 

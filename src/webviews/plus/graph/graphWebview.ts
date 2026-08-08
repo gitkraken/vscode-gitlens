@@ -17,6 +17,7 @@ import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitGraph, GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import type { GitGraphSessionChangedChannels } from '@gitlens/git/models/graphSession.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { GitReference, GitRevisionReference, GitStashReference } from '@gitlens/git/models/reference.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -116,6 +117,10 @@ import {
 	isAccountAccessRequired,
 	isSubscriptionTrialOrPaidFromState,
 } from '../../../plus/gk/utils/subscription.utils.js';
+import {
+	confirmPullRequestMerge,
+	mergePullRequestWithProgress,
+} from '../../../plus/integrations/utils/-webview/pullRequest.merge.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
@@ -230,6 +235,7 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	GraphWalkthroughBannerState,
+	MergePullRequestParams,
 	SidebarWorktreeChange,
 	State,
 } from './protocol.js';
@@ -295,6 +301,7 @@ import {
 	GraphSyncResyncCommand,
 	isWipRowId,
 	LoadRowRequest,
+	MergePullRequestRequest,
 	OpenPullRequestDetailsCommand,
 	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
@@ -371,6 +378,13 @@ function hasAction(arg: any): arg is {
 } {
 	return typeof arg?.action === 'string';
 }
+
+/** Maps the merge sheet's IPC literal onto the integration's enum. */
+const mergeMethodsByName: Record<NonNullable<MergePullRequestParams['mergeMethod']>, PullRequestMergeMethod> = {
+	merge: PullRequestMergeMethod.Merge,
+	squash: PullRequestMergeMethod.Squash,
+	rebase: PullRequestMergeMethod.Rebase,
+};
 
 type CancellableOperations =
 	| 'branchState'
@@ -2559,6 +2573,61 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return Promise.resolve();
+	}
+
+	@ipcRequest(MergePullRequestRequest)
+	private async onMergePullRequest(
+		params: IpcParams<typeof MergePullRequestRequest>,
+	): Promise<IpcResponse<typeof MergePullRequestRequest>> {
+		const resolved = await this._panels.resolvePullRequestForMerge(params.number);
+		if (resolved == null) {
+			void window.showErrorMessage(`Unable to resolve pull request #${params.number}`);
+			return { merged: false };
+		}
+
+		const { integration, pr } = resolved;
+		// A sheet-side confirmation already named the blast radius in place; only unconfirmed callers
+		// (e.g. the branch sheet's chip) get the quick pick.
+		if (!params.confirmed && !(await confirmPullRequestMerge(pr))) return { merged: false };
+
+		const mergeMethod = params.mergeMethod != null ? mergeMethodsByName[params.mergeMethod] : undefined;
+
+		const result = await mergePullRequestWithProgress(
+			integration,
+			pr,
+			mergeMethod != null ? { mergeMethod: mergeMethod } : undefined,
+		);
+		if (result !== 'merged') {
+			if (result === 'cancelled') {
+				// The merge can still land after we stop waiting for it, so refresh the same PR-affected
+				// state a successful merge does.
+				this._panels.resetPullRequests();
+				this.container.launchpad.refresh();
+				this.refreshAfterPullRequestMerge();
+			}
+
+			return { merged: false };
+		}
+
+		this._panels.resetPullRequests();
+		// Launchpad holds its own 30-minute PR cache; a merge from the graph must not leave it serving the merged PR.
+		this.container.launchpad.refresh();
+		this.refreshAfterPullRequestMerge();
+
+		return { merged: true };
+	}
+
+	/** Re-pulls PR-affected state after a merge (attempted or confirmed) without tearing down the
+	 *  webview's iframe — `host.refresh(true)` re-mounts it and destroys the sheet stack the user is
+	 *  looking at. Mirrors the `graph.showUpstreamStatus` toggle's refsMetadata reset (see the
+	 *  `onConfigurationChanged` handler) plus a full state repush, so ref pills, the sidebar pull-requests
+	 *  panel, and branch overview chips all re-fetch in place. */
+	private refreshAfterPullRequestMerge(): void {
+		this._producers.resetRefsMetadata();
+		this._graphSync.markRefsMetadataReset();
+		this._panels.notifySidebarInvalidated();
+		void this._panels.notifyDidChangeOverview();
+		this._data.updateState(true);
 	}
 
 	// Not a registered command — invoked only by `onDoubleClick` for issue ref-metadata badges.

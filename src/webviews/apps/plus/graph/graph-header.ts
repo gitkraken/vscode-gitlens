@@ -8,6 +8,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import { getAltKeySymbol } from '@env/platform.js';
 import type { SearchOperatorsLongForm, SearchQuery } from '@gitlens/git/models/search.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
 import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
@@ -29,7 +30,6 @@ import {
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
 	createWipRowId,
-	OpenPullRequestDetailsCommand,
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
 	SearchRequest,
@@ -454,7 +454,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
-		this._ipc.sendCommand(OpenPullRequestDetailsCommand, { id: pr.id, providerId: pr.provider?.id });
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-show-pr-sheet', {
+				detail: { number: getPullRequestNumberFromUrl(pr.url) ?? pr.id, url: pr.url },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private onSearchOpenInView() {
@@ -1052,14 +1058,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				${when(
 					allowed && repo,
 					() => html`
-						<span><code-icon icon="chevron-right"></code-icon></span>${when(
-							branchState?.pr,
-							pr => html`
+						<span><code-icon icon="chevron-right"></code-icon></span>${when(branchState?.pr, pr => {
+							const prNumber = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+							return html`
 								<gl-popover placement="bottom">
-									<button slot="anchor" type="button" class="action-button">
+									<button
+										slot="anchor"
+										type="button"
+										class="action-button"
+										@click=${() => this.onOpenPullRequest(pr)}
+									>
 										<issue-pull-request
 											type="pr"
-											identifier=${`#${pr.id}`}
+											identifier=${`#${prNumber}`}
 											status=${pr.state}
 											.stack=${pr.stack}
 											compact
@@ -1070,7 +1081,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											type="pr"
 											name=${pr.title}
 											url=${pr.url}
-											identifier=${`#${pr.id}`}
+											identifier=${`#${prNumber}`}
 											status=${pr.state}
 											.stack=${pr.stack}
 											.author=${pr.author?.name}
@@ -1078,16 +1089,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											.date=${pr.updatedDate}
 											.dateFormat=${config?.dateFormat}
 											.dateStyle=${config?.dateStyle}
-											details
-											@gl-issue-pull-request-details=${() => {
-												this.onOpenPullRequest(pr);
-											}}
 										>
 										</issue-pull-request>
 									</div>
 								</gl-popover>
-							`,
-						)}
+							`;
+						})}
 						<gl-ref-button
 							href=${this._webview.createCommandLink('gitlens.switchToAnotherBranch:')}
 							icon

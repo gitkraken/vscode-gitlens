@@ -6,6 +6,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks.js';
 import type { IpcSerialized } from '../../../../system/ipcSerialize.js';
@@ -181,6 +182,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
 	@property({ type: Boolean })
 	maximized = false;
+
+	/** Graph-only: the PR chip's body opens details on click instead of the card's eye (see
+	 *  `gl-autolink-chip`'s `details-on-click`). The Inspect host never sets this. */
+	@property({ type: Boolean, attribute: 'details-on-click' })
+	detailsOnClick = false;
 
 	@state()
 	private _reachabilityExpanded = false;
@@ -1050,26 +1056,27 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 				}),
 			)}
 			${when(prs.length, () =>
-				prs.map(
-					pr =>
-						html`<gl-autolink-chip
-							type="pr"
-							name="${pr.title}"
-							url="${pr.url}"
-							identifier="#${pr.id}"
-							status="${pr.state}"
-							.date=${pr.updatedDate}
-							.dateFormat="${this.preferences?.dateFormat}"
-							.dateStyle="${this.preferences?.dateStyle}"
-							.author=${pr.author?.name}
-							?isDraft=${pr.isDraft}
-							.reviewDecision=${pr.reviewDecision}
-							.itemId=${pr.id}
-							.providerId=${pr.provider?.id}
-							details
-							openOnRemote
-						></gl-autolink-chip>`,
-				),
+				prs.map(pr => {
+					const prNumber = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+					return html`<gl-autolink-chip
+						type="pr"
+						name="${pr.title}"
+						url="${pr.url}"
+						identifier="#${prNumber}"
+						status="${pr.state}"
+						.date=${pr.updatedDate}
+						.dateFormat="${this.preferences?.dateFormat}"
+						.dateStyle="${this.preferences?.dateStyle}"
+						.author=${pr.author?.name}
+						?isDraft=${pr.isDraft}
+						.reviewDecision=${pr.reviewDecision}
+						.itemId=${prNumber}
+						.providerId=${pr.provider?.id}
+						details
+						?details-on-click=${this.detailsOnClick}
+						openOnRemote
+					></gl-autolink-chip>`;
+				}),
 			)}
 			${when(issues.length, () =>
 				issues.map(

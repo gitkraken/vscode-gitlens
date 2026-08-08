@@ -533,7 +533,7 @@ export class GlDetailsWipHeader extends LitElement {
 			type="pr"
 			name=${pr.title}
 			url=${pr.url}
-			identifier="#${pr.id}"
+			identifier="#${pr.number}"
 			status=${status}
 			date-label="updated"
 			.date=${pr.updatedDate}
@@ -542,10 +542,11 @@ export class GlDetailsWipHeader extends LitElement {
 			.author=${pr.authorName}
 			?isDraft=${pr.draft ?? false}
 			.reviewDecision=${pr.reviewDecision}
-			.itemId=${pr.id}
+			.itemId=${pr.number}
 			.providerId=${pr.providerId}
 			.stack=${pr.stack}
 			details
+			details-on-click
 			openOnRemote
 		></gl-autolink-chip>`;
 	}

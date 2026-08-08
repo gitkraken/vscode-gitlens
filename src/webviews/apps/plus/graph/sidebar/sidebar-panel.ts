@@ -2378,6 +2378,27 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		if (this.activePanel === 'pullRequests' && e.detail.node?.path != null) {
 			this.emitPullRequestsSelectedTelemetry(e.detail.node.path);
+
+			const path = e.detail.node.path;
+			// Leaf rows (`pr:${number}`) open that layer's sheet; stack parents (`stack:${number}`) open
+			// the stack-root summary sheet instead.
+			if (path.startsWith('pr:')) {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-show-pr-sheet', {
+						detail: { number: path.slice('pr:'.length) },
+						bubbles: true,
+						composed: true,
+					}),
+				);
+			} else if (path.startsWith('stack:')) {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-show-pr-sheet', {
+						detail: { stackNumber: Number(path.slice('stack:'.length)) },
+						bubbles: true,
+						composed: true,
+					}),
+				);
+			}
 		}
 
 		const sha = context?.[0];

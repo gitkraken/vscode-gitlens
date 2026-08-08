@@ -268,6 +268,11 @@ export class IssuePullRequest extends GlElement {
 	@property({ type: Boolean })
 	details = false;
 
+	/** Suppresses the "Open Details" eye even when {@link details} is set — for callers whose chip
+	 *  body already opens the same details view on click, so the card doesn't offer it twice. */
+	@property({ type: Boolean, attribute: 'hide-details-action' })
+	hideDetailsAction = false;
+
 	@property({ type: Boolean })
 	openOnRemote = false;
 
@@ -313,11 +318,11 @@ export class IssuePullRequest extends GlElement {
 					}
 				</div>
 				${when(
-					this.details === true || this.openOnRemote === true,
+					(this.details === true && !this.hideDetailsAction) || this.openOnRemote === true,
 					() => html`
 						<p class="details">
 							${
-								this.details
+								this.details && !this.hideDetailsAction
 									? html`<gl-button
 											appearance="toolbar"
 											tooltip="Open Details"

@@ -1,3 +1,4 @@
+import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 
@@ -5,7 +6,15 @@ export type SheetDescriptor =
 	| { kind: 'branch'; ref: BranchSheetRef; repoPath: string | undefined }
 	| { kind: 'conflict'; detail: FileChangeListItemDetail; fileName: string }
 	| { kind: 'rebaseSummary'; repoPath: string }
-	| { kind: 'compare' };
+	| { kind: 'compare' }
+	| {
+			kind: 'pullRequest';
+			pr: GraphSidebarPullRequest;
+			layers?: GraphSidebarPullRequest[];
+			/** Renders the stack's own summary (all layers, top layer's state) instead of one layer's —
+			 *  only ever set alongside a full `layers` load. */
+			stackRoot?: boolean;
+	  };
 
 export type SheetKind = SheetDescriptor['kind'];
 
@@ -31,6 +40,8 @@ export function sheetKey(d: SheetDescriptor): string {
 			return JSON.stringify([d.kind, d.repoPath]);
 		case 'compare':
 			return d.kind;
+		case 'pullRequest':
+			return [d.kind, d.pr.number, d.stackRoot ? 'stack' : ''].join('|');
 		default: {
 			const _exhaustive: never = d;
 			return _exhaustive;
@@ -78,15 +89,22 @@ export function removeKind(stack: readonly SheetDescriptor[], kind: SheetKind): 
  * Projects the compare-signal's open/closed state onto the descriptor stack — same reference when
  * already converged, so callers can apply it unconditionally every render.
  * - open && no 'compare' present → `replaceStack` to a single-entry `[{kind:'compare'}]`, same policy
- *   as any other external opener.
+ *   as any other external opener; `mode: 'push'` stacks it on instead, so the sheet it opened from
+ *   (e.g. the pull request sheet's Compare Changes) stays underneath and closing returns there.
  * - open && 'compare' present anywhere → same reference.
  * - !open && 'compare' present → `removeKind(stack, 'compare')`.
  * - !open && none present → same reference.
  */
-export function projectCompareSignal(stack: readonly SheetDescriptor[], open: boolean): SheetDescriptor[] {
+export function projectCompareSignal(
+	stack: readonly SheetDescriptor[],
+	open: boolean,
+	mode: 'replace' | 'push' = 'replace',
+): SheetDescriptor[] {
 	const hasCompare = stack.some(d => d.kind === 'compare');
 	if (open) {
-		return hasCompare ? (stack as SheetDescriptor[]) : replaceStack(stack, { kind: 'compare' });
+		if (hasCompare) return stack as SheetDescriptor[];
+
+		return mode === 'push' ? pushSheet(stack, { kind: 'compare' }) : replaceStack(stack, { kind: 'compare' });
 	}
 
 	return hasCompare ? removeKind(stack, 'compare') : (stack as SheetDescriptor[]);

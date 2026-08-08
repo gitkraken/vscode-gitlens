@@ -1177,6 +1177,9 @@ export function fromProviderPullRequest(
 		options?.project,
 		pr.version,
 		pr.commitCount ?? undefined,
+		undefined, // stack — GK's proxy type has no stack concept; membership is joined host-side
+		pr.fileCount ?? undefined,
+		pr.description ?? undefined,
 	);
 }
 

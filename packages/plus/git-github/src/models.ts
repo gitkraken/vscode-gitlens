@@ -212,6 +212,8 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	assignees: {
 		nodes: GitHubMember[];
 	};
+	body: string;
+	changedFiles: number;
 	checksUrl: string;
 	deletions: number;
 	mergeable: GitHubPullRequestMergeableState;
@@ -519,6 +521,8 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		undefined, // version
 		pr.commits.totalCount,
 		fromGitHubPullRequestStack(pr),
+		pr.changedFiles,
+		pr.body || undefined,
 	);
 }
 

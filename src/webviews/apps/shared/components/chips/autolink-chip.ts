@@ -92,6 +92,13 @@ export class GlAutolinkChip extends LitElement {
 	@property({ type: Boolean })
 	details = false;
 
+	/** When set on a `type="pr"` chip with {@link details} enabled, a click on the chip body opens
+	 *  the same details view as the expanded card's eye — and the popover drops `click` from its
+	 *  trigger (hover/focus only) so the two don't fight, and the eye is hidden from the card since
+	 *  the chip itself now covers that action. Issue-type chips are unaffected. */
+	@property({ type: Boolean, attribute: 'details-on-click' })
+	detailsOnClick = false;
+
 	@property({ type: Boolean })
 	openOnRemote = false;
 
@@ -112,8 +119,9 @@ export class GlAutolinkChip extends LitElement {
 
 	override render(): unknown {
 		const { icon, modifier } = getAutolinkIcon(this.type, this.status, this.isDraft);
+		const detailsOnClick = this.detailsOnClick && this.type === 'pr' && this.details;
 
-		return html`<gl-popover trigger="hover focus click">
+		return html`<gl-popover trigger=${detailsOnClick ? 'hover focus' : 'hover focus click'}>
 			<gl-action-chip
 				exportparts="icon"
 				slot="anchor"
@@ -121,6 +129,7 @@ export class GlAutolinkChip extends LitElement {
 				overlay="none"
 				label=${this.getAccessibleLabel()}
 				class="chip--${modifier}"
+				@click=${detailsOnClick ? this.onChipClick : nothing}
 				><span part="label"
 					>${this.identifier}${
 						this.stack != null
@@ -146,6 +155,7 @@ export class GlAutolinkChip extends LitElement {
 					?isDraft=${this.isDraft}
 					.reviewDecision=${this.reviewDecision}
 					?details=${this.details}
+					.hideDetailsAction=${detailsOnClick}
 					?openOnRemote=${this.openOnRemote}
 					.itemId=${this.itemId}
 					.providerId=${this.providerId}
@@ -154,6 +164,16 @@ export class GlAutolinkChip extends LitElement {
 			</div>
 		</gl-popover>`;
 	}
+
+	private onChipClick = (): void => {
+		this.dispatchEvent(
+			new CustomEvent('gl-issue-pull-request-details', {
+				detail: { id: this.itemId ?? '', providerId: this.providerId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private getAccessibleLabel(): string {
 		const typeLabel = this.type === 'pr' ? 'Pull request' : this.type === 'issue' ? 'Issue' : 'Autolink';

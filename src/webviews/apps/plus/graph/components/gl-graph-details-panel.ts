@@ -29,6 +29,7 @@ import type {
 	GraphActionTarget,
 	GraphComposeScopeSeed,
 	GraphShowAction,
+	GraphSidebarPullRequest,
 	State,
 } from '../../../../plus/graph/protocol.js';
 import {
@@ -117,6 +118,7 @@ import './gl-graph-branch-sheet.js';
 import './gl-graph-compare-pinned.js';
 import './gl-graph-compare-sheet.js';
 import './gl-rebase-summary-sheet.js';
+import './gl-graph-pr-sheet.js';
 import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
@@ -341,6 +343,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		params: Parameters<GlGraphDetailsPanel['openCompareMode']>[0];
 		onReady?: () => void;
 	};
+	/** Set by {@link openCompareOverSheet} and consumed by the compare projection in `willUpdate` — the
+	 *  open itself round-trips through the compare signal, so the intent can't ride the call. */
+	private _comparePushRequested = false;
 
 	/** A mode request that arrived before the workflow controller finished its async init (e.g. an
 	 *  Inspect-delegated Review/Compose on a cold graph open). Applied once `_workflow` exists.
@@ -866,6 +871,43 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return true;
 	}
 
+	/** Opens compare mode ON TOP of whatever sheet is currently showing — e.g. the pull request sheet's
+	 *  Compare Changes button — instead of replacing the stack, so closing the compare sheet
+	 *  returns to what was open. */
+	openCompareOverSheet(params: Parameters<GlGraphDetailsPanel['openCompareMode']>[0], onReady?: () => void): boolean {
+		this._comparePushRequested = true;
+		return this.openCompareMode(params, onReady);
+	}
+
+	/** The pull request sheet's Review Changes. Modes render in the details content BENEATH the sheet
+	 *  stack, so this dismisses the sheets and enters the AI review mode scoped merge-base → head: the
+	 *  changes the pull request actually introduces. The base falls back to the ref itself when no
+	 *  merge base resolves (e.g. a remote-only base branch) — the review's scope pane then shows the
+	 *  empty range rather than involving any other surface. */
+	async openReviewForComparison(params: Parameters<GlGraphDetailsPanel['openCompareMode']>[0]): Promise<void> {
+		const { leftRef, rightRef } = params;
+		if (leftRef == null || rightRef == null) return;
+
+		await this._actionsReady;
+
+		const { branchCompareSummary } = this._actions.resources;
+		await branchCompareSummary.fetch(params.repoPath, leftRef, rightRef, {
+			includeWorkingTree: false,
+		});
+
+		// Toggling an already-active review mode would turn it OFF (`toggleMode`'s toggle-out path) —
+		// guard so a second Review Changes click can't undo the mode it just turned on.
+		if (this._state.activeMode.get() === 'review') return;
+
+		this.clearSheets();
+		this.suppressContentOverflow();
+		this._workflow.toggleMode('review', this.currentSelection(), {
+			type: 'compare',
+			fromSha: branchCompareSummary.value.get()?.mergeBase ?? leftRef,
+			toSha: rightRef,
+		});
+	}
+
 	/** The `_graphState.rows` reference last seen by {@link willUpdate} — compared by identity to
 	 *  detect a host row push (repo/branch data changed) and bump {@link _branchSheetChangeStamp}. */
 	private _lastGraphRows?: State['rows'];
@@ -897,6 +939,64 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		this.clearSheets();
 	}
+
+	/** Opens the pull request sheet — a details view carrying the row's own payload, so it costs no
+	 *  fetch. `layers` is the stack's members (top layer first) when the pull request is stacked.
+	 *  `push` stacks it over the current sheet (an in-sheet opener, e.g. the branch sheet's PR chip);
+	 *  otherwise it replaces the stack like any other external opener. */
+	openPrSheet(
+		pr: GraphSidebarPullRequest,
+		layers?: GraphSidebarPullRequest[],
+		options?: { push?: boolean; stackRoot?: boolean },
+	): void {
+		this.openSheet({ kind: 'pullRequest', pr: pr, layers: layers, stackRoot: options?.stackRoot }, options);
+	}
+
+	/** Close the pull request sheet, wherever it sits in the stack. */
+	closePrSheet(): void {
+		this.removeSheetKind('pullRequest');
+	}
+
+	/** Reflects a completed merge on every open pull request sheet the merge affects — the sheet stays
+	 *  up, it just stops claiming the pull request is open. Optimistic by design: the host's pull request
+	 *  cache still holds the pre-merge object, so a refetch would read back the stale state; a merge of
+	 *  layer N lands every layer at or below N, so every open sheet of that stack reflects it, not just
+	 *  the merged number's own sheet. */
+	markPullRequestMerged(number: string, stack?: { number: number; position: number }): void {
+		let changed = false;
+
+		const next = this._sheetStack.map((d): SheetDescriptor => {
+			if (d.kind !== 'pullRequest') return d;
+
+			const affected =
+				stack == null ? d.pr.number === number : d.pr.number === number || d.pr.stack?.number === stack.number;
+			if (!affected) return d;
+
+			changed = true;
+			const position = stack?.position ?? d.pr.stack?.position;
+			const layers = d.layers?.map((l): GraphSidebarPullRequest =>
+				position != null && l.stack != null && l.stack.position <= position ? { ...l, state: 'merged' } : l,
+			);
+			const prMerged =
+				d.pr.number === number ||
+				(stack != null && d.pr.stack != null && d.pr.stack.position <= stack.position);
+
+			return {
+				kind: 'pullRequest',
+				pr: prMerged ? { ...d.pr, state: 'merged' } : d.pr,
+				layers: layers,
+				stackRoot: d.stackRoot,
+			};
+		});
+
+		if (changed) {
+			this._sheetStack = next;
+		}
+	}
+
+	private handleClosePrSheet = (): void => {
+		this.popSheet();
+	};
 
 	/**
 	 * Whether the new selection still belongs to the open sheet's ref, so the selection auto-close
@@ -956,6 +1056,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					?show-maximize=${this.showMaximize}
 					?maximized=${this.sheetMaximized}
 					@gl-detail-sheet-close=${this.handleCloseBranchSheet}
+					@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 				></gl-graph-branch-sheet>`;
 			case 'conflict':
 				return html`<gl-wip-conflict-sheet
@@ -979,6 +1080,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
 					@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
 				></gl-rebase-summary-sheet>`;
+			case 'pullRequest':
+				return html`<gl-graph-pr-sheet
+					.pullRequest=${top.pr}
+					.layers=${top.layers}
+					.dateFormat=${this._state.preferences.get()?.dateFormat}
+					.stackRoot=${top.stackRoot ?? false}
+					?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
+					@gl-detail-sheet-close=${this.handleClosePrSheet}
+				></gl-graph-pr-sheet>`;
 			case 'compare':
 				return html`<gl-graph-compare-sheet
 					.preferredOrientation=${this._preferredCompareOrientation}
@@ -1660,10 +1770,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// block above.
 		{
 			const compareOpen = this._state.compareSheetOpen.get();
-			const projected = projectCompareSignal(this._sheetStack, compareOpen);
+			const mode: 'replace' | 'push' = this._comparePushRequested ? 'push' : 'replace';
+			const projected = projectCompareSignal(this._sheetStack, compareOpen, mode);
 			if (projected !== this._sheetStack) {
+				this._comparePushRequested = false;
 				if (compareOpen) {
-					this.openSheet({ kind: 'compare' });
+					this.openSheet({ kind: 'compare' }, { push: mode === 'push' });
 				} else {
 					// removeSheetKind, NOT popSheet/clearSheets: those call `closeCompare()`, which
 					// would stomp `compareAsPanel` back to false and break the promote-to-pinned
@@ -3104,6 +3216,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			show-jump-to-nearest-wip
 			?show-maximize=${this.showMaximize}
 			?maximized=${this.maximized}
+			details-on-click
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.navigation=${this.navigation}
@@ -3840,8 +3953,27 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleRemoveAssociatedIssue = (e: CustomEvent<{ entityId: string }>) =>
 		void this._actions.removeAssociatedIssue(e.detail.entityId);
 
-	private handleOpenPullRequestDetails = (e: CustomEvent<{ id: string; providerId: string | undefined }>) =>
-		this._actions.openPullRequestDetails(e.detail.id || undefined, e.detail.providerId);
+	/** In the graph, a pull request chip opens the graph's own sheet rather than the host's pull request
+	 *  view — the sheet is right here, and leaving the graph to read a pull request costs the user their
+	 *  place. Without an id there's nothing to resolve, so those fall back to the host action.
+	 *
+	 *  `push` rides along when a sheet is already open: with a sheet mounted the details content is
+	 *  covered, so the chip can only have been clicked INSIDE that sheet — a drill-down, which stacks
+	 *  rather than replaces, and whose close returns to the sheet it came from. */
+	private handleOpenPullRequestDetails = (e: CustomEvent<{ id: string; providerId: string | undefined }>) => {
+		if (!e.detail.id) {
+			this._actions.openPullRequestDetails(undefined, e.detail.providerId);
+			return;
+		}
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-show-pr-sheet', {
+				detail: { number: e.detail.id, push: this._sheetStack.length > 0 },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private handleStashSave = (e: CustomEvent<{ onlyStaged?: boolean; files?: FileChangeListItemDetail['files'] }>) => {
 		// Toolbar Stash with a multi-selection carries the selected files (same path as the inline

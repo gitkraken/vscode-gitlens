@@ -2406,6 +2406,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}>,
 	) {
 		const { name, kind, remote, context, current, metadata } = event.detail;
+
+		// `gl-graph-refdoubleclick` is a misnomer — it fires on a single click. A PR chip click opens the
+		// in-webview sheet directly rather than round-tripping to the host to open the browser.
+		if (metadata?.type === 'pullRequest') {
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-show-pr-sheet', {
+					detail: { number: String(metadata.data.id), url: metadata.data.url },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+
+			return;
+		}
+
 		// The host expects a GraphRef shape with a refType. Map commit-graph's parsed ref kind to it.
 		// `head` = local branch, `tag` = annotated/lightweight tag, `remote` = remote branch.
 		const refType = kind === 'tag' ? 'tag' : kind === 'remote' ? 'remote' : 'head';

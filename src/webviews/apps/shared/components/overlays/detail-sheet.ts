@@ -130,16 +130,21 @@ export class GlDetailSheet extends LitElement {
 				box-sizing: border-box;
 				display: flex;
 				flex: 0 0 auto;
-				gap: var(--gl-space-8);
-				align-items: center;
-				justify-content: space-between;
-				min-height: 4.2rem;
+				flex-direction: column;
 				padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
 				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 				border-top-left-radius: 0.4rem;
 				border-top-right-radius: 0.4rem;
+			}
+
+			.sheet__header-row {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
+				justify-content: space-between;
+				min-height: 2.6rem;
 			}
 
 			.sheet__title {
@@ -155,6 +160,13 @@ export class GlDetailSheet extends LitElement {
 
 			.sheet__title:empty {
 				display: none;
+			}
+
+			/* No open/closed gating: an unslotted subtitle renders at zero height, so unconverted
+			   sheets pay nothing. Any spacing belongs to the slotted content itself. */
+			.sheet__subtitle {
+				display: flex;
+				min-width: 0;
 			}
 
 			.sheet__actions {
@@ -356,22 +368,27 @@ export class GlDetailSheet extends LitElement {
 				tabindex="-1"
 			>
 				<header class="sheet__header" part="header">
-					<div class="sheet__title" part="title">
-						<slot name="title">${this.sheetTitle ?? nothing}</slot>
+					<div class="sheet__header-row">
+						<div class="sheet__title" part="title">
+							<slot name="title">${this.sheetTitle ?? nothing}</slot>
+						</div>
+						<div class="sheet__actions" part="actions">
+							<slot name="actions"></slot>
+							${
+								this.dismissible
+									? html`<gl-action-chip
+											icon="close"
+											label=${this.closeLabel}
+											overlay="tooltip"
+											aria-label=${this.closeLabel}
+											@click=${this.requestClose}
+										></gl-action-chip>`
+									: nothing
+							}
+						</div>
 					</div>
-					<div class="sheet__actions" part="actions">
-						<slot name="actions"></slot>
-						${
-							this.dismissible
-								? html`<gl-action-chip
-										icon="close"
-										label=${this.closeLabel}
-										overlay="tooltip"
-										aria-label=${this.closeLabel}
-										@click=${this.requestClose}
-									></gl-action-chip>`
-								: nothing
-						}
+					<div class="sheet__subtitle" part="subtitle">
+						<slot name="subtitle"></slot>
 					</div>
 				</header>
 				<div class="sheet__body" part="body">

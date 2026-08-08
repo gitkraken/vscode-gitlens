@@ -4,8 +4,22 @@ import type {
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestShape,
+	PullRequestStackInfo,
 } from '../models/pullRequest.js';
 import { shortenRevision } from './revision.utils.js';
+
+/** How many pull requests a merge action affects — unstacked is always 1; a stacked merge lands either
+ *  just this layer and everything below it (`position`), or the whole stack (`wholeStack`). The one
+ *  source every merge-confirmation and merge-action label counts from, so they can't drift apart.
+ *  Takes only the two fields it needs (not the full {@link PullRequestStackInfo}) since callers on the
+ *  webview side carry narrower serialized stack shapes. */
+export function getStackedMergeCount(
+	stack: Pick<PullRequestStackInfo, 'position' | 'size'> | undefined,
+	options?: { wholeStack?: boolean },
+): number {
+	if (stack == null) return 1;
+	return options?.wholeStack ? stack.size : stack.position;
+}
 
 export interface PullRequestUrlIdentity<TProvider extends string = string> {
 	provider?: TProvider;

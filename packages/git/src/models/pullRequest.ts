@@ -16,6 +16,8 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly isDraft?: boolean;
 	readonly additions?: number;
 	readonly deletions?: number;
+	readonly filesChanged?: number;
+	readonly body?: string;
 	readonly mergeableState?: PullRequestMergeableState;
 	readonly reviewDecision?: PullRequestReviewDecision;
 	readonly reviewRequests?: PullRequestReviewer[];
@@ -61,6 +63,9 @@ export class PullRequest implements PullRequestShape {
 		 *  this constructor is positional and every mapper passes through it. */
 		public readonly commitCount?: number,
 		public readonly stack?: PullRequestStackInfo,
+		public readonly filesChanged?: number,
+		/** The pull request's description, as markdown. */
+		public readonly body?: string,
 	) {}
 
 	get closed(): boolean {

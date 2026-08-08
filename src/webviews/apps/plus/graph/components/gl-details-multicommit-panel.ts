@@ -603,7 +603,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 									slotName: 'prefix',
 								})
 				}
-				${renderAutolinkChips(merged, this.preferences)} ${renderAutolinksPopover(merged)}
+				${renderAutolinkChips(merged, this.preferences, true)} ${renderAutolinksPopover(merged)}
 				${this.renderEnrichButton()}
 				${
 					hasChips

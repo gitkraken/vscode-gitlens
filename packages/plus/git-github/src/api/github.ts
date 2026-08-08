@@ -249,6 +249,8 @@ assignees(first: 25) {
 		url
 	}
 }
+body
+changedFiles
 checksUrl
 deletions
 mergeable

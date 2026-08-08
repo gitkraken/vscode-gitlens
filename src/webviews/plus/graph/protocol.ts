@@ -10,6 +10,7 @@ import type {
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type {
+	PullRequestMergeableState,
 	PullRequestRefs,
 	PullRequestReviewDecision,
 	PullRequestShape,
@@ -920,6 +921,22 @@ export type DoubleClickedParams =
 	| { type: 'row'; row: { id: string; type: GitGraphRowKind }; preserveFocus?: boolean };
 export const DoubleClickedCommand = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
+export interface MergePullRequestParams {
+	/** The user-facing pull request number (not a provider-internal id). */
+	number: string;
+	/** Omitted means the provider's own default merge method. */
+	mergeMethod?: 'merge' | 'squash' | 'rebase';
+	/** The webview already confirmed the blast radius in place — the host skips its own confirmation. */
+	confirmed?: boolean;
+}
+export interface MergePullRequestResult {
+	merged: boolean;
+}
+export const MergePullRequestRequest = new IpcRequest<MergePullRequestParams, MergePullRequestResult>(
+	scope,
+	'pullRequest/merge',
+);
+
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
 }
@@ -1430,10 +1447,16 @@ export interface GraphSidebarPullRequest {
 	worktree?: boolean;
 	additions?: number;
 	deletions?: number;
+	filesChanged?: number;
+	/** The pull request's description, as markdown. Provider-native fetches only. */
+	body?: string;
 	commentsCount?: number;
 	/** CI rollup off the PR model itself (not the categorizer), so the hover can honestly say
 	 *  "passed" — a bare failing flag can't separate passed from has-no-checks. */
 	statusCheckRollup?: `${PullRequestStatusCheckRollupState}`;
+	/** Mergeability off the PR model itself, for the sheet's footer safety line — the categorizer's
+	 *  conflict flag can't separate "no conflicts" from "unknown". */
+	mergeableState?: `${PullRequestMergeableState}`;
 	/** Review decision off the PR model itself, for the same reason as {@link statusCheckRollup} —
 	 *  it must survive categorization being unavailable. */
 	reviewDecision?: PullRequestReviewDecision;

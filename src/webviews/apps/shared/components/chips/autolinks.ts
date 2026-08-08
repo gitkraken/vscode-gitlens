@@ -1,5 +1,6 @@
 import { html, nothing } from 'lit';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import './autolink-chip.js';
 import '../code-icon.js';
@@ -41,10 +42,13 @@ export class AutolinkMerger {
 	}
 }
 
-/** Chips for the merged set — basic autolinks first, then the enriched issues and pull requests. */
+/** Chips for the merged set — basic autolinks first, then the enriched issues and pull requests.
+ *  `detailsOnClick` opts a PR chip's body into opening details on click (see `gl-autolink-chip`'s
+ *  `details-on-click`) — issue chips are unaffected. Graph callers pass it; commitDetails doesn't. */
 export function renderAutolinkChips(
 	merged: MergedAutolinks,
 	preferences?: { dateFormat?: string; dateStyle?: 'absolute' | 'relative' },
+	detailsOnClick?: boolean,
 ): unknown {
 	const { autolinks, enriched } = merged;
 
@@ -69,14 +73,23 @@ export function renderAutolinkChips(
 							type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
 							name=${item.title}
 							url=${item.url}
-							identifier="#${item.id}"
+							identifier="#${
+								item.type === 'pullrequest'
+									? (getPullRequestNumberFromUrl(item.url) ?? item.id)
+									: item.id
+							}"
 							status=${item.state}
 							.date=${item.closed ? item.closedDate : item.createdDate}
 							.dateFormat=${preferences?.dateFormat}
 							.dateStyle=${preferences?.dateStyle}
-							.itemId=${item.id}
+							.itemId=${
+								item.type === 'pullrequest'
+									? (getPullRequestNumberFromUrl(item.url) ?? item.id)
+									: item.id
+							}
 							.providerId=${item.provider?.id}
 							?details=${item.type === 'pullrequest'}
+							?details-on-click=${item.type === 'pullrequest' && detailsOnClick === true}
 							openOnRemote
 						></gl-autolink-chip>`,
 				)

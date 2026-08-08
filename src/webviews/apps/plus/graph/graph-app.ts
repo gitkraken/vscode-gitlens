@@ -23,6 +23,7 @@ import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import { mergeWebviewItems } from '../../../../system/webview.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
+	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
@@ -35,6 +36,7 @@ import type {
 	GraphScopeSource,
 	GraphShowAction,
 	GraphSidebarPanel,
+	GraphSidebarPullRequest,
 	OverviewRecentThreshold,
 	State,
 	VisualizationMode,
@@ -48,6 +50,7 @@ import {
 	GetWipStatsRequest,
 	isPrimaryWipRowId,
 	isWipSelectionSha,
+	MergePullRequestRequest,
 	ResetGraphFiltersCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
@@ -120,13 +123,16 @@ import type {
 	GraphMinimapWheelEvent,
 	GraphMinimapZoomChangeEvent,
 } from './minimap/minimap.js';
+import { groupPullRequestsByStack } from './sidebar/pullRequestStacks.utils.js';
 import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
 import type {
 	GlGraphSideBar,
 	GraphSidebarDisplayModeChangeEventDetail,
 	GraphSidebarToggleEventDetail,
 } from './sidebar/sidebar.js';
+import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import { visibleSidebarPanels } from './sidebar/sidebarPanels.js';
+import type { SidebarActions } from './sidebar/sidebarState.js';
 import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { resolveMinimapShown } from './utils/minimap.utils.js';
@@ -659,6 +665,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@consume({ context: telemetryContext as any })
 	private readonly _telemetry!: TelemetryContext;
+
+	@consume({ context: sidebarActionsContext, subscribe: true })
+	private _sidebarActions?: SidebarActions;
 
 	@query('gl-graph-wrapper')
 	graph!: GlGraphWrapper;
@@ -2604,6 +2613,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							@jump-to-wip=${this.handleJumpToWip}
 							@gl-search-exit=${this.handleSearchExit}
 							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+							@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 						></gl-graph-header>
 					`,
 				)}
@@ -2711,6 +2721,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
+					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
+					@gl-graph-pr-compare=${this.handlePrCompare}
+					@gl-graph-pr-review=${this.handlePrReview}
+					@gl-graph-pr-review-changes=${this.handlePrReviewChanges}
 				></gl-graph-details-panel>
 			</div>
 		</gl-split-panel>`;
@@ -2907,6 +2922,222 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.releaseSheetMaximize();
 	};
 
+	/** Monotonic stamp for PR-sheet opens — the payload resolution below can await network, so a
+	 *  newer open (or any newer details reveal) must win over one still resolving. */
+	private _prSheetResolveToken = 0;
+
+	/** Polls the pull requests panel's own fetch to completion (triggering it if it hasn't started) so a
+	 *  stack lookup has data to search — a 5s budget, matching what the panel's own cold load allows.
+	 *  Returns `undefined` when a newer sheet-open superseded this one mid-poll (checked against
+	 *  {@link token}), distinct from the panel legitimately returning no data. */
+	private async ensurePullRequestsPanelData(
+		data: DidGetSidebarDataParams | undefined,
+		token: number,
+	): Promise<DidGetSidebarDataParams | undefined | 'stale'> {
+		if (data?.panel === 'pullRequests') return data;
+
+		this._sidebarActions?.fetchPanel('pullRequests');
+
+		const deadline = Date.now() + 5000;
+		while (Date.now() < deadline) {
+			await new Promise<void>(resolve => setTimeout(resolve, 50));
+			if (token !== this._prSheetResolveToken) return 'stale';
+
+			data = this._sidebarActions?.state.panels.pullRequests.value.get();
+			if (data?.panel === 'pullRequests') break;
+		}
+
+		return data;
+	}
+
+	/** Resolves a pull request by number to its full payload (and, when it's part of a stack, that
+	 *  stack's layers) before opening the sheet — so the sheet opens once with its final content instead
+	 *  of opening blank and re-rendering when the panel data lands. The open itself rides
+	 *  {@link withDetailsPanel}, the single reveal path every sheet shares. Returns whether a sheet was
+	 *  actually opened, so a caller with a fallback (e.g. opening the pull request on the remote) knows
+	 *  when resolution came up empty. */
+	private async resolveAndOpenPrSheet(
+		target: { number: string } | { stackNumber: number },
+		push: boolean,
+	): Promise<boolean> {
+		const token = ++this._prSheetResolveToken;
+
+		if ('stackNumber' in target) {
+			return this.resolveAndOpenStackSheet(target.stackNumber, push, token);
+		}
+
+		const number = target.number;
+		let data = this._sidebarActions?.state.panels.pullRequests.value.get();
+		let pr = data?.panel === 'pullRequests' ? data.items.find(p => p.number === number) : undefined;
+
+		if (pr == null) {
+			pr = await this._sidebarActions?.findPullRequest(number);
+			// Superseded by a newer resolve call — that call owns success/fallback, not this one.
+			if (token !== this._prSheetResolveToken) return true;
+		}
+
+		if (pr == null) return false;
+
+		let layers: GraphSidebarPullRequest[] | undefined;
+
+		if (pr.stack != null) {
+			const resolved = await this.ensurePullRequestsPanelData(data, token);
+			// Superseded by a newer resolve call, not a failed one — that call owns whether a sheet (or
+			// the url fallback) opens, so this one reports success to avoid a second, stale fallback.
+			if (resolved === 'stale') return true;
+
+			data = resolved;
+			if (data?.panel === 'pullRequests') {
+				// Built directly rather than through `groupPullRequestsByStack`: `pr` may have been
+				// resolved via `findPullRequest` rather than found in the panel's own list (a searched
+				// pull request, or one paged off the list), so the grouping's own member set can be
+				// missing the very pull request the sheet is opening for.
+				const stackNumber = pr.stack.number;
+				const prNumber = pr.number;
+				const members = data.items.filter(p => p.stack?.number === stackNumber);
+				const index = members.findIndex(p => p.number === prNumber);
+				if (index === -1) {
+					members.push(pr);
+				} else {
+					members[index] = pr;
+				}
+				members.sort((a, b) => (b.stack?.position ?? 0) - (a.stack?.position ?? 0));
+
+				layers = members.length >= 2 ? members : undefined;
+			}
+		}
+
+		void this.withDetailsPanel(panel => panel.openPrSheet(pr, layers, { push: push }), 'request-mode');
+		return true;
+	}
+
+	/** Opens the stack-root summary sheet for `stackNumber` — the top layer's own sheet with every
+	 *  layer's data alongside it. Requires the full member set (no paged-off gaps): a partial load falls
+	 *  back to the top loaded member's own (non-root) sheet rather than summarizing an incomplete stack. */
+	private async resolveAndOpenStackSheet(stackNumber: number, push: boolean, token: number): Promise<boolean> {
+		const data = await this.ensurePullRequestsPanelData(
+			this._sidebarActions?.state.panels.pullRequests.value.get(),
+			token,
+		);
+		// Superseded by a newer resolve call — that call owns success/fallback, not this one.
+		if (data === 'stale') return true;
+
+		const entry =
+			data?.panel === 'pullRequests'
+				? groupPullRequestsByStack(data.items).find(e => e.kind === 'stack' && e.number === stackNumber)
+				: undefined;
+		if (entry?.kind !== 'stack') return false;
+
+		const members = entry.members;
+		if (members.length === 0) return false;
+
+		const top = members[0];
+		if (members.length !== entry.size) {
+			void this.withDetailsPanel(panel => panel.openPrSheet(top, members, { push: push }), 'request-mode');
+			return true;
+		}
+
+		void this.withDetailsPanel(
+			panel => panel.openPrSheet(top, members, { push: push, stackRoot: true }),
+			'request-mode',
+		);
+		return true;
+	}
+
+	private handleShowPrSheet = (
+		e: CustomEvent<{ number?: string; stackNumber?: number; push?: boolean; url?: string }>,
+	): void => {
+		const target =
+			e.detail.stackNumber != null
+				? { stackNumber: e.detail.stackNumber }
+				: e.detail.number != null
+					? { number: e.detail.number }
+					: undefined;
+		if (target == null) return;
+
+		const url = e.detail.url;
+		void this.resolveAndOpenPrSheet(target, e.detail.push === true).then(opened => {
+			if (!opened && url != null) {
+				// A synthetic anchor click rides the same webview link interception every PR chip's
+				// own href uses — `window.open` is sandbox-dependent in webviews.
+				const a = document.createElement('a');
+				a.href = url;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+			}
+		});
+	};
+
+	/** The pull request sheet's Review with Agent — Launchpad's Start Review flow, agent route, with
+	 *  the pull request pre-selected by url so no picker interrupts. */
+	private handlePrReview = (e: CustomEvent<{ url: string }>): void => {
+		this._ipc.sendCommand(ExecuteCommand, {
+			command: 'gitlens.startReview',
+			// The wizard only auto-selects the pull request when useDefaults rides along with prUrl
+			args: [{ prUrl: e.detail.url, useDefaults: true, source: { source: 'graph' }, showOpenInAgent: 'agent' }],
+		});
+	};
+
+	/** The pull request sheet's Compare Changes — pushed over the sheet so its back chevron returns there. */
+	private handlePrCompare = (
+		e: CustomEvent<{ leftRef: string; rightRef: string; rightRefType: 'branch' | 'commit' }>,
+	): void => {
+		const repoPath = this.fallbackRepoPath;
+		if (repoPath == null) return;
+
+		void this.withDetailsPanel(
+			panel =>
+				panel.openCompareOverSheet({
+					repoPath: repoPath,
+					leftRef: e.detail.leftRef,
+					leftRefType: 'branch',
+					rightRef: e.detail.rightRef,
+					rightRefType: e.detail.rightRefType,
+				}),
+			'request-compare',
+		);
+	};
+
+	/** The pull request sheet's Review Changes — enters the graph's AI review mode scoped to the
+	 *  changes the pull request introduces (merge-base → head). */
+	private handlePrReviewChanges = (
+		e: CustomEvent<{ leftRef: string; rightRef: string; rightRefType: 'branch' | 'commit' }>,
+	): void => {
+		const repoPath = this.fallbackRepoPath;
+		if (repoPath == null) return;
+
+		void this.withDetailsPanel(
+			panel =>
+				panel.openReviewForComparison({
+					repoPath: repoPath,
+					leftRef: e.detail.leftRef,
+					leftRefType: 'branch',
+					rightRef: e.detail.rightRef,
+					rightRefType: e.detail.rightRefType,
+				}),
+			'request-compare',
+		);
+	};
+
+	private handleMergePullRequest = async (
+		e: CustomEvent<{
+			number: string;
+			stack?: { number: number; position: number };
+			mergeMethod?: 'merge' | 'squash' | 'rebase';
+			confirmed?: boolean;
+		}>,
+	): Promise<void> => {
+		const response = await this._ipc.sendRequest(MergePullRequestRequest, {
+			number: e.detail.number,
+			mergeMethod: e.detail.mergeMethod,
+			confirmed: e.detail.confirmed,
+		});
+		if (response?.merged === true) {
+			this.detailsPanelEl?.markPullRequestMerged(e.detail.number, e.detail.stack);
+		}
+	};
+
 	private handleAlternateModeClose = (): void => {
 		const gs = this.graphState;
 		if (gs.displayMode == null || gs.displayMode === 'graph') return;
@@ -3025,6 +3256,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
 				?graph-ready=${this.coachMarksEligible}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
+				@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
 				@gl-graph-sidebar-search-box-filter-change=${this.handleSidebarSearchBoxFilterChange}
 				@gl-graph-overview-branch-selected=${this.handleOverviewBranchSelected}
@@ -3111,6 +3343,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
 									@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
 									@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}
+									@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 								></gl-graph-overview-bar>
 							`
 						: nothing
@@ -3132,6 +3365,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-hover=${this.handleGraphRowHover}
 					@gl-graph-row-peek=${this.handleGraphRowPeek}
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
+					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
+					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
+					@gl-graph-pr-compare=${this.handlePrCompare}
+					@gl-graph-pr-review=${this.handlePrReview}
+					@gl-graph-pr-review-changes=${this.handlePrReviewChanges}
 					@gl-graph-wip-row-open=${this.handleWipRowOpen}
 					@rowhoverstart=${this.handleGraphRowHoverStart}
 					@rowhovertrack=${this.handleGraphRowHoverTrack}

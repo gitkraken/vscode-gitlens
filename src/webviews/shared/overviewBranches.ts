@@ -156,6 +156,9 @@ export interface OverviewBranchRemote {
 
 export interface OverviewBranchPullRequest {
 	id: string;
+	/** User-facing pull request number — `id` is the number only on provider-native fetch paths; the
+	 *  providers-api path puts the provider's internal id there. */
+	number: string;
 	title: string;
 	state: string;
 	url: string;

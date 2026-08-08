@@ -7,6 +7,7 @@ import type { GitStatus } from '@gitlens/git/models/status.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { BranchContributionsOverview } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -213,6 +214,7 @@ export async function getPullRequestInfo(
 
 	return {
 		id: pr.id,
+		number: getPullRequestNumberFromUrl(pr.url) ?? pr.id,
 		url: pr.url,
 		state: pr.state,
 		title: pr.title,

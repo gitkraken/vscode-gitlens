@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
@@ -673,24 +674,51 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 		const status = pr.state === 'merged' || pr.state === 'closed' ? pr.state : 'opened';
 		return html`<gl-autolink-chip
-			class="pull-request"
-			type="pr"
-			name=${pr.title}
-			url=${pr.url}
-			identifier="#${pr.id}"
-			status=${status}
-			.date=${pr.updatedDate}
-			.dateFormat=${this.dateFormat}
-			.dateStyle=${this.dateStyle}
-			.author=${pr.authorName}
-			?isDraft=${pr.draft ?? false}
-			.reviewDecision=${pr.reviewDecision}
-			.itemId=${pr.id}
-			.providerId=${pr.providerId}
-			.stack=${pr.stack}
-			details
-			openOnRemote
-		></gl-autolink-chip>`;
+				class="pull-request"
+				type="pr"
+				name=${pr.title}
+				url=${pr.url}
+				identifier="#${pr.number}"
+				status=${status}
+				.date=${pr.updatedDate}
+				.dateFormat=${this.dateFormat}
+				.dateStyle=${this.dateStyle}
+				.author=${pr.authorName}
+				?isDraft=${pr.draft ?? false}
+				.reviewDecision=${pr.reviewDecision}
+				.itemId=${pr.number}
+				.providerId=${pr.providerId}
+				.stack=${pr.stack}
+				details
+				details-on-click
+				openOnRemote
+			></gl-autolink-chip>
+			${status === 'opened' && !pr.draft ? this.renderMergePullRequest(pr) : nothing}`;
+	}
+
+	private renderMergePullRequest(pr: OverviewBranchPullRequest): TemplateResult {
+		const count = getStackedMergeCount(pr.stack);
+		const label = count > 1 ? `Merge ${count} Pull Requests...` : 'Merge Pull Request...';
+
+		return html`<gl-action-chip
+			icon="git-merge"
+			label=${label}
+			overlay="tooltip"
+			@click=${() => this.onMergePullRequest(pr)}
+		></gl-action-chip>`;
+	}
+
+	private onMergePullRequest(pr: OverviewBranchPullRequest): void {
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-merge-pull-request', {
+				detail: {
+					number: pr.number,
+					stack: pr.stack != null ? { number: pr.stack.number, position: pr.stack.position } : undefined,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private renderWorktreeOps(worktree: NonNullable<BranchSnapshot['worktree']>): TemplateResult {

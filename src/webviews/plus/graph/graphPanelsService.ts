@@ -904,6 +904,39 @@ export class GraphPanelsService {
 	}
 
 	/**
+	 * Resolves a pull request and its integration for the merge action — same resolution as
+	 * {@link onFindPullRequest}, but returns the raw model (with `refs`/`stack`) instead of the
+	 * sidebar-mapped shape, since the merge confirmation and the mutation itself need those fields.
+	 */
+	async resolvePullRequestForMerge(
+		number: string,
+	): Promise<{ integration: GitHostIntegration; pr: PullRequest } | undefined> {
+		const graph = this._graphSession?.current ?? (await this.context.getLoading()?.catch(() => undefined));
+		if (graph == null) return undefined;
+
+		const remote = await getBestRemoteWithIntegration(graph.repoPath);
+		if (remote == null) return undefined;
+
+		const integration = await getRemoteIntegration(remote);
+		if (integration == null) return undefined;
+
+		// Bypass the cache — a merge decision must act on the pull request's current mergeability, not a
+		// stale snapshot from an earlier read.
+		const pr = await integration.getPullRequest(remote.provider.repoDesc, number, { expiryOverride: true });
+		if (pr == null) return undefined;
+
+		return { integration: integration, pr: pr };
+	}
+
+	/** Evicts the pull-requests panel cache (list + stack membership) so a subsequent load doesn't
+	 *  re-serve stale state. Shared by the sidebar refresh action, an integration connection change,
+	 *  and a successful pull request merge. */
+	resetPullRequests(): void {
+		this._pullRequestsCache = undefined;
+		this._stacksCache.clear();
+	}
+
+	/**
 	 * Stack membership for the repository's stacked pull requests, keyed by number — GitHub-only, since no
 	 * other host has stacks. Best-effort: a repository not enrolled in the preview, or any failure, yields
 	 * `undefined` and the rows simply render unstacked.
@@ -1022,8 +1055,11 @@ export class GraphPanelsService {
 			current: isCurrent,
 			additions: pr.additions,
 			deletions: pr.deletions,
+			filesChanged: pr.filesChanged,
+			body: pr.body,
 			commentsCount: pr.commentsCount,
 			statusCheckRollup: pr.statusCheckRollupState,
+			mergeableState: pr.mergeableState,
 			reviewDecision: pr.reviewDecision,
 			launchpad: launchpad,
 			stack:
@@ -1441,11 +1477,9 @@ export class GraphPanelsService {
 		// Refresh has to reach past the list cache, or it just re-serves whatever is already held —
 		// which is the one thing a user pressing Refresh is trying to get rid of.
 		if (params.panel === 'pullRequests') {
-			this._pullRequestsCache = undefined;
-			// Stack membership is a second cache behind the same rows — leaving it would re-serve the old
-			// grouping over a freshly fetched list, which is exactly what Refresh is meant to defeat.
-			this._stacksCache.clear();
+			this.resetPullRequests();
 		}
+
 		this.notifySidebarInvalidated();
 	}
 
@@ -1546,9 +1580,7 @@ export class GraphPanelsService {
 	/** A git host integration connected or disconnected — the pull-requests panel's list (and its connect
 	 *  empty state) is entirely a function of that, so drop the cached list and re-fetch. */
 	onIntegrationConnectionChanged(): void {
-		this._pullRequestsCache = undefined;
-		// Stack membership is read through the same integration, so it's just as invalid now.
-		this._stacksCache.clear();
+		this.resetPullRequests();
 		this.notifySidebarInvalidated();
 	}
 
