@@ -19,6 +19,8 @@ export type {
 	IssueSearchCapabilities,
 	IssueSearchCriteria,
 	IssueSearchRelationship,
+	IssueSortField,
+	IssueSorting,
 } from '@gitlens/git/models/issue.js';
 
 /**

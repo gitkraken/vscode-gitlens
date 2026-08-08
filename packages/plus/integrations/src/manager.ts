@@ -8,13 +8,9 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
-import type {
-	IssueFilter,
-	IssueSearchCapabilities,
-	PullRequestFilter,
-	PullRequestSearchCapabilities,
-} from './providerFilters.js';
+import type { IssueFilter, IssueSorting, PullRequestFilter } from './providerFilters.js';
 import type { IssueCountResult, IssueCountScope } from './reads/counts.js';
+import type { SupportedFilters } from './reads/filters.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -281,24 +277,7 @@ export interface IntegrationManager {
 	 * This is a capability table, not a recommendation: a consumer matching another tool's behavior may pass fewer
 	 * filters than are listed, or none where the underlying read is already scoped.
 	 */
-	getSupportedFilters(providerId: IntegrationIds): {
-		pullRequests: PullRequestFilter[];
-		/** Optional for structural compatibility; missing means no account-wide narrowing filters are supported. */
-		pullRequestsAccountWide?: PullRequestFilter[];
-		/**
-		 * Criteria and scopes {@link searchPullRequestsPage} can express. Always present; an empty relationship list
-		 * means the provider exposes no filtered pull-request search.
-		 */
-		pullRequestSearch: PullRequestSearchCapabilities;
-		issues: IssueFilter[];
-		issuesAccountWide: IssueFilter[];
-		/**
-		 * What {@link searchIssuesPage} (and {@link countIssues}, over the same criteria) can express for this
-		 * provider. Always present: a provider with no filtered issue search reports an empty `relationships` and
-		 * all-false flags, which is the signal to hide that surface rather than to hide individual chips.
-		 */
-		issueSearch: IssueSearchCapabilities;
-	};
+	getSupportedFilters(providerId: IntegrationIds): SupportedFilters;
 	/** Forces an authoritative cloud connection refresh. Rejects if the backend connection list cannot be read. */
 	refreshConnections(): Promise<void>;
 	/** Rejects unless `connectionId` is a configured cloud connection for `id`. */
@@ -428,6 +407,21 @@ export interface IntegrationManager {
 		/** Broadens to every assignee. On account-wide reads it contradicts `filters`, so passing both is refused. */
 		includeAllAssignees?: boolean;
 		/**
+		 * How to order the page, as `field:direction` (e.g. `updated:desc`, `created:asc`). Omitted orders
+		 * most-recently-updated-first wherever the provider can express it — this facade's default, not the
+		 * provider's, which differ from each other.
+		 *
+		 * Validated against `getSupportedFilters().issueSorts` when `repos` is supplied and
+		 * `.issueSortsAccountWide` when it isn't, and refused (warning + `fetchFailed`) rather than downgraded: at
+		 * the provider's reachable window another order is another subset, so a silently different one is
+		 * indistinguishable from the one asked for. Keep it fixed across a pagination.
+		 *
+		 * With SEVERAL repositories/projects the page is a merge of one query each, so only a key a normalized
+		 * issue carries can be honored — `priority`, `dueDate` and `resolved` are refused there even where the
+		 * provider supports them on a single scope. The order applies within a page; across pages it is per scope.
+		 */
+		sort?: IssueSorting;
+		/**
 		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on cursor-backed
 		 * reads such as repo-scoped GitHub/GHE; aggregate single-page account-wide reads remain O(1).
 		 */
@@ -454,16 +448,21 @@ export interface IntegrationManager {
 	 * - **Scope is mandatory.** Pass `repos`, `org`, or a user relationship (`authored`/`assigned`/`mentioned`).
 	 *   `any-assignee`/`unassigned` do NOT scope anything — either alone matches every such issue on the host —
 	 *   so a call carrying only those is refused (warning + `fetchFailed`).
-	 * - **Ordering is always most-recently-updated-first**, not an option. A "show the N most recent" policy at
-	 *   the provider's result ceiling is only correct under a guaranteed order.
+	 * - **Ordering is `criteria.sort`**, most-recently-updated-first when omitted. It is validated like every other
+	 *   criterion (against `getSupportedFilters().issueSearch.sorts`) and refused rather than downgraded, and SOME
+	 *   order is always requested — a "show the N most recent" policy at the provider's result ceiling is only
+	 *   correct under a guaranteed one. Keep it fixed for the life of a pagination: a cursor is bound to the order
+	 *   that produced it, and threading it under a different key is REFUSED (warning + `fetchFailed`) rather than
+	 *   resumed into a differently-ordered set. To change the order, drop the cursor and read from the first page.
 	 * - **At the result ceiling the read SUCCEEDS.** It reports an omission carrying `totalCount` (how many
-	 *   matched) and `limit` (how many are reachable) with `recovery: 'none'`, so a consumer can say "19.240
-	 *   matched, showing the 1.000 most recent" and know not to offer a "load more". It never falls back to a
-	 *   per-repository recovery walk.
+	 *   matched), `limit` (how many are reachable) and `sort` (the order that window was selected under) with
+	 *   `recovery: 'none'`, so a consumer can say "19.240 matched, showing the 1.000 most recent" — naming the
+	 *   order, since which 1.000 are reachable depends on it — and know not to offer a "load more". It never falls
+	 *   back to a per-repository recovery walk.
 	 *
 	 * Check `getSupportedFilters().issueSearch` first: a provider with no filtered issue search reports empty
-	 * relationships (and this read refuses), and a criterion it can't express refuses the whole read rather than
-	 * serving a wider result than asked for.
+	 * relationships (and this read refuses), and a criterion or sort key it can't express refuses the whole read
+	 * rather than serving a wider or differently-ordered result than asked for.
 	 */
 	searchIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -526,6 +525,16 @@ export interface IntegrationManager {
 		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
+		/**
+		 * How to order the issues, as `field:direction`. Omitted orders most-recently-updated-first where the
+		 * tracker can express it; validated against `getSupportedFilters().issueSorts` and refused rather than
+		 * downgraded. A page spanning several projects is a merge, so a key no normalized issue carries
+		 * (`priority`, `dueDate`, `resolved`) is refused there.
+		 *
+		 * Safe to change between pages, unlike the git-host reads: this cursor windows PROJECTS and drains each in
+		 * full, so which projects a round covers doesn't depend on how their issues are ordered.
+		 */
+		sort?: IssueSorting;
 		forceSync?: boolean;
 		page?: number;
 		/**

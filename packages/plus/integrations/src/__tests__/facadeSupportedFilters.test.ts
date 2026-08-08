@@ -312,6 +312,9 @@ suite('IntegrationManager.getSupportedFilters', () => {
 					createdAfter: false,
 					withoutLinkedPullRequest: false,
 					states: false,
+					// Empty rather than absent, for the same reason as `relationships`: a consumer reading
+					// capabilities the same way for every provider must not have to tell `[]` from `undefined`.
+					sorts: [],
 				});
 			} finally {
 				manager.dispose();

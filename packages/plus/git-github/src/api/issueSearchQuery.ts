@@ -1,4 +1,4 @@
-import type { IssueSearchCriteria, IssueSearchRelationship } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueSearchRelationship, IssueSorting } from '@gitlens/git/models/issue.js';
 
 /**
  * Translation of the provider-neutral issue-search criteria into GitHub search qualifiers, and the sanitizing
@@ -71,6 +71,49 @@ export const gitHubIssueSearchRelationships: Record<IssueSearchRelationship, { q
 };
 
 /**
+ * How each orderable key becomes a GitHub `sort:` qualifier.
+ *
+ * A literal table rather than a derived transform, for the same reason {@link gitHubIssueSearchRelationships} is
+ * one: being a `Record` over the union means adding a sort field without deciding its qualifier FAILS THE BUILD,
+ * instead of quietly emitting a search with no ordering constraint at all — which is the one failure mode the
+ * ordering contract exists to prevent, and the one a caller cannot detect from the result.
+ *
+ * `updated:desc` maps to the bare `sort:updated`, not `sort:updated-desc`. The two are the same query to GitHub,
+ * but the bare form is what this read has always emitted, so keeping it makes the default byte-identical to
+ * today's query — and the exact-query tests and recorded fixtures stay valid. Do not "normalize" it.
+ *
+ * Absent keys are absent on purpose: `closed` is NOT here even though `IssueShape.closedDate` exists, because
+ * GitHub's search cannot order by close date and a client-side sort over a page cut off at the result ceiling is
+ * exactly the lie the contract avoids. `sorts` in `githubIssueSearchCapabilities` is the same set, and a parity
+ * test pins the two together.
+ */
+export const gitHubIssueSortQualifiers: Partial<Record<IssueSorting, string>> = {
+	'created:asc': 'sort:created-asc',
+	'created:desc': 'sort:created-desc',
+	'updated:asc': 'sort:updated-asc',
+	'updated:desc': 'sort:updated',
+	'comments:asc': 'sort:comments-asc',
+	'comments:desc': 'sort:comments-desc',
+	'reactions:asc': 'sort:reactions-asc',
+	'reactions:desc': 'sort:reactions-desc',
+};
+
+/**
+ * The `sort:` qualifier for a key, or `undefined` when there is no key or GitHub can't express it.
+ *
+ * Applies no default of its own: the two callers differ on whether they HAVE one — the filtered search always
+ * orders, and `searchMyIssues` has never requested an order at all — so the default belongs at the call site that
+ * has one rather than behind a guard at the one that doesn't.
+ *
+ * `undefined` for an inexpressible key rather than a fallback to something orderable: every caller validated
+ * against the declared capability first, so reaching that case means the capability table has outrun this one, and
+ * a silently unordered search would change which rows land inside the result ceiling.
+ */
+export function toGitHubIssueSortQualifier(sort: IssueSorting | undefined): string | undefined {
+	return sort != null ? gitHubIssueSortQualifiers[sort] : undefined;
+}
+
+/**
  * The scope half of an issue search query: `org:` plus one `repo:` per repository.
  *
  * Shared by the search and the count probe rather than written twice, because the count is only meaningful if it
@@ -106,11 +149,18 @@ export function toGitHubIssueSearchScopeQualifiers(
  * becomes its own aliased search, since GitHub AND-s qualifiers and relationships are OR-ed) and excluding the
  * repository/org scope (which {@link toGitHubIssueSearchScopeQualifiers} owns).
  *
- * `sort:updated` is always emitted: the read's contract is most-recently-updated-first, so a consumer's "show the
- * N most recent" policy at the result ceiling is correct. Free-form values go through the sanitizers above, and
- * one emptied by sanitizing is dropped rather than emitted as an empty qualifier.
+ * A `sort:` qualifier is ALWAYS emitted. Never none: the provider serves at most a bounded window of matches, and
+ * without an explicit order GitHub answers in relevance order, so which rows land inside that window would shift
+ * with GitHub's ranking even when nothing changed upstream. A key GitHub can't express is refused before this by
+ * the facade, so it cannot arrive here.
+ *
+ * `sort` is passed in rather than read off `criteria` so that the qualifier this emits and the key the caller
+ * records elsewhere cannot disagree — see `effectiveIssueSort`.
+ *
+ * Free-form values go through the sanitizers above, and one emptied by sanitizing is dropped rather than emitted
+ * as an empty qualifier.
  */
-export function toGitHubIssueSearchQualifiers(criteria: IssueSearchCriteria | undefined): string[] {
+export function toGitHubIssueSearchQualifiers(criteria: IssueSearchCriteria | undefined, sort: IssueSorting): string[] {
 	const qualifiers = ['type:issue'];
 
 	switch (criteria?.state) {
@@ -158,8 +208,11 @@ export function toGitHubIssueSearchQualifiers(criteria: IssueSearchCriteria | un
 		}
 	}
 
-	// Contract, not an option: see `GitHubApi.searchIssuesPage`.
-	qualifiers.push('sort:updated');
+	// Last, where it has always been: the exact-query tests pin the whole qualifier string, not a set.
+	const sortQualifier = toGitHubIssueSortQualifier(sort);
+	if (sortQualifier != null) {
+		qualifiers.push(sortQualifier);
+	}
 
 	return qualifiers;
 }

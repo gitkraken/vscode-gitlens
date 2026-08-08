@@ -26,6 +26,60 @@ export type IssueSearchRelationship =
 	| 'unassigned';
 
 /**
+ * A field an issue read can be ordered by, provider-neutral. No provider expresses all of them: each read
+ * validates the requested key against the capability its provider declares and refuses one it can't express
+ * server-side, rather than serving a differently-ordered list under the name of the one that was asked for.
+ *
+ * `closed` and `resolved` are deliberately SEPARATE, not two names for the same date. Azure DevOps tracks both
+ * and they differ (an issue can be closed without being resolved and resolved without being closed), and Jira
+ * has no close date at all — it models the equivalent as `resolutiondate`. Collapsing them would force one of
+ * those two providers to lie about which date it ordered by.
+ */
+export type IssueSortField =
+	/** Creation date. */
+	| 'created'
+	/** Last activity. */
+	| 'updated'
+	/** Close date. Only where the provider orders by it server-side — notably NOT GitHub. */
+	| 'closed'
+	/** Resolution date (Jira `resolutiondate`, Azure `ResolvedDate`). Distinct from `closed`. */
+	| 'resolved'
+	/** Number of comments. */
+	| 'comments'
+	/** Reactions/upvotes. */
+	| 'reactions'
+	/** The provider's own priority field. */
+	| 'priority'
+	/** Due date. */
+	| 'dueDate'
+	/** Alphabetical by title. */
+	| 'title';
+
+/**
+ * How an issue read is ordered, as `field:direction` — the same shape `BranchSorting`/`TagSorting` already use,
+ * so it is one serializable string a consumer can persist, compare, or bind straight to a setting or a dropdown.
+ */
+export type IssueSorting = `${IssueSortField}:asc` | `${IssueSortField}:desc`;
+
+/**
+ * The order every issue read that HAS a default applies when the caller asks for none: most recently updated
+ * first, which is what those reads served before ordering was an option.
+ *
+ * One definition rather than one per layer, because it is a promise made in several places at once — the criteria
+ * model documents it, the GitHub query emits it, and the result-ceiling warning quotes it — and three copies would
+ * be free to disagree about what "the default" is.
+ *
+ * Note it is not a default every read has, and the two layers differ. The API client's account-wide "my issues"
+ * search (`GitHubApi.searchMyIssues`) never requested an order, so a direct caller omitting `sort` still gets
+ * GitHub's relevance order — the default is opt-in there, to keep that read's already-shipped results unchanged.
+ * The FACADE does apply it: GitHub declares `updated:desc` among its account-wide keys, so
+ * `readAccountWideIssuesPage` resolves the omission to this default and forwards it, and that read's emitted query
+ * gained a `sort:updated` qualifier it did not have before. A read whose surface cannot express even this key is
+ * the only one the facade leaves in the provider's own order.
+ */
+export const defaultIssueSort: IssueSorting = 'updated:desc';
+
+/**
  * What a filtered issue search narrows on: a provider-neutral criteria set, translated to each provider's own
  * query language by its integration.
  *
@@ -67,6 +121,19 @@ export interface IssueSearchCriteria {
 	withoutLinkedPullRequest?: boolean;
 	/** Includes issues in archived repositories, which are excluded by default. */
 	includeArchived?: boolean;
+	/**
+	 * How to order the results. Omitted means `updated:desc`, which is what this search has always served.
+	 *
+	 * Validated like every other criterion — all-or-nothing against {@link IssueSearchCapabilities.sorts}: a key
+	 * the provider can't express server-side refuses the WHOLE read rather than falling back to the default.
+	 * Serving another order is not a smaller error than serving a wider result: combined with the provider's
+	 * result ceiling it returns a different subset than was asked for, and the paging that comes with it describes
+	 * that other subset.
+	 *
+	 * Do not change it mid-pagination. A cursor carries the sort it was produced under, and threading it under a
+	 * different key is refused rather than serving a sequence with gaps and repeats: drop the cursor instead.
+	 */
+	sort?: IssueSorting;
 }
 
 /**
@@ -86,6 +153,12 @@ export interface IssueSearchCapabilities {
 	withoutLinkedPullRequest: boolean;
 	/** Whether {@link IssueSearchCriteria.state} can select anything other than the provider's default (open). */
 	states: boolean;
+	/**
+	 * Sort keys the search can express IN SERVER. Always contains at least `updated:desc` — the historical default
+	 * — when the search exists at all, so it is never empty for a usable surface; a provider without a filtered
+	 * search reports an empty `relationships`, which is already the signal that there is no surface to order.
+	 */
+	sorts: IssueSorting[];
 }
 
 export interface IssueShape extends IssueOrPullRequest {

@@ -4,11 +4,32 @@ import type {
 	CollectionScope,
 	CollectionScopeFailure,
 } from '@gitkraken/provider-apis';
+// Matched by its `code` discriminator rather than by `instanceof`: the SDK ships one bundle per entry point, so
+// the class reached through the root is not the same object as the one reached through `/providers`.
+import { isUnsupportedSortError } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
 import type { ProviderWarning, ProviderWarningOmission } from './results.js';
 import { appendDedupedWarning } from './results.js';
+
+/**
+ * Re-throws an error that is a fact about the CALL rather than about one scope of a fan-out.
+ *
+ * Every provider fan-out catches per-scope rejections and records them as {@link CollectionScopeFailure}s, which is
+ * right for auth, rate limits and a missing project: those really did happen to one scope, and the siblings that
+ * succeeded must survive. A caller-contract error is the opposite — it is identical for every scope and was decided
+ * before any request went out — so degrading it would hand back N indistinguishable failures and an empty `partial`
+ * page, describing an invalid call as an incomplete read.
+ *
+ * Today that means the SDK's `UnsupportedSortError`, whose own contract states it is "never degraded into a
+ * `CollectionScopeFailure` or an omission". Called from every fan-out rather than spelled out in each, so a fan-out
+ * added later inherits the rule instead of silently omitting it — which is exactly how Azure's account-wide drain
+ * came to degrade it while its three siblings did not.
+ */
+export function throwIfCallerContractError(ex: unknown): void {
+	if (isUnsupportedSortError(ex)) throw ex;
+}
 
 /**
  * Maps a caught GitLens request error to the SDK collection failure vocabulary used inside provider fan-outs.

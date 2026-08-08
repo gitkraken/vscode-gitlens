@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { UnsupportedSortError } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderApiPagedResult } from '../models.js';
 import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from '../utils/providerPaging.js';
@@ -149,6 +150,29 @@ suite('collectProviderPagedResult', () => {
 				failures: [{ kind: 'provider', scope: { providerId: 'github', resourceId: 'r1' }, message: 'boom' }],
 			},
 		});
+	});
+
+	// The one error class a scoped drain must NOT absorb. Every other failure is a fact about this scope and the
+	// prefix is worth keeping, but an unsupported sort is identical for every scope and was decided before any
+	// request: recorded as a per-scope failure it would report an invalid call as an incomplete read, once per
+	// project. Azure's account-wide read drains through here, so this is the only thing standing between it and
+	// the behaviour its three sibling fan-outs each refuse by hand.
+	test('re-throws a caller-contract error instead of recording it as a scope failure', async () => {
+		const error = new UnsupportedSortError('azureDevOps', 'priority:desc', ['updated:desc']);
+
+		await assert.rejects(
+			() =>
+				collectProviderPagedResult(
+					async cursor => {
+						if (cursor == null) return { values: ['a'], paging: { cursor: '1', more: true } };
+
+						throw error;
+					},
+					20,
+					{ providerId: 'azureDevOps', resourceId: 'r1', projectId: 'p1' },
+				),
+			(ex: unknown) => ex === error,
+		);
 	});
 
 	test('marks a missing continuation page incomplete while preserving the prefix', async () => {

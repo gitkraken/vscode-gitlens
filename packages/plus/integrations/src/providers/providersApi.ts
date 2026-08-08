@@ -39,6 +39,7 @@ import type {
 	GetPullRequestsOptions,
 	GetReposOptions,
 	IssueFilter,
+	IssueSorting,
 	PageInfo,
 	PagingInput,
 	PagingMode,
@@ -67,7 +68,7 @@ import type {
 	Providers,
 	PullRequestFilter,
 } from './models.js';
-import { providersMetadata } from './models.js';
+import { isRepoIdsInput, providersMetadata } from './models.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
@@ -479,12 +480,9 @@ export class ProvidersApi {
 		);
 	}
 
-	isRepoIdsInput(input: any): input is (string | number)[] {
-		return (
-			input != null &&
-			Array.isArray(input) &&
-			input.every((id: any) => typeof id === 'string' || typeof id === 'number')
-		);
+	/** See {@link isRepoIdsInput}, which owns the rule; kept as a method because callers reach it through the api. */
+	isRepoIdsInput(input: unknown): input is (string | number)[] {
+		return isRepoIdsInput(input);
 	}
 
 	private async getProviderToken<T extends IntegrationIds>(
@@ -868,7 +866,10 @@ export class ProvidersApi {
 	async getLinearIssues(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
 		input: { teams?: string[]; projects?: string[]; labels?: string[] },
-		options?: PagingInput,
+		options?: PagingInput & {
+			/** See {@link GetIssuesOptions.sort}. Linear expresses `created`/`updated`, descending only. */
+			sort?: IssueSorting;
+		},
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -1565,6 +1566,8 @@ export class ProvidersApi {
 			 */
 			authorUsername?: string;
 			pageSize?: number;
+			/** See {@link GetIssuesOptions.sort}. Forwarded to the provider fn; ordering is translated in the SDK. */
+			sort?: IssueSorting;
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
@@ -1580,6 +1583,7 @@ export class ProvidersApi {
 				authorUsername: options?.authorUsername,
 				page: options?.page,
 				pageSize: options?.pageSize,
+				sort: options?.sort,
 			},
 			provider.getIssuesForCurrentUserFn,
 			tokenWithInfo,
@@ -1760,7 +1764,12 @@ export class ProvidersApi {
 		tokenOptInfo: TokenWithInfo,
 		appKey: string,
 		boardId: string,
-		options?: { assigneeLogins?: string[]; trelloBoardListsById?: Record<string, { name: string }> },
+		options?: {
+			assigneeLogins?: string[];
+			trelloBoardListsById?: Record<string, { name: string }>;
+			/** See {@link GetIssuesOptions.sort}. Trello expresses only `updated`, in either direction. */
+			sort?: IssueSorting;
+		},
 	): Promise<ProviderApiCollectionResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,

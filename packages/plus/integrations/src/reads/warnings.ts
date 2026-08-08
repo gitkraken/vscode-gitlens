@@ -2,12 +2,14 @@ import type { IntegrationIds } from '../constants.js';
 import type {
 	IssueFilter,
 	IssueSearchCapabilities,
+	IssueSorting,
 	PullRequestFilter,
 	PullRequestSearchCapabilities,
 } from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
 import type { IssueSearchCriteriaRejection, PullRequestSearchCriteriaRejection } from './filters.js';
+import type { UnmergeableIssueSort, UnsupportedIssueSortRejection } from './ordering.js';
 
 /**
  * The warnings the provider facade raises on its OWN terms, as opposed to the ones derived from a caught
@@ -343,7 +345,69 @@ function describeIssueSearchCapabilities(capabilities: IssueSearchCapabilities):
 	return [
 		...capabilities.relationships.map(r => `relationships:${r}`),
 		...flags.filter(([, supported]) => supported).map(([name]) => name),
+		...capabilities.sorts.map(s => `sort:${s}`),
 	].join(', ');
+}
+
+/**
+ * Warning for an issue read asked to order by a key its provider can't express server-side.
+ *
+ * Separate from {@link unsupportedIssueSearchCriteriaWarning} because it serves the reads that take `sort` as an
+ * OPTION rather than as a criterion — repo-scoped, account-wide, and issue-tracker — where there is no criteria
+ * set to fold it into. The filtered search keeps reporting it as one more `unsupported-criteria` entry, so a
+ * caller there still gets a single refusal listing everything at once.
+ *
+ * Takes the rejection the check produced rather than a re-read supported list: which of the two tables applies is
+ * the caller's own branch (`repos` present or not), so reading it back here — or threading it by hand — would be
+ * free to disagree with the check that refused.
+ */
+export function unsupportedIssueSortWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	rejection: UnsupportedIssueSortRejection,
+): ProviderWarning {
+	return otherWarning(
+		id,
+		domain,
+		connectionId,
+		unsupportedNarrowingMessage(id, 'issue sort', rejection.requested, (rejection.supported ?? []).join(', ')),
+	);
+}
+
+/**
+ * Warning for a merged issue read asked to order by a key that no normalized issue carries.
+ *
+ * The distinction this exists to make is not about the provider: the provider orders by `priority` perfectly well
+ * within ONE project. It is about the read, which fans out over several and merges the results here, where the
+ * only fields available are the ones {@link IssueShape} models. Serving the concatenated per-scope runs would look
+ * ordered without being so, which is why this refuses instead — and why the message says WHY, since the same key
+ * against the same provider succeeds on a single-scope read.
+ *
+ * What a read fans out OVER differs by read, hence the `scope`: repositories, projects, or — where one query is
+ * issued per requested relationship and the runs are unioned within a single project (Jira) — the filters
+ * themselves. Naming the wrong one would tell a caller to narrow something that isn't what merged.
+ */
+export function unmergeableIssueSortWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	unmergeable: UnmergeableIssueSort,
+	scope: 'repositories' | 'projects' | 'filters',
+): ProviderWarning {
+	// Both forms are spelled out rather than depluralized at runtime: the message needs each, and
+	// `'repositories'.replace(/s$/, '')` is `'repositorie'`.
+	const nouns = {
+		repositories: { many: 'repositories', one: 'repository' },
+		projects: { many: 'projects', one: 'project' },
+		filters: { many: 'issue relationships', one: 'relationship' },
+	}[scope];
+	return otherWarning(
+		id,
+		domain,
+		connectionId,
+		`Cannot order by '${unmergeable.requested}' across several ${nouns.many}: this read merges their results, and a normalized issue carries no such field to merge on. Read one ${nouns.one} at a time, or order by a date, title, comment or reaction count.`,
+	);
 }
 
 /**
@@ -356,6 +420,10 @@ function describeIssueSearchCapabilities(capabilities: IssueSearchCapabilities):
  * 'none'` because the items past the ceiling are UNREACHABLE, not merely unfetched: no budget, no retry, and no
  * cursor would return them. Narrowing the criteria is the only way through, which is a decision for the caller.
  *
+ * The message names the ORDER, and has to now that ordering is an option: the reachable window is the top `limit`
+ * under that key, so "the 1.000 most recent" is a true sentence only while the key is the default one. The same
+ * value goes on the omission, so a consumer wording its own sentence doesn't have to remember what it asked for.
+ *
  * Returns `undefined` when the provider declares no ceiling, so the caller falls back to the generic wording
  * rather than reporting a limit it invented.
  */
@@ -364,18 +432,20 @@ export function issueSearchCapResultWarning(
 	domain: string | undefined,
 	connectionId: string | undefined,
 	totalCount: number | undefined,
+	sort: IssueSorting,
 ): ProviderWarning | undefined {
 	const limit = providersMetadata[id]?.issueSearchResultLimit;
 	if (limit == null) return undefined;
 	// Below the ceiling this warning would be a false claim; the caller's truncation had another cause.
 	if (totalCount == null || totalCount <= limit) return undefined;
 
+	const [field, direction] = sort.split(':');
 	return {
 		...otherWarning(
 			id,
 			domain,
 			connectionId,
-			`Issue search matched ${totalCount} results, but '${id}' serves at most ${limit}; narrow the search to read the rest.`,
+			`Issue search matched ${totalCount} results, but '${id}' serves at most ${limit}, ordered by ${field} ${direction}ending; narrow the search to read the rest.`,
 		),
 		omission: {
 			kind: 'provider-limit',
@@ -383,6 +453,7 @@ export function issueSearchCapResultWarning(
 			recovery: 'none',
 			limit: limit,
 			totalCount: totalCount,
+			sort: sort,
 		},
 	};
 }
