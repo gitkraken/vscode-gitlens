@@ -1,7 +1,10 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+// Matched by its `code` discriminator rather than by `instanceof`: the SDK ships one bundle per entry point, so
+// the class reached through the root is not the same object as the one reached through `/providers`.
+import { isUnsupportedSortError } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape, IssueSorting, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -683,6 +686,12 @@ export abstract class GitHostIntegration<
 			includeAllAssignees?: boolean;
 			/** Issue states to include; when omitted the provider returns its default (open only). */
 			state?: IssueStateFilter;
+			/**
+			 * How the provider should order the read. Forwarded to every query this read issues, so the ORDER WITHIN
+			 * each scope is the provider's; the union across scopes is not ordered here — the facade
+			 * (`listIssuesPage`) owns that, because it is also the layer that can refuse a key no merge can honor.
+			 */
+			sort?: IssueSorting;
 		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
@@ -705,6 +714,8 @@ export abstract class GitHostIntegration<
 			pageSize?: number;
 			includeAllAssignees?: boolean;
 			state?: IssueStateFilter;
+			/** See {@link getMyIssuesForRepos}. */
+			sort?: IssueSorting;
 		},
 		connectionId?: string,
 	): Promise<IntegrationResult<(PagedResult<ProviderIssue> & { metadata?: CollectionMetadata }) | undefined>> {
@@ -828,6 +839,7 @@ export abstract class GitHostIntegration<
 								page: projectInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
+								sort: options?.sort,
 							},
 						);
 						return { projectInput: projectInput, results: results };
@@ -838,6 +850,14 @@ export abstract class GitHostIntegration<
 					const outcome = settled[i];
 					const projectInput = projectInputs[i];
 					if (outcome.status !== 'fulfilled') {
+						// A caller-contract error is not a fact about this project: it is identical for every one of
+						// them and was decided before any request went out. Recording it as a per-scope failure
+						// would hand back N indistinguishable failures and an empty `partial` page — an invalid call
+						// reported as an incomplete read — so it is re-thrown to be surfaced as the single warning
+						// it is. Errors that really are per-scope (auth, rate limit, a missing project) degrade
+						// exactly as before. This mirrors the same rule inside the SDK's own fan-out.
+						if (isUnsupportedSortError(outcome.reason)) throw outcome.reason;
+
 						truncated = true;
 						const failure = toCollectionScopeFailure(
 							{
@@ -963,6 +983,7 @@ export abstract class GitHostIntegration<
 								page: repoInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
+								sort: options?.sort,
 							},
 						);
 						return { repoInput: repoInput, results: results };
@@ -973,6 +994,12 @@ export abstract class GitHostIntegration<
 					const outcome = settled[i];
 					const repoInput = repoInputs[i];
 					if (outcome.status !== 'fulfilled') {
+						// See the project fan-out above: a caller-contract error is re-thrown rather than degraded
+						// into one per-scope failure per repository. Reachable in practice even though the facade
+						// validates the key first — a self-managed GitLab can reject an `IssueSort` member the SDK
+						// declares, which is only discoverable from the response.
+						if (isUnsupportedSortError(outcome.reason)) throw outcome.reason;
+
 						truncated = true;
 						const failure = toCollectionScopeFailure(
 							{
@@ -1030,6 +1057,7 @@ export abstract class GitHostIntegration<
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,
+				sort: options?.sort,
 			});
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1058,6 +1086,8 @@ export abstract class GitHostIntegration<
 			pageSize?: number;
 			includeAllAssignees?: boolean;
 			state?: IssueStateFilter;
+			/** See {@link getMyIssuesForRepos}. */
+			sort?: IssueSorting;
 		},
 		connectionId?: string,
 	): Promise<IntegrationResult<(PagedResult<IssueShape> & { metadata?: CollectionMetadata }) | undefined>> {

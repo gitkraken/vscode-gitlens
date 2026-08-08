@@ -11,7 +11,8 @@ import {
 } from '@gitlens/git/errors.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueSearchCriteria, IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
+import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -27,6 +28,7 @@ import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
+import { getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
 import {
 	createRevisionRange,
 	getRevisionRangeParts,
@@ -77,11 +79,21 @@ import {
 	gitHubIssueSearchRelationships,
 	toGitHubIssueSearchQualifiers,
 	toGitHubIssueSearchScopeQualifiers,
+	toGitHubIssueSortQualifier,
 } from './issueSearchQuery.js';
 import { toGitHubPullRequestSearchFacets } from './pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from './token.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
+/**
+ * What an issue-search cursor records when the caller asked for no ordering at all.
+ *
+ * A sentinel rather than an omitted field, because omitted already means something else and more important: a
+ * cursor persisted before ordering existed. Distinguishing the two is what lets an old cursor keep resuming while
+ * a genuine change from unordered to ordered is still refused. Not an `IssueSorting`, so it can never collide
+ * with one.
+ */
+const unsortedCursorSort = 'unsorted';
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
 // Transient gateway/network failures (e.g. an upstream `502 Bad Gateway`) are worth a few quick
@@ -3672,6 +3684,16 @@ export class GitHubApi {
 		return (await this.searchMyPullRequestsPage(provider, token, options, cancellation)).values;
 	}
 
+	/**
+	 * The current user's issues: authored ∪ assigned ∪ mentioned, each its own aliased search behind one composite
+	 * cursor. Bound to `@me` by construction, unlike {@link searchIssuesPage}.
+	 *
+	 * Ordering is OPT-IN here, and that asymmetry with {@link searchIssuesPage} is deliberate: this read has never
+	 * requested a sort, so GitHub has always answered it in relevance order. Emitting a default would change which
+	 * issues its already-shipped consumers see, so an omitted `sort` still emits no `sort:` qualifier at all and
+	 * keeps today's result. Pass one to get a defined order — which is also what makes a page budget meaningful,
+	 * since relevance ranking can shift under an unchanged upstream.
+	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchMyIssues(
 		provider: Provider,
@@ -3685,6 +3707,8 @@ export class GitHubApi {
 			includeBody?: boolean;
 			includeAllAssignees?: boolean;
 			cursor?: string;
+			/** Requested order. Omitted leaves GitHub's relevance order, which is what this read has always served. */
+			sort?: IssueSorting;
 			/**
 			 * Which of the three "my issues" searches to run. Omitted runs all three (GitHub's own definition of
 			 * "mine": authored ∪ assigned ∪ mentioned). Supplied, only the `true` ones run — so a caller wanting
@@ -3710,7 +3734,10 @@ export class GitHubApi {
 			search += `${repo}${options.repos.join(repo)}`;
 		}
 
-		const baseFilters = 'type:issue is:open archived:false';
+		// A requested sort goes through the same table `searchIssuesPage` uses, so the two GitHub issue reads can't
+		// diverge the first time a key is added. Omitted appends nothing — see this method's contract above.
+		const sortQualifier = toGitHubIssueSortQualifier(options?.sort);
+		const baseFilters = ['type:issue is:open archived:false', sortQualifier].filter(Boolean).join(' ');
 		// `includeAllAssignees` broadens the assigned category from "assigned to me" to "assigned to anyone"
 		// (`assignee:*` is GitHub's has-any-assignee qualifier). Authored/mentioned stay bound to `@me` — they're
 		// user-relative by definition, so an all-assignees read still only surfaces the current user's authored
@@ -3756,9 +3783,15 @@ export class GitHubApi {
 	 * relationship to the current user. The issue counterpart of {@link searchMyPullRequestsPage}, and distinct
 	 * from {@link searchMyIssues}, which is permanently bound to `@me`.
 	 *
-	 * Ordering is part of the contract, not an option: always `sort:updated` (most recently updated first). A
-	 * consumer's "show the N most recent" policy at GitHub's result ceiling is only correct under a guaranteed
-	 * order, and an option would let a caller pick relevance order and then truncate to an arbitrary subset.
+	 * Ordering is `criteria.sort`, defaulting to most-recently-updated-first — the order this read served before
+	 * ordering was an option, so an omitted `sort` emits the identical query. What is NOT optional is that SOME
+	 * order is always requested: without one GitHub answers in relevance order, and at the result ceiling that
+	 * makes which rows are reachable a function of GitHub's ranking rather than of the request. A key GitHub can't
+	 * express (`closed`, `priority`, …) is refused by the facade before the request, not silently downgraded.
+	 *
+	 * With more than one relationship the page is a UNION of several searches, each ordered by the provider; the
+	 * merged page is re-sorted here so the whole page honors the requested key. Across pages the order is still
+	 * per-alias — see {@link searchIssuesByAlias}.
 	 *
 	 * Each requested relationship becomes its own aliased search, unioned and deduped by url; with none, a single
 	 * search runs over the scope alone. `criteria.text` and the other free-form values are sanitized so user input
@@ -3796,7 +3829,15 @@ export class GitHubApi {
 				}))
 			: [{ alias: 'matched', query: base }];
 
-		return this.searchIssuesByAlias(provider, token, searches, options, cancellation);
+		// The EFFECTIVE key, not `criteria.sort`: this read always requests an order, so the merged page and the
+		// cursor's fingerprint must both use the same default the query itself was built with.
+		return this.searchIssuesByAlias(
+			provider,
+			token,
+			searches,
+			{ ...options, sort: options?.criteria?.sort ?? defaultIssueSort },
+			cancellation,
+		);
 	}
 
 	/**
@@ -3886,14 +3927,27 @@ export class GitHubApi {
 	 * {@link searchMyIssues} is one configuration of it (its three `@me` categories), and its alias names are
 	 * that read's published cursor keys.
 	 *
-	 * `searches` must have unique aliases, each a valid GraphQL name that is neither `page` nor `truncated` —
-	 * the composite cursor keys aliases at its top level, alongside those two reserved fields.
+	 * `searches` must have unique aliases, each a valid GraphQL name that is none of `page`, `truncated` or
+	 * `sort` — the composite cursor keys aliases at its top level, alongside those three reserved fields.
+	 *
+	 * `sort` is the order the caller asked for, which this does two things with. Each alias comes back ordered by
+	 * it (the qualifier is already in `searches[].query`), but the UNION of several aliases is not, so the merged
+	 * page is re-sorted here; and the key is recorded in the cursor, so a continuation that changed it THROWS
+	 * rather than serving a sequence with gaps and repeats. Omitted means the caller asked for no order at all
+	 * ({@link searchMyIssues}'s default), which re-sorts nothing and pins nothing.
 	 */
 	private async searchIssuesByAlias(
 		provider: Provider,
 		token: GitHubTokenInfo,
 		searches: readonly AliasedIssueSearch[],
-		options?: { baseUrl?: string; avatarSize?: number; includeBody?: boolean; cursor?: string; pageSize?: number },
+		options?: {
+			baseUrl?: string;
+			avatarSize?: number;
+			includeBody?: boolean;
+			cursor?: string;
+			pageSize?: number;
+			sort?: IssueSorting;
+		},
 		cancellation?: AbortSignal,
 	): Promise<AliasedIssueSearchResult | undefined> {
 		const scope = getScopedLogger();
@@ -3914,6 +3968,13 @@ export class GitHubApi {
 		interface SearchCursor {
 			page?: number;
 			truncated?: boolean;
+			/**
+			 * The order this cursor's pages were produced under: an `IssueSorting`, or `unsortedCursorSort` when
+			 * the caller asked for none. Written as a value rather than left absent in the no-order case
+			 * specifically so that ABSENT keeps meaning "cursor from before ordering existed", which is accepted
+			 * and sealed instead of refused — a consumer's persisted cursor has to keep working across this change.
+			 */
+			sort?: string;
 			[alias: string]: string | number | boolean | null | undefined;
 		}
 
@@ -3922,7 +3983,7 @@ export class GitHubApi {
 		// by a cursor string that reads back as page 1, restarting the walk with no error and no truncation flag.
 		// Cheap to check, and it fails at the one call that introduced the collision rather than in a consumer's
 		// persisted cursor.
-		const reserved = searches.filter(s => s.alias === 'page' || s.alias === 'truncated');
+		const reserved = searches.filter(s => s.alias === 'page' || s.alias === 'truncated' || s.alias === 'sort');
 		if (reserved.length > 0) {
 			throw new Error(
 				`Issue search alias(es) ${reserved.map(s => `'${s.alias}'`).join(', ')} collide with the composite cursor's reserved keys`,
@@ -3935,6 +3996,25 @@ export class GitHubApi {
 				cursor = JSON.parse(options.cursor) as SearchCursor;
 			} catch {}
 		}
+		// The order this request is being made under, as the cursor records it.
+		const requestedSort = options?.sort ?? unsortedCursorSort;
+		// A cursor produced under a DIFFERENT order can't be resumed: every alias would continue from a position in
+		// a differently-ordered result set, so the continuation re-emits rows already seen and skips rows never
+		// seen. REFUSED rather than silently restarted from page 1, because a restart cannot be reported honestly
+		// from here: this read is cursor-only, so `resolveCurrentPage` has no page of its own to trust and echoes
+		// the `page` the caller supplied alongside the cursor — page 1's rows would be published as page N, which
+		// is the very confusion the fingerprint exists to prevent. Refusing surfaces a warning + `fetchFailed`, and
+		// the remedy ("drop the cursor") is the caller's to apply.
+		//
+		// A cursor with NO recorded sort predates this field and is resumed as-is, then sealed with the current
+		// key. Treating absent as a mismatch would refuse every cursor a consumer had already persisted, which is
+		// the one case this is meant to protect.
+		if (cursor?.sort != null && cursor.sort !== requestedSort) {
+			throw new Error(
+				`Issue search cursor was produced under sort '${cursor.sort}' but '${requestedSort}' was requested; restart the read without a cursor`,
+			);
+		}
+
 		const page = Math.max(1, Math.trunc(cursor?.page ?? 1));
 		// A slot is a continuation string, `null` (exhausted), or absent. Anything else came from a malformed or
 		// foreign cursor, and is read as absent rather than threaded back into the request as a continuation.
@@ -4023,16 +4103,34 @@ export class GitHubApi {
 
 			// Dedupe by `url`, not `IssueShape.id`: for some providers `id` is a per-repository number, so an
 			// id-keyed map would collapse distinct issues across repositories.
-			const results: IterableIterator<IssueShape> = uniqueBy(
-				issues,
-				r => r.url,
-				(original, _current) => original,
-			);
+			const deduped = [
+				...uniqueBy(
+					issues,
+					r => r.url,
+					(original, _current) => original,
+				),
+			];
+
+			// Each alias arrived ordered by the server; their concatenation is not, so the merged page is ordered
+			// here. AFTER the dedupe, not before, and that ordering is load-bearing: the alias order is also the
+			// dedupe's precedence (an issue both assigned to and authored by the user surfaces as the assigned one,
+			// per `searchMyIssues`), and sorting first would hand `uniqueBy` a different first occurrence and
+			// silently change which copy wins. The pull-request path sorts BEFORE its dedupe because its facets
+			// carry no such precedence — the difference is deliberate, not an inconsistency to tidy up.
+			//
+			// A comparator is always available for a key GitHub declares (`created`/`updated`/`comments`/
+			// `reactions` are all on `IssueShape`), so `undefined` here means the capability table has outrun this
+			// read; leave the provider's per-alias order rather than inventing one.
+			const comparator = options?.sort != null ? getIssueComparator(options.sort) : undefined;
+			if (comparator != null && searches.length > 1) {
+				deduped.sort(comparator);
+			}
 
 			// Every alias gets a slot, so an inactive one keeps its `null` and stays out of the next request. A
 			// missing slot would be read as "never requested", which for a `searches` set that still lists it
 			// would restart it from its first page.
-			const next: SearchCursor = { page: page + 1 };
+			// The order is pinned on the way out too, so the next round can refuse a changed key (see above).
+			const next: SearchCursor = { page: page + 1, sort: requestedSort };
 			let hasMore = false;
 			let continuationMissing = false;
 			let maxIssueCount = 0;
@@ -4057,7 +4155,7 @@ export class GitHubApi {
 				cursor?.truncated === true || maxIssueCount > githubSearchResultLimit || continuationMissing;
 			next.truncated = truncated || undefined;
 			return {
-				values: [...results],
+				values: deduped,
 				cursor: hasMore ? JSON.stringify(next) : undefined,
 				hasMore: hasMore,
 				page: page,

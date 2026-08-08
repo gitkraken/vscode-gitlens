@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { IssueSearchCriteria, IssueSearchRelationship } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueSearchRelationship, IssueSorting } from '@gitlens/git/models/issue.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
@@ -441,8 +441,8 @@ suite('GitHubApi.searchIssuesPage', () => {
 		assert.equal(result?.truncated, true, 'past the 1,000-result ceiling the read cannot return everything');
 	});
 
-	// The composite cursor keys aliases at its top level, next to `page` and `truncated`, so an alias colliding
-	// with either would overwrite it — and silently: the page number becomes a cursor string, reads back as page 1,
+	// The composite cursor keys aliases at its top level, next to `page`, `truncated` and `sort`, so an alias
+	// colliding with one of them would overwrite it — and silently: the page number becomes a cursor string, reads back as page 1,
 	// and the walk restarts with no error and no truncation flag. Reachable only by adding a relationship whose
 	// alias is one of those names, so the guard is what makes that a build/test failure instead of a data bug.
 	test('refuses an alias that collides with the cursor’s reserved keys', async () => {
@@ -458,7 +458,7 @@ suite('GitHubApi.searchIssuesPage', () => {
 			}
 		).searchIssuesByAlias.bind(api);
 
-		for (const alias of ['page', 'truncated']) {
+		for (const alias of ['page', 'truncated', 'sort']) {
 			await assert.rejects(
 				() => searchIssuesByAlias(provider, token, [{ alias: alias, query: 'repo:o/a' }]),
 				/reserved keys/,
@@ -665,3 +665,290 @@ suite('GitHubApi.countIssues', () => {
 // was commented out, so a throttled request fell through to the generic 4xx branch and surfaced as a
 // `RequestClientError`. Downstream that reads as a generic failure rather than a retryable throttle — it drops
 // the "temporary" framing and, in consumers that hold a snapshot on retryable failures, discards a good one.
+
+suite('GitHubApi.searchIssuesPage ordering', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	/** One GraphQL issue node, minimal but complete enough for `fromGitHubIssue` to map it. */
+	function node(id: string, fields: { updatedAt?: string; createdAt?: string; comments?: number }) {
+		return {
+			id: id,
+			number: 1,
+			title: id,
+			url: `https://github.com/o/a/issues/${id}`,
+			createdAt: fields.createdAt ?? '2020-01-01T00:00:00Z',
+			updatedAt: fields.updatedAt ?? '2020-01-01T00:00:00Z',
+			closedAt: null,
+			closed: false,
+			state: 'OPEN',
+			author: null,
+			assignees: { nodes: [] },
+			comments: { totalCount: fields.comments ?? 0 },
+			reactions: { totalCount: 0 },
+			repository: { name: 'a', owner: { login: 'o' }, url: 'https://github.com/o/a' },
+		};
+	}
+
+	/** Answers each alias with its own nodes, so a merged page's ordering is observable. */
+	function serve(nodesByAlias: Record<string, unknown[]>): {
+		config: GitHubApiConfig;
+		getVariables: () => Record<string, unknown>;
+	} {
+		let variables: Record<string, unknown> = {};
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as {
+					query?: string;
+					variables?: Record<string, unknown>;
+				};
+				variables = body.variables ?? {};
+				const aliases = Array.from((body.query ?? '').matchAll(/^\s*(\w+): search\(/gm), m => m[1]);
+				const data = Object.fromEntries(
+					aliases.map(alias => [
+						alias,
+						{
+							issueCount: (nodesByAlias[alias] ?? []).length,
+							pageInfo: { endCursor: null, hasNextPage: false },
+							nodes: nodesByAlias[alias] ?? [],
+						},
+					]),
+				);
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		return { config: config, getVariables: () => variables };
+	}
+
+	// The default has to stay byte-identical, not merely equivalent: `sort:updated` and `sort:updated-desc` are the
+	// same query to GitHub, but every exact-query assertion in this file (and any recorded fixture) pins the former.
+	test('an omitted sort emits exactly the query it emitted before ordering was an option', async () => {
+		const { config, getVariables } = serve({});
+		const api = new GitHubApi(config);
+
+		await api.searchIssuesPage(provider, token, { repos: ['o/a'] });
+
+		assert.strictEqual(String(getVariables().matched), 'repo:o/a type:issue is:open archived:false sort:updated');
+	});
+
+	const sorts: [sort: IssueSorting, qualifier: string][] = [
+		['created:asc', 'sort:created-asc'],
+		['created:desc', 'sort:created-desc'],
+		['updated:asc', 'sort:updated-asc'],
+		['updated:desc', 'sort:updated'],
+		['comments:asc', 'sort:comments-asc'],
+		['comments:desc', 'sort:comments-desc'],
+		['reactions:asc', 'sort:reactions-asc'],
+		['reactions:desc', 'sort:reactions-desc'],
+	];
+
+	for (const [sort, qualifier] of sorts) {
+		test(`translates ${sort} to its own qualifier`, async () => {
+			const { config, getVariables } = serve({});
+			const api = new GitHubApi(config);
+
+			await api.searchIssuesPage(provider, token, { repos: ['o/a'], criteria: { sort: sort } });
+
+			const q = String(getVariables().matched);
+			assert.strictEqual(q, `repo:o/a type:issue is:open archived:false ${qualifier}`);
+		});
+	}
+
+	// Each alias arrives ordered by the server; their concatenation does not, which is what this fixes. Without the
+	// merge sort the page would read b1, b2, a1 — ordered within each alias and in no order across them.
+	test('orders the merged page across relationships, not just within each one', async () => {
+		const { config } = serve({
+			assigned: [node('a1', { updatedAt: '2020-01-02T00:00:00Z' })],
+			authored: [
+				node('b1', { updatedAt: '2020-01-03T00:00:00Z' }),
+				node('b2', { updatedAt: '2020-01-01T00:00:00Z' }),
+			],
+		});
+		const api = new GitHubApi(config);
+
+		const result = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: ['assigned', 'authored'] },
+		});
+
+		assert.deepEqual(
+			result?.values.map(i => i.title),
+			['b1', 'a1', 'b2'],
+		);
+	});
+
+	test('orders by the requested key, not only by updated date', async () => {
+		const { config } = serve({
+			assigned: [node('few', { comments: 1 })],
+			authored: [node('many', { comments: 9 })],
+		});
+		const api = new GitHubApi(config);
+
+		const result = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: ['assigned', 'authored'], sort: 'comments:desc' },
+		});
+
+		assert.deepEqual(
+			result?.values.map(i => i.title),
+			['many', 'few'],
+		);
+	});
+
+	// The merge sort runs AFTER the dedupe, and this is why: the alias order is also the dedupe's precedence, so
+	// sorting first would hand `uniqueBy` a different first occurrence and change which copy survives. Both aliases
+	// return the same url with different titles, so which one is kept is observable.
+	test('keeps the alias precedence of the dedupe when it orders the page', async () => {
+		const shared = { updatedAt: '2020-01-01T00:00:00Z' };
+		const fromAssigned = { ...node('assigned-copy', shared), url: 'https://github.com/o/a/issues/1' };
+		const fromAuthored = { ...node('authored-copy', shared), url: 'https://github.com/o/a/issues/1' };
+		const { config } = serve({ assigned: [fromAssigned], authored: [fromAuthored] });
+		const api = new GitHubApi(config);
+
+		const result = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: ['assigned', 'authored'], sort: 'updated:desc' },
+		});
+
+		assert.deepEqual(
+			result?.values.map(i => i.title),
+			['assigned-copy'],
+			'the assigned copy still wins, as `searchMyIssues` documents',
+		);
+	});
+});
+
+suite('GitHubApi issue-search cursor ordering fingerprint', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	/** Always claims another page, so every call yields a cursor to resume from. */
+	function pagingConfig(): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
+		let variables: Record<string, unknown> = {};
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as {
+					query?: string;
+					variables?: Record<string, unknown>;
+				};
+				variables = body.variables ?? {};
+				const aliases = Array.from((body.query ?? '').matchAll(/^\s*(\w+): search\(/gm), m => m[1]);
+				const data = Object.fromEntries(
+					aliases.map(alias => [
+						alias,
+						{ issueCount: 1, pageInfo: { endCursor: `${alias}-next`, hasNextPage: true }, nodes: [] },
+					]),
+				);
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		return { config: config, getVariables: () => variables };
+	}
+
+	test('resumes under the same sort, threading the provider continuation', async () => {
+		const { config, getVariables } = pagingConfig();
+		const api = new GitHubApi(config);
+
+		const first = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { sort: 'created:desc' },
+		});
+		const second = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { sort: 'created:desc' },
+			cursor: first?.cursor,
+		});
+
+		assert.strictEqual(getVariables().matchedCursor, 'matched-next', 'the continuation was threaded');
+		assert.strictEqual(second?.page, 2);
+	});
+
+	// Resuming a differently-ordered walk would re-emit rows already seen and skip rows never seen, with nothing in
+	// the result to say so. Refused rather than silently restarted: this read is cursor-only, so the facade echoes
+	// the `page` supplied alongside the cursor, and page 1's rows would then be published as page N.
+	test('refuses a cursor produced under a different sort instead of resuming into a different order', async () => {
+		const { config, getVariables } = pagingConfig();
+		const api = new GitHubApi(config);
+
+		const first = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { sort: 'created:desc' },
+		});
+		await assert.rejects(
+			() =>
+				api.searchIssuesPage(provider, token, {
+					repos: ['o/a'],
+					criteria: { sort: 'updated:desc' },
+					cursor: first?.cursor,
+				}),
+			/produced under sort 'created:desc'/,
+		);
+
+		// Still the FIRST call's variables: a resumed read would have threaded `matched-next`, so an unset cursor
+		// proves the refusal happened before any request went out.
+		assert.strictEqual(getVariables().matchedCursor, undefined, 'the refusal costs no request at all');
+	});
+
+	// A cursor persisted before this field existed carries no fingerprint. Treating absent as a mismatch would
+	// restart every walk a consumer had already saved, which is the one case the field is meant to protect.
+	test('resumes a cursor that predates the fingerprint rather than restarting it', async () => {
+		const { config, getVariables } = pagingConfig();
+		const api = new GitHubApi(config);
+
+		const legacy = JSON.stringify({ page: 4, matched: 'matched-next' });
+		const result = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { sort: 'updated:desc' },
+			cursor: legacy,
+		});
+
+		assert.strictEqual(getVariables().matchedCursor, 'matched-next', 'the old continuation was honored');
+		assert.strictEqual(result?.page, 4);
+		assert.ok(result.cursor != null);
+		assert.strictEqual(
+			(JSON.parse(result.cursor) as { sort?: string }).sort,
+			'updated:desc',
+			'and the cursor it hands back is sealed with the current key',
+		);
+	});
+});

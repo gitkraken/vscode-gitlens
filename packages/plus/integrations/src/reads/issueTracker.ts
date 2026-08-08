@@ -1,5 +1,5 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
-import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
@@ -15,7 +15,14 @@ import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, resourceMatchesOrg } from './hierarchy.utils.js';
-import { incompleteReadWarning, issueTrackerOnlySurfaceWarning, otherWarning } from './warnings.js';
+import { resolveIssueSort, toIssueOrdering } from './ordering.js';
+import {
+	incompleteReadWarning,
+	issueTrackerOnlySurfaceWarning,
+	otherWarning,
+	unmergeableIssueSortWarning,
+	unsupportedIssueSortWarning,
+} from './warnings.js';
 
 export async function listIssueTrackerIssuesPage(
 	ctx: ProviderReadContext,
@@ -26,6 +33,23 @@ export async function listIssueTrackerIssuesPage(
 		filters?: IssueFilter[];
 		/** Broadens the read to every assignee. Scopes to user-assigned issues when omitted. */
 		includeAllAssignees?: boolean;
+		/**
+		 * How to order the issues, as `field:direction`. Omitted orders most-recently-updated-first where the
+		 * tracker can express it.
+		 *
+		 * Validated against `getSupportedFilters().issues`' sibling `issueSorts` — a tracker reports there, not
+		 * under the account-wide table, because resource -> project IS its only issue surface. A key it can't
+		 * express refuses the read rather than serving a differently-ordered list.
+		 *
+		 * One page can span SEVERAL projects, whose issues are merged here, so a key no normalized issue carries
+		 * (`priority`, `dueDate`, `resolved`) is refused for a multi-project page even though the tracker orders by
+		 * it perfectly well within one project.
+		 *
+		 * Unlike the git-host reads this one is safe to change mid-pagination: its cursor windows PROJECTS and
+		 * drains each to exhaustion, so which projects a round covers doesn't depend on how their issues are
+		 * ordered. Only the order within a page changes.
+		 */
+		sort?: IssueSorting;
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
@@ -127,6 +151,26 @@ export async function listIssueTrackerIssuesPage(
 	}
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId);
+
+	// Before any upstream request: the discovery fan-outs below (resources, projects, per-resource accounts) are
+	// three round trips, and an order this tracker can't express refuses the read whatever they return. Placed after
+	// `domain` only because every warning carries it.
+	const supportedSorts = providersMetadata[options.providerId]?.supportedIssueSorts;
+	const resolvedSort = resolveIssueSort(supportedSorts, options.sort);
+	if (resolvedSort.rejection != null) {
+		warnings.push(
+			unsupportedIssueSortWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				options.sort!,
+				supportedSorts,
+			),
+		);
+		return emptyPage(true);
+	}
+
+	const sort = resolvedSort.sort;
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
@@ -362,6 +406,18 @@ export async function listIssueTrackerIssuesPage(
 		});
 	}
 
+	// A page spanning several projects is a merge, so it can only honor a key a normalized issue carries. Bound here
+	// rather than next to the key's validation above, because the project count is only known now — while still
+	// before any project read, so a refusal costs no request. Refused rather than served as concatenated
+	// per-project runs, which would look ordered without being so.
+	const ordering = toIssueOrdering(sort, scopedProjects.length > 1);
+	if (ordering.unmergeable) {
+		warnings.push(
+			unmergeableIssueSortWarning(options.providerId, domain, options.connectionId, ordering.sort!, 'projects'),
+		);
+		return emptyPage(true);
+	}
+
 	const perProject = await mapBounded(scopedProjects, providerFanOutConcurrency, async project => ({
 		project: project,
 		...(await runCaptured(options.providerId, domain, options.connectionId, () =>
@@ -370,6 +426,7 @@ export async function listIssueTrackerIssuesPage(
 				{
 					user: userForProject(project),
 					filters: options.filters,
+					sort: sort,
 				},
 				options.connectionId,
 			),
@@ -417,6 +474,10 @@ export async function listIssueTrackerIssuesPage(
 		}
 	}
 
+	// Each project arrived ordered by the tracker; their concatenation is not, and the concatenation is what this
+	// read publishes.
+	const orderedItems = ordering.order(items);
+
 	const drainAssessment = mergeAssessmentInto(
 		warnings,
 		options.providerId,
@@ -463,9 +524,9 @@ export async function listIssueTrackerIssuesPage(
 				: [],
 	});
 	return {
-		items: items,
+		items: orderedItems,
 		warnings: warnings,
-		page: { currentPage: page, itemsPerPage: items.length, truncated: projectTruncated || undefined },
+		page: { currentPage: page, itemsPerPage: orderedItems.length, truncated: projectTruncated || undefined },
 		// Failed-project retries alone are manual. Only an untouched project window is automatic progress.
 		hasMore: nextPage != null && cursor != null,
 		cursor: cursor,

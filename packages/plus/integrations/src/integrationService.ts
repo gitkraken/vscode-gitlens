@@ -68,6 +68,7 @@ import type { GitHubApi } from './providers/github/github.js';
 import type {
 	IssueFilter,
 	IssueSearchCapabilities,
+	IssueSorting,
 	ProviderOrganization,
 	ProviderReposInput,
 	ProviderRepositoryShape,
@@ -544,6 +545,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
 		issueSearch: IssueSearchCapabilities;
+		issueSorts: IssueSorting[];
+		issueSortsAccountWide: IssueSorting[];
 	} {
 		return getSupportedFilters(providerId);
 	}
@@ -1092,6 +1095,13 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		filters?: IssueFilter[];
 		/** Broadens the read to every assignee. Contradicts `filters`; passing both is refused. */
 		includeAllAssignees?: boolean;
+		/**
+		 * How to order the page, as `field:direction`. Omitted orders most-recently-updated-first wherever the
+		 * provider can express it. Validated against `getSupportedFilters().issueSorts` on the repo-scoped path and
+		 * `.issueSortsAccountWide` on the account-wide one, and refused rather than downgraded; a key no normalized
+		 * issue carries is additionally refused for a page spanning several repositories/projects, which is a merge.
+		 */
+		sort?: IssueSorting;
 		page?: number;
 		cursor?: string;
 		itemsPerPage?: number;
@@ -1174,6 +1184,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
+		/**
+		 * How to order the issues, as `field:direction`. Validated against `getSupportedFilters().issueSorts`, which
+		 * is where a tracker reports; a key no normalized issue carries is refused for a multi-project page.
+		 */
+		sort?: IssueSorting;
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;

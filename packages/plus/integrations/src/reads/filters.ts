@@ -4,6 +4,7 @@ import type {
 	IssueSearchCapabilities,
 	IssueSearchCriteria,
 	IssueSearchRelationship,
+	IssueSorting,
 	PullRequestFilter,
 	PullRequestSearchCapabilities,
 	PullRequestSearchCriteria,
@@ -237,6 +238,12 @@ export function resolveIssueSearchCriteria(
 	if (criteria.state != null && criteria.state !== 'open' && !supported.states) {
 		unsupported.push('state');
 	}
+	// Folded into the same `unsupported-criteria` rejection rather than given its own reason, so a caller asking
+	// for one inexpressible filter and one inexpressible sort learns about both at once instead of fixing them one
+	// refusal at a time. The `sorts` list is `supported`'s own, so this needs no branch on which surface it is.
+	if (criteria.sort != null && !supported.sorts.includes(criteria.sort)) {
+		unsupported.push(`sort:${criteria.sort}`);
+	}
 
 	if (unsupported.length > 0) return { rejection: { reason: 'unsupported-criteria', criteria: unsupported } };
 
@@ -264,6 +271,7 @@ const unsupportedIssueSearchCapabilities: IssueSearchCapabilities = {
 	createdAfter: false,
 	withoutLinkedPullRequest: false,
 	states: false,
+	sorts: [],
 };
 
 /** What a provider with no filtered pull-request search reports. */
@@ -345,6 +353,13 @@ export function resolveIssueSearchScope(
  * `pullRequestSearch` describes the separate filtered PR search. Its table declares each criteria vocabulary
  * plus repository/organization scope support; an empty relationship list means the search itself is absent.
  *
+ * `issueSorts` / `issueSortsAccountWide` / `issueSearch.sorts` are the ORDERING vocabulary of those same three
+ * issue reads, split the same way and for the same reason (GitLab's repo-scoped read is GraphQL and its
+ * account-wide read is REST, with genuinely different sort vocabularies). Empty means the read can't be ordered,
+ * so pass no `sort`; a key not listed refuses the whole read exactly like an inexpressible filter. Note a key
+ * listed here is expressible on ONE provider query: a read that fans out across projects can only honor a key
+ * derivable from a normalized issue, so it refuses `priority`/`dueDate`/`resolved` on top of this table.
+ *
  * Note this is a CAPABILITY table — "what the provider can express" — not a recommendation. A consumer
  * matching another tool's behavior may deliberately pass fewer filters than are listed here (or none, where an
  * already-scoped read would only be narrowed by them). Intersecting against this table is what keeps a
@@ -357,6 +372,8 @@ export function getSupportedFilters(providerId: IntegrationIds): {
 	issues: IssueFilter[];
 	issuesAccountWide: IssueFilter[];
 	issueSearch: IssueSearchCapabilities;
+	issueSorts: IssueSorting[];
+	issueSortsAccountWide: IssueSorting[];
 } {
 	const metadata = providersMetadata[providerId];
 	const issueSearch = metadata?.supportedIssueSearch;
@@ -385,6 +402,9 @@ export function getSupportedFilters(providerId: IntegrationIds): {
 			...issueSearch,
 			// Copied, so mutating the result can't corrupt the metadata table.
 			relationships: [...(issueSearch?.relationships ?? [])],
+			sorts: [...(issueSearch?.sorts ?? [])],
 		},
+		issueSorts: [...(metadata?.supportedIssueSorts ?? [])],
+		issueSortsAccountWide: [...(metadata?.supportedAccountWideIssueSorts ?? [])],
 	};
 }

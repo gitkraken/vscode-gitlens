@@ -39,6 +39,7 @@ import type {
 	GetPullRequestsOptions,
 	GetReposOptions,
 	IssueFilter,
+	IssueSorting,
 	PageInfo,
 	PagingInput,
 	PagingMode,
@@ -868,7 +869,10 @@ export class ProvidersApi {
 	async getLinearIssues(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
 		input: { teams?: string[]; projects?: string[]; labels?: string[] },
-		options?: PagingInput,
+		options?: PagingInput & {
+			/** See {@link GetIssuesOptions.sort}. Linear expresses `created`/`updated`, descending only. */
+			sort?: IssueSorting;
+		},
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -1565,6 +1569,8 @@ export class ProvidersApi {
 			 */
 			authorUsername?: string;
 			pageSize?: number;
+			/** See {@link GetIssuesOptions.sort}. Forwarded to the provider fn; ordering is translated in the SDK. */
+			sort?: IssueSorting;
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
@@ -1580,6 +1586,7 @@ export class ProvidersApi {
 				authorUsername: options?.authorUsername,
 				page: options?.page,
 				pageSize: options?.pageSize,
+				sort: options?.sort,
 			},
 			provider.getIssuesForCurrentUserFn,
 			tokenWithInfo,
@@ -1760,7 +1767,12 @@ export class ProvidersApi {
 		tokenOptInfo: TokenWithInfo,
 		appKey: string,
 		boardId: string,
-		options?: { assigneeLogins?: string[]; trelloBoardListsById?: Record<string, { name: string }> },
+		options?: {
+			assigneeLogins?: string[];
+			trelloBoardListsById?: Record<string, { name: string }>;
+			/** See {@link GetIssuesOptions.sort}. Trello expresses only `updated`, in either direction. */
+			sort?: IssueSorting;
+		},
 	): Promise<ProviderApiCollectionResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,

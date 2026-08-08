@@ -554,6 +554,29 @@ suite('GitHubApi.searchMyIssues', () => {
 		return { config: config, getVariables: () => variables };
 	}
 
+	// This read has never requested an order, so GitHub has always answered it by relevance. Emitting a default
+	// would change which issues its shipped consumers see, so an omitted sort must still emit no qualifier.
+	test('requests no ordering when none was asked for, keeping the query it has always emitted', async () => {
+		const { config, getVariables } = captureVariables();
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, {});
+
+		assert.strictEqual(String(getVariables().assigned), 'type:issue is:open archived:false assignee:@me');
+	});
+
+	test('emits the requested ordering through the same table the filtered search uses', async () => {
+		const { config, getVariables } = captureVariables();
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, { sort: 'comments:desc' });
+
+		const vars = getVariables();
+		assert.match(String(vars.assigned), /sort:comments-desc/);
+		assert.match(String(vars.authored), /sort:comments-desc/, 'every category is ordered the same way');
+		assert.match(String(vars.mentioned), /sort:comments-desc/);
+	});
+
 	test('binds the assigned category to the current user by default', async () => {
 		const { config, getVariables } = captureVariables();
 		const api = new GitHubApi(config);

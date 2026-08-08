@@ -1,4 +1,5 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { isUnsupportedSortError } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -10,6 +11,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import type { IssuesForProjectOptions } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
@@ -234,7 +236,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<IssueShape[] | undefined> {
 		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
 	}
@@ -242,7 +244,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async getProviderIssuesForProjectWithTruncation(
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
@@ -273,6 +275,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					result = await api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
 						...scope,
 						cursor: cursor,
+						sort: options?.sort,
 					});
 				} catch (ex) {
 					// A page failure after the first page leaves the already-drained prefix intact; record the
@@ -390,6 +393,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				// incomplete: keep the sibling results but record a structured failure so the facade can warn on
 				// the specific filter (auth/rate-limit) instead of just a generic truncation flag.
 				if (outcome.status !== 'fulfilled') {
+					// A caller-contract error (an order this provider can't express) is identical for every filter
+					// branch and was decided before any request: re-thrown so it surfaces once, rather than
+					// degraded into one per-project failure per branch describing an invalid call as a partial read.
+					if (isUnsupportedSortError(outcome.reason)) throw outcome.reason;
+
 					truncated = true;
 					const failure = toCollectionScopeFailure(
 						{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },

@@ -1,4 +1,4 @@
-import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -15,6 +15,7 @@ import {
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolveAccountWideIssueFilters } from './filters.js';
+import { resolveIssueSort, toIssueOrdering } from './ordering.js';
 import {
 	drainFlatPagesToRequestedPage,
 	drainToRequestedPage,
@@ -31,8 +32,41 @@ import {
 	issuesUnsupportedWarning,
 	otherWarning,
 	truncationWarning,
+	unmergeableIssueSortWarning,
 	unsupportedAccountWideIssueFiltersWarning,
+	unsupportedIssueSortWarning,
 } from './warnings.js';
+
+/**
+ * Whether a repo-scoped page is assembled from SEVERAL provider queries and merged here — which is what decides
+ * whether the requested order can be honored at all.
+ *
+ * `PagingMode.Repos` (GitHub) sends one search however many repositories are named, so its page arrives ordered by
+ * the provider. `Repo` (GitLab) issues one query per repository, and `Project` (Azure) one per PROJECT — several
+ * repositories of the same project are still one query, which is why that case counts distinct projects rather than
+ * repositories.
+ *
+ * The `Repo` case has a second way to merge that has nothing to do with the count: given repository IDS rather than
+ * descriptors, `getMyIssuesForReposResult` skips its per-repository fan-out entirely (that branch is guarded on
+ * `!isRepoIdsInput`) and calls the SDK's `getIssuesForRepos`, which for GitLab is the multi-project aggregate that
+ * merges in the SDK and refuses `priority`/`dueDate` however few scopes it was given. Treating that as merged is
+ * what makes this facade refuse it up front, with the message that names the reason, instead of letting the SDK
+ * reject a read the capability table had just promised.
+ */
+function mergesProviderQueries(pagingMode: PagingMode | undefined, repos: ProviderReposInput | undefined): boolean {
+	switch (pagingMode) {
+		case PagingMode.Repo:
+			// The same shape check `ProvidersApi.isRepoIdsInput` applies, which is what selects the SDK aggregate.
+			return (repos ?? []).every(r => typeof r === 'string' || typeof r === 'number')
+				? (repos?.length ?? 0) > 0
+				: (repos?.length ?? 0) > 1;
+		case PagingMode.Project:
+			// Only the descriptor form carries a project; the id form is refused by the Azure read before it runs.
+			return new Set((repos ?? []).map(r => (typeof r === 'object' ? r.project : undefined))).size > 1;
+		default:
+			return false;
+	}
+}
 
 export async function listIssuesPage(
 	ctx: ProviderReadContext,
@@ -53,6 +87,22 @@ export async function listIssuesPage(
 		filters?: IssueFilter[];
 		/** Broadens the read to every assignee. Contradicts `filters`; passing both is refused. */
 		includeAllAssignees?: boolean;
+		/**
+		 * How to order the page, as `field:direction`. Omitted orders most-recently-updated-first wherever the
+		 * provider can express that, which is this facade's default rather than the provider's own.
+		 *
+		 * Validated against `getSupportedFilters().issueSorts` on the repo-scoped path and `.issueSortsAccountWide`
+		 * on the account-wide one — two genuinely different vocabularies for GitLab, whose two reads are different
+		 * APIs. A key the provider can't express refuses the read (warning + `fetchFailed`) rather than serving a
+		 * differently-ordered list, for the same reason an inexpressible filter does: the reachable window is
+		 * bounded, so another order is another subset.
+		 *
+		 * On the repo-scoped path with SEVERAL scopes the page is a merge of one query per repository/project, so
+		 * only a key a normalized issue carries can be honored: `priority`, `dueDate` and `resolved` are refused
+		 * there even where the provider supports them on a single scope. Order is per page, and per scope across
+		 * pages — the merge orders what a page contains, not the sequence of pages.
+		 */
+		sort?: IssueSorting;
 		page?: number;
 		cursor?: string;
 		itemsPerPage?: number;
@@ -172,6 +222,28 @@ export async function listIssuesPage(
 			);
 		}
 
+		// Every provider's account-wide read is a UNION of several queries — GitHub's three `@me` searches,
+		// GitLab's one REST call per relationship, Azure's (project x relationship) drains — so it always merges,
+		// and `supportedAccountWideIssueSorts` already lists only keys a merge can honor. No separate
+		// mergeability refusal is needed here, unlike on the repo-scoped path below.
+		const accountWideSorts = providersMetadata[options.providerId]?.supportedAccountWideIssueSorts;
+		const resolvedSort = resolveIssueSort(accountWideSorts, options.sort);
+		if (resolvedSort.rejection != null) {
+			return refused(
+				unsupportedIssueSortWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					options.sort!,
+					accountWideSorts,
+				),
+			);
+		}
+
+		// `merged: true` unconditionally: this read has no scope count for a caller to reduce. It is also why no
+		// `unmergeable` check follows — `supportedAccountWideIssueSorts` declares only keys a merge can honor.
+		const accountWideOrdering = toIssueOrdering(resolvedSort.sort, true);
+
 		// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
 		// already-user-scoped core instead. GitHub exposes a composite cursor across its authored,
 		// assigned, and mentioned searches. Walk it internally when the caller supplies only page N.
@@ -187,6 +259,7 @@ export async function listIssuesPage(
 						cursor: cursor,
 						org: options.org,
 						project: options.project,
+						sort: accountWideOrdering.sort,
 					}),
 				{ warnOnMissingSession: warnOnMissingSession },
 			);
@@ -224,6 +297,10 @@ export async function listIssuesPage(
 		}
 
 		const items = requestedPageMissing ? [] : (value?.values ?? []);
+		// Each query arrived ordered by the provider; their union is not, and the union is what this read publishes.
+		// Idempotent for GitHub, whose aliased-search engine already ordered the same merge — one call here rather
+		// than the same logic repeated in each of the three provider implementations.
+		const orderedItems = accountWideOrdering.order(items);
 		// Fold in structured per-scope failures from the account-wide fan-out (e.g. Azure across projects):
 		// scope-aware warnings + `fetchFailed` when a scope failed, without discarding the successful items.
 		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
@@ -260,7 +337,7 @@ export async function listIssuesPage(
 		// A metadata omission from an earlier page asserts the read succeeded; a later page may since have failed.
 		reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
 		return {
-			items: items,
+			items: orderedItems,
 			warnings: warnings,
 			page: {
 				// Positional, per ProviderPageInfo.currentPage. `currentPage` already carries what the provider
@@ -275,13 +352,59 @@ export async function listIssuesPage(
 							suppliedCursor: options.cursor,
 							pageAdvanceable: false,
 						}),
-				itemsPerPage: items.length,
+				itemsPerPage: orderedItems.length,
 				truncated: truncated || undefined,
 			},
 			hasMore: continuation.hasMore,
 			cursor: continuation.cursor,
 			fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
 		};
+	}
+
+	// How many separate provider queries this page is assembled from, which decides whether the requested order can
+	// be honored at all. `PagingMode.Repos` (GitHub) sends ONE search however many repositories are named, so its
+	// page arrives ordered by the provider; `Repo` (GitLab) and `Project` (Azure) issue one query per scope and are
+	// concatenated here, so a page spanning several of them is only as orderable as a normalized issue is.
+	const repoScopedSorts = providersMetadata[options.providerId]?.supportedIssueSorts;
+	const resolvedRepoScopedSort = resolveIssueSort(repoScopedSorts, options.sort);
+	if (resolvedRepoScopedSort.rejection != null) {
+		return refusedPage(
+			page,
+			[
+				unsupportedIssueSortWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					options.sort!,
+					repoScopedSorts,
+				),
+			],
+			true,
+		);
+	}
+
+	const issuesPagingMode = providersMetadata[options.providerId]?.issuesPagingMode;
+	const ordering = toIssueOrdering(
+		resolvedRepoScopedSort.sort,
+		mergesProviderQueries(issuesPagingMode, options.repos),
+	);
+	// Refused rather than served as concatenated per-scope runs, which would look ordered without being so — and
+	// only where it actually merges, since the same key against the same provider is perfectly answerable for a
+	// single repository or project.
+	if (ordering.unmergeable) {
+		return refusedPage(
+			page,
+			[
+				unmergeableIssueSortWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					ordering.sort!,
+					issuesPagingMode === PagingMode.Project ? 'projects' : 'repositories',
+				),
+			],
+			true,
+		);
 	}
 
 	const cursor = options.cursor ?? pageToCursor(page);
@@ -302,6 +425,7 @@ export async function listIssuesPage(
 					cursor: cursor,
 					page: options.page,
 					pageSize: options.itemsPerPage,
+					sort: ordering.sort,
 				},
 				options.connectionId,
 			),
@@ -342,6 +466,7 @@ export async function listIssuesPage(
 									includeAllAssignees: options.includeAllAssignees,
 									cursor: cursor,
 									pageSize: options.itemsPerPage,
+									sort: ordering.sort,
 								},
 								options.connectionId,
 							),
@@ -354,6 +479,9 @@ export async function listIssuesPage(
 		allMetadata = drained.metadata;
 		pageFetchFailed = drained.fetchFailed;
 	}
+
+	// Ordered once the drain (above) has assembled whichever pages this position spans.
+	items = ordering.order(items);
 
 	// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
 	// them to any captured thrown-error warning without discarding the partial result's items.
