@@ -553,6 +553,13 @@ export const compareModePanelStyles = css`
 		align-items: center;
 	}
 
+	/* Size the count badge like gl-file-tree-pane sizes its Files Changed badge: border-box makes
+	   the filled badge's min-width include its padding, so both counts render as the same compact
+	   pill instead of this one sitting 0.8rem wider. */
+	.compare-contributors-title gl-badge::part(base) {
+		box-sizing: border-box;
+	}
+
 	/* Line-stats summary in the file pane header. Color matches the per-file +N -N annotations.
 	   Stats yield width FIRST — shrink priority is far higher than the title (10) and badge
 	   (1) so the whole stats block clips out before the title text starts truncating. */
@@ -605,10 +612,9 @@ export const compareModePanelStyles = css`
 			);
 	}
 
-	/* Files / Contributors view selector — slotted into the pane's title slot, so it must
-	   visually sit inline with the title text it replaces (no margin/padding around the
-	   popover; the trigger button supplies its own hit-target padding). The 0-padding
-	   tooltip override removes the body inset so menu rows hug the popover edges. */
+	/* Files / Contributors view selector — a gl-menu-popover slotted into the pane's title
+	   slot, so it must visually sit inline with the title text it replaces (no margin/padding
+	   around the menu; the trigger button supplies its own hit-target padding). */
 
 	/* The title-content slot wrapper itself needs to be shrinkable so its inner
 	   popover/trigger/label can ellipse against the title slot's actual width. */
@@ -621,6 +627,8 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-view-selector {
+		/* Overrides gl-menu-popover's host display: contents so the selector participates as
+		   a shrinkable flex item in the title slot instead of disappearing from layout. */
 		display: inline-flex;
 		flex: 0 10 auto;
 
@@ -628,7 +636,6 @@ export const compareModePanelStyles = css`
 		   flex layout so the label ellipses instead of overflowing the row. */
 		min-width: 0;
 		max-width: 100%;
-		--wa-tooltip-padding: 0;
 	}
 
 	.compare-view-trigger {
@@ -669,32 +676,6 @@ export const compareModePanelStyles = css`
 		text-transform: inherit;
 		letter-spacing: inherit;
 		white-space: nowrap;
-	}
-
-	/* Reset inherited title styles inside the popover menu. text-transform/letter-spacing
-	   are inheritable AND cross slot boundaries, so without this the menu items render in
-	   the pane title's uppercase tracking. Also normalize weight + spacing for clean rows.
-	   menu-list has a default padding-bottom: 0.6rem — zero it so rows hug the popover. */
-	.compare-view-menu {
-		display: flex;
-		flex-direction: column;
-		gap: var(--gl-space-4);
-		min-width: 16rem;
-		padding: var(--gl-space-4) 0;
-		font-size: var(--gl-font-base);
-		font-weight: normal;
-		text-transform: none;
-		letter-spacing: normal;
-	}
-
-	.compare-view-menu menu-item {
-		display: flex;
-		align-items: center;
-	}
-
-	.compare-view-menu menu-item code-icon {
-		margin-right: var(--gl-space-6);
-		opacity: 0.75;
 	}
 
 	/* Contributors list */

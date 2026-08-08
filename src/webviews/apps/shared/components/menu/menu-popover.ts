@@ -1,4 +1,4 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { GlElement } from '../element.js';
 import type { GlPopover } from '../overlays/popover.js';
@@ -13,6 +13,8 @@ export interface GlMenuPopoverItem {
 	value: string;
 	selected?: boolean;
 	disabled?: boolean;
+	/** A descriptive icon (codicon or gl-icon name) rendered in its own column between the check column and the label. */
+	icon?: string;
 }
 
 /**
@@ -40,9 +42,14 @@ export class GlMenuPopover extends GlElement {
 
 		/* Strip menu-list's standalone chrome (its own border + asymmetric bottom padding) — inside
 	   the popover's menu-mode body it just needs a small symmetric vertical pad so the first/
-	   last item clear the body padding. */
+	   last item clear the body padding. font-weight/text-transform/letter-spacing are inheritable
+	   and cross the shadow boundary from the anchor's context (e.g. an uppercase, letter-spaced
+	   webview-pane title), so reset them here or the menu rows inherit that styling. */
 		menu-list {
 			padding: var(--gl-space-2) 0;
+			font-weight: normal;
+			text-transform: none;
+			letter-spacing: normal;
 			background: transparent;
 			border: 0;
 		}
@@ -57,6 +64,10 @@ export class GlMenuPopover extends GlElement {
 	   unselected items render a blank icon that occupies the column invisibly. */
 		menu-item code-icon {
 			flex: 0 0 1.4rem;
+		}
+
+		menu-item code-icon.item-icon {
+			opacity: 0.75;
 		}
 	`;
 
@@ -166,6 +177,7 @@ export class GlMenuPopover extends GlElement {
 	}
 
 	override render(): unknown {
+		const hasIcons = this.items.some(i => i.icon != null);
 		return html`<gl-popover
 			appearance="menu"
 			placement=${this.placement}
@@ -184,6 +196,11 @@ export class GlMenuPopover extends GlElement {
 							@click=${(e: Event) => this.onItemClick(item, e)}
 						>
 							<code-icon icon=${item.selected ? 'check' : 'blank'}></code-icon>
+							${
+								hasIcons
+									? html`<code-icon class="item-icon" icon=${item.icon ?? 'blank'}></code-icon>`
+									: nothing
+							}
 							<span>${item.label}</span>
 						</menu-item>`,
 				)}

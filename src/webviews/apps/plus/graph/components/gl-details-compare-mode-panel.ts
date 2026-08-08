@@ -24,6 +24,7 @@ import {
 } from '../../../shared/components/chips/autolinks.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
+import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import {
 	elementBase,
@@ -45,11 +46,7 @@ import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
-import '../../../shared/components/menu/menu-divider.js';
-import '../../../shared/components/menu/menu-item.js';
-import '../../../shared/components/menu/menu-label.js';
-import '../../../shared/components/menu/menu-list.js';
-import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/progress.js';
@@ -1083,30 +1080,34 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	private renderViewSelector() {
 		const label = this.activeView === 'files' ? 'Files Changed' : 'Contributors';
-		return html`<gl-popover
+		const items: GlMenuPopoverItem[] = [
+			{ label: 'Files Changed', value: 'files', icon: 'files', selected: this.activeView === 'files' },
+			{
+				label: 'Contributors',
+				value: 'contributors',
+				icon: 'organization',
+				selected: this.activeView === 'contributors',
+			},
+		];
+		return html`<gl-menu-popover
 			class="compare-view-selector"
-			trigger="click"
 			placement="bottom-start"
-			appearance="menu"
-			?arrow=${false}
+			.items=${items}
+			@gl-menu-select=${this.handleViewSelect}
 		>
 			<button slot="anchor" class="compare-view-trigger" type="button">
 				<span class="compare-view-trigger__label">${label}</span>
 				<code-icon icon="chevron-down"></code-icon>
 			</button>
-			<menu-list slot="content" class="compare-view-menu">
-				<menu-item @click=${() => this.dispatchSwitchView('files')} ?disabled=${this.activeView === 'files'}>
-					<code-icon icon="files"></code-icon><span>Files Changed</span>
-				</menu-item>
-				<menu-item
-					@click=${() => this.dispatchSwitchView('contributors')}
-					?disabled=${this.activeView === 'contributors'}
-				>
-					<code-icon icon="organization"></code-icon><span>Contributors</span>
-				</menu-item>
-			</menu-list>
-		</gl-popover>`;
+		</gl-menu-popover>`;
 	}
+
+	private readonly handleViewSelect = (e: CustomEvent<{ value: string }>): void => {
+		const view = e.detail.value;
+		if (view !== 'files' && view !== 'contributors') return;
+
+		this.dispatchSwitchView(view);
+	};
 
 	private renderContributorsSection() {
 		const contributors = this.contributors;
@@ -1404,11 +1405,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 	}
 
 	private dispatchSwitchView(view: 'files' | 'contributors') {
-		const popover = this.shadowRoot?.querySelector<HTMLElement & { hide(): void }>('.compare-view-selector');
-		if (popover != null) {
-			popover.hide();
-		}
-
 		if (this.activeView === view) return;
 
 		this.dispatchEvent(
