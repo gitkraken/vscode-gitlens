@@ -8,8 +8,9 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { toCollectionScopeFailure } from '../collectionMetadata.js';
+import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import type { IssuesForProjectOptions } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
@@ -234,7 +235,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<IssueShape[] | undefined> {
 		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
 	}
@@ -242,7 +243,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async getProviderIssuesForProjectWithTruncation(
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
@@ -273,6 +274,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					result = await api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
 						...scope,
 						cursor: cursor,
+						sort: options?.sort,
 					});
 				} catch (ex) {
 					// A page failure after the first page leaves the already-drained prefix intact; record the
@@ -390,6 +392,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				// incomplete: keep the sibling results but record a structured failure so the facade can warn on
 				// the specific filter (auth/rate-limit) instead of just a generic truncation flag.
 				if (outcome.status !== 'fulfilled') {
+					// Identical for every filter branch, so degrading it would report one failure per branch for a
+					// single invalid call — see `throwIfCallerContractError`.
+					throwIfCallerContractError(outcome.reason);
+
 					truncated = true;
 					const failure = toCollectionScopeFailure(
 						{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },

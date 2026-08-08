@@ -1057,6 +1057,7 @@ export abstract class AzureDevOpsIntegrationBase<
 						...options,
 						...filter,
 						cursor: cursor,
+						sort: searchOptions?.sort,
 					}),
 				20,
 				{ providerId: this.id, resourceId: p.resourceId, projectId: p.name },

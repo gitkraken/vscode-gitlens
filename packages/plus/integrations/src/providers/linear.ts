@@ -12,8 +12,9 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
+import type { IssuesForProjectOptions } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
-import type { IssueFilter, ProviderApiCollectionResult, ProviderIssue } from './models.js';
+import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
@@ -194,7 +195,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	protected override async getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<IssueShape[] | undefined> {
 		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
 	}
@@ -202,7 +203,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	protected override async getProviderIssuesForProjectWithTruncation(
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
@@ -222,7 +223,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				result = await api.getLinearIssues(
 					toTokenWithInfo(this.id, session),
 					{ teams: [project.id] },
-					{ cursor: cursor },
+					{ cursor: cursor, sort: options?.sort },
 				);
 			} catch (ex) {
 				// A page failure after the first page leaves the already-drained prefix intact; record the

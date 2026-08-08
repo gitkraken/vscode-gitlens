@@ -76,7 +76,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
-import type { IssueSearchCapabilities, PullRequestSearchCapabilities } from '../providerFilters.js';
+import type { IssueSearchCapabilities, IssueSorting, PullRequestSearchCapabilities } from '../providerFilters.js';
 import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
 
 export { IssueFilter, PullRequestFilter } from '../providerFilters.js';
@@ -84,12 +84,24 @@ export type {
 	IssueSearchCapabilities,
 	IssueSearchCriteria,
 	IssueSearchRelationship,
+	IssueSortField,
+	IssueSorting,
 	PullRequestSearchCapabilities,
 	PullRequestSearchCriteria,
 } from '../providerFilters.js';
 import type { ProviderRepositoryShape } from '../results.js';
 
 export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
+import {
+	azureAccountWideIssueSorts,
+	azureIssueSorts,
+	githubIssueSorts,
+	gitlabAccountWideIssueSorts,
+	gitlabIssueSorts,
+	jiraIssueSorts,
+	linearIssueSorts,
+	trelloIssueSorts,
+} from './issueSorts.js';
 import { getEntityIdentifierInput } from './utils.js';
 
 type GitBuildStatusState = GitBuildStatusStateType;
@@ -157,6 +169,28 @@ type EnrichableItem = any;
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
+
+/**
+ * Which half of {@link ProviderReposInput} a caller supplied: repository IDS rather than descriptors.
+ *
+ * The union has no discriminant, so the answer is the element shape — and several layers need it for different
+ * reasons (`ProvidersApi` to pick `repoIds` vs `repos` in the SDK input, `GitHostIntegration` to refuse an
+ * id-based read a provider can't serve, `listIssuesPage` to know GitLab's id form takes the SDK's own merging
+ * aggregate). One predicate rather than one per layer, because each copy is free to disagree about the shape,
+ * and the symptom of disagreement is a read routed to the wrong provider query.
+ *
+ * Takes `unknown` rather than {@link ProviderReposInput} because `ProvidersApi.isRepoIdsInput` forwards here and
+ * is public with an unvalidated parameter, so the array check has to stay part of the rule rather than be assumed
+ * from the parameter type.
+ */
+export function isRepoIdsInput(input: unknown): input is (string | number)[] {
+	return (
+		input != null &&
+		Array.isArray(input) &&
+		input.every(repo => typeof repo === 'string' || typeof repo === 'number')
+	);
+}
+
 export type ProviderPullRequest = GitPullRequest;
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = ProviderApiIssue;
@@ -332,6 +366,20 @@ export interface GetIssuesOptions {
 	page?: number;
 	// Items to request per page (numbered-page providers, plus GitHub's maxPageSize).
 	pageSize?: number;
+	/**
+	 * How the provider should order the result, as `field:direction`.
+	 *
+	 * Passed through to the SDK verbatim — the translation to each provider's own vocabulary lives THERE, next to
+	 * the capability map it validates against, so that the table this facade publishes and the table that does the
+	 * translating can't drift apart across two repositories. A key the provider can't express raises the SDK's
+	 * `UnsupportedSortError`, which is why the facade validates against `supportedIssueSorts` first: reaching that
+	 * error means this table has outrun the SDK's.
+	 *
+	 * Always supplied by the facade's reads, never omitted. Omitting it would delegate the order to each provider's
+	 * own default, which is the incoherence across providers the SDK deliberately preserves and this layer
+	 * deliberately does not.
+	 */
+	sort?: IssueSorting;
 }
 
 export interface GetIssuesForRepoInput extends GetIssuesOptions {
@@ -493,6 +541,8 @@ export type GetIssuesForCurrentUserInput = PagingInput & {
 	assigneeUsername?: string;
 	authorUsername?: string;
 	pageSize?: number;
+	/** See {@link GetIssuesOptions.sort}. */
+	sort?: IssueSorting;
 };
 
 export type GetIssuesForCurrentUserFn = (
@@ -731,6 +781,36 @@ export interface ProviderMetadata {
 	 */
 	supportedAccountWideIssueFilters?: IssueFilter[];
 	/**
+	 * Sort keys the REPO-scoped issue read can express server-side — and, for an issue tracker (Jira/Linear/Trello),
+	 * its project-scoped read, which is the only issue surface a tracker has.
+	 *
+	 * Absent/empty means the read can't be ordered at all, so a request carrying `sort` is refused rather than
+	 * served in whatever order the provider felt like. Present, it is a promise: every key here reaches the
+	 * provider query.
+	 *
+	 * A key listed here is expressible on ONE provider query, which is what this read is when it is given ONE
+	 * scope. Given several (GitLab across repositories, Azure across projects, a tracker across projects) it merges
+	 * their results here and can only honor a key a normalized issue carries, so it additionally refuses
+	 * `priority`/`dueDate`/`resolved` — see `getIssueComparator`. That depends on the caller's scope count rather
+	 * than on the provider, which is why it is a runtime refusal and not a fourth table: encoding it here would
+	 * under-report the single-scope read, which really does support those keys.
+	 */
+	supportedIssueSorts?: IssueSorting[];
+	/**
+	 * Sort keys the ACCOUNT-WIDE issue read can express server-side, which is NOT the same set as
+	 * {@link ProviderMetadata.supportedIssueSorts} — for GitLab the two reads are different APIs (GraphQL vs REST)
+	 * with genuinely different vocabularies, not one narrowed twice.
+	 *
+	 * Absent means the account-wide read can't be ordered (or doesn't exist). An issue tracker leaves this empty
+	 * and reports under `supportedIssueSorts`, so reading a tracker's capability from here under-reports it.
+	 *
+	 * Unlike {@link ProviderMetadata.supportedIssueSorts} this needs no companion runtime refusal, because every
+	 * provider's account-wide read is a union of several queries with no scope count for a caller to reduce: it
+	 * ALWAYS merges. So the keys a merge can't order by are simply absent here — the table states what the read can
+	 * honor, which is what makes intersecting against it sufficient.
+	 */
+	supportedAccountWideIssueSorts?: IssueSorting[];
+	/**
 	 * What the provider's FILTERED issue search (`searchIssuesPage`, and the `countIssues` probe over the same
 	 * criteria) can express server-side. A third, wider surface than either filter set above: it is not bound to
 	 * the user at all, so it takes relationships those reads have no way to name (`any-assignee`, `unassigned`),
@@ -775,6 +855,8 @@ const githubIssueSearchCapabilities: IssueSearchCapabilities = {
 	withoutLinkedPullRequest: true,
 	// `is:open` / `is:closed`, or neither for all states.
 	states: true,
+	// `sort:created-desc`, `sort:updated`, `sort:comments-asc`, … — see `githubIssueSorts`.
+	sorts: githubIssueSorts,
 };
 
 /** GitHub and GHE use the same filtered pull-request search syntax and result ceiling. */
@@ -821,6 +903,10 @@ export const providersMetadata: ProvidersMetadata = {
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// One `search` field serves all three issue reads (repo-scoped, account-wide, filtered search), so the same
+		// qualifiers are expressible on each.
+		supportedIssueSorts: githubIssueSorts,
+		supportedAccountWideIssueSorts: githubIssueSorts,
 		supportedIssueSearch: githubIssueSearchCapabilities,
 		issueSearchResultLimit: githubSearchResultLimit,
 		scopes: ['repo', 'read:user', 'user:email'],
@@ -853,6 +939,10 @@ export const providersMetadata: ProvidersMetadata = {
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// One `search` field serves all three issue reads (repo-scoped, account-wide, filtered search), so the same
+		// qualifiers are expressible on each.
+		supportedIssueSorts: githubIssueSorts,
+		supportedAccountWideIssueSorts: githubIssueSorts,
 		supportedIssueSearch: githubIssueSearchCapabilities,
 		issueSearchResultLimit: githubSearchResultLimit,
 		scopes: ['repo', 'read:user', 'user:email'],
@@ -882,6 +972,10 @@ export const providersMetadata: ProvidersMetadata = {
 		// unioned, so either axis is expressible on its own. Mention is absent because GitLab's REST issue read has
 		// no first-class mention filter to narrow with.
 		supportedAccountWideIssueFilters: [IssueFilter.Assignee, IssueFilter.Author],
+		// Two different surfaces, not one narrowed twice: the repository-scoped read is GraphQL and the
+		// account-wide one is REST, and REST has neither `title` nor `closed_at`.
+		supportedIssueSorts: gitlabIssueSorts,
+		supportedAccountWideIssueSorts: gitlabAccountWideIssueSorts,
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
@@ -909,6 +1003,10 @@ export const providersMetadata: ProvidersMetadata = {
 		// unioned, so either axis is expressible on its own. Mention is absent because GitLab's REST issue read has
 		// no first-class mention filter to narrow with.
 		supportedAccountWideIssueFilters: [IssueFilter.Assignee, IssueFilter.Author],
+		// Two different surfaces, not one narrowed twice: the repository-scoped read is GraphQL and the
+		// account-wide one is REST, and REST has neither `title` nor `closed_at`.
+		supportedIssueSorts: gitlabIssueSorts,
+		supportedAccountWideIssueSorts: gitlabAccountWideIssueSorts,
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[GitCloudHostIntegrationId.Bitbucket]: {
@@ -957,6 +1055,11 @@ export const providersMetadata: ProvidersMetadata = {
 		// The account-wide read drains one (project × assignee) and one (project × author) query per project, so
 		// either axis is expressible on its own. There is no mention query to narrow to.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
+		// Both reads emit the same WIQL, but the account-wide one drains every (project x relationship) query and
+		// merges the results, so it can only honor keys a normalized issue carries — `resolved` and `priority` are
+		// dropped from that surface for the same reason they are dropped from GitLab's.
+		supportedIssueSorts: azureIssueSorts,
+		supportedAccountWideIssueSorts: azureAccountWideIssueSorts,
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
 	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
@@ -983,6 +1086,11 @@ export const providersMetadata: ProvidersMetadata = {
 		// The account-wide read drains one (project × assignee) and one (project × author) query per project, so
 		// either axis is expressible on its own. There is no mention query to narrow to.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
+		// Both reads emit the same WIQL, but the account-wide one drains every (project x relationship) query and
+		// merges the results, so it can only honor keys a normalized issue carries — `resolved` and `priority` are
+		// dropped from that surface for the same reason they are dropped from GitLab's.
+		supportedIssueSorts: azureIssueSorts,
+		supportedAccountWideIssueSorts: azureAccountWideIssueSorts,
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
 	[IssuesCloudHostIntegrationId.Jira]: {
@@ -1028,6 +1136,9 @@ export const providersMetadata: ProvidersMetadata = {
 			'read:project-version:jira',
 		],
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// A tracker's issues live under resource -> project, so it has no account-wide surface to declare: its
+		// capability is reported under `issues`, which is what `listIssueTrackerIssuesPage` validates against.
+		supportedIssueSorts: jiraIssueSorts,
 	},
 	[IssuesCloudHostIntegrationId.Linear]: {
 		domain: 'linear.app',
@@ -1038,6 +1149,8 @@ export const providersMetadata: ProvidersMetadata = {
 		scopes: [],
 		// Linear scopes "my issues" client-side by the viewer's assignee id; author/mention aren't supported.
 		supportedIssueFilters: [IssueFilter.Assignee],
+		// Descending only: Linear's `PaginationOrderBy` has no ascending member.
+		supportedIssueSorts: linearIssueSorts,
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',
@@ -1048,6 +1161,8 @@ export const providersMetadata: ProvidersMetadata = {
 		scopes: [],
 		// Trello cards are filtered by the assignee (member) only; author/mention have no Trello equivalent.
 		supportedIssueFilters: [IssueFilter.Assignee],
+		// `sort:edited` / `sort:-edited`. Trello's other search sorts (`created`, `due`) have no card-order effect.
+		supportedIssueSorts: trelloIssueSorts,
 	},
 };
 
