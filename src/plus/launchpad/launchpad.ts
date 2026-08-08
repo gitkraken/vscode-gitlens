@@ -1,5 +1,6 @@
 import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
+import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '@gitlens/integrations/providers/models.js';
@@ -573,6 +574,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
 					i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
 				}${
+					i.underlyingPullRequest.stack != null
+						? `$(layers) ${i.underlyingPullRequest.stack.position}/${i.underlyingPullRequest.stack.size} \u2022  `
+						: ''
+				}${
 					i.actionableCategory === 'other' ? '' : `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
 				}${fromNow(i.updatedDate)} by @${i.author!.username}`,
 
@@ -1022,11 +1027,18 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							into = state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : '';
 						}
 
+						const stack = state.item.underlyingPullRequest.stack;
+						const count = getStackedMergeCount(stack);
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Merge...',
-									detail: `Will merge ${from}${into}`,
+									label: count > 1 ? 'Merge Stack...' : 'Merge...',
+									detail:
+										stack != null && count > 1
+											? `Will merge ${from} and the ${count - 1} pull request${
+													count - 1 === 1 ? '' : 's'
+												} below it in the stack, into ${stack.baseRef}`
+											: `Will merge ${from}${into}`,
 									buttons: [...gitProviderWebButtons],
 								},
 								action,
