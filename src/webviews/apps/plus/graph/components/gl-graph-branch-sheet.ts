@@ -145,10 +145,6 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	orgSettings?: State['orgSettings'];
 
-	/** Forwarded to the inner `gl-detail-sheet` — true when this sheet sits above another in the stack. */
-	@property({ type: Boolean, attribute: 'show-back' })
-	showBack = false;
-
 	@property({ type: Boolean, attribute: 'show-maximize' })
 	showMaximize = false;
 
@@ -222,7 +218,6 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 			aria-label=${kind}
 			sheet-title=${title}
 			close-label="Close"
-			?show-back=${this.showBack}
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
 			<span slot="title" class="branch-sheet-title branch-sheet-title--${titleModifier}">

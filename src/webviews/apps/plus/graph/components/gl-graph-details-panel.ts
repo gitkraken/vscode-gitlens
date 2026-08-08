@@ -946,7 +946,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					.aiModel=${this._state.aiModel.get()}
 					.orgSettings=${this._state.orgSettings.get()}
 					.changeStamp=${this._branchSheetChangeStamp}
-					?show-back=${this._sheetStack.length > 1}
 					?show-maximize=${this.showMaximize}
 					?maximized=${this.maximized}
 					@gl-detail-sheet-close=${this.handleCloseBranchSheet}
@@ -956,7 +955,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					.detail=${top.detail}
 					.getDetails=${this.getConflictDetails}
 					file-name=${top.fileName}
-					?show-back=${this._sheetStack.length > 1}
 					.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 					.preferences=${this._state.preferences.get()}
 					@gl-detail-sheet-close=${this.handleCloseConflictDetails}
@@ -971,14 +969,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					.repoPath=${top.repoPath}
 					.getSummary=${this.getRebaseSummary}
 					.undoRebase=${this.undoRebaseSummary}
-					?show-back=${this._sheetStack.length > 1}
 					@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
 					@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
 				></gl-rebase-summary-sheet>`;
 			case 'compare':
 				return html`<gl-graph-compare-sheet
 					.preferredOrientation=${this._preferredCompareOrientation}
-					?show-back=${this._sheetStack.length > 1}
 					@gl-detail-sheet-close=${this.handleCloseCompareSheet}
 					@gl-graph-compare-promote=${this.handleComparePromote}
 					>${this.renderCompareMode()}${

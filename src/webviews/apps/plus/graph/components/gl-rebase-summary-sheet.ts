@@ -299,10 +299,6 @@ export class GlRebaseSummarySheet extends LitElement {
 	@property({ attribute: false })
 	undoRebase?: (repoPath: string, sessionId: string) => Promise<UndoAutoRebaseResult>;
 
-	/** Forwarded to the inner `gl-detail-sheet` — true when this sheet sits above another in the stack. */
-	@property({ type: Boolean, attribute: 'show-back' })
-	showBack = false;
-
 	private _skipFocusRestore = false;
 
 	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
@@ -353,12 +349,7 @@ export class GlRebaseSummarySheet extends LitElement {
 	private _overflowingReasons = new Set<string>();
 
 	override render(): unknown {
-		return html`<gl-detail-sheet
-			esc-managed
-			aria-label="Automatic rebase summary"
-			close-label="Close"
-			?show-back=${this.showBack}
-		>
+		return html`<gl-detail-sheet esc-managed aria-label="Automatic rebase summary" close-label="Close">
 			<span slot="title" class="title">
 				<code-icon icon="gl-merge"></code-icon>
 				<span class="title__name">Automatic Rebase Summary</span>

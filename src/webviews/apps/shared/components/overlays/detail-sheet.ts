@@ -238,12 +238,6 @@ export class GlDetailSheet extends LitElement {
 	@property({ type: String, attribute: 'close-label' })
 	closeLabel = 'Close';
 
-	@property({ type: Boolean, attribute: 'show-back', reflect: true })
-	showBack = false;
-
-	@property({ type: String, attribute: 'back-label' })
-	backLabel = 'Back';
-
 	@property({ type: String, attribute: 'aria-label' })
 	override ariaLabel: string | null = null;
 
@@ -366,10 +360,10 @@ export class GlDetailSheet extends LitElement {
 						${
 							this.dismissible
 								? html`<gl-action-chip
-										icon=${this.showBack ? 'chevron-left' : 'close'}
-										label=${this.showBack ? this.backLabel : this.closeLabel}
+										icon="close"
+										label=${this.closeLabel}
 										overlay="tooltip"
-										aria-label=${this.showBack ? this.backLabel : this.closeLabel}
+										aria-label=${this.closeLabel}
 										@click=${this.requestClose}
 									></gl-action-chip>`
 								: nothing

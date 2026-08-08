@@ -195,10 +195,6 @@ export class GlWipConflictSheet extends LitElement {
 	@property({ type: Object })
 	preferences?: Preferences;
 
-	/** Forwarded to the inner `gl-detail-sheet` — true when this sheet sits above another in the stack. */
-	@property({ type: Boolean, attribute: 'show-back' })
-	showBack = false;
-
 	private _skipFocusRestore = false;
 
 	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
@@ -285,12 +281,7 @@ export class GlWipConflictSheet extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`<gl-detail-sheet
-			esc-managed
-			aria-label="Conflict details"
-			close-label="Close"
-			?show-back=${this.showBack}
-		>
+		return html`<gl-detail-sheet esc-managed aria-label="Conflict details" close-label="Close">
 			<span slot="title" class="title">
 				<code-icon icon="warning"></code-icon>
 				<span class="title__name">Conflict · ${this.fileName}</span>

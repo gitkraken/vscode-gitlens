@@ -62,9 +62,6 @@ export class GlGraphCompareSheet extends LitElement {
 	@property({ attribute: false })
 	preferredOrientation: PanelOrientation = 'vertical';
 
-	@property({ type: Boolean, attribute: 'show-back' })
-	showBack = false;
-
 	private readonly _modifiers = new ModifierKeysController(this);
 
 	private _skipFocusRestore = false;
@@ -109,7 +106,6 @@ export class GlGraphCompareSheet extends LitElement {
 			esc-managed
 			aria-label="Compare"
 			close-label="Close"
-			?show-back=${this.showBack}
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
 			<span slot="title" class="title">Comparing References<slot name="title-hint"></slot></span>
