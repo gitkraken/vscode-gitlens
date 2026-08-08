@@ -1,7 +1,7 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -20,7 +20,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { toCollectionScopeFailure } from '../collectionMetadata.js';
+import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { toError } from '../errors.js';
@@ -56,6 +56,7 @@ import type {
 	ProviderPullRequestSearchPage,
 } from './integration.js';
 import { IntegrationBase } from './integration.js';
+import type { MyIssuesForReposOptions } from './issueReads.js';
 
 function isAzureDevOpsProvider(
 	providerId: IntegrationIds,
@@ -673,17 +674,7 @@ export abstract class GitHostIntegration<
 
 	async getMyIssuesForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: IssueFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			/** When true, don't constrain to the current user's assigned issues even if the Assignee filter is set. */
-			includeAllAssignees?: boolean;
-			/** Issue states to include; when omitted the provider returns its default (open only). */
-			state?: IssueStateFilter;
-		},
+		options?: MyIssuesForReposOptions,
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
 		return (await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId))?.value;
@@ -697,15 +688,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getMyIssuesForReposResult(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: IssueFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			includeAllAssignees?: boolean;
-			state?: IssueStateFilter;
-		},
+		options?: MyIssuesForReposOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<(PagedResult<ProviderIssue> & { metadata?: CollectionMetadata }) | undefined>> {
 		const scope = getScopedLogger();
@@ -828,6 +811,7 @@ export abstract class GitHostIntegration<
 								page: projectInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
+								sort: options?.sort,
 							},
 						);
 						return { projectInput: projectInput, results: results };
@@ -838,6 +822,10 @@ export abstract class GitHostIntegration<
 					const outcome = settled[i];
 					const projectInput = projectInputs[i];
 					if (outcome.status !== 'fulfilled') {
+						// Errors that really are per-scope (auth, rate limit, a missing project) degrade below; one
+						// that is a fact about the call is re-thrown instead — see `throwIfCallerContractError`.
+						throwIfCallerContractError(outcome.reason);
+
 						truncated = true;
 						const failure = toCollectionScopeFailure(
 							{
@@ -963,6 +951,7 @@ export abstract class GitHostIntegration<
 								page: repoInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
+								sort: options?.sort,
 							},
 						);
 						return { repoInput: repoInput, results: results };
@@ -973,6 +962,11 @@ export abstract class GitHostIntegration<
 					const outcome = settled[i];
 					const repoInput = repoInputs[i];
 					if (outcome.status !== 'fulfilled') {
+						// See the project fan-out above. Reachable in practice even though the facade validates the
+						// key first — a self-managed GitLab can reject an `IssueSort` member the SDK declares, which
+						// is only discoverable from the response.
+						throwIfCallerContractError(outcome.reason);
+
 						truncated = true;
 						const failure = toCollectionScopeFailure(
 							{
@@ -1030,6 +1024,7 @@ export abstract class GitHostIntegration<
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,
+				sort: options?.sort,
 			});
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1050,15 +1045,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getMyIssuesForReposAsShapesResult(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: IssueFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			includeAllAssignees?: boolean;
-			state?: IssueStateFilter;
-		},
+		options?: MyIssuesForReposOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<(PagedResult<IssueShape> & { metadata?: CollectionMetadata }) | undefined>> {
 		const result = await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId);

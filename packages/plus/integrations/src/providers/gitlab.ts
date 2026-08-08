@@ -668,6 +668,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 						isPAT: this.isEnterprise,
 						baseUrl: baseUrl,
 						cursor: cursor,
+						sort: options?.sort,
 					});
 					if (cancellation?.aborted) throw new CancellationError();
 					return page;

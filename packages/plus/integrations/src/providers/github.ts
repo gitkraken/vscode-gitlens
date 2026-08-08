@@ -618,6 +618,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				includeBody: true,
 				includeAllAssignees: options?.includeAllAssignees,
 				cursor: options?.cursor,
+				sort: options?.sort,
 				categories: options?.filters?.length
 					? {
 							authored: options.filters.includes(IssueFilter.Author),

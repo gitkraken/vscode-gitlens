@@ -33,6 +33,12 @@ import { gitHostOnlySurfaceWarning, issuesUnsupportedWarning, noConnectionWarnin
  * `includeAllAssignees: true`, which resolves to no assignee constraint at all, so unassigned issues ARE
  * included. The equivalent is an OMITTED `relationships`, not `['any-assignee']`: `assignee:*` means "has some
  * assignee" and would silently exclude every unassigned issue, which is the opposite of broadening.
+ *
+ * Takes no `sort`, unlike `listIssuesPage` and `searchIssuesPage`. One logical page here spans several orgs, each
+ * at its own provider position in a cursor bundle, so honoring an order across them would need a k-way merge with
+ * a buffer per org rather than a sort of what arrived — the page is a slice of several independent walks, not a
+ * union of one round's results. `searchIssuesPage({ repos, criteria: { sort } })` answers the ordered version of
+ * this question for a caller that knows its repositories, and is already the recommended migration above.
  */
 
 export interface BroadenIssuesOptions {

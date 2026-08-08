@@ -4,6 +4,7 @@ import type {
 	IssueSearchCapabilities,
 	IssueSearchCriteria,
 	IssueSearchRelationship,
+	IssueSorting,
 	PullRequestFilter,
 	PullRequestSearchCapabilities,
 	PullRequestSearchCriteria,
@@ -237,6 +238,12 @@ export function resolveIssueSearchCriteria(
 	if (criteria.state != null && criteria.state !== 'open' && !supported.states) {
 		unsupported.push('state');
 	}
+	// Folded into the same `unsupported-criteria` rejection rather than given its own reason, so a caller asking
+	// for one inexpressible filter and one inexpressible sort learns about both at once instead of fixing them one
+	// refusal at a time. The `sorts` list is `supported`'s own, so this needs no branch on which surface it is.
+	if (criteria.sort != null && !supported.sorts.includes(criteria.sort)) {
+		unsupported.push(`sort:${criteria.sort}`);
+	}
 
 	if (unsupported.length > 0) return { rejection: { reason: 'unsupported-criteria', criteria: unsupported } };
 
@@ -264,6 +271,7 @@ const unsupportedIssueSearchCapabilities: IssueSearchCapabilities = {
 	createdAfter: false,
 	withoutLinkedPullRequest: false,
 	states: false,
+	sorts: [],
 };
 
 /** What a provider with no filtered pull-request search reports. */
@@ -314,6 +322,57 @@ export function resolveIssueSearchScope(
 }
 
 /**
+ * What {@link getSupportedFilters} reports: every vocabulary a provider's reads can express, so a consumer can
+ * narrow to it BEFORE issuing a read. See that function for the capability table itself and why intersecting
+ * against this is what keeps a filtered read from being refused.
+ *
+ * Named rather than written inline, because the same shape is the declared return type of THREE declarations that
+ * all describe one value — this function, `IntegrationService.getSupportedFilters`, which only forwards to it, and
+ * `IntegrationManager.getSupportedFilters`, which publishes it. Spelled out three times, a member added here
+ * reached one of them and left the others a compile error away from the truth; that is exactly how the two sort
+ * members below came to be written out three times.
+ */
+export type SupportedFilters = {
+	pullRequests: PullRequestFilter[];
+	pullRequestsAccountWide: PullRequestFilter[];
+	/**
+	 * Criteria and scopes the filtered pull-request search can express. Always present; an empty relationship list
+	 * means the provider exposes no filtered pull-request search.
+	 */
+	pullRequestSearch: PullRequestSearchCapabilities;
+	/**
+	 * Filters the repo-scoped issue read accepts — and, for an issue tracker (Jira/Linear/Trello), its
+	 * project-scoped read, that being its only issue surface. A tracker therefore reports here and leaves
+	 * `issuesAccountWide` empty, so intersecting a tracker against that field would read "cannot filter" for a
+	 * provider that filters fine.
+	 */
+	issues: IssueFilter[];
+	issuesAccountWide: IssueFilter[];
+	/**
+	 * What the filtered issue search (and the count probe over the same criteria) can express. Always present: a
+	 * provider with no filtered issue search reports an empty `relationships` and all-false flags, which is the
+	 * signal to hide that surface rather than to hide individual chips.
+	 */
+	issueSearch: IssueSearchCapabilities;
+	/**
+	 * Sort keys the repo-scoped issue read can express — and, for an issue tracker, its project-scoped read. Empty
+	 * means the read can't be ordered, so pass no `sort`.
+	 *
+	 * A key here is expressible on ONE provider query. A page spanning several repositories or projects is a merge,
+	 * and a merge can only order by what a normalized issue carries, so `priority`/`dueDate`/`resolved` are refused
+	 * there even where they are listed. Read one scope at a time to use them.
+	 */
+	issueSorts: IssueSorting[];
+	/**
+	 * Sort keys the account-wide issue read can express — a different vocabulary, not a subset: for GitLab the two
+	 * reads are different APIs. Needs no mergeability caveat, because every account-wide read is a union of several
+	 * queries, so only keys a merge can honor are listed at all. Empty for an issue tracker, which reports under
+	 * `issueSorts`.
+	 */
+	issueSortsAccountWide: IssueSorting[];
+};
+
+/**
  * The filters `listPullRequestsPage`/`listIssuesPage` (and the sweeps) accept for a provider, so a caller can
  * narrow to what the provider can express BEFORE issuing the read.
  *
@@ -345,19 +404,19 @@ export function resolveIssueSearchScope(
  * `pullRequestSearch` describes the separate filtered PR search. Its table declares each criteria vocabulary
  * plus repository/organization scope support; an empty relationship list means the search itself is absent.
  *
+ * `issueSorts` / `issueSortsAccountWide` / `issueSearch.sorts` are the ORDERING vocabulary of those same three
+ * issue reads, split the same way and for the same reason (GitLab's repo-scoped read is GraphQL and its
+ * account-wide read is REST, with genuinely different sort vocabularies). Empty means the read can't be ordered,
+ * so pass no `sort`; a key not listed refuses the whole read exactly like an inexpressible filter. Note a key
+ * listed here is expressible on ONE provider query: a read that fans out across projects can only honor a key
+ * derivable from a normalized issue, so it refuses `priority`/`dueDate`/`resolved` on top of this table.
+ *
  * Note this is a CAPABILITY table — "what the provider can express" — not a recommendation. A consumer
  * matching another tool's behavior may deliberately pass fewer filters than are listed here (or none, where an
  * already-scoped read would only be narrowed by them). Intersecting against this table is what keeps a
  * filtered read from being refused; it isn't a directive to use every filter in it.
  */
-export function getSupportedFilters(providerId: IntegrationIds): {
-	pullRequests: PullRequestFilter[];
-	pullRequestsAccountWide: PullRequestFilter[];
-	pullRequestSearch: PullRequestSearchCapabilities;
-	issues: IssueFilter[];
-	issuesAccountWide: IssueFilter[];
-	issueSearch: IssueSearchCapabilities;
-} {
+export function getSupportedFilters(providerId: IntegrationIds): SupportedFilters {
 	const metadata = providersMetadata[providerId];
 	const issueSearch = metadata?.supportedIssueSearch;
 	const pullRequestSearch = metadata?.supportedPullRequestSearch;
@@ -385,6 +444,9 @@ export function getSupportedFilters(providerId: IntegrationIds): {
 			...issueSearch,
 			// Copied, so mutating the result can't corrupt the metadata table.
 			relationships: [...(issueSearch?.relationships ?? [])],
+			sorts: [...(issueSearch?.sorts ?? [])],
 		},
+		issueSorts: [...(metadata?.supportedIssueSorts ?? [])],
+		issueSortsAccountWide: [...(metadata?.supportedAccountWideIssueSorts ?? [])],
 	};
 }

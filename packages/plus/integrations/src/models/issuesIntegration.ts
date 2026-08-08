@@ -8,9 +8,10 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import { toError } from '../errors.js';
-import type { IssueFilter, ProviderApiCollectionResult } from '../providers/models.js';
+import type { ProviderApiCollectionResult } from '../providers/models.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
+import type { IssuesForProjectOptions } from './issueReads.js';
 
 export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
 	return integration.type === 'issues';
@@ -135,7 +136,7 @@ export abstract class IssuesIntegration<
 	@trace()
 	async getIssuesForProject(
 		project: T,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 		connectionId?: string,
 	): Promise<IssueShape[] | undefined> {
 		return (await this.getIssuesForProjectResult(project, options, connectionId))?.value;
@@ -148,7 +149,7 @@ export abstract class IssuesIntegration<
 	 */
 	async getIssuesForProjectResult(
 		project: T,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const scope = getScopedLogger();
@@ -174,7 +175,7 @@ export abstract class IssuesIntegration<
 	 */
 	async getIssuesForProjectWithTruncationResult(
 		project: T,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 		connectionId?: string,
 	): Promise<
 		IntegrationResult<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined>
@@ -196,7 +197,7 @@ export abstract class IssuesIntegration<
 	protected abstract getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: T,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<IssueShape[] | undefined>;
 
 	/**
@@ -208,7 +209,7 @@ export abstract class IssuesIntegration<
 	protected async getProviderIssuesForProjectWithTruncation(
 		session: ProviderAuthenticationSession,
 		project: T,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		const values = await this.getProviderIssuesForProject(session, project, options);
 		if (values == null) return undefined;
