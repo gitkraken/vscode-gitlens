@@ -30,6 +30,20 @@ export const splitPanelStyles = css`
 		display: none;
 	}
 
+	/* Opt-in animated glide (see the animate property) — a deliberate transition on the tracks
+	   driven by --_start-size, distinct from the instant snap drag/keyboard/programmatic changes use. */
+	:host([animate]) {
+		transition:
+			grid-template-columns var(--gl-duration-medium, 200ms) ease,
+			grid-template-rows var(--gl-duration-medium, 200ms) ease;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:host([animate]) {
+			transition: none;
+		}
+	}
+
 	:host([dragging]) {
 		user-select: none;
 	}

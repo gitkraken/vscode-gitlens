@@ -2640,18 +2640,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const carried = otherSide != null && otherSide < 100 ? otherSide : undefined;
 		const persisted = sameSide ?? carried;
 		const position = detailsVisible ? (persisted ?? 100 - detailsDefaultPct) : 100;
-		// Maximize is bottom-only: drive the (start=graph) share to 0 so the details pane fills the area.
-		// The divider is disabled while maximized so no drag can overwrite the persisted `bottomPosition`
-		// — restore just re-binds `.position` to it. Gated on `detailsVisible` so a stray flag can't
-		// force a hidden panel open.
-		const maximized = isBottom && detailsVisible && hasPaneContent && (this.graphState.details?.maximized ?? false);
+		// Maximize is bottom-only and a sticky split-panel STATE, not a position write — the pane keeps
+		// filling through container resizes, and `position`/`bottomPosition` stay untouched underneath so
+		// restore is exact. The divider is disabled while maximized. Gated on `detailsVisible` so a stray
+		// flag can't force a hidden panel open. Two independent sources feed it: `panelMaximized`
+		// (persisted panel state) and `sheetMaximized` (transient, derived from the open sheet — never
+		// persisted).
+		const panelMaximized =
+			isBottom && detailsVisible && hasPaneContent && (this.graphState.details?.maximized ?? false);
+		const sheetMaximized = isBottom && detailsVisible && hasPaneContent && this._sheetOpen && this._sheetMaximized;
+		const maximized = panelMaximized || sheetMaximized;
 		return html`<gl-split-panel
 			class=${classMap({ 'graph__details-split': true, '-vertical': isBottom })}
 			orientation=${isBottom ? 'vertical' : 'horizontal'}
 			primary="end"
-			.position=${maximized ? 0 : position}
+			.position=${position}
+			?maximized=${maximized}
 			.snap=${hasPaneContent ? this._detailsSnap : undefined}
 			.disabled=${!hasPaneContent || maximized}
+			?animate=${this._animateDetailsSplit}
 			@gl-split-panel-change=${this.handleDetailsSplitChange}
 			@gl-split-panel-drag-end=${this.handleSplitDragEnd}
 			@gl-split-panel-closed-change=${this.handleDetailsClosedChange}
@@ -2663,7 +2670,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					sha=${effectiveSha ?? nothing}
 					repo-path=${effectiveRepoPath ?? nothing}
 					?show-maximize=${isBottom}
-					?maximized=${maximized}
+					?maximized=${panelMaximized}
+					?sheet-maximized=${sheetMaximized}
 					?graph-ready=${this.detailsCoachMarksEligible}
 					.shas=${multi?.shas}
 					.graphReachability=${single?.reachability}
@@ -2676,6 +2684,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@select-commit=${this.handleSelectCommit}
 					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
 					@gl-graph-sheet-stack-change=${this.handleSheetStackChange}
+					@gl-detail-sheet-closing=${this.handleDetailSheetClosing}
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
@@ -2818,9 +2827,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 			this._branchSheetOpen = false;
 			this.detailsPanelEl?.closeBranchSheet();
-			// Also covers a close arriving before the panel mounted — no panel, so no closed event to
-			// carry the restore.
-			this.restoreMaximizedAfterBranchSheet();
 			return;
 		}
 		if (e.detail.name == null) return;
@@ -2840,32 +2846,47 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@state()
 	private _branchSheetOpen = false;
 
-	/** `details.maximized` as it stood before the branch sheet opened — maximizing from the sheet's chip is
-	 *  scoped to the sheet, so closing it restores what the panel had (only when the sheet itself made the
-	 *  change; see {@link _maximizeToggledInBranchSheet}). `undefined` means no sheet is open. */
-	private _maximizedBeforeBranchSheet?: boolean;
+	/** Whether ANY sheet (branch, compare, conflict, rebase-summary) is currently open — the general
+	 *  counterpart of {@link _branchSheetOpen}, gating the transient sheet-maximize. */
+	@state()
+	private _sheetOpen = false;
 
-	/** Whether the sheet's own maximize chip was used while it was open — see
-	 *  {@link restoreMaximizedAfterBranchSheet}. */
-	private _maximizeToggledInBranchSheet = false;
+	/** Transient, derived sheet-maximize — never persisted. Seeded per-kind on open (rebase-summary
+	 *  always, compare when `detailsMaximizeOnMode` is set), toggled by the sheet's own maximize chip,
+	 *  and cleared whenever the sheet stack empties. See {@link releaseSheetMaximize}. */
+	@state()
+	private _sheetMaximized = false;
 
-	/** Restores the pre-sheet maximize state; a sheet-scoped maximize must not outlive the sheet. */
-	private restoreMaximizedAfterBranchSheet(): void {
-		const restore = this._maximizedBeforeBranchSheet;
-		const toggled = this._maximizeToggledInBranchSheet;
-		this._maximizedBeforeBranchSheet = undefined;
-		this._maximizeToggledInBranchSheet = false;
-		// Only undo a maximize the sheet's OWN chip made. While the sheet was up, an activated mode, a
-		// pane hide, or a dock flip may have taken ownership of `maximized` — forcing the pre-sheet value
-		// back would clobber theirs (e.g. un-maximizing a compose session the user just entered).
-		if (restore == null || !toggled) return;
+	/** True for the ~400ms glide after a sheet-maximize release — opts the details split into an
+	 *  animated position change instead of its normal instant snap. Cleared by
+	 *  {@link releaseSheetMaximize}'s timer. */
+	@state()
+	private _animateDetailsSplit = false;
 
-		const gs = this.graphState;
-		if ((gs.details?.maximized ?? false) === restore) return;
+	private _releaseSheetMaximizeTimer?: ReturnType<typeof setTimeout>;
 
-		gs.details = { maximized: restore };
-		this.persistState();
+	/** Ends a sheet-maximize engagement with an animated glide back to the panel's normal split.
+	 *  No-op if not currently sheet-maximized. */
+	private releaseSheetMaximize(): void {
+		if (!this._sheetMaximized) return;
+
+		if (this._releaseSheetMaximizeTimer != null) {
+			clearTimeout(this._releaseSheetMaximizeTimer);
+		}
+
+		this._animateDetailsSplit = true;
+		this._sheetMaximized = false;
+		this._releaseSheetMaximizeTimer = setTimeout(() => {
+			this._releaseSheetMaximizeTimer = undefined;
+			this._animateDetailsSplit = false;
+		}, 400);
 	}
+
+	/** A sheet started its animated exit (Esc/X/scrim) — restore early so the maximize glide runs
+	 *  alongside the sheet's own close animation instead of snapping after it finishes. */
+	private readonly handleDetailSheetClosing = (): void => {
+		this.releaseSheetMaximize();
+	};
 
 	private handleAlternateModeClose = (): void => {
 		const gs = this.graphState;
@@ -3114,9 +3135,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Toggling to Visualizations is an in-memory affordance only; users opt back in per session.
 		// `visualizationMode` and `treemapMode` ARE persisted so the user's last visualization choice
 		// (and treemap sub-mode) carries forward across sessions when they re-enter Visualizations.
+		// `maximized` is transient/derived (panel and sheet forms both) — never persisted.
+		const { maximized: _maximized, ...persistedDetails } = gs.details ?? {};
 		const state = {
 			panels: {
-				details: { ...gs.details },
+				details: persistedDetails,
 				sidebar: { ...gs.sidebar },
 				minimap: { ...gs.minimap },
 			},
@@ -3330,25 +3353,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private handleToggleDetailsMaximized = (): void => {
-		const gs = this.graphState;
-		// Attribute the change to the sheet so its close can undo it — and only it.
-		if (this._branchSheetOpen) {
-			this._maximizeToggledInBranchSheet = true;
+	private handleToggleDetailsMaximized = (e: CustomEvent<{ sheet?: boolean } | undefined>): void => {
+		if (e.detail?.sheet) {
+			if (this._sheetMaximized) {
+				this.releaseSheetMaximize();
+			} else {
+				// Engaging is an instant snap, same as the panel's own toggle — only the RELEASE glides.
+				this._sheetMaximized = true;
+			}
+			return;
 		}
 
+		const gs = this.graphState;
 		gs.details = { maximized: !(gs.details?.maximized ?? false) };
 		this.persistState();
 	};
 
-	/** `details.maximized` as it stood before the rebase summary sheet maximized the pane — so closing
-	 *  the sheet restores what the user (or an active mode) had, instead of always un-maximizing.
-	 *  `undefined` means we haven't maximized for a sheet. */
-	private _maximizedBeforeRebaseSummary?: boolean;
-
 	private handleSheetStackChange = (e: CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>): void => {
 		this.handleBranchSheetStackChange(e.detail.kinds, e.detail.prevKinds);
-		this.handleRebaseSummaryStackChange(e.detail.kinds, e.detail.prevKinds);
+
+		const { kinds, prevKinds } = e.detail;
+		this._sheetOpen = kinds.length > 0;
+
+		// Seed per-kind auto-maximize on kind-add; a manual toggle persists across in-stack replaces.
+		if (kinds.includes('rebaseSummary') && !prevKinds.includes('rebaseSummary')) {
+			this._sheetMaximized = true;
+		} else if (
+			kinds.includes('compare') &&
+			!prevKinds.includes('compare') &&
+			(this.graphState.config?.detailsMaximizeOnMode ?? true)
+		) {
+			this._sheetMaximized = true;
+		}
+
+		if (kinds.length === 0 && prevKinds.length > 0) {
+			this.releaseSheetMaximize();
+		}
 	};
 
 	/** The branch sheet opening/closing. Close is an "any path" signal — Esc/X/scrim, the Focus
@@ -3363,44 +3403,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		if (!isOpen) {
 			this._branchSheetOpen = false;
-			this.restoreMaximizedAfterBranchSheet();
 			this.graph?.clearRefFocus();
 			return;
 		}
 
 		this._branchSheetOpen = true;
-		this._maximizedBeforeBranchSheet ??= this.graphState.details?.maximized ?? false;
-	}
-
-	/** The end-of-run summary is a full review surface but renders `position: absolute` inside the
-	 *  details pane, so at the default split almost none of it is visible. Reuse the same bottom-only
-	 *  maximize the modes use — it drives the split to 0 with the divider disabled, so the persisted
-	 *  `bottomPosition` is never overwritten and restoring is just re-binding it. The side dock has no
-	 *  maximize, so its split is left alone. */
-	private handleRebaseSummaryStackChange(kinds: SheetKind[], prevKinds: SheetKind[]): void {
-		const wasOpen = prevKinds.includes('rebaseSummary');
-		const isOpen = kinds.includes('rebaseSummary');
-		if (wasOpen === isOpen) return;
-
-		const gs = this.graphState;
-		if (!isOpen) {
-			const restore = this._maximizedBeforeRebaseSummary;
-			this._maximizedBeforeRebaseSummary = undefined;
-			// Only undo OUR maximize — if it was already maximized when the sheet opened, leave it.
-			if (restore === false && (gs.details?.maximized ?? false)) {
-				gs.details = { maximized: false };
-				this.persistState();
-			}
-			return;
-		}
-
-		if (this.effectiveDetailsLocation !== 'bottom' || this._maximizedBeforeRebaseSummary != null) return;
-
-		this._maximizedBeforeRebaseSummary = gs.details?.maximized ?? false;
-		if (!this._maximizedBeforeRebaseSummary) {
-			gs.details = { maximized: true };
-			this.persistState();
-		}
 	}
 
 	private emitDetailsVisibilityTelemetry(visible: boolean, trigger: DetailsVisibleTrigger): void {
@@ -3495,9 +3502,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		});
 	};
 
-	/** The modes that auto-maximize the bottom-docked panel on entry (gated by `graph.details.maximizeOnMode`). */
+	/** The panel modes that auto-maximize the bottom-docked panel on entry (gated by
+	 *  `graph.details.maximizeOnMode`). Compare only ever reports as a sheet — see
+	 *  {@link handleSheetStackChange}'s own auto-maximize seeding. */
 	private isMaximizeMode(mode: GraphDetailsMode): boolean {
-		return mode === 'compose' || mode === 'review' || mode === 'resolve' || mode === 'compare';
+		return mode === 'compose' || mode === 'review' || mode === 'resolve';
 	}
 
 	private trackModeOpenedClosed(

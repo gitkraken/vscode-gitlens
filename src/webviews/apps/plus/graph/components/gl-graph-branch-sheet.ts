@@ -148,6 +148,7 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 	@property({ type: Boolean, attribute: 'show-maximize' })
 	showMaximize = false;
 
+	/** Fed from the panel's SHEET maximize state (transient, derived) — not the panel's own. */
 	@property({ type: Boolean, attribute: 'maximized' })
 	maximized = false;
 
@@ -255,7 +256,7 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 					: nothing
 			}
 			${this.renderHideChip(ref, context)}
-			${this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
+			${this.showMaximize ? renderDetailsMaximizeChip(this.maximized, true, true) : nothing}
 			<gl-graph-branch-sheet-pane
 				.ref=${ref}
 				.services=${this.services}

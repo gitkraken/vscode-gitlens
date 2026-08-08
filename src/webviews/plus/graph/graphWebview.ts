@@ -64,7 +64,12 @@ import type {
 } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { ContextKeys } from '../../../constants.context.js';
-import type { StoredGraphExcludedRef, StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
+import type {
+	StoredGraphExcludedRef,
+	StoredGraphFilters,
+	StoredGraphRefType,
+	StoredGraphState,
+} from '../../../constants.storage.js';
 import type {
 	GraphShownTelemetryContext,
 	GraphTelemetryContext,
@@ -4644,6 +4649,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const storedGraphState = this.container.storage.getWorkspace('graph:state');
 		const storedPanels = storedGraphState?.panels;
+		// A memento written before `maximized` was dropped from the persisted shape (now transient/
+		// derived — see `graph-app.ts`'s `persistStateNow`) may still carry the leaked key; strip it so
+		// it never round-trips back into a fresh bootstrap.
+		type StoredGraphDetails = NonNullable<NonNullable<StoredGraphState['panels']>['details']>;
+		const { maximized: _leakedMaximized, ...storedDetails } = (storedPanels?.details ?? {}) as StoredGraphDetails &
+			Record<'maximized', boolean | undefined>;
 
 		// Seed the Overview "Recent" timeframe from the memento before `getOverviewData()` runs
 		// below — keeps host-pushed overview updates in sync with the persisted choice on reload.
@@ -4762,7 +4773,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			layoutPromptNeeded: this.getLayoutPromptNeeded(),
 			searchRequest: searchRequest,
 			details: {
-				...storedPanels?.details,
+				...storedDetails,
 				// Until a details location has been saved (the first-time experience), the panel starts
 				// hidden — the first interaction that shows it saves the location as 'auto' (see the
 				// webview's details-visibility transition), ending the first-time state.

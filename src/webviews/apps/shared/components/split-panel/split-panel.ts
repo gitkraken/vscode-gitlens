@@ -129,6 +129,21 @@ export class GlSplitPanel extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
 
+	/** Opt-in animated glide on `.position` changes — normally a position change snaps instantly.
+	 *  Set for a deliberate transition (e.g. a maximize release); leave unset for drag/keyboard, which
+	 *  already move smoothly under the pointer/key and would otherwise fight the transition. Named
+	 *  `animated` (attribute `animate`) — `animate` alone collides with `Element.prototype.animate`. */
+	@property({ type: Boolean, attribute: 'animate', reflect: true })
+	animated = false;
+
+	/** The primary panel fills the container, as a sticky STATE rather than a position write — driving
+	 *  `position` to the edge instead would cache the fill as the primary's pixel size, which the
+	 *  resize-hold branch then preserves when the container grows, eroding the fill. While maximized,
+	 *  `position` (and the cached pixel size) are untouched underneath, so restoring is exact even
+	 *  after resizes. Consumers should disable the divider alongside this. */
+	@property({ type: Boolean, reflect: true })
+	maximized = false;
+
 	/**
 	 * Tracks the last-emitted closed state. `undefined` doubles as the "not yet seeded"
 	 * sentinel — `emitClosedIfChanged` short-circuits until `connectedCallback` seeds the
@@ -273,7 +288,8 @@ export class GlSplitPanel extends LitElement {
 	}
 
 	protected override willUpdate(): void {
-		this.style.setProperty('--_start-size', `${this._position}%`);
+		const startSize = this.maximized ? (this.primary === 'start' ? '100%' : '0%') : `${this._position}%`;
+		this.style.setProperty('--_start-size', startSize);
 	}
 
 	protected override updated(): void {

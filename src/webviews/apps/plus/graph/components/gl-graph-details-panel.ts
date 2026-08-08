@@ -584,6 +584,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ type: Boolean })
 	maximized = false;
 
+	/** Whether the top sheet is currently sheet-maximized (transient, derived) — drives the branch/
+	 *  compare sheet's own maximize chip and the sheet stack's `maximized` binding. Distinct from
+	 *  {@link maximized}, which is the panel's own state. */
+	@property({ type: Boolean, attribute: 'sheet-maximized' })
+	sheetMaximized = false;
+
 	/** Drives only the "first open of Graph" coach-mark trigger; `graph-app` owns the underlying state. */
 	@property({ type: Boolean, attribute: 'graph-ready' })
 	graphReady = false;
@@ -947,7 +953,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					.orgSettings=${this._state.orgSettings.get()}
 					.changeStamp=${this._branchSheetChangeStamp}
 					?show-maximize=${this.showMaximize}
-					?maximized=${this.maximized}
+					?maximized=${this.sheetMaximized}
 					@gl-detail-sheet-close=${this.handleCloseBranchSheet}
 				></gl-graph-branch-sheet>`;
 			case 'conflict':
@@ -978,7 +984,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					@gl-detail-sheet-close=${this.handleCloseCompareSheet}
 					@gl-graph-compare-promote=${this.handleComparePromote}
 					>${this.renderCompareMode()}${
-						this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing
+						this.showMaximize ? renderDetailsMaximizeChip(this.sheetMaximized, true, true) : nothing
 					}<gl-action-chip
 						slot="actions"
 						icon="refresh"

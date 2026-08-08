@@ -25,6 +25,10 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		'gl-detail-sheet-close': CustomEvent<void>;
+		/** Fired the moment the sheet starts its animated exit — before `gl-detail-sheet-close`, which
+		 *  only fires once the exit animation finishes. Lets a host that maximized itself for this
+		 *  sheet start its own restore glide in parallel instead of waiting for the sheet to fully close. */
+		'gl-detail-sheet-closing': CustomEvent<void>;
 	}
 }
 
@@ -411,6 +415,7 @@ export class GlDetailSheet extends LitElement {
 		}
 
 		this.closing = true;
+		this.dispatchEvent(new CustomEvent('gl-detail-sheet-closing', { bubbles: true, composed: true }));
 		// Wait for Lit to apply the [closing] attribute and the CSS rule to install the new
 		// animation. Read getAnimations() on the next frame so the reverse animation we care
 		// about is present, then dispatch on its `finished` Promise. Falls back to a hard
