@@ -6,7 +6,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import { toCollectionScopeFailure } from '../../collectionMetadata.js';
+import { throwIfCallerContractError, toCollectionScopeFailure } from '../../collectionMetadata.js';
 import { collectionScopeKey } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
@@ -143,6 +143,11 @@ export async function collectProviderPagedResult<T>(
 			result = await fetch(cursor);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
+
+			// A caller-contract error is not a fact about this scope, so it is never recorded as one — see
+			// `throwIfCallerContractError`. Checked alongside cancellation because both are errors that a
+			// per-scope failure would misdescribe.
+			throwIfCallerContractError(ex);
 
 			// When the caller supplied a scope, preserve the items already fetched from that scope and record the
 			// failure in collection metadata rather than re-throwing and discarding the prefix. Callers without a

@@ -44,7 +44,14 @@ export interface IssueCountScope {
 	/** Repositories to count over. Combines with `org`, exactly as in `searchIssuesPage`. */
 	repos?: ProviderReposInput;
 	org?: string;
-	/** Same criteria model as `searchIssuesPage`, validated against the same capability table. */
+	/**
+	 * Same criteria model as `searchIssuesPage`, validated against the same capability table.
+	 *
+	 * `criteria.sort` does not affect the count — a total is invariant under ordering — but it is still VALIDATED,
+	 * and an unsupported key refuses this scope exactly as it would refuse the read. That is the point of the
+	 * count: it previews the constraints the read will apply, so one that accepted what the read refuses would
+	 * promise a fetch that can't happen, which is worse than no preview at all.
+	 */
 	criteria?: IssueSearchCriteria;
 }
 

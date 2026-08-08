@@ -9,8 +9,8 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
+import type { IssuesForProjectOptions } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
-import type { IssueFilter } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Trello];
@@ -95,7 +95,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	protected override async getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<IssueShape[] | undefined> {
 		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
 	}
@@ -103,7 +103,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	protected override async getProviderIssuesForProjectWithTruncation(
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
-		options?: { user?: string; filters?: IssueFilter[] },
+		options?: IssuesForProjectOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
 		if (!isIssueResourceDescriptor(project)) return undefined;
@@ -129,6 +129,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		const result = await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
 			assigneeLogins: options?.user != null ? [options.user] : undefined,
 			trelloBoardListsById: trelloBoardListsById,
+			sort: options?.sort,
 		});
 
 		const values = result.values.flatMap(issue => {

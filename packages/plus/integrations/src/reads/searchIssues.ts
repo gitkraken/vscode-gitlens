@@ -1,4 +1,5 @@
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
+import { effectiveIssueSort } from '@gitlens/git/utils/issue.utils.js';
 import type { IntegrationIds } from '../constants.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
@@ -40,8 +41,13 @@ import {
  * for the same reason `broaden.ts`, `sweeps.ts` and `issueTracker.ts` are separate files.
  *
  * Contract details worth knowing before calling:
- * - Ordering is ALWAYS most-recently-updated-first. Not an option: a "show the N most recent" policy at the
- *   provider's result ceiling is only correct under a guaranteed order.
+ * - Ordering is `criteria.sort`, most-recently-updated-first by default, and validated like every other criterion
+ *   against `getSupportedFilters().issueSearch.sorts`. SOME order is always requested — a "show the N most recent"
+ *   policy at the provider's result ceiling is only correct under a guaranteed one, and the ceiling warning names
+ *   the key it selected the window under. A key the provider can't express refuses the read rather than serving a
+ *   differently-ordered result; do not change it mid-pagination (a cursor is bound to the order it was made under,
+ *   and threading it under a different key is refused with a warning + `fetchFailed` — drop the cursor and read
+ *   from the first page instead).
  * - Paging is cursor-only. `page` alone walks 1..N internally (O(N) requests); a page past the last one is an
  *   empty page N, never page N−1 relabeled.
  * - At the provider's result ceiling the read SUCCEEDS and reports an omission carrying the total match count,
@@ -214,7 +220,13 @@ export async function searchIssuesPage(
 		// warning carrying the total. Anything else truncated (an unusable continuation, a provider that stopped
 		// advancing) falls back to the generic wording.
 		warnings.push(
-			issueSearchCapResultWarning(options.providerId, domain, options.connectionId, totalCount) ??
+			issueSearchCapResultWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				totalCount,
+				effectiveIssueSort(options.criteria?.sort),
+			) ??
 				truncationWarning(
 					options.providerId,
 					domain,

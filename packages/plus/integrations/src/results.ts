@@ -1,4 +1,5 @@
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
+import type { IssueSorting } from '@gitlens/git/models/issue.js';
 import type { IntegrationIds } from './constants.js';
 
 export interface ConnectionStateChangeEvent {
@@ -77,6 +78,15 @@ export interface ProviderWarningOmission {
 	limit?: number;
 	/** Total matches the provider reported, when it reports one. Only GitHub's search cap does today. */
 	totalCount?: number;
+	/**
+	 * The order the reachable window was selected under, as `field:direction`, when the omission is a result
+	 * ceiling.
+	 *
+	 * Present so a consumer can word its own "N matched, showing the first M" without assuming WHICH M: the
+	 * provider serves the top M under this key, so the sentence is only true if it names it. Absent for every
+	 * omission that isn't a ceiling, where no window was selected by an order.
+	 */
+	sort?: IssueSorting;
 	/** Which repository / project / resource was affected, when one is attributed. */
 	scope?: ProviderWarningOmissionScope;
 }
