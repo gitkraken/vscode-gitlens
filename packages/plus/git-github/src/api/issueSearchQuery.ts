@@ -82,6 +82,13 @@ export const gitHubIssueSearchRelationships: Record<IssueSearchRelationship, { q
  * but the bare form is what this read has always emitted, so keeping it makes the default byte-identical to
  * today's query — and the exact-query tests and recorded fixtures stay valid. Do not "normalize" it.
  *
+ * `reactions` maps to the per-emoji `sort:reactions-+1`, NOT the bare `sort:reactions`. GitHub's bare form orders
+ * by the total across every reaction type, but the only reaction count on an `IssueShape` is `thumbsUpCount`,
+ * which this client fills from `reactions(content: THUMBS_UP)`. Ordering by the total would rank the page by a
+ * number the caller cannot see — and would disagree with `getIssueComparator`, which re-sorts a merged page from
+ * `thumbsUpCount`, so the same request would order one way with a single relationship and another way with two.
+ * `@gitkraken/provider-apis` maps it the same way for the same reason.
+ *
  * Absent keys are absent on purpose: `closed` is NOT here even though `IssueShape.closedDate` exists, because
  * GitHub's search cannot order by close date and a client-side sort over a page cut off at the result ceiling is
  * exactly the lie the contract avoids. `sorts` in `githubIssueSearchCapabilities` is the same set, and a parity
@@ -94,8 +101,8 @@ export const gitHubIssueSortQualifiers: Partial<Record<IssueSorting, string>> = 
 	'updated:desc': 'sort:updated',
 	'comments:asc': 'sort:comments-asc',
 	'comments:desc': 'sort:comments-desc',
-	'reactions:asc': 'sort:reactions-asc',
-	'reactions:desc': 'sort:reactions-desc',
+	'reactions:asc': 'sort:reactions-+1-asc',
+	'reactions:desc': 'sort:reactions-+1-desc',
 };
 
 /**

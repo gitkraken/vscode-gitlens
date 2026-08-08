@@ -734,8 +734,11 @@ suite('GitHubApi.searchIssuesPage ordering', () => {
 		['updated:desc', 'sort:updated'],
 		['comments:asc', 'sort:comments-asc'],
 		['comments:desc', 'sort:comments-desc'],
-		['reactions:asc', 'sort:reactions-asc'],
-		['reactions:desc', 'sort:reactions-desc'],
+		// The per-emoji form, not the bare `sort:reactions`: the bare one orders by the total across every reaction
+		// type, while `IssueShape.thumbsUpCount` — the number this client actually carries, and the one the merge
+		// comparator reads — is thumbs-up only. See `gitHubIssueSortQualifiers`.
+		['reactions:asc', 'sort:reactions-+1-asc'],
+		['reactions:desc', 'sort:reactions-+1-desc'],
 	];
 
 	for (const [sort, qualifier] of sorts) {
