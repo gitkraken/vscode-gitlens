@@ -95,6 +95,7 @@ function buildRuntime(): IntegrationServiceContext {
 			getCurrentAccount: () => {
 				throw new Error('not implemented in fixture');
 			},
+			deletePullRequests: () => {},
 		},
 		repositories: { getOpenRemotes: async () => [] },
 		hooks: {},

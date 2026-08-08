@@ -31,6 +31,8 @@ import type {
 export interface FakeRuntime extends IntegrationServiceContext {
 	/** Captured telemetry-hook invocations for assertion. */
 	readonly emittedEvents: Array<{ event: string; props?: Record<string, unknown>; source?: unknown }>;
+	/** Number of times `cache.deletePullRequests` was called. */
+	readonly deletePullRequestsCalls: number;
 	/** Manual trigger for `subscription.onDidChange`. */
 	fireSubscriptionChange(): void;
 	/** Manual trigger for `subscription.onDidCheckIn`. */
@@ -43,6 +45,7 @@ export interface FakeRuntime extends IntegrationServiceContext {
 
 export function createFakeRuntime(): FakeRuntime {
 	const emittedEvents: FakeRuntime['emittedEvents'] = [];
+	let deletePullRequestsCalls = 0;
 
 	const subOnChange = new Emitter<void>();
 	const subOnCheckIn = new Emitter<{ force?: boolean }>();
@@ -128,6 +131,10 @@ export function createFakeRuntime(): FakeRuntime {
 		getCurrentAccount: () => {
 			throw new Error('FakeRuntime.cache.getCurrentAccount: not implemented in test');
 		},
+		// Counted rather than a silent no-op: merge tests assert eviction happened exactly once, or not at all.
+		deletePullRequests: () => {
+			deletePullRequestsCalls++;
+		},
 	};
 
 	const repositories: RepositoriesProvider = { getOpenRemotes: async () => [] };
@@ -167,6 +174,9 @@ export function createFakeRuntime(): FakeRuntime {
 		repositories: repositories,
 		hooks: hooks,
 		emittedEvents: emittedEvents,
+		get deletePullRequestsCalls() {
+			return deletePullRequestsCalls;
+		},
 		fireSubscriptionChange: () => subOnChange.fire(),
 		fireSubscriptionCheckIn: (force?: boolean) => subOnCheckIn.fire({ force: force }),
 		fireAuthenticationSessionChange: (providerId: string) => authOnChange.fire({ provider: { id: providerId } }),

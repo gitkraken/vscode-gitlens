@@ -327,6 +327,12 @@ export abstract class GitHostIntegration<
 
 			this.handleProviderException('mergePullRequest', ex, { scope: scope });
 			return false;
+		} finally {
+			// A merge attempt just changed the state of more than this pull request on the server (a
+			// stacked merge lands every layer below and retargets every layer above) whether it succeeded
+			// or failed partway through — so cached pull requests can't be trusted either way. Without
+			// this, ref pills and branch enrichment keep serving the pre-merge object until its expiry.
+			this.ctx.cache.deletePullRequests();
 		}
 	}
 

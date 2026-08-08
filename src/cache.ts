@@ -63,6 +63,27 @@ export class CacheProvider implements Disposable {
 		this._cache.delete(`${cache}:${key}`);
 	}
 
+	/** Evicts every cached pull request — by branch, by sha, by id, and the pull request entries in the
+	 *  shared issue-or-pr caches (their keys carry a `pullrequest` type segment; issues stay). A merge
+	 *  invalidates more than the merged pull request alone — a stacked merge lands every layer below it
+	 *  and retargets every layer above — and no caller can name that full set, so the whole class of
+	 *  entries is the correct blast radius. Merges are rare; the cost is a refetch on next demand. */
+	deletePullRequests(): void {
+		for (const key of this._cache.keys()) {
+			if (key.startsWith('prByBranch:') || key.startsWith('prsById:') || key.startsWith('prsBySha:')) {
+				this._cache.delete(key);
+				continue;
+			}
+
+			if (
+				(key.startsWith('issuesOrPrsById:') || key.startsWith('issuesOrPrsByIdAndRepo:')) &&
+				key.includes(`:${'pullrequest' satisfies IssueOrPullRequestType}`)
+			) {
+				this._cache.delete(key);
+			}
+		}
+	}
+
 	/** Returns the resolved cached value without triggering a fetch on cache miss */
 	private peek<T extends Cache>(cache: T, key: CacheKey<T>): CacheValue<T> | undefined {
 		const item = this._cache.get(`${cache}:${key}`);
