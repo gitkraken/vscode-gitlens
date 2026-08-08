@@ -21,6 +21,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly reviewRequests?: PullRequestReviewer[];
 	readonly assignees?: PullRequestMember[];
 	readonly project?: IssueProject;
+	readonly stack?: PullRequestStackInfo;
 }
 
 @loggable(i => i.id)
@@ -59,6 +60,7 @@ export class PullRequest implements PullRequestShape {
 		/** Commits on the head that aren't on the base. Appended rather than slotted with the other counts:
 		 *  this constructor is positional and every mapper passes through it. */
 		public readonly commitCount?: number,
+		public readonly stack?: PullRequestStackInfo,
 	) {}
 
 	get closed(): boolean {
@@ -161,6 +163,26 @@ export interface PullRequestRefs {
 	base: PullRequestRef;
 	head: PullRequestRef;
 	isCrossRepository: boolean;
+}
+
+/**
+ * A pull request's membership in a stack — an ordered chain of dependent pull requests where each
+ * targets the branch of the one below it.
+ *
+ * `baseRef` is the stack's ultimate target (its trunk) and is NOT the same as `refs.base`, which for
+ * anything above the bottom layer names the layer below. Use `refs.base` to diff a single layer; use
+ * `baseRef` to answer where the work ultimately lands.
+ */
+export interface PullRequestStackInfo {
+	id: string;
+	/** Identifies the stack within its repository. */
+	number: number;
+	/** Total pull requests in the stack. */
+	size: number;
+	/** This pull request's layer, 1-based, where 1 is closest to `baseRef`. */
+	position: number;
+	/** The branch the bottom of the stack targets. */
+	baseRef: string;
 }
 
 export interface PullRequestReviewer {

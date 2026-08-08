@@ -169,6 +169,13 @@ async function getBranchMergeTargetNameWithoutFallback(
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.remoteName}/${pr.refs.base.branch}`;
+
+			// A stacked PR's base is the layer below it — an ephemeral branch that is deleted when the
+			// stack merges. Persisting it would outlive the branch it names, and because a stored target
+			// wins over every other source it would keep winning, silently, until cleared by hand. Return
+			// it for display (per-layer diffs are what makes a stack reviewable) but never write it.
+			if (pr.stack != null) return name;
+
 			// Same self-write semantics as `getBranchContributionsOverview`'s Tier 2: the value
 			// being stored is the canonical mergeTarget any future overview lookup will resolve
 			// to, so skip the wholesale `branchOverviews` invalidation that would otherwise

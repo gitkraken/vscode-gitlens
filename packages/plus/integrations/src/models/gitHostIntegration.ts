@@ -2,10 +2,16 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestStackInfo,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
@@ -180,6 +186,14 @@ export abstract class GitHostIntegration<
 
 	getRepoInfo?(repo: { owner: string; name: string; project?: string }): Promise<ProviderRepository | undefined>;
 
+	/** Stack membership for every stacked pull request in the repository, keyed by pull request number.
+	 *  Only hosts with a stacks concept implement this (currently GitHub). */
+	getStacksByPullRequestNumber?(
+		owner: string,
+		repo: string,
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestStackInfo> | undefined>;
+
 	protected abstract getProviderDefaultBranch(
 		{ accessToken }: ProviderAuthenticationSession,
 		repo: T,
@@ -292,7 +306,11 @@ export abstract class GitHostIntegration<
 		options?: { project?: string; cursor?: string },
 	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined>;
 
-	async mergePullRequest(pr: PullRequest, options?: { mergeMethod?: PullRequestMergeMethod }): Promise<boolean> {
+	async mergePullRequest(
+		pr: PullRequest,
+		options?: { mergeMethod?: PullRequestMergeMethod },
+		cancellation?: AbortSignal,
+	): Promise<boolean> {
 		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -301,10 +319,12 @@ export abstract class GitHostIntegration<
 		await this.refreshSessionIfExpired(scope);
 
 		try {
-			const result = await this.mergeProviderPullRequest(this._session!, pr, options);
+			const result = await this.mergeProviderPullRequest(this._session!, pr, options, cancellation);
 			this.resetRequestExceptionCount('mergePullRequest');
 			return result;
 		} catch (ex) {
+			if (isCancellationError(ex)) return false;
+
 			this.handleProviderException('mergePullRequest', ex, { scope: scope });
 			return false;
 		}
@@ -314,6 +334,7 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		pr: PullRequest,
 		options?: { mergeMethod?: PullRequestMergeMethod },
+		cancellation?: AbortSignal,
 	): Promise<boolean>;
 
 	@trace()

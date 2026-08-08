@@ -369,7 +369,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		repoPath: string,
 		ref: string,
 		options?: {
-			associatedPullRequest?: Promise<{ refs?: { base?: { branch: string } } } | undefined>;
+			associatedPullRequest?: Promise<
+				{ refs?: { base?: { branch: string } }; stack?: { position: number } } | undefined
+			>;
 			priority?: GitCommandPriority;
 		},
 		cancellation?: AbortSignal,
@@ -487,14 +489,20 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					if (branch == null) return undefined;
 
 					mergeTarget = `${branch.remoteName}/${pr.refs.base.branch}`;
-					// Store for future reuse — turns the next call into a Tier 1 path. Skip the
-					// `branchOverviews` invalidation that the write would otherwise trigger: we're
-					// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
-					// it would just force the next caller to redo the body. (gk-merge-target writes
-					// do not affect `baseBranchName`, so no need to skip that target.)
-					void this.storeMergeTargetBranchName(repoPath, ref, mergeTarget, {
-						skipInvalidation: ['branchOverviews'],
-					});
+					// A stacked PR's base is the layer below it, which is deleted when the stack merges.
+					// Storing it would leave a stored target naming a branch that no longer exists — and
+					// a stored target beats every other tier, so it would keep winning until cleared by
+					// hand. Use it for this lookup, but don't persist it.
+					if (pr.stack == null) {
+						// Store for future reuse — turns the next call into a Tier 1 path. Skip the
+						// `branchOverviews` invalidation that the write would otherwise trigger: we're
+						// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
+						// it would just force the next caller to redo the body. (gk-merge-target writes
+						// do not affect `baseBranchName`, so no need to skip that target.)
+						void this.storeMergeTargetBranchName(repoPath, ref, mergeTarget, {
+							skipInvalidation: ['branchOverviews'],
+						});
+					}
 				}
 			}
 

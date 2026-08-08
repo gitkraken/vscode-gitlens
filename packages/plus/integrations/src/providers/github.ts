@@ -5,6 +5,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestStackInfo,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -355,18 +356,100 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	/**
+	 * Stack membership for every stacked pull request in the repository, keyed by pull request number.
+	 *
+	 * List surfaces get their pull requests from the shared providers API, whose type carries no stack
+	 * membership, so the `stack`/`stackEntry` fields selected on the native per-pull-request reads never
+	 * reach them. This fills that gap in a single request for the whole repository, rather than a
+	 * per-pull-request enrichment that would scale with the list.
+	 *
+	 * `undefined` means unavailable (not enrolled in the preview, or not connected) as distinct from an
+	 * empty map, which means the repository genuinely has no stacks.
+	 */
+	override async getStacksByPullRequestNumber(
+		owner: string,
+		repo: string,
+		cancellation?: AbortSignal,
+	): Promise<Map<number, PullRequestStackInfo> | undefined> {
+		// The shared read path — it refreshes an expired session before use, which a bare `getSession()`
+		// does not (it returns the cached session verbatim once one exists, expired or not).
+		const session = await this.resolveReadSession(undefined, undefined);
+		if (session == null) return undefined;
+
+		const stacks = await (
+			await this.authenticationService.apis.github
+		)?.getRepositoryStacks(
+			this,
+			toTokenWithInfo(this.id, session),
+			owner,
+			repo,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
+		if (stacks == null) return undefined;
+
+		const byNumber = new Map<number, PullRequestStackInfo>();
+		for (const stack of stacks) {
+			// Defensive: this is a public-preview payload reaching us through an unvalidated cast, and a
+			// malformed entry must cost its own stack's badges, not the whole panel.
+			const members = stack?.pull_requests;
+			const baseRef = stack?.base?.ref;
+			if (members == null || baseRef == null) continue;
+
+			// `pull_requests` is ordered bottom to top, and `position` is 1-based from the bottom.
+			members.forEach((pr, i) => {
+				byNumber.set(pr.number, {
+					id: stack.id,
+					number: stack.number,
+					size: members.length,
+					position: i + 1,
+					baseRef: baseRef,
+				});
+			});
+		}
+
+		return byNumber;
+	}
+
 	protected override async mergeProviderPullRequest(
 		session: ProviderAuthenticationSession,
 		pr: PullRequest,
 		options?: {
 			mergeMethod?: PullRequestMergeMethod;
 		},
+		cancellation?: AbortSignal,
 	): Promise<boolean> {
 		const id = pr.nodeId;
 		const headRefSha = pr.refs?.head?.sha;
 		if (id == null || headRefSha == null) return false;
+
+		const api = await this.authenticationService.apis.github;
+
+		// GitHub rejects stacked pull requests on the legacy merge mutation, so they take the
+		// asynchronous merge instead — which also lands every layer below this one.
+		if (pr.stack != null) {
+			return (
+				(await api?.mergeStackedPullRequest(
+					this,
+					toTokenWithInfo(this.id, session),
+					pr.repository.owner,
+					pr.repository.repo,
+					Number(pr.id),
+					headRefSha,
+					{
+						mergeMethod: options?.mergeMethod,
+						baseUrl: this.apiBaseUrl,
+					},
+					cancellation,
+				)) ?? false
+			);
+		}
+
 		return (
-			(await this.authenticationService.apis.github)?.mergePullRequest(
+			api?.mergePullRequest(
 				this,
 				toTokenWithInfo(this.id, session),
 				id,
@@ -375,6 +458,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					mergeMethod: options?.mergeMethod,
 					baseUrl: this.apiBaseUrl,
 				},
+				cancellation,
 			) ?? false
 		);
 	}

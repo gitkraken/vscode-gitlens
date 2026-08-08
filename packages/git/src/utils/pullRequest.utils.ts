@@ -163,6 +163,15 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 					resourceName: value.project.resourceName,
 				}
 			: undefined,
+		stack: value.stack
+			? {
+					id: value.stack.id,
+					number: value.stack.number,
+					size: value.stack.size,
+					position: value.stack.position,
+					baseRef: value.stack.baseRef,
+				}
+			: undefined,
 	};
 	return serialized;
 }

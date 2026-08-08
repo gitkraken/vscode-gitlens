@@ -1,6 +1,6 @@
 import type { EnrichedItemsByUniqueId, PullRequestWithUniqueID } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
-import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
+import { Disposable, env, EventEmitter, Uri } from 'vscode';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest, PullRequestMember } from '@gitlens/git/models/pullRequest.js';
@@ -51,6 +51,10 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
+import {
+	confirmPullRequestMerge,
+	mergePullRequestWithProgress,
+} from '../integrations/utils/-webview/pullRequest.merge.utils.js';
 import {
 	convertIntegrationIdToEnrichProvider,
 	convertRemoteProviderIdToEnrichProvider,
@@ -527,17 +531,13 @@ export class LaunchpadProvider implements Disposable {
 		const integrationId = item.provider.id;
 		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
 
-		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
-			placeHolder: `Are you sure you want to merge ${item.headRef?.name ?? 'this pull request'}${
-				item.baseRef?.name ? ` into ${item.baseRef.name}` : ''
-			}? This cannot be undone.`,
-		});
-		if (confirm !== 'Merge') return;
+		if (!(await confirmPullRequestMerge(item.underlyingPullRequest))) return;
 
 		const integration = await this.container.integrations.get(integrationId);
 		if (integration == null) return;
 
-		await integration.mergePullRequest(item.underlyingPullRequest);
+		await mergePullRequestWithProgress(integration, item.underlyingPullRequest);
+		// Even a failed stacked merge can have landed lower layers before failing, so refresh regardless of outcome
 		this.refresh();
 	}
 

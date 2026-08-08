@@ -29,7 +29,7 @@ import {
 } from '@gitlens/git/utils/revision.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
 import { base64 } from '@gitlens/utils/base64.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
@@ -125,6 +125,85 @@ title
 updatedAt
 url
 `;
+/**
+ * Stacked-pull-request selections, appended to a pull request's selection set rather than baked into
+ * the fragments below: GitHub Enterprise Server schemas lag github.com, and selecting `stack` there
+ * fails the entire query with "Field 'stack' doesn't exist on type 'PullRequest'" — which would take
+ * every PR feature down with it, not just stacks. Always add these via `gqlPullRequestStackFragmentFor`.
+ */
+const gqlPullRequestStackFragment = `
+stack {
+	id
+	number
+	size
+	baseRefName
+}
+stackEntry {
+	position
+}
+`;
+
+function gqlPullRequestStackFragmentFor(options?: { baseUrl?: string }): string {
+	return isGitHubDotCom(options) ? gqlPullRequestStackFragment : '';
+}
+
+/** One layer of a stack, as returned by the stacks REST API. Ordered bottom to top. */
+export interface GitHubStackLayer {
+	number: number;
+	state: string;
+	draft?: boolean;
+	merged_at?: string | null;
+	head: { ref: string; sha: string };
+}
+
+export interface GitHubStackResource {
+	id: string;
+	number: number;
+	/** The stack's trunk — what the bottom member targets. */
+	base: { ref: string; sha?: string };
+	/** False once every member has merged; such a stack can no longer be extended. */
+	open?: boolean;
+	/** Members ordered bottom to top. */
+	pull_requests: GitHubStackLayer[];
+}
+
+/** Result of the asynchronous merge used for stacked pull requests. */
+interface GitHubAsyncMergeResult {
+	status: 'pending' | 'merged' | 'enqueued' | 'failed';
+	/** Everything but `status` is nested here — flattening it silently loses the poll ticket. */
+	details?: {
+		/** Always present; on `failed` it is the only explanation of why. */
+		message?: string;
+		/** Only while `pending` — the ticket to poll. */
+		uuid?: string;
+		/** Only once `merged`. */
+		sha?: string;
+		merge_method?: string;
+		merge_action?: string;
+		expected_head_sha?: string;
+	};
+}
+
+/**
+ * A 409 means a merge request is already in flight and carries its ticket, so it resumes rather than fails.
+ *
+ * The body has to be dug out of `original`: `requestCore` routes every 4xx through `handleRequestError`,
+ * which re-wraps octokit's `RequestError` in a `RequestClientError` carrying only `message` and `original`.
+ */
+function getAsyncMergeUuidFromConflict(ex: unknown): string | undefined {
+	const err = (RequestClientError.is(ex) ? ex.original : ex) as
+		| { status?: number; response?: { data?: GitHubAsyncMergeResult } }
+		| undefined;
+	if (err?.status !== 409) return undefined;
+
+	return err.response?.data?.details?.uuid;
+}
+
+const asyncMergePollIntervalMs = 2000;
+/** A stack merges one layer at a time and GitHub only promises "a few minutes", so the ceiling is
+ *  generous — giving up early would report a failure for a merge still in progress. */
+const maxAsyncMergePolls = 300;
+
 const gqlPullRequestLiteFragment = `
 ${gqlIssueOrPullRequestFragment}
 author {
@@ -880,6 +959,7 @@ export class GitHubApi {
 	repository(name: $repo, owner: $owner) {
 		pullRequest(number: $number) {
 			${gqlPullRequestFragment}
+			${gqlPullRequestStackFragmentFor(options)}
 		}
 	}
 }`;
@@ -960,6 +1040,7 @@ export class GitHubApi {
 			associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $include) {
 				nodes {
 					${gqlPullRequestLiteFragment}
+					${gqlPullRequestStackFragmentFor(options)}
 				}
 			}
 		}
@@ -1053,6 +1134,7 @@ export class GitHubApi {
 				associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
 					nodes {
 						${gqlPullRequestLiteFragment}
+						${gqlPullRequestStackFragmentFor(options)}
 					}
 				}
 			}
@@ -3190,6 +3272,40 @@ export class GitHubApi {
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
 	): Promise<Endpoints[R]['response']> {
+		return (await this.requestCore(
+			provider,
+			token,
+			route,
+			options,
+			scope,
+			cancellation,
+		)) as Endpoints[R]['response'];
+	}
+
+	/**
+	 * REST call for routes `@octokit/types` doesn't describe yet — currently the stacked-pull-request
+	 * merge APIs, which are in public preview and absent from the generated endpoint map. Prefer
+	 * `request` for anything typed.
+	 */
+	private async requestPreview<T>(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		route: string,
+		options: RequestParameters | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal | undefined,
+	): Promise<T> {
+		return (await this.requestCore(provider, token, route, options, scope, cancellation)) as T;
+	}
+
+	private async requestCore(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		route: string,
+		options: RequestParameters | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal | undefined,
+	): Promise<unknown> {
 		const { accessToken } = token;
 		try {
 			let signal: AbortSignal | undefined;
@@ -3203,15 +3319,15 @@ export class GitHubApi {
 			// Retry transient gateway/network failures on idempotent reads only
 			const method = route.split(' ', 1)[0].toUpperCase();
 			const retryable = method === 'GET' || method === 'HEAD';
-			return (await this.requestWithRetries(
+			return await this.requestWithRetries(
 				() =>
 					this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-						this.getDefaults(accessToken, request)(route as string, options),
+						this.getDefaults(accessToken, request)(route, options),
 					),
 				retryable,
 				signal,
 				scope,
-			)) as Endpoints[R]['response'];
+			);
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
@@ -3472,6 +3588,7 @@ export class GitHubApi {
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
+				${gqlPullRequestStackFragmentFor(options)}
 			}
 		}
 	}
@@ -3707,6 +3824,7 @@ export class GitHubApi {
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
+				${gqlPullRequestStackFragmentFor(options)}
 			}
 		}
 	}
@@ -3740,6 +3858,164 @@ export class GitHubApi {
 			const results = rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
 			return results;
 		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Every stack in the repository, each with its members bottom to top.
+	 *
+	 * One request regardless of how many pull requests are involved — which is what makes it the right
+	 * shape for list surfaces, whose pull requests arrive through the shared providers API and so carry no
+	 * stack membership of their own. Callers join the result by pull request number.
+	 *
+	 * A `404` means the repository isn't enrolled in the stacked-pull-requests preview; that's reported as
+	 * `undefined` rather than an error, since "no stacks" and "not available" both mean nothing to show.
+	 */
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getRepositoryStacks(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<GitHubStackResource[] | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const rsp = await this.requestPreview<{ data: GitHubStackResource[] }>(
+				provider,
+				token,
+				'GET /repos/{owner}/{repo}/stacks',
+				{ owner: owner, repo: repo, baseUrl: options?.baseUrl },
+				scope,
+				cancellation,
+			);
+
+			return rsp.data;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			Logger.warn(scope, `Unable to list stacks for ${owner}/${repo}: ${ex}`);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Merges a stacked pull request, and with it every layer below it.
+	 *
+	 * Stacks cannot go through `mergePullRequest` — GitHub rejects stacked pull requests on the legacy
+	 * synchronous merge endpoints and mutations. The replacement is asynchronous: submit, then poll a
+	 * ticket until it reaches a terminal state.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, pullNumber, expectedSourceSha) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			pullNumber: pullNumber,
+			expectedSourceSha: expectedSourceSha,
+		}),
+	})
+	async mergeStackedPullRequest(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		pullNumber: number,
+		expectedSourceSha: string,
+		options?: { mergeMethod?: PullRequestMergeMethod; baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<boolean> {
+		const scope = getScopedLogger();
+
+		try {
+			let uuid: string | undefined;
+
+			try {
+				const submitted = await this.requestPreview<{ data: GitHubAsyncMergeResult }>(
+					provider,
+					token,
+					'PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge-async',
+					{
+						owner: owner,
+						repo: repo,
+						pull_number: pullNumber,
+						sha: expectedSourceSha,
+						merge_method: options?.mergeMethod,
+						baseUrl: options?.baseUrl,
+					},
+					scope,
+					cancellation,
+				);
+
+				// Already merged or rejected outright — nothing to poll for. `enqueued` lands via the merge
+				// queue, which can take several merge groups to settle, so it's transitional like `pending`.
+				if (submitted.data.status !== 'pending' && submitted.data.status !== 'enqueued') {
+					if (submitted.data.status === 'failed') {
+						Logger.warn(
+							scope,
+							`Stacked merge refused: ${submitted.data.details?.message ?? 'no reason given'}`,
+						);
+					}
+					return submitted.data.status === 'merged';
+				}
+
+				uuid = submitted.data.details?.uuid;
+			} catch (ex) {
+				// A merge request is already in flight (a retry, or a double-click) — adopt its ticket and
+				// poll that instead of reporting a failure for a merge that is actually running.
+				uuid = getAsyncMergeUuidFromConflict(ex);
+				if (uuid == null) throw ex;
+			}
+
+			if (uuid == null) return false;
+
+			// The stack merges server-side one layer at a time, so this can take a while. Poll on a
+			// fixed interval and give up rather than hang forever if the ticket never settles.
+			for (let attempt = 0; attempt < maxAsyncMergePolls; attempt++) {
+				if (cancellation?.aborted) throw new CancellationError();
+
+				await new Promise(resolve => setTimeout(resolve, asyncMergePollIntervalMs));
+
+				const polled = await this.requestPreview<{ data: GitHubAsyncMergeResult }>(
+					provider,
+					token,
+					'GET /repos/{owner}/{repo}/pulls/{pull_number}/merge-async/{uuid}',
+					{
+						owner: owner,
+						repo: repo,
+						pull_number: pullNumber,
+						uuid: uuid,
+						baseUrl: options?.baseUrl,
+					},
+					scope,
+					cancellation,
+				);
+
+				if (polled.data.status === 'pending' || polled.data.status === 'enqueued') continue;
+
+				if (polled.data.status === 'failed') {
+					Logger.warn(scope, `Stacked merge failed: ${polled.data.details?.message ?? 'no reason given'}`);
+				}
+				return polled.data.status === 'merged';
+			}
+
+			Logger.warn(scope, `Timed out waiting for stacked merge of ${owner}/${repo}#${pullNumber}`);
+			return false;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			Logger.error(ex, scope);
 			throw this.handleException(ex, provider, scope);
 		}
 	}

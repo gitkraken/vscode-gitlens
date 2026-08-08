@@ -2,7 +2,7 @@ import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
-import type { PullRequestMember, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestMember, PullRequestStackInfo, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
@@ -164,6 +164,20 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 		url: string;
 		viewerPermission: GitHubViewerPermission;
 	};
+
+	/** Only selected against github.com — GitHub Enterprise Server schemas lag and reject the field. */
+	stack?: GitHubPullRequestStack | null;
+	/** Only selected against github.com — see `stack`. */
+	stackEntry?: { position: number } | null;
+}
+
+/** GitHub's stacked-pull-request object. Read-only; all stack mutations are REST-only. */
+export interface GitHubPullRequestStack {
+	id: string;
+	number: number;
+	size: number;
+	/** The branch the bottom of the stack targets — the stack's trunk. */
+	baseRefName: string;
 }
 
 export interface GitHubIssue extends Omit<GitHubIssueOrPullRequest, '__typename'> {
@@ -295,7 +309,34 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 			isCrossRepository: pr.isCrossRepository,
 		},
 		pr.isDraft,
+		// The lite fragment selects nothing between `isDraft` and `stack`.
+		undefined, // additions
+		undefined, // deletions
+		undefined, // commentsCount
+		undefined, // thumbsUpCount
+		undefined, // reviewDecision
+		undefined, // reviewRequests
+		undefined, // latestReviews
+		undefined, // assignees
+		undefined, // statusCheckRollupState
+		undefined, // project
+		undefined, // version
+		undefined, // commitCount
+		fromGitHubPullRequestStack(pr),
 	);
+}
+
+/** Both fields are absent on GitHub Enterprise Server (never selected) and `null` when unstacked. */
+function fromGitHubPullRequestStack(pr: GitHubPullRequestLite): PullRequestStackInfo | undefined {
+	if (pr.stack == null || pr.stackEntry == null) return undefined;
+
+	return {
+		id: pr.stack.id,
+		number: pr.stack.number,
+		size: pr.stack.size,
+		position: pr.stackEntry.position,
+		baseRef: pr.stack.baseRefName,
+	};
 }
 
 export function fromGitHubIssueOrPullRequestState(state: GitHubPullRequestState): PullRequestState {
@@ -474,9 +515,10 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			url: r.url,
 		})),
 		fromGitHubPullRequestStatusCheckRollupState(pr.commits.nodes?.[0]?.commit.statusCheckRollup?.state),
-		undefined,
-		undefined,
+		undefined, // project
+		undefined, // version
 		pr.commits.totalCount,
+		fromGitHubPullRequestStack(pr),
 	);
 }
 
