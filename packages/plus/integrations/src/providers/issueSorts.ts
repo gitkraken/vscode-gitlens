@@ -1,131 +1,75 @@
+import { SUPPORTED_ISSUE_SORTS } from '@gitkraken/provider-apis';
+import { getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
 import type { IssueSorting } from '../providerFilters.js';
 
 /**
  * The per-provider ordering vocabulary of the issue reads: which neutral `field:direction` keys each provider
- * surface can express SERVER-SIDE, one constant per surface.
+ * surface can express SERVER-SIDE.
  *
- * A module of its own rather than more of `models.ts`, which already carries every provider's whole metadata
- * record: this is one cohesive concern with four asymmetries that need explaining side by side, and explaining them
- * next to scopes, icons and paging modes buries them. `providersMetadata` reads these; nothing else should need to.
+ * DERIVED from `@gitkraken/provider-apis`, not transcribed from it. The SDK is where a neutral key becomes a
+ * provider query, so it is the only place that can say what a provider accepts; a copy kept here would be a
+ * second hand-maintained table on a second release cadence, and the symptom of drift is not a failed build but a
+ * read this facade promised and the SDK then rejects at runtime — which is exactly what happened while these were
+ * transcribed, on the one key (`reactions`) whose meaning is narrower than its name.
  *
- * These are transcriptions of the translation tables in `@gitkraken/provider-apis` (`GITHUB_ISSUE_SORT_QUALIFIERS`,
- * `GITLAB_GRAPHQL_ISSUE_SORTS`, `GITLAB_REST_ISSUE_SORTS`, `AZURE_ISSUE_SORT_FIELDS`, `JIRA_ISSUE_SORT_FIELDS`,
- * `LINEAR_ISSUE_SORT_ORDER_BY`, `TRELLO_ISSUE_SORT_MODIFIERS`), which are the only place the neutral key becomes a
- * provider query. Declaring a key the SDK doesn't translate doesn't produce a differently-ordered read — it
- * produces an `UnsupportedSortError` after this facade already promised the key, so the parity test that pins
- * these against those tables is what keeps the promise honest.
- *
- * Four asymmetries are load-bearing and easy to "fix" by mistake:
- * - **GitHub does not order by close date.** `closed` is absent no matter that `IssueShape.closedDate` exists; a
- *   client-side sort over a page truncated at the result ceiling is exactly the error the ordering contract avoids.
- * - **GitLab's two surfaces genuinely differ.** The repository-scoped read is GraphQL (`IssueSort`, which has
- *   `TITLE_*` and `CLOSED_AT_*`) and the account-wide read is REST (`order_by`, which has neither), so the two are
- *   written out separately and neither is derived from the other.
- * - **Azure declares no `dueDate`.** `Microsoft.VSTS.Scheduling.DueDate` is an Agile-process field, absent under
- *   Scrum/Basic, so a read that ordered by it would fail on some organizations and not others.
- * - **`reactions` means THUMBS-UP**, not the total across every reaction type: it is the only reaction count an
- *   `IssueShape` carries, so it is also what the merge comparator reads, and both sides emit the per-emoji
- *   qualifier so a single-scope and a merged read agree.
- * - **Linear orders DESCENDING ONLY**, and **Jira declares no `reactions`**: it has votes, and a vote is not a
- *   reaction, so mapping them would break what the neutral key means everywhere else.
+ * Why the asymmetries between surfaces exist (GitHub cannot order by close date, GitLab's two reads are different
+ * APIs with different vocabularies, Azure has no `dueDate` outside the Agile process, Linear is descending-only,
+ * Jira has votes rather than reactions) is documented on the SDK's own maps. This module adds exactly one rule of
+ * its own — {@link mergeableSorts} — and everything else is a rename from the SDK's surface names to the two
+ * fields `ProviderMetadata` publishes.
  */
-export const githubIssueSorts: IssueSorting[] = [
-	'created:asc',
-	'created:desc',
-	'updated:asc',
-	'updated:desc',
-	'comments:asc',
-	'comments:desc',
-	'reactions:asc',
-	'reactions:desc',
-];
 
-/** GitLab's repository-scoped read, which goes through GraphQL `IssueSort`. */
-export const gitlabIssueSorts: IssueSorting[] = [
-	'created:asc',
-	'created:desc',
-	'updated:asc',
-	'updated:desc',
-	'closed:asc',
-	'closed:desc',
-	'reactions:asc',
-	'reactions:desc',
-	'priority:asc',
-	'priority:desc',
-	'dueDate:asc',
-	'dueDate:desc',
-	'title:asc',
-	'title:desc',
-];
+/** One SDK read surface, widened to the union this package uses (structurally the same `field:direction` type). */
+const surface = (name: keyof typeof SUPPORTED_ISSUE_SORTS): IssueSorting[] => [...SUPPORTED_ISSUE_SORTS[name]];
 
 /**
- * GitLab's account-wide read, which goes through the REST `order_by`/`sort` pair — not a subset of the above.
+ * The subset a MERGED page can honor: the keys a normalized issue carries.
  *
- * REST also accepts `priority` and `due_date`, and they are deliberately NOT declared. This read is a UNION of one
- * REST call per requested relationship, merged here by url, so it can only honor a key a normalized issue carries
- * — and unlike the repo-scoped read, the caller has no scope count to make single-query: it always merges. A key
- * the read can never honor doesn't belong in a table whose whole purpose is that a consumer intersecting against
- * it never gets refused.
+ * Applied to the account-wide surfaces because every account-wide read is a union of several provider queries
+ * merged in this facade — GitHub's three `@me` searches, GitLab's one REST call per relationship, Azure's
+ * (project × relationship) drains — and the caller has no scope count to reduce, so it ALWAYS merges. GitLab's
+ * REST endpoint really does order by `priority` and `dueDate`, and Azure's WIQL by `resolved` and `priority`;
+ * none of them survive a merge, so the surface cannot honor them and must not advertise them.
+ *
+ * Expressed as the rule rather than as a hand-removed list, so a key the SDK adds later is classified by the same
+ * predicate that will decide at read time whether the merge can order by it, instead of by whoever last edited a
+ * literal here. The repo-scoped surfaces are NOT filtered: those merge only when the caller passes several
+ * scopes, which is a property of the call rather than of the provider (see `mergesProviderQueries`).
  */
-export const gitlabAccountWideIssueSorts: IssueSorting[] = [
-	'created:asc',
-	'created:desc',
-	'updated:asc',
-	'updated:desc',
-	'reactions:asc',
-	'reactions:desc',
-];
+const mergeableSorts = (sorts: readonly IssueSorting[]): IssueSorting[] =>
+	sorts.filter(sort => getIssueComparator(sort) != null);
+
+/** GitHub and GHE: one `search` channel serves all three issue reads, so all three order the same way. */
+export const githubIssueSorts: IssueSorting[] = surface('github');
+
+/**
+ * The same `search` channel, narrowed to what the three `@me` searches can order once this facade has merged them.
+ *
+ * Identical to {@link githubIssueSorts} today — every qualifier the SDK's GitHub surface carries is a field an
+ * `IssueShape` models — so this exists for the drift, not for a difference: `readAccountWideIssuesPage`
+ * deliberately runs no `unmergeable` check, on the stated grounds that an account-wide table only lists keys a
+ * merge can honor. Left as the raw surface, one qualifier added upstream (a `closed` or `interactions` sort) would
+ * make that assumption false for GitHub alone and publish three concatenated alias runs under it, unwarned.
+ */
+export const githubAccountWideIssueSorts: IssueSorting[] = mergeableSorts(surface('github'));
+
+/** GitLab's repository-scoped read, which goes through GraphQL `IssueSort`. */
+export const gitlabIssueSorts: IssueSorting[] = surface('gitlabRepository');
+
+/** GitLab's account-wide read: the REST `order_by`/`sort` pair, narrowed to what its merge can order. */
+export const gitlabAccountWideIssueSorts: IssueSorting[] = mergeableSorts(surface('gitlabAccountWide'));
 
 /** Azure DevOps, as WIQL `ORDER BY` columns. */
-export const azureIssueSorts: IssueSorting[] = [
-	'created:asc',
-	'created:desc',
-	'updated:asc',
-	'updated:desc',
-	'closed:asc',
-	'closed:desc',
-	'resolved:asc',
-	'resolved:desc',
-	'comments:asc',
-	'comments:desc',
-	'priority:asc',
-	'priority:desc',
-	'title:asc',
-	'title:desc',
-];
+export const azureIssueSorts: IssueSorting[] = surface('azureDevOps');
 
-/** What Azure's account-wide fan-out can honor: `azureIssueSorts` minus the keys a merge can't order by. */
-export const azureAccountWideIssueSorts: IssueSorting[] = [
-	'created:asc',
-	'created:desc',
-	'updated:asc',
-	'updated:desc',
-	'closed:asc',
-	'closed:desc',
-	'comments:asc',
-	'comments:desc',
-	'title:asc',
-	'title:desc',
-];
+/** The same WIQL, narrowed to what the per-project fan-out can order once it has merged. */
+export const azureAccountWideIssueSorts: IssueSorting[] = mergeableSorts(surface('azureDevOps'));
 
-/** Jira, as JQL `ORDER BY` fields. */
-export const jiraIssueSorts: IssueSorting[] = [
-	'created:asc',
-	'created:desc',
-	'updated:asc',
-	'updated:desc',
-	'resolved:asc',
-	'resolved:desc',
-	'priority:asc',
-	'priority:desc',
-	'dueDate:asc',
-	'dueDate:desc',
-	'title:asc',
-	'title:desc',
-];
+/** Jira Cloud and Server, as JQL `ORDER BY` fields — one JQL builder, so one surface. */
+export const jiraIssueSorts: IssueSorting[] = surface('jira');
 
 /** Linear's `PaginationOrderBy`, which has no ascending member at all. */
-export const linearIssueSorts: IssueSorting[] = ['created:desc', 'updated:desc'];
+export const linearIssueSorts: IssueSorting[] = surface('linear');
 
 /** Trello's search modifiers: `sort:edited` / `sort:-edited`, and nothing else usable for issues. */
-export const trelloIssueSorts: IssueSorting[] = ['updated:asc', 'updated:desc'];
+export const trelloIssueSorts: IssueSorting[] = surface('trello');

@@ -1,7 +1,9 @@
 import * as assert from 'node:assert/strict';
+import { SUPPORTED_ISSUE_SORTS } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import { gitHubIssueSortQualifiers } from '@gitlens/git-github/api/issueSearchQuery.js';
 import type { IssueSorting } from '@gitlens/git/models/issue.js';
+import { getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
@@ -182,6 +184,17 @@ suite('issue read ordering', () => {
 			} finally {
 				manager.dispose();
 			}
+		});
+
+		// The SDK declares its own merge-filtered GitLab surface, computed from the same GraphQL map by the same
+		// rule. Core applies the rule at read time instead (`mergesProviderQueries`), so the two must agree: if
+		// they don't, one of the repos is wrong about which keys survive a client-side merge, and the symptom
+		// would be core promising a key the SDK's aggregate rejects — the one drift a derived table can't catch,
+		// because the aggregate is a surface core never reads from directly.
+		test('core’s merge rule computes the same set the SDK’s own aggregate declares', () => {
+			const mergeable = SUPPORTED_ISSUE_SORTS.gitlabRepository.filter(sort => getIssueComparator(sort) != null);
+
+			assert.deepEqual([...mergeable].sort(), [...SUPPORTED_ISSUE_SORTS.gitlabAggregate].sort());
 		});
 
 		// Linear's `PaginationOrderBy` has no ascending member. Declaring the ascending keys because the descending

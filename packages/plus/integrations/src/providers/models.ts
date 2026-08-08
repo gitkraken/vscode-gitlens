@@ -94,6 +94,7 @@ export type { ProviderOrganization, ProviderRepositoryShape } from '../results.j
 import {
 	azureAccountWideIssueSorts,
 	azureIssueSorts,
+	githubAccountWideIssueSorts,
 	githubIssueSorts,
 	gitlabAccountWideIssueSorts,
 	gitlabIssueSorts,
@@ -903,9 +904,9 @@ export const providersMetadata: ProvidersMetadata = {
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		// One `search` field serves all three issue reads (repo-scoped, account-wide, filtered search), so the same
-		// qualifiers are expressible on each.
+		// qualifiers are expressible on each — the account-wide one narrowed to what its three-alias merge can order.
 		supportedIssueSorts: githubIssueSorts,
-		supportedAccountWideIssueSorts: githubIssueSorts,
+		supportedAccountWideIssueSorts: githubAccountWideIssueSorts,
 		supportedIssueSearch: githubIssueSearchCapabilities,
 		issueSearchResultLimit: githubSearchResultLimit,
 		scopes: ['repo', 'read:user', 'user:email'],
@@ -939,9 +940,9 @@ export const providersMetadata: ProvidersMetadata = {
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		// One `search` field serves all three issue reads (repo-scoped, account-wide, filtered search), so the same
-		// qualifiers are expressible on each.
+		// qualifiers are expressible on each — the account-wide one narrowed to what its three-alias merge can order.
 		supportedIssueSorts: githubIssueSorts,
-		supportedAccountWideIssueSorts: githubIssueSorts,
+		supportedAccountWideIssueSorts: githubAccountWideIssueSorts,
 		supportedIssueSearch: githubIssueSearchCapabilities,
 		issueSearchResultLimit: githubSearchResultLimit,
 		scopes: ['repo', 'read:user', 'user:email'],
