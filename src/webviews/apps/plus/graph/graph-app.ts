@@ -63,6 +63,7 @@ import { noop } from '../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
+import type { GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
 import type { GlFileTreePane } from '../../shared/components/tree/gl-file-tree-pane.js';
 import type { GlTreeView } from '../../shared/components/tree/tree-view.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
@@ -290,11 +291,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  doesn't end up selecting the wrong branch's tip. */
 	private _pendingFocalTipBranchRef: string | undefined;
 
-	private _sidebarSnap = ({ pos }: { pos: number }) => {
+	private _sidebarSnap = ({ pos, source }: { pos: number; source: GlSplitPanelSnapSource }) => {
 		if (pos < sidebarMinPct / 2) return 0;
 		if (pos < sidebarMinPct) return sidebarMinPct;
 		if (pos > sidebarMaxPct) return sidebarMaxPct;
-		if (Math.abs(pos - sidebarDefaultPct) <= 1.5) return sidebarDefaultPct;
+		// Keyboard steps by 1%, smaller than this magnet's ±1.5% window, so the magnet would
+		// capture every step and the position could never leave 20% — skip it for keyboard.
+		if (source !== 'keyboard' && Math.abs(pos - sidebarDefaultPct) <= 1.5) return sidebarDefaultPct;
 		return pos;
 	};
 
@@ -3239,6 +3242,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		if (gs.sidebar?.position !== e.detail.position) {
 			gs.sidebar = { position: e.detail.position };
+			// A pointer drag also persists on `handleSplitDragEnd`; a keyboard resize never fires
+			// that event, so persist here too — the debounced wrapper coalesces the pointer case's
+			// per-move calls into one.
+			this.persistState();
 		}
 	}
 
