@@ -2773,6 +2773,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.minimap.reversed': boolean,
   'context.config.multiselect': boolean | 'topological',
   'context.config.onlyFollowFirstParent': boolean,
+  'context.config.overviewBar.visibility': 'worktrees' | 'always' | 'dirtyWorktrees' | 'never',
   'context.config.pageItemLimit': number,
   'context.config.pullRequests.enabled': boolean,
   'context.config.refFindAutoHide': boolean,

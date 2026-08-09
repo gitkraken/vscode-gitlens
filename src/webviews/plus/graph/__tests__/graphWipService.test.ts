@@ -3,9 +3,10 @@ import * as sinon from 'sinon';
 import { GraphWipService } from '../graphWipService.js';
 
 // `probeSecondaryWipInBackground` reaches only `this.repository`, `this.getWipRows`, `this.host.notify`,
-// `this._disposed` and its own probe fields, so we exercise it against a minimal fake `this` rather than
-// constructing the service (which would need a real Container). That couples these tests to private field
-// NAMES — a rename breaks them noisily, which is the intended trade.
+// `this._disposed`, its own probe fields, and the module-level `configuration` (for the overview bar's
+// visibility gate — read off the workspace, not `this`), so we exercise it against a minimal fake `this`
+// rather than constructing the service (which would need a real Container). That couples these tests to
+// private field NAMES — a rename breaks them noisily, which is the intended trade.
 //
 // Under test: the probe fans a `git diff`/`ls-files` walk across EVERY worktree, and its only caller is the
 // graph state build, which fires 2-3 times per logical change (the notify freshness gate defers rather than

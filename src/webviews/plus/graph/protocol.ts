@@ -37,6 +37,7 @@ import type {
 	GraphActivityDecay,
 	GraphBranchesVisibility,
 	GraphMultiSelectionMode,
+	GraphOverviewBarVisibility,
 } from '../../../config.js';
 import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { FeaturePreview } from '../../../features.js';
@@ -837,6 +838,8 @@ export interface GraphComponentConfig {
 	minimapReversed?: boolean;
 	multiSelectionMode?: GraphMultiSelectionMode;
 	onlyFollowFirstParent?: boolean;
+	/** When to show the overview bar. Backed by `gitlens.graph.overviewBar.visibility`. */
+	overviewBarVisibility?: GraphOverviewBarVisibility;
 	/** Whether the ref finder closes when it loses focus. Backed by `gitlens.graph.refFindAutoHide`. */
 	refFindAutoHide?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];

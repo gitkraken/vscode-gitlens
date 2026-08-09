@@ -744,6 +744,12 @@ export class GraphWipService {
 		const repo = this.repository;
 		if (repo == null) return;
 
+		// The probed fields (`hasChanges`/`hasUnpushed`) have exactly one consumer — the overview bar — so
+		// there's nothing to spend a per-worktree `git diff`/`ls-files` fan-out (plus the unpublished walk)
+		// on while the bar is turned off. The other visibility modes still need them to decide which
+		// secondaries earn a pill. `onConfigurationChanged` re-runs this when the setting turns back on.
+		if (configuration.get('graph.overviewBar.visibility') === 'never') return;
+
 		// One fan-out per repo per window: join the run already in flight, and drop anything landing inside the
 		// window it started in. The walk re-`git diff`s every worktree for an answer a state rebuild can't have
 		// changed, and the burst's tail lands just after the run settles — which is why the in-flight check alone

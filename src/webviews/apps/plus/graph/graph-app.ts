@@ -2070,15 +2070,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return merged;
 	}
 
-	/** Computes the bar's entries. The bar is the persistent row-marker home, so the primary worktree is
-	 *  ALWAYS the first entry — it carries the current branch's HEAD / upstream / merge-target jumps even
-	 *  when nothing else qualifies. Secondaries follow, one per worktree that has working changes or
-	 *  unpushed commits, most-recent first. Agent state is resolved per-worktree via the
+	/** Computes the bar's entries, gated by `gitlens.graph.overviewBar.visibility` (`'never'` hides it
+	 *  outright; `'worktrees'`/`'dirtyWorktrees'` additionally require a secondary worktree to exist /
+	 *  qualify). When the bar renders, the primary worktree is always the first entry — it carries the
+	 *  current branch's HEAD / upstream / merge-target jumps even when nothing else qualifies, but those
+	 *  jumps go away along with the bar in the hidden modes. Secondaries follow, one per worktree that has
+	 *  working changes or unpushed commits, most-recent first. Agent state is resolved per-worktree via the
 	 *  session-by-worktree index. */
 	private buildOverviewBarItems(): readonly OverviewBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
+
+		const visibility = gs.config?.overviewBarVisibility ?? 'worktrees';
+		if (visibility === 'never') return [];
 
 		// The bar is a GLOBAL affordance: it surfaces every worktree that has working changes,
 		// independent of the graph's active scope / branchesVisibility. (The in-graph WIP rows ARE
@@ -2091,6 +2096,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// before the full breakdown is fetched (lazily, on hover). Ordered by HEAD commit date, most-recent
 		// first (`parentDate`). Unlike the primary, a secondary earns its pill only by qualifying here.
 		const peerWipRows = this.peerWipRows;
+		// `worktrees` gates on a secondary EXISTING, not on it qualifying below — qualification tracks
+		// dirty/unpushed, which would pop the whole bar in and out as work comes and goes.
+		if (visibility === 'worktrees' && (peerWipRows == null || Object.keys(peerWipRows).length === 0)) {
+			return [];
+		}
+
 		const wipStateById = gs.wipStateById;
 		const secondaries =
 			peerWipRows != null
@@ -2114,6 +2125,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0))
 				: [];
 
+		if (visibility === 'dirtyWorktrees' && secondaries.length === 0) return [];
+
 		const now = Date.now();
 
 		// Resolve agent state per worktree through a single index (O(sessions) to build, O(1) per
@@ -2132,11 +2145,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const items: OverviewBarItem[] = [];
 
-		// Primary worktree's WIP — ALWAYS the first entry, even when the primary is clean (no changes /
-		// unpushed / agent): it's the row-marker anchor, carrying the current branch's HEAD / upstream /
-		// merge-target jumps, and it stays put as secondaries come and go. Its hot state is computed
-		// independent of the graph's filters; WorkDirStats fields are FILE counts (added/modified/deleted
-		// files). A detached HEAD falls back to the worktree basename. Unpushed comes free from
+		// Primary worktree's WIP — always the first entry when the bar renders, even when the primary is
+		// clean (no changes / unpushed / agent): it's the row-marker anchor, carrying the current branch's
+		// HEAD / upstream / merge-target jumps, and it stays put as secondaries come and go. Its hot state
+		// is computed independent of the graph's filters; WorkDirStats are FILE counts (added/modified/
+		// deleted files). A detached HEAD falls back to the worktree basename. Unpushed comes free from
 		// `branchState.ahead` (tracked branch); a primary on a local-only branch is intentionally NOT
 		// probed — those commits are already visible in the main graph, unlike a hidden secondary's.
 		const primary = this.primaryWipRowId != null ? gs.wipStateById?.[this.primaryWipRowId] : undefined;
@@ -3068,8 +3081,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private renderGraphContent(slot?: 'end') {
 		// Compute once per render — getter allocates a fresh array, and we read it twice
 		// (visibility check + binding). Local var dedupes the work and gives the bar a stable
-		// reference identity within a single render cycle. The getter returns [] only when there's no
-		// repo to anchor the primary pill to, so an empty array is the bar's hide condition.
+		// reference identity within a single render cycle. Empty array is the bar's hide condition —
+		// either there's no repo to anchor the primary pill to, or `overviewBar.visibility` hides it.
 		const overviewItems = this.overviewBarItems;
 		// `_selectedCommit.sha` is normalized to `uncommitted` for ALL WIP selections (the graph
 		// collapses secondary WIP rows to `uncommitted` at selection time), so the selected worktree

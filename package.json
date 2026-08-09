@@ -1424,6 +1424,25 @@
 						"scope": "window",
 						"order": 753
 					},
+					"gitlens.graph.overviewBar.visibility": {
+						"type": "string",
+						"default": "worktrees",
+						"enum": [
+							"always",
+							"worktrees",
+							"dirtyWorktrees",
+							"never"
+						],
+						"enumDescriptions": [
+							"Always shown",
+							"Shown when the repository has more than one worktree",
+							"Shown when another worktree has working changes or unpushed commits",
+							"Never shown"
+						],
+						"markdownDescription": "Specifies when to show the overview bar above the _Commit Graph_ — the per-worktree _WIP_ pills and the HEAD, upstream, and merge target jumps",
+						"scope": "window",
+						"order": 754
+					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",
 						"default": 500,

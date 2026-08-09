@@ -1959,6 +1959,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this.notifyDidChangeScrollMarkers();
 		}
 
+		// The worktree clean/dirty probe only feeds the overview bar, so it's skipped while the bar is
+		// hidden (see `probeSecondaryWipInBackground`). Run it now that the bar can appear again —
+		// otherwise its secondary pills would stay unprobed until the next graph load.
+		if (
+			configuration.changed(e, 'graph.overviewBar.visibility') &&
+			configuration.get('graph.overviewBar.visibility') !== 'never'
+		) {
+			this._wip.probeSecondaryWipInBackground();
+		}
+
 		// Enabling the Changes column's stats consent starts the stats-bearing rebuild with the same eager
 		// spinner flow as un-hiding the column; the component-config re-send (catch-all below) flips the
 		// webview out of its dormant overlay. Disabling needs no rebuild — already-loaded stats just go unused.
@@ -4117,6 +4127,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			minimapReversed: configuration.get('graph.minimap.reversed'),
 			multiSelectionMode: configuration.get('graph.multiselect'),
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
+			overviewBarVisibility: configuration.get('graph.overviewBar.visibility'),
 			refFindAutoHide: configuration.get('graph.refFindAutoHide'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			scrollMarkerTypes: this.getScrollMarkerTypes(),

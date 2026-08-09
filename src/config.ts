@@ -121,6 +121,7 @@ export type GraphScrollMarkersAdditionalTypes =
 	| 'pullRequests'
 	| 'wip';
 export type GraphMinimapDefaultVisibility = 'hidden' | 'onSearch' | 'always';
+export type GraphOverviewBarVisibility = 'always' | 'worktrees' | 'dirtyWorktrees' | 'never';
 export type GraphMinimapMarkersAdditionalTypes =
 	| 'localBranches'
 	| 'remoteBranches'
@@ -476,6 +477,9 @@ export interface GraphConfig {
 	};
 	readonly multiselect: GraphMultiSelectionMode;
 	readonly onlyFollowFirstParent: boolean;
+	readonly overviewBar: {
+		readonly visibility: GraphOverviewBarVisibility;
+	};
 	readonly pageItemLimit: number;
 	readonly pullRequests: {
 		readonly enabled: boolean;
