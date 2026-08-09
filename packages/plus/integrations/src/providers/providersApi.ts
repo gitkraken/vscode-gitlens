@@ -1791,7 +1791,18 @@ export class ProvidersApi {
 	async getIssuesForResourceForCurrentUser(
 		tokenOptInfo: TokenWithInfo,
 		resourceId: string,
-		options?: { cursor?: string; isPAT?: boolean; baseUrl?: string },
+		options?: {
+			cursor?: string;
+			/**
+			 * See {@link GetIssuesOptions.sort}. Forwarded for the same reason as every sibling issue read, even
+			 * though nothing reaches this one with a sort today: `IssuesIntegration.searchProviderMyIssues` is the
+			 * only caller and takes no options. A wrapper that accepted the SDK's input and silently dropped one
+			 * field of it would give whoever adds that option no ordering and no error.
+			 */
+			sort?: IssueSorting;
+			isPAT?: boolean;
+			baseUrl?: string;
+		},
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -1799,7 +1810,7 @@ export class ProvidersApi {
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			{ resourceId: resourceId },
+			{ resourceId: resourceId, sort: options?.sort },
 			provider.getIssuesForResourceForCurrentUserFn,
 			tokenWithInfo,
 			options?.cursor,
