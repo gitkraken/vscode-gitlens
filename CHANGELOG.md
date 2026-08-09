@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for GitHub's stacked pull requests &mdash; the _Commit Graph_ badges each layer with its position on ref pills and hovers and groups a stack's layers in the _Pull Requests_ panel, _Focus Pull Request_ on any layer scopes the graph to the whole stack, and merging routes through GitHub's stack-aware merge with a confirmation naming how many pull requests will land
+- Adds a pull request details sheet to the _Commit Graph_ &mdash; selecting a pull request anywhere in the graph opens its details, description, and stack map, with switch and worktree actions, _Compare Changes_, _Review Changes_ (an in-place AI review of the pull request's changes), _Review with Agent..._, and a split merge button (merge, squash, or rebase) that confirms in place
+- Adds stack context to _Launchpad_ &mdash; stacked pull requests show their layer position, and merging one becomes _Merge Stack..._, running under cancellable progress with failures reported
 - Adds a `gitlens.ai.resolveConflicts.customInstructions` setting &mdash; standing guidance for AI conflict resolution (e.g. "prefer the incoming side for lock files", "never combine both sides of an import"), applied to every conflict AI resolves in the _Commit Graph_'s **Resolve** panel and during an automatic rebase. Guidance typed for a single run in the **Resolve** panel still applies on top and takes priority
 - Adds a promo banner to the _Commit Graph_ header during time-limited campaigns &mdash; a centered line above the toolbar row, like the _Home_ view's banner; it shows only promotions with an expiration date (never the evergreen discount), shortens its text as the header narrows, and disappears entirely &mdash; taking no space &mdash; when no campaign is running or the header is too narrow
 
@@ -58,6 +61,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes rows in the _Commit Graph_ side bar panels nudging their trailing decorations to the left on hover
 - Fixes AI conflict resolution failing outright when the AI backend won't accept tool calls &mdash; it now falls back to resolving without consulting the repository, as it already did for AI providers that can't carry tool calls at all, instead of failing the whole operation. Errors forwarded from an AI provider also now carry that provider's own message, rather than only the backend's generic "upstream AI provider error"
 - Fixes an automatic rebase freezing mid-step when AI becomes unavailable &mdash; running out of AI credits (or hitting a rate limit, or going offline) showed a notification and left the run spinning on its last message indefinitely, because the notification had to be clicked before the request could fail &mdash; and _Cancel Rebase_ did nothing until it was. The run now stops promptly, leaves the rebase paused at the step it reached with its conflicts intact, and reports that AI became unavailable rather than blaming the file it was working on
 - Fixes AI conflict resolution failing outright on models that don't accept a temperature &mdash; resolving conflicts sent an explicit temperature of 0, which overrode the "this model doesn't take one" flag GitLens records for GitKraken AI and OpenRouter models, for Anthropic Opus 4.7+/Sonnet 5, and for reasoning models. Upstreams that reject a non-default temperature answered 400, so resolution failed immediately (seen as "upstream AI provider error (OpenAI HTTP 400)" on GPT-5 models via GitKraken AI)
