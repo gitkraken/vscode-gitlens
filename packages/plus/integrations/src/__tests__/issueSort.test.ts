@@ -1,8 +1,8 @@
 import * as assert from 'node:assert/strict';
-import { SUPPORTED_ISSUE_SORTS } from '@gitkraken/provider-apis';
+import { compareBy, getIssueComparator as sdkIssueComparator, SUPPORTED_ISSUE_SORTS } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import { gitHubIssueSortQualifiers } from '@gitlens/git-github/api/issueSearchQuery.js';
-import type { IssueSorting } from '@gitlens/git/models/issue.js';
+import type { IssueShape, IssueSortField, IssueSorting } from '@gitlens/git/models/issue.js';
 import { getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
@@ -88,7 +88,7 @@ async function stubAccountWideRead(
 	return calls;
 }
 
-function issue(title: string, fields: { updated?: string; created?: string; comments?: number }): unknown {
+function issue(title: string, fields: { updated?: string; created?: string; comments?: number }): IssueShape {
 	return {
 		type: 'issue',
 		provider: { id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
@@ -103,7 +103,7 @@ function issue(title: string, fields: { updated?: string; created?: string; comm
 		author: undefined,
 		assignees: [],
 		commentsCount: fields.comments,
-	};
+	} satisfies IssueShape;
 }
 
 suite('issue read ordering', () => {
@@ -678,6 +678,112 @@ suite('issue-tracker read ordering', () => {
 			);
 		} finally {
 			manager.dispose();
+		}
+	});
+});
+
+/**
+ * The one rule this repo implements twice.
+ *
+ * `getIssueComparator` exists on both sides — here over `IssueShape` and in `@gitkraken/provider-apis` over its
+ * own normalized `Issue` — because they order the same merged pages at different layers, and neither shape can
+ * import the other's. Reusing the SDK's exported `compareBy` in `@gitlens/git` would delete this repo's copy, but
+ * it would also make the provider-agnostic git domain (two dependencies today, neither of them a provider SDK)
+ * depend on the provider SDK, and hand `@gitlens/git-github` — which knows only octokit — a transitive edge to
+ * it, to save about sixteen lines.
+ *
+ * So the copy stays and this watches it. It runs HERE rather than beside the comparator because this is the
+ * lowest package that already depends on the SDK, so the test costs no dependency the production graph doesn't
+ * already carry.
+ */
+suite('the comparator this repo keeps a copy of', () => {
+	/**
+	 * Which `IssueShape` property each sort field reads, and two ordered values for it.
+	 *
+	 * The property name is spelled out rather than derived, because it IS the thing that has to agree: this
+	 * repo's field names are its own (`commentsCount`, `thumbsUpCount`) and the SDK's are different
+	 * (`commentCount`, `upvoteCount`), so the shared part is the RULE, not the shape. Each row builds both
+	 * comparators over the same property, which is what makes the comparison meaningful.
+	 */
+	/** The `IssueShape` properties the comparator reads, and the value types they hold. */
+	type OrderableKey = 'createdDate' | 'updatedDate' | 'closedDate' | 'commentsCount' | 'thumbsUpCount' | 'title';
+	type OrderableValue = number | Date | string;
+
+	const orderableFields: { field: IssueSortField; key: OrderableKey; low: OrderableValue; high: OrderableValue }[] = [
+		{ field: 'created', key: 'createdDate', low: new Date('2020-01-01Z'), high: new Date('2020-06-01Z') },
+		{ field: 'updated', key: 'updatedDate', low: new Date('2020-01-01Z'), high: new Date('2020-06-01Z') },
+		{ field: 'closed', key: 'closedDate', low: new Date('2020-01-01Z'), high: new Date('2020-06-01Z') },
+		{ field: 'comments', key: 'commentsCount', low: 1, high: 5 },
+		{ field: 'reactions', key: 'thumbsUpCount', low: 1, high: 5 },
+		{ field: 'title', key: 'title', low: 'a', high: 'b' },
+	];
+
+	/**
+	 * An issue carrying one value on one property.
+	 *
+	 * `undefined` for the missing case rather than an absent key: that is the shape this repo produces, and the
+	 * missing case is the half of the rule a naive sign flip gets wrong.
+	 */
+	function shaped(key: OrderableKey, value: OrderableValue | undefined): IssueShape {
+		return { ...issue('x', {}), [key]: value };
+	}
+
+	for (const { field, key, low, high } of orderableFields) {
+		for (const direction of ['asc', 'desc'] as const) {
+			test(`orders ${field}:${direction} exactly as the SDK's shared rule does`, () => {
+				const ours = getIssueComparator(`${field}:${direction}`);
+				const theirs = compareBy<IssueShape>(item => item[key], direction);
+				assert.ok(ours != null);
+
+				// Every pairing that the rule decides differently: both present either way round, both equal, one
+				// missing on each side, and both missing — which is the case that must compare EQUAL rather than
+				// producing `NaN`, and the case a sign flip would move to the front when ascending.
+				const pairs: [OrderableValue | undefined, OrderableValue | undefined][] = [
+					[low, high],
+					[high, low],
+					[low, low],
+					[undefined, high],
+					[high, undefined],
+					[undefined, undefined],
+				];
+				for (const [left, right] of pairs) {
+					const a = shaped(key, left);
+					const b = shaped(key, right);
+					assert.equal(
+						Math.sign(ours(a, b)),
+						Math.sign(theirs(a, b)),
+						`${field}:${direction} disagreed on (${String(left)}, ${String(right)})`,
+					);
+				}
+			});
+		}
+	}
+
+	// A field added to one comparator and not the other is the drift that matters most: this repo would accept a
+	// merged read the SDK's own merges reject, or refuse one they honour. Comparing which keys yield a comparator
+	// catches it without either side importing the other's issue shape.
+	test('derives a comparator for exactly the keys the SDK does', () => {
+		const fields: IssueSortField[] = [
+			'created',
+			'updated',
+			'closed',
+			'resolved',
+			'comments',
+			'reactions',
+			'priority',
+			'dueDate',
+			'title',
+		];
+
+		for (const field of fields) {
+			for (const direction of ['asc', 'desc'] as const) {
+				const sort = `${field}:${direction}` satisfies IssueSorting;
+				assert.equal(
+					getIssueComparator(sort) != null,
+					sdkIssueComparator(sort) != null,
+					`'${sort}' is derivable on one side only`,
+				);
+			}
 		}
 	});
 });
