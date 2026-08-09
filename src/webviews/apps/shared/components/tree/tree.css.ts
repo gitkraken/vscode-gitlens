@@ -148,6 +148,9 @@ export const treeItemStyles = [
 			outline-offset: -0.1rem;
 		}
 
+		/* Clips at the actions' left edge: .icon never shrinks, so without this it escapes the
+	   shrinking box on a narrow row and paints under the action chips, which have no background of
+	   their own. The label ellipsizes first, so the icon only clips at the extreme. */
 		.item {
 			display: flex;
 			flex: 1;
@@ -156,6 +159,7 @@ export const treeItemStyles = [
 			align-items: center;
 			justify-content: flex-start;
 			min-width: 0;
+			overflow: hidden;
 			padding: 0;
 			font-family: inherit;
 			font-size: inherit;
