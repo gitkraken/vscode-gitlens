@@ -53,6 +53,12 @@ export interface SubscriptionUpgradeCommandArgs extends Source {
 	plan?: PaidSubscriptionPlanIds;
 }
 
+export interface SubscriptionLoginCommandArgs extends Source {
+	/** When `false`, suppresses opening the Account view during the login/sign-up flow — used where the
+	 *  sign-in UI is already visible (e.g. the Commit Graph's access screen) and popping it is redundant. */
+	openAccountView?: boolean;
+}
+
 export type SubscriptionStateString =
 	| 'verification'
 	| 'free'
