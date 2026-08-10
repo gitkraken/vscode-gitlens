@@ -204,6 +204,19 @@ const header = css`
 		font-size: var(--h1-font-size);
 	}
 
+	.header h1.header__title--graph {
+		display: flex;
+		gap: 0.4em;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.header h1.header__title--graph gl-icon-cube {
+		--gl-icon-cube-size: 1em;
+
+		flex: none;
+	}
+
 	.header h1 + p {
 		margin-top: 0;
 	}

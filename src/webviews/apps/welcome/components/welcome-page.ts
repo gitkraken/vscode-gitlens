@@ -15,6 +15,7 @@ import { welcomeStyles } from './welcome-page.css.js';
 import '../../shared/components/gitlens-logo-circle.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/icons/icon-cube.js';
 import './welcome-parts.js';
 import type { GlWalkthrough, WalkthroughStep } from './welcome-parts.js';
 
@@ -591,7 +592,10 @@ export class GlWelcomePage extends LitElement {
 					>
 				</div>
 				<div class="section header">
-					<h1><gitlens-logo-circle></gitlens-logo-circle><span>Get Started with the Graph</span></h1>
+					<h1 class="header__title--graph">
+						<gl-icon-cube appearance="brand" icon="gl-graph"></gl-icon-cube>
+						<span>Get Started with the Graph</span>
+					</h1>
 				</div>
 				<gl-walkthrough-progress
 					class="section"
