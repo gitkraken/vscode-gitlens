@@ -40,10 +40,12 @@ suite('issue read ordering', () => {
 			await withManager(async manager => {
 				const calls = await stubAccountWideRead(manager, GitCloudHostIntegrationId.GitLab);
 
-				// GitLab's repo-scoped GraphQL read orders by title; its account-wide REST read does not.
+				// GitLab's repo-scoped GraphQL read orders by close date; its account-wide REST read has no
+				// `closed_at` at all, so the key is absent from that table and the read must refuse it here
+				// rather than send it and have the provider reject it a round trip later.
 				const result = await manager.listIssuesPage({
 					providerId: GitCloudHostIntegrationId.GitLab,
-					sort: 'title:asc',
+					sort: 'closed:asc',
 				});
 
 				assert.equal(result.fetchFailed, true);
