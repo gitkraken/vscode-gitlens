@@ -91,56 +91,72 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 					lifecycle without context-switching
 				</p>
 
-				<ul class="list">
-					<li class="list__item">
-						<span class="icon-cube"><code-icon icon="layout"></code-icon></span>
+				<div class="list">
+					<details class="list__item">
+						<summary class="list__summary">
+							<span class="icon-cube"><code-icon icon="layout"></code-icon></span>
+							<strong>Unified Workspace</strong>
+						</summary>
 						<span class="list__copy"
-							><strong>Unified Workspace</strong> Centralize your workflow with the Side Bar and dockable
-							Details Panel. Detach the graph into a separate window to maximize your editor space</span
+							>Centralize your workflow with the Side Bar and dockable Details Panel. Detach the graph
+							into a separate window to maximize your editor space</span
 						>
-					</li>
+					</details>
 
-					<li class="list__item">
-						<span class="icon-cube"><code-icon icon="robot"></code-icon></span>
+					<details class="list__item">
+						<summary class="list__summary">
+							<span class="icon-cube"><code-icon icon="robot"></code-icon></span>
+							<strong>Orchestrate Agents</strong>
+						</summary>
 						<span class="list__copy"
-							><strong>Orchestrate Agents</strong> Launch, monitor, and interact with agents from the
-							graph, Agents Side Bar, or Kanban board to approve permissions and view execution plans
-							inline</span
+							>Launch, monitor, and interact with agents from the graph, Agents Side Bar, or Kanban board
+							to approve permissions and view execution plans inline</span
 						>
-					</li>
-					<li class="list__item">
-						<span class="icon-cube"><code-icon icon="shield"></code-icon></span>
+					</details>
+					<details class="list__item">
+						<summary class="list__summary">
+							<span class="icon-cube"><code-icon icon="shield"></code-icon></span>
+							<strong>Command Center</strong>
+						</summary>
 						<span class="list__copy"
-							><strong>Command Center</strong> Review changes, stage files, create or compose commits, and
-							resolve conflicts. On a clean worktree the Details Panel guides your next steps—like
-							pulling, pushing, or drafting a PR</span
+							>Review changes, stage files, create or compose commits, and resolve conflicts. On a clean
+							worktree the Details Panel guides your next steps—like pulling, pushing, or drafting a
+							PR</span
 						>
-					</li>
-					<li class="list__item">
-						<span class="icon-cube"><code-icon icon="arrow-swap"></code-icon></span>
+					</details>
+					<details class="list__item">
+						<summary class="list__summary">
+							<span class="icon-cube"><code-icon icon="arrow-swap"></code-icon></span>
+							<strong>Parallelize Work</strong>
+						</summary>
 						<span class="list__copy"
-							><strong>Parallelize Work</strong> Juggle multiple active worktrees and agent sessions
-							within a single view. Focus the graph on specific changes instantly to review and track
-							where agents are working in real-time</span
+							>Juggle multiple active worktrees and agent sessions within a single view. Focus the graph
+							on specific changes instantly to review and track where agents are working in
+							real-time</span
 						>
-					</li>
-					<li class="list__item">
-						<span class="icon-cube"><code-icon icon="wand"></code-icon></span>
+					</details>
+					<details class="list__item">
+						<summary class="list__summary">
+							<span class="icon-cube"><code-icon icon="wand"></code-icon></span>
+							<strong>AI Compose & Review</strong>
+						</summary>
 						<span class="list__copy"
-							><strong>AI Compose & Review</strong> Bring order from chaos. Restructure changes into
-							clean, review-ready commits automatically. Catch issues early with severity-tagged reviews
-							that you can delegate directly to an agent</span
+							>Bring order from chaos. Restructure changes into clean, review-ready commits automatically.
+							Catch issues early with severity-tagged reviews that you can delegate directly to an
+							agent</span
 						>
-					</li>
-					<li class="list__item">
-						<span class="icon-cube"><code-icon icon="pulse"></code-icon></span>
+					</details>
+					<details class="list__item">
+						<summary class="list__summary">
+							<span class="icon-cube"><code-icon icon="pulse"></code-icon></span>
+							<strong>Deep Visualizations</strong>
+						</summary>
 						<span class="list__copy"
-							><strong>Deep Visualizations</strong> Analyze repo evolution with the Visual History.
-							Pinpoint hotspots and trends or watch agent activity in real-time using the Files, Commits,
-							and Agent Activity treemaps</span
+							>Analyze repo evolution with the Visual History. Pinpoint hotspots and trends or watch agent
+							activity in real-time using the Files, Commits, and Agent Activity treemaps</span
 						>
-					</li>
-				</ul>
+					</details>
+				</div>
 			</section>
 		</gl-feature-gate>`;
 	}

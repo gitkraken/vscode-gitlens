@@ -258,16 +258,62 @@ export const featureGateContentStyles = css`
 		align-items: flex-start;
 	}
 
+	/* Wide layout: <details> reads as a static expanded row. The summary uses display: contents so
+	   its icon + label participate directly in the .list__item flex row (matching the old two-child
+	   layout), and it is neutered so it is not an interactive disclosure. */
+	.list__summary {
+		display: contents;
+		cursor: default;
+		pointer-events: none;
+		list-style: none;
+	}
+
+	.list__summary::-webkit-details-marker,
+	.list__summary::marker {
+		display: none;
+	}
+
 	.list__copy {
 		display: flex;
 		flex-direction: column;
 		gap: var(--gl-space-2);
 		font-size: var(--gl-font-sm);
 		text-wrap: pretty;
+	}
 
-		strong {
-			font-size: var(--gl-font-md);
-			color: var(--color-foreground);
+	.list__summary strong,
+	.list__copy strong {
+		font-size: var(--gl-font-md);
+		color: var(--color-foreground);
+	}
+
+	/* Narrow placements: the base .list__item/.list__summary rules above make each <details> read as a
+	   static expanded row (display: contents on the summary, pointer-events: none). This block must
+	   come after those base rules in source order — @container adds no specificity, so at equal
+	   specificity the later rule wins the cascade — to turn each item into a real collapsed accordion
+	   row with a clickable summary. */
+	@container (max-width: ${featureGateCompactThreshold}) {
+		.list__item {
+			display: block;
+			padding-block: var(--gl-space-6);
+			border-block-end: var(--gl-border-width) solid var(--gate-border);
+		}
+
+		.list__summary {
+			display: flex;
+			gap: var(--gl-space-12);
+			align-items: center;
+			cursor: pointer;
+			pointer-events: auto;
+		}
+
+		.list__summary::-webkit-details-marker,
+		.list__summary::marker {
+			display: revert;
+		}
+
+		.list__item .list__copy {
+			margin-block-start: var(--gl-space-6);
 		}
 	}
 
