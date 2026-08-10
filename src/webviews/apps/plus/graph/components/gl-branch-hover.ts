@@ -520,8 +520,11 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** Completed sessions are omitted: a hover is a glance at live work, and they'd otherwise pile up
+	 *  for the CLI's whole retention window. They stay on the dwell surfaces (details panel, sidebar,
+	 *  kanban). `pickWipRowAgentStatus` drops them too, so the anchor's robot agrees with this. */
 	private renderAgents() {
-		const sessions = this.agentSessions;
+		const sessions = this.agentSessions?.filter(s => s.phase !== 'completed');
 		if (sessions == null || sessions.length === 0) return nothing;
 
 		return html`<div class="section">

@@ -5,8 +5,11 @@ import { agentPhaseToCategory, getAgentCategoryLabel } from '../../../shared/age
 /** Idle window mirrored from the host-side `agentBranchesIdleThresholdMs` in `graphWebview.ts`.
  *  An `idle` session whose `lastActivity` falls outside this window stops surfacing an indicator
  *  on its WIP row — the host filter that drives `branchesVisibility === 'agents'` uses the same
- *  bound, so a row that picked up an indicator here is also a row that the agents-scope filter
- *  would keep. Keep the two in lock-step if you change one. */
+ *  bound, so a row that picked up an idle indicator here is also a row that the agents-scope
+ *  filter would keep. Keep the two in lock-step if you change one.
+ *  `completed` sessions are a deliberate divergence: they're dropped outright here regardless of
+ *  age (see `pickWipRowAgentStatus`), while the host's agents-scope filter still keeps recently-
+ *  completed sessions — a branch whose agent just finished is exactly what that scope is for. */
 export const wipRowAgentIdleThresholdMs = 24 * 60 * 60 * 1000;
 
 /** Priority used when collapsing multiple per-worktree sessions into a single indicator:
@@ -16,7 +19,7 @@ const categoryPriority: Record<AgentSessionCategory, number> = {
 	'needs-input': 0,
 	working: 1,
 	idle: 2,
-	// Terminal sessions never win the collapse over a live one.
+	// Unreachable — completed sessions are filtered out before this runs.
 	completed: 3,
 };
 
@@ -25,11 +28,10 @@ export interface WipRowAgentStatus {
 	readonly sessions: readonly AgentSessionState[];
 }
 
-/** Drops `idle` and `completed` sessions older than `wipRowAgentIdleThresholdMs` (clock-skew-
- *  clamped so a future-dated `lastActivity` can't pin a session as permanently recent) — completed
- *  sessions can be up to 30 days old, and the host's agents-scope filter applies the same bound to
- *  them via its `recent` test. Returns `undefined` when nothing survives so callers can `!= null`
- *  test for "row has an indicator". */
+/** Drops `completed` sessions outright and `idle` sessions older than `wipRowAgentIdleThresholdMs`
+ *  (clock-skew-clamped so a future-dated `lastActivity` can't pin a session as permanently recent).
+ *  Returns `undefined` when nothing survives so callers can `!= null` test for "row has an
+ *  indicator". */
 export function pickWipRowAgentStatus(
 	sessions: readonly AgentSessionState[] | undefined,
 	now: number = Date.now(),
@@ -38,7 +40,9 @@ export function pickWipRowAgentStatus(
 
 	const surviving: AgentSessionState[] = [];
 	for (const session of sessions) {
-		if (session.phase === 'idle' || session.phase === 'completed') {
+		if (session.phase === 'completed') continue;
+
+		if (session.phase === 'idle') {
 			const age = Math.max(0, now - session.lastActivity.getTime());
 			if (age >= wipRowAgentIdleThresholdMs) continue;
 		}
