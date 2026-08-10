@@ -9188,7 +9188,7 @@
 			},
 			{
 				"command": "gitlens.showAccountView",
-				"title": "Show Account in Graph",
+				"title": "Show Account in Settings",
 				"category": "GitLens"
 			},
 			{

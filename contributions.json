@@ -6633,7 +6633,7 @@
 			}
 		},
 		"gitlens.showAccountView": {
-			"label": "Show Account in Graph",
+			"label": "Show Account in Settings",
 			"commandPalette": true
 		},
 		"gitlens.showBranchesView": {
