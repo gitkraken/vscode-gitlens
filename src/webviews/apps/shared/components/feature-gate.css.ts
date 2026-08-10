@@ -208,6 +208,15 @@ export const featureGateContentStyles = css`
 		--icon-background: var(--gl-gradient-brand);
 	}
 
+	gitlens-logo-circle.feature__feature-icon {
+		flex: none;
+		width: 3.2rem;
+		height: 3.2rem;
+		/* The logo renders a fixed 46px SVG; scale it from the top-left to fill the box. */
+		transform: scale(calc(32 / 46));
+		transform-origin: top left;
+	}
+
 	.feature__title {
 		display: flex;
 		flex-wrap: wrap;

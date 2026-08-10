@@ -37,8 +37,12 @@ export const settingsAppStyles = [
 			gap: 0.9rem;
 			align-items: center;
 
-			gl-icon-cube {
-				--gl-icon-cube-size: 2rem;
+			gitlens-logo-circle {
+				width: 2rem;
+				height: 2rem;
+				/* The logo renders a fixed 46px SVG; scale it from the top-left to fill the 2rem box. */
+				transform: scale(calc(20 / 46));
+				transform-origin: top left;
 			}
 		}
 

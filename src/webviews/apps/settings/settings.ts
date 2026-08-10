@@ -18,8 +18,8 @@ import './components/settings-detail.js';
 import './components/settings-nav.js';
 import '../shared/components/button.js';
 import '../shared/components/code-icon.js';
+import '../shared/components/gitlens-logo-circle.js';
 import '../shared/components/gl-error-banner.js';
-import '../shared/components/icons/icon-cube.js';
 import '../shared/components/segmented/segmented.js';
 import '../shared/components/skeleton-loader.js';
 import '../shared/components/split-panel/split-panel.js';
@@ -263,7 +263,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			<div class="app" aria-busy=${s.loading.get()}>
 				<header class="header">
 					<div class="header__brand">
-						<gl-icon-cube appearance="brand" icon="gl-gitlens" aria-hidden="true"></gl-icon-cube>
+						<gitlens-logo-circle aria-hidden="true"></gitlens-logo-circle>
 						<h1 class="header__title">GitLens Settings</h1>
 						${
 							s.version.get()

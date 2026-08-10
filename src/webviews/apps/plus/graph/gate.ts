@@ -17,6 +17,7 @@ import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/feature-gate.js';
+import '../../shared/components/gitlens-logo-circle.js';
 
 @customElement('gl-graph-gate')
 export class GlGraphGate extends SignalWatcher(LitElement) {
@@ -64,7 +65,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 		>
 			<section slot="feature" class="feature">
 				<header class="feature__header">
-					<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
+					<gitlens-logo-circle class="feature__feature-icon"></gitlens-logo-circle>
 					<hgroup>
 						<h2 class="feature__title">
 							<span>${copy?.heading ?? 'All-New Commit Graph'}</span>
