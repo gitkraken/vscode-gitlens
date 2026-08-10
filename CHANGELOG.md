@@ -61,6 +61,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes signing back in after a sign-out interrupted a _Commit Graph_ comparison reopening the comparison on different references &mdash; the interrupted comparison's own references are now carried across the sign-in instead of the default current-branch-versus-working-tree shape ([#5671](https://github.com/gitkraken/vscode-gitlens/issues/5671))
 - Fixes rows in the _Commit Graph_ side bar panels nudging their trailing decorations to the left on hover
 - Fixes AI conflict resolution failing outright when the AI backend won't accept tool calls &mdash; it now falls back to resolving without consulting the repository, as it already did for AI providers that can't carry tool calls at all, instead of failing the whole operation. Errors forwarded from an AI provider also now carry that provider's own message, rather than only the backend's generic "upstream AI provider error"
 - Fixes an automatic rebase freezing mid-step when AI becomes unavailable &mdash; running out of AI credits (or hitting a rate limit, or going offline) showed a notification and left the run spinning on its last message indefinitely, because the notification had to be clicked before the request could fail &mdash; and _Cancel Rebase_ did nothing until it was. The run now stops promptly, leaves the rebase paused at the step it reached with its conflicts intact, and reports that AI became unavailable rather than blaming the file it was working on
