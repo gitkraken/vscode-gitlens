@@ -791,10 +791,9 @@ type WebviewShowAbortedEvents = {
 	[K in `${WebviewTypes}/showAborted`]: WebviewShownEventData;
 };
 type WebviewShownEvents = {
-	[K in `${Exclude<
-		WebviewTypes,
-		'commitDetails' | 'graph' | 'rebaseEditor' | 'timeline'
-	>}/shown`]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
+	[
+		K in `${Exclude<WebviewTypes, 'commitDetails' | 'graph' | 'rebaseEditor' | 'timeline'>}/shown`
+	]: WebviewShownEventData & Record<`context.${string}`, string | number | boolean | undefined>;
 };
 
 type WebviewClosedEvents = {
@@ -2837,10 +2836,9 @@ type AgentResolvedEventData =
 
 export type SubscriptionFeaturePreviewsEventData = {
 	[F in FeaturePreviews]: {
-		[K in Exclude<
-			keyof FeaturePreviewEventData,
-			'feature'
-		> as `subscription.featurePreviews.${F}.${K}`]: NonNullable<FeaturePreviewEventData[K]>;
+		[
+			K in Exclude<keyof FeaturePreviewEventData, 'feature'> as `subscription.featurePreviews.${F}.${K}`
+		]: NonNullable<FeaturePreviewEventData[K]>;
 	};
 }[FeaturePreviews];
 
