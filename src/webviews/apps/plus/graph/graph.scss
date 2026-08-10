@@ -753,11 +753,14 @@ gl-lit-graph {
 	// hover-state transitions (dot grow, edge/raster brighten) as spurious fades trailing the scroll. Kill
 	// transitions on scrolling rows; genuine interaction on a settled row still animates.
 	.gl-graph__virtualizer.is-scrolling .gl-graph__row,
-	.gl-graph__virtualizer.is-scrolling .gl-graph__row * {
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row *,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row-actions::before {
 		transition: none !important;
 	}
 
 	.gl-graph__row {
+		--row-background: transparent;
+
 		position: relative;
 		display: flex;
 		width: 100%;
@@ -770,32 +773,27 @@ gl-lit-graph {
 		user-select: none;
 		// `contain: layout` (not strict) so hoisted overlays/tooltips can still escape the row.
 		contain: layout;
+		background-color: var(--row-background);
 		transition: background-color 120ms ease-out;
 
 		// Scope-anchor resting tint: colorize the WHOLE anchor row by its role so the anchor reads across
 		// the row, not just at the marker.
 		// Declared before the state rules below so hover/highlight/selection still override it.
-		// Each resting tint also publishes `--row-rest-bg` (same value) so the row-actions strip + its status
-		// badge can reproduce the row's own background at rest rather than punching an untinted hole through
-		// it; source order here IS the precedence (anchor < inRefChain < highlighted).
+		// Every state publishes the row's effective background through `--row-background`, so the row-actions
+		// surface and its small cutouts stay pixel-identical to the row. Source order here IS the precedence
+		// (anchor < hover < inRefChain < highlighted < selected).
 		&.is-anchor--target {
-			--row-rest-bg: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
-
-			background-color: var(--row-rest-bg);
+			--row-background: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
 		}
 		&.is-anchor--fork {
-			--row-rest-bg: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
-
-			background-color: var(--row-rest-bg);
+			--row-background: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
 		}
 		&.is-anchor--focal {
-			--row-rest-bg: hsl(var(--brand) / 0.1);
-
-			background-color: var(--row-rest-bg);
+			--row-background: hsl(var(--brand) / 0.1);
 		}
 
 		&:hover {
-			background-color: var(--vscode-list-hoverBackground);
+			--row-background: var(--vscode-list-hoverBackground);
 		}
 		// High-contrast forced-colors treatment: hover/selection rely on
 		// background tints alone above, which forced-colors themes can flatten to nothing — so HC also
@@ -811,9 +809,7 @@ gl-lit-graph {
 		// highlighted against the dimmed rest — carries the emphasis on its own for the lighter transient
 		// dim (see `is-dimmed-soft`), not only as "the rows that didn't dim".
 		&.is-inRefChain {
-			--row-rest-bg: hsl(var(--brand) / 0.1);
-
-			background-color: var(--row-rest-bg);
+			--row-background: hsl(var(--brand) / 0.1);
 		}
 		// Active-search match (normal mode): the VS Code range-highlight color — the row-scale "line
 		// containing a search hit" tint (Quick Open/Find) — while non-matches dim (is-dimmed); char-level
@@ -821,9 +817,7 @@ gl-lit-graph {
 		// theme defines neither (e.g. high contrast). Before is-selected so a selected match still reads
 		// as selected.
 		&.is-highlighted {
-			--row-rest-bg: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 0.2));
-
-			background-color: var(--row-rest-bg);
+			--row-background: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 0.2));
 			box-shadow: inset 0 0 0 1px var(--vscode-editor-rangeHighlightBorder, transparent);
 		}
 		&.is-selected {
@@ -832,7 +826,7 @@ gl-lit-graph {
 			// strip + its status badge, which inherit these through the row's descendants).
 			--row-selection-bg: var(--vscode-list-activeSelectionBackground);
 			--row-selection-fg: var(--vscode-list-activeSelectionForeground);
-			background-color: var(--row-selection-bg);
+			--row-background: var(--row-selection-bg);
 			color: var(--row-selection-fg);
 		}
 		// High-contrast selection ring (old-engine parity: `--selected-row-border: 1px solid`). A
@@ -1048,20 +1042,27 @@ gl-lit-graph {
 		// Delayed 120ms so it hides only AFTER the opacity fade-out; the active rule reveals it instantly.
 		visibility: hidden;
 		pointer-events: none;
-		// Two stacked layers so the strip is fully OPAQUE (VS Code list backgrounds are often
-		// semi-transparent): the row-state tint on top, an opaque base (graph bg) below — both fade in
-		// over 1.6rem so the left edge blends into the row instead of a hard cut. Content underneath is
-		// hidden once faded, so nothing shows through behind the buttons.
-		// The tint is the row's OWN resting one (`--row-rest-bg`, unset => transparent) so a `--has-persistent`
-		// strip — visible at rest, see below — disappears into the row instead of reading as a highlighted
-		// chip behind its always-on buttons, while staying opaque enough to still hide row content. The
-		// reveal rules below swap in the hover/selection tints.
-		background:
-			linear-gradient(to right, transparent, var(--row-rest-bg, transparent) 1.6rem),
-			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 		transition:
 			opacity 120ms ease-out,
 			visibility 0s linear 120ms;
+	}
+	// Compose the SAME visible surface as the row before masking it in over 1.6rem. Masking a completed
+	// opaque surface hides the text below without also fading the row tint itself, which is what happened
+	// when the tint and base were independently transparent gradients on the action strip. `color` carries
+	// the effective row tint so it can transition in lockstep with the row's `background-color`.
+	.gl-graph__row-actions::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		color: var(--row-background);
+		background-color: var(--color-background);
+		background-image: linear-gradient(currentColor, currentColor);
+		-webkit-mask-image: linear-gradient(to right, transparent, #000 1.6rem);
+		mask-image: linear-gradient(to right, transparent, #000 1.6rem);
+		-webkit-mask-repeat: no-repeat;
+		mask-repeat: no-repeat;
+		transition: color 120ms ease-out;
 	}
 	.gl-graph__row:hover .gl-graph__row-actions,
 	.gl-graph__row.is-focused .gl-graph__row-actions,
@@ -1069,17 +1070,9 @@ gl-lit-graph {
 		opacity: 1;
 		visibility: visible;
 		pointer-events: auto;
-		background:
-			linear-gradient(to right, transparent, var(--vscode-list-hoverBackground) 1.6rem),
-			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 		transition:
 			opacity 120ms ease-out,
 			visibility 0s;
-	}
-	.gl-graph__row.is-selected .gl-graph__row-actions {
-		background:
-			linear-gradient(to right, transparent, var(--row-selection-bg) 1.6rem),
-			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 	}
 	// Per-button visibility mode. When a row has at least one always-on button the strip carries
 	// `--has-persistent` and stays live so persistent buttons show at rest — gating EACH button
@@ -1106,11 +1099,16 @@ gl-lit-graph {
 	}
 
 	// Row-marker decorator present (only the primary WIP row's jump pill sets this — tip rows' rails are
-	// not strip members): drop the strip's at-rest backdrop. The pill carries its own chrome, so nothing
+	// not strip members): hide the strip's at-rest backdrop. The pill carries its own chrome, so nothing
 	// needs fading behind it — the row keeps its date/sha readable until the buttons actually reveal, at
-	// which point the reveal rules above (higher specificity) restore the standard gradient.
-	.gl-graph__row-actions--has-row-marker {
-		background: none;
+	// which point these interaction-state rules restore the standard masked surface.
+	.gl-graph__row-actions--has-row-marker::before {
+		opacity: 0;
+	}
+	.gl-graph__row:hover .gl-graph__row-actions--has-row-marker::before,
+	.gl-graph__row.is-focused .gl-graph__row-actions--has-row-marker::before,
+	.gl-graph__row.is-selected .gl-graph__row-actions--has-row-marker::before {
+		opacity: 1;
 	}
 	// Gated buttons: hidden + out of the tab order / a11y tree at rest (`display:none` reserves no space,
 	// so the strip is only as wide as its persistent buttons until revealed)...
@@ -1186,12 +1184,8 @@ gl-lit-graph {
 		bottom: -0.1rem;
 		font-size: 1.2rem;
 		border-radius: 50%;
-		// Opaque chip MATCHING the row bg (not the black editor bg) so it cleanly cuts the main icon's
-		// corner — same two-layer (row tint over the graph bg) as the strip itself, and tracking the same
-		// tints. A status badge only ever renders on an always-on button, so it's the resting tint here.
-		background:
-			linear-gradient(0deg, var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
-			hsl(var(--background));
+		// Opaque chip matching the effective row surface so it cleanly cuts the main icon's corner.
+		background: linear-gradient(var(--row-background), var(--row-background)), var(--color-background);
 		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
 	}
 	// The agent badge IS the phase signal, so it takes the phase color from its button instead of the
@@ -1201,15 +1195,6 @@ gl-lit-graph {
 	// which must not read as an agent phase. Outranks the base rule on specificity, not source order.
 	.gl-graph__row-action--agent .gl-graph__row-action-status {
 		color: inherit;
-	}
-	.gl-graph__row:hover .gl-graph__row-action-status,
-	.gl-graph__row.is-focused .gl-graph__row-action-status {
-		background:
-			linear-gradient(0deg, var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
-			hsl(var(--background));
-	}
-	.gl-graph__row.is-selected .gl-graph__row-action-status {
-		background: linear-gradient(0deg, var(--row-selection-bg), var(--row-selection-bg)), hsl(var(--background));
 	}
 
 	// NOTE: the scope anchor's own thin left-edge rail (`.gl-graph__anchor`) is GONE — its roles are folded
@@ -2040,32 +2025,18 @@ gl-lit-graph {
 		mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
 	}
 
-	// Colorblind-safe deletions ("minus notch"): a dash punches the row background through the fill so
-	// add/delete survives red/green colorblindness without hue. Two layers because the row tint is
-	// semi-transparent; hover/selected need their own overrides below.
+	// Colorblind-safe deletions ("minus notch"): a dash punches the effective row surface through the fill
+	// so add/delete survives red/green colorblindness without hue. Two layers keep semi-transparent row
+	// tints composed over the placement-aware opaque background.
 	.gl-graph__changes-square--deleted,
 	.gl-graph__changes-bar-deleted,
 	.gl-graph__changes-bipolar-deleted {
 		background-image:
-			linear-gradient(var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
-			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+			linear-gradient(var(--row-background), var(--row-background)),
+			linear-gradient(var(--color-background), var(--color-background));
 		background-size: 50% 1.5px;
 		background-repeat: no-repeat;
 		background-position: center;
-	}
-	.gl-graph__row:hover .gl-graph__changes-square--deleted,
-	.gl-graph__row:hover .gl-graph__changes-bar-deleted,
-	.gl-graph__row:hover .gl-graph__changes-bipolar-deleted {
-		background-image:
-			linear-gradient(var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
-			linear-gradient(var(--color-graph-background), var(--color-graph-background));
-	}
-	.gl-graph__row.is-selected .gl-graph__changes-square--deleted,
-	.gl-graph__row.is-selected .gl-graph__changes-bar-deleted,
-	.gl-graph__row.is-selected .gl-graph__changes-bipolar-deleted {
-		background-image:
-			linear-gradient(var(--row-selection-bg), var(--row-selection-bg)),
-			linear-gradient(var(--color-graph-background), var(--color-graph-background));
 	}
 
 	// Standalone graph column (placement = column): holds the fold strip + the gutter viewport, no
@@ -2358,6 +2329,9 @@ gl-lit-graph {
 	.gl-graph__row.is-landing-flash {
 		animation: gl-graph-landing-flash 700ms var(--gl-ease-out, ease-out) 1;
 	}
+	.gl-graph__row.is-landing-flash .gl-graph__row-actions::before {
+		animation: gl-graph-row-actions-landing-flash 700ms var(--gl-ease-out, ease-out) 1;
+	}
 
 	@keyframes gl-graph-landing-flash {
 		0% {
@@ -2372,9 +2346,23 @@ gl-lit-graph {
 			background-color: var(--row-selection-bg);
 		}
 	}
+	@keyframes gl-graph-row-actions-landing-flash {
+		0% {
+			color: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 55%));
+		}
+
+		45% {
+			color: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 30%));
+		}
+
+		100% {
+			color: var(--row-selection-bg);
+		}
+	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.gl-graph__row.is-landing-flash {
+		.gl-graph__row.is-landing-flash,
+		.gl-graph__row.is-landing-flash .gl-graph__row-actions::before {
 			animation: none;
 		}
 	}
