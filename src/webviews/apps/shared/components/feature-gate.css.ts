@@ -126,6 +126,31 @@ export const featureGateBaseStyles = css`
 			opacity: 0.6;
 		}
 	}
+
+	:host([variant='sheet']) .sheet {
+		--section-foreground: var(--vscode-foreground);
+		--section-background: var(--vscode-editor-background);
+		--section-border-color: var(--gate-border);
+
+		--link-foreground: var(--vscode-textLink-foreground);
+		--link-foreground-active: var(--vscode-textLink-activeForeground);
+
+		position: absolute;
+		inset: 0;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		padding: var(--gl-space-24) 0;
+		overflow: hidden;
+		color: var(--section-foreground);
+		background: var(--vscode-editor-background);
+	}
+
+	:host([variant='sheet']) .content {
+		inline-size: 100%;
+		max-width: 90rem;
+		margin-inline: auto;
+	}
 `;
 
 export const featureGateContentStyles = css`
