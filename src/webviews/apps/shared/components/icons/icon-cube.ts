@@ -35,6 +35,10 @@ export class GlIconCube extends LitElement {
 				font-size: var(--gl-icon-cube-size);
 				color: var(--gl-icon-cube-color);
 			}
+
+			code-icon[icon='gl-graph'] {
+				transform: translateX(10%);
+			}
 		`,
 	];
 
