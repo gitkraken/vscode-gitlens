@@ -3,7 +3,14 @@ import { css, unsafeCSS } from 'lit';
 /* The single threshold (both axes) below which the gate switches to its compact look. Shared as a
    constant because the width- and height-compact rules span this file and
    feature-gate-plus-state.ts, and @container conditions can't read custom properties. */
-export const featureGateCompactThreshold = unsafeCSS('45rem');
+export const featureGateCompactThreshold = unsafeCSS('66rem');
+
+/* The width at/above which the feature list shows two comfortable ~33rem columns of static expanded
+   rows; below it the list snaps straight to the single-column accordion. Deliberately its own value
+   (not featureGateCompactThreshold): this is a list-layout decision, not the gate's compact mode, and
+   it must line up with where two columns actually fit so there is never a single-column-expanded
+   in-between. */
+const featureGateListColumnsThreshold = unsafeCSS('72rem');
 
 export const featureGateBaseStyles = css`
 	:host {
@@ -140,7 +147,7 @@ export const featureGateBaseStyles = css`
 		box-sizing: border-box;
 		display: flex;
 		flex-direction: column;
-		padding: var(--gl-space-24) 0;
+		padding: 0;
 		overflow: hidden;
 		color: var(--section-foreground);
 		background: var(--vscode-editor-background);
@@ -149,6 +156,7 @@ export const featureGateBaseStyles = css`
 	:host([variant='sheet']) .content {
 		inline-size: 100%;
 		max-width: 90rem;
+		padding-block: var(--gl-space-24);
 		margin-inline: auto;
 	}
 `;
@@ -188,17 +196,6 @@ export const featureGateContentStyles = css`
 		flex-direction: row;
 		gap: var(--gl-space-12);
 		align-items: flex-start;
-	}
-
-	/* Vertically constrained placements (e.g. the bottom panel): title and lede share one line
-	   (wrapping when also narrow) to shorten the header. The normal-height dialog is untouched. */
-	@container (max-height: ${featureGateCompactThreshold}) {
-		.feature__header hgroup {
-			display: flex;
-			flex-wrap: wrap;
-			column-gap: var(--gl-space-8);
-			align-items: baseline;
-		}
 	}
 
 	.feature__feature-icon {
@@ -251,29 +248,30 @@ export const featureGateContentStyles = css`
 
 	.list {
 		display: grid;
-		/* Intrinsic column collapse: two columns when the content area is wide enough for two
-		   32rem tracks, a single column in narrow placements (side bar, panel splits). */
-		grid-template-columns: repeat(auto-fit, minmax(min(32rem, 100%), 1fr));
-		gap: var(--gl-space-16);
+		/* Single column by default; the list snaps to two columns only once it's wide enough for them
+		   (see the min-width container query below). There is deliberately no single-column-expanded
+		   state in between — narrow snaps straight to the accordion. */
+		grid-template-columns: 1fr;
+		gap: var(--gl-space-4);
 		padding-inline-start: 0;
 		margin-block: var(--gl-space-6);
 		margin-inline: 0;
 		list-style: none;
 	}
 
+	/* Default (narrow) layout: each <details> is a real collapsible accordion row with a clickable
+	   summary and a chevron. Closed rows hide their content natively via ::details-content; the wide
+	   layout below force-reveals it and neuters the summary into a static row. */
 	.list__item {
-		display: flex;
-		gap: var(--gl-space-12);
-		align-items: flex-start;
+		display: block;
+		padding-block: var(--gl-space-6);
 	}
 
-	/* Wide layout: <details> reads as a static expanded row. The summary uses display: contents so
-	   its icon + label participate directly in the .list__item flex row (matching the old two-child
-	   layout), and it is neutered so it is not an interactive disclosure. */
 	.list__summary {
-		display: contents;
-		cursor: default;
-		pointer-events: none;
+		display: flex;
+		gap: var(--gl-space-8);
+		align-items: center;
+		cursor: pointer;
 		list-style: none;
 	}
 
@@ -282,10 +280,24 @@ export const featureGateContentStyles = css`
 		display: none;
 	}
 
+	.list__chevron {
+		display: inline-flex;
+		flex: none;
+		margin-inline-start: auto;
+		color: var(--vscode-descriptionForeground);
+		transition: transform var(--gl-duration-fast) var(--gl-ease-out);
+	}
+
+	.list__item[open] .list__chevron {
+		transform: rotate(90deg);
+	}
+
 	.list__copy {
 		display: flex;
 		flex-direction: column;
 		gap: var(--gl-space-2);
+		padding-inline: var(--gl-space-6);
+		margin-block-start: var(--gl-space-6);
 		font-size: var(--gl-font-sm);
 		text-wrap: pretty;
 	}
@@ -296,63 +308,41 @@ export const featureGateContentStyles = css`
 		color: var(--color-foreground);
 	}
 
-	/* Narrow placements: the base .list__item/.list__summary rules above make each <details> read as a
-	   static expanded row (display: contents on the summary, pointer-events: none). This block must
-	   come after those base rules in source order — @container adds no specificity, so at equal
-	   specificity the later rule wins the cascade — to turn each item into a real collapsed accordion
-	   row with a clickable summary. */
-	@container (max-width: ${featureGateCompactThreshold}) {
+	/* Wide layout: two comfortable ~33rem columns, and each <details> reads as a static expanded row
+	   rather than an accordion — the summary is blockified and neutered (non-interactive), the chevron
+	   is hidden, and ::details-content is force-revealed (Chromium hides a closed details' content
+	   wrapper; overriding its content-visibility is the only way to reveal it from CSS). Below this
+	   threshold the list snaps back to the single-column accordion — there is no in-between. */
+	@container (min-width: ${featureGateListColumnsThreshold}) {
+		.list {
+			grid-template-columns: 1fr 1fr;
+			gap: var(--gl-space-16);
+		}
+
 		.list__item {
-			display: block;
-			padding-block: var(--gl-space-6);
-			border-block-end: var(--gl-border-width) solid var(--gate-border);
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			padding-block: 0;
 		}
 
 		.list__summary {
-			display: flex;
-			gap: var(--gl-space-12);
-			align-items: center;
-			cursor: pointer;
-			pointer-events: auto;
+			pointer-events: none;
+			cursor: default;
 		}
 
-		.list__summary::-webkit-details-marker,
-		.list__summary::marker {
-			display: revert;
+		.list__item::details-content {
+			content-visibility: visible;
 		}
 
-		.list__item .list__copy {
-			margin-block-start: var(--gl-space-6);
-		}
-	}
-
-	/* Vertically constrained placements: tighten the feature list. Halve the between-column gap,
-	   and float each item's icon so its copy flows around and under it instead of sitting in a
-	   rigid second column — reclaiming the indent for text. Placed after the base .list/.list__item
-	   rules so the height-scoped overrides win the cascade (the base .list gap shorthand would
-	   otherwise reset column-gap, and the base .list__item/.list__copy flex would defeat the float). */
-	@container (max-height: ${featureGateCompactThreshold}) {
-		.list {
-			column-gap: var(--gl-space-8);
-		}
-
-		.list__item {
-			display: block;
-		}
-
-		.list__item .icon-cube {
-			float: inline-start;
-			margin-inline-end: var(--gl-space-6);
+		.list__chevron {
+			display: none;
 		}
 
 		.list__copy {
-			display: block;
-		}
-
-		/* The title runs in on the same line as the body, so match its size to the body — the
-		   larger heading size reads as inconsistent mid-sentence. Weight/color keep it distinct. */
-		.list__copy strong {
-			font-size: var(--gl-font-sm);
+			padding-inline: 0;
+			padding-inline-start: var(--gl-space-36);
+			margin-block-start: 0;
 		}
 	}
 `;

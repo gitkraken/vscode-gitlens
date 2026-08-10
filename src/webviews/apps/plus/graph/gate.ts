@@ -97,6 +97,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="layout"></code-icon></span>
 							<strong>Unified Workspace</strong>
+							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Centralize your workflow with the Side Bar and dockable Details Panel. Detach the graph
@@ -108,6 +109,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="robot"></code-icon></span>
 							<strong>Orchestrate Agents</strong>
+							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Launch, monitor, and interact with agents from the graph, Agents Side Bar, or Kanban board
@@ -118,6 +120,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="shield"></code-icon></span>
 							<strong>Command Center</strong>
+							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Review changes, stage files, create or compose commits, and resolve conflicts. On a clean
@@ -129,6 +132,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="arrow-swap"></code-icon></span>
 							<strong>Parallelize Work</strong>
+							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Juggle multiple active worktrees and agent sessions within a single view. Focus the graph
@@ -140,6 +144,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="wand"></code-icon></span>
 							<strong>AI Compose & Review</strong>
+							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Bring order from chaos. Restructure changes into clean, review-ready commits automatically.
@@ -151,6 +156,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="pulse"></code-icon></span>
 							<strong>Deep Visualizations</strong>
+							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Analyze repo evolution with the Visual History. Pinpoint hotspots and trends or watch agent

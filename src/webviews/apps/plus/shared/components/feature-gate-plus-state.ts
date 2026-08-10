@@ -15,7 +15,6 @@ import { getFeaturePreviewStatus } from '../../../../../features.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlButton } from '../../../shared/components/button.js';
-import { featureGateCompactThreshold } from '../../../shared/components/feature-gate.css.js';
 import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import { linkStyles } from './vscode.css.js';
@@ -96,29 +95,6 @@ export class GlFeatureGatePlusState extends LitElement {
 			   turns the paragraphs inline — text-align only aligns content of block containers. */
 			.trial {
 				text-align: center;
-			}
-
-			/* Vertically constrained alert gates (e.g. the bottom panel): compact the action zone so
-			   it costs less height — tighter paragraph/rule rhythm, and the trial message + promo
-			   collapse onto a single line. The normal-height dialog keeps its default spacing.
-			   Only the TrialExpired branch has a .trial wrapper: it's the sole state that renders
-			   two trailing paragraphs — every other state ends with a single one, so there's
-			   nothing to collapse. */
-			@container (max-height: ${featureGateCompactThreshold}) {
-				:host([appearance='alert']) p,
-				:host([appearance='alert']) hr {
-					margin-block: var(--gl-space-6);
-				}
-
-				:host([appearance='alert']) .trial p {
-					display: inline;
-				}
-
-				:host([appearance='alert']) .trial gl-promo,
-				:host([appearance='alert']) .trial gl-promo::part(text) {
-					display: inline;
-					margin: 0;
-				}
 			}
 
 			.preview-image {

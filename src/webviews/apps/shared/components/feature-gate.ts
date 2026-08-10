@@ -8,7 +8,7 @@ import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/su
 import { linkStyles } from '../../plus/shared/components/vscode.css.js';
 import { featureGateBaseStyles } from './feature-gate.css.js';
 import { focusableBaseStyles } from './styles/lit/a11y.css.js';
-import { scrollableBase } from './styles/lit/base.css.js';
+import { boxSizingBase, scrollableBase } from './styles/lit/base.css.js';
 import './button.js';
 import './code-icon.js';
 import '../../plus/shared/components/feature-gate-plus-state.js';
@@ -25,7 +25,7 @@ declare global {
 
 @customElement('gl-feature-gate')
 export class GlFeatureGate extends LitElement {
-	static override styles = [focusableBaseStyles, linkStyles, scrollableBase, featureGateBaseStyles];
+	static override styles = [boxSizingBase, focusableBaseStyles, linkStyles, scrollableBase, featureGateBaseStyles];
 
 	@query('dialog')
 	private readonly dialogEl!: HTMLDialogElement | null;
