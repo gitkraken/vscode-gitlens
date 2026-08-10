@@ -5376,50 +5376,41 @@ export class GlLitGraph extends LitElement {
 		event.stopPropagation();
 	};
 
-	// Click the rail → center a row in the viewport: the NEAREST marker if the click is near one,
-	// otherwise the row at the clicked position (the rail doubles as a click-to-jump navigator). Rows
-	// are fixed-height, so the target scrollTop is a direct index × rowHeight (no measurement needed).
+	// Click the rail → jump to a row: the NEAREST marker if the click is near one, otherwise the row at the
+	// clicked position (the rail doubles as a click-to-jump navigator).
 	// Driven from pointerup (not @click) so it coexists with the drag-scrub (only fires when no drag) — and
 	// the rail STOPS the click that follows, because `onClick` cancels any reveal in flight and would
 	// otherwise kill the scroll this very press just started. Same contract the ref-find widget follows.
-	//
-	// The one affordance that keeps DEAD CENTER rather than the landing ratio: the rail is positional, so
-	// the clicked Y already says where in the viewport the row belongs, and an offset landing would read as
-	// having missed the click.
 	private jumpToScrollMarker(container: HTMLElement, clientY: number): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
 
 		const nearest = this.nearestScrollMarker(container, clientY);
-		let index: number;
-		if (nearest != null) {
-			index = nearest.index;
-		} else {
+		// An EMPTY-rail click is a POSITION, not a row: it scrubs like a scrollbar and selects nothing —
+		// opening the details panel on whichever commit happens to sit under that pixel would be choosing
+		// for the reader. With no row identity there is nothing to hand the shared jump, so this one stays
+		// on the positioning primitive, centered: the clicked Y already says where in the viewport the row
+		// belongs, and an offset landing would read as having missed the click.
+		if (nearest == null) {
 			const rect = container.getBoundingClientRect();
 			const total = this._renderCtx?.total ?? this.scrollMarkerRows.length;
 			if (rect.height <= 0 || total <= 0) return;
 
-			index = Math.round(((clientY - rect.top) / rect.height) * total);
+			const index = Math.round(((clientY - rect.top) / rect.height) * total);
+			this.revealIndexAt(index, centerRevealRatio, true);
+			return;
 		}
 
-		this.revealIndexAt(index, centerRevealRatio, true);
-
 		// Clicking a MARKER is clicking a named row — HEAD, the upstream, the merge target, the pinned ref,
-		// the selection — so it selects and takes the focus anchor too, the same handoff the HEAD and pinned
-		// pills perform. Scrolling alone left the rail as the one waypoint affordance that moved the view
-		// without landing you anywhere.
-		//
-		// An EMPTY-rail click deliberately does none of that: it is a position rather than a row, scrubbing
-		// like a scrollbar, and selecting whichever commit happens to sit at that pixel would open the details
-		// panel on something the user never picked.
-		if (nearest == null) return;
-
-		const sha = this.displayRows[index]?.sha;
+		// the selection — so it takes the same wrapper-owned jump (load → select → reveal) the waypoints and
+		// every ref pill take. Revealing here and dispatching the selection separately left `_pendingRevealSha`
+		// unset, and the anchor correctors then re-parked the viewport off the target mid-flight (the failure
+		// `onHeadPillClick` documents). Landing at the shared ratio instead of dead center is the deliberate
+		// cost of that: one rule, in one place, for where a jump parks.
+		const sha = this.displayRows[nearest.index]?.sha;
 		if (sha == null) return;
 
-		this.armLandingFlash(sha);
-		this.focusIndex = index;
-		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
+		this.jumpToRefRow(sha, { focus: true, flash: true });
 	}
 
 	// ─── Interaction (delegated; rows carry no per-row listeners) ──────────────
@@ -9112,44 +9103,30 @@ export class GlLitGraph extends LitElement {
 		// Jump-button convention (see `onClick`): stop the bubble so the delegated click handler's
 		// `cancelPendingReveal` can't tear down the reveal this very click queues/starts.
 		e.stopPropagation();
-		const scroller = this.virtualizerRef.value;
 		const headSha = this.effectiveHeadSha;
-		if (scroller == null || headSha == null) return;
+		if (headSha == null) return;
 
-		const idx = this.indexBySha.get(headSha);
-		if (idx == null) {
-			// HEAD's row isn't loaded — the same wrapper load/select/reveal hand-off the WIP proxy pill's
-			// jump takes; the intent holds while the row pages in.
-			this.jumpToRefRow(headSha, { focus: true, flash: true });
-			return;
-		}
-
-		// Jump to HEAD AND select it — same selection path a row click uses, so the details panel opens on
-		// HEAD too. Move the focus anchor with it (matches replace-click behavior). A landing, not a nearest:
-		// the pill lives in the header, so the user's attention isn't on the rows and a no-op wouldn't read.
-		this.revealIndexAt(idx, landingRevealRatio, true);
-		this.armLandingFlash(headSha);
-		this.focusIndex = idx;
-		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }));
+		// Routed through the wrapper-owned jump (load → select → reveal) rather than driving `revealIndexAt`
+		// from here, and that is load-bearing rather than tidiness: ARMING the reveal is what sets
+		// `_pendingRevealSha`, the one flag `applyPendingScrollAnchor` / `applyPendingViewportTop` check
+		// before re-parking the viewport — and both run from `updated()` ahead of the flush. Scrolling
+		// directly left that guard unset, so the update driven by this jump's own selection captured an
+		// anchor and dragged the view straight back off HEAD. Bumping `_scrollAnchorGeneration` (which
+		// `revealIndexAt` does) can't cover it: that supersedes retries already in flight, not an anchor
+		// captured after the reveal starts. Folding the loaded and not-yet-paged-in cases into one call is
+		// the secondary win — the unloaded branch already took exactly this path.
+		this.jumpToRefRow(headSha, { focus: true, flash: true });
 	};
 
 	private onPinnedPillClick = (e: MouseEvent): void => {
 		// Same jump-button convention as `onHeadPillClick` — the bubble would cancel the reveal mid-flight.
 		e.stopPropagation();
-		const scroller = this.virtualizerRef.value;
 		const pinnedSha = this.pinnedSha;
-		if (scroller == null || pinnedSha == null) return;
+		if (pinnedSha == null) return;
 
-		const idx = this.indexBySha.get(pinnedSha);
-		if (idx == null) return;
-
-		// Jump to the pinned branch AND select it (same path as the HEAD pill).
-		this.revealIndexAt(idx, landingRevealRatio, true);
-		this.armLandingFlash(pinnedSha);
-		this.focusIndex = idx;
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-changeselection', { detail: { sha: pinnedSha, mode: 'replace' } }),
-		);
+		// Same wrapper-owned jump as the HEAD waypoint, for the same reason (see there). It also gains that
+		// waypoint's paging behavior: a pinned row that isn't loaded now pages in instead of no-op'ing.
+		this.jumpToRefRow(pinnedSha, { focus: true, flash: true });
 	};
 
 	// ─── Column header (labels + drag-resize + drag-reorder), ported from React ZoneHeader ──
