@@ -334,7 +334,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/agents/sessionSelected': GraphSidebarAgentsSessionSelectedEvent;
 	/** Sent when the user resolves a permission (Allow/Deny/Always Allow) from the sidebar agents panel */
 	'graph/agents/permissionResolved': GraphSidebarAgentsPermissionResolvedEvent;
-	/** Sent when the user clicks Open Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel */
+	/** Sent when the user clicks Open/Resume Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel */
 	'graph/agents/sessionAction': GraphSidebarAgentsSessionActionEvent;
 	/** Sent when the user clicks a header action (Start Work, Start Review, Refresh) in the sidebar agents panel */
 	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
@@ -457,7 +457,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/kanban/closed': GraphContextEventData;
 	/** Sent when the user clicks a session card in the Agent Kanban to open its worktree WIP */
 	'graph/kanban/sessionSelected': GraphKanbanSessionSelectedEvent;
-	/** Sent when the user clicks Open Session or View Plan on a kanban session card */
+	/** Sent when the user clicks Open/Resume Session or View Plan on a kanban session card */
 	'graph/kanban/sessionAction': GraphKanbanSessionActionEvent;
 	/** Sent when the user resolves a permission (Allow/Deny or Approve/Reject) from a kanban session card */
 	'graph/kanban/permissionResolved': GraphKanbanPermissionResolvedEvent;
@@ -2003,7 +2003,7 @@ interface GraphSidebarAgentsPermissionResolvedEvent extends GraphContextEventDat
 }
 
 interface GraphSidebarAgentsSessionActionEvent extends GraphContextEventData {
-	action: 'openSession' | 'openPlanFile' | 'openTerminal';
+	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal';
 }
 
 interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
@@ -2402,7 +2402,7 @@ interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
 }
 
 interface GraphKanbanSessionActionEvent extends GraphContextEventData {
-	action: 'openSession' | 'openPlanFile';
+	action: 'openSession' | 'resumeSession' | 'openPlanFile';
 }
 
 interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {

@@ -8,11 +8,13 @@ import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	fpField,
 	getAgentPhaseLabel,
+	getAgentSessionOpenAction,
 	permissionFingerprint,
 } from '../../../shared/agentUtils.js';
 import { renderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
@@ -1207,7 +1209,8 @@ export class GlDetailsAgentStatus extends LitElement {
 			elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : nothing
 		}`;
 		const phaseTooltip = elapsed != null ? `Last active ${elapsed} ago` : undefined;
-		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		const openAction = getAgentSessionOpenAction(session);
+		const openHref = createAgentSessionOpenHref(session);
 		// Resolve actions surface whenever a pending permission exists. Peer-discovered sessions
 		// (owned by another GitLens window) reach the host's `resolvePermission`, which surfaces
 		// a notification rather than silently no-opping when the route is unavailable.
@@ -1235,8 +1238,8 @@ export class GlDetailsAgentStatus extends LitElement {
 						}
 						<gl-action-chip
 							class="card__open"
-							icon="link-external"
-							label="Open Session"
+							icon=${openAction.icon}
+							label=${openAction.label}
 							overlay="tooltip"
 							href=${openHref}
 						></gl-action-chip>

@@ -1663,11 +1663,11 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/agents/sessionAction
 
-> Sent when the user clicks Open Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel
+> Sent when the user clicks Open/Resume Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel
 
 ```typescript
 {
-  'action': 'openSession' | 'openPlanFile' | 'openTerminal',
+  'action': 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -2064,11 +2064,11 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/kanban/sessionAction
 
-> Sent when the user clicks Open Session or View Plan on a kanban session card
+> Sent when the user clicks Open/Resume Session or View Plan on a kanban session card
 
 ```typescript
 {
-  'action': 'openSession' | 'openPlanFile',
+  'action': 'openSession' | 'resumeSession' | 'openPlanFile',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

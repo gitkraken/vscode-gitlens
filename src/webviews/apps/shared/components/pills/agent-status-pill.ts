@@ -6,11 +6,13 @@ import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	getAgentCategoryLabel,
 	getAgentPhaseLabel,
+	getAgentSessionOpenAction,
 } from '../../agentUtils.js';
 import { renderRunningTool } from '../agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../agents/agent-status-styles.css.js';
@@ -680,6 +682,8 @@ export class GlAgentStatusPill extends LitElement {
 		category: AgentSessionCategory,
 		canResolve: boolean,
 	): unknown {
+		// Plain openSession link — feeds `renderMoreActionsMenu`, which is only reached from the
+		// needs-input path (never completed), so it never needs the resume variant.
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 
 		if (category === 'needs-input' && canResolve) {
@@ -716,10 +720,12 @@ export class GlAgentStatusPill extends LitElement {
 			category === 'completed'
 				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
 				: undefined;
+		const openAction = getAgentSessionOpenAction(session);
+		const openActionHref = createAgentSessionOpenHref(session);
 
 		return html`
 			<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
-				<action-item label="Open Session" icon="link-external" href=${openHref}></action-item>
+				<action-item label=${openAction.label} icon=${openAction.icon} href=${openActionHref}></action-item>
 				${
 					archiveHref != null
 						? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
@@ -901,7 +907,8 @@ export class GlAgentStatusPill extends LitElement {
 	}
 
 	private renderIdleHover(session: AgentSessionState, omitActions: boolean): unknown {
-		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		const openAction = getAgentSessionOpenAction(session);
+		const openHref = createAgentSessionOpenHref(session);
 		// Archive is offered only on terminal (completed) sessions — a live idle one would have to be
 		// killed first, so it's not surfaced here.
 		const archiveHref =
@@ -933,8 +940,8 @@ export class GlAgentStatusPill extends LitElement {
 							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
 								<div class="hover-actions__row">
 									<gl-button appearance="secondary" full density="compact" href=${openHref}>
-										<code-icon icon="link-external" slot="prefix"></code-icon>
-										Open Session
+										<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
+										${openAction.label}
 									</gl-button>
 									${
 										archiveHref != null

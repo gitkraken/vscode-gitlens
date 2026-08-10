@@ -39,7 +39,12 @@ import {
 	worktreeTooltip,
 	worktreeTooltipWithoutChangesLine,
 } from '../../../../plus/graph/sidebarTooltips.js';
-import { agentPhaseToCategory, describeAgentSession, formatAgentElapsed } from '../../../shared/agentUtils.js';
+import {
+	agentPhaseToCategory,
+	describeAgentSession,
+	formatAgentElapsed,
+	getAgentSessionOpenAction,
+} from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type {
 	TreeItemAction,
@@ -1684,11 +1689,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				arguments: [permission.planFilePath],
 			});
 		}
+		const openAction = getAgentSessionOpenAction(session);
 		actions.push({
-			icon: 'link-external',
-			label: 'Open Session',
-			action: 'gitlens.agents.openSession',
-			arguments: [session.id],
+			icon: openAction.icon,
+			label: openAction.label,
+			action: openAction.command,
+			arguments: openAction.args,
 		});
 		// Archive is offered only on terminal (completed) sessions — a live one would have to be
 		// killed first, so it stays out of the action row for anything still running.
@@ -2726,9 +2732,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		let action: 'openSession' | 'openPlanFile' | 'openTerminal' | undefined;
+		let action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | undefined;
 		if (command === 'gitlens.agents.openSession') {
 			action = 'openSession';
+		} else if (command === 'gitlens.agents.resumeSession') {
+			action = 'resumeSession';
 		} else if (command === 'gitlens.agents.openPlanFile') {
 			action = 'openPlanFile';
 		} else if (command === 'gitlens.openInIntegratedTerminal:graph') {

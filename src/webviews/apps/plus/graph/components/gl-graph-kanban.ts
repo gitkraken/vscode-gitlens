@@ -9,11 +9,13 @@ import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	fpField,
 	getAgentPhaseLabel,
+	getAgentSessionOpenAction,
 	permissionFingerprint,
 	sortAgentSessions,
 } from '../../../shared/agentUtils.js';
@@ -673,6 +675,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				});
 				break;
 
+			case 'resume-session':
+				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
+					name: 'graph/kanban/sessionAction',
+					data: { action: 'resumeSession' },
+				});
+				break;
+
 			case 'open-plan':
 				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
 					name: 'graph/kanban/sessionAction',
@@ -819,6 +828,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		const subtitle = sessionSubtitle(session);
 		const detail = this.resolveStickyDetail(session, category, elapsed);
+		const openAction = getAgentSessionOpenAction(session);
 
 		// Use a `<div role="button" tabindex="0">` rather than a native `<button>` so we can host
 		// interactive descendants (gl-button for Open Session / Allow / Deny / View Plan) without
@@ -865,12 +875,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				<gl-button
 					class="card__open"
 					appearance="toolbar"
-					tooltip="Open Session"
-					aria-label="Open Session"
-					data-telemetry-action="open-session"
-					href=${createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id))}
+					tooltip=${openAction.label}
+					aria-label=${openAction.label}
+					data-telemetry-action=${
+						openAction.command === 'gitlens.agents.resumeSession' ? 'resume-session' : 'open-session'
+					}
+					href=${createAgentSessionOpenHref(session)}
 				>
-					<code-icon icon="link-external"></code-icon>
+					<code-icon icon=${openAction.icon}></code-icon>
 				</gl-button>
 			</div>
 			<p class="card__detail">${detail}</p>

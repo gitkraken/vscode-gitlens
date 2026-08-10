@@ -1,5 +1,6 @@
 import type { PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
 import type { AgentSessionPhase } from '../../../agents/provider.js';
+import { createCommandLink } from '../../../system/commands.js';
 import type { AgentSessionState } from '../../home/protocol.js';
 import type { OverviewBranch } from '../../shared/overviewBranches.js';
 
@@ -49,6 +50,60 @@ export function agentSuffixIconFor(category: AgentSessionCategory): string | und
 		case 'completed':
 			return 'pass';
 	}
+}
+
+/** The "open" affordance for an agent session — `Open Session` for every live phase, `Resume
+ *  Session` for a completed one that has a directory to resume into. */
+export type AgentSessionOpenAction =
+	| {
+			label: 'Open Session';
+			icon: 'link-external';
+			command: 'gitlens.agents.openSession';
+			/** Args exactly as the command receives them — the sidebar passes this array straight
+			 *  through; the href surfaces feed `args[0]` to `createCommandLink`. */
+			args: [string];
+	  }
+	| {
+			label: 'Resume Session';
+			icon: 'debug-restart';
+			command: 'gitlens.agents.resumeSession';
+			args: [{ sessionId: string; cwd: string }];
+	  };
+
+/** Picks between `Open Session` (there's a live process to attach to) and `Resume Session`
+ *  (the process is gone, but the transcript can be replayed into a fresh one). Only a completed
+ *  session with a resolvable cwd gets `Resume Session` — a completed session with nowhere to
+ *  resume from has nothing to offer but the openSession modal's terminal fallback.
+ *
+ *  cwd resolution mirrors {@link toResumableSessionRef}'s cascade (`claudeResume.ts`): live `cwd`
+ *  wins over `initialCwd` because Claude migrates the transcript file to follow the session's
+ *  current directory, not its launch directory. */
+export function getAgentSessionOpenAction(session: AgentSessionState): AgentSessionOpenAction {
+	if (session.phase === 'completed') {
+		const cwd = session.cwd ?? session.initialCwd ?? session.worktreePath ?? session.workspacePath;
+		if (cwd != null) {
+			return {
+				label: 'Resume Session',
+				icon: 'debug-restart',
+				command: 'gitlens.agents.resumeSession',
+				args: [{ sessionId: session.id, cwd: cwd }],
+			};
+		}
+	}
+
+	return { label: 'Open Session', icon: 'link-external', command: 'gitlens.agents.openSession', args: [session.id] };
+}
+
+/** `createCommandLink` form of {@link getAgentSessionOpenAction}, for `href=` surfaces. The two
+ *  commands take asymmetric arg shapes: openSession's existing link form passes the session id as
+ *  a bare JSON-stringified string, while resumeSession passes the `{ sessionId, cwd }` object
+ *  directly (see `gl-details-agent-status.ts`'s past-row resume chip). */
+export function createAgentSessionOpenHref(session: AgentSessionState): string {
+	const action = getAgentSessionOpenAction(session);
+	if (action.command === 'gitlens.agents.resumeSession') return createCommandLink(action.command, action.args[0]);
+
+	// A bare string reaches the command link unquoted, which isn't valid JSON for the arg parser.
+	return createCommandLink(action.command, JSON.stringify(action.args[0]));
 }
 
 /** Kind-aware label for a needs-input phase. Surfaces "Plan ready" / "Question" / "Input needed"
