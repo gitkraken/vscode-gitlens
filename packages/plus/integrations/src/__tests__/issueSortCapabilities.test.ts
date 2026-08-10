@@ -49,8 +49,10 @@ suite('issue sort capabilities', () => {
 			});
 		});
 
-		// GitLab's two reads are different APIs, not one narrowed twice: GraphQL has `TITLE_*`/`CLOSED_AT_*` and
-		// REST has neither. Declaring the intersection would lose two keys the repository-scoped read really has.
+		// GitLab's two reads are different APIs, not one narrowed twice: GraphQL has `CLOSED_AT_*` and REST does
+		// not, while REST orders by `priority`/`dueDate` that the account-wide merge then cannot honor. Declaring
+		// either as the intersection would lose keys a read really has. Asserted in both directions off the SDK
+		// so this keeps testing the asymmetry rather than whichever keys it happened to consist of.
 		test('GitLab’s repo-scoped and account-wide vocabularies differ in both directions', async () => {
 			await withManager(async manager => {
 				const { issueSorts, issueSortsAccountWide } = manager.getSupportedFilters(

@@ -1150,7 +1150,8 @@ export const providersMetadata: ProvidersMetadata = {
 		scopes: [],
 		// Linear scopes "my issues" client-side by the viewer's assignee id; author/mention aren't supported.
 		supportedIssueFilters: [IssueFilter.Assignee],
-		// Descending only: Linear's `PaginationOrderBy` has no ascending member.
+		// Both directions, and one table for both reads: they are the same root `issues` query taking the same
+		// `sort` argument, so there is no account-wide narrowing to declare.
 		supportedIssueSorts: linearIssueSorts,
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
