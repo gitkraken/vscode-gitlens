@@ -59,6 +59,10 @@ interface AgentSessionEvent {
 	toolInput?: Record<string, unknown>;
 	permissionSuggestions?: PermissionSuggestion[];
 	hookInput?: Record<string, unknown>;
+	/** CLI-resolved worktree roots for this session's cwd visits, newest last — same shape as
+	 *  {@link SessionFileData.cwdTimeline}. The CLI runs `rev-parse` at hook time and includes this
+	 *  on every event, even though it isn't part of the raw hook payload. */
+	cwdTimeline?: { cwd: string; worktree?: string; at?: string }[];
 }
 
 interface PermissionResponse {
@@ -107,6 +111,12 @@ interface SessionBookkeeping {
 	 *  every subsequent hook event. Cleared when the session's cwd changes (re-resolution
 	 *  warranted) or on resetBookkeeping (Stop/SessionStart). */
 	gitInfoUnresolvable: boolean;
+	/** Set while the session's `worktreePath` came from the CLI (an event's `cwdTimeline`, or a poll
+	 *  record's). The CLI resolves the worktree for the exact cwd at hook time; the local probe answers
+	 *  for whichever repo the host registry matches, which for a nested cwd can be the parent worktree.
+	 *  While set, `resolveGitInfo` keeps the seated value instead of overwriting it. Cleared when the
+	 *  cwd moves without the CLI explaining the new location — attribution goes back to the probe. */
+	cliSeatedWorktree?: boolean;
 	/** Phase that immediately preceded the current one, with its original `phaseSince`. Used by
 	 *  `resolvePhaseSince` to restore continuity when phase oscillates back within a short
 	 *  window (e.g., Stop → idle → working after a continuation crosses the debounce). */
@@ -204,6 +214,69 @@ function worktreeRootFromData(data: SessionFileData): string | undefined {
 	return data.worktrees?.at(-1) || undefined;
 }
 
+/** The CLI resolves the worktree for `event.cwd` at hook time and includes it on every event —
+ *  using its answer seats `worktreePath` synchronously, closing the in-flight-probe window where
+ *  a session that just moved would otherwise still show its previous worktree until `resolveGitInfo`
+ *  catches up. Scans from the end for the timeline entry matching the event's current cwd. */
+function worktreeFromEvent(event: AgentSessionEvent): string | undefined {
+	const timeline = event.cwdTimeline;
+	if (timeline == null) return undefined;
+
+	for (let i = timeline.length - 1; i >= 0; i--) {
+		const entry = timeline[i];
+		if (entry.cwd === event.cwd) return entry.worktree || undefined;
+	}
+
+	return undefined;
+}
+
+/** Synthesizes an unresolvable ask for a `permission_requested` row that has no routable
+ *  `PendingPermission` — a non-blocking `Notification`/`PermissionRequest` tail, or a
+ *  poll-discovered live/revived row. None of these hold a blocking hook entry to route an
+ *  Allow/Deny through, so the card must show what the agent is waiting on without offering
+ *  actions the host can't fulfill. */
+function synthesizeUnresolvableAsk(toolName: string | null | undefined, planFilePath?: string): PendingPermission {
+	if (toolName != null) {
+		const kind = classifyPermissionKind(toolName);
+		return {
+			kind: kind,
+			toolName: toolName,
+			toolDescription: toolName,
+			// A plan ask with no body at least links the plan the agent wrote, so the card can offer
+			// View Plan instead of a bare tool name.
+			planFilePath: kind === 'plan' ? planFilePath : undefined,
+			resolvable: false,
+		};
+	}
+
+	return {
+		kind: 'elicitation',
+		toolName: 'Input Required',
+		toolDescription: 'Waiting for input',
+		resolvable: false,
+	};
+}
+
+/** Field-wise equality for the ask a `permission_requested` row publishes. `updateSessionStatus`
+ *  compares it before short-circuiting so a second ask arriving while the row is already
+ *  `permission_requested` (a non-blocking tail for a different tool) still reaches subscribers. */
+function isSameAsk(a: PendingPermission | undefined, b: PendingPermission | undefined): boolean {
+	if (a === b) return true;
+	if (a == null || b == null) return false;
+
+	return (
+		a.kind === b.kind &&
+		a.toolName === b.toolName &&
+		a.toolDescription === b.toolDescription &&
+		a.toolInputDescription === b.toolInputDescription &&
+		a.resolvable === b.resolvable &&
+		a.planFilePath === b.planFilePath &&
+		a.planSummary === b.planSummary &&
+		a.questionText === b.questionText &&
+		a.questionCount === b.questionCount
+	);
+}
+
 interface DiscoveryFile {
 	token: string;
 	address: string;
@@ -220,6 +293,10 @@ interface SessionContext {
 	initialCwd?: string;
 	planFile?: string;
 	sessionName?: string;
+	/** The model the session is running, from the hook event. */
+	model?: string;
+	/** CLI-resolved worktree root for the current cwd (authoritative when present). */
+	worktreePath?: string;
 }
 
 type SerializedAgentSession = Omit<AgentSession, 'lastActivity' | 'phaseSince' | 'subagents'> & {
@@ -557,6 +634,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			initialCwd: event.initialCwd,
 			planFile: event.planFile,
 			sessionName: event.sessionName,
+			model: event.model,
+			worktreePath: worktreeFromEvent(event),
 		};
 		const tag = this.sessionTag(event.sessionId, event.sessionName ?? 'unnamed');
 
@@ -662,7 +741,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			case 'UserPromptSubmit': {
-				const { index } = this.ensureSession(event.sessionId, eventContext);
+				const { index, changed } = this.ensureSession(event.sessionId, eventContext);
+				// Seated metadata (location, model, name) has to reach subscribers even when the prompt
+				// turns out to be synthetic and the status update below never runs.
+				if (changed) {
+					this._onDidChangeSessions.fire();
+				}
+
 				const cleaned = prepareStoredPrompt(event.prompt);
 				// A `UserPromptSubmit` whose payload sanitizes to nothing is harness-synthetic
 				// (e.g. background-bash <task-notification>, slash-command stdout echo). Treat it
@@ -785,10 +870,30 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// No-op — session is already idle from the preceding stop/session-start event
 						break;
 					case 'permission_prompt':
-					case 'elicitation_dialog':
 						this.updateSessionStatus(event.sessionId, 'permission_requested', {
 							...eventContext,
 							statusDetail: event.toolName,
+							pendingPermission: synthesizeUnresolvableAsk(
+								event.toolName,
+								// Plan-kind body: prefer the session's planFile, fall back to the event's
+								// — mirrors the blocking path.
+								this._sessions.find(s => s.id === event.sessionId)?.planFile ?? event.planFile,
+							),
+						});
+						break;
+					case 'elicitation_dialog':
+						// An MCP elicitation, not a tool permission — `toolName` names the elicitation, so
+						// classifying it as a tool ask would mislabel the card. Same shape the `Elicitation`
+						// hook produces.
+						this.updateSessionStatus(event.sessionId, 'permission_requested', {
+							...eventContext,
+							statusDetail: event.toolName,
+							pendingPermission: {
+								kind: 'elicitation',
+								toolName: event.toolName ?? 'Input Required',
+								toolDescription: event.toolName ?? 'Waiting for input',
+								resolvable: false,
+							},
 						});
 						break;
 					default:
@@ -850,14 +955,45 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							questionText: questionDetails?.text,
 							questionCount: questionDetails?.count,
 						};
-						this.updateSessionWithPermission(event.sessionId, permission, event.pid);
+						this.updateSessionWithPermission(event.sessionId, permission, eventContext);
 					});
 				}
 
-				this.updateSessionStatus(event.sessionId, 'permission_requested', {
-					...eventContext,
-					statusDetail: event.toolName,
-				});
+				{
+					// Mirror the blocking payload's shape so the ask renders identically either way —
+					// just unresolvable, since no blocking hook entry exists to route an answer through.
+					const toolName = (hookInput?.tool_name as string | undefined) ?? event.toolName;
+					const kind = toolName != null ? classifyPermissionKind(toolName) : undefined;
+					// Plan-kind body: same session-first preference as the blocking path.
+					const planFilePath =
+						kind === 'plan'
+							? (this._sessions.find(s => s.id === event.sessionId)?.planFile ?? event.planFile)
+							: undefined;
+					// Same body extraction as the blocking path — surfaces render `questionText`/
+					// `planSummary` in place of the tool description, so omitting them would show a
+					// generic "awaiting" card for a question the input actually carries.
+					const questionDetails =
+						kind === 'question' && toolInput != null ? extractQuestionDetails(toolInput) : undefined;
+					const synthesized: PendingPermission =
+						kind != null && toolName != null && toolInput != null
+							? {
+									kind: kind,
+									toolName: toolName,
+									toolDescription: describeToolInput(toolName, toolInput),
+									toolInputDescription: (toolInput.description as string | undefined) || undefined,
+									planFilePath: planFilePath,
+									planSummary: kind === 'plan' ? extractPlanSummary(toolInput) : undefined,
+									questionText: questionDetails?.text,
+									questionCount: questionDetails?.count,
+									resolvable: false,
+								}
+							: synthesizeUnresolvableAsk(toolName, planFilePath);
+					this.updateSessionStatus(event.sessionId, 'permission_requested', {
+						...eventContext,
+						statusDetail: event.toolName,
+						pendingPermission: synthesized,
+					});
+				}
 				break;
 			}
 
@@ -887,6 +1023,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					kind: 'elicitation',
 					toolName: event.toolName ?? 'Input Required',
 					toolDescription: event.toolName ?? 'Waiting for input',
+					// `Elicitation` arrives on a non-blocking hook, so no entry exists for
+					// `resolvePermission` to answer — the user responds in the agent's own session.
+					resolvable: false,
 				};
 				this.updateSessionStatus(event.sessionId, 'permission_requested', {
 					...eventContext,
@@ -908,16 +1047,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			case 'CwdChanged':
 				if (event.cwd) {
-					const index = this._sessions.findIndex(s => s.id === event.sessionId);
-					if (index >= 0 && this._sessions[index].cwd !== event.cwd) {
-						this._sessions[index] = { ...this._sessions[index], cwd: event.cwd };
+					// Route through `ensureSession`: it owns the whole location transition — timeline
+					// seat (or handing attribution back to the probe when the CLI didn't explain the
+					// move), workspacePath/isInWorkspace recompute, the unresolvable-flag clear, and
+					// the probe gating. Writing `cwd` directly here left `cliSeatedWorktree` set, so
+					// the probe's answer for the new cwd could never replace the stale seated one.
+					const { changed } = this.ensureSession(event.sessionId, eventContext);
+					if (changed) {
 						this._onDidChangeSessions.fire();
 					}
-					// Clear the unresolvable flag so the new cwd actually gets re-probed — without
-					// this, a session that started in a non-git cwd would stay flagged forever even
-					// after moving into a git repo.
-					this.getBookkeeping(event.sessionId).gitInfoUnresolvable = false;
-					void this.resolveGitInfo(event.sessionId, event.cwd);
 				}
 				break;
 
@@ -1036,6 +1174,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		bk.currentReadCounts.clear();
 		bk.lastTouchedAt.clear();
 		bk.gitInfoUnresolvable = false;
+		// `cliSeatedWorktree` deliberately survives: SessionStart seats the worktree via
+		// `ensureSession` BEFORE resetting bookkeeping, and an unexplained cwd move clears it anyway.
 		const parentId = this.findOwningParentId(sessionId);
 		if (parentId != null) {
 			this.syncSessionFileActivity(parentId);
@@ -1682,12 +1822,18 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		);
 	}
 
-	private updateSessionWithPermission(sessionId: string, permission: PendingPermission, pid?: number): void {
+	private updateSessionWithPermission(
+		sessionId: string,
+		permission: PendingPermission,
+		context?: SessionContext,
+	): void {
 		// A pending permission is a working/waiting transition — cancel any deferred Stop → idle
 		// commit so the session doesn't briefly flip to idle before showing the prompt.
 		this.cancelPendingIdleTransition(sessionId);
 
-		const { index } = this.ensureSession(sessionId, { pid: pid });
+		// The full event context, not just the pid: a blocking ask can be the first event of a
+		// session, and a row created here with no location would sit unattributed for the whole block.
+		const { index } = this.ensureSession(sessionId, context);
 
 		const prev = this._sessions[index];
 		const newPhase = getPhaseForStatus('permission_requested');
@@ -1707,7 +1853,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private updateSessionStatus(
 		sessionId: string,
 		status: AgentSessionStatus,
-		options?: SessionContext & { statusDetail?: string },
+		options?: SessionContext & { statusDetail?: string; pendingPermission?: PendingPermission },
 	): void {
 		// Any non-idle status update implicitly cancels a deferred Stop → idle commit. The
 		// timer is owned here so the schedule/cancel pair is uniformly enforced regardless of
@@ -1734,7 +1880,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 
 		const statusDetail = options?.statusDetail;
-		if (prev.status === status && prev.statusDetail === statusDetail) {
+		// Resolved before the short-circuit: a second ask can arrive while the row already sits at
+		// `permission_requested`, and comparing only status+detail would publish the first ask forever.
+		const nextPendingPermission =
+			status === 'permission_requested' ? (bk.pendingPermission ?? options?.pendingPermission) : undefined;
+		if (
+			prev.status === status &&
+			prev.statusDetail === statusDetail &&
+			isSameAsk(prev.pendingPermission, nextPendingPermission)
+		) {
 			if (metadataChanged) {
 				this._onDidChangeSessions.fire();
 			}
@@ -1748,7 +1902,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			phase: newPhase,
 			phaseSince: this.resolvePhaseSince(sessionId, prev.phase, prev.phaseSince, newPhase),
 			statusDetail: statusDetail,
-			pendingPermission: status === 'permission_requested' ? bk.pendingPermission : undefined,
+			pendingPermission: nextPendingPermission,
 			lastActivity: new Date(),
 		};
 		this._onDidChangeSessions.fire();
@@ -1769,11 +1923,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private ensureSession(sessionId: string, context?: SessionContext): { index: number; changed: boolean } {
-		const { pid, workspacePath, isInWorkspace, cwd, initialCwd, planFile, sessionName } = context ?? {};
+		const { pid, workspacePath, isInWorkspace, cwd, initialCwd, planFile, sessionName, model, worktreePath } =
+			context ?? {};
 
 		let index = this._sessions.findIndex(s => s.id === sessionId);
 		if (index < 0) {
 			const now = new Date();
+			// Same worktree-derived fallback as the update branch below: a session created with a
+			// scratch cwd but a CLI-seated worktree still belongs to that worktree's workspace.
+			const createdWorkspacePath = workspacePath ?? this.resolveWorkspacePath(worktreePath);
 			index = this._sessions.length;
 			this._sessions.push({
 				id: sessionId,
@@ -1786,15 +1944,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				pid: pid,
 				lastActivity: now,
 				isSubagent: false,
-				workspacePath: workspacePath,
+				workspacePath: createdWorkspacePath,
 				cwd: cwd,
 				initialCwd: initialCwd ?? cwd,
 				planFile: planFile,
-				isInWorkspace: isInWorkspace ?? false,
+				isInWorkspace: createdWorkspacePath != null ? true : (isInWorkspace ?? false),
+				model: model,
+				worktreePath: worktreePath != null ? normalizePath(worktreePath) : undefined,
 			});
 			Logger.debug(
 				`ClaudeCodeProvider.ensureSession: implicitly created ${this.sessionTag(sessionId, sessionName ?? 'unnamed')}`,
 			);
+			if (worktreePath != null) {
+				this.getBookkeeping(sessionId).cliSeatedWorktree = true;
+			}
 			this._onDidChangeSessions.fire();
 
 			if (cwd != null) {
@@ -1806,10 +1969,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		const existing = this._sessions[index];
 		const updatedPid = pid != null && existing.pid == null ? pid : existing.pid;
-		const updatedWorkspacePath = workspacePath || existing.workspacePath;
-		const updatedIsInWorkspace = workspacePath ? (isInWorkspace ?? existing.isInWorkspace) : existing.isInWorkspace;
 		const updatedPlanFile = planFile ?? existing.planFile;
 		const updatedName = sessionName || existing.name;
+		const updatedModel = model || existing.model;
 		const updatedCwd = cwd ?? existing.cwd;
 		// Prefer the CLI's authoritative `initialCwd` (the true launch dir it captured first-hand,
 		// even for sessions that started before this window opened); otherwise keep whatever we
@@ -1817,6 +1979,32 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// don't send `initialCwd`, or a cold-create before any cwd was known). Comparing live `cwd`
 		// against `initialCwd` is how consumers detect launch-vs-current drift, so it stays stable.
 		const updatedInitialCwd = initialCwd ?? existing.initialCwd ?? cwd;
+		// The CLI resolves this at hook time and sends it on every event — authoritative when
+		// present, so it seats ahead of the `resolveGitInfo` probe below (which still fills
+		// `commonPath` and remains the fallback for older CLIs that don't send `cwdTimeline`).
+		const updatedWorktreePath = worktreePath != null ? normalizePath(worktreePath) : existing.worktreePath;
+		// Workspace membership follows the ATTRIBUTION, not the raw cwd: a scratch-dir excursion
+		// (cwd in /tmp, worktree kept) stays in-workspace via its worktree, while a genuine move to
+		// a repo outside the workspace honestly drops membership when events carry a cwd.
+		const updatedWorkspacePath =
+			workspacePath ??
+			this.resolveWorkspacePath(updatedWorktreePath) ??
+			(cwd == null ? existing.workspacePath : undefined);
+		const updatedIsInWorkspace = cwd == null ? existing.isInWorkspace : updatedWorkspacePath != null;
+
+		const cwdMoved = cwd != null && updatedCwd !== existing.cwd;
+		const worktreeMoved =
+			updatedWorktreePath != null &&
+			existing.worktreePath != null &&
+			updatedWorktreePath !== existing.worktreePath;
+
+		// The CLI explaining the location owns attribution; a move it didn't explain hands it back to
+		// the probe.
+		if (worktreePath != null) {
+			this.getBookkeeping(sessionId).cliSeatedWorktree = true;
+		} else if (cwdMoved) {
+			this.getBookkeeping(sessionId).cliSeatedWorktree = false;
+		}
 
 		let changed = false;
 		if (
@@ -1825,18 +2013,27 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			updatedIsInWorkspace !== existing.isInWorkspace ||
 			updatedPlanFile !== existing.planFile ||
 			updatedName !== existing.name ||
+			updatedModel !== existing.model ||
 			updatedCwd !== existing.cwd ||
-			updatedInitialCwd !== existing.initialCwd
+			updatedInitialCwd !== existing.initialCwd ||
+			updatedWorktreePath !== existing.worktreePath
 		) {
 			this._sessions[index] = {
 				...existing,
 				name: updatedName,
+				model: updatedModel,
 				pid: updatedPid,
 				workspacePath: updatedWorkspacePath,
 				cwd: updatedCwd,
 				initialCwd: updatedInitialCwd,
 				planFile: updatedPlanFile,
 				isInWorkspace: updatedIsInWorkspace,
+				worktreePath: updatedWorktreePath,
+				// A worktree move can cross repos, and the spread would otherwise carry the old repo
+				// identity forward — which consumers prefer over the new worktree, pinning the card to
+				// the wrong repo. Drop it; the probe below refills it. Mirrors the poll's ended-record
+				// re-seat.
+				commonPath: worktreeMoved ? undefined : existing.commonPath,
 			};
 			changed = true;
 		}
@@ -1850,13 +2047,30 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// `resolveGitInfo` confirms the cwd isn't a git repo, preventing a retry storm on every
 		// hook event for non-git-repo cwds. The flag is cleared on cwd change (`CwdChanged`) and
 		// on `resetBookkeeping` (Stop/SessionStart) so re-resolution can happen when warranted.
+		// A cwd move re-resolves too. `worktreePath`/`commonPath` are resolved from whichever cwd was
+		// seen first, so an agent that moves between worktrees would otherwise stay pinned to its
+		// launch repo — attaching to the wrong WIP row and leaving its real worktree showing no
+		// agents at all. `CwdChanged` covers the move the CLI announces; this covers an ordinary
+		// event that simply arrives carrying a new cwd.
+		//
+		// A cwd the CLI already attributed to the same worktree needs no probe at all — that's the
+		// common case (an agent `cd`-ing around inside its own tree), and probing it would spawn a git
+		// call per hook event for an answer we already have. A first seat (no prior worktree) still
+		// counts as a location change: the move may be out of a non-git dir whose probe latched
+		// `gitInfoUnresolvable`, and `commonPath` still needs the probe.
+		const locationNeedsProbe = cwdMoved && (worktreePath == null || worktreeMoved || existing.worktreePath == null);
+		if (locationNeedsProbe) {
+			this.getBookkeeping(sessionId).gitInfoUnresolvable = false;
+		}
+
 		if (
 			cwd != null &&
-			(existing.worktreePath == null || existing.commonPath == null) &&
+			(locationNeedsProbe || existing.worktreePath == null || existing.commonPath == null) &&
 			!this.getBookkeeping(sessionId).gitInfoUnresolvable
 		) {
 			void this.resolveGitInfo(sessionId, cwd);
 		}
+
 		return { index: index, changed: changed };
 	}
 
@@ -1925,18 +2139,26 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				return;
 			}
 
+			// A CLI-seated worktree wins over the probe's answer (see `cliSeatedWorktree`): the CLI
+			// resolved it for this exact cwd, while the probe can name the parent worktree for a nested
+			// one. `commonPath` always comes from the probe — the CLI doesn't resolve repo identity.
+			const effectiveWorktreePath =
+				this.getBookkeeping(sessionId).cliSeatedWorktree && session.worktreePath != null
+					? session.worktreePath
+					: info.worktreePath;
+
 			// Capture the worktree/commonPath at the first successful resolve so consumers can
 			// detect drift (e.g. an agent that `cd`'d into a sibling worktree after launch). Gated
 			// on `initialCommonPath` — captured together with `initialWorktreePath` so a first
 			// resolve where `info.worktreePath` happens to be undefined doesn't leave the latter
 			// open to a later overwrite. Once set, never overwritten.
 			const firstResolve = session.initialCommonPath == null;
-			const updatedInitialWorktreePath = firstResolve ? info.worktreePath : session.initialWorktreePath;
+			const updatedInitialWorktreePath = firstResolve ? effectiveWorktreePath : session.initialWorktreePath;
 			const updatedInitialCommonPath = firstResolve ? info.repoRoot : session.initialCommonPath;
 
 			if (
 				cwd !== session.cwd ||
-				info.worktreePath !== session.worktreePath ||
+				effectiveWorktreePath !== session.worktreePath ||
 				info.repoRoot !== session.commonPath ||
 				updatedInitialWorktreePath !== session.initialWorktreePath ||
 				updatedInitialCommonPath !== session.initialCommonPath
@@ -1944,7 +2166,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				this._sessions[index] = {
 					...session,
 					cwd: cwd,
-					worktreePath: info.worktreePath,
+					worktreePath: effectiveWorktreePath,
 					commonPath: info.repoRoot,
 					initialWorktreePath: updatedInitialWorktreePath,
 					initialCommonPath: updatedInitialCommonPath,
@@ -2256,6 +2478,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					isInWorkspace: workspacePath != null,
 					lastPrompt: prepareStoredPrompt(data.prompt ?? undefined),
 					firstPrompt: prepareStoredPrompt(data.firstPrompt ?? undefined),
+					model: data.model ?? undefined,
+					endReason: data.endReason ?? undefined,
+					endedAt: data.endedAt != null ? new Date(data.endedAt).getTime() : undefined,
 					// Subagents are meaningless once terminal.
 					subagents: undefined,
 				});
@@ -2286,6 +2511,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const existingIndex = this._sessions.findIndex(s => s.id === data.sessionId);
 				if (existingIndex >= 0) {
 					const existing = this._sessions[existingIndex];
+					// The status the CLI's last event implies — a resumed session may already be mid-work
+					// (`PreToolUse` → tool_use, `UserPromptSubmit` → thinking), and hardcoding `idle` would
+					// mislabel active work and risk a concurrent-write resume.
+					const polledStatus = deriveStatusFromEvent(data.event);
 					if (existing.status === 'completed') {
 						// We hold it as `completed` but the CLI now reports it as a live process (a
 						// resume the live SessionStart path missed) — revive it, the symmetric backstop
@@ -2299,22 +2528,80 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// then delete it outright once the process exits, losing the completed row.
 						if (revivedAt.getTime() < existing.phaseSince.getTime()) continue;
 
-						// Derive the live status from the CLI's last event — a resumed session may
-						// already be mid-work (`PreToolUse` → tool_use, `UserPromptSubmit` → thinking).
-						// Hardcoding `idle` would mislabel active work and risk a concurrent-write resume.
-						const revivedStatus = deriveStatusFromEvent(data.event);
+						// The poll has no blocking hook entry for this ask (it's discovered off the CLI's
+						// durable record, not this window's IPC path) — synthesize an unresolvable one so
+						// the row shows what it's waiting on instead of an empty "Needs input" card.
+						const revivedPendingPermission =
+							polledStatus === 'permission_requested'
+								? synthesizeUnresolvableAsk(data.toolName, data.planFile ?? undefined)
+								: undefined;
+						// Seat worktreePath from the record, mirroring the ended-record re-seat above — the
+						// existing row is otherwise stuck with whatever (or nothing) it had while completed.
+						const revivedWorktreeRoot = worktreeRootFromData(data);
+						// No record worktree data (older CLI): KEEP the completed row's attribution. A
+						// resume whose cwd is scratch space (e.g. /tmp) still belongs to its worktree —
+						// re-rooting happens only when git affirmatively resolves a new one (the probe
+						// below, on success). Attribution persists until something better is known.
+						const revivedWorktreePath =
+							revivedWorktreeRoot != null ? normalizePath(revivedWorktreeRoot) : existing.worktreePath;
+						// Membership follows the attribution, mirroring `ensureSession`: cwd first, the
+						// kept worktree as the fallback for a scratch-dir resume.
+						const revivedWorkspacePath =
+							this.resolveWorkspacePath(data.cwd) ?? this.resolveWorkspacePath(revivedWorktreePath);
 						this._sessions[existingIndex] = {
 							...existing,
-							status: revivedStatus,
-							phase: getPhaseForStatus(revivedStatus),
+							status: polledStatus,
+							phase: getPhaseForStatus(polledStatus),
 							phaseSince: revivedAt,
 							lastActivity: revivedAt,
 							// Fresh pid from the CLI, and re-classify ownership on next open rather than
 							// trusting the terminal record's `isPeerOwned`.
 							pid: data.pid,
 							isPeerOwned: undefined,
+							pendingPermission: revivedPendingPermission,
+							// The resume can be running somewhere else entirely, so take the record's
+							// location rather than leaving the row filed under where it ended.
+							cwd: data.cwd ?? existing.cwd,
+							workspacePath:
+								revivedWorkspacePath ?? (data.cwd == null ? existing.workspacePath : undefined),
+							isInWorkspace: data.cwd == null ? existing.isInWorkspace : revivedWorkspacePath != null,
+							worktreePath: revivedWorktreePath,
+							// A worktree move can cross repos — drop the stale repo identity and let the
+							// probe below refill it.
+							commonPath: revivedWorktreePath !== existing.worktreePath ? undefined : existing.commonPath,
+							// No longer terminal: leaving these set makes the row read as completed to
+							// consumers that key off them.
+							endReason: undefined,
+							endedAt: undefined,
 						};
 						this.resetBookkeeping(data.sessionId);
+						// The record's worktree is the CLI's own resolution; without one the probe owns
+						// attribution again.
+						this.getBookkeeping(data.sessionId).cliSeatedWorktree = revivedWorktreeRoot != null;
+						if (data.cwd != null && data.cwd !== existing.cwd) {
+							void this.resolveGitInfo(data.sessionId, data.cwd);
+						}
+						changed = true;
+					} else if (
+						existing.pendingPermission?.resolvable === false &&
+						polledStatus !== 'permission_requested' &&
+						new Date(data.updatedAt).getTime() > existing.lastActivity.getTime()
+					) {
+						// The record has moved past the ask this row still shows. Only a synthesized
+						// (`resolvable: false`) ask is repairable this way — a routable one is bookkeeping-
+						// owned and cleared by its own resolution paths, which the record can't see.
+						this._sessions[existingIndex] = {
+							...existing,
+							status: polledStatus,
+							phase: getPhaseForStatus(polledStatus),
+							phaseSince: new Date(data.updatedAt),
+							// The detail described the ask's tool; carry the record's current tool for
+							// tool_use, else clear — keeping it would show the answered ask's tool as
+							// the active one.
+							statusDetail: polledStatus === 'tool_use' ? (data.toolName ?? undefined) : undefined,
+							pendingPermission: undefined,
+							lastActivity: new Date(data.updatedAt),
+						};
 						changed = true;
 					} else if (existing.transcriptTitles?.ai == null && existing.transcriptTitles?.custom == null) {
 						// A live session we discovered via the poll (another worktree/window owns its
@@ -2335,6 +2622,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			const status = deriveStatusFromEvent(data.event);
 			const phase = getPhaseForStatus(status);
 			const activityDate = new Date(data.updatedAt);
+			// Same rationale as the revived-session branch above: no blocking hook entry exists for a
+			// poll-discovered ask, so synthesize an unresolvable one for the card.
+			const pendingPermission =
+				status === 'permission_requested'
+					? synthesizeUnresolvableAsk(data.toolName, data.planFile ?? undefined)
+					: undefined;
+			// Read straight from the CLI's durable record so the row attaches to the right branch
+			// card/WIP row immediately, no git probe — mirrors the completed-session push below.
+			const worktreeRoot = worktreeRootFromData(data);
 
 			const subagents: AgentSession[] | undefined = data.subagents?.map(sub => ({
 				id: sub.agentId,
@@ -2371,11 +2667,18 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				isInWorkspace: isInWorkspace,
 				lastPrompt: prepareStoredPrompt(data.prompt ?? undefined),
 				firstPrompt: prepareStoredPrompt(data.firstPrompt ?? undefined),
+				model: data.model ?? undefined,
 				subagents: subagents,
+				pendingPermission: pendingPermission,
+				worktreePath: worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
 			});
 			changed = true;
 			discovered++;
 
+			// The record's worktree is the CLI's own resolution — mark it seated so the probe below
+			// (still wanted for `commonPath`) can't clobber it for a nested worktree. Mirrors the
+			// revival branch above.
+			this.getBookkeeping(data.sessionId).cliSeatedWorktree = worktreeRoot != null;
 			if (data.cwd) {
 				void this.resolveGitInfo(data.sessionId, data.cwd);
 			}
@@ -2444,7 +2747,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 	}
 
-	private async querySiblingWindowSessions(): Promise<void> {
+	protected async querySiblingWindowSessions(): Promise<void> {
 		const discoveryDir = this.callbacks.ipc.agentDiscoveryDir;
 		if (discoveryDir == null) return;
 
@@ -2523,6 +2826,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							phaseSince: peerPhaseSince,
 							statusDetail: peerSession.statusDetail,
 							lastActivity: peerActivity,
+							// A locally-routable ask wins — a blocking ask fans out to every window, so we
+							// may hold the hook entry the peer lacks. Otherwise mirror the peer's ask marked
+							// unresolvable (we have no entry to answer it), and clear it when the peer did.
+							pendingPermission:
+								this._sessionBookkeeping.get(peerSession.id)?.pendingPermission ??
+								(peerSession.pendingPermission != null
+									? { ...peerSession.pendingPermission, resolvable: false }
+									: undefined),
 							...(revivedFromCompleted ? { pid: peerSession.pid, isPeerOwned: true } : undefined),
 							subagents: rehydrateSubagents(peerSession.subagents),
 							// Carry the peer's published fileActivity across so peer-window WIP
@@ -2559,6 +2870,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						...peerSession,
 						lastActivity: peerActivity,
 						phaseSince: peerPhaseSince,
+						// The peer owns the hook entry, so an imported ask can never be routed from here.
+						pendingPermission:
+							peerSession.pendingPermission != null
+								? { ...peerSession.pendingPermission, resolvable: false }
+								: undefined,
 						workspacePath: normalizeWorkspacePath(peerSession.workspacePath),
 						isInWorkspace: this.matchesWorkspace(peerSession.workspacePath),
 						subagents: rehydrateSubagents(peerSession.subagents),

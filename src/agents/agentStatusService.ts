@@ -677,17 +677,30 @@ export class AgentStatusService implements Disposable {
 			const session = provider.sessions.find(s => s.id === sessionId);
 			if (session == null) continue;
 
-			// `false` means the session is peer-discovered (owned by another GitLens window);
-			// our local provider has no `_pendingPermissions` entry to fulfil. Surface a hint so
-			// the user knows where to act rather than seeing a silent no-op.
+			// `false` means the local provider holds no `_pendingPermissions` entry to fulfil, for one
+			// of two reasons: another GitLens window owns the session, or the ask arrived on a
+			// non-blocking path (an elicitation, or one the reconciliation poll discovered) and can
+			// only be answered in the agent's own session. Point at the right place rather than
+			// leaving a silent no-op.
 			const resolved = provider.resolvePermission?.(sessionId, decision, updatedPermissions) ?? false;
 			if (!resolved) {
-				const target = session.workspacePath
-					? `the GitLens window for ${session.workspacePath}`
-					: 'another GitLens window';
-				void window.showInformationMessage(
-					`This agent session is owned by ${target}. Resolve the request from there.`,
-				);
+				// The ask may have been answered in the agent's own session between the render and this
+				// click — a raced click, not an unroutable ask, so say nothing.
+				const refetched = provider.sessions.find(s => s.id === sessionId);
+				if (refetched?.pendingPermission == null) return;
+
+				if (session.isPeerOwned) {
+					const target = session.workspacePath
+						? `the GitLens window for ${session.workspacePath}`
+						: 'another GitLens window';
+					void window.showInformationMessage(
+						`This agent session is owned by ${target}. Resolve the request from there.`,
+					);
+				} else {
+					void window.showInformationMessage(
+						`This request can only be answered in the agent's session. Open the session to respond.`,
+					);
+				}
 			}
 			return;
 		}

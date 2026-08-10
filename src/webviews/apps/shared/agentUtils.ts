@@ -21,6 +21,19 @@ export const agentPhaseToCategory: Record<AgentSessionPhase, AgentSessionCategor
 	completed: 'completed',
 };
 
+/** Whether a surface may offer Allow / Deny for this session's ask.
+ *
+ *  An unresolvable ask is still *shown* — the user needs to know what the agent is waiting on — but
+ *  must not be offered actions: `resolvePermission` holds no blocking hook entry to route, so the
+ *  buttons would dead-end. `resolvable` is optional and undefined means resolvable, the common case,
+ *  so this tests `!== false` rather than truthiness. */
+export function canResolvePermission(
+	category: AgentSessionCategory,
+	permission: AgentSessionState['pendingPermission'],
+): permission is NonNullable<AgentSessionState['pendingPermission']> {
+	return category === 'needs-input' && permission != null && permission.resolvable !== false;
+}
+
 export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	switch (category) {
 		case 'needs-input':
@@ -167,11 +180,12 @@ export function formatAgentElapsed(value: Date | number | undefined, now: number
 
 /** Per-session "what is it doing" line. Mirrors the contract used by the graph details panel:
  *  needs-input → kind-aware leading line (permission / plan / question / elicitation);
- *  working tool_use → current tool; otherwise last-active timestamp or the most-recent prompt. */
+ *  working tool_use → current tool; otherwise the most-recent prompt or, for `idleFallback:
+ *  'lastActive'`, how long ago the session last did anything (`session.lastActivity` — never
+ *  `phaseSince`, which measures the current phase, not activity). */
 export function describeAgentSession(
 	session: AgentSessionState,
 	category: AgentSessionCategory,
-	elapsed: string | undefined,
 	options: { awaitingPrefix?: 'long' | 'short'; idleFallback?: 'lastActive' | 'lastPrompt' | 'none' } = {},
 ): string | undefined {
 	const awaitingPrefix = options.awaitingPrefix ?? 'long';
@@ -188,7 +202,12 @@ export function describeAgentSession(
 		return session.statusDetail;
 	}
 	if (idleFallback === 'none') return undefined;
-	if (idleFallback === 'lastActive' && elapsed != null) return `Last active ${elapsed} ago`;
+
+	if (idleFallback === 'lastActive') {
+		const lastActive = formatAgentElapsed(session.lastActivity);
+		if (lastActive != null) return `Last active ${lastActive} ago`;
+	}
+
 	return session.lastPrompt || undefined;
 }
 
@@ -386,8 +405,10 @@ export function permissionFingerprint(permission: AgentSessionState['pendingPerm
 
 	// `toolInputDescription` is consumed by `<gl-agent-prompt-detail>` for every kind (it's the
 	// caption row under the body), so it lives outside the kind-specific switch to ensure it's
-	// always part of the fingerprint regardless of which branch fires.
-	const inputDesc = `|i${fpField(permission.toolInputDescription)}`;
+	// always part of the fingerprint regardless of which branch fires. `resolvable` rides along for
+	// the same reason: it decides whether the surface renders action buttons at all, so an ask that
+	// becomes unanswerable without any other field moving must still invalidate the render.
+	const inputDesc = `|i${fpField(permission.toolInputDescription)}${permission.resolvable === false ? '|r0' : ''}`;
 
 	switch (permission.kind) {
 		case 'plan':

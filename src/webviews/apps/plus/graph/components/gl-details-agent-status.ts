@@ -8,6 +8,7 @@ import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	canResolvePermission,
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -705,6 +706,11 @@ export class GlDetailsAgentStatus extends LitElement {
 				align-items: center;
 				justify-content: flex-end;
 			}
+
+			.card__actions-hint {
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
+			}
 		`,
 	];
 
@@ -1169,7 +1175,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		const detail =
 			stickyTool != null
 				? undefined
-				: describeAgentSession(session, category, elapsed, {
+				: describeAgentSession(session, category, {
 						awaitingPrefix: 'short',
 						idleFallback: 'lastPrompt',
 					});
@@ -1208,13 +1214,17 @@ export class GlDetailsAgentStatus extends LitElement {
 		const phaseContent = html`${phaseLabel}${
 			elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : nothing
 		}`;
-		const phaseTooltip = elapsed != null ? `Last active ${elapsed} ago` : undefined;
+		// Phase chip shows how long the session has been in this phase; its tooltip reports the
+		// last time the session actually did something, which is a different clock.
+		const lastActive = formatAgentElapsed(session.lastActivity);
+		const phaseTooltip = lastActive != null ? `Last active ${lastActive} ago` : undefined;
 		const openAction = getAgentSessionOpenAction(session);
 		const openHref = createAgentSessionOpenHref(session);
-		// Resolve actions surface whenever a pending permission exists. Peer-discovered sessions
-		// (owned by another GitLens window) reach the host's `resolvePermission`, which surfaces
-		// a notification rather than silently no-opping when the route is unavailable.
-		const canResolve = category === 'needs-input' && permission != null;
+		// Resolve actions surface only for an ask this window can actually route. An unresolvable
+		// one (elicitation, or discovered by the poll rather than the hook) still renders its
+		// detail block — the user needs to see what is being asked — but is answered in the
+		// agent's own session, which the title row's open action already reaches.
+		const canResolve = canResolvePermission(category, permission);
 		const isSelected = this.selectedSessionId != null && this.selectedSessionId === session.id;
 
 		return html`
@@ -1258,7 +1268,7 @@ export class GlDetailsAgentStatus extends LitElement {
 								: nothing
 						}
 					</div>
-					${this.renderCardDetail(session, category, elapsed)}
+					${this.renderCardDetail(session, category)}
 					${
 						session.lastPrompt
 							? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
@@ -1267,7 +1277,19 @@ export class GlDetailsAgentStatus extends LitElement {
 							: nothing
 					}
 				</div>
-				${canResolve ? html`<div class="card__actions">${this.renderCardActions(session)}</div>` : nothing}
+				${
+					canResolve
+						? html`<div class="card__actions">${this.renderCardActions(session)}</div>`
+						: category === 'needs-input'
+							? html`<div class="card__actions card__actions--unresolvable">
+									<gl-button appearance="secondary" density="compact" href=${openHref}>
+										<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
+										${openAction.label}
+									</gl-button>
+									<span class="card__actions-hint">Answer in the agent's session</span>
+								</div>`
+							: nothing
+				}
 			</div>
 		`;
 	}
@@ -1281,11 +1303,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *  brief inter-tool-call gap where `session.statusDetail` empties — without it the running-
 	 *  tool row would flicker out for hundreds of ms before the next tool call latches.
 	 */
-	private renderCardDetail(
-		session: AgentSessionState,
-		category: AgentSessionCategory,
-		elapsed: string | undefined,
-	): unknown {
+	private renderCardDetail(session: AgentSessionState, category: AgentSessionCategory): unknown {
 		const permission = session.pendingPermission;
 		if (category === 'needs-input' && permission != null) {
 			// Evict any prior working-phase sticky entry — see {@link createStickyDetailResolver}
@@ -1300,7 +1318,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			return renderRunningTool(stickyTool);
 		}
 
-		const detailLine = describeAgentSession(session, category, elapsed, {
+		const detailLine = describeAgentSession(session, category, {
 			awaitingPrefix: 'long',
 			idleFallback: 'none',
 		});

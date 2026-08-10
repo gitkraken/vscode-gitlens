@@ -9,6 +9,7 @@ import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	canResolvePermission,
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -402,6 +403,11 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-4);
 				align-items: center;
 				margin-right: auto;
+			}
+
+			.card__permission-actions-hint {
+				font-size: var(--gl-font-micro);
+				color: var(--color-foreground--65);
 			}
 
 			.card__actions gl-button {
@@ -827,7 +833,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		const subtitle = sessionSubtitle(session);
-		const detail = this.resolveStickyDetail(session, category, elapsed);
+		const detail = this.resolveStickyDetail(session, category);
 		const openAction = getAgentSessionOpenAction(session);
 
 		// Use a `<div role="button" tabindex="0">` rather than a native `<button>` so we can host
@@ -886,7 +892,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				</gl-button>
 			</div>
 			<p class="card__detail">${detail}</p>
-			${this.renderPermissionActions(session)}
+			${this.renderPermissionActions(session, category)}
 		</div>`;
 	}
 
@@ -895,11 +901,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  the same fallback chain the kanban shipped with — `describeAgentSession` for needs-input
 	 *  and idle, with `lastPrompt` ahead of the elapsed clock so idle cards keep showing the
 	 *  most informative content. */
-	private resolveStickyDetail(
-		session: AgentSessionState,
-		category: AgentSessionCategory,
-		elapsed: string | undefined,
-	): string {
+	private resolveStickyDetail(session: AgentSessionState, category: AgentSessionCategory): string {
 		if (category === 'needs-input' && session.pendingPermission != null) {
 			// Evict any prior working-phase entry. The needs-input branch bypasses
 			// `resolveLiveTool` (the only call site that evicts on phase change), so without this
@@ -908,7 +910,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			// the still-fresh sticky cache, even though the agent has moved on.
 			this._stickyResolver.evict(session.id);
 			return (
-				describeAgentSession(session, category, elapsed, {
+				describeAgentSession(session, category, {
 					awaitingPrefix: 'short',
 					idleFallback: 'lastPrompt',
 				}) ??
@@ -920,21 +922,68 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		const stickyTool = this._stickyResolver.resolveLiveTool(session);
 		if (stickyTool != null) return stickyTool;
 
-		const live = describeAgentSession(session, category, elapsed, {
+		const live = describeAgentSession(session, category, {
 			awaitingPrefix: 'short',
 			idleFallback: 'none',
 		});
+		const lastActive = formatAgentElapsed(session.lastActivity);
 		return (
 			live ??
 			session.lastPrompt ??
-			(elapsed != null ? `Last active ${elapsed} ago` : undefined) ??
+			(lastActive != null ? `Last active ${lastActive} ago` : undefined) ??
 			'No recent activity'
 		);
 	}
 
-	private renderPermissionActions(session: AgentSessionState) {
+	private renderPermissionActions(session: AgentSessionState, category: AgentSessionCategory) {
 		const permission = session.pendingPermission;
-		if (permission == null) return nothing;
+		// Permission actions exist only for needs-input. A card with no payload still gets one — the
+		// unresolvable Open Session block below, via `canResolvePermission`'s false branch (which
+		// already treats a null ask the same as an unresolvable one).
+		if (category !== 'needs-input') return nothing;
+
+		// Read before the guard below: `canResolvePermission` is a type predicate, so its false
+		// branch narrows `permission` away entirely.
+		const planHref =
+			permission?.kind === 'plan' && permission.planFilePath != null
+				? createCommandLink('gitlens.agents.openPlanFile', JSON.stringify(permission.planFilePath))
+				: undefined;
+
+		// An unresolvable ask (no blocking hook entry to route it through) loses Allow/Deny and gets
+		// Open Session instead. View Plan stays: opening the file is local and needs no routing
+		// entry, so it is the one thing still worth offering.
+		if (!canResolvePermission(category, permission)) {
+			const openAction = getAgentSessionOpenAction(session);
+			return html`<div class="card__actions">
+				<div class="card__permission-actions">
+					<gl-button
+						appearance="secondary"
+						density="compact"
+						tooltip=${openAction.label}
+						data-telemetry-action="open-session"
+						href=${createAgentSessionOpenHref(session)}
+					>
+						<code-icon icon=${openAction.icon}></code-icon>
+						${openAction.label}
+					</gl-button>
+					${
+						planHref != null
+							? html`<gl-button
+									appearance="secondary"
+									density="compact"
+									tooltip="View Plan"
+									data-telemetry-action="open-plan"
+									href=${planHref}
+								>
+									<code-icon icon="tasklist"></code-icon>
+									View Plan
+								</gl-button>`
+							: nothing
+					}
+					<span class="card__permission-actions-hint">Answer in the agent's session</span>
+				</div>
+			</div>`;
+		}
 
 		const isPlan = permission.kind === 'plan';
 		return html`<div class="card__actions">

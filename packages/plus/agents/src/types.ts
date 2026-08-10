@@ -106,6 +106,12 @@ export interface PendingPermission {
 	readonly questionText?: string;
 	/** Question-mode: total number of questions in the batch. */
 	readonly questionCount?: number;
+	/** `false` when GitLens holds no blocking hook entry to answer this ask, so `resolvePermission`
+	 *  can never route an Allow/Deny — the user must respond in the agent's own session. Set for
+	 *  elicitations (delivered on a non-blocking hook) and for asks discovered by the reconciliation
+	 *  poll instead of this window's IPC path. Surfaces must render an explanatory, button-less card
+	 *  when this is `false`. */
+	readonly resolvable?: boolean;
 }
 
 export interface AgentSession {
@@ -157,6 +163,16 @@ export interface AgentSession {
 	readonly isInWorkspace: boolean;
 	readonly lastPrompt?: string;
 	readonly firstPrompt?: string;
+	/** The model the session is running (e.g. `claude-opus-4-5`). Arrives on every hook event and in
+	 *  the CLI's durable session record. */
+	readonly model?: string;
+	/** Why the session ended: `session-end | rotated | stale | dead-pid | pid-zero-idle | archived`.
+	 *  Present only for `completed` sessions. */
+	readonly endReason?: string;
+	/** Epoch ms the session ended — matches the RPC convention for dates crossing to a webview
+	 *  (see `PastAgentSessionState.lastActivity`), and keeps `SerializedAgentSession` free of
+	 *  another `Date`→string override. */
+	readonly endedAt?: number;
 	/** Per-file activity record covering both read-class (Read/NotebookRead) and edit-class
 	 *  (Edit/Write/MultiEdit/NotebookEdit) tool calls. Populated on PreToolUse; each path is retained
 	 *  and fades for the configured decay window measured from its own last PostToolUse — the tail

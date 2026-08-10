@@ -117,10 +117,31 @@ export class GlAgentPromptDetail extends LitElement {
 		.caption-copy:hover {
 			background-color: var(--vscode-toolbar-hoverBackground);
 		}
+
+		/* Only the agent-session detail sheet sets [expanded] — it has the room to show the
+		   full block and caption inline, so the clamp/ellipsis/tooltip that a cramped hover
+		   needs would just be noise there. */
+		:host([expanded]) .block {
+			display: block;
+			-webkit-line-clamp: unset;
+		}
+
+		:host([expanded]) .block--code {
+			white-space: pre-wrap;
+		}
+
+		:host([expanded]) .caption {
+			overflow: visible;
+			text-overflow: unset;
+			white-space: normal;
+		}
 	`;
 
 	@property({ attribute: false })
 	permission?: PendingPermission;
+
+	@property({ type: Boolean, reflect: true })
+	expanded = false;
 
 	override render(): unknown {
 		const permission = this.permission;
@@ -129,12 +150,13 @@ export class GlAgentPromptDetail extends LitElement {
 		const content = this.resolveContent(permission);
 		// Tooltip anchors to the block text only — wrapping the whole composite would intercept
 		// hovers over the caption-row's action chips/copy-container and conflict with their own
-		// tooltips.
-		const blockHtml = content.tooltip
-			? html`<gl-tooltip content=${content.tooltip} placement="bottom">
-					<div class=${content.blockClass}>${content.block}</div>
-				</gl-tooltip>`
-			: html`<div class=${content.blockClass}>${content.block}</div>`;
+		// tooltips. Expanded mode already shows the full text, so the tooltip would just be noise.
+		const blockHtml =
+			content.tooltip && !this.expanded
+				? html`<gl-tooltip content=${content.tooltip} placement="bottom">
+						<div class=${content.blockClass}>${content.block}</div>
+					</gl-tooltip>`
+				: html`<div class=${content.blockClass}>${content.block}</div>`;
 
 		return html` <div class="composite">${blockHtml}${this.renderCaptionRow(content)}</div> `;
 	}

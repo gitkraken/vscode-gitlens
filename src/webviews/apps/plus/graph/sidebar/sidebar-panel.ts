@@ -41,8 +41,8 @@ import {
 } from '../../../../plus/graph/sidebarTooltips.js';
 import {
 	agentPhaseToCategory,
+	canResolvePermission,
 	describeAgentSession,
-	formatAgentElapsed,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
@@ -1648,16 +1648,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private toAgentLeaf(session: AgentSessionState, anchor: { wipSha?: string; scope?: SidebarItemScope }): LeafProps {
 		const category = agentPhaseToCategory[session.phase];
-		const elapsed = formatAgentElapsed(session.phaseSince);
-		// Description = last prompt; otherwise the describeSession line for needs-input / working
-		// (`Awaiting: tool` / `Running tool`). The "Last active …" fallback is intentionally
-		// excluded — elapsed time is already surfaced in the tooltip, no need to repeat it.
-		const description =
-			session.lastPrompt ||
-			describeAgentSession(session, category, elapsed, {
-				awaitingPrefix: 'short',
-				idleFallback: 'lastPrompt',
-			});
+		// Description = the describeSession line for needs-input / working (`Awaiting: tool` /
+		// `Running tool`), which falls back to the last prompt for everything else. The
+		// "Last active …" fallback is intentionally excluded — elapsed time is already surfaced
+		// in the tooltip, no need to repeat it.
+		const description = describeAgentSession(session, category, {
+			awaitingPrefix: 'short',
+			idleFallback: 'lastPrompt',
+		});
 
 		// `anchor.wipSha`/`anchor.scope` are pre-computed in `buildAgentTree` — all sessions in a
 		// group share workspace + worktree, so they share the same anchor. Avoids recomputing the
@@ -1666,7 +1664,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const scope = anchor.scope;
 
 		const permission = session.pendingPermission;
-		const canResolve = category === 'needs-input' && permission != null;
+		const canResolve = canResolvePermission(category, permission);
 		// Always-Allow is meaningful only for regular tool permissions — plan / question /
 		// elicitation have no recurring rule to persist.
 		const showAlwaysAllow =
@@ -1700,7 +1698,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				arguments: [{ sessionId: session.id, decision: 'deny' as const }],
 			});
 		}
-		if (canResolve && permission.kind === 'plan' && permission.planFilePath != null) {
+		// Not gated on `canResolve` — opening the plan file is local, so it stays available even for
+		// an ask this window can't route (peer-owned, or discovered by the poll). Still gated on the
+		// category: a stale ask left on a row that has moved on isn't something to offer actions for.
+		if (category === 'needs-input' && permission?.kind === 'plan' && permission.planFilePath != null) {
 			actions.push({
 				icon: 'tasklist',
 				label: 'View Plan',

@@ -6,6 +6,7 @@ import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtils.js';
 import {
 	agentPhaseToCategory,
+	canResolvePermission,
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -376,6 +377,12 @@ export class GlAgentStatusPill extends LitElement {
 				flex: 0 0 auto;
 			}
 
+			.hover-actions__hint {
+				font-size: 0.8em;
+				color: var(--vscode-descriptionForeground);
+				text-align: center;
+			}
+
 			/* "…" overflow menu — anchored off the third action button. */
 			.more-menu {
 				display: flex;
@@ -565,7 +572,7 @@ export class GlAgentStatusPill extends LitElement {
 		const category = agentPhaseToCategory[session.phase];
 		const permission = session.pendingPermission;
 		const label = getAgentPhaseLabel(category, permission);
-		const canResolve = category === 'needs-input' && permission != null;
+		const canResolve = canResolvePermission(category, permission);
 
 		return html`
 			<gl-popover placement="bottom">
@@ -616,7 +623,7 @@ export class GlAgentStatusPill extends LitElement {
 		const detail =
 			stickyTool != null
 				? undefined
-				: describeAgentSession(session, category, elapsed, {
+				: describeAgentSession(session, category, {
 						awaitingPrefix: 'short',
 						idleFallback: 'lastPrompt',
 					});
@@ -791,7 +798,9 @@ export class GlAgentStatusPill extends LitElement {
 		const permission = session.pendingPermission;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 
-		const canResolve = permission != null;
+		// This hover only renders for needs-input, so the category is implied; an unresolvable ask
+		// still shows its detail but offers Open Session instead of buttons that can't route.
+		const canResolve = canResolvePermission('needs-input', permission);
 		const allowHref = canResolve
 			? createCommandLink('gitlens.agents.resolvePermission', {
 					sessionId: session.id,
@@ -875,6 +884,13 @@ export class GlAgentStatusPill extends LitElement {
 										<code-icon icon="link-external" slot="prefix"></code-icon>
 										Open Session
 									</gl-button>
+									${
+										permission != null
+											? html`<span class="hover-actions__hint"
+													>Answer in the agent's session</span
+												>`
+											: nothing
+									}
 								</div>
 							`
 			}

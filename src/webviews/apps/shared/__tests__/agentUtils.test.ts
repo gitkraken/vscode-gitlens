@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { OverviewBranch } from '../../../shared/overviewBranches.js';
 import {
+	canResolvePermission,
 	createPastAgentSessionsResolver,
 	findOverviewBranchForSession,
 	formatAgentElapsed,
@@ -299,5 +300,31 @@ suite('createPastAgentSessionsResolver', () => {
 	test('returns undefined when there is no past result', () => {
 		const resolver = createPastAgentSessionsResolver();
 		assert.strictEqual(resolver.resolve(undefined, [makeSession({ id: 's1' })]), undefined);
+	});
+});
+
+suite('canResolvePermission', () => {
+	const tool = { kind: 'tool', toolName: 'Bash', toolDescription: 'git push' } as const;
+
+	test('an ask with no `resolvable` flag is resolvable — the common case', () => {
+		assert.strictEqual(canResolvePermission('needs-input', tool), true);
+	});
+
+	test('an explicitly resolvable ask is resolvable', () => {
+		assert.strictEqual(canResolvePermission('needs-input', { ...tool, resolvable: true }), true);
+	});
+
+	test('an ask this window holds no hook entry for offers no actions', () => {
+		assert.strictEqual(canResolvePermission('needs-input', { ...tool, resolvable: false }), false);
+	});
+
+	test('needs-input with no ask offers no actions', () => {
+		assert.strictEqual(canResolvePermission('needs-input', undefined), false);
+	});
+
+	test('a session that is not awaiting input offers no actions', () => {
+		assert.strictEqual(canResolvePermission('working', tool), false);
+		assert.strictEqual(canResolvePermission('idle', tool), false);
+		assert.strictEqual(canResolvePermission('completed', tool), false);
 	});
 });
