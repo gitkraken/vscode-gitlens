@@ -345,8 +345,9 @@ export async function getOverviewWip(
 					hasConflicts: status?.hasConflicts,
 					conflictsCount: status?.conflicts.length,
 					pausedOpStatus: pausedOpStatus,
-					// Keyed by the same worktree-aware path as the status above — the in-flight set holds the
-					// path of the repo that OWNS the paused op.
+					// Asked with the same worktree-aware path as the status above — the in-flight set holds
+					// the path of the repo that OWNS the paused op. `repoPath` may be a raw `Uri.fsPath`
+					// (backslashes on Windows); the lookup normalizes it to the set's key form.
 					pausedOpContinuing:
 						pausedOpStatus != null && isContinuingPausedOperation(repoPath) ? true : undefined,
 				};

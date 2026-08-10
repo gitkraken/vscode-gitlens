@@ -52,6 +52,7 @@ import {
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '@gitlens/utils/promise.js';
+import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
@@ -579,7 +580,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// A continue can block indefinitely on git's commit-message tab, so the bar's busy state comes
 			// from here rather than a timer that could only guess when the command ended
 			onDidChangeContinuingPausedOperation(repoPath => {
-				if (repoPath === this.repository?.path) {
+				// The event carries the repo path in `getRepositoryKey` form, so key ours too rather
+				// than relying on `repository.path` already being in that form
+				if (this.repository != null && repoPath === getRepositoryKey(this.repository.path)) {
 					void this._wip.notifyDidChangeWorkingTree();
 				}
 			}),
