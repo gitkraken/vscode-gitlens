@@ -12,7 +12,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
-import type { IssuesForProjectOptions } from '../models/issueReads.js';
+import type { AccountWideIssuesResult, IssuesForProjectOptions, SearchMyIssuesOptions } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
@@ -21,6 +21,21 @@ import { mergeCollectionMetadata } from './utils/providerPaging.js';
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
+/**
+ * The account-wide drain's own backstop, separate from {@link maxPagesPerRequest}.
+ *
+ * Raised to 50 (5,000 issues at the SDK's 100-per-page) because 10 no longer means what it used to. That read
+ * once fanned out over four overlapping relationship queries and merged them, so most of what a page cost was
+ * rows already returned — a low budget capped the waste. It is now a single server-ordered query over an `or`
+ * filter, so every page is 100 issues the caller has not seen, and the same budget just truncates real results
+ * at 1,000.
+ *
+ * Reaching it is reported rather than silent: {@link LinearIntegration.searchProviderMyIssuesWithTruncation}
+ * returns `truncated`, so the facade can say the read was incomplete instead of publishing a capped list as a
+ * whole account. The bound stays — a runaway cursor must not spend requests forever — but it is now set where a
+ * real Linear account is unlikely to reach it rather than where the duplication used to hurt.
+ */
+const maxAccountWidePagesPerRequest = 50;
 const linearImplicitTeamsPageSize = 50;
 
 export interface LinearTeamDescriptor extends IssueResourceDescriptor {
@@ -306,14 +321,45 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		resources?: ResourceDescriptor[],
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchProviderMyIssuesWithTruncation(session, resources, cancellation))?.values;
+	}
+
+	/**
+	 * Account-wide "my issues" for Linear, drained to exhaustion and reporting whether it got there.
+	 *
+	 * The SDK read is one server-ordered query over an `or` filter across the four relationships (assigned,
+	 * created, named in an issue's content, named in a comment), so each page is 100 issues the caller has not
+	 * seen and the pages are ordered as one sequence. Draining it is therefore just following the cursor.
+	 *
+	 * Overridden rather than left to the base default because that default hardcodes `truncated: false`, and a
+	 * bounded drain that stops early is exactly the case a caller must be able to see. Three things end the
+	 * drain, and only one of them is completion:
+	 *
+	 * - the provider says there is no next page — complete;
+	 * - the backstop is reached — `truncated`, because issues beyond it exist and were not read;
+	 * - the provider claims a next page but hands back a cursor that does not advance — also `truncated`, since
+	 *   the read cannot continue and the remainder is unreachable rather than absent.
+	 *
+	 * Cancellation is deliberately NOT truncation: the caller asked for the read to stop, so the partial list is
+	 * what it asked for, and flagging it would surface an incompleteness warning for a user action.
+	 */
+	protected override async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		resources?: ResourceDescriptor[],
+		cancellation?: AbortSignal,
+		options?: SearchMyIssuesOptions,
+	): Promise<AccountWideIssuesResult | undefined> {
 		if (resources != null) {
 			return undefined;
 		}
 
 		const api = await this.getProvidersApi();
 		let cursor = undefined;
-		let hasMore: boolean;
+		// Starts false so an immediate cancellation, which leaves the loop before the first response, reads as
+		// "no more pages known" rather than as an unfinished drain.
+		let hasMore = false;
 		let requestCount = 0;
+		let truncated = false;
 		const issues = [];
 		try {
 			do {
@@ -323,25 +369,47 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 				const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
 					cursor: cursor,
+					sort: options?.sort,
 				});
 				requestCount += 1;
 				hasMore = result.paging?.more ?? false;
-				cursor = result.paging?.cursor;
+				const nextCursor = result.paging?.cursor;
+
+				// Keep this page before deciding whether to continue: the request is already paid for, so
+				// dropping its rows would lose real results to save nothing.
 				const formattedIssues = result.values
 					.map(issue => toIssueShape(issue, this))
 					.filter((result): result is IssueShape => result != null);
 				if (formattedIssues.length > 0) {
 					issues.push(...formattedIssues);
 				}
-			} while (requestCount < maxPagesPerRequest && hasMore);
+
+				// The provider claims more but hands back no advancing cursor: continuing would re-read the page
+				// just returned. `ProvidersApi.getPagedResult` already normalizes this into `more: false`, so
+				// this is a backstop for if that ever stops holding rather than a case seen today -- but the rest
+				// of the account is unreachable either way, which is what `truncated` says.
+				if (hasMore && (nextCursor == null || nextCursor === cursor)) {
+					truncated = true;
+					break;
+				}
+
+				cursor = nextCursor;
+			} while (requestCount < maxAccountWidePagesPerRequest && hasMore);
+
+			// Ran out of budget with pages still to come.
+			if (hasMore && requestCount >= maxAccountWidePagesPerRequest) {
+				truncated = true;
+			}
 		} catch (ex) {
 			if (issues.length === 0) {
 				throw ex;
 			}
 
+			// Kept what was already fetched, so the list is real but short of the account.
+			truncated = true;
 			Logger.error(ex, 'searchProviderMyIssues');
 		}
-		return issues;
+		return { values: issues, truncated: truncated };
 	}
 	protected override async getProviderLinkedIssueOrPullRequest(
 		session: ProviderAuthenticationSession,
