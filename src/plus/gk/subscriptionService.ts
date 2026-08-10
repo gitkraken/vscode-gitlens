@@ -73,7 +73,12 @@ import { authenticationProviderScopes } from './authenticationProvider.js';
 import type { GKCheckInResponse } from './models/checkin.js';
 import type { Organization } from './models/organization.js';
 import type { Promo } from './models/promo.js';
-import type { PaidSubscriptionPlanIds, Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription.js';
+import type {
+	PaidSubscriptionPlanIds,
+	Subscription,
+	SubscriptionLoginCommandArgs,
+	SubscriptionUpgradeCommandArgs,
+} from './models/subscription.js';
 import type { ServerConnection } from './serverConnection.js';
 import { autoResetTrialIfEligible } from './trialAutoReset.js';
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils.js';
@@ -358,8 +363,12 @@ export class SubscriptionService implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.plus.login', (src?: Source) => this.loginOrSignUp(false, src)),
-			registerCommand('gitlens.plus.signUp', (src?: Source) => this.loginOrSignUp(true, src)),
+			registerCommand('gitlens.plus.login', (args?: SubscriptionLoginCommandArgs) =>
+				this.loginOrSignUp(false, args, { openAccountView: args?.openAccountView }),
+			),
+			registerCommand('gitlens.plus.signUp', (args?: SubscriptionLoginCommandArgs) =>
+				this.loginOrSignUp(true, args, { openAccountView: args?.openAccountView }),
+			),
 			registerCommand('gitlens.plus.logout', (src?: Source) => this.logout(src)),
 			registerCommand('gitlens.plus.referFriend', (src?: Source) => this.referFriend(src)),
 			registerCommand('gitlens.gk.switchOrganization', (src?: Source) => this.switchOrganization(src)),
@@ -564,7 +573,11 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	async loginOrSignUp(signUp: boolean, source: Source | undefined): Promise<boolean> {
+	async loginOrSignUp(
+		signUp: boolean,
+		source: Source | undefined,
+		options?: { openAccountView?: boolean },
+	): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		if (this.container.telemetry.enabled) {
@@ -576,7 +589,12 @@ export class SubscriptionService implements Disposable {
 		}
 
 		const context = getTrackingContextFromSource(source);
-		return this.loginCore({ signUp: signUp, source: source, context: context });
+		return this.loginCore({
+			signUp: signUp,
+			source: source,
+			context: context,
+			openAccountView: options?.openAccountView,
+		});
 	}
 
 	async loginWithCode(authentication: { code: string; state?: string }, source?: Source): Promise<boolean> {
@@ -599,10 +617,15 @@ export class SubscriptionService implements Disposable {
 		source?: Source;
 		signIn?: { code: string; state?: string };
 		context?: TrackingContext;
+		openAccountView?: boolean;
 	}): Promise<boolean> {
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.accountAuthentication.abort();
-		void this.showAccountView();
+		// Skip revealing the Account view when the caller is already showing sign-in UI (e.g. the Graph's
+		// access screen) and only suppress it on an explicit `false` so all other callers keep the reveal.
+		if (options?.openAccountView !== false) {
+			void this.showAccountView();
+		}
 
 		const session = await this.ensureSession(true, options?.source, {
 			signIn: options?.signIn,
