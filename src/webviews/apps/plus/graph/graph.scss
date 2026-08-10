@@ -3517,14 +3517,38 @@ gl-lit-graph {
 			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 		}
 	}
-	// When the upstream segment is the LAST thing in the pill (no overflow-badge group after it), bleed its
-	// band into the pill's right padding so the highlight reaches the pill edge. With a badge group after
-	// it the segment keeps its box, so the band never overlaps the badges.
+	// Every section ends the same 0.7rem from the next section's `border-left` — the pill's 0.6rem flex gap plus
+	// that section's 0.1rem margin — so the divisions read as even however many sections a pill carries. The
+	// base `--jump` padding is symmetric for the TRAILING case; a section with another one after it drops its
+	// right padding (that 0.5rem was surplus, sitting outside the band and reading as a stray margin) and
+	// reaches its band across the gap onto the next divider, exactly as the name half does.
+	//
+	// "Last in flow" is `:last-child` OR immediately before the hover-expand overlay — the overlay is the
+	// pill's final child, but icons-only row-marker pills render none. Inside the overlay's own copy of the
+	// section list `:last-child` catches it, so both copies stay in step. Scoped to a pill ancestor because the
+	// +N popover rows reuse these classes with no pill around them and take no bleed at all.
 	// (Hovering the jump side is a normal pill hover: the pill fills and the full-name overlay expands — no
 	// special suppression — so it always "counts" as hovering the pill.)
-	.gl-graph__ref-pill:not(:has(.gl-graph__ref-pill-more-group)) .gl-graph__ref-pill-upstream--jump {
+	.gl-graph__ref-pill .gl-graph__ref-pill-upstream--jump:last-child,
+	.gl-graph__ref-pill .gl-graph__ref-pill-upstream--jump:has(+ .gl-graph__ref-pill-expand) {
+		// Bleed into the pill's 0.9rem padding, stopping 0.1rem short at the ring's inner edge.
 		margin-right: -0.8rem;
 		padding-right: 0.8rem;
+	}
+	.gl-graph__ref-pill .gl-graph__ref-pill-upstream--jump:not(:last-child):not(:has(+ .gl-graph__ref-pill-expand)) {
+		padding-right: 0;
+
+		// Square right corners — the band BUTTS the next divider now instead of floating short of it.
+		&::before {
+			inset-inline: 0 -0.7rem;
+			border-radius: 0;
+		}
+	}
+	// The icons-only pill trims its own padding to 0.6rem, so the trailing bleed has to trim with it or the
+	// band overshoots the ring. No expand overlay on this shape, so `:last-child` is the whole test.
+	.gl-graph__ref-pill--icons-only .gl-graph__ref-pill-upstream--jump:last-child {
+		margin-right: -0.5rem;
+		padding-right: 0.5rem;
 	}
 	// Pin + provider glyph as ONE grid item, so the labelled segment stays two-column and its label can't
 	// wrap to a second row. Mirrors the pinned leading slot on the pill itself.
@@ -3687,12 +3711,19 @@ gl-lit-graph {
 		// + focus rect span the full pill height like the jump — the chip's icon is shorter than the fill, so
 		// -0.5rem clears the 0.4rem pill padding with 1px to spare each side.
 		inset-block: -0.5rem;
-		// Match the left gap (the chip's 0.5rem padding-left) on the right too, so the rect sits symmetric
-		// around the text — the chip has no padding-right, so extend the band 0.5rem past its right edge.
-		inset-inline: 0 -0.5rem;
+		// The chip has no padding-right, so the band always extends past its own box: by default onto the next
+		// section's divider (0.6rem flex gap + that section's 0.1rem margin), same run the jump segments cross.
+		inset-inline: 0 -0.7rem;
 		border-radius: 0.3rem;
 		z-index: -1;
 		pointer-events: none;
+	}
+	// Last section in the pill: there's no divider to meet, so reach the pill's 0.9rem padding instead and stop
+	// 0.1rem inside the ring — the same landing the trailing jump segment takes.
+	.gl-graph__ref-pill :is(.gl-graph__ref-pill-pr, .gl-graph__ref-pill-issue):last-child::before,
+	.gl-graph__ref-pill
+		:is(.gl-graph__ref-pill-pr, .gl-graph__ref-pill-issue):has(+ .gl-graph__ref-pill-expand)::before {
+		inset-inline-end: -0.8rem;
 	}
 	// Hover highlight — parity with the upstream jump (a contrast tint marking the interactive sub-zone).
 	.gl-graph__ref-pill-pr:hover::before,
