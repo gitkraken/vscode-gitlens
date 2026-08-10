@@ -388,6 +388,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 	/** Controls whether this renders as the compact popover-triggering chip, or just the account panel content. */
 	@property({ reflect: true }) display: 'chip' | 'panel' = 'chip';
 
+	/** When set, the panel's account-management cog deep-links to the in-editor Settings → Account
+	 *  view instead of the external gk.dev account page. Set by surfaces outside Settings (e.g. the
+	 *  Graph header account rollup) that need a way into the full account screen; the Settings page
+	 *  leaves it unset so its own chip keeps the external "Manage Account" action (and isn't circular). */
+	@property({ type: Boolean, reflect: true, attribute: 'settings-nav' })
+	settingsNav = false;
+
 	private _showUpgrade = false;
 	@property({ type: Boolean, reflect: true, attribute: 'show-upgrade' })
 	get showUpgrade() {
@@ -527,15 +534,25 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 										aria-label="Synchronize Status"
 										><code-icon icon="sync"></code-icon
 									></gl-button>
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.plus.manage', {
-											source: 'account',
-										})}"
-										tooltip="Manage Account"
-										aria-label="Manage Account"
-										><code-icon icon="gear"></code-icon
-									></gl-button>
+									${
+										this.settingsNav
+											? html`<gl-button
+													appearance="toolbar"
+													href="${createCommandLink('gitlens.showSettingsPage!account')}"
+													tooltip="Account Settings"
+													aria-label="Account Settings"
+													><code-icon icon="gear"></code-icon
+												></gl-button>`
+											: html`<gl-button
+													appearance="toolbar"
+													href="${createCommandLink<Source>('gitlens.plus.manage', {
+														source: 'account',
+													})}"
+													tooltip="Manage Account"
+													aria-label="Manage Account"
+													><code-icon icon="gear"></code-icon
+												></gl-button>`
+									}
 									<gl-button
 										appearance="toolbar"
 										href="${createCommandLink<Source>('gitlens.plus.logout', {

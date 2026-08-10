@@ -245,8 +245,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-8);
-				min-width: 30rem;
-				max-width: 34rem;
+				/* Comfortable 30rem target, but yield on narrow viewports: the popover body is capped to the
+				   available viewport width and clips overflow, so a hard min-width would get cut off (≤~650px).
+				   min-width:0 + max-width:100% lets the rollup shrink to the body instead of overflowing it. */
+				width: 30rem;
+				min-width: 0;
+				max-width: min(34rem, 100%);
 				padding: var(--gl-space-4);
 			}
 
@@ -379,11 +383,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		const state = this.ringState;
 		const plan = state === 'trial' || state === 'paid' ? this.planLabel : undefined;
 
-		return html`<gl-popover placement="bottom-end" trigger="hover focus" ?arrow=${false} .distance=${0}>
-			<a
+		return html`<gl-popover placement="bottom-end" trigger="focus click" ?arrow=${false} .distance=${0}>
+			<button
 				class="action-button account-button"
+				type="button"
 				slot="anchor"
-				href=${createCommandLink('gitlens.showAccountView')}
+				aria-haspopup="true"
 				data-entitlement=${state}
 				aria-label=${plan != null ? `Account — GitLens ${plan}` : accountButtonLabels[state]}
 			>
@@ -394,9 +399,9 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 						: nothing
 				}
 				<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
-			</a>
+			</button>
 			<div slot="content" class="rollup">
-				<gl-account-chip display="panel"></gl-account-chip>
+				<gl-account-chip display="panel" settings-nav></gl-account-chip>
 				${this.renderWalkthrough()}
 				<hr />
 				<div class="rollup__section">
