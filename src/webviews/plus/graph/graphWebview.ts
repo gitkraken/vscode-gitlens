@@ -53,6 +53,7 @@ import {
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
 } from '@gitlens/utils/promise.js';
+import { satisfies } from '@gitlens/utils/version.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
@@ -4851,6 +4852,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),
 			layoutPromptNeeded: this.getLayoutPromptNeeded(),
+			upgradedFromPreV19: satisfies(this.container.previousVersion, '< 19'),
 			searchRequest: searchRequest,
 			details: {
 				...storedDetails,

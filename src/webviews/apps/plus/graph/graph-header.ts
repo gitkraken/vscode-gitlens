@@ -28,7 +28,6 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import {
 	ChooseRepositoryCommand,
-	CloseGraphWalkthroughBannerCommand,
 	createWipRowId,
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
@@ -60,7 +59,6 @@ import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProv
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
-import { isGraphWalkthroughBannerHighlighted } from './walkthroughBanner.js';
 import '../shared/components/account-chip.js';
 import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
@@ -157,13 +155,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				--max-width: 320px;
 			}
 
-			.graph-walkthrough-tooltip::part(body) {
-				--max-width: 400px;
-			}
-
 			.mcp-tooltip__content a,
-			.hooks-tooltip__content a,
-			.graph-walkthrough-tooltip__content a {
+			.hooks-tooltip__content a {
 				color: var(--vscode-textLink-foreground);
 			}
 
@@ -171,36 +164,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			.action-button--hooks {
 				background: var(--gl-gradient-brand-subtle);
 				border: var(--gl-border-width) solid var(--vscode-panel-border);
-			}
-
-			.action-button--graph-walkthrough {
-				color: var(--vscode-button-foreground);
-				background: var(--vscode-button-background);
-				border: var(--gl-border-width) solid var(--vscode-button-background);
-			}
-
-			.action-button--graph-walkthrough:hover {
-				background: var(--vscode-button-hoverBackground);
-			}
-
-			.preview-badge {
-				font-size: 0.8em;
-				color: var(--color-foreground--65);
-			}
-
-			.graph-walkthrough-tooltip__title {
-				display: flex;
-				gap: 1ch;
-				align-items: center;
-				justify-content: space-between;
-				margin-block-end: var(--gl-space-4);
-			}
-
-			.graph-walkthrough-tooltip__actions {
-				display: flex;
-				gap: var(--gl-space-8);
-				align-items: center;
-				margin-block-start: var(--gl-space-8);
 			}
 
 			/* Search is meaningless in Timeline mode — visually dim it and let inert block focus
@@ -441,16 +404,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}),
 		);
 		return true;
-	}
-
-	private onGraphWalkthroughBannerDismiss(e: Event): void {
-		e.preventDefault();
-		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, {});
-	}
-
-	private onGraphWalkthroughBannerButtonClick(e: Event): void {
-		e.preventDefault();
-		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, { openWelcome: true });
 	}
 
 	private onOpenPullRequest(pr: NonNullable<NonNullable<State['branchState']>['pr']>): void {
@@ -1201,46 +1154,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-popover>
 					`,
 				)}
-				${this.renderGraphWalkthroughBanner(state)} ${this.renderStartMenu()}
+				${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
 				<gl-graph-account-indicator></gl-graph-account-indicator>
 			</div>
 		</div>`;
-	}
-
-	private renderGraphWalkthroughBanner(state: State) {
-		const dismissed = (state.graphWalkthroughBannerCollapsed ?? true) || (state.graphWalkthroughComplete ?? false);
-
-		if (dismissed) {
-			return nothing;
-		}
-
-		const highlighted = isGraphWalkthroughBannerHighlighted(state);
-
-		return html`
-			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" ?open=${highlighted}>
-				<button
-					type="button"
-					class="action-button ${highlighted ? 'action-button--graph-walkthrough' : ''}"
-					slot="anchor"
-					@click=${this.onGraphWalkthroughBannerButtonClick}
-				>
-					<code-icon class="action-button__icon" icon="megaphone"></code-icon>
-				</button>
-				<div class="graph-walkthrough-tooltip__content" slot="content">
-					<span class="graph-walkthrough-tooltip__title">
-						<strong>Try the All-New Commit Graph</strong>
-						<span class="preview-badge">PREVIEW</span>
-					</span>
-					Where your development and agentic workflows come together. Go beyond history visualization to
-					manage, execute, and parallelize your entire Git workflow.
-					<div class="graph-walkthrough-tooltip__actions">
-						<gl-button @click=${this.onGraphWalkthroughBannerButtonClick}>See what's new</gl-button>
-						<a href="#" @click=${this.onGraphWalkthroughBannerDismiss}>Dismiss</a>
-					</div>
-				</div>
-			</gl-popover>
-		`;
 	}
 
 	private renderStartMenu() {
