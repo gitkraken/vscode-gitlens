@@ -2604,6 +2604,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			></gl-graph-access-account>`;
 		}
 
+		if (!this.graphState.allowed) {
+			return html`<gl-graph-gate .intentAction=${this._gatedPendingAction?.action}></gl-graph-gate>`;
+		}
+
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const minimapVisible = this.minimapShown;
 		const { single, multi } = this.activeSelection;
@@ -2639,14 +2643,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					`,
 				)}
 				<div class="graph__workspace">
-					${when(
-						!this.graphState.allowed,
-						() =>
-							html`<gl-graph-gate
-								class="graph__gate"
-								.intentAction=${this._gatedPendingAction?.action}
-							></gl-graph-gate>`,
-					)}
 					${
 						noRepos
 							? html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`

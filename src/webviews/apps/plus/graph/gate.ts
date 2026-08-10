@@ -1,6 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
-import { css, html, LitElement } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Source } from '../../../../constants.telemetry.js';
@@ -20,19 +20,7 @@ import '../../shared/components/feature-gate.js';
 
 @customElement('gl-graph-gate')
 export class GlGraphGate extends SignalWatcher(LitElement) {
-	static override styles = [
-		linkStyles,
-		featureGateContentStyles,
-		css`
-			gl-feature-gate::part(section) {
-				/* Container units (not vw): size against the gate overlay's own box (the
-				   feature-gate host) rather than the webview viewport, so the card keeps tracking
-				   the gated area even if the gate is ever hosted in a sub-region of the view. */
-				width: calc(100cqi - var(--gl-space-16));
-				max-width: 90rem;
-			}
-		`,
-	];
+	static override styles = [linkStyles, featureGateContentStyles];
 
 	@consume({ context: subscriptionContext, subscribe: true })
 	private _subscription!: SubscriptionContextState;
@@ -54,6 +42,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 		const source: Source = { source: 'graph', detail: getIntentSourceDetail('gate', this.intentAction) };
 
 		return html`<gl-feature-gate
+			variant="sheet"
 			.featurePreview=${this.graphState.featurePreview}
 			featurePreviewCommandLink=${ifDefined(
 				this.graphState.featurePreview
