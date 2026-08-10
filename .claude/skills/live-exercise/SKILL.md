@@ -145,7 +145,7 @@ The skill never asks "what mode?" at start. Tactical by default (L1 + L2 active,
 
 ### 3. Compile findings
 
-Write under `.tasks/<feature>-exercise/`:
+Write under `.work/live/<feature>-exercise/`:
 
 **`findings.md`** — status table + severity sections.
 
@@ -404,9 +404,9 @@ Loop-specific notes:
 
 ## Output artifacts
 
-- `.tasks/<feature>-exercise/findings.md` — severity + status table + detailed entries across lenses + perf
-- `.tasks/<feature>-exercise/open-questions.md` — design decisions needing user input
-- `.tasks/<feature>-exercise/decisions.md` — liberties taken, with rationale (only if any)
+- `.work/live/<feature>-exercise/findings.md` — severity + status table + detailed entries across lenses + perf
+- `.work/live/<feature>-exercise/open-questions.md` — design decisions needing user input
+- `.work/live/<feature>-exercise/decisions.md` — liberties taken, with rationale (only if any)
 - Clean working tree with targeted commits (or staged changes) across many files
 - Clean live console (only third-party noise)
 

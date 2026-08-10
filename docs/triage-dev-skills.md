@@ -405,7 +405,7 @@ Once you're ready to commit to a direction, graduate to `/dev-scope` → `/deep-
 
 ### Dev Pipeline Artifacts
 
-All dev artifacts are written to `.work/dev/{identifier}/` where identifier is an issue number or slug.
+All dev artifacts are written to `.work/dev/{identifier}/` in the primary worktree, where identifier is an issue number or slug.
 
 | File              | Producer          | Consumer                                                          |
 | ----------------- | ----------------- | ----------------------------------------------------------------- |
@@ -759,6 +759,26 @@ Full journey from raw issue to implementation plan. `/dev-scope` imports investi
 ---
 
 ## Output Files
+
+All skill artifacts live under a single gitignored `.work/` root, in the **primary worktree**
+(`vscode-gitlens/.work/`). `.work/` is gitignored, so it is not shared between worktrees — a document
+written into a feature worktree is invisible from everywhere else. Always write to the primary tree's
+absolute path, even from a worktree-isolated session.
+
+| Root                                    | Written by                                                 | Holds                                                             |
+| --------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| `.work/triage/{packs,reports}/`         | `/triage`, `/investigate`, `/prioritize`, `/update-issues` | Evidence packs and decision reports                               |
+| `.work/dev/{identifier}/`               | `/dev-scope`, `/deep-planning`, `/challenge-plan`          | `goals.md`, `plan.md`, `challenge.md`                             |
+| `.work/reviews/`                        | `/deep-review`, `/ux-review`                               | Review write-ups not tied to a dev folder                         |
+| `.work/live/{feature}-{exercise,perf}/` | `/live-exercise`, `/live-perf`                             | `findings.md`, `baseline.md`, `open-questions.md`, `decisions.md` |
+| `.work/design/`                         | Design mocks and prototypes                                | Standalone HTML/asset mocks                                       |
+
+The distinction between `dev/` and `live/` is intent versus observation: `dev/` records what we are
+going to do and why, keyed by work item; `live/` records what a running instance actually did, keyed
+by exercise session.
+
+> An earlier `.tasks/` root held what is now `.work/live/`. It is retired — still gitignored so
+> existing local content is undisturbed, but nothing new should be written there.
 
 ### Triage pipeline
 

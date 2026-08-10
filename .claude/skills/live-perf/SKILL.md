@@ -187,7 +187,7 @@ Record the chosen axes at the top of `baseline.md` so the intent is auditable.
    - **RPC**: log-parsed notification counts + payload sizes
    - **Git**: `read_logs` with git command pattern, counted over the exercise window
    - **Hot-path**: N/A (audit only, not measured)
-4. Record baseline numbers in `.tasks/<feature>-perf/baseline.md`:
+4. Record baseline numbers in `.work/live/<feature>-perf/baseline.md`:
 
    ```markdown
    # <Feature> — Perf Baseline
@@ -214,14 +214,14 @@ Record the chosen axes at the top of `baseline.md` so the intent is auditable.
 Compare measurements against:
 
 - Thresholds (general guidance: webview hydration <150ms; webview refresh <100ms; >3 git calls for a single user action is suspicious; >5 notifications/action is suspicious)
-- Prior baseline if one exists (`.tasks/<feature>-perf/baseline.md` from a previous run, or git history)
+- Prior baseline if one exists (`.work/live/<feature>-perf/baseline.md` from a previous run, or git history)
 - Stated requirements in `goals.md`
 
 Separately, audit the code (Read + Grep) for convention violations in the scope categories above.
 
 ### 4. Compile findings
 
-Write `.tasks/<feature>-perf/findings.md`:
+Write `.work/live/<feature>-perf/findings.md`:
 
 ```markdown
 # <Feature> — Perf Findings
@@ -259,7 +259,7 @@ Write `.tasks/<feature>-perf/findings.md`:
 - Moved to `open-questions.md` Q1
 ```
 
-Write `.tasks/<feature>-perf/open-questions.md` for speculation items:
+Write `.work/live/<feature>-perf/open-questions.md` for speculation items:
 
 ```markdown
 ## Q1. Batch log + status for branch switch?
@@ -384,9 +384,9 @@ You MUST have:
 
 ## Output artifacts
 
-- `.tasks/<feature>-perf/baseline.md` — captured measurement baselines (per iteration)
-- `.tasks/<feature>-perf/findings.md` — tier-classified findings with baseline → post-fix numbers
-- `.tasks/<feature>-perf/open-questions.md` — speculation items for user review
+- `.work/live/<feature>-perf/baseline.md` — captured measurement baselines (per iteration)
+- `.work/live/<feature>-perf/findings.md` — tier-classified findings with baseline → post-fix numbers
+- `.work/live/<feature>-perf/open-questions.md` — speculation items for user review
 - Clean working tree with targeted commits / staged changes
 - Post-fix measurements documenting the actual improvement (not just "LGTM")
 

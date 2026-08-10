@@ -38,6 +38,8 @@ Generation commands (`generate:contributions`, `generate:commandTypes`, `build:i
 
 For commit message format and workflow, use `/commit`. For CHANGELOG format and entry guidelines, use `/audit-commits`. For code reviewing, use `/review` or `/deep-review`. For debugging methodology and common misdiagnosis patterns, use `/investigate`. Additional workflow skills live in `.claude/skills/`.
 
+Skill artifacts (goals, plans, reviews, live-exercise findings) all live under a single gitignored `.work/` root in the **primary** worktree — never in the feature worktree you happen to be sitting in, since `.work/` is not shared between worktrees. See [Output Files](docs/triage-dev-skills.md#output-files) for the layout.
+
 ### Branching Guidelines
 
 - Feature branches from `main` or from another feature branch if stacking
