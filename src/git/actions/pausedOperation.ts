@@ -4,6 +4,7 @@ import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperati
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { showGitErrorMessage } from '../../messages.js';
@@ -25,18 +26,21 @@ export async function abortPausedOperation(svc: GitRepositoryService, options?: 
 	}
 }
 
-/** Repos with a continue/skip in flight. `<op> --continue` can block indefinitely — git opens
- *  `COMMIT_EDITMSG` and waits for the tab to be closed — and the git runner dedups the still-running
- *  command by args, so a second invocation would silently ride the first and appear to do nothing. */
+/** Repos with a continue/skip in flight, keyed by {@link getRepositoryKey} — callers pass repo
+ *  paths in different forms, and a raw `Uri.fsPath` differs from the normalized form on Windows.
+ *  `<op> --continue` can block indefinitely — git opens `COMMIT_EDITMSG` and waits for the tab to
+ *  be closed — and the git runner dedups the still-running command by args, so a second invocation
+ *  would silently ride the first and appear to do nothing. */
 const continuingRepos = new Set<string>();
 
 const _onDidChangeContinuing = new EventEmitter<string>();
-/** Fires with the repo path whenever a continue/skip starts or settles. */
+/** Fires with the repo path (in {@link getRepositoryKey} form) whenever a continue/skip starts or settles. */
 export const onDidChangeContinuingPausedOperation = _onDidChangeContinuing.event;
 
-/** Whether a continue/skip is still running for `repoPath` — the paused-op bar's busy state. */
+/** Whether a continue/skip is still running for `repoPath` — the paused-op bar's busy state.
+ *  Accepts any path form; the lookup normalizes via {@link getRepositoryKey}. */
 export function isContinuingPausedOperation(repoPath: string): boolean {
-	return continuingRepos.has(repoPath);
+	return continuingRepos.has(getRepositoryKey(repoPath));
 }
 
 export async function continuePausedOperation(
@@ -64,13 +68,14 @@ async function runContinue(
 	options?: { skip?: boolean },
 	source?: Source,
 ): Promise<void> {
-	if (continuingRepos.has(svc.path)) {
+	const key = getRepositoryKey(svc.path);
+	if (continuingRepos.has(key)) {
 		void showAlreadyContinuing(svc);
 		return;
 	}
 
-	continuingRepos.add(svc.path);
-	_onDidChangeContinuing.fire(svc.path);
+	continuingRepos.add(key);
+	_onDidChangeContinuing.fire(key);
 	try {
 		// Acting on a rebase through GitLens adopts it, so later pauses of an externally-started
 		// rebase auto-open under `openOnPausedRebase: 'auto'`. Rebase-only — an adopted entry is
@@ -82,8 +87,8 @@ async function runContinue(
 
 		await continuePausedOperationCore(container, svc, options, source);
 	} finally {
-		continuingRepos.delete(svc.path);
-		_onDidChangeContinuing.fire(svc.path);
+		continuingRepos.delete(key);
+		_onDidChangeContinuing.fire(key);
 	}
 }
 
