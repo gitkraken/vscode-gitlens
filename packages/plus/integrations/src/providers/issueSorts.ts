@@ -13,10 +13,16 @@ import type { IssueSorting } from '../providerFilters.js';
  * transcribed, on the one key (`reactions`) whose meaning is narrower than its name.
  *
  * Why the asymmetries between surfaces exist (GitHub cannot order by close date, GitLab's two reads are different
- * APIs with different vocabularies, Azure has no `dueDate` outside the Agile process, Linear is descending-only,
- * Jira has votes rather than reactions) is documented on the SDK's own maps. This module adds exactly one rule of
- * its own — {@link mergeableSorts} — and everything else is a rename from the SDK's surface names to the two
- * fields `ProviderMetadata` publishes.
+ * APIs with different vocabularies, Azure has no `dueDate` outside the Agile process, Trello has only its
+ * `sort:edited` modifier, Jira has votes rather than reactions) is documented on the SDK's own maps. This module
+ * adds exactly one rule of its own — {@link mergeableSorts} — and everything else is a rename from the SDK's
+ * surface names to the two fields `ProviderMetadata` publishes.
+ *
+ * A caveat for anything building ONE ordering control across providers: a neutral key does not always mean the
+ * same thing. `priority:desc` is most-important-first on Jira and Linear, and least-important-first on Azure
+ * DevOps, whose WIQL orders the raw numeric column where 1 is the highest priority — so no single direction
+ * means "highest priority first" everywhere, and a unified control has to pick the direction per provider.
+ * `title` likewise orders by each backing database's collation, never JavaScript's.
  */
 
 /** One SDK read surface, widened to the union this package uses (structurally the same `field:direction` type). */
@@ -68,7 +74,15 @@ export const azureAccountWideIssueSorts: IssueSorting[] = mergeableSorts(surface
 /** Jira Cloud and Server, as JQL `ORDER BY` fields — one JQL builder, so one surface. */
 export const jiraIssueSorts: IssueSorting[] = surface('jira');
 
-/** Linear's `PaginationOrderBy`, which has no ascending member at all. */
+/**
+ * Linear's one root `issues` query, which both of its reads share and which takes the same `sort` argument in
+ * either direction — so this is one surface, not a repo-scoped and an account-wide pair.
+ *
+ * NOT filtered by {@link mergeableSorts} even though the account-wide read is "my issues": that read is a
+ * single server-ordered query (one `or` filter over the four relationships), so nothing is merged in this
+ * facade and there is no comparator to satisfy. Filtering it would drop `priority` and `dueDate` — keys the
+ * server really does order by — for a merge that does not happen.
+ */
 export const linearIssueSorts: IssueSorting[] = surface('linear');
 
 /** Trello's search modifiers: `sort:edited` / `sort:-edited`, and nothing else usable for issues. */
