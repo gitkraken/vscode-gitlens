@@ -2024,6 +2024,26 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/intro/shown
+
+> Sent when the one-time Graph intro (welcome + optional layout prompt) is shown on first entry
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // True when the layout sub-section (Side Bar vs. Bottom Panel) was shown alongside the welcome
+  'withLayoutOptions': boolean
+}
+```
+
 ### graph/kanban/closed
 
 > Sent when the Graph leaves Kanban display mode (close button, sidebar rail, etc.)
@@ -2135,24 +2155,6 @@ background-upgraded the extension while the host kept running the old build
 {
   // `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks)
   'choice': 'panel' | 'dismissed' | 'sidebar',
-  'context.repository.closed': boolean,
-  'context.repository.folder.scheme': string,
-  'context.repository.id': string,
-  'context.repository.provider.id': string,
-  'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view' | 'panel',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string
-}
-```
-
-### graph/layoutPrompt/shown
-
-> Sent when the one-time layout-choice prompt is shown on first entry to the Graph view
-
-```typescript
-{
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

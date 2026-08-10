@@ -419,8 +419,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user types in the filter box in the sidebar tags panel */
 	'graph/tags/filtered': GraphSidebarTagsFilteredEvent;
 
-	/** Sent when the one-time layout-choice prompt is shown on first entry to the Graph view */
-	'graph/layoutPrompt/shown': GraphLayoutPromptShownEvent;
+	/** Sent when the one-time Graph intro (welcome + optional layout prompt) is shown on first entry */
+	'graph/intro/shown': GraphIntroShownEvent;
 	/** Sent when the user answers (or closes) the one-time layout-choice prompt */
 	'graph/layoutPrompt/choice': GraphLayoutPromptChoiceEvent;
 
@@ -2307,8 +2307,10 @@ interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
  *  matching the switcher's tab model. */
 export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
 
-/** No dimensions beyond the shared graph context */
-type GraphLayoutPromptShownEvent = GraphContextEventData;
+interface GraphIntroShownEvent extends GraphContextEventData {
+	/** True when the layout sub-section (Side Bar vs. Bottom Panel) was shown alongside the welcome */
+	withLayoutOptions: boolean;
+}
 
 interface GraphLayoutPromptChoiceEvent extends GraphContextEventData {
 	/** `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks) */

@@ -89,7 +89,6 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
-import type { GraphLayoutPromptChoiceEventDetail } from './components/gl-graph-layout-prompt.js';
 import type {
 	OverviewBarItem,
 	OverviewBarJumpDetail,
@@ -163,7 +162,6 @@ import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
-import './components/gl-graph-layout-prompt.js';
 import './components/gl-graph-overview-bar.js';
 import './components/gl-graph-timeline.js';
 import './components/gl-graph-visualizations.js';
@@ -1652,7 +1650,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _gatedPendingAction?: NonNullable<AppState['pendingAction']>;
 	private _wasAccessGated = false;
 
-	/** Shows the post-sign-in welcome interstitial: armed when the account wall clears live (a
+	/** Drives the welcome's live-sign-in copy variant: armed when the account wall clears live (a
 	 *  sign-in completed while the account screen was showing) with no parked task to run — a task
 	 *  arrival goes straight to the graph instead, both for intent and because
 	 *  `consumePendingAction` drives the graph subtree, which doesn't mount while this screen is up.
@@ -1672,6 +1670,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  predicate that renders `gl-graph-gate`), so what's parked can't desync from what's displayed. */
 	private get isAccessGated(): boolean {
 		return this.isAccountGated || !this.graphState.allowed;
+	}
+
+	/** Shows the first-run welcome (the `graph:intro` onboarding surface). Full-viewport early-return
+	 *  in `render`, so — unlike the old in-subtree dialog — it needs no `repositories > 0` guard and
+	 *  shows even with no repo open. Held back while the Pro gate is up (the gate is the proper first
+	 *  surface for an unentitled user; the welcome shows once they can use the graph) and while a
+	 *  deep-linked task action is parked/incoming (the action's intent trumps onboarding). */
+	private get shouldShowWelcome(): boolean {
+		return (
+			!this.isAccountGated &&
+			(this.graphState.allowed ?? false) &&
+			// Client-read onboarding flag: `undefined` until known (don't flash), `false` = not yet
+			// dismissed, `true` = dismissed.
+			this._dismissals?.get('graph:intro') === false &&
+			this._gatedPendingAction == null &&
+			this.graphState.pendingAction == null
+		);
 	}
 
 	private async consumePendingAction(pending: {
@@ -2360,9 +2375,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// config changes).
 		this.ensureSidebarOverlayEscHandling();
 
-		if (this.shouldShowLayoutPrompt && !this._layoutPromptShownReported) {
-			this._layoutPromptShownReported = true;
-			emitTelemetrySentEvent<'graph/layoutPrompt/shown'>(this, { name: 'graph/layoutPrompt/shown', data: {} });
+		if (this.shouldShowWelcome && !this._introShownReported) {
+			this._introShownReported = true;
+			emitTelemetrySentEvent<'graph/intro/shown'>(this, {
+				name: 'graph/intro/shown',
+				data: { withLayoutOptions: this.graphState.layoutPromptNeeded ?? false },
+			});
 		}
 
 		// Start the Launchpad pipeline once `services` first resolves. `services` is a `@consume`d
@@ -2575,11 +2593,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		if (this.isAccountGated || this._postSignInPending) {
+		if (this.isAccountGated || this.shouldShowWelcome) {
 			return html`<gl-graph-access-account
 				.intentAction=${this._gatedPendingAction?.action}
-				.postSignIn=${this._postSignInPending}
-				@gl-continue=${this.onPostSignInContinue}
+				.welcome=${this.shouldShowWelcome}
+				.liveSignIn=${this._postSignInPending}
+				.showLayoutOptions=${this.graphState.layoutPromptNeeded ?? false}
+				.upgradedFromPreV19=${this.graphState.upgradedFromPreV19 ?? false}
+				@gl-continue=${this.onWelcomeContinue}
 			></gl-graph-access-account>`;
 		}
 
@@ -2816,17 +2837,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						? html`<div class="graph__graph-content">${this.renderKanbanMain()}</div>`
 						: nothing
 				}
-				${when(
-					this.shouldShowLayoutPrompt,
-					// Living inside the graph subtree means the no-repo empty state skips the prompt —
-					// deliberate: asking where the Graph should live is noise without a repo to show,
-					// and the prompt is one-shot on ANSWER (not on show), so it simply defers until a
-					// repository is open.
-					() =>
-						html`<gl-graph-layout-prompt
-							@gl-graph-layout-choice=${this.handleLayoutPromptChoice}
-						></gl-graph-layout-prompt>`,
-				)}
 			</div>
 		`;
 	}
@@ -3909,8 +3919,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private onPostSignInContinue(): void {
+	private onWelcomeContinue(e: CustomEvent<{ layoutChoice?: 'sidebar' | 'panel' | 'dismissed' }>): void {
 		this._postSignInPending = false;
+		// Optimistic dismissal — flips `graph:intro` locally so `shouldShowWelcome` goes false and the
+		// welcome unmounts without waiting for the host echo; persists via the onboarding RPC.
+		this._dismissals?.dismiss('graph:intro');
+
+		const choice = e.detail?.layoutChoice ?? 'dismissed';
+		// Preserve layout analytics: fire only when the layout section was actually shown.
+		if (this.graphState.layoutPromptNeeded ?? false) {
+			emitTelemetrySentEvent<'graph/layoutPrompt/choice'>(this, {
+				name: 'graph/layoutPrompt/choice',
+				data: { choice: choice },
+			});
+		}
+
+		// One-and-done: dismisses `graph:layoutPrompt` host-side and moves the view for sidebar/panel;
+		// `dismissed` just dismisses with no move.
+		this._ipc.sendCommand(ChooseGraphLayoutCommand, { choice: choice });
 	}
 
 	/** Opens `panel` with the same semantics the rail icon click uses: from a non-graph display mode,
@@ -3989,43 +4015,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		);
 	}
 
-	/** One-shot guard: `shown` telemetry per webview session, not per mount — the `when()` gate
-	 *  can unmount/remount the prompt (e.g. an onboarding reset re-shows the walkthrough banner
-	 *  mid-prompt), and a remount must not mint a second impression. */
-	private _layoutPromptShownReported = false;
-
-	private get shouldShowLayoutPrompt(): boolean {
-		return (
-			(this.graphState.layoutPromptNeeded ?? false) &&
-			// Not while the Pro gate is up: both the gate and this prompt are top-layer modals, so for a
-			// signed-in-but-unentitled user the prompt would stack over the gate — asking a placement
-			// question about a graph they can't see, and burning the one-shot answer
-			(this.graphState.allowed ?? false) &&
-			// The prompt lives inside the graph subtree, which the no-repository empty state
-			// doesn't render — require repositories to be RESOLVED and non-empty (stricter than
-			// the subtree's own `?.length === 0` check, which renders during the initial load
-			// window) so the prompt can't flash and the `shown` telemetry in `updated()` can't
-			// fire (burning its one-shot guard) before a no-repo profile lands on the empty state.
-			(this.graphState.repositories?.length ?? 0) > 0 &&
-			// Don't compete with the graph walkthrough popover on first entry — hold the layout
-			// prompt until that banner is dismissed, completed, or STARTED ("See what's new" tracks
-			// started without dismissing the banner, and the header only force-opens the popover
-			// while not started — so a started walkthrough isn't visually competing). Re-renders
-			// reactively as the walkthrough notifications land.
-			((this.graphState.graphWalkthroughBannerCollapsed ?? true) ||
-				(this.graphState.graphWalkthroughComplete ?? false) ||
-				(this.graphState.graphWalkthroughStarted ?? false))
-		);
-	}
-
-	private handleLayoutPromptChoice = (e: CustomEvent<GraphLayoutPromptChoiceEventDetail>): void => {
-		// Optimistic unmount — the prompt has already closed its native dialog, but without this
-		// it would stay mounted until the host echoes `DidChangeLayoutPromptNotification`.
-		// `layoutPromptNeeded` is a plain (non-signal) property, so trigger the re-render manually.
-		this.graphState.layoutPromptNeeded = false;
-		this.requestUpdate();
-		this._ipc.sendCommand(ChooseGraphLayoutCommand, { choice: e.detail.choice });
-	};
+	/** One-shot guard: `shown` telemetry per webview session, not per mount — the welcome screen's
+	 *  full-viewport early-return can unmount/remount (e.g. a sign-out/sign-in cycle, or the Pro gate
+	 *  toggling), and a remount must not mint a second impression. */
+	private _introShownReported = false;
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {
 		// Defensive — the timeline element only exists in timeline mode, but a queued event could

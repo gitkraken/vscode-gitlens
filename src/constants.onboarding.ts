@@ -36,6 +36,9 @@ export const onboardingDefinitions = {
 	// Graph side bar Agents panel (first-interaction callout)
 	'graph:sidebar:agents:callout': { schema: '18.5.0', scope: 'global' },
 
+	// Graph Intro (welcome to the New Commit Graph; wraps the optional layout prompt)
+	'graph:intro': { schema: '18.5.0', scope: 'global' },
+
 	// Graph Layout Prompt (one-time layout choice on first entry to the Graph view)
 	'graph:layoutPrompt': { schema: '18.4.0', scope: 'global' },
 

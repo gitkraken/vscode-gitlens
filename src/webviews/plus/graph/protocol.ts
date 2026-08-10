@@ -581,6 +581,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	graphWalkthroughStarted?: boolean;
 	/** Show the one-time layout-choice prompt (view host only, until `graph:layoutPrompt` is dismissed) */
 	layoutPromptNeeded?: boolean;
+	/** Upgraded from a pre-19 version — surfaces the "new home for the Commit Graph" notice on the sign-in screen */
+	upgradedFromPreV19?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
