@@ -20,6 +20,7 @@ import {
 	stepMatchIndex,
 } from '../utils/refFind.utils.js';
 import { refPillKey } from '../utils/refKey.utils.js';
+import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import { graphRefFindStyles } from './gl-graph-ref-find.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -46,7 +47,8 @@ export interface GraphRefFindJumpEventDetail {
  * wanted first, but they're unadvertised: typing more is the primary way to narrow.
  *
  * Candidates come from the sidebar panels (which carry every ref's tip sha), not from the loaded
- * rows, so refs below the paged window are still findable.
+ * rows, so refs below the paged window are still findable. Candidates also include WIP ("Working
+ * Changes") rows, one per worktree, sourced from `wipRowsById` rather than a sidebar panel.
  */
 @customElement('gl-graph-ref-find')
 export class GlGraphRefFind extends SignalWatcher(LitElement) {
@@ -236,11 +238,22 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		const remotes = panels?.remotes.value.get();
 		const tags = panels?.tags.value.get();
 
+		const state = this._graphState;
 		return buildRefFindCandidates(
 			{
 				branches: branches?.panel === 'branches' ? branches.items : undefined,
 				remotes: remotes?.panel === 'remotes' ? remotes.items : undefined,
 				tags: tags?.panel === 'tags' ? tags.items : undefined,
+				wip:
+					state?.wipRowsById != null
+						? {
+								wipRowsById: state.wipRowsById,
+								primaryRepoPath: getSelectedRepoPath(state),
+								currentBranch: state.branch,
+								scope: state.scope,
+								branchesVisibility: state.branchesVisibility,
+							}
+						: undefined,
 			},
 			{
 				excludeRefs: this._graphState?.excludeRefs,
@@ -467,7 +480,12 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const noMatches = this._query.trim().length > 0 && this._matches.length === 0;
 
-		return html`<div class="find" role="search" aria-label="Find a branch or tag" @focusout=${this.onFocusOut}>
+		return html`<div
+			class="find"
+			role="search"
+			aria-label="Find a branch, tag, or worktree"
+			@focusout=${this.onFocusOut}
+		>
 			<div class="find__row">
 				<div class="find__field">
 					<code-icon class="find__icon" icon="search"></code-icon>
@@ -476,8 +494,8 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 						type="text"
 						spellcheck="false"
 						autocomplete="off"
-						placeholder="Find a branch or tag..."
-						aria-label="Find a branch or tag"
+						placeholder="Find a branch, tag, or worktree..."
+						aria-label="Find a branch, tag, or worktree"
 						aria-keyshortcuts="ArrowDown ArrowUp"
 						.value=${this._query}
 						@input=${this.onInput}

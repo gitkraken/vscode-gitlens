@@ -1,5 +1,12 @@
 import * as assert from 'assert';
-import type { emptySetMarker, GraphRefOptData } from '../../../../../plus/graph/protocol.js';
+import type {
+	emptySetMarker,
+	GraphRefOptData,
+	GraphScope,
+	GraphWipRow,
+	GraphWipRowsById,
+} from '../../../../../plus/graph/protocol.js';
+import { createWipRowId } from '../../../../../plus/graph/protocol.js';
 import type { RefFindCandidate, RefFindMatch } from '../refFind.utils.js';
 import {
 	buildRefFindCandidates,
@@ -35,6 +42,21 @@ function tag(name: string, sha: string | undefined, date?: number) {
 
 function optData(name: string, type: GraphRefOptData['type']): GraphRefOptData {
 	return { id: `/repo|${type}/${name}`, name: name, type: type };
+}
+
+/** A `GraphWipRow` topology entry. `unborn: true` omits `parentSha`, mimicking a worktree with no
+ *  commits yet — the case the finder must not offer a candidate for. */
+function wipRow(
+	repoPath: string,
+	extra?: { parentDate?: number; label?: string; branchRef?: string; unborn?: boolean },
+): GraphWipRow {
+	return {
+		repoPath: repoPath,
+		parentSha: extra?.unborn ? undefined : 'parent-sha',
+		parentDate: extra?.parentDate,
+		label: extra?.label ?? 'worktree',
+		branchRef: extra?.branchRef,
+	};
 }
 
 function candidate(name: string, extra?: Partial<RefFindCandidate>): RefFindCandidate {
@@ -356,6 +378,211 @@ suite('buildRefFindCandidates', () => {
 	});
 });
 
+suite('buildRefFindCandidates: WIP rows', () => {
+	test("emits a primary candidate for the graph's own worktree and a peer candidate for another", () => {
+		const primaryId = createWipRowId('/repo');
+		const peerId = createWipRowId('/repo-peer');
+
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[primaryId]: wipRow('/repo', { branchRef: '/repo|heads/main' }),
+					[peerId]: wipRow('/repo-peer', { label: 'peer', branchRef: '/repo-peer|heads/feature' }),
+				},
+				primaryRepoPath: '/repo',
+				currentBranch: { id: '/repo|heads/main', name: 'main' },
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		});
+
+		assert.deepStrictEqual(
+			candidates.map(c => [c.kind, c.label, c.sha, c.current]),
+			[
+				['wip', 'Working Changes', primaryId, true],
+				['wip', 'Working Changes (peer)', peerId, undefined],
+			],
+		);
+	});
+
+	test('no WIP candidates when wipRowsById is empty', () => {
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {},
+				primaryRepoPath: '/repo',
+				currentBranch: undefined,
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		});
+
+		assert.deepStrictEqual(candidates, []);
+	});
+
+	test('query "wip" matches every WIP candidate', () => {
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[createWipRowId('/repo')]: wipRow('/repo', { branchRef: '/repo|heads/main' }),
+					[createWipRowId('/repo-peer')]: wipRow('/repo-peer', {
+						label: 'peer',
+						branchRef: '/repo-peer|heads/feature',
+					}),
+				},
+				primaryRepoPath: '/repo',
+				currentBranch: { id: '/repo|heads/main', name: 'main' },
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		});
+
+		const matches = matchRefs('wip', candidates, () => undefined);
+		assert.strictEqual(matches.length, 2);
+		assert.ok(matches.every(m => m.score === 1));
+	});
+
+	test('a peer candidate is findable by its branch name and worktree label', () => {
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[createWipRowId('/repo-peer')]: wipRow('/repo-peer', {
+						label: 'peer-wt',
+						branchRef: '/repo-peer|heads/feature-x',
+					}),
+				},
+				primaryRepoPath: undefined,
+				currentBranch: undefined,
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		});
+
+		for (const query of ['feature-x', 'peer-wt']) {
+			const matches = matchRefs(query, candidates, () => undefined);
+			assert.strictEqual(matches.length, 1, query);
+			assert.strictEqual(matches[0].kind, 'wip', query);
+		}
+	});
+
+	test('the primary candidate is findable by the current branch name', () => {
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[createWipRowId('/repo')]: wipRow('/repo', { branchRef: '/repo|heads/main' }),
+				},
+				primaryRepoPath: '/repo',
+				currentBranch: { id: '/repo|heads/main', name: 'main' },
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		});
+
+		const matches = matchRefs('main', candidates, () => undefined);
+		assert.strictEqual(matches.length, 1);
+		assert.strictEqual(matches[0].kind, 'wip');
+	});
+
+	test('a peer WIP row outside the active scope is dropped', () => {
+		const scope: GraphScope = { branchName: 'main', branchRef: '/repo|heads/main' };
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[createWipRowId('/repo-peer')]: wipRow('/repo-peer', { branchRef: '/repo-peer|heads/other' }),
+				},
+				primaryRepoPath: undefined,
+				currentBranch: undefined,
+				scope: scope,
+				branchesVisibility: undefined,
+			},
+		});
+
+		assert.deepStrictEqual(candidates, []);
+	});
+
+	test('a peer WIP row with no parentSha (unborn HEAD) is dropped', () => {
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[createWipRowId('/repo-peer')]: wipRow('/repo-peer', { unborn: true }),
+				},
+				primaryRepoPath: undefined,
+				currentBranch: undefined,
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		});
+
+		assert.deepStrictEqual(candidates, []);
+	});
+
+	test('the primary candidate is hidden when the scope is on a branch other than HEAD', () => {
+		const candidates = buildRefFindCandidates({
+			wip: {
+				wipRowsById: {
+					[createWipRowId('/repo')]: wipRow('/repo'),
+				},
+				primaryRepoPath: '/repo',
+				currentBranch: { id: '/repo|heads/main', name: 'main', detached: false },
+				scope: { branchName: 'other', branchRef: '/repo|heads/other' },
+				branchesVisibility: undefined,
+			},
+		});
+
+		assert.deepStrictEqual(candidates, []);
+	});
+
+	test('an include-only refs filter does not drop a WIP candidate whose branch is included, but still drops the rest', () => {
+		const includedId = createWipRowId('/repo-included');
+		const excludedId = createWipRowId('/repo-excluded');
+
+		const candidates = buildRefFindCandidates(
+			{
+				wip: {
+					wipRowsById: {
+						[includedId]: wipRow('/repo-included', { label: 'included', branchRef: '/repo|heads/main' }),
+						[excludedId]: wipRow('/repo-excluded', { label: 'excluded', branchRef: '/repo|heads/other' }),
+					},
+					primaryRepoPath: undefined,
+					currentBranch: undefined,
+					scope: undefined,
+					branchesVisibility: 'current',
+				},
+			},
+			{ includeOnlyRefs: { '/repo|heads/main': optData('main', 'head') } },
+		);
+
+		assert.deepStrictEqual(
+			candidates.map(c => c.label),
+			['Working Changes (included)'],
+		);
+	});
+
+	test('building candidates twice from the same WIP sources yields one candidate per worktree each time', () => {
+		const wipRowsById: GraphWipRowsById = {
+			[createWipRowId('/repo')]: wipRow('/repo', { branchRef: '/repo|heads/main' }),
+		};
+		const sources = {
+			wip: {
+				wipRowsById: wipRowsById,
+				primaryRepoPath: '/repo',
+				currentBranch: { id: '/repo|heads/main', name: 'main' },
+				scope: undefined,
+				branchesVisibility: undefined,
+			},
+		};
+
+		const expected = [createWipRowId('/repo')];
+		assert.deepStrictEqual(
+			buildRefFindCandidates(sources).map(c => c.sha),
+			expected,
+		);
+		assert.deepStrictEqual(
+			buildRefFindCandidates(sources).map(c => c.sha),
+			expected,
+		);
+	});
+});
+
 suite('matchRefs', () => {
 	const candidates: RefFindCandidate[] = [
 		candidate('graph-a', { sha: 'a' }),
@@ -593,6 +820,24 @@ suite('pickInitialTargetIndex', () => {
 		const matches = [match({ label: 'a', score: 0.7 }), match({ label: 'b', score: 0.7 })];
 
 		assert.strictEqual(pickInitialTargetIndex(matches), 0);
+	});
+
+	test('ties prefer a named ref over a WIP row, even a current one sitting earlier', () => {
+		const matches = [
+			match({ label: 'Working Changes', kind: 'wip', score: 1, current: true }),
+			match({ label: 'main', score: 1, current: true }),
+		];
+
+		assert.strictEqual(pickInitialTargetIndex(matches), 1);
+	});
+
+	test('a WIP row still wins on score alone', () => {
+		const matches = [
+			match({ label: 'main', score: 0.9 }),
+			match({ label: 'Working Changes', kind: 'wip', score: 1 }),
+		];
+
+		assert.strictEqual(pickInitialTargetIndex(matches), 1);
 	});
 });
 

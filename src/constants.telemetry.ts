@@ -1565,7 +1565,7 @@ interface GraphActionRefFindEvent extends GraphContextEventData {
 	/** How the finder was opened — tells us whether the header button is carrying its own discovery. */
 	source: 'shortcut' | 'button';
 	/** Which kind of reference was landed on. */
-	kind: 'head' | 'remote' | 'tag';
+	kind: 'head' | 'remote' | 'tag' | 'wip';
 	/** Whether the reference's commit had to be paged in first (the Enter-to-fetch path). */
 	loaded: boolean;
 	/** Whether the query used `/` path segments (e.g. `d/f/foo`) rather than a plain substring. */

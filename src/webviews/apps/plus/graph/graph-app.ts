@@ -813,7 +813,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: {
 					group: 'search',
-					label: 'Find a branch or tag',
+					label: 'Find a branch, tag, or worktree',
 					order: 1,
 					subline: ['ArrowUp', 'ArrowDown', 'text: matches · ', 'Enter', 'text: selects'],
 				},

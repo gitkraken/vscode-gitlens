@@ -1,26 +1,32 @@
+import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type {
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 	GraphIncludeOnlyRefs,
 	GraphRefOptData,
+	GraphScope,
 	GraphSidebarBranch,
 	GraphSidebarRemote,
 	GraphSidebarTag,
+	GraphWipRowsById,
 } from '../../../../plus/graph/protocol.js';
-import { emptySetMarker } from '../../../../plus/graph/protocol.js';
+import { createWipRowId, emptySetMarker } from '../../../../plus/graph/protocol.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 import { refPillKey } from './refKey.utils.js';
+import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from './wip.utils.js';
 
 /**
  * Ref find ("jump to a ref by name") vocabulary, shared by the header trigger and the find widget.
  *
  * Candidates come from the sidebar panels rather than the loaded rows: `refRowIndex` only knows refs
  * whose tips have been paged in, so building from it would silently hide every ref below the window
- * — exactly the refs a name search is most useful for.
+ * — exactly the refs a name search is most useful for. WIP ("Working Changes") rows are the
+ * exception: they're synthetic per-worktree rows, not sidebar refs, so they're sourced separately
+ * (see `RefFindWipSource`) and keyed by worktree rather than by ref name.
  */
 
 /** The ref categories the find widget offers. Stashes are deliberately absent — they aren't named refs. */
-export type RefFindKind = 'head' | 'remote' | 'tag';
+export type RefFindKind = 'head' | 'remote' | 'tag' | 'wip';
 
 export interface RefFindCandidate {
 	kind: RefFindKind;
@@ -51,10 +57,19 @@ export interface RefFindFilters {
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 }
 
+export interface RefFindWipSource {
+	wipRowsById: GraphWipRowsById;
+	primaryRepoPath: string | undefined;
+	currentBranch: { id?: string; name: string; detached?: boolean } | undefined;
+	scope: GraphScope | undefined;
+	branchesVisibility: GraphBranchesVisibility | undefined;
+}
+
 export interface RefFindSources {
 	branches?: readonly GraphSidebarBranch[];
 	remotes?: readonly GraphSidebarRemote[];
 	tags?: readonly GraphSidebarTag[];
+	wip?: RefFindWipSource;
 }
 
 /**
@@ -94,7 +109,33 @@ function isTypeExcluded(kind: RefFindKind, excludeTypes: GraphExcludeTypes | und
 			return excludeTypes.remotes === true;
 		case 'tag':
 			return excludeTypes.tags === true;
+		case 'wip':
+			return false;
 	}
+}
+
+/** The worktree's branch name for a WIP row, or `undefined` for a detached worktree. Prefers the
+ *  synced `branch` projection; falls back to parsing `branchRef` (`{repoPath}|heads/{name}`). */
+function wipBranchName(meta: { branch?: { name?: string }; branchRef?: string }): string | undefined {
+	if (meta.branch?.name != null) return meta.branch.name;
+
+	const ref = meta.branchRef;
+	if (ref == null) return undefined;
+
+	const marker = '|heads/';
+	const index = ref.indexOf(marker);
+	return index === -1 ? undefined : ref.slice(index + marker.length);
+}
+
+/** De-dupes candidate names, dropping empties and anything equal to the label (redundant with it). */
+function wipAliases(names: readonly (string | undefined)[], label: string): string[] | undefined {
+	const aliases = new Set<string>();
+	for (const name of names) {
+		if (name == null || name.length === 0 || name === label) continue;
+
+		aliases.add(name);
+	}
+	return aliases.size > 0 ? [...aliases] : undefined;
 }
 
 /**
@@ -206,6 +247,76 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 	}
 	for (const tag of sources.tags ?? []) {
 		add('tag', tag.name, undefined, tag.sha, tag.date);
+	}
+
+	// WIP rows deliberately bypass `isVisible`/`add`: `excludeRefs`/`includeOnlyRefs` are built from
+	// branch/remote/tag refs and can never contain a wip key, so an active include-only filter would
+	// silently drop every WIP candidate. Visibility instead follows the same helpers the decorated-rows
+	// build uses (`graph-wrapper.ts`'s `getDecoratedRows`), so the finder offers a WIP row iff that row
+	// can actually render.
+	const wip = sources.wip;
+	if (wip != null && Object.keys(wip.wipRowsById).length > 0) {
+		const primaryWipRowId = wip.primaryRepoPath != null ? createWipRowId(wip.primaryRepoPath) : undefined;
+
+		if (primaryWipRowId != null) {
+			const primaryMeta = wip.wipRowsById[primaryWipRowId];
+			if (
+				primaryMeta != null &&
+				shouldShowPrimaryWipRow(
+					wip.branchesVisibility,
+					filters?.includeOnlyRefs,
+					wip.currentBranch,
+					wip.scope,
+					undefined,
+				)
+			) {
+				const key = refPillKey({ kind: 'wip', name: primaryMeta.repoPath });
+				if (!seen.has(key)) {
+					seen.add(key);
+					const label = 'Working Changes';
+					candidates.push({
+						kind: 'wip',
+						name: primaryMeta.repoPath,
+						label: label,
+						sha: primaryWipRowId,
+						date: primaryMeta.parentDate,
+						current: true,
+						aliases: wipAliases([wipBranchName(primaryMeta), 'wip'], label),
+					});
+				}
+			}
+		}
+
+		const peers: GraphWipRowsById = {};
+		for (const [id, meta] of Object.entries(wip.wipRowsById)) {
+			if (id === primaryWipRowId) continue;
+
+			peers[id] = meta;
+		}
+		const filteredPeers = filterSecondariesForScopeAndVisibility(
+			peers,
+			wip.scope,
+			wip.branchesVisibility,
+			filters?.includeOnlyRefs,
+		);
+		for (const [id, meta] of Object.entries(filteredPeers ?? {})) {
+			// An unborn-HEAD worktree never gets a graph row, so offering it would land nowhere.
+			if (meta.parentSha == null) continue;
+
+			const key = refPillKey({ kind: 'wip', name: meta.repoPath });
+			if (seen.has(key)) continue;
+
+			seen.add(key);
+			const label = `Working Changes (${meta.label})`;
+			candidates.push({
+				kind: 'wip',
+				name: meta.repoPath,
+				label: label,
+				sha: id,
+				date: meta.parentDate,
+				aliases: wipAliases([wipBranchName(meta), meta.label, 'wip'], label),
+			});
+		}
 	}
 
 	return candidates;
@@ -400,8 +511,10 @@ export function matchRefs(
  * closest name rather than whichever match happens to sit highest in the graph. Stepping afterwards
  * walks {@link matchRefs}' graph order from there.
  *
- * Returns an index into `matches`, or `-1` when there are none. Ties prefer the current branch, then
- * the earlier row (`matches` is already graph-ordered, so the first one wins).
+ * Returns an index into `matches`, or `-1` when there are none. Ties prefer a named ref over a WIP
+ * row (which answers to its branch name only via alias — typing `main` should land on the branch,
+ * with the adjacent Working Changes row one step away), then the current branch, then the earlier
+ * row (`matches` is already graph-ordered, so the first one wins).
  */
 export function pickInitialTargetIndex(matches: readonly RefFindMatch[]): number {
 	if (matches.length === 0) return -1;
@@ -412,7 +525,19 @@ export function pickInitialTargetIndex(matches: readonly RefFindMatch[]): number
 		const incumbent = matches[best];
 		if (candidate.score > incumbent.score) {
 			best = i;
-		} else if (candidate.score === incumbent.score && candidate.current === true && incumbent.current !== true) {
+			continue;
+		}
+
+		if (candidate.score !== incumbent.score) continue;
+
+		if (incumbent.kind === 'wip' && candidate.kind !== 'wip') {
+			best = i;
+			continue;
+		}
+
+		if (candidate.kind === 'wip' && incumbent.kind !== 'wip') continue;
+
+		if (candidate.current === true && incumbent.current !== true) {
 			best = i;
 		}
 	}

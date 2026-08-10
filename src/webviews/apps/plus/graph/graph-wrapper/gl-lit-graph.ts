@@ -9482,7 +9482,7 @@ export class GlLitGraph extends LitElement {
 	// than the filter button's drag-through one: it sits beside the placement toggle and has to click
 	// the same way its neighbor does. The trade-off is that a press here can't start a column reorder.
 	private renderRefFindButton(): TemplateResult {
-		const title = 'Find a Branch or Tag...';
+		const title = 'Find a Branch, Tag, or Worktree...';
 		return html`<button
 			class="gl-graph__ref-find-toggle${this.refFindOpen ? ' is-active' : ''}"
 			type="button"

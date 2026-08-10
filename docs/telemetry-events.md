@@ -1549,7 +1549,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Which kind of reference was landed on.
-  'kind': 'head' | 'remote' | 'tag',
+  'kind': 'wip' | 'head' | 'remote' | 'tag',
   // Whether the reference's commit had to be paged in first (the Enter-to-fetch path).
   'loaded': boolean,
   // Whether the query used `/` path segments (e.g. `d/f/foo`) rather than a plain substring.
