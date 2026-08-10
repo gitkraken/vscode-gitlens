@@ -86,6 +86,8 @@ import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
 import type { KeymapDispatcher } from '../../shared/keymap/keymapDispatcher.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import type { CapturedComparison } from './components/detailsState.js';
+import { shouldRestoreCapturedComparison } from './components/detailsState.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
@@ -572,6 +574,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const repos = this.graphState.repositories;
 		const repo = repoId != null ? repos?.find(r => r.id === repoId) : repos?.[0];
 		return repo?.commonPath ?? repo?.path;
+	}
+
+	/** Family key for a repository path — mirrors {@link fallbackRepoFamily}'s `commonPath ?? path`.
+	 *  Only called at RESTORE time, when the state carries a populated repository list. */
+	private familyOfRepoPath(repoPath: string | undefined): string | undefined {
+		if (!repoPath) return undefined;
+
+		const repo = this.graphState.repositories?.find(r => r.path === repoPath);
+		return repo?.commonPath ?? repo?.path ?? repoPath;
 	}
 
 	/** Whether the selected repository is virtual (GitHub/GitLab-hosted, no local git) — gates the
@@ -1647,7 +1658,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  task-specific messaging, and is consumed once access is granted. `@state` so a warm arrival
 	 *  re-renders the already-shown screen with the task copy. */
 	@state()
-	private _gatedPendingAction?: NonNullable<AppState['pendingAction']>;
+	private _gatedPendingAction?: NonNullable<AppState['pendingAction']> & {
+		/** An interrupted comparison from the wall capture — never host-delivered, so its
+		 *  presence marks the parked action as a capture and arms the restore guards */
+		capturedComparison?: CapturedComparison;
+	};
 	private _wasAccessGated = false;
 
 	/** Drives the welcome's live-sign-in copy variant: armed when the account wall clears live (a
@@ -1697,8 +1712,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		scopeOrigin?: GraphScopeOrigin;
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
+		capturedComparison?: CapturedComparison;
 	}): Promise<void> {
-		const { action, target, commitMessage, scopeBranch, scopeOrigin, composeInstructions, composeScope } = pending;
+		const {
+			action,
+			target,
+			commitMessage,
+			scopeBranch,
+			scopeOrigin,
+			composeInstructions,
+			composeScope,
+			capturedComparison,
+		} = pending;
 
 		if (action === 'scope-to-branch') {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
@@ -1714,12 +1739,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
+		if (action === 'open-compare' && capturedComparison != null) {
+			const capturedFamily = this.familyOfRepoPath(capturedComparison.graphRepoPath);
+			const live = this.detailsPanelEl?.liveComparison;
+			if (
+				!shouldRestoreCapturedComparison(capturedComparison.refs, capturedFamily, this.fallbackRepoFamily, live)
+			) {
+				return;
+			}
+		}
+
 		// When a target is supplied (e.g. context-menu invocation on a secondary WIP row), route
 		// the action to that row's worktree; otherwise fall back to the primary repo + uncommitted.
 		const repoPath = target?.worktreePath ?? this.fallbackRepoPath ?? '';
 		const sha = target?.sha ?? uncommitted;
-		this._selectedCommit = { sha: sha, repoPath: repoPath };
-		this._selectedCommits = undefined;
+		if (!(action === 'open-compare' && capturedComparison?.refs != null)) {
+			this._selectedCommit = { sha: sha, repoPath: repoPath };
+			this._selectedCommits = undefined;
+		}
 
 		// Reliably select the target row in the graph itself, not just the details panel. The host's
 		// selection notification is prop-driven and can drop the synthetic WIP row to a render race
@@ -1755,7 +1792,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		if (action === 'open-compare') {
 			const compareParams =
-				target != null
+				capturedComparison?.refs ??
+				(target != null
 					? {
 							repoPath: repoPath,
 							leftRef: this.graphState.branch?.name ?? 'HEAD',
@@ -1767,7 +1805,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							rightRef: this.graphState.branch?.name ?? 'HEAD',
 							rightRefType: 'branch' as const,
 							includeWorkingTree: true,
-						};
+						});
 			void this.withDetailsPanel(panel => panel.openCompareMode(compareParams), 'request-mode');
 			return;
 		}
@@ -2330,7 +2368,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (!this._wasAccessGated && this._gatedPendingAction == null) {
 				const task = this.detailsPanelEl?.activeTaskAction;
 				if (task != null) {
-					this._gatedPendingAction = task;
+					this._gatedPendingAction =
+						task.action === 'open-compare'
+							? {
+									action: task.action,
+									capturedComparison: {
+										refs: task.compare,
+										graphRepoPath: task.compareGraphRepoPath,
+									},
+								}
+							: task;
 				}
 			}
 		} else if (this._wasAccessGated) {

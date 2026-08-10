@@ -26,9 +26,7 @@ import type {
 } from '../../../../plus/graph/graphService.js';
 import type {
 	GetWipLineStatsResponse,
-	GraphActionTarget,
 	GraphComposeScopeSeed,
-	GraphShowAction,
 	GraphSidebarPullRequest,
 	State,
 } from '../../../../plus/graph/protocol.js';
@@ -75,8 +73,14 @@ import type { DetailsActions } from './detailsActions.js';
 import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
 import { resolveDetailsActions } from './detailsResolver.js';
-import type { DetailsContext, DetailsState, RunningOperation, RunningOperationExecState } from './detailsState.js';
-import { createDetailsState, getActiveTaskAction } from './detailsState.js';
+import type {
+	CompareModeParams,
+	DetailsContext,
+	DetailsState,
+	RunningOperation,
+	RunningOperationExecState,
+} from './detailsState.js';
+import { createDetailsState, getActiveTaskAction, getOpenComparison } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
@@ -289,9 +293,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** The live task the user is engaged in — see {@link getActiveTaskAction}. Read by the
-	 *  account-gate's task-specific sign-in messaging (#5534) when a sign-out interrupts it. */
-	get activeTaskAction(): { action: GraphShowAction; target?: GraphActionTarget } | undefined {
-		return getActiveTaskAction(this._state);
+	 *  access-gate's task-specific sign-in messaging when a wall interrupts it */
+	get activeTaskAction(): ReturnType<typeof getActiveTaskAction> {
+		return getActiveTaskAction(this._state, this.effectiveRepoPath);
+	}
+
+	/** The comparison currently open in this panel, regardless of any coexisting mode.
+	 * The access-gate restore probes this: an open live comparison
+	 * must win over a parked capture even while a mode sits on top of it. */
+	get liveComparison(): ReturnType<typeof getOpenComparison> {
+		return getOpenComparison(this._state, this.effectiveRepoPath);
 	}
 
 	/** Per-mode exec state + has-result of the engaged anchor's entry — drives the suffix-icon
@@ -875,17 +886,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
 	 *  selection is left untouched; both sides of the comparison are driven by the supplied
 	 *  overrides. */
-	openCompareMode(
-		params: {
-			repoPath: string;
-			leftRef?: string;
-			leftRefType?: 'branch' | 'tag' | 'commit';
-			rightRef: string;
-			rightRefType?: 'branch' | 'tag' | 'commit';
-			includeWorkingTree?: boolean;
-		},
-		onReady?: () => void,
-	): boolean {
+	openCompareMode(params: CompareModeParams, onReady?: () => void): boolean {
 		if (this._workflow == null) {
 			this._pendingCompare = { params: params, onReady: onReady };
 			return false;

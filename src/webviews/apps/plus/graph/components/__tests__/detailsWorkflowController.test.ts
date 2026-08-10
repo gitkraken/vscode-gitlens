@@ -1384,6 +1384,19 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 		assert.strictEqual(state.branchCompareRightRef.get(), 'feature');
 	});
 
+	test('openCompare records the GRAPH repo as the birth record — not the selection — and closeCompare clears it', () => {
+		const { state, controller } = setup({ repoPath: '/A/wt', graphRepoPath: '/A' });
+
+		controller.openCompare(
+			{ sha: uncommitted, shas: undefined, repoPath: '/A/wt' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
+		);
+		assert.strictEqual(state.branchCompareGraphRepoPath.get(), '/A');
+
+		controller.closeCompare();
+		assert.strictEqual(state.branchCompareGraphRepoPath.get(), undefined);
+	});
+
 	test('openCompare while already-open with no overrides is a no-op (preserves in-flight comparison)', () => {
 		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 
