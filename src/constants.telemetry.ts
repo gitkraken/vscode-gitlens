@@ -340,6 +340,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
 	/** Sent when the user toggles the tree/list layout in the sidebar agents panel */
 	'graph/agents/layoutToggled': GraphSidebarAgentsLayoutToggledEvent;
+	/** Sent when the user toggles completed sessions on/off in the sidebar agents panel */
+	'graph/agents/showCompletedToggled': GraphSidebarAgentsShowCompletedToggledEvent;
 	/** Sent when the sidebar agents filter toggles between empty and non-empty (not on every keystroke) */
 	'graph/agents/filtered': GraphSidebarAgentsFilteredEvent;
 
@@ -2012,6 +2014,12 @@ interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
 interface GraphSidebarAgentsLayoutToggledEvent extends GraphContextEventData {
 	layout: 'list' | 'tree';
 	'sessions.count': number;
+}
+
+interface GraphSidebarAgentsShowCompletedToggledEvent extends GraphContextEventData {
+	enabled: boolean;
+	/** Completed session count BEFORE the toggle takes effect */
+	'sessions.completed.count': number;
 }
 
 interface GraphSidebarAgentsFilteredEvent extends GraphContextEventData {

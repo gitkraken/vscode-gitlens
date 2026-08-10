@@ -857,13 +857,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// reactive notifications. Synthesize a `DidGetSidebarDataParams`-shaped value so the standard
 		// tree-view rendering flow (filter box + leaves) takes over.
 		if (this.activePanel === 'agents') {
+			const sessions = this._state.agentSessions ?? [];
+			const showCompleted = this._state.sidebar?.showCompletedAgentSessions ?? false;
 			const data: DidGetSidebarDataParams = {
 				panel: 'agents',
-				items: this._state.agentSessions ?? [],
+				items: showCompleted ? sessions : sessions.filter(s => s.phase !== 'completed'),
 				layout: this._actions.agentsLayout.get(),
 			};
+			// The banner is keyed to the unfiltered total — it means "no sessions at all", not "all hidden".
 			return html`<div class="panel">
-				${this.renderHeader(config, false)} ${this.renderAgentsBanner(data.items.length === 0)}
+				${this.renderHeader(config, false)} ${this.renderAgentsBanner(sessions.length === 0)}
 				<div class="content">${this.renderTreeContent(config, data)}</div>
 			</div>`;
 		}
@@ -1061,6 +1064,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this.activePanel === 'agents';
 		const currentLayout = data.layout;
 		const showRemoteBranches = data.panel === 'branches' ? (data.showRemoteBranches ?? false) : undefined;
+		const showCompletedAgentSessions =
+			data.panel === 'agents' ? (this._state.sidebar?.showCompletedAgentSessions ?? false) : undefined;
 
 		const isPullRequests = this.activePanel === 'pullRequests';
 
@@ -1091,6 +1096,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 							aria-label="Show Remote Branches"
 							@click=${this.handleToggleShowRemoteBranches}
 							><code-icon icon="${showRemoteBranches ? 'gl-remote-filled' : 'gl-remote'}"></code-icon
+						></gl-button>`
+					: nothing
+			}${
+				showCompletedAgentSessions != null
+					? html`<gl-button
+							slot="filter-actions"
+							appearance="toolbar"
+							density="compact"
+							role="checkbox"
+							aria-checked=${showCompletedAgentSessions ? 'true' : 'false'}
+							tooltip="${showCompletedAgentSessions ? 'Hide Completed Sessions' : 'Show Completed Sessions'}"
+							aria-label="Show Completed Sessions"
+							@click=${this.handleToggleShowCompletedAgentSessions}
+							><code-icon icon="${showCompletedAgentSessions ? 'pass-filled' : 'pass'}"></code-icon
 						></gl-button>`
 					: nothing
 			}${
@@ -2016,6 +2035,26 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this.dispatchEvent(
 			new CustomEvent<boolean>('gl-graph-sidebar-search-box-filter-change', {
 				detail: e.detail,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private handleToggleShowCompletedAgentSessions = () => {
+		const enabled = !(this._state.sidebar?.showCompletedAgentSessions ?? false);
+		emitTelemetrySentEvent<'graph/agents/showCompletedToggled'>(this, {
+			name: 'graph/agents/showCompletedToggled',
+			data: {
+				enabled: enabled,
+				'sessions.completed.count': (this._state.agentSessions ?? []).filter(s => s.phase === 'completed')
+					.length,
+			},
+		});
+		this._state.sidebar = { showCompletedAgentSessions: enabled };
+		this.dispatchEvent(
+			new CustomEvent<boolean>('gl-graph-sidebar-show-completed-agents-change', {
+				detail: enabled,
 				bubbles: true,
 				composed: true,
 			}),

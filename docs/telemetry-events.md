@@ -1703,6 +1703,27 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/agents/showCompletedToggled
+
+> Sent when the user toggles completed sessions on/off in the sidebar agents panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'enabled': boolean,
+  // Completed session count BEFORE the toggle takes effect
+  'sessions.completed.count': number
+}
+```
+
 ### graph/agents/shown
 
 > Sent when the Agents sidebar panel becomes visible

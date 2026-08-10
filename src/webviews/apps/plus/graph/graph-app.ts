@@ -3269,6 +3269,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
 				@gl-graph-sidebar-search-box-filter-change=${this.handleSidebarSearchBoxFilterChange}
+				@gl-graph-sidebar-show-completed-agents-change=${this.handleSidebarShowCompletedAgentsChange}
 				@gl-graph-overview-branch-selected=${this.handleOverviewBranchSelected}
 				@gl-graph-overview-recent-threshold-change=${this.handleOverviewRecentThresholdChange}
 				@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
@@ -3475,6 +3476,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	private handleSidebarSearchBoxFilterChange = (_e: CustomEvent<boolean>): void => {
+		// State has already been mutated by sidebar-panel; just trigger the debounced persist.
+		this.persistState();
+	};
+
+	private handleSidebarShowCompletedAgentsChange = (_e: CustomEvent<boolean>): void => {
 		// State has already been mutated by sidebar-panel; just trigger the debounced persist.
 		this.persistState();
 	};

@@ -755,8 +755,14 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	private renderIconCount(icon: Icon) {
 		if (icon.type === 'overview') return nothing;
 		// Agents flow through reactive state, not the host counts IPC — read directly so the
-		// badge updates without paying the round-trip and skips the loading/error states.
-		if (icon.type === 'agents') return renderCount(this._state.agentSessions?.length || undefined);
+		// badge updates without paying the round-trip and skips the loading/error states. Follows the
+		// same completed-sessions filter as the panel so the badge matches what's shown.
+		if (icon.type === 'agents') {
+			const sessions = this._state.agentSessions ?? [];
+			const showCompleted = this._state.sidebar?.showCompletedAgentSessions ?? false;
+			const count = showCompleted ? sessions.length : sessions.filter(s => s.phase !== 'completed').length;
+			return renderCount(count || undefined);
+		}
 		// Pull requests are network-backed, so they're deliberately absent from the counts IPC — badging
 		// them there would put an API round-trip on every graph open. Read the panel's own resource
 		// instead: no badge until it's been opened once, then an accurate count (including a real 0).
