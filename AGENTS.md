@@ -98,6 +98,8 @@ The repo enforces its own rules from `scripts/eslint-rules/`. Write conforming c
 >
 > For webview accessibility requirements: see `docs/accessibility.md`
 >
+> For webview architecture — the two communication layers (legacy IPC vs Supertalk RPC + signals), which surface uses which, state ownership, resources, persistence, and lifecycle: see `docs/webview-architecture.md`
+>
 > For the Commit Graph keyboard architecture — focus scopes, the Esc overlay stack, the chord vocabulary, and how to add a binding: see `docs/graph-keyboard.md`
 
 ### Decorator System
@@ -142,4 +144,4 @@ When implementing something new, look at these files first:
 - Run `pnpm run generate:contributions` after editing (or let the watcher handle it)
 - Run `pnpm run generate:commandTypes` after adding commands (or let the watcher handle it)
 
-**IPC** — see `docs/architecture.md` for the webview IPC protocol (`IpcCommand` / `IpcRequest` / `IpcNotification`)
+**Webview communication** — two layers coexist: legacy IPC (`IpcCommand` / `IpcRequest` / `IpcNotification`) and Supertalk RPC + signals. Check which one your surface uses before adding a channel — see `docs/webview-architecture.md`

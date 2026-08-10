@@ -40,13 +40,22 @@ Git Providers (CliGitProvider, GlGitHubGitProvider, etc.)
 Git Execution (Node: child_process | Browser: APIs (GitHub))
 ```
 
-### 4. Webview IPC Protocol
+### 4. Webview Communication
 
-- Webviews use typed message-passing with three message types:
+Two layers run side by side. Which one a surface uses is a property of that surface, not of the
+infrastructure — `WebviewController` instantiates both for every webview.
+
+- **Legacy IPC** — typed message-passing with three message types:
   - **Commands**: Fire-and-forget actions (no response)
   - **Requests**: Request/response pairs with Promise-based handling
   - **Notifications**: Extension → Webview state updates
-- Protocol defined in `src/webviews/protocol.ts`
+  - Carries the primary data plane for Commit Graph (rows, selection, search), Patch Details,
+    Rebase, Welcome, and Allowed Signers
+- **Supertalk RPC + signals** — typed services under `src/webviews/rpc/services/`, with signal
+  state, `createResource()` for host data, and `createStateGroup()` for persistence. Used by
+  Settings, Commit Details, Home, and Timeline, and by the Graph's auxiliary services
+- Core-scope IPC (`src/webviews/protocol.ts`) — the ready/focus/visibility/configuration
+  handshake — is shared by **both** layers
 - **Host-Guest Communication**: IPC between extension host and webviews
 - Webviews built with **Lit Elements only** for reactive UI components
 - **State Management**: Context providers with Lit reactive patterns and signals
@@ -54,6 +63,9 @@ Git Execution (Node: child_process | Browser: APIs (GitHub))
   - **Community**: Commit Details, Rebase, Settings
   - **Pro** (`apps/plus/`): Home (includes Launchpad), Commit Graph, Timeline, Patch Details
 - Webviews bundled separately from extension (separate webpack config)
+
+For state ownership, the RPC/signals primitives, the surface lifecycle, and the per-surface
+layer table, see `docs/webview-architecture.md`.
 
 ### 5. Caching Strategy
 
@@ -170,6 +182,10 @@ Pro features integrate with GitKraken accounts and require authentication via Su
 - **Custom Elements Manifest** (`custom-elements.json`) - Powers Lit/Web Component language servers and MCP tools. Auto-regenerated during dev/watch webview builds.
 
 For accessibility requirements when creating or modifying webviews, see `docs/accessibility.md`.
+
+The Commit Graph is the one webview whose host→webview data channel is not a plain state push: rows travel as ledger-diffed splices and the layout engine reconciles against its prior run. See `docs/graph-update-pipeline.md` — in particular the `engine/layout.ts` reproducibility invariants, which silently degrade updates to full recomputes if broken.
+
+For how the Graph's details panel loads and routes data per selection type and mode — including the sheet layer and the mode lock — see `docs/graph-details-panel-dataflow.md`.
 
 ### Common Webview Bugs to Avoid
 
