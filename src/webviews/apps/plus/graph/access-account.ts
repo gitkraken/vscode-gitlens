@@ -10,11 +10,11 @@ import { CloseGraphWalkthroughBannerCommand } from '../../../plus/graph/protocol
 import { boxSizingBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import { graphStateContext } from './context.js';
+import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
 import '../../shared/components/card/card.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/gitlens-logo-circle.js';
-import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 
 const src = { source: 'graph', detail: 'signin' } as const satisfies Source;
 
@@ -344,12 +344,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				font-weight: 600;
 			}
 
-			.layout__option-caption {
-				max-width: 11.8rem;
-				font-size: var(--gl-font-sm);
-				color: var(--vscode-descriptionForeground);
-			}
-
 			.layout__illustration {
 				display: block;
 				width: 11.8rem;
@@ -447,26 +441,19 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					width: 9.6rem;
 				}
 
-				.layout__option-caption {
-					max-width: 10.8rem;
+				.layout__options {
+					gap: 0;
 				}
 			}
 
 			@media (width <= 479px) {
 				.layout__options {
 					flex-wrap: wrap;
-					gap: var(--gl-space-2);
 					align-items: center;
 				}
 
 				.layout__option {
 					padding: var(--gl-space-12);
-				}
-			}
-
-			@media (height <= 419px) {
-				.layout__option-caption {
-					display: none;
 				}
 			}
 
@@ -634,7 +621,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 				<div class="content">
 					<gitlens-logo-circle class="logo"></gitlens-logo-circle>
-					<h1 class="heading">${copy?.heading ?? 'Get Started with GitLens'}</h1>
+					<h1 class="heading">${copy?.heading ?? 'Sign In to GitLens'}</h1>
 					<p class="body">
 						${
 							copy?.body ??
@@ -815,7 +802,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						${this.renderSidebarIllustration()}
 						<span class="layout__option-text">
 							<span class="layout__option-label">Side Bar</span>
-							<span class="layout__option-caption">Compact, alongside your editor</span>
 						</span>
 					</button>
 					<button
@@ -827,7 +813,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						${this.renderPanelIllustration()}
 						<span class="layout__option-text">
 							<span class="layout__option-label">Bottom Panel</span>
-							<span class="layout__option-caption">Full width, below your editor</span>
 						</span>
 					</button>
 				</div>
