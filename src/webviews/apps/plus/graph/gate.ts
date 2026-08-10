@@ -78,7 +78,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 					<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
 					<hgroup>
 						<h2 class="feature__title">
-							<span>${copy?.heading ?? 'Try the All-New Commit Graph'}</span>
+							<span>${copy?.heading ?? 'All-New Commit Graph'}</span>
 							<gl-feature-badge
 								.source=${{ source: 'graph', detail: 'badge' } as const}
 								.subscription=${this.graphState.subscription}

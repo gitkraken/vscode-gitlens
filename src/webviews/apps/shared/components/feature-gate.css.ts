@@ -118,7 +118,7 @@ export const featureGateBaseStyles = css`
 
 	.switch-actions {
 		position: absolute;
-		top: 0.6rem;
+		top: 0.1rem;
 		right: 0.6rem;
 		z-index: 1;
 
