@@ -21110,7 +21110,7 @@
 			"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-graph)",
-			"initialSize": 6,
+			"initialSize": 7,
 			"visibility": "visible",
 			"container": "gitlens",
 			"order": 0
@@ -21406,8 +21406,8 @@
 			"name": "Welcome",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-gitlens)",
-			"initialSize": 1,
-			"visibility": "collapsed",
+			"initialSize": 3,
+			"visibility": "visible",
 			"container": "gitlens",
 			"order": 1
 		},
