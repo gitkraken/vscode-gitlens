@@ -55,5 +55,5 @@ Consequences that keep the layer coherent:
 2. `sheet` metadata is **required** on every binding (`'hidden'` to opt out) — the shortcut sheet generates from it. Use `keysOverride`/`subline` with the display grammar (`raw:`/`mod:`/`text:`/`sep:` — see `SheetDisplayEntry` in `keybinding.ts`) for composed rails.
 3. Alt-carrying chords: use code tokens (`alt+KeyX`), never bare letters — Option remaps `event.key` on macOS. Ctrl-carrying chords whose action isn't lane navigation: call `suppressModifierChainUntilCtrlRelease()` first, so the chord's own keydown never flashes the lane dim.
 4. `run()` returns `false` when conditions aren't met, so the key falls through; never call `preventDefault` yourself — the dispatcher does, only on `true`.
-5. Transient surfaces own no local Esc: push onto the overlay stack on open, dispose on every close path.
+5. Transient surfaces own no local Esc: push onto the overlay stack on open, dispose on every close path. Deliberate exception: coach-mark tips (`gl-graph-coachmark`) close in passing on Esc via their own capture keydown — an unrequested interruption shouldn't cost the user a press, and its close must be classified locally (reopen suppression) anyway.
 6. A navigation dead-end should announce (or load more rows) rather than consume the key silently.
