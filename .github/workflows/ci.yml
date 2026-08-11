@@ -12,6 +12,11 @@ on:
             - synchronize
             - ready_for_review
     workflow_dispatch:
+        inputs:
+            cli_insiders:
+                description: 'Also run the opt-in GK CLI insiders-channel E2E specs (@cli-insiders)'
+                type: boolean
+                default: false
 
 jobs:
     build:
@@ -273,7 +278,12 @@ jobs:
             # applies it correctly, keeping each matrix job scoped to its own editor.
             # `--workers` per editor (editors.ts `ciWorkers`, default 4): heavier forks (Positron) thrash
             # the runner at 4 concurrent Electron instances, so they run with fewer.
+            # `cli_insiders` opts the `@cli-insiders` specs in (they skip without it). Each matrix leg
+            # is its own runner with an empty CLI data dir, so enabling it costs a pre-release core
+            # download per editor, not once per run.
             - name: Run E2E tests
+              env:
+                  GL_E2E_CLI_INSIDERS: ${{ inputs.cli_insiders && '1' || '' }}
               run: >
                   xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
                   pnpm exec playwright test -c tests/e2e/playwright.config.ts

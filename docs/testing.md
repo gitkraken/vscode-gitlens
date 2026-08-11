@@ -76,6 +76,29 @@ test('...', { tag: '@no-fork' }, async ({ vscode }) => {
 
 Only tag genuine editor incompatibilities (missing UI), never functional failures — those get fixed.
 
+### Opt-in specs: the GK CLI insiders channel (`@cli-insiders`)
+
+`mcpCliChannel.test.ts` skips unless `GL_E2E_CLI_INSIDERS=1`, because running it makes GitLens install
+the GK CLI's **pre-release** proxy and core — and the core goes to the machine-wide CLI data directory
+that no harness temp dir cleans up, on a channel that keeps moving. Skipping happens at describe scope,
+so opting out launches no editor at all.
+
+```bash
+GL_E2E_CLI_INSIDERS=1 pnpm exec playwright test -c tests/e2e/playwright.config.ts \
+    mcpCliChannel.test.ts --project=vscode
+
+# keep the pre-release core out of the real CLI install (XDG_DATA_HOME is read first on every platform)
+XDG_DATA_HOME=$(mktemp -d) GL_E2E_CLI_INSIDERS=1 pnpm exec playwright test \
+    -c tests/e2e/playwright.config.ts --grep @cli-insiders --project=vscode
+```
+
+On CI, dispatch the workflow with the **`cli_insiders`** input checked; every editor leg then runs them,
+each paying its own core download. The tag is for selecting (`--grep @cli-insiders`) — do not add it to a
+project's `grepInvert`, which wins over `--grep` and would make these unselectable.
+
+Note "insiders" is overloaded: this is the **CLI's** channel. VS Code's own insiders build is a separate
+axis, driven by `VSCODE_VERSION` / `pnpm run test:e2e:insiders`.
+
 ### Login-walled forks (Cursor, Kiro)
 
 Some forks hard-gate their entire workbench behind a sign-in wall on a fresh (unauthenticated) profile —
