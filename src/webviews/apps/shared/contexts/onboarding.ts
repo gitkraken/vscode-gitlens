@@ -9,8 +9,7 @@ export type OnboardingKey = 'integrationBanner';
 export interface OnboardingState {
 	readonly banners: {
 		integrationBanner: boolean;
-		mcpBanner: boolean;
-		hooksBanner: boolean;
+		agentsBanner: boolean;
 	};
 	readonly walkthroughProgress: Signal.State<WalkthroughProgress | undefined>;
 	readonly graphWalkthroughProgress: Signal.State<GraphWalkthroughProgress | undefined>;
@@ -47,8 +46,7 @@ export function createOnboardingState(): OnboardingState {
 	return {
 		banners: signalObject({
 			integrationBanner: false,
-			mcpBanner: false,
-			hooksBanner: false,
+			agentsBanner: false,
 		}),
 		walkthroughProgress: signal<WalkthroughProgress | undefined>(undefined),
 		graphWalkthroughProgress: signal<GraphWalkthroughProgress | undefined>(undefined),

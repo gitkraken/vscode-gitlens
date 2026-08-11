@@ -28,6 +28,7 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import {
 	createWipRowId,
+	DidChangeAgentsBanner,
 	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
 	DidChangeCanInstallHooks,
@@ -36,9 +37,7 @@ import {
 	DidChangeGraphWalkthroughBanner,
 	DidChangeGraphWalkthroughComplete,
 	DidChangeGraphWalkthroughStarted,
-	DidChangeHooksBanner,
 	DidChangeLayoutPromptNotification,
-	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
@@ -708,10 +707,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** In-flight additive fetches, so re-hovering a pill doesn't re-issue the request. */
 	private readonly _extraEnrichmentInFlight = new Set<string>();
 
-	mcpBannerCollapsed?: boolean | undefined;
+	agentsBannerCollapsed?: boolean | undefined;
 	mcpCanAutoRegister?: boolean | undefined;
-	hooksBannerCollapsed?: boolean | undefined;
 	canInstallHooks?: boolean | undefined;
+	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
 	graphWalkthroughBannerCollapsed?: boolean | undefined;
 	graphWalkthroughComplete?: boolean | undefined;
 	graphWalkthroughStarted?: boolean | undefined;
@@ -1931,16 +1930,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.agentSessions = sortAgentSessions(msg.params.sessions);
 				break;
 
-			case DidChangeMcpBanner.is(msg):
-				this.updateState({ mcpBannerCollapsed: msg.params });
-				break;
-
-			case DidChangeHooksBanner.is(msg):
-				this.updateState({ hooksBannerCollapsed: msg.params });
+			case DidChangeAgentsBanner.is(msg):
+				this.updateState({ agentsBannerCollapsed: msg.params });
 				break;
 
 			case DidChangeCanInstallHooks.is(msg):
-				this.updateState({ canInstallHooks: msg.params });
+				this.updateState({ canInstallHooks: msg.params.canInstallHooks, hooksAgents: msg.params.agents });
 				break;
 
 			case DidChangeGraphWalkthroughBanner.is(msg):

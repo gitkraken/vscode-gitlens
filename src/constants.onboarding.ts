@@ -6,11 +6,8 @@ export const onboardingDefinitions = {
 	'home:integrationBanner': { schema: '17.8.0', scope: 'global' },
 	'home:walkthrough': { schema: '17.8.0', scope: 'global' },
 
-	// MCP Banner (shown in home and graph)
-	'mcp:banner': { schema: '17.8.0', scope: 'global' },
-
-	// AI Hooks Banner (shown in home and graph when MCP banner is hidden)
-	'hooks:banner': { schema: '17.12.0', scope: 'global' },
+	// Agents Banner (MCP + hooks combined; shown in home and graph)
+	'agents:banner': { schema: '18.3.0', scope: 'global' },
 
 	// Rebase Editor
 	'rebaseEditor:closeWarning': { schema: '17.8.0', scope: 'global' },
