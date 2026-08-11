@@ -140,6 +140,11 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 				command: 'gitlens.startReview',
 				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},
+			{
+				icon: 'gear',
+				tooltip: 'Manage Agents',
+				command: 'gitlens.showSettingsPage!agents',
+			},
 		],
 	},
 	worktrees: {

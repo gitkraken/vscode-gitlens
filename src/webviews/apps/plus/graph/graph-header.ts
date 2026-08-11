@@ -150,34 +150,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				align-self: center;
 			}
 
-			.agents-tooltip::part(body) {
-				--max-width: 320px;
-			}
-
-			.agents-tooltip__content a {
-				color: var(--vscode-textLink-foreground);
-			}
-
-			.agents-tooltip__list {
-				list-style: none;
-				margin: var(--gl-space-4) 0;
-				padding: 0;
-				display: flex;
-				flex-direction: column;
-				gap: var(--gl-space-2);
-			}
-
-			.agents-tooltip__list li {
-				display: flex;
-				align-items: center;
-				gap: var(--gl-space-4);
-			}
-
-			.action-button--agents {
-				background: var(--gl-gradient-brand-subtle);
-				border: var(--gl-border-width) solid var(--vscode-panel-border);
-			}
-
 			/* Search is meaningless in Timeline mode — visually dim it and let inert block focus
 			   + interactions natively (instead of removing it from the row entirely). */
 			.search-box--disabled {
@@ -1002,7 +974,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private renderTitlebarHeaderRow(repo: RepositoryShape | undefined) {
 		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
-		const { allowed, branch, branchState, config, lastFetched, loading, state } = this.graphState;
+		const { allowed, branch, branchState, config, lastFetched, loading } = this.graphState;
 		// Names what a plain jump-to-ref click will do, so the label can't drift from the behavior.
 		const focusLabel = this.isScopedToCurrentBranch ? 'Unfocus Current Branch' : 'Focus on Current Branch';
 
@@ -1107,53 +1079,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				)}
 			</div>
 			<div class="titlebar__group">
-				${when(
-					!(state.agentsBannerCollapsed ?? true) &&
-						(!(state.mcpCanAutoRegister ?? false) || (state.canInstallHooks ?? false)),
-					() => html`
-						<gl-popover class="agents-tooltip" placement="bottom" trigger="click focus hover">
-							<a
-								class="action-button action-button--agents"
-								href=${createCommandLink('gitlens.ai.connectAgents', { source: 'graph' })}
-								slot="anchor"
-							>
-								<code-icon class="action-button__icon" icon="mcp"></code-icon>
-							</a>
-							<div class="agents-tooltip__content" slot="content">
-								<strong>Connect Your AI Agents</strong><br />
-								Leverage Git and integration context in AI chat, and connect agent hooks so GitLens can
-								track your parallel agent work.
-								${when(
-									(state.hooksAgents?.length ?? 0) > 0,
-									() => html`
-										<ul class="agents-tooltip__list">
-											${state.hooksAgents?.map(
-												agent => html`
-													<li>
-														<code-icon
-															icon=${agent.installed ? 'check' : 'circle-large-outline'}
-														></code-icon>
-														${agent.displayName}
-													</li>
-												`,
-											)}
-										</ul>
-									`,
-								)}
-								<br /><br />
-								<a href=${createCommandLink('gitlens.ai.connectAgents', { source: 'graph' })}
-									>Connect Agents</a
-								>
-								&middot;
-								<a href=${createCommandLink('gitlens.showSettingsPage!agents')}>Manage Agents</a>
-								&middot;
-								<a href=${createCommandLink('gitlens.onboarding.dismiss', { id: 'agents:banner' })}
-									>Dismiss</a
-								>
-							</div>
-						</gl-popover>
-					`,
-				)}
 				${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
 				<gl-graph-account-indicator></gl-graph-account-indicator>
