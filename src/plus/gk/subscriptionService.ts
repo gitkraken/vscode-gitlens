@@ -474,6 +474,12 @@ export class SubscriptionService implements Disposable {
 
 			if (result === verify) {
 				void this.resendVerification(source);
+			} else if (result === confirm) {
+				// The email may have been verified while the modal was open, so re-check before moving on
+				await this.validate({ force: true }, source);
+				if (this._subscription.account?.verified) {
+					void this.showPlanMessage(source);
+				}
 			}
 		} else if (isSubscriptionPaid(this._subscription)) {
 			const learn: MessageItem = { title: 'Learn More' };
