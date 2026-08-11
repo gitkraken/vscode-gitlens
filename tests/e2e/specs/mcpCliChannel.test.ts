@@ -1,8 +1,9 @@
 /**
  * MCP — GK CLI release channel
  *
- * Opt-in: skipped unless `GL_E2E_CLI_INSIDERS` is set, and tagged `@cli-insiders` so it can be
- * selected (`--grep @cli-insiders`) or excluded by name. "Insiders" here is the GK **CLI's**
+ * Opt-in: skipped unless `GL_E2E_CLI_INSIDERS` is `1`, `true` or `yes` (case-insensitive) — anything
+ * else, including an unset variable and the empty string CI passes when its input is unchecked, skips.
+ * Tagged `@cli-insiders` so it can be selected (`--grep @cli-insiders`). "Insiders" here is the GK **CLI's**
  * pre-release channel — VS Code's own insiders channel is a different axis (`VSCODE_VERSION`,
  * `pnpm run test:e2e:insiders`).
  *

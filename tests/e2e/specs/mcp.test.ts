@@ -276,7 +276,7 @@ test.describe('MCP — Settings & Feature Flags', () => {
 	// `--experimental`, this flag is a channel switch the installer-proxy consumes, so passing it runs
 	// — and on a clean machine first downloads — a separate pre-release core, which would mutate the
 	// shared CLI install and tie this suite to a release candidate. gkcli pins the generated arg
-	// vector, insiders included, in its own unit tests, and `mcpInsiders.test.ts` covers the channel
+	// vector, insiders included, in its own unit tests, and `mcpCliChannel.test.ts` covers the channel
 	// itself in its own instance. What this guards is the flag never appearing unasked.
 	test('should omit --insiders from server args when the flag is not passed', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
