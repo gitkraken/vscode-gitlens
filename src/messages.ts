@@ -382,7 +382,7 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 	}
 
 	if (result === connectMore) {
-		void executeCommand<Source>('gitlens.ai.mcp.selectAgents', { source: 'mcp-welcome-message' });
+		void executeCommand<Source>('gitlens.ai.mcp.installForAllAgents', { source: 'mcp-welcome-message' });
 	}
 
 	if (result === learnMore) {

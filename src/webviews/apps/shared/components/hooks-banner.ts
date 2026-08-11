@@ -56,7 +56,7 @@ export class GlHooksBanner extends LitElement {
 				banner-title="Install Claude Code Hooks"
 				body="${bodyHtml}"
 				primary-button="Install Hooks"
-				primary-button-href="${createCommandLink('gitlens.agents.installClaudeHook')}"
+				primary-button-href="${createCommandLink('gitlens.agents.installHooks')}"
 				dismissible
 				dismiss-href="${createCommandLink('gitlens.onboarding.dismiss', {
 					id: 'hooks:banner',

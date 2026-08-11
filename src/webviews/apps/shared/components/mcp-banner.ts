@@ -62,7 +62,7 @@ export class GlMcpBanner extends LitElement {
 		}
 
 		const installClaudeHookHref = this.canInstallClaudeHook
-			? createCommandLink('gitlens.agents.installClaudeHook')
+			? createCommandLink('gitlens.agents.installHooks')
 			: undefined;
 
 		if (this.canAutoRegister) {
@@ -79,7 +79,7 @@ export class GlMcpBanner extends LitElement {
 					banner-title="GitKraken MCP Bundled with GitLens"
 					body="${bodyHtml}"
 					primary-button="Connect More Agents"
-					primary-button-href="${createCommandLink('gitlens.ai.mcp.selectAgents', {
+					primary-button-href="${createCommandLink('gitlens.ai.mcp.installForAllAgents', {
 						source: this.source,
 					})}"
 					secondary-button=${installClaudeHookHref ? 'Install Claude Hooks' : nothing}

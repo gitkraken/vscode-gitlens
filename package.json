@@ -6766,9 +6766,13 @@
 				"icon": "$(person-add)"
 			},
 			{
-				"command": "gitlens.agents.installClaudeHook",
-				"title": "Install Claude Hooks",
+				"command": "gitlens.agents.installHooks",
+				"title": "Install GitKraken Hooks for All AI Agents",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.agents.installHooksForAgent",
+				"title": "Install GitKraken Hooks for Agent"
 			},
 			{
 				"command": "gitlens.agents.openSession",
@@ -6783,9 +6787,13 @@
 				"icon": "$(arrow-swap)"
 			},
 			{
-				"command": "gitlens.agents.uninstallClaudeHook",
-				"title": "Uninstall Claude Hooks",
+				"command": "gitlens.agents.uninstallHooks",
+				"title": "Uninstall GitKraken Hooks for All AI Agents",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.agents.uninstallHooksForAgent",
+				"title": "Uninstall GitKraken Hooks for Agent"
 			},
 			{
 				"command": "gitlens.ai.autoRebase",
@@ -6795,6 +6803,11 @@
 			{
 				"command": "gitlens.ai.autoRebase.undo",
 				"title": "Undo Automatic Rebase"
+			},
+			{
+				"command": "gitlens.ai.connectAgents",
+				"title": "Connect AI Agents (Install MCP and Hooks)",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.continueRebase",
@@ -6941,13 +6954,13 @@
 				"title": "Install GitKraken MCP for Agent"
 			},
 			{
-				"command": "gitlens.ai.mcp.reinstall",
-				"title": "Reinstall GitKraken MCP Server",
+				"command": "gitlens.ai.mcp.installForAllAgents",
+				"title": "Connect GitKraken MCP to All Detected Agents",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.ai.mcp.selectAgents",
-				"title": "Connect GitKraken MCP to More Agents...",
+				"command": "gitlens.ai.mcp.reinstall",
+				"title": "Reinstall GitKraken MCP Server",
 				"category": "GitLens"
 			},
 			{
@@ -12877,8 +12890,12 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
-					"command": "gitlens.agents.installClaudeHook",
+					"command": "gitlens.agents.installHooks",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+				},
+				{
+					"command": "gitlens.agents.installHooksForAgent",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.agents.openSession",
@@ -12889,8 +12906,12 @@
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
-					"command": "gitlens.agents.uninstallClaudeHook",
+					"command": "gitlens.agents.uninstallHooks",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+				},
+				{
+					"command": "gitlens.agents.uninstallHooksForAgent",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.autoRebase",
@@ -12899,6 +12920,10 @@
 				{
 					"command": "gitlens.ai.autoRebase.undo",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.connectAgents",
+					"when": "!gitlens:untrusted"
 				},
 				{
 					"command": "gitlens.ai.continueRebase",
@@ -13017,11 +13042,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ai.mcp.reinstall",
+					"command": "gitlens.ai.mcp.installForAllAgents",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
 				{
-					"command": "gitlens.ai.mcp.selectAgents",
+					"command": "gitlens.ai.mcp.reinstall",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
 				{

@@ -23,9 +23,12 @@
 				]
 			}
 		},
-		"gitlens.agents.installClaudeHook": {
-			"label": "Install Claude Hooks",
+		"gitlens.agents.installHooks": {
+			"label": "Install GitKraken Hooks for All AI Agents",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+		},
+		"gitlens.agents.installHooksForAgent": {
+			"label": "Install GitKraken Hooks for Agent"
 		},
 		"gitlens.agents.openSession": {
 			"label": "Open AI Agent Session",
@@ -37,9 +40,12 @@
 			"icon": "$(arrow-swap)",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
 		},
-		"gitlens.agents.uninstallClaudeHook": {
-			"label": "Uninstall Claude Hooks",
+		"gitlens.agents.uninstallHooks": {
+			"label": "Uninstall GitKraken Hooks for All AI Agents",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+		},
+		"gitlens.agents.uninstallHooksForAgent": {
+			"label": "Uninstall GitKraken Hooks for Agent"
 		},
 		"gitlens.ai.autoRebase": {
 			"label": "Automatic Rebase...",
@@ -47,6 +53,10 @@
 		},
 		"gitlens.ai.autoRebase.undo": {
 			"label": "Undo Automatic Rebase"
+		},
+		"gitlens.ai.connectAgents": {
+			"label": "Connect AI Agents (Install MCP and Hooks)",
+			"commandPalette": "!gitlens:untrusted"
 		},
 		"gitlens.ai.continueRebase": {
 			"label": "Continue Automatic Rebase",
@@ -413,12 +423,12 @@
 		"gitlens.ai.mcp.installForAgent": {
 			"label": "Install GitKraken MCP for Agent"
 		},
-		"gitlens.ai.mcp.reinstall": {
-			"label": "Reinstall GitKraken MCP Server",
+		"gitlens.ai.mcp.installForAllAgents": {
+			"label": "Connect GitKraken MCP to All Detected Agents",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
-		"gitlens.ai.mcp.selectAgents": {
-			"label": "Connect GitKraken MCP to More Agents...",
+		"gitlens.ai.mcp.reinstall": {
+			"label": "Reinstall GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.recomposeBranch": {

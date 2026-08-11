@@ -926,11 +926,12 @@ export type ContributedCommands =
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'
-	| 'gitlens.agents.installClaudeHook'
+	| 'gitlens.agents.installHooks'
 	| 'gitlens.agents.openSession'
 	| 'gitlens.agents.switchDefaultAgent'
-	| 'gitlens.agents.uninstallClaudeHook'
+	| 'gitlens.agents.uninstallHooks'
 	| 'gitlens.ai.autoRebase'
+	| 'gitlens.ai.connectAgents'
 	| 'gitlens.ai.continueRebase'
 	| 'gitlens.ai.enable'
 	| 'gitlens.ai.explainBranch'
@@ -940,8 +941,8 @@ export type ContributedPaletteCommands =
 	| 'gitlens.ai.generateChangelog'
 	| 'gitlens.ai.generateCommitMessage'
 	| 'gitlens.ai.mcp.install'
+	| 'gitlens.ai.mcp.installForAllAgents'
 	| 'gitlens.ai.mcp.reinstall'
-	| 'gitlens.ai.mcp.selectAgents'
 	| 'gitlens.ai.recomposeBranch'
 	| 'gitlens.ai.recomposeFromCommit'
 	| 'gitlens.ai.recomposeSelectedCommits'
@@ -1200,6 +1201,8 @@ export type ContributedKeybindingCommands =
  * Either their contribution point is missing or are simply internal and should be removed at some point
  */
 export type ContributedOrphansOrInternalCommands =
+	| 'gitlens.agents.installHooksForAgent'
+	| 'gitlens.agents.uninstallHooksForAgent'
 	| 'gitlens.ai.autoRebase.undo'
 	| 'gitlens.ai.mcp.installForAgent'
 	| 'gitlens.graph.commitViaSCM'

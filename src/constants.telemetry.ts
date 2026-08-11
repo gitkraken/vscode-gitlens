@@ -130,6 +130,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/hookInstalled': AgentProviderEvent;
 	/** Sent when an agent hook is uninstalled */
 	'agents/hookUninstalled': AgentProviderEvent;
+	/** Sent when an install-all/uninstall-all hooks operation (`gitlens.agents.installHooks` /
+	 *  `uninstallHooks` / the per-agent variants) completes across its target agents */
+	'agents/hooks/setup/completed': AgentHooksSetupCompletedEvent;
 	/** Sent when an agent session starts */
 	'agents/session/started': AgentProviderEvent;
 	/** Sent when an agent session ends */
@@ -820,6 +823,13 @@ interface AccountValidationFailedEvent {
 
 interface AgentProviderEvent {
 	'agent.provider': string;
+}
+
+interface AgentHooksSetupCompletedEvent {
+	operation: 'install' | 'uninstall';
+	source: Sources;
+	'agents.succeeded'?: string;
+	'agents.failed'?: string;
 }
 
 interface AgentPermissionResolvedEvent {

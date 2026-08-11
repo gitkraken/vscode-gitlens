@@ -1,11 +1,13 @@
 import type { Disposable, QuickPickItem } from 'vscode';
-import { commands, EventEmitter, Uri, window, workspace } from 'vscode';
+import { commands, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { registerCommand } from '../system/-webview/command.js';
+import type { GkAgent } from './agentService.js';
 import type {
 	AgentSessionState,
 	AgentSessionWorktreeMetadata,
@@ -26,6 +28,7 @@ import {
 	resumeClaudeSessionInTerminal,
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
+import { getHookClientId } from './utils/agentHooks.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -227,6 +230,133 @@ export class AgentStatusService implements Disposable {
 		}
 		for (const provider of this._providers) {
 			provider.setClaudeHooksInstalled?.(installed);
+		}
+	}
+
+	/** `gitlens.agents.installHooks` / `uninstallHooks` — install-all model: every detected,
+	 *  hooks-supported agent that doesn't already match the target state (no IDE-agent exclusion;
+	 *  `hooksSupported` alone decides eligibility, since cursor/antigravity are valid hook clients). */
+	private async handleHooksOperationCommand(op: 'install' | 'uninstall', source?: Sources): Promise<void> {
+		try {
+			const all = await this.container.agents.getAll();
+			const agents = all.filter(
+				a => a.detected && a.hooksSupported && (op === 'install' ? !a.hooksInstalled : a.hooksInstalled),
+			);
+			await this.runHooksOperation(agents, op, source ?? 'commandPalette');
+		} catch (ex) {
+			Logger.error(ex, `AgentStatusService.${op}Hooks`);
+			void window.showErrorMessage(
+				`Failed to ${op} GitKraken Hooks: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+		}
+	}
+
+	/** `gitlens.agents.installHooksForAgent` / `uninstallHooksForAgent` — hidden, dispatched by the
+	 *  Settings → Agents table for a single agent's Hooks cell. */
+	private async handleHooksOperationForAgentCommand(
+		op: 'install' | 'uninstall',
+		args?: { agentId?: string; source?: Sources },
+	): Promise<void> {
+		const agentId = args?.agentId;
+		if (agentId == null) return;
+
+		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
+
+		try {
+			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			if (agent == null) {
+				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				return;
+			}
+
+			await this.runHooksOperation([agent], op, args?.source ?? 'commandPalette');
+		} catch (ex) {
+			Logger.error(ex, `AgentStatusService.${op}HooksForAgent`);
+			void window.showErrorMessage(
+				`Failed to ${op} GitKraken Hooks for ${name}: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+		}
+	}
+
+	/** Shared core for both the install-all and per-agent hooks commands: sequentially (un)installs
+	 *  hooks for `agents` — one at a time, so a slow/hung `gk ai hook install` for one agent doesn't
+	 *  race a concurrent CLI invocation for another — reports per-agent telemetry and an aggregate
+	 *  toast, then invalidates the cached agent state so dependent surfaces (AI RPC, Agents RPC,
+	 *  graph notify) pick up the new install state. */
+	private async runHooksOperation(
+		agents: readonly GkAgent[],
+		op: 'install' | 'uninstall',
+		source: Sources,
+	): Promise<void> {
+		if (agents.length === 0) {
+			void window.showInformationMessage(
+				op === 'install'
+					? 'No additional hook-ready agents were detected on your machine.'
+					: 'No agents currently have GitKraken Hooks installed.',
+			);
+			return;
+		}
+
+		const { installAgentHook, uninstallAgentHook } = await import(
+			/* webpackChunkName: "agents" */ '@env/agents/agentHooks.js'
+		);
+
+		const succeeded: string[] = [];
+		const failed: { agent: string; error: string }[] = [];
+
+		await window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `${op === 'install' ? 'Installing' : 'Uninstalling'} GitKraken Hooks for ${agents.length} agent${agents.length > 1 ? 's' : ''}...`,
+				cancellable: false,
+			},
+			async () => {
+				for (const agent of agents) {
+					const hookClientId = getHookClientId(agent.name);
+					try {
+						if (op === 'install') {
+							await installAgentHook(hookClientId);
+						} else {
+							await uninstallAgentHook(hookClientId);
+						}
+						succeeded.push(agent.displayName);
+						this.container.telemetry.sendEvent(
+							op === 'install' ? 'agents/hookInstalled' : 'agents/hookUninstalled',
+							{ 'agent.provider': hookClientId },
+						);
+					} catch (ex) {
+						Logger.error(ex, `AgentStatusService.runHooksOperation(${op})`, `agent=${agent.name}`);
+						failed.push({
+							agent: agent.displayName,
+							error: ex instanceof Error ? ex.message : 'Unknown error',
+						});
+					}
+				}
+			},
+		);
+
+		await this.invalidateHooksState();
+
+		this.container.telemetry.sendEvent('agents/hooks/setup/completed', {
+			operation: op,
+			source: source,
+			'agents.succeeded': succeeded.join(',') || undefined,
+			'agents.failed': failed.map(f => f.agent).join(',') || undefined,
+		});
+
+		const parts: string[] = [];
+		if (succeeded.length > 0) {
+			parts.push(`${op === 'install' ? 'Installed' : 'Uninstalled'} for ${succeeded.join(', ')}`);
+		}
+		if (failed.length > 0) {
+			parts.push(`Failed for ${failed.map(f => f.agent).join(', ')}`);
+		}
+
+		const message = `GitKraken Hooks: ${parts.join('. ')}.`;
+		if (failed.length > 0) {
+			void window.showWarningMessage(message);
+		} else {
+			void window.showInformationMessage(message);
 		}
 	}
 
@@ -716,36 +846,18 @@ export class AgentStatusService implements Disposable {
 
 	private registerCommands(): Disposable[] {
 		return [
-			registerCommand('gitlens.agents.installClaudeHook', async () => {
-				try {
-					const { installClaudeHook } = await import(
-						/* webpackChunkName: "agents" */ '@env/agents/installClaudeHook.js'
-					);
-					await installClaudeHook();
-					await this.invalidateHooksState();
-					this.container.telemetry.sendEvent('agents/hookInstalled', { 'agent.provider': 'claudeCode' });
-				} catch (ex) {
-					Logger.error(ex, 'AgentStatusService.installClaudeHook');
-					void window.showErrorMessage(
-						`Failed to install Claude Hooks: ${ex instanceof Error ? ex.message : String(ex)}`,
-					);
-				}
-			}),
-			registerCommand('gitlens.agents.uninstallClaudeHook', async () => {
-				try {
-					const { uninstallClaudeHook } = await import(
-						/* webpackChunkName: "agents" */ '@env/agents/uninstallClaudeHook.js'
-					);
-					await uninstallClaudeHook();
-					await this.invalidateHooksState();
-					this.container.telemetry.sendEvent('agents/hookUninstalled', { 'agent.provider': 'claudeCode' });
-				} catch (ex) {
-					Logger.error(ex, 'AgentStatusService.uninstallClaudeHook');
-					void window.showErrorMessage(
-						`Failed to uninstall Claude Hooks: ${ex instanceof Error ? ex.message : String(ex)}`,
-					);
-				}
-			}),
+			registerCommand('gitlens.agents.installHooks', (src?: Source) =>
+				this.handleHooksOperationCommand('install', src?.source),
+			),
+			registerCommand('gitlens.agents.uninstallHooks', (src?: Source) =>
+				this.handleHooksOperationCommand('uninstall', src?.source),
+			),
+			registerCommand('gitlens.agents.installHooksForAgent', (args?: { agentId?: string; source?: Sources }) =>
+				this.handleHooksOperationForAgentCommand('install', args),
+			),
+			registerCommand('gitlens.agents.uninstallHooksForAgent', (args?: { agentId?: string; source?: Sources }) =>
+				this.handleHooksOperationForAgentCommand('uninstall', args),
+			),
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
 			registerCommand('gitlens.agents.resumeSession', (args?: { sessionId: string; cwd: string }) => {
 				if (args?.sessionId == null) return Promise.resolve();

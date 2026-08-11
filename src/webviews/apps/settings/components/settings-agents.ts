@@ -268,15 +268,24 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		if (hooks.installed) {
 			return html`<gl-button
 				appearance="secondary"
-				href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
-				tooltip="Uninstall Claude Hooks"
+				href="${createCommandLink<{ agentId: string; source: string }>(
+					'gitlens.agents.uninstallHooksForAgent',
+					{
+						agentId: agent.id,
+						source: 'settings',
+					},
+				)}"
+				tooltip="Uninstall GitKraken Hooks for ${agent.label}"
 				><code-icon icon="debug-disconnect" slot="prefix" aria-hidden="true"></code-icon> Uninstall</gl-button
 			>`;
 		}
 		return html`<gl-button
 			appearance="secondary"
-			href="${createCommandLink('gitlens.agents.installClaudeHook')}"
-			tooltip="Install Claude Hooks"
+			href="${createCommandLink<{ agentId: string; source: string }>('gitlens.agents.installHooksForAgent', {
+				agentId: agent.id,
+				source: 'settings',
+			})}"
+			tooltip="Install GitKraken Hooks for ${agent.label}"
 			><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
 		>`;
 	}
