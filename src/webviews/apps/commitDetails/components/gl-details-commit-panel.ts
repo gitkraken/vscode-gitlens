@@ -426,6 +426,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			?in-results-view=${this.inResultsView}
 		>
 			${headerContent}
+			<!-- Host-side extras that ride the header (the Graph slots its details coach mark here so
+				 the tip's lightbulb parks inline with the header content); empty everywhere else. -->
+			<slot name="coachmark"></slot>
 			${
 				this.activeMode == null &&
 				((this.navigation?.count ?? 0) > 1 || (this.showJumpToNearestWip && !isStash && !this.isUncommitted))

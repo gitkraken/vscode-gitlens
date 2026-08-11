@@ -1733,8 +1733,13 @@ export const graphCoachMarkTypes = [
 	'review',
 	'conflicts',
 	'resolve',
+	'composeReady',
+	'resolveReady',
 	'agents',
 	'compare',
+	'overviewBar',
+	'kanban',
+	'visualizations',
 ] as const;
 export type GraphCoachMarkType = (typeof graphCoachMarkTypes)[number];
 

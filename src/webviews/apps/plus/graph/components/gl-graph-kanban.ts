@@ -2,7 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -23,6 +23,7 @@ import {
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
+import './gl-graph-coachmark.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -433,6 +434,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	/** Drives only the coach-mark auto-show trigger; mounting this view is itself the mode entry. */
+	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
+
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
 
@@ -753,6 +757,12 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 						>
 							<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 						</gl-tooltip>
+						<gl-graph-coachmark
+							mark="kanban"
+							placement="bottom"
+							.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.header__title') ?? undefined}
+							?auto-show=${this.graphReady}
+						></gl-graph-coachmark>
 						<span class="header__count" aria-live="polite"
 							>${sessions.length} session${sessions.length === 1 ? '' : 's'}</span
 						>

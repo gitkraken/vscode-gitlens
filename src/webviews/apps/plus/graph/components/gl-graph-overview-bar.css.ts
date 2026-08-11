@@ -2,7 +2,12 @@ import { css } from 'lit';
 
 export const overviewBarStyles = css`
 	:host {
-		display: block;
+		/* Flex row so the coach mark's lightbulb rides at the START of the strip, outside the
+		   scrolling .bar (which would otherwise carry it out of view), vertically centered. A closed
+		   mark contributes no flex item at all, so the gap only appears alongside the bulb. */
+		display: flex;
+		align-items: center;
+		gap: var(--gl-space-4);
 		flex: 0 0 auto;
 		padding-block-end: 0.3rem;
 		font-family: var(--font-family);
@@ -13,6 +18,8 @@ export const overviewBarStyles = css`
 	.bar {
 		/* Flex so the single '.pills' child (flex: 0 0 auto) sizes to its content and overflows to scroll. */
 		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
 		overflow: auto hidden;
 		scrollbar-width: none;
 

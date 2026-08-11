@@ -2838,7 +2838,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderKanbanMain() {
-		return html`<gl-graph-kanban @gl-graph-kanban-close=${this.handleAlternateModeClose}></gl-graph-kanban>`;
+		return html`<gl-graph-kanban
+			?graph-ready=${this.coachMarksEligible}
+			@gl-graph-kanban-close=${this.handleAlternateModeClose}
+		></gl-graph-kanban>`;
 	}
 
 	private handleShowShortcuts = (): void => {
@@ -3224,6 +3227,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return html`<gl-graph-visualizations
 			placement=${placement}
 			.scope=${this._timelineScope}
+			?graph-ready=${this.coachMarksEligible}
 			@gl-graph-visualization-mode-change=${this.handleVisualizationModeChange}
 			@gl-graph-timeline-commit-select=${this.handleTimelineCommitSelect}
 			@gl-graph-timeline-config-change=${this.handleTimelineConfigChange}
@@ -3347,6 +3351,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									.items=${overviewItems}
 									.selectedId=${selectedWipId}
 									.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
+									?graph-ready=${this.coachMarksEligible}
 									@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
 									@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
 									@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}

@@ -159,7 +159,7 @@ export class GlDetailsWipHeader extends LitElement {
 							></gl-wip-stats>`
 						: nothing
 				}
-				${this.renderCoachMarks(wip)}
+				<span class="graph-details-header__coachmarks">${this.renderCoachMarks(wip)}</span>
 			</div>
 			${
 				!isModeActive
@@ -308,9 +308,17 @@ export class GlDetailsWipHeader extends LitElement {
 		const eligible = this.graphReady && !this.sheetsOpen;
 		const pausedWithConflicts = wip.changes?.pausedOpStatus != null && (wip.changes?.hasConflicts ?? false);
 
-		// One current context means one tip, and so one lightbulb. Without this the commit-details tip
-		// (whose trigger holds in every sub-state) would park its bulb next to the active mode's.
-		const context = this.activeMode ?? (pausedWithConflicts ? 'conflicts' : 'details');
+		// Once a mode's run lands a result, its ready-state mark takes over the mode's slot in the
+		// arbitration below — still one context, one tip, one lightbulb, same invariant as every other mode.
+		const engaged = this.activeMode != null ? this.modeStatus?.[this.activeMode] : undefined;
+		const modeReady = engaged?.execState === 'complete' && engaged.hasResult;
+
+		const context =
+			this.activeMode === 'compose' && modeReady
+				? 'composeReady'
+				: this.activeMode === 'resolve' && modeReady
+					? 'resolveReady'
+					: (this.activeMode ?? (pausedWithConflicts ? 'conflicts' : 'details'));
 
 		return html`<gl-graph-coachmark
 				mark="details"
@@ -323,6 +331,12 @@ export class GlDetailsWipHeader extends LitElement {
 				placement="bottom"
 				.anchor=${this.queryHeaderTitle}
 				?auto-show=${eligible && context === 'compose'}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="composeReady"
+				placement="bottom"
+				.anchor=${this.queryHeaderTitle}
+				?auto-show=${eligible && context === 'composeReady'}
 			></gl-graph-coachmark>
 			<gl-graph-coachmark
 				mark="review"
@@ -341,6 +355,12 @@ export class GlDetailsWipHeader extends LitElement {
 				placement="bottom"
 				.anchor=${this.queryHeaderTitle}
 				?auto-show=${eligible && context === 'resolve'}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="resolveReady"
+				placement="bottom"
+				.anchor=${this.queryHeaderTitle}
+				?auto-show=${eligible && context === 'resolveReady'}
 			></gl-graph-coachmark>`;
 	}
 

@@ -608,6 +608,43 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return wrapper?.shadowRoot?.querySelector<HTMLElement>('.title') ?? wrapper ?? undefined;
 	};
 
+	/** The `details` tip's mount for the commit / multi-commit surfaces — slotted into the panel's
+	 *  header (`slot="coachmark"`) so its lightbulb parks inline with the header content. Same mark
+	 *  as the WIP header's instance: ONE shared popover showing (whichever surface is up first
+	 *  claims it) and one dismissal, but the lightbulb offers the tip on every surface. Gated off
+	 *  while a mode is engaged — review can be active on either selection — matching the WIP
+	 *  header's one-context-one-tip invariant. */
+	private renderSelectionCoachMark() {
+		const eligible = this.graphReady && this._sheetStack.length === 0 && this._state.activeMode.get() == null;
+
+		return html`<gl-graph-coachmark
+			slot="coachmark"
+			mark="details"
+			placement="bottom"
+			.anchor=${this.queryCommitOrMultiCommitTitle}
+			?auto-show=${eligible}
+		></gl-graph-coachmark>`;
+	}
+
+	/** Anchor for the `details` mark on a commit/multi-commit selection. `gl-commit-author`, the
+	 *  commit panel's default header content, is `display: contents` and never passes
+	 *  `checkVisibility()`, so pierce one level further into the nested `gl-details-header`'s own
+	 *  shadow root for its content wrapper — a real box present regardless of what's slotted into
+	 *  it. */
+	private readonly queryCommitOrMultiCommitTitle = (): HTMLElement | undefined => {
+		const commitContent = this.renderRoot
+			.querySelector('gl-details-commit-panel')
+			?.shadowRoot?.querySelector('gl-details-header')
+			?.shadowRoot?.querySelector<HTMLElement>('.details-header__content');
+		if (commitContent != null) return commitContent;
+
+		return (
+			this.renderRoot
+				.querySelector('gl-details-multicommit-panel')
+				?.shadowRoot?.querySelector<HTMLElement>('.compare-header__title') ?? undefined
+		);
+	};
+
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
@@ -3269,7 +3306,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
 			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
-		></gl-details-commit-panel>`;
+			>${this.renderSelectionCoachMark()}</gl-details-commit-panel
+		>`;
 	}
 
 	private renderMultiCommit() {
@@ -3367,7 +3405,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
 			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
-		></gl-details-multicommit-panel>`;
+			>${this.renderSelectionCoachMark()}</gl-details-multicommit-panel
+		>`;
 	}
 
 	private renderReviewMode() {

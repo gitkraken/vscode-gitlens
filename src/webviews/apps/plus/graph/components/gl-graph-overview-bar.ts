@@ -16,6 +16,7 @@ import { shortRefName } from '../utils/rowMarker.utils.js';
 import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { overviewBarStyles } from './gl-graph-overview-bar.css.js';
 import './gl-branch-hover.js';
+import './gl-graph-coachmark.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
@@ -103,6 +104,8 @@ export class GlGraphOverviewBar extends LitElement {
 	 *  per-worktree `git status`); show a static "has changes" tooltip, not "Loading…". Breakdown
 	 *  appears on click. Primary pill unaffected (always has stats). */
 	@property({ type: Boolean }) statsOnHover = true;
+	/** Drives only the coach-mark auto-show trigger; the bar itself is already gated on ≥1 item. */
+	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
 
 	@state() private focusedPillIndex = 0;
 
@@ -471,6 +474,12 @@ export class GlGraphOverviewBar extends LitElement {
 		// A toolbar is the ARIA-valid composite for a roving-tabindex strip of controls and permits both
 		// the per-pill `group` and its buttons; which worktree is selected rides on `aria-current`.
 		return html`
+			<gl-graph-coachmark
+				mark="overviewBar"
+				placement="bottom"
+				.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.pills') ?? undefined}
+				?auto-show=${this.graphReady}
+			></gl-graph-coachmark>
 			<div class="bar" @wheel=${this.wheelListener}>
 				<div
 					class="pills"

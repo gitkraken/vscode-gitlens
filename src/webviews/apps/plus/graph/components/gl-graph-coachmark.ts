@@ -38,6 +38,11 @@ let flushScheduled = false;
  *  let a stray close burn the one force-open a user ever gets. */
 const seenDwellMs = 1500;
 
+/** A lazy anchor can resolve null while a nested component's shadow is still rendering (the commit
+ *  panel's header lives two shadow roots down from the details panel). The IntersectionObserver
+ *  retry needs a node to observe, so a null anchor gets a bounded frame-by-frame retry instead. */
+const nullAnchorRetryFrames = 30;
+
 function scheduleAutoShowFlush(): void {
 	if (flushScheduled) return;
 
@@ -75,6 +80,15 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			--max-width: 320px;
 		}
 
+		/* A closed mark otherwise lingers as a zero-width flex item in whatever row hosts it (the
+		   host is display: contents, so the popover element itself joins the flow) — and every such
+		   phantom earns the row's flex gap, stacking blank space between the title text and the one
+		   visible lightbulb. Positioning doesn't need the host box: the popup floats off the assigned
+		   anchor element. */
+		gl-popover:not([open]) {
+			display: none;
+		}
+
 		.coachmark {
 			display: flex;
 			flex-direction: column;
@@ -89,7 +103,32 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		.coachmark__title {
+			display: flex;
+			align-items: center;
+			gap: var(--gl-space-8);
+			min-width: 0;
 			font-weight: 600;
+		}
+
+		.coachmark__icon {
+			flex: none;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 2.2rem;
+			height: 2.2rem;
+			border-radius: 0.6rem;
+			background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
+			color: var(--vscode-focusBorder);
+		}
+
+		.coachmark__icon code-icon {
+			font-size: 1.4rem;
+		}
+
+		.coachmark__icon--warning {
+			background: color-mix(in srgb, var(--vscode-charts-yellow) 15%, transparent);
+			color: var(--vscode-charts-yellow);
 		}
 
 		.coachmark__body strong {
@@ -115,6 +154,145 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			margin-block-start: var(--gl-space-4);
 		}
 
+		.lede {
+			color: var(--color-foreground);
+		}
+
+		.coachmark__body .lede {
+			margin: 0;
+		}
+
+		.steps {
+			display: grid;
+			gap: var(--gl-space-6);
+			margin-block-start: var(--gl-space-8);
+		}
+
+		.step {
+			display: grid;
+			grid-template-columns: 1.7rem 1fr;
+			gap: var(--gl-space-8);
+			align-items: baseline;
+		}
+
+		.step__num {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 1.6rem;
+			height: 1.6rem;
+			border-radius: 50%;
+			background: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+			color: var(--vscode-focusBorder);
+			font-size: 1rem;
+			font-weight: 700;
+			translate: 0 0.2rem;
+		}
+
+		.rows {
+			display: grid;
+			gap: var(--gl-space-6);
+			margin-block-start: var(--gl-space-8);
+		}
+
+		.step__body .rows {
+			margin-block-start: var(--gl-space-6);
+		}
+
+		.row {
+			display: grid;
+			grid-template-columns: 1.6rem 1fr;
+			gap: var(--gl-space-6);
+			align-items: baseline;
+		}
+
+		.row--block {
+			grid-template-columns: 1fr;
+		}
+
+		.row__icon {
+			color: var(--vscode-focusBorder);
+			justify-self: center;
+			font-size: 1.2rem;
+		}
+
+		.dot {
+			width: 0.8rem;
+			height: 0.8rem;
+			border-radius: 50%;
+			justify-self: center;
+		}
+
+		.dot--critical {
+			background: var(--vscode-charts-red);
+		}
+
+		.dot--warning {
+			background: var(--vscode-charts-yellow);
+		}
+
+		.dot--suggestion {
+			background: var(--vscode-charts-blue);
+		}
+
+		.dot--success {
+			background: var(--vscode-charts-green);
+		}
+
+		.dot--attention {
+			background: var(--vscode-charts-orange);
+		}
+
+		.dot--muted {
+			background: var(--vscode-descriptionForeground);
+		}
+
+		/* Matches the overview bar's own .pill__dot (uncommitted-changes indicator) exactly. */
+		.dot--dirty {
+			background: var(--gl-agent-working-color);
+		}
+
+		.chip {
+			display: inline-block;
+			background: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+			font-size: 1.1rem;
+			font-weight: 500;
+			padding: 0 0.6rem;
+			border-radius: 0.3rem;
+			white-space: nowrap;
+			line-height: 1.6rem;
+		}
+
+		.chip--ui {
+			background: none;
+			border: 0.1rem solid var(--vscode-widget-border);
+			color: var(--color-foreground);
+			line-height: 1.4rem;
+		}
+
+		/* Scoped under the body so it out-specifies the body's blanket p { margin: 0 } reset. */
+		.coachmark__body .footnote {
+			margin-block-start: var(--gl-space-8);
+			font-size: 1.1rem;
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.coachmark__trust {
+			display: flex;
+			gap: var(--gl-space-6);
+			align-items: baseline;
+			font-size: 1.1rem;
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.coachmark__trust code-icon {
+			color: var(--vscode-charts-green);
+			font-size: 1rem;
+			flex: none;
+			translate: 0 0.1rem;
+		}
+
 		.coachmark__actions {
 			display: flex;
 			justify-content: flex-end;
@@ -122,6 +300,9 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		.lightbulb {
 			flex: none;
+			/* The host is display: contents, so in a flex row the bulb itself is the flex item — self-center
+			   so baseline-aligned title rows don't stretch to hang the bulb's box off the text baseline. */
+			align-self: center;
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
@@ -185,6 +366,8 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 	private _closedByUser = false;
 	private _anchorObserver?: IntersectionObserver;
 	private _seenTimer?: ReturnType<typeof setTimeout>;
+	/** Frames spent waiting for a lazy anchor to resolve non-null — see {@link nullAnchorRetryFrames}. */
+	private _nullAnchorRetries = 0;
 
 	/** Clicking away is the same intent as ✕. `gl-popover` wires its own outside-click dismissal only for
 	 *  `click`/`focus` triggers, and these are `manual`, so a tip is otherwise unclickable-away: the only
@@ -285,11 +468,22 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		if (popover == null || anchor == null || !anchor.checkVisibility()) {
 			// The trigger state holds but the anchor isn't on screen yet (e.g. the details split is
 			// still at zero width) — retry once when it becomes visible.
-			if (trigger === 'auto' && anchor != null) {
-				this.observeAnchor(anchor);
+			if (trigger === 'auto') {
+				if (anchor != null) {
+					this.observeAnchor(anchor);
+				} else if (this._nullAnchorRetries < nullAnchorRetryFrames) {
+					this._nullAnchorRetries++;
+					requestAnimationFrame(() => {
+						if (this.autoShow && pendingAutoShows.has(this)) {
+							scheduleAutoShowFlush();
+						}
+					});
+				}
 			}
 			return false;
 		}
+
+		this._nullAnchorRetries = 0;
 
 		this._anchorObserver?.disconnect();
 		this._anchorObserver = undefined;
@@ -434,12 +628,32 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 					 would both contradict that role and (without focus management) promise a modal. -->
 				<div slot="content" class="coachmark">
 					<div class="coachmark__header">
-						<span class="coachmark__title">${content.title}</span>
+						<span class="coachmark__title">
+							${
+								content.icon
+									? html`<span
+											class="coachmark__icon${
+												content.iconTone === 'warning' ? ' coachmark__icon--warning' : ''
+											}"
+											><code-icon icon=${content.icon}></code-icon
+										></span>`
+									: nothing
+							}
+							${content.title}
+						</span>
 						<gl-button appearance="toolbar" density="compact" aria-label="Close" @click=${this.onCloseClick}
 							><code-icon icon="close"></code-icon
 						></gl-button>
 					</div>
 					<div class="coachmark__body">${content.body()}</div>
+					${
+						content.trust
+							? html`<div class="coachmark__trust">
+									<code-icon icon="check"></code-icon>
+									<span>${content.trust}</span>
+								</div>`
+							: nothing
+					}
 					<div class="coachmark__actions">
 						<gl-button @click=${this.onGotItClick}>Got it</gl-button>
 					</div>

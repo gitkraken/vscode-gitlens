@@ -64,6 +64,23 @@ suite('graph coach-mark seen store', () => {
 		store.dispose();
 	});
 
+	test('markSeen() accepts a ready-state mark type', async () => {
+		const store = createCoachMarkSeenStore();
+		const { remote, writes } = createFakeRemote({ stored: { seen: {} } });
+
+		store.connect(remote);
+		await flush();
+
+		store.markSeen('composeReady');
+		await flush();
+
+		assert.strictEqual(store.has('composeReady'), true);
+		assert.strictEqual(store.has('resolveReady'), false);
+		assert.deepStrictEqual(seenKeys(writes[0]), ['composeReady']);
+
+		store.dispose();
+	});
+
 	test('connect() hydrates from stored state and reports unseen marks as false', async () => {
 		const store = createCoachMarkSeenStore();
 		const { remote, writes } = createFakeRemote({ stored: { seen: { details: true, review: true } } });

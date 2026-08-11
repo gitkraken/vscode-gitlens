@@ -43,6 +43,10 @@ export class GlGraphVisualizations extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	scope?: { type: 'file' | 'folder'; relativePath: string };
 
+	/** Forwarded to whichever child is mounted — drives the `visualizations` coach mark. */
+	@property({ type: Boolean, attribute: 'graph-ready' })
+	graphReady = false;
+
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
 
@@ -62,7 +66,11 @@ export class GlGraphVisualizations extends SignalWatcher(LitElement) {
 
 	override render(): unknown {
 		return this.mode === 'treemap'
-			? html`<gl-graph-treemap></gl-graph-treemap>`
-			: html`<gl-graph-timeline placement=${this.placement} .scope=${this.scope}></gl-graph-timeline>`;
+			? html`<gl-graph-treemap ?graph-ready=${this.graphReady}></gl-graph-treemap>`
+			: html`<gl-graph-timeline
+					placement=${this.placement}
+					.scope=${this.scope}
+					?graph-ready=${this.graphReady}
+				></gl-graph-timeline>`;
 	}
 }

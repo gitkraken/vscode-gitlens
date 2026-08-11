@@ -25,6 +25,7 @@ import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import './gl-graph-coachmark.js';
 import './gl-graph-visualizations-switcher.js';
 
 export interface GlGraphTimelineCommitSelectDetail {
@@ -111,6 +112,11 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	 *  so the host can clear it (one-shot). */
 	@property({ attribute: false })
 	scope?: { type: 'file' | 'folder'; relativePath: string };
+
+	/** Forwarded from `gl-graph-visualizations` — drives only the `visualizations` coach mark's
+	 *  auto-show trigger; mounting this view (in timeline mode) is itself the mode entry. */
+	@property({ type: Boolean, attribute: 'graph-ready' })
+	graphReady = false;
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -871,6 +877,16 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		});
 	};
 
+	/** `.header-row__title` is absent once a file/folder scope is pushed (the breadcrumb trail takes its
+	 *  place) — fall back to the switcher, a real box present in every state. */
+	private readonly queryVisualizationsTitle = (): HTMLElement | undefined => {
+		return (
+			this.renderRoot.querySelector<HTMLElement>('.header-row__title') ??
+			this.renderRoot.querySelector<HTMLElement>('gl-graph-visualizations-switcher') ??
+			undefined
+		);
+	};
+
 	override render(): unknown {
 		const repo = this.effectiveRepo;
 		if (repo == null) {
@@ -892,6 +908,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			<div class="header-row">
 				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
 				${this._localScope == null ? html`<span class="header-row__title">Visual History</span>` : nothing}
+				<gl-graph-coachmark
+					mark="visualizations"
+					placement="bottom"
+					.anchor=${this.queryVisualizationsTitle}
+					?auto-show=${this.graphReady}
+				></gl-graph-coachmark>
 				<gl-timeline-header
 					placement=${this.placement}
 					host="graph"

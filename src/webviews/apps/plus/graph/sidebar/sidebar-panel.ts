@@ -368,8 +368,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				border-bottom: var(--gl-border-width) solid transparent;
 			}
 
+			/* Flex row so the coach mark's popover/lightbulb ride inline instead of breaking the
+			   line (a block element inside the inline span would wrap the header to two lines);
+			   the inner text span carries the ellipsis. */
 			.header-title {
 				flex: 1;
+				min-width: 0;
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
+			}
+
+			.header-title__text {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
@@ -977,20 +987,22 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const pinTooltip = pinned ? 'Unpin Side Bar' : 'Pin Side Bar';
 		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">
-			<span class="header-title">${config.title}</span>
-			${
-				// Gated on `open` too: collapsing only zero-widths this panel (never unmounts it), so the
-				// title still passes `checkVisibility()` and the tip would open over the graph — spending
-				// the one force-open on a popover anchored off-screen.
-				this.activePanel === 'agents'
-					? html`<gl-graph-coachmark
-							mark="agents"
-							placement="bottom-start"
-							.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.header-title')}
-							?auto-show=${this.graphReady && this.open}
-						></gl-graph-coachmark>`
-					: nothing
-			}
+			<span class="header-title"
+				><span class="header-title__text">${config.title}</span>${
+					// Inside the title row so the lightbulb lands inline with the text, not the actions
+					// toolbar. Gated on `open` too: collapsing only zero-widths this panel (never unmounts
+					// it), so the title still passes `checkVisibility()` and the tip would open over the
+					// graph — spending the one force-open on a popover anchored off-screen.
+					this.activePanel === 'agents'
+						? html`<gl-graph-coachmark
+								mark="agents"
+								placement="bottom"
+								.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.header-title__text')}
+								?auto-show=${this.graphReady && this.open}
+							></gl-graph-coachmark>`
+						: nothing
+				}</span
+			>
 			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
 				${config.actions?.map(
 					a =>

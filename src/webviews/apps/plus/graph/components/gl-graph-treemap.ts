@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GraphActivityDecay } from '../../../../../config.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { TreemapFileActionParams } from '../../../../plus/graph/protocol.js';
@@ -38,6 +38,7 @@ import {
 	shouldWalkAllBranches,
 } from './visualizations.utils.js';
 import './gl-details-agent-status.js';
+import './gl-graph-coachmark.js';
 import './gl-graph-visualizations-switcher.js';
 import '../../treemap/components/treemap-chart.js';
 import '../../../shared/components/badges/badge.js';
@@ -349,6 +350,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			text-align: center;
 		}
 	`;
+
+	/** Forwarded from `gl-graph-visualizations` — drives only the `visualizations` coach mark's
+	 *  auto-show trigger; mounting this view (in treemap mode) is itself the mode entry. */
+	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -1074,6 +1079,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				>
 					<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 				</gl-tooltip>
+				<gl-graph-coachmark
+					mark="visualizations"
+					placement="bottom"
+					.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.toolbar__title') ?? undefined}
+					?auto-show=${this.graphReady}
+				></gl-graph-coachmark>
 				${hasCrumbs ? this.renderBreadcrumbs() : nothing} ${this.renderDescription()}
 				${
 					showAgentCluster

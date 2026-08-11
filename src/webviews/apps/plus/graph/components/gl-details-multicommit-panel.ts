@@ -457,6 +457,9 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 							</span>`
 						: html`Comparing References`
 				}
+				<!-- The Graph slots its details coach mark here so the tip's lightbulb parks inline
+					 with the title text (same pattern as the compare sheet's title-hint slot). -->
+				<slot name="coachmark"></slot>
 			</span>
 			${this.activeMode == null && this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 		</gl-details-header>`;

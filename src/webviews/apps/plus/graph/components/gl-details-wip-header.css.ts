@@ -45,6 +45,20 @@ export const detailsWipHeaderStyles = css`
 		flex: none;
 	}
 
+	/* All the coach-mark hosts collapse into this single flex item: each closed mark still leaves
+	   a zero-width popover element behind, and as direct children of the title group every one of
+	   them would earn its own flex gap — stacking a wide blank run between the title text and the
+	   one visible lightbulb. The negative start margin nets the group's 1.2rem gap down to 0.6rem
+	   so the bulb hugs its neighbor like the compare sheet's does. Start side only: a negative end
+	   margin on the group's last child narrows the group past the bulb's real edge, and the
+	   details-header content box (overflow: hidden) chops the overhang off the bulb. */
+	.graph-details-header__coachmarks {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		margin-inline-start: calc(var(--gl-space-6) - var(--gl-space-12));
+	}
+
 	/* Mode icon prefixed to the title in compose/review — same icon as the active chip
 	   so the visual link reinforces what mode you're in. */
 	.graph-details-header__mode-icon {
