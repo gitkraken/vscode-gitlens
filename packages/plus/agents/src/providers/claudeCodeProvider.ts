@@ -39,6 +39,9 @@ import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
 interface AgentSessionEvent {
 	event: ClaudeCodeHookEvent;
 	sessionId: string;
+	/** `gk ai hook` client id of the originating host (`claude-code`, `codex`, …) — NOT
+	 *  `AgentSession.providerId`. Absent on older CLIs. */
+	providerId?: string;
 	cwd: string;
 	/** The agent's launch directory, captured first-hand by the CLI and preserved across events.
 	 *  Optional — older CLIs don't send it, in which case consumers fall back to deriving it from
@@ -172,6 +175,8 @@ const phaseSinceRestoreWindowMs = 2000;
 
 interface SessionFileData {
 	sessionId: string;
+	/** `gk ai hook` client id of the owning host — see {@link AgentSessionEvent.providerId}. */
+	providerId?: string;
 	event: string;
 	cwd: string;
 	/** CLI-provided launch directory; absent on older CLIs (fall back to `cwd`). */
@@ -625,6 +630,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private handleSessionEvent(event: AgentSessionEvent, isBlocking: boolean): Promise<PermissionResponse | void> {
+		// The CLI broadcasts every AI host's events to every listener. Absent = accept: older CLIs
+		// don't stamp it. A dropped blocking request gets no decision, so the CLI waits out its own
+		// hook timeout — correct, since we must not answer for an agent we don't track.
+		if (event.providerId != null && event.providerId !== 'claude-code') {
+			Logger.debug(`ClaudeCodeProvider.handleSessionEvent: ignoring ${event.event} from ${event.providerId}`);
+			return Promise.resolve();
+		}
+
 		const workspacePath = this.resolveWorkspacePath(event.cwd);
 		const eventContext: SessionContext = {
 			pid: event.pid,
@@ -2386,6 +2399,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		for (const data of sessions) {
 			if (!data.sessionId) continue;
+
+			// Another AI host's record in the CLI's shared store. Must stay ahead of `polledIds`/
+			// `polledAlive`: an id in either would skew completed-row reconciliation and the
+			// `onSyncDiscrepancy` drift signal below.
+			if (data.providerId != null && data.providerId !== 'claude-code') continue;
 
 			const effectiveStatus = data.status ?? 'active';
 
