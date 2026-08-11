@@ -1,4 +1,5 @@
 import { Disposable } from 'vscode';
+import type { GkAgent } from '../../../agents/agentService.js';
 import type { PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
 import type { Container } from '../../../container.js';
 import type { AgentDescriptor } from '../../../plus/agents/agentDescriptor.js';
@@ -16,6 +17,19 @@ export function toAgentInfo(d: AgentDescriptor): AgentInfo {
 		kind: d.kind,
 		mcp: d.kind === 'cli' ? { supported: d.agent.mcpSupported, installed: d.agent.mcpInstalled } : undefined,
 		hooks: d.kind === 'cli' ? { supported: d.agent.hooksSupported, installed: d.agent.hooksInstalled } : undefined,
+	};
+}
+
+/** Maps a hook-capable IDE agent (cursor, antigravity, ...) that isn't a detected CLI into its
+ *  "Editors" section row — hooks control only, no Default/MCP actions. */
+export function toHookOnlyAgentInfo(agent: GkAgent): AgentInfo {
+	return {
+		id: agent.name,
+		label: agent.displayName || agent.name,
+		kind: 'editor',
+		detected: agent.detected,
+		mcp: { supported: agent.mcpSupported, installed: agent.mcpInstalled },
+		hooks: { supported: agent.hooksSupported, installed: agent.hooksInstalled },
 	};
 }
 
@@ -88,11 +102,20 @@ export class AgentsService {
 	/**
 	 * Detected agents for the Agents settings table, grouped-able by kind in the UI.
 	 * Returns `[]` when the agents feature is org-disabled (matches the AI-state gate).
+	 *
+	 * Appends an "Editors" group: hook-capable IDE agents (cursor, antigravity, ...) outside the
+	 * known CLI set — fed from `container.agents.getHookOnlyAgents()` rather than through
+	 * `getSupportedAgents()`/`AgentDescriptor`, since they're not valid default-agent or MCP targets.
 	 */
 	async getAgents(): Promise<AgentInfo[]> {
 		if (!getContext('gitlens:agents:enabled', false)) return [];
 
 		const descriptors = await getSupportedAgents(this.container);
-		return descriptors.map(toAgentInfo);
+		const agents = descriptors.map(toAgentInfo);
+
+		const hookOnly = await this.container.agents.getHookOnlyAgents();
+		const hookOnlyAgents = hookOnly.map(toHookOnlyAgentInfo);
+
+		return [...agents, ...hookOnlyAgents];
 	}
 }

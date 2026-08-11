@@ -20,16 +20,18 @@ declare global {
 	}
 }
 
-const kindOrder: AgentInfo['kind'][] = ['ide-chat', 'claude-extension', 'cli'];
+const kindOrder: AgentInfo['kind'][] = ['ide-chat', 'claude-extension', 'cli', 'editor'];
 const kindLabels: Record<AgentInfo['kind'], string> = {
 	'ide-chat': 'Chat',
 	'claude-extension': 'Extension',
 	cli: 'CLI',
+	editor: 'Editors',
 };
 const kindIcons: Record<AgentInfo['kind'], string> = {
 	'ide-chat': 'comment-discussion',
 	'claude-extension': 'claude',
 	cli: 'terminal',
+	editor: 'robot',
 };
 
 /**
@@ -102,6 +104,19 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			.row__agent code-icon {
 				flex: none;
 				color: var(--color-foreground--65);
+			}
+
+			.row--dimmed .row__agent {
+				color: var(--color-foreground--50);
+			}
+
+			.row--dimmed .row__agent code-icon {
+				color: var(--color-foreground--50);
+			}
+
+			.row__not-detected {
+				font-size: 1rem;
+				font-weight: 400;
 			}
 
 			.cell__status {
@@ -225,15 +240,22 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 	}
 
 	private renderRow(agent: AgentInfo) {
+		const isEditor = agent.kind === 'editor';
+		const notDetected = isEditor && agent.detected === false;
 		const isDefault = this.defaultAgentId === agent.id;
-		return html`<div class="row">
+		return html`<div class="row ${notDetected ? 'row--dimmed' : ''}">
 			<span class="row__agent">
 				<code-icon icon=${kindIcons[agent.kind]} aria-hidden="true"></code-icon>
 				<span>${agent.label}</span>
+				${notDetected ? html`<span class="cell__dash row__not-detected">Not detected</span>` : nothing}
 			</span>
-			<gl-radio .checked=${isDefault} @click=${() => this.setDefault(agent.id)}>
-				<span class="sr-only">Set ${agent.label} as the default agent</span>
-			</gl-radio>
+			${
+				isEditor
+					? html`<span class="cell"></span>`
+					: html`<gl-radio .checked=${isDefault} @click=${() => this.setDefault(agent.id)}>
+							<span class="sr-only">Set ${agent.label} as the default agent</span>
+						</gl-radio>`
+			}
 			<span class="cell">${this.renderMcpCell(agent)}</span>
 			<span class="cell">${this.renderHooksCell(agent)}</span>
 		</div>`;
@@ -245,12 +267,16 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 	private renderMcpCell(agent: AgentInfo) {
 		const mcp = agent.mcp;
-		if (agent.kind !== 'cli' || mcp == null || !mcp.supported) return this.renderDash('MCP not available');
+		if ((agent.kind !== 'cli' && agent.kind !== 'editor') || mcp == null || !mcp.supported) {
+			return this.renderDash('MCP not available');
+		}
 		if (mcp.installed) {
 			return html`<span class="cell__status"
 				><code-icon icon="check" aria-hidden="true"></code-icon> Installed</span
 			>`;
 		}
+		// Editor MCP is set up by the editor itself (host registration), not the per-agent CLI install
+		if (agent.kind === 'editor') return this.renderDash('MCP is managed by the editor');
 		return html`<gl-button
 			appearance="secondary"
 			href="${createCommandLink<{ agentId: string; source: string }>('gitlens.ai.mcp.installForAgent', {
@@ -264,7 +290,9 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 	private renderHooksCell(agent: AgentInfo) {
 		const hooks = agent.hooks;
-		if (agent.kind !== 'cli' || hooks == null || !hooks.supported) return this.renderDash('Hooks not available');
+		if ((agent.kind !== 'cli' && agent.kind !== 'editor') || hooks == null || !hooks.supported) {
+			return this.renderDash('Hooks not available');
+		}
 		if (hooks.installed) {
 			return html`<gl-button
 				appearance="secondary"

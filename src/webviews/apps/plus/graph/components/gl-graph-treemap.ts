@@ -1148,7 +1148,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			</div>
 			${
 				mode === 'activity' &&
-				(this.graphState.canInstallClaudeHook ?? false) &&
+				(this.graphState.canInstallHooks ?? false) &&
 				!(this.graphState.hooksBannerCollapsed ?? true)
 					? html`<gl-hooks-banner
 							class="hooks-banner"

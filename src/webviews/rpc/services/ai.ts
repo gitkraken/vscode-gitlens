@@ -80,6 +80,9 @@ export class AIService {
 					container.agentStatus?.onDidChangeHooksInstallState(() => {
 						void this.#getAIState().then(buffered);
 					}) ?? { dispose: () => {} },
+					container.agents.onDidChangeAgents(() => {
+						void this.#getAIState().then(buffered);
+					}),
 				),
 			undefined,
 			tracker,
@@ -131,10 +134,10 @@ export class AIService {
 
 	async #getAIState(): Promise<AIState> {
 		const agentsEnabled = getContext('gitlens:agents:enabled', false);
-		const claude = agentsEnabled ? await this.#container.agents.getClaude() : undefined;
-		const detected = claude?.detected === true;
-		const supported = claude?.hooksSupported === true;
-		const installed = claude?.hooksInstalled === true;
+		const all = agentsEnabled ? await this.#container.agents.getAll() : [];
+		const hookAgents = all
+			.filter(a => a.detected && a.hooksSupported)
+			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
 
 		const defaultAgentId = configuration.get('ai.defaultAgent') ?? undefined;
 		const defaultAgentDescriptor =
@@ -149,8 +152,9 @@ export class AIService {
 				installed: getContext('gitlens:gk:cli:installed', false),
 			},
 			hooks: {
-				claude: { detected: detected, supported: supported, installed: installed },
-				canInstallClaudeHook: agentsEnabled && detected && supported && !installed,
+				agents: hookAgents,
+				canInstallHooks: hookAgents.some(a => !a.installed),
+				anyInstalled: hookAgents.some(a => a.installed),
 			},
 			defaultAgent:
 				defaultAgentDescriptor != null

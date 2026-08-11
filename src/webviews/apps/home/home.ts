@@ -794,7 +794,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			<gl-mcp-banner
 				source="home"
 				.canAutoRegister=${aiState.mcp.bundled}
-				.canInstallClaudeHook=${aiState.hooks.canInstallClaudeHook}
+				.canInstallHooks=${aiState.hooks.canInstallHooks}
 			></gl-mcp-banner>
 		`;
 	}
@@ -804,7 +804,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 		const aiState = this._aiState.state.get();
 		if (!aiState.enabled || !aiState.orgEnabled) return nothing;
-		if (!aiState.hooks.canInstallClaudeHook) return nothing;
+		if (!aiState.hooks.canInstallHooks) return nothing;
 
 		return html`<gl-hooks-banner source="home"></gl-hooks-banner>`;
 	}

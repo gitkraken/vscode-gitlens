@@ -288,7 +288,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	}
 
 	private renderHooksStatus() {
-		if (!this.aiEnabled || !this.ai.hooks.canInstallClaudeHook) return nothing;
+		if (!this.aiEnabled || !this.ai.hooks.canInstallHooks) return nothing;
 		return html`<span class="integration status--disconnected" slot="anchor">
 			<code-icon icon="search-sparkle"></code-icon>
 		</span>`;
@@ -297,7 +297,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	/** Persistent (always-rendered) hooks status for `agent-icons` — greyed when not installed, unlike
 	 *  `renderHooksStatus`, which only renders while installation is still available. */
 	private renderAgentHooksStatus() {
-		const installed = this.aiEnabled && this.ai.hooks.claude.installed;
+		const installed = this.aiEnabled && this.ai.hooks.anyInstalled;
 		return html`<span class="integration status--${installed ? 'connected' : 'disconnected'}" slot="anchor">
 			<code-icon icon="search-sparkle"></code-icon>
 		</span>`;

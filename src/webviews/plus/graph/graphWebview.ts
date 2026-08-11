@@ -253,7 +253,7 @@ import {
 	createWipRowId,
 	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
-	DidChangeCanInstallClaudeHook,
+	DidChangeCanInstallHooks,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
@@ -681,7 +681,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				dispose: () => {},
 			},
 			this.container.agentStatus?.onDidChangeHooksInstallState(
-				() => void this.notifyDidChangeCanInstallClaudeHook(),
+				() => void this.notifyDidChangeCanInstallHooks(),
 				this,
 			) ?? { dispose: () => {} },
 		);
@@ -802,7 +802,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			searchGraphOrContinue: (e, progressive) => this._searchService.searchGraphOrContinue(e, progressive),
 			notifyDidChangeOverview: () => void this._panels.notifyDidChangeOverview(),
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
-			notifyDidChangeCanInstallClaudeHook: () => void this.notifyDidChangeCanInstallClaudeHook(),
+			notifyDidChangeCanInstallHooks: () => void this.notifyDidChangeCanInstallHooks(),
 			resetWipSendState: () => this._wip.resetSendState(),
 			clearWipStatusCache: () => this._wip.clearStatusCache(),
 			addPendingNotification: notification =>
@@ -2087,7 +2087,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.notifyDidChangeOrgSettings();
 		}
 		if (key === 'gitlens:agents:enabled') {
-			void this.notifyDidChangeCanInstallClaudeHook();
+			void this.notifyDidChangeCanInstallHooks();
 		}
 	}
 
@@ -3601,21 +3601,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** Last value sent to the webview — seeds bulk state pushes without awaiting `gk`, and
-	 *  doubles as a dedup sentinel for `notifyDidChangeCanInstallClaudeHook`. */
-	private _lastCanInstallClaudeHook: boolean | undefined;
+	 *  doubles as a dedup sentinel for `notifyDidChangeCanInstallHooks`. */
+	private _lastCanInstallHooks: boolean | undefined;
 
 	@trace()
-	private async notifyDidChangeCanInstallClaudeHook() {
+	private async notifyDidChangeCanInstallHooks() {
 		if (!this.host.visible) return;
 
-		const claude = getContext('gitlens:agents:enabled', false)
-			? await this.container.agents.getClaude()
-			: undefined;
-		const canInstall = claude?.detected === true && claude.hooksSupported && !claude.hooksInstalled;
-		if (canInstall === this._lastCanInstallClaudeHook) return;
+		const agents = getContext('gitlens:agents:enabled', false) ? await this.container.agents.getAll() : [];
+		const canInstall = agents.some(a => a.detected && a.hooksSupported && !a.hooksInstalled);
+		if (canInstall === this._lastCanInstallHooks) return;
 
-		this._lastCanInstallClaudeHook = canInstall;
-		void this.host.notify(DidChangeCanInstallClaudeHook, canInstall);
+		this._lastCanInstallHooks = canInstall;
+		void this.host.notify(DidChangeCanInstallHooks, canInstall);
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -4851,7 +4849,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
 			mcpCanAutoRegister: this.container.gkMcp?.isRegistrationAllowed ?? false,
 			hooksBannerCollapsed: this.getHooksBannerCollapsed(),
-			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
+			canInstallHooks: this._lastCanInstallHooks ?? false,
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),

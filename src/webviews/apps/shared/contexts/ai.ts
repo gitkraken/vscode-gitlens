@@ -18,8 +18,9 @@ export function createAIState(): AIContextState {
 			orgEnabled: true,
 			mcp: { settingEnabled: false, installed: false, bundled: false },
 			hooks: {
-				claude: { detected: false, supported: false, installed: false },
-				canInstallClaudeHook: false,
+				agents: [],
+				canInstallHooks: false,
+				anyInstalled: false,
 			},
 			defaultAgent: undefined,
 		}),
