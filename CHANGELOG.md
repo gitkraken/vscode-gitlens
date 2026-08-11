@@ -61,7 +61,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes the _Get Started with the Graph_ walkthrough's _Focus the Commit Graph_ action silently doing nothing on a detached HEAD &mdash; the _Commit Graph_ took focus but never scoped, so the walkthrough step could never check off; the graph now explains that there is no current branch to focus
+- Fixes the _Get Started with the Graph_ walkthrough's _Focus the Commit Graph_ action silently doing nothing on a detached HEAD &mdash; GitLens now explains that there is no current branch to focus and offers to switch to one
 - Fixes signing back in after a sign-out interrupted a _Commit Graph_ comparison reopening the comparison on different references &mdash; the interrupted comparison's own references are now carried across the sign-in instead of the default current-branch-versus-working-tree shape ([#5671](https://github.com/gitkraken/vscode-gitlens/issues/5671))
 - Fixes rows in the _Commit Graph_ side bar panels nudging their trailing decorations to the left on hover
 - Fixes AI conflict resolution failing outright when the AI backend won't accept tool calls &mdash; it now falls back to resolving without consulting the repository, as it already did for AI providers that can't carry tool calls at all, instead of failing the whole operation. Errors forwarded from an AI provider also now carry that provider's own message, rather than only the backend's generic "upstream AI provider error"

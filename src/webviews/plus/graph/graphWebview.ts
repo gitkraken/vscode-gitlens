@@ -438,13 +438,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	/** Undetermined (no repo yet) counts as not detached — the webview-side detached guard in
-	 *  `setScope` still backstops whatever slips through. */
-	private async isCurrentBranchDetached(): Promise<boolean> {
-		const branch = await this.repository?.git.branches.getBranch();
-		return branch?.detached ?? false;
-	}
-
 	private _selection: readonly GitRevisionReference[] | undefined;
 	private get activeSelection(): GitRevisionReference | undefined {
 		return this._selection?.[0];
@@ -1141,6 +1134,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._etag = await this._discovering;
 		}
 
+		// Assigned by the detached-HEAD `scope-to-branch` guard in the chain below
+		let detachedRepo: GlRepository | undefined;
+
 		const [arg] = args;
 		if (GlRepository.is(arg)) {
 			this.repository = arg;
@@ -1231,15 +1227,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			} else {
 				void this.host.notify(DidRequestActiveSidebarPanelNotification, { panel: arg.sidebarPanel });
 			}
-		} else if (hasAction(arg) && arg.action === 'scope-to-branch' && (await this.isCurrentBranchDetached())) {
+		} else if (
+			hasAction(arg) &&
+			arg.action === 'scope-to-branch' &&
+			arg.target == null &&
+			(detachedRepo = await this.pinRepositoryIfDetached()) != null
+		) {
 			// A target-less `scope-to-branch` (e.g. the welcome walkthrough's "Focus the Commit Graph")
 			// scopes to the CURRENT branch, but a detached HEAD has none — the webview would drop the
 			// action without a trace (see `setScope`'s detached guard), leaving the user with a graph
-			// that took focus but visibly did nothing, and a walkthrough step that can never complete.
-			// Say why instead of forwarding an action that cannot apply; the graph still shows normally.
-			void window.showWarningMessage(
-				'Unable to focus the Commit Graph on the current branch, because HEAD is detached. Check out a branch and try again.',
-			);
+			// that took focus but visibly did nothing. Say why and offer a way forward instead; the
+			// graph still shows normally.
+			void window
+				.showWarningMessage(
+					'Unable to focus the Commit Graph on the current branch because HEAD is detached. Switch to a branch and try again.',
+					'Switch to Branch...',
+				)
+				.then(pick => {
+					if (pick != null) {
+						void RepoActions.switchTo(detachedRepo);
+					}
+				});
 		} else if (hasAction(arg)) {
 			const { target } = arg;
 			// Switch to the target's repository only when it belongs to a DIFFERENT repo family, so a
@@ -1359,6 +1367,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return [true, this.getShownTelemetryContext()];
+	}
+
+	/** Cold shows run before `getState` assigns `repository`, so probe the repo it would pick. When
+	 *  the probe fires, pin that repo — `getState`'s own (later) pick can differ once the reveal
+	 *  changes the active editor, and the warning must describe the repo the graph actually shows.
+	 *  Best-effort: with no repo at all — or a failed read — the action is forwarded as before, and
+	 *  the webview's own `setScope` guard still drops it (silently). */
+	private async pinRepositoryIfDetached(): Promise<GlRepository | undefined> {
+		const repo = this.repository ?? this.container.git.getBestRepositoryOrFirst();
+
+		try {
+			const branch = await repo?.git.branches.getBranch();
+			if (!branch?.detached) return undefined;
+
+			this.repository = repo;
+			return repo;
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'pinRepositoryIfDetached');
+			return undefined;
+		}
 	}
 
 	onRefresh(force?: boolean): void {
