@@ -79,7 +79,6 @@ import type {
 	Source,
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
-import { viewIdsByDefaultContainerId } from '../../../constants.views.js';
 import type { Container } from '../../../container.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
@@ -2375,16 +2374,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.notify(DidChangeGraphWalkthroughBanner, this.getGraphWalkthroughBannerState());
 	}
 
-	/** The prompt only applies to the Graph *view* (side bar/panel host) — the editor tab has no
-	 *  side-vs-bottom placement to choose. It arms while the Graph's DEFAULT container is the GitLens
-	 *  side bar — true since #5545 made the Graph the side bar's main view; devs/pre-release can flip
-	 *  back to the pre-move world via `gitlens.graph.simulate.mainView`, which mutates the same
-	 *  mapping. */
+	/** One-time nudge for the #5545 move of the Graph into the side bar — assumes the side bar stays
+	 *  the Graph's default container (constants.views.ts). It only applies to the Graph *view* (side
+	 *  bar/panel host) — the editor tab has no side-vs-bottom placement to choose. */
 	private getLayoutPromptNeeded(): boolean {
-		const graphIsMainView =
-			viewIdsByDefaultContainerId.get('workbench.view.extension.gitlens')?.includes('graph') ?? false;
-
-		return graphIsMainView && this.host.is('view') && !this.container.onboarding.isDismissed('graph:layoutPrompt');
+		return this.host.is('view') && !this.container.onboarding.isDismissed('graph:layoutPrompt');
 	}
 
 	private onLayoutPromptChanged() {
