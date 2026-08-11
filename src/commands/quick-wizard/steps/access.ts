@@ -14,6 +14,28 @@ import { StepResultBreak } from '../models/steps.js';
 import type { StepController } from '../stepsController.js';
 import { canPickStepContinue, createPickStep } from '../utils/steps.utils.js';
 
+export async function getAccessGateErrorMessage(
+	container: Container,
+	feature: PlusFeatures,
+	repoPath: string | undefined,
+	action: string,
+): Promise<string> {
+	const access = await container.git.access(feature, repoPath);
+	if (access.subscription.current.account?.verified === false) {
+		return `Verify your email address to ${action}.`;
+	}
+
+	if (
+		access.subscription.required != null &&
+		isSubscriptionPaidPlan(access.subscription.required) &&
+		access.subscription.current.account != null
+	) {
+		return `GitLens Pro is required to ${action}.`;
+	}
+
+	return `Sign in to GitLens or start a Pro trial to ${action}.`;
+}
+
 export async function* ensureAccessStep<
 	State extends PartialStepState & { repo?: GlRepository },
 	Context extends { title: string },
@@ -23,6 +45,7 @@ export async function* ensureAccessStep<
 	state: State,
 	context: Context,
 	parentStep: StepController<any>,
+	interactive: boolean = true,
 ): AsyncStepResultGenerator<FeatureAccess | RepoFeatureAccess> {
 	const access = await container.git.access(feature, state.repo?.path);
 	if (access.allowed) {
@@ -147,6 +170,10 @@ export async function* ensureAccessStep<
 			);
 			break;
 	}
+
+	// A non-interactive (e.g. programmatic/MCP) caller can't answer the gate; signal a break so the
+	// wizard can settle its result instead of yielding a quick pick no one will pick (see #5679).
+	if (!interactive) return StepResultBreak;
 
 	const step = createPickStep<DirectiveQuickPickItem>({
 		title: context.title,
