@@ -6964,6 +6964,10 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.mcp.uninstallForAgent",
+				"title": "Uninstall GitKraken MCP for Agent"
+			},
+			{
 				"command": "gitlens.ai.recomposeBranch",
 				"title": "Recompose Commits...",
 				"category": "GitLens"
@@ -13053,6 +13057,10 @@
 				{
 					"command": "gitlens.ai.mcp.reinstall",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
+				},
+				{
+					"command": "gitlens.ai.mcp.uninstallForAgent",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.recomposeBranch",

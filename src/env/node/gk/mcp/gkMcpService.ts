@@ -709,6 +709,9 @@ export class GkMcpService implements GkMcpRegistrar {
 			registerCommand('gitlens.ai.mcp.installForAgent', (args?: { agentId?: string; source?: Sources }) =>
 				this.handleInstallForAgentCommand(args),
 			),
+			registerCommand('gitlens.ai.mcp.uninstallForAgent', (args?: { agentId?: string; source?: Sources }) =>
+				this.handleUninstallForAgentCommand(args),
+			),
 			registerCommand('gitlens.ai.connectAgents', (src?: Source) => this.handleConnectAgentsCommand(src?.source)),
 		];
 	}
@@ -907,6 +910,66 @@ export class GkMcpService implements GkMcpRegistrar {
 			scope?.error(ex, 'Error installing MCP for agent');
 			const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
 			this.showSetupError(normalized);
+		}
+	}
+
+	/** `gitlens.ai.mcp.uninstallForAgent` — hidden, dispatched by the Settings → Agents table's MCP
+	 *  cell. Unlike install, this must work even when AI is user- or org-disabled — removing MCP access
+	 *  is exactly what a disabled org wants, so there's no `container.ai.allowed` guard here. */
+	@gate()
+	@debug({ exit: true })
+	private async handleUninstallForAgentCommand(args?: { agentId?: string; source?: Sources }): Promise<void> {
+		const scope = getScopedLogger();
+		const commandSource = args?.source ?? 'commandPalette';
+		const agentId = args?.agentId;
+		if (agentId == null) return;
+
+		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
+
+		try {
+			const { cliPath, status } = await this.gkCli.install(false, args?.source);
+			if (status !== 'completed' || cliPath == null) {
+				void window.showWarningMessage(
+					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+				);
+				return;
+			}
+
+			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			if (agent == null) {
+				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				return;
+			}
+
+			const output = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: `Uninstalling GitKraken MCP for ${agent.displayName}...`,
+					cancellable: false,
+				},
+				// NOTE: `mcp uninstall` takes no `--source` flag (unlike `mcp install`)
+				() => this.gkCli.run(['mcp', 'uninstall', agent.name], { cwd: cliPath }),
+			);
+
+			const cleaned = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
+			if (cleaned && !/success/i.test(cleaned)) {
+				void window.showWarningMessage(
+					`Failed to uninstall GitKraken MCP for ${agent.displayName}: ${cleaned}`,
+				);
+				return;
+			}
+
+			this.container.agents.invalidateCache();
+			this.container.telemetry.sendEvent('mcp/agent/uninstalled', {
+				source: commandSource,
+				'agent.id': agent.name,
+			});
+			void window.showInformationMessage(`GitKraken MCP uninstalled for ${agent.displayName}.`);
+		} catch (ex) {
+			scope?.error(ex, `Error uninstalling MCP for agent: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+			void window.showErrorMessage(
+				`Failed to uninstall GitKraken MCP for '${name}': ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+			);
 		}
 	}
 

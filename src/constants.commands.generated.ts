@@ -1206,6 +1206,7 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.agents.uninstallHooksForAgent'
 	| 'gitlens.ai.autoRebase.undo'
 	| 'gitlens.ai.mcp.installForAgent'
+	| 'gitlens.ai.mcp.uninstallForAgent'
 	| 'gitlens.graph.commitViaSCM'
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'
