@@ -438,6 +438,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	/** Undetermined (no repo yet) counts as not detached — the webview-side detached guard in
+	 *  `setScope` still backstops whatever slips through. */
+	private async isCurrentBranchDetached(): Promise<boolean> {
+		const branch = await this.repository?.git.branches.getBranch();
+		return branch?.detached ?? false;
+	}
+
 	private _selection: readonly GitRevisionReference[] | undefined;
 	private get activeSelection(): GitRevisionReference | undefined {
 		return this._selection?.[0];
@@ -1224,6 +1231,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			} else {
 				void this.host.notify(DidRequestActiveSidebarPanelNotification, { panel: arg.sidebarPanel });
 			}
+		} else if (hasAction(arg) && arg.action === 'scope-to-branch' && (await this.isCurrentBranchDetached())) {
+			// A target-less `scope-to-branch` (e.g. the welcome walkthrough's "Focus the Commit Graph")
+			// scopes to the CURRENT branch, but a detached HEAD has none — the webview would drop the
+			// action without a trace (see `setScope`'s detached guard), leaving the user with a graph
+			// that took focus but visibly did nothing, and a walkthrough step that can never complete.
+			// Say why instead of forwarding an action that cannot apply; the graph still shows normally.
+			void window.showWarningMessage(
+				'Unable to focus the Commit Graph on the current branch, because HEAD is detached. Check out a branch and try again.',
+			);
 		} else if (hasAction(arg)) {
 			const { target } = arg;
 			// Switch to the target's repository only when it belongs to a DIFFERENT repo family, so a
