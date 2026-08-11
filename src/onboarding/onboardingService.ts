@@ -143,8 +143,6 @@ export class OnboardingService implements Disposable {
 		switch (key) {
 			case 'views:scmGrouped:welcome':
 				return this.storage.get('views:scm:grouped:welcome:dismissed') ?? false;
-			case 'mcp:banner':
-				return this.storage.get('mcp:banner:dismissed') ?? false;
 			case 'home:walkthrough':
 				return this.storage.get('home:walkthrough:dismissed') ?? false;
 			case 'home:integrationBanner':
@@ -275,7 +273,6 @@ export class OnboardingService implements Disposable {
 		if (!migratedVersion || compare(migratedVersion, '17.8.0') < 0) {
 			const batch1: { legacy: keyof DeprecatedGlobalStorage; current: OnboardingKeys }[] = [
 				{ legacy: 'views:scm:grouped:welcome:dismissed', current: 'views:scmGrouped:welcome' },
-				{ legacy: 'mcp:banner:dismissed', current: 'mcp:banner' },
 				{ legacy: 'home:walkthrough:dismissed', current: 'home:walkthrough' },
 			];
 

@@ -231,10 +231,8 @@ export function setupSubscriptions(
 			services.onboarding.onDidChange((e: { key: string; dismissed: boolean }) => {
 				if (e.key === 'home:integrationBanner') {
 					state.onboarding.banners.integrationBanner = !e.dismissed;
-				} else if (e.key === 'mcp:banner') {
-					state.onboarding.banners.mcpBanner = !e.dismissed;
-				} else if (e.key === 'hooks:banner') {
-					state.onboarding.banners.hooksBanner = !e.dismissed;
+				} else if (e.key === 'agents:banner') {
+					state.onboarding.banners.agentsBanner = !e.dismissed;
 				}
 			}),
 

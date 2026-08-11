@@ -27,7 +27,7 @@ import './gl-graph-coachmark.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/hooks-banner.js';
+import '../../../shared/components/agents-banner.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 declare global {
@@ -177,7 +177,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				margin-left: auto;
 			}
 
-			.hooks-banner {
+			.agents-banner {
 				/* No bottom margin — .body below has its own 1.2rem padding-top, so an extra
 		 * margin-bottom here would double up to 2.4rem of visual gap. */
 				display: block;
@@ -778,12 +778,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>
 				${
-					(this.graphState.canInstallHooks ?? false) && !(this.graphState.hooksBannerCollapsed ?? true)
-						? html`<gl-hooks-banner
-								class="hooks-banner"
+					(this.graphState.canInstallHooks ?? false) && !(this.graphState.agentsBannerCollapsed ?? true)
+						? html`<gl-agents-banner
+								class="agents-banner"
 								source="graph-kanban"
 								layout="responsive"
-							></gl-hooks-banner>`
+								.mcpCanAutoRegister=${this.graphState.mcpCanAutoRegister ?? false}
+								.hooksAvailable=${(this.graphState.hooksAgents?.length ?? 0) > 0}
+							></gl-agents-banner>`
 						: nothing
 				}
 				${sessions.length === 0 ? this.renderEmpty() : this.renderColumns(sessionsByColumn)}

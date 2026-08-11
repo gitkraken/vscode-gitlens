@@ -155,7 +155,6 @@ import './minimap/minimap-container.js';
 import '../../shared/components/split-panel/split-panel.js';
 import './sidebar/sidebar.js';
 import './sidebar/sidebar-panel.js';
-import '../../shared/components/mcp-banner.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';

@@ -726,7 +726,7 @@ export class GkMcpService implements GkMcpRegistrar {
 	private async handleInstallCommand(source?: Sources, force = false): Promise<void> {
 		const scope = getScopedLogger();
 
-		await this.container.onboarding.dismiss('mcp:banner');
+		await this.container.onboarding.dismiss('agents:banner');
 
 		try {
 			const result = await window.withProgress(
@@ -785,7 +785,7 @@ export class GkMcpService implements GkMcpRegistrar {
 		const scope = getScopedLogger();
 		const commandSource = source ?? 'commandPalette';
 
-		await this.container.onboarding.dismiss('mcp:banner');
+		await this.container.onboarding.dismiss('agents:banner');
 
 		try {
 			const result = await window.withProgress(

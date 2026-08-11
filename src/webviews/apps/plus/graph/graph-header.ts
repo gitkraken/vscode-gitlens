@@ -150,18 +150,30 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				align-self: center;
 			}
 
-			.mcp-tooltip::part(body),
-			.hooks-tooltip::part(body) {
+			.agents-tooltip::part(body) {
 				--max-width: 320px;
 			}
 
-			.mcp-tooltip__content a,
-			.hooks-tooltip__content a {
+			.agents-tooltip__content a {
 				color: var(--vscode-textLink-foreground);
 			}
 
-			.action-button--mcp,
-			.action-button--hooks {
+			.agents-tooltip__list {
+				list-style: none;
+				margin: var(--gl-space-4) 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-2);
+			}
+
+			.agents-tooltip__list li {
+				display: flex;
+				align-items: center;
+				gap: var(--gl-space-4);
+			}
+
+			.action-button--agents {
 				background: var(--gl-gradient-brand-subtle);
 				border: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
@@ -1096,58 +1108,46 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			</div>
 			<div class="titlebar__group">
 				${when(
-					// `mcpBannerCollapsed` is dismissal-only; this button also stays hidden when MCP
-					// auto-registers (the modal shows the "bundled" banner variant instead)
-					!(state.mcpBannerCollapsed ?? true) && !(state.mcpCanAutoRegister ?? false),
+					!(state.agentsBannerCollapsed ?? true) &&
+						(!(state.mcpCanAutoRegister ?? false) || (state.canInstallHooks ?? false)),
 					() => html`
-						<gl-popover class="mcp-tooltip" placement="bottom" trigger="click focus hover">
+						<gl-popover class="agents-tooltip" placement="bottom" trigger="click focus hover">
 							<a
-								class="action-button action-button--mcp"
-								href=${createCommandLink('gitlens.ai.mcp.install', { source: 'graph' })}
+								class="action-button action-button--agents"
+								href=${createCommandLink('gitlens.ai.connectAgents', { source: 'graph' })}
 								slot="anchor"
 							>
 								<code-icon class="action-button__icon" icon="mcp"></code-icon>
 							</a>
-							<div class="mcp-tooltip__content" slot="content">
-								<strong>Install GitKraken MCP for GitLens</strong> <br />
-								Leverage Git and Integration information from GitLens in AI chat.
-								<a href="https://help.gitkraken.com/mcp/mcp-getting-started">Learn more</a>
+							<div class="agents-tooltip__content" slot="content">
+								<strong>Connect Your AI Agents</strong><br />
+								Leverage Git and integration context in AI chat, and connect agent hooks so GitLens can
+								track your parallel agent work.
 								${when(
-									state.canInstallHooks,
+									(state.hooksAgents?.length ?? 0) > 0,
 									() => html`
-										<br /><br />
-										<a href=${createCommandLink('gitlens.agents.installHooks')}
-											>Install Claude Code Hooks</a
-										>
-										to see and manage your parallel agent work from GitLens.
+										<ul class="agents-tooltip__list">
+											${state.hooksAgents?.map(
+												agent => html`
+													<li>
+														<code-icon
+															icon=${agent.installed ? 'check' : 'circle-large-outline'}
+														></code-icon>
+														${agent.displayName}
+													</li>
+												`,
+											)}
+										</ul>
 									`,
 								)}
-							</div>
-						</gl-popover>
-					`,
-				)}
-				${when(
-					((state.mcpBannerCollapsed ?? true) || (state.mcpCanAutoRegister ?? false)) &&
-						(state.canInstallHooks ?? false) &&
-						!(state.hooksBannerCollapsed ?? true),
-					() => html`
-						<gl-popover class="hooks-tooltip" placement="bottom" trigger="click focus hover">
-							<button type="button" class="action-button action-button--hooks" slot="anchor">
-								<code-icon class="action-button__icon" icon="robot"></code-icon>
-							</button>
-							<div class="hooks-tooltip__content" slot="content">
-								<strong>Install Claude Code Hooks</strong><br />
-								Configure Claude to send status updates to GitLens so you can see and manage your
-								parallel agent work.
 								<br /><br />
-								<a href=${createCommandLink('gitlens.agents.installHooks')}>Install</a>
+								<a href=${createCommandLink('gitlens.ai.connectAgents', { source: 'graph' })}
+									>Connect Agents</a
+								>
 								&middot;
-								<a href=${createCommandLink('gitlens.agents.uninstallHooks')}>Uninstall</a>
+								<a href=${createCommandLink('gitlens.showSettingsPage!agents')}>Manage Agents</a>
 								&middot;
-								<a
-									href=${createCommandLink('gitlens.onboarding.dismiss', {
-										id: 'hooks:banner',
-									})}
+								<a href=${createCommandLink('gitlens.onboarding.dismiss', { id: 'agents:banner' })}
 									>Dismiss</a
 								>
 							</div>

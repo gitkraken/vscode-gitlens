@@ -96,7 +96,7 @@ import './worktree-tooltip.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/hooks-banner.js';
+import '../../../shared/components/agents-banner.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/tree/tree-view.js';
 
@@ -1037,11 +1037,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Only pitch the install when there's something to install — `canInstallHooks` flips
 		// false the moment every detected agent has hooks installed (or none support hooks).
 		if (!(this._state.canInstallHooks ?? false)) return nothing;
-		// Respect the same dismissal as the graph-overview banner — `hooksBannerCollapsed` is true
+		// Respect the same dismissal as the graph-overview banner — `agentsBannerCollapsed` is true
 		// when the user dismissed it via the onboarding service.
-		if (this._state.hooksBannerCollapsed ?? true) return nothing;
+		if (this._state.agentsBannerCollapsed ?? true) return nothing;
 		return html`<div class="agents-banner">
-			<gl-hooks-banner source="graph-sidebar-agents" layout="responsive"></gl-hooks-banner>
+			<gl-agents-banner
+				source="graph-sidebar-agents"
+				layout="responsive"
+				.mcpCanAutoRegister=${this._state.mcpCanAutoRegister ?? false}
+				.hooksAvailable=${(this._state.hooksAgents?.length ?? 0) > 0}
+			></gl-agents-banner>
 		</div>`;
 	}
 
