@@ -1480,6 +1480,12 @@ export class GraphPanelsService {
 			this.resetPullRequests();
 		}
 
+		// The agents panel renders from pushed session state, not the sidebar resource loop — reach
+		// past it: reconcile providers with their durable stores and force a snapshot re-publish.
+		if (params.panel === 'agents') {
+			void this.container.agentStatus?.refresh();
+		}
+
 		this.notifySidebarInvalidated();
 	}
 

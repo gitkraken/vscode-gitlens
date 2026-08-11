@@ -446,7 +446,7 @@ export class AgentStatusService implements Disposable {
 		);
 	}
 
-	private maybeFireSessionsChanged(): void {
+	private maybeFireSessionsChanged(force?: boolean): void {
 		// Compared PER SESSION rather than as one stringified snapshot: the memo hands back the same
 		// key instance for a session that didn't change, making the comparison a pointer check, so a
 		// long tail of terminal rows costs a lookup each instead of being re-stringified on every
@@ -468,7 +468,7 @@ export class AgentStatusService implements Disposable {
 		if (!changed && keys.size !== this._lastSessionKeys.size) {
 			changed = true;
 		}
-		if (!changed) return;
+		if (!changed && !force) return;
 
 		this._lastSessionKeys = keys;
 		this._onDidChangeSessions.fire(states);
@@ -666,6 +666,14 @@ export class AgentStatusService implements Disposable {
 		})();
 
 		return this._worktreeRefreshPromise;
+	}
+
+	/** Forces every provider to reconcile with its durable store, then re-publishes the snapshot
+	 *  unconditionally — the repair path behind the sidebar's Refresh action. The forced publish is
+	 *  the point: a change-gated one would skip a no-op reconcile and leave a diverged webview stale. */
+	async refresh(): Promise<void> {
+		await Promise.allSettled(this._providers.map(p => p.sync?.() ?? Promise.resolve()));
+		this.maybeFireSessionsChanged(true);
 	}
 
 	resolvePermission(

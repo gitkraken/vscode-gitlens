@@ -432,6 +432,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// IPC server stays up intentionally — hooks fire even when the window is unfocused
 	}
 
+	sync(): Promise<void> {
+		return this.syncSessions();
+	}
+
 	updateWorkspacePaths(workspacePaths: string[]): void {
 		this._workspacePaths = workspacePaths.map(p => normalizePath(p));
 
