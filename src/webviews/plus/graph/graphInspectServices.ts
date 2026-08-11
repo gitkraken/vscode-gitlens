@@ -1262,6 +1262,8 @@ export class GraphInspectServices {
 							this._activeComposeCacheKeys.set(repoPath, cacheKeyToRegister);
 						}
 
+						void this.container.usage.track('action:gitlens.ai.generateCommits:happened');
+
 						return {
 							result: {
 								commits: commits.toReversed(),
