@@ -148,6 +148,7 @@ export class AIService {
 			orgEnabled: getContext('gitlens:gk:organization:ai:enabled', true),
 			mcp: {
 				bundled: this.#container.gkMcp?.isRegistrationAllowed ?? false,
+				capable: this.#container.gkMcp?.isRegistrationCapable ?? false,
 				settingEnabled: configuration.get('gitkraken.mcp.autoEnabled'),
 				installed: getContext('gitlens:gk:cli:installed', false),
 			},

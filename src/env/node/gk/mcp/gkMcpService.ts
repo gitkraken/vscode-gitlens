@@ -22,7 +22,7 @@ import { executeCommand, executeCoreCommand, registerCommand } from '../../../..
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../../system/-webview/context.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
-import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
+import { getHostAppName, isHostVSCode, toMcpInstallProvider } from '../../../../system/-webview/vscode.js';
 import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { CLIInstallError, CLIInstallErrorReason } from '../cli/errors.js';
@@ -31,7 +31,7 @@ import { McpSetupError, McpSetupErrorReason } from './errors.js';
 import { CursorMcpHostProvider } from './hostProviders/cursorMcpHostProvider.js';
 import type { McpHostRegistrationProvider } from './hostProviders/types.js';
 import { VSCodeMcpHostProvider } from './hostProviders/vscodeMcpHostProvider.js';
-import { showManualMcpSetupPrompt, toMcpInstallProvider } from './utils.js';
+import { showManualMcpSetupPrompt } from './utils.js';
 
 const ipcWaitTime = 30000; // 30 seconds
 
@@ -134,10 +134,15 @@ export class GkMcpService implements GkMcpRegistrar {
 
 	// === Public API ===
 
+	/** True iff the running host exposes an MCP registration API, independent of the `gitkraken.mcp.autoEnabled` opt-in. */
+	get isRegistrationCapable(): boolean {
+		return supportsMcpExtensionRegistration() || supportsCursorMcpRegistration();
+	}
+
 	/** True iff the running host can register MCP via an extension API AND the user/admin enabled it. */
 	get isRegistrationAllowed(): boolean {
 		if (!this.isRegistrationEnabled) return false;
-		return supportsMcpExtensionRegistration() || supportsCursorMcpRegistration();
+		return this.isRegistrationCapable;
 	}
 
 	/** True iff `gitkraken.mcp.autoEnabled` is on, AI is allowed (user-enabled AND not org-disabled —

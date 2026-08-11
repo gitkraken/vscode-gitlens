@@ -10,6 +10,7 @@ import type { Container } from '../../../../container.js';
  *  keeping the stub from drifting from what the service actually exposes. */
 export interface GkMcpRegistrar extends Disposable {
 	readonly isRegistrationAllowed: boolean;
+	readonly isRegistrationCapable: boolean;
 	readonly isRegistrationEnabled: boolean;
 }
 

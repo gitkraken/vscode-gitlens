@@ -16,7 +16,7 @@ export function createAIState(): AIContextState {
 		state: signal<AIState>({
 			enabled: false,
 			orgEnabled: true,
-			mcp: { settingEnabled: false, installed: false, bundled: false },
+			mcp: { settingEnabled: false, installed: false, bundled: false, capable: false },
 			hooks: {
 				agents: [],
 				canInstallHooks: false,

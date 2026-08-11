@@ -11,6 +11,7 @@ import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/overlays/tooltip.js';
 import '../../shared/components/skeleton-loader.js';
 import '../../shared/components/radio/radio.js';
 
@@ -74,10 +75,14 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				border-block-end: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
-			.header span:not(:first-child),
+			.header__col,
 			.cell {
 				text-align: center;
 				justify-self: center;
+			}
+
+			.cell__button {
+				--button-padding-inline: var(--gl-space-6);
 			}
 
 			.section {
@@ -223,7 +228,19 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		}
 
 		return html`<div class="rows">
-			<div class="header"><span>Agent</span><span>Default</span><span>MCP</span><span>Hooks</span></div>
+			<div class="header">
+				<span>Agent</span>
+				<gl-tooltip content="The agent GitLens uses by default for AI features"
+					><span class="header__col">Default</span></gl-tooltip
+				>
+				<gl-tooltip
+					content="GitKraken's MCP server gives this agent access to GitLens tools and repository context"
+					><span class="header__col">MCP</span></gl-tooltip
+				>
+				<gl-tooltip content="GitKraken hooks let GitLens track this agent's sessions and coordinate permissions"
+					><span class="header__col">Hooks</span></gl-tooltip
+				>
+			</div>
 			${kindOrder.map(kind =>
 				this.renderSection(
 					kind,
@@ -241,7 +258,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 	private renderRow(agent: AgentInfo) {
 		const isEditor = agent.kind === 'editor';
-		const notDetected = isEditor && agent.detected === false;
+		const notDetected = agent.detected === false;
 		const isDefault = this.defaultAgentId === agent.id;
 		return html`<div class="row ${notDetected ? 'row--dimmed' : ''}">
 			<span class="row__agent">
@@ -250,14 +267,16 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				${notDetected ? html`<span class="cell__dash row__not-detected">Not detected</span>` : nothing}
 			</span>
 			${
-				isEditor
-					? html`<span class="cell"></span>`
-					: html`<gl-radio .checked=${isDefault} @click=${() => this.setDefault(agent.id)}>
-							<span class="sr-only">Set ${agent.label} as the default agent</span>
-						</gl-radio>`
+				notDetected
+					? html`<span class="cell">${this.renderDash('Not detected')}</span>`
+					: isEditor
+						? html`<span class="cell"></span>`
+						: html`<gl-radio .checked=${isDefault} @click=${() => this.setDefault(agent.id)}>
+								<span class="sr-only">Set ${agent.label} as the default agent</span>
+							</gl-radio>`
 			}
-			<span class="cell">${this.renderMcpCell(agent)}</span>
-			<span class="cell">${this.renderHooksCell(agent)}</span>
+			<span class="cell">${notDetected ? this.renderDash('Not detected') : this.renderMcpCell(agent)}</span>
+			<span class="cell">${notDetected ? this.renderDash('Not detected') : this.renderHooksCell(agent)}</span>
 		</div>`;
 	}
 
@@ -266,66 +285,132 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 	}
 
 	private renderMcpCell(agent: AgentInfo) {
+		if (agent.kind === 'editor' || agent.kind === 'ide-chat') return this.renderEditorMcpCell();
+
+		// The Claude Code Extension runs on the Claude Code CLI — reflect the CLI's install state read-only;
+		// the actual install/uninstall controls live on the CLI row.
+		if (agent.kind === 'claude-extension') {
+			return agent.mcp?.installed
+				? this.renderInstalledViaCli()
+				: this.renderDash('GitKraken MCP not installed via the Claude Code CLI');
+		}
+
 		const mcp = agent.mcp;
-		if ((agent.kind !== 'cli' && agent.kind !== 'editor') || mcp == null || !mcp.supported) {
+		if (agent.kind !== 'cli' || mcp == null || !mcp.supported) {
 			return this.renderDash('MCP not available');
 		}
 		if (mcp.installed) {
-			return html`<span class="cell__status">
-				<code-icon icon="check" aria-hidden="true"></code-icon> Installed
-				<gl-button
-					appearance="toolbar"
-					href="${createCommandLink<{ agentId: string; source: string }>('gitlens.ai.mcp.uninstallForAgent', {
-						agentId: agent.id,
-						source: 'settings',
-					})}"
-					aria-label="Uninstall GitKraken MCP for ${agent.label}"
-					tooltip="Uninstall GitKraken MCP for ${agent.label}"
-					><code-icon icon="debug-disconnect" aria-hidden="true"></code-icon
-				></gl-button>
-			</span>`;
+			return this.renderInstalled(
+				createCommandLink<{ agentId: string; source: string }>('gitlens.ai.mcp.uninstallForAgent', {
+					agentId: agent.id,
+					source: 'settings',
+				}),
+				`Uninstall GitKraken MCP for ${agent.label}`,
+			);
 		}
-		// Editor MCP is set up by the editor itself (host registration), not the per-agent CLI install
-		if (agent.kind === 'editor') return this.renderDash('MCP is managed by the editor');
 		return html`<gl-button
+			class="cell__button"
 			appearance="secondary"
 			href="${createCommandLink<{ agentId: string; source: string }>('gitlens.ai.mcp.installForAgent', {
 				agentId: agent.id,
 				source: 'settings',
 			})}"
+			aria-label="Install GitKraken MCP for ${agent.label}"
 			tooltip="Install GitKraken MCP for ${agent.label}"
-			><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
-		>`;
+			><code-icon icon="plug" aria-hidden="true"></code-icon
+		></gl-button>`;
+	}
+
+	private renderEditorMcpCell() {
+		const mcp = this.ai?.mcp;
+		if (mcp == null || !mcp.capable) return this.renderDash('GitKraken MCP is not available in this editor');
+		if (mcp.bundled) {
+			return html`<span class="cell__status">
+				<gl-tooltip content="GitKraken MCP is available in this editor"
+					><code-icon icon="check" aria-label="GitKraken MCP is available in this editor"></code-icon
+				></gl-tooltip>
+				<gl-button
+					class="cell__button"
+					appearance="secondary"
+					aria-label="Disable the bundled GitKraken MCP server for this editor"
+					tooltip="Disable the bundled GitKraken MCP server for this editor"
+					@click=${() => this.actions?.applyValue('gitkraken.mcp.autoEnabled', false)}
+					><code-icon icon="gl-unplug" aria-hidden="true"></code-icon
+				></gl-button>
+			</span>`;
+		}
+		return html`<gl-button
+			class="cell__button"
+			appearance="secondary"
+			aria-label="Enable the bundled GitKraken MCP server for this editor"
+			tooltip="Enable the bundled GitKraken MCP server for this editor"
+			@click=${() => this.actions?.applyValue('gitkraken.mcp.autoEnabled', true)}
+			><code-icon icon="plug" aria-hidden="true"></code-icon
+		></gl-button>`;
+	}
+
+	private renderInstalled(uninstallHref: string, uninstallLabel: string) {
+		return html`<span class="cell__status">
+			<gl-tooltip content="Installed"><code-icon icon="check" aria-label="Installed"></code-icon></gl-tooltip>
+			<gl-button
+				class="cell__button"
+				appearance="secondary"
+				href="${uninstallHref}"
+				aria-label="${uninstallLabel}"
+				tooltip="${uninstallLabel}"
+				><code-icon icon="gl-unplug" aria-hidden="true"></code-icon
+			></gl-button>
+		</span>`;
+	}
+
+	/** Read-only installed check for state managed elsewhere (e.g. the Claude Code Extension reflecting
+	 *  the Claude Code CLI) — no uninstall control, since it isn't managed from this row. */
+	private renderInstalledViaCli() {
+		return html`<span class="cell__status">
+			<gl-tooltip content="Installed via Claude Code CLI"
+				><code-icon icon="check" aria-label="Installed via Claude Code CLI"></code-icon
+			></gl-tooltip>
+		</span>`;
 	}
 
 	private renderHooksCell(agent: AgentInfo) {
 		const hooks = agent.hooks;
-		if ((agent.kind !== 'cli' && agent.kind !== 'editor') || hooks == null || !hooks.supported) {
+		// The Claude Code Extension reflects the Claude Code CLI's hooks state read-only (managed on the CLI row).
+		if (agent.kind === 'claude-extension') {
+			return hooks?.installed
+				? this.renderInstalledViaCli()
+				: this.renderDash('GitKraken hooks not installed via the Claude Code CLI');
+		}
+
+		if (
+			(agent.kind !== 'cli' && agent.kind !== 'editor' && agent.kind !== 'ide-chat') ||
+			hooks == null ||
+			!hooks.supported
+		) {
 			return this.renderDash('Hooks not available');
 		}
+
+		const agentId = agent.hooksAgentId ?? agent.id;
 		if (hooks.installed) {
-			return html`<gl-button
-				appearance="secondary"
-				href="${createCommandLink<{ agentId: string; source: string }>(
-					'gitlens.agents.uninstallHooksForAgent',
-					{
-						agentId: agent.id,
-						source: 'settings',
-					},
-				)}"
-				tooltip="Uninstall GitKraken Hooks for ${agent.label}"
-				><code-icon icon="debug-disconnect" slot="prefix" aria-hidden="true"></code-icon> Uninstall</gl-button
-			>`;
+			return this.renderInstalled(
+				createCommandLink<{ agentId: string; source: string }>('gitlens.agents.uninstallHooksForAgent', {
+					agentId: agentId,
+					source: 'settings',
+				}),
+				`Uninstall GitKraken Hooks for ${agent.label}`,
+			);
 		}
 		return html`<gl-button
+			class="cell__button"
 			appearance="secondary"
 			href="${createCommandLink<{ agentId: string; source: string }>('gitlens.agents.installHooksForAgent', {
-				agentId: agent.id,
+				agentId: agentId,
 				source: 'settings',
 			})}"
+			aria-label="Install GitKraken Hooks for ${agent.label}"
 			tooltip="Install GitKraken Hooks for ${agent.label}"
-			><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
-		>`;
+			><code-icon icon="plug" aria-hidden="true"></code-icon
+		></gl-button>`;
 	}
 
 	private renderDash(label: string) {

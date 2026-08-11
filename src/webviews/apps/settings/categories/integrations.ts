@@ -37,13 +37,6 @@ export const integrationsCategories: SettingsCategory[] = [
 				// Search text — the rendered rows come from the Agents RPC service
 				hint: 'Chat, extension, and CLI agents, default agent, GitKraken MCP, agent hooks, Copilot, Cursor, Codex, Gemini, opencode',
 			},
-			{
-				kind: 'check',
-				key: 'gitkraken.mcp.autoEnabled',
-				label: 'Automatically provide the bundled GitKraken MCP server to this editor',
-				hint: 'When disabled, GitLens stops registering the GitKraken MCP server with this editor',
-				enabledWhen: 'ai.enabled',
-			},
 		],
 	},
 	{

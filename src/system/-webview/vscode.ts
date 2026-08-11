@@ -65,6 +65,20 @@ export async function getHostAppName(): Promise<string | undefined> {
 	return _hostAppName ?? undefined;
 }
 
+/** Maps a host app name to the CLI's MCP-install provider slug (e.g. `code` -> `vscode`). */
+export function toMcpInstallProvider<T extends string | undefined>(appHostName: T): T {
+	switch (appHostName) {
+		case 'code':
+			return 'vscode' as T;
+		case 'code-insiders':
+			return 'vscode-insiders' as T;
+		case 'code-exploration':
+			return 'vscode-exploration' as T;
+		default:
+			return appHostName;
+	}
+}
+
 let _hostExecutablePath: string | undefined;
 export async function getHostExecutablePath(): Promise<string> {
 	if (_hostExecutablePath != null) return _hostExecutablePath;

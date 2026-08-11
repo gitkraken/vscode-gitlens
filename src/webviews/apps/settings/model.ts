@@ -389,7 +389,7 @@ export function descriptorKeys(d: SettingDescriptor): string[] {
 		case 'ai':
 			return ['ai.model'];
 		case 'agents':
-			return ['ai.defaultAgent', 'gitkraken.mcp.autoEnabled'];
+			return ['ai.defaultAgent'];
 		case 'setup':
 		case 'account':
 		case 'integrations':

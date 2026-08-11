@@ -153,6 +153,9 @@ export interface AgentInfo {
 	readonly detected?: boolean;
 	readonly mcp?: { readonly supported: boolean; readonly installed: boolean };
 	readonly hooks?: { readonly supported: boolean; readonly installed: boolean };
+	/** For an IDE-host row that supports hooks, the gkcli agent name to target for hooks install/uninstall
+	 *  (e.g. `cursor`) — this row's own `id` may be `ide-chat`. Absent when `id` is already the hooks target. */
+	readonly hooksAgentId?: string;
 }
 
 /**
@@ -192,6 +195,8 @@ export interface AIState {
 	/** MCP state, nested under AI since MCP requires AI to be enabled. */
 	readonly mcp: {
 		readonly bundled: boolean;
+		/** True iff the running host can register the bundled MCP server (independent of the opt-in). */
+		readonly capable: boolean;
 		readonly settingEnabled: boolean;
 		readonly installed: boolean;
 	};
