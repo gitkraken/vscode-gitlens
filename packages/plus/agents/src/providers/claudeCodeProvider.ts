@@ -76,10 +76,15 @@ interface PermissionResponse {
 }
 
 interface PendingPermissionEntry {
-	resolve(response: PermissionResponse): void;
-	reject(reason: Error): void;
+	/** All connections waiting on this ask — duplicate deliveries (CLI retry after its 60s
+	 *  response-header timeout) attach here and settle together. */
+	resolvers: { resolve(response: PermissionResponse): void; reject(reason: Error): void }[];
 	toolName: string;
 	toolDescription: string;
+	/** From `hookInput.tool_use_id` when the CLI surfaces it; identity gate for stale-clearing. */
+	toolUseId?: string;
+	/** Serialized tool_input, for duplicate-delivery detection when `toolUseId` is absent. */
+	toolInputJson?: string;
 }
 
 interface SessionBookkeeping {
@@ -130,6 +135,9 @@ interface SessionBookkeeping {
 	 *  `resolveCompletedSessionDetails`). Terminal transcripts don't change, so the read happens at
 	 *  most once regardless of how many times the row is opened. */
 	completedDetailsResolved?: boolean;
+	/** Recent denies we sent, keyed by ask identity — consumed one-shot when the
+	 *  PermissionDenied echo arrives so it can't clear an identical retried ask. */
+	selfDenials: { key: string; at: number }[];
 }
 
 const staleCheckIntervalMs = 15 * 60 * 1000; // 15 minutes
@@ -169,6 +177,11 @@ const stopToIdleDebounceMs = 750;
  *  than `stopToIdleDebounceMs` so a continuation that just barely crosses the debounce still
  *  restores continuity. */
 const phaseSinceRestoreWindowMs = 2000;
+
+/** How long a self-sent deny stays in {@link SessionBookkeeping.selfDenials} waiting for its
+ *  `PermissionDenied` echo. Well past any realistic hook round-trip; a record this old is more
+ *  likely orphaned (echo never arrived) than a match for a new ask. */
+const selfDenialTtlMs = 60 * 1000; // 60 seconds
 
 interface SessionFileData {
 	sessionId: string;
@@ -255,6 +268,21 @@ function synthesizeUnresolvableAsk(toolName: string | null | undefined, planFile
 		toolDescription: 'Waiting for input',
 		resolvable: false,
 	};
+}
+
+/** JSON.stringify with object keys recursively sorted — array order is preserved. `tool_input`
+ *  can arrive with different key order (or via the top-level fallback field) between deliveries;
+ *  canonicalizing makes input equality reliable across those variations. */
+function stableStringify(value: unknown): string {
+	return JSON.stringify(value, (_key, val: unknown) => {
+		if (val == null || typeof val !== 'object' || Array.isArray(val)) return val;
+
+		const sorted: Record<string, unknown> = {};
+		for (const key of Object.keys(val).sort()) {
+			sorted[key] = (val as Record<string, unknown>)[key];
+		}
+		return sorted;
+	});
 }
 
 /** Field-wise equality for the ask a `permission_requested` row publishes. `updateSessionStatus`
@@ -505,7 +533,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 		this._handlerDisposables = [];
 		for (const pending of this._pendingPermissions.values()) {
-			pending.reject(new Error('Provider disposed'));
+			this.rejectAllPending(pending, new Error('Provider disposed'));
 		}
 		this._pendingPermissions.clear();
 		for (const bk of this._sessionBookkeeping.values()) {
@@ -700,7 +728,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			case 'SessionEnd': {
 				const pending = this._pendingPermissions.get(event.sessionId);
 				if (pending != null) {
-					pending.reject(new Error('Session ended'));
+					this.rejectAllPending(pending, new Error('Session ended'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
 				this.cancelPendingIdleTransition(event.sessionId);
@@ -799,7 +827,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			case 'PostToolUse':
 			case 'PostToolUseFailure': {
-				this.clearStalePermission(event.sessionId, event.event);
+				this.clearStalePermission(event.sessionId, event.event, this.settledByFromEvent(event));
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				// Cooldown the file-edit decoration instead of dropping it immediately, so a quick
@@ -834,7 +862,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			case 'StopFailure': {
 				const pending = this._pendingPermissions.get(event.sessionId);
 				if (pending != null) {
-					pending.reject(new Error('Session stopped'));
+					this.rejectAllPending(pending, new Error('Session stopped'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
 				// Turn ended: stop the "live" pulse but keep the per-operation decay tail fading over
@@ -911,14 +939,34 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					const toolDescription = describeToolInput(toolName, toolInput);
 					const toolInputDescription = (toolInput.description as string | undefined) || undefined;
 					const kind: PendingPermissionKind = classifyPermissionKind(toolName);
+					const toolUseId = hookInput?.tool_use_id as string | undefined;
+					const toolInputJson = stableStringify(toolInput);
 
 					return new Promise<PermissionResponse>((resolve, reject) => {
 						const existing = this._pendingPermissions.get(event.sessionId);
+						// Same identity as `settledByFromEvent`'s comparisons: `toolUseId` when both sides
+						// have one, else toolName + canonical input.
+						const isDuplicateDelivery =
+							existing != null &&
+							((existing.toolUseId != null && toolUseId != null && existing.toolUseId === toolUseId) ||
+								(existing.toolUseId == null &&
+									toolUseId == null &&
+									existing.toolName === toolName &&
+									existing.toolInputJson === toolInputJson));
+
+						if (isDuplicateDelivery) {
+							// Duplicate delivery of the same ask (CLI retry after its 60s response-header
+							// timeout) — attach instead of replacing so both connections settle together.
+							// Nothing about the display changes, so skip rebuilding it below.
+							existing.resolvers.push({ resolve: resolve, reject: reject });
+							return;
+						}
+
 						if (existing != null) {
 							Logger.debug(
 								`ClaudeCodeProvider.handleSessionEvent: auto-denying stale permission ${tag} tool=${existing.toolName}`,
 							);
-							existing.resolve({
+							this.resolveAllPending(event.sessionId, existing, {
 								hookSpecificOutput: {
 									hookEventName: 'PermissionRequest',
 									decision: { behavior: 'deny' },
@@ -927,10 +975,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						}
 
 						this._pendingPermissions.set(event.sessionId, {
-							resolve: resolve,
-							reject: reject,
+							resolvers: [{ resolve: resolve, reject: reject }],
 							toolName: toolName,
 							toolDescription: toolDescription,
+							toolUseId: toolUseId,
+							toolInputJson: toolInputJson,
 						});
 
 						// Plan-kind body: prefer the existing session's planFile (set via SessionStart/
@@ -998,7 +1047,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			case 'PermissionDenied': {
-				this.clearStalePermission(event.sessionId, 'PermissionDenied');
+				this.clearStalePermission(event.sessionId, 'PermissionDenied', this.settledByFromEvent(event));
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				const filesChanged = this.untrackToolUseFile(event.sessionId, event);
@@ -1131,6 +1180,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				pendingReadClears: new Map(),
 				lastTouchedAt: new Map(),
 				gitInfoUnresolvable: false,
+				selfDenials: [],
 			};
 			this._sessionBookkeeping.set(sessionId, bk);
 		}
@@ -1618,22 +1668,163 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		return now;
 	}
 
+	/** Extracts the ask identity a settlement event refers to. `PostToolUse`/`PermissionDenied`
+	 *  carry `hookInput.tool_use_id` and `hookInput.tool_input` in production; the top-level
+	 *  `event.toolName`/`event.toolInput` are the older-CLI fallback. Input is canonicalized so key
+	 *  order (or arriving via the fallback field instead of `hookInput`) doesn't defeat comparison. */
+	private settledByFromEvent(event: AgentSessionEvent): {
+		toolUseId?: string;
+		toolName?: string;
+		toolInputJson?: string;
+	} {
+		const hookInput = event.hookInput;
+		const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
+		return {
+			toolUseId: hookInput?.tool_use_id as string | undefined,
+			toolName: (hookInput?.tool_name as string | undefined) ?? event.toolName,
+			toolInputJson: toolInput != null ? stableStringify(toolInput) : undefined,
+		};
+	}
+
+	/** Ask identity key for the self-deny ledger — `toolUseId` when present, else toolName +
+	 *  canonical input JSON. Mirrors the identity rules `clearStalePermission` gates on. */
+	private selfDenialKey(id: { toolUseId?: string; toolName: string; toolInputJson?: string }): string {
+		return id.toolUseId ?? `${id.toolName} ${id.toolInputJson ?? ''}`;
+	}
+
+	/** Records that we just denied `entry` so the `PermissionDenied` echo it provokes can be
+	 *  recognized and ignored instead of clearing an identical retried ask (see
+	 *  {@link clearStalePermission}). Prunes records past {@link selfDenialTtlMs} first. */
+	private recordSelfDenial(sessionId: string, entry: PendingPermissionEntry): void {
+		const bk = this.getBookkeeping(sessionId);
+		const now = Date.now();
+		bk.selfDenials = bk.selfDenials.filter(d => now - d.at < selfDenialTtlMs);
+		bk.selfDenials.push({
+			key: this.selfDenialKey({
+				toolUseId: entry.toolUseId,
+				toolName: entry.toolName,
+				toolInputJson: entry.toolInputJson,
+			}),
+			at: now,
+		});
+	}
+
+	/** Consumes (removes) ONE self-deny record matching `id`, if present and unexpired. Returns
+	 *  whether a record was consumed. */
+	private consumeSelfDenial(
+		sessionId: string,
+		id: { toolUseId?: string; toolName: string; toolInputJson?: string },
+	): boolean {
+		const bk = this._sessionBookkeeping.get(sessionId);
+		if (bk == null) return false;
+
+		const now = Date.now();
+		bk.selfDenials = bk.selfDenials.filter(d => now - d.at < selfDenialTtlMs);
+		const key = this.selfDenialKey(id);
+		const index = bk.selfDenials.findIndex(d => d.key === key);
+		if (index < 0) return false;
+
+		bk.selfDenials.splice(index, 1);
+		return true;
+	}
+
+	private resolveAllPending(sessionId: string, entry: PendingPermissionEntry, response: PermissionResponse): void {
+		if (response.hookSpecificOutput.decision.behavior === 'deny') {
+			this.recordSelfDenial(sessionId, entry);
+		}
+		for (const resolver of entry.resolvers) {
+			resolver.resolve(response);
+		}
+	}
+
+	private rejectAllPending(entry: PendingPermissionEntry, reason: Error): void {
+		for (const resolver of entry.resolvers) {
+			resolver.reject(reason);
+		}
+	}
+
 	// Called when a pending permission was resolved outside GitLens (e.g. via the CLI terminal).
 	// The 'deny' response is a safe no-op since the tool has already run or been denied upstream.
-	private clearStalePermission(sessionId: string, reason: string): void {
+	// `settledBy` identifies the ask the settling event actually refers to — out-of-order/duplicate
+	// hook deliveries (PostToolUse for an unrelated tool, a PermissionDenied echo of an earlier ask)
+	// must never deny a still-live blocking ask just because it shares a session id.
+	private clearStalePermission(
+		sessionId: string,
+		reason: string,
+		settledBy?: { toolUseId?: string; toolName?: string; toolInputJson?: string },
+	): void {
 		const bk = this.getBookkeeping(sessionId);
-		if (bk.pendingPermission == null) return;
-
-		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
-
 		const pending = this._pendingPermissions.get(sessionId);
+
 		if (pending != null) {
-			pending.resolve({
+			if (settledBy != null) {
+				let mismatch = false;
+
+				if (pending.toolUseId != null && settledBy.toolUseId != null) {
+					// Rule 1: both sides identified — the only trustworthy comparison. Future-proof:
+					// production `PermissionRequest` doesn't carry `tool_use_id` today, so `pending`
+					// never actually has one, but honor it if a future CLI adds it.
+					mismatch = pending.toolUseId !== settledBy.toolUseId;
+				} else if (pending.toolName === '') {
+					// Rule 2: no identity was captured at registration (degraded payload) — nothing to
+					// gate on, so clear unconditionally rather than stranding the ask forever.
+					mismatch = false;
+				} else {
+					// Rule 3: name must match; when both sides have input, it must match too. A
+					// PostToolUse for a different invocation of the same tool (different input) leaves
+					// the ask untouched.
+					mismatch =
+						settledBy.toolName !== pending.toolName ||
+						(pending.toolInputJson != null &&
+							settledBy.toolInputJson != null &&
+							pending.toolInputJson !== settledBy.toolInputJson);
+
+					if (!mismatch && reason === 'PermissionDenied') {
+						const consumed = this.consumeSelfDenial(sessionId, {
+							toolUseId: pending.toolUseId,
+							toolName: pending.toolName,
+							toolInputJson: pending.toolInputJson,
+						});
+						if (consumed) {
+							Logger.debug(
+								`ClaudeCodeProvider.clearStalePermission: skip (echo of our own deny) ${reason} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
+							);
+							return;
+						}
+					}
+				}
+
+				if (mismatch) {
+					Logger.debug(
+						`ClaudeCodeProvider.clearStalePermission: skip (identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${pending.toolUseId ?? pending.toolName} settledBy=${settledBy.toolUseId ?? settledBy.toolName ?? 'unknown'}`,
+					);
+					return;
+				}
+			}
+
+			Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
+			this.resolveAllPending(sessionId, pending, {
 				hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny' } },
 			});
 			this._pendingPermissions.delete(sessionId);
+			bk.pendingPermission = undefined;
+			return;
 		}
 
+		if (bk.pendingPermission == null) return;
+
+		if (
+			settledBy?.toolName != null &&
+			bk.pendingPermission.toolName != null &&
+			settledBy.toolName !== bk.pendingPermission.toolName
+		) {
+			Logger.debug(
+				`ClaudeCodeProvider.clearStalePermission: skip (display-only identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${bk.pendingPermission.toolName} settledBy=${settledBy.toolName}`,
+			);
+			return;
+		}
+
+		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
 		bk.pendingPermission = undefined;
 	}
 
@@ -1648,7 +1839,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		Logger.debug(
 			`ClaudeCodeProvider.resolvePermission: ${decision} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
 		);
-		pending.resolve({
+		this.resolveAllPending(sessionId, pending, {
 			hookSpecificOutput: {
 				hookEventName: 'PermissionRequest',
 				decision: { behavior: decision, updatedPermissions: updatedPermissions },
@@ -2236,7 +2427,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// live zombie).
 		const pending = this._pendingPermissions.get(prev.id);
 		if (pending != null) {
-			pending.reject(new Error('Session completed'));
+			this.rejectAllPending(pending, new Error('Session completed'));
 			this._pendingPermissions.delete(prev.id);
 		}
 		this.cancelPendingIdleTransition(prev.id);
@@ -2277,7 +2468,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		for (const id of removedIds) {
 			const pending = this._pendingPermissions.get(id);
 			if (pending != null) {
-				pending.reject(new Error('Session pruned'));
+				this.rejectAllPending(pending, new Error('Session pruned'));
 				this._pendingPermissions.delete(id);
 			}
 			this.cancelPendingIdleTransition(id);
