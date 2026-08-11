@@ -315,7 +315,7 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	switch (majorVersion) {
 		case '19':
 			message =
-				'GitLens upgraded to 19 — the Commit Graph now lives in the GitLens panel, sitting right beside your work to carry every change from task to merge with AI Review, Compose, and Resolve.';
+				'GitLens 19 is here — the Commit Graph has been rebuilt from the ground up: dramatically faster, lighter, now the heart of GitLens, with new and enhanced workflows from code to merge.';
 			break;
 		case '18':
 			message =
