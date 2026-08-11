@@ -207,6 +207,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 					states: [],
 					text: false,
 					includeArchived: false,
+					draft: false,
 					repositoryScope: false,
 					organizationScope: false,
 				});
@@ -228,6 +229,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 					states: ['open', 'closed', 'merged', 'all'],
 					text: true,
 					includeArchived: true,
+					draft: true,
 					repositoryScope: true,
 					organizationScope: true,
 				});

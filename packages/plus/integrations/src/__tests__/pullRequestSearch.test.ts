@@ -211,6 +211,11 @@ suite('IntegrationManager.searchPullRequestsPage', () => {
 					criteria: { relationships: [PullRequestFilter.Author], includeArchived: true },
 					expected: /includeArchived/,
 				},
+				{
+					capabilities: { ...supported!, draft: false },
+					criteria: { relationships: [PullRequestFilter.Author], draft: true },
+					expected: /draft/,
+				},
 			];
 
 			for (const testCase of cases) {
