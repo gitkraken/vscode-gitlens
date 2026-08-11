@@ -2814,7 +2814,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 		}
 	});
 
-	test('a PermissionDenied echo naming an evicted ask does not deny the ask that replaced it', async () => {
+	test('a stray PermissionDenied naming an evicted ask does not deny the ask that replaced it', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -2844,12 +2844,13 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 				() => (settled = true),
 			);
 
-			// A stray PermissionDenied echo for ask N surfaces late, naming N's tool + input (and some
-			// tool_use_id the CLI attaches) — it must not be mistaken for settling N+1.
-			await handler(permissionDenied('s1', 'tu-echo', 'Bash', { command: 'ls -la' }), new URLSearchParams());
+			// A stray PermissionDenied for ask N surfaces late, naming N's tool + input (and some
+			// tool_use_id the CLI attaches) — it must not be mistaken for settling N+1: the input
+			// mismatches N+1's, so the identity gate leaves N+1 untouched.
+			await handler(permissionDenied('s1', 'tu-stray', 'Bash', { command: 'ls -la' }), new URLSearchParams());
 			await flushMicrotasks();
 
-			assert.strictEqual(settled, false, 'ask N+1 must survive the echo');
+			assert.strictEqual(settled, false, 'ask N+1 must survive the stray PermissionDenied');
 			assert.strictEqual(
 				provider.sessions.find(x => x.id === 's1')?.pendingPermission?.toolDescription,
 				'Bash(rm -rf build)',
@@ -2859,7 +2860,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 		}
 	});
 
-	test('a PermissionDenied echo of a prior deny does not deny an identical retried ask (retry-storm regression)', async () => {
+	test("a PermissionDenied matching the pending ask's name and input settles it", async () => {
 		const { callbacks, handlers } = createMockCallbacks();
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -2868,29 +2869,48 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
 			const toolInput = { command: 'rm -rf build' };
 
-			// Ask N: a genuine settlement (a matching PostToolUse) denies it — recording a self-denial.
-			const askN = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
-			await handler(postToolUseWithId('s1', 'tu-1', 'Bash', toolInput), new URLSearchParams());
-			const denied = (await askN) as PermissionResponseLike;
-			assert.strictEqual(denied.hookSpecificOutput.decision.behavior, 'deny');
+			// Production shape: `PermissionRequest` carries no `tool_use_id`.
+			const ask = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
 
-			// Ask N+1: the agent retries with the SAME input — identical identity to N, since
-			// `PermissionRequest` carries no `tool_use_id` for either.
-			const askNPlus1 = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
-			let settled = false;
-			askNPlus1.then(
-				() => (settled = true),
-				() => (settled = true),
+			// Auto-mode classifier denies the tool call — same tool_name, canonically-equal
+			// tool_input (keys reordered), some tool_use_id the CLI attaches.
+			await handler(
+				permissionDenied('s1', 'tu-1', 'Bash', { command: toolInput.command }),
+				new URLSearchParams(),
 			);
 
-			// The PermissionDenied hook event echoing OUR deny of N arrives after N+1 is already
-			// pending — without the self-deny ledger this is indistinguishable from a real settlement
-			// of N+1.
-			await handler(permissionDenied('s1', 'tu-2', 'Bash', toolInput), new URLSearchParams());
-			await flushMicrotasks();
+			const response = (await ask) as PermissionResponseLike;
+			assert.strictEqual(response.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
 
-			assert.strictEqual(settled, false, 'ask N+1 must survive the echo of the earlier deny');
-			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission?.toolName, 'Bash');
+	test('consecutive identical asks are each settled by their own PermissionDenied, nothing is left stuck', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+			const toolInput = { command: 'rm -rf build' };
+
+			// Ask N settles via its own genuine PermissionDenied.
+			const askN = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
+			await handler(permissionDenied('s1', 'tu-1', 'Bash', toolInput), new URLSearchParams());
+			const deniedN = (await askN) as PermissionResponseLike;
+			assert.strictEqual(deniedN.hookSpecificOutput.decision.behavior, 'deny');
+
+			// Ask N+1: the agent retries with the SAME input — identical identity to N, since
+			// `PermissionRequest` carries no `tool_use_id` for either. It must settle on its own
+			// genuine PermissionDenied too, not get stuck at `permission_requested` forever.
+			const askNPlus1 = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
+			await handler(permissionDenied('s1', 'tu-2', 'Bash', toolInput), new URLSearchParams());
+			const deniedNPlus1 = (await askNPlus1) as PermissionResponseLike;
+
+			assert.strictEqual(deniedNPlus1.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
 		} finally {
 			provider.dispose();
 		}
