@@ -42,6 +42,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - The former _Annotations_ and _In-editor_ categories merge into a single _Editor_ group, and the _Setup_ group's heading is dropped from the rail since it leads the page
 - Adds an optional `mode` parameter to the `graph` command deep link (e.g. `vscode://eamodio.gitlens/link/command/graph?mode=compose`) &mdash; opens the _Commit Graph_ directly into _Compose_ or _Review_ instead of its default view ([#5226](https://github.com/gitkraken/vscode-gitlens/issues/5226))
 - Adds per-feature AI model controls to the _AI_ section of the _GitLens Settings_ &mdash; the model used for _Composing Commits_, _Reviewing Changes_, and _Resolving Conflicts_ can now each be set from Settings, independently of the default model, surfacing the per-operation models that were previously only reachable from the _Commit Graph_'s compose, review, and resolve panels. Each row shows the model it will actually use, naming the inherited default when it has no override of its own (worth naming, since scoped operations prefer a faster default than the overall one), and a _Use Default_ action appears only on rows that have their own model, to drop the override
+- Adds _What's New_, _Help Center_, _Report Issue (GitHub)_, and _Share Feedback (GitHub)_ to the _Commit Graph_'s view and tab "..." menu, alongside the layout and settings actions previously under its gear menu
+- Adds _What's New_, _Report Issue (GitHub)_, _Share Feedback (GitHub)_, and _Help Center_ to the _Welcome_ view toolbar
 
 ### Changed
 
@@ -66,6 +68,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes commit composition to happen in the _Commit Graph_'s details panel, now the single place to compose &mdash; the standalone _Commit Composer_ editor is gone, and every entry point (the _Compose Commits..._ command, the _Source Control_ view, the GitLens views, _Home_, the GitKraken MCP tools, and the _Interactive Rebase Editor_) opens compose in the graph instead. _Recompose_ on a branch, a commit selection, or a single commit works there too, anchoring on the branch's worktree and offering to create one when the branch isn't checked out anywhere, and a new drag handle lets a compose be narrowed to staged changes only, commits only, or a range of the two ([#5506](https://github.com/gitkraken/vscode-gitlens/issues/5506))
 - Improves AI commit composition &mdash; more accurate commit message convention detection, noise hunks filtered out of proposals, better handling of very large sets of changes, and reordering a locked commit no longer fails
 - Changes when the _Commit Graph_ side bar's _Worktrees_ panel loads each worktree's working change counts &mdash; it previously ran a `git status` for every dirty worktree each time the panel loaded, so opening it cost time proportional to the slowest worktree, which on repositories where `git status` is slow could hold up other Git work; it now settles clean vs. dirty with a fast check and loads the `+N ~M -K` breakdown for a worktree only when you hover its row
+- Renames the _Home_ view's _GitHub Issues_ action to _Report Issue (GitHub)_ &mdash; it now opens GitHub's new-issue template chooser instead of the issues list
+- Renames the _Home_ view's _GitHub Discussions_ action to _Share Feedback (GitHub)_
 
 ### Fixed
 

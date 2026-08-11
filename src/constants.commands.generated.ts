@@ -262,6 +262,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.undoCommitOnWorktree'
 	| 'gitlens.graph.unlockWorktree'
 	| 'gitlens.graph.unpinBranchFromEdge'
+	| 'gitlens.helpCenter'
 	| 'gitlens.inviteToLiveShare'
 	| 'gitlens.openBothChanges:commitDetails'
 	| 'gitlens.openBothChanges:graphDetails'
@@ -348,6 +349,7 @@ export type ContributedCommands =
 	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.removeRemote:graph'
 	| 'gitlens.removeRemote:views'
+	| 'gitlens.reportIssue'
 	| 'gitlens.restore.file:commitDetails'
 	| 'gitlens.restore.file:graphDetails'
 	| 'gitlens.restore.file:views'
@@ -366,6 +368,7 @@ export type ContributedCommands =
 	| 'gitlens.shareAsCloudPatch'
 	| 'gitlens.shareAsCloudPatch:commitDetails'
 	| 'gitlens.shareAsCloudPatch:graphDetails'
+	| 'gitlens.shareFeedback'
 	| 'gitlens.showCommitSearch'
 	| 'gitlens.showCommitsInView'
 	| 'gitlens.showGraph'
@@ -585,12 +588,8 @@ export type ContributedCommands =
 	| 'gitlens.views.highlightRevisionChanges'
 	| 'gitlens.views.highlightRevisionChanges:commitDetails'
 	| 'gitlens.views.highlightRevisionChanges:graphDetails'
-	| 'gitlens.views.home.discussions'
-	| 'gitlens.views.home.help'
 	| 'gitlens.views.home.info'
-	| 'gitlens.views.home.issues'
 	| 'gitlens.views.home.refresh'
-	| 'gitlens.views.home.whatsNew'
 	| 'gitlens.views.launchpad.attach'
 	| 'gitlens.views.launchpad.error.connectIntegrations'
 	| 'gitlens.views.launchpad.error.openLogs'
@@ -922,7 +921,8 @@ export type ContributedCommands =
 	| 'gitlens.visualizeHistory.folder:graphDetails'
 	| 'gitlens.visualizeHistory.folder:scm'
 	| 'gitlens.visualizeHistory.repo:scm'
-	| 'gitlens.visualizeHistory.repo:views';
+	| 'gitlens.visualizeHistory.repo:views'
+	| 'gitlens.whatsNew';
 
 export type ContributedPaletteCommands =
 	| 'gitlens.addAuthors'

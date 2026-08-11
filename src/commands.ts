@@ -32,6 +32,7 @@ import './commands/generateCommitMessage.js';
 import './commands/composer.js';
 import './commands/ghpr/openOrCreateWorktree.js';
 import './commands/gitWizard.js';
+import './commands/help.js';
 import './commands/inviteToLiveShare.js';
 import './commands/inspect.js';
 import './commands/logging.js';
