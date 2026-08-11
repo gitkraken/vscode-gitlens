@@ -4,7 +4,6 @@ import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { isUri } from '@gitlens/utils/uri.js';
 import type { Source } from '../../../constants.telemetry.js';
-import { viewIdsByDefaultContainerId } from '../../../constants.views.js';
 import type { Container } from '../../../container.js';
 import { GitUri } from '../../../git/gitUri.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -286,40 +285,6 @@ export function registerGraphWebviewCommands<T>(
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
 			queueMicrotask(() => void executeCommand('gitlens.showGraphView'));
-		}),
-		registerCommand('gitlens.graph.simulate.mainView', () => {
-			// Dev/pre-release only (see contributions gating): flips the Graph between the two
-			// default-container mappings, by mutating the same map the real defaults come from. Now
-			// that the Graph really is the side bar's main view (#5545) this simulates the *old*
-			// world — useful for exercising the pre-move state (upgrade path, the "Graph has moved"
-			// follow-up). Flipping also disarms/arms the one-time layout prompt
-			// (graphWebview.getLayoutPromptNeeded reads this mapping) and — coherently — changes
-			// where "Reset Views Layout" sends the Graph. In-memory only; a window reload restores
-			// the real defaults.
-			const sidebar = viewIdsByDefaultContainerId.get('workbench.view.extension.gitlens');
-			const panel = viewIdsByDefaultContainerId.get('workbench.view.extension.gitlensPanel');
-			if (sidebar == null || panel == null) return;
-
-			const simulated = sidebar.includes('graph');
-			const [from, to] = simulated ? [sidebar, panel] : [panel, sidebar];
-			// Guard the index — splice(-1, 1) would silently remove the LAST entry and corrupt the
-			// mapping (which Reset Views Layout also depends on) if 'graph' ever isn't where this
-			// toggle expects it (e.g. after the #5391 consolidation changes the defaults)
-			const index = from.indexOf('graph');
-			if (index !== -1) {
-				from.splice(index, 1);
-			}
-			if (!to.includes('graph')) {
-				to.push('graph');
-			}
-
-			void window.showInformationMessage(
-				`Graph default place: ${simulated ? 'bottom panel (pre-#5545 world)' : 'side bar (layout prompt armed)'}`,
-			);
-			// Rebuild the view's bootstrap so the prompt gate re-evaluates. Through the proxy, not
-			// `gitlens.views.graph.refresh` — that command only exists while the view is resolved, so
-			// executing it rejects with "command not found" whenever the graph is only open in an editor tab
-			void container.views.graph.refresh(true);
 		}),
 		registerCommand('gitlens.toggleGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
