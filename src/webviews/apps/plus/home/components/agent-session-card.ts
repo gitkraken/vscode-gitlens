@@ -2,6 +2,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
+import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory } from '../../../shared/agentUtils.js';
 import '../../../shared/components/card/card.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/pills/agent-status-pill.js';
@@ -106,6 +108,19 @@ export class GlAgentSessionCard extends LitElement {
 	override render(): unknown {
 		if (this.sessions.length === 0) return nothing;
 
+		// Completed sessions accumulate (retained ~30 days), so they collapse into one summary pill
+		// instead of one row each — the popover carries the per-session detail.
+		const rest: AgentSessionState[] = [];
+		const completed: AgentSessionState[] = [];
+		for (const s of this.sessions) {
+			const cat: AgentSessionCategory = agentPhaseToCategory[s.phase];
+			if (cat === 'completed') {
+				completed.push(s);
+			} else {
+				rest.push(s);
+			}
+		}
+
 		return html`
 			<gl-card>
 				<div class="content">
@@ -119,7 +134,19 @@ export class GlAgentSessionCard extends LitElement {
 						<span class="header__name" title=${this.labelTitle}>${this.label}</span>
 					</p>
 					${this.renderDetails()}
-					<div class="sessions">${this.sessions.map(s => this.renderSession(s))}</div>
+					<div class="sessions">
+						${rest.map(s => this.renderSession(s))}
+						${
+							completed.length > 0
+								? html`<div class="session">
+										<code-icon icon="robot" title="Agent"></code-icon>
+										<gl-agent-status-pill
+											.summary=${{ category: 'completed', sessions: completed }}
+										></gl-agent-status-pill>
+									</div>`
+								: nothing
+						}
+					</div>
 				</div>
 			</gl-card>
 		`;

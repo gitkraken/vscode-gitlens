@@ -824,15 +824,6 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		});
 		if (sessions == null || sessions.length === 0) return nothing;
 
-		if (this.expanded) {
-			return html`
-				<div class="branch-item__agents">
-					<code-icon icon="robot"></code-icon>
-					${sessions.map(s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`)}
-				</div>
-			`;
-		}
-
 		// Actionable (`needs-input`) sessions never aggregate — each one needs its own Allow/Deny
 		// popover. Working, idle, and completed sessions collapse into one summary pill per category.
 		const needsInput: AgentSessionState[] = [];
@@ -850,6 +841,30 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 			} else {
 				idle.push(s);
 			}
+		}
+
+		const completedPill =
+			completed.length > 0
+				? // Completed sessions attach here at any age: worktreePath comes straight from the CLI's
+					// durable record, no git probe needed. The 24h cutoff is specific to the graph WIP-row
+					// indicator, which limits itself to recent activity.
+					html`<gl-agent-status-pill
+						.summary=${{ category: 'completed', sessions: completed }}
+					></gl-agent-status-pill>`
+				: nothing;
+
+		if (this.expanded) {
+			// Completed sessions always roll up regardless of expansion — only actionable/active
+			// sessions warrant individual pills when expanded.
+			return html`
+				<div class="branch-item__agents">
+					<code-icon icon="robot"></code-icon>
+					${[...needsInput, ...working, ...idle].map(
+						s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`,
+					)}
+					${completedPill}
+				</div>
+			`;
 		}
 
 		return html`
@@ -870,16 +885,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 							></gl-agent-status-pill>`
 						: nothing
 				}
-				${
-					completed.length > 0
-						? // Completed sessions attach here at any age: worktreePath comes straight from the CLI's
-							// durable record, no git probe needed. The 24h cutoff is specific to the graph WIP-row
-							// indicator, which limits itself to recent activity.
-							html`<gl-agent-status-pill
-								.summary=${{ category: 'completed', sessions: completed }}
-							></gl-agent-status-pill>`
-						: nothing
-				}
+				${completedPill}
 			</div>
 		`;
 	}
