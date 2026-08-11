@@ -676,6 +676,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState<AppState['agentSessions']>([])
 	accessor agentSessions: AppState['agentSessions'] = [];
 
+	/** Set once a host push has written `agentSessions` — the seed request must never overwrite a push. */
+	private _agentSessionsPushed = false;
+
 	@signalState()
 	accessor overviewWip: AppState['overviewWip'];
 
@@ -773,9 +776,18 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
 		// graph render itself.
 
-		void this.ipc.sendRequest(GetAgentSessionsRequest, undefined).then(sessions => {
-			this.agentSessions = sortAgentSessions(sessions);
-		});
+		// Fallback seed only — the host pushes a snapshot on ready (see `GraphWebviewProvider.onReady`),
+		// and a push always wins: this response can race the host's cold-start session import, and a
+		// stale (possibly empty) response landing after a push must not clobber it. Best-effort — on
+		// failure the ready push (and every subsequent change push) still populates the state.
+		void this.ipc.sendRequest(GetAgentSessionsRequest, undefined).then(
+			sessions => {
+				if (this._agentSessionsPushed) return;
+
+				this.agentSessions = sortAgentSessions(sessions);
+			},
+			() => {},
+		);
 	}
 
 	/** Announce the held rows-plane baseline to the host on (re)connect. Best-effort — deliberately
@@ -1915,6 +1927,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidChangeAgentSessionsNotification.is(msg):
+				this._agentSessionsPushed = true;
 				this.agentSessions = sortAgentSessions(msg.params.sessions);
 				break;
 

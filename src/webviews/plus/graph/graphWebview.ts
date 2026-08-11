@@ -947,6 +947,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Ready is the other edge a secondary-WIP tick can defer on (`runWipRefetch`), and unlike hidden
 		// it resolves without any visibility or focus transition — so nothing else would ever flush it.
 		this._wip.recoverDeferredSecondaryWip();
+		// Bootstrap State doesn't carry agent sessions — the app seeds them with a request that can
+		// race the provider's cold-start import, and a pre-ready change sits in the pending map,
+		// which a reconnect clears. Push the current snapshot on every (re)connect so a booted
+		// iframe can never wedge empty.
+		void this.notifyDidChangeAgentSessions();
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap plus the replay buffer — anything
@@ -970,6 +975,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this._graphSync.flush();
 		// See onReady — a reconnect crosses the same not-ready window.
 		this._wip.recoverDeferredSecondaryWip();
+		// See onReady — the reconnect also cleared any pending agent-sessions notification.
+		void this.notifyDidChangeAgentSessions();
 	}
 
 	private _disposed = false;
