@@ -34,7 +34,6 @@ import { flatten } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { satisfies } from '@gitlens/utils/version.js';
-import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { CoreColors } from '../../constants.colors.js';
 import type { GlCommands } from '../../constants.commands.js';
 import { urls } from '../../constants.js';
@@ -454,46 +453,6 @@ export class SubscriptionService implements Disposable {
 		return featurePreviews.map(f => this.getStoredFeaturePreview(f));
 	}
 
-	@trace()
-	async learnAboutPro(source: Source, originalSource: Source | undefined): Promise<void> {
-		if (originalSource != null) {
-			source.detail = {
-				...(typeof source.detail === 'string' ? { action: source.detail } : source.detail),
-				...flatten(originalSource, 'original'),
-			};
-		}
-
-		const subscription = await this.getSubscription();
-		switch (subscription.state) {
-			case SubscriptionState.VerificationRequired:
-			case SubscriptionState.Community:
-				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-					step: 'get-started-community',
-					source: source,
-				});
-				break;
-			case SubscriptionState.Trial:
-				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-					step: 'welcome-in-trial',
-					source: source,
-				});
-				break;
-			case SubscriptionState.TrialReactivationEligible:
-			case SubscriptionState.TrialExpired:
-				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-					step: 'welcome-in-trial-expired',
-					source: source,
-				});
-				break;
-			case SubscriptionState.Paid:
-				void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-					step: 'welcome-paid',
-					source: source,
-				});
-				break;
-		}
-	}
-
 	private async showPlanMessage(source: Source | undefined) {
 		if (!(await this.ensureSession(false, source))) return;
 
@@ -527,7 +486,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === learn) {
-				void this.learnAboutPro({ source: 'prompt', detail: { action: 'upgraded' } }, source);
+				void executeCommand('gitlens.showWelcomeView');
 			}
 		} else if (isSubscriptionTrial(this._subscription)) {
 			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
@@ -547,7 +506,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === learn) {
-				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-started' } }, source);
+				void executeCommand('gitlens.showWelcomeView');
 			}
 		} else {
 			const upgrade: MessageItem = { title: 'Upgrade to Pro' };
@@ -567,7 +526,7 @@ export class SubscriptionService implements Disposable {
 			if (result === upgrade) {
 				void this.upgrade('pro', source);
 			} else if (result === learn) {
-				void this.learnAboutPro({ source: 'prompt', detail: { action: 'trial-ended' } }, source);
+				void executeCommand('gitlens.showWelcomeView');
 			}
 		}
 	}
