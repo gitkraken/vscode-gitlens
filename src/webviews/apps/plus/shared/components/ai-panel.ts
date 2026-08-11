@@ -158,7 +158,7 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 								<span class="integration__actions">
 									<gl-button
 										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
+										href="${createCommandLink<Source>('gitlens.ai.mcp.installForAllAgents', {
 											source: 'home',
 											detail: 'integrations',
 										})}"
@@ -289,7 +289,7 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 				<span class="integration__actions">
 					<gl-button
 						appearance="toolbar"
-						href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
+						href="${createCommandLink('gitlens.agents.uninstallHooks')}"
 						tooltip="Uninstall Claude Hooks"
 						aria-label="Uninstall Claude Hooks"
 						><code-icon icon="debug-disconnect"></code-icon
@@ -307,7 +307,7 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 			<span class="integration__actions">
 				<gl-button
 					appearance="toolbar"
-					href="${createCommandLink('gitlens.agents.installClaudeHook')}"
+					href="${createCommandLink('gitlens.agents.installHooks')}"
 					tooltip="Install Claude Hooks"
 					aria-label="Install Claude Hooks"
 					><code-icon icon="plug"></code-icon
