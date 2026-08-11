@@ -2,6 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -14,12 +15,287 @@ import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
 import '../../shared/components/card/card.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/feature-badge.js';
 import '../../shared/components/gitlens-logo-circle.js';
 
 const src = { source: 'graph', detail: 'signin' } as const satisfies Source;
 
 const resendVerificationCooldownSeconds = 30;
 const syncStatusDelayMs = 1500;
+const proStripRotationMs = 5000;
+
+/** One slide of the sign-in screen's Pro feature spotlight strip. */
+type ProStripSlide = { name: string; description: string; vignette: () => unknown };
+
+const proStripSlides: ProStripSlide[] = [
+	{
+		name: 'Commit Graph',
+		description:
+			'Where your development and agentic workflows come together — run your entire Git lifecycle from one view.',
+		vignette: renderGraphVignette,
+	},
+	{
+		name: 'Agents & Worktrees',
+		description:
+			'Launch, monitor, and interact with coding agents — parallelized across worktrees, without the chaos.',
+		vignette: renderWorktreesVignette,
+	},
+	{
+		name: 'AI Compose & Review',
+		description: 'Bring order from chaos — clean, review-ready commits and severity-tagged reviews.',
+		vignette: renderAiVignette,
+	},
+	{
+		name: 'AI Rebase & Resolve',
+		description:
+			'Guided, AI-assisted rebase and conflict resolution — see both sides, take the right changes, and finish the merge faster.',
+		vignette: renderResolveVignette,
+	},
+	{
+		name: 'Launchpad',
+		description: 'Know what needs your attention — PRs, issues, and blockers, prioritized in one view.',
+		vignette: renderLaunchpadVignette,
+	},
+	{
+		name: 'Visualizations',
+		description:
+			'Analyze how your code evolves — Visual History, hotspots, and Files, Commits, and Agent Activity treemaps.',
+		vignette: renderVizVignette,
+	},
+];
+
+/** Commit Graph vignette: a main trunk with a merged and an active feature branch. */
+function renderGraphVignette(): unknown {
+	return svg`<svg viewBox="0 0 200 88" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+		<defs>
+			<linearGradient id="graph-bg" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="var(--strip-panel-1)"/><stop offset="1" stop-color="var(--strip-panel-2)"/>
+			</linearGradient>
+			<filter id="graph-glow-b" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#3687FF" flood-opacity="0.85"/></filter>
+		</defs>
+		<rect width="200" height="88" fill="url(#graph-bg)"/>
+		<rect width="200" height="1" fill="var(--strip-edge-light)"/>
+		<circle cx="172" cy="6" r="58" fill="#3C17A7" opacity="0.22"/>
+		<circle cx="8" cy="90" r="42" fill="#00A3FF" opacity="0.1"/>
+		<path d="M74 92 V28 C74 18 36 24 36 14" stroke="#DD74FF" stroke-width="2" fill="none"/>
+		<path d="M36 78 H102 C109 78 114 73 114 66 V54" stroke="#00A3FF" stroke-width="2" fill="none"/>
+		<path d="M36 -4 V92" stroke="#3687FF" stroke-width="3.5"/>
+		<circle cx="74" cy="30" r="3.5" fill="var(--strip-node-fill)" stroke="#DD74FF" stroke-width="2"/>
+		<circle cx="74" cy="66" r="3.5" fill="var(--strip-node-fill)" stroke="#DD74FF" stroke-width="2"/>
+		<circle cx="114" cy="54" r="3.5" fill="var(--strip-node-fill)" stroke="#00A3FF" stroke-width="2"/>
+		<g filter="url(#graph-glow-b)" class="pulse-soft">
+			<circle cx="36" cy="14" r="5.5" fill="var(--strip-node-fill)" stroke="#3687FF" stroke-width="3"/>
+			<circle cx="36" cy="14" r="2" fill="var(--strip-node-core)"/>
+		</g>
+		<circle cx="36" cy="42" r="4.5" fill="var(--strip-node-fill)" stroke="#3687FF" stroke-width="3"/>
+		<circle cx="36" cy="78" r="4.5" fill="var(--strip-node-fill)" stroke="#3687FF" stroke-width="3"/>
+		<rect x="48" y="7.5" width="32" height="13" rx="6.5" fill="var(--strip-node-fill)" opacity="0.8"/>
+		<rect x="48" y="7.5" width="32" height="13" rx="6.5" fill="#3687FF" opacity="0.2"/>
+		<rect x="48" y="7.5" width="32" height="13" rx="6.5" stroke="#3687FF" opacity="0.7" fill="none"/>
+		<text x="64" y="17" text-anchor="middle" font-family="var(--vscode-font-family)" font-size="8" font-weight="600" fill="var(--strip-text-blue)">main</text>
+		<rect x="126" y="47.5" width="44" height="13" rx="6.5" fill="var(--strip-node-fill)" opacity="0.75"/>
+		<rect x="126" y="47.5" width="44" height="13" rx="6.5" fill="#00A3FF" opacity="0.14"/>
+		<rect x="126" y="47.5" width="44" height="13" rx="6.5" stroke="#00A3FF" opacity="0.55" fill="none"/>
+		<text x="148" y="57" text-anchor="middle" font-family="var(--vscode-font-family)" font-size="8" font-weight="600" fill="var(--strip-text-cyan)">feature</text>
+		<rect x="126" y="27.5" width="48" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.08"/>
+		<rect x="126" y="39.5" width="60" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.07"/>
+		<rect x="126" y="63.5" width="42" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.06"/>
+		<rect x="126" y="75.5" width="54" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.05"/>
+	</svg>`;
+}
+
+/** Launchpad vignette: three prioritized rows — ready to merge, needs review, blocked. */
+function renderLaunchpadVignette(): unknown {
+	return svg`<svg viewBox="0 0 200 88" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+		<defs>
+			<linearGradient id="launchpad-bg" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="var(--strip-panel-1)"/><stop offset="1" stop-color="var(--strip-panel-2)"/>
+			</linearGradient>
+			<linearGradient id="launchpad-av1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f7a06c"/><stop offset="1" stop-color="#e05f8a"/></linearGradient>
+			<linearGradient id="launchpad-av2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5ad6c0"/><stop offset="1" stop-color="#2f7fe0"/></linearGradient>
+			<linearGradient id="launchpad-av3" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c78bff"/><stop offset="1" stop-color="#6d4de0"/></linearGradient>
+			<filter id="launchpad-glow-g" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#2ea043" flood-opacity="0.9"/></filter>
+		</defs>
+		<rect width="200" height="88" fill="url(#launchpad-bg)"/>
+		<rect width="200" height="1" fill="var(--strip-edge-light)"/>
+		<circle cx="176" cy="4" r="58" fill="#3C17A7" opacity="0.2"/>
+		<rect x="8" y="9" width="184" height="22" rx="7" fill="#2ea043" opacity="0.07"/>
+		<rect x="8" y="9" width="184" height="22" rx="7" stroke="#2ea043" opacity="0.22" fill="none"/>
+		<circle cx="22" cy="20" r="5.5" fill="url(#launchpad-av1)"/>
+		<rect x="34" y="16.5" width="72" height="7" rx="3.5" fill="var(--strip-skeleton)" opacity="0.14"/>
+		<rect x="134" y="13" width="52" height="14" rx="7" fill="#2ea043" opacity="0.18"/>
+		<rect x="134" y="13" width="52" height="14" rx="7" stroke="#2ea043" opacity="0.55" fill="none"/>
+		<circle cx="143" cy="20" r="2.2" fill="#57d364" filter="url(#launchpad-glow-g)" class="pulse"/>
+		<text x="163" y="23" text-anchor="middle" font-family="var(--vscode-font-family)" font-size="8" font-weight="600" fill="var(--strip-text-green)">ready</text>
+		<circle cx="22" cy="44" r="5.5" fill="url(#launchpad-av2)" opacity="0.85"/>
+		<rect x="34" y="40.5" width="90" height="7" rx="3.5" fill="var(--strip-skeleton)" opacity="0.09"/>
+		<rect x="134" y="37" width="52" height="14" rx="7" fill="#d29922" opacity="0.13"/>
+		<rect x="134" y="37" width="52" height="14" rx="7" stroke="#d29922" opacity="0.4" fill="none"/>
+		<circle cx="143" cy="44" r="2.2" fill="#e3b341"/>
+		<text x="163" y="47" text-anchor="middle" font-family="var(--vscode-font-family)" font-size="8" font-weight="600" fill="var(--strip-text-amber)">review</text>
+		<circle cx="22" cy="68" r="5.5" fill="url(#launchpad-av3)" opacity="0.7"/>
+		<rect x="34" y="64.5" width="58" height="7" rx="3.5" fill="var(--strip-skeleton)" opacity="0.06"/>
+		<rect x="134" y="61" width="52" height="14" rx="7" fill="#f85149" opacity="0.11"/>
+		<rect x="134" y="61" width="52" height="14" rx="7" stroke="#f85149" opacity="0.35" fill="none"/>
+		<circle cx="143" cy="68" r="2.2" fill="#ff7b72" opacity="0.85"/>
+		<text x="163" y="71" text-anchor="middle" font-family="var(--vscode-font-family)" font-size="8" font-weight="600" fill="var(--strip-text-red)">blocked</text>
+	</svg>`;
+}
+
+/** AI Compose & Review vignette: tangled working changes passed through AI into composed commits. */
+function renderAiVignette(): unknown {
+	return svg`<svg viewBox="0 0 200 88" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+		<defs>
+			<linearGradient id="ai-bg" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="var(--strip-panel-1)"/><stop offset="1" stop-color="var(--strip-panel-2)"/>
+			</linearGradient>
+			<linearGradient id="ai-brand-lg" x1="0" y1="0" x2="1" y2="1">
+				<stop stop-color="#7900c9"/><stop offset="1" stop-color="#196fff"/>
+			</linearGradient>
+			<filter id="ai-glow-p" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#DD74FF" flood-opacity="0.85"/></filter>
+		</defs>
+		<rect width="200" height="88" fill="url(#ai-bg)"/>
+		<rect width="200" height="1" fill="var(--strip-edge-light)"/>
+		<circle cx="24" cy="0" r="54" fill="#7900c9" opacity="0.14"/>
+		<circle cx="190" cy="90" r="54" fill="#196fff" opacity="0.16"/>
+		<g transform="rotate(-7 42 22)"><rect x="18" y="17" width="48" height="10" rx="3" fill="#f85149" opacity="0.2"/><rect x="18" y="17" width="48" height="10" rx="3" stroke="#f85149" opacity="0.4" fill="none"/><rect x="23" y="20.5" width="26" height="3" rx="1.5" fill="#ff8f87" opacity="0.55"/></g>
+		<g transform="rotate(5 40 44)"><rect x="14" y="39" width="52" height="10" rx="3" fill="#2ea043" opacity="0.2"/><rect x="14" y="39" width="52" height="10" rx="3" stroke="#2ea043" opacity="0.4" fill="none"/><rect x="19" y="42.5" width="32" height="3" rx="1.5" fill="#6fe07c" opacity="0.5"/></g>
+		<g transform="rotate(-3 44 66)"><rect x="22" y="61" width="44" height="10" rx="3" fill="#2ea043" opacity="0.14"/><rect x="22" y="61" width="44" height="10" rx="3" stroke="#2ea043" opacity="0.3" fill="none"/><rect x="27" y="64.5" width="22" height="3" rx="1.5" fill="#6fe07c" opacity="0.4"/></g>
+		<g filter="url(#ai-glow-p)" class="pulse-soft">
+			<path d="M98 32 L101 42 L111 45 L101 48 L98 58 L95 48 L85 45 L95 42 Z" fill="#c78bff"/>
+		</g>
+		<path d="M108 24 L109.4 28 L113.4 29.4 L109.4 30.8 L108 34.8 L106.6 30.8 L102.6 29.4 L106.6 28 Z" fill="#c78bff" opacity="0.6"/>
+		<rect x="124" y="10" width="66" height="68" rx="9" fill="var(--strip-inset)"/>
+		<rect x="124" y="10" width="66" height="68" rx="9" stroke="url(#ai-brand-lg)" stroke-opacity="0.45" fill="none"/>
+		<path d="M136 20 V68" stroke="#3687FF" stroke-width="2"/>
+		<circle cx="136" cy="24" r="3.5" fill="var(--strip-inset)" stroke="#3687FF" stroke-width="2"/>
+		<circle cx="136" cy="44" r="3.5" fill="var(--strip-inset)" stroke="#3687FF" stroke-width="2"/>
+		<circle cx="136" cy="64" r="3.5" fill="var(--strip-inset)" stroke="#3687FF" stroke-width="2"/>
+		<rect x="146" y="21" width="26" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.14"/>
+		<rect x="146" y="41" width="21" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.11"/>
+		<rect x="146" y="61" width="24" height="5" rx="2.5" fill="var(--strip-skeleton)" opacity="0.09"/>
+		<path d="M177 22 l2.4 2.6 L184 19.6" stroke="#57d364" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+		<path d="M177 42 l2.4 2.6 L184 39.6" stroke="#57d364" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+		<path d="M177 62 l2.4 2.6 L184 59.6" stroke="#57d364" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+	</svg>`;
+}
+
+/** AI Rebase & Resolve vignette: conflicting "ours"/"theirs" sides converging into one merge commit. */
+function renderResolveVignette(): unknown {
+	return svg`<svg viewBox="0 0 200 88" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+		<defs>
+			<linearGradient id="resolve-bg" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="var(--strip-panel-1)"/><stop offset="1" stop-color="var(--strip-panel-2)"/>
+			</linearGradient>
+			<filter id="resolve-glow-p" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#DD74FF" flood-opacity="0.85"/></filter>
+			<filter id="resolve-glow-b" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#3687FF" flood-opacity="0.85"/></filter>
+		</defs>
+		<rect width="200" height="88" fill="url(#resolve-bg)"/>
+		<rect width="200" height="1" fill="var(--strip-edge-light)"/>
+		<circle cx="20" cy="0" r="52" fill="#196fff" opacity="0.14"/>
+		<circle cx="190" cy="88" r="50" fill="#7900c9" opacity="0.14"/>
+		<g transform="rotate(-5 44 30)"><rect x="16" y="24" width="54" height="12" rx="3.5" fill="#3687FF" opacity="0.2"/><rect x="16" y="24" width="54" height="12" rx="3.5" stroke="#3687FF" opacity="0.45" fill="none"/><rect x="22" y="28.5" width="30" height="3" rx="1.5" fill="#9ec1ff" opacity="0.55"/></g>
+		<g transform="rotate(4 46 56)"><rect x="18" y="50" width="54" height="12" rx="3.5" fill="#DD74FF" opacity="0.2"/><rect x="18" y="50" width="54" height="12" rx="3.5" stroke="#DD74FF" opacity="0.45" fill="none"/><rect x="24" y="54.5" width="26" height="3" rx="1.5" fill="#eebcff" opacity="0.5"/></g>
+		<path d="M60 40 L54 47 L58 47 L52 55" stroke="#f85149" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+		<g filter="url(#resolve-glow-p)" class="pulse-soft">
+			<path d="M97 34 L100 44 L110 47 L100 50 L97 60 L94 50 L84 47 L94 44 Z" fill="#c78bff"/>
+		</g>
+		<path d="M142 10 C142 32 162 30 162 46" stroke="#3687FF" stroke-width="2.5" fill="none"/>
+		<path d="M182 10 C182 32 162 30 162 46" stroke="#DD74FF" stroke-width="2.5" fill="none"/>
+		<path d="M162 46 V82" stroke="#3687FF" stroke-width="2.5"/>
+		<circle cx="142" cy="16" r="3.5" fill="var(--strip-node-fill)" stroke="#3687FF" stroke-width="2"/>
+		<circle cx="182" cy="16" r="3.5" fill="var(--strip-node-fill)" stroke="#DD74FF" stroke-width="2"/>
+		<g filter="url(#resolve-glow-b)" class="pulse-soft">
+			<circle cx="162" cy="50" r="5" fill="var(--strip-node-fill)" stroke="#3687FF" stroke-width="2.5"/>
+			<circle cx="162" cy="50" r="1.8" fill="var(--strip-node-core)"/>
+		</g>
+		<path d="M172 64 l4 4.4 L184 60" stroke="#57d364" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+	</svg>`;
+}
+
+/** Visualizations vignette: a history timeline beside an activity treemap with a glowing hotspot. */
+function renderVizVignette(): unknown {
+	return svg`<svg viewBox="0 0 200 88" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+		<defs>
+			<linearGradient id="viz-bg" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="var(--strip-panel-1)"/><stop offset="1" stop-color="var(--strip-panel-2)"/>
+			</linearGradient>
+			<linearGradient id="viz-area-c" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="#00A3FF" stop-opacity="0.28"/><stop offset="1" stop-color="#00A3FF" stop-opacity="0"/>
+			</linearGradient>
+			<filter id="viz-glow-c" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#00A3FF" flood-opacity="0.85"/></filter>
+			<filter id="viz-glow-p" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#DD74FF" flood-opacity="0.85"/></filter>
+		</defs>
+		<rect width="200" height="88" fill="url(#viz-bg)"/>
+		<rect width="200" height="1" fill="var(--strip-edge-light)"/>
+		<circle cx="188" cy="10" r="52" fill="#3C17A7" opacity="0.18"/>
+		<path d="M10 60 C26 56 32 36 50 38 C68 40 74 54 90 48 L90 76 L10 76 Z" fill="url(#viz-area-c)"/>
+		<path d="M10 60 C26 56 32 36 50 38 C68 40 74 54 90 48" stroke="#00A3FF" stroke-width="2" fill="none"/>
+		<circle cx="30" cy="52" r="3.5" fill="#3687FF" opacity="0.75"/>
+		<circle cx="50" cy="38" r="7" fill="#DD74FF" opacity="0.45"/>
+		<circle cx="50" cy="38" r="7" stroke="#DD74FF" opacity="0.75" fill="none" stroke-width="1.5"/>
+		<circle cx="72" cy="48" r="4" fill="#00A3FF" opacity="0.6"/>
+		<g filter="url(#viz-glow-c)" class="pulse-soft">
+			<circle cx="90" cy="48" r="4" fill="var(--strip-node-fill)" stroke="#00A3FF" stroke-width="2.5"/>
+			<circle cx="90" cy="48" r="1.6" fill="var(--strip-node-core)"/>
+		</g>
+		<rect x="12" y="70" width="18" height="4" rx="2" fill="var(--strip-skeleton)" opacity="0.06"/>
+		<rect x="44" y="70" width="18" height="4" rx="2" fill="var(--strip-skeleton)" opacity="0.06"/>
+		<rect x="76" y="70" width="14" height="4" rx="2" fill="var(--strip-skeleton)" opacity="0.08"/>
+		<rect x="100" y="10" width="1" height="68" fill="var(--strip-skeleton)" opacity="0.08"/>
+		<g filter="url(#viz-glow-p)" class="pulse-soft">
+			<rect x="110" y="10" width="46" height="36" rx="3.5" fill="#DD74FF" opacity="0.34"/>
+			<rect x="110" y="10" width="46" height="36" rx="3.5" stroke="#DD74FF" opacity="0.7" fill="none"/>
+		</g>
+		<rect x="160" y="10" width="30" height="20" rx="3.5" fill="#3687FF" opacity="0.28"/>
+		<rect x="160" y="34" width="30" height="12" rx="3.5" fill="#00A3FF" opacity="0.2"/>
+		<rect x="110" y="50" width="24" height="28" rx="3.5" fill="#3687FF" opacity="0.18"/>
+		<rect x="138" y="50" width="26" height="28" rx="3.5" fill="#00A3FF" opacity="0.13"/>
+		<rect x="168" y="50" width="22" height="28" rx="3.5" fill="var(--strip-skeleton)" opacity="0.05"/>
+	</svg>`;
+}
+
+/** Agents & Worktrees vignette: one repo, three worktrees sharing a common root. */
+function renderWorktreesVignette(): unknown {
+	return svg`<svg viewBox="0 0 200 88" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+		<defs>
+			<linearGradient id="worktrees-bg" x1="0" y1="0" x2="0" y2="1">
+				<stop stop-color="var(--strip-panel-1)"/><stop offset="1" stop-color="var(--strip-panel-2)"/>
+			</linearGradient>
+			<linearGradient id="worktrees-brand-lg" x1="0" y1="0" x2="1" y2="1">
+				<stop stop-color="#7900c9"/><stop offset="1" stop-color="#196fff"/>
+			</linearGradient>
+			<filter id="worktrees-glow-b" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#3687FF" flood-opacity="0.85"/></filter>
+			<filter id="worktrees-glow-g" x="-80%" y="-80%" width="260%" height="260%"><feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#2ea043" flood-opacity="0.9"/></filter>
+		</defs>
+		<rect width="200" height="88" fill="url(#worktrees-bg)"/>
+		<rect width="200" height="1" fill="var(--strip-edge-light)"/>
+		<circle cx="100" cy="-6" r="58" fill="#3C17A7" opacity="0.16"/>
+		<path d="M100 82 C100 74 40 76 40 62" stroke="#DD74FF" stroke-width="1.8" fill="none" opacity="0.5"/>
+		<path d="M100 82 V62" stroke="#3687FF" stroke-width="1.8" opacity="0.7"/>
+		<path d="M100 82 C100 74 160 76 160 62" stroke="#00A3FF" stroke-width="1.8" fill="none" opacity="0.5"/>
+		<g filter="url(#worktrees-glow-b)"><circle cx="100" cy="82" r="3.5" fill="var(--strip-node-fill)" stroke="#3687FF" stroke-width="2.2"/></g>
+		<g opacity="0.7">
+			<rect x="14" y="8" width="52" height="54" rx="7" fill="var(--strip-inset)" stroke="var(--strip-inset-border)"/>
+			<rect x="22" y="15" width="30" height="9" rx="4.5" fill="#DD74FF" opacity="0.2"/>
+			<path d="M40 32 V54" stroke="#DD74FF" stroke-width="2" opacity="0.75"/>
+			<circle cx="40" cy="38" r="3" fill="var(--strip-inset)" stroke="#DD74FF" stroke-width="2"/>
+		</g>
+		<rect x="74" y="8" width="52" height="54" rx="7" fill="var(--strip-inset)"/>
+		<rect x="74" y="8" width="52" height="54" rx="7" stroke="url(#worktrees-brand-lg)" stroke-opacity="0.7" fill="none" stroke-width="1.5"/>
+		<rect x="82" y="15" width="30" height="9" rx="4.5" fill="#3687FF" opacity="0.28"/>
+		<path d="M100 32 V54" stroke="#3687FF" stroke-width="2"/>
+		<circle cx="100" cy="38" r="3" fill="var(--strip-inset)" stroke="#3687FF" stroke-width="2"/>
+		<circle cx="100" cy="50" r="3" fill="var(--strip-inset)" stroke="#3687FF" stroke-width="2"/>
+		<g filter="url(#worktrees-glow-g)" class="pulse"><circle cx="117" cy="54" r="3.2" fill="#2ea043"/></g>
+		<g opacity="0.7">
+			<rect x="134" y="8" width="52" height="54" rx="7" fill="var(--strip-inset)" stroke="var(--strip-inset-border)"/>
+			<rect x="142" y="15" width="30" height="9" rx="4.5" fill="#00A3FF" opacity="0.2"/>
+			<path d="M160 32 V54" stroke="#00A3FF" stroke-width="2" opacity="0.75"/>
+			<circle cx="160" cy="40" r="3" fill="var(--strip-inset)" stroke="#00A3FF" stroke-width="2"/>
+		</g>
+	</svg>`;
+}
 
 @customElement('gl-graph-access-account')
 export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
@@ -360,6 +636,22 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				--lp-row: #808080;
 				--lp-purple: #aa5bf5;
 				--lp-green: #00a02e;
+
+				/* Pro strip vignettes: dark/light exports differing only in these colors, same as the
+				   layout illustrations above. */
+				--strip-panel-1: #16181e;
+				--strip-panel-2: #0e1015;
+				--strip-inset: #171a21;
+				--strip-inset-border: #2c2d33;
+				--strip-node-fill: #0f1116;
+				--strip-node-core: #e3efff;
+				--strip-skeleton: #ffffff;
+				--strip-edge-light: rgba(255, 255, 255, 0.05);
+				--strip-text-blue: #b4d0ff;
+				--strip-text-cyan: #9fdcff;
+				--strip-text-green: #6fe07c;
+				--strip-text-amber: #e3b341;
+				--strip-text-red: #ff8f87;
 			}
 
 			:host-context(.vscode-light),
@@ -371,6 +663,215 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				--lp-row: #b4b4b4;
 				--lp-purple: #c180ff;
 				--lp-green: #37d865;
+
+				--strip-panel-1: #f7f7fa;
+				--strip-panel-2: #ececf1;
+				--strip-inset: #ffffff;
+				--strip-inset-border: #d9dade;
+				--strip-node-fill: #f2f2f6;
+				--strip-node-core: #1f4f9e;
+				--strip-skeleton: #000000;
+				--strip-edge-light: rgba(0, 0, 0, 0.05);
+				--strip-text-blue: #2b5cb8;
+				--strip-text-cyan: #0969a2;
+				--strip-text-green: #1a7f37;
+				--strip-text-amber: #9a6700;
+				--strip-text-red: #cf222e;
+			}
+
+			.pro-strip {
+				/* Scales continuously with viewport height (like the fluid width) — full size above
+				   ~670px, easing down to the floor before the compact tier hides the strip. */
+				--strip-vignette-size: clamp(12rem, 30vh, 20rem);
+
+				display: flex;
+				flex: none;
+				flex-direction: column;
+				align-items: center;
+				inline-size: 100%;
+				margin-block-start: clamp(var(--gl-space-8), 2.5vh, var(--gl-space-20));
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 360ms both;
+			}
+
+			.pro-strip__hairline {
+				inline-size: 100%;
+				block-size: 1px;
+				margin-block-end: clamp(var(--gl-space-8), 2vh, var(--gl-space-16));
+				background: linear-gradient(
+					to right,
+					transparent,
+					var(--vscode-widget-border) 18%,
+					var(--vscode-widget-border) 82%,
+					transparent
+				);
+			}
+
+			.pro-strip__spot {
+				display: flex;
+				gap: var(--gl-space-16);
+				align-items: center;
+				text-align: start;
+			}
+
+			.pro-strip__vignette {
+				flex: none;
+				inline-size: var(--strip-vignette-size);
+				aspect-ratio: 200 / 88;
+				overflow: hidden;
+				border: 1px solid var(--strip-inset-border);
+				border-radius: var(--gl-radius-md);
+			}
+
+			.pro-strip__vignette svg {
+				display: block;
+				inline-size: 100%;
+				block-size: 100%;
+			}
+
+			.pro-strip__copy {
+				inline-size: 34rem;
+			}
+
+			.pro-strip__title-row {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
+			}
+
+			.pro-strip__title {
+				font-size: var(--gl-font-lg);
+				font-weight: 600;
+				color: var(--vscode-foreground);
+			}
+
+			.pro-strip__desc {
+				min-height: 5.2rem;
+				margin-block-start: var(--gl-space-4);
+				font-size: var(--gl-font-md);
+				line-height: 1.45;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.pro-strip__slide-in {
+				animation: gl-fade-up var(--gl-duration-slow) var(--gl-ease-out) both;
+			}
+
+			.pro-strip__tabs {
+				display: flex;
+				gap: var(--gl-space-20);
+				margin-block-start: var(--gl-space-8);
+				font-size: var(--gl-font-sm);
+			}
+
+			.pro-strip__tab {
+				position: relative;
+				padding: 0 0 var(--gl-space-4);
+				font-family: inherit;
+				font-size: inherit;
+				color: var(--vscode-descriptionForeground);
+				appearance: none;
+				cursor: pointer;
+				background: none;
+				border: none;
+			}
+
+			.pro-strip__tab[aria-pressed='true'] {
+				color: var(--vscode-foreground);
+			}
+
+			.pro-strip__tab[aria-pressed='true']::before {
+				position: absolute;
+				inset: auto 0 0 0;
+				block-size: 0.2rem;
+				content: '';
+				background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 14%);
+				border-radius: var(--gl-radius-xs);
+			}
+
+			.pro-strip__tab[aria-pressed='true']::after {
+				position: absolute;
+				inset-block-end: 0;
+				inset-inline-start: 0;
+				block-size: 0.2rem;
+				inline-size: 100%;
+				content: '';
+				background: var(--gl-gradient-brand);
+				border-radius: var(--gl-radius-xs);
+				transform-origin: left;
+				animation: pro-strip-tab-fill 5s linear forwards;
+			}
+
+			.pro-strip__tab:focus-visible {
+				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline-offset: 2px;
+				border-radius: var(--gl-radius-xs);
+			}
+
+			.pro-strip__dots {
+				display: none;
+			}
+
+			.pro-strip__dot {
+				inline-size: 0.5rem;
+				block-size: 0.5rem;
+				padding: 0;
+				appearance: none;
+				cursor: pointer;
+				background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 24%);
+				border: none;
+				border-radius: var(--gl-radius-circle);
+				transition: inline-size var(--gl-duration-medium) var(--gl-ease-out);
+			}
+
+			.pro-strip__dot[aria-pressed='true'] {
+				inline-size: 1.4rem;
+				background: var(--gl-gradient-brand);
+				border-radius: var(--gl-radius-xs);
+			}
+
+			.pro-strip__dot:focus-visible {
+				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline-offset: 2px;
+			}
+
+			@keyframes pro-strip-tab-fill {
+				from {
+					transform: scaleX(0);
+				}
+
+				to {
+					transform: scaleX(1);
+				}
+			}
+
+			@keyframes pro-strip-pulse {
+				0%,
+				100% {
+					opacity: 1;
+				}
+
+				50% {
+					opacity: 0.35;
+				}
+			}
+
+			@keyframes pro-strip-pulse-soft {
+				0%,
+				100% {
+					opacity: 1;
+				}
+
+				50% {
+					opacity: 0.7;
+				}
+			}
+
+			.pulse {
+				animation: pro-strip-pulse 2.4s ease-in-out infinite;
+			}
+
+			.pulse-soft {
+				animation: pro-strip-pulse-soft 3.2s ease-in-out infinite;
 			}
 
 			@keyframes gl-fade-up {
@@ -434,6 +935,52 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				.layout {
 					margin-block-start: var(--gl-space-10);
 				}
+
+				/* No room for a marketing strip at this tier — the sign-in actions themselves are
+				   already tight against the fold. */
+				.pro-strip {
+					display: none;
+				}
+			}
+
+			@media (width <= 559px) {
+				.pro-strip__spot {
+					flex-direction: column;
+					align-items: center;
+				}
+
+				.pro-strip {
+					--strip-vignette-size: clamp(12rem, 30vh, 26rem);
+				}
+
+				/* Fluid width with the artwork's own aspect ratio — a fixed height would make the
+				   'slice' fitting crop-zoom as the ratio drifts from the 200:88 viewBox. */
+				.pro-strip__vignette {
+					inline-size: 100%;
+					max-width: var(--strip-vignette-size);
+				}
+
+				.pro-strip__copy {
+					inline-size: 100%;
+					max-width: 26rem;
+					text-align: center;
+				}
+
+				.pro-strip__desc {
+					min-height: 4.8rem;
+					font-size: var(--gl-font-sm);
+				}
+
+				.pro-strip__tabs {
+					display: none;
+				}
+
+				.pro-strip__dots {
+					display: flex;
+					gap: var(--gl-space-6);
+					justify-content: center;
+					margin-block-start: var(--gl-space-6);
+				}
 			}
 
 			@media (width <= 419px) or (height <= 419px) {
@@ -470,7 +1017,18 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				.walkthrough,
 				.setup,
 				.layout,
-				.upgrade-banner {
+				.upgrade-banner,
+				.pro-strip,
+				.pro-strip__slide-in,
+				.pulse,
+				.pulse-soft {
+					animation: none;
+				}
+
+				/* Static full-width fill — the animated progress read is motion, but the active
+				   indicator itself must survive. */
+				.pro-strip__tab[aria-pressed='true']::after {
+					transform: none;
 					animation: none;
 				}
 			}
@@ -524,8 +1082,15 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	@state()
 	private syncChecked = false;
 
+	@state()
+	private _slideIndex = 0;
+
 	private _cooldownInterval: ReturnType<typeof setInterval> | undefined;
 	private _syncTimer: ReturnType<typeof setTimeout> | undefined;
+	private _stripInterval: ReturnType<typeof setInterval> | undefined;
+	// Hover/focus pause flag for the Pro strip's rotation — doesn't affect markup, only interval
+	// behavior, so a plain field avoids an unnecessary re-render on every hover.
+	private _stripPaused = false;
 	private _lastScreen: 'signin' | 'verify' | 'welcome' | undefined;
 	private _lastFocusKey: string | undefined;
 
@@ -557,8 +1122,16 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			this.syncChecked = false;
 			this.cooldown = 0;
 			this._selectedLayout = undefined;
+
+			if (this._lastScreen === 'signin') {
+				this._slideIndex = 0;
+			}
 		}
 		this._lastScreen = screen;
+
+		if (screen === 'signin' && this._stripInterval == null) {
+			this.startStripTimer();
+		}
 	}
 
 	protected override updated(changedProperties: Map<PropertyKey, unknown>): void {
@@ -639,6 +1212,72 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						<code-icon slot="prefix" icon="book"></code-icon>
 						Learn More
 					</gl-button>
+				</div>
+				${this.renderProStrip()}
+			</div>
+		`;
+	}
+
+	/** Rotating spotlight of GitLens Pro features, pinned to the bottom of the sign-in screen. */
+	private renderProStrip(): unknown {
+		const slide = proStripSlides[this._slideIndex];
+		return html`
+			<div
+				class="pro-strip"
+				role="region"
+				aria-label="GitLens Pro features"
+				@mouseenter=${this.onStripPauseOn}
+				@mouseleave=${this.onStripPauseOff}
+				@focusin=${this.onStripPauseOn}
+				@focusout=${this.onStripPauseOff}
+			>
+				<div class="pro-strip__hairline"></div>
+				<div class="pro-strip__spot">
+					<div class="pro-strip__vignette">
+						${keyed(this._slideIndex, html`<div class="pro-strip__slide-in">${slide.vignette()}</div>`)}
+					</div>
+					${keyed(
+						this._slideIndex,
+						html`
+							<div class="pro-strip__copy pro-strip__slide-in">
+								<div class="pro-strip__title-row">
+									<span class="pro-strip__title">${slide.name}</span>
+									<gl-feature-badge
+										.source=${{ source: 'graph', detail: 'signin-strip' } as const}
+										.subscription=${this.graphState.subscription}
+									></gl-feature-badge>
+								</div>
+								<div class="pro-strip__desc">${slide.description}</div>
+							</div>
+						`,
+					)}
+				</div>
+				<div class="pro-strip__tabs">
+					${proStripSlides.map(
+						(s, i) => html`
+							<button
+								type="button"
+								class="pro-strip__tab"
+								aria-pressed=${i === this._slideIndex}
+								@click=${() => this.goToSlide(i)}
+							>
+								${s.name}
+							</button>
+						`,
+					)}
+				</div>
+				<div class="pro-strip__dots">
+					${proStripSlides.map(
+						(s, i) => html`
+							<button
+								type="button"
+								class="pro-strip__dot"
+								aria-pressed=${i === this._slideIndex}
+								aria-label=${`Show ${s.name}`}
+								@click=${() => this.goToSlide(i)}
+							></button>
+						`,
+					)}
 				</div>
 			</div>
 		`;
@@ -944,6 +1583,35 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		this._selectedLayout = choice;
 	};
 
+	private readonly onStripPauseOn = (): void => {
+		this._stripPaused = true;
+	};
+
+	private readonly onStripPauseOff = (): void => {
+		this._stripPaused = false;
+	};
+
+	private readonly goToSlide = (index: number): void => {
+		this.advanceSlide(index);
+		this.clearStripTimer();
+		this.startStripTimer();
+	};
+
+	private advanceSlide(next?: number): void {
+		this._slideIndex = next ?? (this._slideIndex + 1) % proStripSlides.length;
+	}
+
+	private startStripTimer(): void {
+		// Read once when the interval starts, not per-tick — the mode doesn't change mid-session.
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+		this._stripInterval = setInterval(() => {
+			if (this._stripPaused) return;
+
+			this.advanceSlide();
+		}, proStripRotationMs);
+	}
+
 	private clearCooldownTimer(): void {
 		if (this._cooldownInterval == null) return;
 
@@ -958,9 +1626,17 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		this._syncTimer = undefined;
 	}
 
+	private clearStripTimer(): void {
+		if (this._stripInterval == null) return;
+
+		clearInterval(this._stripInterval);
+		this._stripInterval = undefined;
+	}
+
 	private clearTimers(): void {
 		this.clearCooldownTimer();
 		this.clearSyncTimer();
+		this.clearStripTimer();
 	}
 }
 
