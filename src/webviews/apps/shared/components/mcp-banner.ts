@@ -50,8 +50,8 @@ export class GlMcpBanner extends LitElement {
 	@property({ type: Boolean })
 	private canAutoRegister: boolean = false;
 
-	@property({ type: Boolean, attribute: 'can-install-claude-hook' })
-	canInstallClaudeHook: boolean = false;
+	@property({ type: Boolean, attribute: 'can-install-hooks' })
+	canInstallHooks: boolean = false;
 
 	@property({ type: Boolean, attribute: 'show-cleanup-notice' })
 	showCleanupNotice: boolean = false;
@@ -61,7 +61,7 @@ export class GlMcpBanner extends LitElement {
 			return nothing;
 		}
 
-		const installClaudeHookHref = this.canInstallClaudeHook
+		const installClaudeHookHref = this.canInstallHooks
 			? createCommandLink('gitlens.agents.installHooks')
 			: undefined;
 

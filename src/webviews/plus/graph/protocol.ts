@@ -575,7 +575,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	mcpBannerCollapsed?: boolean;
 	mcpCanAutoRegister?: boolean;
 	hooksBannerCollapsed?: boolean;
-	canInstallClaudeHook?: boolean;
+	canInstallHooks?: boolean;
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
 	graphWalkthroughStarted?: boolean;
@@ -1683,10 +1683,7 @@ export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didCh
 
 export const DidChangeHooksBanner = new IpcNotification<boolean>(scope, 'hooks/didChange');
 
-export const DidChangeCanInstallClaudeHook = new IpcNotification<boolean>(
-	scope,
-	'agents/canInstallClaudeHook/didChange',
-);
+export const DidChangeCanInstallHooks = new IpcNotification<boolean>(scope, 'agents/canInstallHooks/didChange');
 
 export interface CloseGraphWalkthroughBannerParams {
 	openWelcome?: boolean;

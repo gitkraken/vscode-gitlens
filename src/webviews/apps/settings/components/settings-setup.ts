@@ -557,15 +557,20 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 		const ai = this._state.aiState.get();
 		const mcp = ai?.mcp;
 		const mcpActive = mcp?.settingEnabled === true && mcp?.installed === true;
-		// Hooks only count when a hook-supporting agent is present; otherwise there's nothing to install
-		const claude = ai?.hooks.claude;
-		const hooksApplicable = claude?.supported === true && claude?.detected === true;
-		const hooksDone = !hooksApplicable || claude?.installed === true;
+		// Hooks only count when at least one hook-supporting agent is present; otherwise there's nothing to install
+		const hookAgents = ai?.hooks.agents ?? [];
+		const hooksApplicable = hookAgents.length > 0;
+		const hooksDone = !hooksApplicable || hookAgents.every(a => a.installed);
 		const done = mcpActive && hooksDone;
 
 		let status: string;
 		if (done) {
-			status = hooksApplicable ? 'MCP connected · Claude Code hooks installed' : 'MCP connected';
+			status = hooksApplicable
+				? `MCP connected · Hooks installed for ${hookAgents.length} of ${hookAgents.length} agents`
+				: 'MCP connected';
+		} else if (hooksApplicable) {
+			const installedCount = hookAgents.filter(a => a.installed).length;
+			status = `MCP ${mcpActive ? 'connected' : 'not connected'} · Hooks installed for ${installedCount} of ${hookAgents.length} agents`;
 		} else {
 			status = 'MCP and hooks not set up';
 		}

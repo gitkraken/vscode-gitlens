@@ -778,7 +778,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>
 				${
-					(this.graphState.canInstallClaudeHook ?? false) && !(this.graphState.hooksBannerCollapsed ?? true)
+					(this.graphState.canInstallHooks ?? false) && !(this.graphState.hooksBannerCollapsed ?? true)
 						? html`<gl-hooks-banner
 								class="hooks-banner"
 								source="graph-kanban"

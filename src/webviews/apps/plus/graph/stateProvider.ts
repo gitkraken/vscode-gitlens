@@ -30,7 +30,7 @@ import {
 	createWipRowId,
 	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
-	DidChangeCanInstallClaudeHook,
+	DidChangeCanInstallHooks,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
@@ -708,7 +708,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	mcpBannerCollapsed?: boolean | undefined;
 	mcpCanAutoRegister?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
-	canInstallClaudeHook?: boolean | undefined;
+	canInstallHooks?: boolean | undefined;
 	graphWalkthroughBannerCollapsed?: boolean | undefined;
 	graphWalkthroughComplete?: boolean | undefined;
 	graphWalkthroughStarted?: boolean | undefined;
@@ -1926,8 +1926,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ hooksBannerCollapsed: msg.params });
 				break;
 
-			case DidChangeCanInstallClaudeHook.is(msg):
-				this.updateState({ canInstallClaudeHook: msg.params });
+			case DidChangeCanInstallHooks.is(msg):
+				this.updateState({ canInstallHooks: msg.params });
 				break;
 
 			case DidChangeGraphWalkthroughBanner.is(msg):

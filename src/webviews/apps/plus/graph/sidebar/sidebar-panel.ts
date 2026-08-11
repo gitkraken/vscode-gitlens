@@ -1034,9 +1034,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Only pitch the install when there are no sessions to act on — once the list has agents,
 		// the banner becomes noise above their tree.
 		if (!listIsEmpty) return nothing;
-		// Only pitch the install when there's something to install — `canInstallClaudeHook` flips
-		// false the moment hooks are detected as installed (or claude isn't available).
-		if (!(this._state.canInstallClaudeHook ?? false)) return nothing;
+		// Only pitch the install when there's something to install — `canInstallHooks` flips
+		// false the moment every detected agent has hooks installed (or none support hooks).
+		if (!(this._state.canInstallHooks ?? false)) return nothing;
 		// Respect the same dismissal as the graph-overview banner — `hooksBannerCollapsed` is true
 		// when the user dismissed it via the onboarding service.
 		if (this._state.hooksBannerCollapsed ?? true) return nothing;

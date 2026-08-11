@@ -41,7 +41,7 @@ export interface AppState extends State {
 	mcpBannerCollapsed?: boolean | undefined;
 	mcpCanAutoRegister?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
-	canInstallClaudeHook?: boolean | undefined;
+	canInstallHooks?: boolean | undefined;
 	navigating: 'next' | 'previous' | false;
 	overviewWip?: { branchIds: string[]; wip: GetOverviewWipResponse };
 	overviewEnrichment?: GetOverviewEnrichmentResponse;
