@@ -28,7 +28,7 @@ import {
 	resumeClaudeSessionInTerminal,
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
-import { getHookClientId } from './utils/agentHooks.js';
+import { areHooksAllowedForAgent, getHookClientId } from './utils/agentHooks.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -288,7 +288,9 @@ export class AgentStatusService implements Disposable {
 		op: 'install' | 'uninstall',
 		source: Sources,
 	): Promise<void> {
-		if (agents.length === 0) {
+		// Honor the Claude-only hooks flag — silently drop any non-Claude targets before operating.
+		const targets = agents.filter(a => areHooksAllowedForAgent(a.name));
+		if (targets.length === 0) {
 			void window.showInformationMessage(
 				op === 'install'
 					? 'No additional hook-ready agents were detected on your machine.'
@@ -307,11 +309,11 @@ export class AgentStatusService implements Disposable {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `${op === 'install' ? 'Installing' : 'Uninstalling'} GitKraken Hooks for ${agents.length} agent${agents.length > 1 ? 's' : ''}...`,
+				title: `${op === 'install' ? 'Installing' : 'Uninstalling'} GitKraken Hooks for ${targets.length} agent${targets.length > 1 ? 's' : ''}...`,
 				cancellable: false,
 			},
 			async () => {
-				for (const agent of agents) {
+				for (const agent of targets) {
 					const hookClientId = getHookClientId(agent.name);
 					try {
 						if (op === 'install') {

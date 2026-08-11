@@ -1,6 +1,7 @@
 import { Disposable, env } from 'vscode';
 import type { GkAgent } from '../../../agents/agentService.js';
 import type { PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
+import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import type { AgentDescriptor } from '../../../plus/agents/agentDescriptor.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
@@ -43,7 +44,9 @@ function toCliAgentInfo(agent: GkAgent): AgentInfo {
 		kind: 'cli',
 		detected: agent.detected,
 		mcp: { supported: agent.mcpSupported, installed: agent.mcpInstalled },
-		hooks: { supported: agent.hooksSupported, installed: agent.hooksInstalled },
+		hooks: areHooksAllowedForAgent(agent.name)
+			? { supported: agent.hooksSupported, installed: agent.hooksInstalled }
+			: undefined,
 	};
 }
 
@@ -131,7 +134,7 @@ export class AgentsService {
 		const all = await this.container.agents.getAll();
 		const hostGkAgent = hostAgentName != null ? all.find(a => a.name === hostAgentName) : undefined;
 		const hostHooks =
-			hostGkAgent?.hooksSupported === true
+			hostGkAgent?.hooksSupported === true && areHooksAllowedForAgent(hostGkAgent.name)
 				? { supported: true, installed: hostGkAgent.hooksInstalled }
 				: undefined;
 		const bundleCapable = this.container.gkMcp?.isRegistrationCapable ?? false;
