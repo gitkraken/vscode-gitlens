@@ -431,6 +431,9 @@
 			"label": "Reinstall GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
+		"gitlens.ai.mcp.uninstallForAgent": {
+			"label": "Uninstall GitKraken MCP for Agent"
+		},
 		"gitlens.ai.recomposeBranch": {
 			"label": "Recompose Commits...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"

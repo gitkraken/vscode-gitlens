@@ -271,9 +271,19 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			return this.renderDash('MCP not available');
 		}
 		if (mcp.installed) {
-			return html`<span class="cell__status"
-				><code-icon icon="check" aria-hidden="true"></code-icon> Installed</span
-			>`;
+			return html`<span class="cell__status">
+				<code-icon icon="check" aria-hidden="true"></code-icon> Installed
+				<gl-button
+					appearance="toolbar"
+					href="${createCommandLink<{ agentId: string; source: string }>('gitlens.ai.mcp.uninstallForAgent', {
+						agentId: agent.id,
+						source: 'settings',
+					})}"
+					aria-label="Uninstall GitKraken MCP for ${agent.label}"
+					tooltip="Uninstall GitKraken MCP for ${agent.label}"
+					><code-icon icon="debug-disconnect" aria-hidden="true"></code-icon
+				></gl-button>
+			</span>`;
 		}
 		// Editor MCP is set up by the editor itself (host registration), not the per-agent CLI install
 		if (agent.kind === 'editor') return this.renderDash('MCP is managed by the editor');
