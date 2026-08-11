@@ -57,6 +57,7 @@ import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import { satisfies } from '@gitlens/utils/version.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
+import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
@@ -3594,7 +3595,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const all = getContext('gitlens:agents:enabled', false) ? await this.container.agents.getAll() : [];
 		const hooksAgents = all
-			.filter(a => a.detected && a.hooksSupported)
+			.filter(a => a.detected && a.hooksSupported && areHooksAllowedForAgent(a.name))
 			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
 		const canInstall = hooksAgents.some(a => !a.installed);
 

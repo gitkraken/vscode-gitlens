@@ -56,7 +56,7 @@
 		},
 		"gitlens.ai.connectAgents": {
 			"label": "Connect AI Agents (Install MCP and Hooks)",
-			"commandPalette": "!gitlens:untrusted"
+			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.continueRebase": {
 			"label": "Continue Automatic Rebase",

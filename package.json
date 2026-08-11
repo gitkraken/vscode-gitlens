@@ -12927,7 +12927,7 @@
 				},
 				{
 					"command": "gitlens.ai.connectAgents",
-					"when": "!gitlens:untrusted"
+					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
 				{
 					"command": "gitlens.ai.continueRebase",
