@@ -76,19 +76,27 @@ function listSessionsCalls(cliCalls: string[][]): number {
 	return cliCalls.filter(args => args.includes('list-sessions')).length;
 }
 
-function sessionStart(sessionId: string, cwd: string): Record<string, unknown> {
-	return { event: 'SessionStart', sessionId: sessionId, cwd: cwd, pid: process.pid };
+/** Omit `providerId` to emulate an older CLI, which doesn't stamp it. */
+function sessionStart(sessionId: string, cwd: string, providerId?: string): Record<string, unknown> {
+	return {
+		event: 'SessionStart',
+		sessionId: sessionId,
+		cwd: cwd,
+		pid: process.pid,
+		...(providerId != null ? { providerId: providerId } : undefined),
+	};
 }
 
 /** A `list-sessions` poll entry (SessionFileData shape) for an alive session, used to exercise
  *  the reconciliation poll / discrepancy detection. `pid: process.pid` so it passes `isProcessAlive`. */
-function sessionFileData(sessionId: string, cwd: string): Record<string, unknown> {
+function sessionFileData(sessionId: string, cwd: string, providerId?: string): Record<string, unknown> {
 	return {
 		sessionId: sessionId,
 		event: 'UserPromptSubmit',
 		cwd: cwd,
 		pid: process.pid,
 		updatedAt: '2024-01-01T00:00:00.000Z',
+		...(providerId != null ? { providerId: providerId } : undefined),
 	};
 }
 
@@ -3585,6 +3593,146 @@ suite('ClaudeCodeProvider peer session merge', () => {
 				'a routable ask must not be dropped by the peer’s view',
 			);
 			assert.notStrictEqual(s?.pendingPermission?.resolvable, false);
+		});
+	});
+});
+
+suite('ClaudeCodeProvider host filtering (providerId)', () => {
+	const REPO = '/repo';
+
+	suite('IPC events', () => {
+		test('ignores an event from another AI host', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				// codex event names are identical to Claude's, so this is processed in full without the filter.
+				await handler(sessionStart('codex-1', REPO, 'codex'), new URLSearchParams());
+
+				assert.strictEqual(provider.sessions.length, 0, 'a foreign host event must not create a session');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('tracks an event explicitly stamped claude-code', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('claude-1', REPO, 'claude-code'), new URLSearchParams());
+
+				assert.strictEqual(provider.sessions.length, 1);
+				assert.strictEqual(provider.sessions[0].id, 'claude-1');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('tracks an event with no providerId (older CLI fails open)', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('legacy-1', REPO), new URLSearchParams());
+
+				assert.strictEqual(
+					provider.sessions.length,
+					1,
+					'an older CLI stamps no providerId — dropping it would lose every session',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('ignores a foreign blocking PermissionRequest without answering it', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				const response = await handler(
+					{
+						event: 'PermissionRequest',
+						sessionId: 'copilot-1',
+						providerId: 'copilot',
+						cwd: REPO,
+						toolName: 'Bash',
+						toolInput: { command: 'rm -rf /' },
+					},
+					new URLSearchParams('blocking=true'),
+				);
+
+				assert.strictEqual(response, undefined, 'no permission decision may be returned');
+				assert.strictEqual(provider.sessions.length, 0, 'no session or pending ask may be created');
+			} finally {
+				provider.dispose();
+			}
+		});
+	});
+
+	suite('reconciliation poll', () => {
+		test('imports only our own and unstamped records, and keeps them out of the drift signal', async () => {
+			const { callbacks, syncDiscrepancies } = createMockCallbacks({
+				cliResponse: JSON.stringify([
+					sessionFileData('claude-1', REPO, 'claude-code'),
+					sessionFileData('codex-1', REPO, 'codex'),
+					// opencode's event names never match the live switch — the poll is its only way in.
+					sessionFileData('opencode-1', REPO, 'opencode'),
+					sessionFileData('legacy-1', REPO),
+				]),
+			});
+			const provider = new GateTestProvider(callbacks);
+			try {
+				await provider.runGatedSync();
+
+				assert.deepStrictEqual(
+					provider.sessions.map(s => s.id).sort(),
+					['claude-1', 'legacy-1'],
+					'only claude-code and unstamped records may be tracked',
+				);
+				// Drift counts must describe our own sessions only.
+				assert.strictEqual(syncDiscrepancies.length, 1);
+				assert.deepStrictEqual(syncDiscrepancies[0], {
+					provider: 'claudeCode',
+					discovered: 2,
+					missing: 0,
+					polled: 2,
+					tracked: 0,
+				});
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('does not create a completed row for another host’s ended record', async () => {
+			const { callbacks } = createMockCallbacks({
+				cliResponse: JSON.stringify([
+					{
+						sessionId: 'opencode-ended',
+						providerId: 'opencode',
+						event: 'Stop',
+						cwd: REPO,
+						pid: 999999,
+						status: 'ended',
+						endReason: 'session-end',
+						endedAt: '2026-07-10T00:00:00.000Z',
+						updatedAt: '2026-07-10T00:00:00.000Z',
+					},
+				]),
+			});
+			const provider = new GateTestProvider(callbacks);
+			try {
+				await provider.runGatedSync();
+
+				assert.strictEqual(provider.sessions.length, 0, 'a foreign ended record must not surface as completed');
+			} finally {
+				provider.dispose();
+			}
 		});
 	});
 });
