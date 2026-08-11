@@ -113,10 +113,6 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
-			/* Indents the compose/review/resolve rows under the provider/model row they
-			   refine, and slightly de-emphasizes their title so they read as children,
-			   not peers — ordered before the disconnected rule below so a disconnected
-			   sub-row still gets the more muted disconnected color, not this one. */
 			.row--sub {
 				margin-inline-start: var(--gl-space-24);
 			}
@@ -222,11 +218,14 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				aria-hidden="true"
 			></code-icon>
 			<span class="row__content">
-				<span class="row__title">${model?.provider.name ?? 'AI Provider & Model'}</span>
+				<span class="row__title">Default AI Provider & Model</span>
 				<span class="row__details"
 					>${
-						model?.name ??
-						(failed ? "Couldn't load the current model" : 'Select an AI model to enable AI features')
+						model?.name != null
+							? `${model?.provider.name} — ${model?.name}`
+							: failed
+								? "Couldn't load the current model"
+								: 'Select an AI model to enable AI features'
 					}</span
 				>
 			</span>
@@ -238,7 +237,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 						detail: 'integrations',
 					})}"
 					tooltip="Switch AI Provider/Model"
-					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon> Switch Model</gl-button
+					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon> Switch</gl-button
 				>
 			</span>
 		</li>`;
@@ -266,7 +265,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 		const details =
 			model == null ? 'No model — select a default above' : isOverride ? model.name : `Default — ${model.name}`;
 
-		return html`<li class="row row--sub row--${model != null ? 'connected' : 'disconnected'}">
+		return html`<li class="row row--${model != null ? 'connected' : 'disconnected'}">
 			<code-icon class="row__icon" icon="${meta.icon}" aria-hidden="true"></code-icon>
 			<span class="row__content">
 				<span class="row__title">${meta.label}</span>
