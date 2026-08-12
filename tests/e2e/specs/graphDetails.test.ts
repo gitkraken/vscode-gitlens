@@ -191,6 +191,25 @@ async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
 }
 
+/**
+ * Assert the details panel is dismissed, as the implementation defines dismissed.
+ *
+ * The split panel is always rendered to avoid DOM re-parenting (which causes layout jumps): hiding
+ * collapses it (split position pinned to 100) and marks the details pane `inert` rather than unmounting
+ * `.details-content`. That element therefore stays in the DOM at ~0 size — a residual that rounds to
+ * 1–2px on some renderers (it did on Windsurf and Positron, while CI's VS Code landed on exactly 0) —
+ * so `not.toBeVisible()` on it is not an invariant the implementation guarantees. What it does
+ * guarantee: the toggle flips to "Show Details Panel" and the pane is inert, its content unreachable.
+ */
+async function expectDetailsPanelDismissed(graphWebview: FrameLocator): Promise<void> {
+	await expect(graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first()).toBeVisible({
+		timeout: MaxTimeout,
+	});
+	await expect(graphWebview.locator('.graph__details-pane').first()).toHaveAttribute('inert', '', {
+		timeout: MaxTimeout,
+	});
+}
+
 // ============================================================================
 // Panel Visibility
 // ============================================================================
@@ -272,17 +291,7 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await expect(hideButton).toBeVisible({ timeout: MaxTimeout });
 		await hideButton.click();
 
-		// The split panel is always rendered to avoid DOM re-parenting (which causes layout jumps);
-		// hiding collapses it (split position pinned to 100) and marks the details pane `inert` rather
-		// than unmounting `.details-content`. That element therefore stays in the DOM at ~0 size — a
-		// residual that rounds to 1–2px on some renderers — so `not.toBeVisible()` on it is not an
-		// invariant the implementation guarantees. Assert the observable dismissed state instead: the
-		// toggle flips to "Show Details Panel" and the details pane is inert (its content unreachable).
-		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
-		await expect(showButton).toBeVisible({ timeout: MaxTimeout });
-		await expect(graphWebview.locator('.graph__details-pane').first()).toHaveAttribute('inert', '', {
-			timeout: MaxTimeout,
-		});
+		await expectDetailsPanelDismissed(graphWebview);
 	});
 });
 
@@ -426,16 +435,7 @@ test.describe('Graph Details - WIP Mode', () => {
 		await expect(hideButton).toBeVisible({ timeout: MaxTimeout });
 		await hideButton.click();
 
-		// Same invariant as the commit-details case above: hiding collapses the always-rendered split
-		// panel and marks the pane `inert` instead of unmounting `.details-content`, which stays in the
-		// DOM at a residual size that rounds to 1–2px on some renderers (it did on Windsurf and Positron,
-		// while CI's VS Code landed on exactly 0). Assert the dismissed state the implementation
-		// guarantees, not the element's absence.
-		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
-		await expect(showButton).toBeVisible({ timeout: MaxTimeout });
-		await expect(graphWebview.locator('.graph__details-pane').first()).toHaveAttribute('inert', '', {
-			timeout: MaxTimeout,
-		});
+		await expectDetailsPanelDismissed(graphWebview);
 	});
 });
 
