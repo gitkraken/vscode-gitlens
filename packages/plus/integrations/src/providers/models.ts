@@ -676,10 +676,10 @@ export type GetBitbucketServerPullRequestsForCurrentUserFn = (
 	data: GitPullRequest[];
 }>;
 export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
-export type GetIssuesForResourceForCurrentUserFn = (
-	input: { resourceId: string },
-	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderIssue[] }>;
+// Derived from the client method rather than hand-declared, as its project-scoped sibling above already is: the
+// hand-written shape named only `resourceId`, so every other field the SDK accepts (the cursor, the sort, the
+// transitions switch) was invisible to the type system and had to be smuggled through `getPagedResult`'s `any`.
+export type GetIssuesForResourceForCurrentUserFn = Jira['getIssuesForResourceForCurrentUser'];
 
 // Trello reads (issues-capable provider). The Trello client is keyed by an `appKey` (the Trello app key from
 // the cloud token exchange) alongside the OAuth token, so these mirror the client method shapes directly.

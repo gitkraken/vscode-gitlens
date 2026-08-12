@@ -133,6 +133,14 @@ function isGraphQLRepoNotFoundError(ex: unknown): boolean {
 
 const trelloBaseUrl = 'https://api.trello.com';
 
+/**
+ * Jira computes an issue's available transitions per issue, from the workflow and the reader's permissions, so a
+ * list read at a page size of 100 pays for 100 of those in both server work and response payload. Nothing in this
+ * package reads `statusTransitions` off a list — only the singular `getIssue` path exposes them, and it always
+ * expands them — so every list read opts out. Revisit the day a list row offers a status change straight off it.
+ */
+const jiraListIncludeTransitions = false;
+
 type TrelloMemberResponse = {
 	id: string;
 	username?: string | null;
@@ -1630,7 +1638,12 @@ export class ProvidersApi {
 
 		try {
 			const result = await provider.getIssuesForProjectFn?.(
-				{ projectKey: project, resourceId: resourceId, ...options },
+				{
+					projectKey: project,
+					resourceId: resourceId,
+					...options,
+					includeTransitions: jiraListIncludeTransitions,
+				},
 				{ token: token },
 			);
 
@@ -1659,7 +1672,12 @@ export class ProvidersApi {
 
 		try {
 			const result = await provider.getIssuesForProjectFn?.(
-				{ projectKey: project, resourceId: resourceId, ...options },
+				{
+					projectKey: project,
+					resourceId: resourceId,
+					...options,
+					includeTransitions: jiraListIncludeTransitions,
+				},
 				{ token: token },
 			);
 			if (result == null) return undefined;
@@ -1810,7 +1828,7 @@ export class ProvidersApi {
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			{ resourceId: resourceId, sort: options?.sort },
+			{ resourceId: resourceId, sort: options?.sort, includeTransitions: jiraListIncludeTransitions },
 			provider.getIssuesForResourceForCurrentUserFn,
 			tokenWithInfo,
 			options?.cursor,
