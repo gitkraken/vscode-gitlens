@@ -86,7 +86,19 @@ suite('OpenAI-flavor response format translation', () => {
 	});
 
 	test('supports modern registry models', async () => {
-		for (const id of ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-5', 'gpt-5.5', 'o1', 'o3-mini', 'o4-mini']) {
+		for (const id of [
+			'gpt-4o',
+			'gpt-4o-mini',
+			'gpt-4.1',
+			'gpt-5',
+			'gpt-5.5',
+			'gpt-5.6',
+			'gpt-5.6-terra',
+			'gpt-5.6-luna',
+			'o1',
+			'o3-mini',
+			'o4-mini',
+		]) {
 			assert.strictEqual(provider.supportsResponseFormat(await registryModel(openai, id)), true, id);
 		}
 	});
@@ -139,6 +151,8 @@ suite('Anthropic response format translation', () => {
 
 	test('supports the 4.5 generation and newer', async () => {
 		for (const id of [
+			'claude-opus-5',
+			'claude-fable-5',
 			'claude-opus-4-8',
 			'claude-sonnet-5',
 			'claude-haiku-4-5',

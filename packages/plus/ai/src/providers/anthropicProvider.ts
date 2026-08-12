@@ -9,84 +9,99 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
-		id: 'claude-opus-4-8',
-		name: 'Claude Opus 4.8',
-		maxTokens: { input: 1048576, output: 128000 },
+		id: 'claude-opus-5',
+		name: 'Claude Opus 5',
+		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-fable-5',
+		name: 'Claude Fable 5',
+		maxTokens: { input: 1000000, output: 128000 },
+		provider: provider,
+		// Requires 30-day data retention; ZDR orgs get a 400 on every request
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
 		id: 'claude-sonnet-5',
 		name: 'Claude Sonnet 5',
-		maxTokens: { input: 1048576, output: 128000 },
+		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
-		id: 'claude-haiku-4-5',
-		name: 'Claude Haiku 4.5',
-		maxTokens: { input: 204800, output: 32000 },
+		id: 'claude-opus-4-8',
+		name: 'Claude Opus 4.8',
+		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
-		default: true,
-	},
-	{
-		id: 'claude-haiku-4-5-20251001',
-		name: 'Claude Haiku 4.5',
-		maxTokens: { input: 204800, output: 32000 },
-		provider: provider,
-		hidden: true,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
 		id: 'claude-opus-4-7',
 		name: 'Claude Opus 4.7',
-		maxTokens: { input: 1048576, output: 128000 },
+		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
 		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
 	},
 	{
 		id: 'claude-sonnet-4-6',
 		name: 'Claude Sonnet 4.6',
-		maxTokens: { input: 1048576, output: 64000 },
+		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
 	},
 	{
 		id: 'claude-opus-4-6',
 		name: 'Claude Opus 4.6',
-		maxTokens: { input: 1048576, output: 128000 },
+		maxTokens: { input: 1000000, output: 128000 },
 		provider: provider,
+	},
+	{
+		id: 'claude-haiku-4-5',
+		name: 'Claude Haiku 4.5',
+		maxTokens: { input: 200000, output: 64000 },
+		provider: provider,
+		default: true,
+	},
+	{
+		id: 'claude-haiku-4-5-20251001',
+		name: 'Claude Haiku 4.5',
+		maxTokens: { input: 200000, output: 64000 },
+		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-sonnet-4-5',
 		name: 'Claude Sonnet 4.5',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-sonnet-4-5-20250929',
 		name: 'Claude Sonnet 4.5',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-5',
 		name: 'Claude Opus 4.5',
-		maxTokens: { input: 204800, output: 32000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-5-20251101',
 		name: 'Claude Opus 4.5',
-		maxTokens: { input: 204800, output: 32000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-1',
 		name: 'Claude Opus 4.1',
-		maxTokens: { input: 204800, output: 32000 },
+		maxTokens: { input: 200000, output: 32000 },
 		provider: provider,
 		hidden: true,
 		// Structured outputs require the 4.5 generation or newer (this and every entry below)
@@ -95,7 +110,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-opus-4-1-20250805',
 		name: 'Claude Opus 4.1',
-		maxTokens: { input: 204800, output: 32000 },
+		maxTokens: { input: 200000, output: 32000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -103,7 +118,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-opus-4-0',
 		name: 'Claude Opus 4',
-		maxTokens: { input: 204800, output: 32000 },
+		maxTokens: { input: 200000, output: 32000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -111,7 +126,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-opus-4-20250514',
 		name: 'Claude Opus 4',
-		maxTokens: { input: 204800, output: 32000 },
+		maxTokens: { input: 200000, output: 32000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -119,7 +134,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-sonnet-4-0',
 		name: 'Claude Sonnet 4',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -127,7 +142,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-sonnet-4-20250514',
 		name: 'Claude Sonnet 4',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -135,7 +150,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-7-sonnet-latest',
 		name: 'Claude Sonnet 3.7',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -143,7 +158,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-7-sonnet-20250219',
 		name: 'Claude Sonnet 3.7',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 200000, output: 64000 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -151,7 +166,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-sonnet-latest',
 		name: 'Claude Sonnet 3.5',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 200000, output: 8192 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -159,7 +174,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-sonnet-20241022',
 		name: 'Claude Sonnet 3.5',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 200000, output: 8192 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -167,7 +182,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-sonnet-20240620',
 		name: 'Claude Sonnet 3.5',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 200000, output: 8192 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -175,7 +190,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-haiku-latest',
 		name: 'Claude Haiku 3.5',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 200000, output: 8192 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -183,7 +198,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-5-haiku-20241022',
 		name: 'Claude Haiku 3.5',
-		maxTokens: { input: 204800, output: 8192 },
+		maxTokens: { input: 200000, output: 8192 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -191,7 +206,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-opus-latest',
 		name: 'Claude Opus 3',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -199,7 +214,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-opus-20240229',
 		name: 'Claude Opus 3',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -207,7 +222,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-sonnet-latest',
 		name: 'Claude Sonnet 3',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -215,7 +230,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-sonnet-20240229',
 		name: 'Claude Sonnet 3',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -223,7 +238,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-haiku-latest',
 		name: 'Claude Haiku 3',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -231,7 +246,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-3-haiku-20240307',
 		name: 'Claude Haiku 3',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,
@@ -239,7 +254,7 @@ const models: AnthropicModel[] = [
 	{
 		id: 'claude-2.1',
 		name: 'Claude 2.1',
-		maxTokens: { input: 204800, output: 4096 },
+		maxTokens: { input: 200000, output: 4096 },
 		provider: provider,
 		hidden: true,
 		supportsStructuredOutputs: false,

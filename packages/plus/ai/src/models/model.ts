@@ -56,35 +56,60 @@ export interface AIProviderDescriptorWithConfiguration<
 
 export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDescriptor<T>): AIModel<T>[] => [
 	{
+		id: 'gpt-5.6',
+		name: 'GPT-5.6 Sol',
+		maxTokens: { input: 922000, output: 128000 }, // 1.05M context, but OpenAI caps input at 922k
+		provider: provider,
+	},
+	{
+		id: 'gpt-5.6-sol',
+		name: 'GPT-5.6 Sol',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'gpt-5.6-terra',
+		name: 'GPT-5.6 Terra',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+	},
+	{
+		id: 'gpt-5.6-luna',
+		name: 'GPT-5.6 Luna',
+		maxTokens: { input: 922000, output: 128000 },
+		provider: provider,
+		default: true,
+	},
+	{
 		id: 'gpt-5.5',
 		name: 'GPT-5.5',
-		maxTokens: { input: 400000, output: 128000 },
+		maxTokens: { input: 922000, output: 128000 },
 		provider: provider,
 	},
 	{
 		id: 'gpt-5.5-pro',
 		name: 'GPT-5.5 Pro',
-		maxTokens: { input: 400000, output: 272000 },
+		maxTokens: { input: 922000, output: 128000 },
 		provider: provider,
 		hidden: true,
 	},
 	{
 		id: 'gpt-5.4',
 		name: 'GPT-5.4',
-		maxTokens: { input: 400000, output: 128000 },
+		maxTokens: { input: 922000, output: 128000 },
 		provider: provider,
 	},
 	{
 		id: 'gpt-5.4-mini',
 		name: 'GPT-5.4 mini',
-		maxTokens: { input: 400000, output: 128000 },
+		maxTokens: { input: 272000, output: 128000 },
 		provider: provider,
-		default: true,
 	},
 	{
 		id: 'gpt-5.4-nano',
 		name: 'GPT-5.4 nano',
-		maxTokens: { input: 400000, output: 128000 },
+		maxTokens: { input: 272000, output: 128000 },
 		provider: provider,
 	},
 	{

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds support for the latest AI models &mdash; Claude Opus 5 and Claude Fable 5, GPT-5.6 (Sol, Terra, and Luna), Grok 4.6, Mistral Medium 3.5, Mistral Large 3, Mistral Small 4, the Ministral 3 family (14B, 8B, and 3B), and GLM 5.2
+
+### Changed
+
+- Changes the recommended AI model for OpenAI to GPT-5.6 Luna, and for Mistral to Mistral Small 4
+
+### Removed
+
+- Removes the `deepseek-chat` and `deepseek-reasoner` models, retired by DeepSeek
+
+### Fixed
+
+- Fixes incorrect context window and maximum output token limits across the Anthropic, OpenAI, Mistral, xAI, and DeepSeek models
+
 ## [19.0.0] - 2026-08-12
 
 ### Added
