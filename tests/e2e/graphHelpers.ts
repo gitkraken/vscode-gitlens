@@ -53,9 +53,10 @@ export async function widenSideBarForGraph(vscode: VSCodeInstance, steps = 12): 
  * expanded (its shipped `visibility`, holding ~220px of the height): `gl-tree-view` sits at y=531 of a
  * 544px viewport with 0 items, and scrolling the 42px to the end of the panel mounts them.
  *
- * Scrolling rather than growing the side bar on purpose: pane sizes are shared mutable state across
- * spec files in a worker, and a pane this collapses does not stay collapsed — the panel's own scroll
- * position is local to the assertion that needs it.
+ * Scrolling rather than growing the side bar is deliberate. Pane sizes are shared mutable state
+ * across spec files in a worker: collapsing a pane to free height does not keep it collapsed for the
+ * specs that follow. A panel's own scroll position, in contrast, is local to the assertion that
+ * needs it.
  */
 export async function scrollDetailsToFileTree(graphWebview: FrameLocator, timeout = 30000): Promise<void> {
 	const content = graphWebview.locator('.details-content').first();

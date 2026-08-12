@@ -9,8 +9,9 @@
  *    `webviewItem =~ /^gitlens:wip\b(?=.*?\+hasConflicts\b)/`), so asserting its presence and
  *    absence is the e2e-observable form of the menu-gating requirement.
  *    The per-file counterpart — `gitlens:file` rows exposing `+conflict`, which
- *    `gitlens.ai.resolveConflicts:graph` gates on — is NOT covered: that context never reaches the
- *    DOM in this webview, so its test is skipped (#5548).
+ *    `gitlens.ai.resolveConflicts:graph` gates on — is covered as well, now that #5548 (those rows
+ *    not exposing the context under the new graph engine) is fixed. It rides the details panel's
+ *    virtualized file tree, so that spec scrolls the tree into view before asserting.
  *  - Command routing: invoking the resolve commands enters the WIP details "resolve" mode
  *    (`gl-details-resolve-mode-panel`, idle state) scoped to all / a single / multiple files,
  *    WITHOUT firing the AI call (the AI request only runs when the user clicks "Resolve" in the
