@@ -23,9 +23,12 @@
 				]
 			}
 		},
-		"gitlens.agents.installClaudeHook": {
-			"label": "Install Claude Hooks",
+		"gitlens.agents.installHooks": {
+			"label": "Install GitKraken Hooks for All AI Agents",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+		},
+		"gitlens.agents.installHooksForAgent": {
+			"label": "Install GitKraken Hooks for Agent"
 		},
 		"gitlens.agents.openSession": {
 			"label": "Open AI Agent Session",
@@ -37,9 +40,12 @@
 			"icon": "$(arrow-swap)",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
 		},
-		"gitlens.agents.uninstallClaudeHook": {
-			"label": "Uninstall Claude Hooks",
+		"gitlens.agents.uninstallHooks": {
+			"label": "Uninstall GitKraken Hooks for All AI Agents",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+		},
+		"gitlens.agents.uninstallHooksForAgent": {
+			"label": "Uninstall GitKraken Hooks for Agent"
 		},
 		"gitlens.ai.autoRebase": {
 			"label": "Automatic Rebase...",
@@ -47,6 +53,10 @@
 		},
 		"gitlens.ai.autoRebase.undo": {
 			"label": "Undo Automatic Rebase"
+		},
+		"gitlens.ai.connectAgents": {
+			"label": "Connect AI Agents (Install MCP and Hooks)",
+			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.continueRebase": {
 			"label": "Continue Automatic Rebase",
@@ -413,13 +423,16 @@
 		"gitlens.ai.mcp.installForAgent": {
 			"label": "Install GitKraken MCP for Agent"
 		},
+		"gitlens.ai.mcp.installForAllAgents": {
+			"label": "Connect GitKraken MCP to All Detected Agents",
+			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
+		},
 		"gitlens.ai.mcp.reinstall": {
 			"label": "Reinstall GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
-		"gitlens.ai.mcp.selectAgents": {
-			"label": "Connect GitKraken MCP to More Agents...",
-			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
+		"gitlens.ai.mcp.uninstallForAgent": {
+			"label": "Uninstall GitKraken MCP for Agent"
 		},
 		"gitlens.ai.recomposeBranch": {
 			"label": "Recompose Commits...",
@@ -4595,9 +4608,17 @@
 			"enablement": "config.gitlens.graph.layout != editor",
 			"commandPalette": "gitlens:enabled && config.gitlens.graph.layout != editor",
 			"menus": {
-				"gitlens/graph/configuration": [
+				"editor/title": [
 					{
-						"group": "1_gitlens",
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_2_layout",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "2_gitlens",
 						"order": 1
 					}
 				]
@@ -4608,9 +4629,17 @@
 			"enablement": "config.gitlens.graph.layout != panel",
 			"commandPalette": "gitlens:enabled && config.gitlens.graph.layout != panel",
 			"menus": {
-				"gitlens/graph/configuration": [
+				"editor/title": [
 					{
-						"group": "1_gitlens",
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_2_layout",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "2_gitlens",
 						"order": 1
 					}
 				]
@@ -4685,6 +4714,38 @@
 						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?=.*?\\b\\+pinned\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 8
+					}
+				]
+			}
+		},
+		"gitlens.helpCenter": {
+			"label": "Help Center",
+			"icon": "$(question)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_5_help",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:home",
+						"group": "3_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "9_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"group": "3_gitlens",
+						"order": 1
 					}
 				]
 			}
@@ -6336,6 +6397,38 @@
 				]
 			}
 		},
+		"gitlens.reportIssue": {
+			"label": "Report Issue (GitHub)",
+			"icon": "$(bug)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_4_community",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:home",
+						"group": "2_gitlens",
+						"order": 98
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "8_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"group": "2_gitlens",
+						"order": 98
+					}
+				]
+			}
+		},
 		"gitlens.reset": {
 			"label": "Reset Stored Data...",
 			"commandPalette": true
@@ -6624,6 +6717,38 @@
 						"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_a_gitlens",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.shareFeedback": {
+			"label": "Share Feedback (GitHub)",
+			"icon": "$(feedback)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_4_community",
+						"order": 2
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:home",
+						"group": "2_gitlens",
+						"order": 99
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "8_gitlens",
+						"order": 2
+					},
+					{
+						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"group": "2_gitlens",
+						"order": 99
 					}
 				]
 			}
@@ -7159,9 +7284,17 @@
 			"label": "Open Commit Graph Settings",
 			"icon": "$(gear)",
 			"menus": {
-				"gitlens/graph/configuration": [
+				"editor/title": [
 					{
-						"group": "9_gitlens",
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_1_settings",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "1_gitlens",
 						"order": 1
 					}
 				]
@@ -8439,18 +8572,9 @@
 				]
 			}
 		},
-		"gitlens.toggleGraph": {
-			"label": "Toggle Commit Graph",
-			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
-		},
 		"gitlens.toggleLineBlame": {
 			"label": "Toggle Line Blame",
 			"commandPalette": "!gitlens:disabled"
-		},
-		"gitlens.toggleMaximizedGraph": {
-			"label": "Toggle Maximized Commit Graph",
-			"icon": "$(gitlens-graph)"
 		},
 		"gitlens.toggleReviewMode": {
 			"label": "Toggle Review Mode",
@@ -12254,46 +12378,6 @@
 				]
 			}
 		},
-		"gitlens.views.home.discussions": {
-			"label": "GitHub Discussions",
-			"icon": "$(comment-discussion)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "2_gitlens",
-						"order": 99
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "2_gitlens",
-						"order": 99
-					}
-				]
-			}
-		},
-		"gitlens.views.home.help": {
-			"label": "Help Center",
-			"icon": "$(question)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "1_gitlens",
-						"order": 97
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "1_gitlens",
-						"order": 97
-					}
-				]
-			}
-		},
 		"gitlens.views.home.info": {
 			"label": "Learn about Home View",
 			"icon": "$(question)",
@@ -12309,26 +12393,6 @@
 					{
 						"when": "view == gitlens.views.home",
 						"group": "navigation",
-						"order": 98
-					}
-				]
-			}
-		},
-		"gitlens.views.home.issues": {
-			"label": "GitHub Issues",
-			"icon": "$(feedback)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "2_gitlens",
-						"order": 98
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "2_gitlens",
 						"order": 98
 					}
 				]
@@ -12350,26 +12414,6 @@
 						"when": "view == gitlens.views.home",
 						"group": "navigation",
 						"order": 99
-					}
-				]
-			}
-		},
-		"gitlens.views.home.whatsNew": {
-			"label": "What's New (Release Notes)",
-			"icon": "$(megaphone)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "inline",
-						"order": 1
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "navigation",
-						"order": 1
 					}
 				]
 			}
@@ -20002,6 +20046,38 @@
 					}
 				]
 			}
+		},
+		"gitlens.whatsNew": {
+			"label": "What's New (Release Notes)",
+			"icon": "$(megaphone)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "1_gitlens_3_news",
+						"order": 1
+					}
+				],
+				"view/item/context": [
+					{
+						"when": "viewItem == gitlens:views:home",
+						"group": "inline",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "7_gitlens",
+						"order": 1
+					},
+					{
+						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"group": "navigation",
+						"order": 1
+					}
+				]
+			}
 		}
 	},
 	"submenus": {
@@ -20336,26 +20412,6 @@
 						"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/ && !listMultiSelection",
 						"group": "2_gitlens_quickopen",
 						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens/graph/configuration": {
-			"label": "Commit Graph Settings",
-			"icon": "$(gear)",
-			"menus": {
-				"editor/title": [
-					{
-						"when": "activeWebviewPanelId === gitlens.graph",
-						"group": "navigation",
-						"order": -98
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.graph",
-						"group": "navigation",
-						"order": -98
 					}
 				]
 			}

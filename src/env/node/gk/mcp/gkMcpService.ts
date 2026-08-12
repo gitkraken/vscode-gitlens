@@ -7,6 +7,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { compare } from '@gitlens/utils/version.js';
 import type { GkAgent } from '../../../../agents/agentService.js';
 import { urls } from '../../../../constants.js';
@@ -17,10 +18,11 @@ import {
 	supportsCursorMcpRegistration,
 	supportsMcpExtensionRegistration,
 } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
-import { executeCoreCommand, registerCommand } from '../../../../system/-webview/command.js';
+import { executeCommand, executeCoreCommand, registerCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext } from '../../../../system/-webview/context.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
-import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
+import { getHostAppName, isHostVSCode, toMcpInstallProvider } from '../../../../system/-webview/vscode.js';
 import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { CLIInstallError, CLIInstallErrorReason } from '../cli/errors.js';
@@ -29,10 +31,24 @@ import { McpSetupError, McpSetupErrorReason } from './errors.js';
 import { CursorMcpHostProvider } from './hostProviders/cursorMcpHostProvider.js';
 import type { McpHostRegistrationProvider } from './hostProviders/types.js';
 import { VSCodeMcpHostProvider } from './hostProviders/vscodeMcpHostProvider.js';
-import { showMcpAgentPicker } from './mcpAgentPicker.js';
-import { showManualMcpSetupPrompt, toMcpInstallProvider } from './utils.js';
+import { showManualMcpSetupPrompt } from './utils.js';
 
 const ipcWaitTime = 30000; // 30 seconds
+
+// Known IDE agent IDs — excluded from the MCP install-all target list. MCP for these is set up via
+// the current-host extension registration path (`ensureRegistration`), not the per-agent CLI install;
+// hooks eligibility does NOT reuse this exclusion (cursor/antigravity are valid hook clients).
+const ideAgentIds = new Set<string>([
+	'vscode',
+	'vscode-insiders',
+	'windsurf',
+	'cursor',
+	'zed',
+	'trae',
+	'kiro',
+	'jetbrains-copilot',
+	'antigravity',
+]);
 
 const CLIProxyMCPInstallOutputs = {
 	checkingForUpdates: /checking for updates.../i,
@@ -94,6 +110,13 @@ export class GkMcpService implements GkMcpRegistrar {
 			gkCli.onDidChangeIpc(e => this.onIpcChanged(e)),
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
+			onDidChangeContext(key => {
+				// A late org-disable tears registration down; a re-enable re-arms it. Config changes
+				// (`ai.enabled` / `gitkraken.mcp.autoEnabled`) are handled by `onConfigurationChanged`.
+				if (key !== 'gitlens:gk:organization:ai:enabled') return;
+
+				this.onOrgAiEnabledChanged();
+			}),
 			// Register the host adapter (and start the 30s IPC-wait timer) only once the container is
 			// ready AND the user/admin has opted in — never at eager construction. This gates
 			// registration on `isRegistrationAllowed` (so a `gitkraken.mcp.autoEnabled=false` opt-out is
@@ -111,17 +134,24 @@ export class GkMcpService implements GkMcpRegistrar {
 
 	// === Public API ===
 
-	/** True iff the running host can register MCP via an extension API AND the user/admin enabled it. */
-	get isRegistrationAllowed(): boolean {
-		if (!this.isRegistrationEnabled) return false;
+	/** True iff the running host exposes an MCP registration API, independent of the `gitkraken.mcp.autoEnabled` opt-in. */
+	get isRegistrationCapable(): boolean {
 		return supportsMcpExtensionRegistration() || supportsCursorMcpRegistration();
 	}
 
-	/** True iff `gitkraken.mcp.autoEnabled` + `ai.enabled` are both on (and not web/offline). */
+	/** True iff the running host can register MCP via an extension API AND the user/admin enabled it. */
+	get isRegistrationAllowed(): boolean {
+		if (!this.isRegistrationEnabled) return false;
+		return this.isRegistrationCapable;
+	}
+
+	/** True iff `gitkraken.mcp.autoEnabled` is on, AI is allowed (user-enabled AND not org-disabled —
+	 *  fail-open on the org state until it loads, matching `container.ts`'s `updateAiStatus` intent),
+	 *  and not web/offline. */
 	get isRegistrationEnabled(): boolean {
 		if (isWeb || getIsOffline()) return false;
 
-		return this.container.ai.enabled && configuration.get('gitkraken.mcp.autoEnabled');
+		return this.container.ai.allowed && configuration.get('gitkraken.mcp.autoEnabled');
 	}
 
 	// === Internal API for host adapters ===
@@ -336,11 +366,19 @@ export class GkMcpService implements GkMcpRegistrar {
 			this.fireRefresh(true);
 		}
 		if (configuration.changed(e, 'gitkraken.mcp.autoEnabled') || configuration.changed(e, 'ai.enabled')) {
-			// Register or unregister the host adapter to match the new opt-in state.
-			this.ensureRegistration();
-			if (this.isRegistrationAllowed) {
-				void this.setupCore('settings', false, true).catch(() => undefined);
-			}
+			this.onOrgAiEnabledChanged();
+		}
+	}
+
+	/** Re-evaluates registration against the current `isRegistrationAllowed` state — shared by the
+	 *  `ai.enabled` / `gitkraken.mcp.autoEnabled` config-change handler and the
+	 *  `gitlens:gk:organization:ai:enabled` context-change subscription, since both flow into the
+	 *  same `container.ai.allowed` gate. Toggling either off disposes the active provider; toggling
+	 *  back on re-registers and re-runs setup so the change takes effect without a window reload. */
+	private onOrgAiEnabledChanged(): void {
+		this.ensureRegistration();
+		if (this.isRegistrationAllowed) {
+			void this.setupCore('settings', false, true).catch(() => undefined);
 		}
 	}
 
@@ -411,6 +449,16 @@ export class GkMcpService implements GkMcpRegistrar {
 					McpSetupErrorReason.WebUnsupported,
 					'GitKraken MCP setup is not supported on the web.',
 					'web environment unsupported',
+					commandSource,
+				);
+			}
+
+			if (!this.container.ai.allowed) {
+				scope?.addExitInfo('AI is disabled for this user or organization');
+				throw new McpSetupError(
+					McpSetupErrorReason.AiDisabled,
+					'GitKraken MCP setup requires AI features to be enabled.',
+					'ai disabled',
 					commandSource,
 				);
 			}
@@ -625,6 +673,7 @@ export class GkMcpService implements GkMcpRegistrar {
 		switch (ex.reason) {
 			case McpSetupErrorReason.WebUnsupported:
 			case McpSetupErrorReason.VSCodeVersionUnsupported:
+			case McpSetupErrorReason.AiDisabled:
 			case McpSetupErrorReason.Offline:
 				void window.showWarningMessage(ex.message);
 				break;
@@ -659,12 +708,16 @@ export class GkMcpService implements GkMcpRegistrar {
 		return [
 			registerCommand('gitlens.ai.mcp.install', (src?: Source) => this.handleInstallCommand(src?.source)),
 			registerCommand('gitlens.ai.mcp.reinstall', (src?: Source) => this.handleInstallCommand(src?.source, true)),
-			registerCommand('gitlens.ai.mcp.selectAgents', (src?: Source) =>
-				this.handleSelectAgentsCommand(src?.source),
+			registerCommand('gitlens.ai.mcp.installForAllAgents', (src?: Source) =>
+				this.handleInstallForAllAgentsCommand(src?.source),
 			),
 			registerCommand('gitlens.ai.mcp.installForAgent', (args?: { agentId?: string; source?: Sources }) =>
 				this.handleInstallForAgentCommand(args),
 			),
+			registerCommand('gitlens.ai.mcp.uninstallForAgent', (args?: { agentId?: string; source?: Sources }) =>
+				this.handleUninstallForAgentCommand(args),
+			),
+			registerCommand('gitlens.ai.connectAgents', (src?: Source) => this.handleConnectAgentsCommand(src?.source)),
 		];
 	}
 
@@ -681,7 +734,7 @@ export class GkMcpService implements GkMcpRegistrar {
 	private async handleInstallCommand(source?: Sources, force = false): Promise<void> {
 		const scope = getScopedLogger();
 
-		await this.container.onboarding.dismiss('mcp:banner');
+		await this.container.onboarding.dismiss('agents:banner');
 
 		try {
 			const result = await window.withProgress(
@@ -710,7 +763,7 @@ export class GkMcpService implements GkMcpRegistrar {
 				)
 				.then(r => {
 					if (r === connectMore) {
-						void this.handleSelectAgentsCommand(source);
+						void this.handleInstallForAllAgentsCommand(source);
 					} else if (r === learnMore) {
 						void openUrl(urls.helpCenterMCP);
 					}
@@ -728,11 +781,66 @@ export class GkMcpService implements GkMcpRegistrar {
 		}
 	}
 
+	/**
+	 * `gitlens.ai.connectAgents` — the combined banner/popover CTA. Chains MCP setup for the current
+	 * host, MCP install-all for every other detected agent, and (only when hooks are visibility-gated
+	 * in, i.e. `gitlens:agents:enabled`) hooks install-all. Unlike `handleInstallCommand`, this never
+	 * shows the "Connect More Agents" follow-up prompt — it's already doing that itself.
+	 */
 	@gate()
 	@debug({ exit: true })
-	private async handleSelectAgentsCommand(source?: Sources): Promise<void> {
+	private async handleConnectAgentsCommand(source?: Sources): Promise<void> {
 		const scope = getScopedLogger();
 		const commandSource = source ?? 'commandPalette';
+
+		await this.container.onboarding.dismiss('agents:banner');
+
+		try {
+			const result = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: 'Setting up the GitKraken MCP...',
+					cancellable: false,
+				},
+				async () => this.setupCore(source),
+			);
+
+			if (result.requiresUserCompletion) {
+				await openUrl(result.url);
+			}
+
+			await this.handleInstallForAllAgentsCommand(commandSource);
+
+			if (getContext('gitlens:agents:enabled', false)) {
+				await executeCommand('gitlens.agents.installHooks', { source: commandSource });
+			}
+		} catch (ex) {
+			scope?.error(ex, `Error connecting agents: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+			if (ex instanceof McpSetupError) {
+				this.showSetupError(ex);
+			} else {
+				const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
+				this.showSetupError(normalized);
+			}
+		}
+	}
+
+	/**
+	 * Install-all model: installs GitKraken MCP for every detected, MCP-supported, not-yet-installed
+	 * agent (excluding IDE agents — those are set up via the current-host extension registration path,
+	 * not the per-agent CLI install). Used by both the `gitlens.ai.mcp.installForAllAgents` command and
+	 * the `connectAgents` chain.
+	 */
+	@gate()
+	@debug({ exit: true })
+	private async handleInstallForAllAgentsCommand(source?: Sources): Promise<void> {
+		const scope = getScopedLogger();
+		const commandSource = source ?? 'commandPalette';
+
+		if (!this.container.ai.allowed) {
+			void window.showWarningMessage('GitKraken MCP setup requires AI features to be enabled.');
+			return;
+		}
 
 		try {
 			// Ensure CLI is installed first
@@ -744,9 +852,9 @@ export class GkMcpService implements GkMcpRegistrar {
 				return;
 			}
 
-			await this.pickAndInstallAgents(cliPath, commandSource, true);
+			await this.installMcpForAllAgents(cliPath, commandSource);
 		} catch (ex) {
-			scope?.error(ex, 'Error selecting and installing agents');
+			scope?.error(ex, 'Error installing MCP for all agents');
 			const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
 			this.showSetupError(normalized);
 		}
@@ -761,6 +869,11 @@ export class GkMcpService implements GkMcpRegistrar {
 		if (agentId == null) return;
 
 		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
+
+		if (!this.container.ai.allowed) {
+			void window.showWarningMessage('GitKraken MCP setup requires AI features to be enabled.');
+			return;
+		}
 
 		try {
 			const { cliPath, status } = await this.gkCli.install(false, args?.source);
@@ -805,17 +918,75 @@ export class GkMcpService implements GkMcpRegistrar {
 		}
 	}
 
-	/** Shared core: shows agent picker, installs for selected agents, reports results. */
-	private async pickAndInstallAgents(cliPath: string, source: Sources, showEmptyState = false): Promise<void> {
-		const agents = await showMcpAgentPicker(this.container, { showEmptyState: showEmptyState });
-		if (agents == null || agents.length === 0) return;
+	/** `gitlens.ai.mcp.uninstallForAgent` — hidden, dispatched by the Settings → Agents table's MCP
+	 *  cell. Unlike install, this must work even when AI is user- or org-disabled — removing MCP access
+	 *  is exactly what a disabled org wants, so there's no `container.ai.allowed` guard here. */
+	@gate()
+	@debug({ exit: true })
+	private async handleUninstallForAgentCommand(args?: { agentId?: string; source?: Sources }): Promise<void> {
+		const scope = getScopedLogger();
+		const commandSource = args?.source ?? 'commandPalette';
+		const agentId = args?.agentId;
+		if (agentId == null) return;
 
-		if (this.container.telemetry.enabled) {
-			this.container.telemetry.sendEvent('mcp/agents/selected', {
-				source: source,
-				'agents.count': agents.length,
-				'agents.ids': agents.map(a => a.name).join(','),
+		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
+
+		try {
+			const { cliPath, status } = await this.gkCli.install(false, args?.source);
+			if (status !== 'completed' || cliPath == null) {
+				void window.showWarningMessage(
+					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+				);
+				return;
+			}
+
+			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			if (agent == null) {
+				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				return;
+			}
+
+			const output = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: `Uninstalling GitKraken MCP for ${agent.displayName}...`,
+					cancellable: false,
+				},
+				// NOTE: `mcp uninstall` takes no `--source` flag (unlike `mcp install`)
+				() => this.gkCli.run(['mcp', 'uninstall', agent.name], { cwd: cliPath }),
+			);
+
+			const cleaned = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
+			if (cleaned && !/success/i.test(cleaned)) {
+				void window.showWarningMessage(
+					`Failed to uninstall GitKraken MCP for ${agent.displayName}: ${cleaned}`,
+				);
+				return;
+			}
+
+			this.container.agents.invalidateCache();
+			this.container.telemetry.sendEvent('mcp/agent/uninstalled', {
+				source: commandSource,
+				'agent.id': agent.name,
 			});
+			void window.showInformationMessage(`GitKraken MCP uninstalled for ${agent.displayName}.`);
+		} catch (ex) {
+			scope?.error(ex, `Error uninstalling MCP for agent: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
+			void window.showErrorMessage(
+				`Failed to uninstall GitKraken MCP for '${name}': ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+			);
+		}
+	}
+
+	/** Shared core: computes the install-all target list, installs, refreshes the agent cache, and
+	 *  reports results. Called with a CLI path already confirmed installed by the caller. */
+	private async installMcpForAllAgents(cliPath: string, source: Sources): Promise<void> {
+		const all = await this.container.agents.getAll();
+		const agents = all.filter(a => a.detected && a.mcpSupported && !a.mcpInstalled && !ideAgentIds.has(a.name));
+
+		if (agents.length === 0) {
+			void window.showInformationMessage('All detected agents already have the GitKraken MCP installed.');
+			return;
 		}
 
 		const results = await window.withProgress(
@@ -826,6 +997,9 @@ export class GkMcpService implements GkMcpRegistrar {
 			},
 			() => this.installMCPForAgents(agents, cliPath),
 		);
+
+		// Refresh the cached agent list so the Agents settings table reflects the new MCP state
+		this.container.agents.invalidateCache();
 
 		const requiresUserAction = results.requiresUserAction.length > 0;
 
@@ -901,10 +1075,17 @@ export class GkMcpService implements GkMcpRegistrar {
 		const failed: { agent: string; error: string }[] = [];
 		const requiresUserAction: { agent: string; url: string }[] = [];
 
-		// Every inner promise catches its own errors, so all resolve — Promise.all is safe here
-		const results = await Promise.all(agents.map(agent => this.installMcpForAgent(agent, cliPath)));
+		const settled = await Promise.allSettled(agents.map(agent => this.installMcpForAgent(agent, cliPath)));
 
-		for (const result of results) {
+		for (let i = 0; i < settled.length; i++) {
+			// `installMcpForAgent` catches its own errors and always resolves — a rejection here would be
+			// unexpected, but stay defensive rather than let one agent's failure abort the whole batch.
+			const result = getSettledValue(settled[i]);
+			if (result == null) {
+				failed.push({ agent: agents[i].displayName, error: 'Unknown error' });
+				continue;
+			}
+
 			switch (result.status) {
 				case 'succeeded':
 					succeeded.push(result.agent.displayName);

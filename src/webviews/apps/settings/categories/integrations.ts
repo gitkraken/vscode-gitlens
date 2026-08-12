@@ -28,14 +28,14 @@ export const integrationsCategories: SettingsCategory[] = [
 		name: 'Agents',
 		group: 'Integrations',
 		icon: 'robot',
-		hint: 'Set your default coding agent, and install GitKraken MCP and hooks for supported CLI agents',
+		hint: 'Set your default coding agent, and install GitKraken MCP and hooks for supported agents',
 		learnMoreUrl: 'https://help.gitkraken.com/gitlens/gl-gk-ai/',
 		controls: [
 			{
 				kind: 'agents',
 				label: 'Agents',
 				// Search text — the rendered rows come from the Agents RPC service
-				hint: 'Chat, extension, and CLI agents, default agent, GitKraken MCP, Claude Code hooks, Copilot, Cursor, Codex, Gemini, opencode',
+				hint: 'Chat, extension, and CLI agents, default agent, GitKraken MCP, agent hooks, Copilot, Cursor, Codex, Gemini, opencode',
 			},
 		],
 	},

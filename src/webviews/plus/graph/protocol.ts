@@ -572,10 +572,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	featurePreview?: FeaturePreview;
 	orgSettings?: { ai: boolean; drafts: boolean };
 	overview?: GraphOverviewData;
-	mcpBannerCollapsed?: boolean;
+	agentsBannerCollapsed?: boolean;
 	mcpCanAutoRegister?: boolean;
-	hooksBannerCollapsed?: boolean;
-	canInstallClaudeHook?: boolean;
+	canInstallHooks?: boolean;
+	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[];
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
 	graphWalkthroughStarted?: boolean;
@@ -1679,14 +1679,12 @@ export interface DidChangeOrgSettingsParams {
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
 
-export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didChange');
+export const DidChangeAgentsBanner = new IpcNotification<boolean>(scope, 'agents/banner/didChange');
 
-export const DidChangeHooksBanner = new IpcNotification<boolean>(scope, 'hooks/didChange');
-
-export const DidChangeCanInstallClaudeHook = new IpcNotification<boolean>(
-	scope,
-	'agents/canInstallClaudeHook/didChange',
-);
+export const DidChangeCanInstallHooks = new IpcNotification<{
+	canInstallHooks: boolean;
+	agents: readonly { id: string; displayName: string; installed: boolean }[];
+}>(scope, 'agents/canInstallHooks/didChange');
 
 export interface CloseGraphWalkthroughBannerParams {
 	openWelcome?: boolean;

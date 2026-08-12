@@ -150,22 +150,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				align-self: center;
 			}
 
-			.mcp-tooltip::part(body),
-			.hooks-tooltip::part(body) {
-				--max-width: 320px;
-			}
-
-			.mcp-tooltip__content a,
-			.hooks-tooltip__content a {
-				color: var(--vscode-textLink-foreground);
-			}
-
-			.action-button--mcp,
-			.action-button--hooks {
-				background: var(--gl-gradient-brand-subtle);
-				border: var(--gl-border-width) solid var(--vscode-panel-border);
-			}
-
 			/* Search is meaningless in Timeline mode — visually dim it and let inert block focus
 			   + interactions natively (instead of removing it from the row entirely). */
 			.search-box--disabled {
@@ -990,7 +974,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private renderTitlebarHeaderRow(repo: RepositoryShape | undefined) {
 		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
-		const { allowed, branch, branchState, config, lastFetched, loading, state } = this.graphState;
+		const { allowed, branch, branchState, config, lastFetched, loading } = this.graphState;
 		// Names what a plain jump-to-ref click will do, so the label can't drift from the behavior.
 		const focusLabel = this.isScopedToCurrentBranch ? 'Unfocus Current Branch' : 'Focus on Current Branch';
 
@@ -1095,65 +1079,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				)}
 			</div>
 			<div class="titlebar__group">
-				${when(
-					// `mcpBannerCollapsed` is dismissal-only; this button also stays hidden when MCP
-					// auto-registers (the modal shows the "bundled" banner variant instead)
-					!(state.mcpBannerCollapsed ?? true) && !(state.mcpCanAutoRegister ?? false),
-					() => html`
-						<gl-popover class="mcp-tooltip" placement="bottom" trigger="click focus hover">
-							<a
-								class="action-button action-button--mcp"
-								href=${createCommandLink('gitlens.ai.mcp.install', { source: 'graph' })}
-								slot="anchor"
-							>
-								<code-icon class="action-button__icon" icon="mcp"></code-icon>
-							</a>
-							<div class="mcp-tooltip__content" slot="content">
-								<strong>Install GitKraken MCP for GitLens</strong> <br />
-								Leverage Git and Integration information from GitLens in AI chat.
-								<a href="https://help.gitkraken.com/mcp/mcp-getting-started">Learn more</a>
-								${when(
-									state.canInstallClaudeHook,
-									() => html`
-										<br /><br />
-										<a href=${createCommandLink('gitlens.agents.installClaudeHook')}
-											>Install Claude Code Hooks</a
-										>
-										to see and manage your parallel agent work from GitLens.
-									`,
-								)}
-							</div>
-						</gl-popover>
-					`,
-				)}
-				${when(
-					((state.mcpBannerCollapsed ?? true) || (state.mcpCanAutoRegister ?? false)) &&
-						(state.canInstallClaudeHook ?? false) &&
-						!(state.hooksBannerCollapsed ?? true),
-					() => html`
-						<gl-popover class="hooks-tooltip" placement="bottom" trigger="click focus hover">
-							<button type="button" class="action-button action-button--hooks" slot="anchor">
-								<code-icon class="action-button__icon" icon="robot"></code-icon>
-							</button>
-							<div class="hooks-tooltip__content" slot="content">
-								<strong>Install Claude Code Hooks</strong><br />
-								Configure Claude to send status updates to GitLens so you can see and manage your
-								parallel agent work.
-								<br /><br />
-								<a href=${createCommandLink('gitlens.agents.installClaudeHook')}>Install</a>
-								&middot;
-								<a href=${createCommandLink('gitlens.agents.uninstallClaudeHook')}>Uninstall</a>
-								&middot;
-								<a
-									href=${createCommandLink('gitlens.onboarding.dismiss', {
-										id: 'hooks:banner',
-									})}
-									>Dismiss</a
-								>
-							</div>
-						</gl-popover>
-					`,
-				)}
 				${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
 				<gl-graph-account-indicator></gl-graph-account-indicator>

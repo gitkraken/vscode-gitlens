@@ -76,19 +76,27 @@ function listSessionsCalls(cliCalls: string[][]): number {
 	return cliCalls.filter(args => args.includes('list-sessions')).length;
 }
 
-function sessionStart(sessionId: string, cwd: string): Record<string, unknown> {
-	return { event: 'SessionStart', sessionId: sessionId, cwd: cwd, pid: process.pid };
+/** Omit `providerId` to emulate an older CLI, which doesn't stamp it. */
+function sessionStart(sessionId: string, cwd: string, providerId?: string): Record<string, unknown> {
+	return {
+		event: 'SessionStart',
+		sessionId: sessionId,
+		cwd: cwd,
+		pid: process.pid,
+		...(providerId != null ? { providerId: providerId } : undefined),
+	};
 }
 
 /** A `list-sessions` poll entry (SessionFileData shape) for an alive session, used to exercise
  *  the reconciliation poll / discrepancy detection. `pid: process.pid` so it passes `isProcessAlive`. */
-function sessionFileData(sessionId: string, cwd: string): Record<string, unknown> {
+function sessionFileData(sessionId: string, cwd: string, providerId?: string): Record<string, unknown> {
 	return {
 		sessionId: sessionId,
 		event: 'UserPromptSubmit',
 		cwd: cwd,
 		pid: process.pid,
 		updatedAt: '2024-01-01T00:00:00.000Z',
+		...(providerId != null ? { providerId: providerId } : undefined),
 	};
 }
 
@@ -2703,6 +2711,386 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 	});
 });
 
+suite('ClaudeCodeProvider permission ask identity gating', () => {
+	// Guards the deny-storm bug: a pending blocking ask must only be settled by an event that
+	// refers to the SAME ask (matching `tool_use_id`, or matching toolName + canonical `tool_input`
+	// when neither side has one) — not by any `PostToolUse`/`PermissionDenied` sharing the session
+	// id. Payload shapes below mirror the installed CLI: `PermissionRequest` hook input carries
+	// `tool_name`/`tool_input` but NEVER `tool_use_id`; `PostToolUse`/`PermissionDenied` carry both.
+	type PermissionResponseLike = { hookSpecificOutput: { decision: { behavior: string } } };
+
+	function permissionRequest(
+		sessionId: string,
+		toolName: string,
+		toolInput: Record<string, unknown>,
+	): Record<string, unknown> {
+		return {
+			event: 'PermissionRequest',
+			sessionId: sessionId,
+			cwd: '/repo',
+			toolName: toolName,
+			toolInput: toolInput,
+			hookInput: { tool_name: toolName, tool_input: toolInput },
+		};
+	}
+
+	function postToolUseWithId(
+		sessionId: string,
+		toolUseId: string,
+		toolName: string,
+		toolInput: Record<string, unknown>,
+	): Record<string, unknown> {
+		return {
+			event: 'PostToolUse',
+			sessionId: sessionId,
+			toolName: toolName,
+			toolInput: toolInput,
+			hookInput: { tool_use_id: toolUseId, tool_name: toolName, tool_input: toolInput },
+		};
+	}
+
+	function permissionDenied(
+		sessionId: string,
+		toolUseId: string,
+		toolName: string,
+		toolInput: Record<string, unknown>,
+	): Record<string, unknown> {
+		return {
+			event: 'PermissionDenied',
+			sessionId: sessionId,
+			toolName: toolName,
+			toolInput: toolInput,
+			hookInput: { tool_use_id: toolUseId, tool_name: toolName, tool_input: toolInput },
+		};
+	}
+
+	test('PostToolUse with the same toolName but different tool_input does not deny the pending ask', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			const blocking = handler(
+				permissionRequest('s1', 'Bash', { command: 'ls -la' }),
+				new URLSearchParams('blocking=true'),
+			);
+			let settled = false;
+			blocking.then(
+				() => (settled = true),
+				() => (settled = true),
+			);
+
+			// A different invocation of the same tool completing elsewhere — must not touch this ask.
+			await handler(postToolUseWithId('s1', 'tu-2', 'Bash', { command: 'git status' }), new URLSearchParams());
+			await flushMicrotasks();
+
+			assert.strictEqual(settled, false, 'the live ask must still be pending');
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.strictEqual(s?.status, 'permission_requested');
+			assert.strictEqual(s?.pendingPermission?.toolName, 'Bash');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('PostToolUse with the same toolName and canonically-equal tool_input denies the pending ask', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			const blocking = handler(
+				permissionRequest('s1', 'Bash', { command: 'ls -la', description: 'list files' }),
+				new URLSearchParams('blocking=true'),
+			);
+
+			// Same input, keys reordered — canonicalization must still equate them.
+			await handler(
+				postToolUseWithId('s1', 'tu-1', 'Bash', { description: 'list files', command: 'ls -la' }),
+				new URLSearchParams(),
+			);
+
+			const response = (await blocking) as PermissionResponseLike;
+			assert.strictEqual(response.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a stray PermissionDenied naming an evicted ask does not deny the ask that replaced it', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			// Ask N: evicted-denied below by ask N+1 — a genuinely different ask (different input),
+			// which is the only way an ask lacking `tool_use_id` ever settles via eviction.
+			const askN = handler(
+				permissionRequest('s1', 'Bash', { command: 'ls -la' }),
+				new URLSearchParams('blocking=true'),
+			);
+
+			// Ask N+1 replaces N.
+			const askNPlus1 = handler(
+				permissionRequest('s1', 'Bash', { command: 'rm -rf build' }),
+				new URLSearchParams('blocking=true'),
+			);
+
+			const evicted = (await askN) as PermissionResponseLike;
+			assert.strictEqual(evicted.hookSpecificOutput.decision.behavior, 'deny', 'ask N is evicted by ask N+1');
+
+			let settled = false;
+			askNPlus1.then(
+				() => (settled = true),
+				() => (settled = true),
+			);
+
+			// A stray PermissionDenied for ask N surfaces late, naming N's tool + input (and some
+			// tool_use_id the CLI attaches) — it must not be mistaken for settling N+1: the input
+			// mismatches N+1's, so the identity gate leaves N+1 untouched.
+			await handler(permissionDenied('s1', 'tu-stray', 'Bash', { command: 'ls -la' }), new URLSearchParams());
+			await flushMicrotasks();
+
+			assert.strictEqual(settled, false, 'ask N+1 must survive the stray PermissionDenied');
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 's1')?.pendingPermission?.toolDescription,
+				'Bash(rm -rf build)',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test("a PermissionDenied matching the pending ask's name and input settles it", async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+			const toolInput = { command: 'rm -rf build' };
+
+			// Production shape: `PermissionRequest` carries no `tool_use_id`.
+			const ask = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
+
+			// Auto-mode classifier denies the tool call — same tool_name, canonically-equal
+			// tool_input (keys reordered), some tool_use_id the CLI attaches.
+			await handler(
+				permissionDenied('s1', 'tu-1', 'Bash', { command: toolInput.command }),
+				new URLSearchParams(),
+			);
+
+			const response = (await ask) as PermissionResponseLike;
+			assert.strictEqual(response.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('consecutive identical asks are each settled by their own PermissionDenied, nothing is left stuck', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+			const toolInput = { command: 'rm -rf build' };
+
+			// Ask N settles via its own genuine PermissionDenied.
+			const askN = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
+			await handler(permissionDenied('s1', 'tu-1', 'Bash', toolInput), new URLSearchParams());
+			const deniedN = (await askN) as PermissionResponseLike;
+			assert.strictEqual(deniedN.hookSpecificOutput.decision.behavior, 'deny');
+
+			// Ask N+1: the agent retries with the SAME input — identical identity to N, since
+			// `PermissionRequest` carries no `tool_use_id` for either. It must settle on its own
+			// genuine PermissionDenied too, not get stuck at `permission_requested` forever.
+			const askNPlus1 = handler(permissionRequest('s1', 'Bash', toolInput), new URLSearchParams('blocking=true'));
+			await handler(permissionDenied('s1', 'tu-2', 'Bash', toolInput), new URLSearchParams());
+			const deniedNPlus1 = (await askNPlus1) as PermissionResponseLike;
+
+			assert.strictEqual(deniedNPlus1.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a duplicate blocking delivery (same name+input, no ids) attaches instead of evicting the first', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			const first = handler(
+				permissionRequest('s1', 'Bash', { command: 'ls -la', description: 'list files' }),
+				new URLSearchParams('blocking=true'),
+			);
+			// CLI retry after its 60s response-header timeout — same ask, keys reordered.
+			const second = handler(
+				permissionRequest('s1', 'Bash', { description: 'list files', command: 'ls -la' }),
+				new URLSearchParams('blocking=true'),
+			);
+
+			let firstSettled = false;
+			first.then(
+				() => (firstSettled = true),
+				() => (firstSettled = true),
+			);
+			await flushMicrotasks();
+			assert.strictEqual(firstSettled, false, 'the duplicate delivery must attach, not evict, the first');
+
+			assert.strictEqual(provider.resolvePermission('s1', 'allow'), true);
+
+			const [firstResponse, secondResponse] = (await Promise.all([first, second])) as [
+				PermissionResponseLike,
+				PermissionResponseLike,
+			];
+			assert.strictEqual(firstResponse.hookSpecificOutput.decision.behavior, 'allow');
+			assert.strictEqual(secondResponse.hookSpecificOutput.decision.behavior, 'allow');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a second blocking request with the same name but different input evicts and denies every resolver on the first', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			const firstRequest = () =>
+				handler(permissionRequest('s1', 'Bash', { command: 'ls -la' }), new URLSearchParams('blocking=true'));
+
+			// Two attached resolvers on the same ask (duplicate delivery) — both must be denied together.
+			const firstA = firstRequest();
+			const firstB = firstRequest();
+
+			// Stays pending until dispose — hold the rejection so it doesn't go unhandled.
+			const second = handler(
+				permissionRequest('s1', 'Bash', { command: 'rm -rf build' }),
+				new URLSearchParams('blocking=true'),
+			);
+			second.catch(() => {});
+
+			const [responseA, responseB] = (await Promise.all([firstA, firstB])) as [
+				PermissionResponseLike,
+				PermissionResponseLike,
+			];
+			assert.strictEqual(responseA.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(responseB.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 's1')?.pendingPermission?.toolDescription,
+				'Bash(rm -rf build)',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a PostToolUse with a real tool name clears an empty-name pending ask (legacy degraded payload)', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			// No `tool_name` anywhere in the payload — registers with an empty identity.
+			const blocking = handler(
+				{ event: 'PermissionRequest', sessionId: 's1', cwd: '/repo', toolInput: { command: 'ls -la' } },
+				new URLSearchParams('blocking=true'),
+			);
+
+			await handler(postToolUseWithId('s1', 'tu-1', 'Bash', { command: 'ls -la' }), new URLSearchParams());
+
+			const response = (await blocking) as PermissionResponseLike;
+			assert.strictEqual(response.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	// `bk.pendingPermission` (the field `clearStalePermission`'s display-only branch gates on) is
+	// only ever populated two ways: the blocking-routable path (which also has a `_pendingPermissions`
+	// map entry, so it's settled through the FIRST branch, not this one) and `Elicitation`. A
+	// non-blocking `PermissionRequest`'s synthesized ask lives solely in the session's own
+	// `pendingPermission` field and isn't gated at all — any later non-`permission_requested` status
+	// update clears it regardless of tool name (unchanged HEAD behavior, not under test here).
+	// `Elicitation` is therefore the only live path that exercises the display-only branch.
+	test('the display-only branch (Elicitation ask) is gated by toolName alone', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			await handler(
+				{ event: 'Elicitation', sessionId: 's1', cwd: '/repo', toolName: 'ask_permission' },
+				new URLSearchParams(),
+			);
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.status, 'permission_requested');
+
+			// A different tool completing elsewhere must not touch the elicitation ask.
+			await handler(
+				postToolUseWithId('s1', 'tu-1', 'Edit', { file_path: '/repo/file.ts' }),
+				new URLSearchParams(),
+			);
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 's1')?.status,
+				'permission_requested',
+				'a different tool must not clear the elicitation ask',
+			);
+
+			// The matching tool name clears it.
+			await handler(postToolUseWithId('s1', 'tu-2', 'ask_permission', {}), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.status, 'thinking');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('UserPromptSubmit still clears a pending ask unconditionally', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start(['/repo']);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+
+			const blocking = handler(
+				permissionRequest('s1', 'Bash', { command: 'ls -la' }),
+				new URLSearchParams('blocking=true'),
+			);
+
+			await handler(
+				{ event: 'UserPromptSubmit', sessionId: 's1', cwd: '/repo', prompt: 'continue please' },
+				new URLSearchParams(),
+			);
+
+			const response = (await blocking) as PermissionResponseLike;
+			assert.strictEqual(response.hookSpecificOutput.decision.behavior, 'deny');
+			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
 suite('ClaudeCodeProvider poll-discovered live rows', () => {
 	const REPO = '/home/user/projectB';
 
@@ -3205,6 +3593,146 @@ suite('ClaudeCodeProvider peer session merge', () => {
 				'a routable ask must not be dropped by the peer’s view',
 			);
 			assert.notStrictEqual(s?.pendingPermission?.resolvable, false);
+		});
+	});
+});
+
+suite('ClaudeCodeProvider host filtering (providerId)', () => {
+	const REPO = '/repo';
+
+	suite('IPC events', () => {
+		test('ignores an event from another AI host', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				// codex event names are identical to Claude's, so this is processed in full without the filter.
+				await handler(sessionStart('codex-1', REPO, 'codex'), new URLSearchParams());
+
+				assert.strictEqual(provider.sessions.length, 0, 'a foreign host event must not create a session');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('tracks an event explicitly stamped claude-code', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('claude-1', REPO, 'claude-code'), new URLSearchParams());
+
+				assert.strictEqual(provider.sessions.length, 1);
+				assert.strictEqual(provider.sessions[0].id, 'claude-1');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('tracks an event with no providerId (older CLI fails open)', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('legacy-1', REPO), new URLSearchParams());
+
+				assert.strictEqual(
+					provider.sessions.length,
+					1,
+					'an older CLI stamps no providerId — dropping it would lose every session',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('ignores a foreign blocking PermissionRequest without answering it', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				const response = await handler(
+					{
+						event: 'PermissionRequest',
+						sessionId: 'copilot-1',
+						providerId: 'copilot',
+						cwd: REPO,
+						toolName: 'Bash',
+						toolInput: { command: 'rm -rf /' },
+					},
+					new URLSearchParams('blocking=true'),
+				);
+
+				assert.strictEqual(response, undefined, 'no permission decision may be returned');
+				assert.strictEqual(provider.sessions.length, 0, 'no session or pending ask may be created');
+			} finally {
+				provider.dispose();
+			}
+		});
+	});
+
+	suite('reconciliation poll', () => {
+		test('imports only our own and unstamped records, and keeps them out of the drift signal', async () => {
+			const { callbacks, syncDiscrepancies } = createMockCallbacks({
+				cliResponse: JSON.stringify([
+					sessionFileData('claude-1', REPO, 'claude-code'),
+					sessionFileData('codex-1', REPO, 'codex'),
+					// opencode's event names never match the live switch — the poll is its only way in.
+					sessionFileData('opencode-1', REPO, 'opencode'),
+					sessionFileData('legacy-1', REPO),
+				]),
+			});
+			const provider = new GateTestProvider(callbacks);
+			try {
+				await provider.runGatedSync();
+
+				assert.deepStrictEqual(
+					provider.sessions.map(s => s.id).sort(),
+					['claude-1', 'legacy-1'],
+					'only claude-code and unstamped records may be tracked',
+				);
+				// Drift counts must describe our own sessions only.
+				assert.strictEqual(syncDiscrepancies.length, 1);
+				assert.deepStrictEqual(syncDiscrepancies[0], {
+					provider: 'claudeCode',
+					discovered: 2,
+					missing: 0,
+					polled: 2,
+					tracked: 0,
+				});
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('does not create a completed row for another host’s ended record', async () => {
+			const { callbacks } = createMockCallbacks({
+				cliResponse: JSON.stringify([
+					{
+						sessionId: 'opencode-ended',
+						providerId: 'opencode',
+						event: 'Stop',
+						cwd: REPO,
+						pid: 999999,
+						status: 'ended',
+						endReason: 'session-end',
+						endedAt: '2026-07-10T00:00:00.000Z',
+						updatedAt: '2026-07-10T00:00:00.000Z',
+					},
+				]),
+			});
+			const provider = new GateTestProvider(callbacks);
+			try {
+				await provider.runGatedSync();
+
+				assert.strictEqual(provider.sessions.length, 0, 'a foreign ended record must not surface as completed');
+			} finally {
+				provider.dispose();
+			}
 		});
 	});
 });

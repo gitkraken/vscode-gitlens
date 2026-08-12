@@ -171,6 +171,12 @@ export class GlPopover extends GlElement {
 	/** static registry to track all open popovers */
 	private static readonly openPopovers = new Set<GlPopover>();
 
+	/** Whether any popover is open — lets auto-opening surfaces (coach marks) defer instead of
+	 *  stomping one the user has open, since `show()` closes all others. */
+	static hasOpenPopover(): boolean {
+		return GlPopover.openPopovers.size > 0;
+	}
+
 	private static closeOthers(openingPopover: GlPopover): void {
 		for (const popover of GlPopover.openPopovers) {
 			if (popover === openingPopover || isShadowIncludingAncestor(popover, openingPopover)) {

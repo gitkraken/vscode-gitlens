@@ -1,7 +1,7 @@
 import * as assert from 'node:assert';
 import type { GkAgent } from '../../../../agents/agentService.js';
 import type { AgentDescriptor } from '../../../../plus/agents/agentDescriptor.js';
-import { toAgentInfo } from '../agents.js';
+import { toAgentInfo, toHookOnlyAgentInfo } from '../agents.js';
 
 function cliAgent(overrides?: Partial<GkAgent>): GkAgent {
 	return {
@@ -49,6 +49,38 @@ suite('toAgentInfo', () => {
 			kind: 'cli',
 			mcp: { supported: true, installed: true },
 			hooks: { supported: false, installed: false },
+		});
+	});
+});
+
+suite('toHookOnlyAgentInfo', () => {
+	test('maps a hook-capable editor agent to an editor-kind row with read-only mcp state', () => {
+		const agent = cliAgent({
+			name: 'cursor',
+			displayName: 'Cursor',
+			detected: true,
+			mcpInstalled: true,
+			hooksInstalled: true,
+		});
+		assert.deepStrictEqual(toHookOnlyAgentInfo(agent), {
+			id: 'cursor',
+			label: 'Cursor',
+			kind: 'editor',
+			detected: true,
+			mcp: { supported: true, installed: true },
+			hooks: { supported: true, installed: true },
+		});
+	});
+
+	test('carries detected: false through for the dimmed "Not detected" row treatment', () => {
+		const agent = cliAgent({ name: 'antigravity', displayName: 'Antigravity', detected: false });
+		assert.deepStrictEqual(toHookOnlyAgentInfo(agent), {
+			id: 'antigravity',
+			label: 'Antigravity',
+			kind: 'editor',
+			detected: false,
+			mcp: { supported: true, installed: false },
+			hooks: { supported: true, installed: false },
 		});
 	});
 });

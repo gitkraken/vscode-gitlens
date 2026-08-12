@@ -39,6 +39,9 @@ import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
 interface AgentSessionEvent {
 	event: ClaudeCodeHookEvent;
 	sessionId: string;
+	/** `gk ai hook` client id of the originating host (`claude-code`, `codex`, …) — NOT
+	 *  `AgentSession.providerId`. Absent on older CLIs. */
+	providerId?: string;
 	cwd: string;
 	/** The agent's launch directory, captured first-hand by the CLI and preserved across events.
 	 *  Optional — older CLIs don't send it, in which case consumers fall back to deriving it from
@@ -76,10 +79,15 @@ interface PermissionResponse {
 }
 
 interface PendingPermissionEntry {
-	resolve(response: PermissionResponse): void;
-	reject(reason: Error): void;
+	/** All connections waiting on this ask — duplicate deliveries (CLI retry after its 60s
+	 *  response-header timeout) attach here and settle together. */
+	resolvers: { resolve(response: PermissionResponse): void; reject(reason: Error): void }[];
 	toolName: string;
 	toolDescription: string;
+	/** From `hookInput.tool_use_id` when the CLI surfaces it; identity gate for stale-clearing. */
+	toolUseId?: string;
+	/** Serialized tool_input, for duplicate-delivery detection when `toolUseId` is absent. */
+	toolInputJson?: string;
 }
 
 interface SessionBookkeeping {
@@ -172,6 +180,8 @@ const phaseSinceRestoreWindowMs = 2000;
 
 interface SessionFileData {
 	sessionId: string;
+	/** `gk ai hook` client id of the owning host — see {@link AgentSessionEvent.providerId}. */
+	providerId?: string;
 	event: string;
 	cwd: string;
 	/** CLI-provided launch directory; absent on older CLIs (fall back to `cwd`). */
@@ -255,6 +265,21 @@ function synthesizeUnresolvableAsk(toolName: string | null | undefined, planFile
 		toolDescription: 'Waiting for input',
 		resolvable: false,
 	};
+}
+
+/** JSON.stringify with object keys recursively sorted — array order is preserved. `tool_input`
+ *  can arrive with different key order (or via the top-level fallback field) between deliveries;
+ *  canonicalizing makes input equality reliable across those variations. */
+function stableStringify(value: unknown): string {
+	return JSON.stringify(value, (_key, val: unknown) => {
+		if (val == null || typeof val !== 'object' || Array.isArray(val)) return val;
+
+		const sorted: Record<string, unknown> = {};
+		for (const key of Object.keys(val).sort()) {
+			sorted[key] = (val as Record<string, unknown>)[key];
+		}
+		return sorted;
+	});
 }
 
 /** Field-wise equality for the ask a `permission_requested` row publishes. `updateSessionStatus`
@@ -412,6 +437,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// IPC server stays up intentionally — hooks fire even when the window is unfocused
 	}
 
+	sync(): Promise<void> {
+		return this.syncSessions();
+	}
+
 	updateWorkspacePaths(workspacePaths: string[]): void {
 		this._workspacePaths = workspacePaths.map(p => normalizePath(p));
 
@@ -505,7 +534,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 		this._handlerDisposables = [];
 		for (const pending of this._pendingPermissions.values()) {
-			pending.reject(new Error('Provider disposed'));
+			this.rejectAllPending(pending, new Error('Provider disposed'));
 		}
 		this._pendingPermissions.clear();
 		for (const bk of this._sessionBookkeeping.values()) {
@@ -625,6 +654,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private handleSessionEvent(event: AgentSessionEvent, isBlocking: boolean): Promise<PermissionResponse | void> {
+		// The CLI broadcasts every AI host's events to every listener. Absent = accept: older CLIs
+		// don't stamp it. A dropped blocking request gets no decision, so the CLI waits out its own
+		// hook timeout — correct, since we must not answer for an agent we don't track.
+		if (event.providerId != null && event.providerId !== 'claude-code') {
+			Logger.debug(`ClaudeCodeProvider.handleSessionEvent: ignoring ${event.event} from ${event.providerId}`);
+			return Promise.resolve();
+		}
+
 		const workspacePath = this.resolveWorkspacePath(event.cwd);
 		const eventContext: SessionContext = {
 			pid: event.pid,
@@ -700,7 +737,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			case 'SessionEnd': {
 				const pending = this._pendingPermissions.get(event.sessionId);
 				if (pending != null) {
-					pending.reject(new Error('Session ended'));
+					this.rejectAllPending(pending, new Error('Session ended'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
 				this.cancelPendingIdleTransition(event.sessionId);
@@ -799,7 +836,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			case 'PostToolUse':
 			case 'PostToolUseFailure': {
-				this.clearStalePermission(event.sessionId, event.event);
+				this.clearStalePermission(event.sessionId, event.event, this.settledByFromEvent(event));
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				// Cooldown the file-edit decoration instead of dropping it immediately, so a quick
@@ -834,7 +871,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			case 'StopFailure': {
 				const pending = this._pendingPermissions.get(event.sessionId);
 				if (pending != null) {
-					pending.reject(new Error('Session stopped'));
+					this.rejectAllPending(pending, new Error('Session stopped'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
 				// Turn ended: stop the "live" pulse but keep the per-operation decay tail fading over
@@ -911,14 +948,37 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					const toolDescription = describeToolInput(toolName, toolInput);
 					const toolInputDescription = (toolInput.description as string | undefined) || undefined;
 					const kind: PendingPermissionKind = classifyPermissionKind(toolName);
+					const toolUseId = hookInput?.tool_use_id as string | undefined;
+					const toolInputJson = stableStringify(toolInput);
 
 					return new Promise<PermissionResponse>((resolve, reject) => {
 						const existing = this._pendingPermissions.get(event.sessionId);
+						// Same identity as `settledByFromEvent`'s comparisons: `toolUseId` when both sides
+						// have one, else toolName + canonical input.
+						const isDuplicateDelivery =
+							existing != null &&
+							((existing.toolUseId != null && toolUseId != null && existing.toolUseId === toolUseId) ||
+								(existing.toolUseId == null &&
+									toolUseId == null &&
+									existing.toolName === toolName &&
+									existing.toolInputJson === toolInputJson));
+
+						if (isDuplicateDelivery) {
+							// Duplicate delivery of the same ask (CLI retry after its 60s response-header
+							// timeout) — attach instead of replacing so both connections settle together.
+							// Nothing about the display changes, so skip rebuilding it below. Accepted
+							// residual: two independent, identical, concurrent asks are byte-for-byte
+							// indistinguishable on the wire and coalesce the same way, receiving one
+							// decision — evicting instead would falsely deny a live ask.
+							existing.resolvers.push({ resolve: resolve, reject: reject });
+							return;
+						}
+
 						if (existing != null) {
 							Logger.debug(
 								`ClaudeCodeProvider.handleSessionEvent: auto-denying stale permission ${tag} tool=${existing.toolName}`,
 							);
-							existing.resolve({
+							this.resolveAllPending(existing, {
 								hookSpecificOutput: {
 									hookEventName: 'PermissionRequest',
 									decision: { behavior: 'deny' },
@@ -927,10 +987,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						}
 
 						this._pendingPermissions.set(event.sessionId, {
-							resolve: resolve,
-							reject: reject,
+							resolvers: [{ resolve: resolve, reject: reject }],
 							toolName: toolName,
 							toolDescription: toolDescription,
+							toolUseId: toolUseId,
+							toolInputJson: toolInputJson,
 						});
 
 						// Plan-kind body: prefer the existing session's planFile (set via SessionStart/
@@ -998,7 +1059,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			case 'PermissionDenied': {
-				this.clearStalePermission(event.sessionId, 'PermissionDenied');
+				this.clearStalePermission(event.sessionId, 'PermissionDenied', this.settledByFromEvent(event));
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				const filesChanged = this.untrackToolUseFile(event.sessionId, event);
@@ -1618,22 +1679,107 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		return now;
 	}
 
+	/** Extracts the ask identity a settlement event refers to. `PostToolUse`/`PermissionDenied`
+	 *  carry `hookInput.tool_use_id` and `hookInput.tool_input` in production; the top-level
+	 *  `event.toolName`/`event.toolInput` are the older-CLI fallback. Input is canonicalized so key
+	 *  order (or arriving via the fallback field instead of `hookInput`) doesn't defeat comparison. */
+	private settledByFromEvent(event: AgentSessionEvent): {
+		toolUseId?: string;
+		toolName?: string;
+		toolInputJson?: string;
+	} {
+		const hookInput = event.hookInput;
+		const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
+		return {
+			toolUseId: hookInput?.tool_use_id as string | undefined,
+			toolName: (hookInput?.tool_name as string | undefined) ?? event.toolName,
+			toolInputJson: toolInput != null ? stableStringify(toolInput) : undefined,
+		};
+	}
+
+	private resolveAllPending(entry: PendingPermissionEntry, response: PermissionResponse): void {
+		for (const resolver of entry.resolvers) {
+			resolver.resolve(response);
+		}
+	}
+
+	private rejectAllPending(entry: PendingPermissionEntry, reason: Error): void {
+		for (const resolver of entry.resolvers) {
+			resolver.reject(reason);
+		}
+	}
+
 	// Called when a pending permission was resolved outside GitLens (e.g. via the CLI terminal).
 	// The 'deny' response is a safe no-op since the tool has already run or been denied upstream.
-	private clearStalePermission(sessionId: string, reason: string): void {
+	// `settledBy` identifies the ask the settling event actually refers to — out-of-order/duplicate
+	// hook deliveries (PostToolUse for an unrelated tool, a PermissionDenied for an already-evicted
+	// earlier ask) must never deny a still-live blocking ask just because it shares a session id.
+	// `PermissionDenied` itself only ever fires after Claude Code's auto-mode classifier denies a
+	// tool call — never as an echo of a deny a `PermissionRequest` response sent.
+	private clearStalePermission(
+		sessionId: string,
+		reason: string,
+		settledBy?: { toolUseId?: string; toolName?: string; toolInputJson?: string },
+	): void {
 		const bk = this.getBookkeeping(sessionId);
-		if (bk.pendingPermission == null) return;
-
-		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
-
 		const pending = this._pendingPermissions.get(sessionId);
+
 		if (pending != null) {
-			pending.resolve({
+			if (settledBy != null) {
+				let mismatch = false;
+
+				if (pending.toolUseId != null && settledBy.toolUseId != null) {
+					// Rule 1: both sides identified — the only trustworthy comparison. `PermissionDenied`/
+					// `PostToolUse` hookInput DOES carry `tool_use_id`, but `PermissionRequest` never does,
+					// so `pending` never actually has one — this branch only engages if a future CLI adds
+					// it to requests too. The asymmetry is deliberate, not a gap to close.
+					mismatch = pending.toolUseId !== settledBy.toolUseId;
+				} else if (pending.toolName === '') {
+					// Rule 2: no identity was captured at registration (degraded payload) — nothing to
+					// gate on, so clear unconditionally rather than stranding the ask forever.
+					mismatch = false;
+				} else {
+					// Rule 3: name must match; when both sides have input, it must match too. A
+					// PostToolUse for a different invocation of the same tool (different input) leaves
+					// the ask untouched.
+					mismatch =
+						settledBy.toolName !== pending.toolName ||
+						(pending.toolInputJson != null &&
+							settledBy.toolInputJson != null &&
+							pending.toolInputJson !== settledBy.toolInputJson);
+				}
+
+				if (mismatch) {
+					Logger.debug(
+						`ClaudeCodeProvider.clearStalePermission: skip (identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${pending.toolUseId ?? pending.toolName} settledBy=${settledBy.toolUseId ?? settledBy.toolName ?? 'unknown'}`,
+					);
+					return;
+				}
+			}
+
+			Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
+			this.resolveAllPending(pending, {
 				hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny' } },
 			});
 			this._pendingPermissions.delete(sessionId);
+			bk.pendingPermission = undefined;
+			return;
 		}
 
+		if (bk.pendingPermission == null) return;
+
+		if (
+			settledBy?.toolName != null &&
+			bk.pendingPermission.toolName != null &&
+			settledBy.toolName !== bk.pendingPermission.toolName
+		) {
+			Logger.debug(
+				`ClaudeCodeProvider.clearStalePermission: skip (display-only identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${bk.pendingPermission.toolName} settledBy=${settledBy.toolName}`,
+			);
+			return;
+		}
+
+		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
 		bk.pendingPermission = undefined;
 	}
 
@@ -1648,7 +1794,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		Logger.debug(
 			`ClaudeCodeProvider.resolvePermission: ${decision} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
 		);
-		pending.resolve({
+		this.resolveAllPending(pending, {
 			hookSpecificOutput: {
 				hookEventName: 'PermissionRequest',
 				decision: { behavior: decision, updatedPermissions: updatedPermissions },
@@ -2236,7 +2382,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// live zombie).
 		const pending = this._pendingPermissions.get(prev.id);
 		if (pending != null) {
-			pending.reject(new Error('Session completed'));
+			this.rejectAllPending(pending, new Error('Session completed'));
 			this._pendingPermissions.delete(prev.id);
 		}
 		this.cancelPendingIdleTransition(prev.id);
@@ -2277,7 +2423,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		for (const id of removedIds) {
 			const pending = this._pendingPermissions.get(id);
 			if (pending != null) {
-				pending.reject(new Error('Session pruned'));
+				this.rejectAllPending(pending, new Error('Session pruned'));
 				this._pendingPermissions.delete(id);
 			}
 			this.cancelPendingIdleTransition(id);
@@ -2386,6 +2532,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		for (const data of sessions) {
 			if (!data.sessionId) continue;
+
+			// Another AI host's record in the CLI's shared store. Must stay ahead of `polledIds`/
+			// `polledAlive`: an id in either would skew completed-row reconciliation and the
+			// `onSyncDiscrepancy` drift signal below.
+			if (data.providerId != null && data.providerId !== 'claude-code') continue;
 
 			const effectiveStatus = data.status ?? 'active';
 

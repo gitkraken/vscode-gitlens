@@ -476,7 +476,7 @@ export class GlGraphOverviewBar extends LitElement {
 		return html`
 			<gl-graph-coachmark
 				mark="overviewBar"
-				placement="bottom"
+				placement="bottom-start"
 				.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.pills') ?? undefined}
 				?auto-show=${this.graphReady}
 			></gl-graph-coachmark>

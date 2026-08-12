@@ -542,6 +542,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareRightRef.set(rightRef);
 		state.branchCompareRightRefType.set(rightRefType);
 		state.branchCompareIncludeWorkingTree.set(compareOverrides?.includeWorkingTree ?? false);
+		state.branchCompareGraphRepoPath.set(this.host.graphRepoPath());
 		state.branchCompareRightRefWorktreePath.set(undefined);
 		state.branchCompareMergeBase.set(undefined);
 		state.branchCompareAheadCount.set(0);
@@ -634,6 +635,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareRightRef.set(undefined);
 		state.branchCompareRightRefType.set(undefined);
 		state.branchCompareIncludeWorkingTree.set(false);
+		state.branchCompareGraphRepoPath.set(undefined);
 		state.branchCompareRightRefWorktreePath.set(undefined);
 		state.branchCompareMergeBase.set(undefined);
 		state.branchCompareStale.set(false);

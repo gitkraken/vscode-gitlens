@@ -365,7 +365,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 
 		const state = this._ai?.state.get();
 		const mcpConnected = this.aiEnabled && Boolean(state?.mcp.settingEnabled) && Boolean(state?.mcp.installed);
-		const hooksConnected = this.aiEnabled && Boolean(state?.hooks.claude.installed);
+		const hooksConnected = this.aiEnabled && Boolean(state?.hooks.anyInstalled);
 		const agentConnected = this.aiEnabled && state?.defaultAgent != null;
 		return !(mcpConnected || hooksConnected || agentConnected);
 	}
