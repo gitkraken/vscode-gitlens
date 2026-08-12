@@ -1768,6 +1768,8 @@ gl-lit-graph {
 		flex-shrink: 0;
 		width: 1.8rem;
 		height: 1.8rem;
+		max-width: none;
+		max-height: none;
 		border-radius: 50%;
 		object-fit: cover;
 	}
