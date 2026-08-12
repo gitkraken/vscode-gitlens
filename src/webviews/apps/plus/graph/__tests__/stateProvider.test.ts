@@ -1545,3 +1545,41 @@ suite('resolveFullStateWorkingTreeStats', () => {
 		assert.strictEqual(r.seed, true, 'B full-state must re-seed after swap-back');
 	});
 });
+
+suite('GraphStateProvider pendingScopeToBranch cancellation', () => {
+	const proto = GraphStateProvider.prototype;
+
+	function createFakeThis(): GraphStateProvider {
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = true;
+		return fake;
+	}
+
+	teardown(() => {
+		const t = createFakeThis();
+		t.scope = undefined;
+		t.pendingScopeToBranch = false;
+	});
+
+	test('clearScope cancels the park even when no scope is published', () => {
+		const t = createFakeThis();
+		proto.clearScope.call(t);
+
+		assert.strictEqual(t.pendingScopeToBranch, false);
+	});
+
+	test('setScope cancels the park', async () => {
+		const t = createFakeThis();
+		await proto.setScope.call(t, { branchRef: '', branchName: '' });
+
+		assert.strictEqual(t.pendingScopeToBranch, false);
+	});
+
+	test('deferScopeClear cancels the park even when no scope is published', () => {
+		const t = createFakeThis();
+		proto.deferScopeClear.call(t);
+
+		assert.strictEqual(t.pendingScopeToBranch, false);
+	});
+});

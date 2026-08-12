@@ -979,6 +979,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _pendingScope: GraphScope | undefined;
 
 	/**
+	 * `scopeToBranch` parked until a state push carries an attached branch. Any scope set or
+	 * clear — even automatic — cancels it, so it can't override a scope change made in the meantime.
+	 */
+	@signalState(false)
+	accessor pendingScopeToBranch: AppState['pendingScopeToBranch'] = false;
+
+	/**
 	 * Set by callers (e.g. the scope popover) right before sending a filter-changing IPC, so the
 	 * scope clear coalesces with the resulting `DidChangeRefsVisibilityNotification` rather than
 	 * causing an immediate minimap reset followed by a separate filter-update repaint.
@@ -986,6 +993,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _scopeClearDeferred = false;
 
 	deferScopeClear(): void {
+		// Also retire a parked walkthrough focus — with no scope published, `clearScope` below never fires
+		this.pendingScopeToBranch = false;
 		// Cancel any in-flight `setScope` publish so a cache-miss resolve can't sneak a new
 		// scope in after the imminent visibility change clears `this.scope`.
 		this._pendingScope = undefined;
@@ -1001,6 +1010,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	clearScope(): void {
+		this.pendingScopeToBranch = false;
 		if (this.scope == null) return;
 
 		this.cancelPendingScope();
@@ -1046,6 +1056,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * enrichment) — see `stripUnpairedMergeTarget`.
 	 */
 	async setScope(scope: GraphScope): Promise<void> {
+		this.pendingScopeToBranch = false;
 		this._pendingScope = scope;
 		// A pending `deferScopeClear` was armed to retire the scope this call REPLACES; leaving it set
 		// means the next `DidChangeRefsVisibilityNotification` clears the scope we're installing right

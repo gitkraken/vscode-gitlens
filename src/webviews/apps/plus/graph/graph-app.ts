@@ -140,6 +140,7 @@ import { resolveMinimapShown } from './utils/minimap.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
+import { resolveScopeToBranchTarget, shouldDrainParkedScopeToBranch } from './utils/scopeToBranch.utils.js';
 import {
 	filterSecondariesForScopeAndVisibility,
 	hasDirtyCounts,
@@ -1648,8 +1649,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private _pendingScopeToBranch = false;
-
 	/** A task action that arrived — or was interrupted by a sign-out or plan change — while an access
 	 *  wall is up (#5534). While gated the graph is unreachable (the account screen replaces it, or the
 	 *  plan gate covers it with an undismissable modal), so consuming an action would silently drop it —
@@ -1872,25 +1871,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private async scopeToBranch(): Promise<void> {
-		const branch = this.graphState.branch;
-		if (branch == null) {
-			this._pendingScopeToBranch = true;
+		const target = resolveScopeToBranchTarget(this.graphState.branch, this.fallbackRepoPath);
+		if (target == null) {
+			this.graphState.pendingScopeToBranch = true;
 			return;
 		}
 
-		this._pendingScopeToBranch = false;
-		const repoPath = this.fallbackRepoPath;
-		if (repoPath != null) {
-			const branchRef = getBranchId(repoPath, false, branch.name);
-			await this.setScope(
-				{
-					branchRef: branchRef,
-					branchName: branch.name,
-					upstreamRef: branch.upstream?.name ? getBranchId(repoPath, true, branch.upstream.name) : undefined,
-				},
-				'overview-card',
-			);
-		}
+		this.graphState.pendingScopeToBranch = false;
+		const { branch, repoPath } = target;
+		const branchRef = getBranchId(repoPath, false, branch.name);
+		await this.setScope(
+			{
+				branchRef: branchRef,
+				branchName: branch.name,
+				upstreamRef: branch.upstream?.name ? getBranchId(repoPath, true, branch.upstream.name) : undefined,
+			},
+			'overview-card',
+		);
 	}
 
 	/** Shared WIP selection + details-open flow. Used by both the inline graph WIP row
@@ -2604,8 +2601,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			void this.updateComplete.then(() => this.openCompareMode(pendingCompare));
 		}
 
-		if (this._pendingScopeToBranch && this.graphState.branch != null) {
-			void this.updateComplete.then(() => this.scopeToBranch());
+		if (
+			shouldDrainParkedScopeToBranch(
+				this.graphState.pendingScopeToBranch,
+				this.graphState.branch,
+				this.fallbackRepoPath,
+			)
+		) {
+			void this.updateComplete.then(() => {
+				if (!this.graphState.pendingScopeToBranch) return;
+
+				return this.scopeToBranch();
+			});
 		}
 
 		// Check for external search request (from file history command, etc.)
@@ -4446,6 +4453,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		) {
 			return;
 		}
+
+		// An accepted focus retires the parked walkthrough request — after the detached rejection
+		// (the park must survive it), before the equality early-out (which skips `setScope`'s own cancel).
+		this.graphState.pendingScopeToBranch = false;
 
 		// Skip re-assignment when structurally equal so the graph doesn't re-evaluate
 		// scope highlighting on unrelated graph updates. `additionalBranchRefs` and `origin` are part of
