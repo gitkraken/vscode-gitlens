@@ -28,4 +28,9 @@ export type {
  * same dependency-direction reason as the issue-search model above: provider API clients translate them below
  * this package and cannot import this facade.
  */
-export type { PullRequestSearchCapabilities, PullRequestSearchCriteria } from '@gitlens/git/models/pullRequest.js';
+export type {
+	PullRequestSearchCapabilities,
+	PullRequestSearchCriteria,
+	PullRequestSortField,
+	PullRequestSorting,
+} from '@gitlens/git/models/pullRequest.js';
