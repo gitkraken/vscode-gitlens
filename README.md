@@ -6,7 +6,11 @@
 
 Your repository moves faster than it used to. Coding agents open branches, worktrees pile up, and pull requests stack while you're still reading a diff. GitLens pulls all of it into one interactive view &mdash; history, working changes, branches, worktrees, and live agent activity together &mdash; then helps you review it, rebase it, and shape it into commits someone can actually read.
 
-<!-- TODO(assets): HERO = the new intro video. Custom thumbnail + play affordance, linked to the video. Replaces the retired get-started-video.png -->
+<figure align="center">
+  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk">
+    <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/get-started-video.png" alt="Watch the GitLens Getting Started video" />
+  </a>
+</figure>
 
 **[Start your free 14-day Pro trial](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web&utm_source=gitlens-extension&utm_medium=readme&utm_content=hero)** &mdash; no credit card required.
 
@@ -36,10 +40,8 @@ Answering "what is actually going on in this repo right now" usually takes a vie
 - **Always know where you are** &mdash; jump to `HEAD`, upstream, or merge target. `/` finds any branch; the keyboard drives all of it.
 
 <figure align="center">
-  <img src="images/docs/commit-graph-preview.png" alt="The GitLens Commit Graph" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-preview.png" alt="The GitLens Commit Graph" />
 </figure>
-
-<!-- TODO(assets): PREVIEW ONLY - relative path + provisional filename. Final asset should be re-shot at higher resolution and referenced via the raw.githubusercontent.com/.../main/images/docs/ URL like the rest -->
 
 # Zoom Out and Spot the Patterns &mdash; Visualizations
 
@@ -53,10 +55,8 @@ Who should I ask about this file? Where is all the churn? What has that agent ac
 Open these from the Commit Graph, or _Visual History_ on its own with `Show Visual History`.
 
 <figure align="center">
-  <img src="images/docs/visual-history-preview.png" alt="Visual History for a repository" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-history-preview.png" alt="Visual History for a repository" />
 </figure>
-
-<!-- TODO(assets): PREVIEW ONLY - provisional filename + relative path. A treemap (Agent Activity preferred) would be a stronger second image here -->
 
 # Work in Parallel &mdash; Worktrees and Agents
 
@@ -79,7 +79,9 @@ A worktree is a second checkout of the same repository &mdash; a branch you can 
 - **Terminal links** &mdash; your agent prints a SHA, branch, tag, or range in the terminal. Click it and land on it in the Commit Graph.
 - **GitKraken MCP** &mdash; give your coding agents structured access to your Git history, pull requests, and issues. Install it into Claude Code, Codex, Gemini CLI, GitHub Copilot CLI, OpenCode, or your IDE's built-in chat.
 
-<!-- TODO(assets): Worktrees + agent sessions in the Graph -->
+<figure align="center">
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/agent-status-preview.png" alt="Agent status showing permission prompt" />
+</figure>
 
 # Keep Pull Requests Moving
 
@@ -135,12 +137,6 @@ Everything GitLens built its reputation on: free, unchanged, and on by default.
 - **Revision navigation** &mdash; step backward and forward through a file's history, one click at a time.
 - **File History and Line History** &mdash; follow a whole file or a single line across renames and merges.
 - **Git Command Palette** &mdash; a guided, step-by-step way to run Git commands without memorizing them, plus quick access to branch and file history, commit search, stashes, and repository status.
-
-<figure align="center">
-  <img src="images/docs/blame-hover-preview.png" alt="Inline blame annotation with a rich hover" />
-</figure>
-
-<!-- TODO(assets): PREVIEW ONLY - provisional filename + relative path; final should use the raw.githubusercontent URL convention -->
 
 💡 Not for you? Every annotation is customizable, and `Toggle Line Blame` and `Toggle Git CodeLens` switch them off. The [Help Center](https://help.gitkraken.com/gitlens/gitlens-home/) has the full list of settings.
 
