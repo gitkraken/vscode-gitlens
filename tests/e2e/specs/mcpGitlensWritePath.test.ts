@@ -112,19 +112,14 @@ test.describe('MCP — GitLens write path (validation and failure)', () => {
 	});
 
 	/**
-	 * Known broken — #5679, measured rather than assumed: with no hosting integration connected — the state
-	 * every agent-driven and CI run is in — the Start Work wizard falls back to an interactive step
-	 * ("Start Work — Connect an Integration") despite `useDefaults`, and the MCP call is never
-	 * answered. The deferred the IPC handler awaits is only settled in the wizard's `finally`, which a
-	 * suspended picker never reaches, so the CLI waits out its 10-minute HTTP budget and the client
-	 * gives up at 30s. Verified live: after 8s the quick pick is on screen and the call is still
-	 * pending.
-	 *
-	 * Left as `fixme` rather than run: the two cases would burn 30s each and, worse, leave a modal
-	 * picker open in a worker-scoped instance every later spec shares. They flip on the moment the
-	 * wizard reports instead of prompting.
+	 * Regression guard for #5679: with no hosting integration connected — the state every
+	 * agent-driven and CI run is in — the Start Work wizard used to fall back to an interactive
+	 * "Connect an Integration" step despite `useDefaults`, leaving the MCP call unanswered until it
+	 * timed out and a modal picker open in the shared worker instance. The wizard now settles its
+	 * deferred with an "integration required" error on the programmatic path instead of prompting, so
+	 * the caller gets a refusal and the UI stays clear.
 	 */
-	test.fixme('gitlens_start_work answers a malformed issue URL instead of hanging', async ({ mcpClient, vscode }) => {
+	test('gitlens_start_work answers a malformed issue URL instead of hanging', async ({ mcpClient, vscode }) => {
 		const workspacePath = vscode.electron.workspacePath;
 		const before = localBranches(workspacePath);
 
@@ -149,8 +144,8 @@ test.describe('MCP — GitLens write path (validation and failure)', () => {
 		expect(localBranches(workspacePath), 'a failed start-work must not leave a branch behind').toEqual(before);
 	});
 
-	/** Same defect as above (#5679), through the review wizard. */
-	test.fixme('gitlens_start_review answers a malformed PR URL instead of hanging', async ({ mcpClient, vscode }) => {
+	/** Same guarantee as above (#5679), through the review wizard. */
+	test('gitlens_start_review answers a malformed PR URL instead of hanging', async ({ mcpClient, vscode }) => {
 		const workspacePath = vscode.electron.workspacePath;
 		const before = localBranches(workspacePath);
 

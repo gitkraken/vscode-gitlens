@@ -36,7 +36,7 @@ import {
 	OpenOnJiraQuickInputButton,
 } from '../../commands/quick-wizard/quickButtons.js';
 import { QuickCommand } from '../../commands/quick-wizard/quickCommand.js';
-import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
+import { ensureAccessStep, getAccessGateErrorMessage } from '../../commands/quick-wizard/steps/access.js';
 import { StepsController } from '../../commands/quick-wizard/stepsController.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import { proBadge } from '../../constants.js';
@@ -201,6 +201,19 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 
 				if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
+					// A programmatic (MCP/agent) caller has no way to answer the interactive "Connect an
+					// Integration" quick pick, so entering it would leave the picker open and the caller's
+					// pending result unsettled until it times out (see #5679). Settle the result with a
+					// structured error and bail instead of prompting.
+					if (!hasConnectedIntegrations && this.source.source === 'mcp') {
+						state.result?.cancel(
+							new Error(
+								'A hosting integration is required to start work. Connect an integration and try again.',
+							),
+						);
+						return;
+					}
+
 					using step = steps.enterStep(Steps.ConnectIntegrations);
 
 					if (this.container.telemetry.enabled) {
@@ -238,8 +251,33 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				if (plusFeature != null && steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 					using step = steps.enterStep(Steps.EnsureAccess);
 
-					const result = yield* ensureAccessStep(this.container, plusFeature, state, context, step);
+					// A programmatic (MCP/agent) caller can't answer the interactive Pro/sign-in gate, so run
+					// the access step non-interactively and settle the pending result instead of hanging on it
+					// (see #5679). Interactive callers keep the gate.
+					const interactive = this.source.source !== 'mcp';
+					const result = yield* ensureAccessStep(
+						this.container,
+						plusFeature,
+						state,
+						context,
+						step,
+						interactive,
+					);
 					if (result === StepResultBreak) {
+						if (!interactive) {
+							state.result?.cancel(
+								new Error(
+									await getAccessGateErrorMessage(
+										this.container,
+										plusFeature,
+										undefined,
+										'start work',
+									),
+								),
+							);
+							return;
+						}
+
 						if (step.goBack() == null) break;
 						continue;
 					}
@@ -271,6 +309,14 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 						// If issue not found, show error and fall through to picker
 						if (preSelecteditem == null) {
+							// A programmatic (MCP/agent) caller can't answer the interactive picker, so settle the
+							// pending result with the error instead of falling through to it (see #5679) — mirrors
+							// how the review wizard settles on an unresolved PR URL.
+							if (this.source.source === 'mcp') {
+								state.result?.cancel(new Error(`Issue not found: ${state.issueUrl}.`));
+								return;
+							}
+
 							void window.showErrorMessage(
 								`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
 							);
