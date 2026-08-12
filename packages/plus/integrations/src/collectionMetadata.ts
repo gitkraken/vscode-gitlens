@@ -6,7 +6,7 @@ import type {
 } from '@gitkraken/provider-apis';
 // Matched by its `code` discriminator rather than by `instanceof`: the SDK ships one bundle per entry point, so
 // the class reached through the root is not the same object as the one reached through `/providers`.
-import { isUnsupportedSortError } from '@gitkraken/provider-apis';
+import { isInvalidRequestError, isUnsupportedSortError } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
@@ -22,13 +22,16 @@ import { appendDedupedWarning } from './results.js';
  * before any request went out — so degrading it would hand back N indistinguishable failures and an empty `partial`
  * page, describing an invalid call as an incomplete read.
  *
- * Today that means the SDK's `UnsupportedSortError`, whose own contract states it is "never degraded into a
- * `CollectionScopeFailure` or an omission". Called from every fan-out rather than spelled out in each, so a fan-out
- * added later inherits the rule instead of silently omitting it — which is exactly how Azure's account-wide drain
- * came to degrade it while its three siblings did not.
+ * Today that means the SDK's `UnsupportedSortError` and `InvalidRequestError` — the two codes it lists in its own
+ * `CALLER_CONTRACT_ERROR_CODES`, both documented as "never degraded into a `CollectionScopeFailure` or an
+ * omission". The second covers arguments rejected before the first request goes out: a project key list longer
+ * than one Jira search can carry (or an empty one), a non-integer `pageSize`, an unknown current-user filter, or a
+ * Jira Server read with no `baseUrl` to address. Called from every fan-out rather than spelled out in each, so a
+ * fan-out added later inherits the rule instead of silently omitting it — which is exactly how Azure's
+ * account-wide drain came to degrade it while its three siblings did not.
  */
 export function throwIfCallerContractError(ex: unknown): void {
-	if (isUnsupportedSortError(ex)) throw ex;
+	if (isUnsupportedSortError(ex) || isInvalidRequestError(ex)) throw ex;
 }
 
 /**
