@@ -125,7 +125,12 @@ export interface ZoneSpec {
 	hidden?: boolean;
 }
 
-// minWidth floors: ref/author 32 and message 50 (flex) match the legacy gitkraken-components zones;
+// minWidth floors: ref 32 and message 50 (flex) match the legacy gitkraken-components zones;
+// author (34) is the floor that still fits its content: at/below the floor the cell drops the name and
+// shows only the 1.8rem avatar, so 34 = that avatar + the zone's 0.8rem×2 border-box padding — the
+// legacy 32 left the content box 2px narrower than the avatar (VS Code's injected webview default
+// `img { max-width: 100% }` then squished the circle into an oval; the stylesheet also counters that,
+// but the floor should fit the avatar regardless);
 // date (44) is tighter than the legacy 50 since it renders in ultra-compact form ("2d") when narrow;
 // changes (36) is below the legacy CHANGES_ZONE_MIN_WIDTH of 50 on purpose — the cell degrades to a
 // single centered glyph at that floor (see `changesStageForWidth`), so it stays useful where the old
@@ -137,7 +142,7 @@ export interface ZoneSpec {
 export const defaultZones: readonly ZoneSpec[] = [
 	{ id: 'ref', label: 'Branches / Tags', width: 180, minWidth: 32 },
 	{ id: 'message', label: 'Message', width: 0, minWidth: 50, flex: true },
-	{ id: 'author', label: 'Author', width: 140, minWidth: 32 },
+	{ id: 'author', label: 'Author', width: 140, minWidth: 34 },
 	{ id: 'changes', label: 'Changes', width: 36, minWidth: 36, mode: 'bar' },
 	{ id: 'datetime', label: 'Date', width: 80, minWidth: 44 },
 	{ id: 'sha', label: 'SHA', width: 76, minWidth: 44 },
