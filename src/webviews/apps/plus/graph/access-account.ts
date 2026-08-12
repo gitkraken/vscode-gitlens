@@ -553,7 +553,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				bottom: calc(var(--gl-space-20) * -1);
 				padding-block: var(--gl-space-8) var(--gl-space-10);
 				margin-block-start: var(--gl-space-12);
-				background: var(--color-background);
+				background: var(--vscode-editor-background);
 				animation-delay: 300ms;
 			}
 
@@ -1377,7 +1377,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					<h1 class="heading">Welcome to the Commit Graph</h1>
 					<p class="body">
 						Where your development and agentic workflows come
-						together${!this.showLayoutOptions && !this.upgradedFromPreV19 ? ' &mdash; visualize branches and commits, manage parallel work and agents, and run your entire Git workflow from one view.' : '.'}
+						together${!this.showLayoutOptions && !this.upgradedFromPreV19 ? html` &mdash; visualize branches and commits, manage parallel work and agents, and run your entire Git workflow from one view.` : '.'}
 					</p>
 					${this.showLayoutOptions ? this.renderLayoutOptions() : nothing}
 					<div class="setup">
