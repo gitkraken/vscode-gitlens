@@ -7,9 +7,8 @@ import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { GitUri } from '../../../git/gitUri.js';
 import type { GlRepository } from '../../../git/models/repository.js';
-import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command.js';
+import { executeCommand, registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import { getContext } from '../../../system/-webview/context.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { getScmResourceFolderUri, getScmResourceUri, isScm } from '../../../system/-webview/scm.js';
 import { ViewNode } from '../../../views/nodes/abstract/viewNode.js';
@@ -285,16 +284,6 @@ export function registerGraphWebviewCommands<T>(
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
 			queueMicrotask(() => void executeCommand('gitlens.showGraphView'));
-		}),
-		registerCommand('gitlens.toggleGraph', (...args: any[]) => {
-			if (getContext('gitlens:webviewView:graph:visible')) {
-				void executeCoreCommand('gitlens.views.graph.toggleVisibility');
-			} else {
-				void executeCommand('gitlens.showGraphView', ...args);
-			}
-		}),
-		registerCommand('gitlens.toggleMaximizedGraph', (...args: any[]) => {
-			void executeCommand('gitlens.showGraphView', ...args);
 		}),
 		registerCommand('gitlens.showInCommitGraph', showInCommitGraph),
 		registerCommand('gitlens.showInCommitGraphView', (args: ShowInCommitGraphCommandArgs) => {

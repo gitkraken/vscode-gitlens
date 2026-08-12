@@ -9830,20 +9830,9 @@
 				"icon": "$(gitlens-gitlens)"
 			},
 			{
-				"command": "gitlens.toggleGraph",
-				"title": "Toggle Commit Graph",
-				"category": "GitLens",
-				"icon": "$(gitlens-graph)"
-			},
-			{
 				"command": "gitlens.toggleLineBlame",
 				"title": "Toggle Line Blame",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.toggleMaximizedGraph",
-				"title": "Toggle Maximized Commit Graph",
-				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.toggleReviewMode",
@@ -15238,16 +15227,8 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.toggleGraph",
-					"when": "gitlens:enabled"
-				},
-				{
 					"command": "gitlens.toggleLineBlame",
 					"when": "!gitlens:disabled"
-				},
-				{
-					"command": "gitlens.toggleMaximizedGraph",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.toggleReviewMode",

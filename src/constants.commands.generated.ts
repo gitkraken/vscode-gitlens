@@ -1140,7 +1140,6 @@ export type ContributedPaletteCommands =
 	| 'gitlens.toggleFileBlame'
 	| 'gitlens.toggleFileChanges'
 	| 'gitlens.toggleFileHeatmap'
-	| 'gitlens.toggleGraph'
 	| 'gitlens.toggleLineBlame'
 	| 'gitlens.toggleReviewMode'
 	| 'gitlens.toggleZenMode'
@@ -1214,5 +1213,4 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.showSettingsPage!account'
 	| 'gitlens.showSettingsPage!agents'
 	| 'gitlens.showSettingsPage!ai'
-	| 'gitlens.showSettingsPage!integrations'
-	| 'gitlens.toggleMaximizedGraph';
+	| 'gitlens.showSettingsPage!integrations';

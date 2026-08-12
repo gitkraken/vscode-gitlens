@@ -8572,18 +8572,9 @@
 				]
 			}
 		},
-		"gitlens.toggleGraph": {
-			"label": "Toggle Commit Graph",
-			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
-		},
 		"gitlens.toggleLineBlame": {
 			"label": "Toggle Line Blame",
 			"commandPalette": "!gitlens:disabled"
-		},
-		"gitlens.toggleMaximizedGraph": {
-			"label": "Toggle Maximized Commit Graph",
-			"icon": "$(gitlens-graph)"
 		},
 		"gitlens.toggleReviewMode": {
 			"label": "Toggle Review Mode",
