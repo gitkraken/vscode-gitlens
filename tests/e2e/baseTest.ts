@@ -241,6 +241,14 @@ const defaultUserSettings: Record<string, unknown> = {
 	// so a change to the packaged default would read as an unrelated MCP outage. Pinned explicitly.
 	'gitlens.ai.enabled': true,
 
+	// Pinned off for the same class of reason. `isInsidersCLIEnabled` falls back to
+	// pre-release-or-debugging when this is unset, and pre-release builds are date-versioned, so on
+	// one of those every instance would install the GK CLI's PRE-RELEASE proxy and core — the whole
+	// MCP suite would silently assert a moving release candidate's surface, and
+	// `mcpCliChannel.test.ts` (which overrides this to `true`) would go vacuously green with the
+	// setting doing nothing. Pinning it makes that override mean something everywhere.
+	'gitlens.gitkraken.cli.insiders.enabled': false,
+
 	// Quiet VS Code's built-in Git extension. These tests drive git through the CLI + GitLens (never
 	// the built-in SCM UI), but the built-in extension watches `.git` and periodically refreshes/
 	// fetches — grabbing `.git/index.lock` mid-operation. Under a 4-worker CI runner that contends with
