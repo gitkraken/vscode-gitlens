@@ -1376,8 +1376,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					}
 					<h1 class="heading">Welcome to the Commit Graph</h1>
 					<p class="body">
-						Where your development and agentic workflows come together &mdash; visualize branches and
-						commits, manage parallel work and agents, and run your entire Git workflow from one view.
+						Where your development and agentic workflows come
+						together${!this.showLayoutOptions && !this.upgradedFromPreV19 ? ' &mdash; visualize branches and commits, manage parallel work and agents, and run your entire Git workflow from one view.' : '.'}
 					</p>
 					${this.showLayoutOptions ? this.renderLayoutOptions() : nothing}
 					<div class="setup">

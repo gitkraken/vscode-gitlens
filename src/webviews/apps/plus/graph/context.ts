@@ -38,10 +38,10 @@ export interface AppState extends State {
 	/** Composed with `loading` at the `gl-graph` render boundary — true while a scope-anchor
 	 *  IPC is in flight past `scopeLoadingDelayMs`. Owned by `GraphStateProvider.setScope`. */
 	scopeLoading: boolean;
-	mcpBannerCollapsed?: boolean | undefined;
+	agentsBannerCollapsed?: boolean | undefined;
 	mcpCanAutoRegister?: boolean | undefined;
-	hooksBannerCollapsed?: boolean | undefined;
-	canInstallClaudeHook?: boolean | undefined;
+	canInstallHooks?: boolean | undefined;
+	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
 	navigating: 'next' | 'previous' | false;
 	overviewWip?: { branchIds: string[]; wip: GetOverviewWipResponse };
 	overviewEnrichment?: GetOverviewEnrichmentResponse;

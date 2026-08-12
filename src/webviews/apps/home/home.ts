@@ -54,9 +54,8 @@ import '../plus/home/components/overview.js';
 import '../shared/components/skeleton-loader.js';
 import './components/repo-alerts.js';
 import '../shared/components/banner/banner.js';
+import '../shared/components/agents-banner.js';
 import '../shared/components/gl-error-banner.js';
-import '../shared/components/hooks-banner.js';
-import '../shared/components/mcp-banner.js';
 
 /**
  * Home App - signal-based state management with RPC.
@@ -611,14 +610,12 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// a Promise is always `false`, which leaves banners stuck "dismissed" until an
 		// onDidChange event corrects them (and never corrects fresh, never-dismissed keys).
 		/* oxlint-disable typescript/await-thenable -- Supertalk proxy method calls are thenable at runtime */
-		const [integrationDismissed, mcpDismissed, hooksDismissed] = await Promise.all([
+		const [integrationDismissed, agentsDismissed] = await Promise.all([
 			onboarding.isDismissed('home:integrationBanner'),
-			onboarding.isDismissed('mcp:banner'),
-			onboarding.isDismissed('hooks:banner'),
+			onboarding.isDismissed('agents:banner'),
 		]);
 		this._onboardingState.banners.integrationBanner = !integrationDismissed;
-		this._onboardingState.banners.mcpBanner = !mcpDismissed;
-		this._onboardingState.banners.hooksBanner = !hooksDismissed;
+		this._onboardingState.banners.agentsBanner = !agentsDismissed;
 
 		// Set up event subscriptions FIRST (so we don't miss events during fetch)
 		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so the
@@ -777,36 +774,23 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// Banners outside <main> only render once we know the layout
 		if (!this._homeState.ready.get()) return nothing;
 
-		const aiState = this._aiState.state.get();
-		// Suppress the MCP banner once MCP is actually installed — the "Connect More Agents" CTA
-		// still lives in the integrations popover row, so it isn't lost. Hooks takes the slot instead.
-		const showMcp = this._onboardingState.banners.mcpBanner && !aiState.mcp.installed;
-		if (showMcp) return this.renderMcpBanner();
-		return this.renderHooksBanner();
+		return this.renderAgentsBanner();
 	}
 
-	private renderMcpBanner(): unknown {
-		// Hide once the user has dismissed it via the onboarding service
-		if (!this._onboardingState.banners.mcpBanner) return nothing;
+	private renderAgentsBanner(): unknown {
+		if (!this._onboardingState.banners.agentsBanner) return nothing;
 
 		const aiState = this._aiState.state.get();
+		// Nothing left to pitch once MCP is installed and there are no hook-eligible agents to install for.
+		if (aiState.mcp.installed && !aiState.hooks.canInstallHooks) return nothing;
+
 		return html`
-			<gl-mcp-banner
+			<gl-agents-banner
 				source="home"
-				.canAutoRegister=${aiState.mcp.bundled}
-				.canInstallClaudeHook=${aiState.hooks.canInstallClaudeHook}
-			></gl-mcp-banner>
+				.mcpCanAutoRegister=${aiState.mcp.bundled}
+				.hooksAvailable=${aiState.hooks.agents.length > 0}
+			></gl-agents-banner>
 		`;
-	}
-
-	private renderHooksBanner(): unknown {
-		if (!this._onboardingState.banners.hooksBanner) return nothing;
-
-		const aiState = this._aiState.state.get();
-		if (!aiState.enabled || !aiState.orgEnabled) return nothing;
-		if (!aiState.hooks.canInstallClaudeHook) return nothing;
-
-		return html`<gl-hooks-banner source="home"></gl-hooks-banner>`;
 	}
 
 	private renderMain(): unknown {

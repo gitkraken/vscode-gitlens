@@ -158,12 +158,12 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 								<span class="integration__actions">
 									<gl-button
 										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
+										href="${createCommandLink<Source>('gitlens.ai.mcp.installForAllAgents', {
 											source: 'home',
 											detail: 'integrations',
 										})}"
-										tooltip="Connect More Agents"
-										aria-label="Connect More Agents"
+										tooltip="Connect All Agents"
+										aria-label="Connect All Agents"
 										><code-icon icon="plug"></code-icon
 									></gl-button>
 									<gl-button
@@ -274,43 +274,57 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 	private renderHooksRow() {
 		if (!this.aiEnabled) return nothing;
 
-		const claude = this.ai.hooks.claude;
-		// Don't render at all if gkcli says hooks aren't supported for Claude on this machine, or
-		// if Claude isn't detected — there's nothing to install OR uninstall.
-		if (!claude.supported || !claude.detected) return nothing;
+		const { agents, canInstallHooks, anyInstalled } = this.ai.hooks;
+		// Don't render at all if no hook-capable agent was detected — there's nothing to install OR uninstall.
+		if (agents.length === 0) return nothing;
 
-		if (claude.installed) {
-			return html`<div class="integration-row integration-row--hooks status--connected">
-				<span class="integration__icon"><code-icon icon="search-sparkle"></code-icon></span>
-				<span class="integration__content">
-					<span class="integration__title">GitKraken Claude Code Hooks</span>
-					<span class="integration__details">Installed — Claude surfaces agent status</span>
-				</span>
-				<span class="integration__actions">
-					<gl-button
-						appearance="toolbar"
-						href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
-						tooltip="Uninstall Claude Hooks"
-						aria-label="Uninstall Claude Hooks"
-						><code-icon icon="debug-disconnect"></code-icon
-					></gl-button>
-				</span>
-			</div>`;
-		}
+		const installedCount = agents.filter(a => a.installed).length;
+		const details =
+			installedCount > 0 ? `Installed for ${installedCount} of ${agents.length} agents` : 'Not installed';
 
-		return html`<div class="integration-row integration-row--hooks status--disconnected">
-			<span class="integration__icon"><code-icon icon="search-sparkle"></code-icon></span>
+		return html`<div
+			class="integration-row integration-row--hooks status--${anyInstalled ? 'connected' : 'disconnected'}"
+		>
+			<span class="integration__icon"><code-icon icon="robot"></code-icon></span>
 			<span class="integration__content">
-				<span class="integration__title">GitKraken Claude Code Hooks</span>
-				<span class="integration__details">Configure Claude to surface agent status</span>
+				<span class="integration__title">Agent Hooks</span>
+				<span class="integration__details">${details}</span>
 			</span>
 			<span class="integration__actions">
+				${
+					canInstallHooks
+						? html`<gl-button
+								appearance="toolbar"
+								href="${createCommandLink<Source>('gitlens.agents.installHooks', {
+									source: 'home',
+									detail: 'integrations',
+								})}"
+								tooltip="Install Hooks for All Agents"
+								aria-label="Install Hooks for All Agents"
+								><code-icon icon="plug"></code-icon
+							></gl-button>`
+						: nothing
+				}
+				${
+					anyInstalled
+						? html`<gl-button
+								appearance="toolbar"
+								href="${createCommandLink<Source>('gitlens.agents.uninstallHooks', {
+									source: 'home',
+									detail: 'integrations',
+								})}"
+								tooltip="Uninstall Hooks for All Agents"
+								aria-label="Uninstall Hooks for All Agents"
+								><code-icon icon="debug-disconnect"></code-icon
+							></gl-button>`
+						: nothing
+				}
 				<gl-button
 					appearance="toolbar"
-					href="${createCommandLink('gitlens.agents.installClaudeHook')}"
-					tooltip="Install Claude Hooks"
-					aria-label="Install Claude Hooks"
-					><code-icon icon="plug"></code-icon
+					href="${createCommandLink('gitlens.showSettingsPage!agents')}"
+					tooltip="Manage Agents"
+					aria-label="Manage Agents"
+					><code-icon icon="gear"></code-icon
 				></gl-button>
 			</span>
 		</div>`;

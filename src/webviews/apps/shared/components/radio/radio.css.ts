@@ -11,4 +11,13 @@ export const radioStyles = css`
 		--checkbox-checked-border: var(--vscode-radio-activeBorder);
 		--checkbox-hover-background: var(--vscode-radio-inactiveHoverBackground);
 	}
+
+	/* When the label is visually hidden, drop the spacing between the control and the empty slot */
+	:host([sr-only-label]) label {
+		gap: 0;
+	}
+
+	:host([sr-only-label]) .label-text {
+		margin-inline-end: 0;
+	}
 `;

@@ -82,8 +82,6 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.visualizeHistory.branch:home';
 
 type InternalAgentCommands =
-	| 'gitlens.agents.installClaudeHook'
-	| 'gitlens.agents.uninstallClaudeHook'
 	| 'gitlens.agents.resolvePermission'
 	| 'gitlens.agents.openPlanFile'
 	| 'gitlens.agents.resumeSession'

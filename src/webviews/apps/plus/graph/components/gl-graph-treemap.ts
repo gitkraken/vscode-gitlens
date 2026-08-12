@@ -45,7 +45,7 @@ import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/breadcrumbs.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/hooks-banner.js';
+import '../../../shared/components/agents-banner.js';
 import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -304,7 +304,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			--gl-badge-font-size: 0.95rem;
 		}
 
-		.hooks-banner {
+		.agents-banner {
 			display: block;
 			margin: var(--gl-space-12);
 		}
@@ -1148,13 +1148,15 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			</div>
 			${
 				mode === 'activity' &&
-				(this.graphState.canInstallClaudeHook ?? false) &&
-				!(this.graphState.hooksBannerCollapsed ?? true)
-					? html`<gl-hooks-banner
-							class="hooks-banner"
+				(this.graphState.canInstallHooks ?? false) &&
+				!(this.graphState.agentsBannerCollapsed ?? true)
+					? html`<gl-agents-banner
+							class="agents-banner"
 							source="graph-treemap"
 							layout="responsive"
-						></gl-hooks-banner>`
+							.mcpCanAutoRegister=${this.graphState.mcpCanAutoRegister ?? false}
+							.hooksAvailable=${(this.graphState.hooksAgents?.length ?? 0) > 0}
+						></gl-agents-banner>`
 					: nothing
 			}
 			<div class="chart-container">

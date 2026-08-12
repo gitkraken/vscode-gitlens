@@ -141,14 +141,21 @@ export interface IntegrationChangeEventData {
 
 /**
  * Serializable per-agent info for the Agents settings table.
- * `mcp`/`hooks` are present only for gkcli-provided CLI agents; Chat/Extension agents omit them.
+ * `mcp`/`hooks` are present only for gkcli-provided CLI agents and hook-only editor agents;
+ * Chat/Extension agents omit them. `editor` agents are hook-capable IDE agents (cursor, antigravity)
+ * that aren't detected CLIs — they render under their own "Editors" section, with no Default radio
+ * or MCP action; `detected` gates their dimmed "Not detected" treatment.
  */
 export interface AgentInfo {
 	readonly id: string;
 	readonly label: string;
-	readonly kind: 'ide-chat' | 'claude-extension' | 'cli';
+	readonly kind: 'ide-chat' | 'claude-extension' | 'cli' | 'editor';
+	readonly detected?: boolean;
 	readonly mcp?: { readonly supported: boolean; readonly installed: boolean };
 	readonly hooks?: { readonly supported: boolean; readonly installed: boolean };
+	/** For an IDE-host row that supports hooks, the gkcli agent name to target for hooks install/uninstall
+	 *  (e.g. `cursor`) — this row's own `id` may be `ide-chat`. Absent when `id` is already the hooks target. */
+	readonly hooksAgentId?: string;
 }
 
 /**
@@ -188,22 +195,22 @@ export interface AIState {
 	/** MCP state, nested under AI since MCP requires AI to be enabled. */
 	readonly mcp: {
 		readonly bundled: boolean;
+		/** True iff the running host can register the bundled MCP server (independent of the opt-in). */
+		readonly capable: boolean;
 		readonly settingEnabled: boolean;
 		readonly installed: boolean;
 	};
-	/** AI hooks state — whether a hook-supporting agent is detected. */
+	/** AI hooks state — per hook-capable agent from `gk agents list`, plus aggregate flags. */
 	readonly hooks: {
-		/** Per-agent Claude hook state from `gk agents list`. `supported` may be false if gkcli is missing. */
-		readonly claude: {
-			readonly detected: boolean;
-			readonly supported: boolean;
-			readonly installed: boolean;
-		};
+		/** Detected, hooks-supported agents (`detected && hooksSupported`). Empty when gkcli is missing. */
+		readonly agents: readonly { readonly id: string; readonly displayName: string; readonly installed: boolean }[];
 		/**
-		 * True when the install action is currently relevant (supported, detected, not yet installed).
-		 * Banners and the integrations-chip "Install" CTA gate on this; the uninstall CTA gates on `claude.installed`.
+		 * True when at least one agent in `agents` lacks hooks (install action is relevant).
+		 * Banners and the integrations-chip "Install" CTA gate on this; the uninstall CTA gates on `anyInstalled`.
 		 */
-		readonly canInstallClaudeHook: boolean;
+		readonly canInstallHooks: boolean;
+		/** True when at least one agent in `agents` has hooks installed. */
+		readonly anyInstalled: boolean;
 	};
 	/**
 	 * Currently-selected default coding agent (resolved from `gitlens.ai.defaultAgent`).

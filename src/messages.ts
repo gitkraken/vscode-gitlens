@@ -309,9 +309,14 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
 	const openWalkthrough = { title: 'Open Walkthrough' };
+	const openGraph = { title: 'Show Commit Graph' };
 
 	let message: string;
 	switch (majorVersion) {
+		case '19':
+			message =
+				'GitLens 19 is here — the Commit Graph has been rebuilt from the ground up: dramatically faster, lighter, now the heart of GitLens, with new and enhanced workflows from code to merge.';
+			break;
 		case '18':
 			message =
 				'GitLens upgraded to 18 — the Commit Graph is all new with agent integration, multi-worktree WIP rows, AI-powered Review and Compose modes, and more.';
@@ -325,7 +330,7 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 			break;
 	}
 
-	const actions: MessageItem[] = [releaseNotes];
+	const actions: MessageItem[] = majorVersion === '19' ? [openGraph, releaseNotes] : [releaseNotes];
 	if (majorVersion === '18') {
 		actions.push(openWalkthrough);
 	}
@@ -337,6 +342,8 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 		void openUrl(urls.releaseNotes);
 	} else if (result === openWalkthrough) {
 		void executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
+	} else if (result === openGraph) {
+		void executeCommand('gitlens.showGraphView');
 	}
 }
 
@@ -375,7 +382,7 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 	}
 
 	if (result === connectMore) {
-		void executeCommand<Source>('gitlens.ai.mcp.selectAgents', { source: 'mcp-welcome-message' });
+		void executeCommand<Source>('gitlens.ai.mcp.installForAllAgents', { source: 'mcp-welcome-message' });
 	}
 
 	if (result === learnMore) {

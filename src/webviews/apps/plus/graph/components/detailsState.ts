@@ -40,7 +40,11 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
-import type { GraphActionTarget, GraphShowAction } from '../../../../plus/graph/protocol.js';
+import type {
+	DidRequestOpenCompareModeParams,
+	GraphActionTarget,
+	GraphShowAction,
+} from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
@@ -479,6 +483,7 @@ function createTransientState() {
 	const branchCompareRightRef = signal<string | undefined>(undefined);
 	const branchCompareRightRefType = signal<'branch' | 'tag' | 'commit' | undefined>(undefined);
 	const branchCompareIncludeWorkingTree = signal(false);
+	const branchCompareGraphRepoPath = signal<string | undefined>(undefined);
 	// Worktree path currently checked out at `branchCompareRightRef` (the Compare side), populated
 	// by each summary fetch. Drives IWT-toggle visibility and routes WT-touching file ops to the
 	// correct repo path. Cleared synchronously on rightRef changes so the toggle hides during
@@ -565,6 +570,7 @@ function createTransientState() {
 		branchCompareRightRef: branchCompareRightRef,
 		branchCompareRightRefType: branchCompareRightRefType,
 		branchCompareIncludeWorkingTree: branchCompareIncludeWorkingTree,
+		branchCompareGraphRepoPath: branchCompareGraphRepoPath,
 		branchCompareRightRefWorktreePath: branchCompareRightRefWorktreePath,
 		branchCompareMergeBase: branchCompareMergeBase,
 		branchCompareStale: branchCompareStale,
@@ -639,20 +645,75 @@ export function createDetailsState() {
 /** Graph Details state type — the return value of `createDetailsState()`. */
 export type DetailsState = ReturnType<typeof createDetailsState>;
 
-/** The live task the user is engaged in — read by the account-gate's task-specific sign-in
- *  messaging and post-sign-in restore when a sign-out interrupts the task (#5534). An active
+/** The two sides of a Graph comparison, as `GlGraphDetailsPanel.openCompareMode` accepts them. */
+export type CompareModeParams = Omit<DidRequestOpenCompareModeParams, 'leftRef'> & { leftRef?: string };
+
+/** The comparison currently open in the panel (sheet or pinned form), or `undefined` when none is. */
+export function getOpenComparison(
+	state: DetailsState,
+	compareRepoPath?: string,
+): { compare?: CompareModeParams; graphRepoPath?: string } | undefined {
+	if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return undefined;
+
+	const graphRepoPath = state.branchCompareGraphRepoPath.get();
+	const rightRef = state.branchCompareRightRef.get();
+	const repoPath = graphRepoPath ?? compareRepoPath;
+	const compare =
+		rightRef && repoPath
+			? {
+					repoPath: repoPath,
+					leftRef: state.branchCompareLeftRef.get(),
+					leftRefType: state.branchCompareLeftRefType.get(),
+					rightRef: rightRef,
+					rightRefType: state.branchCompareRightRefType.get(),
+					includeWorkingTree: state.branchCompareIncludeWorkingTree.get(),
+				}
+			: undefined;
+	return { compare: compare, graphRepoPath: graphRepoPath };
+}
+
+/** An interrupted comparison as parked by the access-gate capture.
+ * `refs` may be absent — a ref-less open compare (base picked, Compare side empty) still parks,
+ * so the restore can decline or default-shape it. */
+export type CapturedComparison = { refs?: CompareModeParams; graphRepoPath?: string };
+
+/** Whether a parked comparison capture should be restored. */
+export function shouldRestoreCapturedComparison(
+	capturedRefs: CompareModeParams | undefined,
+	capturedRepoFamily: string | undefined,
+	currentRepoFamily: string | undefined,
+	live: ReturnType<typeof getOpenComparison>,
+): boolean {
+	if (capturedRepoFamily != null && currentRepoFamily != null && capturedRepoFamily !== currentRepoFamily) {
+		return false;
+	}
+
+	if (live != null && (live.compare != null || capturedRefs == null)) return false;
+
+	return true;
+}
+
+/** The live task the user is engaged in — read by the access-gate's task-specific sign-in
+ *  messaging and post-sign-in restore when a wall interrupts the task (#5534). An active
  *  compose/review/resolve mode wins over an open compare — the two can coexist (the sheet sits
  *  over the panel) and the mode is the more specific task. WIP and single-commit anchors are
  *  carried as the target so the restore reopens the SAME content (a secondary worktree's WIP
  *  included); a multi-commit anchor isn't representable in a show target, so it restores
- *  mode-level onto the working changes. An open compare degrades the same way — the sheet's refs
- *  would need a two-ref show target (a protocol change), so the restore reopens the default
- *  compare shape (current branch vs working tree), not the interrupted refs. Compose seeds
- *  (a recompose commit-range, typed instructions) aren't representable either — an interrupted
- *  compose restores as a plain compose of its anchor. */
+ *  mode-level onto the working changes.
+ * An open compare carries its refs (#5671) via {@link getOpenComparison};
+ * without a right ref or a repo path the consumer falls back to the default compare shape.
+ * Compose seeds (a recompose commit-range, typed instructions) aren't representable */
 export function getActiveTaskAction(
 	state: DetailsState,
-): { action: GraphShowAction; target?: GraphActionTarget } | undefined {
+	compareRepoPath?: string,
+):
+	| {
+			action: GraphShowAction;
+			target?: GraphActionTarget;
+			compare?: CompareModeParams;
+			compareGraphRepoPath?: string;
+	  }
+	| undefined {
 	const mode = state.activeMode.get();
 	if (mode != null) {
 		const context = state.activeModeContext.get();
@@ -671,7 +732,10 @@ export function getActiveTaskAction(
 		return { action: `enter-${mode}`, target: target };
 	}
 
-	if (state.compareSheetOpen.get() || state.compareAsPanel.get()) return { action: 'open-compare' };
+	const open = getOpenComparison(state, compareRepoPath);
+	if (open != null) {
+		return { action: 'open-compare', compare: open.compare, compareGraphRepoPath: open.graphRepoPath };
+	}
 
 	return undefined;
 }

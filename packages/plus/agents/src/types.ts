@@ -231,6 +231,10 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	stop(): void;
 	updateWorkspacePaths?(workspacePaths: string[]): void;
 
+	/** Forces an ungated reconciliation with the provider's durable session store (e.g. the sidebar's
+	 *  Refresh action). Omitted by providers with no durable store to poll. */
+	sync?(): Promise<void>;
+
 	/** Pushed by the host from its cached agent detection. Lets the provider gate its reconciliation
 	 *  poll (the CLI `list-sessions` call) so an idle window with no sessions and no installed hooks
 	 *  doesn't spawn the CLI every interval. */

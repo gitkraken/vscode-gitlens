@@ -1300,12 +1300,6 @@ export class WebviewController<
 			);
 		}, WebviewController.replayWindowMs);
 	}
-
-	async maximize(): Promise<void> {
-		if (this.provider && 'maximize' in this.provider && typeof this.provider.maximize === 'function') {
-			await this.provider.maximize();
-		}
-	}
 }
 
 const htmlTokensRegex =

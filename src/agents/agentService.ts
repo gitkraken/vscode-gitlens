@@ -66,6 +66,22 @@ export class AgentService {
 		return agents.filter(a => cliAgentIds.has(a.name) && a.detected && isCliExecutableAvailable(a.executable));
 	}
 
+	/** All known CLI agents, detected or not — the Settings Agents table lists every supported CLI and
+	 *  dims the undetected ones. `getDetectedCliAgents` stays the picker/install-all source. */
+	async getCliAgents(): Promise<readonly GkAgent[]> {
+		const agents = await this.getAll();
+		return agents.filter(a => cliAgentIds.has(a.name));
+	}
+
+	/** Hook-capable agents outside the known CLI set (cursor, antigravity, ...) — feeds the Settings
+	 *  Agents table's "Editors" section. Excludes every `cliAgentIds` name regardless of detection
+	 *  state, so an undetected CLI (which never gets a row in the CLI section) doesn't leak in here
+	 *  as a duplicate. */
+	async getHookOnlyAgents(): Promise<readonly GkAgent[]> {
+		const agents = await this.getAll();
+		return agents.filter(a => a.hooksSupported && !cliAgentIds.has(a.name));
+	}
+
 	/** Drops the cached list. Called after hook install/uninstall to surface fresh state. */
 	invalidateCache(): void {
 		this._cache = undefined;

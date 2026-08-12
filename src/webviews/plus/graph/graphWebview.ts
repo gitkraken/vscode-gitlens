@@ -57,6 +57,7 @@ import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import { satisfies } from '@gitlens/utils/version.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
+import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
@@ -113,7 +114,7 @@ import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/u
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
-import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
+import { isAgentsBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import {
 	isAccountAccessRequired,
 	isSubscriptionTrialOrPaidFromState,
@@ -251,17 +252,16 @@ import {
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
 	createWipRowId,
+	DidChangeAgentsBanner,
 	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
-	DidChangeCanInstallClaudeHook,
+	DidChangeCanInstallHooks,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
 	DidChangeGraphWalkthroughComplete,
 	DidChangeGraphWalkthroughStarted,
-	DidChangeHooksBanner,
 	DidChangeLayoutPromptNotification,
-	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
@@ -681,7 +681,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				dispose: () => {},
 			},
 			this.container.agentStatus?.onDidChangeHooksInstallState(
-				() => void this.notifyDidChangeCanInstallClaudeHook(),
+				() => void this.notifyDidChangeCanInstallHooks(),
 				this,
 			) ?? { dispose: () => {} },
 		);
@@ -802,7 +802,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			searchGraphOrContinue: (e, progressive) => this._searchService.searchGraphOrContinue(e, progressive),
 			notifyDidChangeOverview: () => void this._panels.notifyDidChangeOverview(),
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
-			notifyDidChangeCanInstallClaudeHook: () => void this.notifyDidChangeCanInstallClaudeHook(),
+			notifyDidChangeCanInstallHooks: () => void this.notifyDidChangeCanInstallHooks(),
 			resetWipSendState: () => this._wip.resetSendState(),
 			clearWipStatusCache: () => this._wip.clearStatusCache(),
 			addPendingNotification: notification =>
@@ -947,6 +947,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Ready is the other edge a secondary-WIP tick can defer on (`runWipRefetch`), and unlike hidden
 		// it resolves without any visibility or focus transition — so nothing else would ever flush it.
 		this._wip.recoverDeferredSecondaryWip();
+		// Bootstrap State doesn't carry agent sessions — the app seeds them with a request that can
+		// race the provider's cold-start import, and a pre-ready change sits in the pending map,
+		// which a reconnect clears. Push the current snapshot on every (re)connect so a booted
+		// iframe can never wedge empty.
+		void this.notifyDidChangeAgentSessions();
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap plus the replay buffer — anything
@@ -970,6 +975,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this._graphSync.flush();
 		// See onReady — a reconnect crosses the same not-ready window.
 		this._wip.recoverDeferredSecondaryWip();
+		// See onReady — the reconnect also cleared any pending agent-sessions notification.
+		void this.notifyDidChangeAgentSessions();
 	}
 
 	private _disposed = false;
@@ -2080,7 +2087,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.notifyDidChangeOrgSettings();
 		}
 		if (key === 'gitlens:agents:enabled') {
-			void this.notifyDidChangeCanInstallClaudeHook();
+			void this.notifyDidChangeCanInstallHooks();
 		}
 	}
 
@@ -2288,12 +2295,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onOnboardingChanged(e: OnboardingChangeEvent) {
-		if (e.key === 'mcp:banner') {
-			this.onMcpBannerChanged();
-			// Dismissing the MCP banner can newly enable the hooks banner — refresh both.
-			this.onHooksBannerChanged();
-		} else if (e.key === 'hooks:banner') {
-			this.onHooksBannerChanged();
+		if (e.key === 'agents:banner') {
+			this.onAgentsBannerChanged();
 		} else if (e.key === 'graph-walkthrough:banner') {
 			this.onGraphWalkthroughBannerChanged();
 		} else if (e.key === 'graph:layoutPrompt') {
@@ -2301,26 +2304,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private onMcpBannerChanged() {
+	private onAgentsBannerChanged() {
 		if (!this.host.visible) return;
 
-		void this.host.notify(DidChangeMcpBanner, this.getMcpBannerCollapsed());
+		void this.host.notify(DidChangeAgentsBanner, this.getAgentsBannerCollapsed());
 	}
 
-	private onHooksBannerChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeHooksBanner, this.getHooksBannerCollapsed());
-	}
-
-	private getMcpBannerCollapsed() {
-		// `showAutoRegistration: true` keeps this a pure dismissal signal — auto-registration is
-		// surfaced separately as `mcpCanAutoRegister` so the webview can render the "bundled" variant.
-		return !isMcpBannerEnabled(this.container, true);
-	}
-
-	private getHooksBannerCollapsed() {
-		return !isHooksBannerEnabled(this.container);
+	private getAgentsBannerCollapsed() {
+		return !isAgentsBannerEnabled(this.container);
 	}
 
 	@ipcCommand(CloseGraphWalkthroughBannerCommand)
@@ -3593,22 +3584,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
 	}
 
-	/** Last value sent to the webview — seeds bulk state pushes without awaiting `gk`, and
-	 *  doubles as a dedup sentinel for `notifyDidChangeCanInstallClaudeHook`. */
-	private _lastCanInstallClaudeHook: boolean | undefined;
+	/** Last values sent to the webview — seed bulk state pushes without awaiting `gk`, and
+	 *  double as dedup sentinels for `notifyDidChangeCanInstallHooks`. */
+	private _lastCanInstallHooks: boolean | undefined;
+	private _lastHooksAgents: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
 
 	@trace()
-	private async notifyDidChangeCanInstallClaudeHook() {
+	private async notifyDidChangeCanInstallHooks() {
 		if (!this.host.visible) return;
 
-		const claude = getContext('gitlens:agents:enabled', false)
-			? await this.container.agents.getClaude()
-			: undefined;
-		const canInstall = claude?.detected === true && claude.hooksSupported && !claude.hooksInstalled;
-		if (canInstall === this._lastCanInstallClaudeHook) return;
+		const all = getContext('gitlens:agents:enabled', false) ? await this.container.agents.getAll() : [];
+		const hooksAgents = all
+			.filter(a => a.detected && a.hooksSupported && areHooksAllowedForAgent(a.name))
+			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
+		const canInstall = hooksAgents.some(a => !a.installed);
 
-		this._lastCanInstallClaudeHook = canInstall;
-		void this.host.notify(DidChangeCanInstallClaudeHook, canInstall);
+		if (
+			canInstall === this._lastCanInstallHooks &&
+			this._lastHooksAgents != null &&
+			hooksAgents.length === this._lastHooksAgents.length &&
+			hooksAgents.every(
+				(a, i) => a.id === this._lastHooksAgents![i].id && a.installed === this._lastHooksAgents![i].installed,
+			)
+		) {
+			return;
+		}
+
+		this._lastCanInstallHooks = canInstall;
+		this._lastHooksAgents = hooksAgents;
+		void this.host.notify(DidChangeCanInstallHooks, { canInstallHooks: canInstall, agents: hooksAgents });
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -4841,10 +4845,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
 			overview: this._panels.getOverviewData(),
-			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
+			agentsBannerCollapsed: this.getAgentsBannerCollapsed(),
 			mcpCanAutoRegister: this.container.gkMcp?.isRegistrationAllowed ?? false,
-			hooksBannerCollapsed: this.getHooksBannerCollapsed(),
-			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
+			canInstallHooks: this._lastCanInstallHooks ?? false,
+			hooksAgents: this._lastHooksAgents ?? [],
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),

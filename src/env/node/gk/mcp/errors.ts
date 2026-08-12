@@ -1,6 +1,7 @@
 export const enum McpSetupErrorReason {
 	WebUnsupported,
 	VSCodeVersionUnsupported,
+	AiDisabled,
 	CLIUnsupportedPlatform,
 	CLILocalInstallFailed,
 	CLIBinaryLocked,

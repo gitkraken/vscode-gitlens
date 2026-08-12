@@ -7,6 +7,7 @@
  */
 
 import { Disposable } from 'vscode';
+import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
@@ -80,6 +81,9 @@ export class AIService {
 					container.agentStatus?.onDidChangeHooksInstallState(() => {
 						void this.#getAIState().then(buffered);
 					}) ?? { dispose: () => {} },
+					container.agents.onDidChangeAgents(() => {
+						void this.#getAIState().then(buffered);
+					}),
 				),
 			undefined,
 			tracker,
@@ -131,10 +135,10 @@ export class AIService {
 
 	async #getAIState(): Promise<AIState> {
 		const agentsEnabled = getContext('gitlens:agents:enabled', false);
-		const claude = agentsEnabled ? await this.#container.agents.getClaude() : undefined;
-		const detected = claude?.detected === true;
-		const supported = claude?.hooksSupported === true;
-		const installed = claude?.hooksInstalled === true;
+		const all = agentsEnabled ? await this.#container.agents.getAll() : [];
+		const hookAgents = all
+			.filter(a => a.detected && a.hooksSupported && areHooksAllowedForAgent(a.name))
+			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
 
 		const defaultAgentId = configuration.get('ai.defaultAgent') ?? undefined;
 		const defaultAgentDescriptor =
@@ -145,12 +149,14 @@ export class AIService {
 			orgEnabled: getContext('gitlens:gk:organization:ai:enabled', true),
 			mcp: {
 				bundled: this.#container.gkMcp?.isRegistrationAllowed ?? false,
+				capable: this.#container.gkMcp?.isRegistrationCapable ?? false,
 				settingEnabled: configuration.get('gitkraken.mcp.autoEnabled'),
 				installed: getContext('gitlens:gk:cli:installed', false),
 			},
 			hooks: {
-				claude: { detected: detected, supported: supported, installed: installed },
-				canInstallClaudeHook: agentsEnabled && detected && supported && !installed,
+				agents: hookAgents,
+				canInstallHooks: hookAgents.some(a => !a.installed),
+				anyInstalled: hookAgents.some(a => a.installed),
 			},
 			defaultAgent:
 				defaultAgentDescriptor != null

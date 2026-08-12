@@ -5,7 +5,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphCoachMarkType } from '../../../../plus/graph/protocol.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
+import { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { OnboardingDismissals } from '../../../shared/contexts/onboardingDismissals.js';
 import { onboardingDismissalsContext } from '../../../shared/contexts/onboardingDismissals.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -14,7 +14,6 @@ import { coachMarkSeenContext } from '../coachMarkSeen.js';
 import { graphCoachMarks } from './coachMarks.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 declare global {
@@ -28,8 +27,9 @@ export type CoachMarkTrigger = 'auto' | 'lightbulb';
 /** Highest-priority one opens; the rest stay queued and re-flush when it closes, so a forced mark is
  *  never silently dropped. */
 const pendingAutoShows = new Set<GlGraphCoachMark>();
-/** Force-opened this session. Guards against re-opening while the persist is in flight, and keeps
- *  the lightbulb offered when an incidental close means `seen` was never banked. */
+/** Force-opened this session. Guards against re-opening while the persist is in flight; an incidental
+ *  close gives the entry back (bounded — see {@link maxAutoReopens}) so the tip can return, and a
+ *  spent budget leaves it, keeping the lightbulb offered when `seen` was never banked. */
 const forceOpenedThisSession = new Set<GraphCoachMarkType>();
 let openMark: GraphCoachMarkType | undefined;
 let flushScheduled = false;
@@ -37,6 +37,22 @@ let flushScheduled = false;
 /** `gl-popover` closes on webview blur and when any other popover opens, so persisting on open would
  *  let a stray close burn the one force-open a user ever gets. */
 const seenDwellMs = 1500;
+
+/** An incidental close (blur, another popover's `closeOthers()`, auto-show flicker, unmount) doesn't
+ *  consume the session's force-open — the mark relinquishes its `forceOpenedThisSession` entry after
+ *  a settle delay and re-arms. Bounded per session so loading-time focus churn can't strobe the tip;
+ *  a spent budget leaves the entry in place, parking the mark on the lightbulb. */
+const maxAutoReopens = 3;
+const reopenDelayMs = 1000;
+const autoReopensRemaining = new Map<GraphCoachMarkType, number>();
+
+function takeAutoReopen(mark: GraphCoachMarkType): boolean {
+	const remaining = autoReopensRemaining.get(mark) ?? maxAutoReopens;
+	if (remaining <= 0) return false;
+
+	autoReopensRemaining.set(mark, remaining - 1);
+	return true;
+}
 
 /** A lazy anchor can resolve null while a nested component's shadow is still rendering (the commit
  *  panel's header lives two shadow roots down from the details panel). The IntersectionObserver
@@ -361,11 +377,15 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 	/** Set just before the "Got it" hide so `onPopoverHide` can tell acknowledgment apart from a
 	 *  soft close (gl-popover emits no close reason). */
 	private _acknowledged = false;
-	/** Set by the ✕ button and by a click outside. Escape and blur count as incidental, which costs the
-	 *  mark nothing but its next-session force-open. */
+	/** Set by the ✕ button and by a click outside. Blur counts as incidental, which costs the mark
+	 *  nothing but its next-session force-open. */
 	private _closedByUser = false;
+	/** Escape is deliberate — it must not auto-reopen — but unlike ✕ it doesn't bank `seen`, so the tip
+	 *  still force-opens next session. */
+	private _closedByEscape = false;
 	private _anchorObserver?: IntersectionObserver;
 	private _seenTimer?: ReturnType<typeof setTimeout>;
+	private _reopenTimer?: ReturnType<typeof setTimeout>;
 	/** Frames spent waiting for a lazy anchor to resolve non-null — see {@link nullAnchorRetryFrames}. */
 	private _nullAnchorRetries = 0;
 
@@ -384,16 +404,39 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		void popover.hide();
 	};
 
-	private listenForOutsideMouseDown(listen: boolean): void {
+	/** Escape is a deliberate close, but `gl-popover`'s CloseWatcher path surfaces no reason and other
+	 *  layers can eat the first Esc before the watcher fires — so classify and hide here, first. The
+	 *  watcher's own later close request finds the popover already closed and no-ops. */
+	private readonly onDocumentKeyDown = (e: KeyboardEvent): void => {
+		if (!this._open || e.key !== 'Escape') return;
+
+		this._closedByEscape = true;
+		void this._popover?.hide();
+	};
+
+	private listenForDismissals(listen: boolean): void {
 		document.removeEventListener('mousedown', this.onDocumentMouseDown, true);
+		document.removeEventListener('keydown', this.onDocumentKeyDown, true);
 		if (listen) {
 			document.addEventListener('mousedown', this.onDocumentMouseDown, true);
+			document.addEventListener('keydown', this.onDocumentKeyDown, true);
 		}
 	}
 
 	override disconnectedCallback(): void {
 		clearTimeout(this._seenTimer);
-		this.listenForOutsideMouseDown(false);
+		this.listenForDismissals(false);
+		const reopenPending = this._reopenTimer != null;
+		clearTimeout(this._reopenTimer);
+		this._reopenTimer = undefined;
+		if (reopenPending) {
+			// The delayed relinquish must still happen or a remounted instance stays blocked forever.
+			forceOpenedThisSession.delete(this.mark);
+		} else if (this._open && this._seen?.has(this.mark) === false && takeAutoReopen(this.mark)) {
+			// Unmount-while-open fires no `gl-popover-hide`. Immediate delete is safe: remount latency plus
+			// `show()`'s anchor-visibility guards provide the settling.
+			forceOpenedThisSession.delete(this.mark);
+		}
 		pendingAutoShows.delete(this);
 		if (openMark === this.mark) {
 			openMark = undefined;
@@ -461,6 +504,10 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			if (this._seen.has(this.mark) !== false) return false;
 			// Another mark holds the screen — stay queued; its `onPopoverHide` re-flushes.
 			if (openMark != null) return false;
+			// Opening calls `closeOthers()` — never stomp a popover the user has open (a pill hover card,
+			// a header menu). Matters most on the auto-reopen path, which fires ~1s after a `closeOthers()`
+			// close, exactly when such a popover is up. Stay queued; a later re-arm retries.
+			if (GlPopover.hasOpenPopover()) return false;
 		}
 
 		const popover = this._popover;
@@ -497,7 +544,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		this._open = true;
 		void popover.show();
 		// Safe to arm now: a lightbulb click's own mousedown has already been dispatched.
-		this.listenForOutsideMouseDown(true);
+		this.listenForDismissals(true);
 
 		// Dwell before persisting, so a stray blur-close doesn't consume the force-open.
 		clearTimeout(this._seenTimer);
@@ -563,6 +610,21 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** Relinquishes the force-open after a settle delay so the mark re-arms via `updated()`. The set
+	 *  entry is kept during the delay — it is the debounce, and keeps the lightbulb offered meanwhile. */
+	private scheduleAutoReopen(): void {
+		if (this._reopenTimer != null) return;
+		if (!forceOpenedThisSession.has(this.mark)) return;
+		if (!takeAutoReopen(this.mark)) return;
+
+		this._reopenTimer = setTimeout(() => {
+			this._reopenTimer = undefined;
+			forceOpenedThisSession.delete(this.mark);
+			// The set isn't reactive — nudge a render so `updated()` re-arms through its normal gates.
+			this.requestUpdate();
+		}, reopenDelayMs);
+	}
+
 	private onLightbulbClick() {
 		this.show({ trigger: 'lightbulb' });
 	}
@@ -570,7 +632,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 	private onPopoverHide(e: Event) {
 		if (e.target !== this._popover) return;
 
-		this.listenForOutsideMouseDown(false);
+		this.listenForDismissals(false);
 
 		if (openMark === this.mark) {
 			openMark = undefined;
@@ -581,13 +643,17 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			// A deliberate close ("Got it" / ✕) counts as seen without waiting out the dwell.
 			this.persistSeen();
 		} else {
-			// Incidental (blur, or another popover's `closeOthers()`). Unread, so don't bank `seen`: it
-			// force-opens again next session, and the lightbulb covers this one.
+			// Incidental (blur, or another popover's `closeOthers()`). Unread, so don't bank `seen` —
+			// instead give back the force-open (bounded) so the tip returns once things settle.
 			clearTimeout(this._seenTimer);
 			this._seenTimer = undefined;
+			if (!this._closedByEscape && this._seen?.has(this.mark) === false) {
+				this.scheduleAutoReopen();
+			}
 		}
 		this._acknowledged = false;
 		this._closedByUser = false;
+		this._closedByEscape = false;
 
 		// Let a mark that lost the arbitration take the screen now.
 		if (pendingAutoShows.size) {
@@ -604,7 +670,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		const seen = this._seen?.has(this.mark);
 		const dismissed = this.dismissed;
 
-		// Not just `seen`: an incidental close leaves `seen` unbanked, and re-arming is blocked, so
+		// Not just `seen`: an incidental close leaves `seen` unbanked, and re-arming is spent, so
 		// without this the tip would have no way back for the rest of the session.
 		const offered = seen === true || forceOpenedThisSession.has(this.mark);
 

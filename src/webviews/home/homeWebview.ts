@@ -409,11 +409,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		if (this.host.is('view')) {
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
-				registerCommand(`${this.host.id}.whatsNew`, () => openUrl(urls.releaseNotes), this),
-				registerCommand(`${this.host.id}.help`, () => openUrl(urls.helpCenter), this),
-				registerCommand(`${this.host.id}.issues`, () => openUrl(urls.githubIssues), this),
 				registerCommand(`${this.host.id}.info`, () => openUrl(urls.helpCenterHome), this),
-				registerCommand(`${this.host.id}.discussions`, () => openUrl(urls.githubDiscussions), this),
 			);
 		}
 

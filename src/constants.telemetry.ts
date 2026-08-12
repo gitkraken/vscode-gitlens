@@ -130,6 +130,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/hookInstalled': AgentProviderEvent;
 	/** Sent when an agent hook is uninstalled */
 	'agents/hookUninstalled': AgentProviderEvent;
+	/** Sent when an install-all/uninstall-all hooks operation (`gitlens.agents.installHooks` /
+	 *  `uninstallHooks` / the per-agent variants) completes across its target agents */
+	'agents/hooks/setup/completed': AgentHooksSetupCompletedEvent;
 	/** Sent when an agent session starts */
 	'agents/session/started': AgentProviderEvent;
 	/** Sent when an agent session ends */
@@ -620,8 +623,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'mcp/setup/failed': MCPSetupFailedEvent;
 	/** Sent when GitKraken MCP registration fails */
 	'mcp/registration/failed': MCPSetupFailedEvent;
-	/** Sent when user selects agents for MCP installation */
-	'mcp/agents/selected': MCPAgentsSelectedEvent;
+	/** Sent when the user uninstalls GitKraken MCP for a single agent */
+	'mcp/agent/uninstalled': MCPAgentUninstalledEvent;
 
 	'op/gate/deadlock': OperationGateDeadlockEvent;
 	'op/git/aborted': OperationGitAbortedEvent;
@@ -820,6 +823,13 @@ interface AccountValidationFailedEvent {
 
 interface AgentProviderEvent {
 	'agent.provider': string;
+}
+
+interface AgentHooksSetupCompletedEvent {
+	operation: 'install' | 'uninstall';
+	source: Sources;
+	'agents.succeeded'?: string;
+	'agents.failed'?: string;
 }
 
 interface AgentPermissionResolvedEvent {
@@ -1126,10 +1136,9 @@ export interface MCPSetupFailedEvent {
 	'agents.failed'?: string;
 }
 
-export interface MCPAgentsSelectedEvent {
+export interface MCPAgentUninstalledEvent {
 	source: Sources;
-	'agents.count': number;
-	'agents.ids': string;
+	'agent.id': string;
 }
 
 interface CloudIntegrationsConnectingEvent {

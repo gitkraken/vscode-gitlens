@@ -297,7 +297,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				perform actions. You can also connect MCP to other agents on your machine.
 			</p>
 			<div class="card-part--centered">
-				<gl-button href="${createCommandLink('gitlens.ai.mcp.selectAgents', { source: 'welcome' })}"
+				<gl-button href="${createCommandLink('gitlens.ai.mcp.installForAllAgents', { source: 'welcome' })}"
 					>Connect More Agents</gl-button
 				>
 			</div>
@@ -315,7 +315,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				perform actions. You can also connect MCP to other agents on your machine.
 			</p>
 			<div class="card-part--centered">
-				<gl-button href="${createCommandLink('gitlens.ai.mcp.selectAgents', { source: 'welcome' })}"
+				<gl-button href="${createCommandLink('gitlens.ai.mcp.installForAllAgents', { source: 'welcome' })}"
 					>Connect More Agents</gl-button
 				>
 			</div>

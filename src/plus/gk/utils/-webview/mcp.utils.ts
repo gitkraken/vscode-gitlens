@@ -10,24 +10,14 @@ import type { Container } from '../../../../container.js';
  *  keeping the stub from drifting from what the service actually exposes. */
 export interface GkMcpRegistrar extends Disposable {
 	readonly isRegistrationAllowed: boolean;
+	readonly isRegistrationCapable: boolean;
 	readonly isRegistrationEnabled: boolean;
 }
 
-export function isMcpBannerEnabled(container: Container, showAutoRegistration = false): boolean {
-	// Check if running on web or automatically registrable
-	if (isWeb || (!showAutoRegistration && (container.gkMcp?.isRegistrationAllowed ?? false))) {
-		return false;
-	}
-
-	return !container.onboarding.isDismissed('mcp:banner');
-}
-
-export function isHooksBannerEnabled(container: Container): boolean {
+export function isAgentsBannerEnabled(container: Container): boolean {
 	if (isWeb) return false;
-	// MCP takes precedence — only surface the hooks prompt when the MCP one isn't competing for attention.
-	if (isMcpBannerEnabled(container)) return false;
 
-	return !container.onboarding.isDismissed('hooks:banner');
+	return !container.onboarding.isDismissed('agents:banner');
 }
 
 const supportedApps = ['Visual Studio Code', 'Visual Studio Code - Insiders', 'Visual Studio Code - Exploration'];
