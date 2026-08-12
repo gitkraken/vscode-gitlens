@@ -46,6 +46,8 @@ export interface AppState extends State {
 	overviewWip?: { branchIds: string[]; wip: GetOverviewWipResponse };
 	overviewEnrichment?: GetOverviewEnrichmentResponse;
 	scope: GraphScope | undefined;
+	/** `scopeToBranch` parked until an attached branch arrives; any scope set or clear cancels it. */
+	pendingScopeToBranch: boolean;
 	searching: boolean;
 	searchMode: 'filter' | 'normal';
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;

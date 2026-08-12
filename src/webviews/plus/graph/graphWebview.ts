@@ -1232,6 +1232,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void this.host.notify(DidRequestActiveSidebarPanelNotification, { panel: arg.sidebarPanel });
 			}
 		} else if (hasAction(arg)) {
+			if (arg.action === 'scope-to-branch' && arg.target == null) {
+				void this.warnIfScopeToCurrentBranchDetached();
+			}
+
 			const { target } = arg;
 			// Switch to the target's repository only when it belongs to a DIFFERENT repo family, so a
 			// cold show lands on the right repo (and the primary-vs-secondary WIP comparison below
@@ -1350,6 +1354,49 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		return [true, this.getShownTelemetryContext()];
+	}
+
+	private _detachedWarningInFlight = false;
+
+	private async warnIfScopeToCurrentBranchDetached(options?: { skipAccessCheck?: boolean }): Promise<void> {
+		const useLatch = options?.skipAccessCheck !== true;
+		if (useLatch) {
+			if (this._detachedWarningInFlight) return;
+
+			this._detachedWarningInFlight = true;
+		}
+
+		try {
+			const repo = this.repository ?? this.container.git.getBestRepositoryOrFirst();
+			if (repo == null) return;
+
+			const branch = await repo.git.branches.getBranch();
+			if (!branch?.detached) return;
+
+			if (
+				options?.skipAccessCheck !== true &&
+				isAccountAccessRequired(await this.container.subscription.getSubscription())
+			) {
+				return;
+			}
+
+			const switchToBranch = 'Switch to Branch...';
+			const pick = await window.showWarningMessage(
+				'Unable to focus the Commit Graph on the current branch because HEAD is detached. Switch to a branch and the graph will focus on it.',
+				switchToBranch,
+			);
+			if (pick === switchToBranch) {
+				await RepoActions.switchTo(repo);
+			}
+		} catch (ex) {
+			if (!isCancellationError(ex)) {
+				Logger.error(ex, 'GraphWebviewProvider', 'warnIfScopeToCurrentBranchDetached');
+			}
+		} finally {
+			if (useLatch) {
+				this._detachedWarningInFlight = false;
+			}
+		}
 	}
 
 	onRefresh(force?: boolean): void {
@@ -2273,6 +2320,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		//  - on entering the access screen, cancels any in-flight full-path `getState` (whose stale
 		//    signed-in state would otherwise overwrite the signed-out one) and clears a stale badge.
 		if (wasAccountAccessRequired !== this._accountAccessRequired && this.host.ready) {
+			if (
+				!this._accountAccessRequired &&
+				this._pendingAction?.action === 'scope-to-branch' &&
+				this._pendingAction.target == null
+			) {
+				void this.warnIfScopeToCurrentBranchDetached({ skipAccessCheck: true });
+			}
+
 			this._data.updateState(true);
 			return;
 		}
