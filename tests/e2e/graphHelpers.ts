@@ -30,12 +30,38 @@ export async function waitForGraphRowsRendered(graphWebview: FrameLocator, timeo
  * EDITOR part (~60px per call, clamping at its minimum, so over-calling is harmless); the freed
  * width goes to its grid neighbours — the primary side bar here, since `resetUI` keeps the
  * secondary one closed. The focus call just makes sure the view is open first.
+ *
+ * Width is all this buys, and it is not enough for the details panel's file tree on its own: the panel
+ * only moves beside the graph past ~820px, so below that it keeps splitting the side bar's HEIGHT with
+ * the graph — which the Welcome pane also takes ~220px of by default. See
+ * {@link scrollDetailsToFileTree} for what a spec gating on that tree needs.
  */
 export async function widenSideBarForGraph(vscode: VSCodeInstance, steps = 12): Promise<void> {
 	await vscode.gitlens.executeCommand<void>('gitlens.views.graph.focus');
 	for (let i = 0; i < steps; i++) {
 		await vscode.gitlens.executeCommand<void>('workbench.action.decreaseViewWidth');
 	}
+}
+
+/**
+ * Scroll the Graph's details panel to its *Files changed* tree, so a spec can gate on the tree's rows.
+ *
+ * The tree is virtualized: `lit-virtualizer` mounts rows only for its own viewport, so a tree below the
+ * fold has NO `gl-tree-item` in the DOM at all — indistinguishable from a tree that failed to render.
+ * With a commit selected that is the default state on a side-bar-sized panel: the header, message and
+ * AI blocks fill the panel on their own. Measured at a ~300px-wide side bar with the Welcome pane
+ * expanded (its shipped `visibility`, holding ~220px of the height): `gl-tree-view` sits at y=531 of a
+ * 544px viewport with 0 items, and scrolling the 42px to the end of the panel mounts them.
+ *
+ * Scrolling rather than growing the side bar is deliberate. Pane sizes are shared mutable state
+ * across spec files in a worker: collapsing a pane to free height does not keep it collapsed for the
+ * specs that follow. A panel's own scroll position, in contrast, is local to the assertion that
+ * needs it.
+ */
+export async function scrollDetailsToFileTree(graphWebview: FrameLocator, timeout = 30000): Promise<void> {
+	const content = graphWebview.locator('.details-content').first();
+	await expect(content).toBeVisible({ timeout: timeout });
+	await content.evaluate(el => el.scrollTo({ top: el.scrollHeight }));
 }
 
 /**

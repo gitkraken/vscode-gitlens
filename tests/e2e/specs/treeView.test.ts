@@ -9,8 +9,8 @@
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { scrollDetailsToFileTree, waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
 
 // Build a repo with enough commits and files to exercise the tree thoroughly
 const test = base.extend({
@@ -128,10 +128,20 @@ async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 
 async function waitForTreeItems(graphWebview: FrameLocator): Promise<void> {
 	const treeItem = graphWebview.locator('gl-tree-view gl-tree-item').first();
+	// Scroll and assert TOGETHER, because one scroll isn't durable. The file tree is virtualized, so
+	// below the fold it has no rows in the DOM to wait for at all (see `scrollDetailsToFileTree`) — and
+	// `.details-content` is reused across selection changes, so a scroll taken while the previous
+	// selection's (shorter) content was still mounted gets clamped when the taller content swaps in,
+	// putting the tree back below the fold. `waitForDetailsLoaded` can't close that window: it accepts
+	// any of the three panels, so it is already satisfied by the outgoing one.
+	//
 	// The details-panel file tree paints after the commit is selected and its details load; on a
-	// contended fork webview (Positron) that file-list paint can outlast the 10s MaxTimeout, so give it
-	// the same 30s budget the graph-readiness gates in this file use rather than racing it at 15s.
-	await expect(treeItem).toBeVisible({ timeout: 30000 });
+	// contended fork webview (Positron) that file-list paint can outlast the 10s MaxTimeout, so keep the
+	// same 30s budget the graph-readiness gates in this file use rather than racing it at 15s.
+	await expect(async () => {
+		await scrollDetailsToFileTree(graphWebview, MaxTimeout);
+		await expect(treeItem).toBeVisible({ timeout: DefaultTimeout });
+	}).toPass({ timeout: 30000 });
 }
 
 // ============================================================================
