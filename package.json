@@ -29863,6 +29863,8 @@
 		"pack:core": "pnpm --filter @gitkraken/core-gitlens pack",
 		"package": "vsce package --no-dependencies",
 		"package-pre": "pnpm run patch-pre && pnpm run package --pre-release",
+		"// Packages a second vsix with a fork-neutral README for Open VSX": "//",
+		"package-forks": "node ./scripts/packageForks.mjs",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.mjs",
 		"prep-release": "node ./scripts/prep-release.mjs",
 		"prep-core-release": "node ./scripts/prep-core-release.mjs",
@@ -29885,7 +29887,7 @@
 		"web:serve": "node -e \"const p = require('path'); const h = require('os').homedir(); require('child_process').execSync('pnpx  serve --cors -l 5000 --ssl-cert '+p.resolve(h, 'certs/localhost.pem')+' --ssl-key '+p.resolve(h, 'certs/localhost-key.pem'), { stdio: 'inherit' })\"",
 		"workflow": "node --experimental-strip-types ./scripts/issues/workflow.mts",
 		"pretest": "pnpm run build:tests",
-		"vscode:prepublish": "pnpm run bundle",
+		"vscode:prepublish": "node ./scripts/prepublish.mjs",
 		"prepare": "husky"
 	},
 	"dependencies": {

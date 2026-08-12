@@ -72,10 +72,12 @@ jobs:
               run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version + '\nPACKAGE_NAME=' + require('./package.json').name + '-' + require('./package.json').version)" >> $GITHUB_ENV
             - name: Package extension
               run: pnpm run package --pre-release
+            - name: Package extension for forks
+              run: pnpm run package-forks --pre-release
             - name: Publish extension to VS Code Marketplace
               run: pnpm vsce publish --no-dependencies --pre-release --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
             - name: Publish extension to OpenVSIX
-              run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
+              run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}-forks.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
             - name: Tag pre-release commit
               env:
                   TAG: releases/ext/pre/v${{ env.PACKAGE_VERSION }}
