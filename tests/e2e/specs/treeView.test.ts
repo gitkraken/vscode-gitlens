@@ -10,7 +10,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import { scrollDetailsToFileTree, waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
 
 // Build a repo with enough commits and files to exercise the tree thoroughly
 const test = base.extend({
@@ -127,6 +127,10 @@ async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 }
 
 async function waitForTreeItems(graphWebview: FrameLocator): Promise<void> {
+	// Bring the file tree into the panel's viewport first: it is virtualized, so while it sits below the
+	// fold it has no rows in the DOM to wait for at all (see `scrollDetailsToFileTree`).
+	await scrollDetailsToFileTree(graphWebview);
+
 	const treeItem = graphWebview.locator('gl-tree-view gl-tree-item').first();
 	// The details-panel file tree paints after the commit is selected and its details load; on a
 	// contended fork webview (Positron) that file-list paint can outlast the 10s MaxTimeout, so give it

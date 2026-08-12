@@ -150,6 +150,18 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	// cap reports a generic test timeout instead of naming itself. Still well over `MaxTimeout`, which the
 	// conflict state needs because it waits on a `git status` read.
 	await ensureGraphRowsRendered(vscode, webview!, 15000);
+	// Leave resolve mode before asking for the WIP details: the mode panel renders in their place, so a
+	// mode this spec file's own `afterEach` failed to close (its close chip re-renders under the
+	// conflicted WIP's watcher, and the graph webview is retained across hide/show) would otherwise show
+	// up here as "the WIP details never rendered".
+	await exitResolveMode(webview!);
+	// Then select the WIP row before gating on its context. `+hasConflicts` is carried by the WIP details
+	// header's overflow chip, so it exists only while the WIP row is the selection — with a commit
+	// selected the panel renders `gl-details-commit-panel` and there is no `gl-details-wip-header` to
+	// carry it. A fresh graph happens to auto-select the WIP row, which is why gating on the context
+	// alone worked for the first specs in this file, but nothing holds that selection across a spec that
+	// left another row behind.
+	await selectWipDetails(webview!);
 	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 15000 }).toBeGreaterThan(0);
 	return webview!;
 }
