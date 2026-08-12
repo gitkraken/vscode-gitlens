@@ -272,8 +272,17 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await expect(hideButton).toBeVisible({ timeout: MaxTimeout });
 		await hideButton.click();
 
-		// Details content should no longer be visible
-		await expect(graphWebview.locator('.details-content')).not.toBeVisible({ timeout: MaxTimeout });
+		// The split panel is always rendered to avoid DOM re-parenting (which causes layout jumps);
+		// hiding collapses it (split position pinned to 100) and marks the details pane `inert` rather
+		// than unmounting `.details-content`. That element therefore stays in the DOM at ~0 size — a
+		// residual that rounds to 1–2px on some renderers — so `not.toBeVisible()` on it is not an
+		// invariant the implementation guarantees. Assert the observable dismissed state instead: the
+		// toggle flips to "Show Details Panel" and the details pane is inert (its content unreachable).
+		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
+		await expect(showButton).toBeVisible({ timeout: MaxTimeout });
+		await expect(graphWebview.locator('.graph__details-pane').first()).toHaveAttribute('inert', '', {
+			timeout: MaxTimeout,
+		});
 	});
 });
 
