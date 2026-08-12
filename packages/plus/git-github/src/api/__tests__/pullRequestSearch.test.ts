@@ -191,6 +191,15 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.doesNotMatch(query, /commenter:@me|involves:@me/);
 	});
 
+	test('translates the reviewed relationship to reviewed-by', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			criteria: { relationships: [PullRequestFilter.Reviewed] },
+		});
+
+		assert.match(search(getCalls()[0], 'reviewedOpen'), /reviewed-by:@me/);
+	});
+
 	test('sanitizes free text so it cannot inject scope or state qualifiers', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, {

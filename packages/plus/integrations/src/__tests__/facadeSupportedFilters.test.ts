@@ -8,6 +8,7 @@ import {
 import type { IntegrationIds } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+import { resolveAccountWidePullRequestFilters } from '../reads/filters.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -46,11 +47,9 @@ suite('IntegrationManager.getSupportedFilters', () => {
 
 			for (const id of allIds) {
 				const supported = manager.getSupportedFilters(id);
-				assert.ok(supported.pullRequestsAccountWide != null);
 				assert.equal(
-					supported.pullRequestsAccountWide.every(filter => supported.pullRequests.includes(filter)),
-					true,
-					`${id}: account-wide filters must remain a subset of the provider's relationship vocabulary`,
+					resolveAccountWidePullRequestFilters(id, supported.pullRequestsAccountWide).unsupported,
+					false,
 				);
 
 				// A non-empty advertised set must be accepted whole. An empty one means the provider has no
@@ -75,6 +74,13 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				// would leave a consumer skipping a filter the provider does support) nor over-report (which
 				// would let it build a set the read then refuses).
 				for (const filter of Object.values(PullRequestFilter)) {
+					if (!supported.pullRequestsAccountWide.includes(filter)) {
+						assert.equal(
+							resolveAccountWidePullRequestFilters(id, [filter]).unsupported,
+							true,
+							`${id}: account-wide PR filter '${filter}' is not advertised, so the read must refuse it`,
+						);
+					}
 					if (supported.pullRequests.includes(filter)) continue;
 
 					assert.equal(
@@ -167,6 +173,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				PullRequestFilter.Author,
 				PullRequestFilter.Assignee,
 				PullRequestFilter.ReviewRequested,
+				PullRequestFilter.Reviewed,
 				PullRequestFilter.Mention,
 			]);
 			// A self-managed host mirrors its cloud counterpart.
@@ -223,6 +230,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 						PullRequestFilter.Author,
 						PullRequestFilter.Assignee,
 						PullRequestFilter.ReviewRequested,
+						PullRequestFilter.Reviewed,
 						PullRequestFilter.Mention,
 					],
 					states: ['open', 'closed', 'merged', 'all'],

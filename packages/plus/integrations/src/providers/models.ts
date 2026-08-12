@@ -871,6 +871,7 @@ const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
 		PullRequestFilter.Author,
 		PullRequestFilter.Assignee,
 		PullRequestFilter.ReviewRequested,
+		PullRequestFilter.Reviewed,
 		PullRequestFilter.Mention,
 	],
 	states: ['open', 'closed', 'merged', 'all'],
