@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.0.0] - 2026-08-12
+
 ### Added
 
 - Adds a new home for GitLens &mdash; the _Commit Graph_ now leads the GitLens side bar as its main view (only the default location changes, so a graph you moved yourself stays put, and a one-time prompt offers the bottom panel), adapting to the side bar's width with compact list-style rows and the details panel below the graph; widen or move the view for the columnar table layout ([#5545](https://github.com/gitkraken/vscode-gitlens/issues/5545))
@@ -7196,7 +7198,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...HEAD
+[19.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...gitkraken:v19.0.0
 [18.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...gitkraken:v18.3.0
 [18.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.1.0...gitkraken:v18.2.0
 [18.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.0.0...gitkraken:v18.1.0
