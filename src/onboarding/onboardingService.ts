@@ -82,9 +82,9 @@ export class OnboardingService implements Disposable {
 	private onStorageChanged(e: StorageChangeEvent): void {
 		if (e.type === 'scoped' || !e.keys.includes('onboarding:state')) return;
 
-		// Invalidate the appropriate cache when storage changes externally
+		// Saves made through this service pass the same (already updated) snapshot object, so the
+		// diff below only finds changes for writes made behind our back (e.g. a storage reset)
 		const previousState = this._onboarding[e.type];
-		this._onboarding[e.type] = undefined;
 
 		if (previousState != null) {
 			const currentState = this.getOnboarding(e.type);
@@ -269,6 +269,8 @@ export class OnboardingService implements Disposable {
 		const migratedVersion = onboarding.migratedVersion ?? (onboarding.migrated ? '17.8.0' : undefined);
 		/* oxlint-enable typescript/no-deprecated */
 
+		if (migratedVersion != null && compare(migratedVersion, '17.9.0') >= 0) return;
+
 		// Batch 1 (17.8.0): Original deprecated key migrations
 		if (!migratedVersion || compare(migratedVersion, '17.8.0') < 0) {
 			const batch1: { legacy: keyof DeprecatedGlobalStorage; current: OnboardingKeys }[] = [
@@ -357,13 +359,10 @@ export class OnboardingService implements Disposable {
 	}
 
 	private getOnboarding(scope: OnboardingStorageType): OnboardingStorage {
-		let onboarding = this._onboarding[scope];
-		if (onboarding == null) {
-			onboarding = (scope === 'workspace'
-				? this.storage.getWorkspace('onboarding:state')
-				: this.storage.get('onboarding:state')) ?? { items: {} };
-			this._onboarding[scope] = onboarding;
-		}
+		const onboarding = (scope === 'workspace'
+			? this.storage.getWorkspace('onboarding:state')
+			: this.storage.get('onboarding:state')) ?? { items: {} };
+		this._onboarding[scope] = onboarding;
 		return onboarding;
 	}
 

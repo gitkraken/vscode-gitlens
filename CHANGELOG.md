@@ -76,6 +76,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes dismissed onboarding &mdash; the _Commit Graph_'s welcome and coach marks, banners, callouts, and other one-time surfaces &mdash; re-appearing in new windows and after window reloads: all onboarding state is saved together, and a save from a window still holding state from before a dismissal (dismissals never reach other open windows) wrote that older state back, silently un-dismissing what was dismissed elsewhere; saves now always apply to the freshest stored state, and activation no longer rewrites the state when there's nothing to migrate
 - Fixes signing back in after a sign-out interrupted a _Commit Graph_ comparison reopening the comparison on different references &mdash; the interrupted comparison's own references are now carried across the sign-in instead of the default current-branch-versus-working-tree shape ([#5671](https://github.com/gitkraken/vscode-gitlens/issues/5671))
 - Fixes AI agent sessions from other AI CLIs (Codex, GitHub Copilot CLI, Cursor, OpenCode, Antigravity) appearing as _Claude Code_ sessions on _Home_ and the _Commit Graph_ ([#5715](https://github.com/gitkraken/vscode-gitlens/issues/5715))
 - Fixes rows in the _Commit Graph_ side bar panels nudging their trailing decorations to the left on hover
