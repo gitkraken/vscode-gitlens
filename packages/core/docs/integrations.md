@@ -120,6 +120,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.       |
 | `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                 |
 | `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.    |
+| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                       |
 | `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                              |
 | `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.     |
 | `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                           |
@@ -280,6 +281,23 @@ const counts = await manager.countIssues({
   double-count overlaps) nor max (it would under-report), so such a scope is refused. Give each relationship
   its own `key`.
 
+**`countPullRequests`** is the PR twin of `countIssues` — same `key`-echo contract, per-scope/per-batch
+isolation, `count: undefined` ≠ zero rule, `exceedsProviderLimit`, and one-relationship-per-scope refusal. It
+takes the same `criteria` as `searchPullRequestsPage` and is validated against the same capability table.
+
+```ts
+const counts = await manager.countPullRequests({
+	providerId: providerId,
+	scopes: [{ key: 'mine-open', repos: repos, criteria: { relationships: [PullRequestFilter.Author] } }],
+});
+```
+
+The one difference is inherent to pull requests: a scope's `states` (open/closed/merged) are counted as
+independent searches, so the reported `count` is the **largest** of them — the same total
+`searchPullRequestsPage` surfaces — not their sum. Because the result ceiling applies per search, that max is
+what `exceedsProviderLimit` compares against. Several states in one scope are therefore fine (they are
+disjoint); only several relationships are refused.
+
 ## 6. Failures: warnings, `fetchFailed`, `truncated`
 
 A per-provider (or per-connection, or per-scope) failure degrades to a **warning attached to a partial
@@ -406,12 +424,12 @@ const filters = wanted.filter(f => capability.includes(f));
 
 - `pullRequests` — the repo-scoped PR read.
 - `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty.
-- `pullRequestSearch` — the filtered PR search (`searchPullRequestsPage`). Always present; empty `relationships`
-  means the provider has no such search. It declares the exact `relationships` and `states`, plus `text`,
-  `updatedAfter`, `createdAfter`, `includeArchived`, `draft`, `repositoryScope`, `organizationScope`, and `sorts`
-  — the ordering vocabulary, as `field:direction` keys. A key not in `sorts` refuses the whole read, exactly like
-  an inexpressible filter; `updated:desc` is always in it when the search exists at all, so omitting
-  `criteria.sort` never refuses.
+- `pullRequestSearch` — the filtered PR search (`searchPullRequestsPage`, and `countPullRequests` over the same
+  criteria). Always present; empty `relationships` means the provider has no such search. It declares the exact
+  `relationships` and `states`, plus `text`, `updatedAfter`, `createdAfter`, `includeArchived`, `draft`,
+  `repositoryScope`, `organizationScope`, and `sorts` — the ordering vocabulary, as `field:direction` keys. A key
+  not in `sorts` refuses the whole read, exactly like an inexpressible filter; `updated:desc` is always in it when
+  the search exists at all, so omitting `criteria.sort` never refuses.
 - `issues` — the **repo-scoped** git-host read, **and** the issue-tracker read
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
@@ -466,6 +484,7 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  —   |   —    |   —    |
 | `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |

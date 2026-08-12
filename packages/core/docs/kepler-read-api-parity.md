@@ -159,6 +159,15 @@ refused there rather than serving an unnarrowed list — unimplemented, not impo
 `author_username` compose with AND, so relationships must stay separate drains), and Azure to per-project WIQL.
 `withoutLinkedPullRequest` and free text have no equivalent on either.
 
+**`countPullRequests`** is the PR twin, closing the asymmetry the audit flagged: the PR side had
+`searchPullRequestsPage` but no count probe, so an explicit "search everywhere" on PRs ran blind while the same
+action on issues showed a number. It reuses GitHub's `issueCount`-on-a-zero-node `search` — the same primitive
+`countIssues` uses — over `PullRequestSearchCriteria`, with the same `key`-echo, per-scope isolation, and
+one-relationship-per-scope rules. The one PR-specific decision: a scope's `states` are counted as independent
+searches, so the reported count is the **largest** of them (the total `searchPullRequestsPage` itself surfaces
+via `Math.max` over facets), not their sum, and `exceedsProviderLimit` compares that max against the per-search
+ceiling. GitHub/GHE only, matching `searchPullRequestsPage`.
+
 **Not done, deliberately:** `broadenIssues` was left as-is rather than reimplemented on top of this. It is a
 multi-provider, multi-org fan-out with its own result type and per-org cursor bundle, so only its inner
 per-org read could be swapped; and its "all visible" breadth maps to an OMITTED relationship set, not to
