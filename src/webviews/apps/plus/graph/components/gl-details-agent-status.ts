@@ -39,6 +39,10 @@ export type ExpandState = 'collapsed' | 'partial' | 'expanded';
  *  so the heading width stays bounded. */
 const maxClusterDots = 5;
 
+/** Cap on completed rows in the session hovers. Active sessions are never truncated — only
+ *  completed ones accumulate (retained ~30 days), and the footer counts the remainder. */
+const maxHoverCompletedRows = 3;
+
 /** Periodic re-render driver matching the kanban's tick. Without this, the component's
  *  `shouldUpdate` short-circuit would freeze elapsed labels (`Working · 5m`) and prevent the
  *  sticky-tool cache from observing its own TTL expiry whenever the host falls silent. 30s is
@@ -455,6 +459,13 @@ export class GlDetailsAgentStatus extends LitElement {
 		   via ellipsis instead of stretching the popover to the viewport edge. */
 				max-width: min(44rem, 60vw);
 				padding: var(--gl-space-2);
+
+				/* The heading popover slots its content inside .section__heading, so prose here would
+		   inherit that row's uppercase tag treatment while the compact popover — anchored
+		   outside the heading — renders the same text in sentence case. Reset it so both read
+		   alike; .section__hover-phase opts back into uppercase for its tag label. */
+				text-transform: none;
+				letter-spacing: 0;
 			}
 
 			.section__hover-row {
@@ -530,6 +541,16 @@ export class GlDetailsAgentStatus extends LitElement {
 	   second grid cell — visual styling lives in the shared agentToolStyles. */
 			.section__hover-tool {
 				grid-column: 2 / -1;
+			}
+
+			.section__hover-footer {
+				padding-top: var(--gl-space-6);
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+			}
+
+			.section__hover-count {
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* ---------- Card ----------
@@ -903,8 +924,11 @@ export class GlDetailsAgentStatus extends LitElement {
 		const counts = this.tally(sessions);
 		const visibleDots = sessions.slice(0, maxClusterDots);
 		const overflow = sessions.length - visibleDots.length;
+		// `.section__hover` has no max-height, and active sessions are deliberately uncapped, so a
+		// busy panel can produce a popover taller than the viewport. `auto-size-vertical` clamps and
+		// scrolls it instead of letting it render past the panel edge with no way to reach the bottom.
 		return html`
-			<gl-popover placement="bottom">
+			<gl-popover placement="bottom" auto-size-vertical>
 				<span slot="anchor" class="section__cluster" tabindex="0" role="button" aria-label="Agent sessions">
 					<span class="section__cluster-dots">
 						${visibleDots.map(
@@ -925,7 +949,7 @@ export class GlDetailsAgentStatus extends LitElement {
 					</span>
 					<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 				</span>
-				<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
+				${this.renderHoverList(sessions)}
 			</gl-popover>
 		`;
 	}
@@ -1071,7 +1095,7 @@ export class GlDetailsAgentStatus extends LitElement {
 						data-expand=${state}
 					></code-icon>
 					<span class="section__heading-label">Agents</span>
-					<gl-popover placement="bottom" ?disabled=${state === 'expanded'}>
+					<gl-popover placement="bottom" auto-size-vertical ?disabled=${state === 'expanded'}>
 						<span slot="anchor" class="section__cluster">
 							<span class="section__cluster-dots">
 								${visibleDots.map(
@@ -1092,7 +1116,7 @@ export class GlDetailsAgentStatus extends LitElement {
 							</span>
 							<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 						</span>
-						<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
+						${this.renderHoverList(sessions)}
 					</gl-popover>
 				</button>
 				${this.renderResumePickerAction()}
@@ -1161,6 +1185,44 @@ export class GlDetailsAgentStatus extends LitElement {
 			out.push(p);
 		});
 		return out;
+	}
+
+	/** Shared body for both hover popovers (cluster-only and section-heading). Sessions arrive
+	 *  pre-sorted (`sortAgentSessions` upstream) with completed last and most-recent-first within a
+	 *  phase, so slicing the completed tail keeps the freshest completed rows. Active sessions are
+	 *  never truncated — the hover is the only per-session detail surface while collapsed. */
+	private renderHoverList(sessions: AgentSessionState[]): unknown {
+		const active: AgentSessionState[] = [];
+		const completed: AgentSessionState[] = [];
+		for (const s of sessions) {
+			if (agentPhaseToCategory[s.phase] === 'completed') {
+				completed.push(s);
+			} else {
+				active.push(s);
+			}
+		}
+
+		const shownCompleted = completed.slice(0, maxHoverCompletedRows);
+		return html`
+			<div slot="content" class="section__hover">
+				${[...active, ...shownCompleted].map(s => this.renderHoverRow(s))}
+				${this.renderHoverFooter(completed.length - shownCompleted.length)}
+			</div>
+		`;
+	}
+
+	/** Count-only overflow line for completed rows hidden by the hover cap. No link: the heading
+	 *  already has a separate `Resume Session…` picker chip, and compact mode has no `worktreePath`
+	 *  to scope a picker to. */
+	private renderHoverFooter(hidden: number): unknown {
+		if (hidden <= 0) return nothing;
+
+		const countText = pluralize('more completed session', hidden);
+		return html`
+			<div class="section__hover-footer">
+				<span class="section__hover-count">${countText}</span>
+			</div>
+		`;
 	}
 
 	private renderHoverRow(session: AgentSessionState): unknown {
