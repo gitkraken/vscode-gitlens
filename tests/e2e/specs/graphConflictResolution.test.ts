@@ -74,6 +74,30 @@ function conflictFileContext(webview: FrameLocator) {
 	return webview.locator('[data-vscode-context*="+conflict"]');
 }
 
+/**
+ * Ensure the graph's details panel is collapsed, so the graph itself gets the pane's full height.
+ *
+ * The details panel splits the side bar's height with the graph, and once it is open the graph can be
+ * left with too little room for its virtualizer to mount ANY row: measured on a cramped host, an open
+ * panel leaves the graph pane at 26px with the commit tree at height 0 and zero `role="treeitem"` in
+ * the DOM, while collapsing it puts the tree back at 19px with its rows mounted. A row gate run in the
+ * first state reports "element(s) not found", which reads as a graph that never painted.
+ *
+ * That state is reachable here because this file's own gate opens the panel and the graph webview is
+ * retained across `resetUI`, so each test inherits the previous one's panel — on the wider CI VS Code
+ * window there is room to spare, but the fork legs (Windsurf, Positron) ran out of it.
+ */
+async function ensureDetailsPanelClosed(webview: FrameLocator): Promise<void> {
+	const toggle = webview.locator('gl-button[aria-label$="Details Panel"]').first();
+	await expect(toggle).toBeVisible({ timeout: MaxTimeout });
+	if ((await toggle.getAttribute('aria-label')) !== 'Hide Details Panel') return;
+
+	await toggle.click();
+	await expect(webview.locator('gl-button[aria-label="Show Details Panel"]').first()).toBeVisible({
+		timeout: MaxTimeout,
+	});
+}
+
 /** Ensure the graph's details panel is expanded (it may start collapsed). */
 async function ensureDetailsPanelOpen(webview: FrameLocator): Promise<void> {
 	const toggle = webview.locator('gl-button[aria-label$="Details Panel"]').first();
@@ -155,9 +179,12 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	// than reporting the same "context never appeared" for either. 15s each: still well over
 	// `MaxTimeout`, which the conflict state needs because it waits on a `git status` read. The stages
 	// below add to that, which is why this file raises its per-test timeout (see the describe).
+	// Collapse the details panel before gating on the rows: with it open the graph can be left too short
+	// to mount a single row (see `ensureDetailsPanelClosed`), and this gate would then blame the graph.
+	await ensureDetailsPanelClosed(webview!);
 	await ensureGraphRowsRendered(vscode, webview!, 15000);
-	// Open the details panel FIRST, then leave resolve mode, then select the WIP row. Order matters in
-	// both steps:
+	// Then open the details panel, leave resolve mode, and select the WIP row. Order matters in each
+	// step:
 	// - `exitResolveMode` probes whether the mode panel is visible, and a collapsed details panel makes
 	//   it invisible — so exiting before opening would early-return and leave the mode active, which
 	//   `renderWip` then renders INSTEAD of `gl-details-wip-panel`, surfacing as "the WIP details never

@@ -426,8 +426,16 @@ test.describe('Graph Details - WIP Mode', () => {
 		await expect(hideButton).toBeVisible({ timeout: MaxTimeout });
 		await hideButton.click();
 
-		// Details content should close
-		await expect(graphWebview.locator('.details-content')).not.toBeVisible({ timeout: MaxTimeout });
+		// Same invariant as the commit-details case above: hiding collapses the always-rendered split
+		// panel and marks the pane `inert` instead of unmounting `.details-content`, which stays in the
+		// DOM at a residual size that rounds to 1–2px on some renderers (it did on Windsurf and Positron,
+		// while CI's VS Code landed on exactly 0). Assert the dismissed state the implementation
+		// guarantees, not the element's absence.
+		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
+		await expect(showButton).toBeVisible({ timeout: MaxTimeout });
+		await expect(graphWebview.locator('.graph__details-pane').first()).toHaveAttribute('inert', '', {
+			timeout: MaxTimeout,
+		});
 	});
 });
 
