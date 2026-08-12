@@ -554,7 +554,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* ---------- Card ----------
-	   Two-row grid: rail + body on top, action row spans the full body column on bottom.
+	   Two-row grid: rail + body on top, action row sits under the body column on bottom.
 	   The actions always sit at the bottom of the card regardless of panel width.
 	   needs-input and working cards adopt the prior banner treatment (gradient bg +
 	   icon-circle in the rail) so each surfaces as actionable on its own. */
@@ -728,9 +728,21 @@ export class GlDetailsAgentStatus extends LitElement {
 				justify-content: flex-end;
 			}
 
+			/* Unresolvable ask: the caption stacks under the lone Open/Resume Session button rather than
+	   sharing its row, so narrowing the panel can't squeeze the button. */
+			.card__actions--unresolvable {
+				flex-direction: column;
+				gap: var(--gl-space-4);
+				align-items: flex-end;
+			}
+
 			.card__actions-hint {
 				font-size: 0.85em;
 				color: var(--vscode-descriptionForeground);
+			}
+
+			.card__actions--unresolvable .card__actions-hint {
+				text-align: right;
 			}
 		`,
 	];

@@ -395,9 +395,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				margin-top: var(--gl-space-2);
 			}
 
-			/* Permission actions (Allow / Deny / View Plan) cluster on the left when present;
-	   margin-right: auto pushes Open Session — the trailing child — to the far right. When
-	   no permission is pending, Open Session is alone and flex-end already right-aligns it. */
+			/* Sole child of .card__actions — margin-right: auto overrides its flex-end to keep the
+	   Allow / Deny / View Plan cluster left-aligned. */
 			.card__permission-actions {
 				display: flex;
 				flex-wrap: wrap;
@@ -407,6 +406,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.card__permission-actions-hint {
+				/* 100% basis forces the caption onto its own line below the buttons. */
+				flex: 1 0 100%;
 				font-size: var(--gl-font-micro);
 				color: var(--color-foreground--65);
 			}
