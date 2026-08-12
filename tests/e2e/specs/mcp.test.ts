@@ -269,21 +269,20 @@ test.describe('MCP — Registration', () => {
 test.describe('MCP — Settings & Feature Flags', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	// CLI does not yet support --insiders in `gk mcp config` (see gitkraken/gkcli#724).
-	// When supported, the returned command should point to gk-insiders (pre-release binary).
-	test.fixme('should return gk-insiders command when insiders option is set', async ({ mcpClient }) => {
-		const config = await mcpClient.getMcpConfig({ insiders: true });
-
-		expect(config).toBeDefined();
-		expect(config.type).toBe('stdio');
-		expect(config.command).toMatch(/gk-insiders/);
-	});
-
-	test('should return gk command (not insiders) by default', async ({ mcpClient }) => {
+	// GitLens injects `--insiders` into its CLI invocations when the
+	// `gitlens.gitkraken.cli.insiders.enabled` setting is on, which is what would put it into the
+	// generated server args (see `isInsidersCLIEnabled`); as with `--experimental` above, that
+	// injection isn't observable from here. Only the negative case is asserted: unlike
+	// `--experimental`, this flag is a channel switch the installer-proxy consumes, so passing it runs
+	// — and on a clean machine first downloads — a separate pre-release core, which would mutate the
+	// shared CLI install and tie this suite to a release candidate. gkcli pins the generated arg
+	// vector, insiders included, in its own unit tests, and `mcpCliChannel.test.ts` covers the channel
+	// itself in its own instance. What this guards is the flag never appearing unasked.
+	test('should omit --insiders from server args when the flag is not passed', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig();
 
-		expect(config).toBeDefined();
-		expect(config.command).not.toMatch(/gk-insiders/);
+		expect(config.type).toBe('stdio');
+		expect(config.args).not.toContain('--insiders');
 	});
 });
 
