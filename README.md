@@ -34,6 +34,11 @@ Answering "what is actually going on in this repo right now" usually takes a vie
 - **The whole repo in the side bar** &mdash; Overview, Agents, Pull Requests, Worktrees, Branches, Remotes, Stashes, Tags. Click one to scope the graph.
 - **Search that speaks Git** &mdash; `message:`, `author:`, `file:`, `change:`, or just describe what you're after.
 - **Always know where you are** &mdash; jump to `HEAD`, upstream, or merge target. `/` finds any branch; the keyboard drives all of it.
+
+<figure align="center">
+  <img src="images/docs/commit-graph-preview.png" alt="The GitLens Commit Graph" />
+</figure>
+
 <!-- TODO(assets): PREVIEW ONLY - relative path + provisional filename. Final asset should be re-shot at higher resolution and referenced via the raw.githubusercontent.com/.../main/images/docs/ URL like the rest -->
 
 # Zoom Out and Spot the Patterns &mdash; Visualizations
@@ -47,7 +52,11 @@ Who should I ask about this file? Where is all the churn? What has that agent ac
 
 Open these from the Commit Graph, or _Visual History_ on its own with `Show Visual History`.
 
-<!-- TODO(assets): a treemap - Agent Activity mid-session preferred, else Files/Commits on this repo -->
+<figure align="center">
+  <img src="images/docs/visual-history-preview.png" alt="Visual History for a repository" />
+</figure>
+
+<!-- TODO(assets): PREVIEW ONLY - provisional filename + relative path. A treemap (Agent Activity preferred) would be a stronger second image here -->
 
 # Work in Parallel &mdash; Worktrees and Agents
 
@@ -126,6 +135,10 @@ Everything GitLens built its reputation on: free, unchanged, and on by default.
 - **Revision navigation** &mdash; step backward and forward through a file's history, one click at a time.
 - **File History and Line History** &mdash; follow a whole file or a single line across renames and merges.
 - **Git Command Palette** &mdash; a guided, step-by-step way to run Git commands without memorizing them, plus quick access to branch and file history, commit search, stashes, and repository status.
+
+<figure align="center">
+  <img src="images/docs/blame-hover-preview.png" alt="Inline blame annotation with a rich hover" />
+</figure>
 
 <!-- TODO(assets): PREVIEW ONLY - provisional filename + relative path; final should use the raw.githubusercontent URL convention -->
 
