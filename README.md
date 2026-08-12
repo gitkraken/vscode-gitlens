@@ -7,7 +7,7 @@
 Your repository moves faster than it used to. Coding agents open branches, worktrees pile up, and pull requests stack while you're still reading a diff. GitLens pulls all of it into one interactive view &mdash; history, working changes, branches, worktrees, and live agent activity together &mdash; then helps you review it, rebase it, and shape it into commits someone can actually read.
 
 <figure align="center">
-  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk">
+  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=7cy4_M0lH6k">
     <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/get-started-video.png" alt="Watch the GitLens Getting Started video" />
   </a>
 </figure>
