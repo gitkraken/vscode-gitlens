@@ -29,7 +29,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { ensureGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import { ensureGraphRowsRendered, scrollDetailsToFileTree, widenSideBarForGraph } from '../graphHelpers.js';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -57,7 +57,13 @@ async function getGraphState(webview: FrameLocator): Promise<GraphStateInfo | nu
 	return JSON.parse(json) as GraphStateInfo | null;
 }
 
-/** WIP-row context that carries `+hasConflicts` lives in the graph's light DOM. */
+/**
+ * WIP context that carries `+hasConflicts`. Two elements can carry it: the overview bar's WIP pill
+ * (host-serialized, so selection-independent) and the WIP details header's overflow chip. This
+ * fixture only ever sees the second — `gitlens.graph.overviewBar.visibility` defaults to `worktrees`
+ * and the fixture repo has exactly one, so the bar never renders (measured: 0 in the DOM). That is why
+ * `openGraphWithConflict` has to put the WIP row in the selection before gating on this.
+ */
 function wipConflictContext(webview: FrameLocator) {
 	return webview.locator('[data-vscode-context*="+hasConflicts"]');
 }
@@ -145,22 +151,25 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	const webview = await vscode.gitlens.commitGraphViewWebview;
 	expect(webview).not.toBeNull();
 	// Gate the row paint separately from the conflict state, so a failure names which one broke rather
-	// than reporting the same "context never appeared" for either. 15s each: the webview lookup, both
-	// gates and the afterEach teardown all draw on one 60s per-test budget, and a stage truncated by that
-	// cap reports a generic test timeout instead of naming itself. Still well over `MaxTimeout`, which the
-	// conflict state needs because it waits on a `git status` read.
+	// than reporting the same "context never appeared" for either. 15s each: still well over
+	// `MaxTimeout`, which the conflict state needs because it waits on a `git status` read. The stages
+	// below add to that, which is why this file raises its per-test timeout (see the describe).
 	await ensureGraphRowsRendered(vscode, webview!, 15000);
-	// Leave resolve mode before asking for the WIP details: the mode panel renders in their place, so a
-	// mode this spec file's own `afterEach` failed to close (its close chip re-renders under the
-	// conflicted WIP's watcher, and the graph webview is retained across hide/show) would otherwise show
-	// up here as "the WIP details never rendered".
+	// Open the details panel FIRST, then leave resolve mode, then select the WIP row. Order matters in
+	// both steps:
+	// - `exitResolveMode` probes whether the mode panel is visible, and a collapsed details panel makes
+	//   it invisible — so exiting before opening would early-return and leave the mode active, which
+	//   `renderWip` then renders INSTEAD of `gl-details-wip-panel`, surfacing as "the WIP details never
+	//   rendered" (the misdiagnosis this whole gate exists to prevent). The mode leaks in the first place
+	//   because the graph webview is retained across `resetUI` and this file's `afterEach` can miss the
+	//   close chip, which re-renders under the conflicted WIP's watcher.
+	// - The WIP row has to be the selection for `+hasConflicts` to exist at all in this fixture (see
+	//   `wipConflictContext`): with a commit selected the panel renders `gl-details-commit-panel` and
+	//   there is no `gl-details-wip-header` to carry the context. A fresh graph auto-selects the WIP row,
+	//   which is why gating on the context alone held for the first specs in this file — but nothing
+	//   keeps that selection across a spec that left another row behind.
+	await ensureDetailsPanelOpen(webview!);
 	await exitResolveMode(webview!);
-	// Then select the WIP row before gating on its context. `+hasConflicts` is carried by the WIP details
-	// header's overflow chip, so it exists only while the WIP row is the selection — with a commit
-	// selected the panel renders `gl-details-commit-panel` and there is no `gl-details-wip-header` to
-	// carry it. A fresh graph happens to auto-select the WIP row, which is why gating on the context
-	// alone worked for the first specs in this file, but nothing holds that selection across a spec that
-	// left another row behind.
 	await selectWipDetails(webview!);
 	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 15000 }).toBeGreaterThan(0);
 	return webview!;
@@ -219,7 +228,12 @@ const test = base.extend({
 });
 
 test.describe('Graph — Conflict Resolution', () => {
-	test.describe.configure({ mode: 'serial' });
+	// 90s per test rather than the config's 60s: `openGraphWithConflict` establishes the state it
+	// measures — rows painted, details panel open, resolve mode left, WIP row selected — and then polls
+	// the conflict context, which waits on a `git status` read. Each of those stages carries its own
+	// timeout so a failure names itself; on a contended fork run they can add past 60s, and the per-test
+	// cap firing mid-stage reports a bare "Test timeout" naming none of them.
+	test.describe.configure({ mode: 'serial', timeout: 90000 });
 
 	test.afterEach(async ({ vscode }) => {
 		// Exit resolve mode before tearing down so it doesn't leak into the next serial test (the
@@ -253,8 +267,18 @@ test.describe('Graph — Conflict Resolution', () => {
 		await selectWipDetails(webview);
 
 		// Both conflicted files render a `gitlens:file…+conflict…` context; assert on the one for
-		// shared.txt specifically rather than relying on render order.
-		await expect.poll(() => conflictFileContext(webview).count(), { timeout: 15000 }).toBeGreaterThan(0);
+		// shared.txt specifically rather than relying on render order. The per-file context is emitted by
+		// the file ROWS, which the details file tree virtualizes — so scroll to the tree on every poll,
+		// or a list below the fold reads as "the context never rendered" (see `scrollDetailsToFileTree`).
+		await expect
+			.poll(
+				async () => {
+					await scrollDetailsToFileTree(webview, MaxTimeout);
+					return conflictFileContext(webview).count();
+				},
+				{ timeout: 15000 },
+			)
+			.toBeGreaterThan(0);
 		const contexts = await conflictFileContext(webview).evaluateAll(els =>
 			els.map(el => el.getAttribute('data-vscode-context') ?? ''),
 		);
