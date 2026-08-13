@@ -19,6 +19,9 @@ export interface OnboardingChangeEvent {
 	readonly dismissed: boolean;
 }
 
+/** Highest legacy-migration batch version — the gates, the skip-check, and the persisted stamp must agree */
+const currentMigrationVersion = '17.9.0';
+
 type OnboardingStorageType = Exclude<StorageType, 'scoped'>;
 
 /**
@@ -35,7 +38,16 @@ export class OnboardingService implements Disposable {
 	}
 
 	private readonly _disposable: Disposable;
-	private _onboarding: { [key in OnboardingStorageType]: OnboardingStorage | undefined } = {
+	/**
+	 * Shallow copy of each scope's `items` as of the last read/write this instance observed — used only
+	 * to diff same-window external changes (e.g. `storage.reset()`) in `onStorageChanged`. Item records
+	 * are replaced (never mutated in place), so a shallow copy stays a stable snapshot even though the
+	 * memento can hand back the same underlying object on every `get`. `undefined` means "never seen" —
+	 * the first sight of a scope only primes the snapshot, it doesn't diff.
+	 */
+	private readonly _lastSeen: {
+		[key in OnboardingStorageType]: Record<string, OnboardingItem<unknown>> | undefined;
+	} = {
 		global: undefined,
 		workspace: undefined,
 	};
@@ -45,19 +57,26 @@ export class OnboardingService implements Disposable {
 	constructor(
 		private readonly storage: Storage,
 		version: string,
+		/** Commands are a process-wide singleton surface — VS Code throws on a duplicate id — so an
+		 *  instance beyond the container's own (tests) must opt out of claiming them. */
+		options?: { registerCommands?: boolean },
 	) {
 		this._version = fromVersion(fromString(version), false);
 		this._ready = defer<void>();
 		this._disposable = Disposable.from(
 			this.storage.onDidChange(this.onStorageChanged, this),
-			registerCommand('gitlens.onboarding.dismiss', args => {
-				if (args.id in onboardingDefinitions) {
-					void this.dismiss(args.id);
-				} else {
-					debugger;
-					Logger.warn(`Unknown onboarding key: ${args.id}`);
-				}
-			}),
+			...((options?.registerCommands ?? true)
+				? [
+						registerCommand('gitlens.onboarding.dismiss', args => {
+							if (args.id in onboardingDefinitions) {
+								void this.dismiss(args.id);
+							} else {
+								debugger;
+								Logger.warn(`Unknown onboarding key: ${args.id}`);
+							}
+						}),
+					]
+				: []),
 		);
 
 		void this.migrateLegacyState().then(
@@ -82,22 +101,23 @@ export class OnboardingService implements Disposable {
 	private onStorageChanged(e: StorageChangeEvent): void {
 		if (e.type === 'scoped' || !e.keys.includes('onboarding:state')) return;
 
-		// Invalidate the appropriate cache when storage changes externally
-		const previousState = this._onboarding[e.type];
-		this._onboarding[e.type] = undefined;
+		const previousItems = this._lastSeen[e.type];
+		const currentState = this.getOnboarding(e.type);
+		this._lastSeen[e.type] = { ...currentState.items };
 
-		if (previousState != null) {
-			const currentState = this.getOnboarding(e.type);
+		// Own writes already updated `_lastSeen` (in `saveOnboarding`/`resetAll`) before triggering this
+		// event, so the diff below sees no delta for them — only same-window external changes (e.g.
+		// `storage.reset()`) produce one. `previousItems == null` means this is the first sight of the
+		// scope — prime the snapshot without diffing.
+		if (previousItems == null) return;
 
-			// Diff items to find what changed and fire events
-			const keys = new Set([...Object.keys(previousState.items), ...Object.keys(currentState.items)]);
-			for (const key of keys) {
-				const previous = previousState.items[key]?.dismissedAt != null;
-				const current = currentState.items[key]?.dismissedAt != null;
+		const keys = new Set([...Object.keys(previousItems), ...Object.keys(currentState.items)]);
+		for (const key of keys) {
+			const previous = previousItems[key]?.dismissedAt != null;
+			const current = currentState.items[key]?.dismissedAt != null;
 
-				if (previous !== current) {
-					this._onDidChange.fire({ key: key as OnboardingKeys, dismissed: current });
-				}
+			if (previous !== current) {
+				this._onDidChange.fire({ key: key as OnboardingKeys, dismissed: current });
 			}
 		}
 	}
@@ -168,7 +188,7 @@ export class OnboardingService implements Disposable {
 			dismissedVersion: this._version,
 		};
 
-		await this.saveOnboarding(scope, onboarding);
+		await this.saveOnboarding(scope, onboarding, key);
 		this._onDidChange.fire({ key: key, dismissed: true });
 	}
 
@@ -232,7 +252,7 @@ export class OnboardingService implements Disposable {
 
 		onboarding.items = updateRecordValue(onboarding.items, key, undefined);
 
-		await this.saveOnboarding(scope, onboarding);
+		await this.saveOnboarding(scope, onboarding, key);
 		if (dismissed) {
 			this._onDidChange.fire({ key: key, dismissed: false });
 		}
@@ -252,8 +272,8 @@ export class OnboardingService implements Disposable {
 			}
 		}
 
-		this._onboarding.global = { items: {} };
-		this._onboarding.workspace = { items: {} };
+		this._lastSeen.global = {};
+		this._lastSeen.workspace = {};
 		await this.storage.store('onboarding:state', undefined);
 		await this.storage.storeWorkspace('onboarding:state', undefined);
 
@@ -267,10 +287,15 @@ export class OnboardingService implements Disposable {
 		// Support both the old boolean flag and new versioned flag
 		/* oxlint-disable typescript/no-deprecated -- intentional access to deprecated `migrated` flag */
 		const migratedVersion = onboarding.migratedVersion ?? (onboarding.migrated ? '17.8.0' : undefined);
+		const hadDeprecatedFlag = onboarding.migrated != null;
 		/* oxlint-enable typescript/no-deprecated */
+
+		let ranBatch = false;
 
 		// Batch 1 (17.8.0): Original deprecated key migrations
 		if (!migratedVersion || compare(migratedVersion, '17.8.0') < 0) {
+			ranBatch = true;
+
 			const batch1: { legacy: keyof DeprecatedGlobalStorage; current: OnboardingKeys }[] = [
 				{ legacy: 'views:scm:grouped:welcome:dismissed', current: 'views:scmGrouped:welcome' },
 				{ legacy: 'home:walkthrough:dismissed', current: 'home:walkthrough' },
@@ -290,7 +315,9 @@ export class OnboardingService implements Disposable {
 		}
 
 		// Batch 2 (17.9.0): home:sections:collapsed + composer onboarding
-		if (!migratedVersion || compare(migratedVersion, '17.9.0') < 0) {
+		if (!migratedVersion || compare(migratedVersion, currentMigrationVersion) < 0) {
+			ranBatch = true;
+
 			// Migrate onboarding items from home:sections:collapsed array
 			const collapsedSections = this.storage.get('home:sections:collapsed');
 			if (collapsedSections != null) {
@@ -324,9 +351,19 @@ export class OnboardingService implements Disposable {
 			}
 		}
 
-		// Re-read since dismiss calls above may have invalidated the cached state
+		// Already migrated and no deprecated flag to clear — nothing to persist
+		if (
+			!ranBatch &&
+			!hadDeprecatedFlag &&
+			migratedVersion != null &&
+			compare(migratedVersion, currentMigrationVersion) >= 0
+		) {
+			return;
+		}
+
+		// Re-read since dismiss calls above wrote to storage directly
 		const state = this.getOnboarding('global');
-		state.migratedVersion = '17.9.0';
+		state.migratedVersion = currentMigrationVersion;
 		// oxlint-disable-next-line typescript/no-deprecated
 		delete state.migrated;
 		await this.saveOnboarding('global', state);
@@ -348,7 +385,7 @@ export class OnboardingService implements Disposable {
 		};
 		onboarding.items[key] = updated;
 
-		await this.saveOnboarding(scope, onboarding);
+		await this.saveOnboarding(scope, onboarding, key);
 	}
 
 	private getItem<T extends OnboardingKeys>(key: T): OnboardingItem<OnboardingItemState<T>> | undefined {
@@ -356,22 +393,53 @@ export class OnboardingService implements Disposable {
 		return this.getOnboarding(scope).items[key] as OnboardingItem<OnboardingItemState<T>> | undefined;
 	}
 
+	/** Reads fresh on every call — memento reads are cheap, and this is how other windows' writes are picked up */
 	private getOnboarding(scope: OnboardingStorageType): OnboardingStorage {
-		let onboarding = this._onboarding[scope];
-		if (onboarding == null) {
-			onboarding = (scope === 'workspace'
-				? this.storage.getWorkspace('onboarding:state')
-				: this.storage.get('onboarding:state')) ?? { items: {} };
-			this._onboarding[scope] = onboarding;
-		}
+		const onboarding = (scope === 'workspace'
+			? this.storage.getWorkspace('onboarding:state')
+			: this.storage.get('onboarding:state')) ?? { items: {} };
+
+		// Prime the diff snapshot on first sight so a same-window external delete (e.g. `storage.reset()`)
+		// that happens before any write still fires change events for the dismissals it wipes
+		this._lastSeen[scope] ??= { ...onboarding.items };
+
 		return onboarding;
 	}
 
-	private async saveOnboarding(scope: OnboardingStorageType, onboarding: OnboardingStorage): Promise<void> {
-		this._onboarding[scope] = onboarding;
+	private async saveOnboarding(
+		scope: OnboardingStorageType,
+		onboarding: OnboardingStorage,
+		changedKey?: OnboardingKeys,
+	): Promise<void> {
+		// Set before writing: `store`/`storeWorkspace` fire the storage-change event synchronously, and
+		// `onStorageChanged` must see this write reflected already so its diff finds no delta — `dismiss`
+		// and `reset` fire their own `_onDidChange` event for it instead.
+		this._lastSeen[scope] = { ...onboarding.items };
 		if (scope === 'workspace') {
 			await this.storage.storeWorkspace('onboarding:state', onboarding);
-		} else {
+			return;
+		}
+
+		await this.storage.store('onboarding:state', onboarding);
+
+		// Verify the write actually stuck. Under heavy workbench churn (observed with `vscode.moveViews`),
+		// a global-memento update can resolve and then be clobbered by a stale storage broadcast landing
+		// during the await — retry once so a just-made change isn't silently reverted. Re-apply only the
+		// changed item onto a fresh read; re-storing this whole blob could revert a legitimate concurrent
+		// write from another window.
+		const current = this.storage.get('onboarding:state');
+		if (current === onboarding) return;
+
+		if (changedKey != null) {
+			if (JSON.stringify(current?.items[changedKey]) === JSON.stringify(onboarding.items[changedKey])) {
+				return;
+			}
+
+			const fresh = current ?? { items: {} };
+			fresh.items = updateRecordValue(fresh.items, changedKey, onboarding.items[changedKey]);
+			this._lastSeen[scope] = { ...fresh.items };
+			await this.storage.store('onboarding:state', fresh);
+		} else if (JSON.stringify(current) !== JSON.stringify(onboarding)) {
 			await this.storage.store('onboarding:state', onboarding);
 		}
 	}

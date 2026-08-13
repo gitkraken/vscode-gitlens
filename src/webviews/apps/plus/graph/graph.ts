@@ -265,9 +265,12 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	}
 
 	protected override onWebviewVisibilityChanged(visible: boolean): void {
-		// Buffered onboarding change events collapse to the last one while hidden; re-sync on restore
+		// Buffered onboarding change events collapse to the last one while hidden; re-sync on restore.
+		// Going hidden clears unacknowledged signals so a stale value can't paint before that re-sync lands.
 		if (visible) {
 			this._onboardingDismissals.refresh();
+		} else {
+			this._onboardingDismissals.markStale();
 		}
 		this.appElement?.onWebviewVisibilityChanged(visible);
 	}
