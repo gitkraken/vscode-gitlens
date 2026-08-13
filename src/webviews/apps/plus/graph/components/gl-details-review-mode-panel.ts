@@ -16,7 +16,7 @@ import type { ViewFilesLayout } from '../../../../../config.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { redispatch } from '../../../shared/components/element.js';
 import {
@@ -137,7 +137,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	scopeLoading = false;
 
 	@property({ type: Array })
-	files?: readonly GitFileChangeShape[];
+	files?: readonly ScopeFile[];
 
 	@property({ type: Array })
 	aiExcludedFiles?: readonly string[];
@@ -651,7 +651,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 	};
 
-	private renderFileCuration(files?: readonly GitFileChangeShape[]) {
+	private renderFileCuration(files?: readonly ScopeFile[]) {
 		// Always render the section — when there are no files, gl-file-tree-pane shows the
 		// `empty-text` message inside its body so the section header / scope context stays
 		// visible (consistent with the compare empty-state pattern).
@@ -675,6 +675,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 		}
 
+		// `getFileContext` reads both `scope` and `repoPath`, so both must key the cached context model —
+		// a scope-only or repoPath-only revision would leave rows on a stale context after the other changes.
+		const contextRevision = `${this.repoPath ?? ''}|${this.scope ? JSON.stringify(this.scope) : ''}`;
+
 		return html`<div class="scope-files__tree">
 			<webview-pane-group flexible>
 				<gl-file-tree-pane
@@ -687,6 +691,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					.checkableStates=${checkableStates}
 					.fileActions=${this.fileActionsForFile}
 					.fileContext=${this.getFileContext}
+					.contextRevision=${contextRevision}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					.searchContext=${this.searchContext}
 					.showSearchBox=${this.showSearchBox}
@@ -729,13 +734,42 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
 	};
 
-	private getFileContext = (file: GitFileChangeShape): string | undefined => {
+	private getFileContext = (file: ScopeFile): string | undefined => {
 		const scope = this.scope;
 		if (!scope || !this.repoPath) return undefined;
 
 		let context: DetailsItemTypedContext | undefined;
 		switch (scope.type) {
 			case 'wip':
+				if (file.anchor === 'committed' && file.anchorSha != null) {
+					// Committed-range file reviewed under a wip scope: anchor to the range, not working tree
+					context =
+						file.anchorBaseSha != null
+							? {
+									webviewItem: 'gitlens:file:comparison',
+									webviewItemValue: {
+										type: 'file',
+										path: file.path,
+										repoPath: this.repoPath,
+										sha: file.anchorSha,
+										comparisonSha: file.anchorBaseSha,
+										status: file.status,
+										originalPath: file.originalPath,
+									},
+								}
+							: {
+									webviewItem: 'gitlens:file+committed',
+									webviewItemValue: {
+										type: 'file',
+										path: file.path,
+										repoPath: this.repoPath,
+										sha: file.anchorSha,
+										status: file.status,
+									},
+								};
+					break;
+				}
+
 				context = {
 					webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
 					webviewItemValue: {

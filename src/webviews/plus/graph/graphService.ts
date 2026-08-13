@@ -192,6 +192,18 @@ export type ScopeSelection =
 			includeShas?: string[];
 	  };
 
+/** A file in a scope's file list. Files from the scope's committed range (rather than the working
+ *  tree) carry an `anchor`, so context-menu handlers resolve them against real commits instead of
+ *  misreading them as working-tree changes. */
+export type ScopeFile = GitFileChangeShape & {
+	/** Present when the file's change comes from the scope's committed range rather than the working tree */
+	anchor?: 'committed';
+	/** Newest sha of the committed range containing the change */
+	anchorSha?: string;
+	/** Resolved base (parent of the oldest included sha) of the range diff; absent for root-anchored ranges */
+	anchorBaseSha?: string;
+};
+
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
 
 /**
@@ -459,7 +471,7 @@ export interface GraphInspectService {
 		tagSha: string,
 		signal?: AbortSignal,
 	): Promise<string | undefined>;
-	getScopeFiles(repoPath: string, scope: ScopeSelection, signal?: AbortSignal): Promise<GitFileChangeShape[]>;
+	getScopeFiles(repoPath: string, scope: ScopeSelection, signal?: AbortSignal): Promise<ScopeFile[]>;
 	reviewChanges(
 		repoPath: string,
 		scope: ScopeSelection,

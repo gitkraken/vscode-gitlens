@@ -12,7 +12,12 @@ import type { ViewFilesLayout } from '../../../../../config.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ProposedCommit, ProposedCommitFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type {
+	ProposedCommit,
+	ProposedCommitFile,
+	ScopeFile,
+	ScopeSelection,
+} from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import { redispatch } from '../../../shared/components/element.js';
@@ -164,7 +169,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 	scopeLoading = false;
 
 	@property({ type: Array })
-	files?: readonly GitFileChangeShape[];
+	files?: readonly ScopeFile[];
 
 	@property({ type: Array })
 	aiExcludedFiles?: readonly string[];
@@ -614,6 +619,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 					.checkableStates=${checkableStates}
 					.fileActions=${this.idleFileActionsForFile}
 					.fileContext=${this.getIdleFileContext}
+					.contextRevision=${this.repoPath}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					.searchContext=${this.searchContext}
 					.showSearchBox=${this.showSearchBox}
@@ -654,8 +660,37 @@ export class GlDetailsComposeModePanel extends LitElement {
 		return [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
 	};
 
-	private getIdleFileContext = (file: GitFileChangeShape): string | undefined => {
+	private getIdleFileContext = (file: ScopeFile): string | undefined => {
 		if (!this.repoPath) return undefined;
+
+		if (file.anchor === 'committed' && file.anchorSha != null) {
+			// Committed-range file: anchor the context to the range so host commands resolve real commits
+			const context: DetailsItemTypedContext =
+				file.anchorBaseSha != null
+					? {
+							webviewItem: 'gitlens:file:comparison',
+							webviewItemValue: {
+								type: 'file',
+								path: file.path,
+								repoPath: this.repoPath,
+								sha: file.anchorSha,
+								comparisonSha: file.anchorBaseSha,
+								status: file.status,
+								originalPath: file.originalPath,
+							},
+						}
+					: {
+							webviewItem: 'gitlens:file+committed',
+							webviewItemValue: {
+								type: 'file',
+								path: file.path,
+								repoPath: this.repoPath,
+								sha: file.anchorSha,
+								status: file.status,
+							},
+						};
+			return serializeWebviewItemContext(context);
+		}
 
 		const context: DetailsItemTypedContext = {
 			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
@@ -1054,6 +1089,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			?draggable-files=${this.reorderEnabled}
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
+			.contextRevision=${this.repoPath}
 			.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}

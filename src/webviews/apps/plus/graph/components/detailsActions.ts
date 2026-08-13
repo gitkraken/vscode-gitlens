@@ -58,6 +58,7 @@ import type {
 	ReresolveFileResult,
 	ResolveResult,
 	ReviewResult,
+	ScopeFile,
 	ScopeSelection,
 	TakeConflictSideResult,
 	UndoAutoRebaseResult,
@@ -203,7 +204,7 @@ export interface DetailsResources {
 	/** AI conflict-resolution result. Keyed on `(repoPath, focusedFilePaths, instructions)` — focused
 	 *  paths scope the run to specific conflicted files; `undefined` resolves all conflicts. */
 	readonly resolve: Resource<ResolveResult, [string, readonly string[] | undefined, string | undefined]>;
-	readonly scopeFiles: Resource<GitFileChangeShape[], [string, ScopeSelection]>;
+	readonly scopeFiles: Resource<ScopeFile[], [string, ScopeSelection]>;
 }
 
 interface WipBranchEnrichmentCacheEntry {

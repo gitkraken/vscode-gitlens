@@ -3,7 +3,7 @@ import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
-import type { ScopeSelection } from './graphService.js';
+import type { ScopeFile, ScopeSelection } from './graphService.js';
 
 /**
  * Resolves the file list for a given {@link ScopeSelection}.
@@ -19,7 +19,7 @@ export async function getScopeFiles(
 	repoPath: string,
 	scope: ScopeSelection,
 	signal?: AbortSignal,
-): Promise<GitFileChangeShape[]> {
+): Promise<ScopeFile[]> {
 	signal?.throwIfAborted();
 	const svc = container.git.getRepositoryService(repoPath);
 
@@ -33,7 +33,13 @@ export async function getScopeFiles(
 
 	if (scope.type === 'commit') {
 		const files = await getCommitFiles(svc, scope.sha, signal);
-		return files.map(toShape);
+		const anchorBaseSha = files.length > 0 ? await resolveBaseSha(svc, scope.sha, signal) : undefined;
+		return files.map(f => ({
+			...toShape(f),
+			anchor: 'committed',
+			anchorSha: scope.sha,
+			anchorBaseSha: anchorBaseSha,
+		}));
 	}
 
 	if (scope.type === 'compare') {
@@ -41,12 +47,25 @@ export async function getScopeFiles(
 			if (scope.includeShas.length === 0) return [];
 
 			const files = await collectCommittedRangeFiles(svc, scope.includeShas, signal);
-			return files.map(toShape);
+			const anchorSha = scope.includeShas[0];
+			const anchorBaseSha =
+				files.length > 0 ? await resolveBaseSha(svc, scope.includeShas.at(-1)!, signal) : undefined;
+			return files.map(f => ({
+				...toShape(f),
+				anchor: 'committed',
+				anchorSha: anchorSha,
+				anchorBaseSha: anchorBaseSha,
+			}));
 		}
 
 		const status = await svc.diff.getDiffStatus(`${scope.fromSha}..${scope.toSha}`);
 		signal?.throwIfAborted();
-		return (status ?? []).map(toShape);
+		return (status ?? []).map(f => ({
+			...toShape(f),
+			anchor: 'committed',
+			anchorSha: scope.toSha,
+			anchorBaseSha: scope.fromSha,
+		}));
 	}
 
 	const wipEntries: GitFileChangeShape[] = [];
@@ -74,10 +93,17 @@ export async function getScopeFiles(
 
 	const committedEntries =
 		scope.includeShas.length === 0 ? [] : await collectCommittedRangeFiles(svc, scope.includeShas, signal);
-	const committedShapes = committedEntries.map(toShape);
+	const committedAnchorBaseSha =
+		committedEntries.length > 0 ? await resolveBaseSha(svc, scope.includeShas.at(-1)!, signal) : undefined;
+	const committedShapes: ScopeFile[] = committedEntries.map(f => ({
+		...toShape(f),
+		anchor: 'committed',
+		anchorSha: scope.includeShas[0],
+		anchorBaseSha: committedAnchorBaseSha,
+	}));
 	const committedByNewPath = new Map(committedShapes.map(e => [e.path, e]));
 
-	const merged = new Map<string, GitFileChangeShape>();
+	const merged = new Map<string, ScopeFile>();
 	for (const wip of wipEntries) {
 		// Collapse chains where WIP renamed/modified what the committed range already renamed:
 		//   - WIP rename `B → C` on top of committed `A → B` → one entry `A → C`.
@@ -109,6 +135,26 @@ export async function getScopeFiles(
 	}
 
 	return [...merged.values()];
+}
+
+/**
+ * Resolves the parent of `sha`, for anchoring a committed-range comparison's base side. Returns
+ * `undefined` for a root-anchored range (no parent to resolve) rather than propagating the failure.
+ */
+async function resolveBaseSha(
+	svc: GitRepositoryService,
+	sha: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	try {
+		const resolved = await svc.revision.resolveRevision(`${sha}^`);
+		signal?.throwIfAborted();
+		// An unresolvable rev comes back as the input, not an error — treat it as no parent
+		return resolved.sha === `${sha}^` ? undefined : resolved.sha;
+	} catch {
+		signal?.throwIfAborted();
+		return undefined;
+	}
 }
 
 /**

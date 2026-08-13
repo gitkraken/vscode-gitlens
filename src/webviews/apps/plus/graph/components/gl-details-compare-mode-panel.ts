@@ -897,6 +897,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					.fileActions=${GlDetailsCompareModePanel._fileActions}
 					.fileContext=${this._getFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(folderRepoPath, folder)}
+					.contextRevision=${`${this.repoPath}|${this.leftRef}|${this.rightRef}|${this.mergeBase}|${this.activeTab}|${this.selectedCommitSha}|${this.aheadOnlyWip}|${this.rightRefWorktreePath}`}
 					?multi-selectable=${true}
 					selection-action="file-compare-range"
 					.showSearchBox=${this.showSearchBox}

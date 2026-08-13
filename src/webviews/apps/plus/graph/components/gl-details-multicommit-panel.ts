@@ -271,6 +271,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 														.fileContext=${this.getFileContext}
 														.folderContext=${(folder: { relativePath: string }) =>
 															buildFolderContext(this.commitTo?.repoPath, folder)}
+														.contextRevision=${`${this.commitTo?.sha}|${this.commitTo?.repoPath}|${this.commitFrom?.sha}`}
 														.searchContext=${this.searchContext}
 														.showSearchBox=${this.showSearchBox}
 														.searchBoxFilter=${this.searchBoxFilter}
