@@ -103,7 +103,6 @@ import {
 	isCommitSigned,
 } from '../../../git/utils/-webview/commit.utils.js';
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
-import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
 import {
 	getBestRemoteWithIntegration,
 	getRemoteIntegration,
@@ -3923,9 +3922,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const storedExcludeRefs = filters?.excludeRefs;
 		if (!hasKeys(storedExcludeRefs)) return undefined;
 
-		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
-		const useAvatars = configuration.get('graph.avatars', undefined, true);
-
 		// Refs that no longer exist would otherwise stay hidden — and keep inflating the chip's count —
 		// forever. `refTips` is the complete `for-each-ref` listing the walk already captured off its
 		// critical path, so validating against it costs no extra git call (the reason the original v13
@@ -3942,13 +3938,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			const ref: GraphExcludedRef = { ...stored };
 			if (ref.type === 'remote' && ref.owner) {
-				const remote = graph.remotes.get(ref.owner);
-				if (remote != null) {
-					ref.avatarUrl = (
-						(useAvatars ? remote.provider?.avatarUri : undefined) ??
-						getRemoteIconUri(this.container, remote, asWebviewUri)
-					)?.toString(true);
-				}
+				// The provider's glyph name, not an avatar image — the hidden-refs list renders the same
+				// font glyph the side bar's remotes panel uses, so the two stay visually consistent.
+				ref.providerIcon = graph.remotes.get(ref.owner)?.provider?.icon;
 			}
 
 			excludeRefs[id] = ref;

@@ -124,7 +124,8 @@ export interface GraphRefOptData {
 	name: string;
 	type: GraphRefType;
 	owner?: string;
-	avatarUrl?: string;
+	/** For remote entries — the remote's provider icon name (e.g. `github`), rendered as its font glyph. */
+	providerIcon?: string;
 	/** For a whole-remote wildcard (`name: '*'`) only — ids of branches exempted from the hide. */
 	except?: string[];
 }

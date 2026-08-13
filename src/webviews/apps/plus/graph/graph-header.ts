@@ -45,6 +45,7 @@ import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
+import { providerIconName } from '../../shared/git-utils.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
@@ -1189,7 +1190,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				this.handleOnToggleRefsVisibilityClick(event, [ref], true);
 			}}
 		>
-			${this.renderRemoteAvatarOrIcon(ref)}
+			${this.renderHiddenRefIcon(ref)}
 			<span class="hidden-ref__label"
 				>${owner ? html`<span class="hidden-ref__owner">${owner}</span>` : nothing}${name}${
 					suffix ? html` <span class="hidden-ref__suffix">· ${suffix}</span>` : nothing
@@ -1348,11 +1349,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	/** The leading glyph on a hidden-ref row. Decorative: the row's own text names the ref, so an alt/label
-	 *  here would only announce it twice (and a remote-wide hide's raw name is a bare `*`). */
-	private renderRemoteAvatarOrIcon(refOptData: GraphRefOptData) {
-		if (refOptData.avatarUrl) {
-			return html`<img class="hidden-ref__avatar" alt="" src=${refOptData.avatarUrl} />`;
-		}
-		return html`<code-icon class="hidden-ref__icon" icon=${getRemoteIcon(refOptData.type)}></code-icon>`;
+	 *  here would only announce it twice (and a remote-wide hide's raw name is a bare `*`). A remote entry
+	 *  takes its provider's font glyph — same rendering as the side bar's remotes panel, never an avatar
+	 *  image (a fixed-color raster neither matches the theme nor scales at glyph size). */
+	private renderHiddenRefIcon(refOptData: GraphRefOptData) {
+		const icon =
+			refOptData.type === 'remote' ? providerIconName(refOptData.providerIcon) : getRemoteIcon(refOptData.type);
+		return html`<code-icon class="hidden-ref__icon" icon=${icon}></code-icon>`;
 	}
 }

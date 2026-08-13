@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes the default remote's `default` text badge in the _Commit Graph_ side bar to a check mark, matching the current branch marker
+- Changes the _Commit Graph_'s hidden branches/tags list to show remotes with their provider's icon, matching the side bar, instead of a low-fidelity avatar image
 
 ### Fixed
 

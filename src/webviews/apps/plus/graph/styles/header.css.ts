@@ -264,13 +264,6 @@ export const graphHeaderControlStyles = css`
 		}
 	}
 
-	.hidden-ref__avatar {
-		width: 1.4rem;
-		aspect-ratio: 1;
-		flex: none;
-		vertical-align: text-bottom;
-	}
-
 	.hidden-ref__icon {
 		flex: none;
 	}
