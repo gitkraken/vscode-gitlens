@@ -1197,44 +1197,11 @@ gl-lit-graph {
 		color: inherit;
 	}
 
-	// NOTE: the scope anchor's own thin left-edge rail (`.gl-graph__anchor`) is GONE — its roles are folded
-	// into the row-marker rail below (`scopeAnchorRoles`/`combineRowMarkerRoles`), so a scoped graph draws
-	// ONE left-edge indicator instead of two misaligned ones marking the same row in the same purple. The
-	// per-row resting TINT (`.is-anchor--*` above) and the inline marker chips (`.gl-graph__anchor-pill`)
-	// are unchanged — only the duplicate rail went away.
-
-	// Scope-anchor marker pill — a small colored chip before the branch pills, so the anchor's meaning is
-	// legible without decoding the thin rail (legacy "TARGET" parity). Color matches the rail per kind.
-	.gl-graph__anchor-pill {
-		display: inline-flex;
-		flex-shrink: 0;
-		align-items: center;
-		gap: 0.3rem;
-		border-radius: 0.4rem;
-		// Dotted outline (no fill) — reads as a synthetic scope annotation, NOT a real ref pill (those
-		// are solid). border-color inherits the kind color via currentColor.
-		border: 1px dotted currentColor;
-		// Height MATCHES the branch ref pill it sits beside, and by construction rather than a tuned number:
-		// in both pills the ICON is the tallest box (1.2rem > the text's line-height:1 em box), and edge-to-
-		// icon is 0.4rem on each — here 0.3rem padding + 1px border, on the ref pill 0.4rem padding (its ring
-		// is an inset shadow, not a border) ⇒ identical 2rem total. Only the DECORATIVE differences remain
-		// (dotted border, uppercase, smaller 0.9rem text), so the chip still reads as an annotation without
-		// sitting short next to the branch pills.
-		padding: 0.3rem 0.5rem;
-		font-size: 0.9rem;
-		font-weight: 600;
-		line-height: 1;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-		--code-icon-size: 1.2rem;
-
-		&--target {
-			color: var(--vscode-charts-purple, #b180d7);
-		}
-		&--fork {
-			color: var(--vscode-descriptionForeground, #8b949e);
-		}
-	}
+	// NOTE: the scope anchor's own thin left-edge rail (`.gl-graph__anchor`) AND its inline marker chips
+	// (`.gl-graph__anchor-pill`) are GONE — the roles are folded into the row-marker rail below
+	// (`scopeAnchorRoles`/`combineRowMarkerRoles`), so a scoped graph draws ONE left-edge indicator whose
+	// hover pill/tooltip names the roles, and the refs cell keeps its space for actual ref pills. The
+	// per-row resting TINT (`.is-anchor--*` above) still marks the rows at rest.
 
 	// Muted connector band tying the bar to the row's node dot: a thin horizontal band at the row's vertical
 	// center, from the bar's right edge across to the dot center. Geometry is the row's own STATIC vars — the
@@ -1388,7 +1355,12 @@ gl-lit-graph {
 	}
 
 	.gl-graph__row-marker-rail-swatch--base {
-		background-color: var(--gl-row-marker-base);
+		// The base hue is `descriptionForeground`, which carries alpha in most themes (Dark+ is #ccccccb3);
+		// as a translucent FILL it lets the lane art bleed through. color-mix() can't strip alpha (it
+		// interpolates it), so composite for real: editor background underneath, the role color painted over
+		// it as a gradient layer. Same treatment as the expanded pill's base segment below.
+		background-color: var(--vscode-editor-background);
+		background-image: linear-gradient(var(--gl-row-marker-base), var(--gl-row-marker-base));
 	}
 
 	// The expand-out pill content — collapsed by max-width (not display) at rest so it animates in place and
@@ -1464,7 +1436,10 @@ gl-lit-graph {
 	}
 
 	.gl-graph__row-marker-rail-seg--base {
-		background-color: var(--gl-row-marker-base);
+		// Composited opaque (see the base swatch above): the base hue's own alpha would wash the knockout
+		// text against the lane art behind the pill.
+		background-color: var(--vscode-editor-background);
+		background-image: linear-gradient(var(--gl-row-marker-base), var(--gl-row-marker-base));
 	}
 
 	// Expand ONLY on hovering the indicator ITSELF — the rail (bar + pill) or its widened hit zone — never the

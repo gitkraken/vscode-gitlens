@@ -262,31 +262,6 @@ function cachedInitials(name: string): string {
 	return value;
 }
 
-// Scope-anchor marker pills: a labeled, colored chip rendered BEFORE the branch pills so the thin rail
-// isn't the only cue for what a row is (legacy "TARGET" parity). Target wins as the primary label; when a
-// row is also the fork point a "Base" chip follows. The focal tip is skipped — its own branch pill already
-// names it. Inert (never a control): these annotate the row the user is already looking at.
-function anchorMarkerPill(kind: 'fork' | 'target', icon: string, label: string): TemplateResult {
-	const tooltip = label === 'Target' ? 'Merge Target' : 'Fork Point (Base)';
-	return html`<span
-		class="gl-graph__anchor-pill gl-graph__anchor-pill--${kind}"
-		aria-hidden="true"
-		data-tooltip=${tooltip}
-		><code-icon icon=${icon}></code-icon><span class="gl-graph__anchor-pill-label">${label}</span></span
-	>`;
-}
-
-function renderAnchorMarkers(ctx: RowRenderContext): TemplateResult | typeof nothing {
-	if (!ctx.isAnchor) return nothing;
-
-	// Every anchor the row plays, not just its dominant one — the focal tip of a branch level with its
-	// target is also that target and the fork point, and each is worth saying. No focal pill: the focal tip
-	// already carries the branch's own ref pill right next to it.
-	return html`${ctx.isTargetAnchor === true ? anchorMarkerPill('target', 'gl-merge-target', 'Target') : nothing}${
-		ctx.isForkAnchor === true ? anchorMarkerPill('fork', 'git-merge', 'Base') : nothing
-	}`;
-}
-
 /** The on-row row-marker indicator: a colored VERTICAL BAR pinned at the left edge of the graph column
  *  (`--row-graph-left`), rendered as a direct child of the row (a sibling of the anchor rail), NOT a member
  *  of the row-action strip. One bar carries every role the row plays — so a row that is HEAD *and* its
@@ -341,22 +316,16 @@ function renderRowMarkerRail(roles: number, targetName: string | undefined): Tem
 		</div>`;
 }
 
-/** A single ref-chip container for the first content column (inline refs), with any scope-anchor
- *  marker prepended before the branch/tag pills, and an optional resolved ghost ref appended. */
+/** A single ref-chip container for the first content column (inline refs), the branch/tag pills plus an
+ *  optional resolved ghost ref appended. */
 function renderInlineRefs(
 	row: ProcessedGraphRow,
 	refs: readonly TemplateResult[],
-	ctx: RowRenderContext,
 	ghost?: RowRenderContext['ghostRef'],
 ): TemplateResult {
 	return html`<span class="gl-graph__refs" data-sha=${row.sha}
-		>${renderAnchorMarkers(ctx)}${refs}${ghost != null ? renderGhostRefPill(ghost, row.column) : nothing}</span
+		>${refs}${ghost != null ? renderGhostRefPill(ghost, row.column) : nothing}</span
 	>`;
-}
-
-/** Whether the row has a scope-anchor marker to show (so the refs cell renders even with no branch pills). */
-function hasMarkerPills(ctx: RowRenderContext): boolean {
-	return ctx.isAnchor === true && (ctx.isTargetAnchor === true || ctx.isForkAnchor === true);
 }
 
 /** Whether a ref-less row gets the ghost pill: the config is on, the row is a normal commit/merge —
@@ -767,9 +736,9 @@ function renderZoneContent(
 
 			// Dedicated Refs column: the same ref pills that otherwise render inline, in their own cell.
 			const refs = ctx.refsContent ?? [];
-			if (refs.length > 0 || hasMarkerPills(ctx)) return renderInlineRefs(row, refs, ctx);
+			if (refs.length > 0) return renderInlineRefs(row, refs);
 
-			return wantsGhostRef(row, ctx) ? renderInlineRefs(row, refs, ctx, ctx.ghostRef) : nothing;
+			return wantsGhostRef(row, ctx) ? renderInlineRefs(row, refs, ctx.ghostRef) : nothing;
 		}
 		case 'message':
 			return html`${
@@ -1258,8 +1227,8 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Ghost pills only ever render in the dedicated Refs column (`renderZoneContent` case 'ref') — inline
 	// placement (here) never reserves layout space for one on a ref-less row.
 	const inlineRefs =
-		ctx.skeleton !== true && ctx.refsPlacement !== 'hidden' && (hasRefs || hasMarkerPills(ctx)) && !refsInColumn
-			? renderInlineRefs(row, refs, ctx)
+		ctx.skeleton !== true && ctx.refsPlacement !== 'hidden' && hasRefs && !refsInColumn
+			? renderInlineRefs(row, refs)
 			: nothing;
 
 	// String concatenation (not array+filter+join) — this runs for every visible row on every
