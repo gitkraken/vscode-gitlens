@@ -1695,6 +1695,10 @@ interface GraphSearchedEvent extends GraphContextEventData {
 	'failed.error.detail'?: string;
 	/** Whether the pattern failed to compile as a regex and was silently retried as a literal search */
 	'fallback.literal'?: boolean;
+	/** Whether an NL-converted query git rejected went through the AI repair path */
+	'nl.repair.attempted'?: boolean;
+	/** Whether the AI repair path produced a query that git accepted */
+	'nl.repair.succeeded'?: boolean;
 }
 
 export type GraphVirtualFileMode = 'diff' | 'comparePrevious' | 'multiDiff';

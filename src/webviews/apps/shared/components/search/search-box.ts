@@ -195,6 +195,8 @@ export class GlSearchBox extends GlElement {
 	/** The settled (non-partial) search used the literal fallback and found nothing — offers a
 	 *  "Match literally" action in the message area instead of a bare zero-results count. */
 	@property({ type: Boolean }) showFallbackHelper = false;
+	/** The active error is an unavailable-AI NL failure — offers a "Search as text instead" action. */
+	@property({ type: Boolean }) showSearchAsTextHelper = false;
 	@property({ type: Boolean }) filter = false;
 	@property({ type: Boolean }) matchAll = false;
 	@property({ type: Boolean }) matchCase = false;
@@ -258,8 +260,8 @@ export class GlSearchBox extends GlElement {
 		this.emit('gl-search-navigate', { direction: direction });
 	}
 
-	logSearch(query: SearchQuery): void {
-		void this.searchInput?.logSearch(query);
+	logSearch(query: SearchQuery, options?: { store?: boolean }): void {
+		void this.searchInput?.logSearch(query, options);
 	}
 
 	setSearchQuery(query: string): void {
@@ -429,6 +431,7 @@ export class GlSearchBox extends GlElement {
 				?fallbackActive="${this.fallbackActive}"
 				.fallbackDetail="${this.fallbackDetail}"
 				?showFallbackHelper="${this.showFallbackHelper}"
+				?showSearchAsTextHelper="${this.showSearchAsTextHelper}"
 				?filter=${this.filter}
 				?matchAll="${this.matchAll}"
 				?matchCase="${this.matchCase}"

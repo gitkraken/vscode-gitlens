@@ -1383,6 +1383,12 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			search = (await this.context.searchQuery?.preprocessQuery?.(search, options?.source)) ?? search;
 		}
 
+		// The conversion failed — `search.query` is still the raw English sentence, not a query; running
+		// it as an ERE would produce a regex error about text the user never wrote.
+		if (typeof search.naturalLanguage === 'object' && search.naturalLanguage.error) {
+			return { search: search, log: undefined };
+		}
+
 		try {
 			const cfg = this.context.config;
 			const currentUser = await this.provider.config.getCurrentUser(repoPath);

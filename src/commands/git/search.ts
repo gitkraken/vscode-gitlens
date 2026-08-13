@@ -226,6 +226,19 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.resultsKey = searchKey;
 			}
 
+			const nl = typeof search.naturalLanguage === 'object' ? search.naturalLanguage : undefined;
+			if (nl?.error) {
+				void window.showErrorMessage(`Unable to build a search from your description — ${nl.error}`);
+
+				// Re-enter the query step with the typed sentence intact: the step reads its value from
+				// `naturalLanguage.query` when it's an object.
+				state.naturalLanguage = nl;
+				state.query = undefined!;
+				context.resultPromise = undefined;
+				context.resultsKey = undefined;
+				continue;
+			}
+
 			if (state.showResultsInSideBar) {
 				void this.container.views.searchAndCompare.search(
 					state.repo.path,

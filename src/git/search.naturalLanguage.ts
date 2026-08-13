@@ -1,3 +1,4 @@
+import type { CancellationToken } from 'vscode';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
@@ -10,6 +11,12 @@ export async function processNaturalLanguageToSearchQuery(
 	search: SearchQuery,
 	source: Source,
 	options?: NaturalLanguageSearchOptions,
+	cancellation?: CancellationToken,
 ): Promise<SearchQuery> {
-	return new NaturalLanguageSearchProcessor(container).processNaturalLanguageToSearchQuery(search, source, options);
+	return new NaturalLanguageSearchProcessor(container).processNaturalLanguageToSearchQuery(
+		search,
+		source,
+		options,
+		cancellation,
+	);
 }

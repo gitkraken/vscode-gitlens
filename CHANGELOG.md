@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Commit Graph_'s hidden branches/tags list to show remotes with their provider's icon, matching the side bar, instead of a low-fidelity avatar image
 - Changes _Commit Graph_ search failures to say what actually went wrong &mdash; unknown references are reported by name and real errors no longer blame the search pattern
 - Changes _Commit Graph_ search to quietly match literally when a pattern isn't a valid regular expression &mdash; instead of erroring while a pattern is mid-typed &mdash; with a _Match Literally_ action when nothing matches
+- Improves natural language search error handling in the _Commit Graph_ &mdash; failed AI queries are repaired automatically, AI-unavailable searches offer _Search as text instead_, and invalid patterns offer _Fix with AI_
 
 ### Fixed
 

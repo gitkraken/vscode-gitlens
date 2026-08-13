@@ -605,9 +605,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		try {
 			const rsp = await this._ipc.sendRequest(SearchRequest, { search: { ...this._searchQuery } });
 
-			// Only log successful searches with at least 1 result
-			if (rsp.search && rsp.results && !('error' in rsp.results) && rsp.results.count > 0) {
-				this.searchEl.logSearch(rsp.search);
+			// Log whenever we have a search — the NL error message and "Query: <processed>" chip live
+			// inside logSearch, so a failed or zero-result NL search still needs it. Only a match
+			// (count > 0) is allowed into search history.
+			if (rsp.search) {
+				const matched = rsp.results != null && !('error' in rsp.results) && rsp.results.count > 0;
+				this.searchEl?.logSearch(rsp.search, { store: matched });
 			}
 
 			// Guard: only update state if this response is still for the current search.
@@ -1246,10 +1249,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						aria-disabled=${isAlternateMode ? 'true' : 'false'}
 						?aiAllowed=${this.aiAllowed}
 						errorMessage=${searchResultsError?.error ?? ''}
-						?errorCalm=${searchResultsError?.reason === 'invalidRef'}
+						?errorCalm=${
+							searchResultsError?.reason === 'invalidRef' ||
+							searchResultsError?.reason === 'aiUnavailable'
+						}
 						?fallbackActive=${fallbackActive}
 						fallbackDetail=${searchFallback?.detail ?? ''}
 						?showFallbackHelper=${showFallbackHelper}
+						?showSearchAsTextHelper=${searchResultsError?.reason === 'aiUnavailable'}
 						?filter=${searchMode === 'filter'}
 						?naturalLanguage=${Boolean(useNaturalLanguageSearch)}
 						.navigating=${this.graphState.navigating}

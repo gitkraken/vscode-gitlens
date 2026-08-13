@@ -21,6 +21,7 @@ import {
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
+	SearchRepairRequest,
 } from '../../../../plus/graph/protocol.js';
 import { ipcContext } from '../../contexts/ipc.js';
 import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete.js';
@@ -352,6 +353,8 @@ background-color: var(--vscode-menu-background);
 	@property({ type: String }) fallbackDetail = '';
 	/** The settled search used the literal fallback and found nothing. */
 	@property({ type: Boolean }) showFallbackHelper = false;
+	/** The active error is an unavailable-AI NL failure — offers a "Search as text instead" action. */
+	@property({ type: Boolean }) showSearchAsTextHelper = false;
 	@property({ type: String })
 	get value() {
 		return this._value;
@@ -367,6 +370,7 @@ background-color: var(--vscode-menu-background);
 	@state() private errorMessage = '';
 	@state() private processedQuery: string | undefined;
 	@state() private _value = '';
+	@state() private repairing = false;
 
 	// Autocomplete state
 	@state() private autocompleteOpen = false;
@@ -1395,7 +1399,7 @@ background-color: var(--vscode-menu-background);
 		this.errorMessage = errorMessage;
 	}
 
-	async logSearch(search: SearchQuery): Promise<void> {
+	async logSearch(search: SearchQuery, options?: { store?: boolean }): Promise<void> {
 		// Store exactly what user entered/sees (NL form or structured form)
 		let queryToStore;
 		if (search.naturalLanguage) {
@@ -1419,6 +1423,8 @@ background-color: var(--vscode-menu-background);
 
 			queryToStore = search.query;
 		}
+
+		if (options?.store === false) return;
 
 		const searchToStore: SearchQuery = { ...search, query: queryToStore };
 
@@ -1649,12 +1655,32 @@ background-color: var(--vscode-menu-background);
 			return html`<div class="message">
 				No results — pattern isn't valid regex
 				<a href="#" class="message-action" @click="${this.handleMatchLiterallyClick}">Match literally</a>
+				${
+					this.aiAllowed && !this.naturalLanguage
+						? this.repairing
+							? html`<span class="message-action" aria-disabled="true"
+									><code-icon icon="loading" modifier="spin"></code-icon> Fixing…</span
+								>`
+							: html`<a href="#" class="message-action" @click="${this.handleFixWithAiClick}"
+									>Fix with AI</a
+								>`
+						: nothing
+				}
 			</div>`;
 		}
 
 		if (!this.errorMessage) return nothing;
 
-		return html`<div class="message">${this.errorMessage}</div>`;
+		return html`<div class="message">
+			${this.errorMessage}
+			${
+				this.showSearchAsTextHelper
+					? html`<a href="#" class="message-action" @click="${this.handleSearchAsTextClick}"
+							>Search as text instead</a
+						>`
+					: nothing
+			}
+		</div>`;
 	}
 
 	/** "Match literally" action: flips the regex toggle off through the same handler a user click takes,
@@ -1662,6 +1688,50 @@ background-color: var(--vscode-menu-background);
 	private handleMatchLiterallyClick(e: Event) {
 		e.preventDefault();
 		this.handleMatchRegex(e);
+	}
+
+	/** "Search as text instead" action (unavailable-AI NL failure): drops NL mode — and regex matching,
+	 *  visibly, since an English sentence can be VALID regex with the wrong meaning ("yesterday?") — then
+	 *  re-submits the same text as a plain text search. */
+	private handleSearchAsTextClick(e: Event) {
+		e.preventDefault();
+		this.updateNaturalLanguage(false);
+		this.errorMessage = '';
+		if (this.matchRegex) {
+			this.handleMatchRegex(e);
+		} else {
+			this.onSearchChanged(true);
+		}
+	}
+
+	/** "Fix with AI" action (manual zero-result helper): asks the host to repair the pattern, then puts
+	 *  the suggestion into the box as visible, editable text and searches. */
+	private async handleFixWithAiClick(e: Event): Promise<void> {
+		e.preventDefault();
+		if (this.repairing) return;
+
+		this.repairing = true;
+		const requested = this.value;
+		try {
+			const rsp = await this._ipc.sendRequest(SearchRepairRequest, {
+				query: this.value,
+				detail: this.fallbackDetail || undefined,
+			});
+			// The user kept typing during the round-trip — leave their in-progress edit alone.
+			if (this.value !== requested) return;
+
+			if (rsp.query) {
+				this.value = rsp.query;
+				this.errorMessage = '';
+				this.onSearchChanged(true);
+			} else if (rsp.error) {
+				this.errorMessage = rsp.error;
+			}
+		} catch {
+			// leave the existing helper row in place
+		} finally {
+			this.repairing = false;
+		}
 	}
 
 	private renderAutocomplete() {

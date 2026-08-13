@@ -1636,7 +1636,9 @@ export interface GraphSearchResults {
 }
 export interface GraphSearchResultsError {
 	error: string;
-	reason?: 'invalidPattern' | 'invalidRef';
+	/** `aiUnavailable` means a natural language search never ran — the conversion itself failed, so
+	 *  `error` is the AI's own (already user-worded) reason, not anything git said. */
+	reason?: 'invalidPattern' | 'invalidRef' | 'aiUnavailable';
 	detail?: string;
 }
 export interface DidSearchParams {
@@ -1655,6 +1657,20 @@ export interface DidSearchParams {
 	searchId: number;
 }
 export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
+
+export interface SearchRepairParams {
+	/** The query that failed to compile */
+	query: string;
+	/** Git's complaint about it, when we have one */
+	detail?: string;
+}
+export interface DidSearchRepairParams {
+	/** The corrected query, or `undefined` when no suggestion could be produced */
+	query: string | undefined;
+	error?: string;
+}
+/** Asks AI to repair a query the user wrote by hand that git refused to compile. */
+export const SearchRepairRequest = new IpcRequest<SearchRepairParams, DidSearchRepairParams>(scope, 'search/repair');
 
 // NOTIFICATIONS
 

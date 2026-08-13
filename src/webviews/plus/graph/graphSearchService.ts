@@ -1,4 +1,4 @@
-import type { CancellationTokenSource } from 'vscode';
+import { CancellationTokenSource } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
@@ -14,10 +14,12 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { join } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { cancellable } from '@gitlens/utils/promise.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage.js';
+import type { NaturalLanguageSearchOptions } from '../../../plus/search/naturalLanguageSearchProcessor.js';
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
@@ -36,6 +38,7 @@ import type {
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
 	SearchOpenInViewCommand,
+	SearchRepairRequest,
 	SearchRequest,
 	UpdateGraphSearchModeCommand,
 } from './protocol.js';
@@ -95,6 +98,15 @@ export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError 
 	return { error: 'Something went wrong searching' };
 }
 
+/** AI repair context: the query that failed to compile and git's complaint about it. Shared by the
+ *  NL-search auto-repair path and the manual repair request, so both ask for the same thing — worded
+ *  for either origin, since the manual path's query is the user's own and often has no git detail. */
+function buildRepairContext(query: string, error: string | undefined): string {
+	return `The previous search query \`${query}\` failed to compile.${
+		error ? `\nGit reported: ${error}` : ''
+	}\nReturn a corrected search query that preserves the original intent.`;
+}
+
 /** Host-side search cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the active
  *  graph search (`_search`), the supersede counter (`_searchIdCounter`), and the per-repo search
  *  history (`_searchHistory`), along with the search-execution logic (new/continue/WIP streams,
@@ -113,6 +125,16 @@ export class GraphSearchService {
 	 * until the pattern completes. Cleared the moment a genuinely new search starts.
 	 */
 	private _fallback: { detail?: string } | undefined;
+
+	/**
+	 * Cancellation for whichever NL/AI round-trip is currently in flight (initial conversion, the
+	 * auto-repair round, or a manual "Fix with AI" repair) — held here (not in the shared
+	 * `_cancellations` map, which is for git-operation cancellation) so a user-initiated cancel
+	 * (search-cancel / reset) can always reach the AI call, and so a defensive timeout can abort it.
+	 * Replaced (cancel+dispose the old one) at the start of each new round-trip; disposed when that
+	 * round-trip completes.
+	 */
+	private _nlCancellation: CancellationTokenSource | undefined;
 
 	constructor(private readonly context: GraphSearchServiceContext) {}
 
@@ -188,6 +210,10 @@ export class GraphSearchService {
 	}
 
 	onSearchCancel(params: { preserveResults: boolean }): void {
+		this._nlCancellation?.cancel();
+		this._nlCancellation?.dispose();
+		this._nlCancellation = undefined;
+
 		// For pause (preserveResults: true), the generator will handle cancellation gracefully and return
 		// results collected so far — keep the accumulated state and just stop the git op.
 		if (params.preserveResults) {
@@ -196,6 +222,51 @@ export class GraphSearchService {
 		}
 
 		this.resetSearchState();
+	}
+
+	/**
+	 * Runs one NL/AI round-trip (initial conversion, auto-repair, or manual repair) against a fresh
+	 * cancellation source held on {@link _nlCancellation} — replacing (cancel+dispose) whichever
+	 * round-trip was still in flight, so cancel/reset always reaches the live AI call. Defensively
+	 * timed out at 30s so a stuck AI call (e.g. blocked model resolution) can't strand the request
+	 * forever; on timeout the token is cancelled too and the result folds into the same
+	 * `naturalLanguage.error` shape a normal AI failure would produce.
+	 */
+	private async convertNaturalLanguage(
+		search: SearchQuery,
+		options?: NaturalLanguageSearchOptions,
+	): Promise<SearchQuery> {
+		this._nlCancellation?.cancel();
+		this._nlCancellation?.dispose();
+		const cancellation = (this._nlCancellation = new CancellationTokenSource());
+
+		try {
+			return await cancellable(
+				processNaturalLanguageToSearchQuery(
+					this.container,
+					search,
+					{ source: 'graph' },
+					options,
+					cancellation.token,
+				),
+				30000,
+				undefined,
+				{
+					onDidCancel: resolve => {
+						cancellation.cancel();
+						resolve({
+							...search,
+							naturalLanguage: { query: search.query, error: 'The AI took too long to respond' },
+						});
+					},
+				},
+			);
+		} finally {
+			if (this._nlCancellation === cancellation) {
+				this._nlCancellation.dispose();
+				this._nlCancellation = undefined;
+			}
+		}
 	}
 
 	async onSearchRequest(params: IpcParams<typeof SearchRequest>): Promise<IpcResponse<typeof SearchRequest>> {
@@ -207,9 +278,17 @@ export class GraphSearchService {
 			// converted query still runs and its `DidSearchNotification` repopulates the search box the
 			// user just cleared (e.g. "changes" reappearing as `type:wip` a second later).
 			const requestedSearchId = this._searchIdCounter.current;
-			params.search = await processNaturalLanguageToSearchQuery(this.container, params.search, {
-				source: 'graph',
-			});
+
+			try {
+				params.search = await this.convertNaturalLanguage(params.search);
+			} catch (ex) {
+				if (!isCancellationError(ex)) throw ex;
+
+				// User-initiated cancel (cleared/retyped the box, or reset) landed mid-conversion — answer
+				// with the stale id so the webview's `searchId === currentSearchId` guard drops this
+				// response instead of surfacing an error for something the user already dismissed.
+				return { search: undefined, results: undefined, partial: false, searchId: requestedSearchId };
+			}
 
 			if (this._searchIdCounter.current !== requestedSearchId) {
 				// Answer with the stale id so the webview's `searchId === currentSearchId` guard drops
@@ -218,14 +297,51 @@ export class GraphSearchService {
 			}
 		}
 
+		const naturalLanguage =
+			typeof params.search?.naturalLanguage === 'object' ? params.search.naturalLanguage : undefined;
+
+		// The conversion itself failed — `params.search.query` is still the raw English sentence, which is
+		// not a git search pattern and must never be run as one (it dies as an ERE syntax error about text
+		// the user never wrote). Answer here, before parsing/telemetry treat this as a git search failure.
+		if (naturalLanguage?.error) {
+			const searchId = this._searchIdCounter.next();
+			this._search = undefined;
+			this._fallback = undefined;
+
+			// Carry the same error results the response below carries — the response can get dropped by
+			// the app's searchId guard (see the supersede checks above), and the notification is what
+			// actually raises `searching` for a NEW search id, so it must be able to lower it right back
+			// down on its own instead of leaving the spinner stranded.
+			const results: GraphSearchResultsError = { error: naturalLanguage.error, reason: 'aiUnavailable' };
+
+			void this.host.notify(DidSearchNotification, {
+				search: params.search,
+				results: results,
+				partial: false,
+				searchId: searchId,
+			});
+
+			return {
+				search: params.search,
+				results: results,
+				partial: false,
+				searchId: searchId,
+			};
+		}
+
 		const query = params.search ? parseSearchQuery(params.search) : undefined;
 		const types = query != null ? join(query.operations.keys(), ',') : '';
 
 		let results: IpcResponse<typeof SearchRequest> | undefined;
 		let exception: (Error & { original?: Error }) | undefined;
+		const repair = { attempted: false, succeeded: false };
 
 		try {
-			results = await this.searchGraphOrContinue(params, true);
+			if (naturalLanguage?.processedQuery != null && !params.more) {
+				results = await this.searchNaturalLanguageWithRepair(params, naturalLanguage, repair);
+			} else {
+				results = await this.searchGraphOrContinue(params, true);
+			}
 			return results;
 		} catch (ex) {
 			exception = ex;
@@ -248,13 +364,81 @@ export class GraphSearchService {
 				'failed.error.detail':
 					!cancelled && exception?.original != null ? String(exception?.original) : undefined,
 				'fallback.literal': this._fallback != null,
+				'nl.repair.attempted': repair.attempted ? true : undefined,
+				'nl.repair.succeeded': repair.succeeded ? true : undefined,
 			});
+		}
+	}
+
+	/**
+	 * Runs an NL-converted search, repairing it with AI once if git rejects the generated query.
+	 *
+	 * The first attempt suppresses the literal-pattern fallback: matching literally would silently
+	 * "succeed" on a query the AI got wrong instead of surfacing a real git error for repair to work
+	 * from. If repair produces a different query, that runs with the fallback enabled. If repair can't
+	 * help (unchanged query, itself errors, or still fails), the last resort re-runs the ORIGINAL
+	 * generated query with the fallback enabled, so a merely-unlucky regex still gets its normal escape
+	 * hatch before NL search gives up. NL searches never surface `invalidPattern`/`invalidRef` wording —
+	 * that's meaningless to a user who never typed the operators themselves.
+	 */
+	private async searchNaturalLanguageWithRepair(
+		e: IpcParams<typeof SearchRequest>,
+		naturalLanguage: { query: string; processedQuery?: string; error?: string },
+		repair: { attempted: boolean; succeeded: boolean },
+	): Promise<IpcResponse<typeof SearchRequest>> {
+		try {
+			return await this.searchGraphOrContinue(e, true, { suppressFallback: true });
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			if (!GitSearchError.is(ex) || ex.reason == null) throw ex;
+
+			repair.attempted = true;
+			// Captured before the AI round-trip so a superseding search during it is detected below.
+			const searchId = this._searchIdCounter.current;
+
+			const repaired = await this.convertNaturalLanguage(
+				{ ...e.search, query: naturalLanguage.query, naturalLanguage: { query: naturalLanguage.query } },
+				{ context: buildRepairContext(e.search.query, toGraphSearchResultsError(ex).error) },
+			);
+
+			if (this._searchIdCounter.current !== searchId) {
+				return { search: undefined, results: undefined, partial: false, searchId: searchId };
+			}
+
+			const repairedNaturalLanguage =
+				typeof repaired.naturalLanguage === 'object' ? repaired.naturalLanguage : undefined;
+
+			if (repairedNaturalLanguage?.error == null && repaired.query !== e.search.query) {
+				try {
+					const response = await this.searchGraphOrContinue({ ...e, search: repaired }, true);
+					repair.succeeded = true;
+					return response;
+				} catch (retryEx) {
+					if (isCancellationError(retryEx)) throw retryEx;
+					// Repaired query also failed — fall through to the last resort below.
+				}
+			}
+
+			try {
+				return await this.searchGraphOrContinue(e, true);
+			} catch (lastEx) {
+				if (isCancellationError(lastEx)) throw lastEx;
+
+				return {
+					search: e.search,
+					results: { error: "Couldn't complete this search — try rephrasing" },
+					partial: false,
+					searchId: this._searchIdCounter.current,
+				};
+			}
 		}
 	}
 
 	async searchGraphOrContinue(
 		e: IpcParams<typeof SearchRequest>,
 		progressive: boolean = true,
+		options?: { suppressFallback?: boolean },
 	): Promise<IpcResponse<typeof SearchRequest>> {
 		// `type:wip` rows are synthetic webview-only rows that never appear in `git log`,
 		// so they're enumerated host-side instead of going through the regular search path.
@@ -399,7 +583,13 @@ export class GraphSearchService {
 
 				// A pattern that doesn't (yet) compile as regex is normal mid-keystroke (e.g. `fix(`) — retry
 				// once as a literal search instead of flashing an error while the user is still typing it out.
-				if (GitSearchError.is(ex) && ex.reason === 'invalidPattern' && e.search.matchRegex !== false) {
+				// Suppressed for NL-repair's first attempt so a classified error reaches the caller instead.
+				if (
+					!options?.suppressFallback &&
+					GitSearchError.is(ex) &&
+					ex.reason === 'invalidPattern' &&
+					e.search.matchRegex !== false
+				) {
 					this._fallback = { detail: ex.detail };
 
 					try {
@@ -762,6 +952,30 @@ export class GraphSearchService {
 		});
 	}
 
+	/** Asks AI to repair a hand-written search query git refused to compile. */
+	async onSearchRepairRequest(
+		params: IpcParams<typeof SearchRepairRequest>,
+	): Promise<IpcResponse<typeof SearchRepairRequest>> {
+		try {
+			const converted = await this.convertNaturalLanguage(
+				{ query: params.query, naturalLanguage: { query: params.query } },
+				{ context: buildRepairContext(params.query, params.detail) },
+			);
+
+			const naturalLanguage =
+				typeof converted.naturalLanguage === 'object' ? converted.naturalLanguage : undefined;
+			if (naturalLanguage?.error != null) {
+				return { query: undefined, error: naturalLanguage.error };
+			}
+
+			return { query: converted.query };
+		} catch (ex) {
+			if (isCancellationError(ex)) return { query: undefined };
+
+			return { query: undefined, error: ex instanceof Error ? ex.message : String(ex) };
+		}
+	}
+
 	private getSearchResultsData(
 		search: GitGraphSearch | GitGraphSearchProgress | undefined,
 	): GraphSearchResults | undefined {
@@ -918,6 +1132,10 @@ export class GraphSearchService {
 	}
 
 	resetSearchState(): void {
+		this._nlCancellation?.cancel();
+		this._nlCancellation?.dispose();
+		this._nlCancellation = undefined;
+
 		this._search = undefined;
 		this._fallback = undefined;
 		this._lastRiderKey = undefined;

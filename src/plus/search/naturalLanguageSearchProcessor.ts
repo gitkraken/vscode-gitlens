@@ -1,6 +1,7 @@
 import type { CancellationToken } from 'vscode';
+import { AIError } from '@gitlens/ai/errors.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -36,7 +37,7 @@ export class NaturalLanguageSearchProcessor {
 			if (!result?.result) {
 				return {
 					...searchQuery,
-					naturalLanguage: { query: searchQuery.query, error: 'Empty response returned' },
+					naturalLanguage: { query: searchQuery.query, error: 'The AI returned an empty response' },
 				};
 			}
 
@@ -46,11 +47,14 @@ export class NaturalLanguageSearchProcessor {
 				naturalLanguage: { query: searchQuery.query, processedQuery: result.result },
 			};
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			scope?.error(ex, `Failed to convert to search query: "${searchQuery.query}"`);
 
 			return {
 				...searchQuery,
-				naturalLanguage: { query: searchQuery.query, error: String(ex) },
+				// `AIError` messages are already user-appropriate; anything else gets stringified.
+				naturalLanguage: { query: searchQuery.query, error: ex instanceof AIError ? ex.message : String(ex) },
 			};
 		}
 	}

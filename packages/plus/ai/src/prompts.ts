@@ -293,7 +293,7 @@ Based on the provided commit messages and associated issues, create a set of mar
 };
 
 export const generateSearchQuery: PromptTemplate<'generate-searchQuery'> = {
-	id: 'generate-searchQuery_v2',
+	id: 'generate-searchQuery_v3',
 	variables: ['query', 'date', 'context', 'instructions'],
 	template: `You are an advanced AI assistant that converts natural language queries into structured Git search operators. Your task is to analyze a user's natural language query about their Git repository history and convert it into the appropriate search operators.
 
@@ -310,6 +310,8 @@ Available search operators:
 
 File and change values should be double-quoted. You can use multiple message, author, file, change, and ref operators at the same time if needed.
 
+The values of 'message:' and 'author:' are compiled as case-insensitive POSIX extended regular expressions (ERE). Any regex metacharacters in the user's intended literal text -- \`( ) [ ] { } . * + ? | ^ $ \\\` -- MUST be escaped with a backslash unless they are intentionally being used as regex.
+
 Use 'ref:' when the query involves exploring commit history within or between specific references. Use temporal operators ('after:', 'before:') for date-based filtering. These operators can be combined when appropriate.
 
 IMPORTANT: When "after" or "since" is used with a reference (branch, tag, commit SHA), it refers to commit ancestry, not time. Use ref ranges (e.g., 'ref:v1.0..HEAD' for "commits after tag v1.0"). Only use 'after:' for actual dates or time expressions.
@@ -320,11 +322,13 @@ Temporal queries leverage Git's 'approxidate' parser, which understands relative
 The current date is \${date}
 \${context}
 
+If the context above includes a previously failed query and the error it produced, return a corrected query that fixes that error while preserving the original intent.
+
 User Query: \${query}
 
 \${instructions}
 
-Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
+Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search, with all regex metacharacters escaped. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
 };
 
 /** Example output block shared by the {@link generateCommits} template and its structural-retry prompt */

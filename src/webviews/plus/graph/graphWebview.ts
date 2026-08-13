@@ -312,6 +312,7 @@ import {
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
 	SearchOpenInViewCommand,
+	SearchRepairRequest,
 	SearchRequest,
 	SyncWipWatchesCommand,
 	TrackGraphDetailsCompareModeCommand,
@@ -3285,6 +3286,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(SearchOpenInViewCommand)
 	private onSearchOpenInView(params: IpcParams<typeof SearchOpenInViewCommand>): void {
 		this._searchService.onSearchOpenInView(params);
+	}
+
+	@ipcRequest(SearchRepairRequest)
+	@trace()
+	private onSearchRepairRequest(
+		params: IpcParams<typeof SearchRepairRequest>,
+	): Promise<IpcResponse<typeof SearchRepairRequest>> {
+		return this._searchService.onSearchRepairRequest(params);
 	}
 
 	@ipcCommand(ChooseRepositoryCommand)
