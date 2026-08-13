@@ -920,7 +920,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// `bad`, and still exits non-zero — so the loop above never ran for the branches that did go.
 			// Clean those up here rather than leave persisted gk metadata behind for a name a later branch
 			// can reuse.
-			await this.cleanupDeletedBranchMetadata(repoPath, branches);
+			const anyDeleted = await this.cleanupDeletedBranchMetadata(repoPath, branches);
+
+			// The success path's notifications never ran, but some branches DID go — without these the
+			// branch caches stay stale and consumers wait on the filesystem watcher (which never fires
+			// for a packed ref).
+			if (anyDeleted) {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
+			}
 
 			if (ex instanceof BranchError) {
 				throw ex.update({
@@ -945,8 +953,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * Drops the cached and persisted per-branch metadata for whichever of `names` no longer exists. Only
 	 * for the partial-failure path — one extra `for-each-ref` is cheap while already handling an error,
 	 * and keeps the success path free of it.
+	 *
+	 * Returns whether any of `names` is confirmed gone; `false` when the probe couldn't answer, so a
+	 * spurious notification is never fired on an unrelated failure.
 	 */
-	private async cleanupDeletedBranchMetadata(repoPath: string, names: string[]): Promise<void> {
+	private async cleanupDeletedBranchMetadata(repoPath: string, names: string[]): Promise<boolean> {
 		try {
 			const result = await this.git.run(
 				{ cwd: repoPath, errors: 'ignore' },
@@ -967,7 +978,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// catches one that never produced an answer — a spawn failure or queue rejection (no exit code at
 			// all), or a swallowed warning (which carries git's real code, so the exit-code test alone can
 			// still read it as "none survived").
-			if (result.completion.status !== 'exited' || result.exitCode !== 0) return;
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return false;
 
 			const prefix = 'refs/heads/';
 			const surviving = new Set(
@@ -978,14 +989,19 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					.map(l => l.substring(prefix.length)),
 			);
 
+			let anyDeleted = false;
 			for (const name of names) {
 				if (surviving.has(name)) continue;
 
+				anyDeleted = true;
 				this.cache.deleteBaseBranchName(repoPath, name);
 				await this.provider.config.removeGkConfigBranchSection(repoPath, name);
 			}
+
+			return anyDeleted;
 		} catch {
 			// Best-effort bookkeeping while already unwinding a failure — never mask the original error.
+			return false;
 		}
 	}
 

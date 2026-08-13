@@ -265,6 +265,55 @@ suite('BranchesSubProvider — partial batch delete', () => {
 		assert.strictEqual(await read('gone-2'), undefined, 'a branch that was deleted must not keep metadata');
 		assert.strictEqual(await read('kept'), 'origin/kept-base', 'a branch that survived must keep its metadata');
 	});
+
+	test('fires the change hooks for the branches a partial delete did remove', async () => {
+		// The success path's `heads`/cache notifications live after the `git branch -d` await, so a
+		// partial failure skips them even though branches went — leaving consumers to a filesystem
+		// watcher that never fires for a packed ref.
+		const onReset = sinon.spy();
+		const onChanged = sinon.spy();
+		const hookedRepo = createTestRepo({
+			hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } },
+		});
+		try {
+			addCommit(hookedRepo.path, 'f.txt', 'x', 'seed');
+			createBranch(hookedRepo.path, 'gone');
+			createBranch(hookedRepo.path, 'kept', { checkout: true });
+			addCommit(hookedRepo.path, 'g.txt', 'y', 'unmerged');
+			execFileSync('git', ['checkout', 'main'], { cwd: hookedRepo.path, stdio: 'pipe' });
+
+			await assert.rejects(hookedRepo.provider.branches.deleteLocalBranch(hookedRepo.path, ['gone', 'kept']));
+
+			assert.ok(
+				onChanged.calledWith(hookedRepo.path, ['heads']),
+				'a partial delete that removed a branch must fire the heads change',
+			);
+			assert.ok(onReset.calledWith(hookedRepo.path, 'branches'), 'and reset the branches cache');
+		} finally {
+			hookedRepo.cleanup();
+		}
+	});
+
+	test('fires no change hooks when a delete removed nothing', async () => {
+		const onReset = sinon.spy();
+		const onChanged = sinon.spy();
+		const hookedRepo = createTestRepo({
+			hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } },
+		});
+		try {
+			addCommit(hookedRepo.path, 'f.txt', 'x', 'seed');
+			createBranch(hookedRepo.path, 'kept', { checkout: true });
+			addCommit(hookedRepo.path, 'u.txt', 'y', 'unmerged');
+			execFileSync('git', ['checkout', 'main'], { cwd: hookedRepo.path, stdio: 'pipe' });
+
+			await assert.rejects(hookedRepo.provider.branches.deleteLocalBranch(hookedRepo.path, ['kept']));
+
+			assert.strictEqual(onChanged.called, false, 'nothing was deleted, so no change may be announced');
+			assert.strictEqual(onReset.called, false, 'and no cache reset');
+		} finally {
+			hookedRepo.cleanup();
+		}
+	});
 });
 
 suite('BranchesSubProvider — branch identity bookkeeping (end to end)', () => {
