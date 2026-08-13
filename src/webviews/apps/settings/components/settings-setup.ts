@@ -2,10 +2,10 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../../../constants.walkthroughs.js';
 import { graphWalkthroughProgressSteps, walkthroughProgressSteps } from '../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../system/commands.js';
+import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
@@ -172,10 +172,12 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 				color: var(--color-foreground);
 			}
 
-			/* Ring fill by completed-step count — set via static CSS, not a styleMap inline style:
-			   styleMap-set custom properties don't apply when this component mounts via in-app
-			   navigation (only on initial page load), which left the conic ring greyed until reload.
-			   Keep the count of rules in sync with the number of steps rendered. */
+			/* Ring fill by completed-step count — set via static CSS rather than a dynamic style.
+			   This worked around Lit's styleMap writing the style attribute on its first update,
+			   which the webview CSP blocks; on an in-app navigation mount that first update is the
+			   only one, so the ring stayed greyed. cspStyleMap fixes that at the source, so these
+			   rules could now collapse back to a single dynamic custom property.
+			   Until then, keep the count of rules in sync with the number of steps rendered. */
 			.hero__ring--0 {
 				--setup-ring-angle: 0deg;
 			}
@@ -415,8 +417,8 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 	private renderHero(done: number, total: number) {
 		const { title, subtitle } = this.heroCopy(done, total);
 
-		// The ring fill (angle) is applied by the `.hero__ring--<done>` static class, not an inline
-		// style — see the CSS note; styleMap custom properties don't survive an in-app navigation mount.
+		// The ring fill (angle) is applied by the `.hero__ring--<done>` static class rather than a
+		// dynamic style — see the CSS note for why, and why it no longer has to be this way.
 		return html`<div class="hero ${done > 0 ? 'hero--started' : ''}">
 			<div class="hero__mark"><code-icon icon="checklist" aria-hidden="true"></code-icon></div>
 			<div class="hero__text">
@@ -444,7 +446,7 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 						? html`<span class="step__progress"
 								><span
 									class="step__progress-fill"
-									style=${styleMap({ inlineSize: `${Math.round(step.progress * 100)}%` })}
+									style=${cspStyleMap({ inlineSize: `${Math.round(step.progress * 100)}%` })}
 								></span
 							></span>`
 						: nothing
@@ -452,8 +454,8 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 			</span>
 			<span class="step__action step__action--${step.actionVariant}" aria-hidden="true">${step.action}</span>`;
 
-		// The rail/icon accent comes from the `.steps > li:nth-child(n) .step` static CSS, not an
-		// inline style — styleMap custom properties don't survive an in-app navigation mount.
+		// The rail/icon accent comes from the `.steps > li:nth-child(n) .step` static CSS rather than
+		// a dynamic style — see the `.hero__ring--*` note for why, and why it no longer has to be.
 		const cls = `step step--${step.state}`;
 		const label = `${step.title}. ${step.status}`;
 
