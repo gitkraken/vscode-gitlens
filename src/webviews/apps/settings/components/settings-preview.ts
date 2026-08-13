@@ -35,15 +35,110 @@ const laneColors = [
 	'var(--vscode-gitlens-graphLane4Color, var(--vscode-charts-orange))',
 ];
 
-// Static graph-preview fixtures — hoisted so they aren't reallocated on every (signal-driven) render
-const graphRows = [
-	{ lane: 0, message: 'Supercharge the parser', ref: 'main', refIcon: 'git-branch', who: 'you' },
-	{ lane: 1, message: 'Add lane color tokens', who: 'other', from: 0 },
-	{ lane: 0, message: 'Merge branch graph-perf', who: 'other', merge: true },
-	{ lane: 2, message: 'Cache the DAG layout', ref: 'v15.2', refIcon: 'tag', who: 'other' },
-	{ lane: 0, message: 'Fix minimap sparkline', who: 'you' },
+// Minimap marker rail / top-rail colors. The `--color-graph-minimap-*` aliases live in `graph.scss`
+// (the Graph webview's own sheet), so they don't exist here — read the contributed theme colors that
+// back them directly, which VS Code injects as `--vscode-*` into every webview.
+const graphMinimapColors = {
+	activity: 'var(--vscode-progressBar-background)',
+	head: 'var(--vscode-gitlens-graphMinimapMarkerHeadColor, var(--vscode-charts-green))',
+	upstream: 'var(--vscode-gitlens-graphMinimapMarkerUpstreamColor, var(--vscode-charts-green))',
+	localBranches: 'var(--vscode-gitlens-graphMinimapMarkerLocalBranchesColor, var(--vscode-charts-blue))',
+	remoteBranches: 'var(--vscode-gitlens-graphMinimapMarkerRemoteBranchesColor, var(--vscode-charts-blue))',
+	pullRequests: 'var(--vscode-gitlens-graphMinimapMarkerPullRequestsColor, var(--vscode-charts-orange))',
+	tags: 'var(--vscode-gitlens-graphMinimapMarkerTagsColor, var(--vscode-charts-yellow))',
+	stashes: 'var(--vscode-gitlens-graphMinimapMarkerStashesColor, var(--color-foreground--50))',
+} as const;
+
+/*
+ * Static graph-preview fixtures — hoisted so they aren't reallocated on every (signal-driven) render.
+ *
+ * All of the graph preview's geometry is in CSS px, not rem, because the gutter/minimap SVGs carry
+ * px coordinate spaces: a rem-sized rows region would drift out of register with the SVG's nodes the
+ * moment the webview's root font size changed. Typography and padding stay on the rem token scale.
+ */
+const graphRowHeight = 28; // the tall/list row step; `tallRowThreshold` (40) is not crossed
+const graphRowCount = 6;
+const graphRowsHeight = graphRowHeight * graphRowCount;
+const graphGutterWidth = 96;
+const graphNodeRadius = 9; // nodeRadiusFor('avatar')
+const graphNodeCarveRadius = 11; // the background carve that keeps lane lines out of the node
+const graphMergeNodeRadius = 8;
+const graphLaneOrigin = 20;
+// `laneSpacing('expanded', 'avatar')` is 24 in the real Graph; the preview steps by 16 so five lanes
+// still fit the 96px gutter (per the handoff — widening the gutter would cost the message its room).
+const graphLaneStep = 16;
+
+function graphLaneX(lane: number): number {
+	return graphLaneOrigin + lane * graphLaneStep;
+}
+
+function graphNodeY(row: number): number {
+	return row * graphRowHeight + graphRowHeight / 2;
+}
+
+const graphRows: {
+	lane: number;
+	message: string;
+	body?: string;
+	merge?: boolean;
+	/** Absent on merge rows, which carry no identity node */
+	initials?: string;
+	ref?: { icon: string; label: string; upstream?: string };
+}[] = [
+	{
+		lane: 0,
+		initials: 'EA',
+		message: 'Supercharge the parser',
+		ref: { icon: 'vm', label: 'main', upstream: 'origin' },
+	},
+	{ lane: 1, initials: 'KD', message: 'Add lane color tokens', ref: { icon: 'git-branch', label: 'graph-perf' } },
+	{
+		lane: 0,
+		merge: true,
+		message: 'Merge branch graph-perf',
+		body: 'Bakes pass-through lanes into one raster per row',
+	},
+	{ lane: 0, initials: 'EA', message: 'Reuse the gutter raster between rows' },
+	{ lane: 2, initials: 'RB', message: 'Cache the DAG layout', ref: { icon: 'tag', label: 'v15.2' } },
+	{ lane: 0, initials: 'JS', message: 'Speed up ref lookups' },
 ];
-const graphMinimapBars = [5, 9, 4, 12, 7, 3, 10, 6, 14, 8, 4, 11, 5, 9, 6];
+
+// Lane strokes in the gutter SVG's coordinate space: straight verticals for pass-through lanes,
+// cubics for cross-lane joins (the real connector shape). Lane 4 is a long-lived pass-through that
+// never lands a node on a visible row — that is what makes the art read as a real repository.
+const graphLanes: { lane: number; d: string }[] = [
+	{ lane: 0, d: `M20 14 L20 ${graphRowsHeight}` },
+	{ lane: 3, d: `M68 0 L68 ${graphRowsHeight}` },
+	{ lane: 1, d: 'M36 42 C36 56 20 56 20 70' },
+	{ lane: 2, d: 'M52 126 C52 140 20 140 20 154' },
+];
+
+/*
+ * Minimap strip. The SVG is stretched to the frame's width (`preserveAspectRatio="none"`), so only
+ * the y axis is 1:1 with px — hence the activity spline's `vector-effect="non-scaling-stroke"`.
+ * Geometry mirrors `minimapRenderer.ts`: markerSize 3, markerShortY 4 / markerTallY 0 (the two rail
+ * lanes), headTriangleHalfWidth 4 + headAnchorLineWidth 2, upstreamTriangleHalfWidth 3 +
+ * upstreamAnchorLineWidth 1 at upstreamAnchorLineAlpha 0.5.
+ */
+const graphMinimapHeight = 26;
+const graphMinimapWidth = 400;
+const graphMinimapSpline =
+	'M0 16 L10 12 L20 14 L30 8 L40 11 L50 5 L60 9 L70 13 L80 7 L90 4 L100 10 L110 14 L120 9 L130 6 L140 12 L150 8 L160 3 L170 7 L180 11 L190 15 L200 10 L210 6 L220 9 L230 13 L240 8 L250 5 L260 11 L270 7 L280 14 L290 10 L300 6 L310 12 L320 9 L330 4 L340 8 L350 13 L360 11 L370 7 L380 10 L390 15 L400 12';
+const graphMinimapMarkerSize = 3;
+const graphMinimapMarkerHeight = 4;
+const graphMinimapShortLaneY = 18;
+const graphMinimapTallLaneY = 22;
+const graphMinimapMarkers: { x: number; y: number; color: string }[] = [
+	{ x: 40, y: graphMinimapShortLaneY, color: graphMinimapColors.localBranches },
+	{ x: 80, y: graphMinimapShortLaneY, color: graphMinimapColors.remoteBranches },
+	{ x: 120, y: graphMinimapShortLaneY, color: graphMinimapColors.localBranches },
+	{ x: 160, y: graphMinimapShortLaneY, color: graphMinimapColors.tags },
+	{ x: 200, y: graphMinimapShortLaneY, color: graphMinimapColors.remoteBranches },
+	{ x: 220, y: graphMinimapShortLaneY, color: graphMinimapColors.pullRequests },
+	{ x: 250, y: graphMinimapShortLaneY, color: graphMinimapColors.localBranches },
+	{ x: 300, y: graphMinimapTallLaneY, color: graphMinimapColors.stashes },
+	{ x: 370, y: graphMinimapShortLaneY, color: graphMinimapColors.pullRequests },
+];
 
 function heatColor(age: number): string {
 	if (age < 0.2) return 'var(--vscode-charts-green)';
@@ -72,12 +167,9 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
+				max-width: 80rem;
 				font-size: 1.2rem;
 				pointer-events: none;
-
-				/* The preview is a pure illustration — none of its mock affordances
-		   (autolinks, action icons, etc.) are real. Neutralize all pointer
-		   interaction so nothing reads as clickable. */
 				cursor: default;
 			}
 
@@ -125,12 +217,6 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			.frame--placeholder {
 				position: relative;
 				height: 12rem;
-			}
-
-			.graph-svg {
-				position: absolute;
-				top: 0;
-				left: 4px;
 			}
 
 			.muted {
@@ -353,67 +439,112 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				color: var(--gl-stat-added, var(--vscode-charts-green));
 			}
 
-			.graph-header {
-				display: flex;
-				gap: var(--gl-space-8);
-				align-items: center;
-				padding: 0.7rem 1.1rem;
-				font-size: 1.1rem;
-				color: var(--color-foreground--75);
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
-			}
-
+			/* Minimap strip — a stretched-to-fit SVG, so its height is the only px-faithful axis. */
 			.graph-minimap {
 				display: flex;
-				gap: var(--gl-space-2);
-				align-items: flex-end;
-				height: 2.2rem;
-				padding: 0 0.8rem 0.3rem;
+				align-items: stretch;
+				height: 26px;
+				overflow: hidden;
 				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
-			.graph-minimap__bar {
-				flex: 1;
-				border-radius: 0.1rem;
-				opacity: 0.8;
-			}
-
+			/* Rows region: px, not rem, so the HTML rows stay in register with the gutter SVG's
+	   px coordinate space at any root font size. */
 			.graph-rows {
 				position: relative;
-				height: 13rem;
+				height: 168px;
 				overflow: hidden;
+			}
+
+			.graph-gutter {
+				position: absolute;
+				top: 0;
+				left: 0;
+			}
+
+			/* The identity node's CONTENT layer (person glyph or initials). The carve, the state fill
+	   and the lane ring are drawn in the gutter SVG beneath it; only the glyph/initials sit
+	   here so the avatar state can use the shipped codicon font via <code-icon>. */
+			.graph-node {
+				--code-icon-size: 1.2rem;
+
+				position: absolute;
+				display: grid;
+				place-items: center;
+				width: 18px;
+				height: 18px;
+				font-size: 0.9rem;
+				font-weight: 600;
+				color: var(--color-foreground);
+				text-transform: uppercase;
 			}
 
 			.graph-row {
 				position: absolute;
 				right: 0.8rem;
-				left: 7rem;
+				left: 100px;
 				display: flex;
-				gap: 0.7rem;
+				gap: var(--gl-space-6);
 				align-items: center;
-				height: 2.6rem;
+				height: 28px;
 			}
 
 			.graph-row--dimmed {
 				opacity: 0.45;
 			}
 
-			.graph-row__ref {
+			/* Mirrors .gl-graph__ref-pill: the ring is an INSET box-shadow (not a border) over a
+	   transparent background, so the pill's padding box is its visual box. */
+			.graph-ref-pill {
 				display: inline-flex;
 				flex: none;
-				gap: 0.3rem;
+				gap: var(--gl-space-6);
 				align-items: center;
-				padding: 0.1rem 0.6rem;
+				padding: 0.4rem 0.9rem;
 				font-size: 1rem;
+				font-weight: 500;
+				line-height: 1;
+				white-space: nowrap;
+				background-color: transparent;
 				border-radius: var(--gl-radius-sm);
 			}
 
-			.graph-row__message {
+			.graph-ref-pill__icon {
+				--code-icon-size: 1.2rem;
+
+				display: inline-flex;
+				flex-shrink: 0;
+				align-items: center;
+			}
+
+			/* Mirrors .gl-graph__ref-pill-upstream — split off behind a 1px divider. */
+			.graph-ref-pill__upstream {
+				display: inline-flex;
+				gap: 0.3rem;
+				align-items: center;
+				padding-left: 0.5rem;
+				margin-left: 0.1rem;
+				line-height: 1;
+				border-left: 1px solid currentcolor;
+			}
+
+			.graph-message {
+				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-size: 1.15rem;
-				color: var(--color-foreground--85);
+				font-size: 1.2rem;
+				color: var(--color-foreground);
 				white-space: nowrap;
+			}
+
+			/* Per .gl-graph__message-body/-sep: dimmed RELATIVE to the row, so the subject reads first. */
+			.graph-message__body,
+			.graph-message__sep {
+				color: color-mix(in srgb, transparent 40%, currentcolor);
+			}
+
+			.graph-message__sep {
+				margin: 0 var(--gl-space-4);
 			}
 
 			.off-overlay {
@@ -783,82 +914,135 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 		const avatars = this.get<boolean>('graph.avatars') ?? true;
 		const dimMerges = this.get<boolean>('graph.dimMergeCommits') ?? false;
 
-		const rows = graphRows;
-		const rowHeight = 26;
-
 		return html`<div class="frame">
-			<div class="graph-header">
-				<code-icon icon="gl-graph" aria-hidden="true"></code-icon>
-				<span class="statusbar__item"><code-icon icon="git-branch" aria-hidden="true"></code-icon> main</span>
-				<span class="statusbar__spacer"></span>
-				<code-icon icon="search" aria-hidden="true"></code-icon>
-				<code-icon icon="filter" aria-hidden="true"></code-icon>
-			</div>
-			${
-				minimap
-					? html`<div class="graph-minimap" aria-hidden="true">
-							${graphMinimapBars.map(
-								(h, i) =>
-									html`<span
-										class="graph-minimap__bar"
-										style=${cspStyleMap({
-											height: `${h}px`,
-											background: laneColors[i % laneColors.length],
-										})}
-									></span>`,
-							)}
-						</div>`
-					: nothing
-			}
+			${minimap ? this.renderGraphMinimap() : nothing}
 			<div class="graph-rows">
-				<svg width="64" height=${rows.length * rowHeight} class="graph-svg" aria-hidden="true">
-					${rows.map((row, i) => {
-						const x = 12 + row.lane * 14;
-						const y = i * rowHeight + rowHeight / 2;
-						const next = rows[i + 1];
-						return svg`
-							${
-								next != null
-									? svg`<line x1=${x} y1=${y} x2=${12 + next.lane * 14} y2=${y + rowHeight} stroke=${laneColors[row.lane]} stroke-width="2"></line>`
-									: nothing
-							}
-							${
-								row.from != null
-									? svg`<path d="M${12 + row.from * 14} ${y - rowHeight} Q ${x} ${y - rowHeight} ${x} ${y}" fill="none" stroke=${laneColors[row.lane]} stroke-width="2"></path>`
-									: nothing
-							}
-							<circle cx=${x} cy=${y} r=${row.merge ? 4 : 5} fill=${row.merge ? 'var(--vscode-editor-background)' : laneColors[row.lane]} stroke=${laneColors[row.lane]} stroke-width="2"></circle>`;
-					})}
+				<svg class="graph-gutter" width=${graphGutterWidth} height=${graphRowsHeight} aria-hidden="true">
+					${graphLanes.map(
+						lane =>
+							svg`<path d=${lane.d} fill="none" stroke=${laneColors[lane.lane]} stroke-width="2"></path>`,
+					)}
+					${graphRows.map((row, i) => this.renderGraphNode(row, i, dimMerges))}
 				</svg>
-				${rows.map(
-					(row, i) =>
-						html`<div
-							class="graph-row ${dimMerges && row.merge ? 'graph-row--dimmed' : ''}"
-							style=${cspStyleMap({ top: `${i * rowHeight}px` })}
-						>
-							${
-								row.ref
+				${graphRows.map((row, i) =>
+					row.initials == null
+						? nothing
+						: html`<span
+								class="graph-node"
+								style=${cspStyleMap({
+									left: `${graphLaneX(row.lane) - graphNodeRadius}px`,
+									top: `${graphNodeY(i) - graphNodeRadius}px`,
+								})}
+								aria-hidden="true"
+								>${
+									// `graph.avatars` picks image-vs-initials, it never hides identity. The preview has
+									// no avatar URLs (that would need host RPC it deliberately doesn't do), so the
+									// image state is the same person-glyph placeholder the design reference uses.
+									avatars ? html`<code-icon icon="account"></code-icon>` : row.initials
+								}</span
+							>`,
+				)}
+				${graphRows.map((row, i) => this.renderGraphRow(row, i, dimMerges))}
+			</div>
+		</div>`;
+	}
+
+	private renderGraphMinimap() {
+		return html`<div class="graph-minimap" aria-hidden="true">
+			<svg
+				width="100%"
+				height=${graphMinimapHeight}
+				viewBox="0 0 ${graphMinimapWidth} ${graphMinimapHeight}"
+				preserveAspectRatio="none"
+				aria-hidden="true"
+			>
+				<rect
+					x="292"
+					y="0"
+					width="76"
+					height=${graphMinimapHeight}
+					fill="var(--vscode-scrollbarSlider-background)"
+				></rect>
+				<path
+					d=${graphMinimapSpline}
+					fill="none"
+					stroke=${graphMinimapColors.activity}
+					stroke-width="1"
+					vector-effect="non-scaling-stroke"
+				></path>
+				${graphMinimapMarkers.map(
+					m =>
+						svg`<rect x=${m.x} y=${m.y} width=${graphMinimapMarkerSize} height=${graphMinimapMarkerHeight} fill=${m.color}></rect>`,
+				)}
+				<polygon points="330,0 338,0 334,6" fill=${graphMinimapColors.head}></polygon>
+				<rect x="333" y="18" width="2" height="8" fill=${graphMinimapColors.head}></rect>
+				<polygon points="356,0 362,0 359,5" fill=${graphMinimapColors.upstream} opacity="0.5"></polygon>
+				<rect x="358" y="18" width="1" height="8" fill=${graphMinimapColors.upstream} opacity="0.5"></rect>
+			</svg>
+		</div>`;
+	}
+
+	/**
+	 * The gutter's per-row node art. Layer order matters: the background carve has to paint over the
+	 * lane strokes before anything else, or the lanes show through the node (the real gutter carves
+	 * the same way). Merge rows are hollow rings and carry no identity node.
+	 */
+	private renderGraphNode(row: (typeof graphRows)[number], index: number, dimMerges: boolean) {
+		const x = graphLaneX(row.lane);
+		const y = graphNodeY(index);
+		const lane = laneColors[row.lane];
+
+		const carve = svg`<circle cx=${x} cy=${y} r=${graphNodeCarveRadius} fill="var(--vscode-editor-background)"></circle>`;
+		if (row.merge) {
+			// `dimMergeCommits` dims the whole row in the real Graph (`.gl-graph__row.is-dimmed` covers its
+			// gutter zone), so fade the node too — but only the ring: the carve has to stay opaque or the
+			// lane strokes bleed back through. The hollow node's own fill is the carve's color anyway, so
+			// fading it changes nothing but the stroke.
+			return svg`${carve}<circle cx=${x} cy=${y} r=${graphMergeNodeRadius} fill="var(--vscode-editor-background)" stroke=${lane} stroke-width="2" opacity=${dimMerges ? 0.45 : 1}></circle>`;
+		}
+
+		return svg`${carve}<circle cx=${x} cy=${y} r=${graphNodeRadius} fill="var(--vscode-toolbar-hoverBackground)"></circle><circle cx=${x} cy=${y} r=${graphNodeRadius} fill="none" stroke=${lane} stroke-width="2"></circle>`;
+	}
+
+	private renderGraphRow(row: (typeof graphRows)[number], index: number, dimMerges: boolean) {
+		const lane = laneColors[row.lane];
+		// The lane color IS the pill's label color (`--ref-color`) and, at 60%, its ring
+		// (`--ref-border` = `withAlpha(color, 0.6)`) — the same derivation `refStyle()` uses.
+		const ring = `color-mix(in srgb, ${lane} 60%, transparent)`;
+
+		return html`<div
+			class="graph-row ${dimMerges && row.merge ? 'graph-row--dimmed' : ''}"
+			style=${cspStyleMap({ top: `${index * graphRowHeight}px` })}
+		>
+			${
+				row.ref
+					? html`<span
+							class="graph-ref-pill"
+							style=${cspStyleMap({ color: lane, boxShadow: `inset 0 0 0 1px ${ring}` })}
+							><span class="graph-ref-pill__icon"
+								><code-icon icon=${row.ref.icon} aria-hidden="true"></code-icon></span
+							>${row.ref.label}${
+								row.ref.upstream
 									? html`<span
-											class="graph-row__ref"
-											style=${cspStyleMap({
-												border: `var(--gl-border-width) solid color-mix(in srgb, ${laneColors[row.lane]} 60%, transparent)`,
-												background: `color-mix(in srgb, ${laneColors[row.lane]} 16%, transparent)`,
-												color: laneColors[row.lane],
-											})}
-											><code-icon icon=${row.refIcon} size="10" aria-hidden="true"></code-icon
-											>${row.ref}</span
+											class="graph-ref-pill__upstream"
+											style=${cspStyleMap({ borderLeftColor: ring })}
+											><span class="graph-ref-pill__icon"
+												><code-icon icon="cloud" aria-hidden="true"></code-icon></span
+											>${row.ref.upstream}</span
 										>`
 									: nothing
-							}
-							${
-								avatars
-									? html`<span class="avatar ${row.who === 'you' ? '' : 'avatar--other'}"></span>`
-									: nothing
-							}
-							<span class="graph-row__message">${row.message}</span>
-						</div>`,
-				)}
-			</div>
+							}</span
+						>`
+					: nothing
+			}
+			<span class="graph-message"
+				>${row.message}${
+					row.body
+						? html`<span class="graph-message__sep">•</span
+								><span class="graph-message__body">${row.body}</span>`
+						: nothing
+				}</span
+			>
 		</div>`;
 	}
 
