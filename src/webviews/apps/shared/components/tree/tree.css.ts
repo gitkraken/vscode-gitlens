@@ -177,7 +177,9 @@ export const treeItemStyles = [
 			flex: none;
 			align-items: center;
 			justify-content: center;
-			width: var(--gl-icon-size, 1.6rem);
+			/* min-width, not width: wide icons (e.g. the 2.2rem split conflict icon) size the slot via
+		   the ::slotted width below — a fixed width would clip them to the default 1.6rem */
+			min-width: var(--gl-icon-size, 1.6rem);
 			height: 2.2rem;
 			pointer-events: none;
 		}
