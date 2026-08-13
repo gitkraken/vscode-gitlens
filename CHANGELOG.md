@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes incorrect context window and maximum output token limits across the Anthropic, OpenAI, Mistral, xAI, and DeepSeek models
 - Fixes deleted branches lingering in the _Commit Graph_ and views when the branch's ref was packed (e.g. after `git gc`)
+- Fixes the _Commit Graph_ welcome re-appearing after being dismissed &mdash; the dismissal could be lost when choosing a layout on the welcome, reverted by other windows' onboarding writes, or flash back from stale state when the view was collapsed and expanded
 
 ## [19.0.0] - 2026-08-12
 

@@ -2435,8 +2435,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(ChooseGraphLayoutCommand)
 	private async onChooseGraphLayout(params: ChooseGraphLayoutParams) {
-		// One-shot prompt: any answer — including closing without choosing — dismisses it for good
-		void this.container.onboarding.dismiss('graph:layoutPrompt').catch(() => {});
+		// Persist BOTH welcome dismissals here, awaited, before any view move. The webview's own RPC
+		// dismissal of `graph:intro` rides supertalk's microtask-deferred flush and is lost when the
+		// `vscode.moveViews` below destroys the webview — this command is posted synchronously before
+		// that teardown and reliably survives it. Settled independently so one failing write can't
+		// skip the other; a failed write is logged but doesn't block the user's explicit layout choice.
+		// One-shot prompt: any answer — including closing without choosing — dismisses it for good.
+		const results = await Promise.allSettled([
+			this.container.onboarding.dismiss('graph:intro'),
+			this.container.onboarding.dismiss('graph:layoutPrompt'),
+		]);
+		for (const result of results) {
+			if (result.status === 'rejected') {
+				Logger.error(result.reason, 'GraphWebviewProvider', 'Failed to persist a welcome dismissal');
+			}
+		}
 
 		if (params.choice === 'dismissed') return;
 
