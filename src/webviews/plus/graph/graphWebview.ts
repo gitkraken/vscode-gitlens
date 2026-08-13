@@ -198,8 +198,6 @@ import type { GraphWipServiceContext } from './graphWipService.js';
 import { GraphWipService } from './graphWipService.js';
 import type {
 	BranchState,
-	ChooseGraphLayoutParams,
-	CloseGraphWalkthroughBannerParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
@@ -247,10 +245,8 @@ import {
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
 	ChooseFileRequest,
-	ChooseGraphLayoutCommand,
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
-	CloseGraphWalkthroughBannerCommand,
 	createWipRowId,
 	DidChangeAgentsBanner,
 	DidChangeAgentSessionsNotification,
@@ -1048,6 +1044,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onSidebarInvalidated: this._sidebarInvalidatedEvent.subscribe(buffer, tracker),
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
+			welcome: { continueToGraph: options => this.onWelcomeContinueToGraph(options) },
 			launchpad: new LaunchpadService(this.container, buffer, tracker),
 			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 			graphTimeline: graphTimeline,
@@ -2369,16 +2366,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return !isAgentsBannerEnabled(this.container);
 	}
 
-	@ipcCommand(CloseGraphWalkthroughBannerCommand)
-	private onCloseGraphWalkthroughBanner(params: CloseGraphWalkthroughBannerParams) {
-		if (params.openWelcome) {
-			void this.container.usage.track('action:gitlens.graph.walkthrough.started:happened');
-			void commands.executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
-		} else {
-			void this.container.onboarding.dismiss('graph-walkthrough:banner');
-		}
-	}
-
 	@ipcCommand(TrackGraphOverviewShownCommand)
 	private onTrackGraphOverviewShown() {
 		void this.container.usage.track('action:gitlens.graph.overview.shown:happened');
@@ -2433,14 +2420,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.notify(DidChangeLayoutPromptNotification, this.getLayoutPromptNeeded());
 	}
 
-	@ipcCommand(ChooseGraphLayoutCommand)
-	private async onChooseGraphLayout(params: ChooseGraphLayoutParams) {
-		// Persist BOTH welcome dismissals here, awaited, before any view move. The webview's own RPC
-		// dismissal of `graph:intro` rides supertalk's microtask-deferred flush and is lost when the
-		// `vscode.moveViews` below destroys the webview — this command is posted synchronously before
-		// that teardown and reliably survives it. Settled independently so one failing write can't
-		// skip the other; a failed write is logged but doesn't block the user's explicit layout choice.
-		// One-shot prompt: any answer — including closing without choosing — dismisses it for good.
+	/** RPC handler for the whole welcome-continue interaction — see docs/webview-architecture.md
+	 *  ("cross-transport ordering") for why this rides one supertalk message instead of the two
+	 *  legacy IPC commands it replaces. */
+	private async onWelcomeContinueToGraph(options: { layoutChoice: 'sidebar' | 'panel' | 'dismissed' }) {
+		// Persist BOTH welcome dismissals FIRST — opening the welcome view or moving the graph churns
+		// the workbench, which can revert an in-flight global-memento write. Settled independently so
+		// one failing write can't skip the other; a failed write is logged but doesn't block the user's
+		// explicit layout choice. One-shot prompt: any answer, including closing without choosing,
+		// dismisses it for good.
 		const results = await Promise.allSettled([
 			this.container.onboarding.dismiss('graph:intro'),
 			this.container.onboarding.dismiss('graph:layoutPrompt'),
@@ -2451,9 +2439,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		if (params.choice === 'dismissed') return;
+		void this.container.usage.track('action:gitlens.graph.walkthrough.started:happened');
+		void commands.executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
 
-		if (params.choice === 'sidebar') {
+		// Resolve before the moves — the ack means "dismissals persisted", and a response still
+		// pending when the move destroys the calling webview is dropped with a logged error.
+		void this.applyWelcomeLayoutChoice(options.layoutChoice);
+	}
+
+	private async applyWelcomeLayoutChoice(choice: 'sidebar' | 'panel' | 'dismissed'): Promise<void> {
+		if (choice === 'dismissed') return;
+
+		if (choice === 'sidebar') {
 			// An explicit move, not `resetViewLocation`: "reset to default" resolves the default from the
 			// window's live view registry, which still holds the OLD (bottom panel) default when the
 			// upgrade landed via an extension-host-only restart — the button would silently no-op until

@@ -1686,15 +1686,6 @@ export const DidChangeCanInstallHooks = new IpcNotification<{
 	agents: readonly { id: string; displayName: string; installed: boolean }[];
 }>(scope, 'agents/canInstallHooks/didChange');
 
-export interface CloseGraphWalkthroughBannerParams {
-	openWelcome?: boolean;
-}
-
-export const CloseGraphWalkthroughBannerCommand = new IpcCommand<CloseGraphWalkthroughBannerParams>(
-	scope,
-	'graphWalkthrough/banner/close',
-);
-
 export interface GraphWalkthroughBannerState {
 	dismissed: boolean;
 }
@@ -1713,13 +1704,6 @@ export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
 	scope,
 	'graphWalkthrough/started/didChange',
 );
-
-/** The user's answer to the one-time layout prompt: move the Graph view to the side bar
- *  (vertical), keep/move it to the bottom panel (full width), or close without choosing. */
-export interface ChooseGraphLayoutParams {
-	choice: 'sidebar' | 'panel' | 'dismissed';
-}
-export const ChooseGraphLayoutCommand = new IpcCommand<ChooseGraphLayoutParams>(scope, 'layoutPrompt/choose');
 
 /** Pushed when the `graph:layoutPrompt` onboarding state changes (e.g. dismissed in another window) */
 export const DidChangeLayoutPromptNotification = new IpcNotification<boolean>(scope, 'layoutPrompt/didChange');

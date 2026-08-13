@@ -42,7 +42,6 @@ import type {
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
-	ChooseGraphLayoutCommand,
 	createWipRowId,
 	EnableChangesColumnCommand,
 	GetRowHoverRequest,
@@ -63,7 +62,7 @@ import {
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
 import { ExecuteCommand } from '../../../protocol.js';
-import { noop } from '../../shared/actions/rpc.js';
+import { fireAndForget, noop } from '../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
@@ -3995,8 +3994,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		// One-and-done: dismisses `graph:layoutPrompt` host-side and moves the view for sidebar/panel;
-		// `dismissed` just dismisses with no move.
-		this._ipc.sendCommand(ChooseGraphLayoutCommand, { choice: choice });
+		// `dismissed` just dismisses with no move. Rides the `welcome` service, not `_ipc`, so the
+		// dismissal write and the view move ride the same causally-ordered RPC message (see
+		// docs/webview-architecture.md).
+		if (this.services != null) {
+			fireAndForget(
+				(async () => (await this.services!.welcome).continueToGraph({ layoutChoice: choice }))(),
+				'welcome/continueToGraph',
+			);
+		}
 	}
 
 	/** Opens `panel` with the same semantics the rail icon click uses: from a non-graph display mode,

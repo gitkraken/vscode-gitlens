@@ -33,13 +33,38 @@ surfaces alike.
 ### The Graph is hybrid, and the split matters
 
 The Graph has an `RpcController` (`apps/plus/graph/graph.ts:66`), but RPC covers only auxiliary
-services — `graphInspect`, `launchpad`, `walkthrough`, `sidebar`, `graphTimeline`, `graphTreemap`
-(`plus/graph/graphService.ts:728`) — plus the shared services. Rows, selection, search, columns,
-refs, and WIP all travel over legacy IPC. The ledger-diffed splice channel in
+services — `graphInspect`, `launchpad`, `walkthrough`, `sidebar`, `welcome`, `graphTimeline`,
+`graphTreemap` (`plus/graph/graphService.ts:728`) — plus the shared services. Rows, selection,
+search, columns, refs, and WIP all travel over legacy IPC. The ledger-diffed splice channel in
 `docs/graph-update-pipeline.md` is an `IpcNotification`: published at
 `plus/graph/graphWebview.ts:882`, declared at `plus/graph/protocol.ts:1870`, consumed through
 `onMessageReceived` at `apps/plus/graph/stateProvider.ts:1679`. Do not assume Graph work happens
 over RPC.
+
+### Cross-transport ordering has no guarantee
+
+A surface that mixes both layers cannot assume send order survives to the host. Legacy IPC posts
+synchronously (`webview.postMessage` inline in the same tick); Supertalk defers sends to a
+microtask flush. Two messages fired back-to-back from the same click handler — one on each
+transport — race, and the one on Supertalk can simply never arrive if something tears down or
+navigates the webview before its microtask runs.
+
+This isn't hypothetical: it happened. The Graph's welcome-continue button used to fire a legacy
+IPC command (open the welcome view) and, from a parent handler, a Supertalk RPC call (persist
+onboarding dismissals, then `vscode.moveViews` the Graph into the side bar or panel). The move
+tears down and re-creates the webview; the RPC's microtask-deferred send lost the race against
+that teardown often enough to silently drop the dismissal, so the welcome prompt re-appeared on
+next open. The fix (`plus/graph/graphService.ts` `GraphWelcomeService.continueToGraph`,
+`plus/graph/graphWebview.ts` `onWelcomeContinueToGraph`) folded both effects into one RPC method,
+so the persist-then-move sequencing lives inside a single causally-ordered handler instead of
+depending on two transports racing correctly.
+
+**Rule**: for any interaction where one message's handler tears down, moves, or navigates the
+webview, that message must be sent _last_, and any durable side effect (persistence, telemetry)
+must ride inside that same message's handler — not a separate message on the other transport,
+regardless of send order. If a durable effect genuinely must precede the teardown-triggering
+message on a different transport, it must be ack-sequenced (await the write's response before
+sending the second message), not fire-and-forget.
 
 ## State ownership
 

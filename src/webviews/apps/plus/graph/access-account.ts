@@ -7,9 +7,7 @@ import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
-import { CloseGraphWalkthroughBannerCommand } from '../../../plus/graph/protocol.js';
 import { boxSizingBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
 import { graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
@@ -1038,9 +1036,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	graphState!: typeof graphStateContext.__context__;
 
-	@consume({ context: ipcContext })
-	private readonly _ipc!: typeof ipcContext.__context__;
-
 	/** The task that brought the user here (parked by the app while gated) — selects the
 	 *  sign-in copy; actions without task copy fall back to the generic pitch. */
 	@property({ attribute: false })
@@ -1571,7 +1566,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	};
 
 	private readonly onContinue = (): void => {
-		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, { openWelcome: true });
 		this.dispatchEvent(
 			new CustomEvent('gl-continue', {
 				detail: { layoutChoice: this._selectedLayout ?? 'dismissed' },

@@ -725,11 +725,19 @@ export interface GraphTreemapService {
 	getData(repoPath: string, mode: TreemapMode, config: TreemapConfig, signal?: AbortSignal): Promise<TreemapData>;
 }
 
+export interface GraphWelcomeService {
+	/** One message for the whole welcome-continue interaction — persists the dismissals and
+	 *  performs the layout move in one causally-ordered handler, so nothing races the webview
+	 *  teardown the move triggers. */
+	continueToGraph(options: { layoutChoice: 'sidebar' | 'panel' | 'dismissed' }): Promise<void>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly graphInspect: GraphInspectService;
 	readonly launchpad: GraphLaunchpadService;
 	readonly walkthrough: GraphWalkthroughService;
 	readonly sidebar: GraphSidebarService;
+	readonly welcome: GraphWelcomeService;
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
 }
