@@ -738,8 +738,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			env = { ...env, GIT_EDITOR: options.messageEditor };
 		}
 
-		if (options?.updateRefs) {
+		if (options?.updateRefs === true) {
 			args.push('--update-refs');
+		} else if (options?.updateRefs === false) {
+			args.push('--no-update-refs');
 		}
 
 		if (options?.onto) {

@@ -192,6 +192,36 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		);
 	});
 
+	test('rebase with updateRefs=true passes --update-refs', async () => {
+		await operations.rebase(repoPath, 'origin/main', { updateRefs: true });
+
+		const call = (gitStub.run as sinon.SinonStub).getCalls().find(c => c.args.includes('rebase'));
+		assert.ok(call, 'expected git.run to be invoked with rebase');
+		const gitArgs = call.args.filter((a): a is string => typeof a === 'string');
+		assert.ok(gitArgs.includes('--update-refs'));
+		assert.ok(!gitArgs.includes('--no-update-refs'));
+	});
+
+	test('rebase with updateRefs=false passes --no-update-refs', async () => {
+		await operations.rebase(repoPath, 'origin/main', { updateRefs: false });
+
+		const call = (gitStub.run as sinon.SinonStub).getCalls().find(c => c.args.includes('rebase'));
+		assert.ok(call, 'expected git.run to be invoked with rebase');
+		const gitArgs = call.args.filter((a): a is string => typeof a === 'string');
+		assert.ok(gitArgs.includes('--no-update-refs'));
+		assert.ok(!gitArgs.includes('--update-refs'));
+	});
+
+	test('rebase with updateRefs omitted passes neither flag, leaving it to git config', async () => {
+		await operations.rebase(repoPath, 'origin/main');
+
+		const call = (gitStub.run as sinon.SinonStub).getCalls().find(c => c.args.includes('rebase'));
+		assert.ok(call, 'expected git.run to be invoked with rebase');
+		const gitArgs = call.args.filter((a): a is string => typeof a === 'string');
+		assert.ok(!gitArgs.includes('--update-refs'));
+		assert.ok(!gitArgs.includes('--no-update-refs'));
+	});
+
 	suite('onRebaseCapableOperation hook', () => {
 		let hookSpy: sinon.SinonSpy;
 

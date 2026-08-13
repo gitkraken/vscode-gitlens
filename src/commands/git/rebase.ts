@@ -4,6 +4,7 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
+import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
@@ -403,7 +404,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			picked: behind === 0 && !aiSeeded,
 		});
 
-		let updateRefs = state.flags.includes('--update-refs');
+		// A seeded wizard flag wins; otherwise the user's `rebase.updateRefs` config decides, so the
+		// toggle reflects what git will actually do if left untouched.
+		const updateRefsConfig = parseGitBoolean(await state.repo.git.config.getConfig?.('rebase.updateRefs')) ?? false;
+		let updateRefs = state.flags.includes('--update-refs') || updateRefsConfig;
 
 		// Folds the live toggle value into each item's flags — the accepted item's flags are the whole
 		// contract with `execute()` — and into its detail, so the list says what will actually happen.

@@ -112,6 +112,7 @@ export interface GitOperationsSubProvider {
 			 */
 			messageEditor?: string;
 			onto?: string;
+			/** `true` → `--update-refs`, `false` → `--no-update-refs`, omitted → git config (`rebase.updateRefs`) decides. */
 			updateRefs?: boolean;
 			source?: unknown;
 		},

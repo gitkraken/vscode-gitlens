@@ -11,6 +11,7 @@ import { GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
@@ -79,9 +80,6 @@ export type PullConflictPreview =
 	| { kind: 'rebase'; count: number }
 	| { kind: 'clean' }
 	| { kind: 'unavailable' };
-
-/** Git's false-y boolean spellings — anything else (including `merges`/`interactive`) means rebase. */
-const gitFalseValues = new Set(['', 'false', 'no', 'off', '0']);
 
 /**
  * Counts the working-tree files that make `git pull` refuse outright. `git stash create` (what autostash
@@ -266,10 +264,10 @@ export class BranchesService {
 	 *  repository-wide `pull.rebase`, and both accept `merges`/`interactive` alongside plain booleans. */
 	private async willPullRebase(svc: GitRepositoryService, branchName: string): Promise<boolean> {
 		const branchRebase = await svc.config.getConfig?.(`branch.${branchName}.rebase`);
-		if (branchRebase != null) return !gitFalseValues.has(branchRebase.trim().toLowerCase());
+		if (branchRebase != null) return parseGitBoolean(branchRebase) ?? false;
 
 		const pullRebase = await svc.config.getConfig?.('pull.rebase');
-		return pullRebase != null && !gitFalseValues.has(pullRebase.trim().toLowerCase());
+		return parseGitBoolean(pullRebase) ?? false;
 	}
 
 	/** Whether `git pull` will stash-and-reapply uncommitted changes rather than refusing on a dirty tree.
@@ -277,10 +275,10 @@ export class BranchesService {
 	 *  `rebase.autoStash` is inert for a merging pull, and `merge.autoStash` for a rebasing one. */
 	private async willAutoStash(svc: GitRepositoryService, rebase: boolean): Promise<boolean> {
 		const pullAutoStash = await svc.config.getConfig?.('pull.autoStash');
-		if (pullAutoStash != null) return !gitFalseValues.has(pullAutoStash.trim().toLowerCase());
+		if (pullAutoStash != null) return parseGitBoolean(pullAutoStash) ?? false;
 
 		const autoStash = await svc.config.getConfig?.(rebase ? 'rebase.autoStash' : 'merge.autoStash');
-		return autoStash != null && !gitFalseValues.has(autoStash.trim().toLowerCase());
+		return parseGitBoolean(autoStash) ?? false;
 	}
 
 	/**
