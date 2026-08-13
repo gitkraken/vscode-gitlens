@@ -3213,7 +3213,9 @@ export class DetailsActions {
 	}
 
 	discardFiles(files: GitFileChangeShape[]): void {
-		this.sendDiscardTelemetry('files', files.length);
+		// Count distinct paths, not rows: the host de-dupes by path, so a caller that ever hands us
+		// both row shapes of a mixed file would otherwise report one discarded file as two.
+		this.sendDiscardTelemetry('files', new Set(files.map(f => f.path)).size);
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFiles(files), 'discard files', {
 			operation: 'discard',
 			scope: 'files',

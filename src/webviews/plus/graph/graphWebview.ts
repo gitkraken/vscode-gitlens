@@ -1518,7 +1518,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							this.container,
 							item.webviewItemValue,
 						);
-						if (commit == null) return;
+						if (commit == null) {
+							Logger.warn(
+								`${cmd}: unable to resolve commit for "${item.webviewItemValue.path}" — command aborted`,
+							);
+							return;
+						}
 
 						return void handler.call(fileCommands, commit, file, undefined, comparison);
 					},
@@ -1535,9 +1540,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					getWebviewCommand(cmd, 'graphDetails'),
 					async (item?: DetailsItemContext) => {
 						const resolved = await resolveMultiFileContext(this.container, item);
-						if (resolved.length) {
-							await handler.call(fileCommands, resolved);
+						// Mirror resolveMultiFileContext's own count: webviewItemsValues length, falling
+						// back to the single anchor row when the multi-selection field is absent.
+						const offered = item?.webviewItemsValues?.length ?? (item?.webviewItemValue != null ? 1 : 0);
+						if (!resolved.length) {
+							Logger.warn(`${cmd}: unable to resolve any files from the selection — command aborted`);
+							return;
 						}
+
+						if (resolved.length < offered) {
+							Logger.warn(
+								`${cmd}: resolved ${resolved.length} of ${offered} selected files — running on the resolved subset`,
+							);
+						}
+
+						await handler.call(fileCommands, resolved);
 					},
 				),
 			);

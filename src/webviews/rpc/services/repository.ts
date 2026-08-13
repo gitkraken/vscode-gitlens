@@ -60,7 +60,7 @@ import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibil
 import { bufferEventHandler } from '../eventVisibilityBuffer.js';
 import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
-import { discardOneWith } from './discard.utils.js';
+import { classifyFilesForDiscard, discardOneWith } from './discard.utils.js';
 import type {
 	CommitAvatarsShape,
 	CommitSignatureShape,
@@ -607,31 +607,36 @@ export class RepositoryService {
 	}
 
 	async discardFile(file: GitFileChangeShape): Promise<void> {
-		const svc = this.container.git.getRepositoryService(file.repoPath);
-
-		// Authoritative re-read — the wire snapshot can be stale by the time the user confirms,
-		// and mis-detecting `mixed` is the difference between preserving and nuking staged content.
-		// Scoped to this one path (git pathspec) so a per-file discard doesn't pay for a full
-		// working-tree status scan.
-		const fresh = await svc.status.getStatusForFile?.(file.path);
-
-		// File vanished from status between snapshot and click (committed/unstaged elsewhere) —
-		// bail rather than apply the destructive op against stale wire data: the user's intent
-		// no longer maps onto a current state we can reason about.
-		if (fresh == null) {
-			Logger.warn(`Discard skipped for "${file.path}": file is no longer in working-tree status.`);
-			return;
-		}
-
-		const confirmed = await this.confirmDiscardChanges(file.path, fresh.mixed);
-		if (!confirmed) return;
-
 		try {
+			const svc = this.container.git.getRepositoryService(file.repoPath);
+
+			// Authoritative re-read — the wire snapshot can be stale by the time the user confirms,
+			// and mis-detecting `mixed` is the difference between preserving and nuking staged content.
+			// Scoped to this one path (git pathspec) so a per-file discard doesn't pay for a full
+			// working-tree status scan. A provider without the op can't be classified at all (mixed
+			// vs not decides whether staged content survives), so fail as unsupported rather than
+			// reporting the file as having no changes.
+			if (svc.status.getStatusForFile == null) throw new ProviderNotSupportedError(svc.provider.name);
+
+			const fresh = await svc.status.getStatusForFile(file.path);
+
+			// File vanished from status between snapshot and click (committed/unstaged elsewhere) —
+			// bail rather than apply the destructive op against stale wire data: the user's intent
+			// no longer maps onto a current state we can reason about.
+			if (fresh == null) {
+				Logger.warn(`Discard skipped for "${file.path}": file is no longer in working-tree status.`);
+				void window.showWarningMessage(`"${file.path}" no longer has changes to discard.`);
+				return;
+			}
+
+			const confirmed = await this.confirmDiscardChanges(file.path, fresh.mixed);
+			if (!confirmed) return;
+
 			await this.discardOne(svc, fresh);
 		} catch (ex) {
 			Logger.error(ex, 'Failed to discard changes');
 			void window.showErrorMessage(
-				`Failed to discard changes in "${fresh.path}": ${ex instanceof Error ? ex.message : String(ex)}`,
+				`Failed to discard changes in "${file.path}": ${ex instanceof Error ? ex.message : String(ex)}`,
 			);
 			throw ex;
 		}
@@ -672,41 +677,45 @@ export class RepositoryService {
 	}
 
 	async discardUnstagedFiles(repoPath: string): Promise<void> {
-		const svc = this.container.git.getRepositoryService(repoPath);
-		const status = await svc.status.getStatus();
-		if (status == null) return;
-
-		// Single-pass classification: every file with working-tree changes (purely-unstaged or
-		// mixed), excluding conflicts. Mixed files have their unstaged delta dropped while staged
-		// content is preserved — the user would need to discard the now-purely-staged file via the
-		// per-file action to fully revert (the bulk filter won't pick it up a second time).
-		const untracked: GitStatusFile[] = [];
-		const trackedPureUnstaged: GitStatusFile[] = [];
-		const mixed: GitStatusFile[] = [];
-		const toTrash: GitStatusFile[] = [];
-		for (const f of status.files) {
-			if (f.workingTreeStatus == null || f.conflictStatus != null) continue;
-
-			if (f.mixed) {
-				mixed.push(f);
-			} else if (f.status === '?') {
-				untracked.push(f);
-			} else {
-				trackedPureUnstaged.push(f);
-			}
-			// Move non-deleted working-tree files to trash so versions are recoverable.
-			// Gate on `workingTreeStatus` directly: for mixed files `f.status` reflects indexStatus
-			// (e.g. 'M' when the WT is actually deleted), so checking `f.status !== 'D'` is wrong.
-			if (f.workingTreeStatus !== 'D') {
-				toTrash.push(f);
-			}
-		}
-		if (untracked.length === 0 && trackedPureUnstaged.length === 0 && mixed.length === 0) return;
-
-		const confirmed = await this.confirmDiscardUnstaged(trackedPureUnstaged.length, untracked.length, mixed.length);
-		if (!confirmed) return;
-
 		try {
+			const svc = this.container.git.getRepositoryService(repoPath);
+			const status = await svc.status.getStatus();
+			if (status == null) return;
+
+			// Single-pass classification: every file with working-tree changes (purely-unstaged or
+			// mixed), excluding conflicts. Mixed files have their unstaged delta dropped while staged
+			// content is preserved — the user would need to discard the now-purely-staged file via the
+			// per-file action to fully revert (the bulk filter won't pick it up a second time).
+			const untracked: GitStatusFile[] = [];
+			const trackedPureUnstaged: GitStatusFile[] = [];
+			const mixed: GitStatusFile[] = [];
+			const toTrash: GitStatusFile[] = [];
+			for (const f of status.files) {
+				if (f.workingTreeStatus == null || f.conflictStatus != null) continue;
+
+				if (f.mixed) {
+					mixed.push(f);
+				} else if (f.status === '?') {
+					untracked.push(f);
+				} else {
+					trackedPureUnstaged.push(f);
+				}
+				// Move non-deleted working-tree files to trash so versions are recoverable.
+				// Gate on `workingTreeStatus` directly: for mixed files `f.status` reflects indexStatus
+				// (e.g. 'M' when the WT is actually deleted), so checking `f.status !== 'D'` is wrong.
+				if (f.workingTreeStatus !== 'D') {
+					toTrash.push(f);
+				}
+			}
+			if (untracked.length === 0 && trackedPureUnstaged.length === 0 && mixed.length === 0) return;
+
+			const confirmed = await this.confirmDiscardFiles({
+				tracked: trackedPureUnstaged.length,
+				untracked: untracked.length,
+				mixed: mixed.length,
+			});
+			if (!confirmed) return;
+
 			// Preflight: refuse to trash anything if any file will need a restore (from-index for
 			// mixed, from-HEAD for tracked) but the provider can't restore. Covers both restore
 			// batches below, not just mixed, and matches the per-file path's preflight so the two
@@ -765,61 +774,82 @@ export class RepositoryService {
 	}
 
 	/**
-	 * Discards the working-tree changes of a SELECTED subset of files (multi-select inline discard)
-	 * with ONE combined confirmation — mirrors {@link discardUnstagedFiles} but scoped to the requested
-	 * paths. Re-reads authoritative status, classifies untracked/unstaged/mixed/conflicted (pure-staged
-	 * files are skipped — a working-tree discard has nothing to drop for them), confirms once, then
-	 * reverts each via the shared {@link discardOne} core (conflicts revert to our/HEAD side or are
-	 * removed — see {@link discardOneWith}). Destructive: working-tree changes are permanently lost.
+	 * Discards a SELECTED subset of files (multi-select inline discard, or the file-tree "Discard
+	 * Changes" context menu) with ONE combined confirmation — mirrors {@link discardUnstagedFiles} but
+	 * scoped to the requested paths. Re-reads authoritative status, classifies
+	 * untracked/unstaged/mixed/staged/conflicted, confirms once, then reverts each via the shared
+	 * {@link discardOne} core, which decides per file what a discard means:
+	 *
+	 * - purely-staged files are reverted in full — there is no mode that spares them, so the callers'
+	 *   controls all say "Discard Changes";
+	 * - MIXED files still lose only their unstaged portion, keeping their staged content until a second
+	 *   discard (see {@link discardOneWith}) — the confirm says so;
+	 * - conflicts revert to our/HEAD side, or are removed where HEAD has no version.
+	 *
+	 * Selected paths no longer present in status (committed/reverted elsewhere between snapshot and
+	 * click) are reported to the confirm rather than silently dropped. Destructive: the discarded
+	 * changes are permanently lost.
 	 */
 	async discardFiles(files: GitFileChangeShape[]): Promise<void> {
 		if (files.length === 0) return;
 
-		const svc = this.container.git.getRepositoryService(files[0].repoPath);
-		const status = await svc.status.getStatus();
-		if (status == null) return;
-
-		// Authoritative re-read scoped to the requested paths. Conflicted files are discarded too
-		// (reverted to our/HEAD side or removed — see discardOne); pure-staged files have no working-tree
-		// delta so they fall out here (the working-tree discard is a no-op for them).
-		const requested = new Set(files.map(f => f.path));
-		const untracked: GitStatusFile[] = [];
-		const trackedPureUnstaged: GitStatusFile[] = [];
-		const mixed: GitStatusFile[] = [];
-		const conflicted: GitStatusFile[] = [];
-		for (const f of status.files) {
-			if (!requested.has(f.path)) continue;
-
-			if (f.conflictStatus != null) {
-				conflicted.push(f);
-			} else if (f.workingTreeStatus == null) {
-				continue;
-			} else if (f.mixed) {
-				mixed.push(f);
-			} else if (f.status === '?') {
-				untracked.push(f);
-			} else {
-				trackedPureUnstaged.push(f);
-			}
-		}
-
-		const toDiscard = [...untracked, ...trackedPureUnstaged, ...mixed, ...conflicted];
-		if (toDiscard.length === 0) return;
-
-		// One standard confirm for the whole selection (it may mix normal + conflicted files); conflicts
-		// count with the tracked total.
-		const confirmed = await this.confirmDiscardUnstaged(
-			trackedPureUnstaged.length + conflicted.length,
-			untracked.length,
-			mixed.length,
-		);
-		if (!confirmed) return;
-
 		try {
+			const svc = this.container.git.getRepositoryService(files[0].repoPath);
+			const status = await svc.status.getStatus();
+			if (status == null) {
+				Logger.warn(`discardFiles: status unavailable for "${files[0].repoPath}"`);
+				void window.showWarningMessage('Unable to discard changes — repository status unavailable.');
+				return;
+			}
+
+			// Authoritative re-read scoped to the requested paths. Conflicted files are discarded too
+			// (reverted to our/HEAD side or removed — see discardOne); pure-staged files (index dirty,
+			// working tree clean) go to `pureStaged` and are discarded in full — see the doc comment
+			// above and the classification doc comment in discard.utils.ts.
+			const requested = new Set(files.map(f => f.path));
+			const { untracked, trackedPureUnstaged, mixed, pureStaged, conflicted, skippedMissingCount } =
+				classifyFilesForDiscard(status.files, requested);
+
+			const toDiscard = [...untracked, ...trackedPureUnstaged, ...mixed, ...conflicted, ...pureStaged];
+			if (toDiscard.length === 0) {
+				if (skippedMissingCount > 0) {
+					Logger.warn(
+						`discardFiles: nothing to discard — ${skippedMissingCount} of ${requested.size} selected file(s) no longer have changes`,
+					);
+					void window.showWarningMessage(
+						`${pluralize('file', skippedMissingCount)} selected no longer ${skippedMissingCount === 1 ? 'has' : 'have'} changes — nothing to discard.`,
+					);
+				} else {
+					Logger.warn('discardFiles: none of the selected files have changes to discard');
+					void window.showWarningMessage('None of the selected files have changes to discard.');
+				}
+				return;
+			}
+
+			// One standard confirm for the whole selection. Conflicts are reported on their own rather
+			// than folded into the tracked total: their unmerged index entries get cleared, so the
+			// prompt has to say the operation reaches past the working tree. Missing selections are
+			// disclosed but never folded into the discarded total.
+			const confirmed = await this.confirmDiscardFiles({
+				tracked: trackedPureUnstaged.length,
+				untracked: untracked.length,
+				mixed: mixed.length,
+				staged: pureStaged.length,
+				stagedAdded: pureStaged.filter(f => f.indexStatus === 'A').length,
+				conflicted: conflicted.length,
+				skippedMissing: skippedMissingCount,
+			});
+			if (!confirmed) return;
+
 			// Preflight `ops.restore` before trashing anything (matches the per-file and bulk paths), so
 			// a provider without restore fails fast instead of leaving files in the Trash unrecoverable.
+			// Staged additions aren't in HEAD (trash+unstage only, matching discardStagedFiles's same
+			// carve-out) so they don't require restore on their own.
 			if (
-				(mixed.length > 0 || trackedPureUnstaged.length > 0 || conflicted.length > 0) &&
+				(mixed.length > 0 ||
+					trackedPureUnstaged.length > 0 ||
+					conflicted.length > 0 ||
+					pureStaged.some(f => f.indexStatus !== 'A')) &&
 				svc.ops?.restore == null
 			) {
 				throw new ProviderNotSupportedError(svc.provider.name);
@@ -836,7 +866,7 @@ export class RepositoryService {
 				}
 			}
 
-			this.warnDiscardRestoreFailures(failed);
+			this.warnDiscardFailures(failed);
 		} catch (ex) {
 			Logger.error(ex, 'Failed to discard changes');
 			void window.showErrorMessage(`Failed to discard changes: ${ex instanceof Error ? ex.message : String(ex)}`);
@@ -852,21 +882,21 @@ export class RepositoryService {
 	 * working-tree changes and belong to the unstaged path); so are conflicts.
 	 */
 	async discardStagedFiles(repoPath: string): Promise<void> {
-		const svc = this.container.git.getRepositoryService(repoPath);
-		const status = await svc.status.getStatus();
-		if (status == null) return;
-
-		// Pure-staged, non-conflicted files: index dirty, working tree clean. (Mixed files have a
-		// working-tree status and are handled by discardUnstagedFiles.)
-		const staged = status.files.filter(
-			f => f.indexStatus != null && f.workingTreeStatus == null && f.conflictStatus == null,
-		);
-		if (staged.length === 0) return;
-
-		const confirmed = await this.confirmDiscardStaged(staged.length);
-		if (!confirmed) return;
-
 		try {
+			const svc = this.container.git.getRepositoryService(repoPath);
+			const status = await svc.status.getStatus();
+			if (status == null) return;
+
+			// Pure-staged, non-conflicted files: index dirty, working tree clean. (Mixed files have a
+			// working-tree status and are handled by discardUnstagedFiles.)
+			const staged = status.files.filter(
+				f => f.indexStatus != null && f.workingTreeStatus == null && f.conflictStatus == null,
+			);
+			if (staged.length === 0) return;
+
+			const confirmed = await this.confirmDiscardStaged(staged.length);
+			if (!confirmed) return;
+
 			// Staged additions aren't in HEAD (trash + unstage handles them); everything else needs
 			// a HEAD restore. Preflight `ops.restore` only when such a file exists, matching the
 			// unstaged path's conditional preflight.
@@ -887,7 +917,7 @@ export class RepositoryService {
 				}
 			}
 
-			this.warnDiscardRestoreFailures(failed);
+			this.warnDiscardFailures(failed);
 		} catch (ex) {
 			Logger.error(ex, 'Failed to discard staged changes');
 			void window.showErrorMessage(
@@ -895,6 +925,16 @@ export class RepositoryService {
 			);
 			throw ex;
 		}
+	}
+
+	/**
+	 * Build the "<preview>, and N more" tail shared by the two discard failure warnings below, so the
+	 * truncation style can't drift between them.
+	 */
+	private previewFailedFiles(failed: string[]): string {
+		const preview = failed.slice(0, 3).join(', ');
+		const more = failed.length > 3 ? `, and ${failed.length - 3} more` : '';
+		return `${preview}${more}`;
 	}
 
 	/**
@@ -909,12 +949,27 @@ export class RepositoryService {
 	private warnDiscardRestoreFailures(failed: string[]): void {
 		if (failed.length === 0) return;
 
-		const preview = failed.slice(0, 3).join(', ');
-		const more = failed.length > 3 ? `, and ${failed.length - 3} more` : '';
+		const preview = this.previewFailedFiles(failed);
 		const they = failed.length === 1 ? "it's" : "they're";
 		const their = failed.length === 1 ? 'its' : 'their';
 		void window.showWarningMessage(
-			`Couldn't restore ${pluralize('file', failed.length)} after discard: ${preview}${more} — ${they} missing from the working tree, but ${their} content is recoverable from Git.`,
+			`Couldn't restore ${pluralize('file', failed.length)} after discard: ${preview} — ${they} missing from the working tree, but ${their} content is recoverable from Git.`,
+		);
+	}
+
+	/**
+	 * Surface per-file discard failures from {@link discardFiles}/{@link discardStagedFiles}, whose
+	 * per-file `discardOne` catch can't tell which phase inside {@link discardOneWith} threw — trash,
+	 * unstage, and restore all run in one try, unlike {@link discardUnstagedFiles}'s batch-restore-only
+	 * failures. So we can't say the file is missing (trash may never have run) or promise it's
+	 * recoverable from Git (restore may never have run either) — just tell the user to go look.
+	 */
+	private warnDiscardFailures(failed: string[]): void {
+		if (failed.length === 0) return;
+
+		const preview = this.previewFailedFiles(failed);
+		void window.showWarningMessage(
+			`Failed to discard changes in ${pluralize('file', failed.length)}: ${preview} — check ${failed.length === 1 ? 'its' : 'their'} state before continuing.`,
 		);
 	}
 
@@ -985,29 +1040,90 @@ export class RepositoryService {
 		return choice === discard;
 	}
 
-	private async confirmDiscardUnstaged(
-		trackedCount: number,
-		untrackedCount: number,
-		mixedCount: number = 0,
-	): Promise<boolean> {
+	private async confirmDiscardFiles(counts: {
+		tracked: number;
+		untracked: number;
+		mixed?: number;
+		/** Purely-staged files, discarded in full as part of the batch. */
+		staged?: number;
+		/** Of `staged`, those added to the index and absent from HEAD — Git cannot restore them. */
+		stagedAdded?: number;
+		/** Conflicted files, whose unmerged index entries are cleared — counted separately from
+		 * `tracked` so the prompt can say the operation isn't unstaged-only. */
+		conflicted?: number;
+		skippedMissing?: number;
+	}): Promise<boolean> {
+		const {
+			tracked,
+			untracked,
+			mixed = 0,
+			staged = 0,
+			stagedAdded = 0,
+			conflicted = 0,
+			skippedMissing = 0,
+		} = counts;
+
 		// Lead with a unified question keyed off the total, then layer on caveats per category.
 		// Collecting non-empty sections and joining with blank lines avoids the per-section
-		// "remember to push '' first" blank-line bookkeeping the earlier shape needed.
-		const totalCount = trackedCount + untrackedCount + mixedCount;
+		// "remember to push '' first" blank-line bookkeeping the earlier shape needed. Skipped
+		// counts never inflate `total` — the number the user reads must equal the number of files
+		// about to be modified.
+		const total = tracked + untracked + mixed + staged + conflicted;
+		// Staged or conflicted files put the index in scope, so the unstaged-only phrasing would
+		// under-describe the operation.
+		const beyondUnstaged = staged > 0 || conflicted > 0;
 		const sections: string[] = [
-			`Are you sure you want to discard unstaged changes in ${pluralize('file', totalCount)}?`,
+			beyondUnstaged
+				? `Are you sure you want to discard changes in ${pluralize('file', total)}?`
+				: `Are you sure you want to discard unstaged changes in ${pluralize('file', total)}?`,
 		];
-		if (untrackedCount > 0) {
+		if (untracked > 0) {
 			// Don't promise the Trash — `moveToTrash` hard-deletes on trash-unavailable providers,
 			// and untracked files aren't in Git, so there's no other recovery path. The IRREVERSIBLE
 			// line below is the honest worst case.
-			sections.push(`This will DELETE ${pluralize('untracked file', untrackedCount)}.`);
+			sections.push(`This will DELETE ${pluralize('untracked file', untracked)}.`);
 		}
-		if (mixedCount > 0) {
-			// The bulk filter excludes purely-staged files, so a second click of the bulk button
-			// won't pick these up — point users at the per-file discard for the staged portion.
+		if (stagedAdded > 0) {
+			// Staged-added files aren't in HEAD, so discard is trash-then-unstage with no restore —
+			// on trash-unavailable providers (SSH remote, dev container) `moveToTrash` hard-deletes,
+			// so this is the one genuinely unrecoverable case in the feature. Don't promise the Trash
+			// here either, matching the untracked section above.
 			sections.push(
-				`${pluralize('file', mixedCount)} also ${mixedCount === 1 ? 'has' : 'have'} staged changes — only ${mixedCount === 1 ? 'its' : 'their'} unstaged portion will be discarded. To also discard the staged portion, run the per-file discard action.`,
+				`This will DELETE ${pluralize('staged file', stagedAdded)} added to the index — Git cannot restore ${stagedAdded === 1 ? 'it' : 'them'} because ${stagedAdded === 1 ? "it isn't" : "they aren't"} in HEAD.`,
+			);
+		}
+		if (mixed > 0) {
+			// States the outcome without prescribing a next step: whether discarding again would remove
+			// the staged portion depends on which caller this is — the selection path picks the file up
+			// once it's purely staged, the repo-wide path skips it — so any "do X next" is wrong for one
+			// of them. `confirmDiscardChanges` can still say "discard again" because it has one caller.
+			sections.push(
+				`${pluralize('file', mixed)} also ${mixed === 1 ? 'has' : 'have'} staged changes — only ${mixed === 1 ? 'its' : 'their'} unstaged portion will be discarded; the staged changes remain.`,
+			);
+		}
+		if (staged > 0) {
+			// Distinct from the mixed section above: purely-staged files, no unstaged portion at all,
+			// discarded outright as part of the full batch discard. Lead with ONLY so it reads
+			// unambiguously against mixed's "also has staged changes" when both sections appear —
+			// the two describe disjoint file sets, and a destructive confirm can't leave the reader
+			// guessing which one a sentence is about.
+			sections.push(
+				`${pluralize('file', staged)} ${staged === 1 ? 'has' : 'have'} ONLY staged changes — ${staged === 1 ? 'it' : 'these'} will be discarded in full, not preserved.`,
+			);
+		}
+		if (conflicted > 0) {
+			// Clearing the unmerged index entry is the part that isn't recoverable from the Trash, and
+			// marking the path resolved lets the paused operation continue with Current's content —
+			// silently producing a wrong result rather than merely losing edits. Say both. `Current`
+			// matches the conflict vocabulary used by "Open Current/Incoming Changes" and
+			// `canStageCurrent`; "paused operation" covers rebase, merge, cherry-pick and revert.
+			sections.push(
+				`${pluralize('conflicted file', conflicted)} will be reset to Current and marked resolved — any conflict resolution will be lost, and the paused operation will continue as if ${conflicted === 1 ? 'it was' : 'they were'} resolved.`,
+			);
+		}
+		if (skippedMissing > 0) {
+			sections.push(
+				`${pluralize('file', skippedMissing)} selected no longer ${skippedMissing === 1 ? 'has' : 'have'} changes and will be skipped.`,
 			);
 		}
 		sections.push('This is IRREVERSIBLE!\nYour current working set will be FOREVER LOST if you proceed.');
@@ -1015,9 +1131,13 @@ export class RepositoryService {
 		// Label switches to the verb form (no count) whenever ANY mixed file is in the batch —
 		// the count form would mis-describe mixed entries as "Unstaged Files" since those get
 		// partial discards, not full ones. The verb form is honest for any batch size and
-		// composition that includes mixed files.
-		const discard =
-			mixedCount > 0 ? 'Discard Unstaged Changes' : `Discard ${pluralize('Unstaged File', totalCount)}`;
+		// composition that includes mixed files. Staged or conflicted files win over both: once the
+		// index is in scope, "Unstaged" no longer describes the operation at all.
+		const discard = beyondUnstaged
+			? 'Discard Changes'
+			: mixed > 0
+				? 'Discard Unstaged Changes'
+				: `Discard ${pluralize('Unstaged File', total)}`;
 		const choice = await window.showWarningMessage(sections.join('\n\n'), { modal: true }, discard);
 		return choice === discard;
 	}

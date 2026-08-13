@@ -4306,7 +4306,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleFileDiscard = (e: CustomEvent<FileChangeListItemDetail>) => {
-		// Batch inline discard (multi-selection) carries the full set; one combined confirm + discard.
+		// Batch inline discard (multi-selection) carries the full set; one combined confirm + discard,
+		// in full, of every selected file — the row a cursor happened to be over doesn't decide the
+		// rules for the whole selection. The combined confirm states the blast radius per category.
 		if (e.detail.files?.length) {
 			this._actions.discardFiles([...e.detail.files]);
 		} else {
@@ -4322,12 +4324,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	};
 
-	private handleDiscardUnstaged = () => {
-		this._actions.discardUnstagedFiles(this.effectiveRepoPath);
+	private handleDiscardUnstaged = (e: CustomEvent<{ files?: FileChangeListItemDetail['files'] } | undefined>) => {
+		// Toolbar "Discard Selected Changes" chip with a multi-selection fully discards the selected
+		// files (staged included) — otherwise it's the scope action (repo-wide unstaged).
+		if (e.detail?.files?.length) {
+			this._actions.discardFiles([...e.detail.files]);
+		} else {
+			this._actions.discardUnstagedFiles(this.effectiveRepoPath);
+		}
 	};
 
-	private handleDiscardStaged = () => {
-		this._actions.discardStagedFiles(this.effectiveRepoPath);
+	private handleDiscardStaged = (e: CustomEvent<{ files?: FileChangeListItemDetail['files'] } | undefined>) => {
+		// Same selection branch as `handleDiscardUnstaged` — only the scope fallback differs.
+		if (e.detail?.files?.length) {
+			this._actions.discardFiles([...e.detail.files]);
+		} else {
+			this._actions.discardStagedFiles(this.effectiveRepoPath);
+		}
 	};
 
 	private handleStageAll = () => {

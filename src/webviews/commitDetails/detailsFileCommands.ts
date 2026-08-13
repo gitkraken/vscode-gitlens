@@ -788,7 +788,8 @@ export class DetailsFileCommands {
 		if (!items.length) return;
 
 		// One combined confirm + atomic-per-file discard via the shared service (same path as the inline
-		// batch discard); swallow its rethrow (errors are surfaced inside).
+		// batch discard); swallow its rethrow (errors are surfaced inside). A batch discard is always
+		// full — purely-staged files in the selection get discarded too, not silently skipped.
 		void this._repository.discardFiles(items.map(i => i.file)).catch(() => undefined);
 	}
 

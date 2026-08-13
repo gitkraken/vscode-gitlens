@@ -1,13 +1,13 @@
 import * as assert from 'assert';
 import { execFileSync } from 'child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Uri } from 'vscode';
 import { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import type { DiscardExecutor } from '../discard.utils.js';
-import { conflictHasHeadVersion, discardOneWith } from '../discard.utils.js';
+import { classifyFilesForDiscard, conflictHasHeadVersion, discardOneWith } from '../discard.utils.js';
 
 // Ignore the user's global/system git config (e.g. `merge.ff=only`) so the temp repos behave
 // predictably; identity is supplied per-command (never written).
@@ -90,6 +90,131 @@ suite('discard.utils — conflictHasHeadVersion', () => {
 	}
 });
 
+suite('discard.utils — classifyFilesForDiscard', () => {
+	const repoPath = '/repo';
+	const file = (x: string, y: string, path: string, originalPath?: string): GitStatusFile =>
+		new GitStatusFile(repoPath, x, y, path, Uri.file(`${repoPath}/${path}`), originalPath);
+
+	const buckets = ['untracked', 'trackedPureUnstaged', 'mixed', 'pureStaged', 'conflicted'] as const;
+
+	/** Assert every bucket is empty except `only` (or all empty when `only` is omitted). */
+	function assertOnlyBucket(
+		result: ReturnType<typeof classifyFilesForDiscard>,
+		only?: (typeof buckets)[number],
+		count: number = 1,
+	): void {
+		for (const b of buckets) {
+			assert.strictEqual(result[b].length, b === only ? count : 0, `${b} bucket`);
+		}
+	}
+
+	test("' M' → trackedPureUnstaged", () => {
+		const f = file(' ', 'M', 'a.txt');
+		const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+		assertOnlyBucket(result, 'trackedPureUnstaged');
+		assert.strictEqual(result.trackedPureUnstaged[0], f);
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	test("' D' → trackedPureUnstaged", () => {
+		const f = file(' ', 'D', 'a.txt');
+		const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+		assertOnlyBucket(result, 'trackedPureUnstaged');
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	test("'??' → untracked", () => {
+		const f = file('?', '?', 'a.txt');
+		const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+		assertOnlyBucket(result, 'untracked');
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	const pureStagedCases: [string, string][] = [
+		['M', 'a.txt'],
+		['A', 'a.txt'],
+		['D', 'a.txt'],
+		['R', 'new.txt'],
+	];
+
+	for (const [x, path] of pureStagedCases) {
+		test(`'${x} ' → pureStaged`, () => {
+			// Real rename entries always carry an originalPath — keep it realistic even though it
+			// doesn't affect classification.
+			const f = x === 'R' ? file(x, ' ', path, 'old.txt') : file(x, ' ', path);
+
+			const result = classifyFilesForDiscard([f], new Set([path]));
+			assertOnlyBucket(result, 'pureStaged');
+			assert.strictEqual(result.skippedMissingCount, 0);
+		});
+	}
+
+	test("'MM' → mixed", () => {
+		const f = file('M', 'M', 'a.txt');
+		const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+		assertOnlyBucket(result, 'mixed');
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	test("'UU' and 'DU' → conflicted", () => {
+		for (const f of [file('U', 'U', 'a.txt'), file('D', 'U', 'a.txt')]) {
+			const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+			assertOnlyBucket(result, 'conflicted');
+			assert.strictEqual(result.skippedMissingCount, 0);
+		}
+	});
+
+	test("' T' (working-tree typechange) → trackedPureUnstaged", () => {
+		const f = file(' ', 'T', 'a.txt');
+		const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+		assertOnlyBucket(result, 'trackedPureUnstaged');
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	// Regression: `MT` parsed to indexStatus-only before working-tree `T` was mapped, so it read as
+	// purely staged and a batch discard destroyed the staged content mixed semantics must preserve.
+	test("'MT' → mixed, never pureStaged", () => {
+		const f = file('M', 'T', 'a.txt');
+		const result = classifyFilesForDiscard([f], new Set(['a.txt']));
+		assertOnlyBucket(result, 'mixed');
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	test('a requested path with no matching status entry contributes to skippedMissingCount', () => {
+		const result = classifyFilesForDiscard([], new Set(['gone.txt']));
+		assertOnlyBucket(result);
+		assert.strictEqual(result.skippedMissingCount, 1);
+	});
+
+	test('a status entry not in requestedPaths is ignored and does not affect skippedMissingCount', () => {
+		const requested = file(' ', 'M', 'requested.txt');
+		const other = file(' ', 'M', 'other.txt');
+		const result = classifyFilesForDiscard([requested, other], new Set(['requested.txt']));
+		assertOnlyBucket(result, 'trackedPureUnstaged');
+		assert.strictEqual(result.trackedPureUnstaged[0], requested);
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+
+	test('a mixed selection routes each file to its own bucket', () => {
+		const staged = file('M', ' ', 'staged.txt');
+		const unstaged = file(' ', 'M', 'unstaged.txt');
+		const both = file('M', 'M', 'mixed.txt');
+		const untracked = file('?', '?', 'new.txt');
+
+		const result = classifyFilesForDiscard(
+			[staged, unstaged, both, untracked],
+			new Set(['staged.txt', 'unstaged.txt', 'mixed.txt', 'new.txt']),
+		);
+
+		assert.deepStrictEqual(result.pureStaged, [staged], 'pureStaged');
+		assert.deepStrictEqual(result.trackedPureUnstaged, [unstaged], 'trackedPureUnstaged');
+		assert.deepStrictEqual(result.mixed, [both], 'mixed');
+		assert.deepStrictEqual(result.untracked, [untracked], 'untracked');
+		assert.strictEqual(result.conflicted.length, 0, 'conflicted');
+		assert.strictEqual(result.skippedMissingCount, 0);
+	});
+});
+
 suite('discard.utils — discardOneWith (temp repo)', function () {
 	this.timeout(60000);
 
@@ -165,6 +290,31 @@ suite('discard.utils — discardOneWith (temp repo)', function () {
 		await discard('m.txt');
 		assert.strictEqual(read('m.txt'), 'staged\n');
 		assert.strictEqual(porcelain(), 'M  m.txt');
+	});
+
+	test('mixed (staged content change + working-tree typechange, MT) → keeps staged content, drops the symlink', async function () {
+		writeFileSync(join(repo, 'm.txt'), 'base\n');
+		commit('init');
+		writeFileSync(join(repo, 'm.txt'), 'staged\n');
+		git(repo, 'add', 'm.txt');
+		rmSync(join(repo, 'm.txt'));
+		try {
+			symlinkSync('nonexistent-target', join(repo, 'm.txt'));
+		} catch {
+			// Symlinks unavailable in this environment (e.g. Windows without Developer Mode) — the MT
+			// setup itself can't be reproduced portably, so skip rather than fail the suite. `skip()`
+			// is typed `never` (it throws to unwind the test as pending), so no `return` follows it.
+			this.skip();
+		}
+		assert.strictEqual(porcelain(), 'MT m.txt', 'setup produced a staged content change + type change');
+		await discard('m.txt');
+		assert.strictEqual(
+			lstatSync(join(repo, 'm.txt')).isSymbolicLink(),
+			false,
+			'symlink replaced with a regular file',
+		);
+		assert.strictEqual(read('m.txt'), 'staged\n', 'staged content preserved, not HEAD');
+		assert.strictEqual(porcelain(), 'M  m.txt', 'staged change remains staged');
 	});
 
 	test('unstaged deleted → restored from HEAD', async () => {

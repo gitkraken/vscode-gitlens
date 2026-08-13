@@ -5,6 +5,7 @@ import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard.js';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard.js';
 import type { ExplainCommitCommandArgs } from '../../commands/explainCommit.js';
@@ -264,7 +265,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						}
 
 						const [commit, file, comparison] = await this.getFileCommitFromContextOrParams(item);
-						if (commit == null) return;
+						if (commit == null) {
+							Logger.warn(`${cmd}: unable to resolve the file's commit — command aborted`);
+							return;
+						}
 
 						return void handler.call(fileCommands, commit, file, this.getShowOptions(item), comparison);
 					},
@@ -282,9 +286,22 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					getWebviewCommand(cmd, this.host.type),
 					async (item?: DetailsItemContext | ExecuteFileActionParams) => {
 						const resolved = await resolveMultiFileContext(this.container, item);
-						if (resolved.length) {
-							await handler.call(fileCommands, resolved);
+						// Mirror resolveMultiFileContext's own count: webviewItemsValues length, falling
+						// back to the single anchor row when the multi-selection field is absent.
+						const ctx = item as DetailsItemContext | undefined;
+						const offered = ctx?.webviewItemsValues?.length ?? (ctx?.webviewItemValue != null ? 1 : 0);
+						if (!resolved.length) {
+							Logger.warn(`${cmd}: unable to resolve any files from the selection — command aborted`);
+							return;
 						}
+
+						if (resolved.length < offered) {
+							Logger.warn(
+								`${cmd}: resolved ${resolved.length} of ${offered} selected files — running on the resolved subset`,
+							);
+						}
+
+						await handler.call(fileCommands, resolved);
 					},
 					this,
 				),

@@ -78,20 +78,16 @@ const unstageAction: TreeItemAction = {
 	multiBehavior: 'batch',
 };
 // `batch`: discarding an inline button on a multi-selection fires ONE `file-discard` carrying the
-// whole set (detail.files) so the host shows a single combined confirm, not one per file.
+// whole set (detail.files) so the host shows a single combined confirm, not one per file. Also used
+// (via `checkboxMixedActions`) for mixed rows (both staged + unstaged): a single click there discards
+// only the unstaged portion — the staged content survives until a second discard, by which point the
+// row is no longer mixed. That per-click nuance is stated at the point of consent instead of in the
+// label — `confirmDiscardChanges`'s mixed copy for a single row, and the mixed section of the batch
+// confirm for a selection — so one label covers every row without misdescribing a multi-selection
+// batch that also touches purely-staged rows elsewhere in the selection.
 const discardAction: TreeItemAction = {
 	icon: 'discard',
 	label: 'Discard Changes...',
-	action: 'file-discard',
-	multiBehavior: 'batch',
-};
-// Mixed rows (both staged + unstaged) discard only the unstaged portion on the first click — the
-// staged content survives until a second discard. Same `file-discard` action (the host detects
-// mixed and applies the partial semantics); only the label differs so it matches that behavior and
-// the bulk toolbar button.
-const discardUnstagedAction: TreeItemAction = {
-	icon: 'discard',
-	label: 'Discard Unstaged Changes...',
 	action: 'file-discard',
 	multiBehavior: 'batch',
 };
@@ -152,12 +148,7 @@ const conflictedActionsWithDetailsResolve: TreeItemAction[] = [
 	stageConflictAction,
 ];
 const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, stashAction, discardAction];
-const checkboxMixedActions: TreeItemAction[] = [
-	openFileAction,
-	openStagedChangesAction,
-	stashAction,
-	discardUnstagedAction,
-];
+const checkboxMixedActions: TreeItemAction[] = [openFileAction, openStagedChangesAction, stashAction, discardAction];
 const stagedActions: TreeItemAction[] = [openFileAction, unstageAction, stashAction, discardAction];
 const unstagedActions: TreeItemAction[] = [openFileAction, stageAction, stashAction, discardAction];
 

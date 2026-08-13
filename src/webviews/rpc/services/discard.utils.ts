@@ -37,6 +37,64 @@ export function conflictHasHeadVersion(conflictStatus: GitFileConflictStatus): b
 }
 
 /**
+ * Classify a requested selection of files against fresh status into the buckets `discardFiles` needs,
+ * pulled out here (same reason `discardOneWith` was extracted) so the classification is testable without
+ * the full extension Container.
+ */
+export function classifyFilesForDiscard(
+	statusFiles: readonly GitStatusFile[],
+	requestedPaths: ReadonlySet<string>,
+): {
+	untracked: GitStatusFile[];
+	trackedPureUnstaged: GitStatusFile[];
+	mixed: GitStatusFile[];
+	pureStaged: GitStatusFile[];
+	conflicted: GitStatusFile[];
+	skippedMissingCount: number;
+} {
+	const matched = new Set<string>();
+	const untracked: GitStatusFile[] = [];
+	const trackedPureUnstaged: GitStatusFile[] = [];
+	const mixed: GitStatusFile[] = [];
+	const pureStaged: GitStatusFile[] = [];
+	const conflicted: GitStatusFile[] = [];
+	for (const f of statusFiles) {
+		if (!requestedPaths.has(f.path)) continue;
+
+		matched.add(f.path);
+
+		if (f.conflictStatus != null) {
+			conflicted.push(f);
+		} else if (f.workingTreeStatus == null) {
+			// This branch requires a parsed index status — gate on `staged`, not just the absent
+			// working-tree status. A file with neither status parsed is skipped rather than guessed
+			// at, matching what this loop did before pure-staged files were handled.
+			if (!f.staged) continue;
+
+			pureStaged.push(f);
+		} else if (f.mixed) {
+			mixed.push(f);
+		} else if (f.status === '?') {
+			untracked.push(f);
+		} else {
+			trackedPureUnstaged.push(f);
+		}
+	}
+
+	return {
+		untracked: untracked,
+		trackedPureUnstaged: trackedPureUnstaged,
+		mixed: mixed,
+		pureStaged: pureStaged,
+		conflicted: conflicted,
+		// Requested paths with no entry at all in fresh status (committed/reverted elsewhere) —
+		// `matched` also covers staged-only paths (they DID match, just aren't discarded), so this is
+		// strictly "vanished from status", not "skipped".
+		skippedMissingCount: requestedPaths.size - matched.size,
+	};
+}
+
+/**
  * Discard a single file's working-tree changes, reverting it to the appropriate source per its status.
  * The git side-effects run through `exec` so this orchestration can be exercised against a real repo in
  * tests without the full extension Container.
