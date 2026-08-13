@@ -161,6 +161,7 @@ export type GraphCommandsContext = {
 		resolution: 'current' | 'incoming',
 	) => Promise<void>;
 	updateExcludedRefs: (repoPath: string | undefined, refs: GraphExcludedRef[], visible: boolean) => void;
+	showRemoteRefs: (repoPath: string | undefined, remoteName: string) => void;
 	updatePinnedRef: (repoPath: string | undefined, ref: GraphPinnedRef | null) => void;
 	_undoCommit: (ref: GitRevisionReference, worktreePath: string | undefined) => Promise<void>;
 };
@@ -1263,11 +1264,13 @@ export class GraphCommands {
 		return RepoActions.reset(ref.repoPath, ref);
 	}
 
-	@command('gitlens.graph.hideLocalBranch')
-	@command('gitlens.graph.hideRemoteBranch')
-	@command('gitlens.graph.hideTag')
-	@debug()
-	private hideRef(item?: GraphItemContext, options?: { group?: boolean; remote?: boolean }) {
+	/** Shared body for the hide/show ref commands. `visible: false` (hide) accepts a ref group; `visible: true`
+	 *  (show) never does — there's no "un-hide this whole group" command, only per-row un-hide. */
+	private setRefVisibility(
+		item: GraphItemContext | undefined,
+		visible: boolean,
+		options?: { group?: boolean; remote?: boolean },
+	) {
 		let refs;
 		if (options?.group && isGraphItemRefGroupContext(item)) {
 			({ refs } = item.webviewItemGroupValue);
@@ -1290,21 +1293,65 @@ export class GraphCommands {
 						type: r.refType === 'branch' ? (r.remote ? 'remote' : 'head') : 'tag',
 					};
 				}),
-				false,
+				visible,
 			);
 		}
 
 		return Promise.resolve();
 	}
 
+	@command('gitlens.graph.hideLocalBranch')
+	@command('gitlens.graph.hideRemoteBranch')
+	@command('gitlens.graph.hideTag')
+	@debug()
+	private hideRef(item?: GraphItemContext, options?: { group?: boolean; remote?: boolean }) {
+		return this.setRefVisibility(item, false, options);
+	}
+
 	@command('gitlens.graph.hideRemote')
 	private hideRemote(item?: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'remote')) {
+			const { name, repoPath } = item.webviewItemValue;
+			this.context.updateExcludedRefs(
+				repoPath,
+				[{ id: `${repoPath}|remotes/${name}/*`, name: '*', owner: name, type: 'remote' }],
+				false,
+			);
+			return Promise.resolve();
+		}
+
 		return this.hideRef(item, { remote: true });
 	}
 
 	@command('gitlens.graph.hideRefGroup')
 	private hideRefGroup(item?: GraphItemContext) {
 		return this.hideRef(item, { group: true });
+	}
+
+	@command('gitlens.graph.showLocalBranch')
+	@command('gitlens.graph.showRemoteBranch')
+	@command('gitlens.graph.showTag')
+	@debug()
+	private showRef(item?: GraphItemContext) {
+		return this.setRefVisibility(item, true);
+	}
+
+	@command('gitlens.graph.showRemote')
+	private showRemote(item?: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'remote')) {
+			const { name, repoPath } = item.webviewItemValue;
+			this.context.showRemoteRefs(repoPath, name);
+		} else if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			if (ref.remote) {
+				this.context.showRemoteRefs(
+					ref.repoPath ?? this._graphSession?.repoPath,
+					getRemoteNameFromBranchName(ref.name),
+				);
+			}
+		}
+
+		return Promise.resolve();
 	}
 
 	@command('gitlens.graph.pinBranchToEdge')

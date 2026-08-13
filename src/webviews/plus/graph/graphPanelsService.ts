@@ -25,6 +25,7 @@ import { areEqual } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../constants.commands.js';
+import type { StoredGraphExcludedRef } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
 import * as BranchActions from '../../../git/actions/branch.js';
 import * as RemoteActions from '../../../git/actions/remote.js';
@@ -89,10 +90,10 @@ import { createWipRowId, DidChangeOverviewNotification, sidebarItemOrigin } from
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
- *  live provider state; `getPinnedRefId`/`fetchWipStatus`/`computeWorktreeChanges` forward into the
- *  WIP service's caches (kept there); `fireSidebarInvalidated` fires the provider's `sidebarInvalidated`
- *  RPC event (that transport stays wired in `getRpcServices`); the pending-notification callback routes
- *  through the provider's shared `_ipcNotificationMap`, which stays there. */
+ *  live provider state; `getPinnedRefId`/`getExcludedRefsByRepo`/`fetchWipStatus`/`computeWorktreeChanges`
+ *  forward into provider-owned filter storage and the WIP service's caches (kept there); `fireSidebarInvalidated`
+ *  fires the provider's `sidebarInvalidated` RPC event (that transport stays wired in `getRpcServices`); the
+ *  pending-notification callback routes through the provider's shared `_ipcNotificationMap`, which stays there. */
 export type GraphPanelsServiceContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
@@ -100,6 +101,7 @@ export type GraphPanelsServiceContext = {
 	getSession: () => GitGraphSession | undefined;
 	getLoading: () => Promise<GitGraph> | undefined;
 	getPinnedRefId: (repoPath: string | undefined) => string | undefined;
+	getExcludedRefsByRepo: (repoPath: string | undefined) => Record<string, StoredGraphExcludedRef> | undefined;
 	fetchWipStatus: (path: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
 	computeWorktreeChanges: (worktrees: GitWorktree[]) => void;
 	fireSidebarInvalidated: () => void;
@@ -429,6 +431,31 @@ export class GraphPanelsService {
 		}
 	}
 
+	/** The stored `excludeRefs` filter, split into a per-id set (individually hidden branches/tags) and a
+	 *  per-remote-name map (remotes hidden wholesale via the `name: '*'` wildcard entry, to the ids
+	 *  exempted from that hide — the wildcard's `except`, empty when none). Sidebar rows bake these into
+	 *  their `webviewItem` token as `+hidden`/`+hiddenbyremote` — see `getSidebarBranches`,
+	 *  `getSidebarRemotes`, `getSidebarTags`. `+hiddenbyremote` is baked in ONLY for a branch that isn't
+	 *  exempted; the remote header row itself keeps `+hidden` regardless of exceptions. */
+	private getHiddenRefState(repoPath: string): { hiddenIds: Set<string>; hiddenRemotes: Map<string, Set<string>> } {
+		const storedExcludeRefs = this.context.getExcludedRefsByRepo(repoPath);
+		const hiddenIds = new Set<string>();
+		const hiddenRemotes = new Map<string, Set<string>>();
+		if (storedExcludeRefs != null) {
+			for (const id in storedExcludeRefs) {
+				const stored = storedExcludeRefs[id];
+				if (stored.type === 'remote' && stored.name === '*') {
+					if (stored.owner) {
+						hiddenRemotes.set(stored.owner, new Set(stored.except));
+					}
+				} else {
+					hiddenIds.add(stored.id);
+				}
+			}
+		}
+		return { hiddenIds: hiddenIds, hiddenRemotes: hiddenRemotes };
+	}
+
 	private getProviderByRemote(graph: GitGraph): Map<string, { name: string; icon: string }> {
 		const providerByRemote = new Map<string, { name: string; icon: string }>();
 		for (const r of graph.remotes.values()) {
@@ -442,6 +469,7 @@ export class GraphPanelsService {
 	private getSidebarBranches(graph: GitGraph) {
 		const providerByRemote = this.getProviderByRemote(graph);
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
+		const { hiddenIds, hiddenRemotes } = this.getHiddenRefState(graph.repoPath);
 
 		const branchCfg = configuration.get('views.branches.branches');
 		// Shares the Branches view's setting, but not its dedupe — that view drops remote branches with a
@@ -474,6 +502,10 @@ export class GraphPanelsService {
 					? getRemoteNameFromBranchName(b.upstream.name)
 					: undefined;
 			const provider = remoteName ? providerByRemote.get(remoteName) : undefined;
+			// The remote's exception set, when the whole remote is wildcard-hidden. Excepted from it:
+			// still `b.remote`, but not `+hiddenbyremote`.
+			const remoteExcept = remoteName != null ? hiddenRemotes.get(remoteName) : undefined;
+			const hiddenByRemote = b.remote && remoteExcept != null && !remoteExcept.has(b.id);
 			return {
 				name: b.name,
 				sha: b.sha,
@@ -500,7 +532,7 @@ export class GraphPanelsService {
 						b.current || isCheckedOut ? '+checkedout' : ''
 					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
 						pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
-					}`,
+					}${!b.current && hiddenIds.has(b.id) ? '+hidden' : ''}${hiddenByRemote ? '+hiddenbyremote' : ''}`,
 					webviewItemValue: {
 						type: 'branch',
 						ref: createReference(b.name, graph.repoPath, {
@@ -527,6 +559,7 @@ export class GraphPanelsService {
 		const sorted = sortRemotes([...graph.remotes.values()]);
 		const branchOrderBy = configuration.get('sortBranchesBy');
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
+		const { hiddenIds, hiddenRemotes } = this.getHiddenRefState(graph.repoPath);
 		const branchesByRemote = new Map<string, GitBranch[]>();
 		// Reverse tracking map (upstream name → local branch name) so each remote branch can name the
 		// local branch that tracks it. Same pass as the grouping — no extra git work.
@@ -553,6 +586,8 @@ export class GraphPanelsService {
 					current: false,
 					orderBy: branchOrderBy,
 				});
+				// The remote's exception set, when the whole remote is wildcard-hidden.
+				const remoteExcept = hiddenRemotes.get(r.name);
 				const branches = rBranches.map(b => ({
 					name: getBranchNameWithoutRemote(b.name),
 					sha: b.sha,
@@ -561,7 +596,9 @@ export class GraphPanelsService {
 					context: {
 						webview: this.host.id,
 						webviewItemOrigin: sidebarItemOrigin,
-						webviewItem: `gitlens:branch+remote${pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''}`,
+						webviewItem: `gitlens:branch+remote${pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''}${
+							hiddenIds.has(b.id) ? '+hidden' : ''
+						}${remoteExcept != null && !remoteExcept.has(b.id) ? '+hiddenbyremote' : ''}`,
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(b.name, graph.repoPath, {
@@ -586,6 +623,9 @@ export class GraphPanelsService {
 				}
 				if (connected != null) {
 					webviewItem += connected ? '+connected' : '+disconnected';
+				}
+				if (hiddenRemotes.has(r.name)) {
+					webviewItem += '+hidden';
 				}
 
 				return {
@@ -1310,6 +1350,7 @@ export class GraphPanelsService {
 
 	private async getSidebarTags(graph: GitGraph) {
 		const tagCfg = configuration.get('views.tags.branches');
+		const { hiddenIds } = this.getHiddenRefState(graph.repoPath);
 		const result = await this.container.git.getRepositoryService(graph.repoPath).tags.getTags({ sort: true });
 		const sorted = sortTags(result.values, { orderBy: configuration.get('sortTagsBy') });
 		const items = sorted.map(t => ({
@@ -1321,7 +1362,7 @@ export class GraphPanelsService {
 			context: {
 				webview: this.host.id,
 				webviewItemOrigin: sidebarItemOrigin,
-				webviewItem: 'gitlens:tag',
+				webviewItem: `gitlens:tag${hiddenIds.has(t.id) ? '+hidden' : ''}`,
 				webviewItemValue: {
 					type: 'tag',
 					ref: createReference(t.name, graph.repoPath, {

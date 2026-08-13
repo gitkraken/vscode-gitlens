@@ -8,7 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds _Hide Remote_ and _Show Remote_ actions to remote rows in the _Commit Graph_ side bar, and shows hidden branches, remotes, and tags dimmed with an _eye-closed_ marker and an un-hide action instead of leaving them indistinguishable from visible ones
 - Adds un-hiding a single branch of a hidden remote in the _Commit Graph_ &mdash; the remote stays hidden while just that branch returns, and hiding the branch again tucks it back under the hidden remote
+
+### Changed
+
+- Changes the default remote's `default` text badge in the _Commit Graph_ side bar to a check mark, matching the current branch marker
 
 ### Fixed
 

@@ -733,6 +733,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getOpenEditorShowOptions: () => this.getOpenEditorShowOptions(),
 			runStageConflictResolution: (item, resolution) => this.runStageConflictResolution(item, resolution),
 			updateExcludedRefs: (repoPath, refs, visible) => this.updateExcludedRefs(repoPath, refs, visible),
+			showRemoteRefs: (repoPath, remoteName) => this.showRemoteRefs(repoPath, remoteName),
 			updatePinnedRef: (repoPath, ref) => this.updatePinnedRef(repoPath, ref),
 			_undoCommit: (ref, worktreePath) => this._undoCommit(ref, worktreePath),
 		};
@@ -807,15 +808,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** Collaborator surface {@link GraphPanelsService} reaches for. `getRepository`/`getSession`/
-	 *  `getLoading` read live provider state; `getPinnedRefId`/`fetchWipStatus`/`computeWorktreeChanges`
-	 *  forward into the WIP service's caches; `fireSidebarInvalidated` fires the provider's RPC event
-	 *  (subscribed in `getRpcServices`); the pending-notification queue routes through the provider's
-	 *  shared `_ipcNotificationMap`, which stays here. */
+	 *  `getLoading` read live provider state; `getPinnedRefId`/`getExcludedRefsByRepo`/`fetchWipStatus`/
+	 *  `computeWorktreeChanges` forward into the provider's stored filters and the WIP service's caches;
+	 *  `fireSidebarInvalidated` fires the provider's RPC event (subscribed in `getRpcServices`); the
+	 *  pending-notification queue routes through the provider's shared `_ipcNotificationMap`, which stays here. */
 	private createGraphPanelsContext(): GraphPanelsServiceContext {
 		return {
 			...this.createBaseServiceContext(),
 			getLoading: () => this._data.loading,
 			getPinnedRefId: repoPath => this.getFiltersByRepo(repoPath)?.pinnedRef?.id,
+			getExcludedRefsByRepo: repoPath => this.getFiltersByRepo(repoPath)?.excludeRefs,
 			fetchWipStatus: (path, signal) => this._wip.getStatusFromCache(path, signal),
 			computeWorktreeChanges: worktrees => this._wip.computeWorktreeChanges(worktrees),
 			fireSidebarInvalidated: () => this._sidebarInvalidatedEvent.fire(undefined),
@@ -5035,6 +5037,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		let storedExcludeRefs: StoredGraphFilters['excludeRefs'] = this.getFiltersByRepo(repoPath)?.excludeRefs ?? {};
 		for (const ref of refs) {
 			if (!visible) {
+				if (ref.name === '*') {
+					// A remote can be hidden from more than one row (each branch leaf, or the remote row itself),
+					// each keyed by a different id — drop any existing wildcard for the same owner first, or every
+					// hide leaves behind a stale duplicate entry. The fresh wildcard carries no `except` — re-hiding
+					// a remote clears any exceptions it previously had.
+					for (const id in storedExcludeRefs) {
+						const stored = storedExcludeRefs[id];
+						if (stored.type === 'remote' && stored.name === '*' && stored.owner === ref.owner) {
+							storedExcludeRefs = updateRecordValue(storedExcludeRefs, id, undefined);
+						}
+					}
+
+					storedExcludeRefs = updateRecordValue(storedExcludeRefs, ref.id, {
+						id: ref.id,
+						type: ref.type as StoredGraphRefType,
+						name: ref.name,
+						owner: ref.owner,
+					});
+					continue;
+				}
+
 				// A remote branch already exempted from an active whole-remote wildcard is "hidden" by
 				// clearing the exception rather than adding a redundant direct entry — the wildcard already
 				// covers it.
@@ -5086,6 +5109,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });
 		void this.notifyDidChangeRefsVisibility();
+		// Hidden state is baked into the side bar's row contexts (`+hidden`/`+hiddenbyremote`), so a visibility
+		// change has to rebuild them the same way a pin change does (`updatePinnedRef` below).
+		this._panels.notifySidebarInvalidated();
+	}
+
+	/** Clears every stored exclusion owned by a remote — the wildcard entry hiding the whole remote plus any
+	 *  individually hidden branches under it — in one write. Reuses {@link updateExcludedRefs}'s removal path
+	 *  (visible=true removes by entry id) rather than duplicating the storage/notify/invalidate flow. */
+	private showRemoteRefs(repoPath: string | undefined, remoteName: string) {
+		const storedExcludeRefs = this.getFiltersByRepo(repoPath)?.excludeRefs;
+		if (!hasKeys(storedExcludeRefs)) return;
+
+		const refs: GraphExcludedRef[] = [];
+		for (const id in storedExcludeRefs) {
+			const stored = storedExcludeRefs[id];
+			if (stored.owner === remoteName) {
+				refs.push({ id: stored.id, type: stored.type, name: stored.name, owner: stored.owner });
+			}
+		}
+
+		this.updateExcludedRefs(repoPath, refs, true);
 	}
 
 	private updatePinnedRef(repoPath: string | undefined, ref: GraphPinnedRef | null) {

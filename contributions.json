@@ -3621,7 +3621,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|remote)\\b)/",
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|remote)\\b)(?!.*?\\b\\+hidden\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 11
 					}
@@ -3645,9 +3645,14 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)(?!.*?\\b\\+hidden\\b)(?!.*?\\b\\+hiddenbyremote\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 10
+					},
+					{
+						"when": "webviewItem =~ /gitlens:remote\\b(?!.*?\\b\\+hidden\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 2
 					}
 				]
 			}
@@ -3657,7 +3662,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)(?!.*?\\b\\+hidden\\b)(?!.*?\\b\\+hiddenbyremote\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 11
 					}
@@ -3669,7 +3674,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:tag\\b/",
+						"when": "webviewItem =~ /gitlens:tag\\b(?!.*?\\b\\+hidden\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 10
 					}
@@ -4458,6 +4463,59 @@
 						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
 						"group": "1_a_gitlens",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.showLocalBranch": {
+			"label": "Show Local Branch",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|remote)\\b)(?=.*?\\b\\+hidden\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 11
+					}
+				]
+			}
+		},
+		"gitlens.graph.showRemote": {
+			"label": "Show Remote",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?=.*?\\b\\+hiddenbyremote\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 10
+					},
+					{
+						"when": "webviewItem =~ /gitlens:remote\\b(?=.*?\\b\\+hidden\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.showRemoteBranch": {
+			"label": "Show Remote Branch",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)(?=.*?\\b\\+hidden(byremote)?\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 11
+					}
+				]
+			}
+		},
+		"gitlens.graph.showTag": {
+			"label": "Show Tag",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:tag\\b(?=.*?\\b\\+hidden\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 10
 					}
 				]
 			}

@@ -37,6 +37,23 @@ export function createFocusRefAction(label: string, args: FocusRefActionArgs): T
 }
 
 /**
+ * Whether a row's `webviewItem` token carries the `+hidden` flag — the ref itself (or, on a remote
+ * header row, the whole remote) is hidden by the graph's hidden-refs filter. Token-only: the host is
+ * the single source of truth, there's no separate hidden-state field to read.
+ */
+export function isHiddenWebviewItem(webviewItem: string | undefined): boolean {
+	return webviewItem != null && /\b\+hidden\b/.test(webviewItem);
+}
+
+/**
+ * Whether a row's `webviewItem` token carries the `+hiddenbyremote` flag — a remote-branch row whose
+ * whole remote is hidden by a whole-remote wildcard, distinct from the branch itself being hidden.
+ */
+export function isHiddenByRemoteWebviewItem(webviewItem: string | undefined): boolean {
+	return webviewItem != null && /\b\+hiddenbyremote\b/.test(webviewItem);
+}
+
+/**
  * Icon for a branch row, shared by the branches sidebar panel and the scope picker.
  *
  * A remote branch takes its remote's provider glyph (cloud when unrecognized) — the branch glyph's
@@ -146,14 +163,28 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 		});
 	}
 
-	// Always last, so it lands on the row's right edge (the trailing cluster is right-packed against
-	// a flexing label) and stays put no matter which state-dependent actions precede it.
+	// Last, so it lands on the row's right edge (the trailing cluster is right-packed against a
+	// flexing label) and stays put no matter which state-dependent actions precede it — except on a
+	// hidden row, where the un-hide chip below takes the edge as the row's primary recovery action.
 	actions.push(
 		createFocusRefAction('Focus on Branch', {
 			branchName: b.name,
 			upstreamName: b.upstream?.missing ? undefined : b.upstream?.name,
 		}),
 	);
+
+	const webviewItem = b.context?.webviewItem;
+	if (b.remote) {
+		// Per-branch un-hide is the row-level action, whether the branch is individually hidden or
+		// covered by a whole-remote wildcard — the host turns the latter into an exception instead of
+		// un-hiding the whole remote. Whole-remote recovery stays on the remote header row's chip and
+		// the context menus.
+		if (isHiddenByRemoteWebviewItem(webviewItem) || isHiddenWebviewItem(webviewItem)) {
+			actions.push({ icon: 'eye', label: 'Show Remote Branch', action: 'gitlens.graph.showRemoteBranch' });
+		}
+	} else if (isHiddenWebviewItem(webviewItem)) {
+		actions.push({ icon: 'eye', label: 'Show Branch', action: 'gitlens.graph.showLocalBranch' });
+	}
 
 	return actions;
 }

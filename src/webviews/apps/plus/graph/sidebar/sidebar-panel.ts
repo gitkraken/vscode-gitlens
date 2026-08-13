@@ -71,6 +71,8 @@ import {
 	createFocusRefAction,
 	focusRefActionId,
 	getBranchLeafActions,
+	isHiddenByRemoteWebviewItem,
+	isHiddenWebviewItem,
 	remoteProviderFolderIcon,
 	remoteProviderIconsByName,
 } from './branchActions.utils.js';
@@ -263,6 +265,26 @@ const currentBranchDecoration: TreeItemDecoration = {
 	type: 'icon',
 	icon: 'check',
 	label: 'Current Branch',
+	position: 'after',
+	muted: true,
+};
+
+/** The repository's default remote. Replaces a former text "default" badge with a glyph matching
+ *  the current-branch pattern above. */
+const defaultRemoteDecoration: TreeItemDecoration = {
+	type: 'icon',
+	icon: 'check',
+	label: 'Default Remote',
+	position: 'after',
+	muted: true,
+};
+
+/** A ref (or, on a remote header row, the whole remote) hidden by the graph's hidden-refs filter.
+ *  Rows carrying it stay listed — dimmed via `muted` — rather than being filtered out. */
+const hiddenDecoration: TreeItemDecoration = {
+	type: 'icon',
+	icon: 'eye-closed',
+	label: 'Hidden',
 	position: 'after',
 	muted: true,
 };
@@ -1323,6 +1345,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private toBranchLeaf(b: GraphSidebarBranch, isTree: boolean): LeafProps {
 		const actions = getBranchLeafActions(b);
 		const tracking = trackingDecorations(b.tracking, b.upstream?.missing);
+		const webviewItem = b.context?.webviewItem;
+		const hidden = isHiddenWebviewItem(webviewItem) || isHiddenByRemoteWebviewItem(webviewItem);
 
 		return {
 			label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
@@ -1330,6 +1354,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			tooltip: branchTooltip(b, this.dateFormat),
 			icon: branchTreeIcon(b),
 			description: b.date != null ? fromNow(b.date) : undefined,
+			muted: hidden,
 			context: [b.sha, undefined, undefined, b.name] as SidebarItemContext,
 			// Pin before check so the checkmark closes the row — it's the more permanent of the two states,
 			// and keeping it outermost stops it shifting when a pin comes and goes.
@@ -1337,6 +1362,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				...(tracking ?? []),
 				...(b.pinned ? [pinnedToEdgeDecoration] : []),
 				...(b.current ? [currentBranchDecoration] : []),
+				...(hidden ? [hiddenDecoration] : []),
 			],
 			actions: actions,
 			contextValue: b.context,
@@ -1521,14 +1547,21 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private toTagLeaf(t: GraphSidebarTag, isTree: boolean): LeafProps {
+		const hidden = isHiddenWebviewItem(t.context?.webviewItem);
+
 		return {
 			label: isTree ? (t.name.split('/').pop() ?? t.name) : t.name,
 			filterText: isTree ? t.name : undefined,
 			tooltip: tagTooltip(t, this.dateFormat),
 			icon: 'tag',
 			description: t.message,
+			muted: hidden,
 			context: [t.sha] as SidebarItemContext,
-			actions: [{ icon: 'gl-switch', label: 'Switch to Tag...', action: 'gitlens.graph.switchToTag' }],
+			decorations: hidden ? [hiddenDecoration] : undefined,
+			actions: [
+				{ icon: 'gl-switch', label: 'Switch to Tag...', action: 'gitlens.graph.switchToTag' },
+				...(hidden ? [{ icon: 'eye', label: 'Show Tag', action: 'gitlens.graph.showTag' }] : []),
+			],
 			contextValue: t.context,
 		};
 	}
@@ -1879,45 +1912,66 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				useTree,
 				compact,
 				b => b.name.split('/'),
-				(b, isTree) => ({
-					label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
-					filterText: isTree ? b.name : undefined,
-					tooltip: `$(git-branch) \`${r.name}/${b.name}\``,
-					icon: 'git-branch',
-					context: [b.sha] as SidebarItemContext,
-					decorations: b.pinned ? [pinnedToEdgeDecoration] : undefined,
+				(b, isTree) => {
+					const webviewItem = b.context?.webviewItem;
+					const hiddenByRemote = isHiddenByRemoteWebviewItem(webviewItem);
+					const hidden = hiddenByRemote || isHiddenWebviewItem(webviewItem);
+
 					// Scope is keyed on local heads, so focus the local branch tracking this one when
 					// there is one; only an untracked remote branch is scoped as a `remotes/*` ref.
-					actions: [
+					// The un-hide chip goes last so it takes the row's right edge when present.
+					const actions: TreeItemAction[] = [
 						createFocusRefAction(
 							'Focus on Branch',
 							b.localBranch != null
 								? { branchName: b.localBranch, upstreamName: `${r.name}/${b.name}` }
 								: { branchName: `${r.name}/${b.name}`, remote: true },
 						),
-					],
-					contextValue: b.context,
-				}),
+					];
+					// Per-branch un-hide is the row-level action, whether the branch is individually hidden
+					// or covered by a whole-remote wildcard — the host turns the latter into an exception
+					// instead of un-hiding the whole remote. Whole-remote recovery stays on the remote
+					// header row's chip and the context menus.
+					if (hidden) {
+						actions.push({
+							icon: 'eye',
+							label: 'Show Remote Branch',
+							action: 'gitlens.graph.showRemoteBranch',
+						});
+					}
+
+					return {
+						label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
+						filterText: isTree ? b.name : undefined,
+						tooltip: `$(git-branch) \`${r.name}/${b.name}\``,
+						icon: 'git-branch',
+						context: [b.sha] as SidebarItemContext,
+						muted: hidden,
+						decorations: [
+							...(b.pinned ? [pinnedToEdgeDecoration] : []),
+							...(hidden ? [hiddenDecoration] : []),
+						],
+						actions: actions,
+						contextValue: b.context,
+					};
+				},
 				2,
 			);
 
 			const remoteIcon =
 				r.providerIcon != null && r.providerIcon !== 'remote' ? `gl-provider-${r.providerIcon}` : 'cloud';
+			const hidden = isHiddenWebviewItem(r.context?.webviewItem);
 
 			const actions: TreeItemAction[] = [
 				{ icon: 'repo-fetch', label: 'Fetch', action: 'gitlens.fetchRemote:graph' },
 			];
+			// Connect is worth surfacing inline — it unlocks enrichment. Disconnect is not: rarely wanted,
+			// destructive-feeling next to Fetch, and still available on the context menu.
 			if (r.connected === false) {
 				actions.push({
 					icon: 'plug',
 					label: 'Connect Remote Integration',
 					action: 'gitlens.connectRemoteProvider:graph',
-				});
-			} else if (r.connected === true) {
-				actions.push({
-					icon: 'gl-unplug',
-					label: 'Disconnect Remote Integration',
-					action: 'gitlens.disconnectRemoteProvider:graph',
 				});
 			}
 			actions.push({
@@ -1928,6 +1982,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				altLabel: 'Copy Remote URL',
 				altAction: 'gitlens.copyRemoteRepositoryUrl:graph',
 			});
+			if (hidden) {
+				actions.push({ icon: 'eye', label: 'Show Remote', action: 'gitlens.graph.showRemote' });
+			}
 
 			return {
 				branch: true,
@@ -1942,7 +1999,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				context: [undefined],
 				contextData: r.context != null ? serializeWebviewItemContext(r.context) : undefined,
 				children: children,
-				decorations: r.isDefault ? [{ type: 'text' as const, label: 'default' }] : undefined,
+				muted: hidden,
+				decorations: [...(r.isDefault ? [defaultRemoteDecoration] : []), ...(hidden ? [hiddenDecoration] : [])],
 				actions: actions,
 			};
 		});
