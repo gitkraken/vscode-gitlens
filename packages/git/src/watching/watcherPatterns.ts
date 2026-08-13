@@ -8,7 +8,7 @@ const dotGitFiles =
 const dotGitWorktreeFiles =
 	'worktrees/*,worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge,worktrees/**/rebase-merge/**,worktrees/**/rebase-apply,worktrees/**/rebase-apply/**,worktrees/**/sequencer,worktrees/**/sequencer/**';
 
-const dotGitCommonFiles = `config,gk/config,refs/**,info/exclude,FETCH_HEAD,${dotGitWorktreeFiles}`;
+const dotGitCommonFiles = `config,gk/config,refs/**,packed-refs,info/exclude,FETCH_HEAD,${dotGitWorktreeFiles}`;
 
 /** For standard repos (no worktrees): single watcher covering all .git files */
 export const dotGitGlobCombined = `{${dotGitFiles},${dotGitCommonFiles}}`;

@@ -111,6 +111,14 @@ describe('classifyGitDirChange', () => {
 		assert.deepStrictEqual(classifyGitDirChange('refs/tags/v1.0'), ['tags']);
 	});
 
+	it('maps packed-refs to heads + remotes + tags', () => {
+		assert.deepStrictEqual(classifyGitDirChange('packed-refs'), ['heads', 'remotes', 'tags']);
+	});
+
+	it('maps packed-refs.lock to heads + remotes + tags (unanchored regex substring-matches; the glob keeps lock events from ever reaching classification in production)', () => {
+		assert.deepStrictEqual(classifyGitDirChange('packed-refs.lock'), ['heads', 'remotes', 'tags']);
+	});
+
 	it('maps worktrees to worktrees', () => {
 		assert.deepStrictEqual(classifyGitDirChange('worktrees'), ['worktrees']);
 	});

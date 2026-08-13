@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes incorrect context window and maximum output token limits across the Anthropic, OpenAI, Mistral, xAI, and DeepSeek models
+- Fixes deleted branches lingering in the _Commit Graph_ and views when the branch's ref was packed (e.g. after `git gc`)
 
 ## [19.0.0] - 2026-08-12
 
