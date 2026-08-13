@@ -146,7 +146,7 @@ export const settingsAppStyles = [
 		/* Initial-load gate — mirrors the two-pane layout so the real UI doesn't shift in */
 		.body--loading {
 			display: flex;
-			overflow: hidden;
+			overflow: clip;
 		}
 
 		.body--loading__nav {
