@@ -122,6 +122,7 @@ import {
 	renderIssueTooltipCard,
 	renderPullRequestTooltipCard,
 	renderRefPill,
+	resolveAutoRefPillCap,
 	toParsedRefs,
 } from './adornments/refAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
@@ -1200,6 +1201,11 @@ export class GlLitGraph extends LitElement {
 	// arrives on many unrelated pushes and would nuke the adornment cache constantly). A flip re-resolves
 	// adornments so cached ref-pill labels pick up the new bare/qualified name.
 	private lastShowRemoteNamesRef = false;
+	// `effectiveMaxInlineRefs` (the RESOLVED cap, not the raw config value — `'auto'` mode's cap moves
+	// with the available width, not with the config) field-level tracking (same reasoning as
+	// `lastShowRemoteNamesRef`) — a cap change re-resolves adornments so cached ref-pill overflow (+N
+	// counter) picks up the new limit.
+	private lastMaxInlineRefsRef = 1;
 	// Row-filter tracking for branches-visibility / hidden-ref filtering — separate refs from the
 	// marker trackers above so a filter change re-runs recomputeRows (it now drops commit ROWS, not
 	// just ref labels: hidden heads/remotes/tags and Current/Smart/Favorited narrow the reachable set).
@@ -1340,6 +1346,7 @@ export class GlLitGraph extends LitElement {
 		getIssues: ref => (ref.id != null ? (this.refsMetadata?.[ref.id]?.issue ?? undefined) : undefined),
 		getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
 		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
+		getMaxInlineRefs: () => this.effectiveMaxInlineRefs,
 		getRowMarkerTips: () => this._rowMarkerTips,
 		getFindHitRefKey: () => this._refFindHitKey,
 		getPinnedRefKey: () => this._pinnedRefKey,
@@ -1872,6 +1879,13 @@ export class GlLitGraph extends LitElement {
 		const showRemoteNamesChanged = showRemoteNames !== this.lastShowRemoteNamesRef;
 		this.lastShowRemoteNamesRef = showRemoteNames;
 
+		// `effectiveMaxInlineRefs` field-level compare (see `lastMaxInlineRefsRef`) — compares the RESOLVED
+		// cap, not the raw config value, so a width-driven change in `'auto'` mode re-resolves cached
+		// ref-pill overflow exactly when the resolved cap moves, without keying off whole-config identity.
+		const maxInlineRefs = this.effectiveMaxInlineRefs;
+		const maxInlineRefsChanged = maxInlineRefs !== this.lastMaxInlineRefsRef;
+		this.lastMaxInlineRefsRef = maxInlineRefs;
+
 		// Cache the search-matched sha set BEFORE lane derivations — the filter-mode displayRows filter
 		// (applySearchFilter, reached via recomputeLaneDerivations) reads it. Rebuild ONLY when the
 		// results object changes; a large search matches many shas, so recomputing the Set on every
@@ -2009,6 +2023,7 @@ export class GlLitGraph extends LitElement {
 			excludeChanged ||
 			downstreamsChanged ||
 			showRemoteNamesChanged ||
+			maxInlineRefsChanged ||
 			rowMarkerChanged
 		) {
 			this.invalidateAdornments();
@@ -4512,6 +4527,37 @@ export class GlLitGraph extends LitElement {
 	// Also the viewport the single clamp table + build window use — every clipped row clips at this one width.
 	private get inlineGutterWidth(): number {
 		return Math.min(this.gutterWidth, gutterPadding * 2 + this.inlineLaneCap * this.columnWidth);
+	}
+
+	// Resolves `gitlens.graph.refs.maxInline`'s cap: a configured number passes through (floored at 1);
+	// `'auto'` derives it from the width refs actually have to work with, uniformly for every row (see
+	// `resolveAutoRefPillCap` — no per-row measurement). The available width depends on WHERE refs render:
+	// the list style's stacked line 2 (table-style zone columns don't render there at all, so it wins
+	// regardless of `refsPlacement` — see `renderListBody`), a dedicated Refs column (own zone width), or
+	// grouped inline (a share of the list style's content width — kept in step with the `.gl-graph__refs`
+	// SCSS cap of `min(40%, calc(100% - 9rem))`, see graph.scss).
+	private get effectiveMaxInlineRefs(): number {
+		const raw = this.config?.maxInlineRefs ?? 1;
+		if (raw !== 'auto') return Math.max(1, raw);
+
+		// Not yet measured: the first render's containerWidth is 0 until the ResizeObserver reports.
+		if (this.containerWidth === 0) return 1;
+
+		if (this.effectiveStyle === 'list') {
+			const contentWidth = Math.max(0, this.containerWidth - this.scrollbarGutterPx - this.inlineGutterWidth);
+			return resolveAutoRefPillCap(contentWidth);
+		}
+
+		if (this.refsPlacement === 'column') {
+			const configuredWidth = this.zones.find(z => z.id === 'ref')?.width ?? 180;
+			const liveWidth = solveZoneLayout(this.getVisibleZones(), this.zoneTargetWidth).find(
+				z => z.id === 'ref',
+			)?.currentWidth;
+			return resolveAutoRefPillCap(liveWidth ?? configuredWidth);
+		}
+
+		const contentWidth = Math.max(0, this.containerWidth - this.scrollbarGutterPx - this.inlineGutterWidth);
+		return resolveAutoRefPillCap(contentWidth * 0.4);
 	}
 
 	// True when the grouped gutter is capped below the full fit → the smart-scroll clamp visuals apply

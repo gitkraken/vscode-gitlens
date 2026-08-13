@@ -1269,6 +1269,18 @@
 						"scope": "window",
 						"order": 702
 					},
+					"gitlens.graph.refs.maxInline": {
+						"type": [
+							"number",
+							"string"
+						],
+						"default": 1,
+						"minimum": 1,
+						"maximum": 10,
+						"markdownDescription": "Specifies the maximum number of branch and tag pills to show on each row of the _Commit Graph_, as space allows. Additional refs are collapsed behind a +N counter on the last pill. Use `\"auto\"` to fit as many pills as the row area allows",
+						"scope": "window",
+						"order": 703
+					},
 					"gitlens.graph.issues.enabled": {
 						"type": "boolean",
 						"default": true,

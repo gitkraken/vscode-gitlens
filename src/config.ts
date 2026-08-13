@@ -485,6 +485,9 @@ export interface GraphConfig {
 		readonly enabled: boolean;
 	};
 	readonly refFindAutoHide: boolean;
+	readonly refs: {
+		readonly maxInline: number | 'auto';
+	};
 	readonly scrollMarkers: {
 		readonly enabled: boolean;
 		readonly additionalTypes: GraphScrollMarkersAdditionalTypes[];

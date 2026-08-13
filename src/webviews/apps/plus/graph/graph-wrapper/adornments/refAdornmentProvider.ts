@@ -79,6 +79,11 @@ export interface RefPillHooks {
 	/** `gitlens.graph.showRemoteNames` — when false (the default), a remote pill's label is the bare
 	 *  branch name instead of `remote/name`. Read fresh (config can change at runtime). */
 	getShowRemoteNames: () => boolean;
+	/** `gitlens.graph.refs.maxInline` — maximum number of ref pills shown inline per row before the rest
+	 *  collapse behind a +N counter, already RESOLVED (the `'auto'` setting derives this from the
+	 *  available width; this hook always returns the resolved number). Read fresh (config/width can
+	 *  change at runtime); the consumer clamps values to >= 1. */
+	getMaxInlineRefs?: () => number;
 	/** Id of the ref pinned to the edge (`gitlens.graph.pinBranchToEdge`), read live so a pin/unpin shows
 	 *  up without a rebuild. Distinct from the CLICK-pinned ref (`getPinnedRefKey`) — that one is transient
 	 *  focus, this one is persisted host state. Its pill takes the pin indicator + unpin control. */
@@ -210,7 +215,9 @@ export function createRefAdornmentProvider(
 		resolveAdornment: function (row: ProcessedGraphRow, parsed?: ParsedRef[]): TemplateResult | null {
 			if (!parsed || parsed.length === 0) return null;
 
-			return renderRefPill(parsed, colorForColumn(row.column), row.sha, hooks);
+			// A row always shows at least one pill, whatever the setting says.
+			const cap = Math.max(1, hooks?.getMaxInlineRefs?.() ?? 1);
+			return renderRefPill(parsed, colorForColumn(row.column), row.sha, hooks, undefined, cap);
 		},
 
 		describeForA11y: function (_row: ProcessedGraphRow, parsed?: ParsedRef[]): string | null {
@@ -431,24 +438,141 @@ export interface RefPillRowMarker {
 	iconsOnly?: boolean;
 }
 
+/** A resting pill's typical footprint (icon + a medium branch name), in CSS px. A heuristic, not a
+ *  measurement — no pill is actually laid out to derive this. CSS shrinks pills under real crowding, so
+ *  both under- and over-estimates are absorbed by that shrink rather than causing overflow. */
+const assumedRefPillWidth = 110;
+
+/** Derives `gitlens.graph.refs.maxInline`'s `'auto'` cap from the width available to ref pills: how many
+ *  {@link assumedRefPillWidth}-wide pills fit, clamped to the setting's [1, 10] range. Non-finite or
+ *  non-positive widths (not yet measured) fall back to 1 rather than 0, so a row always shows its top ref. */
+export function resolveAutoRefPillCap(availableWidth: number): number {
+	if (!Number.isFinite(availableWidth) || availableWidth <= 0) return 1;
+
+	return Math.min(10, Math.max(1, Math.floor(availableWidth / assumedRefPillWidth)));
+}
+
+/** One pill's refs: the ref that names it, plus the in-sync upstream remote folded into its upstream
+ *  segment (see {@link partitionRowRefs}). */
+export interface RowRefUnit {
+	ref: ParsedRef;
+	upstreamOnRow: ParsedRef | undefined;
+}
+
+/**
+ * Split a row's ordered refs into the pills that render inline and the refs that collapse behind the +N
+ * badge. `parsed` arrives fully ordered (see `toParsedRefs` → `sortRowRefs`), pins included — nothing is
+ * reordered here; `cap` (`gitlens.graph.refs.maxInline`) only decides how many refs get their own pill.
+ *
+ * In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), it's
+ * absorbed into that head's upstream segment instead of being listed separately, so the pair reads as one
+ * combined pill. Absorption is ONE pass over the whole list — heads ascending, each taking the first
+ * not-yet-absorbed remote it tracks — so an inline pill and a `+N` popover row pair up by the same rule.
+ * The refs left over are the "units": the first `cap` render as sibling pills, the rest fold into the
+ * badge, each still carrying its absorbed remote (`popoverUpstreamFor`) so the expanded rows combine too.
+ *
+ * ⚠ The ref at index 0 is never absorbed. `sortRowRefs` already ranks an in-sync remote by its LOCAL (see
+ * `carrierFor`), so a remote that still lands first is one the row is explicitly focused on — a
+ * click-pinned remote, which is ranked by ITSELF. Folding it into a lower-ranked local would demote the
+ * very ref the click asked for.
+ *
+ * An UNTRACKED head matches any co-located remote sharing its bare name (`isUpstreamRemoteOf`'s last
+ * fallback), so several refs on this row can satisfy the predicate — a fork topology with both
+ * `origin/main` and `upstream/main` on an untracked local `main`. `sortRowRefs` resolved the find hit
+ * against a specific ref; picking a different one for the FIRST pill would leave the searched remote
+ * outside the combined pill entirely, rendered as an unmarked `+N` row. So that pill prefers the searched
+ * ref when it's one of the candidates. Deeper heads take first-match instead: their absorbed remote has
+ * nowhere to wear the find fill (a popover row is marked by its OWN key, see `renderPopoverRefRow`), so
+ * the searched ref is better off listed on its own.
+ */
+export function partitionRowRefs(
+	parsed: ParsedRef[],
+	cap: number,
+	findHitRefKey: string | undefined,
+): { visible: RowRefUnit[]; rest: ParsedRef[]; popoverUpstreamFor: Map<ParsedRef, ParsedRef> } {
+	const upstreamFor = new Map<ParsedRef, ParsedRef>();
+	const absorbed = new Set<ParsedRef>();
+	for (let i = 0; i < parsed.length; i++) {
+		const head = parsed[i];
+		if (head.kind !== 'head') continue;
+
+		const preferFindHit = i === 0 && findHitRefKey != null;
+		let match: ParsedRef | undefined;
+		// From index 1: the row's top-ranked ref is never absorbed.
+		for (let j = 1; j < parsed.length; j++) {
+			const remote = parsed[j];
+			if (absorbed.has(remote) || !isUpstreamRemoteOf(remote, head)) continue;
+
+			if (!preferFindHit) {
+				match = remote;
+				break;
+			}
+
+			// The first pill scans past a match for the searched ref; every other head takes the first.
+			if (refPillKey(remote) === findHitRefKey) {
+				match = remote;
+				break;
+			}
+
+			match ??= remote;
+		}
+		if (match == null) continue;
+
+		upstreamFor.set(head, match);
+		absorbed.add(match);
+	}
+
+	const units = absorbed.size > 0 ? parsed.filter(r => !absorbed.has(r)) : parsed;
+	const rest = units.slice(cap);
+	const popoverUpstreamFor = new Map<ParsedRef, ParsedRef>();
+	for (const r of rest) {
+		const up = upstreamFor.get(r);
+		if (up != null) {
+			popoverUpstreamFor.set(r, up);
+		}
+	}
+
+	return {
+		visible: units.slice(0, cap).map(r => ({ ref: r, upstreamOnRow: upstreamFor.get(r) })),
+		rest: rest,
+		popoverUpstreamFor: popoverUpstreamFor,
+	};
+}
+
+/** The per-pill inputs {@link renderOnePill} can't derive from its own ref. The ROW-level pieces are each
+ *  assigned to a single pill by {@link renderRefPill}: the row-marker emphasis + merge-target segment ride
+ *  the FIRST visible pill (the row sits on one tip, not one per ref), the overflow badge and the popover's
+ *  `aria-haspopup` the LAST. */
+interface RefPillOptions {
+	/** The in-sync upstream remote absorbed into this pill's upstream segment. */
+	upstreamOnRow: ParsedRef | undefined;
+	showRemoteNames: boolean;
+	edgePinnedId: string | undefined;
+	findHitRefKey: string | undefined;
+	emphasisRole: RowMarkerRole | undefined;
+	targetSha: Sha | undefined;
+	targetName: string | undefined;
+	/** The +N/tag badge, rendered in the in-flow pill AND its expand-overlay copy. */
+	moreBadge: TemplateResult | typeof nothing;
+	/** Whether this pill anchors the +N popover. */
+	hasPopover: boolean;
+	/** The WIP-row proxy pill's contract (jump / icons-only / pin suppression) — that path renders a single
+	 *  pill, so this never reaches a secondary one. */
+	rowMarker: RefPillRowMarker | undefined;
+}
+
 export function renderRefPill(
 	parsed: ParsedRef[],
 	color: string,
 	fromSha?: Sha,
 	hooks?: RefPillHooks,
 	rowMarker?: RefPillRowMarker,
+	cap = 1,
 ): TemplateResult {
-	const showRemoteNames = hooks?.getShowRemoteNames() === true;
-	// `parsed` arrives fully ordered (see `toParsedRefs` → `sortRowRefs`), pins included — nothing is
-	// reordered here.
+	const findHitRefKey = hooks?.getFindHitRefKey?.();
+	const { visible, rest, popoverUpstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey);
+	const restCount = rest.length;
 	const edgePinnedId = hooks?.getPinnedRefId?.();
-	const primary = parsed[0];
-	const isHead = primary.current === true;
-	const primaryContext = primary.context;
-	// The primary pill's leading glyph becomes the pin when this ref is pinned to the edge (see
-	// `renderLeadingSlot`). Only ever true for one ref in the graph.
-	const primaryEdgePinned =
-		edgePinnedId != null && primary.id === edgePinnedId && rowMarker?.suppressPinControl !== true;
 
 	// RowMarker role emphasis: a pill on a HEAD / upstream / merge-target tip row takes that role's fill
 	// (color via the `--row-marker-<role>` class in graph.scss; the border stays the lane color). Derived from
@@ -459,115 +583,11 @@ export function renderRefPill(
 	const role = rowMarker?.role ?? (derivedRoleMask !== 0 ? primaryRowMarkerRole(derivedRoleMask) : undefined);
 	// The HEAD pill also carries the merge-target jump segment (the current branch's target, from the tips).
 	const targetSha = role === 'head' ? tips?.targetSha : undefined;
-	const targetSegment = targetSha != null ? renderTargetSegment(targetSha, tips?.targetName, hooks, false) : nothing;
-	const targetSegmentExpanded =
-		targetSha != null ? renderTargetSegment(targetSha, tips?.targetName, hooks, true) : nothing;
 	// Only HEAD and upstream take the colored emphasis — a merge-target (or base) row's pill stays an ORDINARY
 	// lane-colored ref pill. Those rows are already called out by the rail + their marker chip, and recoloring
 	// the branch pill there implied the pill itself was the target rather than just sitting on that commit.
 	const emphasisRole = role === 'head' || role === 'upstream' ? role : undefined;
-	// In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), fold it
-	// into that head's upstream segment instead of listing it separately — so the pair reads as one
-	// combined pill. Applied to the PRIMARY pill and (below) to each head in the +N popover alike.
-	// Computed BEFORE `rowMarkerClass` so the find-hit check below can see it.
-	//
-	// An UNTRACKED head matches any co-located remote sharing its bare name (`isUpstreamRemoteOf`'s last
-	// fallback), so several refs on this row can satisfy the predicate — a fork topology with both
-	// `origin/main` and `upstream/main` on an untracked local `main`. `sortRowRefs` resolved the find hit
-	// against a specific ref; picking a different one here would leave the searched remote outside the
-	// combined pill entirely, rendered as an unmarked `+N` row. So prefer the searched ref when it's one
-	// of the candidates, and fall back to first-match otherwise.
-	const findHitRefKey = hooks?.getFindHitRefKey?.();
-	const upstreamOnRow =
-		(findHitRefKey != null
-			? parsed.find((r, i) => i > 0 && refPillKey(r) === findHitRefKey && isUpstreamRemoteOf(r, primary))
-			: undefined) ?? parsed.find((r, i) => i > 0 && isUpstreamRemoteOf(r, primary));
-	// The find-hit class marks the PILL that contains the matched ref. That's normally the primary itself,
-	// but `sortRowRefs` carries an in-sync remote match on its LOCAL (so the pair still combines into one
-	// pill) — the class then has to match against the absorbed remote's key instead, via `upstreamOnRow`.
-	// The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded for the same reason as the pins below: it
-	// re-renders the HEAD row's refs under the SAME key, so a hit on the current branch would mark a SECOND
-	// pill the finder never landed on — and, since `--find-hit` now forces the expand overlay open, leave it
-	// expanded over the WIP row's message for the finder's whole session.
-	const isFindHit =
-		rowMarker?.jumpSha == null &&
-		findHitRefKey != null &&
-		(findHitRefKey === refPillKey(primary) ||
-			(upstreamOnRow != null && findHitRefKey === refPillKey(upstreamOnRow)));
-	// The click-pinned ref only ever lands on the PRIMARY pill (unlike the find hit / edge pin, it has no
-	// carrier substitution — `sortRowRefs` ranks a pinned remote by itself, so it's promoted to primary
-	// outright). The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded: it renders the HEAD row's
-	// refs under the SAME pill key, and its contract is jump-only — it never earned the pin.
-	const isPinned =
-		rowMarker?.jumpSha == null &&
-		hooks?.getPinnedRefKey?.() != null &&
-		hooks.getPinnedRefKey() === refPillKey(primary);
-	// Same carrier restriction as the click pin — a native context menu only ever targets the rendered
-	// primary pill. Unlike the click pin, the WIP-row proxy pill is NOT excluded: it is right-clickable and
-	// must stay expanded for its own menu's lifetime. Matched through `refContextPinKey`, which qualifies
-	// the key by the jump sha, so the proxy and the real HEAD-row pill (identical `refPillKey`) can't be
-	// confused for one another.
-	const isContextPinned =
-		hooks?.getContextPinnedRefKey?.() != null &&
-		hooks.getContextPinnedRefKey() === refContextPinKey(refPillKey(primary), rowMarker?.jumpSha);
-	const rowMarkerClass = `${emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${emphasisRole}` : ''}${
-		emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''
-	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}${
-		isFindHit ? ' gl-graph__ref-pill--find-hit' : ''
-	}${isPinned ? ' is-pinned' : ''}${isContextPinned ? ' is-context-pinned' : ''}${
-		rowMarker?.iconsOnly === true ? ' gl-graph__ref-pill--icons-only' : ''
-	}`;
-	const afterPrimary = upstreamOnRow != null ? parsed.slice(1).filter(r => r !== upstreamOnRow) : parsed.slice(1);
-	// Within the popover, pair each head with its in-sync upstream remote (if also listed) and absorb that
-	// remote into the head's row, so the expanded rows combine just like the primary pill.
-	const popoverUpstreamFor = new Map<ParsedRef, ParsedRef>();
-	const absorbed = new Set<ParsedRef>();
-	for (const r of afterPrimary) {
-		if (r.kind !== 'head') continue;
 
-		const up = afterPrimary.find(x => !absorbed.has(x) && isUpstreamRemoteOf(x, r));
-		if (up != null) {
-			popoverUpstreamFor.set(r, up);
-			absorbed.add(up);
-		}
-	}
-	const rest = afterPrimary.filter(r => !absorbed.has(r));
-	const restCount = rest.length;
-	// Split-pill upstream segment: the primary's tracked counterpart — its upstream remote when in sync
-	// on this row (combined, no jump), or on ANOTHER row when out of sync (ahead/behind + a jump button).
-	// A row-marker pill that carries `upstream` opts out of both and just NAMES the remote instead.
-	let upstreamSegment: TemplateResult | typeof nothing;
-	if (rowMarker?.upstream != null) {
-		upstreamSegment = renderNamedUpstreamSegment(primary, rowMarker.upstream, hooks, rowMarker?.iconsOnly === true);
-	} else {
-		upstreamSegment =
-			fromSha != null
-				? renderUpstreamSegment(
-						primary,
-						fromSha,
-						hooks,
-						upstreamOnRow,
-						undefined,
-						rowMarker?.suppressPinControl !== true,
-					)
-				: nothing;
-	}
-
-	// PR/issue chips: first item only — a pill has room for a single badge of each kind.
-	// Rendered twice — icon-only for the resting pill, icon+label for the hover-expand overlay copy below.
-	const prMeta = firstRefMetadata(hooks, (h, r) => h.getPullRequests(r), primary, upstreamOnRow);
-	const prChip = prMeta != null ? renderPrChip(prMeta.item, prMeta.ref, false) : nothing;
-	const prChipExpanded = prMeta != null ? renderPrChip(prMeta.item, prMeta.ref, true) : nothing;
-	const issueMeta = firstRefMetadata(hooks, (h, r) => h.getIssues(r), primary, upstreamOnRow);
-	const issueChip = issueMeta != null ? renderIssueChip(issueMeta.item, issueMeta.ref, false) : nothing;
-	const issueChipExpanded = issueMeta != null ? renderIssueChip(issueMeta.item, issueMeta.ref, true) : nothing;
-
-	// Icon and label form a shrinkable group so a long branch name truncates. The +N badge sits
-	// outside the truncating group with flex-shrink:0 — the name ellipsises but the badge stays.
-	// When the pill is shrunk to its icon, hovering reveals the full name (+ the +N badge, for a
-	// grouped pill) via an absolutely-positioned overlay (`-expand`) that sits ON TOP of the message
-	// (no reflow — the in-flow box is untouched). The overlay renders for BOTH single and multi-ref
-	// pills so the PRIMARY ref's name always expands on hover; the popover (multi-ref) lists the rest.
 	// +N badge(s): hidden TAGS are counted separately from other hidden refs so the tag count is
 	// unambiguous (`🏷+1` = exactly one tag) rather than lumped into a generic total that reads as "+N
 	// tags". Non-tag overflow keeps the plain `+N`; a tag badge (tag glyph + count) is appended when the
@@ -587,6 +607,161 @@ export function renderRefPill(
 					}</span
 				>`
 			: nothing;
+
+	// The visible refs render as sibling pills (`.gl-graph__refs` is the flex row that spaces them).
+	const showRemoteNames = hooks?.getShowRemoteNames() === true;
+	const last = visible.length - 1;
+	// The head-role emphasis (and its merge-target segment) rides the CURRENT branch's pill when that pill
+	// is visible — a click pin can promote another ref to the first slot, and painting THAT pill as HEAD
+	// while the real HEAD pill sits beside it reads as the wrong branch being checked out. Falls back to
+	// the first pill when the current branch is folded or hidden. The upstream role stays on the first
+	// pill: on the upstream tip row `sortRowRefs` ranks the tracked remote near the top, so the first slot
+	// is that remote in every ordinary layout, and the tips carry no name to match a deeper pill by.
+	const emphasisIndex =
+		role === 'head'
+			? Math.max(
+					0,
+					visible.findIndex(u => u.ref.current === true),
+				)
+			: 0;
+	const pills = visible.map((unit, i) =>
+		renderOnePill(unit.ref, color, fromSha, hooks, {
+			upstreamOnRow: unit.upstreamOnRow,
+			showRemoteNames: showRemoteNames,
+			edgePinnedId: edgePinnedId,
+			findHitRefKey: findHitRefKey,
+			emphasisRole: i === emphasisIndex ? emphasisRole : undefined,
+			targetSha: i === emphasisIndex ? targetSha : undefined,
+			targetName: tips?.targetName,
+			moreBadge: i === last ? moreBadge : nothing,
+			hasPopover: i === last && restCount > 0,
+			rowMarker: i === 0 ? rowMarker : undefined,
+		}),
+	);
+
+	// Nothing hidden → bare pills. A pill's hover-expand overlay is absolutely positioned and must escape
+	// the row to paint over the message; a wrapping <gl-popover>'s shadow DOM clips it (that was the
+	// "pills don't expand" regression). Branch focus lives on the branch sheet (click the pill), so a pill
+	// that hides nothing needs no popover — which is why only the LAST one below is ever wrapped.
+	if (restCount === 0) return last === 0 ? pills[0] : html`${pills}`;
+
+	// Match the React HoverCard timings: openDelay 120ms, closeDelay 180ms. `hoist` lets the
+	// popover escape the row's `contain: layout`. stopPropagation on the content keeps clicks
+	// from bubbling to the row (selection / context menu).
+	return html`${pills.slice(0, last)}<gl-popover
+			class="gl-graph__ref-popover"
+			hoist
+			.arrow=${false}
+			placement="bottom-start"
+			trigger="hover focus"
+			.distance=${1}
+			style=${cspStyleMap({ '--show-delay': '120ms', '--hide-delay': '180ms', '--wa-tooltip-padding': '0' })}
+		>
+			<span slot="anchor" class="gl-graph__ref-popover-anchor">${pills[last]}</span>
+			<div slot="content" class="gl-graph__ref-popover-list" role="menu" @mousedown=${stopEvent}>
+				${rest.map(r =>
+					renderPopoverRefRow(
+						r,
+						color,
+						r.context,
+						fromSha,
+						hooks,
+						popoverUpstreamFor.get(r),
+						edgePinnedId != null && r.id === edgePinnedId && rowMarker?.suppressPinControl !== true,
+					),
+				)}
+			</div>
+		</gl-popover>`;
+}
+
+function renderOnePill(
+	ref: ParsedRef,
+	color: string,
+	fromSha: Sha | undefined,
+	hooks: RefPillHooks | undefined,
+	options: RefPillOptions,
+): TemplateResult {
+	const { upstreamOnRow, rowMarker } = options;
+	const isHead = ref.current === true;
+	// The pill's leading glyph becomes the pin when its ref is pinned to the edge (see `renderLeadingSlot`).
+	// Only ever true for one ref in the graph.
+	const edgePinned =
+		options.edgePinnedId != null && ref.id === options.edgePinnedId && rowMarker?.suppressPinControl !== true;
+
+	const targetSegment =
+		options.targetSha != null ? renderTargetSegment(options.targetSha, options.targetName, hooks, false) : nothing;
+	const targetSegmentExpanded =
+		options.targetSha != null ? renderTargetSegment(options.targetSha, options.targetName, hooks, true) : nothing;
+
+	// The find-hit class marks the PILL that contains the matched ref. That's normally the ref naming the
+	// pill, but `sortRowRefs` carries an in-sync remote match on its LOCAL (so the pair still combines into
+	// one pill) — the class then has to match against the absorbed remote's key instead, via `upstreamOnRow`.
+	// The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded for the same reason as the pins below: it
+	// re-renders the HEAD row's refs under the SAME key, so a hit on the current branch would mark a SECOND
+	// pill the finder never landed on — and, since `--find-hit` now forces the expand overlay open, leave it
+	// expanded over the WIP row's message for the finder's whole session.
+	const isFindHit =
+		rowMarker?.jumpSha == null &&
+		options.findHitRefKey != null &&
+		(options.findHitRefKey === refPillKey(ref) ||
+			(upstreamOnRow != null && options.findHitRefKey === refPillKey(upstreamOnRow)));
+	// The click-pinned ref only ever lands on the FIRST pill (unlike the find hit / edge pin, it has no
+	// carrier substitution — `sortRowRefs` ranks a pinned remote by itself, so it's promoted outright), but
+	// the key match is per-pill either way. The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded: it
+	// renders the HEAD row's refs under the SAME pill key, and its contract is jump-only — it never earned
+	// the pin.
+	const isPinned =
+		rowMarker?.jumpSha == null && hooks?.getPinnedRefKey?.() != null && hooks.getPinnedRefKey() === refPillKey(ref);
+	// Unlike the click pin, the WIP-row proxy pill is NOT excluded: it is right-clickable and must stay
+	// expanded for its own menu's lifetime. Matched through `refContextPinKey`, which qualifies the key by
+	// the jump sha, so the proxy and the real HEAD-row pill (identical `refPillKey`) can't be confused for
+	// one another.
+	const isContextPinned =
+		hooks?.getContextPinnedRefKey?.() != null &&
+		hooks.getContextPinnedRefKey() === refContextPinKey(refPillKey(ref), rowMarker?.jumpSha);
+	const rowMarkerClass = `${
+		options.emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${options.emphasisRole}` : ''
+	}${options.emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''}${
+		rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''
+	}${isFindHit ? ' gl-graph__ref-pill--find-hit' : ''}${isPinned ? ' is-pinned' : ''}${
+		isContextPinned ? ' is-context-pinned' : ''
+	}${rowMarker?.iconsOnly === true ? ' gl-graph__ref-pill--icons-only' : ''}`;
+	// Split-pill upstream segment: the ref's tracked counterpart — its upstream remote when in sync
+	// on this row (combined, no jump), or on ANOTHER row when out of sync (ahead/behind + a jump button).
+	// A row-marker pill that carries `upstream` opts out of both and just NAMES the remote instead.
+	let upstreamSegment: TemplateResult | typeof nothing;
+	if (rowMarker?.upstream != null) {
+		upstreamSegment = renderNamedUpstreamSegment(ref, rowMarker.upstream, hooks, rowMarker?.iconsOnly === true);
+	} else {
+		upstreamSegment =
+			fromSha != null
+				? renderUpstreamSegment(
+						ref,
+						fromSha,
+						hooks,
+						upstreamOnRow,
+						undefined,
+						rowMarker?.suppressPinControl !== true,
+					)
+				: nothing;
+	}
+
+	// PR/issue chips: first item only — a pill has room for a single badge of each kind.
+	// Rendered twice — icon-only for the resting pill, icon+label for the hover-expand overlay copy below.
+	const prMeta = firstRefMetadata(hooks, (h, r) => h.getPullRequests(r), ref, upstreamOnRow);
+	const prChip = prMeta != null ? renderPrChip(prMeta.item, prMeta.ref, false) : nothing;
+	const prChipExpanded = prMeta != null ? renderPrChip(prMeta.item, prMeta.ref, true) : nothing;
+	const issueMeta = firstRefMetadata(hooks, (h, r) => h.getIssues(r), ref, upstreamOnRow);
+	const issueChip = issueMeta != null ? renderIssueChip(issueMeta.item, issueMeta.ref, false) : nothing;
+	const issueChipExpanded = issueMeta != null ? renderIssueChip(issueMeta.item, issueMeta.ref, true) : nothing;
+
+	// Icon and label form a shrinkable group so a long branch name truncates. The +N badge sits
+	// outside the truncating group with flex-shrink:0 — the name ellipsises but the badge stays.
+	// When the pill is shrunk to its icon, hovering reveals the full name (+ the +N badge, on the pill
+	// carrying it) via an absolutely-positioned overlay (`-expand`) that sits ON TOP of the message
+	// (no reflow — the in-flow box is untouched). The overlay renders for EVERY pill so its own ref's
+	// name always expands on hover; the popover (on the last pill) lists the refs that don't fit.
+	//
 	// The WIP-row pill is a PROXY for the HEAD branch pill shown on the WIP row: `data-jump-sha` makes a click
 	// JUMP to the HEAD tip (scroll + select) via the same `gl-jump-to-commit` path the WIP details header's
 	// jump button uses — onClick handles it early (jump + stopPropagation), so the pill navigates to the branch WITHOUT pinning
@@ -594,30 +769,30 @@ export function renderRefPill(
 	// band + "Jump to …" tooltip the upstream/merge-target segments carry — otherwise the pill's largest zone
 	// was the only one that never signalled where it goes. Tooltip wording mirrors the overview bar's legs.
 	const nameJump = rowMarker?.jumpSha != null;
-	const nameTip = nameJump ? `Jump to HEAD (${primary.name})` : undefined;
+	const nameTip = nameJump ? `Jump to HEAD (${ref.name})` : undefined;
 	// The overlay copy's name zone needs the same wrapper to hang that band on (the resting pill has `-main`);
 	// only built for the jump case so every other pill's overlay markup is untouched.
 	// Rendered into BOTH the in-flow pill and the hover-expand overlay — the overlay is `pointer-events:
 	// auto` and covers the pill once hovered, so a control present only in the pill could never be clicked.
 	// Same duplication the upstream / target / PR / issue segments already rely on.
-	const leadingSlot = renderLeadingSlot(primary, primaryEdgePinned, hooks);
+	const leadingSlot = renderLeadingSlot(ref, edgePinned, hooks);
 	const expandName = html`${leadingSlot}<span class="gl-graph__ref-pill-expand-label"
-			>${chipLabel(primary, showRemoteNames)}</span
+			>${chipLabel(ref, options.showRemoteNames)}</span
 		>`;
-	const pill = html`<span
+	return html`<span
 		class="gl-graph__ref-pill${rowMarkerClass}"
 		style=${cspStyleMap(refStyle(color, isHead, 'pill'))}
 		role="button"
 		tabindex="-1"
-		aria-label=${describeRef(primary, hooks)}
-		aria-haspopup=${restCount > 0 ? 'menu' : nothing}
+		aria-label=${describeRef(ref, hooks)}
+		aria-haspopup=${options.hasPopover ? 'menu' : nothing}
 		data-jump-sha=${rowMarker?.jumpSha ?? nothing}
-		data-ref-name=${primary.name}
-		data-ref-key=${refPillKey(primary)}
-		data-ref-kind=${primary.kind}
-		data-ref-remote=${primary.owner ?? nothing}
-		data-ref-is-head=${primary.current ? 'true' : nothing}
-		data-vscode-context=${primaryContext ?? nothing}
+		data-ref-name=${ref.name}
+		data-ref-key=${refPillKey(ref)}
+		data-ref-kind=${ref.kind}
+		data-ref-remote=${ref.owner ?? nothing}
+		data-ref-is-head=${ref.current ? 'true' : nothing}
+		data-vscode-context=${ref.context ?? nothing}
 	>
 		<span
 			class="gl-graph__ref-pill-main${nameJump ? ' gl-graph__ref-pill-main--jump' : ''}"
@@ -626,10 +801,10 @@ export function renderRefPill(
 			${leadingSlot}${
 				rowMarker?.iconsOnly === true
 					? nothing
-					: html`<span class="gl-graph__ref-pill-label">${chipLabel(primary, showRemoteNames)}</span>`
+					: html`<span class="gl-graph__ref-pill-label">${chipLabel(ref, options.showRemoteNames)}</span>`
 			}
 		</span>
-		${upstreamSegment}${targetSegment}${prChip}${issueChip}${moreBadge}
+		${upstreamSegment}${targetSegment}${prChip}${issueChip}${options.moreBadge}
 		${
 			rowMarker?.iconsOnly === true
 				? nothing
@@ -642,44 +817,12 @@ export function renderRefPill(
 										>${expandName}</span
 									>`
 								: expandName
-						}${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
+						}${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${
+							options.moreBadge
+						}</span
 					>`
 		}
 	</span>`;
-
-	// A single ref → bare pill. Its hover-expand overlay is absolutely positioned and must escape the
-	// row to paint over the message; a wrapping <gl-popover>'s shadow DOM clips it (that was the
-	// "pills don't expand" regression). Branch focus now lives on the branch sheet (click the pill),
-	// so single pills no longer need a popover. Only MULTI-ref pills keep one — to list the extras.
-	if (restCount === 0) return pill;
-
-	// Match the React HoverCard timings: openDelay 120ms, closeDelay 180ms. `hoist` lets the
-	// popover escape the row's `contain: layout`. stopPropagation on the content keeps clicks
-	// from bubbling to the row (selection / context menu).
-	return html`<gl-popover
-		class="gl-graph__ref-popover"
-		hoist
-		.arrow=${false}
-		placement="bottom-start"
-		trigger="hover focus"
-		.distance=${1}
-		style=${cspStyleMap({ '--show-delay': '120ms', '--hide-delay': '180ms', '--wa-tooltip-padding': '0' })}
-	>
-		<span slot="anchor" class="gl-graph__ref-popover-anchor">${pill}</span>
-		<div slot="content" class="gl-graph__ref-popover-list" role="menu" @mousedown=${stopEvent}>
-			${rest.map(r =>
-				renderPopoverRefRow(
-					r,
-					color,
-					r.context,
-					fromSha,
-					hooks,
-					popoverUpstreamFor.get(r),
-					edgePinnedId != null && r.id === edgePinnedId && rowMarker?.suppressPinControl !== true,
-				),
-			)}
-		</div>
-	</gl-popover>`;
 }
 
 // Contextual jump tooltip, returned in two forms:

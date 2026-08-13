@@ -859,6 +859,10 @@ export interface GraphComponentConfig {
 	 * Backed by the user setting `gitlens.graph.lanes.grouped.max`.
 	 */
 	lanesGroupedMax?: number;
+	/** Maximum number of branch/tag pills shown inline per row, as space allows; extras collapse behind
+	 *  a +N counter on the last pill. `'auto'` derives the cap from the available refs width instead of
+	 *  a fixed count. Backed by `gitlens.graph.refs.maxInline`. */
+	maxInlineRefs?: number | 'auto';
 	/** Whether the minimap is available at all; when `false` it is never shown and has no header toggle. */
 	minimap?: Config['graph']['minimap']['enabled'];
 	/** When to show an available minimap; the stored per-workspace toggle overrides this. */

@@ -120,6 +120,13 @@ export const viewsCategories: SettingsCategory[] = [
 				label: 'Show remote names on remote branches',
 			},
 			{
+				kind: 'number',
+				key: 'graph.refs.maxInline',
+				label: 'Show this many branch and tag pills on each row before collapsing the rest',
+				placeholder: '1',
+				defaultValue: '1',
+			},
+			{
 				kind: 'check',
 				key: 'graph.showUpstreamStatus',
 				label: 'Show upstream status on local branches with remotes',

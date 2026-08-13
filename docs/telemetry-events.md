@@ -2814,6 +2814,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.pageItemLimit': number,
   'context.config.pullRequests.enabled': boolean,
   'context.config.refFindAutoHide': boolean,
+  'context.config.refs.maxInline': number,
   'context.config.scrollMarkers.additionalTypes': string,
   'context.config.scrollMarkers.enabled': boolean,
   'context.config.scrollRowPadding': number,
