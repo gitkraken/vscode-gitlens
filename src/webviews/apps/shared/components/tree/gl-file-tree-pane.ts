@@ -41,6 +41,7 @@ import {
 	nextContextMatchVisibility,
 	renderContextMatchVisibilityAction,
 	renderLayoutAction,
+	selectFilesByPath,
 } from './file-tree-utils.js';
 import { fileTreeStyles } from './gl-file-tree-pane.css.js';
 import type { GlTreeView } from './tree-view.js';
@@ -1065,17 +1066,10 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	private onSelectionChanged(e: CustomEvent<TreeSelectionChangedDetail>): void {
-		const selectedPaths = new Set(e.detail.paths);
 		// Dedupe by path: a mixed (staged + unstaged) file can appear as two rows sharing one path, and
 		// the selected set must carry each file once — otherwise multi actions double-act (open a file
 		// twice, copy/stage its path twice, list it twice in webviewItemsValues).
-		const seen = new Set<string>();
-		const files = (this.files ?? []).filter(f => {
-			if (!selectedPaths.has(f.path) || seen.has(f.path)) return false;
-
-			seen.add(f.path);
-			return true;
-		});
+		const files = selectFilesByPath(this.files, new Set(e.detail.paths));
 		this._selectedFiles = files;
 		this.dispatchEvent(
 			new CustomEvent('file-selection-changed', {

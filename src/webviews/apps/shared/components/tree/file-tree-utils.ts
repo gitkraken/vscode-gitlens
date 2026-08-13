@@ -149,6 +149,40 @@ export function renderOpenChangesAction(options: {
 	></gl-action-chip>`;
 }
 
+/**
+ * Every ROW whose path is selected. The working-changes feed emits TWO rows for a mixed (staged +
+ * unstaged) path, and each is its own diff — `openWipMultipleChanges` routes `staged: true` to
+ * HEAD↔index and `staged: false` to index↔working — so anything opening the selection per row must
+ * keep both. Callers that mean "the selected FILES" want {@link selectFilesByPath} instead.
+ */
+export function selectRowsByPath<T extends GitFileChangeShape>(
+	files: readonly T[] | undefined,
+	selectedPaths: ReadonlySet<string>,
+): T[] {
+	return (files ?? []).filter(f => selectedPaths.has(f.path));
+}
+
+/**
+ * The selected FILES — each path once, even when a mixed path occupies two rows.
+ *
+ * Counting rows instead double-acts: it opens or copies a path twice, lists it twice in
+ * `webviewItemsValues`, or reads one selected mixed file as two and switches the toolbar chips into
+ * their multi-selection behavior for a single selection. Shared so the tree's own selection tracking
+ * and the WIP pane's re-resolution can't drift on what "the selected files" means.
+ */
+export function selectFilesByPath<T extends GitFileChangeShape>(
+	files: readonly T[] | undefined,
+	selectedPaths: ReadonlySet<string>,
+): T[] {
+	const seen = new Set<string>();
+	return selectRowsByPath(files, selectedPaths).filter(f => {
+		if (seen.has(f.path)) return false;
+
+		seen.add(f.path);
+		return true;
+	});
+}
+
 // Approximates VS Code's SCM "status" sort ordering for working changes. Conflicts are floated
 // first separately (see `compareWorkingFiles`), so they're omitted here.
 const workingFileStatusOrder: Record<string, number> = {
