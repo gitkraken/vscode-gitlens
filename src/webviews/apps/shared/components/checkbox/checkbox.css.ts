@@ -21,6 +21,10 @@ export const checkboxBaseStyles = css`
 	}
 
 	label {
+		/* Containing block for the visually-hidden .input below. Without it the
+		   absolutely-positioned input resolves against a far ancestor, escapes any
+		   scroll container it's inside, and a focus scroll-into-view displaces the page. */
+		position: relative;
 		display: flex;
 		gap: var(--checkbox-spacing);
 		align-items: center;
