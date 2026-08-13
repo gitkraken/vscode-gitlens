@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Git Command Palette_'s subcommand menus to Title Case labels (e.g. _Merge Target_ instead of `mergeTarget`); typing the raw key still filters
 - Changes the default remote's `default` text badge in the _Commit Graph_ side bar to a check mark, matching the current branch marker
 - Changes the _Commit Graph_'s hidden branches/tags list to show remotes with their provider's icon, matching the side bar, instead of a low-fidelity avatar image
+- Changes _Commit Graph_ search failures to say what actually went wrong &mdash; unknown references are reported by name and real errors no longer blame the search pattern
 
 ### Fixed
 

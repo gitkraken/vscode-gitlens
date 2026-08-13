@@ -68,12 +68,18 @@ export abstract class GitCommandError<Details extends { gitCommand?: GitCommandC
 	}
 }
 
+export type GitSearchErrorReason = 'invalidPattern' | 'invalidRef';
+
 export class GitSearchError extends Error {
 	static is(ex: unknown): ex is GitSearchError {
 		return ex instanceof GitSearchError;
 	}
 
-	constructor(public readonly original: Error) {
+	constructor(
+		public readonly original: Error,
+		public readonly reason?: GitSearchErrorReason,
+		public readonly detail?: string,
+	) {
 		super(original.message);
 
 		Error.captureStackTrace?.(this, new.target);

@@ -1,6 +1,5 @@
 import type { CancellationToken } from 'vscode';
 import { CancellationTokenSource } from 'vscode';
-import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch } from '@gitlens/git/models/graphSearch.js';
 import type { GitGraphSession, GitGraphSessionChangedChannels } from '@gitlens/git/models/graphSession.js';
@@ -20,6 +19,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
+import { toGraphSearchResultsError } from './graphSearchService.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
 import { DidChangeNotification, DidSearchNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
@@ -637,9 +637,7 @@ export class GraphDataController {
 					// Only send error notifications immediately
 					void this.host.notify(DidSearchNotification, {
 						search: search.query,
-						results: {
-							error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
-						},
+						results: toGraphSearchResultsError(ex),
 						partial: false,
 						searchId: this.context.getSearchIdCounterCurrent(),
 					});

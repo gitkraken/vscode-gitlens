@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { RunError } from '../exec.errors.js';
 import {
+	classifySearchError,
 	classifySigningError,
 	defaultExceptionHandler,
 	getGitCommandError,
@@ -749,5 +750,62 @@ suite('Signing Errors Test Suite', () => {
 			const ex = new Error('fatal: not a git repository');
 			assert.strictEqual(inferSigningFormatFromError(ex), undefined);
 		});
+	});
+});
+
+suite('classifySearchError', () => {
+	test('classifies "command line" regcomp failure (unmatched paren) as invalidPattern', () => {
+		const ex = makeGitError("fatal: command line, 'fix(': Unmatched ( or \\(");
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidPattern', detail: 'Unmatched ( or \\(' });
+	});
+
+	test('classifies "command line" regcomp failure (trailing backslash) as invalidPattern', () => {
+		const ex = makeGitError("fatal: command line, 'test\\': Trailing backslash");
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidPattern', detail: 'Trailing backslash' });
+	});
+
+	test('classifies pickaxe "invalid regex" failure as invalidPattern', () => {
+		const ex = makeGitError('fatal: invalid regex: Unmatched ( or \\(');
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidPattern', detail: 'Unmatched ( or \\(' });
+	});
+
+	test('classifies ambiguous argument (plain ref) as invalidRef with the ref as detail', () => {
+		const ex = makeGitError(
+			"fatal: ambiguous argument 'nonexistent-branch': unknown revision or path not in the working tree.\n" +
+				"Use '--' to separate paths from revisions, like this:\n" +
+				"'git <command> [<revision>...] -- [<file>...]'",
+		);
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidRef', detail: 'nonexistent-branch' });
+	});
+
+	test('classifies ambiguous argument (ref range) as invalidRef with the range as detail', () => {
+		const ex = makeGitError(
+			"fatal: ambiguous argument 'main..nope': unknown revision or path not in the working tree.",
+		);
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidRef', detail: 'main..nope' });
+	});
+
+	test('classifies a bare "unknown revision" (no quoted ref) as invalidRef with no detail', () => {
+		const ex = makeGitError('fatal: unknown revision or path not in the working tree.');
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidRef' });
+	});
+
+	test('falls back to invalidPattern (no detail) when a regcomp marker appears without a known prefix', () => {
+		const ex = makeGitError('error: Trailing backslash');
+		assert.deepStrictEqual(classifySearchError(ex), { reason: 'invalidPattern' });
+	});
+
+	test('returns undefined for an unrelated git failure', () => {
+		const ex = makeGitError('fatal: not a git repository (or any of the parent directories): .git');
+		assert.strictEqual(classifySearchError(ex), undefined);
+	});
+
+	test('returns undefined for a non-GitError', () => {
+		assert.strictEqual(classifySearchError(new Error('fatal: ambiguous argument')), undefined);
+	});
+
+	test('returns undefined for null/undefined input', () => {
+		assert.strictEqual(classifySearchError(undefined), undefined);
+		assert.strictEqual(classifySearchError(null), undefined);
 	});
 });

@@ -28,6 +28,7 @@ import type {
 	DidSearchParams,
 	GraphSearchMode,
 	GraphSearchResults,
+	GraphSearchResultsError,
 	GraphSelectedRows,
 	GraphSelection,
 	GraphWipRowsById,
@@ -63,6 +64,36 @@ export type GraphSearchServiceContext = {
 	createSearchCancellation: () => CancellationTokenSource;
 	cancelSearchOperation: () => void;
 };
+
+/** Turns a search failure into the webview-facing {@link GraphSearchResultsError}. A classified
+ *  {@link GitSearchError} (pattern/ref) gets wording naming the problem; anything else (including an
+ *  unclassified `GitSearchError`) falls back to a generic message so we never claim more precision than
+ *  the classifier actually found. */
+export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError {
+	if (GitSearchError.is(ex) && ex.reason != null) {
+		switch (ex.reason) {
+			case 'invalidPattern':
+				return {
+					error: `Invalid regular expression${ex.detail ? `: ${ex.detail}` : ''}`,
+					reason: ex.reason,
+					detail: ex.detail,
+				};
+			case 'invalidRef':
+				return {
+					error:
+						ex.detail == null
+							? 'Unknown reference'
+							: ex.detail.includes('..')
+								? `Unknown reference '${ex.detail}'`
+								: `No branch or tag named '${ex.detail}'`,
+					reason: ex.reason,
+					detail: ex.detail,
+				};
+		}
+	}
+
+	return { error: 'Something went wrong searching' };
+}
 
 /** Host-side search cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the active
  *  graph search (`_search`), the supersede counter (`_searchIdCounter`), and the per-repo search
@@ -180,9 +211,7 @@ export class GraphSearchService {
 			exception = ex;
 			return {
 				search: params.search,
-				results: isCancellationError(ex)
-					? undefined
-					: { error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error' },
+				results: isCancellationError(ex) ? undefined : toGraphSearchResultsError(ex),
 				partial: false,
 				searchId: this._searchIdCounter.current,
 			};

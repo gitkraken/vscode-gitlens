@@ -57,7 +57,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { Git } from '../exec/git.js';
-import { gitConfigsLog } from '../exec/git.js';
+import { classifySearchError, gitConfigsLog } from '../exec/git.js';
 import {
 	getGraphParser,
 	getShaAndDatesLogParser,
@@ -1939,12 +1939,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					};
 				}
 
-				throw new GitSearchError(ex);
+				const classified = classifySearchError(ex);
+				throw new GitSearchError(ex, classified?.reason, classified?.detail);
 			}
 		} catch (ex) {
 			if (ex instanceof GitSearchError) throw ex;
 
-			throw new GitSearchError(ex);
+			const classified = classifySearchError(ex);
+			throw new GitSearchError(ex, classified?.reason, classified?.detail);
 		}
 	}
 }

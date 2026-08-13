@@ -8,6 +8,7 @@ import type {
 	CommitErrorReason,
 	FetchErrorReason,
 	GitCommandError,
+	GitSearchErrorReason,
 	GitWarningKey,
 	MergeErrorReason,
 	PausedOperationAbortErrorReason,
@@ -62,7 +63,7 @@ export const gitConfigsStatus = ['-c', 'color.status=false'] as const;
 export const GitErrors = {
 	alreadyCheckedOut: /already checked out/i,
 	alreadyExists: /already exists/i,
-	ambiguousArgument: /fatal:\s*ambiguous argument ['"].+['"]: unknown revision or path not in the working tree/i,
+	ambiguousArgument: /fatal:\s*ambiguous argument ['"](.+?)['"]: unknown revision or path not in the working tree/i,
 	badObject: /fatal:\s*bad object (.*?)/i,
 	badRevision: /bad revision '(.*?)'/i,
 	branchAlreadyExists: /fatal:\s*A branch named '.+?' already exists/i,
@@ -83,6 +84,10 @@ export const GitErrors = {
 	invalidLineCount: /file .+? has only (\d+) lines/i,
 	invalidObjectName: /invalid object name: (.*)\s/i,
 	invalidObjectNameList: /could not open object name list: (.*)\s/i,
+	// Regcomp failure reasons from `-G`/pathspec regex compilation (search); matched without a known
+	// prefix as a fallback when the reason appears in an unrecognized stderr shape
+	invalidSearchPattern:
+		/Unmatched \( or \\\(|Unmatched \[|Unmatched \) or \\\)|Invalid content of \\\{\\\}|Invalid preceding regular expression|Invalid regular expression|Trailing backslash|invalid regex/i,
 	invalidTagName: /invalid tag name/i,
 	mainWorkingTree: /is a main working tree/i,
 	mergeAborted: /merge.*aborted/i,
@@ -471,6 +476,44 @@ export function inferSigningFormatFromError(ex: unknown): SigningFormat | undefi
 	if (!text) return undefined;
 	if (/\bssh-keygen\b|gpg\.ssh\.(?:program|allowedsignersfile)/i.test(text)) return 'ssh';
 	if (/\bgpg\b/i.test(text)) return 'gpg';
+	return undefined;
+}
+
+export interface SearchErrorClassification {
+	reason: GitSearchErrorReason;
+	detail?: string;
+}
+
+/**
+ * Classifies a graph search failure from its stderr into an {@link GitSearchErrorReason}, with the
+ * offending pattern/ref text (when git reports one) as `detail`. Returns `undefined` when the error
+ * isn't a `GitError` with stderr, or the stderr doesn't match a recognized shape.
+ */
+export function classifySearchError(ex: unknown): SearchErrorClassification | undefined {
+	if (!(ex instanceof GitError) || !ex.stderr) return undefined;
+
+	const stderr = ex.stderr;
+
+	// `-G<pattern>`/pathspec regex compile failures report one of two shapes:
+	//   fatal: command line, '<pattern>': <regcomp reason>
+	//   fatal: invalid regex: <regcomp reason>
+	// The pattern itself may contain "': ", so anchor on the known prefixes and let the greedy `.*`
+	// resolve to the LAST matching delimiter rather than splitting on the first occurrence.
+	const patternDetail =
+		/^fatal:\s*command line,\s*'.*':\s*(.+)$/im.exec(stderr)?.[1] ??
+		/^fatal:\s*invalid regex:\s*(.+)$/im.exec(stderr)?.[1];
+	if (patternDetail != null) return { reason: 'invalidPattern', detail: patternDetail.trim() };
+
+	if (GitErrors.invalidSearchPattern.test(stderr)) return { reason: 'invalidPattern' };
+
+	const ambiguous = GitErrors.ambiguousArgument.exec(stderr);
+	if (ambiguous != null) return { reason: 'invalidRef', detail: ambiguous[1] };
+
+	const badRevision = GitErrors.badRevision.exec(stderr);
+	if (badRevision != null) return { reason: 'invalidRef', detail: badRevision[1] };
+
+	if (/unknown revision/i.test(stderr)) return { reason: 'invalidRef' };
+
 	return undefined;
 }
 

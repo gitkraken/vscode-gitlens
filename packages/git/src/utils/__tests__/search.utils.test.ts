@@ -409,6 +409,28 @@ suite('Search Utils Test Suite', () => {
 			assert.ok(result.filters.refs);
 		});
 
+		test('ref: drops a value starting with - to avoid injecting a git option', () => {
+			const result = parseSearchQueryGitCommand(q('^:--author=x'), undefined);
+			assert.ok(!result.args.includes('--author=x'));
+			assert.ok(result.args.includes('--all'));
+			assert.ok(!result.filters.refs);
+		});
+
+		test('ref: drops a quoted value starting with - after unquoting', () => {
+			const result = parseSearchQueryGitCommand(q('^:"--upload-pack=evil"'), undefined);
+			assert.ok(!result.args.includes('--upload-pack=evil'));
+			assert.ok(result.args.includes('--all'));
+			assert.ok(!result.filters.refs);
+		});
+
+		test('ref: keeps a valid ref alongside a dropped flag-like value', () => {
+			const result = parseSearchQueryGitCommand(q('^:main ^:--author=x'), undefined);
+			assert.ok(result.args.includes('main'));
+			assert.ok(!result.args.includes('--author=x'));
+			assert.ok(!result.args.includes('--all'));
+			assert.ok(result.filters.refs);
+		});
+
 		test('author with leading @ strips it', () => {
 			const result = parseSearchQueryGitCommand(q('@:@username'), undefined);
 			assert.ok(result.args.includes('--author=username'));

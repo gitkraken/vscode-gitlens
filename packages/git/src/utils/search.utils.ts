@@ -348,6 +348,10 @@ export function parseSearchQueryGitCommand(
 							if (!value) continue;
 						}
 
+						// A value starting with `-` would be consumed by git as an option rather than a ref
+						// (e.g. `ref:--author=x` injecting a flag), so drop it instead of passing it through
+						if (value.startsWith('-')) continue;
+
 						filters.refs = true;
 						// Replace --all with the specific ref or ref range
 						searchArgs.delete('--all');

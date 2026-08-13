@@ -1636,6 +1636,8 @@ export interface GraphSearchResults {
 }
 export interface GraphSearchResultsError {
 	error: string;
+	reason?: 'invalidPattern' | 'invalidRef';
+	detail?: string;
 }
 export interface DidSearchParams {
 	search: SearchQuery | undefined;
