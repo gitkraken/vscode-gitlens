@@ -23,7 +23,6 @@ import type {
 	GetIssueFn,
 	GetIssuesForReposFn,
 	GetIssuesOptions,
-	GetPullRequestsForRepoFn,
 	GetPullRequestsForReposFn,
 	GetPullRequestsForUserFn,
 	GetPullRequestsForUserOptions,
@@ -129,9 +128,7 @@ export class ProvidersApi {
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(
-					providerApis.gitlab,
-				) as GetPullRequestsForRepoFn,
+				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(providerApis.gitlab),
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
@@ -151,9 +148,7 @@ export class ProvidersApi {
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(
-					providerApis.gitlab,
-				) as GetPullRequestsForRepoFn,
+				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(providerApis.gitlab),
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,

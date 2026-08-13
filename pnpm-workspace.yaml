@@ -20,24 +20,24 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-    '@gitkraken/provider-apis': 0.50.0
+    '@gitkraken/provider-apis': 0.56.0
     # The @octokit/* packages depend on each other; version them as a family so a lone bump can't
     # split them. @octokit/graphql wants `@octokit/request: ^10.0.6` — see the overrides entry.
-    '@octokit/graphql': 9.0.3
-    '@octokit/request': 10.0.11
-    '@octokit/request-error': 7.1.0
-    '@octokit/types': 16.0.0
+    '@octokit/graphql': 9.0.4
+    '@octokit/request': 10.0.13
+    '@octokit/request-error': 7.1.1
+    '@octokit/types': 17.0.0
     '@types/mocha': 10.0.10
     '@types/sinon': 22.0.0
-    esbuild: 0.28.1
+    esbuild: 0.28.2
     # Only @gitlens/utils depends on this, but it flows into the published @gitkraken/core-gitlens
     # manifest, which must never carry a version of its own to drift from.
     fast-string-truncated-width: 3.0.3
     ignore: 7.0.6
-    mocha: 11.7.6
+    mocha: 11.8.0
     sinon: 22.1.0
-    tinybench: 6.0.2
-    tsx: 4.23.1
+    tinybench: 6.1.2
+    tsx: 4.23.11
     # 7.x is the native port: it ships `tsc` only — no `typescript.js` API and no `tsserver.js`. The
     # editor therefore uses VS Code's bundled TypeScript (hence no `js/ts.tsdk.path` in
     # .vscode/settings.json), and @custom-elements-manifest/analyzer keeps its own 5.4.x for the
@@ -60,6 +60,33 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
+    - '@esbuild/aix-ppc64@0.28.2'
+    - '@esbuild/android-arm64@0.28.2'
+    - '@esbuild/android-arm@0.28.2'
+    - '@esbuild/android-x64@0.28.2'
+    - '@esbuild/darwin-arm64@0.28.2'
+    - '@esbuild/darwin-x64@0.28.2'
+    - '@esbuild/freebsd-arm64@0.28.2'
+    - '@esbuild/freebsd-x64@0.28.2'
+    - '@esbuild/linux-arm64@0.28.2'
+    - '@esbuild/linux-arm@0.28.2'
+    - '@esbuild/linux-ia32@0.28.2'
+    - '@esbuild/linux-loong64@0.28.2'
+    - '@esbuild/linux-mips64el@0.28.2'
+    - '@esbuild/linux-ppc64@0.28.2'
+    - '@esbuild/linux-riscv64@0.28.2'
+    - '@esbuild/linux-s390x@0.28.2'
+    - '@esbuild/linux-x64@0.28.2'
+    - '@esbuild/netbsd-arm64@0.28.2'
+    - '@esbuild/netbsd-x64@0.28.2'
+    - '@esbuild/openbsd-arm64@0.28.2'
+    - '@esbuild/openbsd-x64@0.28.2'
+    - '@esbuild/openharmony-arm64@0.28.2'
+    - '@esbuild/sunos-x64@0.28.2'
+    - '@esbuild/win32-arm64@0.28.2'
+    - '@esbuild/win32-ia32@0.28.2'
+    - '@esbuild/win32-x64@0.28.2'
+    - esbuild@0.28.2
     - '@oxfmt/binding-android-arm-eabi@0.63.0'
     - '@oxfmt/binding-android-arm64@0.63.0'
     - '@oxfmt/binding-darwin-arm64@0.63.0'
@@ -99,9 +126,9 @@ minimumReleaseAgeExclude:
     - '@oxlint/binding-win32-ia32-msvc@1.78.0'
     - '@oxlint/binding-win32-x64-msvc@1.78.0'
     - '@oxlint/plugins@1.78.0'
-    - ovsx@1.1.0
     - oxfmt@0.63.0
     - oxlint@1.78.0
+    - ovsx@1.1.1
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0
