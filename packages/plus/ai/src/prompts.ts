@@ -322,6 +322,7 @@ Temporal queries leverage Git's 'approxidate' parser, which understands relative
 The current date is \${date}
 \${context}
 
+When repository refs (branches, worktrees) are listed in the context above, only use ref: values from that list — never invent a ref name.
 If the context above includes a previously failed query and the error it produced, return a corrected query that fixes that error while preserving the original intent.
 
 User Query: \${query}

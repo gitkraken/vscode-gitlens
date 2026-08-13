@@ -12,9 +12,11 @@ import {
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import { fuzzyFilter } from '@gitlens/utils/fuzzy.js';
 import { join } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { cancellable } from '@gitlens/utils/promise.js';
+import { basename } from '@gitlens/utils/path.js';
+import { cancellable, getSettledValue } from '@gitlens/utils/promise.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -96,6 +98,60 @@ export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError 
 	}
 
 	return { error: 'Something went wrong searching' };
+}
+
+/**
+ * True when `a` and `b` are close enough to be the same word with a typo: case-insensitive equal,
+ * containment either direction (only once the shorter string is at least 4 characters — anything
+ * shorter is too noisy), or within Damerau-Levenshtein (transposition-aware) edit distance of a
+ * length-scaled threshold (only once BOTH strings are at least 4 characters). Used for typo-tolerant
+ * author/contributor matching, the same job {@link fuzzyFilter} does for refs — but `fuzzyFilter` is
+ * subsequence-based and can't catch a transposition like 'kieth' vs 'keith', which this can.
+ */
+export function isCloseMatch(a: string, b: string): boolean {
+	const aLower = a.toLowerCase();
+	const bLower = b.toLowerCase();
+	if (aLower === bLower) return true;
+
+	const minLength = Math.min(aLower.length, bLower.length);
+	if (minLength >= 4 && (aLower.includes(bLower) || bLower.includes(aLower))) return true;
+
+	if (minLength < 4) return false;
+	// Edit distance is always >= the length difference, so once lengths diverge past the largest
+	// possible threshold (2), no distance computation can still land within it — skip the DP table.
+	if (Math.abs(aLower.length - bLower.length) > 2) return false;
+
+	const maxLength = Math.max(aLower.length, bLower.length);
+	const threshold = maxLength <= 5 ? 1 : 2;
+	return damerauLevenshteinDistance(aLower, bLower) <= threshold;
+}
+
+/** Standard Damerau-Levenshtein (transposition-aware) edit distance via a full DP table — small inputs
+ *  only (author names / search tokens), bounded by {@link isCloseMatch}'s early-out above. */
+function damerauLevenshteinDistance(a: string, b: string): number {
+	const lenA = a.length;
+	const lenB = b.length;
+	const d: number[][] = Array.from({ length: lenA + 1 }, () => new Array<number>(lenB + 1).fill(0));
+
+	for (let i = 0; i <= lenA; i++) {
+		d[i][0] = i;
+	}
+	for (let j = 0; j <= lenB; j++) {
+		d[0][j] = j;
+	}
+
+	for (let i = 1; i <= lenA; i++) {
+		for (let j = 1; j <= lenB; j++) {
+			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+			d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+
+			if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+				d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+			}
+		}
+	}
+
+	return d[lenA][lenB];
 }
 
 /** AI repair context: the query that failed to compile and git's complaint about it. Shared by the
@@ -225,6 +281,159 @@ export class GraphSearchService {
 	}
 
 	/**
+	 * Builds a compact list of repo refs the user's sentence plausibly refers to, so NL search's AI
+	 * conversion can resolve an approximate/partial name instead of hallucinating one that doesn't
+	 * exist. Targeted, not exhaustive: only refs whose names overlap the sentence are included (plus
+	 * the worktree/branch lists when the sentence says so), so most queries — which never mention a
+	 * ref — pay no prompt-token cost at all. Best-effort and time-budgeted: any failure or a >200ms
+	 * gather (uncached refs) returns undefined rather than delaying or breaking the AI call.
+	 */
+	private async buildRepoSearchContext(sentence: string): Promise<string | undefined> {
+		const repository = this.repository;
+		if (repository == null) return undefined;
+
+		try {
+			return await cancellable(this.buildRepoSearchContextCore(repository, sentence), 200, undefined, {
+				onDidCancel: resolve => resolve(undefined),
+			});
+		} catch (ex) {
+			Logger.error(ex, 'GraphSearchService', 'buildRepoSearchContext');
+			return undefined;
+		}
+	}
+
+	private async buildRepoSearchContextCore(repository: GlRepository, sentence: string): Promise<string | undefined> {
+		const [worktreesResult, branchesResult, currentBranchResult, defaultBranchResult, contributorsResult] =
+			await Promise.allSettled([
+				repository.git.worktrees?.getWorktrees() ?? Promise.resolve([]),
+				repository.git.branches.getBranches({ filter: b => !b.remote, sort: { orderBy: 'date:desc' } }),
+				repository.git.branches.getBranch(),
+				repository.git.branches.getDefaultBranchName(undefined, { local: true }),
+				repository.git.contributors.getContributorsLite(undefined, { since: '1 year ago' }),
+			]);
+
+		const worktrees = getSettledValue(worktreesResult) ?? [];
+		const branches = getSettledValue(branchesResult)?.values ?? [];
+		const currentBranch = getSettledValue(currentBranchResult);
+		const defaultBranchName = getSettledValue(defaultBranchResult);
+		const contributors = getSettledValue(contributorsResult) ?? [];
+
+		const lower = sentence.toLowerCase();
+		// Tokens of 4+ chars so stopwords and short noise ('the', 'my', 'fix') can't match into every name
+		const tokens = lower.split(/[^a-z0-9#._/-]+/).filter(t => t.length >= 4);
+		const matchesSentence = (name: string): boolean => {
+			const nameLower = name.toLowerCase();
+			if (lower.includes(nameLower)) return true;
+
+			return tokens.some(t => nameLower.includes(t));
+		};
+
+		const wantsWorktrees = lower.includes('worktree');
+		const wantsBranches = lower.includes('branch');
+
+		const seen = new Set<string>();
+		const lines: string[] = [];
+		const add = (name: string, annotation?: string): void => {
+			if (seen.has(name)) return;
+
+			seen.add(name);
+			lines.push(`- ${name}${annotation ? ` ${annotation}` : ''}`);
+		};
+
+		for (const worktree of worktrees) {
+			const name = worktree.branch?.name ?? worktree.name;
+			const folder = basename(worktree.path);
+			if (wantsWorktrees || matchesSentence(name) || matchesSentence(folder)) {
+				add(name, `(worktree "${folder}")`);
+			}
+		}
+
+		if (defaultBranchName != null && (wantsBranches || matchesSentence(defaultBranchName))) {
+			add(defaultBranchName, '(default)');
+		}
+
+		if (currentBranch != null && (wantsBranches || matchesSentence(currentBranch.name))) {
+			add(currentBranch.name, '(current)');
+		}
+
+		let count = 0;
+		for (const branch of branches) {
+			if (lines.length >= 30 || count >= (wantsBranches ? 10 : 0) + 10) break;
+			if (!wantsBranches && !matchesSentence(branch.name)) continue;
+			if (seen.has(branch.name)) continue;
+
+			add(branch.name);
+			count++;
+		}
+
+		// Contributors match on name words or the email local-part, so 'by keith' or 'eamodio's commits'
+		// resolves to a real author: value the way refs do
+		const authorLines: string[] = [];
+		for (const contributor of contributors) {
+			if (authorLines.length >= 10) break;
+
+			const nameLower = contributor.name.toLowerCase();
+			const nameWords = nameLower.split(/\s+/).filter(w => w.length >= 4);
+			const emailLocal = contributor.email?.split('@')[0].toLowerCase();
+			const matched =
+				lower.includes(nameLower) ||
+				tokens.some(t => nameWords.some(w => isCloseMatch(t, w))) ||
+				(emailLocal != null && emailLocal.length >= 4 && tokens.some(t => isCloseMatch(t, emailLocal)));
+			if (!matched) continue;
+
+			authorLines.push(`- ${contributor.name}${contributor.email ? ` <${contributor.email}>` : ''}`);
+		}
+
+		const sections: string[] = [];
+		if (lines.length) {
+			sections.push(
+				`Repository refs (branches and worktrees) that exist:\n${lines.join('\n')}\nWhen the user refers to a branch or worktree by an approximate or partial name, resolve it to the closest ref from this list. Never invent ref names that are not in this list; if nothing matches, omit the ref: operator.`,
+			);
+		}
+		if (authorLines.length) {
+			sections.push(
+				`Contributors the user may be referring to:\n${authorLines.join('\n')}\nWhen the user refers to a person, use author: with a listed contributor's name (or email).`,
+			);
+		}
+
+		if (!sections.length) return undefined;
+
+		return sections.join('\n\n');
+	}
+
+	/**
+	 * Fuzzy-matches a failing ref name (from a classified `invalidRef` error) against the repo's local
+	 * branches, for the repair prompt to suggest instead of guessing again. Best-effort: any failure
+	 * returns undefined.
+	 */
+	private async buildFuzzyRefCandidates(ref: string): Promise<string | undefined> {
+		const repository = this.repository;
+		if (repository == null) return undefined;
+
+		try {
+			const { values: branches } = await repository.git.branches.getBranches({ filter: b => !b.remote });
+			if (!branches.length) return undefined;
+
+			// Containment first: a hallucinated ref is usually a real name with extra words bolted on
+			// (e.g. 'please-go-through-the-readme'), which fuzzy subsequence matching can never find
+			// because the needle is longer than every real name
+			const lower = ref.toLowerCase();
+			let names = branches
+				.filter(b => lower.includes(b.name.toLowerCase()) || b.name.toLowerCase().includes(lower))
+				.map(b => b.name);
+			if (!names.length) {
+				names = fuzzyFilter(ref, branches, b => b.name).map(m => m.item.name);
+			}
+			if (!names.length) return undefined;
+
+			return `The ref '${ref}' does not exist. Closest existing refs: ${names.slice(0, 10).join(', ')}.`;
+		} catch (ex) {
+			Logger.error(ex, 'GraphSearchService', 'buildFuzzyRefCandidates');
+			return undefined;
+		}
+	}
+
+	/**
 	 * Runs one NL/AI round-trip (initial conversion, auto-repair, or manual repair) against a fresh
 	 * cancellation source held on {@link _nlCancellation} — replacing (cancel+dispose) whichever
 	 * round-trip was still in flight, so cancel/reset always reaches the live AI call. Defensively
@@ -280,7 +489,8 @@ export class GraphSearchService {
 			const requestedSearchId = this._searchIdCounter.current;
 
 			try {
-				params.search = await this.convertNaturalLanguage(params.search);
+				const repoContext = await this.buildRepoSearchContext(params.search.query);
+				params.search = await this.convertNaturalLanguage(params.search, { context: repoContext });
 			} catch (ex) {
 				if (!isCancellationError(ex)) throw ex;
 
@@ -378,8 +588,10 @@ export class GraphSearchService {
 	 * from. If repair produces a different query, that runs with the fallback enabled. If repair can't
 	 * help (unchanged query, itself errors, or still fails), the last resort re-runs the ORIGINAL
 	 * generated query with the fallback enabled, so a merely-unlucky regex still gets its normal escape
-	 * hatch before NL search gives up. NL searches never surface `invalidPattern`/`invalidRef` wording —
-	 * that's meaningless to a user who never typed the operators themselves.
+	 * hatch before NL search gives up. NL searches never surface `invalidPattern` wording — that's
+	 * meaningless to a user who never typed a regex. `invalidRef` is the exception: when even repair
+	 * can't resolve the AI's ref guess, that failure IS user-language ("No branch or tag named 'x'") and
+	 * is worth showing instead of a generic rephrase prompt.
 	 */
 	private async searchNaturalLanguageWithRepair(
 		e: IpcParams<typeof SearchRequest>,
@@ -397,9 +609,18 @@ export class GraphSearchService {
 			// Captured before the AI round-trip so a superseding search during it is detected below.
 			const searchId = this._searchIdCounter.current;
 
+			const repoContext = await this.buildRepoSearchContext(naturalLanguage.query);
+			let repairContext = buildRepairContext(e.search.query, toGraphSearchResultsError(ex).error);
+			if (ex.reason === 'invalidRef' && ex.detail) {
+				const candidates = await this.buildFuzzyRefCandidates(ex.detail);
+				if (candidates) {
+					repairContext += `\n${candidates}`;
+				}
+			}
+
 			const repaired = await this.convertNaturalLanguage(
 				{ ...e.search, query: naturalLanguage.query, naturalLanguage: { query: naturalLanguage.query } },
-				{ context: buildRepairContext(e.search.query, toGraphSearchResultsError(ex).error) },
+				{ context: repoContext ? `${repoContext}\n\n${repairContext}` : repairContext },
 			);
 
 			if (this._searchIdCounter.current !== searchId) {
@@ -424,6 +645,15 @@ export class GraphSearchService {
 				return await this.searchGraphOrContinue(e, true);
 			} catch (lastEx) {
 				if (isCancellationError(lastEx)) throw lastEx;
+
+				if (GitSearchError.is(lastEx) && lastEx.reason === 'invalidRef') {
+					return {
+						search: e.search,
+						results: toGraphSearchResultsError(lastEx),
+						partial: false,
+						searchId: this._searchIdCounter.current,
+					};
+				}
 
 				return {
 					search: e.search,
