@@ -12,7 +12,7 @@ export const splitPanelStyles = css`
 			var(--gl-split-panel-divider-width, 4px) 1fr;
 		width: 100%;
 		height: 100%;
-		overflow: hidden;
+		overflow: clip;
 	}
 
 	:host([orientation='vertical']) {
