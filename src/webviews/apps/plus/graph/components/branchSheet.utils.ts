@@ -1,6 +1,11 @@
 import type { GitGraphRow, GitGraphRowHead, GitGraphRowRemoteHead, GitGraphRowTag } from '@gitlens/git/models/graph.js';
 import type { GitBranchReference, GitTagReference } from '@gitlens/git/models/reference.js';
-import type { GraphExcludedRef, GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
+import type {
+	GraphExcludedRef,
+	GraphExcludeRefs,
+	GraphItemContext,
+	GraphScopeBranch,
+} from '../../../../plus/graph/protocol.js';
 import { buildBranchRefContext, buildRemoteBranchRefContext, buildTagRefContext } from '../utils/refContext.utils.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 
@@ -67,6 +72,19 @@ export function resolveBranchSheetExcludeRef(
 		owner: ref.refType === 'remote' ? (ref.remote ?? undefined) : undefined,
 		type: ref.refType === 'tag' ? 'tag' : ref.refType === 'remote' ? 'remote' : 'head',
 	};
+}
+
+/** The whole-remote "Hide Remote" wildcard entry (`type: 'remote'`, `name: '*'`) covering `owner`, if
+ *  one is stored. Returns the ENTRY itself — un-hiding removes by its own id, not the sheet ref's.
+ *  Detection only: the entry's `except` (branches exempted from the hide) is the caller's to check —
+ *  see `renderHideChip` in `gl-graph-branch-sheet.ts`. */
+export function findWildcardRemoteExclude(
+	excludeRefs: GraphExcludeRefs | undefined,
+	owner: string | undefined,
+): GraphExcludedRef | undefined {
+	if (excludeRefs == null || owner == null) return undefined;
+
+	return Object.values(excludeRefs).find(ref => ref.type === 'remote' && ref.name === '*' && ref.owner === owner);
 }
 
 /** The ref's serialized `data-vscode-context`, parsed; undefined when absent or malformed. */

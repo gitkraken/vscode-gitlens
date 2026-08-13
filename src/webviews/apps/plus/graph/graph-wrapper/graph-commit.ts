@@ -10,6 +10,7 @@ import type {
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 } from '../../../../plus/graph/protocol.js';
+import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import {
 	serializeBranchRefContext,
 	serializeRemoteBranchRefContext,
@@ -308,11 +309,14 @@ export function isTrackedUpstream(ref: GraphCommitRef, downstreams: GraphDownstr
 
 /**
  * Whether a ref pill/scroll-marker should be hidden by the active visibility filters. The current HEAD
- * branch is ALWAYS kept; otherwise a ref is hidden when it's listed by id (`excludeRefs`) or its type is
- * excluded (`excludeTypes`) — EXCEPT a remote that's a tracked upstream survives the type-level "Hide
- * Remote Branches" toggle (hiding it would silently break the split-pill's upstream segment). Label-level
- * only — commit rows are never removed by this (stash-ROW hiding via `excludeTypes.stashes` is
- * handled separately on the row set).
+ * branch is ALWAYS kept; otherwise a ref is hidden when it's listed by id (`excludeRefs`), its remote is
+ * wildcard-hidden via a whole-remote "Hide Remote" entry (`type: 'remote'`, `name: '*'` — see
+ * `getExcludedRemotes`) and it isn't in that wildcard's exception list, or its type is excluded
+ * (`excludeTypes`) — EXCEPT a remote that's a tracked upstream survives the type-level "Hide Remote
+ * Branches" toggle (hiding it would silently break the split-pill's upstream segment). The
+ * tracked-upstream exception applies ONLY to that type-level toggle: a whole-remote wildcard hides every
+ * non-excepted ref of that remote, tracked upstreams included. Label-level only — commit rows are never
+ * removed by this (stash-ROW hiding via `excludeTypes.stashes` is handled separately on the row set).
  */
 export function isRefHidden(
 	ref: GraphCommitRef,
@@ -322,6 +326,10 @@ export function isRefHidden(
 ): boolean {
 	if (ref.kind === 'head' && ref.current) return false;
 	if (ref.id != null && excludeRefs?.[ref.id] != null) return true;
+	if (ref.kind === 'remote' && ref.owner != null) {
+		const excludedRemote = getExcludedRemotes(excludeRefs)?.get(ref.owner);
+		if (excludedRemote != null && (ref.id == null || !excludedRemote.exceptIds.has(ref.id))) return true;
+	}
 	if (excludeTypes?.[excludeKindKey(ref.kind)] !== true) return false;
 
 	return ref.kind !== 'remote' || !isTrackedUpstream(ref, downstreams);

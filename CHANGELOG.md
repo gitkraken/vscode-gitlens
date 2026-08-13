@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds un-hiding a single branch of a hidden remote in the _Commit Graph_ &mdash; the remote stays hidden while just that branch returns, and hiding the branch again tucks it back under the hidden remote
+
 ### Fixed
 
+- Fixes _Hide Remote_ in the _Commit Graph_ only hiding the selected branch instead of all of the remote's branches ([#5728](https://github.com/gitkraken/vscode-gitlens/issues/5728))
 - Fixes the split conflict status icons rendering clipped in file trees &mdash; e.g. the _Commit Graph_'s _Working Changes_ details and _Resolve_ mode, and the _Inspect_ and _Patch Details_ views
 
 ## [19.0.1] - 2026-08-13

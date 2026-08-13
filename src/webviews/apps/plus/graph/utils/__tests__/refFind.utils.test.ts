@@ -44,6 +44,11 @@ function optData(name: string, type: GraphRefOptData['type']): GraphRefOptData {
 	return { id: `/repo|${type}/${name}`, name: name, type: type };
 }
 
+/** A whole-remote "Hide Remote" wildcard `excludeRefs` entry — `type: 'remote'`, `name: '*'`. */
+function wildcardOptData(owner: string, except?: string[]): GraphRefOptData {
+	return { id: `/repo|remotes/${owner}/*`, name: '*', type: 'remote', owner: owner, except: except };
+}
+
 /** A `GraphWipRow` topology entry. `unborn: true` omits `parentSha`, mimicking a worktree with no
  *  commits yet — the case the finder must not offer a candidate for. */
 function wipRow(
@@ -339,6 +344,82 @@ suite('buildRefFindCandidates', () => {
 		assert.deepStrictEqual(
 			candidates.map(c => [c.kind, c.label]),
 			[['remote', 'origin/main']],
+		);
+	});
+
+	test("a whole-remote wildcard exclude drops ALL of that remote's candidates", () => {
+		const candidates = buildRefFindCandidates(
+			{
+				remotes: [
+					remote('origin', [
+						{ name: 'main', sha: 'sha-1' },
+						{ name: 'dev', sha: 'sha-2' },
+					]),
+					remote('upstream', [{ name: 'main', sha: 'sha-3' }]),
+				],
+			},
+			{ excludeRefs: { '/repo|remotes/origin/*': wildcardOptData('origin') } },
+		);
+
+		assert.deepStrictEqual(
+			candidates.map(c => c.label),
+			['upstream/main'],
+		);
+	});
+
+	test('a whole-remote wildcard exclude drops the in-sync alias it would otherwise leave on the local', () => {
+		const candidates = buildRefFindCandidates(
+			{
+				branches: [branch('main', 'sha-1', { upstream: 'origin/main' })],
+				remotes: [remote('origin', [{ name: 'main', sha: 'sha-1' }])],
+			},
+			{ excludeRefs: { '/repo|remotes/origin/*': wildcardOptData('origin') } },
+		);
+
+		assert.deepStrictEqual(
+			candidates.map(c => [c.kind, c.label, c.aliases]),
+			[['head', 'main', undefined]],
+		);
+		assert.deepStrictEqual(
+			matchRefs('origin/main', candidates, () => undefined),
+			[],
+		);
+	});
+
+	test('a whole-remote wildcard entry mints no `remote:owner/*` key — unrelated remotes stay findable', () => {
+		const candidates = buildRefFindCandidates(
+			{
+				remotes: [
+					remote('origin', [{ name: 'main', sha: 'sha-1' }]),
+					remote('upstream', [{ name: 'main', sha: 'sha-2' }]),
+				],
+			},
+			{ excludeRefs: { '/repo|remotes/origin/*': wildcardOptData('origin') } },
+		);
+
+		// `origin`'s branch is gone, but nothing here is literally named `*`, and `upstream` survives.
+		assert.deepStrictEqual(
+			candidates.map(c => c.label),
+			['upstream/main'],
+		);
+	});
+
+	test('a wildcard exception leaves that branch findable while its siblings stay hidden', () => {
+		const candidates = buildRefFindCandidates(
+			{
+				remotes: [
+					remote('origin', [
+						{ name: 'main', sha: 'sha-1' },
+						{ name: 'dev', sha: 'sha-2' },
+					]),
+				],
+			},
+			{ excludeRefs: { '/repo|remotes/origin/*': wildcardOptData('origin', ['/repo|remotes/origin/dev']) } },
+		);
+
+		assert.deepStrictEqual(
+			candidates.map(c => c.label),
+			['origin/dev'],
 		);
 	});
 

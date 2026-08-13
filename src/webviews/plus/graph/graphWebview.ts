@@ -5016,18 +5016,72 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._wip.writeWipDraftToStorage(params.worktreePath, params.draft);
 	}
 
+	/** The id of the whole-remote "Hide Remote" wildcard entry (`type: 'remote'`, `name: '*'`) covering
+	 *  `owner`, if one is currently stored. */
+	private findWildcardExcludeId(
+		storedExcludeRefs: StoredGraphFilters['excludeRefs'],
+		owner: string,
+	): string | undefined {
+		for (const id in storedExcludeRefs) {
+			const stored = storedExcludeRefs[id];
+			if (stored.type === 'remote' && stored.name === '*' && stored.owner === owner) return id;
+		}
+		return undefined;
+	}
+
 	private updateExcludedRefs(repoPath: string | undefined, refs: GraphExcludedRef[], visible: boolean) {
 		if (repoPath == null || !refs?.length) return;
 
 		let storedExcludeRefs: StoredGraphFilters['excludeRefs'] = this.getFiltersByRepo(repoPath)?.excludeRefs ?? {};
 		for (const ref of refs) {
-			storedExcludeRefs = updateRecordValue(
-				storedExcludeRefs,
-				ref.id,
-				visible
-					? undefined
-					: { id: ref.id, type: ref.type as StoredGraphRefType, name: ref.name, owner: ref.owner },
-			);
+			if (!visible) {
+				// A remote branch already exempted from an active whole-remote wildcard is "hidden" by
+				// clearing the exception rather than adding a redundant direct entry — the wildcard already
+				// covers it.
+				if (ref.type === 'remote' && ref.owner != null) {
+					const wildcardId = this.findWildcardExcludeId(storedExcludeRefs, ref.owner);
+					if (wildcardId != null) {
+						const wildcard: StoredGraphExcludedRef = storedExcludeRefs[wildcardId];
+						if (wildcard.except?.includes(ref.id)) {
+							const except: string[] = wildcard.except.filter((id: string) => id !== ref.id);
+							const { except: _except, ...rest } = wildcard;
+							storedExcludeRefs = updateRecordValue(
+								storedExcludeRefs,
+								wildcardId,
+								except.length ? { ...wildcard, except: except } : rest,
+							);
+							continue;
+						}
+					}
+				}
+
+				storedExcludeRefs = updateRecordValue(storedExcludeRefs, ref.id, {
+					id: ref.id,
+					type: ref.type as StoredGraphRefType,
+					name: ref.name,
+					owner: ref.owner,
+				});
+				continue;
+			}
+
+			// visible === true — un-hide. A wildcard ref removes itself here (its exceptions die with it);
+			// anything else just drops its own direct entry.
+			storedExcludeRefs = updateRecordValue(storedExcludeRefs, ref.id, undefined);
+
+			// Un-hiding a single remote branch that's still covered by an active whole-remote wildcard
+			// excepts it from that wildcard instead of leaving it unreachable.
+			if (ref.name !== '*' && ref.type === 'remote' && ref.owner != null) {
+				const wildcardId = this.findWildcardExcludeId(storedExcludeRefs, ref.owner);
+				if (wildcardId != null) {
+					const wildcard: StoredGraphExcludedRef = storedExcludeRefs[wildcardId];
+					if (!wildcard.except?.includes(ref.id)) {
+						storedExcludeRefs = updateRecordValue(storedExcludeRefs, wildcardId, {
+							...wildcard,
+							except: [...(wildcard.except ?? []), ref.id],
+						});
+					}
+				}
+			}
 		}
 
 		void this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });

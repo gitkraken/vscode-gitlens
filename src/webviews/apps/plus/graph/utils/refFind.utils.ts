@@ -12,6 +12,7 @@ import type {
 } from '../../../../plus/graph/protocol.js';
 import { createWipRowId, emptySetMarker } from '../../../../plus/graph/protocol.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
+import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import { refPillKey } from './refKey.utils.js';
 import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from './wip.utils.js';
 
@@ -77,7 +78,9 @@ export interface RefFindSources {
  * rather than the map keys, which are `<repoPath>|heads/<name>` ids the webview can't rebuild from
  * sidebar data. A remote entry carries a BARE `name` with the owner in `.owner` (see
  * `graphWebview.ts`'s `convertBranchToIncludeOnlyRef`), which is exactly the shape `refPillKey` takes — so hiding
- * `origin/main` leaves an identically-named branch on another remote findable.
+ * `origin/main` leaves an identically-named branch on another remote findable. A whole-remote wildcard
+ * (`name: '*'`) is skipped here — it mints no candidate of its own, and its remote is excluded by owner
+ * via {@link getExcludedRemotes} in `isVisible` instead.
  *
  * `undefined` means "no filter". A map holding only {@link emptySetMarker} yields an EMPTY set, not
  * `undefined` — as an include-only filter that correctly admits nothing.
@@ -93,6 +96,8 @@ function toRefKeySet(refs: Record<string, GraphRefOptData> | undefined): Set<str
 		if (key === emptySetMarker || ref?.name == null) continue;
 		// `worktree` refs have no jump candidate to match, so they never contribute a key.
 		if (ref.type !== 'head' && ref.type !== 'remote' && ref.type !== 'tag') continue;
+		// Whole-remote wildcards have no bare ref of their own — a literal key would be dead weight.
+		if (ref.name === '*') continue;
 
 		keys.add(refPillKey({ kind: ref.type, name: ref.name, owner: ref.owner }));
 	}
@@ -154,18 +159,30 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 	const excluded = toRefKeySet(filters?.excludeRefs);
 	const includeOnly = toRefKeySet(filters?.includeOnlyRefs);
 	const excludeTypes = filters?.excludeTypes;
+	const excludedRemotes = getExcludedRemotes(filters?.excludeRefs);
 
 	const candidates: RefFindCandidate[] = [];
 	const seen = new Set<string>();
 
 	// Whether a ref survives the live filters. Split out of `add` because the in-sync fold below has to
 	// ask the same question WITHOUT adding: a remote the filters hide must not reach the candidate list
-	// as an alias on its local either, or "Hide Remote Branches" (or hiding that one remote branch)
-	// would still leave `origin/main` typeable.
-	function isVisible(kind: RefFindKind, key: string, sha: string | undefined): boolean {
+	// as an alias on its local either, or "Hide Remote Branches" (or hiding that one remote branch, or a
+	// whole-remote wildcard hide) would still leave `origin/main` typeable. `name` is the BARE branch
+	// name (no owner prefix) — a whole-remote wildcard's exceptions are keyed by it, not by `key`.
+	function isVisible(
+		kind: RefFindKind,
+		key: string,
+		owner: string | undefined,
+		name: string,
+		sha: string | undefined,
+	): boolean {
 		// No tip sha means nothing to navigate to.
 		if (sha == null || !sha) return false;
 		if (isTypeExcluded(kind, excludeTypes)) return false;
+		if (kind === 'remote' && owner != null) {
+			const excludedRemote = excludedRemotes?.get(owner);
+			if (excludedRemote != null && !excludedRemote.exceptNames.has(name)) return false;
+		}
 		if (excluded?.has(key)) return false;
 		if (includeOnly != null && !includeOnly.has(key)) return false;
 
@@ -186,7 +203,7 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 		// One key for filtering AND dedup: `refPillKey` is owner-aware, so two remotes' same-named
 		// branches neither collide here nor get hidden by a filter naming only one of them.
 		const key = refPillKey({ kind: kind, name: name, owner: owner });
-		if (!isVisible(kind, key, sha)) return undefined;
+		if (!isVisible(kind, key, owner, name, sha)) return undefined;
 		if (seen.has(key)) return undefined;
 
 		seen.add(key);
@@ -234,7 +251,13 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 			// filters hide would still be typeable through the alias it left on its local.
 			const inSyncLocal =
 				branch.sha != null &&
-				isVisible('remote', refPillKey({ kind: 'remote', name: branch.name, owner: remote.name }), branch.sha)
+				isVisible(
+					'remote',
+					refPillKey({ kind: 'remote', name: branch.name, owner: remote.name }),
+					remote.name,
+					branch.name,
+					branch.sha,
+				)
 					? localsByUpstreamName.get(qualifiedName)?.find(c => c.sha === branch.sha)
 					: undefined;
 			if (inSyncLocal != null) {

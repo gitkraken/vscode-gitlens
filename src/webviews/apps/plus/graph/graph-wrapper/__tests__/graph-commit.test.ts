@@ -1,8 +1,15 @@
 import * as assert from 'assert';
 import type { ZoneSpec } from '@gitkraken/commit-graph/view.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import type { GraphColumnSetting, GraphColumnsSettings } from '../../../../../plus/graph/protocol.js';
-import { columnsToZones, toGraphCommit, zonesToColumnsConfig } from '../graph-commit.js';
+import type {
+	GraphColumnSetting,
+	GraphColumnsSettings,
+	GraphDownstreams,
+	GraphExcludeRefs,
+	GraphExcludeTypes,
+} from '../../../../../plus/graph/protocol.js';
+import type { GraphCommitRef } from '../graph-commit.js';
+import { columnsToZones, isRefHidden, toGraphCommit, zonesToColumnsConfig } from '../graph-commit.js';
 
 // A persisted-columns fixture with only the `changes` key — columnsToZones ignores keys with no matching
 // default zone. Cast because GraphColumnsSettings is a full Record over every column name.
@@ -110,6 +117,82 @@ suite('graph-commit — branch pill context (grouped ref parity)', () => {
 		assert.strictEqual(ctx.webviewItemGroup, undefined, 'an ungrouped pill has no refGroup keys');
 		// With no group there's nothing to merge, so the pill context IS the individual context.
 		assert.strictEqual(ref!.context, ref!.refContext);
+	});
+});
+
+function commitRef(overrides: Partial<GraphCommitRef> & Pick<GraphCommitRef, 'kind' | 'name'>): GraphCommitRef {
+	return { id: `${overrides.owner ?? ''}/${overrides.name}:${overrides.kind}`, ...overrides };
+}
+
+/** An `excludeRefs` entry hiding `ref` by id. */
+function excludeById(ref: GraphCommitRef): GraphExcludeRefs {
+	return { [ref.id!]: { id: ref.id!, name: ref.name, type: ref.kind, owner: ref.owner } };
+}
+
+function wildcardExclude(owner: string, except?: string[]): GraphExcludeRefs {
+	return {
+		[`wildcard:${owner}`]: { id: `wildcard:${owner}`, name: '*', type: 'remote', owner: owner, except: except },
+	};
+}
+
+suite('isRefHidden', () => {
+	test('the current head is never hidden', () => {
+		const ref = commitRef({ kind: 'head', name: 'main', current: true });
+
+		assert.strictEqual(isRefHidden(ref, { heads: true }, excludeById(ref)), false);
+	});
+
+	test('a plain id entry hides only that ref', () => {
+		const hidden = commitRef({ kind: 'remote', name: 'main', owner: 'origin' });
+		const sibling = commitRef({ kind: 'remote', name: 'dev', owner: 'origin' });
+		const excludeRefs = excludeById(hidden);
+
+		assert.strictEqual(isRefHidden(hidden, undefined, excludeRefs), true);
+		assert.strictEqual(isRefHidden(sibling, undefined, excludeRefs), false);
+	});
+
+	test('a whole-remote wildcard hides a sibling remote ref of the same owner (different id)', () => {
+		const ref = commitRef({ kind: 'remote', name: 'dev', owner: 'origin' });
+
+		assert.strictEqual(isRefHidden(ref, undefined, wildcardExclude('origin')), true);
+	});
+
+	test('a whole-remote wildcard leaves a different owner unaffected', () => {
+		const ref = commitRef({ kind: 'remote', name: 'dev', owner: 'upstream' });
+
+		assert.strictEqual(isRefHidden(ref, undefined, wildcardExclude('origin')), false);
+	});
+
+	test('a whole-remote wildcard hides a tracked upstream, unlike the type-level toggle', () => {
+		const ref = commitRef({ kind: 'remote', name: 'main', owner: 'origin' });
+		const downstreams: GraphDownstreams = { 'origin/main': ['feature'] };
+		const excludeTypes: GraphExcludeTypes = { remotes: true };
+
+		// The type toggle alone excepts a tracked upstream…
+		assert.strictEqual(isRefHidden(ref, excludeTypes, undefined, downstreams), false);
+		// …but the wildcard hides it regardless.
+		assert.strictEqual(isRefHidden(ref, excludeTypes, wildcardExclude('origin'), downstreams), true);
+	});
+
+	test('a wildcard exception un-hides just that branch', () => {
+		const excepted = commitRef({ kind: 'remote', name: 'dev', owner: 'origin', id: 'origin/dev:remote' });
+
+		assert.strictEqual(isRefHidden(excepted, undefined, wildcardExclude('origin', ['origin/dev:remote'])), false);
+	});
+
+	test('a wildcard exception leaves a non-excepted sibling hidden', () => {
+		const excepted = commitRef({ kind: 'remote', name: 'dev', owner: 'origin', id: 'origin/dev:remote' });
+		const sibling = commitRef({ kind: 'remote', name: 'main', owner: 'origin', id: 'origin/main:remote' });
+		const excludeRefs = wildcardExclude('origin', ['origin/dev:remote']);
+
+		assert.strictEqual(isRefHidden(excepted, undefined, excludeRefs), false);
+		assert.strictEqual(isRefHidden(sibling, undefined, excludeRefs), true);
+	});
+
+	test('a ref with no id under a wildcard stays hidden regardless of exceptions', () => {
+		const ref = commitRef({ kind: 'remote', name: 'dev', owner: 'origin', id: undefined });
+
+		assert.strictEqual(isRefHidden(ref, undefined, wildcardExclude('origin', ['some-other-id'])), true);
 	});
 });
 

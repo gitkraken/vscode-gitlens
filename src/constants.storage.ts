@@ -510,6 +510,8 @@ export interface StoredGraphExcludedRef {
 	type: StoredGraphRefType;
 	name: string;
 	owner?: string;
+	/** For a whole-remote wildcard (`name: '*'`) only — ids of branches exempted from the hide. */
+	except?: string[];
 }
 
 export interface StoredGraphIncludeOnlyRef {

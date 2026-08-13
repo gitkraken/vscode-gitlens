@@ -102,6 +102,7 @@ import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { GlGraphRefFind } from '../components/gl-graph-ref-find.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
+import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
@@ -2511,6 +2512,7 @@ export class GlLitGraph extends LitElement {
 		// Nothing here mutates the mode, so unfocusing simply resumes filtering against it.
 		const includeOnly = this.scope != null ? undefined : this.includeOnlyRefs;
 		const excludeRefs = this.excludeRefs;
+		const excludedRemotes = getExcludedRemotes(excludeRefs);
 		const includeActive = includeOnly != null && Object.keys(includeOnly).length > 0;
 		const excludeActive = excludeRefs != null && Object.keys(excludeRefs).length > 0;
 		const hideHeads = this.excludeTypes?.heads === true;
@@ -2542,6 +2544,9 @@ export class GlLitGraph extends LitElement {
 			}
 			if (!visible && row.remotes != null) {
 				for (const r of row.remotes) {
+					const excludedRemote = excludedRemotes?.get(r.owner);
+					if (excludedRemote != null && (r.id == null || !excludedRemote.exceptIds.has(r.id))) continue;
+
 					if (refVisible(r.id, hideRemotes)) {
 						visible = true;
 						break;

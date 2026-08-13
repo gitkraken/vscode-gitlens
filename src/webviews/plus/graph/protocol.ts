@@ -125,6 +125,8 @@ export interface GraphRefOptData {
 	type: GraphRefType;
 	owner?: string;
 	avatarUrl?: string;
+	/** For a whole-remote wildcard (`name: '*'`) only — ids of branches exempted from the hide. */
+	except?: string[];
 }
 
 export interface ExcludeByType {

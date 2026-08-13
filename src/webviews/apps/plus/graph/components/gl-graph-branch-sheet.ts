@@ -17,6 +17,7 @@ import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	branchSheetContextRef,
 	findRowHead,
+	findWildcardRemoteExclude,
 	parseBranchSheetContext,
 	resolveBranchSheetExcludeRef,
 	resolveBranchSheetScope,
@@ -309,17 +310,29 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 	/** The sheet's Hide/Show chip. Unlike Focus, this one DOES carry its state — whether a ref is
 	 *  hidden is durable filter state that outlives the sheet, so the button names which way it will
 	 *  go. `excludeRefs` is `@signalState()` and this component is a `SignalWatcher`, so the host's
-	 *  visibility push re-renders the chip; no optimistic local copy — same rule as Pin. */
+	 *  visibility push re-renders the chip; no optimistic local copy — same rule as Pin.
+	 *
+	 *  A remote ref can be hidden two ways: by its own id, or by a whole-remote "Hide Remote" wildcard
+	 *  covering its owner (see `findWildcardRemoteExclude`) that doesn't exempt it. Either way the click
+	 *  always sends just `excluded` — the host turns a Show click on a wildcard-covered branch into a
+	 *  per-branch exception rather than un-hiding the whole remote (see `updateExcludedRefs`). */
 	private renderHideChip(ref: BranchSheetRef, context: GraphItemContext | undefined): unknown {
 		const excluded = resolveBranchSheetExcludeRef(ref, context);
 		if (excluded == null) return nothing;
 
-		const hidden = this._graphState?.excludeRefs?.[excluded.id] != null;
+		const wildcard =
+			ref.refType === 'remote'
+				? findWildcardRemoteExclude(this._graphState?.excludeRefs, excluded.owner)
+				: undefined;
+		const directHidden = this._graphState?.excludeRefs?.[excluded.id] != null;
+		const wildcardHidden = wildcard != null && !wildcard.except?.includes(excluded.id);
+		const hidden = directHidden || wildcardHidden;
+		const label = `${hidden ? 'Show' : 'Hide'} ${ref.refType === 'tag' ? 'Tag' : 'Branch'}`;
 
 		return html`<gl-action-chip
 			slot="actions"
 			icon=${hidden ? 'eye' : 'eye-closed'}
-			label="${hidden ? 'Show' : 'Hide'} ${ref.refType === 'tag' ? 'Tag' : 'Branch'}"
+			label=${label}
 			overlay="tooltip"
 			@click=${() => this._ipc?.sendCommand(UpdateRefsVisibilityCommand, { refs: [excluded], visible: hidden })}
 		></gl-action-chip>`;
