@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes the recommended AI model for OpenAI to GPT-5.6 Luna, and for Mistral to Mistral Small 4
+- Changes single-clicking a file in the _Commit Graph_'s _Review_ mode to open its diff against the review scope, matching clicking a finding's file reference
 
 ### Removed
 

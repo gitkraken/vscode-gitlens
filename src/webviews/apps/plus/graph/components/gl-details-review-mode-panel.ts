@@ -26,6 +26,7 @@ import {
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
+import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
@@ -693,6 +694,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 					.fileContext=${this.getFileContext}
 					.contextRevision=${contextRevision}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
+					selection-action="file-compare-range"
+					@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>
+						this.handleOpenFile(e.detail.path)}
 					.searchContext=${this.searchContext}
 					.showSearchBox=${this.showSearchBox}
 					.searchBoxFilter=${this.searchBoxFilter}
