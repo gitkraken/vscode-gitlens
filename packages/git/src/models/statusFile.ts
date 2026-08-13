@@ -86,6 +86,9 @@ export class GitStatusFile implements GitFile {
 				case 'M':
 					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
 					break;
+				case 'T':
+					this.workingTreeStatus = GitFileWorkingTreeStatus.TypeChanged;
+					break;
 			}
 		}
 	}

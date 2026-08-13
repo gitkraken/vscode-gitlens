@@ -144,6 +144,22 @@ suite('Status Parser Test Suite', () => {
 		assert.strictEqual(result.files[0].indexStatus, GitFileIndexStatus.Renamed, 'Should be renamed');
 	});
 
+	test('V1: parses staged content change with a working-tree type change (MT)', () => {
+		const data = ['## main', 'MT typechanged.ts'].join('\n');
+
+		const result = parseGitStatus(data, repoPath, 1, getUri);
+
+		assert.ok(result, 'Should return a status');
+		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
+		assert.strictEqual(result.files[0].path, 'typechanged.ts', 'Should have correct path');
+		assert.strictEqual(result.files[0].indexStatus, GitFileIndexStatus.Modified, 'Should be index modified');
+		assert.strictEqual(
+			result.files[0].workingTreeStatus,
+			GitFileWorkingTreeStatus.TypeChanged,
+			'Should be working tree type changed',
+		);
+	});
+
 	test('V1: parses deleted file', () => {
 		const data = ['## main', ' D removed.ts'].join('\n');
 

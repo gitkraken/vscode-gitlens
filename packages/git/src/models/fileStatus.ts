@@ -27,6 +27,7 @@ export type GitFileIndexStatus = (typeof GitFileIndexStatus)[keyof typeof GitFil
 
 export const GitFileWorkingTreeStatus = {
 	Modified: 'M',
+	TypeChanged: 'T',
 	Added: 'A',
 	Deleted: 'D',
 	Untracked: '?',
