@@ -94,9 +94,16 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				color: var(--gl-chip-scoped-color, var(--vscode-charts-yellow));
 			}
 
+			/* Pinned to the top of the detail scroller so the preview stays visible while
+			   scrolling a long category. The background mixes against --color-background
+			   (the pane's actual backdrop) rather than transparent — visually identical,
+			   but opaque so scrolled content can't show through. */
 			.preview {
+				position: sticky;
+				inset-block-start: 0;
+				z-index: 1;
 				padding: 1.6rem 2.6rem;
-				background-color: color-mix(in srgb, var(--vscode-sideBar-background) 60%, transparent);
+				background-color: color-mix(in srgb, var(--vscode-sideBar-background) 60%, var(--color-background));
 				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
