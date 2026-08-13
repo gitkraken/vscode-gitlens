@@ -4,6 +4,7 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type {
+	DidSearchParams,
 	GetOverviewWipResponse,
 	GraphColumnName,
 	GraphScope,
@@ -56,6 +57,10 @@ export interface AppState extends State {
 	/** The active search's query, carried from the host so a rebooted/reconnected app can restore its
 	 *  search box (results ride their own channel; without this the box is blank after a reconnect). */
 	searchQuery: SearchQuery | undefined;
+	/** Mirrors the host's `DidSearchParams.fallback` — set when the active search's pattern failed to
+	 *  compile as regex and matched literally instead. Cleared the moment a search completes without
+	 *  needing the fallback. Drives the search box's dimmed regex toggle and zero-result helper row. */
+	searchFallback: DidSearchParams['fallback'];
 	currentSearchId: number | undefined;
 	/** Bumped locally each time the user submits a NEW search, so consumers can scope per-search UI
 	 *  state to one search session. Unlike `currentSearchId` (assigned by the host, so it only lands a

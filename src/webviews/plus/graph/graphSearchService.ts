@@ -3,7 +3,7 @@ import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
 import {
 	getSearchQueryComparisonKey,
 	parseSearchQuery,
@@ -106,6 +106,14 @@ export class GraphSearchService {
 	private _searchIdCounter = getScopedCounter();
 	private _searchHistory: SearchHistory | undefined;
 
+	/**
+	 * Set for the lifetime of a search (through its `e.more` continuations) that recovered from an
+	 * invalid-regex pattern by matching literally instead — a pattern mid-keystroke (e.g. `fix(`) fails
+	 * to compile constantly, and flashing an error on every one is worse than quietly matching literally
+	 * until the pattern completes. Cleared the moment a genuinely new search starts.
+	 */
+	private _fallback: { detail?: string } | undefined;
+
 	constructor(private readonly context: GraphSearchServiceContext) {}
 
 	private get container(): Container {
@@ -127,6 +135,18 @@ export class GraphSearchService {
 	/** Current supersede-counter value. Read by the data controller to stamp stale-search responses. */
 	get searchIdCounterCurrent(): number {
 		return this._searchIdCounter.current;
+	}
+
+	/** {@link _fallback} as the wire payload, or `undefined` when no fallback is active for the current search. */
+	private buildFallbackParam(): DidSearchParams['fallback'] {
+		return this._fallback != null ? { matchedAs: 'literal', detail: this._fallback.detail } : undefined;
+	}
+
+	/** `query` with `matchRegex` forced back to `true` while {@link _fallback} is active — the query stored
+	 *  on `_search` stays the executed (literal) one (paging cursors and `comparisonKey` need it), but
+	 *  nothing webview-facing may show the regex toggle as off. */
+	private publicSearchQuery(query: SearchQuery): SearchQuery {
+		return this._fallback != null ? { ...query, matchRegex: true } : query;
 	}
 
 	onSearchHistoryGetRequest(): IpcResponse<typeof SearchHistoryGetRequest> {
@@ -227,6 +247,7 @@ export class GraphSearchService {
 				'failed.error': !cancelled && exception != null ? String(exception) : undefined,
 				'failed.error.detail':
 					!cancelled && exception?.original != null ? String(exception?.original) : undefined,
+				'fallback.literal': this._fallback != null,
 			});
 		}
 	}
@@ -320,6 +341,7 @@ export class GraphSearchService {
 			// Increment search ID for new search
 			searchId = this._searchIdCounter.next();
 			this._search = undefined;
+			this._fallback = undefined;
 
 			// Clear previous search results immediately
 			void this.host.notify(DidSearchNotification, {
@@ -375,8 +397,68 @@ export class GraphSearchService {
 					};
 				}
 
-				this._search = undefined;
-				throw ex;
+				// A pattern that doesn't (yet) compile as regex is normal mid-keystroke (e.g. `fix(`) — retry
+				// once as a literal search instead of flashing an error while the user is still typing it out.
+				if (GitSearchError.is(ex) && ex.reason === 'invalidPattern' && e.search.matchRegex !== false) {
+					this._fallback = { detail: ex.detail };
+
+					try {
+						const fallbackStream = this.repository.git.graph.searchGraph(
+							{ ...e.search, matchRegex: false },
+							{
+								limit: configuration.get('graph.searchItemLimit') ?? 0,
+								ordering: configuration.get('graph.commitOrdering'),
+							},
+							toAbortSignal(cancellation.token),
+						);
+						using _fallbackStreamDisposer = createDisposable(
+							() => void fallbackStream.return?.(undefined!),
+						);
+
+						({ search, firstResultSelected } = await this.processSearchStream(
+							fallbackStream,
+							searchId,
+							progressive,
+							graph,
+							{ selectFirstResult: true },
+						));
+
+						if (search == null) {
+							if (searchId !== this._searchIdCounter.current) {
+								return {
+									search: e.search,
+									results: undefined,
+									partial: false,
+									searchId: searchId,
+								};
+							}
+							throw new Error('Fallback search generator completed without returning a result', {
+								cause: ex,
+							});
+						}
+
+						// The provider computed `comparisonKey` from the executed (literal) query — patch it
+						// back to the original so a later `e.more` continuation (which always sends the
+						// original query) still matches and continues from the literal cursor.
+						search = { ...search, comparisonKey: getSearchQueryComparisonKey(e.search) };
+					} catch {
+						if (searchId !== this._searchIdCounter.current) {
+							return {
+								search: e.search,
+								results: undefined,
+								partial: false,
+								searchId: searchId,
+							};
+						}
+
+						this._fallback = undefined;
+						this._search = undefined;
+						throw ex; // surface the original classified error, not the fallback attempt's
+					}
+				} else {
+					this._search = undefined;
+					throw ex;
+				}
 			}
 
 			// Only update _search if this search hasn't been superseded by a newer one
@@ -400,7 +482,7 @@ export class GraphSearchService {
 			if (searchId != null && progressive && !e.more) {
 				// Use search.query to include any mode changes (filter toggle) that happened during the search
 				void this.host.notify(DidSearchNotification, {
-					search: search.query,
+					search: this.publicSearchQuery(search.query),
 					results: this.getSearchResultsData(search) ?? {
 						count: 0,
 						hasMore: false,
@@ -408,16 +490,18 @@ export class GraphSearchService {
 					},
 					selectedRows: firstResultSelected ? this.context.getConvertedSelectedRows() : undefined,
 					partial: false,
+					fallback: this.buildFallbackParam(),
 					searchId: searchId,
 				});
 			}
 		}
 
 		return {
-			search: search.query,
+			search: this.publicSearchQuery(search.query),
 			results: this.getSearchResultsData(search) ?? { count: 0, hasMore: false, commitsLoaded: { count: 0 } },
 			selectedRows: firstResultSelected ? this.context.getConvertedSelectedRows() : undefined,
 			partial: false, // Final results
+			fallback: this.buildFallbackParam(),
 			searchId: searchId,
 		};
 	}
@@ -463,6 +547,7 @@ export class GraphSearchService {
 
 		const searchId = this._searchIdCounter.next();
 		this._search = undefined;
+		this._fallback = undefined;
 
 		void this.host.notify(DidSearchNotification, {
 			search: e.search,
@@ -606,10 +691,11 @@ export class GraphSearchService {
 			if (progressive) {
 				// Send only the incremental batch to frontend (not all accumulated results)
 				void this.host.notify(DidSearchNotification, {
-					search: this._search.query,
+					search: this.publicSearchQuery(this._search.query),
 					results: this.getSearchResultsData(progress),
 					selectedRows: selectedRows,
 					partial: true,
+					fallback: this.buildFallbackParam(),
 					searchId: searchId,
 				});
 			}
@@ -647,7 +733,7 @@ export class GraphSearchService {
 			// Send final notification with complete results
 			if (progressive) {
 				void this.host.notify(DidSearchNotification, {
-					search: this._search.query,
+					search: this.publicSearchQuery(this._search.query),
 					results: this.getSearchResultsData(search) ?? {
 						count: 0,
 						hasMore: false,
@@ -658,6 +744,7 @@ export class GraphSearchService {
 							? this.context.getConvertedSelectedRows()
 							: undefined,
 					partial: false,
+					fallback: this.buildFallbackParam(),
 					searchId: searchId,
 				});
 			}
@@ -804,7 +891,7 @@ export class GraphSearchService {
 
 		this._lastRiderKey = riderKey;
 		return {
-			search: search.query,
+			search: this.publicSearchQuery(search.query),
 			// A present-but-empty envelope for a zero-result search (getSearchResultsData returns undefined
 			// when the map is empty — the app would treat undefined+undefined-query as a cancel/clear).
 			results: this.getSearchResultsData(search) ?? {
@@ -818,6 +905,7 @@ export class GraphSearchService {
 			// jump-to-last could skip its wait-for-complete on a partial result set).
 			rider: true,
 			partial: false,
+			fallback: this.buildFallbackParam(),
 			searchId: this._searchIdCounter.current,
 		};
 	}
@@ -831,6 +919,7 @@ export class GraphSearchService {
 
 	resetSearchState(): void {
 		this._search = undefined;
+		this._fallback = undefined;
 		this._lastRiderKey = undefined;
 		this.context.cancelSearchOperation();
 		// Bump so any in-flight search's late notifications drop on the app's searchId guard, and push

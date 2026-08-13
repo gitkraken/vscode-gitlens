@@ -1645,6 +1645,8 @@ export interface DidSearchParams {
 	selectedRows?: GraphSelectedRows;
 	/** Indicates this is a partial result (more results coming) */
 	partial?: boolean;
+	/** Set when the pattern failed to compile as a regex and the search matched literally instead */
+	fallback?: { matchedAs: 'literal'; detail?: string };
 	/** A results/coverage REFRESH riding a rows-plane emission — NOT search progress. The app must not
 	 *  derive `searching` from it (an active progressive search's spinner would flicker off, and
 	 *  jump-to-last could skip its wait-for-complete on a partial result set). */

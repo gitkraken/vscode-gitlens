@@ -200,6 +200,17 @@ export class GlSearchInput extends GlElement {
 			border-color: var(--vscode-inputValidation-errorBorder);
 		}
 
+		.message-action {
+			margin-left: var(--gl-space-8);
+			color: var(--vscode-textLink-foreground);
+			text-decoration: underline;
+			cursor: pointer;
+		}
+
+		.message-action:hover {
+			color: var(--vscode-textLink-activeForeground);
+		}
+
 		/* Input highlighting overlay */
 		.input-container {
 			position: relative;
@@ -334,6 +345,13 @@ background-color: var(--vscode-menu-background);
 	@property({ type: Boolean }) searching = false;
 	@property({ type: Boolean }) hasMoreResults = false;
 	@property({ type: Boolean }) showAutocompleteOnFocus = true;
+	/** Renders `errorMessage` in calm/info styling instead of error/red. */
+	@property({ type: Boolean }) errorCalm = false;
+	/** The active search's pattern failed to compile as regex and matched literally instead. */
+	@property({ type: Boolean }) fallbackActive = false;
+	@property({ type: String }) fallbackDetail = '';
+	/** The settled search used the literal fallback and found nothing. */
+	@property({ type: Boolean }) showFallbackHelper = false;
 	@property({ type: String })
 	get value() {
 		return this._value;
@@ -1506,7 +1524,7 @@ background-color: var(--vscode-menu-background);
 						spellcheck="false"
 						placeholder="${this.placeholder}"
 						.value="${live(this.value ?? '')}"
-						aria-valid="${!this.errorMessage}"
+						aria-valid="${!this.errorMessage || this.errorCalm}"
 						@input="${this.handleInput}"
 						@keydown="${this.handleShortcutKeys}"
 						@keyup="${this.handleKeyup}"
@@ -1515,8 +1533,7 @@ background-color: var(--vscode-menu-background);
 						@blur="${this.handleInputBlur}"
 						@scroll="${this.handleInputScroll}"
 					/>
-					${this.errorMessage ? html`<div class="message">${this.errorMessage}</div>` : nothing}
-					${this.renderAutocomplete()}
+					${this.renderMessage()} ${this.renderAutocomplete()}
 				</div>
 			</div>
 			<div class="controls">
@@ -1623,6 +1640,30 @@ background-color: var(--vscode-menu-background);
 		return this.value;
 	}
 
+	/**
+	 * Renders the search box's message area: the zero-result fallback helper takes priority (it isn't an
+	 * error — the search succeeded, just matched nothing), then the plain error/info message.
+	 */
+	private renderMessage() {
+		if (this.showFallbackHelper) {
+			return html`<div class="message">
+				No results — pattern isn't valid regex
+				<a href="#" class="message-action" @click="${this.handleMatchLiterallyClick}">Match literally</a>
+			</div>`;
+		}
+
+		if (!this.errorMessage) return nothing;
+
+		return html`<div class="message">${this.errorMessage}</div>`;
+	}
+
+	/** "Match literally" action: flips the regex toggle off through the same handler a user click takes,
+	 *  so the change event and search refresh fire naturally. */
+	private handleMatchLiterallyClick(e: Event) {
+		e.preventDefault();
+		this.handleMatchRegex(e);
+	}
+
 	private renderAutocomplete() {
 		// Show description if we have items, operator help, or NL mode
 		const hasDescription = Boolean(this.autocompleteItems.length || this.naturalLanguage || this.cursorOperator);
@@ -1630,7 +1671,7 @@ background-color: var(--vscode-menu-background);
 		return html`<gl-autocomplete
 			id="autocomplete-list"
 			.items="${this.autocompleteItems}"
-			?open="${this.autocompleteOpen && hasDescription && !this.errorMessage}"
+			?open="${this.autocompleteOpen && hasDescription && !this.errorMessage && !this.showFallbackHelper}"
 			@gl-autocomplete-select="${this.handleAutocompleteSelect}"
 			@gl-autocomplete-cancel="${this.hideAutocomplete}"
 			@gl-autocomplete-active-change="${() => this.requestUpdate()}"
@@ -1727,7 +1768,12 @@ background-color: var(--vscode-menu-background);
 				appearance="input"
 				role="checkbox"
 				aria-checked="${this.matchRegex}"
-				tooltip="Use Regular Expression"
+				variant="${ifDefined(this.fallbackActive ? 'warning' : undefined)}"
+				tooltip="${
+					this.fallbackActive
+						? `Pattern isn't valid regex — matching literally${this.fallbackDetail ? `: ${this.fallbackDetail}` : ''}`
+						: 'Use Regular Expression'
+				}"
 				aria-label="Use Regular Expression"
 				@click="${this.handleMatchRegex}"
 			>

@@ -1210,6 +1210,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			config,
 			excludeRefs,
 			searching,
+			searchFallback,
 			searchMode,
 			searchResults,
 			searchResultsError,
@@ -1219,6 +1220,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const scoped = getDisplayedMode(this.graphState) === 'scoped';
 		const filtered = isGraphFiltered(this.graphState);
 		const rowClass = scoped ? 'titlebar__row--scoped' : filtered ? 'titlebar__row--filtered' : '';
+
+		// Mid-typing an incomplete regex (e.g. `fix(`) silently matches literally instead of erroring — the
+		// toggle stays checked but dims, and only once the search has fully settled (not still streaming
+		// in) with zero matches do we offer the "Match literally" escape hatch.
+		const fallbackActive = searchFallback != null;
+		const showFallbackHelper = fallbackActive && !searching && (searchResults?.count ?? 0) === 0;
 
 		// Search applies to the graph rows; any alternate display mode (visualizations, kanban)
 		// hides the graph body and shouldn't accept search input — typing would silently scroll
@@ -1239,6 +1246,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						aria-disabled=${isAlternateMode ? 'true' : 'false'}
 						?aiAllowed=${this.aiAllowed}
 						errorMessage=${searchResultsError?.error ?? ''}
+						?errorCalm=${searchResultsError?.reason === 'invalidRef'}
+						?fallbackActive=${fallbackActive}
+						fallbackDetail=${searchFallback?.detail ?? ''}
+						?showFallbackHelper=${showFallbackHelper}
 						?filter=${searchMode === 'filter'}
 						?naturalLanguage=${Boolean(useNaturalLanguageSearch)}
 						.navigating=${this.graphState.navigating}

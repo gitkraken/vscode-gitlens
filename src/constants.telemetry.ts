@@ -1693,6 +1693,8 @@ interface GraphSearchedEvent extends GraphContextEventData {
 	'failed.reason'?: 'cancelled' | 'error';
 	'failed.error'?: string;
 	'failed.error.detail'?: string;
+	/** Whether the pattern failed to compile as a regex and was silently retried as a literal search */
+	'fallback.literal'?: boolean;
 }
 
 export type GraphVirtualFileMode = 'diff' | 'comparePrevious' | 'multiDiff';

@@ -185,6 +185,16 @@ export class GlSearchBox extends GlElement {
 
 	@property({ type: Boolean }) aiAllowed = true;
 	@property({ type: String }) errorMessage = '';
+	/** Renders {@link errorMessage} in calm/info styling instead of error/red — a ref name that's
+	 *  merely incomplete mid-typing (`reason === 'invalidRef'`), not a real error. */
+	@property({ type: Boolean }) errorCalm = false;
+	/** The active search's pattern failed to compile as regex and matched literally instead — dims the
+	 *  regex toggle (still checked) rather than flipping it off. */
+	@property({ type: Boolean }) fallbackActive = false;
+	@property({ type: String }) fallbackDetail = '';
+	/** The settled (non-partial) search used the literal fallback and found nothing — offers a
+	 *  "Match literally" action in the message area instead of a bare zero-results count. */
+	@property({ type: Boolean }) showFallbackHelper = false;
 	@property({ type: Boolean }) filter = false;
 	@property({ type: Boolean }) matchAll = false;
 	@property({ type: Boolean }) matchCase = false;
@@ -415,6 +425,10 @@ export class GlSearchBox extends GlElement {
 				exportparts="search: search"
 				?aiAllowed="${this.aiAllowed}"
 				.errorMessage="${this.errorMessage}"
+				?errorCalm="${this.errorCalm}"
+				?fallbackActive="${this.fallbackActive}"
+				.fallbackDetail="${this.fallbackDetail}"
+				?showFallbackHelper="${this.showFallbackHelper}"
 				?filter=${this.filter}
 				?matchAll="${this.matchAll}"
 				?matchCase="${this.matchCase}"
