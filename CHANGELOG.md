@@ -6,14 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.0.1] - 2026-08-13
+
 ### Added
 
 - Adds support for the latest AI models &mdash; Claude Opus 5 and Claude Fable 5, GPT-5.6 (Sol, Terra, and Luna), Grok 4.6, Mistral Medium 3.5, Mistral Large 3, Mistral Small 4, the Ministral 3 family (14B, 8B, and 3B), and GLM 5.2
 
 ### Changed
 
-- Changes the recommended AI model for OpenAI to GPT-5.6 Luna, and for Mistral to Mistral Small 4
 - Changes single-clicking a file in the _Commit Graph_'s _Review_ mode to open its diff against the review scope, matching clicking a finding's file reference
+- Changes the recommended AI model for OpenAI to GPT-5.6 Luna, and for Mistral to Mistral Small 4
 
 ### Removed
 
@@ -21,10 +23,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes incorrect context window and maximum output token limits across the Anthropic, OpenAI, Mistral, xAI, and DeepSeek models
-- Fixes deleted branches lingering in the _Commit Graph_ and views when the branch's ref was packed (e.g. after `git gc`)
 - Fixes the _Commit Graph_ welcome re-appearing after being dismissed &mdash; the dismissal could be lost when choosing a layout on the welcome, reverted by other windows' onboarding writes, or flash back from stale state when the view was collapsed and expanded
 - Fixes file context menu actions silently doing nothing in the _Commit Graph_'s _Compose_ and _Review_ modes for files coming from the scope's included commits, and adds the missing file context menus to the _Resolve_ mode's conflicts tree
+- Fixes deleted branches lingering in the _Commit Graph_ and views when the branch's ref was packed (e.g. after `git gc`)
+- Fixes incorrect context window and maximum output token limits across the Anthropic, OpenAI, Mistral, xAI, and DeepSeek models
 
 ## [19.0.0] - 2026-08-12
 
@@ -7218,7 +7220,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...HEAD
+[19.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...gitkraken:v19.0.1
 [19.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...gitkraken:v19.0.0
 [18.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...gitkraken:v18.3.0
 [18.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.1.0...gitkraken:v18.2.0
