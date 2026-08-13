@@ -38,6 +38,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 		scrollableBase,
 		css`
 			:host {
+				position: relative;
 				display: block;
 				overflow-y: auto;
 			}
