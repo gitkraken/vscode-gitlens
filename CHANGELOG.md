@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds following of the active terminal and Claude Code tab to the _Commit Graph_ &mdash; while a graph is visible, switching to a terminal (or a Claude Code conversation tab) selects the working changes row of the repository or worktree it is in, without raising the graph, opening the details panel, or switching repositories; a one-time tip explains the behavior the first time it moves your selection, with a _Turn Off_ action right in the tip
   - Adds a `gitlens.graph.followTerminal.enabled` setting (on by default) with _Follow Active Terminal_ / _Stop Following Active Terminal_ toggles in the graph's "..." menus, and a `gitlens.graph.followTerminal.allowRepositorySwitching` setting to let following switch the graph to a different repository
 - Adds _Focus in Commit Graph_, _Open in Commit Graph_, and _Open in New Window_ actions to terminal tabs, terminal editor tabs, and Claude Code conversation tabs &mdash; opening the graph at the terminal's or session's worktree with its working changes selected; _Focus_ also scopes the graph to the worktree's branch
+- Adds support for the Gemini 3.7 Flash AI model
 
 ### Changed
 
