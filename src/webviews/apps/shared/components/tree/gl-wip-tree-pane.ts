@@ -372,16 +372,17 @@ export class GlWipTreePane extends LitElement {
 		// unstaged remains, so it never destroys staged content while unstaged changes are present.
 		const stagedOnly = !hasUnstaged && hasStaged;
 		const scopeLabel = stagedOnly ? 'Discard Staged Changes' : 'Discard Unstaged Changes';
-		// With ANY rows selected the primary discards just the selection — irreversibly, so unlike
-		// Stash/Copy this chip has neither a `> 1` threshold nor a modifier escalation: Alt/Shift must
-		// never widen what it destroys, and rows being selected at all must never mean "everything".
-		// Reads the same gate the handlers do so the announced label can't drift from what they run.
-		const hasSelection = this.selectionForDiscard() != null;
-		// Deliberately no alt-label: with no modifier escalation there's nothing to swap to, and
-		// announcing the scope action would promise a destruction the click handler won't perform.
+		// Same `> 1` selection gate as Stash/Copy. Reads the same gate the handlers do so the
+		// announced label can't drift from what they run.
+		const hasSelection = this.selectionForToolbarAction() != null;
+		// Alt demotes to the scope action, mirroring Stash/Copy — the destructive click handlers
+		// branch on `e.altKey` only (never Shift, the range-select key) and the host's confirmation
+		// dialog is the safety net for that fallthrough. No alt-label without a selection: there's
+		// no "Discard All" scope action to fall back to below the scope action itself.
 		return html`<gl-action-chip
 			icon="discard"
 			label=${hasSelection ? 'Discard Selected Changes' : scopeLabel}
+			alt-label=${hasSelection ? scopeLabel : nothing}
 			?disabled=${!hasUnstaged && !hasStaged}
 			@click=${stagedOnly ? this.onDiscardStaged : this.onDiscardUnstaged}
 		></gl-action-chip>`;
@@ -481,20 +482,6 @@ export class GlWipTreePane extends LitElement {
 		return files.length > 1 ? files : undefined;
 	}
 
-	/** Same, but for the DESTRUCTIVE chip, which acts on ANY selection rather than needing two files.
-	 *
-	 *  Outside checkbox mode a mixed path occupies two rows, so selecting both halves of one file
-	 *  highlights two rows that resolve to one file — under the `> 1` gate the chip would fall through
-	 *  and discard the whole working tree while the user had rows selected. The safe reading of "some
-	 *  rows are selected" is always "act on them"; the repo-wide action stays available by selecting
-	 *  nothing. Stash/Copy/Open keep `> 1` — under-acting there costs a redo, not data. */
-	private selectionForDiscard(): readonly FileItem[] | undefined {
-		if (!this.multiSelectable) return undefined;
-
-		const files = this.resolveSelectedFiles();
-		return files.length > 0 ? files : undefined;
-	}
-
 	private onStashSave(e: MouseEvent) {
 		// With a multi-selection, the primary stashes just the selected files; Alt falls back to the
 		// scope action below (mirrors "Open Selected Changes"). Ships the re-resolved set, not the
@@ -521,18 +508,18 @@ export class GlWipTreePane extends LitElement {
 		);
 	}
 
-	private onDiscardUnstaged() {
-		// With a multi-selection, the primary ALWAYS discards just the selected files — this chip is
-		// irreversible, so unlike Stash/Copy's "Open Selected Changes" pattern it deliberately has NO
-		// modifier escalation. Alt and Shift are ignored here on purpose: Shift is what users hold to
-		// range-select rows, so an accidental Shift held into the click must not fall through to the
-		// scope action and discard the entire working tree instead of the selection. The host resolves
-		// staged vs unstaged per file, so this branch is identical to `onDiscardStaged`'s.
+	private onDiscardUnstaged(e: MouseEvent) {
+		// With a multi-selection, the primary discards just the selected files; Alt falls back to the
+		// scope action below (mirrors Stash/Copy). Branches on `e.altKey` only — Shift is the
+		// range-select key and must never widen a destructive action, so an accidental Shift held
+		// into the click stays scoped to the selection. The host's confirmation dialog is the safety
+		// net for the Alt fallthrough. The host resolves staged vs unstaged per file, so this branch
+		// is identical to `onDiscardStaged`'s.
 		//
 		// Resolved once here and gated on the same rule the chip's label reads, so the selection can't
 		// be re-resolved to a different set between the two.
-		const selected = this.selectionForDiscard();
-		if (selected != null) {
+		const selected = this.selectionForToolbarAction();
+		if (selected != null && e.altKey !== true) {
 			this.dispatchEvent(
 				new CustomEvent('discard-unstaged', { detail: { files: selected }, bubbles: true, composed: true }),
 			);
@@ -542,11 +529,11 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('discard-unstaged', { bubbles: true, composed: true }));
 	}
 
-	private onDiscardStaged() {
-		// Same selection branch as `onDiscardUnstaged`, including its no-modifier-escalation,
-		// any-selection and resolve-once rules — only the scope fallback differs.
-		const selected = this.selectionForDiscard();
-		if (selected != null) {
+	private onDiscardStaged(e: MouseEvent) {
+		// Same selection branch as `onDiscardUnstaged`, including its Alt-demotes/Shift-ignored and
+		// resolve-once rules — only the scope fallback differs.
+		const selected = this.selectionForToolbarAction();
+		if (selected != null && e.altKey !== true) {
 			this.dispatchEvent(
 				new CustomEvent('discard-staged', { detail: { files: selected }, bubbles: true, composed: true }),
 			);
