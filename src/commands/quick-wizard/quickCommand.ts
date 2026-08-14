@@ -4,6 +4,7 @@ import type { Container } from '../../container.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createConfirmToggleQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import { executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { CustomStep } from './models/steps.custom.js';
 import type {
@@ -17,6 +18,7 @@ import type {
 import { StepResultBreak } from './models/steps.js';
 import type { QuickInputStep } from './models/steps.quickinput.js';
 import type { QuickPickStep } from './models/steps.quickpick.js';
+import { SkipConfirmationsSettingsQuickInputButton } from './quickButtons.js';
 import { confirmOptionsSeparatorLabel, createConfirmStep, refreshConfirmStepItems } from './utils/steps.utils.js';
 
 export abstract class QuickCommand<State = any> implements QuickPickItem {
@@ -194,6 +196,9 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 			},
 		});
 
+		// The detail promises "change anytime in settings" — the row button honors it
+		toggle.buttons = [SkipConfirmationsSettingsQuickInputButton];
+
 		// Join an existing Options group rather than opening a second one
 		const hasOptionsSeparator = confirmations.some(
 			c => c.kind === QuickPickItemKind.Separator && c.label === confirmOptionsSeparatorLabel,
@@ -207,6 +212,17 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		// Survive command-driven refreshes — a command rebuilding its rows in place only knows its
 		// own rows, so the refresh helper re-appends these
 		step.appendedItems = appended;
+
+		const onDidClickItemButton = step.onDidClickItemButton;
+		step.onDidClickItemButton = (quickpick, button, item) => {
+			if (button === SkipConfirmationsSettingsQuickInputButton) {
+				void executeCoreCommand('workbench.action.openSettings', '@id:gitlens.gitCommands.skipConfirmations');
+				return false;
+			}
+
+			return onDidClickItemButton?.(quickpick, button, item);
+		};
+
 		return step;
 	}
 }
