@@ -1,5 +1,9 @@
-import type { PullRequestSearchCriteria, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
-import { PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequestSearchCriteria,
+	PullRequestSorting,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
+import { defaultPullRequestSort, PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
 import { sanitizeGitHubQualifierValue, sanitizeGitHubSearchText } from './issueSearchQuery.js';
 
 export type GitHubPullRequestSearchFacet = {
@@ -28,6 +32,30 @@ const stateAlias: Record<PullRequestStateFilter, string> = {
 	merged: 'Merged',
 	all: 'All',
 };
+
+/**
+ * How each orderable key becomes a GitHub `sort:` qualifier.
+ *
+ * A literal `Record` over the union rather than a derived transform, for the same reason the relationship tables
+ * are: adding a sort field without deciding its qualifier fails the build instead of quietly emitting a search
+ * with no ordering constraint — the one failure mode the ordering contract exists to prevent, and the one a
+ * caller cannot detect from the result.
+ *
+ * `updated:desc` maps to the bare `sort:updated`, not `sort:updated-desc`. The two are the same query to GitHub,
+ * but the bare form is what this read has always emitted, so keeping it makes the default byte-identical to
+ * today's query — matching `toGitHubIssueSortQualifier`. Do not "normalize" it.
+ */
+export const gitHubPullRequestSortQualifiers: Partial<Record<PullRequestSorting, string>> = {
+	'created:asc': 'sort:created-asc',
+	'created:desc': 'sort:created-desc',
+	'updated:asc': 'sort:updated-asc',
+	'updated:desc': 'sort:updated',
+};
+
+/** The `sort:` qualifier for a key, or `undefined` when there is no key or GitHub can't express it. */
+export function toGitHubPullRequestSortQualifier(sort: PullRequestSorting | undefined): string | undefined {
+	return sort != null ? gitHubPullRequestSortQualifiers[sort] : undefined;
+}
 
 function stateQualifiers(state: PullRequestStateFilter): string[] {
 	switch (state) {
@@ -62,6 +90,26 @@ export function toGitHubPullRequestSearchFacets(
 		: ['open'];
 	const states: PullRequestStateFilter[] = requestedStates.includes('all') ? ['all'] : requestedStates;
 	const text = criteria?.text != null ? sanitizeGitHubSearchText(criteria.text) : '';
+	// Ordering is part of the contract, not an option: without an explicit `sort:` GitHub answers in relevance
+	// order, so which rows land inside the result ceiling would shift with its ranking even when nothing changed
+	// upstream. A key GitHub can't express is REFUSED here, not approximated with a fallback order — a silent
+	// `sort:updated` substitute would emit one order in the query while the merged-page comparator applied another
+	// (or none for an unknown field), which is exactly the "the N most recent are what you get" promise the ceiling
+	// contract cannot keep under a guessed order. Unreachable through the facade — every key is validated against
+	// `githubPullRequestSearchCapabilities.sorts` first — so this guards the direct callers of this exported builder
+	// and of `GitHubApi.searchPullRequestsPage`.
+	//
+	// Deliberately STRICTER than the issue path, which drops an inexpressible qualifier and searches on
+	// (`toGitHubIssueSearchQualifiers` pushes `toGitHubIssueSortQualifier`'s result only when it is non-null). The
+	// two reads differ in what that costs: an issue search is served by whichever facets the provider ordered, while
+	// this one hands its merged page to `getPullRequestComparator`, so a dropped qualifier here means the query and
+	// the comparator disagree about the order the ceiling was applied under. Refusing is the only answer that
+	// cannot lie about which rows were reachable.
+	const sort = criteria?.sort ?? defaultPullRequestSort;
+	const sortQualifier = toGitHubPullRequestSortQualifier(sort);
+	if (sortQualifier == null) {
+		throw new Error(`GitHub cannot order a pull request search by '${sort}'`);
+	}
 
 	// Facet-independent, unlike the relationship/state qualifiers below — build once and share.
 	const dateQualifiers: string[] = [];
@@ -88,8 +136,7 @@ export function toGitHubPullRequestSearchFacets(
 				...(criteria?.includeArchived === true ? [] : ['archived:false']),
 				...(text.length > 0 ? [text] : []),
 				...dateQualifiers,
-				// Contract, not an option: a capped result is the N most recently updated only under this order.
-				'sort:updated',
+				sortQualifier,
 			],
 		})),
 	);

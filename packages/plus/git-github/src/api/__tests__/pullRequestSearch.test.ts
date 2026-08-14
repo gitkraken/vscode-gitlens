@@ -1,9 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
+import { toGitHubPullRequestSearchFacets, toGitHubPullRequestSortQualifier } from '../pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from '../token.js';
 
 suite('GitHubApi.searchPullRequestsPage', () => {
@@ -286,6 +288,35 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		);
 	});
 
+	test('re-sorts the merged page by the requested key, not the hardcoded default', async () => {
+		// The created order is deliberately not the updated order, so a page returned under `created:asc` proves the
+		// requested sort reached the merged-page comparator rather than the always-updated-desc order it replaced.
+		const withCreated = (number: number, createdAt: string, updatedAt: string): unknown => ({
+			...(prNode(number, updatedAt) as Record<string, unknown>),
+			createdAt: createdAt,
+		});
+		const { config } = capture([
+			{
+				authorOpen: {
+					nodes: [
+						withCreated(1, '2024-03-01T00:00:00Z', '2024-01-01T00:00:00Z'),
+						withCreated(2, '2024-01-01T00:00:00Z', '2024-02-01T00:00:00Z'),
+						withCreated(3, '2024-02-01T00:00:00Z', '2024-03-01T00:00:00Z'),
+					],
+				},
+			},
+		]);
+		const result = await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			criteria: { relationships: [PullRequestFilter.Author], sort: 'created:asc' },
+		});
+
+		// created ascending is 2 (Jan) < 3 (Feb) < 1 (Mar); the default updated:desc would have given 3, 2, 1.
+		assert.deepEqual(
+			result?.values.map(pr => pr.title),
+			['PR 2', 'PR 3', 'PR 1'],
+		);
+	});
+
 	test('preserves facet cursors, total count, and truncation in one request per page', async () => {
 		const { config, getCalls } = capture([
 			{
@@ -354,5 +385,66 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.equal(restarted?.page, 1);
 		assert.equal(getCalls()[1].variables.authorOpenCursor, undefined);
 		assert.match(String(getCalls()[1].variables.authorOpenSearch), /\bnew\b/);
+	});
+});
+
+suite('toGitHubPullRequestSearchFacets ordering', () => {
+	// The sort qualifier is emitted LAST so it reads the same across facets regardless of how many other qualifiers
+	// each carries, and so an exact-query assertion can pin it at the tail.
+	test('an omitted sort emits the historical default as the last qualifier of every facet', () => {
+		const facets = toGitHubPullRequestSearchFacets(undefined);
+
+		assert.ok(facets.length > 0);
+		for (const facet of facets) {
+			assert.strictEqual(facet.qualifiers.at(-1), 'sort:updated', 'the default is the bare `sort:updated`');
+		}
+	});
+
+	// One facet per relationship × state, and each must carry the EXPLICIT ordering last: without it that facet
+	// answers in relevance order, so which of its rows land inside the result ceiling would shift with nothing
+	// changed upstream. Per-key qualifier mapping is pinned separately by the `toGitHubPullRequestSortQualifier` suite.
+	test('an explicit sort is the last element of every relationship × state facet', () => {
+		const facets = toGitHubPullRequestSearchFacets({
+			relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+			states: ['open', 'closed'],
+			sort: 'created:desc',
+		});
+
+		assert.equal(facets.length, 4, 'two relationships times two states');
+		for (const facet of facets) {
+			assert.strictEqual(facet.qualifiers.at(-1), 'sort:created-desc', `${facet.alias} carries the ordering`);
+		}
+	});
+
+	// A key GitHub can't express is REFUSED, not silently emitted as the default `sort:updated`: a fallback order
+	// would ship one order in the query while the merged-page comparator applied another (or none), the exact
+	// approximation the ceiling contract forbids. Unreachable through the typed union — every `PullRequestSorting`
+	// maps — so a cast stands in for a runtime value that reached this exported builder past the facade's check.
+	test('refuses a sort GitHub cannot express rather than falling back to the default order', () => {
+		assert.throws(
+			() => toGitHubPullRequestSearchFacets({ sort: 'relevance:desc' as PullRequestSorting }),
+			/cannot order a pull request search by 'relevance:desc'/,
+		);
+	});
+});
+
+suite('toGitHubPullRequestSortQualifier', () => {
+	const cases: [sort: PullRequestSorting, qualifier: string][] = [
+		['created:asc', 'sort:created-asc'],
+		['created:desc', 'sort:created-desc'],
+		['updated:asc', 'sort:updated-asc'],
+		// The bare `sort:updated`, not `sort:updated-desc`: the two are the same query to GitHub, but the bare form is
+		// what this read has always emitted, so the default stays byte-identical to today's query.
+		['updated:desc', 'sort:updated'],
+	];
+
+	for (const [sort, qualifier] of cases) {
+		test(`translates ${sort} to its own qualifier`, () => {
+			assert.strictEqual(toGitHubPullRequestSortQualifier(sort), qualifier);
+		});
+	}
+
+	test('reports no qualifier for an absent key', () => {
+		assert.strictEqual(toGitHubPullRequestSortQualifier(undefined), undefined);
 	});
 });

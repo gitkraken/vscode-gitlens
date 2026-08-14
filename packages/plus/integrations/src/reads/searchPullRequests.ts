@@ -1,4 +1,5 @@
 import type { PullRequestSearchCriteria, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from '../constants.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
@@ -29,9 +30,10 @@ import {
  * Pull requests matching structured criteria over a repository/organization or current-user relationship scope.
  *
  * The read is deliberately separate from `listPullRequestsPage`: the list has provider-specific "my PRs"
- * semantics and no text channel, while this method promises a sanitized query, most-recently-updated-first
- * ordering, one upstream request per cursor-threaded page, and a quantified omission at the provider's result
- * ceiling.
+ * semantics and no text channel, while this method promises a sanitized query, an ordering the caller chooses
+ * (`criteria.sort`, defaulting to most-recently-updated-first) and that is applied to the merged page as a whole,
+ * one upstream request per cursor-threaded page, and a quantified omission at the provider's result ceiling that
+ * names the order the reachable window was selected under.
  */
 export async function searchPullRequestsPage(
 	ctx: ProviderReadContext,
@@ -183,7 +185,13 @@ export async function searchPullRequestsPage(
 	const truncated = continuation.truncated;
 	if (truncated && warnings.length === 0) {
 		warnings.push(
-			pullRequestSearchCapResultWarning(options.providerId, domain, options.connectionId, totalCount) ??
+			pullRequestSearchCapResultWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				totalCount,
+				options.criteria?.sort ?? defaultPullRequestSort,
+			) ??
 				truncationWarning(options.providerId, domain, options.connectionId, 'Pull request search', 'exhausted'),
 		);
 	}
