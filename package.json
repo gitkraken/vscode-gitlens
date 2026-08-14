@@ -4191,7 +4191,9 @@
 								"switch:command",
 								"switch:menu",
 								"tag-create:command",
-								"tag-create:menu"
+								"tag-create:menu",
+								"tag-push:command",
+								"tag-push:menu"
 							],
 							"enumDescriptions": [
 								"Skips branch create confirmations when run from a command, e.g. a view action",
@@ -4213,11 +4215,13 @@
 								"Skips switch confirmations when run from a command, e.g. a view action",
 								"Skips switch confirmations when run from the Git Command Palette",
 								"Skips tag create confirmations when run from a command, e.g. a view action",
-								"Skips tag create confirmations when run from the Git Command Palette"
+								"Skips tag create confirmations when run from the Git Command Palette",
+								"Skips tag push confirmations when run from a command, e.g. a view action",
+								"Skips tag push confirmations when run from the Git Command Palette"
 							]
 						},
 						"minItems": 0,
-						"maxItems": 14,
+						"maxItems": 22,
 						"uniqueItems": true,
 						"markdownDescription": "Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)`",
 						"scope": "window",

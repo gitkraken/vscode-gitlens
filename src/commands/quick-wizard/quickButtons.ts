@@ -216,23 +216,6 @@ export const PickCommitQuickInputButton: QuickInputButton = {
 	tooltip: 'Choose a Specific Commit',
 };
 
-export const PickCommitToggleQuickInputButton = class extends ToggleQuickInputButton {
-	constructor(on = false, context: { showTags: boolean }, onDidClick?: (quickInput: QuickInput) => void) {
-		super(
-			() => ({
-				on: { tooltip: 'Choose a Specific Commit', icon: new ThemeIcon('git-commit') },
-				off: {
-					tooltip: `Choose a Branch${context.showTags ? ' or Tag' : ''}`,
-					icon: new ThemeIcon('git-branch'),
-				},
-			}),
-			on,
-		);
-
-		this.onDidClick = onDidClick;
-	}
-};
-
 export const LearnAboutProQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('info'),
 	tooltip: 'Learn about GitLens Pro',
