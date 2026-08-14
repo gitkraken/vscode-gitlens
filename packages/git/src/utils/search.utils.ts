@@ -518,7 +518,6 @@ export function parseSearchQueryGitHubCommand(
 
 					value = value.replace(/ /g, '+');
 					if (value.startsWith('@')) {
-						value = value.slice(1);
 						queryArgs.push(`author:${value.slice(1)}`);
 					} else if (value.includes('@')) {
 						queryArgs.push(`author-email:${value}`);

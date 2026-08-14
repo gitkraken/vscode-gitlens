@@ -55,6 +55,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the split conflict status icons rendering clipped in file trees &mdash; e.g. the _Commit Graph_'s _Working Changes_ details and _Resolve_ mode, and the _Inspect_ and _Patch Details_ views
 - Fixes the _Commit Graph_ sometimes failing to scroll to a revealed row &mdash; on long jumps (deep links, _Show in Commit Graph_, and similar reveals) the selection landed but the viewport could strand partway
 - Fixes an automatic rebase continuing past a conflicted commit marked `edit` &mdash; git delivers an `edit` step's stop as its conflict stop, so resolving and continuing consumed the requested pause and ran the rebase to completion; the run now resolves and stages the step's conflicts, then stops for the editing you asked for
+- Fixes searching by author `@username` in GitHub virtual repositories dropping the first character of the username
 - Fixes searching by author or committer `@me` in GitHub virtual repositories skipping the filter entirely for accounts without a display name
 
 ## [19.0.1] - 2026-08-13

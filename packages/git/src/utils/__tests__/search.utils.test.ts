@@ -617,6 +617,11 @@ suite('Search Utils Test Suite', () => {
 			assert.ok(result.args.includes('committer:username'));
 		});
 
+		test('author with @ prefix does not truncate the username', () => {
+			const result = parseSearchQueryGitHubCommand(q('author:@username'), undefined);
+			assert.ok(result.args.includes('author:username'));
+		});
+
 		test('committer @me with currentUser resolves via GitHub username', () => {
 			const user = { name: 'Alice Smith', email: 'alice@example.com', username: 'alicegh' };
 			const result = parseSearchQueryGitHubCommand(q('committer:@me'), user);
