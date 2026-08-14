@@ -135,6 +135,8 @@ export interface Commit {
 
 export const AbortCommand = new IpcCommand(scope, 'abort');
 export const ContinueCommand = new IpcCommand(scope, 'continue');
+/** Takes over the paused rebase with automatic (AI) conflict resolution */
+export const ContinueWithAiCommand = new IpcCommand(scope, 'continueWithAi');
 export const SearchCommand = new IpcCommand(scope, 'search');
 export const SkipCommand = new IpcCommand(scope, 'skip');
 export const StartCommand = new IpcCommand(scope, 'start');
@@ -253,6 +255,14 @@ export interface DidGetConflictsParams {
 	conflicts?: ConflictDetectionResult;
 }
 export const GetConflictsRequest = new IpcRequest<GetConflictsParams, DidGetConflictsParams>(scope, 'conflicts/get');
+
+export interface DidStartWithAiParams {
+	/** `true` once the handoff is underway (the tab is closing); `false` means it was refused
+	 *  (plan gate, no AI model, …) and the editor stays open */
+	started: boolean;
+}
+/** Hands the pending rebase off to automatic (AI) conflict resolution */
+export const StartWithAiRequest = new IpcRequest<void, DidStartWithAiParams>(scope, 'startWithAi');
 
 // NOTIFICATIONS
 

@@ -559,7 +559,12 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	@debug()
 	async continuePausedOperation(
 		repoPath: string,
-		options?: { allowEmpty?: boolean; skip?: boolean; messageEditor?: string },
+		options?: {
+			allowEmpty?: boolean;
+			skip?: boolean;
+			messageEditor?: string;
+			editorEnv?: Record<string, string>;
+		},
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -579,7 +584,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		let env: Record<string, string | undefined> | undefined;
 		if (options?.messageEditor) {
 			configs.push('-c', `core.editor=${options.messageEditor}`);
-			env = { GIT_EDITOR: options.messageEditor };
+			env = { ...options.editorEnv, GIT_EDITOR: options.messageEditor };
 		}
 
 		try {

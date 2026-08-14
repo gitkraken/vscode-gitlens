@@ -3624,6 +3624,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 				void this._actions.cancelAutoRebase(autoRebaseRun.repoPath);
 			}}
+			@auto-rebase-resume=${() => {
+				// Same repo reasoning as cancel above — resume the escalated session's own rebase
+				if (autoRebaseRun == null) return;
+
+				void this._actions.resumeAutoRebase(autoRebaseRun.repoPath);
+			}}
 			@auto-rebase-exit=${() => {
 				// The abort restored the branch, so there's nothing left to review — leave resolve mode
 				// entirely rather than sit on an outcome panel. The service's own toast reports the result.

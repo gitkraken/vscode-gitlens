@@ -53,6 +53,11 @@ export interface AutoRebaseLoopPorts {
 	willCommitBeEmpty(): Promise<boolean>;
 	/** Continue (or skip) the paused operation headlessly; throws {@link PausedOperationContinueError} */
 	continueOperation(options?: { skip?: boolean }): Promise<void>;
+	/** The todo action of the step the rebase is stopped at (the last line of `rebase-merge/done` —
+	 *  git moves each todo line there before executing it), when knowable. Lets the loop honor an
+	 *  `edit` the user marked on a conflicted step: git delivers the edit stop AS the conflict stop,
+	 *  so continuing past it would silently consume the user's requested pause. */
+	getStepTodoAction?(): Promise<string | undefined>;
 	/** Minimum confidence required to auto-apply — read per step so it's live-tunable mid-run */
 	getConfidenceThreshold(): number;
 	/** The user's standing conflict-resolution instructions, if any — injected like the threshold above
@@ -161,6 +166,17 @@ export async function runAutoRebaseLoop(
 					// The operation advanced and stopped again further along, so this step is behind us.
 					recordEmptied();
 					return undefined;
+				case 'messageEditFailed':
+					// A `reword`/`squash` needed its message edited but the editor couldn't run (the
+					// wrapper normally opens the message in the host window and blocks — see
+					// `getAutoRebaseMessageEditor`). The step's commit exists with its original or
+					// auto-generated message, so hand the rebase back for the user to amend and resume.
+					return escalate({
+						reason: 'message-edit',
+						message:
+							'The rebase stopped at a commit whose message needs to be edited — amend the commit message, then resume.',
+						stepNumber: stepNumber,
+					});
 				default:
 					return escalate({
 						reason: 'continue-error',
@@ -496,6 +512,21 @@ export async function runAutoRebaseLoop(
 
 		previousResolutions.push(...result.resolutions);
 		capRecent(previousResolutions);
+
+		// A conflicted step the user marked `edit` must NOT be auto-continued: git delivers the edit
+		// stop AS the conflict stop (after `--continue` commits, the rebase proceeds — there is no
+		// second stop), so continuing would silently consume the user's requested pause. Their
+		// resolutions are applied and staged; hand the rebase back for the editing git promised them.
+		if ((await ports.getStepTodoAction?.()) === 'edit') {
+			// Surface the just-recorded step (summary + per-step telemetry) before stopping
+			onDidChange();
+			return escalate({
+				reason: 'edit-step',
+				message:
+					'Conflicts at the commit you marked `edit` were resolved and staged — make your changes now, then continue the rebase.',
+				stepNumber: stepNumber,
+			});
+		}
 
 		session.phase = 'continuing';
 		session.progressMessage = `${stepPrefix} · Continuing…`;

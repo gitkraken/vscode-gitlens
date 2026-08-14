@@ -2,7 +2,6 @@ import { window } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
-import { abortPausedOperation } from '../../../git/actions/pausedOperation.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { AutoRebaseEscalationReason, AutoRebaseSession } from './autoRebase.types.js';
@@ -22,6 +21,10 @@ const conflictEscalationReasons = new Set<AutoRebaseEscalationReason>([
  * steps and progress over `onAutoRebaseProgress`, and owns cancelling it), then routes the terminal
  * outcome: completion opens the summary, a conflict escalation seeds Resolve mode, and the remaining
  * cases fall back to a toast. Shared by every entry point (rebase quickpick, command palette, takeover).
+ *
+ * Never rejects — pre-flight refusals and every terminal phase are routed internally, so callers may
+ * safely fire-and-forget (the rebase editor's handoff races this against its release signal and
+ * relies on that).
  */
 export async function startAutoRebaseRun(
 	container: Container,
@@ -38,6 +41,20 @@ export async function takeoverAutoRebaseRun(
 	source: Source,
 ): Promise<void> {
 	return runAndRoute(container, svc, () => container.autoRebase.takeover(svc, source));
+}
+
+/**
+ * Hands a pending (pre-start) rebase off to automation from the Interactive Rebase Editor —
+ * `release` lets the blocked rebase proceed once the run is committed to. See
+ * {@link startAutoRebaseRun}.
+ */
+export async function handoffPendingRebaseRun(
+	container: Container,
+	svc: GitRepositoryService,
+	source: Source,
+	release: () => Promise<void>,
+): Promise<void> {
+	return runAndRoute(container, svc, () => container.autoRebase.handoffPending(svc, source, release));
 }
 
 async function runAndRoute(
@@ -139,7 +156,9 @@ function onEscalated(container: Container, svc: GitRepositoryService, session: A
 		} else if (result === resume) {
 			void takeoverAutoRebaseRun(container, svc, { source: 'auto-rebase' });
 		} else if (result === abort) {
-			void abortPausedOperation(svc);
+			// Through the service so the escalated session transitions to `aborted` (the Resolve
+			// panel exits on that update) — aborting the operation directly would strand it
+			container.autoRebase.cancel(session.repoPath, 'abort');
 		}
 	});
 }

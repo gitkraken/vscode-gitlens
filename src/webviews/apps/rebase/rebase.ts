@@ -26,6 +26,7 @@ import {
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
+	ContinueWithAiCommand,
 	DismissCloseWarningCommand,
 	GetConflictsRequest,
 	isCommandEntry,
@@ -44,10 +45,12 @@ import {
 	SkipCommand,
 	StageConflictCommand,
 	StartCommand,
+	StartWithAiRequest,
 	SwitchCommand,
 	UpdateSelectionCommand,
 } from '../../rebase/protocol.js';
 import { GlAppHost } from '../shared/appHost.js';
+import type { GlPopoverConfirm } from '../shared/components/overlays/popover-confirm.js';
 import type { GlSelect } from '../shared/components/select/select.js';
 import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
 import type {
@@ -66,14 +69,15 @@ import type { HostIpc } from '../shared/ipc.js';
 import type { GlRebaseEntryElement } from './components/rebase-entry.js';
 import { getConflictFileActions, getConflictFileContextData } from './conflictStatus.utils.js';
 import { rebaseStyles } from './rebase.css.js';
-import { RebaseStateProvider } from './stateProvider.js';
 import '@lit-labs/virtualizer';
 import '../shared/components/tree/tree-view.js';
 import './components/conflict-indicator.js';
 import './components/rebase-entry.js';
 import '../shared/components/banner/banner.js';
 import '../shared/components/branch-name.js';
+import { RebaseStateProvider } from './stateProvider.js';
 import '../shared/components/button.js';
+import '../shared/components/menu/menu-popover.js';
 import '../shared/components/checkbox/checkbox.js';
 import '../shared/components/commit-sha.js';
 import '../shared/components/overlays/popover-confirm.js';
@@ -120,6 +124,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	/** Unified conflict detection state — single source of truth for both initial and dynamic checks */
 	@state() private _conflictResult: ConflictDetectionResult | undefined;
 	@state() private _conflictsLoading = false;
+	@state() private _startingWithAi = false;
 	@state() private _conflictingShas: string[] | undefined;
 
 	/** Drag state - uses direct DOM manipulation to avoid re-renders during drag */
@@ -1055,12 +1060,31 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		this._ipc.sendCommand(StartCommand, undefined);
 	}
 
+	private async onStartWithAiClicked() {
+		if (this._startingWithAi) return;
+
+		// Disabled while the host runs its pre-flight (plan gate, AI model prompt) — a refusal
+		// responds `started: false` and the editor stays open, so re-enable for another try
+		this._startingWithAi = true;
+		try {
+			const response = await this._ipc.sendRequest(StartWithAiRequest, undefined);
+			if (response.started) return;
+		} catch {
+			// Treat a failed request like a refusal — the editor is still open
+		}
+		this._startingWithAi = false;
+	}
+
 	private onAbortClicked() {
 		this._ipc.sendCommand(AbortCommand, undefined);
 	}
 
 	private onContinueClicked() {
 		this._ipc.sendCommand(ContinueCommand, undefined);
+	}
+
+	private onContinueWithAiClicked() {
+		this._ipc.sendCommand(ContinueWithAiCommand, undefined);
 	}
 
 	private onSkipClicked() {
@@ -2038,7 +2062,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<span class="shortcut"><kbd>/</kbd><span class="label">search</span></span>
 			</div>
 			<div class="actions">
-				${this.renderRecomposeAction(isActive)}
+				${
+					// Pre-start, Recompose lives in the Start Auto-Rebase split button's menu instead
+					// (see renderStartRebaseActions)
+					isActive ? this.renderRecomposeAction(true) : nothing
+				}
 				${isActive ? this.renderActiveRebaseActions(hasConflicts) : this.renderStartRebaseActions()}
 			</div>
 		</footer>`;
@@ -2092,18 +2120,81 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
 			</gl-button>
+			${
+				this.state?.aiAllowed
+					? html`<span class="split-btn">
+							<gl-button
+								class="split-btn__main"
+								appearance="secondary"
+								?disabled=${!this.state?.entries?.length || this._startingWithAi}
+								tooltip="Starts the rebase and automatically resolves any conflicts — pausing for input where you've marked edits, or when confidence is low, and completes with a reviewable summary you can undo"
+								@click=${this.onStartWithAiClicked}
+							>
+								<code-icon
+									slot="prefix"
+									icon=${this._startingWithAi ? 'loading' : 'sparkle'}
+									modifier=${ifDefined(this._startingWithAi ? 'spin' : undefined)}
+								></code-icon>
+								Start Auto-Rebase
+							</gl-button>
+							<gl-popover-confirm
+								class="split-btn__confirm"
+								trigger="manual"
+								heading="Abort Rebase &amp; Recompose"
+								message=${this.recomposeConfirmMessage}
+								confirm="Abort &gt; Recompose"
+								initial-focus="confirm"
+								icon="warning"
+								@gl-confirm=${this.onRecomposeCommitsClicked}
+							>
+								<gl-menu-popover
+									slot="anchor"
+									.items=${[
+										{
+											label: 'Open Commit Composer & Recompose...',
+											value: 'recompose',
+										},
+									]}
+									@gl-menu-select=${this.onStartMenuSelect}
+								>
+									<gl-button
+										class="split-btn__menu"
+										slot="anchor"
+										appearance="secondary"
+										aria-label="More Actions"
+									>
+										<code-icon icon="chevron-down"></code-icon>
+									</gl-button>
+								</gl-menu-popover>
+							</gl-popover-confirm>
+						</span>`
+					: // Without AI the split button is gone, so Recompose keeps its standalone (confirmed) form
+						this.renderRecomposeAction(false)
+			}
 			<gl-button appearance="secondary" @click=${this.onAbortClicked}>Abort</gl-button>`;
 	}
 
-	private renderRecomposeAction(isActive: boolean) {
-		const isInPlace = this.state?.isInPlace ?? false;
-		const message = isInPlace
+	private onStartMenuSelect = async (e: CustomEvent<{ value: string }>) => {
+		if (e.detail.value !== 'recompose') return;
+
+		// The selection rides the same confirmation the standalone Recompose button anchored — the
+		// confirm is manual-trigger (its anchor is the menu itself) and opened here, mirroring the
+		// Commit Graph PR sheet's split-button pattern.
+		await this.updateComplete;
+		void this.shadowRoot?.querySelector<GlPopoverConfirm>('gl-popover-confirm.split-btn__confirm')?.show();
+	};
+
+	/** The standalone Recompose button's confirm copy, shared by the split menu's confirmation. */
+	private get recomposeConfirmMessage(): string {
+		return (this.state?.isInPlace ?? false)
 			? 'Let AI intelligently reorganize these commits with clearer messages and better logical grouping.'
 			: 'Let AI intelligently reorganize these commits with clearer messages and better logical grouping. <br><br> After recomposition, simply rebase again to apply these commits onto the target branch.';
+	}
 
+	private renderRecomposeAction(isActive: boolean) {
 		return html`<gl-popover-confirm
 			heading="Abort Rebase &amp; Recompose"
-			message=${message}
+			message=${this.recomposeConfirmMessage}
 			confirm="Abort &gt; Recompose"
 			confirm-variant=${ifDefined(isActive ? 'danger' : undefined)}
 			initial-focus=${isActive ? 'cancel' : 'confirm'}
@@ -2119,6 +2210,18 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private renderActiveRebaseActions(hasConflicts: boolean) {
 		return html`
+			${
+				this.state?.aiAllowed
+					? html`<gl-button
+							appearance="secondary"
+							tooltip="Resolves any conflicts automatically and continues the rest of the rebase — pausing for your input when confidence is low, with a reviewable, undoable summary at the end"
+							@click=${this.onContinueWithAiClicked}
+						>
+							<code-icon slot="prefix" icon="sparkle"></code-icon>
+							Continue with AI
+						</gl-button>`
+					: nothing
+			}
 			<gl-button @click=${this.onContinueClicked} ?disabled=${hasConflicts}>
 				<span>Continue</span>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>

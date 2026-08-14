@@ -662,10 +662,14 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the user starts a rebase (clicks "Start Rebase") */
 	'rebaseEditor/action/start': RebaseEditorCompletionEventData;
+	/** Sent when the user hands a pending rebase off to automatic (AI) conflict resolution */
+	'rebaseEditor/action/startWithAi': RebaseEditorCompletionEventData;
 	/** Sent when the user aborts a rebase */
 	'rebaseEditor/action/abort': RebaseEditorCompletionEventData;
 	/** Sent when the user continues a paused rebase */
 	'rebaseEditor/action/continue': RebaseEditorContextEventData;
+	/** Sent when the user hands a paused rebase over to automatic (AI) conflict resolution */
+	'rebaseEditor/action/continueWithAi': RebaseEditorContextEventData;
 	/** Sent when the user skips a commit during a paused rebase */
 	'rebaseEditor/action/skip': RebaseEditorContextEventData;
 	/** Sent when the user switches to the text editor */
@@ -1029,6 +1033,9 @@ interface AutoRebaseLifecycleEvent {
 
 interface AutoRebaseStartedEvent {
 	takeover: boolean;
+	/** How the run was engaged: fresh rebase, takeover of a paused one, or a pre-start handoff from
+	 *  the Interactive Rebase Editor */
+	mode: 'started' | 'takeover' | 'handoff';
 }
 
 interface AutoRebaseStepResolvedEvent {
@@ -1068,6 +1075,8 @@ interface AutoRebaseEscalatedEvent extends AutoRebaseLifecycleEvent {
 		| 'ai-unavailable'
 		| 'skipped-files'
 		| 'non-conflict-pause'
+		| 'message-edit'
+		| 'edit-step'
 		| 'external-modification'
 		| 'step-cap'
 		| 'continue-error'
