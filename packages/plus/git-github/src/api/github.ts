@@ -111,10 +111,17 @@ const accountResolveBatchSize = 25;
 
 // Pull-request search selects the full PR fragment (reviews, requests, refs, commits, etc.),
 // which makes GitHub reject broad 100-node searches with `Resource limits for this query
-// exceeded` on large repositories. Thirty keeps the default within that GraphQL cost budget
-// while callers that know their scope is cheap can still opt into the supported 100-node max.
+// exceeded` on large repositories. Thirty keeps the default within that GraphQL cost budget;
+// the 100-node maximum the connection accepts is for the lite shape, whose per-node cost is a
+// fraction of it. The budget is per DOCUMENT, and one document holds every relationship × state
+// facet, so the worst case scales with the facet count (five relationships × four states = 20).
 const defaultPullRequestSearchPageSize = 30;
 const maxPullRequestSearchPageSize = 100;
+// Pages `searchMyPullRequests` drains for a caller that wants a whole list rather than a page.
+// Four reduced pages cover more than the single 100-node page this read served before it paged,
+// so the smaller page costs coverage nowhere; it bounds an unbounded drain on a read whose
+// consumers (Launchpad, the Graph pull-request panel) block on it.
+const maxMyPullRequestSearchPages = 4;
 
 function isRetryableTransientError(ex: unknown): ex is RequestError {
 	// An aborted request is rethrown as the original `AbortError` (not a `RequestError`), so it is
@@ -339,6 +346,24 @@ repository {
 	viewerPermission
 }
 `;
+/**
+ * One review's fields, shared by `latestReviews` and `viewerLatestReview`. The two selections must stay
+ * identical: `fromGitHubPullRequest` merges the viewer's review into the capped `latestReviews` window and
+ * dedups by `id`, so a field present in only one of them would produce rows that differ by where they came
+ * from rather than by what they are.
+ */
+const gqlPullRequestReviewFragment = `
+id
+author {
+	login
+	avatarUrl(size: $avatarSize)
+	url
+}
+state
+commit {
+	oid
+}
+`;
 const gqlPullRequestFragment = `
 ${gqlPullRequestLiteFragment}
 additions
@@ -360,13 +385,11 @@ mergedBy {
 reviewDecision
 latestReviews(first: 25) {
 	nodes {
-		author {
-			login
-			avatarUrl(size: $avatarSize)
-			url
-		}
-		state
+		${gqlPullRequestReviewFragment}
 	}
+}
+viewerLatestReview {
+	${gqlPullRequestReviewFragment}
 }
 reviewRequests(first: 25) {
 	nodes {
@@ -3685,7 +3708,15 @@ export class GitHubApi {
 		cancellation?: AbortSignal,
 	): Promise<{ values: PullRequest[]; cursor?: string; hasMore: boolean; truncated: boolean }> {
 		const scope = getScopedLogger();
-		const limit = Math.min(100, this.config.getLaunchpadQueryLimit?.() ?? 100);
+		// The page follows the projection rather than being a separate decision: the full fragment is what GitHub
+		// rejects at 100 nodes (see `defaultPullRequestSearchPageSize`), so every read that selects it pages at the
+		// reduced size, and only the lite shape asks for the maximum. A caller that wants a whole list pages for it
+		// — see `searchMyPullRequests`.
+		const configuredLimit = this.config.getLaunchpadQueryLimit?.() ?? maxPullRequestSearchPageSize;
+		const limit = Math.min(
+			options?.summary === true ? maxPullRequestSearchPageSize : defaultPullRequestSearchPageSize,
+			configuredLimit,
+		);
 
 		try {
 			interface SearchResult {
@@ -3794,6 +3825,16 @@ export class GitHubApi {
 		}
 	}
 
+	/**
+	 * The whole list rather than a page: this read has no cursor to hand back (its `IntegrationResult<T[]>` return
+	 * has no paging channel at all), so it drains up to {@link maxMyPullRequestSearchPages} pages itself.
+	 *
+	 * Draining instead of taking one page is what lets the full projection page at the reduced size everywhere
+	 * (see the `limit` in {@link searchMyPullRequestsPage}): a single page would otherwise have to ask for 100
+	 * nodes of the selection GitHub rejects at that size, purely because this caller cannot resume. Ordering is
+	 * `sort:updated`, so the pages compose into a defined window rather than a shifting relevance ranking, and the
+	 * drain stops as soon as GitHub reports no next page.
+	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchMyPullRequests(
 		provider: Provider,
@@ -3809,7 +3850,33 @@ export class GitHubApi {
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
-		return (await this.searchMyPullRequestsPage(provider, token, options, cancellation)).values;
+		const values: PullRequest[] = [];
+		// The searches behind one page can overlap (a PR can be authored by and review-requested from the same
+		// user), and a later page can repeat a row an earlier one already served if the PR was updated mid-drain.
+		const seen = new Set<string>();
+		let cursor: string | undefined;
+
+		for (let page = 0; page < maxMyPullRequestSearchPages; page++) {
+			const result = await this.searchMyPullRequestsPage(
+				provider,
+				token,
+				{ ...options, cursor: cursor },
+				cancellation,
+			);
+			for (const pr of result.values) {
+				if (seen.has(pr.url)) continue;
+
+				seen.add(pr.url);
+				values.push(pr);
+			}
+
+			// A missing or repeated cursor with `hasMore` would loop on the same page forever.
+			if (!result.hasMore || result.cursor == null || result.cursor === cursor) break;
+
+			cursor = result.cursor;
+		}
+
+		return values;
 	}
 
 	/**

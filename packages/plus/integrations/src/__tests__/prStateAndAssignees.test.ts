@@ -258,38 +258,36 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		// An empty `state: []` must fall through to the account-wide `involves:` path (getPullRequestsForUser),
-		// not resolve the per-state Promise.all([]) to an empty result.
-		let perStateSearchCalls = 0;
-		let accountWideCalled = false;
-		(
-			gh as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
-		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		// An empty `state: []` must read as "no state requested" and serve the user's open pull requests, not
+		// resolve a per-state `Promise.all([])` to an empty result. Every account-wide read now takes the facet
+		// search (the SDK `getPullRequestsForUser` fallback is gone), so what pins the fix is that the empty array
+		// falls back to the one default-state facet rather than fanning out over zero of them.
+		const seen: Array<{ state?: string; search?: string }> = [];
 		const githubApi = await (
 			gh as unknown as {
 				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
 			}
 		).authenticationService.apis.github;
 		assert.ok(githubApi);
-		githubApi.searchMyPullRequestsPage = () => {
-			perStateSearchCalls++;
-			return Promise.resolve({ values: [], hasMore: false, truncated: false });
+		githubApi.searchMyPullRequestsPage = (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string; search?: string },
+		) => {
+			seen.push(options ?? {});
+			return Promise.resolve({
+				values: [
+					{
+						id: '1',
+						url: 'https://github.com/o/r/pull/1',
+						state: 'opened',
+						author: { id: 'u1', name: 'me' },
+					},
+				],
+				hasMore: false,
+				truncated: false,
+			});
 		};
-		stubApi(gh, {
-			getPullRequestsForUser: () => {
-				accountWideCalled = true;
-				return Promise.resolve({
-					values: [
-						{
-							id: '1',
-							url: 'https://github.com/o/r/pull/1',
-							state: 'open',
-						} as unknown as ProviderPullRequest,
-					],
-					paging: { more: false, cursor: '{}' },
-				});
-			},
-		});
 
 		const result = await (
 			gh as unknown as {
@@ -300,8 +298,11 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 			}
 		).getProviderMyPullRequestsForUser(primarySession('t'), { state: [] });
 
-		assert.equal(perStateSearchCalls, 0, 'an empty state array does not take the per-state search path');
-		assert.equal(accountWideCalled, true, 'an empty state array falls through to the account-wide read');
+		assert.deepEqual(
+			seen.map(call => ({ state: call.state, search: call.search })),
+			[{ state: 'open', search: undefined }],
+			'one facet at the default state, with no relationship qualifier of its own',
+		);
 		assert.equal(result?.values.length, 1, 'the account-wide PRs are returned rather than an empty result');
 
 		manager.dispose();

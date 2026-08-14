@@ -111,7 +111,7 @@ async function sweepTarget(
 		repos,
 		options?.states,
 		resolved.filters,
-		accountWide ? (options?.includeReviewRequested ?? false) : false,
+		options,
 		connectionId,
 		maxPages,
 		attributeUnavailableProviders,
