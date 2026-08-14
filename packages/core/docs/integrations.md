@@ -418,12 +418,15 @@ So intersect against the capability table first:
 
 ```ts
 const supported = manager.getSupportedFilters(providerId); // static, no connection needed
-const capability = repos.length === 0 ? (supported.pullRequestsAccountWide ?? []) : supported.pullRequests;
+const capability = repos.length === 0 ? supported.pullRequestsAccountWide : supported.pullRequests;
 const filters = wanted.filter(f => capability.includes(f));
 ```
 
 - `pullRequests` — the repo-scoped PR read.
-- `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty.
+- `pullRequestsAccountWide` — the account-wide PR capability. Always reported, empty at worst. Usually
+  the narrower of the two, but **not** a subset of `pullRequests`: `Reviewed` (GitHub `reviewed-by:@me`) is
+  account-wide only, because the repo-scoped read has no reviewed-by axis to constrain. So pick the field by
+  the read you are about to issue rather than intersecting the two.
 - `pullRequestSearch` — the filtered PR search (`searchPullRequestsPage`, and `countPullRequests` over the same
   criteria). Always present; empty `relationships` means the provider has no such search. It declares the exact
   `relationships` and `states`, plus `text`, `updatedAfter`, `createdAfter`, `includeArchived`, `draft`,
@@ -462,12 +465,45 @@ does the opposite (drops the user scope); passing both on that account-wide read
 them, so requesting both is refused. Note that "all visible issues" is the **omitted** relationship set, not
 `any-assignee` — which excludes unassigned issues.
 
+`ReviewRequested` and `Reviewed` are different questions: the first is a request still waiting on you, the
+second is a PR you have already reviewed (so it is waiting on the author). A "needs my review" surface wants
+both, as separate reads. The review row itself rides along only where the full projection does — the
+filtered search, or a sweep with `includeReviews` — not from `Reviewed` on its own.
+
 `includeReviewRequested` is a legacy account-wide breadth option used only when no explicit `filters` are
 supplied. It remains useful for Bitbucket Cloud, where the reviewer slice requires an expensive
 O(workspaces × repos) fan-out; prefer `filters: [ReviewRequested]` when an exact relationship is required.
 
 Aggregate account-wide PR reads use a lightweight list shape. Stable list fields, body, and branch refs are
 preserved; optional enrichments such as reviews, checks, and stats may be absent.
+
+`includeReviews: true` on an account-wide **sweep** opts back into the full projection (review decision,
+review requests, and `latestReviews` — each with the `commitOid` it was submitted against, so a consumer can
+tell a review still at the tip from one the PR has moved past). GitHub/GHE only: no other provider's
+account-wide read has a projection switch, so those targets return their native shape and the option is a
+breadth request rather than a guarantee — it never refuses. It costs a heavier GraphQL selection, so the read
+drops to the reduced 30-node page and pages for the rest; budget `maxPages` accordingly. That cost is per
+**sweep**, not per relationship: every state × relationship facet uses the heavy selection and each facet is
+its own request per page, and the selection dominates the smaller page. So ask for it on a narrow sweep — the
+relationships that need the review, typically `Reviewed` (plus `ReviewRequested` when the reviewed commit of a
+pending request matters) — and read the rest as a separate lightweight sweep.
+
+It does not change WHICH pull requests come back: every GitHub account-wide read takes the same route
+regardless of the option (the Launchpad ignored-repository and included/ignored-organization qualifiers apply
+either way), so the option is purely projection plus its page cost. What it does scale with is the relationship
+count, since one document holds every facet: five relationships × four states is 20 full-projection selections.
+
+`listPullRequestsPage` has no projection switch. Scoped to `repos` it goes through the provider's repo-scoped
+read, and GitHub's carries `latestReviews` natively; account-wide (no `repos`) it is always the lite shape and
+no option opts it back in. `commitOid` is absent from both: only the full projection populates it.
+
+The paginated read that does carry the full projection is `searchPullRequestsPage` with
+`criteria.relationships` (GitHub/GHE, which is also the only family that exposes a filtered PR search at all):
+its results always include the review projection with `commitOid`, it honors `itemsPerPage`, and one threaded
+cursor page is exactly one upstream request — every relationship × state facet travels in the same query,
+unlike the account-wide read, which spends one request per facet per page. So a surface that pages
+incrementally should ask the search read for `Reviewed` (and `ReviewRequested` as its own read) rather than
+reach for `includeReviews`, which only exists on the all-at-once sweep.
 
 ## 8. Provider capability matrix
 
@@ -497,11 +533,12 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,
 ReviewRequested`.
-Account-wide PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab
+Account-wide PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Reviewed, Mention` · GitLab
 `Author, Assignee, ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure
-`Author, Assignee, ReviewRequested`.
+`Author, Assignee, ReviewRequested`. `Reviewed` is the one member that is account-wide only — no provider
+exposes a reviewed-by axis on the repo-scoped read, so it is absent from the repo-scoped list above.
 PR **search** capabilities (`getSupportedFilters().pullRequestSearch`): GitHub/GHE express relationships
-`Author, Assignee, ReviewRequested, Mention`, states `open, closed, merged, all`, `text`, `updatedAfter`,
+`Author, Assignee, ReviewRequested, Reviewed, Mention`, states `open, closed, merged, all`, `text`, `updatedAfter`,
 `createdAfter`, `includeArchived`, `draft`, repository/organization scopes, and sorts
 `updated:desc|asc, created:desc|asc`. Every other provider declares empty lists and false flags, so the read is
 refused rather than returning a page that did not apply a requested criterion or scope. `updatedAfter` /

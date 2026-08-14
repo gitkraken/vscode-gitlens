@@ -785,6 +785,12 @@ suite('pull request sweeps (#5438)', () => {
 		);
 		assert.equal(accountWideSummary, true, 'aggregate sweeps request the provider summary shape');
 
+		await manager.sweepClosedPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			includeReviews: true,
+		});
+		assert.equal(accountWideSummary, false, 'review-aware sweeps request the full provider projection');
+
 		manager.dispose();
 	});
 

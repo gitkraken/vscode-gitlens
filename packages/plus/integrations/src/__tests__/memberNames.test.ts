@@ -1,9 +1,10 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import { fromProviderAccount } from '../providers/accounts.js';
 import { fromGitLabMergeRequestREST } from '../providers/gitlab/models.js';
 import type { ProviderAccount, ProviderIssue } from '../providers/models.js';
-import { fromProviderAccount, toIssueShape } from '../providers/models.js';
+import { toIssueShape } from '../providers/models.js';
 
 /**
  * A member the provider exposes no display name for maps to an ABSENT `name`, never to a placeholder.
