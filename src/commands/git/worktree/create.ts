@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { Uri, window, workspace } from 'vscode';
+import { ThemeIcon, Uri, window, workspace } from 'vscode';
 import { WorktreeCreateError } from '@gitlens/git/errors.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -21,7 +21,8 @@ import { showGitErrorMessage } from '../../../messages.js';
 import type { StartReviewChatAction, StartWorkChatAction } from '../../../plus/chat/chatActions.js';
 import { storeChatActionDeepLink } from '../../../plus/chat/chatActions.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
-import { Directive } from '../../../quickpicks/items/directive.js';
+import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { executeCommand } from '../../../system/-webview/command.js';
@@ -30,7 +31,6 @@ import { isDescendant } from '../../../system/-webview/path.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
 import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import type { OpenChatActionCommandArgs } from '../../openChatAction.js';
-import type { CustomStep } from '../../quick-wizard/models/steps.custom.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -40,6 +40,7 @@ import type {
 	StepState,
 } from '../../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
+import type { QuickPickStep } from '../../quick-wizard/models/steps.quickpick.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
 import { ensureAccessStep } from '../../quick-wizard/steps/access.js';
 import { inputBranchNameStep } from '../../quick-wizard/steps/branches.js';
@@ -51,9 +52,8 @@ import {
 	appendReposToTitle,
 	assertStepState,
 	canPickStepContinue,
-	canStepContinue,
 	createConfirmStep,
-	createCustomStep,
+	refreshConfirmStepItems,
 } from '../../quick-wizard/utils/steps.utils.js';
 import type { WorktreeContext } from '../worktree.js';
 import type { WorktreeOpenState } from './open.js';
@@ -64,14 +64,12 @@ const Steps = {
 	PickRef: 'worktree-create-pick-ref',
 	InputBranchName: 'worktree-create-input-branch-name',
 	Confirm: 'worktree-create-confirm',
-	ConfirmChoosePath: 'worktree-create-confirm-choose-path',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
 export type WorktreeCreateStepNames = StepNames;
 
 type Context = WorktreeContext<StepNames>;
 
-type ConfirmationChoice = Uri | 'changeRoot' | 'chooseFolder';
 type Flags = '--force' | '-b' | '--detach' | '--direct';
 interface State<Repo = string | GlRepository> {
 	repo: Repo;
@@ -100,6 +98,9 @@ interface State<Repo = string | GlRepository> {
 	 *   - undefined   : honor the user's `gitlens.worktrees.openAfterCreate` setting
 	 */
 	worktreeDefaultOpen?: 'new' | 'current' | 'none';
+
+	/** Chosen via the confirm step's After Creating radio group; overrides `worktrees.openAfterCreate` for this run */
+	openAfterCreate?: 'newWindow' | 'currentWindow' | 'addToWorkspace' | 'none';
 
 	// Chat action for deeplink storage
 	chatAction?: StartWorkChatAction | StartReviewChatAction;
@@ -284,54 +285,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						continue;
 					}
 
-					if (typeof result[0] === 'string') {
-						switch (result[0]) {
-							case 'changeRoot': {
-								using pathStep = steps.enterStep(Steps.ConfirmChoosePath);
-
-								const pathResult = yield* this.choosePathStep(state, context, {
-									title: `Choose a Different Root Folder for this Worktree`,
-									label: 'Choose Root Folder',
-									pickedUri: context.pickedRootFolder,
-									defaultUri: context.pickedRootFolder ?? context.defaultUri,
-								});
-								if (pathResult === StepResultBreak) {
-									state.uri = undefined!;
-									if (pathStep.goBack() == null) break;
-									continue;
-								}
-
-								state.uri = pathResult;
-								// Keep track of the actual uri they picked, because we will modify it in later steps
-								context.pickedRootFolder = state.uri;
-								context.pickedSpecificFolder = undefined;
-								return;
-							}
-							case 'chooseFolder': {
-								using pathStep = steps.enterStep(Steps.ConfirmChoosePath);
-
-								const pathResult = yield* this.choosePathStep(state, context, {
-									title: `Choose a Specific Folder for this Worktree`,
-									label: 'Choose Worktree Folder',
-									pickedUri: context.pickedRootFolder,
-									defaultUri: context.pickedSpecificFolder ?? context.defaultUri,
-								});
-								if (pathResult === StepResultBreak) {
-									state.uri = undefined!;
-									if (pathStep.goBack() == null) break;
-									continue;
-								}
-
-								state.uri = pathResult;
-								// Keep track of the actual uri they picked, because we will modify it in later steps
-								context.pickedRootFolder = undefined;
-								context.pickedSpecificFolder = state.uri;
-								return;
-							}
-						}
-					}
-
-					state.uri = result[0] as Uri;
+					state.uri = result[0];
 					state.flags = result[1];
 				}
 
@@ -448,30 +402,41 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 				type OpenAction = Config['worktrees']['openAfterCreate'];
 				const action: OpenAction = configuration.get('worktrees.openAfterCreate');
-				if (state.worktreeDefaultOpen !== 'none' && action !== 'never') {
+				// The After Creating radio choice from the confirm step is the whole answer to the open
+				// question — the `worktrees.openAfterCreate` config only decides for flows that never
+				// showed the confirm (worktreeDefaultOpen short-circuits, skipped confirmations)
+				const skipOpen =
+					state.openAfterCreate != null
+						? state.openAfterCreate === 'none'
+						: state.worktreeDefaultOpen === 'none' || action === 'never';
+				if (!skipOpen) {
 					let flags: WorktreeOpenState['flags'];
-					switch (action) {
-						case 'always':
-							flags = convertLocationToOpenFlags('currentWindow');
-							break;
-						case 'alwaysNewWindow':
-							flags = convertLocationToOpenFlags('newWindow');
-							break;
-						case 'onlyWhenEmpty':
-							flags = convertLocationToOpenFlags(
-								workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow',
-							);
-							break;
-						default:
-							flags = [];
-							break;
+					if (state.openAfterCreate != null && state.openAfterCreate !== 'none') {
+						flags = convertLocationToOpenFlags(state.openAfterCreate);
+					} else {
+						switch (action) {
+							case 'always':
+								flags = convertLocationToOpenFlags('currentWindow');
+								break;
+							case 'alwaysNewWindow':
+								flags = convertLocationToOpenFlags('newWindow');
+								break;
+							case 'onlyWhenEmpty':
+								flags = convertLocationToOpenFlags(
+									workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow',
+								);
+								break;
+							default:
+								flags = [];
+								break;
+						}
 					}
 
 					yield* getSteps(
 						this.container,
 						{
 							command: 'worktree',
-							confirm: action === 'prompt',
+							confirm: state.openAfterCreate == null && action === 'prompt',
 							state: {
 								subcommand: 'open',
 								repo: state.repo,
@@ -480,7 +445,8 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 								openOnly: true,
 								overrides: { canGoBack: false },
 								isNewWorktree: true,
-								worktreeDefaultOpen: state.worktreeDefaultOpen,
+								worktreeDefaultOpen:
+									state.worktreeDefaultOpen === 'none' ? undefined : state.worktreeDefaultOpen,
 								onWorkspaceChanging: state.onWorkspaceChanging,
 							},
 						},
@@ -499,38 +465,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		return steps.isComplete ? undefined : StepResultBreak;
 	}
 
-	private *choosePathStep(
-		state: StepState<State<GlRepository>>,
-		context: Context,
-		options: { title: string; label: string; pickedUri: Uri | undefined; defaultUri?: Uri },
-	): StepResultGenerator<Uri> {
-		const step = createCustomStep<Uri>({
-			show: async (_step: CustomStep<Uri>) => {
-				const uris = await window.showOpenDialog({
-					canSelectFiles: false,
-					canSelectFolders: true,
-					canSelectMany: false,
-					defaultUri: options.pickedUri ?? state.uri ?? context.defaultUri,
-					openLabel: options.label,
-					title: options.title,
-				});
-
-				if (uris == null || uris.length === 0) return Directive.Back;
-
-				return uris[0];
-			},
-		});
-
-		const value: StepSelection<typeof step> = yield step;
-		if (!canStepContinue(step, state, value)) return StepResultBreak;
-
-		return value;
-	}
-
-	private *confirmStep(
-		state: StepState<State<GlRepository>>,
-		context: Context,
-	): StepResultGenerator<[ConfirmationChoice, Flags[]]> {
+	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<[Uri, Flags[]]> {
 		/**
 		 * Here are the rules for creating the recommended path for the new worktree:
 		 *
@@ -538,148 +473,271 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		 * If the user picks the repo folder, it will be `<repo>/../<repo>.worktrees/<?branch>`
 		 * If the user picks a folder inside the repo, it will be `<repo>/../<repo>.worktrees/<?branch>`
 		 */
-
-		let createDirectlyInFolder = false;
-		if (context.pickedSpecificFolder != null) {
-			createDirectlyInFolder = true;
-		}
-
-		let pickedUri = context.pickedSpecificFolder ?? context.pickedRootFolder ?? state.uri;
-
-		let recommendedRootUri;
-
 		const repoUri = state.repo.commonUri ?? state.repo.uri;
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
-		if (context.pickedRootFolder != null) {
-			recommendedRootUri = context.pickedRootFolder;
-		} else if (repoUri.toString() !== pickedUri.toString()) {
-			if (isDescendant(pickedUri, repoUri)) {
-				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
-			} else if (basename(pickedUri.path) === trailer) {
-				pickedUri = Uri.joinPath(pickedUri, '..');
-				recommendedRootUri = pickedUri;
-			} else {
-				recommendedRootUri = Uri.joinPath(pickedUri, trailer);
-			}
-		} else {
-			recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
-			// Don't allow creating directly into the main worktree folder
-			createDirectlyInFolder = false;
-		}
-
-		const pickedFriendlyPath = truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60);
-		const branchName = state.reference != null ? getReferenceNameWithoutRemote(state.reference) : undefined;
-
-		const recommendedFriendlyPath = `<root>/${truncateLeft(branchName?.replace(/\\/g, '/') ?? '', 65)}`;
-		const recommendedNewBranchFriendlyPath = `<root>/${state.createBranch || '<new-branch-name>'}`;
-
 		const isBranch = isBranchReference(state.reference);
 		const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
+		const branchName = state.reference != null ? getReferenceNameWithoutRemote(state.reference) : undefined;
 
-		type StepType = FlagsQuickPickItem<Flags, ConfirmationChoice>;
-		const defaultOption = createFlagsQuickPickItem<Flags, Uri>(
-			state.flags,
-			state.createBranch ? ['-b'] : [],
-			{
-				label: isRemoteBranch
-					? 'Create Worktree from New Local Branch'
-					: isBranch
-						? state.createBranch
-							? 'Create Worktree from New Branch'
-							: 'Create Worktree from Branch'
-						: context.title,
-				description: state.createBranch
-					? state.createBranch
-					: getReferenceLabel(state.reference, { icon: false, label: false }),
-				detail: `Will create worktree in $(folder) ${
-					state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
-				}`,
-			},
-			recommendedRootUri,
-		);
+		// Location is edited in place by the property rows below, so everything derived from it is
+		// recomputed per rebuild rather than fixed at step construction
+		const computeLocation = (): {
+			createDirectlyInFolder: boolean;
+			pickedUri: Uri;
+			recommendedRootUri: Uri;
+			pickedFriendlyPath: string;
+			rootFriendlyPath: string;
+		} => {
+			let createDirectlyInFolder = context.pickedSpecificFolder != null;
+			let pickedUri = context.pickedSpecificFolder ?? context.pickedRootFolder ?? state.uri;
 
-		const confirmations: StepType[] = [];
-		if (!createDirectlyInFolder) {
-			if (state.worktreeDefaultOpen) {
-				return [defaultOption.context, defaultOption.item];
+			let recommendedRootUri;
+			if (context.pickedRootFolder != null) {
+				recommendedRootUri = context.pickedRootFolder;
+			} else if (repoUri.toString() !== pickedUri.toString()) {
+				if (isDescendant(pickedUri, repoUri)) {
+					recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
+				} else if (basename(pickedUri.path) === trailer) {
+					pickedUri = Uri.joinPath(pickedUri, '..');
+					recommendedRootUri = pickedUri;
+				} else {
+					recommendedRootUri = Uri.joinPath(pickedUri, trailer);
+				}
+			} else {
+				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
+				// Don't allow creating directly into the main worktree folder
+				createDirectlyInFolder = false;
 			}
 
-			confirmations.push(defaultOption);
-		} else {
-			if (!state.createBranch) {
-				confirmations.push(
+			return {
+				createDirectlyInFolder: createDirectlyInFolder,
+				pickedUri: pickedUri,
+				recommendedRootUri: recommendedRootUri,
+				pickedFriendlyPath: truncateLeft(getWorkspaceFriendlyPath(pickedUri), 60),
+				rootFriendlyPath: truncateLeft(getWorkspaceFriendlyPath(recommendedRootUri), 60),
+			};
+		};
+
+		let location = computeLocation();
+
+		// After Creating selection; seeded from the `worktrees.openAfterCreate` config so the default
+		// Enter matches what would have happened without the radio group
+		type OpenChoice = NonNullable<State['openAfterCreate']>;
+		const openChoices: { choice: OpenChoice; label: string; clause: string }[] = [
+			{ choice: 'newWindow', label: 'Open in New Window', clause: ', then open it in a new window' },
+			{ choice: 'currentWindow', label: 'Open in Current Window', clause: ', then switch this window to it' },
+			{ choice: 'addToWorkspace', label: 'Add to Workspace', clause: ', then add it to this workspace' },
+			{ choice: 'none', label: "Don't Open", clause: '' },
+		];
+		const configuredOpen: Config['worktrees']['openAfterCreate'] = configuration.get('worktrees.openAfterCreate');
+		let openChoice: OpenChoice;
+		switch (configuredOpen) {
+			case 'always':
+				openChoice = 'currentWindow';
+				break;
+			case 'never':
+				openChoice = 'none';
+				break;
+			case 'onlyWhenEmpty':
+				openChoice = workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow';
+				break;
+			default:
+				openChoice = 'newWindow';
+				break;
+		}
+
+		const openClause = (): string => openChoices.find(c => c.choice === openChoice)?.clause ?? '';
+
+		type StepType = FlagsQuickPickItem<Flags, Uri>;
+
+		// Folds the live Location and After Creating values into each mode's payload and detail -- the
+		// accepted item's [uri, flags] pair is the whole contract with the create step above
+		const buildItems = (): StepType[] => {
+			const recommendedFriendlyPath = `<root>/${truncateLeft(branchName?.replace(/\\/g, '/') ?? '', 65)}`;
+			const recommendedNewBranchFriendlyPath = `<root>/${state.createBranch || '<new-branch-name>'}`;
+
+			const items: StepType[] = [];
+			if (!location.createDirectlyInFolder) {
+				items.push(
 					createFlagsQuickPickItem<Flags, Uri>(
 						state.flags,
-						['--direct'],
+						state.createBranch ? ['-b'] : [],
 						{
 							label: isRemoteBranch
-								? 'Create Worktree from Local Branch'
+								? 'Create Worktree from New Local Branch'
 								: isBranch
-									? 'Create Worktree from Branch'
+									? state.createBranch
+										? 'Create Worktree from New Branch'
+										: 'Create Worktree from Branch'
 									: context.title,
-							description: isBranch
-								? getReferenceLabel(state.reference, { icon: false, label: false })
-								: '',
-							detail: `Will create worktree directly in $(folder) ${truncateLeft(
-								pickedFriendlyPath,
-								60,
-							)}`,
+							description: state.createBranch
+								? state.createBranch
+								: getReferenceLabel(state.reference, { icon: false, label: false }),
+							detail: `Will create worktree in $(folder) ${
+								state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
+							}${openClause()}`,
+							picked: true,
 						},
-						pickedUri,
+						location.recommendedRootUri,
+					),
+				);
+			} else {
+				if (!state.createBranch) {
+					items.push(
+						createFlagsQuickPickItem<Flags, Uri>(
+							state.flags,
+							['--direct'],
+							{
+								label: isRemoteBranch
+									? 'Create Worktree from Local Branch'
+									: isBranch
+										? 'Create Worktree from Branch'
+										: context.title,
+								description: isBranch
+									? getReferenceLabel(state.reference, { icon: false, label: false })
+									: '',
+								detail: `Will create worktree directly in $(folder) ${location.pickedFriendlyPath}${openClause()}`,
+								picked: true,
+							},
+							location.pickedUri,
+						),
+					);
+				}
+
+				items.push(
+					createFlagsQuickPickItem<Flags, Uri>(
+						state.flags,
+						['-b', '--direct'],
+						{
+							label: isRemoteBranch
+								? 'Create Worktree from New Local Branch'
+								: 'Create Worktree from New Branch',
+							description: state.createBranch,
+							detail: `Will create worktree directly in $(folder) ${location.pickedFriendlyPath}${openClause()}`,
+							picked: Boolean(state.createBranch),
+						},
+						location.pickedUri,
 					),
 				);
 			}
 
-			confirmations.push(
-				createFlagsQuickPickItem<Flags, Uri>(
-					state.flags,
-					['-b', '--direct'],
-					{
-						label: isRemoteBranch
-							? 'Create Worktree from New Local Branch'
-							: 'Create Worktree from New Branch',
-						description: state.createBranch,
-						detail: `Will create worktree directly in $(folder) ${truncateLeft(pickedFriendlyPath, 60)}`,
-					},
-					pickedUri,
-				),
-			);
+			return items;
+		};
+
+		if (state.worktreeDefaultOpen) {
+			const shortcut = buildItems();
+			return [shortcut[0].context, shortcut[0].item];
 		}
 
-		if (!createDirectlyInFolder) {
-			confirmations.push(
-				createQuickPickSeparator('Change Location'),
-				createFlagsQuickPickItem<Flags, ConfirmationChoice>(
-					[],
-					[],
-					{
-						label: 'Change Root Folder...',
-						description: `$(folder) ${truncateLeft(
-							context.pickedRootFolder ? pickedFriendlyPath : `${pickedFriendlyPath}/${trailer}`,
-							65,
-						)}`,
-						picked: false,
-					},
-					'changeRoot',
-				),
-			);
-		}
+		let items = buildItems();
 
-		confirmations.push(
-			createFlagsQuickPickItem<Flags, ConfirmationChoice>(
-				[],
-				[],
-				{
-					label: 'Choose Specific Folder...',
-					description: 'Create directly in a folder you choose',
-					picked: false,
+		let step: QuickPickStep<StepType | DirectiveQuickPickItem>;
+
+		interface Rows {
+			root?: DirectiveQuickPickItem;
+			specific?: DirectiveQuickPickItem;
+			radios?: DirectiveQuickPickItem[];
+		}
+		// A mutable holder rather than separate variables so each row's handler can reach its siblings
+		// without forward-referencing a not-yet-declared `const` (an `eslint(no-use-before-define)` build
+		// error) -- every property is populated below before `buildRows` is ever called
+		const rows: Rows = {};
+
+		/** Every row the confirm step shows, minus the separator + Cancel that `createConfirmStep` appends */
+		const buildRows = (): (StepType | DirectiveQuickPickItem)[] => [
+			...items,
+			createQuickPickSeparator<StepType | DirectiveQuickPickItem>('Location'),
+			rows.root!,
+			rows.specific!,
+			createQuickPickSeparator<StepType | DirectiveQuickPickItem>('After Creating'),
+			...rows.radios!,
+		];
+
+		const rootDescription = (): string =>
+			`$(folder) ${location.rootFriendlyPath}${
+				location.createDirectlyInFolder ? ' \u00b7 not used \u2014 a specific folder is chosen' : ''
+			}`;
+		const specificDescription = (): string =>
+			context.pickedSpecificFolder != null ? `$(folder) ${location.pickedFriendlyPath}` : '(none)';
+
+		const refresh = (): void => {
+			location = computeLocation();
+			rows.root!.description = rootDescription();
+			rows.specific!.description = specificDescription();
+			items = buildItems();
+			refreshConfirmStepItems(step, buildRows());
+		};
+
+		// Property rows: accepting one opens the folder dialog and rewrites the confirm in place --
+		// confirm steps set `ignoreFocusOut`, so the quickpick survives the dialog's focus steal
+		const chooseFolder = async (options: { title: string; label: string; specific: boolean }): Promise<void> => {
+			const uris = await window.showOpenDialog({
+				canSelectFiles: false,
+				canSelectFolders: true,
+				canSelectMany: false,
+				defaultUri: context.pickedRootFolder ?? state.uri ?? context.defaultUri,
+				openLabel: options.label,
+				title: options.title,
+			});
+			if (uris == null || uris.length === 0) return;
+
+			if (options.specific) {
+				context.pickedRootFolder = undefined;
+				context.pickedSpecificFolder = uris[0];
+			} else {
+				context.pickedRootFolder = uris[0];
+				context.pickedSpecificFolder = undefined;
+			}
+			state.uri = uris[0];
+			refresh();
+		};
+
+		rows.root = createDirectiveQuickPickItem(Directive.Noop, false, {
+			label: 'Root Folder\u2026',
+			description: rootDescription(),
+			detail: 'Choose a different root folder for worktrees',
+			onDidSelect: () => {
+				void chooseFolder({
+					title: 'Choose a Different Root Folder for this Worktree',
+					label: 'Choose Root Folder',
+					specific: false,
+				});
+			},
+		});
+
+		rows.specific = createDirectiveQuickPickItem(Directive.Noop, false, {
+			label: 'Specific Folder\u2026',
+			description: specificDescription(),
+			detail: 'Create directly in an exact folder instead of under the root',
+			onDidSelect: () => {
+				void chooseFolder({
+					title: 'Choose a Specific Folder for this Worktree',
+					label: 'Choose Worktree Folder',
+					specific: true,
+				});
+			},
+		});
+
+		// Radios pair with their choice by index — never by label, which selection state shouldn't
+		// round-trip through
+		rows.radios = openChoices.map(c =>
+			createDirectiveQuickPickItem(Directive.Noop, false, {
+				label: c.label,
+				iconPath: new ThemeIcon(`gitlens-radio-${openChoice === c.choice ? 'checked' : 'unchecked'}`),
+				onDidSelect: () => {
+					openChoice = c.choice;
+					for (const [i, radio] of rows.radios!.entries()) {
+						radio.iconPath = new ThemeIcon(
+							`gitlens-radio-${openChoice === openChoices[i].choice ? 'checked' : 'unchecked'}`,
+						);
+					}
+					refresh();
 				},
-				'chooseFolder',
-			),
+			}),
 		);
 
-		const step = createConfirmStep(
+		step = createConfirmStep(
 			appendReposToTitle(
 				`Confirm ${context.title} \u2022 ${
 					state.createBranch ||
@@ -691,12 +749,13 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				state,
 				context,
 			),
-			confirmations,
+			buildRows(),
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection)
-			? [selection[0].context, selection[0].item]
-			: StepResultBreak;
+		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
+
+		state.openAfterCreate = openChoice;
+		return [selection[0].context, selection[0].item];
 	}
 }
