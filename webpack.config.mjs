@@ -258,6 +258,9 @@ function getExtensionConfig(target, mode, env) {
 				patterns: [
 					{ from: path.posix.join(utilsDir, 'rebaseTodoEditor.sh'), to: distDir },
 					{ from: path.posix.join(utilsDir, 'rebaseTodoEditor.cmd'), to: distDir },
+					// The automatic rebase's `GIT_EDITOR` (pure sh — git runs editors through its
+					// bundled sh on every platform)
+					{ from: path.posix.join(utilsDir, 'rebaseMessageEditor.sh'), to: distDir },
 				],
 			}),
 		);

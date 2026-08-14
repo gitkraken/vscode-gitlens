@@ -15,6 +15,9 @@ export interface GitPausedOperationsSubProvider {
 			skip?: boolean;
 			/** Editor command used if the operation needs to edit a commit message (e.g. `true` to keep the original message without opening an editor) */
 			messageEditor?: string;
+			/** Extra environment for the git process, for `messageEditor` commands that need it (e.g. a
+			 *  wrapper script reading the real editor from the environment) */
+			editorEnv?: Record<string, string>;
 		},
 	): Promise<void>;
 }

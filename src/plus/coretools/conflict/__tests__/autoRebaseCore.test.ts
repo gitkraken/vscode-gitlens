@@ -594,6 +594,70 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.strictEqual(attempts, 2);
 	});
 
+	test('stops at a conflicted step the user marked edit, with resolutions staged but not continued', async () => {
+		// git delivers an `edit` step's stop AS its conflict stop — after `--continue` commits, the
+		// rebase proceeds with no second stop — so auto-continuing would silently consume the
+		// user's requested pause (verified against real git).
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+
+		const result = await run(
+			session,
+			makePorts(repo, {
+				getStepTodoAction: () => Promise.resolve('edit'),
+			}),
+		);
+
+		assert.strictEqual(result.type, 'escalated');
+		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'edit-step');
+		// The useful work happened — resolved, applied, staged…
+		assert.strictEqual(repo.applied.length, 1);
+		assert.strictEqual(repo.staged.length, 1);
+		assert.strictEqual(session.steps.length, 1);
+		// …but the step was NOT committed out from under the user
+		assert.strictEqual(repo.continues.length, 0);
+	});
+
+	test('a conflicted pick with the todo-action port present continues normally', async () => {
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+
+		const result = await run(
+			session,
+			makePorts(repo, {
+				getStepTodoAction: () => Promise.resolve('pick'),
+			}),
+		);
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(repo.continues.length, 1);
+	});
+
+	test('escalates as message-edit when a continue stops at a reword/squash whose editor failed', async () => {
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+
+		const result = await run(
+			session,
+			makePorts(repo, {
+				continueOperation: () => {
+					// The step committed, but the replay stopped at a later `reword` whose message
+					// editor couldn't run (see `getAutoRebaseMessageEditor`'s degradation path)
+					throw new PausedOperationContinueError({
+						reason: 'messageEditFailed',
+						operation: makeStatus(2, 2),
+						skip: false,
+						gitCommand: { repoPath: '/repo', args: ['rebase', '--continue'] },
+					});
+				},
+			}),
+		);
+
+		assert.strictEqual(result.type, 'escalated');
+		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'message-edit');
+		assert.match(result.type === 'escalated' ? result.escalation.message : '', /amend the commit message/i);
+	});
+
 	test('records a dropped commit when git empties it silently and exits 0 (real git behavior)', async () => {
 		// A rebase `--continue` whose index matches HEAD drops the commit and reports success — no
 		// `emptyCommit` error is ever raised, so the emptiness has to be detected before continuing.

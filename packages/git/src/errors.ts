@@ -451,6 +451,7 @@ export class PausedOperationAbortError extends GitCommandError<PausedOperationAb
 export type PausedOperationContinueErrorReason =
 	| 'conflicts'
 	| 'emptyCommit'
+	| 'messageEditFailed'
 	| 'nothingToContinue'
 	| 'uncommittedChanges'
 	| 'unmergedFiles'
@@ -483,6 +484,8 @@ export class PausedOperationContinueError extends GitCommandError<PausedOperatio
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there are unresolved conflicts`;
 			case 'emptyCommit':
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as the previous commit is empty`;
+			case 'messageEditFailed':
+				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as a commit message needs to be edited and the editor could not be opened`;
 			case 'nothingToContinue':
 				return `Cannot ${details.skip ? 'skip' : 'continue'} the ${details.operation.type} operation as there is no ${details.operation.type} in progress`;
 			case 'uncommittedChanges':

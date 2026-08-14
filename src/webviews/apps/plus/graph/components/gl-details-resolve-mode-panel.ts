@@ -948,6 +948,27 @@ export class GlDetailsResolveModePanel extends LitElement {
 						? html`<div class="resolve-results scrollable">${this.renderAutoRebaseSteps(run)}</div>`
 						: nothing
 				}
+				${
+					// An escalated run left the rebase paused for the user — keep the toast's actions
+					// available here durably, since the toast itself is transient and the palette command
+					// (`Continue Automatic Rebase`) isn't discoverable from the panel
+					run.phase === 'escalated'
+						? html`<div class="auto-rebase__actions">
+								<gl-tooltip
+									content="Let AI continue the rebase from here — resolving any remaining conflicts and finishing the remaining steps"
+								>
+									<gl-button @click=${() => this.emit('auto-rebase-resume')}
+										>Resume with AI</gl-button
+									>
+								</gl-tooltip>
+								<gl-tooltip content="Abort the rebase and restore the branch to its pre-rebase state">
+									<gl-button appearance="secondary" @click=${() => this.emit('auto-rebase-cancel')}
+										>Abort Rebase</gl-button
+									>
+								</gl-tooltip>
+							</div>`
+						: nothing
+				}
 			</div>
 		`;
 	}
