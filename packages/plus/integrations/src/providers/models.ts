@@ -871,6 +871,7 @@ const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
 	states: ['open', 'closed', 'merged', 'all'],
 	text: true,
 	includeArchived: true,
+	draft: true,
 	repositoryScope: true,
 	organizationScope: true,
 };

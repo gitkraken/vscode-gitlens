@@ -408,7 +408,7 @@ const filters = wanted.filter(f => capability.includes(f));
 - `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty.
 - `pullRequestSearch` — the filtered PR search (`searchPullRequestsPage`). Always present; empty `relationships`
   means the provider has no such search. It declares the exact `relationships` and `states`, plus `text`,
-  `includeArchived`, `repositoryScope`, and `organizationScope`.
+  `draft`, `includeArchived`, `repositoryScope`, and `organizationScope`.
 - `issues` — the **repo-scoped** git-host read, **and** the issue-tracker read
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
@@ -479,9 +479,11 @@ Account-wide PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention`
 `Author, Assignee, ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure
 `Author, Assignee, ReviewRequested`.
 PR **search** capabilities (`getSupportedFilters().pullRequestSearch`): GitHub/GHE express relationships
-`Author, Assignee, ReviewRequested, Mention`, states `open, closed, merged, all`, `text`, `includeArchived`, and
-repository/organization scopes. Every other provider declares empty lists and false flags, so the read is refused
-rather than returning a page that did not apply a requested criterion or scope.
+`Author, Assignee, ReviewRequested, Mention`, states `open, closed, merged, all`, `text`, `draft`,
+`includeArchived`, and repository/organization scopes. Every other provider declares empty lists and false flags, so
+the read is refused rather than returning a page that did not apply a requested criterion or scope. `draft` is
+tri-state: `true` returns only drafts, `false` only ready-for-review PRs, and omitting it places no constraint — so
+a consumer sending `draft: false` must not treat it as "unset".
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
 Linear + Trello `Assignee` · Bitbucket family none.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
