@@ -863,8 +863,8 @@ gl-lit-graph {
 		&.is-dimmed {
 			opacity: 0.35;
 		}
-		// Transient Ctrl-hold peek: a lighter dim than the pin's. No transition — the engage DELAY
-		// (ctrlHoldEngageDelayMs) already keeps a tapped Ctrl from flashing the dim, and a per-element
+		// Transient Ctrl/Alt-hold peek: a lighter dim than the pin's. No transition — the engage DELAY
+		// (holdEngageDelayMs) already keeps a tapped Ctrl/Alt from flashing the dim, and a per-element
 		// fade replays on every recycled row the virtualizer scrolls in, dimming them visibly late in
 		// a staggered wave. Overrides the 0.35 above (declared after, always paired with is-dimmed).
 		&.is-dimmed-soft {

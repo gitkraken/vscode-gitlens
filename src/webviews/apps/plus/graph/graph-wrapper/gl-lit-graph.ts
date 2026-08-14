@@ -185,11 +185,11 @@ const revealComfortRatio = 2 / 3;
 // Code's 125ms sits between them.
 const smoothRevealMinDurationMs = 90;
 const smoothRevealMaxDurationMs = 180;
-// How long bare Ctrl must be held before the lane dim engages. Longer than a chord-disambiguation window
-// needs to be on its own: Ctrl fronts far more everyday gestures than Alt did — Ctrl+click multi-select
-// aiming, Ctrl+C, Ctrl+F — and at 200ms those routinely outlived the delay and flashed the dim; 500ms
-// reads as "deliberately holding", not "slow chord".
-const ctrlHoldEngageDelayMs = 500;
+// How long a bare Ctrl or Alt hold must be sustained before the lane dim engages. Longer than a
+// chord-disambiguation window needs to be on its own: both modifiers front everyday gestures — Ctrl+click
+// multi-select aiming, Ctrl+C, Ctrl+F, Alt+click alt-action aiming — and at 200ms those routinely outlived
+// the delay and flashed the dim; 500ms reads as "deliberately holding", not "slow chord".
+const holdEngageDelayMs = 500;
 // How long a peeked card's re-anchor keeps retrying for the landing row's element before giving up —
 // generous because a jump (End/Home) can page rows in from git before the landing row exists at all.
 const peekReanchorDeadlineMs = 1000;
@@ -849,16 +849,16 @@ export class GlLitGraph extends LitElement {
 	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
 	// press right after entering the pill activates immediately, with no re-hover required.
 	private hoveredPillRef?: { key: string; sha: string };
-	// Shared modifier-key tracker — the single source of Ctrl truth. Unlike a bare window keydown/keyup
-	// pair (which only fires when the webview iframe has keyboard focus), it also reads `ctrlKey` off
-	// pointer events, so Ctrl is observed even when the graph isn't focused, and a menu-bar-steal that
-	// swallows the keyup still self-corrects on the next pointer move. `willUpdate` reconciles the
-	// transient chain against its `ctrlKey` (see the reconcile there).
+	// Shared modifier-key tracker — the single source of Ctrl/Alt truth. Unlike a bare window keydown/keyup
+	// pair (which only fires when the webview iframe has keyboard focus), it also reads `ctrlKey`/`altKey`
+	// off pointer events, so a hold is observed even when the graph isn't focused, and a menu-bar-steal
+	// that swallows the keyup still self-corrects on the next pointer move. `willUpdate` reconciles the
+	// transient chain against its state (see the reconcile there).
 	private readonly _modifiers = new ModifierKeysController(this);
-	// Transient Ctrl-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Ctrl is held,
-	// dims rows outside the focused/selected row's lane chain — the same derivation as the click-pin, but
-	// momentary and layered ON TOP of it (see the `inRefChainShas` assignment in `updateRenderState`,
-	// which prefers this over `refHoverChainShas` while set).
+	// Transient Ctrl/Alt-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Ctrl or Alt
+	// is held, dims rows outside the focused/selected row's lane chain — the same derivation as the
+	// click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas` assignment in
+	// `updateRenderState`, which prefers this over `refHoverChainShas` while set).
 	@state() private modifierChainShas?: ReadonlySet<string>;
 	// Seed key `activateModifierChain` last computed the chain from (`row:<sha>`) — landing on the SAME
 	// seed while the modifier stays held (or a fresh reconcile lands on it) is a no-op instead of
@@ -1648,7 +1648,7 @@ export class GlLitGraph extends LitElement {
 			clearTimeout(this.tooltipHideTimer);
 			this.tooltipHideTimer = undefined;
 		}
-		this.cancelPendingCtrlHoldEngage();
+		this.cancelPendingHoldEngage();
 		this.emitRowHover.cancel();
 		// Cancel any scheduled rAFs so their callbacks can't run against the detached instance.
 		if (this.columnFlipRaf != null) {
@@ -1864,10 +1864,10 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		// Reconcile the transient Ctrl-hold chain against the shared modifier tracker. The tracker
-		// `requestUpdate`s us on every Ctrl transition (including ones carried by a pointer event while the
-		// graph is unfocused, or a menu-bar-steal that swallowed the keyup), so this engages on Ctrl-press
-		// and reverts on release without a mouse move. `activateModifierChain` dedups against
+		// Reconcile the transient Ctrl/Alt-hold chain against the shared modifier tracker. The tracker
+		// `requestUpdate`s us on every Ctrl/Alt transition (including ones carried by a pointer event while
+		// the graph is unfocused, or a menu-bar-steal that swallowed the keyup), so this engages on
+		// press and reverts on release without a mouse move. `activateModifierChain` dedups against
 		// `lastModifierChainSeed`, so this per-update pass is a no-op once settled — but it is ALSO the ONLY
 		// retarget path: `focusIndex` is `@state`, so navigating/selecting a different commit schedules an
 		// update and the new focused row becomes the seed here. The pointer never retargets it.
@@ -2041,7 +2041,7 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		// The pinned ref's lane chain (and a held-Ctrl transient chain) was walked against the rows loaded
+		// The pinned ref's lane chain (and a held-Ctrl/Alt transient chain) was walked against the rows loaded
 		// at the time — now bounded precisely at the merge base, so a branch's older commits that page in
 		// later would otherwise arrive dimmed (outside the frozen set). Re-walk against the fresh rows. A
 		// scope change already cleared the pin above, so this only fires for genuine paging/reconcile.
@@ -3761,8 +3761,8 @@ export class GlLitGraph extends LitElement {
 			}
 			this.endRowHover(related ?? null);
 			// With the pointer outside the viewport the modifier tracker sees no further pointer events, so a
-			// Ctrl release only reaches us as a keyup — which needs keyboard focus. Without it, drop the dim
-			// rather than strand it on the focused-row/HEAD seed with no way to observe the release.
+			// Ctrl/Alt release only reaches us as a keyup — which needs keyboard focus. Without it, drop the
+			// dim rather than strand it on the focused-row/HEAD seed with no way to observe the release.
 			if (this.treeRef.value?.contains(document.activeElement) === true) {
 				this.reconcileModifierChain();
 			} else {
@@ -3910,18 +3910,19 @@ export class GlLitGraph extends LitElement {
 		this.modifierChainShas = this.laneChainFor([target.sha], 'both');
 	}
 
-	// Bring the transient chain in line with the shared modifier tracker — the single source of Ctrl truth.
-	// Shared by the `willUpdate` reconcile and the pointer-leave paths, which now HAND OFF to the next-best
-	// seed (focused row, then HEAD) instead of clearing: leaving a row doesn't mean you stopped holding Ctrl.
+	// Bring the transient chain in line with the shared modifier tracker — the single source of Ctrl/Alt
+	// truth. Shared by the `willUpdate` reconcile and the pointer-leave paths, which now HAND OFF to the
+	// next-best seed (focused row, then HEAD) instead of clearing: leaving a row doesn't mean you stopped
+	// holding the modifier.
 	private reconcileModifierChain(): void {
-		// One release ends the suppression, whatever else the chord did.
-		if (!this._modifiers.ctrlKey) {
+		// Both released ends the suppression, whatever else the chord did.
+		if (!this._modifiers.ctrlKey && !this._modifiers.altKey) {
 			this._suppressModifierChain = false;
-			this.cancelPendingCtrlHoldEngage();
+			this.cancelPendingHoldEngage();
 		}
 
 		if (!this.canEngageModifierChain()) {
-			this.cancelPendingCtrlHoldEngage();
+			this.cancelPendingHoldEngage();
 			if (this.modifierChainShas != null) {
 				this.deactivateModifierChain();
 			}
@@ -3935,60 +3936,63 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		// Fresh engage — delay so a chording Ctrl+letter/digit shortcut never flashes the dim.
-		if (this._pendingCtrlHoldEngageTimer != null) return;
+		// Fresh engage — delay so a chording Ctrl/Alt+letter/digit shortcut never flashes the dim.
+		if (this._pendingHoldEngageTimer != null) return;
 
-		this._pendingCtrlHoldEngageTimer = setTimeout(() => {
-			this._pendingCtrlHoldEngageTimer = undefined;
+		this._pendingHoldEngageTimer = setTimeout(() => {
+			this._pendingHoldEngageTimer = undefined;
 			if (!this.canEngageModifierChain()) return;
 
 			this.activateModifierChain();
-		}, ctrlHoldEngageDelayMs);
+		}, holdEngageDelayMs);
 	}
 
 	// Gate on window focus: an Alt-Tab away fires no keyup/visibilitychange, so the tracker can still
-	// read `ctrlKey` true while unfocused — without this the dim would stick. (The same `blur` signal
-	// drives `gl-graph--window-unfocused` in render().)
+	// read `ctrlKey`/`altKey` true while unfocused — without this the dim would stick. (The same `blur`
+	// signal drives `gl-graph--window-unfocused` in render().)
 	//
-	// BARE Ctrl only: Ctrl+Shift/Alt/Cmd chords name their own actions, and dimming the graph under them
-	// reads as a mode the chord didn't enter. Ctrl+Arrow keeps the highlight — it walks lanes, so showing
-	// the lane is the point.
+	// BARE Ctrl or Alt (or both together): each names no action of its own, so holding either — or both —
+	// engages the dim. Shift/Meta chords DO name their own actions, so either one vetoes: dimming the graph
+	// under them reads as a mode the chord didn't enter. Ctrl+Arrow / Alt+Arrow keep the highlight — they
+	// walk lanes/fork points, so showing the lane is the point.
 	private canEngageModifierChain(): boolean {
-		const bareCtrl =
-			this._modifiers.ctrlKey && !this._modifiers.altKey && !this._modifiers.shiftKey && !this._modifiers.metaKey;
+		const bareCtrlOrAlt =
+			(this._modifiers.ctrlKey || this._modifiers.altKey) &&
+			!this._modifiers.shiftKey &&
+			!this._modifiers.metaKey;
 
-		return bareCtrl && !this._suppressModifierChain && this.windowFocused !== false && this.hasLaneSeedInput();
+		return bareCtrlOrAlt && !this._suppressModifierChain && this.windowFocused !== false && this.hasLaneSeedInput();
 	}
 
-	private cancelPendingCtrlHoldEngage(): void {
-		if (this._pendingCtrlHoldEngageTimer == null) return;
+	private cancelPendingHoldEngage(): void {
+		if (this._pendingHoldEngageTimer == null) return;
 
-		clearTimeout(this._pendingCtrlHoldEngageTimer);
-		this._pendingCtrlHoldEngageTimer = undefined;
+		clearTimeout(this._pendingHoldEngageTimer);
+		this._pendingHoldEngageTimer = undefined;
 	}
 
-	// Set by `suppressModifierChainUntilCtrlRelease` for Ctrl chords that resolve OUTSIDE the graph (the
-	// app's Ctrl-carrying non-lane shortcuts — search focus, peek, copy, the shortcut sheet), whose Ctrl
-	// press would otherwise dim the graph on the way.
+	// Set by `suppressModifierChainUntilRelease` for Ctrl/Alt chords that resolve OUTSIDE the graph (the
+	// app's Ctrl/Alt-carrying non-lane shortcuts — search focus, peek, copy, the shortcut sheet, the chrome
+	// toggles), whose press would otherwise dim the graph on the way.
 	private _suppressModifierChain = false;
 
-	// Pending fresh-engage timer from `reconcileModifierChain` — the Ctrl-hold delay in flight.
-	private _pendingCtrlHoldEngageTimer: ReturnType<typeof setTimeout> | undefined;
+	// Pending fresh-engage timer from `reconcileModifierChain` — the modifier-hold delay in flight.
+	private _pendingHoldEngageTimer: ReturnType<typeof setTimeout> | undefined;
 
-	/** Hold off the Ctrl-hold lane dim until Ctrl is released — for a Ctrl chord whose action isn't a lane
-	 *  move. Called by the host before it consumes the chord. */
-	public suppressModifierChainUntilCtrlRelease(): void {
+	/** Hold off the Ctrl/Alt-hold lane dim until both are released — for a Ctrl or Alt chord whose action
+	 *  isn't a lane move. Called by the host before it consumes the chord. */
+	public suppressModifierChainUntilRelease(): void {
 		this._suppressModifierChain = true;
-		this.cancelPendingCtrlHoldEngage();
+		this.cancelPendingHoldEngage();
 		if (this.modifierChainShas != null) {
 			this.deactivateModifierChain();
 		}
 	}
 
-	/** Whether keyboard focus is inside the rows tree for the Ctrl-hold chain to seed from. `windowFocused`
-	 *  alone is too coarse: it stays true with focus in an editor or another view, so Ctrl there dimmed a
-	 *  graph nobody was working in. `pickLaneSeed`'s HEAD fallback then applies only once focus is actually
-	 *  inside the tree. */
+	/** Whether keyboard focus is inside the rows tree for the Ctrl/Alt-hold chain to seed from.
+	 *  `windowFocused` alone is too coarse: it stays true with focus in an editor or another view, so
+	 *  holding the modifier there dimmed a graph nobody was working in. `pickLaneSeed`'s HEAD fallback then
+	 *  applies only once focus is actually inside the tree. */
 	private hasLaneSeedInput(): boolean {
 		return this.treeRef.value?.contains(document.activeElement) === true;
 	}
@@ -7321,7 +7325,7 @@ export class GlLitGraph extends LitElement {
 					subline: ['Escape', 'text: closes'],
 				},
 				run: this.repinned(() => {
-					this.suppressModifierChainUntilCtrlRelease();
+					this.suppressModifierChainUntilRelease();
 					return this.togglePeek();
 				}),
 			},
@@ -7337,7 +7341,7 @@ export class GlLitGraph extends LitElement {
 					keysOverride: ['mod+KeyC'],
 				},
 				run: this.repinned(() => {
-					this.suppressModifierChainUntilCtrlRelease();
+					this.suppressModifierChainUntilRelease();
 					return this.copyFocusedRow();
 				}),
 			},

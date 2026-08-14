@@ -96,10 +96,10 @@ export class GlGraphHover extends GlElement {
 	 *  the `gl-graph-hoverpeekclosed` event is only for closes the graph can't see (Esc's overlay pop). */
 	private _suppressPeekClosedEvent = false;
 
-	// Shared modifier-key tracker — the same source of Ctrl truth `gl-lit-graph` uses for the Ctrl-hold lane
-	// dim. A bare window keydown/keyup pair wouldn't do: those only fire when the webview iframe has keyboard
-	// focus, and hovering the graph never grants it. The tracker also reads `ctrlKey` off pointer events, so
-	// Ctrl registers even while the graph is unfocused.
+	// Shared modifier-key tracker — the same source of Ctrl/Alt truth `gl-lit-graph` uses for the modifier-
+	// hold lane dim. A bare window keydown/keyup pair wouldn't do: those only fire when the webview iframe
+	// has keyboard focus, and hovering the graph never grants it. The tracker also reads the modifiers off
+	// pointer events, so a hold registers even while the graph is unfocused.
 	private readonly _modifiers = new ModifierKeysController(this);
 
 	/** Live overlay-stack registration — non-null exactly while the card is open. */
@@ -126,15 +126,14 @@ export class GlGraphHover extends GlElement {
 	}
 
 	override willUpdate(): void {
-		// Holding Ctrl dismisses the hover for as long as it's held — Ctrl now drives the graph's branch-lane
-		// dim (`activateModifierChain`), which needs the rows this card covers. The tracker `requestUpdate`s us
-		// on every Ctrl transition, so this fires on the press itself without waiting for a mouse move. `close()`
-		// rather than `hide()` so releasing Ctrl doesn't arm the quick-show window — the card returns only on
-		// the next hover, at the normal delay.
-		//
-		// The card no longer closes on Alt: its own [Alt] alternate row actions (Open Changes → working tree,
-		// see `showCore`'s comment below) are now actually reachable while the card stays open.
-		if (this._modifiers.ctrlKey && this.open && !this._peeked) {
+		// Holding Ctrl or Alt dismisses the hover for as long as it's held — both drive the graph's
+		// branch-lane dim (`activateModifierChain`), which needs the rows this card covers. The card itself
+		// is pure markdown with nothing modifier-dependent; the [Alt] alternate row actions (Open Changes →
+		// working tree) live on the row's action strip, which stays clickable regardless. The tracker
+		// `requestUpdate`s us on every modifier transition, so this fires on the press itself without
+		// waiting for a mouse move. `close()` rather than `hide()` so releasing doesn't arm the quick-show
+		// window — the card returns only on the next hover, at the normal delay.
+		if ((this._modifiers.ctrlKey || this._modifiers.altKey) && this.open && !this._peeked) {
 			this.close();
 		}
 	}
@@ -211,9 +210,9 @@ export class GlGraphHover extends GlElement {
 	private _showCoreDebounced: Deferrable<GlGraphHover['showCore']> | undefined = undefined;
 
 	onRowHovered(row: GitGraphRow, anchor: Anchor): void {
-		// Ctrl is held — stay dismissed (and skip the markdown request entirely). Before `resetUnhoverTimer`
-		// so a pending hide still runs.
-		if (this._modifiers.ctrlKey) return;
+		// Ctrl or Alt is held — stay dismissed (and skip the markdown request entirely). Before
+		// `resetUnhoverTimer` so a pending hide still runs.
+		if (this._modifiers.ctrlKey || this._modifiers.altKey) return;
 
 		// Pointer takeover while a keyboard peek is pinned: the pointer wins, but only once it has actually
 		// MOVED since the peek opened/re-anchored. Chromium re-fires pointerover as rows scroll under a
@@ -374,12 +373,12 @@ export class GlGraphHover extends GlElement {
 		markdown: Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string,
 		peeked?: boolean,
 	) {
-		// Backstop for the deferred paths: a debounced show scheduled before Ctrl went down would otherwise
-		// land while it's held (`willUpdate` can't cancel it — the card isn't `open` yet), as would an
-		// awaited markdown resolution. A keyboard peek opts out: Ctrl gates the POINTER hover (it drives the
-		// lane dim over the rows the card would cover), and an explicit keystroke shouldn't silently do
-		// nothing because a modifier is down.
-		if (!peeked && this._modifiers.ctrlKey) return;
+		// Backstop for the deferred paths: a debounced show scheduled before Ctrl/Alt went down would
+		// otherwise land while it's held (`willUpdate` can't cancel it — the card isn't `open` yet), as
+		// would an awaited markdown resolution. A keyboard peek opts out: the hold gates the POINTER hover
+		// (it drives the lane dim over the rows the card would cover), and an explicit keystroke shouldn't
+		// silently do nothing because a modifier is down.
+		if (!peeked && (this._modifiers.ctrlKey || this._modifiers.altKey)) return;
 
 		if (typeof markdown === 'string') {
 			this.markdown = markdown;

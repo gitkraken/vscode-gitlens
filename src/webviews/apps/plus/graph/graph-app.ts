@@ -794,7 +794,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				scope: 'tree',
 				sheet: 'hidden',
 				run: e => {
-					this.graph?.suppressModifierChainUntilCtrlRelease?.();
+					this.graph?.suppressModifierChainUntilRelease?.();
 
 					const path = e.composedPath();
 
@@ -847,7 +847,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					subline: ['Enter', 'text: steps · ', 'Escape', 'text: leaves'],
 				},
 				run: () => {
-					this.graph?.suppressModifierChainUntilCtrlRelease?.();
+					this.graph?.suppressModifierChainUntilRelease?.();
 					return this.graphHeader?.focusSearch() ?? false;
 				},
 			},
@@ -860,7 +860,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// primary chord is shown — the `mod+/` alias would double the footer's width.
 				sheet: { group: 'footer', label: 'shows this reference', order: 2, keysOverride: ['?'] },
 				run: () => {
-					this.graph?.suppressModifierChainUntilCtrlRelease?.();
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.handleShowShortcuts();
 					return true;
 				},
@@ -917,6 +917,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					const panel = visibleSidebarPanels(this.isVirtualRepo)[digit];
 					if (panel == null) return false;
 
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.activateSidebarPanel(panel);
 					return true;
 				},
@@ -928,7 +929,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// `webviewGlobal` scope's registration comment for the Option-character cost); Shift+letter
 			// would type a real character into a focused input.
 			// The two display-mode toggles route through `toggleDisplayMode`, the same path the rail's
-			// bottom toggle click takes.
+			// bottom toggle click takes. Alt also drives the lane dim now, and none of these toggle actions
+			// is lane navigation, so each calls `suppressModifierChainUntilRelease()` right before acting.
 			{
 				// `alt+KeyK`, not `alt+KeyA`: Option+A produces å on macOS, a real letter for Scandinavian
 				// layouts, so K was chosen to avoid shadowing it.
@@ -938,6 +940,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				run: () => {
 					if (!(this.graphState.config?.experimentalKanbanEnabled ?? false)) return false;
 
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.toggleDisplayMode('kanban');
 					return true;
 				},
@@ -947,6 +950,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				scope: 'webviewGlobal',
 				sheet: { group: 'panels', label: 'Toggle visualizations', order: 3, keysOverride: ['alt+KeyV'] },
 				run: () => {
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.toggleDisplayMode('visualizations');
 					return true;
 				},
@@ -957,6 +961,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Toggle minimap', order: 4, keysOverride: ['alt+KeyM'] },
 				run: () => {
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.handleToggleMinimap();
 					return true;
 				},
@@ -967,6 +972,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Toggle side bar', order: 5, keysOverride: ['alt+KeyS'] },
 				run: () => {
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.handleToggleSidebar();
 					return true;
 				},
@@ -977,6 +983,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Toggle details panel', order: 6, keysOverride: ['alt+KeyD'] },
 				run: () => {
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.handleToggleDetails(new CustomEvent('toggle-details'));
 					return true;
 				},
@@ -990,6 +997,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Dock details elsewhere', order: 7 },
 				run: () => {
+					this.graph?.suppressModifierChainUntilRelease?.();
 					this.handleToggleDetails(new CustomEvent('toggle-details', { detail: { altKey: true } }));
 					return true;
 				},
