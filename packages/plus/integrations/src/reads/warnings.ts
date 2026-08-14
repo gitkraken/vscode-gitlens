@@ -5,6 +5,7 @@ import type {
 	IssueSorting,
 	PullRequestFilter,
 	PullRequestSearchCapabilities,
+	PullRequestSorting,
 } from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
@@ -292,6 +293,7 @@ function describePullRequestSearchCapabilities(capabilities: PullRequestSearchCa
 		...(capabilities.draft ? ['draft'] : []),
 		...(capabilities.repositoryScope ? ['repository scope'] : []),
 		...(capabilities.organizationScope ? ['organization scope'] : []),
+		...(capabilities.sorts.length ? [`sorts:${capabilities.sorts.join('|')}`] : []),
 	].join(', ');
 }
 
@@ -467,22 +469,28 @@ export function pullRequestSearchCapResultWarning(
 	domain: string | undefined,
 	connectionId: string | undefined,
 	totalCount: number | undefined,
+	sort: PullRequestSorting,
 ): ProviderWarning | undefined {
 	const limit = providersMetadata[id]?.pullRequestSearchResultLimit;
 	if (limit == null || totalCount == null || totalCount <= limit) return undefined;
 
+	// Name the order: the reachable window is the first `limit` under THIS sort, and a different key reaches a
+	// different subset, so a ceiling message that omits it can't say which slice was served. Same reasoning as
+	// `issueSearchCapResultWarning`.
+	const [field, direction] = sort.split(':');
 	return {
 		...otherWarning(
 			id,
 			domain,
 			connectionId,
-			`Pull request search matched ${totalCount} results, but '${id}' serves at most ${limit}; narrow the search to read the rest.`,
+			`Pull request search matched ${totalCount} results, but '${id}' serves at most ${limit}, ordered by ${field} ${direction}ending; narrow the search to read the rest.`,
 		),
 		omission: {
 			kind: 'provider-limit',
 			recovery: 'none',
 			limit: limit,
 			totalCount: totalCount,
+			sort: sort,
 		},
 	};
 }

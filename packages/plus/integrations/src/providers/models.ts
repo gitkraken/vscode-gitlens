@@ -75,7 +75,12 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
-import type { IssueSearchCapabilities, IssueSorting, PullRequestSearchCapabilities } from '../providerFilters.js';
+import type {
+	IssueSearchCapabilities,
+	IssueSorting,
+	PullRequestSearchCapabilities,
+	PullRequestSorting,
+} from '../providerFilters.js';
 import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
 
 export { IssueFilter, PullRequestFilter } from '../providerFilters.js';
@@ -87,6 +92,8 @@ export type {
 	IssueSorting,
 	PullRequestSearchCapabilities,
 	PullRequestSearchCriteria,
+	PullRequestSortField,
+	PullRequestSorting,
 } from '../providerFilters.js';
 import type { ProviderRepositoryShape } from '../results.js';
 
@@ -859,6 +866,17 @@ const githubIssueSearchCapabilities: IssueSearchCapabilities = {
 	sorts: githubIssueSorts,
 };
 
+/**
+ * The ordering vocabulary of GitHub's filtered PR search: `created` and `updated`, both directions.
+ *
+ * Hand-declared rather than derived from `@gitkraken/provider-apis` (which has no PR-sort surface), and narrower
+ * than the issue set on purpose: the merged relationship × state facets can only be re-ordered by a field a
+ * `PullRequestShape` carries (see `getPullRequestComparator`), and GitHub PRs have no priority and no relevance
+ * that orders stably under the result ceiling. A parity test pins this to `gitHubPullRequestSortQualifiers`' keys
+ * so the capability can't outrun the emitter.
+ */
+const githubPullRequestSorts: PullRequestSorting[] = ['updated:desc', 'updated:asc', 'created:desc', 'created:asc'];
+
 /** GitHub and GHE use the same filtered pull-request search syntax and result ceiling. */
 const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
 	relationships: [
@@ -875,6 +893,8 @@ const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
 	draft: true,
 	repositoryScope: true,
 	organizationScope: true,
+	// `sort:updated`, `sort:updated-asc`, `sort:created-desc`, `sort:created-asc` — see `githubPullRequestSorts`.
+	sorts: githubPullRequestSorts,
 };
 
 export const providersMetadata: ProvidersMetadata = {

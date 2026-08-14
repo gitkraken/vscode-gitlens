@@ -4,8 +4,57 @@ import type {
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestShape,
+	PullRequestSortField,
+	PullRequestSorting,
 } from '../models/pullRequest.js';
 import { shortenRevision } from './revision.utils.js';
+
+/**
+ * How each sort field is read off a {@link PullRequestShape}, for the filtered PR search, which MERGES its
+ * relationship × state facets in the facade and so has to order the union itself instead of trusting the
+ * per-facet server order. Only the fields the shape carries appear — the same rule as `getIssueComparator`, and
+ * the reason {@link PullRequestSortField} is just these two.
+ */
+const pullRequestSortValues: Partial<
+	Record<PullRequestSortField, (pr: PullRequestShape) => number | Date | string | undefined>
+> = {
+	created: pr => pr.createdDate,
+	updated: pr => pr.updatedDate,
+};
+
+/**
+ * A comparator for one sort key over normalized pull requests, or `undefined` when the field isn't derivable
+ * from a {@link PullRequestShape} — the signal that the key is only honorable on a SINGLE-origin read where the
+ * provider already ordered the page. Missing values sort LAST in both directions (partitioned before any
+ * arithmetic so two missing values compare equal, exactly as `getIssueComparator` does).
+ *
+ * Note it orders whatever it is handed. Sorting a page already capped at the result ceiling does not make it the
+ * top N.
+ */
+export function getPullRequestComparator(
+	sort: PullRequestSorting,
+): ((a: PullRequestShape, b: PullRequestShape) => number) | undefined {
+	const [field, direction] = sort.split(':') as [PullRequestSortField, 'asc' | 'desc'];
+	const getValue = pullRequestSortValues[field];
+	if (getValue == null) return undefined;
+
+	return (a, b) => {
+		const left = toComparable(getValue(a));
+		const right = toComparable(getValue(b));
+		if (left == null || right == null) {
+			if (left == null && right == null) return 0;
+
+			return left == null ? 1 : -1;
+		}
+
+		const ordered = left < right ? -1 : left > right ? 1 : 0;
+		return direction === 'asc' ? ordered : -ordered;
+	};
+}
+
+function toComparable(value: number | Date | string | undefined): number | string | undefined {
+	return value instanceof Date ? value.getTime() : value;
+}
 
 export interface PullRequestUrlIdentity<TProvider extends string = string> {
 	provider?: TProvider;

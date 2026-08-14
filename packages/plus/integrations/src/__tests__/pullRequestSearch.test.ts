@@ -4,12 +4,14 @@ import type {
 	PullRequestSearchCapabilities,
 	PullRequestSearchCriteria,
 	PullRequestShape,
+	PullRequestSorting,
 } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { PullRequestFilter } from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
+import { resolvePullRequestSearchCriteria } from '../reads/filters.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 function primarySession(token: string): ProviderAuthenticationSession {
@@ -298,6 +300,26 @@ suite('IntegrationManager.searchPullRequestsPage', () => {
 			assert.equal(result.warnings[0].omission?.recovery, 'none');
 			assert.equal(result.warnings[0].omission?.totalCount, 19240);
 			assert.equal(result.warnings[0].omission?.limit, 1000);
+			// The reachable window depends on the order, so the omission carries it and the message names it — the
+			// default here, since the criteria requested none.
+			assert.equal(result.warnings[0].omission?.sort, 'updated:desc');
+			assert.match(result.warnings[0].message, /ordered by updated descending/);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('the provider-limit omission and message reflect the requested order', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			await stubGitHubSearch(manager, () => emptyPage({ truncated: true, totalCount: 19240 }));
+			const result = await manager.searchPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				criteria: { text: 'crash', relationships: [PullRequestFilter.Author], sort: 'created:asc' },
+			});
+
+			assert.equal(result.warnings[0].omission?.sort, 'created:asc');
+			assert.match(result.warnings[0].message, /ordered by created ascending/);
 		} finally {
 			manager.dispose();
 		}
@@ -363,5 +385,39 @@ suite('IntegrationManager.searchPullRequestsPage', () => {
 		} finally {
 			manager.dispose();
 		}
+	});
+});
+
+suite('resolvePullRequestSearchCriteria sort', () => {
+	// A sort the provider can't express server-side refuses the WHOLE read, folded into the same
+	// `unsupported-criteria` rejection as any other channel — never silently dropped to the default, which combined
+	// with the result ceiling would return a different subset than was asked for. `comments:desc` is a genuinely
+	// unsupported key on GitHub (its PR search orders by created/updated only), so no capability override is needed.
+	test('an unsupported sort is rejected as unsupported criteria', () => {
+		assert.deepEqual(
+			resolvePullRequestSearchCriteria(GitCloudHostIntegrationId.GitHub, {
+				sort: 'comments:desc' as PullRequestSorting,
+			}),
+			{ rejection: { reason: 'unsupported-criteria', criteria: ['sort:comments:desc'] } },
+		);
+	});
+
+	// The omitted (default) sort resolves to `updated:desc`, which is always in a usable search's `sorts`, so it must
+	// never reject a read that otherwise asks for nothing inexpressible.
+	test('omitting the sort does not reject', () => {
+		assert.deepEqual(
+			resolvePullRequestSearchCriteria(GitCloudHostIntegrationId.GitHub, {
+				text: 'crash',
+				relationships: [PullRequestFilter.Author],
+			}),
+			{},
+		);
+	});
+
+	test('a supported sort does not reject', () => {
+		assert.deepEqual(
+			resolvePullRequestSearchCriteria(GitCloudHostIntegrationId.GitHub, { sort: 'created:asc' }),
+			{},
+		);
 	});
 });
