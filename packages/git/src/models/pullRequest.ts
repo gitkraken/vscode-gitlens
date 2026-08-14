@@ -173,6 +173,36 @@ export enum PullRequestFilter {
 export type PullRequestStateFilter = 'open' | 'closed' | 'merged' | 'all';
 
 /**
+ * A field a pull-request read can be ordered by, provider-neutral.
+ *
+ * Only two, and deliberately so — unlike {@link IssueSortField} this is the INTERSECTION of what GitHub's PR
+ * search can order by server-side and what a {@link PullRequestShape} carries, because the filtered PR search
+ * always merges its relationship × state facets in the facade and so must re-order the union itself (see
+ * `getPullRequestComparator`). `created` and `updated` are both. A field GitHub cannot order PRs by, or one a
+ * merged page can't reproduce, is left out rather than advertised and then approximated: relevance is unstable
+ * and has no comparable value on a merge, and priority is not a pull-request concept on any provider that has PRs.
+ */
+export type PullRequestSortField =
+	/** Creation date. */
+	| 'created'
+	/** Last activity. */
+	| 'updated';
+
+/**
+ * How a pull-request read is ordered, as `field:direction` — the same serializable shape {@link IssueSorting}
+ * and `BranchSorting` use, so a consumer can persist it, compare it, or bind it straight to a setting or dropdown.
+ */
+export type PullRequestSorting = `${PullRequestSortField}:asc` | `${PullRequestSortField}:desc`;
+
+/**
+ * The order the filtered pull-request search applies when the caller asks for none: most recently updated first,
+ * which is what it served before ordering was an option. Named once rather than per layer — the criteria model
+ * documents it, the GitHub query emits it, and the result-ceiling warning quotes it — so the three cannot
+ * disagree about what "the default" is.
+ */
+export const defaultPullRequestSort: PullRequestSorting = 'updated:desc';
+
+/**
  * What the filtered pull-request search narrows on.
  *
  * Structured rather than a provider query string so callers can send free text without giving it a qualifier
@@ -204,6 +234,16 @@ export interface PullRequestSearchCriteria {
 	 * constraint. A boolean rather than a truthy flag because `false` is a distinct request, not the absence of one.
 	 */
 	draft?: boolean;
+	/**
+	 * How to order the results. Omitted means `updated:desc`, which is what this search has always served.
+	 *
+	 * Validated all-or-nothing against {@link PullRequestSearchCapabilities.sorts} like every other criterion: a
+	 * key the provider can't express server-side refuses the WHOLE read rather than falling back to the default,
+	 * because combined with the provider's result ceiling another order returns a different subset than was asked
+	 * for and the paging that comes with it describes that other subset. Do not change it mid-pagination — a
+	 * cursor carries the sort it was produced under; drop the cursor instead of threading it under a new key.
+	 */
+	sort?: PullRequestSorting;
 }
 
 /**
@@ -225,6 +265,12 @@ export interface PullRequestSearchCapabilities {
 	repositoryScope: boolean;
 	/** Whether the manager's organization scope is supported. */
 	organizationScope: boolean;
+	/**
+	 * Sort keys the search can express server-side. Always contains at least `updated:desc` — the historical
+	 * default — when the search exists at all, so it is never empty for a usable surface; a provider without a
+	 * filtered PR search reports an empty `relationships`, which is already the signal there is no surface to order.
+	 */
+	sorts: PullRequestSorting[];
 }
 
 export interface PullRequestRef {

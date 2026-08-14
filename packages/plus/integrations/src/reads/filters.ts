@@ -117,6 +117,12 @@ export function resolvePullRequestSearchCriteria(
 	if (criteria.draft != null && !supported.draft) {
 		unsupported.push('draft');
 	}
+	// Folded into the same `unsupported-criteria` rejection rather than its own reason, so a caller asking for one
+	// inexpressible filter and one inexpressible sort learns about both at once. `updated:desc` is always in
+	// `sorts` for a usable search, so the omitted (default) case never rejects.
+	if (criteria.sort != null && !supported.sorts.includes(criteria.sort)) {
+		unsupported.push(`sort:${criteria.sort}`);
+	}
 
 	return unsupported.length > 0 ? { rejection: { reason: 'unsupported-criteria', criteria: unsupported } } : {};
 }
@@ -295,6 +301,7 @@ const unsupportedPullRequestSearchCapabilities: PullRequestSearchCapabilities = 
 	draft: false,
 	repositoryScope: false,
 	organizationScope: false,
+	sorts: [],
 };
 
 /** Why a filtered issue search's scope was refused, or `undefined` when it is usable. */
@@ -441,6 +448,8 @@ export function getSupportedFilters(providerId: IntegrationIds): SupportedFilter
 			...pullRequestSearch,
 			relationships: [...(pullRequestSearch?.relationships ?? [])],
 			states: [...(pullRequestSearch?.states ?? [])],
+			// Copied, so mutating the result can't corrupt the metadata table.
+			sorts: [...(pullRequestSearch?.sorts ?? [])],
 		},
 		issues: [...(metadata?.supportedIssueFilters ?? [])],
 		issuesAccountWide: [...(metadata?.supportedAccountWideIssueFilters ?? [])],

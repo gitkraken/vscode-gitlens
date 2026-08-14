@@ -355,10 +355,17 @@ export interface IntegrationManager {
 	 * GitHub's mismatched `involves:@me`. Omit relationships only with a repository/organization scope to search
 	 * every PR there.
 	 *
-	 * Results are always ordered most-recently-updated-first. If the provider's result ceiling is reached, the
-	 * request still succeeds and carries a warning omission with `totalCount`, `limit`, and `recovery: 'none'`.
-	 * `totalCount` is the largest provider-reported pre-ceiling facet count, not the reachable or returned row
-	 * count; this mirrors the per-search ceiling's own unit.
+	 * **Ordering is `criteria.sort`**, most-recently-updated-first when omitted. It is validated like every other
+	 * criterion — a key not in `getSupportedFilters().pullRequestSearch.sorts` refuses the whole read rather than
+	 * falling back, because at a bounded result window another order reaches another subset. The page is a union of
+	 * the provider's relationship × state facets, so it is re-ordered as a whole rather than served as concatenated
+	 * per-facet runs. Changing the sort invalidates a threaded cursor (it is part of the cursor's fingerprint,
+	 * alongside the text and the scope); drop the cursor when you change the order.
+	 *
+	 * If the provider's result ceiling is reached, the request still succeeds and carries a warning omission with
+	 * `totalCount`, `limit`, `sort`, and `recovery: 'none'`. `totalCount` is the largest provider-reported
+	 * pre-ceiling facet count, not the reachable or returned row count; this mirrors the per-search ceiling's own
+	 * unit.
 	 *
 	 * Check `getSupportedFilters().pullRequestSearch` before calling. A provider that reports no relationships
 	 * refuses the read rather than returning a page that never honored the criteria or scope.
