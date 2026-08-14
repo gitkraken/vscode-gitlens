@@ -108,4 +108,29 @@ suite('extractSearchQueryResult', () => {
 		});
 		assert.strictEqual(extractSearchQueryResult(embeddedPlaceholder), undefined);
 	});
+
+	test('returns undefined when the query mixes message: and -message: operators', () => {
+		const mixed = JSON.stringify({
+			query: 'message:fix -message:wip',
+			explanation: 'e',
+			mode: 'highlight',
+			alternates: [],
+		});
+		assert.strictEqual(extractSearchQueryResult(mixed), undefined);
+	});
+
+	test('accepts a query using only -message: (no message: present)', () => {
+		const excludeOnly = JSON.stringify({
+			query: '-message:wip',
+			explanation: 'e',
+			mode: 'highlight',
+			alternates: [],
+		});
+		assert.deepStrictEqual(extractSearchQueryResult(excludeOnly), {
+			query: '-message:wip',
+			explanation: 'e',
+			mode: 'highlight',
+			alternates: [],
+		});
+	});
 });

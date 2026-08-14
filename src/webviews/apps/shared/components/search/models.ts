@@ -76,6 +76,14 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 			<code>=:"bug fix"</code>`,
 	},
 	{
+		operator: '-message:',
+		description: 'Exclude commits whose message contains a term',
+		icon: 'comment',
+		aliases: [],
+		example: html`Use to filter out noisy commits, e.g. <code>-message:wip</code>. Cannot be combined with
+			<code>message:</code> in the same search`,
+	},
+	{
 		operator: 'author:',
 		description: 'Filter by author to see contributions from specific team members',
 		icon: 'person',
@@ -94,6 +102,22 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 				label: 'Choose authors\u2026',
 				description: 'Select one or more contributors to filter by',
 				icon: 'organization',
+			},
+		],
+	},
+	{
+		operator: 'committer:',
+		description: 'Filter by committer to see who applied specific changes',
+		icon: 'person',
+		aliases: [],
+		example: html`Use a name or email, e.g. <code>committer:eamodio</code>, or <code>@me</code> for commits you
+			committed`,
+		values: [
+			{
+				value: '@me',
+				label: '@me',
+				description: 'Filter to only show commits you committed',
+				icon: 'person',
 			},
 		],
 	},
@@ -144,6 +168,12 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 				label: 'tip',
 				description: 'Filter commits to only show commits pointed to by branches or tags',
 				icon: 'git-branch',
+			},
+			{
+				value: 'merge',
+				label: 'merge',
+				description: 'Filter commits to only show merge commits',
+				icon: 'git-merge',
 			},
 			{
 				value: 'wip',

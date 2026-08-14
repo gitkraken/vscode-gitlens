@@ -276,6 +276,44 @@ suite('Search Utils Test Suite', () => {
 			assert.ok(messages);
 			assert.ok(messages.has('"hello world"'));
 		});
+
+		test('committer: long-form operator works', () => {
+			const result = parseSearchQuery(q('committer:john'));
+			const committers = result.operations.get('committer:');
+			assert.ok(committers);
+			assert.ok(committers.has('john'));
+		});
+
+		test('-message: tokenizes separately from message:', () => {
+			const result = parseSearchQuery(q('-message:wip'));
+			const excluded = result.operations.get('-message:');
+			assert.ok(excluded);
+			assert.ok(excluded.has('wip'));
+			assert.strictEqual(result.operations.get('message:'), undefined);
+		});
+
+		test('type:merge tokenizes into type: with value merge', () => {
+			const result = parseSearchQuery(q('type:merge'));
+			const types = result.operations.get('type:');
+			assert.ok(types);
+			assert.ok(types.has('merge'));
+		});
+
+		test('validate mode errors when message: and -message: are combined', () => {
+			const result = parseSearchQuery(q('message:fix -message:wip'), true);
+			assert.ok(result.errors);
+			assert.ok(result.errors.length > 0);
+		});
+
+		test('validate mode does not error for -message: alone', () => {
+			const result = parseSearchQuery(q('-message:wip'), true);
+			assert.strictEqual(result.errors, undefined);
+		});
+
+		test('validate mode does not error for message: alone', () => {
+			const result = parseSearchQuery(q('message:fix'), true);
+			assert.strictEqual(result.errors, undefined);
+		});
 	});
 
 	suite('parseSearchQueryGitCommand', () => {
@@ -441,6 +479,75 @@ suite('Search Utils Test Suite', () => {
 			assert.ok(result.args.includes('--author=alice'));
 			assert.ok(result.args.includes('--grep=bugfix'));
 		});
+
+		test('committer query produces --committer args', () => {
+			const result = parseSearchQueryGitCommand(q('committer:alice'), undefined);
+			assert.ok(result.args.includes('--committer=alice'));
+		});
+
+		test('committer @me with currentUser resolves to user name', () => {
+			const user = { name: 'Alice Smith', email: 'alice@example.com' };
+			const result = parseSearchQueryGitCommand(q('committer:@me'), user);
+			assert.ok(result.args.includes('--committer=Alice Smith'));
+		});
+
+		test('committer @me without currentUser is skipped', () => {
+			const result = parseSearchQueryGitCommand(q('committer:@me'), undefined);
+			const hasCommitter = result.args.some(a => a.startsWith('--committer='));
+			assert.strictEqual(hasCommitter, false);
+		});
+
+		test('committer with leading @ strips it', () => {
+			const result = parseSearchQueryGitCommand(q('committer:@username'), undefined);
+			assert.ok(result.args.includes('--committer=username'));
+		});
+
+		test('committer participates in the regex-mode gate', () => {
+			const regexResult = parseSearchQueryGitCommand(q('committer:alice', { matchRegex: true }), undefined);
+			assert.ok(regexResult.args.includes('--extended-regexp'));
+
+			const fixedResult = parseSearchQueryGitCommand(q('committer:alice'), undefined);
+			assert.ok(fixedResult.args.includes('--fixed-strings'));
+		});
+
+		test('committer + matchWholeWord + matchRegex wraps value with word boundaries', () => {
+			const result = parseSearchQueryGitCommand(
+				q('committer:alice', { matchWholeWord: true, matchRegex: true }),
+				undefined,
+			);
+			assert.ok(result.args.includes('--committer=\\balice\\b'));
+		});
+
+		test('type:merge adds --merges and sets filters.type to merge', () => {
+			const result = parseSearchQueryGitCommand(q('type:merge'), undefined);
+			assert.ok(result.args.includes('--merges'));
+			assert.strictEqual(result.filters.type, 'merge');
+		});
+
+		test('-message: alone produces --grep and --invert-grep', () => {
+			const result = parseSearchQueryGitCommand(q('-message:wip'), undefined);
+			assert.ok(result.args.includes('--grep=wip'));
+			assert.ok(result.args.includes('--invert-grep'));
+		});
+
+		test('-message: with multiple values dedupes --invert-grep', () => {
+			const result = parseSearchQueryGitCommand(q('-message:wip -message:temp'), undefined);
+			assert.ok(result.args.includes('--grep=wip'));
+			assert.ok(result.args.includes('--grep=temp'));
+			assert.strictEqual(result.args.filter(a => a === '--invert-grep').length, 1);
+		});
+
+		test('mixed message: and -message: drops the negative terms', () => {
+			const result = parseSearchQueryGitCommand(q('message:fix -message:wip'), undefined);
+			assert.ok(result.args.includes('--grep=fix'));
+			assert.ok(!result.args.includes('--grep=wip'));
+			assert.ok(!result.args.includes('--invert-grep'));
+		});
+
+		test('quoted -message: value unquotes correctly', () => {
+			const result = parseSearchQueryGitCommand(q('-message:"wip stuff"'), undefined);
+			assert.ok(result.args.includes('--grep=wip stuff'));
+		});
 	});
 
 	suite('parseSearchQueryGitHubCommand', () => {
@@ -494,6 +601,38 @@ suite('Search Utils Test Suite', () => {
 			const result = parseSearchQueryGitHubCommand(q('>:2024-01-01'), undefined);
 			assert.strictEqual(result.args.length, 0);
 		});
+
+		test('committer with plain name uses committer-name: syntax', () => {
+			const result = parseSearchQueryGitHubCommand(q('committer:alice'), undefined);
+			assert.ok(result.args.some(a => a.startsWith('committer-name:')));
+		});
+
+		test('committer with email uses committer-email: syntax', () => {
+			const result = parseSearchQueryGitHubCommand(q('committer:alice@example.com'), undefined);
+			assert.ok(result.args.some(a => a.startsWith('committer-email:')));
+		});
+
+		test('committer with @ prefix does not truncate the username', () => {
+			const result = parseSearchQueryGitHubCommand(q('committer:@username'), undefined);
+			assert.ok(result.args.includes('committer:username'));
+		});
+
+		test('committer @me with currentUser resolves via GitHub username', () => {
+			const user = { name: 'Alice Smith', email: 'alice@example.com', username: 'alicegh' };
+			const result = parseSearchQueryGitHubCommand(q('committer:@me'), user);
+			assert.ok(result.args.some(a => a.startsWith('committer:')));
+		});
+
+		test('-message: produces a leading-dash exclusion term', () => {
+			const result = parseSearchQueryGitHubCommand(q('-message:wip'), undefined);
+			assert.ok(result.args.includes('-wip'));
+		});
+
+		test('mixed message: and -message: coexist for GitHub', () => {
+			const result = parseSearchQueryGitHubCommand(q('message:fix -message:wip'), undefined);
+			assert.ok(result.args.includes('fix'));
+			assert.ok(result.args.includes('-wip'));
+		});
 	});
 
 	suite('getSearchQueryComparisonKey', () => {
@@ -534,6 +673,18 @@ suite('Search Utils Test Suite', () => {
 			// Operations map uses long-form keys, so output uses long-form operators
 			assert.ok(rebuilt.includes('author:alice'));
 			assert.ok(rebuilt.includes('message:fix'));
+		});
+
+		test('round-trips a -message: query', () => {
+			const parsed = parseSearchQuery(q('-message:wip'));
+			const rebuilt = rebuildSearchQueryFromParsed(parsed);
+			assert.strictEqual(rebuilt, '-message:wip');
+		});
+
+		test('round-trips a committer: query', () => {
+			const parsed = parseSearchQuery(q('committer:alice'));
+			const rebuilt = rebuildSearchQueryFromParsed(parsed);
+			assert.strictEqual(rebuilt, 'committer:alice');
 		});
 	});
 

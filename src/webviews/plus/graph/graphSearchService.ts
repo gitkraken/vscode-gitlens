@@ -122,10 +122,12 @@ export interface SearchRelaxationCandidate {
 const relaxationGroups: readonly { operators: readonly SearchOperatorsLongForm[]; label: string }[] = [
 	{ operators: ['after:', 'before:'], label: 'without the date filter' },
 	{ operators: ['author:'], label: 'without the author filter' },
+	{ operators: ['committer:'], label: 'without the committer filter' },
 	{ operators: ['file:'], label: 'without the file filter' },
 	{ operators: ['ref:'], label: 'across all branches' },
 	{ operators: ['change:'], label: 'without the change filter' },
 	{ operators: ['message:'], label: 'without the message terms' },
+	{ operators: ['-message:'], label: 'without the message exclusion' },
 ];
 
 /**
@@ -183,8 +185,8 @@ function damerauLevenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Builds the CANDIDATE (uncounted) relaxations for a settled zero-result query: up to 2 author RESPELL
- * variants per misspelled value (see below), one "drop this group" variant per droppable operator
+ * Builds the CANDIDATE (uncounted) relaxations for a settled zero-result query: up to 2 author/committer
+ * RESPELL variants per misspelled value (see below), one "drop this group" variant per droppable operator
  * group present (only when ≥2 distinct groups are present — dropping the only filter just re-runs an
  * unfiltered search, which isn't a relaxation offer), plus up to 2 of the AI's own `alternates` (labeled
  * with their own query text). Respell candidates are listed FIRST — a corrected name is a stronger, more
@@ -192,7 +194,7 @@ function damerauLevenshteinDistance(a: string, b: string): number {
  * the service; the caller is responsible for counting each candidate and keeping only the ones that find
  * something.
  *
- * Respell: for each unquoted, non-`@me` `author:` value that ISN'T already an exact
+ * Respell: for each unquoted, non-`@me` `author:`/`committer:` value that ISN'T already an exact
  * (case-insensitive) match to a known contributor's full name, a name word, or their email local-part,
  * find up to 2 contributors {@link isCloseMatch} recognizes it as a probable typo of (via full name, a
  * name word, or the email local-part) and offer each as `author:"Full Name"` (quoted, so a later respell
@@ -208,7 +210,7 @@ export function buildSearchRelaxationCandidates(
 	const seen = new Set<string>();
 
 	if (contributors?.length) {
-		for (const op of ['author:'] as const) {
+		for (const op of ['author:', 'committer:'] as const) {
 			const values = parsed.operations.get(op);
 			if (!values?.size) continue;
 
@@ -438,20 +440,28 @@ export class GraphSearchService {
 	}
 
 	private async buildRepoSearchContextCore(repository: GlRepository, sentence: string): Promise<string | undefined> {
-		const [worktreesResult, branchesResult, currentBranchResult, defaultBranchResult, contributorsResult] =
-			await Promise.allSettled([
-				repository.git.worktrees?.getWorktrees() ?? Promise.resolve([]),
-				repository.git.branches.getBranches({ filter: b => !b.remote, sort: { orderBy: 'date:desc' } }),
-				repository.git.branches.getBranch(),
-				repository.git.branches.getDefaultBranchName(undefined, { local: true }),
-				repository.git.contributors.getContributorsLite(undefined, { since: '1 year ago' }),
-			]);
+		const [
+			worktreesResult,
+			branchesResult,
+			currentBranchResult,
+			defaultBranchResult,
+			contributorsResult,
+			tagsResult,
+		] = await Promise.allSettled([
+			repository.git.worktrees?.getWorktrees() ?? Promise.resolve([]),
+			repository.git.branches.getBranches({ filter: b => !b.remote, sort: { orderBy: 'date:desc' } }),
+			repository.git.branches.getBranch(),
+			repository.git.branches.getDefaultBranchName(undefined, { local: true }),
+			repository.git.contributors.getContributorsLite(undefined, { since: '1 year ago' }),
+			repository.git.tags.getTags({ sort: { orderBy: 'date:desc' } }),
+		]);
 
 		const worktrees = getSettledValue(worktreesResult) ?? [];
 		const branches = getSettledValue(branchesResult)?.values ?? [];
 		const currentBranch = getSettledValue(currentBranchResult);
 		const defaultBranchName = getSettledValue(defaultBranchResult);
 		const contributors = getSettledValue(contributorsResult) ?? [];
+		const tags = getSettledValue(tagsResult)?.values ?? [];
 
 		const lower = sentence.toLowerCase();
 		// Tokens of 4+ chars so stopwords and short noise ('the', 'my', 'fix') can't match into every name
@@ -465,6 +475,12 @@ export class GraphSearchService {
 
 		const wantsWorktrees = lower.includes('worktree');
 		const wantsBranches = lower.includes('branch');
+		const wantsTags =
+			lower.includes('tag') ||
+			lower.includes('release') ||
+			lower.includes('version') ||
+			/\bv\d/.test(lower) ||
+			/\d+\.\d+/.test(lower);
 
 		const seen = new Set<string>();
 		const lines: string[] = [];
@@ -501,6 +517,16 @@ export class GraphSearchService {
 			count++;
 		}
 
+		let tagCount = 0;
+		for (const tag of tags) {
+			if (lines.length >= 30 || tagCount >= 10) break;
+			if (!wantsTags && !matchesSentence(tag.name)) continue;
+			if (seen.has(tag.name)) continue;
+
+			add(tag.name, '(tag)');
+			tagCount++;
+		}
+
 		// Contributors match on name words or the email local-part, so 'by keith' or 'eamodio's commits'
 		// resolves to a real author: value the way refs do
 		const authorLines: string[] = [];
@@ -522,7 +548,7 @@ export class GraphSearchService {
 		const sections: string[] = [];
 		if (lines.length) {
 			sections.push(
-				`Repository refs (branches and worktrees) that exist:\n${lines.join('\n')}\nWhen the user refers to a branch or worktree by an approximate or partial name, resolve it to the closest ref from this list. Never invent ref names that are not in this list; if nothing matches, omit the ref: operator.`,
+				`Repository refs (branches, tags, and worktrees) that exist:\n${lines.join('\n')}\nWhen the user refers to a branch, tag, or worktree by an approximate or partial name, resolve it to the closest ref from this list. Never invent ref names that are not in this list; if nothing matches, omit the ref: operator.`,
 			);
 		}
 		if (authorLines.length) {

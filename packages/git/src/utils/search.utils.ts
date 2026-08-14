@@ -174,6 +174,11 @@ export function parseSearchQuery(search: SearchQuery, validate: boolean = false)
 		}
 	}
 
+	if (validate && operations.get('message:')?.size && operations.get('-message:')?.size) {
+		errors ??= [];
+		errors.push("Cannot combine 'message:' and '-message:' in the same query");
+	}
+
 	return {
 		operations: operations,
 		...(errors?.length && { errors: errors }),
@@ -232,6 +237,38 @@ export function parseSearchQueryGitCommand(
 
 					break;
 
+				case '-message:': {
+					// --invert-grep flips ALL --grep patterns in the command, so a query mixing positive
+					// message: terms with negative -message: terms can't be represented in one git invocation.
+					// parseSearchQuery's validate path rejects that combination up front; this is a defensive
+					// fallback for callers that skip validation -- drop the excluded terms rather than
+					// silently inverting the positive matches.
+					if (operations.get('message:')?.size) break;
+
+					let hasValue = false;
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+						}
+
+						if (search.matchWholeWord && search.matchRegex) {
+							value = `\\b${value}\\b`;
+						}
+
+						searchArgs.add(`--grep=${value}`);
+						hasValue = true;
+					}
+
+					if (hasValue) {
+						searchArgs.add('--invert-grep');
+					}
+
+					break;
+				}
+
 				case 'author:':
 					for (let value of values) {
 						if (!value) continue;
@@ -260,6 +297,34 @@ export function parseSearchQueryGitCommand(
 
 					break;
 
+				case 'committer:':
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"') && value.endsWith('"')) {
+							value = value.slice(1, -1);
+							if (!value) continue;
+						}
+
+						if (value === '@me') {
+							if (!currentUser?.name) continue;
+
+							value = currentUser.name;
+						}
+
+						if (value.startsWith('@')) {
+							value = value.slice(1);
+						}
+
+						if (search.matchWholeWord && search.matchRegex) {
+							value = `\\b${value}\\b`;
+						}
+
+						searchArgs.add(`--committer=${value}`);
+					}
+
+					break;
+
 				case 'type:':
 					for (let value of values) {
 						if (!value) continue;
@@ -276,6 +341,9 @@ export function parseSearchQueryGitCommand(
 							filters.type = 'tip';
 						} else if (value === 'wip') {
 							filters.type = 'wip';
+						} else if (value === 'merge') {
+							filters.type = 'merge';
+							searchArgs.add('--merges');
 						}
 					}
 
@@ -362,8 +430,13 @@ export function parseSearchQueryGitCommand(
 			}
 		}
 
-		// Add regex/string matching flags if we have (--grep, --author) patterns
-		if (some(searchArgs.values(), arg => arg.startsWith('--grep=') || arg.startsWith('--author='))) {
+		// Add regex/string matching flags if we have (--grep, --author, --committer) patterns
+		if (
+			some(
+				searchArgs.values(),
+				arg => arg.startsWith('--grep=') || arg.startsWith('--author=') || arg.startsWith('--committer='),
+			)
+		) {
 			searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
 			if (search.matchRegex && !search.matchCase) {
 				searchArgs.add('--regexp-ignore-case');
@@ -408,6 +481,26 @@ export function parseSearchQueryGitHubCommand(
 				}
 				break;
 
+			case '-message:':
+				for (let value of values) {
+					if (!value) continue;
+
+					if (value.startsWith('"') && value.endsWith('"')) {
+						value = value.slice(1, -1);
+						if (!value) continue;
+					}
+
+					if (search.matchWholeWord && search.matchRegex) {
+						value = `\\b${value}\\b`;
+					}
+
+					// GitHub's search treats a leading '-' on a bare term as an exclusion, so unlike git's
+					// --invert-grep (which flips every --grep in the command), positive and negative message
+					// terms can coexist here -- no mixed-query guard needed for this degradation.
+					queryArgs.push(`-${value.replace(/ /g, '+')}`);
+				}
+				break;
+
 			case 'author:': {
 				for (let value of values) {
 					if (!value) continue;
@@ -418,7 +511,7 @@ export function parseSearchQueryGitHubCommand(
 					}
 
 					if (value === '@me') {
-						if (!currentUser?.name) continue;
+						if (!currentUser?.username) continue;
 
 						value = `@${currentUser.username}`;
 					}
@@ -437,11 +530,39 @@ export function parseSearchQueryGitHubCommand(
 				break;
 			}
 
+			case 'committer:': {
+				for (let value of values) {
+					if (!value) continue;
+
+					if (value.startsWith('"') && value.endsWith('"')) {
+						value = value.slice(1, -1);
+						if (!value) continue;
+					}
+
+					if (value === '@me') {
+						if (!currentUser?.username) continue;
+
+						value = `@${currentUser.username}`;
+					}
+
+					value = value.replace(/ /g, '+');
+					if (value.startsWith('@')) {
+						queryArgs.push(`committer:${value.slice(1)}`);
+					} else if (value.includes('@')) {
+						queryArgs.push(`committer-email:${value}`);
+					} else {
+						queryArgs.push(`committer-name:${value}`);
+					}
+				}
+
+				break;
+			}
+
 			case 'type:':
 			case 'file:':
 			case 'change:':
 			case 'ref:':
-				// Not supported in GitHub search
+				// Not supported in GitHub search (type:'s values, including 'merge', have no GitHub commit-search equivalent)
 				break;
 
 			case 'after:':

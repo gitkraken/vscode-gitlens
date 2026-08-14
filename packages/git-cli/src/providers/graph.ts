@@ -1685,9 +1685,18 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				? await this.provider.config.getCurrentUser(repoPath)
 				: undefined;
 
-			const { args: searchArgs, files, shas } = parseSearchQueryGitCommand(search, currentUser);
+			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
 			// An exact sha lookup can't be relaxed by dropping filter groups — nothing to count.
 			if (shas?.size) return 0;
+
+			// `--merges` matches stash commits too (they have 2-3 parents). `rev-list` gets no stdin, so the
+			// only stash that can leak in here is refs/stash's tip via `--all` -- exclude it up front
+			if (filters.type === 'merge') {
+				const allIndex = searchArgs.indexOf('--all');
+				if (allIndex !== -1) {
+					searchArgs.splice(allIndex, 0, '--exclude=refs/stash');
+				}
+			}
 
 			const maxCount = options?.maxCount ?? 1000;
 			const result = await this.git.run(
@@ -1726,6 +1735,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			const { args: searchArgs, files, shas, filters } = parseSearchQueryGitCommand(search, currentUser);
 
 			const tipsOnly = filters.type === 'tip';
+			// Stash commits have 2-3 parents, so `--merges` matches them; excluded from results below.
+			// Derived from the args git actually runs rather than `filters.type`, since a multi-value
+			// `type:` query (e.g. `type:merge type:tip`) leaves `--merges` in the args while
+			// `filters.type` reflects only the last value parsed
+			const mergesOnly = searchArgs.includes('--merges');
 			const parser = filters.files
 				? getShaAndDatesWithFilesLogParser(tipsOnly)
 				: getShaAndDatesLogParser(tipsOnly);
@@ -1779,9 +1793,25 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			} else if (!filters.refs) {
 				// Don't include stashes when using ref: filter, as they would add unrelated commits
 				// There *HAS* to be a better way to get git log to return stashes, but this is the best we've found
-				({ stdin, stashes, remappedIds } = convertStashesToStdin(
+				const converted = convertStashesToStdin(
 					await this.provider.stash?.getStash(repoPath, { includeFiles: false }, cancellation),
-				));
+				);
+				stashes = converted.stashes;
+				remappedIds = converted.remappedIds;
+				// `--all` already surfaces refs/stash's tip on its own, so when merges-only there's no need
+				// to walk the rest of the stash stack via stdin -- the results filter below still excludes
+				// any stash sha that slips through via refs/stash
+				stdin = mergesOnly ? undefined : converted.stdin;
+			} else if (mergesOnly) {
+				// `ref:` skips walking stashes into the results (they're unrelated to the ref), but a
+				// stash's tip can still leak in via `--merges` if the ref reaches refs/stash -- fetch
+				// stashes here purely so the results filter below can exclude them, without widening
+				// the walk via stdin
+				const converted = convertStashesToStdin(
+					await this.provider.stash?.getStash(repoPath, { includeFiles: false }, cancellation),
+				);
+				stashes = converted.stashes;
+				remappedIds = converted.remappedIds;
 			} else {
 				remappedIds = new Map();
 			}
@@ -1865,7 +1895,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					}
 
 					sha = remappedIds.get(r.sha) ?? r.sha;
-					if (results.has(sha) || (stashesOnly && !stashes?.has(sha)) || (tipsOnly && !r.tips)) {
+					if (
+						results.has(sha) ||
+						(stashesOnly && !stashes?.has(sha)) ||
+						(mergesOnly && stashes?.has(sha)) ||
+						(tipsOnly && !r.tips)
+					) {
 						continue;
 					}
 

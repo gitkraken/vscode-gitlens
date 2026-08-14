@@ -110,6 +110,7 @@ export function extractSearchQueryResult(content: string): AISearchQueryResult |
 	const query = trimmedNonEmptyString(parsed.query);
 	if (query == null) return undefined;
 	if (query.includes(exampleQueryPlaceholder)) return undefined;
+	if (hasConflictingMessageOperators(query)) return undefined;
 
 	return {
 		query: query,
@@ -117,6 +118,13 @@ export function extractSearchQueryResult(content: string): AISearchQueryResult |
 		mode: normalizeMode(parsed.mode),
 		alternates: normalizeAlternates(parsed.alternates),
 	};
+}
+
+/** The git builder silently DROPS the exclusion for a query that mixes `message:` and `-message:` (its
+ *  `--invert-grep` applies to every `--grep` pattern in the command), so a query combining both is
+ *  better burned on the corrective retry than sent through and silently mis-searched. */
+function hasConflictingMessageOperators(query: string): boolean {
+	return /(^|\s)message:/.test(query) && /(^|\s)-message:/.test(query);
 }
 
 function trimmedNonEmptyString(value: unknown): string | undefined {

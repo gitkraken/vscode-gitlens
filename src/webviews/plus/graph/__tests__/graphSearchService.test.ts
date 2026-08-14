@@ -143,4 +143,14 @@ suite('buildSearchRelaxationCandidates', () => {
 
 		assert.ok(!candidates.some(c => c.label.startsWith("as '")));
 	});
+
+	test('committer: values are respelled the same way as author:', () => {
+		const parsed = parseSearchQuery({ query: 'committer:kieth' });
+		const candidates = buildSearchRelaxationCandidates(parsed, undefined, [
+			{ name: 'Keith Daulton', email: 'keith@example.com' },
+		]);
+
+		assert.strictEqual(candidates[0].label, "as 'Keith Daulton'");
+		assert.strictEqual(candidates[0].query, 'committer:"Keith Daulton"');
+	});
 });

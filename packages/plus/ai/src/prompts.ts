@@ -307,18 +307,20 @@ export const generateSearchQuery: PromptTemplate<'generate-searchQuery'> = {
 
 Available search operators:
 - 'message:' - Search in commit messages (e.g. 'message:fix bug'); maps to \`git log --extended-regexp --grep=<value>\`
+- '-message:' - Exclude commits whose message contains a term (e.g. '-message:wip'); maps to \`git log --invert-grep --grep=<value>\`. Never mix 'message:' and '-message:' in the same query -- git's --invert-grep applies to every --grep pattern in the command, so combining included and excluded message terms is invalid.
 - 'author:' - Search by a specific author (e.g. 'author:eamodio' or use '@me' for current user); maps to \`git log --author=<value>\`
+- 'committer:' - Search by a specific committer (e.g. 'committer:eamodio' or use '@me' for current user); maps to \`git log --committer=<value>\`. There is no way to exclude an author or committer -- only to include one; if the user asks to exclude one, explain that limitation in the explanation field and omit the filter rather than inventing syntax.
 - 'commit:' - Search by a specific commit SHA (e.g. 'commit:4ce3a')
 - 'file:' - Search by file path (e.g. 'file:"package.json"', 'file:"*.ts"'); maps to \`git log -- <value>\`
 - 'change:' - Search by specific code changes using regular expressions (e.g. 'change:"function.*auth"', 'change:"import.*react"'); maps to \`git log -G<value>\`
-- 'type:' - Search by type -- supports stash, tip, and wip (e.g. 'type:stash', 'type:tip', 'type:wip'). Use 'type:wip' for queries about work in progress, uncommitted changes, or pending changes across worktrees.
+- 'type:' - Search by type -- supports stash, tip, merge, and wip (e.g. 'type:stash', 'type:tip', 'type:merge', 'type:wip'). Use 'type:merge' for merge commits only, and 'type:wip' for queries about work in progress, uncommitted changes, or pending changes across worktrees.
 - 'ref:' - Search for commits reachable by a reference (branch, tag, commit) or reference range. Supports single refs (e.g. 'ref:main', 'ref:v1.0'), two-dot ranges (e.g. 'ref:main..feature' for commits in feature but not in main), three-dot ranges (e.g. 'ref:main...feature' for symmetric difference), and relative refs (e.g. 'ref:HEAD~5..HEAD'); maps to \`git log <ref>\`
 - 'after:' - Search for commits after a certain date or range (e.g. 'after:2023-01-01', 'after:"6 months ago"', 'after:"last Tuesday"', 'after:"noon"', 'after:"1 month 2 days ago"'); maps to \`git log --since=<value>\`
 - 'before:' - Search for commits before a certain date or range (e.g. 'before:2023-01-01', 'before:"6 months ago"', 'before:"yesterday"', 'before:"3PM GMT"'); maps to \`git log --until=<value>\`
 
-File and change values should be double-quoted. You can use multiple message, author, file, change, and ref operators at the same time if needed.
+File and change values should be double-quoted. You can use multiple message, author, committer, file, change, and ref operators at the same time if needed.
 
-The values of 'message:' and 'author:' are compiled as case-insensitive POSIX extended regular expressions (ERE). Any regex metacharacters in the user's intended literal text -- \`( ) [ ] { } . * + ? | ^ $ \\\` -- MUST be escaped with a backslash unless they are intentionally being used as regex.
+The values of 'message:', '-message:', 'author:', and 'committer:' are compiled as case-insensitive POSIX extended regular expressions (ERE). Any regex metacharacters in the user's intended literal text -- \`( ) [ ] { } . * + ? | ^ $ \\\` -- MUST be escaped with a backslash unless they are intentionally being used as regex.
 
 Use 'ref:' when the query involves exploring commit history within or between specific references. Use temporal operators ('after:', 'before:') for date-based filtering. These operators can be combined when appropriate.
 
