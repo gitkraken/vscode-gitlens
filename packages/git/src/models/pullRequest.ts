@@ -193,6 +193,10 @@ export interface PullRequestSearchCriteria {
 	relationships?: PullRequestFilter[];
 	/** Pull request states to union. Empty/omitted reads open PRs; `all` subsumes every other member. */
 	states?: PullRequestStateFilter[];
+	/** ISO date (`YYYY-MM-DD`). The most effective narrowing criterion by far on a large scope. */
+	updatedAfter?: string;
+	/** ISO date (`YYYY-MM-DD`). */
+	createdAfter?: string;
 	/** Includes PRs from archived repositories. They are excluded by default. */
 	includeArchived?: boolean;
 	/**
@@ -212,6 +216,8 @@ export interface PullRequestSearchCapabilities {
 	/** Individual state values the provider can union in one logical search. */
 	states: PullRequestStateFilter[];
 	text: boolean;
+	updatedAfter: boolean;
+	createdAfter: boolean;
 	includeArchived: boolean;
 	/** Whether the provider can constrain the search by draft state server-side. */
 	draft: boolean;

@@ -286,6 +286,8 @@ function describePullRequestSearchCapabilities(capabilities: PullRequestSearchCa
 		...(capabilities.relationships.length ? [`relationships:${capabilities.relationships.join('|')}`] : []),
 		...(capabilities.states.length ? [`states:${capabilities.states.join('|')}`] : []),
 		...(capabilities.text ? ['text'] : []),
+		...(capabilities.updatedAfter ? ['updatedAfter'] : []),
+		...(capabilities.createdAfter ? ['createdAfter'] : []),
 		...(capabilities.includeArchived ? ['includeArchived'] : []),
 		...(capabilities.draft ? ['draft'] : []),
 		...(capabilities.repositoryScope ? ['repository scope'] : []),
