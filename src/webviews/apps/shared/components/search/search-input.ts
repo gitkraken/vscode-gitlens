@@ -42,6 +42,7 @@ import '../actions/action-nav.js';
 import '../autocomplete/autocomplete.js';
 import '../code-icon.js';
 import '../copy-container.js';
+import '../overlays/tooltip.js';
 
 export interface SearchNavigationEventDetail {
 	direction: 'first' | 'previous' | 'next' | 'last';
@@ -369,6 +370,7 @@ background-color: var(--vscode-menu-background);
 
 	@state() private errorMessage = '';
 	@state() private processedQuery: string | undefined;
+	@state() private explanation: string | undefined;
 	@state() private _value = '';
 	@state() private repairing = false;
 
@@ -496,6 +498,7 @@ background-color: var(--vscode-menu-background);
 		// Clear all search-related UI state
 		this.errorMessage = '';
 		this.processedQuery = undefined;
+		this.explanation = undefined;
 		this.searchHistoryPos = -1;
 		this.originalHistoryState = undefined;
 
@@ -531,6 +534,7 @@ background-color: var(--vscode-menu-background);
 			// Input has content - update UI state
 			this.errorMessage = '';
 			this.processedQuery = undefined;
+			this.explanation = undefined;
 			this.canDeleteHistoryItem = false;
 
 			// Reset history position when user types something different
@@ -1127,6 +1131,7 @@ background-color: var(--vscode-menu-background);
 
 	private updateNaturalLanguage(useNaturalLanguage: boolean) {
 		this.processedQuery = undefined;
+		this.explanation = undefined;
 
 		this.naturalLanguage = useNaturalLanguage && this.aiAllowed;
 		this.emit('gl-search-modechange', {
@@ -1406,14 +1411,17 @@ background-color: var(--vscode-menu-background);
 			if (typeof search.naturalLanguage === 'boolean') {
 				queryToStore = search.query;
 				this.processedQuery = undefined;
+				this.explanation = undefined;
 				this.errorMessage = '';
 			} else if (search.naturalLanguage.error) {
 				queryToStore = search.naturalLanguage.query;
 				this.processedQuery = undefined;
+				this.explanation = undefined;
 				this.errorMessage = search.naturalLanguage.error;
 			} else {
 				queryToStore = search.naturalLanguage.query;
 				this.processedQuery = search.naturalLanguage.processedQuery;
+				this.explanation = search.naturalLanguage.explanation;
 				this.errorMessage = '';
 			}
 		} else {
@@ -1776,7 +1784,9 @@ background-color: var(--vscode-menu-background);
 		}
 
 		if (this.processedQuery) {
-			return html`Query: <code>${this.processedQuery}</code>`;
+			return html`<gl-tooltip ?disabled="${!this.explanation}"
+				>Query: <code>${this.processedQuery}</code><span slot="content">${this.explanation}</span></gl-tooltip
+			>`;
 		}
 
 		return html`Describe what you're looking for and let AI build the query, e.g.

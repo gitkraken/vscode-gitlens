@@ -292,8 +292,16 @@ Example output structure:
 Based on the provided commit messages and associated issues, create a set of markdown changelog entries following the instructions above. Do not include any explanatory text or metadata`,
 };
 
+/** Example output block shared by the {@link generateSearchQuery} template and its structural-retry prompt */
+export const generateSearchQueryExampleJson = `{
+   "query": "[search operators here]",
+   "explanation": "[one short sentence describing the interpretation]",
+   "mode": "highlight",
+   "alternates": []
+}`;
+
 export const generateSearchQuery: PromptTemplate<'generate-searchQuery'> = {
-	id: 'generate-searchQuery_v3',
+	id: 'generate-searchQuery_v4',
 	variables: ['query', 'date', 'context', 'instructions'],
 	template: `You are an advanced AI assistant that converts natural language queries into structured Git search operators. Your task is to analyze a user's natural language query about their Git repository history and convert it into the appropriate search operators.
 
@@ -329,7 +337,50 @@ User Query: \${query}
 
 \${instructions}
 
-Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search, with all regex metacharacters escaped. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
+Convert the user's natural language query into the appropriate search operators.
+
+Respond ONLY with a JSON object in this exact shape:
+- "query": the converted search query using the operators above, as a single string
+- "explanation": one short sentence, in the user's own terms, describing how their query was interpreted
+- "mode": one of "highlight", "filter", or "select" — "highlight" is the default (find and mark matches); use "filter" when the user asks to see ONLY matching commits (e.g. "only my commits", "just show", "filter to"); use "select" when the user asks to be taken to a specific commit or location (e.g. "take me to", "jump to", "what commit is X at", "where is")
+- "alternates": an array of 0-2 alternative queries for the same intent — one broader, one narrower, whichever make sense; use an empty array if none do
+
+If the query cannot be converted to search operators, put the original text in "query" as a message search with all regex metacharacters escaped, and explain that in "explanation".
+
+For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.
+
+Example output structure:
+${generateSearchQueryExampleJson}
+
+Return only the JSON object and no other text — no code fences, no explanatory text.`,
+};
+
+/** Schema counterpart of the {@link generateSearchQuery} template's described output shape */
+export const generateSearchQuerySchema: AIResponseFormat = {
+	name: 'generate_search_query',
+	schema: {
+		type: 'object',
+		additionalProperties: false,
+		required: ['query', 'explanation', 'mode', 'alternates'],
+		properties: {
+			query: { type: 'string', description: 'The converted search query using the documented operators' },
+			explanation: {
+				type: 'string',
+				description: "One short sentence, in the user's own terms, describing how the query was interpreted",
+			},
+			mode: {
+				type: 'string',
+				enum: ['highlight', 'filter', 'select'],
+				description:
+					'How the query should be applied: highlight matches, filter to only matches, or select/jump to a specific commit',
+			},
+			alternates: {
+				type: 'array',
+				items: { type: 'string' },
+				description: 'Up to 2 alternative queries for the same intent; empty array if none make sense',
+			},
+		},
+	},
 };
 
 /** Example output block shared by the {@link generateCommits} template and its structural-retry prompt */

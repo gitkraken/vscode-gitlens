@@ -59,7 +59,8 @@ const defaults: { readonly [key: string]: string | undefined } = {
 	'generate-create-cloudPatch': summarized('Simulated cloud patch description', 'Simulated patch body.'),
 	'generate-create-pullRequest': summarized('Simulated pull request', '## Summary\n- Simulated PR body'),
 	'generate-commits': generateCommitsRejection,
-	'generate-searchQuery': 'message:simulated',
+	'generate-searchQuery':
+		'{"query":"message:simulated","explanation":"Simulated interpretation","mode":"highlight","alternates":[]}',
 	'conflict-resolution': conflictResolutionDefault,
 };
 

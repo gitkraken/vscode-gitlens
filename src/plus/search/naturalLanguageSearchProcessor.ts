@@ -37,14 +37,20 @@ export class NaturalLanguageSearchProcessor {
 			if (!result?.result) {
 				return {
 					...searchQuery,
-					naturalLanguage: { query: searchQuery.query, error: 'The AI returned an empty response' },
+					naturalLanguage: { query: searchQuery.query, error: 'The AI returned an unusable response' },
 				};
 			}
 
 			return {
 				...searchQuery,
-				query: result.result,
-				naturalLanguage: { query: searchQuery.query, processedQuery: result.result },
+				query: result.result.query,
+				naturalLanguage: {
+					query: searchQuery.query,
+					processedQuery: result.result.query,
+					explanation: result.result.explanation,
+					mode: result.result.mode,
+					alternates: result.result.alternates,
+				},
 			};
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
