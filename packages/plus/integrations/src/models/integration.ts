@@ -81,6 +81,7 @@ type SyncReqUsecase = Exclude<
 	| 'getResourcesForUser'
 	| 'getSshSigningKeysForEmails'
 	| 'countIssues'
+	| 'countPullRequests'
 	| 'mergePullRequest'
 	| 'searchIssuesPage'
 	| 'searchPullRequestsPage'

@@ -448,3 +448,158 @@ suite('toGitHubPullRequestSortQualifier', () => {
 		assert.strictEqual(toGitHubPullRequestSortQualifier(undefined), undefined);
 	});
 });
+
+suite('GitHubApi.countPullRequests', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	/**
+	 * Answers each `s{scope}f{facet}` alias with the count in `countsByAlias`; an alias absent from the record is
+	 * OMITTED from the response, which is how "not reported" is exercised (distinct from a reported zero).
+	 */
+	function capture(countsByAlias: Record<string, number>): {
+		config: GitHubApiConfig;
+		getQuery: () => string;
+		getVariables: () => Record<string, unknown>;
+		getRequestCount: () => number;
+	} {
+		let query = '';
+		let variables: Record<string, unknown> = {};
+		let requests = 0;
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				requests++;
+				const body = JSON.parse(init?.body ?? '{}') as {
+					query?: string;
+					variables?: Record<string, unknown>;
+				};
+				query = body.query ?? '';
+				variables = body.variables ?? {};
+				const data: Record<string, unknown> = {};
+				for (const alias of Object.keys(variables).filter(key => /^s\d+f\d+$/.test(key))) {
+					if (alias in countsByAlias) {
+						data[alias] = { issueCount: countsByAlias[alias] };
+					}
+				}
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		return {
+			config: config,
+			getQuery: () => query,
+			getVariables: () => variables,
+			getRequestCount: () => requests,
+		};
+	}
+
+	test('counts several scopes in one request, transferring no pull requests', async () => {
+		const { config, getQuery, getRequestCount } = capture({ s0f0: 111, s1f0: 133 });
+		const api = new GitHubApi(config);
+
+		const counts = await api.countPullRequests(provider, token, [{ repos: ['o/a'] }, { repos: ['o/b'] }]);
+
+		assert.deepEqual(counts, [111, 133], 'counts come back positionally, one per scope');
+		assert.equal(getRequestCount(), 1, 'both scopes share a single request');
+		// `first: 0` is what makes the probe cheap; a node selection would defeat its entire purpose.
+		assert.match(getQuery(), /first: 0/);
+		assert.doesNotMatch(getQuery(), /nodes/, 'no pull-request data is requested');
+	});
+
+	test('scopes every count to pull requests with is:pr', async () => {
+		const { config, getVariables } = capture({ s0f0: 1 });
+		await new GitHubApi(config).countPullRequests(provider, token, [{ repos: ['o/a'] }]);
+
+		assert.match(String(getVariables().s0f0), /is:pr/);
+	});
+
+	test('generates its own aliases, never deriving them from caller-controlled values', async () => {
+		const { config, getQuery } = capture({ s0f0: 1 });
+		await new GitHubApi(config).countPullRequests(provider, token, [{ org: 'acme' }]);
+
+		const aliases = Array.from(getQuery().matchAll(/(\w+): search\(/g), m => m[1]);
+		assert.deepEqual(aliases, ['s0f0'], 'positional and generated, so no caller text can break the document');
+	});
+
+	// The count only means anything if it applies the SAME qualifiers the search would. Both go through one facet
+	// builder; this pins that a default (open) scope's count query is byte-identical to the read's `scopeOpen` facet.
+	test('emits the same qualifiers as the search it previews', async () => {
+		let facetQuery = '';
+		const searchConfig: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, string> };
+				facetQuery = body.variables?.scopeOpenSearch ?? '';
+				return new Response(
+					JSON.stringify({
+						data: {
+							scopeOpen: { issueCount: 0, pageInfo: { endCursor: null, hasNextPage: false }, nodes: [] },
+						},
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		await new GitHubApi(searchConfig).searchPullRequestsPage(provider, token, {
+			org: 'acme',
+			repos: ['o/a', 'o/b'],
+		});
+
+		const { config, getVariables } = capture({ s0f0: 1 });
+		await new GitHubApi(config).countPullRequests(provider, token, [{ org: 'acme', repos: ['o/a', 'o/b'] }]);
+
+		assert.equal(String(getVariables().s0f0), facetQuery);
+	});
+
+	test('a multi-state scope reports the largest of its per-state counts, not their sum', async () => {
+		// open=40, closed=90 → the read surfaces the max (90) as its total, so the count must agree; summing (130)
+		// would claim a total the read never returns.
+		const { config, getRequestCount } = capture({ s0f0: 40, s0f1: 90 });
+		const api = new GitHubApi(config);
+
+		const counts = await api.countPullRequests(provider, token, [
+			{ repos: ['o/a'], criteria: { states: ['open', 'closed'] } },
+		]);
+
+		assert.deepEqual(counts, [90]);
+		assert.equal(getRequestCount(), 1, 'both state facets share the one request');
+	});
+
+	test('an empty scope list makes no request', async () => {
+		const { config, getRequestCount } = capture({});
+		const api = new GitHubApi(config);
+
+		assert.deepEqual(await api.countPullRequests(provider, token, []), []);
+		assert.equal(getRequestCount(), 0);
+	});
+
+	test('a scope the response reports no facet for is undefined, not zero', async () => {
+		// `s0f0` comes back; `s1f0` is missing, which means "not reported" and must not read as no matches.
+		const { config } = capture({ s0f0: 7 });
+		const api = new GitHubApi(config);
+
+		const counts = await api.countPullRequests(provider, token, [{ repos: ['o/a'] }, { repos: ['o/b'] }]);
+
+		assert.deepEqual(counts, [7, undefined]);
+	});
+});
