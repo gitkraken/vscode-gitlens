@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `draft` to `PullRequestSearchCriteria`, a tri-state boolean that narrows the filtered PR search on draft state — `true` returns only drafts, `false` only ready-for-review, omitted places no constraint; `false` is a distinct request rather than the absence of one, so emission and validation both key on `!= null`. GitHub/GHE emit `draft:true` / `draft:false` on every relationship × state facet and declare the flag on `getSupportedFilters().pullRequestSearch`. Other providers report it false and the facade refuses the read all-or-nothing, the same contract the criteria already follow: dropping an unsupported criterion would widen the provider query while its page and cursor still describe the narrower set. Follow-up to [#5665](https://github.com/gitkraken/vscode-gitlens/issues/5665), which shipped the filtered PR search this extends ([#5708](https://github.com/gitkraken/vscode-gitlens/issues/5708)) (plus/integrations, git, plus/git-github)
+
 ## [0.5.109] - 2026-08-12
 
 ### Added

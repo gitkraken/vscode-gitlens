@@ -169,6 +169,28 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.doesNotMatch(query, /@me/);
 	});
 
+	test('emits the draft qualifier only for the state it was set to, and never when omitted', async () => {
+		const onlyDrafts = capture();
+		await new GitHubApi(onlyDrafts.config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { draft: true },
+		});
+		assert.match(search(onlyDrafts.getCalls()[0], 'scopeOpen'), /draft:true/);
+
+		const readyForReview = capture();
+		await new GitHubApi(readyForReview.config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { draft: false },
+		});
+		const readyQuery = search(readyForReview.getCalls()[0], 'scopeOpen');
+		assert.match(readyQuery, /draft:false/);
+		assert.doesNotMatch(readyQuery, /draft:true/);
+
+		const unconstrained = capture();
+		await new GitHubApi(unconstrained.config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+		assert.doesNotMatch(search(unconstrained.getCalls()[0], 'scopeOpen'), /draft:/);
+	});
+
 	test('uses a cost-safe default page size while preserving the explicit maximum', async () => {
 		const { config, getCalls } = capture([{}, {}]);
 		const api = new GitHubApi(config);

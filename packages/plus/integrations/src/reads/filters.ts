@@ -107,6 +107,10 @@ export function resolvePullRequestSearchCriteria(
 	if (criteria.includeArchived === true && !supported.includeArchived) {
 		unsupported.push('includeArchived');
 	}
+	// `!= null`, not truthy: `draft: false` (only ready-for-review) is as much a request as `draft: true`.
+	if (criteria.draft != null && !supported.draft) {
+		unsupported.push('draft');
+	}
 
 	return unsupported.length > 0 ? { rejection: { reason: 'unsupported-criteria', criteria: unsupported } } : {};
 }
@@ -280,6 +284,7 @@ const unsupportedPullRequestSearchCapabilities: PullRequestSearchCapabilities = 
 	states: [],
 	text: false,
 	includeArchived: false,
+	draft: false,
 	repositoryScope: false,
 	organizationScope: false,
 };
