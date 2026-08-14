@@ -148,6 +148,7 @@ export type GraphCommandsContext = {
 	getSession: () => GitGraphSession | undefined;
 	getActiveSelection: () => GitRevisionReference | undefined;
 	toggleColumn: (name: GraphColumnName, visible: boolean) => Promise<void>;
+	toggleColumnGrouping: (name: 'graph' | 'ref', grouped: boolean) => Promise<void>;
 	toggleScrollMarker: (type: GraphScrollMarkersAdditionalTypes, enabled: boolean) => Promise<void>;
 	setColumnMode: <T extends GraphColumnName>(name: T, mode?: GraphColumnModeFor<T>) => Promise<void>;
 	updateColumns: (columnsCfg: GraphColumnsConfig) => void;
@@ -2916,6 +2917,16 @@ export class GraphCommands {
 		return this.context.toggleColumn('graph', false);
 	}
 
+	@command('gitlens.graph.columnGraphGroup')
+	private columnGraphGroup() {
+		return this.context.toggleColumnGrouping('graph', true);
+	}
+
+	@command('gitlens.graph.columnGraphUngroup')
+	private columnGraphUngroup() {
+		return this.context.toggleColumnGrouping('graph', false);
+	}
+
 	@command('gitlens.graph.columnMessageOn')
 	private columnMessageOn() {
 		return this.context.toggleColumn('message', true);
@@ -2934,6 +2945,16 @@ export class GraphCommands {
 	@command('gitlens.graph.columnRefOff')
 	private columnRefOff() {
 		return this.context.toggleColumn('ref', false);
+	}
+
+	@command('gitlens.graph.columnRefGroup')
+	private columnRefGroup() {
+		return this.context.toggleColumnGrouping('ref', true);
+	}
+
+	@command('gitlens.graph.columnRefUngroup')
+	private columnRefUngroup() {
+		return this.context.toggleColumnGrouping('ref', false);
 	}
 
 	// Scroll marker toggle wrappers

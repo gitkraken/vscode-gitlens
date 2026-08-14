@@ -3106,7 +3106,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:author:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 1
 					}
 				]
@@ -3118,7 +3118,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:author:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 1
 					}
 				]
@@ -3131,7 +3131,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:changes:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 3
 					}
 				]
@@ -3143,7 +3143,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:changes:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 3
 					}
 				]
@@ -3156,7 +3156,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:datetime:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 5
 					}
 				]
@@ -3168,7 +3168,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:datetime:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 5
 					}
 				]
@@ -3180,8 +3180,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible(?![^,]*\\+compact\\b)/",
-						"group": "2_columns",
-						"order": 2
+						"group": "4_density",
+						"order": 1
 					}
 				]
 			}
@@ -3192,8 +3192,20 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible[^,]*\\+compact\\b/",
-						"group": "2_columns",
-						"order": 2
+						"group": "4_density",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.columnGraphGroup": {
+			"label": "Group Graph Column",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bgrouping:graph:ungrouped\\b/",
+						"group": "3_grouping",
+						"order": 1
 					}
 				]
 			}
@@ -3205,7 +3217,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 6
 					}
 				]
@@ -3217,8 +3229,20 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 6
+					}
+				]
+			}
+		},
+		"gitlens.graph.columnGraphUngroup": {
+			"label": "Ungroup Graph Column",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bgrouping:graph:grouped\\b/",
+						"group": "3_grouping",
+						"order": 1
 					}
 				]
 			}
@@ -3230,7 +3254,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:message:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 4
 					}
 				]
@@ -3242,8 +3266,20 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:message:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.graph.columnRefGroup": {
+			"label": "Group Branches / Tags Column",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bgrouping:ref:ungrouped\\b/",
+						"group": "3_grouping",
+						"order": 2
 					}
 				]
 			}
@@ -3255,7 +3291,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:ref:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 2
 					}
 				]
@@ -3267,7 +3303,19 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:ref:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.columnRefUngroup": {
+			"label": "Ungroup Branches / Tags Column",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bgrouping:ref:grouped\\b/",
+						"group": "3_grouping",
 						"order": 2
 					}
 				]
@@ -3280,7 +3328,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:sha:visible\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 7
 					}
 				]
@@ -3292,7 +3340,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:sha:hidden\\b/",
-						"group": "1_columns",
+						"group": "2_columns",
 						"order": 7
 					}
 				]
@@ -4178,7 +4226,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "3_columns",
+						"group": "6_reset",
 						"order": 2
 					}
 				]
@@ -4190,7 +4238,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "3_columns",
+						"group": "6_reset",
 						"order": 1
 					}
 				]
@@ -4531,8 +4579,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /lanes:density:expanded\\b/",
-						"group": "2_columns",
-						"order": 3
+						"group": "4_density",
+						"order": 2
 					}
 				]
 			}
@@ -4543,8 +4591,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /lanes:density:compact\\b/",
-						"group": "2_columns",
-						"order": 3
+						"group": "4_density",
+						"order": 2
 					}
 				]
 			}
@@ -4557,7 +4605,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "1_style",
+						"group": "1_view",
 						"order": 1
 					}
 				]
@@ -4571,7 +4619,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "1_style",
+						"group": "1_view",
 						"order": 2
 					}
 				]
@@ -4585,7 +4633,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "1_style",
+						"group": "1_view",
 						"order": 3
 					}
 				]
@@ -20675,7 +20723,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "0_markers",
+						"group": "5_markers",
 						"order": 0
 					}
 				]

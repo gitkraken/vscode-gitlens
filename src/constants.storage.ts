@@ -429,7 +429,7 @@ export interface StoredGraphColumn {
 	isHidden?: boolean;
 	mode?: StoredGraphColumnMode;
 	width?: number;
-	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	/** Column↔grouped placement for both columns: `undefined`/`true` = grouped with the default host zone (host Group commands write `true`; the webview echoes back the resolved zone id), a zone-id string = grouped with that zone, `false` = standalone column. */
 	grouped?: boolean | string;
 }
 

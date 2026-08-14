@@ -741,6 +741,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getSession: () => this._data.session,
 			getActiveSelection: () => this.activeSelection,
 			toggleColumn: (name, visible) => this.toggleColumn(name, visible),
+			toggleColumnGrouping: (name, grouped) => this.toggleColumnGrouping(name, grouped),
 			toggleScrollMarker: (type, enabled) => this.toggleScrollMarker(type, enabled),
 			setColumnMode: (name, mode) => this.setColumnMode(name, mode),
 			updateColumns: columnsCfg => this.updateColumns(columnsCfg),
@@ -4294,6 +4295,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			contextItems.push('columns:canHide');
 		}
 
+		// Surface the graph/ref columns' grouped placement so the Group/Ungroup menu items can toggle
+		for (const name of ['graph', 'ref'] as const) {
+			const settings = columnSettings[name];
+			if (settings?.isHidden) continue;
+
+			contextItems.push(`grouping:${name}:${settings.grouped !== false ? 'grouped' : 'ungrouped'}`);
+		}
+
 		// Surface the current lane-spacing density so the context-menu `when` clauses can toggle it
 		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'compact'}`);
 
@@ -5731,6 +5740,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this._graphSync.flush();
 			this._data.updateState();
 		}
+	}
+
+	@debug()
+	private async toggleColumnGrouping(name: 'graph' | 'ref', grouped: boolean) {
+		let columns = this.container.storage.getWorkspace('graph:columns');
+		const column = { ...columns?.[name], grouped: grouped };
+
+		columns = updateRecordValue(columns, name, column);
+		await this.container.storage.storeWorkspace('graph:columns', columns);
+
+		void this.notifyDidChangeColumns();
 	}
 
 	@debug()
