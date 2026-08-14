@@ -76,6 +76,11 @@ export interface GitServiceConfig {
 
 	/** Graph-specific configuration defaults. */
 	readonly graph?: {
+		/** Whether to keep git's commit-graph file up to date in the background after graph loads —
+		 *  written when missing, periodically refreshed to cover new commits (accelerates ordered
+		 *  history walks — the graph's initial load). Fed from the master switch
+		 *  (`gitlens.gitOptimizations.enabled`); `false` disables the background write. */
+		readonly writeCommitGraph?: boolean;
 		/** Graph commit ordering (falls back to `commits.ordering` or `'date'`). */
 		readonly commitOrdering?: 'date' | 'author-date' | 'topo';
 		/** Whether to only follow first parent in graph. */
@@ -84,6 +89,12 @@ export interface GitServiceConfig {
 		readonly avatars?: boolean;
 		/** Maximum search items (0 = unlimited). */
 		readonly maxSearchItems?: number;
+	};
+
+	/** Auto-tier git-optimization (maintenance) preferences. */
+	readonly maintenance?: {
+		/** Master switch for the auto-tier optimizations (maps to `gitlens.gitOptimizations.enabled`). Defaults to `true`. */
+		readonly enabled?: boolean;
 	};
 
 	/** Force-push preferences. */

@@ -23,6 +23,10 @@
 			"types": "./dist/features.d.ts",
 			"default": "./dist/features.js"
 		},
+		"./gitHealth.js": {
+			"types": "./dist/gitHealth.d.ts",
+			"default": "./dist/gitHealth.js"
+		},
 		"./repositoryService.js": {
 			"types": "./dist/repositoryService.d.ts",
 			"default": "./dist/repositoryService.js"

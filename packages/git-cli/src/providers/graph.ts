@@ -1591,6 +1591,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				options.onIncrementalResult?.({ path: 'fallback', reason: 'error' });
 			}
 			if (fast != null) {
+				this.provider.maintenance?.request(repoPath, 'commit-graph');
 				return fast;
 			}
 
@@ -1619,6 +1620,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			scope?.warn(`graph returned 0 rows but repo has ${branches.length} branches; retrying`);
 			graph = await getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
 		}
+
+		// After the first load, hint the maintenance service to backfill the commit-graph file (background)
+		// so the NEXT open's ordered walk starts emitting rows immediately instead of sorting the whole
+		// history first. Fire-and-forget — the service's demand throttle decides whether it actually runs.
+		this.provider.maintenance?.request(repoPath, 'commit-graph');
 
 		return graph;
 	}

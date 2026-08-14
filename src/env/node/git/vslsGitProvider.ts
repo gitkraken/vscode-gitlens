@@ -70,6 +70,11 @@ export class VslsGitProvider extends GlCliGitProvider {
 		return {
 			...options,
 			git: new VslsGit(options.locator, { isTrusted: () => workspace.isTrusted }),
+			// The repository lives on the host, not here: the Git Health probes would stat local paths that
+			// aren't the repo, and every config write, `maintenance run`, `commit-graph write`, and
+			// `update-index` is rejected by the Live Share host's command allowlist. Report the capability as
+			// absent, exactly as web builds do, rather than emitting empty reports and swallowing failures.
+			localRepositories: false,
 		};
 	}
 

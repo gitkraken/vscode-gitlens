@@ -7,6 +7,7 @@ import type { GitConfigSubProvider } from './config.js';
 import type { GitContributorsSubProvider } from './contributors.js';
 import type { GitDiffSubProvider } from './diff.js';
 import type { GitGraphSubProvider } from './graph.js';
+import type { GitMaintenanceSubProvider } from './maintenance.js';
 import type { GitOperationsSubProvider } from './operations.js';
 import type { GitPatchSubProvider } from './patch.js';
 import type { GitPausedOperationsSubProvider } from './pausedOperations.js';
@@ -53,6 +54,7 @@ export interface GitProvider {
 	readonly tags: GitTagsSubProvider;
 
 	readonly blame?: GitBlameSubProvider;
+	readonly maintenance?: GitMaintenanceSubProvider;
 	readonly ops?: GitOperationsSubProvider;
 	readonly patch?: GitPatchSubProvider;
 	readonly pausedOps?: GitPausedOperationsSubProvider;

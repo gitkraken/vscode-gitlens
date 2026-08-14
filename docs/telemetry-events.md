@@ -1510,6 +1510,84 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### gitHealth/probe
+
+> Sent when the Git Health cheap shape probe runs for a repo
+
+```typescript
+{
+  // Whether the repo is "clearly large" per the banner gate
+  'clearlyLarge': boolean,
+  // Whether a commit-graph is present
+  'commitGraph.present': boolean,
+  // Extrapolated loose-object count
+  'estimate.looseObjects': number,
+  // Tracked-file count — the exact index-header entry count when available, else the index-bytes proxy
+  'estimate.trackedFiles': number,
+  // Whether `estimate.trackedFiles` is the exact index-header count rather than the byte-size estimate
+  'estimate.trackedFilesExact': boolean,
+  // Number of ask-tier findings
+  'findings.ask': number,
+  // Number of auto-tier findings
+  'findings.auto': number,
+  // Total number of findings the report produced
+  'findings.total': number,
+  // Whether the repo is registered for system-scheduled maintenance
+  'maintenanceRegistered': boolean,
+  // Whether a multi-pack-index is present
+  'multiPackIndex': boolean,
+  // Total bytes of all pack files
+  'packs.bytes': number,
+  // Number of `*.pack` files in the object store
+  'packs.count': number,
+  // Count of slow git commands observed for this repo — persisted across sessions, pruned after 30 days idle
+  'slowness.count': number
+}
+```
+
+### gitOptimizations/commitGraph/toggled
+
+> Sent when the per-repo commit-graph maintenance toggle is switched from the Repository Health view
+
+```typescript
+{
+  // The toggle's new state — `false` means the user opted this repo out of automatic commit-graph maintenance
+  'enabled': boolean
+}
+```
+
+### gitOptimizations/maintenance/run
+
+> Sent when the auto-tier runs a `git maintenance run --task=…` one-shot (or "Run Maintenance Now")
+
+```typescript
+{
+  // Duration of the run in ms
+  'duration': number,
+  // Coarse duration bucket
+  'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
+  // The maintenance task that ran
+  'task': 'commit-graph' | 'loose-objects' | 'incremental-repack'
+}
+```
+
+### gitOptimizations/optimization/applied
+
+> Sent when a config-lever optimization is actually applied to a repo (auto tier or user-initiated)
+
+```typescript
+{
+  // Duration of the apply in ms
+  'duration': number,
+  // Coarse duration bucket
+  'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
+  // The config lever that was applied
+  'optimization': 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles',
+  // Which tier applied it — `auto` is the silent daily pass, `ask` is user-initiated
+  'tier': 'ask' | 'auto'
+}
+```
+
 ### graph/action/jumpTo
 
 > Sent when the user clicks the Focus Branch header button on the Commit Graph (plain-click focuses the current branch; alt-click opens the branch picker)

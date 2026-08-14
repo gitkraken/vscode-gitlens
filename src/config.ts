@@ -26,6 +26,7 @@ export interface Config {
 	readonly fileAnnotations: FileAnnotationsConfig;
 	readonly gitCommands: GitCommandsConfig;
 	readonly gitkraken: GitKrakenConfig;
+	readonly gitOptimizations: GitOptimizationsConfig;
 	readonly graph: GraphConfig;
 	readonly heatmap: HeatmapConfig;
 	readonly hovers: HoversConfig;
@@ -418,6 +419,10 @@ interface GitKrakenMcpConfig {
 	readonly experimental: {
 		readonly enabled: boolean;
 	};
+}
+
+export interface GitOptimizationsConfig {
+	readonly enabled: boolean;
 }
 
 export interface GraphConfig {

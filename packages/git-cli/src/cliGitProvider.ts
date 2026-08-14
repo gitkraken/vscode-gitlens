@@ -23,6 +23,7 @@ import { ConfigGitSubProvider } from './providers/config.js';
 import { ContributorsGitSubProvider } from './providers/contributors.js';
 import { DiffGitSubProvider } from './providers/diff.js';
 import { GraphGitSubProvider } from './providers/graph.js';
+import { MaintenanceGitSubProvider } from './providers/maintenance.js';
 import { OperationsGitSubProvider } from './providers/operations.js';
 import { PatchGitSubProvider } from './providers/patch.js';
 import { PausedOperationsGitSubProvider } from './providers/pausedOperations.js';
@@ -46,6 +47,13 @@ export interface CliGitProviderOptions {
 	git?: Git;
 	/** Git execution options (timeout, trust, queue config, hooks, etc.) */
 	gitOptions?: GitOptions;
+	/**
+	 * Whether repositories reached through this provider are on the LOCAL filesystem. `false` disables the
+	 * maintenance sub-provider entirely (Live Share): its probes stat local paths, and its writes are
+	 * rejected by the host's command allowlist, so inheriting it yields empty reports and swallowed
+	 * failures rather than an honest "unsupported here". Defaults to `true`.
+	 */
+	localRepositories?: boolean;
 }
 
 /**
@@ -83,9 +91,11 @@ export class CliGitProvider implements GitProvider {
 	private readonly _git: Git;
 
 	readonly context: GitServiceContext;
+	private readonly _localRepositories: boolean;
 
 	constructor(options: CliGitProviderOptions) {
 		this.context = options.context;
+		this._localRepositories = options.localRepositories ?? true;
 		this._git =
 			options.git ??
 			new Git(options.locator, {
@@ -213,6 +223,21 @@ export class CliGitProvider implements GitProvider {
 	private _graph: GraphGitSubProvider | undefined;
 	get graph(): GraphGitSubProvider {
 		return (this._graph ??= new GraphGitSubProvider(
+			this.context,
+			this._git,
+			this._cache,
+			this as unknown as CliGitProviderInternal,
+		));
+	}
+
+	private _maintenance: MaintenanceGitSubProvider | undefined;
+	// Optional so subclasses whose repos aren't local can report the capability as absent — see
+	// `VslsGitProvider`. Consumers already treat `maintenance == null` as "unsupported here" (web builds
+	// never register it at all).
+	get maintenance(): MaintenanceGitSubProvider | undefined {
+		if (!this._localRepositories) return undefined;
+
+		return (this._maintenance ??= new MaintenanceGitSubProvider(
 			this.context,
 			this._git,
 			this._cache,

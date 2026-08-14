@@ -1,5 +1,6 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
+import type { GitHealthSlowness } from '@gitlens/git/gitHealth.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
 import type {
 	IntegrationIds,
@@ -202,10 +203,15 @@ export type DeprecatedWorkspaceStorage = {
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
+/** Persisted passive-slowness summary for a repo (keyed by repo path in `gitHealth:slowness`). */
+export type StoredGitHealthSlowness = GitHealthSlowness;
+
 interface WorkspaceStorageCore {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
 	'gitComandPalette:usage': StoredRecentUsage;
+	/** Passive git-slowness summary per repo path (feeds the Git Health banner). */
+	'gitHealth:slowness': Record<string, StoredGitHealthSlowness>;
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;

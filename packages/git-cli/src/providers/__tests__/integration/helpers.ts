@@ -65,7 +65,11 @@ function createMinimalContext(hooks?: GitServiceHooks, config?: GitServiceConfig
 	return {
 		fs: createNodeFs(),
 		hooks: hooks,
-		config: config ?? { commits: {} },
+		// Disable the background commit-graph write by default: it's a perf cache irrelevant to tests, and
+		// its detached `git commit-graph write` can still be writing `.git` when a test's cleanup rmSync's the
+		// dir (→ ENOTEMPTY). Callers can override via `config.graph.writeCommitGraph`. `commits` is a
+		// required field, so keep it present (the provider does `cfg.commits.ordering` when `cfg` is set).
+		config: { commits: {}, ...config, graph: { writeCommitGraph: false, ...config?.graph } },
 	};
 }
 
@@ -109,51 +113,62 @@ export function createTestRepo(options?: {
 
 	const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-'));
 
-	// Initialize a git repo with deterministic config
-	execFileSync('git', ['init', '-b', 'main'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
-	// Disable gpg signing in test repos. BOTH keys: `tag.gpgsign` is independent of `commit.gpgsign`,
-	// and with it set globally a bare `git tag <name>` becomes an annotated SIGNED tag, which demands a
-	// message and fails the fixture with `fatal: no tag message?` rather than anything about signing.
-	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'tag.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
-	// Disable auto-gc: rapid seeding (many commits in quick succession) otherwise races a detached
-	// `git gc --auto` that repacks/prunes underneath us and can corrupt the object store mid-test.
-	// BOTH knobs are required — `git commit` also fires `git maintenance run --auto`, whose loose-object
-	// threshold a seeded repo crosses long before `gc.auto`'s. Left on, those detached runs expire the
-	// reflog and can prune a commit that is still being written, leaving a repo whose own tip is
-	// unreadable (`fatal: bad object refs/heads/main`).
-	execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
+	// Everything below can throw (a spawned `git` failing, or the provider constructor) — without the
+	// catch, a failure here leaks `dir` forever, since nothing else ever calls cleanup() for it.
+	try {
+		// Initialize a git repo with deterministic config
+		execFileSync('git', ['init', '-b', 'main'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
+		// Disable gpg signing in test repos. BOTH keys: `tag.gpgsign` is independent of `commit.gpgsign`,
+		// and with it set globally a bare `git tag <name>` becomes an annotated SIGNED tag, which demands a
+		// message and fails the fixture with `fatal: no tag message?` rather than anything about signing.
+		execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'tag.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+		// Disable auto-gc: rapid seeding (many commits in quick succession) otherwise races a detached
+		// `git gc --auto` that repacks/prunes underneath us and can corrupt the object store mid-test.
+		// BOTH knobs are required — `git commit` also fires `git maintenance run --auto`, whose loose-object
+		// threshold a seeded repo crosses long before `gc.auto`'s. Left on, those detached runs expire the
+		// reflog and can prune a commit that is still being written, leaving a repo whose own tip is
+		// unreadable (`fatal: bad object refs/heads/main`).
+		execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
 
-	// Create initial commit
-	writeFileSync(join(dir, 'README.md'), '# Test Repository\n');
-	execFileSync('git', ['add', 'README.md'], {
-		cwd: dir,
-		stdio: 'pipe',
-	});
-	execFileSync('git', ['commit', '-m', 'Initial commit'], {
-		cwd: dir,
-		stdio: 'pipe',
-		env: { ...process.env, GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z', GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z' },
-	});
+		// Create initial commit
+		writeFileSync(join(dir, 'README.md'), '# Test Repository\n');
+		execFileSync('git', ['add', 'README.md'], {
+			cwd: dir,
+			stdio: 'pipe',
+		});
+		execFileSync('git', ['commit', '-m', 'Initial commit'], {
+			cwd: dir,
+			stdio: 'pipe',
+			env: {
+				...process.env,
+				GIT_COMMITTER_DATE: '2024-01-01T00:00:00Z',
+				GIT_AUTHOR_DATE: '2024-01-01T00:00:00Z',
+			},
+		});
 
-	const context = createMinimalContext(options?.hooks, options?.config);
-	const provider = new CliGitProvider({
-		context: context,
-		locator: getGitLocation,
-		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
-	});
+		const context = createMinimalContext(options?.hooks, options?.config);
+		const provider = new CliGitProvider({
+			context: context,
+			locator: getGitLocation,
+			gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+		});
 
-	return {
-		path: dir,
-		provider: provider,
-		cleanup: () => {
-			provider.dispose();
-			rmSync(dir, { recursive: true, force: true });
-		},
-	};
+		return {
+			path: dir,
+			provider: provider,
+			cleanup: () => {
+				provider.dispose();
+				rmSync(dir, { recursive: true, force: true });
+			},
+		};
+	} catch (ex) {
+		rmSync(dir, { recursive: true, force: true });
+		throw ex;
+	}
 }
 
 // Monotonic commit clock: git commit dates have 1-second granularity, so rapid test commits otherwise
@@ -454,37 +469,74 @@ export function cloneTestRepo(
 	ensureLogger();
 
 	const dir = mkdtempSync(join(tmpdir(), 'gitlens-clone-'));
-	if (options?.depth != null) {
-		// A local-path clone with `--depth` needs the `file://` transport (git's plain-path optimization
-		// otherwise ignores depth and hardlinks full history), yielding a genuinely shallow clone.
-		execFileSync('git', ['clone', '--depth', String(options.depth), `file://${originPath}`, dir], {
-			stdio: 'pipe',
+
+	// See `createTestRepo` on why setup runs inside a try/catch: a failure below must not leak `dir`.
+	try {
+		if (options?.depth != null) {
+			// A local-path clone with `--depth` needs the `file://` transport (git's plain-path optimization
+			// otherwise ignores depth and hardlinks full history), yielding a genuinely shallow clone.
+			execFileSync('git', ['clone', '--depth', String(options.depth), `file://${originPath}`, dir], {
+				stdio: 'pipe',
+			});
+		} else {
+			execFileSync('git', ['clone', originPath, dir], { stdio: 'pipe' });
+		}
+		execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+		// See `createTestRepo` on why `tag.gpgsign` needs disabling separately.
+		execFileSync('git', ['config', 'tag.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+		// See `createTestRepo`: `gc.auto` alone leaves `maintenance.auto` (default true) free to repack.
+		execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
+
+		const context = createMinimalContext(options?.hooks, options?.config);
+		const provider = new CliGitProvider({
+			context: context,
+			locator: getGitLocation,
+			gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
 		});
-	} else {
-		execFileSync('git', ['clone', originPath, dir], { stdio: 'pipe' });
+
+		return {
+			path: dir,
+			provider: provider,
+			cleanup: () => {
+				provider.dispose();
+				rmSync(dir, { recursive: true, force: true });
+			},
+		};
+	} catch (ex) {
+		rmSync(dir, { recursive: true, force: true });
+		throw ex;
 	}
-	execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
-	// See `createTestRepo` on why `tag.gpgsign` needs disabling separately.
-	execFileSync('git', ['config', 'tag.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
-	// See `createTestRepo`: `gc.auto` alone leaves `maintenance.auto` (default true) free to repack.
-	execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
-	execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
+}
 
-	const context = createMinimalContext(options?.hooks, options?.config);
-	const provider = new CliGitProvider({
-		context: context,
-		locator: getGitLocation,
-		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
-	});
+/**
+ * The maintenance sub-provider, asserted present. `GlCliGitProvider` always supplies it — only the Live
+ * Share subclass reports it absent — but the getter is optional so that override is expressible.
+ */
+export function maintenanceOf(repo: TestRepo): NonNullable<CliGitProvider['maintenance']> {
+	const maintenance = repo.provider.maintenance;
+	if (maintenance == null) throw new Error('The maintenance sub-provider is unavailable for this repo');
 
-	return {
-		path: dir,
-		provider: provider,
-		cleanup: () => {
-			provider.dispose();
-			rmSync(dir, { recursive: true, force: true });
-		},
-	};
+	return maintenance;
+}
+
+/** The chain dir a `--split` commit-graph write produces (the layout the commit-graph task always writes). */
+export function commitGraphChainDir(repoPath: string): string {
+	return join(repoPath, '.git', 'objects', 'info', 'commit-graphs');
+}
+
+/** Reads a `.git/gk/config` value directly (bypasses the provider cache) — `undefined` when absent. */
+export function gkConfig(repoPath: string, key: string): string | undefined {
+	try {
+		return (
+			execFileSync('git', ['config', '--file', join(repoPath, '.git', 'gk', 'config'), '--get', key], {
+				cwd: repoPath,
+				encoding: 'utf8',
+			}).trim() || undefined
+		);
+	} catch {
+		return undefined;
+	}
 }

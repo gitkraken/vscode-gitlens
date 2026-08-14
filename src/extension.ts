@@ -206,6 +206,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		registerBuiltInActionRunners(container);
 		registerPartnerActionRunners(context);
 
+		// Activate the Git Health service so its auto-tier maintenance pass + slowness counters start
+		// running (the getter is otherwise lazy). Gated internally on `gitlens.gitOptimizations.enabled`.
+		void container.gitHealth;
+
 		if (!workspace.isTrusted) {
 			context.subscriptions.push(
 				workspace.onDidGrantWorkspaceTrust(() => {

@@ -1,6 +1,8 @@
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
+import type { GitHealthDurationBucket, GitOptimizationTier } from '@gitlens/git/gitHealth.js';
 import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
+import type { GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { Flatten } from '@gitlens/utils/object.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
@@ -625,6 +627,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'mcp/registration/failed': MCPSetupFailedEvent;
 	/** Sent when the user uninstalls GitKraken MCP for a single agent */
 	'mcp/agent/uninstalled': MCPAgentUninstalledEvent;
+
+	/** Sent when the Git Health cheap shape probe runs for a repo */
+	'gitHealth/probe': GitHealthProbeEvent;
+	/** Sent when the auto-tier runs a `git maintenance run --task=…` one-shot (or "Run Maintenance Now") */
+	'gitOptimizations/maintenance/run': GitOptimizationsMaintenanceRunEvent;
+	/** Sent when the per-repo commit-graph maintenance toggle is switched from the Repository Health view */
+	'gitOptimizations/commitGraph/toggled': GitOptimizationsCommitGraphToggledEvent;
+	/** Sent when a config-lever optimization is actually applied to a repo (auto tier or user-initiated) */
+	'gitOptimizations/optimization/applied': GitOptimizationsOptimizationAppliedEvent;
 
 	'op/gate/deadlock': OperationGateDeadlockEvent;
 	'op/git/aborted': OperationGitAbortedEvent;
@@ -2551,6 +2562,60 @@ interface OperationGateDeadlockEvent {
 	timeout: number;
 	/** Whether this is just a warning or the gate was forcibly cleared */
 	status: 'warning' | 'aborted';
+}
+
+interface GitHealthProbeEvent {
+	/** Number of `*.pack` files in the object store */
+	'packs.count': number;
+	/** Total bytes of all pack files */
+	'packs.bytes': number;
+	/** Extrapolated loose-object count */
+	'estimate.looseObjects': number;
+	/** Tracked-file count — the exact index-header entry count when available, else the index-bytes proxy */
+	'estimate.trackedFiles': number;
+	/** Whether `estimate.trackedFiles` is the exact index-header count rather than the byte-size estimate */
+	'estimate.trackedFilesExact': boolean;
+	/** Whether a commit-graph is present */
+	'commitGraph.present': boolean;
+	/** Whether a multi-pack-index is present */
+	multiPackIndex: boolean;
+	/** Whether the repo is registered for system-scheduled maintenance */
+	maintenanceRegistered: boolean;
+	/** Whether the repo is "clearly large" per the banner gate */
+	clearlyLarge: boolean;
+	/** Total number of findings the report produced */
+	'findings.total': number;
+	/** Number of auto-tier findings */
+	'findings.auto': number;
+	/** Number of ask-tier findings */
+	'findings.ask': number;
+	/** Count of slow git commands observed for this repo — persisted across sessions, pruned after 30 days idle */
+	'slowness.count': number;
+}
+
+interface GitOptimizationsMaintenanceRunEvent {
+	/** The maintenance task that ran */
+	task: 'commit-graph' | 'loose-objects' | 'incremental-repack';
+	/** Duration of the run in ms */
+	duration: number;
+	/** Coarse duration bucket */
+	'duration.bucket': GitHealthDurationBucket;
+}
+
+interface GitOptimizationsCommitGraphToggledEvent {
+	/** The toggle's new state — `false` means the user opted this repo out of automatic commit-graph maintenance */
+	enabled: boolean;
+}
+
+interface GitOptimizationsOptimizationAppliedEvent {
+	/** The config lever that was applied */
+	optimization: GitOptimizationId;
+	/** Which tier applied it — `auto` is the silent daily pass, `ask` is user-initiated */
+	tier: GitOptimizationTier;
+	/** Duration of the apply in ms */
+	duration: number;
+	/** Coarse duration bucket */
+	'duration.bucket': GitHealthDurationBucket;
 }
 
 interface OperationGitAbortedEvent {

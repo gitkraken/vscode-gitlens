@@ -45,7 +45,7 @@ import type { GitCommandPriority, GitResult, GitRunOptions, GitSpawnOptions } fr
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './features.js';
 import { gitFeaturesByVersion } from './features.js';
 import type { GitQueueConfig } from './gitQueue.js';
-import { GitQueue, inferGitCommandPriority } from './gitQueue.js';
+import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQueue.js';
 import type { GitLocation } from './locator.js';
 
 const slowCallWarningThreshold = 2000;
@@ -504,6 +504,12 @@ export interface GitHooks {
 		queued: Record<GitCommandPriority, number>;
 		maxConcurrent: number;
 	}): void;
+	/**
+	 * Called once per git command that ran slowly (over the slow-call threshold). Fired only for the
+	 * command that actually executed, never for a deduplicated rider that merely awaited it, so a single
+	 * slow subprocess counts once. `operation` is the primary git subcommand (e.g. `status`, `rev-list`).
+	 */
+	onSlowCommand?(info: { operation: string | undefined; cwd: string | undefined; duration: number }): void;
 }
 
 const emptyArray: readonly never[] = Object.freeze([]);
@@ -709,6 +715,7 @@ export class Git {
 			errors: errorHandling,
 			encoding,
 			runLocally: _,
+			selfMaintenance,
 			...opts
 		} = options;
 
@@ -726,6 +733,9 @@ export class Git {
 			options?.stdin != null ? `${uniqueCounterForStdin.next()}:` : ''
 		}${cancellation != null ? `${getAbortSignalId(cancellation)}:` : ''}${gitCommand}`;
 
+		// When the subprocess actually started — `start` includes GitQueue wait, which is congestion rather
+		// than anything the repository did. Stays undefined for a dedup rider or a command aborted while queued.
+		let execStart: ReturnType<typeof hrtime> | undefined;
 		let waiting;
 		let promise = this.pendingCommands.get(cacheKey);
 		if (promise == null) {
@@ -758,7 +768,14 @@ export class Git {
 			// Execute through the queue (interactive/normal run immediately, background is throttled)
 			const gitPath = await this.path();
 			void this._queue
-				.run(priority, () => runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts), cancellation)
+				.run(
+					priority,
+					() => {
+						execStart = hrtime();
+						return runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts);
+					},
+					cancellation,
+				)
 				.then(deferred.fulfill, (e: unknown) => deferred.cancel(e instanceof Error ? e : new Error(String(e))))
 				.finally(() => {
 					this.pendingCommands.delete(cacheKey);
@@ -908,7 +925,17 @@ export class Git {
 				completion: { status: 'warned', warning: warning, error: swallowed },
 			};
 		} finally {
-			this.logGitCommandComplete(gitCommand, exception, getDurationMilliseconds(start), waiting);
+			this.logGitCommandComplete(
+				gitCommand,
+				exception,
+				getDurationMilliseconds(start),
+				// 0 when the subprocess never started — there is no execution time to attribute. Also 0 for
+				// GitLens's own maintenance work, which is slow by design and must not read as repo slowness.
+				execStart == null || selfMaintenance ? 0 : getDurationMilliseconds(execStart),
+				waiting,
+				options.cwd,
+				args,
+			);
 		}
 	}
 
@@ -1013,7 +1040,20 @@ export class Git {
 			try {
 				proc.removeAllListeners();
 			} catch {}
-			this.logGitCommandComplete(gitCommand, exception, getDurationMilliseconds(start), false, streamId);
+			// Streaming spawns directly, with no GitQueue wait to exclude. It isn't pure subprocess time
+			// either — the generator applies backpressure, so a slow consumer stalls the pipe and inflates
+			// this — but there's no separate signal to measure here.
+			const duration = getDurationMilliseconds(start);
+			this.logGitCommandComplete(
+				gitCommand,
+				exception,
+				duration,
+				duration,
+				false,
+				spawnOpts.cwd as string | undefined,
+				runArgs,
+				streamId,
+			);
 		};
 
 		try {
@@ -1175,11 +1215,34 @@ export class Git {
 		command: string,
 		ex: Error | undefined,
 		duration: number,
+		/** Subprocess-only duration (excludes GitQueue wait); 0 when it never ran. */
+		execDuration: number,
 		waiting: boolean,
+		cwd: string | undefined,
+		args: readonly (string | undefined)[] | undefined,
 		id?: number,
 	): void {
 		const slow = duration > slowCallWarningThreshold;
 		const status = slow && waiting ? ' (slow, waiting)' : waiting ? ' (waiting)' : slow ? ' (slow)' : '';
+
+		// The health signal is gated on the SUBPROCESS time, not the total: time spent queued behind other
+		// git work is congestion, not repository slowness, and counting it would let a busy queue (including
+		// our own background maintenance holding slots) manufacture the evidence that recommends more
+		// maintenance. Logging keeps the total — the wait is exactly what you want to see when diagnosing.
+		//
+		// A deduplicated rider (`waiting`) shares the executed command's duration, so counting it too
+		// would double-count a single slow subprocess — fire only for the command that actually ran.
+		// Guarded: this runs inside the command's `finally`, so a hook throw would otherwise replace
+		// the command's real result/error for the caller.
+		if (execDuration > slowCallWarningThreshold && !waiting) {
+			try {
+				this.options.hooks?.onSlowCommand?.({
+					operation: args != null ? getPrimaryGitCommand(args) : undefined,
+					cwd: cwd,
+					duration: execDuration,
+				});
+			} catch {}
+		}
 
 		if (ex != null) {
 			Logger.error(

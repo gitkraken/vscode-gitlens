@@ -90,6 +90,14 @@ export interface GitRunOptions {
 	priority?: GitCommandPriority;
 	/** Specifies that this command should always be executed locally if possible (for live share sessions) */
 	runLocally?: boolean;
+	/**
+	 * Marks a command GitLens issues as its OWN maintenance work (the Git Health auto pass, the
+	 * commit-graph write, an explicit "Run Maintenance Now"). Such commands are legitimately slow by
+	 * design, so they are excluded from the `onSlowCommand` health signal — otherwise our own
+	 * optimization work becomes the evidence that recommends more of it. Matching on the git
+	 * subcommand can't express this: the same `update-index`/`status` also serve real user work.
+	 */
+	selfMaintenance?: boolean;
 
 	/**
 	 * If provided, cache the command's result (stdout, stderr, exitCode) in this store via an auto-generated cache key

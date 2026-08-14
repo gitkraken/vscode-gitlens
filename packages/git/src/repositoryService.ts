@@ -49,6 +49,7 @@ export interface RepositoryService {
 
 	// Optional sub-providers
 	readonly blame?: SubProviderForRepo<NonNullable<GitProvider['blame']>>;
+	readonly maintenance?: SubProviderForRepo<NonNullable<GitProvider['maintenance']>>;
 	readonly ops?: SubProviderForRepo<NonNullable<GitProvider['ops']>>;
 	readonly patch?: SubProviderForRepo<NonNullable<GitProvider['patch']>>;
 	readonly pausedOps?: SubProviderForRepo<NonNullable<GitProvider['pausedOps']>>;

@@ -5976,6 +5976,13 @@
 						"scope": "window",
 						"order": 91
 					},
+					"gitlens.gitOptimizations.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether GitLens will automatically apply safe, repo-local Git performance optimizations in the background (loose-object packing, incremental repack, and commit-graph) while VS Code is open. This is the same routine work Git performs during `git gc`/`git maintenance`: packing and repacking reorganize objects the repository already contains without altering history, while the commit-graph is a pure acceleration cache that can be deleted at any time. More invasive optimizations (untracked cache, FSMonitor, system-scheduled maintenance, `feature.manyFiles`) are never applied automatically",
+						"scope": "window",
+						"order": 91
+					},
 					"gitlens.debug": {
 						"type": "boolean",
 						"default": false,

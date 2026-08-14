@@ -36,7 +36,7 @@ const gkConfigAllPattern = '.';
  * section and variable-name lowercased and only the subsection case-preserved. Without this a
  * subsection-less key like `gk.defaultRemote` would miss the lowercased `gk.defaultremote` in the map.
  */
-function canonicalizeGitConfigKey(key: string): string {
+export function canonicalizeGitConfigKey(key: string): string {
 	const first = key.indexOf('.');
 	if (first === -1) return key.toLowerCase();
 
@@ -50,8 +50,22 @@ function canonicalizeGitConfigKey(key: string): string {
 /**
  * Parses git config --get-regex output into a Map.
  * The output format is "key value" per line, where key and value are space-separated.
+ *
+ * A line with NO space at all is git's rendering of a bareword/valueless entry (`key`, no `=`) — git's
+ * OWN config parser reads that as boolean TRUE (git-config(1): "a variable defined without `= <value>`
+ * is taken as true"), confirmed against git's `format_config` (builtin/config.c): the key-delimiter is
+ * appended unconditionally, then backed out ONLY when the stored value is NULL (the bareword case) —
+ * an explicit empty value (`key =`) is a real, non-NULL empty string, so its line KEEPS the trailing
+ * space and is already handled by the branch below, byte-distinct from a bareword line.
+ *
+ * By default a bareword line is skipped (the historical behavior, which reads as "unset" — wrong, but
+ * safe); pass `includeValueless` to map it to the literal string `'true'` instead, so `parseGitBoolean`
+ * and callers checking `.has()` for "configured" both read it correctly.
  */
-function parseConfigRegexOutput(data: string | undefined): Map<string, string> {
+export function parseConfigRegexOutput(
+	data: string | undefined,
+	options?: { includeValueless?: boolean },
+): Map<string, string> {
 	const configMap = new Map<string, string>();
 	if (!data) return configMap;
 
@@ -59,7 +73,12 @@ function parseConfigRegexOutput(data: string | undefined): Map<string, string> {
 		if (!line) continue;
 
 		const spaceIndex = line.indexOf(' ');
-		if (spaceIndex === -1) continue;
+		if (spaceIndex === -1) {
+			if (options?.includeValueless) {
+				configMap.set(line, 'true');
+			}
+			continue;
+		}
 
 		configMap.set(line.substring(0, spaceIndex), line.substring(spaceIndex + 1));
 	}
@@ -67,11 +86,19 @@ function parseConfigRegexOutput(data: string | undefined): Map<string, string> {
 	return configMap;
 }
 
-function parseGitBoolean(value: string | undefined): boolean {
+export function parseGitBoolean(value: string | undefined): boolean {
 	if (value == null) return false;
 
 	const normalized = value.toLowerCase().trim();
 	return normalized === 'true' || normalized === 'yes' || normalized === 'on' || normalized === '1';
+}
+
+/** Whether a git config value spells boolean-false (`false`/`no`/`off`/`0`/empty), per git's maybe-bool parsing. */
+export function isGitBooleanFalse(value: string): boolean {
+	const normalized = value.toLowerCase().trim();
+	return (
+		normalized === '' || normalized === 'false' || normalized === 'no' || normalized === 'off' || normalized === '0'
+	);
 }
 
 export class ConfigGitSubProvider implements GitConfigSubProvider {
@@ -163,7 +190,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			{ cwd: repoPath ?? '', errors: 'ignore', runLocally: options?.runGitLocally },
 			...args,
 		);
-		return parseConfigRegexOutput(result.stdout.trim());
+		// Deliberately NOT `.trim()`-ed: an explicit-empty value's LAST line ends in a meaningful trailing
+		// space, and `.trim()`-ing the whole (possibly multi-line) buffer strips it — `parseConfigRegexOutput`
+		// already skips the blank line a trailing newline produces, so no trim is needed.
+		return parseConfigRegexOutput(result.stdout);
 	}
 
 	@debug()
@@ -400,7 +430,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		// `--get-regex` exits 1 when nothing matches, which IS an answer (an empty gk config).
 		const exited = result.completion.status === 'exited';
 		return {
-			map: parseConfigRegexOutput(result.stdout.trim()),
+			// Deliberately NOT `.trim()`-ed — see `getConfigRegexCore`'s comment: it strips the trailing
+			// space that marks an explicit-empty value's LAST line, silently dropping it from the map.
+			map: parseConfigRegexOutput(result.stdout),
 			failed: !exited || (result.exitCode !== 0 && result.exitCode !== 1),
 		};
 	}

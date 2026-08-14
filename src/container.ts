@@ -34,6 +34,7 @@ import { EventBus } from './eventBus.js';
 import type { FeatureFlagService } from './featureFlags/featureFlagService.js';
 import { ConfigCatFeatureFlagService } from './featureFlags/featureFlagService.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
+import { GitHealthService } from './git/gitHealthService.js';
 import { GitOperationOriginTracker } from './git/gitOperationOriginTracker.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
@@ -740,6 +741,14 @@ export class Container {
 	private readonly _telemetry: TelemetryService;
 	get telemetry(): TelemetryService {
 		return this._telemetry;
+	}
+
+	private _gitHealth: GitHealthService | undefined;
+	get gitHealth(): GitHealthService {
+		if (this._gitHealth == null) {
+			this._disposables.push((this._gitHealth = new GitHealthService(this)));
+		}
+		return this._gitHealth;
 	}
 
 	private _treemapAggregator: TreemapAggregatorService | undefined;

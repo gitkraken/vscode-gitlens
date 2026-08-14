@@ -344,6 +344,9 @@ function createRepositoryService(
 		get blame() {
 			return getProxy('blame', provider.blame);
 		},
+		get maintenance() {
+			return getProxy('maintenance', provider.maintenance);
+		},
 		get ops() {
 			return getProxy('ops', provider.ops);
 		},

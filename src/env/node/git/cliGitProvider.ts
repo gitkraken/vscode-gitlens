@@ -272,6 +272,12 @@ export class GlCliGitProvider implements GlGitProvider {
 							maxConcurrent: info.maxConcurrent,
 						});
 					},
+					onSlowCommand: info => {
+						// Feed the Git Health passive-slowness counters. Resolution stays in-memory only
+						// (`getRepository`) — never invoke git here, or we'd recurse through the exec layer
+						// that just fired this hook.
+						container.gitHealth.recordSlowCommand(info.cwd ?? '', info.duration, info.operation);
+					},
 				},
 			},
 		};

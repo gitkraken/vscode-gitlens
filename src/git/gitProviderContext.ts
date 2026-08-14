@@ -44,10 +44,16 @@ export function createGitProviderContext(container: Container): GitServiceContex
 		},
 		get graph() {
 			return {
+				writeCommitGraph: configuration.get('gitOptimizations.enabled'),
 				commitOrdering: configuration.get('graph.commitOrdering'),
 				onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
 				avatars: configuration.get('graph.avatars'),
 				maxSearchItems: configuration.get('graph.searchItemLimit'),
+			};
+		},
+		get maintenance() {
+			return {
+				enabled: configuration.get('gitOptimizations.enabled'),
 			};
 		},
 		get push() {

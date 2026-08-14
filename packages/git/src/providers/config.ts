@@ -54,7 +54,31 @@ export type GkConfigKeys =
 	/** `gk-disposition` — user-assigned branch disposition: 'starred' or 'archived' */
 	| `branch.${string}.gk-disposition`
 	/** `gk.defaultRemote` — the user-designated default remote for the repository */
-	| 'gk.defaultRemote';
+	| 'gk.defaultRemote'
+	/** `gk.maintenanceLastRun` — ISO 8601 timestamp of the last auto-tier git-optimization maintenance pass */
+	| 'gk.maintenanceLastRun'
+	/** `gk.commitGraphDisabled` — `'true'` once the user disables GitLens's automatic commit-graph maintenance for this repo */
+	| 'gk.commitGraphDisabled'
+	/** `gk.fsmonitorNotApplicable` — `'true'` once FSMonitor failed to enable for this repo, so it's never re-suggested */
+	| 'gk.fsmonitorNotApplicable'
+	/** `gk.untrackedCacheNotApplicable` — `'true'` once the untracked cache failed git's filesystem probe here, so it's never re-suggested */
+	| 'gk.untrackedCacheNotApplicable'
+	/**
+	 * `gk.applied.*` — Git Health ownership + undo markers under `[gk "applied"]`. Each value is the lever's
+	 * prior LOCAL-scope value (so undo restores it exactly) or the literal `unset` sentinel when it was absent;
+	 * the marker's mere presence also means "applied by GitLens" (so undo is never offered for a user-enabled
+	 * lever). `backgroundMaintenance` is a presence-only ownership flag (registration is global; undo =
+	 * unregister), and `maintenanceAuto` holds the prior `maintenance.auto` that `git maintenance start` sets
+	 * to false and unregister does not restore.
+	 */
+	| 'gk.applied.untrackedCache'
+	| 'gk.applied.fsmonitor'
+	| 'gk.applied.manyFiles'
+	| 'gk.applied.skipHash'
+	| 'gk.applied.backgroundMaintenance'
+	| 'gk.applied.maintenanceAuto'
+	/** `git maintenance register` sets `maintenance.strategy` too, and `unregister` does NOT restore it. */
+	| 'gk.applied.maintenanceStrategy';
 
 export type DeprecatedGkConfigKeys = `branch.${string}.gk-target-base`;
 

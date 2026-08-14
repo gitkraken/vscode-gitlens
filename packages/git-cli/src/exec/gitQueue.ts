@@ -278,6 +278,25 @@ const optionsTakingValue = new Set([
 	'--list-cmds',
 ]);
 
+/** Extracts the primary git subcommand from an arg list, skipping global options and their values. */
+export function getPrimaryGitCommand(args: readonly (string | undefined)[]): string | undefined {
+	for (let i = 0; i < args.length; i++) {
+		const a = args[i];
+		if (a == null) continue;
+		if (optionsTakingValue.has(a)) {
+			const next = args[i + 1];
+			if (next != null && !next.startsWith('-')) {
+				i++;
+			}
+			continue;
+		}
+		if (a.startsWith('-')) continue;
+
+		return a;
+	}
+	return undefined;
+}
+
 /**
  * Infers a queue priority from the git command being invoked.
  *
@@ -291,24 +310,7 @@ const optionsTakingValue = new Set([
  * misclassifying a write subcommand as background outweighs the gain.
  */
 export function inferGitCommandPriority(args: readonly (string | undefined)[]): GitCommandPriority {
-	let command: string | undefined;
-	for (let i = 0; i < args.length; i++) {
-		const a = args[i];
-		if (a == null) continue;
-		if (optionsTakingValue.has(a)) {
-			const next = args[i + 1];
-			if (next != null && !next.startsWith('-')) {
-				i++;
-			}
-			continue;
-		}
-		if (a.startsWith('-')) continue;
-
-		command = a;
-		break;
-	}
-
-	switch (command) {
+	switch (getPrimaryGitCommand(args)) {
 		case 'for-each-ref':
 		case 'shortlog':
 		case 'reflog':
