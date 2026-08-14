@@ -77,8 +77,13 @@ import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import { broadenIssues } from './reads/broaden.js';
 import type { RepositoryResolutionContext } from './reads/context.js';
-import type { IssueCountResult, IssueCountScope } from './reads/counts.js';
-import { countIssues } from './reads/counts.js';
+import type {
+	IssueCountResult,
+	IssueCountScope,
+	PullRequestCountResult,
+	PullRequestCountScope,
+} from './reads/counts.js';
+import { countIssues, countPullRequests } from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
 import { getSupportedFilters } from './reads/filters.js';
 import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
@@ -1145,6 +1150,24 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>> {
 		return countIssues(this, options);
+	}
+
+	/**
+	 * How many pull requests match each scope, without fetching any — the PR twin of {@link countIssues}. See
+	 * {@link IntegrationManager.countPullRequests} for the cost model, the per-scope isolation rules, and why
+	 * `count: undefined` must not be rendered as zero.
+	 */
+	async countPullRequests(options: {
+		providerId: IntegrationIds;
+		scopes: readonly PullRequestCountScope[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestCountResult>> {
+		return countPullRequests(this, options);
 	}
 
 	/**
