@@ -4,6 +4,8 @@ import {
 	computeGutterGeometry,
 	computeLaneWindow,
 	graphEdgeFadePx,
+	gutterMidY,
+	gutterTotalHeight,
 	laneWindowCovers,
 	laneWindowsEqual,
 	orthEdgeFromNode,
@@ -136,6 +138,78 @@ suite('laneClamp — computeGutterGeometry (base ops)', () => {
 		const win: LaneWindow = { startColumn: 20, endColumn: 39 };
 		const ops = computeGutterGeometry(r, { ...geomParams, window: win }).edges;
 		assert.ok(!ops.some(o => o.el === 'line' && o.x1 < xForColumn(20, 18)));
+	});
+});
+
+suite('laneClamp — gutterMidY / gutterTotalHeight', () => {
+	test('gutterMidY defaults dataUnit to 0 — matches the classic rowHeight / 2 center', () => {
+		assert.strictEqual(gutterMidY(24), 12);
+		assert.strictEqual(gutterMidY(24, 0), 12);
+	});
+
+	test('gutterMidY: dataUnit N centers on the Nth base row within the span', () => {
+		assert.strictEqual(gutterMidY(24, 1), 36);
+		assert.strictEqual(gutterMidY(24, 2), 60);
+	});
+
+	test('gutterTotalHeight defaults rowUnits to 1 — matches the classic single-unit row height', () => {
+		assert.strictEqual(gutterTotalHeight(24), 24);
+		assert.strictEqual(gutterTotalHeight(24, 1), 24);
+	});
+
+	test('gutterTotalHeight: rowUnits N stacks N base rows', () => {
+		assert.strictEqual(gutterTotalHeight(24, 2), 48);
+		assert.strictEqual(gutterTotalHeight(24, 3), 72);
+	});
+});
+
+suite('laneClamp — computeGutterGeometry (quantized rows: rowUnits/dataUnit)', () => {
+	const quantParams: GutterGeomParams = {
+		rowHeight: 24,
+		columnWidth: 12,
+		singleColumn: false,
+		nodeRadius: 5,
+		isWorkdir: false,
+	};
+
+	test("omitted rowUnits/dataUnit are byte-identical to explicit units:1/dataUnit:0 (and to today's plain rowHeight geometry)", () => {
+		const r = row(0, [{ starting: edge(), ending: edge() }]);
+		const withDefaults = computeGutterGeometry(r, quantParams).edges;
+		const withExplicit = computeGutterGeometry(r, { ...quantParams, rowUnits: 1, dataUnit: 0 }).edges;
+		assert.deepStrictEqual(withDefaults, withExplicit);
+		// Today's un-parameterized shape: starting spans midY(12)→rowHeight(24); ending spans 0→midY(12).
+		const starting = withDefaults.find(o => o.y2 === 24);
+		assert.strictEqual(starting?.y1, 12);
+		const ending = withDefaults.find(o => o.y1 === 0);
+		assert.strictEqual(ending?.y2, 12);
+	});
+
+	test('rowUnits 2, dataUnit 0: pass-throughs span 0→48, own-column starting spans midY(12)→48', () => {
+		const passThroughRow = row(2, passThroughs(5));
+		const passOps = computeGutterGeometry(passThroughRow, { ...quantParams, rowUnits: 2, dataUnit: 0 }).edges;
+		assert.ok(
+			passOps.every(o => o.layer === 'raster' && o.y2 === 48),
+			'every pass-through spans 0→totalHeight',
+		);
+
+		const startRow = row(0, [{ starting: edge() }]);
+		const startOps = computeGutterGeometry(startRow, { ...quantParams, rowUnits: 2, dataUnit: 0 }).edges;
+		assert.strictEqual(startOps.length, 1);
+		assert.strictEqual(startOps[0].y1, 12, 'starts at midY (dataUnit 0 → rowHeight/2)');
+		assert.strictEqual(startOps[0].y2, 48, 'runs to totalHeight, not the base rowHeight');
+	});
+
+	test('rowUnits 2, dataUnit 1: midY moves to 36; ending spans 0→36', () => {
+		const endRow = row(0, [{ ending: edge() }]);
+		const endOps = computeGutterGeometry(endRow, { ...quantParams, rowUnits: 2, dataUnit: 1 }).edges;
+		assert.strictEqual(endOps.length, 1);
+		assert.strictEqual(endOps[0].y1, 0);
+		assert.strictEqual(endOps[0].y2, 36, 'ending runs 0→midY, and midY has shifted to the second unit');
+
+		const startRow = row(0, [{ starting: edge() }]);
+		const startOps = computeGutterGeometry(startRow, { ...quantParams, rowUnits: 2, dataUnit: 1 }).edges;
+		assert.strictEqual(startOps[0].y1, 36, 'starting begins at the shifted midY');
+		assert.strictEqual(startOps[0].y2, 48, 'still runs to totalHeight');
 	});
 });
 

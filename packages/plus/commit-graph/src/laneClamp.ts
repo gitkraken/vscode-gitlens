@@ -228,6 +228,24 @@ export interface GutterGeomParams {
 	/** Lane build window — when set, edge art wholly outside it is skipped (see `computeLaneWindow`).
 	 *  The build and the clamp pass MUST use the SAME window so their op lists align by index. */
 	window?: LaneWindow;
+	/** Row span (quantized rows), in base `rowHeight` multiples. Defaults to `1` — today's single-unit
+	 *  row. `> 1` rows draw pass-throughs/starting edges to the row's FULL span instead of one `rowHeight`. */
+	rowUnits?: number;
+	/** 0-based unit within the row's span (`rowUnits`) the commit node centers on. Defaults to `0`. */
+	dataUnit?: number;
+}
+
+/** Vertical center (px) of the data unit a row's commit node centers on: `dataUnit` (0-based) base rows
+ *  down, then to the middle of the base `rowHeight`. Shared by the edge geometry and the gutter's node
+ *  placement so they can never drift apart — `dataUnit` defaults to `0` (today's single-unit center). */
+export function gutterMidY(rowHeight: number, dataUnit: number = 0): number {
+	return dataUnit * rowHeight + rowHeight / 2;
+}
+
+/** Total pixel height of a (possibly multi-unit) quantized row: `rowUnits` base rows stacked. Defaults
+ *  to `1` (today's single-unit row height). */
+export function gutterTotalHeight(rowHeight: number, rowUnits: number = 1): number {
+	return rowHeight * rowUnits;
 }
 
 /** One drawable gutter edge segment. Static bits (`el`/`cls`/`color`/`layer`) are clamp-independent
@@ -296,8 +314,9 @@ function pathOp(layer: GutterEdgeOp['layer'], cls: string, color: string, d: str
  * the scroll offset, so a row's ops build once per (topology, window) and never need rewriting.
  */
 export function computeGutterGeometry(row: ProcessedGraphRow, params: GutterGeomParams): GutterGeometry {
-	const { rowHeight, columnWidth, singleColumn, nodeRadius, isWorkdir, window: win } = params;
-	const midY = rowHeight / 2;
+	const { rowHeight, columnWidth, singleColumn, nodeRadius, isWorkdir, window: win, rowUnits, dataUnit } = params;
+	const totalHeight = gutterTotalHeight(rowHeight, rowUnits);
+	const midY = gutterMidY(rowHeight, dataUnit);
 	const nodeColumn = row.column;
 	// The workdir/WIP node is a hollow (transparent-interior) leaf — start its descending line at the
 	// node's bottom EDGE instead of its center, so the lane line doesn't shine through the empty ring.
@@ -329,10 +348,12 @@ export function computeGutterGeometry(row: ProcessedGraphRow, params: GutterGeom
 
 			if (bucket.passThrough != null && laneInWindow) {
 				// Pass-through lane vertical → RASTER layer: it never connects to the node, so it bakes into
-				// the row's background-image data-URI and slides with the surface.
-				edges.push(lineOp('raster', edgeClass(bucket.passThrough), color, x, 0, x, rowHeight, 1));
+				// the row's background-image data-URI and slides with the surface. Spans the row's FULL
+				// (possibly multi-unit) height, not just one base rowHeight.
+				edges.push(lineOp('raster', edgeClass(bucket.passThrough), color, x, 0, x, totalHeight, 1));
 			}
 			if (bucket.starting != null) {
+				// Own-column vertical / connector runs to the row's bottom BOUNDARY, i.e. the full span.
 				pushConnector(
 					edges,
 					bucket.starting,
@@ -341,9 +362,9 @@ export function computeGutterGeometry(row: ProcessedGraphRow, params: GutterGeom
 					x,
 					nodeX,
 					startEdgeY,
-					rowHeight,
+					totalHeight,
 					midY,
-					rowHeight,
+					totalHeight,
 				);
 			}
 			if (bucket.ending != null) {

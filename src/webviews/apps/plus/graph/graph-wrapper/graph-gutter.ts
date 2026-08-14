@@ -1,7 +1,7 @@
 import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { GutterEdgeOp, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
-import { computeGutterGeometry } from '@gitkraken/commit-graph/laneClamp.js';
+import { computeGutterGeometry, gutterMidY, gutterTotalHeight } from '@gitkraken/commit-graph/laneClamp.js';
 import { nodeRadiusRef, xForColumn } from '@gitkraken/commit-graph/view.js';
 import type { SVGTemplateResult, TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
@@ -57,7 +57,10 @@ const avatarNodeRadiusTall = 11;
 const tallRowThreshold = 40;
 
 // Fixed node radius for the mode (avatar steps up on tall rows). (No longer takes a columnWidth —
-// the resize no longer respaces.)
+// the resize no longer respaces.) `rowHeight` here MUST always be the BASE (single-unit) row height,
+// never a quantized row's total span — the tallRowThreshold check below decides identity-node sizing off
+// visual row density, and a multi-unit row's total height would wrongly read as "tall" and enlarge the
+// avatar even when its base unit is a normal-density row.
 export function nodeRadiusFor(mode: NodeStyle['mode'], rowHeight?: number): number {
 	if (mode !== 'avatar') return dotNodeRadius;
 	return rowHeight != null && rowHeight >= tallRowThreshold ? avatarNodeRadiusTall : avatarNodeRadius;
@@ -91,6 +94,14 @@ export interface GutterMetrics {
 	/** Lane build window (deep scrolled graphs): edge art wholly outside it is skipped — the node, the
 	 *  hit-target, and boundary-crossing connectors still build. See `computeLaneWindow`. */
 	laneWindow?: LaneWindow;
+}
+
+/** A quantized row's height span, in base `rowHeight` multiples, and which unit within that span the
+ *  commit node centers on. Absent (or `{ units: 1, dataUnit: 0 }`) is today's single-unit row — every
+ *  gutter geometry/render/cache site defaults to that when `span` is omitted. */
+export interface GutterRowSpan {
+	units: number;
+	dataUnit: number;
 }
 
 // Node center (px) at its LOGICAL (absolute) lane position — the CSS pin (`--gutter-node-x`) converts it
@@ -149,8 +160,8 @@ function renderGutterEdges(ops: readonly GutterEdgeOp[], ownLaneX?: number): SVG
 // `buildRasterImageData` (so it's unit-testable); here we only place the `<image>` at the lanes' logical x.
 // The whole layer is translated `-scrollX` on h-scroll via the shared `--graph-gutter-scroll` var (see
 // `.gl-graph__gutter-raster` in graph.scss). `nothing` when the row has no pass-through lanes.
-function renderGutterRaster(ops: readonly GutterEdgeOp[], rowHeight: number): SVGTemplateResult | typeof nothing {
-	const data = buildRasterImageData(ops, rowHeight);
+function renderGutterRaster(ops: readonly GutterEdgeOp[], totalHeight: number): SVGTemplateResult | typeof nothing {
+	const data = buildRasterImageData(ops, totalHeight);
 	if (data == null) return nothing;
 
 	return svg`<image
@@ -158,7 +169,7 @@ function renderGutterRaster(ops: readonly GutterEdgeOp[], rowHeight: number): SV
 		x=${data.x}
 		y="0"
 		width=${data.width}
-		height=${rowHeight}
+		height=${totalHeight}
 		href=${data.uri}
 		preserveAspectRatio="none"
 	/>`;
@@ -171,12 +182,17 @@ function renderGutterRaster(ops: readonly GutterEdgeOp[], rowHeight: number): SV
 function renderGutterRasterLayer(
 	ops: readonly GutterEdgeOp[],
 	contentWidth: number,
-	rowHeight: number,
+	totalHeight: number,
 ): TemplateResult | typeof nothing {
-	const image = renderGutterRaster(ops, rowHeight);
+	const image = renderGutterRaster(ops, totalHeight);
 	if (image === nothing) return nothing;
 
-	return html`<svg class="gl-graph__gutter-raster-layer" aria-hidden="true" width=${contentWidth} height=${rowHeight}>
+	return html`<svg
+		class="gl-graph__gutter-raster-layer"
+		aria-hidden="true"
+		width=${contentWidth}
+		height=${totalHeight}
+	>
 		${image}
 	</svg>`;
 }
@@ -220,12 +236,12 @@ function initialsDotUri(initials: string, color: string): string {
 function renderIdentityNode(
 	row: ProcessedGraphRow,
 	metrics: GutterMetrics,
+	nodeY: number,
 	color: string,
 	nodeStyle: NodeStyle,
 ): SVGTemplateResult {
 	const { rowHeight } = metrics;
 	const nodeX = nodeXFor(row, metrics);
-	const nodeY = rowHeight / 2;
 	const r = nodeAvatarRadius;
 	// Drawn at the fixed base radius; the group scales to the avatar target radius for the current
 	// row height, so the image + clipPath + ring scale together.
@@ -301,7 +317,12 @@ function renderStashSquareNode(nodeX: number, nodeY: number, color: string): SVG
 	</g>`;
 }
 
-function renderNode(row: ProcessedGraphRow, metrics: GutterMetrics, nodeStyle?: NodeStyle): SVGTemplateResult {
+function renderNode(
+	row: ProcessedGraphRow,
+	metrics: GutterMetrics,
+	nodeY: number,
+	nodeStyle?: NodeStyle,
+): SVGTemplateResult {
 	const { rowHeight } = metrics;
 	const isMerge = row.kind === 'merge';
 	const isStash = row.kind === 'stash';
@@ -309,12 +330,12 @@ function renderNode(row: ProcessedGraphRow, metrics: GutterMetrics, nodeStyle?: 
 
 	const nodeColor = colorForColumn(row.column);
 	const nodeX = nodeXFor(row, metrics);
-	const nodeY = rowHeight / 2;
 
 	const mode = nodeStyle?.mode ?? 'compact';
 	// Fixed node radius per mode (no longer tracks lane spacing; avatars step up on tall rows — the
 	// fall-through dot shapes track it so WIP/merge/stash stay sized with their neighbors). The
-	// bg-mask (r + laneGap) carves the 1px gap to the lane line above/below.
+	// bg-mask (r + laneGap) carves the 1px gap to the lane line above/below. `rowHeight` here is always
+	// the BASE row height (see `nodeRadiusFor`'s own doc) — never the quantized row's total span.
 	const r = nodeRadiusFor(mode, rowHeight);
 
 	// Avatar/letter mode → identity node for authored rows; stash → square w/ glyph (no author); workdir
@@ -325,7 +346,7 @@ function renderNode(row: ProcessedGraphRow, metrics: GutterMetrics, nodeStyle?: 
 			return renderStashIconNode(nodeX, nodeY, nodeColor, rowHeight);
 		}
 		if (!isWorkdir) {
-			return renderIdentityNode(row, metrics, nodeColor, nodeStyle);
+			return renderIdentityNode(row, metrics, nodeY, nodeColor, nodeStyle);
 		}
 	}
 
@@ -425,10 +446,16 @@ export function renderGutterSvg(
 	metrics: GutterMetrics,
 	laneTipSha?: string,
 	nodeStyle?: NodeStyle,
+	span?: GutterRowSpan,
 ): TemplateResult {
 	const { gutterWidth, rowHeight } = metrics;
+	const rowUnits = span?.units ?? 1;
+	const dataUnit = span?.dataUnit ?? 0;
+	const totalHeight = gutterTotalHeight(rowHeight, rowUnits);
 	const nodeX = nodeXFor(row, metrics);
-	const nodeY = rowHeight / 2;
+	const nodeY = gutterMidY(rowHeight, dataUnit);
+	// `rowHeight` (BASE, not `totalHeight`) here — see `nodeRadiusFor`'s doc: a quantized row's total span
+	// must never be mistaken for row density when sizing the avatar node.
 	const r = nodeRadiusFor(nodeStyle?.mode ?? 'compact', rowHeight);
 	const win = metrics.laneWindow;
 
@@ -441,6 +468,8 @@ export function renderGutterSvg(
 		nodeRadius: r,
 		isWorkdir: row.kind === 'workdir',
 		window: win,
+		rowUnits: rowUnits,
+		dataUnit: dataUnit,
 	}).edges;
 
 	// Invisible hit-target so the node is easy to click for lane-collapse. Kept SNUG to the dot — the
@@ -456,7 +485,7 @@ export function renderGutterSvg(
 				</g>`
 			: nothing;
 
-	const node = renderNode(row, metrics, nodeStyle);
+	const node = renderNode(row, metrics, nodeY, nodeStyle);
 
 	// The row's OWN-column vertical segments (the only overlay LINES at the node's x — cross-lane
 	// connectors are paths) ride in the PINNED node svg, not the sliding surface: a pinned dot keeps its
@@ -488,12 +517,12 @@ export function renderGutterSvg(
 	// gutter cache offset-dependent (see `rowFadeable` in graph-row.ts).
 	return html`<div class="gl-graph__gutter-fade">
 			<div class="gl-graph__gutter-surface">
-				${renderGutterRasterLayer(ops, contentWidth, rowHeight)}<svg
+				${renderGutterRasterLayer(ops, contentWidth, totalHeight)}<svg
 					class="graph-gutter"
 					aria-hidden="true"
 					role="presentation"
 					width=${contentWidth}
-					height=${rowHeight}
+					height=${totalHeight}
 				>
 					${renderGutterEdges(ops, nodeX)}
 				</svg>
@@ -504,8 +533,8 @@ export function renderGutterSvg(
 			aria-hidden="true"
 			role="presentation"
 			width=${gutterNodeSvgWidth}
-			height=${rowHeight}
-			viewBox="${nodeX - gutterNodeSvgWidth / 2} 0 ${gutterNodeSvgWidth} ${rowHeight}"
+			height=${totalHeight}
+			viewBox="${nodeX - gutterNodeSvgWidth / 2} 0 ${gutterNodeSvgWidth} ${totalHeight}"
 		>
 			<g class="gl-graph__node-lane">${ownLaneLines}</g>
 			${node}${hitTarget}

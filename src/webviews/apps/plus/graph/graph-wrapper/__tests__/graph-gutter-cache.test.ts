@@ -193,6 +193,25 @@ suite('graph-gutter-cache — gutterRowKey', () => {
 		assert.notStrictEqual(__test.gutterRowKey(m, metrics(), undefined, dot), k);
 	});
 
+	test('span (row units/dataUnit): units 1 (default or explicit) is byte-identical to the pre-span key format', () => {
+		const [a] = buildRows([row('A', ['B']), row('B', [])]);
+		// Hardcoded snapshot of the key format BEFORE `span` existed — a regression here (e.g. the segment
+		// leaking in for a single-unit row) must be loud, not silently absorbed by a self-referential diff.
+		const preSpanKey = '_0_0_commit_0_0_+_0_+|0|commit|100';
+		assert.strictEqual(__test.gutterRowKey(a, metrics(), undefined, dot), preSpanKey);
+		assert.strictEqual(__test.gutterRowKey(a, metrics(), undefined, dot, { units: 1, dataUnit: 0 }), preSpanKey);
+	});
+
+	test('span: units > 1 appends a distinct `|u<units>:<dataUnit>` segment', () => {
+		const [a] = buildRows([row('A', ['B']), row('B', [])]);
+		const k1 = __test.gutterRowKey(a, metrics(), undefined, dot);
+		const k2u0 = __test.gutterRowKey(a, metrics(), undefined, dot, { units: 2, dataUnit: 0 });
+		const k2u1 = __test.gutterRowKey(a, metrics(), undefined, dot, { units: 2, dataUnit: 1 });
+		assert.notStrictEqual(k2u0, k1, 'a spanned row must not collide with the unspanned key');
+		assert.notStrictEqual(k2u1, k1);
+		assert.notStrictEqual(k2u1, k2u0, 'different dataUnit within the same span must key separately');
+	});
+
 	test('workdir wip state (clean vs dirty center dot) changes the key', () => {
 		const [w] = buildRows([row('W', ['A'], 'workdir'), row('A', [])]);
 		const clean: NodeStyle = { mode: 'compact', avatars: false, initials: '', wipState: 'clean' };

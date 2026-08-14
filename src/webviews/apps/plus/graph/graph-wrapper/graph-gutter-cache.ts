@@ -5,7 +5,7 @@ import { laneWindowCovers, windowClipsRow } from '@gitkraken/commit-graph/laneCl
 import type { GraphPlacement } from '@gitkraken/commit-graph/view.js';
 import type { TemplateResult } from 'lit';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import type { GutterMetrics, NodeStyle } from './graph-gutter.js';
+import type { GutterMetrics, GutterRowSpan, NodeStyle } from './graph-gutter.js';
 
 /**
  * Per-`gl-lit-graph`-instance memo over the row gutter SVG (`renderGutterSvg`) — the runtime consumer
@@ -87,12 +87,19 @@ function gutterRowKey(
 	metrics: GutterMetrics,
 	laneTipSha: string | undefined,
 	nodeStyle: NodeStyle | undefined,
+	span?: GutterRowSpan,
 ): string {
 	// Length-prefix the free-form segments (`<len>:<value>`) so a value containing the `|` delimiter can't
 	// straddle into the next segment and collide with a different row's key.
 	let key = `${rowEdgeHash(row)}|${row.column}|${row.kind}`;
 	if (metrics.laneWindow == null) {
 		key = `${key}|${metrics.gutterWidth}`;
+	}
+	// A quantized (multi-unit) row's SVG bakes a taller totalHeight + the dataUnit-shifted node/edge
+	// geometry — key it only when it actually differs from today's single-unit row (units === 1), so an
+	// all-unit-1 graph's keys stay byte-identical to before this param existed (zero cache churn).
+	if (span != null && span.units > 1) {
+		key = `${key}|u${span.units}:${span.dataUnit}`;
 	}
 	if (laneTipSha != null) {
 		key = `${key}|t${laneTipSha.length}:${laneTipSha}`;
@@ -119,6 +126,7 @@ export type GutterBuilder = (
 	metrics: GutterMetrics,
 	laneTipSha?: string,
 	nodeStyle?: NodeStyle,
+	span?: GutterRowSpan,
 ) => TemplateResult;
 
 // A cached build remembers the window it was built UNDER so lookups can match by coverage instead of
@@ -166,8 +174,14 @@ export class GutterCache {
 		this.map.clear();
 	}
 
-	render(row: ProcessedGraphRow, metrics: GutterMetrics, laneTipSha?: string, nodeStyle?: NodeStyle): TemplateResult {
-		const key = gutterRowKey(row, metrics, laneTipSha, nodeStyle);
+	render(
+		row: ProcessedGraphRow,
+		metrics: GutterMetrics,
+		laneTipSha?: string,
+		nodeStyle?: NodeStyle,
+		span?: GutterRowSpan,
+	): TemplateResult {
+		const key = gutterRowKey(row, metrics, laneTipSha, nodeStyle, span);
 		const needed = metrics.laneWindow;
 		const entry = this.map.get(key);
 		if (entry !== undefined && gutterEntryValid(entry.win, needed, row)) {
@@ -198,6 +212,7 @@ export class GutterCache {
 			buildWin === needed ? metrics : { ...metrics, laneWindow: buildWin },
 			laneTipSha,
 			nodeStyle,
+			span,
 		);
 		this.map.set(key, { win: buildWin, tpl: built });
 		return built;

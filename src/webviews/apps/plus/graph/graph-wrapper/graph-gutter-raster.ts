@@ -75,7 +75,7 @@ export interface RasterImageData {
  * `<image>` is placed back at the logical `x`). Deterministic: identical ops → byte-identical URI (the gutter
  * cache relies on this — a same-key hit hands back the same template, so the URI is rebuilt only on a miss).
  */
-export function buildRasterImageData(ops: readonly GutterEdgeOp[], rowHeight: number): RasterImageData | undefined {
+export function buildRasterImageData(ops: readonly GutterEdgeOp[], totalHeight: number): RasterImageData | undefined {
 	let minX = Infinity;
 	let maxX = -Infinity;
 	for (const op of ops) {
@@ -102,11 +102,12 @@ export function buildRasterImageData(ops: readonly GutterEdgeOp[], rowHeight: nu
 		if (op.cls.includes('is-synthetic')) {
 			hasSynthetic = true;
 		}
-		// y1 omitted (SVG default 0); y2 = rowHeight. Round caps overshoot vertically, clipped at the row
-		// bounds just as the DOM `<line>`s are by the outer `<svg>`.
-		lines += `<line x1="${lx}" x2="${lx}" y2="${rowHeight}"${extra} stroke="${op.color}"/>`;
+		// y1 omitted (SVG default 0); y2 = totalHeight (the row's FULL, possibly multi-unit, span). Round
+		// caps overshoot vertically, clipped at the row bounds just as the DOM `<line>`s are by the outer
+		// `<svg>`.
+		lines += `<line x1="${lx}" x2="${lx}" y2="${totalHeight}"${extra} stroke="${op.color}"/>`;
 	}
 	const defs = hasSynthetic ? rasterWavyDefs : '';
-	const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${rowHeight}" viewBox="0 0 ${width} ${rowHeight}">${defs}<g fill="none" stroke-width="${rasterStrokeWidth}" stroke-opacity="${rasterStrokeOpacity}" stroke-linecap="round" stroke-linejoin="round">${lines}</g></svg>`;
+	const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}">${defs}<g fill="none" stroke-width="${rasterStrokeWidth}" stroke-opacity="${rasterStrokeOpacity}" stroke-linecap="round" stroke-linejoin="round">${lines}</g></svg>`;
 	return { uri: svgToDataUri(svgStr), x: originX, width: width };
 }
