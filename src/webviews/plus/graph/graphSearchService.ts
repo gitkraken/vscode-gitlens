@@ -3,11 +3,17 @@ import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
+import type {
+	GitCommitSearchContext,
+	ParsedSearchQuery,
+	SearchOperatorsLongForm,
+	SearchQuery,
+} from '@gitlens/git/models/search.js';
 import {
 	getSearchQueryComparisonKey,
 	parseSearchQuery,
 	parseSearchQueryGitCommand,
+	rebuildSearchQueryFromParsed,
 } from '@gitlens/git/utils/search.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -31,6 +37,7 @@ import { createWipRowId, DidSearchNotification } from './protocol.js';
 import type {
 	DidSearchParams,
 	GraphSearchMode,
+	GraphSearchRelaxation,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphSelectedRows,
@@ -100,6 +107,27 @@ export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError 
 	return { error: 'Something went wrong searching' };
 }
 
+/** One drop-one-group or AI-alternate candidate query a zero-result NL search could relax to — not yet
+ *  counted. See {@link buildSearchRelaxationCandidates}. */
+export interface SearchRelaxationCandidate {
+	label: string;
+	query: string;
+}
+
+/** The droppable operator groups a relaxation candidate removes, in the order candidates are offered.
+ *  `after:`/`before:` are ONE group ("the date filter") — dropping one without the other rarely helps,
+ *  since a lone `after:` or `before:` is still a real bound. `type:` and `commit:` are never droppable:
+ *  `commit:` is an exact lookup a broader search can't approximate, and `type:` (stash/tip/wip) changes
+ *  the KIND of thing searched, not a filter narrowing it. */
+const relaxationGroups: readonly { operators: readonly SearchOperatorsLongForm[]; label: string }[] = [
+	{ operators: ['after:', 'before:'], label: 'without the date filter' },
+	{ operators: ['author:'], label: 'without the author filter' },
+	{ operators: ['file:'], label: 'without the file filter' },
+	{ operators: ['ref:'], label: 'across all branches' },
+	{ operators: ['change:'], label: 'without the change filter' },
+	{ operators: ['message:'], label: 'without the message terms' },
+];
+
 /**
  * True when `a` and `b` are close enough to be the same word with a typo: case-insensitive equal,
  * containment either direction (only once the shorter string is at least 4 characters — anything
@@ -154,6 +182,108 @@ function damerauLevenshteinDistance(a: string, b: string): number {
 	return d[lenA][lenB];
 }
 
+/**
+ * Builds the CANDIDATE (uncounted) relaxations for a settled zero-result query: up to 2 author RESPELL
+ * variants per misspelled value (see below), one "drop this group" variant per droppable operator
+ * group present (only when ≥2 distinct groups are present — dropping the only filter just re-runs an
+ * unfiltered search, which isn't a relaxation offer), plus up to 2 of the AI's own `alternates` (labeled
+ * with their own query text). Respell candidates are listed FIRST — a corrected name is a stronger, more
+ * specific offer than "drop the filter entirely". Pure and side-effect-free so it's unit testable without
+ * the service; the caller is responsible for counting each candidate and keeping only the ones that find
+ * something.
+ *
+ * Respell: for each unquoted, non-`@me` `author:` value that ISN'T already an exact
+ * (case-insensitive) match to a known contributor's full name, a name word, or their email local-part,
+ * find up to 2 contributors {@link isCloseMatch} recognizes it as a probable typo of (via full name, a
+ * name word, or the email local-part) and offer each as `author:"Full Name"` (quoted, so a later respell
+ * pass never mistakes the correction itself for another misspelling). A QUOTED author value is presumed a
+ * deliberate exact name, not a typo in need of correcting, and is never a respell candidate.
+ */
+export function buildSearchRelaxationCandidates(
+	parsed: ParsedSearchQuery,
+	alternates?: string[],
+	contributors?: Array<{ name: string; email: string | undefined }>,
+): SearchRelaxationCandidate[] {
+	const candidates: SearchRelaxationCandidate[] = [];
+	const seen = new Set<string>();
+
+	if (contributors?.length) {
+		for (const op of ['author:'] as const) {
+			const values = parsed.operations.get(op);
+			if (!values?.size) continue;
+
+			for (const value of values) {
+				if (value === '@me') continue;
+				if (value.startsWith('"') && value.endsWith('"')) continue;
+
+				const valueLower = value.toLowerCase();
+				const alreadyRecognized = contributors.some(c => {
+					const nameLower = c.name.toLowerCase();
+					const emailLocal = c.email?.split('@')[0].toLowerCase();
+					return (
+						valueLower === nameLower ||
+						nameLower.split(/\s+/).includes(valueLower) ||
+						valueLower === emailLocal
+					);
+				});
+				if (alreadyRecognized) continue;
+
+				const matches = contributors
+					.filter(c => {
+						const emailLocal = c.email?.split('@')[0].toLowerCase();
+						return (
+							isCloseMatch(value, c.name) ||
+							c.name.split(/\s+/).some(word => isCloseMatch(value, word)) ||
+							(emailLocal != null && isCloseMatch(value, emailLocal))
+						);
+					})
+					.slice(0, 2);
+
+				for (const contributor of matches) {
+					const operations = new Map(parsed.operations);
+					const newValues = new Set(values);
+					newValues.delete(value);
+					newValues.add(`"${contributor.name}"`);
+					operations.set(op, newValues);
+
+					const query = rebuildSearchQueryFromParsed({ operations: operations });
+					if (!query || seen.has(query)) continue;
+
+					seen.add(query);
+					candidates.push({ label: `as '${contributor.name}'`, query: query });
+				}
+			}
+		}
+	}
+
+	const presentGroups = relaxationGroups.filter(group => group.operators.some(op => parsed.operations.get(op)?.size));
+	if (presentGroups.length >= 2) {
+		for (const group of presentGroups) {
+			const operations = new Map(parsed.operations);
+			for (const op of group.operators) {
+				operations.delete(op);
+			}
+			if (!operations.size) continue;
+
+			const query = rebuildSearchQueryFromParsed({ operations: operations });
+			if (!query || seen.has(query)) continue;
+
+			seen.add(query);
+			candidates.push({ label: group.label, query: query });
+		}
+	}
+
+	for (const alternate of alternates?.slice(0, 2) ?? []) {
+		const query = alternate.trim();
+		if (!query || seen.has(query)) continue;
+
+		seen.add(query);
+		candidates.push({ label: query, query: query });
+	}
+
+	return candidates;
+}
+
 /** AI repair context: the query that failed to compile and git's complaint about it. Shared by the
  *  NL-search auto-repair path and the manual repair request, so both ask for the same thing — worded
  *  for either origin, since the manual path's query is the user's own and often has no git detail. */
@@ -181,6 +311,11 @@ export class GraphSearchService {
 	 * until the pattern completes. Cleared the moment a genuinely new search starts.
 	 */
 	private _fallback: { detail?: string } | undefined;
+
+	/** Counted relaxation offers for the currently-active zero-result NL search, or `undefined` when none
+	 *  are active. Mirrors `_fallback`'s lifecycle: cleared at the start of every NEW search, set once
+	 *  {@link offerSearchRelaxations} finishes probing. Carried on `buildSearchRider` for reconnect fidelity. */
+	private _relaxations: GraphSearchRelaxation[] | undefined;
 
 	/**
 	 * Cancellation for whichever NL/AI round-trip is currently in flight (initial conversion, the
@@ -434,6 +569,32 @@ export class GraphSearchService {
 	}
 
 	/**
+	 * Fetches contributors for {@link buildSearchRelaxationCandidates}'s author/committer respell candidates.
+	 * Bounded to 200ms — same budget as {@link buildRepoSearchContext} — and runs BEFORE the relaxation
+	 * probing budget starts, so a cold contributors cache can never stall the zero-result response past a
+	 * bounded ceiling; `buildSearchRelaxationCandidates` itself must stay synchronous, so this has to resolve
+	 * before it's called.
+	 */
+	private async buildRelaxationContributors(): Promise<
+		Array<{ name: string; email: string | undefined }> | undefined
+	> {
+		const repository = this.repository;
+		if (repository == null) return undefined;
+
+		try {
+			return await cancellable<Array<{ name: string; email: string | undefined }> | undefined>(
+				repository.git.contributors.getContributorsLite(undefined, { since: '1 year ago' }),
+				200,
+				undefined,
+				{ onDidCancel: resolve => resolve(undefined) },
+			);
+		} catch (ex) {
+			Logger.error(ex, 'GraphSearchService', 'offerSearchRelaxations');
+			return undefined;
+		}
+	}
+
+	/**
 	 * Runs one NL/AI round-trip (initial conversion, auto-repair, or manual repair) against a fresh
 	 * cancellation source held on {@link _nlCancellation} — replacing (cancel+dispose) whichever
 	 * round-trip was still in flight, so cancel/reset always reaches the live AI call. Defensively
@@ -517,6 +678,7 @@ export class GraphSearchService {
 			const searchId = this._searchIdCounter.next();
 			this._search = undefined;
 			this._fallback = undefined;
+			this._relaxations = undefined;
 
 			// Carry the same error results the response below carries — the response can get dropped by
 			// the app's searchId guard (see the supersede checks above), and the notification is what
@@ -545,10 +707,24 @@ export class GraphSearchService {
 		let results: IpcResponse<typeof SearchRequest> | undefined;
 		let exception: (Error & { original?: Error }) | undefined;
 		const repair = { attempted: false, succeeded: false };
+		let relaxationsOffered: number | undefined;
 
 		try {
 			if (naturalLanguage?.processedQuery != null && !params.more) {
 				results = await this.searchNaturalLanguageWithRepair(params, naturalLanguage, repair);
+
+				if (
+					results.partial === false &&
+					results.results != null &&
+					!('error' in results.results) &&
+					results.results.count === 0
+				) {
+					const relaxations = await this.offerSearchRelaxations(results);
+					relaxationsOffered = relaxations?.length ?? 0;
+					if (relaxations?.length) {
+						results = { ...results, relaxations: relaxations };
+					}
+				}
 			} else {
 				results = await this.searchGraphOrContinue(params, true);
 			}
@@ -576,6 +752,11 @@ export class GraphSearchService {
 				'fallback.literal': this._fallback != null,
 				'nl.repair.attempted': repair.attempted ? true : undefined,
 				'nl.repair.succeeded': repair.succeeded ? true : undefined,
+				'nl.relaxations.offered': relaxationsOffered,
+				'nl.mode':
+					typeof results?.search?.naturalLanguage === 'object'
+						? results.search.naturalLanguage.mode
+						: undefined,
 			});
 		}
 	}
@@ -663,6 +844,110 @@ export class GraphSearchService {
 				};
 			}
 		}
+	}
+
+	/**
+	 * Counts every candidate concurrently (each honoring `cancellation`) and returns only the ones that
+	 * found something (count > 0). Never throws — a provider without `countSearchResults` (e.g. GitHub)
+	 * degrades to "no relaxations" via the optional-chained call returning nothing to await.
+	 */
+	private async probeSearchRelaxations(
+		baseSearch: SearchQuery,
+		candidates: SearchRelaxationCandidate[],
+		cancellation: AbortSignal | undefined,
+	): Promise<GraphSearchRelaxation[]> {
+		const graph = this.repository?.git.graph;
+		if (graph?.countSearchResults == null) return [];
+
+		const maxCount = 1000;
+		const settled = await Promise.allSettled(
+			candidates.map(async candidate => {
+				const count = await graph.countSearchResults!(
+					{ ...baseSearch, naturalLanguage: undefined, query: candidate.query },
+					{ maxCount: maxCount },
+					cancellation,
+				);
+				return {
+					label: candidate.label,
+					query: candidate.query,
+					count: count,
+					capped: count >= maxCount || undefined,
+				};
+			}),
+		);
+
+		const survivors: GraphSearchRelaxation[] = [];
+		for (const result of settled) {
+			if (result.status === 'fulfilled' && result.value.count > 0) {
+				survivors.push(result.value);
+			}
+		}
+		return survivors;
+	}
+
+	/**
+	 * Builds and counts relaxation candidates for a just-settled, final, zero-result NL search response,
+	 * budgeted to ~2s (matching {@link convertNaturalLanguage}'s `cancellable` pattern) so a slow repo never
+	 * stalls the response for long. Ships the result on a follow-up `DidSearchNotification` (the ORIGINAL
+	 * final notification already went out — via `processSearchStream` or the cached-results branch — before
+	 * this had a chance to compute anything, so this is a deliberate second notification for the SAME
+	 * `searchId`, exactly like a rider) and returns the survivors so the caller can also attach them to the
+	 * IPC response it's about to return. Supersede-guarded: if a newer search started while probing, this
+	 * returns `undefined` and touches nothing.
+	 */
+	private async offerSearchRelaxations(
+		response: IpcResponse<typeof SearchRequest>,
+	): Promise<GraphSearchRelaxation[] | undefined> {
+		if (this.repository == null || response.search == null) return undefined;
+
+		const parsed = parseSearchQuery(response.search);
+		const naturalLanguage =
+			typeof response.search.naturalLanguage === 'object' ? response.search.naturalLanguage : undefined;
+		const contributors = await this.buildRelaxationContributors();
+		const candidates = buildSearchRelaxationCandidates(parsed, naturalLanguage?.alternates, contributors);
+		if (!candidates.length) {
+			this._relaxations = undefined;
+			return undefined;
+		}
+
+		const searchId = response.searchId;
+		// The internally-tracked query (not the "public" one `publicSearchQuery` may have masked
+		// `matchRegex` on for a literal-fallback search) — probing must count what actually ran.
+		const baseSearch = this._search?.query ?? response.search;
+
+		const cancellation = this.context.createSearchCancellation();
+		let survivors: GraphSearchRelaxation[];
+		try {
+			survivors = await cancellable(
+				this.probeSearchRelaxations(baseSearch, candidates, toAbortSignal(cancellation.token)),
+				2000,
+				undefined,
+				{
+					onDidCancel: resolve => {
+						cancellation.cancel();
+						resolve([]);
+					},
+				},
+			);
+		} finally {
+			cancellation.dispose();
+		}
+
+		if (searchId !== this._searchIdCounter.current) return undefined; // superseded while probing
+
+		this._relaxations = survivors.length ? survivors : undefined;
+		if (!survivors.length) return undefined;
+
+		void this.host.notify(DidSearchNotification, {
+			search: response.search,
+			results: response.results,
+			partial: false,
+			fallback: this.buildFallbackParam(),
+			relaxations: survivors,
+			searchId: searchId,
+		});
+
+		return survivors;
 	}
 
 	async searchGraphOrContinue(
@@ -756,6 +1041,7 @@ export class GraphSearchService {
 			searchId = this._searchIdCounter.next();
 			this._search = undefined;
 			this._fallback = undefined;
+			this._relaxations = undefined;
 
 			// Clear previous search results immediately
 			void this.host.notify(DidSearchNotification, {
@@ -968,6 +1254,7 @@ export class GraphSearchService {
 		const searchId = this._searchIdCounter.next();
 		this._search = undefined;
 		this._fallback = undefined;
+		this._relaxations = undefined;
 
 		void this.host.notify(DidSearchNotification, {
 			search: e.search,
@@ -1350,6 +1637,7 @@ export class GraphSearchService {
 			rider: true,
 			partial: false,
 			fallback: this.buildFallbackParam(),
+			relaxations: this._relaxations,
 			searchId: this._searchIdCounter.current,
 		};
 	}
@@ -1368,6 +1656,7 @@ export class GraphSearchService {
 
 		this._search = undefined;
 		this._fallback = undefined;
+		this._relaxations = undefined;
 		this._lastRiderKey = undefined;
 		this.context.cancelSearchOperation();
 		// Bump so any in-flight search's late notifications drop on the app's searchId guard, and push
@@ -1395,6 +1684,17 @@ function updateSearchMode<T extends GitGraphSearch | undefined>(
 	mode?: GraphSearchMode,
 ): T {
 	if (search?.query != null) {
+		// A natural-language search that resolved to `mode: 'filter'` forces filter mode for THIS
+		// search — it's deliberate AI-read intent ("only show..."), not the sticky preference an
+		// explicit toggle click sets, so it wins here but is never persisted to `graph:searchMode`.
+		if (
+			mode == null &&
+			typeof search.query.naturalLanguage === 'object' &&
+			search.query.naturalLanguage.mode === 'filter'
+		) {
+			mode = 'filter';
+		}
+
 		mode ??= container.storage.get('graph:searchMode', 'normal');
 		search.query.filter = mode === 'filter';
 	}

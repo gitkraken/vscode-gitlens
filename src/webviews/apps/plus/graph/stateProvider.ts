@@ -523,6 +523,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor searchFallback: AppState['searchFallback'];
 
+	@signalState()
+	accessor searchRelaxations: AppState['searchRelaxations'];
+
 	@signalState<AppState['searchSession']>(0)
 	accessor searchSession: AppState['searchSession'] = 0;
 
@@ -2153,6 +2156,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// cancel (`params.fallback` is unset there), and on riders (they carry the current search's own
 		// fallback state, not a progress signal, so this is safe to always apply).
 		this.searchFallback = params.fallback;
+		// Mirrors the host 1:1, same as `searchFallback` above — see that field's context.ts doc.
+		this.searchRelaxations = params.relaxations;
 
 		const cancelled = params.results == null && params.search == null;
 

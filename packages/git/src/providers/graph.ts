@@ -80,4 +80,16 @@ export interface GitGraphSubProvider {
 		options?: { limit?: number },
 		cancellation?: AbortSignal,
 	): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
+	/**
+	 * Counts commits matching `search` without materializing results — used to probe whether a relaxed
+	 * (broadened) variant of a zero-result search would actually find anything, before offering it as a
+	 * calm inline chip. Optional: providers that can't cheaply count (e.g. GitHub) simply omit it, and
+	 * callers treat a missing implementation the same as "no relaxations available" (never an error).
+	 */
+	countSearchResults?(
+		repoPath: string,
+		search: SearchQuery,
+		options?: { maxCount?: number },
+		cancellation?: AbortSignal,
+	): Promise<number>;
 }

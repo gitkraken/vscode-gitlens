@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds feedback when a _Commit Graph_ jump can't land ([#5699](https://github.com/gitkraken/vscode-gitlens/issues/5699)) &mdash; jumping to a commit hidden by your filters, branch visibility, scope, or first-parent-only following now shows a message naming the blocker with a one-click remedy (e.g. _Show Branch_, _Clear Scope_) that completes the jump; a commit that isn't in the repository is reported immediately instead of silently timing out, and longer history searches show a cancellable _Looking for…_ indicator
 - Adds a _Start Auto-Rebase_ split button to the _Interactive Rebase Editor_ (with _Recompose_ tucked into its menu) &mdash; hands the pending rebase off to automatic (AI) conflict resolution before it starts, executing the todo exactly as you arranged it: the editor closes, the run waits for the rebase's first stop and takes over from there, and a rebase that finishes without pausing is reported as completed. Deliberate stops keep working the way you asked &mdash; `edit`/`break` hand back to you with a _Resume with AI_ path, and a commit message a `reword` or `squash` needs opens for you to write, both before automation engages and mid-run &mdash; where it was previously kept or auto-accepted without asking (this also applies to _Continue Automatic Rebase_) ([#5714](https://github.com/gitkraken/vscode-gitlens/issues/5714))
 - Adds persistent automatic-rebase actions where its escalations land &mdash; when a run stops for you, the _Commit Graph_'s **Resolve** panel now keeps _Resume with AI_ and _Abort Rebase_ available (previously only offered by a transient toast), and the _Interactive Rebase Editor_'s paused view gains a _Continue with AI_ button that hands the rest of the rebase to automatic conflict resolution
+- Adds intent-aware natural language search to the _Commit Graph_ &mdash; "only show &hellip;" phrasings filter the graph to matches, "take me to &hellip;" phrasings jump to the commit, and searches that find nothing offer counted broader alternatives (e.g. _1000+ without the date filter_) instead of a dead end
 
 ### Changed
 
@@ -43,6 +44,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves natural language search error handling in the _Commit Graph_ &mdash; failed AI queries are repaired automatically, AI-unavailable searches offer _Search as text instead_, and invalid patterns offer _Fix with AI_
 - Improves natural language search to understand the repository &mdash; branch, tag, worktree, and contributor names resolve to the real thing instead of being guessed
 - Improves natural language search to explain how a query was interpreted via a tooltip on the generated query
+- Improves natural language search to recognize misspelled author names and offer counted corrections (e.g. _7 as 'Keith Daulton'_)
 
 ### Fixed
 

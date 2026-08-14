@@ -1667,6 +1667,46 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return yield* this.searchGraphCore(repoPath, cursor.search, cursor, existingResults, options, cancellation);
 	}
 
+	/**
+	 * Cheap commit count for `search`, no result materialization — used to probe a candidate relaxed
+	 * query before offering it. Never throws: any failure (including a sha-only `commit:` query, which
+	 * can't be meaningfully "relaxed") returns 0, since this is a probe, not a search.
+	 */
+	async countSearchResults(
+		repoPath: string,
+		search: SearchQuery,
+		options?: { maxCount?: number },
+		cancellation?: AbortSignal,
+	): Promise<number> {
+		try {
+			search = { matchAll: false, matchCase: false, matchRegex: true, matchWholeWord: false, ...search };
+
+			const currentUser = search.query.includes('@me')
+				? await this.provider.config.getCurrentUser(repoPath)
+				: undefined;
+
+			const { args: searchArgs, files, shas } = parseSearchQueryGitCommand(search, currentUser);
+			// An exact sha lookup can't be relaxed by dropping filter groups — nothing to count.
+			if (shas?.size) return 0;
+
+			const maxCount = options?.maxCount ?? 1000;
+			const result = await this.git.run(
+				{ cwd: repoPath, configs: gitConfigsLog, cancellation: cancellation, errors: 'ignore' },
+				'rev-list',
+				'--count',
+				`--max-count=${maxCount}`,
+				...searchArgs,
+				'--',
+				...files,
+			);
+
+			const count = Number.parseInt(result.stdout.trim(), 10);
+			return Number.isFinite(count) ? count : 0;
+		} catch {
+			return 0;
+		}
+	}
+
 	private async *searchGraphCore(
 		repoPath: string,
 		search: SearchQuery,

@@ -7,6 +7,7 @@ import type { Disposable } from 'vscode';
 import { isMac } from '@env/platform.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
 import type { AppState } from '../../../plus/graph/context.js';
 import { DOM } from '../../dom.js';
 import { GlElement } from '../element.js';
@@ -195,6 +196,10 @@ export class GlSearchBox extends GlElement {
 	/** The settled (non-partial) search used the literal fallback and found nothing — offers a
 	 *  "Match literally" action in the message area instead of a bare zero-results count. */
 	@property({ type: Boolean }) showFallbackHelper = false;
+	@property({ type: Array }) relaxations: GraphSearchRelaxation[] = [];
+	/** The settled (non-partial) NL search found nothing but has counted relaxation offers — renders
+	 *  them as calm inline chips instead of a bare zero-results count. */
+	@property({ type: Boolean }) showRelaxationsHelper = false;
 	/** The active error is an unavailable-AI NL failure — offers a "Search as text instead" action. */
 	@property({ type: Boolean }) showSearchAsTextHelper = false;
 	@property({ type: Boolean }) filter = false;
@@ -281,6 +286,13 @@ export class GlSearchBox extends GlElement {
 		this.matchWholeWord = search.matchWholeWord ?? false;
 		this.naturalLanguage = Boolean(search.naturalLanguage);
 		this.searchInput?.setExternalSearchQuery(search);
+	}
+
+	/** Restores only the filter toggle — see `search-input`'s `setExternalFilter` for why this must
+	 *  never carry the query text. */
+	setExternalFilter(filter: boolean): void {
+		this.filter = filter;
+		this.searchInput?.setExternalFilter(filter);
 	}
 
 	async pickAuthors(): Promise<void> {
@@ -431,6 +443,8 @@ export class GlSearchBox extends GlElement {
 				?fallbackActive="${this.fallbackActive}"
 				.fallbackDetail="${this.fallbackDetail}"
 				?showFallbackHelper="${this.showFallbackHelper}"
+				.relaxations="${this.relaxations}"
+				?showRelaxationsHelper="${this.showRelaxationsHelper}"
 				?showSearchAsTextHelper="${this.showSearchAsTextHelper}"
 				?filter=${this.filter}
 				?matchAll="${this.matchAll}"

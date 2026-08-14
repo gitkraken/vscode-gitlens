@@ -2858,6 +2858,10 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the pattern failed to compile as a regex and was silently retried as a literal search
   'fallback.literal': boolean,
   'matches': number,
+  // The AI-routed search intent for a natural-language search, when present
+  'nl.mode': 'highlight' | 'filter' | 'select',
+  // Count of counted relaxation offers shown for a zero-result NL search (0 = none survived probing)
+  'nl.relaxations.offered': number,
   // Whether an NL-converted query git rejected went through the AI repair path
   'nl.repair.attempted': boolean,
   // Whether the AI repair path produced a query that git accepted

@@ -1699,6 +1699,10 @@ interface GraphSearchedEvent extends GraphContextEventData {
 	'nl.repair.attempted'?: boolean;
 	/** Whether the AI repair path produced a query that git accepted */
 	'nl.repair.succeeded'?: boolean;
+	/** The AI-routed search intent for a natural-language search, when present */
+	'nl.mode'?: 'highlight' | 'filter' | 'select';
+	/** Count of counted relaxation offers shown for a zero-result NL search (0 = none survived probing) */
+	'nl.relaxations.offered'?: number;
 }
 
 export type GraphVirtualFileMode = 'diff' | 'comparePrevious' | 'multiDiff';

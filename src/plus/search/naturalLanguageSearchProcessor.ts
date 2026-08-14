@@ -44,6 +44,7 @@ export class NaturalLanguageSearchProcessor {
 			return {
 				...searchQuery,
 				query: result.result.query,
+				filter: applySearchIntentMode(searchQuery.filter, result.result.mode),
 				naturalLanguage: {
 					query: searchQuery.query,
 					processedQuery: result.result.query,
@@ -64,4 +65,14 @@ export class NaturalLanguageSearchProcessor {
 			};
 		}
 	}
+}
+
+/** Routes the AI's search intent onto the query's `filter` flag — `'filter'` forces it on; every
+ *  other mode (including absent) leaves the incoming toggle state untouched, so a 'highlight'
+ *  result never turns an already-on filter toggle back off. */
+export function applySearchIntentMode(
+	filter: boolean | undefined,
+	mode: 'highlight' | 'filter' | 'select' | undefined,
+): boolean | undefined {
+	return mode === 'filter' ? true : filter;
 }

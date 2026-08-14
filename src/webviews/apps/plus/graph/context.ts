@@ -61,6 +61,10 @@ export interface AppState extends State {
 	 *  compile as regex and matched literally instead. Cleared the moment a search completes without
 	 *  needing the fallback. Drives the search box's dimmed regex toggle and zero-result helper row. */
 	searchFallback: DidSearchParams['fallback'];
+	/** Mirrors the host's `DidSearchParams.relaxations` — counted broader alternatives offered when the
+	 *  active NL search settled with 0 results. Cleared (mirrors 1:1) the moment any other search event
+	 *  arrives without it — a new search, cancel, or a match. */
+	searchRelaxations: DidSearchParams['relaxations'];
 	currentSearchId: number | undefined;
 	/** Bumped locally each time the user submits a NEW search, so consumers can scope per-search UI
 	 *  state to one search session. Unlike `currentSearchId` (assigned by the host, so it only lands a

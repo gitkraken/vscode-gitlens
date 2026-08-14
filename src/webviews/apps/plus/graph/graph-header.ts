@@ -236,6 +236,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	// Local search query state (not in global context)
 	private _searchQuery: SearchQuery = { query: '' };
+	/** The user's own filter-toggle state from before an NL search forced filter mode, so clearing that
+	 *  search restores it — an explicit toggle click clears this (the user's choice supersedes it). */
+	private _nlForcedFilterRestore: boolean | undefined;
+	/** A full search cancel has been sent but the host's clearing notification hasn't landed yet. In that
+	 *  window the box is empty while `graphState.searchQuery`/results still hold the old search — the
+	 *  exact signature the reboot-restore effect in `updated()` looks for, so it must stand down or it
+	 *  restores the search the user just cleared. Cleared once the state reflects the cancel. */
+	private _searchCancelInFlight = false;
 
 	@state()
 	private _searchResultHidden = false;
@@ -257,7 +265,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// `setExternalSearchQuery` — NOT the header's same-named method, which also RE-RUNS the search. The
 		// guard fires only when the local box is empty and the search is live (results present OR still
 		// searching), so it never clobbers an in-progress user query nor revives a just-cancelled search.
+		if (this._searchCancelInFlight && this.graphState.searchQuery == null) {
+			this._searchCancelInFlight = false;
+		}
+
 		if (
+			!this._searchCancelInFlight &&
 			shouldRestoreSearchQuery(
 				this._searchQuery?.query,
 				this.graphState.searchQuery,
@@ -284,6 +297,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	setExternalSearchQuery(query: SearchQuery) {
 		this._pendingNavigation = undefined;
 		this.cancelActiveSearchNavigation();
+		this._nlForcedFilterRestore = undefined;
 		this._searchQuery = query;
 		this.searchEl?.setExternalSearchQuery(query);
 		this.updateActiveFilterColumns();
@@ -548,9 +562,33 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return (this._searchQuery.query?.length ?? 0) > 2;
 	}
 
+	/** Shared tail of the NL-forced-filter restore: applies `restore` to the search mode and the search
+	 *  box's filter toggle, and clears the forced-filter bookkeeping. Takes the value as a parameter —
+	 *  never reads `this._nlForcedFilterRestore` — so each call site controls its own `_searchQuery`
+	 *  write (in-place mutation vs. wholesale rebuild) around the call. */
+	private applyNlForcedFilterRestore(restore: boolean): void {
+		this.graphState.searchMode = restore ? 'filter' : 'normal';
+		this.searchEl?.setExternalFilter(restore);
+		this._nlForcedFilterRestore = undefined;
+	}
+
 	private cancelSearch(preserveResults: boolean) {
 		this._pendingNavigation = undefined;
 		this.cancelActiveSearchNavigation();
+		if (!preserveResults) {
+			this._searchCancelInFlight = true;
+		}
+
+		// An NL-forced filter mode ends with its search — restore the user's own toggle state, and ONLY
+		// the toggle. This runs synchronously inside the box's own clear sequence (the box emits
+		// `gl-search-cancel`, then re-reads its props to emit the empty change) — funneling the full
+		// query through `setExternalSearchQuery` here resurrected the just-cleared text into the box,
+		// and the trailing change emission then re-ran it as a live search.
+		if (!preserveResults && this._nlForcedFilterRestore != null) {
+			const restore = this._nlForcedFilterRestore;
+			this._searchQuery.filter = restore;
+			this.applyNlForcedFilterRestore(restore);
+		}
 		// Don't eagerly clear local state — the host sends a clear notification as part of
 		// processing the cancel (or starting a new search). Eagerly clearing causes a flash
 		// where old results/errors disappear briefly before the new state arrives.
@@ -592,6 +630,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			return;
 		}
 
+		// Captured BEFORE the request: the response's forced-filter detection must compare against the
+		// toggle state the user submitted with — by response time `_searchQuery.filter` may already have
+		// been rewritten by notification-driven syncs.
+		const preSearchFilter = this._searchQuery.filter ?? false;
+
 		// Raise `searching` here rather than waiting for the host's first notification — that round-trip
 		// is a visible delay for anything keyed off it (the search spinner, and the minimap's auto-show,
 		// which is supposed to be up before results start streaming in). Every exit path below, plus the
@@ -623,10 +666,38 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				// (the final notification already set it), but for errors it's the
 				// only path that clears the searching state.
 				this.graphState.searching = false;
+				// NL search can force filter mode server-side (see `updateSearchMode` in
+				// graphSearchService.ts) — sync the local query from the response so the toggle
+				// reflects it and subsequent requests (paging/navigation) carry the routed value
+				// forward instead of reverting to whatever the toggle showed before this search.
+				// The forced mode lasts only as long as its search: remember the user's own toggle
+				// state so clearing the search restores it (see `cancelSearch`).
+				if (rsp.search != null) {
+					const nlMode =
+						typeof rsp.search.naturalLanguage === 'object' ? rsp.search.naturalLanguage.mode : undefined;
+					if (nlMode === 'filter' && rsp.search.filter && !preSearchFilter) {
+						this._nlForcedFilterRestore ??= preSearchFilter;
+					}
+
+					this._searchQuery.filter = rsp.search.filter;
+				}
 				this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
 				if (rsp.selectedRows != null) {
 					this.graphState.selectedRows = rsp.selectedRows;
-					this.revealFirstSearchMatch(rsp.selectedRows);
+
+					const nlMode =
+						typeof rsp.search?.naturalLanguage === 'object' ? rsp.search.naturalLanguage.mode : undefined;
+					if (nlMode === 'select') {
+						// "Take me to X" phrasing — jump the viewport deliberately through the same
+						// queued navigation path 'first'/'last' use, instead of the plain reveal below
+						// (avoids a double-jump from also calling revealFirstSearchMatch).
+						this._pendingNavigation = 'first';
+						if (!this._isNavigating) {
+							void this.processNavigation();
+						}
+					} else {
+						this.revealFirstSearchMatch(rsp.selectedRows);
+					}
 				}
 			}
 		} catch {
@@ -918,6 +989,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	handleSearchModeChanged(e: CustomEvent) {
 		this._pendingNavigation = undefined;
 		this.cancelActiveSearchNavigation();
+		// An explicit mode choice supersedes any NL-forced filter restore
+		this._nlForcedFilterRestore = undefined;
 		// Update local state immediately for responsive UI
 		this.graphState.searchMode = e.detail.searchMode;
 
@@ -1214,6 +1287,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			excludeRefs,
 			searching,
 			searchFallback,
+			searchRelaxations,
 			searchMode,
 			searchResults,
 			searchResultsError,
@@ -1228,7 +1302,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// toggle stays checked but dims, and only once the search has fully settled (not still streaming
 		// in) with zero matches do we offer the "Match literally" escape hatch.
 		const fallbackActive = searchFallback != null;
-		const showFallbackHelper = fallbackActive && !searching && (searchResults?.count ?? 0) === 0;
+		const settledWithNoResults = !searching && (searchResults?.count ?? 0) === 0;
+		const showFallbackHelper = fallbackActive && settledWithNoResults;
+		const showRelaxationsHelper = settledWithNoResults && (searchRelaxations?.length ?? 0) > 0;
 
 		// Search applies to the graph rows; any alternate display mode (visualizations, kanban)
 		// hides the graph body and shouldn't accept search input — typing would silently scroll
@@ -1256,6 +1332,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						?fallbackActive=${fallbackActive}
 						fallbackDetail=${searchFallback?.detail ?? ''}
 						?showFallbackHelper=${showFallbackHelper}
+						.relaxations=${searchRelaxations ?? []}
+						?showRelaxationsHelper=${showRelaxationsHelper}
 						?showSearchAsTextHelper=${searchResultsError?.reason === 'aiUnavailable'}
 						?filter=${searchMode === 'filter'}
 						?naturalLanguage=${Boolean(useNaturalLanguageSearch)}

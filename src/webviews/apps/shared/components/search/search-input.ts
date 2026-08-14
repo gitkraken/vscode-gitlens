@@ -13,6 +13,7 @@ import {
 import { filterMap } from '@gitlens/utils/array.js';
 import { fuzzyFilter } from '@gitlens/utils/fuzzy.js';
 import { whitespaceRegex } from '../../../../../constants.js';
+import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
 import {
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
@@ -354,6 +355,9 @@ background-color: var(--vscode-menu-background);
 	@property({ type: String }) fallbackDetail = '';
 	/** The settled search used the literal fallback and found nothing. */
 	@property({ type: Boolean }) showFallbackHelper = false;
+	@property({ type: Array }) relaxations: GraphSearchRelaxation[] = [];
+	/** The settled NL search found nothing but has counted relaxation offers — see {@link renderMessage}. */
+	@property({ type: Boolean }) showRelaxationsHelper = false;
 	/** The active error is an unavailable-AI NL failure — offers a "Search as text instead" action. */
 	@property({ type: Boolean }) showSearchAsTextHelper = false;
 	@property({ type: String })
@@ -505,7 +509,11 @@ background-color: var(--vscode-menu-background);
 		// Emit cancel to backend - idempotent, safe to always call
 		this.emit('gl-search-cancel', { preserveResults: false });
 
-		// Send empty search immediately to clear results
+		// Send empty search immediately to clear results. Re-assert emptiness first: the cancel
+		// dispatch above runs handlers synchronously, and a handler that imperatively rewrites box
+		// props would otherwise leak into this emission (which re-reads live props) — resurrecting
+		// and re-running the query the user just cleared.
+		this._value = '';
 		this.onSearchChanged(true);
 		this._lastSearch = undefined;
 	}
@@ -1490,6 +1498,15 @@ background-color: var(--vscode-menu-background);
 		// The caller (graph-app.ts) will trigger the search if needed
 	}
 
+	/** Restores only the filter toggle, imperatively — a change-memoized `?filter` binding can't be
+	 *  relied on to undo a forced value. Deliberately narrow: it must never touch the query text,
+	 *  because it runs inside `cancelSearch`'s clear sequence, and writing the old query back there
+	 *  resurrects the text the user just cleared — which the trailing change emission then re-runs
+	 *  as a live search. */
+	setExternalFilter(filter: boolean): void {
+		this.filter = filter;
+	}
+
 	override render(): unknown {
 		return html`<div class="field">
 				<div class="controls controls__start">
@@ -1677,6 +1694,23 @@ background-color: var(--vscode-menu-background);
 			</div>`;
 		}
 
+		if (this.showRelaxationsHelper && this.relaxations.length) {
+			return html`<div class="message">
+				No matches —
+				${this.relaxations
+					.slice(0, 3)
+					.map(
+						relaxation =>
+							html`<a
+								href="#"
+								class="message-action"
+								@click="${(e: Event) => this.handleRelaxationClick(e, relaxation)}"
+								>${relaxation.count}${relaxation.capped ? '+' : ''} ${relaxation.label}</a
+							>`,
+					)}
+			</div>`;
+		}
+
 		if (!this.errorMessage) return nothing;
 
 		return html`<div class="message">
@@ -1740,6 +1774,15 @@ background-color: var(--vscode-menu-background);
 		} finally {
 			this.repairing = false;
 		}
+	}
+
+	/** A relaxation chip: replaces the search with the counted broader query — visible and editable,
+	 *  NL toggle off — through the same apply path "Fix with AI" uses. */
+	private handleRelaxationClick(e: Event, relaxation: GraphSearchRelaxation) {
+		e.preventDefault();
+		this.updateNaturalLanguage(false);
+		this.value = relaxation.query;
+		this.onSearchChanged(true);
 	}
 
 	private renderAutocomplete() {

@@ -1641,6 +1641,12 @@ export interface GraphSearchResultsError {
 	reason?: 'invalidPattern' | 'invalidRef' | 'aiUnavailable';
 	detail?: string;
 }
+export interface GraphSearchRelaxation {
+	label: string;
+	query: string;
+	count: number;
+	capped?: boolean;
+}
 export interface DidSearchParams {
 	search: SearchQuery | undefined;
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
@@ -1649,6 +1655,10 @@ export interface DidSearchParams {
 	partial?: boolean;
 	/** Set when the pattern failed to compile as a regex and the search matched literally instead */
 	fallback?: { matchedAs: 'literal'; detail?: string };
+	/** Counted broader alternatives offered when a natural-language search settled with 0 results.
+	 *  Present only on the response/notification that computed them — every other notify simply omits
+	 *  it, which is what clears stale relaxations client-side (mirrors `fallback`'s 1:1 mirroring). */
+	relaxations?: GraphSearchRelaxation[];
 	/** A results/coverage REFRESH riding a rows-plane emission — NOT search progress. The app must not
 	 *  derive `searching` from it (an active progressive search's spinner would flicker off, and
 	 *  jump-to-last could skip its wait-for-complete on a partial result set). */

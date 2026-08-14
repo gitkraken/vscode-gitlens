@@ -230,6 +230,7 @@ import type {
 	GraphScopeBranch,
 	GraphScopeOrigin,
 	GraphScrollMarkerTypes,
+	GraphSearchMode,
 	GraphSelectedRows,
 	GraphSelection,
 	GraphShowAction,
@@ -4953,7 +4954,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 
-		const searchMode = this.container.storage.get('graph:searchMode', 'normal');
+		// The active search's mode wins over the stored preference — an NL search can force filter mode
+		// for its own lifetime without persisting it, and a state refresh must not revert the toggle
+		// while that search is still active
+		const activeSearchQuery = this._searchService.search?.query;
+		const searchMode: GraphSearchMode =
+			activeSearchQuery != null
+				? activeSearchQuery.filter
+					? 'filter'
+					: 'normal'
+				: this.container.storage.get('graph:searchMode', 'normal');
 		const useNaturalLanguageSearch = this.container.storage.get('graph:useNaturalLanguageSearch', true);
 		const featurePreview = this.getFeaturePreview();
 
