@@ -9,7 +9,12 @@ import type { ConfiguredIntegrationsChangeEvent } from './authentication/configu
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
 import type { IssueFilter, IssueSorting, PullRequestFilter } from './providerFilters.js';
-import type { IssueCountResult, IssueCountScope } from './reads/counts.js';
+import type {
+	IssueCountResult,
+	IssueCountScope,
+	PullRequestCountResult,
+	PullRequestCountScope,
+} from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -525,6 +530,23 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>>;
+	/**
+	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
+	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,
+	 * per-scope isolation, `key`-echo, and `count: undefined` ≠ zero rule as the issue count; GitHub/GHE only.
+	 *
+	 * The one PR-specific difference: a scope's `states` are counted as independent searches, so the reported count
+	 * is the LARGEST of them (the same total {@link searchPullRequestsPage} surfaces), not their sum. Several states
+	 * in one scope are therefore fine; only several relationships are refused — one relationship per scope, see
+	 * {@link PullRequestCountScope}.
+	 */
+	countPullRequests(options: {
+		providerId: IntegrationIds;
+		scopes: readonly PullRequestCountScope[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestCountResult>>;
 	/** Issue trackers are cloud-only, so this read takes no `domain`. */
 	listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;

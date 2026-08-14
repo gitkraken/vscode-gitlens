@@ -4077,6 +4077,85 @@ export class GitHubApi {
 	}
 
 	/**
+	 * The PR twin of {@link countIssues}: counts pull requests for several scopes in ONE request via aliased
+	 * `search` fields selecting only `issueCount` with `first: 0`. Same positional/undefined contract as the issue
+	 * count.
+	 *
+	 * The one difference is states. {@link toGitHubPullRequestSearchFacets} fans a scope's states out into one
+	 * `search` each, so this reports the count the SAME way {@link searchPullRequestsPage} reports its total — the
+	 * LARGEST facet's `issueCount`, not their sum: the result ceiling applies per search, so the max is what
+	 * `exceedsProviderLimit` compares against, and summing would claim a total the read never surfaces. Relationships
+	 * are OR-ed and can't be a single count; the facade refuses a multi-relationship scope, so at most one is here.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async countPullRequests(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		scopes: readonly { repos?: string[]; org?: string; criteria?: PullRequestSearchCriteria }[],
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<(number | undefined)[]> {
+		const scope = getScopedLogger();
+		if (scopes.length === 0) return [];
+
+		// Each scope expands to one query string per state facet (all sharing its single relationship, which the
+		// facade guarantees). A scope's count is the MAX across its facets — mirroring searchPullRequestsPage's
+		// totalCount — so the aliases stay grouped by scope and are reduced after the response.
+		const scopeQueries = scopes.map(s => {
+			const scopeQualifiers = toGitHubIssueSearchScopeQualifiers(s.org, s.repos);
+			return toGitHubPullRequestSearchFacets(s.criteria).map(f =>
+				[...scopeQualifiers, ...f.qualifiers].join(' '),
+			);
+		});
+
+		// Aliases are positional and generated (`s${scope}f${facet}`): a caller's key is arbitrary text and would
+		// break the document, so results are reduced back to one count per scope by index.
+		const aliased = scopeQueries.flatMap((queries, si) =>
+			queries.map((query, fi) => ({ alias: `s${si}f${fi}`, query: query })),
+		);
+		const params = aliased.map(a => `$${a.alias}: String!`).join('\n\t\t\t\t');
+		// `first: 0` is what makes this cheap — `issueCount` alone, no nodes over the wire.
+		const fields = aliased
+			.map(a => `${a.alias}: search(query: $${a.alias}, type: ISSUE, first: 0) { issueCount }`)
+			.join('\n\t\t\t\t');
+		const query = `query countPullRequests(
+				${params}
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = { baseUrl: options?.baseUrl };
+		for (const a of aliased) {
+			variables[a.alias] = a.query;
+		}
+
+		try {
+			const rsp = await this.graphql<Record<string, { issueCount?: number } | undefined>>(
+				provider,
+				token,
+				query,
+				variables,
+				scope,
+				cancellation,
+			);
+			if (rsp == null) return scopes.map(() => undefined);
+
+			return scopeQueries.map((queries, si) => {
+				let max: number | undefined;
+				for (let fi = 0; fi < queries.length; fi++) {
+					const count = rsp[`s${si}f${fi}`]?.issueCount;
+					if (count != null) {
+						max = max == null ? count : Math.max(max, count);
+					}
+				}
+				return max;
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
 	 * The aliased-search engine behind every GitHub issue search: one GraphQL request carrying N independently
 	 * cursored `search` fields, `@include`-gated so an exhausted or unrequested one costs nothing.
 	 *
