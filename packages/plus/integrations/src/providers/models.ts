@@ -41,8 +41,8 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
-import entityIdentifiersModule from '@gitkraken/provider-apis/entity-identifiers';
-import providerUtilsModule from '@gitkraken/provider-apis/provider-utils';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
+import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type { IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -122,9 +122,6 @@ type GitIssueState = GitIssueStateType;
 type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
-
-const { EntityIdentifierUtils } = entityIdentifiersModule;
-const { GitProviderUtils } = providerUtilsModule;
 
 // Local runtime copies of the `@gitkraken/provider-apis` string enums. Duplicated (not imported as
 // values) because the SDK ships as CJS whose named enum exports can't be statically imported as ESM
