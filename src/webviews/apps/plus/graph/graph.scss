@@ -1587,6 +1587,87 @@ gl-lit-graph {
 	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-viewport--inline {
 		transition: width 180ms ease-out;
 	}
+	// Chain-lane highlight (pinned ref pill / Ctrl-hold chain): `[virtualizer-sizer]` elements the host
+	// mounts IMPERATIVELY into the virtualizer's light DOM (`syncChainLaneOverlay`, gl-lit-graph.ts) and
+	// inserts BEFORE the rows, so DOM order paints them UNDER them — bright rows' opaque dots/carves/
+	// avatars cover it, and dimmed rows' otherwise-transparent gutters let it read through at full
+	// strength, which is the whole point: the chain's lane stays visible down to its fork even where
+	// `.is-dimmed` fades the rows around it. The clip container reuses the host-maintained `--graph-col-*`
+	// vars, same pattern as the gutter surface above.
+	.gl-graph__chain-lane {
+		position: absolute;
+		left: var(--graph-col-left, 0px);
+		width: var(--graph-col-vw, 0px);
+		overflow: hidden;
+		pointer-events: none;
+	}
+	// The straight vertical rule — always present, spans `startIndex`..`endIndex` (extended to a clamp
+	// point when the fork walk below can't fully reach). Explicit `top`/`height` (JS-set) rather than the
+	// old `inset:0 auto 0 0` full-stretch: the container can now be TALLER than the rule alone (it also
+	// hosts the elbow), so the rule can no longer just fill it.
+	.gl-graph__chain-lane-rule {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 0.2rem; // matches .graph-edge stroke-width: 2
+		border-radius: 0.1rem;
+		background-color: var(--chain-lane-color);
+		opacity: 0.78; // matches .graph-edge stroke-opacity
+		translate: calc(var(--chain-lane-x, 0px) - var(--graph-gutter-scroll, 0px) - 0.1rem) 0;
+	}
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__chain-lane-rule {
+		transition: translate 180ms ease-out; // glide with the reveal, like .gl-graph__gutter-surface
+	}
+	// The reach into the run's fork point (`ChainLaneExtension`'s `'fork'` case only — chainLane.utils.ts):
+	// an L-shaped BORDER tracing the engine's own orthogonal fork path (horizontal from the fork dot, a
+	// quarter corner, vertical up to the row above — laneClamp.ts's `orthEdgeFromNode`, edgeCorner = 4px).
+	// `left`/`width`/`top`/`height` are JS-computed absolute content-space px (`buildChainLaneBox`,
+	// gl-lit-graph.ts) — `border-box` sizing makes those describe the OUTER edges the border paints
+	// against directly. The CHAIN-side border's centerline lands exactly on the chain x, matching the
+	// rule (a border is drawn INWARD from its box edge by its own width, so centering it needs the box
+	// edge offset by half that width — the same ±0.1rem the rule's translate subtracts for its 0.2rem
+	// width); the FORK-side edge is inset off the fork row's dot instead (`nodeRadiusFor(...) + 2`, the
+	// same clearance the live gutter pin uses via `--gutter-inset`). Its OWN static `translate` — not the
+	// rule's `--chain-lane-x` calc, which only that element needs — is enough to pan it with h-scroll: its
+	// `left`/`width` are already absolute, so only the scroll offset is left to apply.
+	.gl-graph__chain-lane-elbow {
+		position: absolute;
+		box-sizing: border-box;
+		background: transparent;
+		border: 0 solid var(--chain-lane-color);
+		opacity: 0.78; // matches .graph-edge stroke-opacity
+		translate: calc(-1 * var(--graph-gutter-scroll, 0px)) 0;
+	}
+	// Fork to the LEFT of the chain column: the vertical segment rides the box's RIGHT edge (nearest the
+	// chain), curves at bottom-right, then the bottom segment runs left to the fork.
+	.gl-graph__chain-lane-elbow.is-elbow-left {
+		border-right-width: 0.2rem;
+		border-bottom-width: 0.2rem;
+		border-bottom-right-radius: 0.4rem; // mirrors the engine's edgeCorner (4px)
+	}
+	// Mirrored: fork to the RIGHT of the chain column.
+	.gl-graph__chain-lane-elbow.is-elbow-right {
+		border-left-width: 0.2rem;
+		border-bottom-width: 0.2rem;
+		border-bottom-left-radius: 0.4rem;
+	}
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__chain-lane-elbow {
+		transition: translate 180ms ease-out; // glide with the reveal, like the rule above
+	}
+	// Mute every OTHER lane on an in-chain (bright, non-dimmed) row so the chain's own lane pops even
+	// there — same 0.35 the row-level dim uses, so a foreign lane reads uniformly muted whether it crosses
+	// a DIMMED row (0.78 stroke × 0.35 row opacity) or a CHAIN row (0.78 stroke × this 0.35). Deliberately
+	// applies to BOTH the pin's full dim and the Ctrl peek's lighter `.is-dimmed-soft` — one value, no
+	// separate peek treatment. Targets exactly the pass-through raster + the cross-column connector paths
+	// (`.gl-graph__gutter-edges`): the chain's OWN lane art (its verticals + dot) never renders into either
+	// — `renderGutterEdges` (graph-gutter.ts) skips own-column lines, routing them into the pinned node
+	// svg's `.gl-graph__node-lane` instead — so it stays bright automatically, untouched by this rule.
+	.gl-graph__row.is-inRefChain {
+		.gl-graph__gutter-raster,
+		.gl-graph__gutter-edges {
+			opacity: 0.35;
+		}
+	}
 	// The pass-through raster's own viewport-anchored svg (column placement + scrolling; see
 	// `renderGutterRasterLayer`). Absolute over the gutter viewport, BEHIND the live overlay svg. Its edge-fade
 	// mask DISSOLVES the outer graphEdgeFadePx (2.4rem) of the raster at each visible edge instead of the hard

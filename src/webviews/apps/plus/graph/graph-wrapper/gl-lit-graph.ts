@@ -104,6 +104,8 @@ import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
+import type { ChainLaneRun } from '../utils/chainLane.utils.js';
+import { computeChainLaneRuns } from '../utils/chainLane.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
 import { serializeWipContext } from '../utils/rowContext.utils.js';
@@ -432,6 +434,35 @@ type ResolvedRefTarget = {
  *  column (tracks only — no card today, but the seam for a future lane/branch hover card). Threaded
  *  into the emitted `gl-graph-rowhover*` events' detail so the wrapper can forward it accurately. */
 type RowHoverZone = 'content' | 'graph';
+
+/**
+ * Render-ready geometry for one chain-lane run (see `buildChainLaneBox`) — the pixel counterpart of a
+ * `ChainLaneRun`, consumed by `syncChainLaneOverlay`.
+ *
+ * `top`/`height` are the CLIP CONTAINER's box (content px) — it always starts where the rule does and
+ * spans down through the rule and, when present, the elbow. `ruleHeight` is the rule's OWN height within
+ * that container (the rule always starts at the container's top, i.e. relative top 0, so no separate
+ * offset is needed for it).
+ */
+type ChainLaneBox = {
+	top: number;
+	height: number;
+	ruleHeight: number;
+	x: number;
+	color: string;
+	/** The reach into the run's fork point — present only for a `'fork'`-kind `ChainLaneExtension`; a
+	 *  `'clamp'` just makes the rule taller (`ruleHeight`/`height` above), with no elbow to draw. */
+	elbow?: {
+		height: number;
+		/** Absolute content-space px (NOT relative to the chain x) — see the CSS comment on
+		 *  `.gl-graph__chain-lane-elbow` for how these land the border precisely. */
+		left: number;
+		width: number;
+		/** Which side of the chain column the fork sits on — selects the `is-elbow-left`/`-right` CSS
+		 *  variant (which edge carries the vertical border + corner). */
+		direction: 'left' | 'right';
+	};
+};
 
 /** A keyboard peek request emitted as `gl-graph-rowpeek` — open/close the rich hover card on the FOCUSED
  *  row, or move an open one onto it. `open` is an out parameter: the wrapper (and the app behind it)
@@ -872,7 +903,38 @@ export class GlLitGraph extends LitElement {
 	// (rare) bucket crossing that requires a re-render.
 	private renderedLaneWindow: LaneWindow | undefined;
 
+	// The chain-lane highlight overlay: one bright rule per contiguous same-column run of the active ref
+	// chain (`modifierChainShas` while Ctrl is held, else `refHoverChainShas`), painted OUTSIDE every row
+	// so `.is-dimmed`'s opacity can never dim it — see `syncChainLaneOverlay`. The runs are memoized on
+	// the identity of the active chain set + `displayRows` (same "for" pattern as `_scopeIdentityFor`
+	// above); the render-ready boxes are rebuilt every `updateRenderState` pass because they also bake in
+	// `rowHeight`/`columnWidth`, which can change without either identity changing.
+	private _chainLaneChainFor?: ReadonlySet<string>;
+	private _chainLaneRowsFor?: readonly ProcessedGraphRow[];
+	private _chainLaneRuns?: readonly ChainLaneRun[];
+	private _chainLaneOverlay?: readonly ChainLaneBox[];
+	// The DOM elements `syncChainLaneOverlay` currently owns (mirrors `_chainLaneOverlay` 1:1) + the key
+	// (`JSON.stringify` of the boxes, `undefined` = none) it last synced the DOM to — lets a no-op pass
+	// (idle renders, the overwhelming majority) skip touching the DOM entirely.
+	private _chainLaneOverlayEls: HTMLDivElement[] = [];
+	private _chainLaneOverlayKey: string | undefined;
+
 	private virtualizerRef: Ref<LitVirtualizer> = createRef();
+	// Cached once true: whether the chain-lane overlay is safe to mount into the `<lit-virtualizer>`'s
+	// light DOM. It MUST carry `virtualizer-sizer` — Virtualizer 2.1.1's `_children` getter treats every
+	// child WITHOUT that attribute as a rendered item (node_modules/@lit-labs/virtualizer/Virtualizer.js:
+	// 443-453, SIZER_ATTRIBUTE :23) and `_positionChildren` indexes into that list by `index - this._first`
+	// (:516-523), so one un-excluded extra child shifts every row's position by one. `_getSizer()`
+	// (:220-245) lazily ADOPTS the first `[virtualizer-sizer]` child it finds in document order the first
+	// time it's called and overwrites its inline styles — if our overlay mounted before the virtualizer's
+	// own sizer exists, ours could be adopted instead. `disconnected()` never clears `_sizer` (:190-204),
+	// so this can only race on first layout, never on reconnect. The overlay is mounted IMPERATIVELY (see
+	// `syncChainLaneOverlay`), not as a declared template child: a declared `<lit-virtualizer>` child was
+	// tried first and verified LIVE to corrupt the virtualizer — its render part interleaves with the
+	// directive's own light-DOM part, and the child expression's flip from `nothing` to content cleared
+	// that part's committed rows (and the real sizer) along with it. Checked once per empty→non-empty
+	// transition via `querySelector`, not every pass.
+	private _chainOverlayMountSafe = false;
 	// The outer viewport — a plain layout/delegation container (header + rows tree + overlays). Not the
 	// focus/tree host: `role=tree`/`tabindex`/keyboard nav live on the inner `.gl-graph__tree` (treeRef)
 	// so the header, a preceding sibling, tabs FIRST. Kept for click/pointer delegation + overlay geometry.
@@ -1572,6 +1634,12 @@ export class GlLitGraph extends LitElement {
 		this._pinnedRefSha = undefined;
 		this.hoveredPillRef = undefined;
 		this.modifierChainShas = undefined;
+		// The overlay's DOM goes away with the (detached) virtualizer — drop our references and the
+		// mount-safety latch so a reconnect re-checks the new virtualizer's sizer and remounts cleanly
+		// instead of trusting stale state from the old one.
+		this._chainLaneOverlayEls = [];
+		this._chainLaneOverlayKey = undefined;
+		this._chainOverlayMountSafe = false;
 		if (this.tooltipShowTimer != null) {
 			clearTimeout(this.tooltipShowTimer);
 			this.tooltipShowTimer = undefined;
@@ -2399,6 +2467,30 @@ export class GlLitGraph extends LitElement {
 		const max = this.maxGraphScrollX;
 		this.style.setProperty('--graph-col-left', `${leadOffset + this.foldLaneWidth}px`);
 		this.style.setProperty('--graph-col-vw', `${viewport}px`);
+		// Chain-lane highlight overlay: one bright rule per contiguous same-column run of the active ref
+		// chain (the Ctrl-hold transient wins over the click-pin — same precedence as `inRefChainShas`
+		// above), painted OUTSIDE every row so `.is-dimmed`'s opacity can never dim it (see
+		// `syncChainLaneOverlay`, called from `updated()`). No overlay when nothing's chained, the graph
+		// column is hidden (no lanes to draw on), or the lanes are collapsed onto a single column (a
+		// run-spanning rule would then cross OTHER commits' dots sharing that x). The RUNS are memoized on
+		// the chain-set + displayRows identity (`_chainLane*For`, same pattern as `_scopeIdentityFor`) —
+		// the O(chain) walk reruns only when a chain is set/cleared or displayRows swaps (paging, lane
+		// collapse/expand, filter). The render-ready BOXES are rebuilt every pass (≤2 runs, trivial): they
+		// bake in `rowHeight` (zoom/DPR) and `columnWidth` (density), which can change without either memo
+		// identity changing — and the gate below must not poison the memo, or leaving single-column mode
+		// with the same chain would never restore the overlay.
+		const activeChain = this.modifierChainShas ?? this.refHoverChainShas;
+		if (activeChain == null || this.graphPlacement === 'hidden' || this.singleColumn) {
+			this._chainLaneOverlay = undefined;
+		} else {
+			if (this._chainLaneChainFor !== activeChain || this._chainLaneRowsFor !== rows) {
+				this._chainLaneChainFor = activeChain;
+				this._chainLaneRowsFor = rows;
+				this._chainLaneRuns = computeChainLaneRuns(activeChain, this.indexBySha, rows);
+			}
+
+			this._chainLaneOverlay = this._chainLaneRuns?.map(run => this.buildChainLaneBox(run));
+		}
 		this.style.setProperty('--graph-hscroll-thumb', `${thumb}px`);
 		this.style.setProperty('--graph-hscroll-left', `${max > 0 ? (this.graphScrollX / max) * travel : 0}px`);
 		// Pass-through raster layer's h-scroll translate + edge-fade mask gates — set on the render path too so
@@ -2418,6 +2510,60 @@ export class GlLitGraph extends LitElement {
 		// beside the dots). RIGHT trails by just the node clearance (radius + a hair).
 		this.style.setProperty('--gutter-pin-x', `${xForColumn(0, this.columnWidth)}px`);
 		this.style.setProperty('--gutter-inset', `${nodeRadiusFor(this.nodeSizingMode, this.rowHeight) + 2}px`);
+	}
+
+	// Converts one `ChainLaneRun` (display-row indices + an optional fork `extension`) into the
+	// render-ready pixel geometry `syncChainLaneOverlay` mounts. Kept OUT of `updateRenderState` (a thin
+	// per-run map) so the elbow's border-centering math has room to be commented properly.
+	private buildChainLaneBox(run: ChainLaneRun): ChainLaneBox {
+		const rowHeight = this.rowHeight;
+		const top = (run.startIndex + 0.5) * rowHeight; // the tip dot's center
+		const x = xForColumn(run.column, this.columnWidth);
+		const color = colorForColumn(run.column);
+		// Default: the rule ends at the last chained row's dot center (matches the pre-extension geometry).
+		let ruleHeight = (run.endIndex - run.startIndex) * rowHeight;
+
+		if (run.extension?.kind === 'clamp') {
+			// No elbow — the engine's own art doesn't lead anywhere further, so neither does the rule. Just
+			// a taller vertical stub, reaching the TOP of the row where continuity broke.
+			ruleHeight = run.extension.clampIndex * rowHeight - top;
+		}
+
+		if (run.extension?.kind !== 'fork') {
+			return { top: top, height: ruleHeight, ruleHeight: ruleHeight, x: x, color: color };
+		}
+
+		const { forkIndex, forkColumn } = run.extension;
+		const forkX = xForColumn(forkColumn, this.columnWidth);
+		const direction: 'left' | 'right' = forkX < x ? 'left' : 'right';
+		// Keep the horizontal segment off the fork row's own (possibly dimmed) dot — the same clearance
+		// the live gutter pin uses for `--gutter-inset` above.
+		const inset = nodeRadiusFor(this.nodeSizingMode, rowHeight) + 2;
+		// `border-box` sizing: a border paints INWARD from its box's outer edge by its own width, so its
+		// visual centerline sits half a width in from that edge (0.2rem / 2 = 0.1rem = 1px at 1rem=10px —
+		// the SAME half-width the rule's translate subtracts to center itself on `x`). Whichever edge
+		// carries the CHAIN-side vertical border is offset by that 1px so its centerline lands exactly on
+		// `x`; the FORK-side edge is inset off the fork's dot instead, not centered on anything.
+		const halfBorderPx = 1;
+		const left = direction === 'left' ? forkX + inset : x - halfBorderPx;
+		const right = direction === 'left' ? x + halfBorderPx : forkX - inset;
+		const elbowHeight = (forkIndex - run.endIndex) * rowHeight; // ends at the fork row's dot center
+
+		return {
+			top: top,
+			// The container spans the rule AND the elbow beneath it — `syncChainLaneOverlay` clips both to
+			// this one box.
+			height: ruleHeight + elbowHeight,
+			ruleHeight: ruleHeight,
+			x: x,
+			color: color,
+			elbow: {
+				height: elbowHeight,
+				left: left,
+				width: Math.max(0, right - left),
+				direction: direction,
+			},
+		};
 	}
 
 	// Lane BUILD window for the current scroll offset — active exactly when the clamp is (column-overflow
@@ -4568,7 +4714,6 @@ export class GlLitGraph extends LitElement {
 			return resolveAutoRefPillCap(liveWidth ?? configuredWidth);
 		}
 
-		const contentWidth = Math.max(0, this.containerWidth - this.scrollbarGutterPx - this.inlineGutterWidth);
 		return resolveAutoRefPillCap(contentWidth * 0.4);
 	}
 
@@ -4764,6 +4909,85 @@ export class GlLitGraph extends LitElement {
 		this.nowMs = Date.now();
 		this.recomputeStickyTimelineBucket();
 	};
+
+	// The chain-lane highlight overlay is mounted IMPERATIVELY (not as a declared `<lit-virtualizer>`
+	// template child) — verified live: a declared child interleaves with the virtualize directive's OWN
+	// light-DOM render part, and the child expression's re-render from `nothing` to content cleared that
+	// part's committed nodes too, wiping every row (and the virtualizer's real sizer) the moment the chain
+	// activated. Imperative DOM ownership (same strategy the virtualizer uses for its own sizer, see
+	// `_chainOverlayMountSafe` below) never touches Lit's parts, so it can't collide with them.
+	// Called from `updated()` every pass; short-circuits on an unchanged `_chainLaneOverlay` (via
+	// `_chainLaneOverlayKey`), so idle renders (the overwhelming majority — no active chain) do nothing.
+	private syncChainLaneOverlay(): void {
+		const boxes = this._chainLaneOverlay ?? [];
+		const key = boxes.length === 0 ? undefined : JSON.stringify(boxes);
+		if (key === this._chainLaneOverlayKey) return;
+
+		for (const el of this._chainLaneOverlayEls) {
+			el.remove();
+		}
+		this._chainLaneOverlayEls = [];
+
+		if (key == null) {
+			this._chainLaneOverlayKey = key;
+			return;
+		}
+
+		const v = this.virtualizerRef.value;
+		// No virtualizer yet — leave the key UNSET so the next `updated()` pass retries from scratch
+		// instead of silently giving up on this box set.
+		if (v == null) return;
+
+		if (!this._chainOverlayMountSafe) {
+			// The virtualizer hasn't adopted its own sizer yet (first layout pass) — mounting now risks OUR
+			// `[virtualizer-sizer]` element being adopted instead (`_getSizer()`, Virtualizer.js:220-245,
+			// lazily adopts the FIRST such child in document order). `:not(.gl-graph__chain-lane)` excludes
+			// our own elements from a PRIOR successful mount so a later re-check can't be fooled by them.
+			// Leave the key unset here too — this pass didn't mount anything, so it must retry.
+			if (v.querySelector(':scope > [virtualizer-sizer]:not(.gl-graph__chain-lane)') == null) {
+				void v.layoutComplete?.then(() => this.requestUpdate());
+				return;
+			}
+
+			this._chainOverlayMountSafe = true;
+		}
+
+		for (const box of boxes) {
+			const el = document.createElement('div');
+			el.className = 'gl-graph__chain-lane';
+			el.setAttribute('virtualizer-sizer', '');
+			el.setAttribute('aria-hidden', 'true');
+			el.style.top = `${box.top}px`;
+			el.style.height = `${box.height}px`;
+			// `--chain-lane-color` inherits down to the rule AND the elbow below — set once here, not per
+			// child.
+			el.style.setProperty('--chain-lane-x', `${box.x}px`);
+			el.style.setProperty('--chain-lane-color', box.color);
+
+			const rule = document.createElement('div');
+			rule.className = 'gl-graph__chain-lane-rule';
+			rule.style.height = `${box.ruleHeight}px`;
+			el.append(rule);
+
+			if (box.elbow != null) {
+				const elbow = document.createElement('div');
+				elbow.className = `gl-graph__chain-lane-elbow ${box.elbow.direction === 'left' ? 'is-elbow-left' : 'is-elbow-right'}`;
+				// The elbow starts where the rule ends.
+				elbow.style.top = `${box.ruleHeight}px`;
+				elbow.style.height = `${box.elbow.height}px`;
+				elbow.style.left = `${box.elbow.left}px`;
+				elbow.style.width = `${box.elbow.width}px`;
+				el.append(elbow);
+			}
+
+			// FIRST child, not appended — DOM order is paint order among these z-index:auto positioned
+			// siblings, and the rule/elbow must paint UNDER the rows (see the class comment in graph.scss).
+			v.insertBefore(el, v.firstChild);
+			this._chainLaneOverlayEls.push(el);
+		}
+
+		this._chainLaneOverlayKey = key;
+	}
 
 	// Loading / empty overlay shown over the (empty) lane area. State discrimination is deliberate to
 	// avoid the sticky "No commits" cold-load trap: while `loading` OR before the host's first row push
@@ -7972,6 +8196,11 @@ export class GlLitGraph extends LitElement {
 		// ...and re-arms it while a find's page-in is still settling: later batches move the row's index, and
 		// the flush above has already consumed itself against an earlier one.
 		this.retryRefFindReveal();
+		// Imperative DOM sync for the chain-lane overlay — the virtualizer element exists by now (unlike in
+		// `render()`), and every path that can change `_chainLaneOverlay` (updateRenderState, called from
+		// willUpdate) funnels through an update, so this catches all of them. Short-circuits internally on
+		// an unchanged box set.
+		this.syncChainLaneOverlay();
 		// Re-position the dormant Changes opt-in overlay — self-gated on the column layout having moved, so
 		// it measures on a header change rather than on every update. The virtualizer's pixel snap is the
 		// other geometry reader; it rides the ResizeObserver, whose callbacks land after layout. Keep both
