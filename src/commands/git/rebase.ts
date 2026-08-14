@@ -19,7 +19,11 @@ import { startAutoRebaseRun } from '../../plus/coretools/conflict/autoRebaseProg
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
-import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import {
+	createConfirmToggleQuickPickItem,
+	createDirectiveQuickPickItem,
+	Directive,
+} from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { getHostEditorCommand } from '../../system/-webview/vscode.js';
@@ -34,13 +38,18 @@ import type {
 } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
-import { PickCommitToggleQuickInputButton } from '../quick-wizard/quickButtons.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
 import { pickCommitStep } from '../quick-wizard/steps/commits.js';
 import { pickBranchOrTagStep } from '../quick-wizard/steps/references.js';
 import { canSkipRepositoryPick, pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
 import { StepsController } from '../quick-wizard/stepsController.js';
-import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
+import {
+	appendReposToTitle,
+	assertStepState,
+	canPickStepContinue,
+	confirmOptionsSeparatorLabel,
+	refreshConfirmStepItems,
+} from '../quick-wizard/utils/steps.utils.js';
 
 const Steps = {
 	PickRepo: 'rebase-pick-repo',
@@ -224,16 +233,23 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			if (steps.isAtStep(Steps.PickBranchOrTag) || state.destination == null) {
 				using step = steps.enterStep(Steps.PickBranchOrTag);
 
-				const pickCommitToggle = new PickCommitToggleQuickInputButton(context.pickCommit, context, () => {
-					context.pickCommit = !context.pickCommit;
-					pickCommitToggle.on = context.pickCommit;
+				// A worded row at the top of the ref list rather than the old icon-only title-bar toggle —
+				// a modifier that changes what the next step does should say so where it can be read
+				const pickCommitRow = createConfirmToggleQuickPickItem({
+					label: 'Choose a Specific Commit',
+					detail: 'After choosing the branch, pick the exact commit to rebase onto',
+					checked: context.pickCommit,
+					onDidChange: (item, quickpick) => {
+						context.pickCommit = item.checked;
+						quickpick.items = [...quickpick.items];
+					},
 				});
 
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase onto`,
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.destination?.ref : undefined,
-					additionalButtons: [pickCommitToggle],
+					prependItems: [pickCommitRow, createQuickPickSeparator()],
 				});
 				if (result === StepResultBreak) {
 					state.destination = undefined!;
@@ -427,15 +443,30 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		let items = buildItems();
 
-		// A row rather than a title-bar button: quickpick buttons are icon-only (`iconPath` is the only
-		// visual the API exposes, with the rest on a hover tooltip), and a modifier that rewrites what every
-		// option does should say so in words. `Directive.Noop` keeps the quickpick open on select, and the
-		// row object is reused with a mutated icon so the active row survives the refresh by identity.
-		const toggleIcon = () => new ThemeIcon(`gitlens-checkbox-${updateRefs ? 'checked' : 'unchecked'}`);
-		const updateRefsToggle = createDirectiveQuickPickItem(Directive.Noop, false, {
+		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
+
+		const notices: DirectiveQuickPickItem[] = [];
+
+		/** Every row the confirm step shows, minus the separator + Cancel that `createConfirmStep` appends.
+		 *  The separator is labelled so the toggle reads as a modifier on the modes above it rather than a
+		 *  fourth mode — the divider alone doesn't carry that. Takes the toggle row rather than closing over
+		 *  it so this can be declared before the toggle itself, which needs `buildRows` in its handler. */
+		const buildRows = (toggle: DirectiveQuickPickItem): (DirectiveQuickPickItem | FlagsQuickPickItem<Flags>)[] => [
+			...notices,
+			...items,
+			createQuickPickSeparator(confirmOptionsSeparatorLabel),
+			toggle,
+		];
+
+		const updateRefsToggle = createConfirmToggleQuickPickItem({
 			label: 'Update Branches',
 			detail: 'Also move any branches pointing to the rebased commits',
-			iconPath: toggleIcon(),
+			checked: updateRefs,
+			onDidChange: item => {
+				updateRefs = item.checked;
+				items = buildItems();
+				refreshConfirmStepItems(step, buildRows(item));
+			},
 		});
 
 		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
@@ -448,48 +479,6 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					}),
 				);
 		}
-
-		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
-
-		const notices: DirectiveQuickPickItem[] = [];
-
-		/** Every row the confirm step shows, minus the separator + Cancel that `createConfirmStep` appends.
-		 *  The separator is labelled so the toggle reads as a modifier on the modes above it rather than a
-		 *  fourth mode — the divider alone doesn't carry that. */
-		const buildRows = (): (DirectiveQuickPickItem | FlagsQuickPickItem<Flags>)[] => [
-			...notices,
-			...items,
-			createQuickPickSeparator('Options'),
-			updateRefsToggle,
-		];
-
-		/**
-		 * Rewrites the live quickpick's rows. Confirm steps can't refresh via `retry()` — that feeds
-		 * `Directive.Noop` back into the generator, which fails `canPickStepContinue` and pops the wizard
-		 * back to branch selection — so the async conflict notices and the Update Branches toggle both
-		 * mutate the quickpick in place instead. The notices and the toggle row keep their identity across a
-		 * rebuild, so whichever of them is active survives; only the mode rows are replaced.
-		 */
-		const refreshQuickPick = () => {
-			if (step?.quickpick == null) return;
-
-			const active = step.quickpick.activeItems;
-			step.quickpick.items = [
-				...buildRows(),
-				createQuickPickSeparator(),
-				createDirectiveQuickPickItem(Directive.Cancel),
-			];
-			step.quickpick.activeItems = active;
-		};
-
-		// Flips the modifier and rewrites the rows in place — the mode items carry `--update-refs` in their
-		// flags (the accepted item's flags are the whole contract with `execute()`), so they're rebuilt too.
-		updateRefsToggle.onDidSelect = () => {
-			updateRefs = !updateRefs;
-			updateRefsToggle.iconPath = toggleIcon();
-			items = buildItems();
-			refreshQuickPick();
-		};
 
 		if (potentialConflict) {
 			void potentialConflict?.then(result => {
@@ -527,7 +516,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					);
 				}
 
-				refreshQuickPick();
+				refreshConfirmStepItems(step, buildRows(updateRefsToggle));
 			});
 
 			notices.push(
@@ -540,7 +529,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), buildRows());
+		step = this.createConfirmStep(
+			appendReposToTitle(`Confirm ${title}`, state, context),
+			buildRows(updateRefsToggle),
+		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
