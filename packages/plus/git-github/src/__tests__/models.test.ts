@@ -208,6 +208,7 @@ suite('fromGitHubPullRequest review projection', () => {
 			isDraft: false,
 			additions: 1,
 			deletions: 0,
+			changedFiles: 1,
 			assignees: { nodes: [] },
 			checksUrl: 'https://github.com/gitkraken/vscode-gitlens/pull/1/checks',
 			mergeable: 'MERGEABLE',
@@ -215,7 +216,7 @@ suite('fromGitHubPullRequest review projection', () => {
 			latestReviews: { nodes: latestReviews },
 			viewerLatestReview: viewerLatestReview,
 			reviewRequests: { nodes: [] },
-			commits: { nodes: [] },
+			commits: { totalCount: 0, nodes: [] },
 			totalCommentsCount: 0,
 			viewerCanUpdate: true,
 		};
