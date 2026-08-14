@@ -1222,6 +1222,11 @@ export interface DidLoadRowParams {
 	id?: string; // `undefined` if the row was not found
 	/** Set when the host couldn't load the row. `id` is undefined alongside. */
 	error?: string;
+	/** Set only when `id` is undefined — why the targeted row load failed:
+	 *  - `notFound`: the walk exhausted history and the commit doesn't exist in the repository.
+	 *  - `firstParent`: the commit exists, but `gitlens.graph.onlyFollowFirstParent` excludes it from the walk.
+	 *  - `invalidRef`: the requested id couldn't resolve to a commit at all. */
+	reason?: 'notFound' | 'firstParent' | 'invalidRef';
 }
 export const LoadRowRequest = new IpcRequest<LoadRowParams, DidLoadRowParams>(scope, 'rows/load');
 
@@ -1914,6 +1919,17 @@ export const DidChangeSelectionNotification = new IpcNotification<DidChangeSelec
 	scope,
 	'selection/didChange',
 );
+
+export interface DidFailRevealParams {
+	/** The ref/sha the host was asked to reveal. */
+	id: string;
+	reason: 'invalidRef' | 'notFound';
+}
+/** A host-initiated reveal/select (e.g. a deep link, "Open in Commit Graph", a terminal-link jump)
+ *  gave up without ever calling `setSelectedRows` — nothing else tells the webview the jump was a
+ *  no-op, so surface it explicitly instead of leaving the graph looking like it silently ignored the
+ *  request. */
+export const DidFailRevealNotification = new IpcNotification<DidFailRevealParams>(scope, 'reveal/didFail');
 
 export interface DidRequestOpenCompareModeParams {
 	repoPath: string;

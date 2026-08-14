@@ -479,6 +479,31 @@ export type GraphRowPeekRequest =
 	| { action: 'toggle' | 'reanchor'; sha: string; anchor: HTMLElement; open: boolean }
 	| { action: 'close' };
 
+/** Why a loaded row isn't rendered — see {@link GlLitGraph.getRowHiddenReason}. */
+export type GraphRowHiddenReason =
+	| 'collapsed'
+	| 'excluded-ref'
+	| 'excluded-type'
+	| 'visibility'
+	| 'scope'
+	| 'search-filter'
+	| 'unknown';
+
+/** The ref narrowing a row-visibility pass runs under. An absent member means that class isn't narrowing. */
+type RefVisibilityFilter = {
+	includeOnly?: GraphIncludeOnlyRefs;
+	excludeRefs?: GraphExcludeRefs;
+	hideHeads: boolean;
+	hideRemotes: boolean;
+	hideTags: boolean;
+};
+
+/** Classes of narrowing to resolve as if unset — how `getRowHiddenReason` asks which one dropped a row. */
+type RefVisibilityWaivers = { excludeRefs?: boolean; excludeTypes?: boolean; includeOnly?: boolean };
+
+/** Every ref tip visible — the baseline the narrowed passes are measured against. */
+const allRefsVisible: RefVisibilityFilter = { hideHeads: false, hideRemotes: false, hideTags: false };
+
 /**
  * Snapshot of the render-derived state the per-row `renderItem` needs. Populated once per
  * `render()` and read (never re-derived) inside the hot per-row loop, so `renderItem` can be a
@@ -2777,31 +2802,65 @@ export class GlLitGraph extends LitElement {
 	// warning) are always kept and follow their own visibility rules. Returns `rows` unchanged when
 	// nothing narrows the ref set (the 'all' default) so the common case stays zero-cost.
 	private filterRowsByRefVisibility(rows: readonly GitGraphRow[]): readonly GitGraphRow[] {
-		// Focusing a branch is explicit intent and outranks the implicit `branchesVisibility` include
-		// set — the same rule the WIP rows follow (`filterSecondariesForScopeAndVisibility`,
-		// `shouldShowPrimaryWipRow`). Without it the scope chip reads "Showing X Only" while the mode
-		// quietly filters X's own commits out from under it, leaving the projection unable to resolve
-		// its focal tip: focused in name, unfocused on screen.
-		//
-		// Only the mode-derived include set is waived. `excludeRefs` and the type toggles are explicit
-		// per-ref/per-type hiding, so they keep applying — same line `filterSecondariesForScope` draws.
-		// Nothing here mutates the mode, so unfocusing simply resumes filtering against it.
-		const includeOnly = this.scope != null ? undefined : this.includeOnlyRefs;
-		const excludeRefs = this.excludeRefs;
+		const filter = this.resolveRefVisibility();
+		if (filter == null) return rows;
+
+		const reachable = collectReachable(rows, this.collectVisibleRefTips(rows, filter));
+		return rows.filter(r => (r.kind === 'commit' || r.kind === 'merge' ? reachable.has(r.sha) : true));
+	}
+
+	/**
+	 * The ref narrowing the row filter runs under, or `undefined` when nothing narrows the ref set (the
+	 * 'all' default — every commit stays visible, so the filter is a no-op). Fast path for the common case.
+	 *
+	 * Focusing a branch is explicit intent and outranks the implicit `branchesVisibility` include
+	 * set — the same rule the WIP rows follow (`filterSecondariesForScopeAndVisibility`,
+	 * `shouldShowPrimaryWipRow`). Without it the scope chip reads "Showing X Only" while the mode
+	 * quietly filters X's own commits out from under it, leaving the projection unable to resolve
+	 * its focal tip: focused in name, unfocused on screen.
+	 *
+	 * Only the mode-derived include set is waived. `excludeRefs` and the type toggles are explicit
+	 * per-ref/per-type hiding, so they keep applying — same line `filterSecondariesForScope` draws.
+	 * Nothing here mutates the mode, so unfocusing simply resumes filtering against it.
+	 *
+	 * `waivers` resolves one class of narrowing as if unset — only {@link getRowHiddenReason} passes them.
+	 */
+	private resolveRefVisibility(waivers?: RefVisibilityWaivers): RefVisibilityFilter | undefined {
+		const includeOnly = waivers?.includeOnly === true || this.scope != null ? undefined : this.includeOnlyRefs;
+		const excludeRefs = waivers?.excludeRefs === true ? undefined : this.excludeRefs;
+		const waiveTypes = waivers?.excludeTypes === true;
+		const filter: RefVisibilityFilter = {
+			// Empty maps are normalized away so every consumer can read presence as "narrowing".
+			includeOnly: includeOnly != null && Object.keys(includeOnly).length > 0 ? includeOnly : undefined,
+			excludeRefs: excludeRefs != null && Object.keys(excludeRefs).length > 0 ? excludeRefs : undefined,
+			hideHeads: !waiveTypes && this.excludeTypes?.heads === true,
+			hideRemotes: !waiveTypes && this.excludeTypes?.remotes === true,
+			hideTags: !waiveTypes && this.excludeTypes?.tags === true,
+		};
+		if (
+			filter.includeOnly == null &&
+			filter.excludeRefs == null &&
+			!filter.hideHeads &&
+			!filter.hideRemotes &&
+			!filter.hideTags
+		) {
+			return undefined;
+		}
+
+		return filter;
+	}
+
+	/** Shas of the rows carrying a ref tip `filter` leaves visible — the seeds of the row filter's
+	 *  reachability walk. */
+	private collectVisibleRefTips(rows: readonly GitGraphRow[], filter: RefVisibilityFilter): Sha[] {
+		const { includeOnly, excludeRefs, hideHeads, hideRemotes, hideTags } = filter;
 		const excludedRemotes = getExcludedRemotes(excludeRefs);
-		const includeActive = includeOnly != null && Object.keys(includeOnly).length > 0;
-		const excludeActive = excludeRefs != null && Object.keys(excludeRefs).length > 0;
-		const hideHeads = this.excludeTypes?.heads === true;
-		const hideRemotes = this.excludeTypes?.remotes === true;
-		const hideTags = this.excludeTypes?.tags === true;
-		// Nothing narrows the ref set → every commit stays visible (the 'all' default). Fast path.
-		if (!includeActive && !excludeActive && !hideHeads && !hideRemotes && !hideTags) return rows;
 
 		const refVisible = (id: string | undefined, hiddenType: boolean): boolean => {
 			if (hiddenType) return false;
-			if (excludeActive && id != null && excludeRefs[id] != null) return false;
+			if (excludeRefs != null && id != null && excludeRefs[id] != null) return false;
 			// Include-only modes require the ref to be listed; otherwise any non-excluded ref counts.
-			return includeActive ? id != null && includeOnly[id] != null : true;
+			return includeOnly != null ? id != null && includeOnly[id] != null : true;
 		};
 
 		const visibleTips: Sha[] = [];
@@ -2842,8 +2901,7 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		const reachable = collectReachable(rows, visibleTips);
-		return rows.filter(r => (r.kind === 'commit' || r.kind === 'merge' ? reachable.has(r.sha) : true));
+		return visibleTips;
 	}
 
 	private recomputeRows(idLength: number): void {
@@ -3324,16 +3382,23 @@ export class GlLitGraph extends LitElement {
 	// Both callers land and both flash — a ref's tip is exactly the "jump here, then read back through
 	// history" case the landing ratio is shaped for, and the flash is left to the reveal so it fires when the
 	// row arrives rather than when the click did (which for an unpaged target are far apart).
+	/** Expands the collapsed lane hiding `sha`, if that's what is hiding it — so a reveal armed for the
+	 *  row can land once the expanded row renders. Returns whether a lane was expanded. */
+	expandLaneFor(sha: Sha): boolean {
+		if (this.indexBySha.has(sha)) return false;
+
+		const tip = this.segmentByCommit.get(sha);
+		if (tip == null || !this.effectiveCollapsed.has(tip)) return false;
+
+		this.toggleLane(tip);
+		return true;
+	}
+
 	private jumpToRefRow(sha: Sha, options?: { focus?: boolean; flash?: boolean }): void {
 		const focus = options?.focus ?? true;
 		// If the target is hidden inside a collapsed lane, expand that lane first so it can be revealed —
 		// scrollToSha keeps the reveal PENDING and retries once the expanded row renders.
-		if (!this.indexBySha.has(sha)) {
-			const tip = this.segmentByCommit.get(sha);
-			if (tip != null && this.effectiveCollapsed.has(tip)) {
-				this.toggleLane(tip);
-			}
-		}
+		this.expandLaneFor(sha);
 		// Route loaded, collapsed, and unloaded targets through one wrapper-owned operation. It owns the
 		// load/select/reveal lifecycle and preserves the newest user intent while any row is materializing.
 		// Focus the tree first to drop the pill/sub-chip that triggered the jump (collapsing its fill and
@@ -8575,6 +8640,97 @@ export class GlLitGraph extends LitElement {
 		return this.indexBySha.has(sha);
 	}
 
+	/**
+	 * Why a loaded row isn't rendered — what a failed jump reports instead of going quiet. `undefined`
+	 * when the row IS rendered, or when the host never loaded it (nothing here can speak to that).
+	 *
+	 * Only a failed jump asks, so the reachability re-walks below never run on a render.
+	 */
+	getRowHiddenReason(sha: string): GraphRowHiddenReason | undefined {
+		if (this.isRowDisplayed(sha)) return undefined;
+
+		const row = this.getRowByShaMap()?.get(sha);
+		if (row == null) return undefined;
+
+		if (this.scopeProjection?.dropped.has(sha) === true) return 'scope';
+		if (this.searchFiltering && this._searchMatchedShas?.has(sha) !== true) return 'search-filter';
+		if (row.kind === 'stash' && this.excludeTypes?.stashes === true) return 'excluded-type';
+		// The ref-visibility filter runs ahead of the engine, so a row that survived into the processed
+		// index was hidden further downstream — a collapsed lane, which jump callers expand instead
+		// (`expandLaneFor`) rather than report.
+		if (this.processedIndexBySha.has(sha)) {
+			const tip = this.segmentByCommit.get(sha);
+			return tip != null && this.effectiveCollapsed.has(tip) ? 'collapsed' : 'unknown';
+		}
+
+		// Re-run the filter's reachability with one more class of refs re-included each time, and name the
+		// first class that brings the row back. Unreachable even from every tip means it hangs off nothing
+		// the loaded rows can see.
+		if (this.isReachableUnderRefVisibility(sha, 'exclude-refs', this.resolveRefVisibility({ excludeRefs: true }))) {
+			return 'excluded-ref';
+		}
+		if (
+			this.isReachableUnderRefVisibility(
+				sha,
+				'exclude-types',
+				this.resolveRefVisibility({ excludeRefs: true, excludeTypes: true }),
+			)
+		) {
+			return 'excluded-type';
+		}
+		if (this.isReachableUnderRefVisibility(sha, 'all-refs', allRefsVisible)) return 'visibility';
+
+		return 'unknown';
+	}
+
+	// Reachability probes for `getRowHiddenReason`, keyed by which narrowing was waived. Dropped whole
+	// whenever any input the row filter reads changes — the host ships a fresh object per change, so
+	// identity is the invalidation signal (same compare `lastExcludeRefsForRows` & co. use).
+	private _refVisibilityProbes?: {
+		rows: GitGraphRow[] | undefined;
+		includeOnlyRefs: GraphIncludeOnlyRefs | undefined;
+		excludeRefs: GraphExcludeRefs | undefined;
+		excludeTypes: GraphExcludeTypes | undefined;
+		scoped: boolean;
+		reachable: Map<string, ReadonlySet<Sha>>;
+	};
+
+	private isReachableUnderRefVisibility(sha: string, key: string, filter: RefVisibilityFilter | undefined): boolean {
+		// Nothing narrows once this class is waived ⇒ the filter is a no-op ⇒ every loaded row survives it.
+		if (filter == null) return true;
+
+		const cached = this._refVisibilityProbes;
+		let probes: Map<string, ReadonlySet<Sha>>;
+		if (
+			cached != null &&
+			cached.rows === this.rows &&
+			cached.includeOnlyRefs === this.includeOnlyRefs &&
+			cached.excludeRefs === this.excludeRefs &&
+			cached.excludeTypes === this.excludeTypes &&
+			cached.scoped === (this.scope != null)
+		) {
+			probes = cached.reachable;
+		} else {
+			probes = new Map<string, ReadonlySet<Sha>>();
+			this._refVisibilityProbes = {
+				rows: this.rows,
+				includeOnlyRefs: this.includeOnlyRefs,
+				excludeRefs: this.excludeRefs,
+				excludeTypes: this.excludeTypes,
+				scoped: this.scope != null,
+				reachable: probes,
+			};
+		}
+
+		let reachable = probes.get(key);
+		if (reachable == null) {
+			const rows = this.rows ?? [];
+			reachable = collectReachable(rows, this.collectVisibleRefTips(rows, filter));
+			probes.set(key, reachable);
+		}
+		return reachable.has(sha);
+	}
+
 	// Cached sha→column map for `getColumnsBySha`, keyed on `processedRows`' array identity so a
 	// caller re-querying between full re-derivations (e.g. repeated jump-to-WIP clicks) doesn't pay
 	// an O(rows) rebuild each time.
@@ -8662,6 +8818,19 @@ export class GlLitGraph extends LitElement {
 		// A reveal still mid-flight is the same stale intent as one still queued — the generation bump above
 		// stops the loop, this releases the frame it was holding.
 		this.cancelRevealAnimation();
+	}
+
+	/**
+	 * Cancel a queued/travelling reveal, but only if it is still working toward `sha`.
+	 *
+	 * A reveal armed for a row that can never render (hidden by a filter, dropped by the scope) otherwise
+	 * retries on every render forever; the wrapper drops it here once the user has been told the jump
+	 * failed. Keyed so dismissing THAT failure can't cancel a reveal some newer navigation armed.
+	 */
+	cancelPendingRevealFor(sha: string): void {
+		if (this.activeRevealSha !== sha) return;
+
+		this.cancelPendingReveal();
 	}
 
 	/**

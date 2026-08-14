@@ -740,15 +740,15 @@ export class GraphDataController {
 		pending.cancellable.cancel();
 	}
 
-	async onLoadRowRequest(
-		params: IpcParams<typeof LoadRowRequest>,
-	): Promise<{ id: string | undefined; error?: string }> {
-		if (this._graphSession == null) return { id: undefined };
+	async onLoadRowRequest(params: IpcParams<typeof LoadRowRequest>): Promise<IpcResponse<typeof LoadRowRequest>> {
+		if (this._graphSession == null) return { id: undefined, reason: 'notFound' };
 		// WIP rows are synthesized client-side and have no commit behind them, so there is nothing to
 		// load and `updateGraphWithMoreRows` below runs UNCAPPED for the id. The webview guards its own
 		// callers, but this is the boundary that has to hold — search seeds WIP row ids into its results
 		// (`graphSearchService`), and the header's ensure-a-search-result path forwards any id it gets.
-		if (isWipRowId(params.id)) return { id: undefined };
+		if (isWipRowId(params.id)) return { id: undefined, reason: 'notFound' };
+
+		const repoPath = this._graphSession.repoPath;
 
 		try {
 			if (this._graphSession.current.ids.has(params.id)) {
@@ -791,11 +791,38 @@ export class GraphDataController {
 				this._graphSync.release();
 			}
 
-			return { id: id };
+			if (id != null) return { id: id };
+
+			return { id: undefined, reason: await this.classifyLoadRowFailure(repoPath, params.id) };
 		} catch (ex) {
 			Logger.error(ex, 'GraphDataController', 'onLoadRowRequest');
 			return { id: undefined, error: ex instanceof Error ? ex.message : String(ex) };
 		}
+	}
+
+	/** Classifies why a targeted {@link onLoadRowRequest} walk failed to find `id`, so the webview can
+	 *  tell the user why the jump didn't land instead of failing silently. Distinguishes a commit that
+	 *  genuinely doesn't exist from one that exists but is unreachable because the graph only walks
+	 *  first-parent history (`gitlens.graph.onlyFollowFirstParent`) — an unreachable-but-existing commit
+	 *  with first-parent OFF is bucketed as `notFound` too; an `--all` walk can't otherwise tell "exists
+	 *  but unreachable" apart from "doesn't exist". */
+	private async classifyLoadRowFailure(repoPath: string, id: string): Promise<'notFound' | 'firstParent'> {
+		let exists = false;
+		try {
+			exists = (await this.container.git.getRepositoryService(repoPath).refs.validateReference(id)) != null;
+		} catch (ex) {
+			if (!isCancellationError(ex)) {
+				Logger.error(ex, 'GraphDataController', 'classifyLoadRowFailure');
+			}
+
+			return 'notFound';
+		}
+
+		if (!exists) return 'notFound';
+
+		const { onlyFollowFirstParent } = configuration.get('graph');
+
+		return onlyFollowFirstParent ? 'firstParent' : 'notFound';
 	}
 
 	async onGetCounts(): Promise<

@@ -272,6 +272,7 @@ import {
 	DidChangeSubscriptionNotification,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
+	DidFailRevealNotification,
 	DidFetchNotification,
 	DidInvalidateGraphTreemapNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -1191,6 +1192,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			let id = arg.ref.ref;
 			let isWipRow = false;
+			let unresolved = false;
 			if (isUncommitted(id)) {
 				// The uncommitted revision isn't a real commit — it maps to the synthetic WIP row of the
 				// worktree it belongs to (the graph surfaces one WIP row per worktree, all keyed by path).
@@ -1198,19 +1200,33 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				id = createWipRowId(arg.ref.repoPath);
 				isWipRow = true;
 			} else if (!isSha(id)) {
-				id = (await this.container.git.getRepositoryService(arg.ref.repoPath).revision.resolveRevision(id)).sha;
+				// A sha is trusted as-is (left to the uncapped walk below); a non-sha ref is resolved
+				// first — `resolveRevision` echoes `id` back unchanged when it couldn't find a matching
+				// commit, so don't launch a doomed history walk for a ref that can never be found.
+				const resolved = await this.container.git
+					.getRepositoryService(arg.ref.repoPath)
+					.revision.resolveRevision(id);
+				if (resolved.sha === id) {
+					unresolved = true;
+				} else {
+					id = resolved.sha;
+				}
 			}
 
-			this.setSelectedRows(id);
+			if (unresolved) {
+				void this.host.notify(DidFailRevealNotification, { id: id, reason: 'invalidRef' });
+			} else {
+				this.setSelectedRows(id);
 
-			if (this._data.session != null) {
-				// Synthetic WIP rows can't be paged in via `onGetMoreRows`; selecting + notifying is enough.
-				if (isWipRow || this._data.session.current.ids.has(id)) {
-					void this.notifyDidChangeSelection();
-					return [true, this.getShownTelemetryContext()];
+				if (this._data.session != null) {
+					// Synthetic WIP rows can't be paged in via `onGetMoreRows`; selecting + notifying is enough.
+					if (isWipRow || this._data.session.current.ids.has(id)) {
+						void this.notifyDidChangeSelection();
+						return [true, this.getShownTelemetryContext()];
+					}
+
+					void this.revealRow(id);
 				}
-
-				void this.revealRow(id);
 			}
 		} else if (hasVisualization(arg)) {
 			// Checked ahead of `hasCompare`/`hasRepository` — both duck-type on `arg.repository` alone,
@@ -2987,9 +3003,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcRequest(LoadRowRequest)
 	@trace()
-	private onLoadRowRequest(
-		params: IpcParams<typeof LoadRowRequest>,
-	): Promise<{ id: string | undefined; error?: string }> {
+	private onLoadRowRequest(params: IpcParams<typeof LoadRowRequest>): Promise<IpcResponse<typeof LoadRowRequest>> {
 		return this._data.onLoadRowRequest(params);
 	}
 
