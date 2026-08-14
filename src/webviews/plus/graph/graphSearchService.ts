@@ -297,14 +297,18 @@ function buildRepairContext(query: string, error: string | undefined): string {
 
 /** Host-side search cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the active
  *  graph search (`_search`), the supersede counter (`_searchIdCounter`), and the per-repo search
- *  history (`_searchHistory`), along with the search-execution logic (new/continue/WIP streams,
+ *  history (`_searchHistoryByRepo`), along with the search-execution logic (new/continue/WIP streams,
  *  progressive supersede guards), the search-results serialization, the rows-plane search rider, and
  *  the mode/history/open-in-view handlers. The provider keeps the IPC forwarders and injects the
  *  collaborators via {@link GraphSearchServiceContext}. */
 export class GraphSearchService {
 	private _search: GitGraphSearch | undefined;
 	private _searchIdCounter = getScopedCounter();
-	private _searchHistory: SearchHistory | undefined;
+	/** One {@link SearchHistory} instance per repo, kept alive for the life of the service instead of being
+	 *  torn down on repo switch — each instance owns its own write-serialization chain
+	 *  ({@link SearchHistory._writes}), so replacing the instance on every repo change would lose that
+	 *  serialization (and so a lost update) across an A→B→A repo switch. */
+	private readonly _searchHistoryByRepo = new Map<string | undefined, SearchHistory>();
 
 	/**
 	 * Set for the lifetime of a search (through its `e.more` continuations) that recovered from an
@@ -364,10 +368,24 @@ export class GraphSearchService {
 		return this._fallback != null ? { ...query, matchRegex: true } : query;
 	}
 
+	/** Returns the search-history instance for the CURRENT repo, get-or-creating it in
+	 *  {@link _searchHistoryByRepo} — so a repo switch always reads/writes the right repo's history, and
+	 *  switching back to a repo already seen in this session reuses its instance (and write-serialization
+	 *  chain) instead of losing it to a fresh one. */
+	private getSearchHistory(): SearchHistory {
+		const repoPath = this.repository?.path;
+		let searchHistory = this._searchHistoryByRepo.get(repoPath);
+		if (searchHistory == null) {
+			searchHistory = new SearchHistory(this.container.storage, repoPath);
+			this._searchHistoryByRepo.set(repoPath, searchHistory);
+		}
+		return searchHistory;
+	}
+
 	onSearchHistoryGetRequest(): IpcResponse<typeof SearchHistoryGetRequest> {
-		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		const searchHistory = this.getSearchHistory();
 		try {
-			return { history: this._searchHistory.get() };
+			return { history: searchHistory.get() };
 		} catch {
 			return { history: [] };
 		}
@@ -376,29 +394,29 @@ export class GraphSearchService {
 	async onSearchHistoryStoreRequest(
 		params: IpcParams<typeof SearchHistoryStoreRequest>,
 	): Promise<IpcResponse<typeof SearchHistoryStoreRequest>> {
-		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		const searchHistory = this.getSearchHistory();
 
 		try {
-			await this._searchHistory.store(params.search);
-			return { history: this._searchHistory.get() };
+			await searchHistory.store(params.search);
+			return { history: searchHistory.get() };
 		} catch (ex) {
 			Logger.error(ex, 'GraphWebviewProvider', 'onSearchHistoryStoreRequest');
 			// Surface storage errors to the frontend instead of swallowing in `finally` and pretending
 			// success — the user thought the entry was saved; on reload it would be missing.
-			return { history: this._searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
+			return { history: searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
 
 	async onSearchHistoryDeleteRequest(
 		params: IpcParams<typeof SearchHistoryDeleteRequest>,
 	): Promise<IpcResponse<typeof SearchHistoryDeleteRequest>> {
-		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
+		const searchHistory = this.getSearchHistory();
 		try {
-			await this._searchHistory.delete(params.query);
-			return { history: this._searchHistory.get() };
+			await searchHistory.delete(params.query);
+			return { history: searchHistory.get() };
 		} catch (ex) {
 			Logger.error(ex, 'GraphWebviewProvider', 'onSearchHistoryDeleteRequest');
-			return { history: this._searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
+			return { history: searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
 
@@ -1698,10 +1716,10 @@ export class GraphSearchService {
 		});
 	}
 
-	/** Drop the cached per-repo search history so the next request rebuilds it for the current repo. */
-	resetHistory(): void {
-		this._searchHistory = undefined;
-	}
+	/** No-op: {@link _searchHistoryByRepo} keys instances per repo, so a repo switch already reads/writes
+	 *  the right instance without anything needing to be dropped here. Kept as a method (rather than
+	 *  removing the call site) since the provider's repo-reset path still calls it. */
+	resetHistory(): void {}
 }
 
 function updateSearchMode<T extends GitGraphSearch | undefined>(

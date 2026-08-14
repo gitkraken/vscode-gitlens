@@ -1241,22 +1241,15 @@ export interface CancelLoadRowParams {
  *  walk keeps running for a row nobody is waiting for. Only cancels a query still matching `id`. */
 export const CancelLoadRowCommand = new IpcCommand<CancelLoadRowParams>(scope, 'rows/load/cancel');
 
-export interface SearchHistoryGetParams {
-	repoPath: string | undefined;
-}
 export interface DidSearchHistoryGetParams {
 	history: SearchQuery[];
 	/** Set when the store/delete operation failed. `history` reflects the last-known state from
 	 *  storage so the UI can still render something coherent. */
 	error?: string;
 }
-export const SearchHistoryGetRequest = new IpcRequest<SearchHistoryGetParams, DidSearchHistoryGetParams>(
-	scope,
-	'search/history/get',
-);
+export const SearchHistoryGetRequest = new IpcRequest<void, DidSearchHistoryGetParams>(scope, 'search/history/get');
 
 export interface SearchHistoryStoreParams {
-	repoPath: string | undefined;
 	search: SearchQuery;
 }
 export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams, DidSearchHistoryGetParams>(
@@ -1265,7 +1258,6 @@ export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams
 );
 
 export interface SearchHistoryDeleteParams {
-	repoPath: string | undefined;
 	query: string;
 }
 export const SearchHistoryDeleteRequest = new IpcRequest<SearchHistoryDeleteParams, DidSearchHistoryGetParams>(

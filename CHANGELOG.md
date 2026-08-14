@@ -57,6 +57,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an automatic rebase continuing past a conflicted commit marked `edit` &mdash; git delivers an `edit` step's stop as its conflict stop, so resolving and continuing consumed the requested pause and ran the rebase to completion; the run now resolves and stages the step's conflicts, then stops for the editing you asked for
 - Fixes searching by author `@username` in GitHub virtual repositories dropping the first character of the username
 - Fixes searching by author or committer `@me` in GitHub virtual repositories skipping the filter entirely for accounts without a display name
+- Fixes the _Commit Graph_'s search history reading and saving under the first-opened repository after switching repositories in a multi-repo workspace
 
 ## [19.0.1] - 2026-08-13
 

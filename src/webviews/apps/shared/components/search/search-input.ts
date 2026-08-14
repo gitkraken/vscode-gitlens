@@ -418,8 +418,6 @@ background-color: var(--vscode-menu-background);
 		return `${this.label} commits (press Enter to search, ↑↓ for history), e.g. @me after:1.week.ago file:*.ts`;
 	}
 
-	private repoPath: string | undefined;
-
 	private _searchHistory: SearchQuery[] = [];
 	private searchHistoryPos = -1;
 	private get searchHistory() {
@@ -435,7 +433,7 @@ background-color: var(--vscode-menu-background);
 		super.connectedCallback?.();
 
 		void this._ipc
-			.sendRequest(SearchHistoryGetRequest, { repoPath: this.repoPath })
+			.sendRequest(SearchHistoryGetRequest, undefined)
 			.then(response => (this.searchHistory = response.history))
 			.catch(() => {});
 	}
@@ -1445,10 +1443,7 @@ background-color: var(--vscode-menu-background);
 		const searchToStore: SearchQuery = { ...search, query: queryToStore };
 
 		try {
-			const response = await this._ipc.sendRequest(SearchHistoryStoreRequest, {
-				repoPath: this.repoPath,
-				search: searchToStore,
-			});
+			const response = await this._ipc.sendRequest(SearchHistoryStoreRequest, { search: searchToStore });
 			this.searchHistory = response.history;
 			this.searchHistoryPos = -1;
 		} catch {}
@@ -1456,10 +1451,7 @@ background-color: var(--vscode-menu-background);
 
 	private async deleteHistoryEntry(query: string): Promise<void> {
 		try {
-			const response = await this._ipc.sendRequest(SearchHistoryDeleteRequest, {
-				repoPath: this.repoPath,
-				query: query,
-			});
+			const response = await this._ipc.sendRequest(SearchHistoryDeleteRequest, { query: query });
 			this.searchHistory = response.history;
 			// Move to next entry if available, otherwise restore original value
 			if (this.searchHistoryPos >= 0 && this.searchHistoryPos < this.searchHistory.length) {

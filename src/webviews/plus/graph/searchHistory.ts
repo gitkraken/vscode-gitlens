@@ -7,7 +7,7 @@ const maximumSearchHistory = 50;
 export class SearchHistory {
 	constructor(
 		private readonly storage: Storage,
-		private readonly repoPath: string | undefined,
+		readonly repoPath: string | undefined,
 	) {}
 
 	// Serializes read-modify-write operations on workspace storage. Without this, two concurrent
