@@ -11,6 +11,8 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
+import type { ConfirmToggleQuickPickItem, DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
+import { createConfirmToggleQuickPickItem } from '../../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import type {
@@ -32,7 +34,9 @@ import {
 	appendReposToTitle,
 	assertStepState,
 	canPickStepContinue,
+	confirmOptionsSeparatorLabel,
 	createConfirmStep,
+	refreshConfirmStepItems,
 } from '../../quick-wizard/utils/steps.utils.js';
 import type { BranchContext } from '../branch.js';
 
@@ -275,45 +279,88 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 		state: StepState<State<GlRepository, GitBranchReference[]>>,
 		context: BranchContext,
 	): StepResultGenerator<Flags[]> {
-		const confirmations: FlagsQuickPickItem<Flags>[] = [
-			createFlagsQuickPickItem<Flags>(state.flags, [], {
-				label: context.title,
-				detail: `Will delete ${getReferenceLabel(state.references)}`,
-			}),
-		];
-		if (!state.references.every(b => b.remote)) {
-			confirmations.push(
-				createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-					label: `Force ${context.title}`,
-					description: '--force',
-					detail: `Will forcibly delete ${getReferenceLabel(state.references)}`,
-				}),
-			);
+		const { prune } = this;
+		const refsLabel = getReferenceLabel(state.references);
+		const branchWord = state.references.length === 1 ? 'Branch' : 'Branches';
+		const upstreamWord = state.references.length === 1 ? 'Upstream' : 'Upstreams';
+		const pronoun = state.references.length === 1 ? 'its' : 'their';
+		const verb = prune ? 'Prune' : 'Delete';
 
-			if (!this.prune && state.references.some(b => b.upstream != null)) {
-				confirmations.push(
-					createQuickPickSeparator(),
-					createFlagsQuickPickItem<Flags>(state.flags, ['--remotes'], {
-						label: 'Delete Local & Remote Branches',
-						description: '--remotes',
-						detail: `Will delete ${getReferenceLabel(state.references)} and any upstream tracking branches`,
-					}),
-					createFlagsQuickPickItem<Flags>(state.flags, ['--force', '--remotes'], {
-						label: 'Force Delete Local & Remote Branches',
-						description: '--force --remotes',
-						detail: `Will forcibly delete ${getReferenceLabel(
-							state.references,
-						)} and any upstream tracking branches`,
+		// Remote-tracking refs (e.g. `origin/foo`) don't take `--force` or have an upstream of their own,
+		// so neither the Force toggle nor the "& Upstream(s)" mode applies when every selected ref is remote.
+		const canForce = !state.references.every(b => b.remote);
+		const canDeleteUpstreams = canForce && !prune && state.references.some(b => b.upstream != null);
+
+		let force = state.flags.includes('--force');
+
+		// Folds the live Force toggle value into each mode's flags and detail — the accepted item's flags
+		// are the whole contract with `execute()` — so the list says what will actually happen.
+		const buildItems = (): FlagsQuickPickItem<Flags>[] => {
+			const items: FlagsQuickPickItem<Flags>[] = [
+				createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force'] : [], {
+					label: force ? `Force ${verb} ${branchWord}` : `${verb} ${branchWord}`,
+					description: force ? '--force' : undefined,
+					detail: force
+						? `Will forcibly delete ${refsLabel}, even if not fully merged`
+						: `Will delete ${refsLabel}`,
+					picked: !state.flags.includes('--remotes'),
+				}),
+			];
+
+			if (canDeleteUpstreams) {
+				items.push(
+					createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force', '--remotes'] : ['--remotes'], {
+						label: force
+							? `Force Delete ${branchWord} & ${upstreamWord}`
+							: `Delete ${branchWord} & ${upstreamWord}`,
+						description: force ? '--force --remotes' : '--remotes',
+						detail: force
+							? `Will forcibly delete ${refsLabel} and ${pronoun} upstream ${branchWord.toLowerCase()} from the remote, even if not fully merged`
+							: `Will delete ${refsLabel} and ${pronoun} upstream ${branchWord.toLowerCase()} from the remote`,
+						picked: state.flags.includes('--remotes'),
 					}),
 				);
 			}
+
+			return items;
+		};
+
+		let items = buildItems();
+
+		// Takes the toggle row rather than closing over it so this can be declared before the toggle
+		// itself, which needs `buildRows` in its handler.
+		const buildRows = (
+			toggle?: ConfirmToggleQuickPickItem,
+		): (FlagsQuickPickItem<Flags> | DirectiveQuickPickItem)[] =>
+			toggle != null ? [...items, createQuickPickSeparator(confirmOptionsSeparatorLabel), toggle] : items;
+
+		let step: QuickPickStep<FlagsQuickPickItem<Flags> | DirectiveQuickPickItem>;
+
+		let rows: (FlagsQuickPickItem<Flags> | DirectiveQuickPickItem)[];
+		if (canForce) {
+			const forceToggle = createConfirmToggleQuickPickItem({
+				label: force ? '$(warning) Force' : 'Force',
+				description: '--force',
+				detail: force
+					? 'Delete even if not fully merged — unmerged commits may be lost'
+					: 'Delete even if not fully merged',
+				checked: force,
+				onDidChange: item => {
+					force = item.checked;
+					item.label = force ? '$(warning) Force' : 'Force';
+					item.detail = force
+						? 'Delete even if not fully merged — unmerged commits may be lost'
+						: 'Delete even if not fully merged';
+					items = buildItems();
+					refreshConfirmStepItems(step, buildRows(item));
+				},
+			});
+			rows = buildRows(forceToggle);
+		} else {
+			rows = buildRows();
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			confirmations,
-			context,
-		);
+		step = createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), rows, context);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
