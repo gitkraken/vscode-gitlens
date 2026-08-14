@@ -10,6 +10,7 @@ import type { GlRepository } from '../../git/models/repository.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
+import { supportedInVSCodeVersion } from '../../system/-webview/vscode.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -73,6 +74,10 @@ export class PullGitCommand extends QuickCommand<State> {
 		}
 
 		return this.container.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
+	}
+
+	protected override get supportsSkipConfirmToggle(): boolean {
+		return true;
 	}
 
 	protected createContext(context?: StepsContext<any>): Context {
@@ -202,9 +207,17 @@ export class PullGitCommand extends QuickCommand<State> {
 			const [repo] = state.repos;
 			const [status, lastFetched] = await Promise.all([repo.git.status.getStatus(), repo.getLastFetched()]);
 
+			// On 1.108+ the last-fetched note renders in the message slot between the input and the list;
+			// below that it stays a title suffix
+			const supportsPrompt = supportedInVSCodeVersion('quickpick-prompt');
 			let lastFetchedOn = '';
+			let lastFetchedPrompt: string | undefined;
 			if (lastFetched !== 0) {
-				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+				if (supportsPrompt) {
+					lastFetchedPrompt = `Last fetched ${fromNow(new Date(lastFetched))}`;
+				} else {
+					lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+				}
 			}
 
 			const pullDetails = status?.upstream?.state.behind
@@ -226,6 +239,7 @@ export class PullGitCommand extends QuickCommand<State> {
 				],
 				undefined,
 				{
+					prompt: lastFetchedPrompt,
 					additionalButtons: [FetchQuickInputButton],
 					onDidClickButton: async (quickpick, button) => {
 						if (button !== FetchQuickInputButton || quickpick.busy) return false;

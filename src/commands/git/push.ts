@@ -1,15 +1,21 @@
+import { ThemeIcon } from 'vscode';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
-import { pad, pluralize } from '@gitlens/utils/string.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { pad, pluralize, sortCompare } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { supportedInVSCodeVersion } from '../../system/-webview/vscode.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -29,13 +35,64 @@ import {
 	pickRepositoryStep,
 } from '../quick-wizard/steps/repositories.js';
 import { StepsController } from '../quick-wizard/stepsController.js';
-import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
+import {
+	appendReposToTitle,
+	assertStepState,
+	canPickStepContinue,
+	createConfirmStep,
+} from '../quick-wizard/utils/steps.utils.js';
 
 const Steps = {
 	PickRepos: 'push-pick-repos',
 	Confirm: 'push-confirm',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
+
+/** Orders publish rows: the `remote.pushDefault` remote first, then `origin`, then the rest alphabetically. */
+function sortRemotesForPublish(remotes: readonly GitRemote[], pushDefault: string | undefined): GitRemote[] {
+	return [...remotes].sort(
+		(a, b) =>
+			remotePublishRank(a.name, pushDefault) - remotePublishRank(b.name, pushDefault) ||
+			sortCompare(a.name, b.name),
+	);
+}
+
+function remotePublishRank(name: string, pushDefault: string | undefined): number {
+	if (pushDefault != null && name === pushDefault) return 0;
+	if (name === 'origin') return 1;
+	return 2;
+}
+
+/** Builds the labelled `Publish` separator plus one row per remote (pushDefault first, then origin,
+ *  then alphabetical; first row picked), or nothing when the repo has no remotes. */
+async function buildPublishItems(
+	repo: GlRepository,
+	flags: Flags[],
+	branch: GitBranch | GitBranchReference,
+	upstreamBranchName: string,
+	extraDetail: string,
+): Promise<FlagsQuickPickItem<Flags>[]> {
+	const [remotesResult, pushDefaultResult] = await Promise.allSettled([
+		repo.git.remotes.getRemotes(),
+		repo.git.config.getConfig?.('remote.pushDefault'),
+	]);
+	const remotes = getSettledValue(remotesResult) ?? [];
+	if (!remotes.length) return [];
+
+	const pushDefault = getSettledValue(pushDefaultResult);
+	const items: FlagsQuickPickItem<Flags>[] = [createQuickPickSeparator<FlagsQuickPickItem<Flags>>('Publish')];
+	for (const [i, remote] of sortRemotesForPublish(remotes, pushDefault).entries()) {
+		items.push(
+			createFlagsQuickPickItem<Flags>(flags, ['--set-upstream', remote.name, upstreamBranchName], {
+				label: `Publish ${branch.name} to ${remote.name}`,
+				detail: `Will publish ${getReferenceLabel(branch)}${extraDetail} to ${remote.name}`,
+				picked: i === 0,
+			}),
+		);
+	}
+
+	return items;
+}
 
 interface Context extends StepsContext<StepNames> {
 	repos: GlRepository[];
@@ -79,6 +136,10 @@ export class PushGitCommand extends QuickCommand<State> {
 			force: state.flags.includes('--force'),
 			reference: state.reference,
 		});
+	}
+
+	protected override get supportsSkipConfirmToggle(): boolean {
+		return true;
 	}
 
 	protected createContext(context?: StepsContext<any>): Context {
@@ -144,7 +205,19 @@ export class PushGitCommand extends QuickCommand<State> {
 
 			assertStepState<State<GlRepository[]>>(state);
 
-			if (this.confirm(state.confirm)) {
+			// An unpublished branch's confirm isn't a yes/no — it's where the publish remote gets
+			// picked — so a skipped confirmation must never skip that decision
+			let confirmOverride: boolean | undefined;
+			if (!this.confirm(state.confirm) && state.repos.length === 1) {
+				const branch = isBranchReference(state.reference)
+					? await state.repos[0].git.branches.getBranch(state.reference.name)
+					: await state.repos[0].git.branches.getBranch();
+				if (branch != null && !branch.remote && branch.upstream == null) {
+					confirmOverride = true;
+				}
+			}
+
+			if (this.confirm(confirmOverride ?? state.confirm)) {
 				using step = steps.enterStep(Steps.Confirm);
 
 				const result = yield* this.confirmStep(state, context);
@@ -174,6 +247,11 @@ export class PushGitCommand extends QuickCommand<State> {
 			(configuration.getCore('git.useForcePushIfIncludes') ?? true) &&
 			(await state.repos[0].git.supports('git:push:force-if-includes'));
 
+		// When confirmations are being skipped, this confirm was forced open because it IS the
+		// publish-remote decision — don't offer/echo the Don't Ask Again toggle on a step the
+		// setting can never skip
+		const confirmForced = !this.confirm(state.confirm);
+
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
 		if (state.repos.length > 1) {
@@ -192,6 +270,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					detail: `Will force push${
 						useForceIfIncludes ? ' (with lease and if includes)' : useForceWithLease ? ' (with lease)' : ''
 					} ${state.repos.length} repos`,
+					iconPath: new ThemeIcon('warning'),
 				}),
 			]);
 		} else {
@@ -214,26 +293,23 @@ export class PushGitCommand extends QuickCommand<State> {
 					const branch = await repo.git.branches.getBranch(state.reference.name);
 
 					if (branch != null && branch?.upstream == null) {
-						for (const remote of await repo.git.remotes.getRemotes()) {
-							items.push(
-								createFlagsQuickPickItem<Flags>(
-									state.flags,
-									['--set-upstream', remote.name, branch.name],
-									{
-										label: `Publish ${branch.name} to ${remote.name}`,
-										detail: `Will publish ${getReferenceLabel(branch)} to ${remote.name}`,
-									},
-								),
-							);
-						}
+						items.push(...(await buildPublishItems(repo, state.flags, branch, branch.name, '')));
 
 						if (items.length) {
-							step = this.createConfirmStep(
-								appendReposToTitle('Confirm Publish', state, context),
-								items,
-								undefined,
-								{ placeholder: 'Confirm Publish' },
-							);
+							step = confirmForced
+								? createConfirmStep(
+										appendReposToTitle('Confirm Publish', state, context),
+										items,
+										context,
+										undefined,
+										{ placeholder: 'Confirm Publish' },
+									)
+								: this.createConfirmStep(
+										appendReposToTitle('Confirm Publish', state, context),
+										items,
+										undefined,
+										{ placeholder: 'Confirm Publish' },
+									);
 						} else {
 							step = this.createConfirmStep(
 								appendReposToTitle('Publish', state, context),
@@ -246,6 +322,14 @@ export class PushGitCommand extends QuickCommand<State> {
 							);
 						}
 					} else if (branch?.upstream?.state.behind) {
+						// Enter must never force -- the Cancel row is the pre-selected one, overriding
+						// createConfirmStep's default of the first confirmation
+						const cancelItem = createDirectiveQuickPickItem(Directive.Cancel, true, {
+							label: `Cancel ${this.title}`,
+							detail: `Cannot push; ${getReferenceLabel(
+								branch,
+							)} is behind ${branch.remoteName} by ${pluralize('commit', branch.upstream.state.behind)}`,
+						});
 						step = this.createConfirmStep(
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
 							[
@@ -279,17 +363,19 @@ export class PushGitCommand extends QuickCommand<State> {
 												}`
 											: ''
 									}`,
+									iconPath: new ThemeIcon('warning'),
 								}),
 							],
-							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: `Cannot push; ${getReferenceLabel(
-									branch,
-								)} is behind ${branch.remoteName} by ${pluralize(
-									'commit',
-									branch.upstream.state.behind,
-								)}`,
-							}),
+							cancelItem,
+							{
+								selectedItems: [cancelItem],
+								prompt: supportedInVSCodeVersion('quickpick-prompt')
+									? `${getReferenceLabel(branch)} is behind ${branch.remoteName} by ${pluralize(
+											'commit',
+											branch.upstream.state.behind,
+										)} — pull first, or force push to overwrite them`
+									: undefined,
+							},
 						);
 					} else if (branch?.upstream?.state.ahead) {
 						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
@@ -337,29 +423,24 @@ export class PushGitCommand extends QuickCommand<State> {
 							pushDetails = '';
 						}
 
-						for (const remote of await repo.git.remotes.getRemotes()) {
-							items.push(
-								createFlagsQuickPickItem<Flags>(
-									state.flags,
-									['--set-upstream', remote.name, status.branch],
-									{
-										label: `Publish ${branch.name} to ${remote.name}`,
-										detail: `Will publish ${getReferenceLabel(branch)}${pushDetails} to ${
-											remote.name
-										}`,
-									},
-								),
-							);
-						}
+						items.push(...(await buildPublishItems(repo, state.flags, branch, status.branch, pushDetails)));
 					}
 
 					if (items.length) {
-						step = this.createConfirmStep(
-							appendReposToTitle('Confirm Publish', state, context),
-							items,
-							undefined,
-							{ placeholder: 'Confirm Publish' },
-						);
+						step = confirmForced
+							? createConfirmStep(
+									appendReposToTitle('Confirm Publish', state, context),
+									items,
+									context,
+									undefined,
+									{ placeholder: 'Confirm Publish' },
+								)
+							: this.createConfirmStep(
+									appendReposToTitle('Confirm Publish', state, context),
+									items,
+									undefined,
+									{ placeholder: 'Confirm Publish' },
+								);
 					} else if (status.upstream == null) {
 						step = this.createConfirmStep(
 							appendReposToTitle('Publish', state, context),
@@ -384,11 +465,13 @@ export class PushGitCommand extends QuickCommand<State> {
 						);
 					}
 				} else {
-					let lastFetchedOn = '';
-
 					const lastFetched = await repo.getLastFetched();
+
+					let lastFetchedOn = '';
+					let lastFetchedPrompt: string | undefined;
 					if (lastFetched !== 0) {
 						lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+						lastFetchedPrompt = `Last fetched ${fromNow(new Date(lastFetched))}`;
 					}
 
 					let pushDetails;
@@ -406,10 +489,36 @@ export class PushGitCommand extends QuickCommand<State> {
 						}${status?.upstream ? ` to ${status.upstream.name}` : ''}`;
 					}
 
+					const behindCount = status?.upstream?.state.behind;
+					const promptSupported = supportedInVSCodeVersion('quickpick-prompt');
+
+					let prompt: string | undefined;
+					let titleSuffix = lastFetchedOn;
+					if (promptSupported) {
+						if (behindCount) {
+							prompt = `${getReferenceLabel(branch)} is behind${
+								status?.upstream ? ` ${status.upstream.name}` : ''
+							} by ${pluralize('commit', behindCount)} — pull first, or force push to overwrite them`;
+						} else {
+							prompt = lastFetchedPrompt;
+							titleSuffix = '';
+						}
+					}
+
+					// Enter must never force when the branch is behind -- the Cancel row is the pre-selected
+					// one, overriding createConfirmStep's default of the first confirmation
+					const behindCancelItem = behindCount
+						? createDirectiveQuickPickItem(Directive.Cancel, true, {
+								label: `Cancel ${this.title}`,
+								detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
+									status?.upstream ? ` ${status.upstream.name}` : ''
+								} by ${pluralize('commit', behindCount)}`,
+							})
+						: undefined;
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+						appendReposToTitle(`Confirm ${context.title}`, state, context, titleSuffix),
 						[
-							...(status?.upstream?.state.behind
+							...(behindCount
 								? []
 								: [
 										createFlagsQuickPickItem<Flags>(state.flags, [], {
@@ -437,22 +546,22 @@ export class PushGitCommand extends QuickCommand<State> {
 											? ' (with lease)'
 											: ''
 								} ${pushDetails}${
-									status?.upstream?.state.behind
-										? `, overwriting ${pluralize('commit', status.upstream.state.behind)}${
+									behindCount
+										? `, overwriting ${pluralize('commit', behindCount)}${
 												status?.upstream ? ` on ${status.upstream.name}` : ''
 											}`
 										: ''
 								}`,
+								iconPath: new ThemeIcon('warning'),
 							}),
 						],
-						status?.upstream?.state.behind
-							? createDirectiveQuickPickItem(Directive.Cancel, true, {
-									label: `Cancel ${this.title}`,
-									detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
-										status?.upstream ? ` ${status.upstream.name}` : ''
-									} by ${pluralize('commit', status.upstream.state.behind)}`,
-								})
-							: undefined,
+						behindCancelItem,
+						{
+							prompt: prompt,
+							// Spread rather than a `?? undefined` value — an explicit `undefined` key would
+							// override createConfirmStep's computed default and leave no row pre-selected
+							...(behindCancelItem != null ? { selectedItems: [behindCancelItem] } : undefined),
+						},
 					);
 
 					step.additionalButtons = [FetchQuickInputButton];

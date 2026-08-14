@@ -129,7 +129,7 @@ export const FeedbackQuickInputButton: QuickInputButton = {
 export const FetchQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('repo-fetch'),
 	tooltip: 'Fetch',
-	location: getQuickInputButtonLocation(QuickInputButtonLocation.Inline),
+	location: getQuickInputButtonLocation(QuickInputButtonLocation.Input),
 };
 
 export const GenerateStashMessageQuickInputButton: QuickInputButton = {
