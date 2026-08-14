@@ -1755,6 +1755,35 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<(number | undefined)[] | undefined>;
 
+	/** The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none. */
+	async countPullRequestsResult(
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<(number | undefined)[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const counts = await this.countProviderPullRequests?.(session, scopes, cancellation);
+			this.resetRequestExceptionCount('countPullRequests');
+			return { value: counts, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('countPullRequests', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/** OPTIONAL, like {@link countProviderIssues}: only a provider that can count without fetching implements it. */
+	protected countProviderPullRequests?(
+		session: ProviderAuthenticationSession,
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
+		cancellation?: AbortSignal,
+	): Promise<(number | undefined)[] | undefined>;
+
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);
 	}

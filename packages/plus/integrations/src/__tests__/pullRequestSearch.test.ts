@@ -62,6 +62,147 @@ function emptyPage(overrides?: Partial<SearchPageResponse>): SearchPageResponse 
 	return { values: [], truncated: false, hasMore: false, page: 1, ...overrides };
 }
 
+/** Stubs the GitHub API client's `countPullRequests`, recording the scopes the facade forwarded to it. */
+async function stubGitHubCount(
+	manager: ReturnType<typeof createIntegrationManager>,
+	respond: (scopes: readonly Record<string, unknown>[]) => (number | undefined)[] | undefined,
+): Promise<Record<string, unknown>[][]> {
+	const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+	assert.ok(gh != null);
+	(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+	const githubApi = await (
+		gh as unknown as {
+			authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+		}
+	).authenticationService.apis.github;
+	assert.ok(githubApi != null);
+
+	const calls: Record<string, unknown>[][] = [];
+	githubApi.countPullRequests = (_provider: unknown, _token: unknown, scopes: Record<string, unknown>[]) => {
+		calls.push(scopes);
+		return Promise.resolve(respond(scopes));
+	};
+	return calls;
+}
+
+suite('IntegrationManager.countPullRequests', () => {
+	test('echoes each count under the caller’s own key', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubCount(manager, scopes => scopes.map((_, i) => 10 + i));
+
+			const result = await manager.countPullRequests({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: [
+					{
+						key: 'authored',
+						repos: [{ namespace: 'o', name: 'a' }],
+						criteria: { relationships: [PullRequestFilter.Author] },
+					},
+					{ key: 'recent', repos: [{ namespace: 'o', name: 'a' }], criteria: { states: ['open', 'closed'] } },
+				],
+			});
+
+			assert.deepEqual(
+				result.items.map(i => ({ key: i.key, count: i.count })),
+				[
+					{ key: 'authored', count: 10 },
+					{ key: 'recent', count: 11 },
+				],
+			);
+			assert.equal(result.fetchFailed, undefined);
+			assert.equal(calls.length, 1, 'both scopes share one request');
+			// The provider override flattens descriptors to `namespace/name` and forwards the criteria verbatim.
+			assert.deepEqual(calls[0][0].repos, ['o/a']);
+			assert.deepEqual(calls[0][1].criteria, { states: ['open', 'closed'] });
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	// A relationship set is OR-ed across independent searches, which a single count can't express; the caller is
+	// asked to count each relationship as its own keyed scope. (Several STATES are fine — they are disjoint.) The
+	// shared facade mechanics (empty scopes, duplicate keys, per-scope isolation) are covered by the countIssues
+	// facade tests; here only the PR-specific behavior is exercised.
+	test('refuses a scope requesting several relationships', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubCount(manager, scopes => scopes.map(() => 1));
+
+			const result = await manager.countPullRequests({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: [
+					{
+						key: 'mine',
+						repos: [{ namespace: 'o', name: 'a' }],
+						criteria: { relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee] },
+					},
+				],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.match(result.warnings[0].message, /several relationships/);
+			assert.equal(calls.length, 0);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('flags a count past the provider’s ceiling, so a caller can warn before fetching', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const limit = providersMetadata[GitCloudHostIntegrationId.GitHub]?.pullRequestSearchResultLimit ?? 0;
+			await stubGitHubCount(manager, () => [limit + 500]);
+
+			const result = await manager.countPullRequests({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: [{ key: 'huge', repos: [{ namespace: 'o', name: 'a' }] }],
+			});
+
+			assert.equal(result.items[0].count, limit + 500);
+			assert.equal(result.items[0].exceedsProviderLimit, true);
+			assert.equal(result.items[0].providerLimit, limit);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('an unreported count is undefined and is not flagged against the ceiling', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			await stubGitHubCount(manager, () => [undefined]);
+
+			const result = await manager.countPullRequests({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: [{ key: 'unknown', repos: [{ namespace: 'o', name: 'a' }] }],
+			});
+
+			assert.equal(result.items[0].count, undefined);
+			assert.equal(result.items[0].exceedsProviderLimit, false, 'unknown-vs-limit is not a comparison');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('refuses on an issues-only host, which has no pull requests to count', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const result = await manager.countPullRequests({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				scopes: [{ key: 'x', repos: [{ namespace: 'o', name: 'a' }] }],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(result.warnings.length, 1);
+		} finally {
+			manager.dispose();
+		}
+	});
+});
+
 suite('IntegrationManager.searchPullRequestsPage', () => {
 	test('searches account-wide when current-user relationships provide the scope', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());

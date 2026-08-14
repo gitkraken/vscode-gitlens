@@ -719,6 +719,28 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	/**
+	 * Counts several pull-request scopes in ONE request. Like {@link countProviderIssues}, GitHub's `search`
+	 * reports `issueCount` on a zero-node selection, so a count preview costs no pull-request transfer.
+	 */
+	protected override async countProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
+		cancellation?: AbortSignal,
+	): Promise<(number | undefined)[] | undefined> {
+		return (await this.authenticationService.apis.github)?.countPullRequests(
+			this,
+			toTokenWithInfo(this.id, session),
+			scopes.map(s => ({
+				repos: s.repos?.map(r => `${r.namespace}/${r.name}`),
+				org: s.org,
+				criteria: s.criteria,
+			})),
+			{ baseUrl: this.apiBaseUrl },
+			cancellation,
+		);
+	}
+
 	protected override async searchProviderPullRequests(
 		session: ProviderAuthenticationSession,
 		searchQuery: string,
