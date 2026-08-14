@@ -1,8 +1,10 @@
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
@@ -180,8 +182,21 @@ export class FetchGitCommand extends QuickCommand<State> {
 			// decides, so the toggle reflects what git will actually do if left untouched. Multi-repo
 			// fetches skip the config read (repos can disagree) and default the toggle unchecked.
 			let prune = state.flags.includes('--prune');
-			if (!prune && state.repos.length === 1) {
-				prune = parseGitBoolean(await state.repos[0].git.config.getConfig?.('fetch.prune')) ?? false;
+			// Name the remote a plain fetch will actually hit, so the row contrasts meaningfully with
+			// Fetch All Remotes; multi-repo fetches keep the generic sentence
+			let remoteName: string | undefined;
+			if (state.repos.length === 1) {
+				const [repo] = state.repos;
+				const [pruneResult, branchResult] = await Promise.allSettled([
+					prune ? undefined : repo.git.config.getConfig?.('fetch.prune'),
+					repo.git.branches.getBranch(),
+				]);
+				if (!prune) {
+					prune = parseGitBoolean(getSettledValue(pruneResult)) ?? false;
+				}
+
+				const upstream = getSettledValue(branchResult)?.upstream?.name;
+				remoteName = upstream != null ? getRemoteNameFromBranchName(upstream) : 'origin';
 			}
 
 			// Folds the live toggle value into each item's flags and detail — the accepted item's flags are
@@ -191,7 +206,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 				return [
 					createFlagsQuickPickItem<Flags>(state.flags, prune ? ['--prune'] : [], {
 						label: this.title,
-						detail: `Will fetch ${reposToFetch}${pruneClause}`,
+						detail: `Will fetch ${remoteName != null ? `${remoteName} of ` : ''}${reposToFetch}${pruneClause}`,
 						picked: !state.flags.includes('--all'),
 					}),
 					createFlagsQuickPickItem<Flags>(state.flags, prune ? ['--all', '--prune'] : ['--all'], {
