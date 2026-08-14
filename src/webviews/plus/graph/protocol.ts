@@ -863,6 +863,13 @@ export interface GraphComponentConfig {
 	 *  a +N counter on the last pill. `'auto'` derives the cap from the available refs width instead of
 	 *  a fixed count. Backed by `gitlens.graph.refs.maxInline`. */
 	maxInlineRefs?: number | 'auto';
+	/** Maximum number of branch/tag pills shown on the stacked pill line per row, as space allows; extras
+	 *  collapse behind a +N counter on the last pill. `'auto'` derives the cap from the line's available
+	 *  width instead of a fixed count. Backed by `gitlens.graph.refs.maxStacked`. */
+	maxStackedRefs?: number | 'auto';
+	/** How branch/tag pills are laid out on each row — `'stacked'` grows an extra line to show them above
+	 *  the commit instead of inline with it. Backed by `gitlens.graph.refs.layout`. */
+	refsLayout?: 'inline' | 'stacked';
 	/** Whether the minimap is available at all; when `false` it is never shown and has no header toggle. */
 	minimap?: Config['graph']['minimap']['enabled'];
 	/** When to show an available minimap; the stored per-workspace toggle overrides this. */

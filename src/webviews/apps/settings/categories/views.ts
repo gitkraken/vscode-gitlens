@@ -127,6 +127,22 @@ export const viewsCategories: SettingsCategory[] = [
 				defaultValue: '1',
 			},
 			{
+				kind: 'number',
+				key: 'graph.refs.maxStacked',
+				label: 'Show this many branch and tag pills on the stacked pill line before collapsing the rest',
+				placeholder: 'auto',
+				defaultValue: 'auto',
+			},
+			{
+				kind: 'select',
+				key: 'graph.refs.layout',
+				label: 'Branch and tag pill layout',
+				options: [
+					{ value: 'inline', label: 'inline with the commit (default)' },
+					{ value: 'stacked', label: 'stacked on their own line above the commit' },
+				],
+			},
+			{
 				kind: 'check',
 				key: 'graph.showUpstreamStatus',
 				label: 'Show upstream status on local branches with remotes',

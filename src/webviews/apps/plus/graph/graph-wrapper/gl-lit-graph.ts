@@ -130,12 +130,13 @@ import {
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
 import type { WipStats } from './adornments/wipStatsAdornmentProvider.js';
 import type { GraphCommitRef, GraphCommitView, RowRefOrder } from './graph-commit.js';
-import { columnsToZones, pickGhostRef, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
+import { columnsToZones, isRefHidden, pickGhostRef, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
 import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
 import { GutterCache, gutterEpochSignature } from './graph-gutter-cache.js';
 import type { WipNodeState } from './graph-gutter.js';
 import { laneSpacing, nodeRadiusFor, renderGutterSvg, renderWavyFilterDefs } from './graph-gutter.js';
+import { RowUnitsIndex } from './graph-row-units.js';
 import type { RowRenderContext } from './graph-row.js';
 import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './graph-row.js';
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
@@ -219,6 +220,13 @@ const centerRevealRatio = 0.5;
 const scrollMarkerMagnetPx = 8;
 // Vertical gap (px) left between adjacent rows' block ticks so they don't squish/merge.
 const scrollMarkerGapPx = 1;
+/** The scroll rail's row scale — see `scrollMarkerScale`. */
+type ScrollMarkerScale = {
+	/** Per-row pixel pitch on the rail. */
+	markerRowPx: number;
+	/** The UNDERFILLED branch: bands sit at real pixel rows rather than the index/total spread. */
+	realRowPositions: boolean;
+};
 // Max block-tick height (px) — in a small graph the per-row rail span approaches the full row height,
 // and row-sized bricks read as UI chrome instead of position ticks. Kept near the line shapes' caps
 // (fullLine 4, thinLine 2) so the three shapes read as one scaled family, not chrome vs hairlines.
@@ -511,6 +519,13 @@ interface RenderCtx {
 	laneWindow?: LaneWindow;
 	refsPlacement: RefsPlacement;
 	refsHostId?: string;
+	/** Quantized-row unit span at `index` — 1 for an ordinary row; > 1 spans that many base `rowHeight`s
+	 *  (the refs-own-line consumer's promoted rows). Reduces to a constant 1 under the uniform row-units
+	 *  index (setting off, or no consumer active), which is what keeps every 1-unit row's markup unaffected. */
+	unitsOf: (index: number) => number;
+	/** 0-based unit within `unitsOf(index)` the row's commit data (dot, sha/author/date, message) sits on.
+	 *  0 for a 1-unit row. */
+	dataUnitOf: (index: number) => number;
 	nodeMode: 'compact' | 'avatar';
 	nodeAvatars: boolean;
 	selected: ReadonlySet<string>;
@@ -966,10 +981,11 @@ export class GlLitGraph extends LitElement {
 	// of them. `vacant:` can't collide with a sha or a `wip::` row id.
 	private readonly rowKey = (row: ProcessedGraphRow | undefined, index: number): string =>
 		row?.sha ?? `vacant:${index}`;
-	// Fixed-size vertical layout: rows are uniform height per density, so `idx * rowHeight` positions
-	// them exactly (no `flow()` measurement, no sub-pixel drift). `itemSize` is kept in sync with the
-	// density's row height in `updateRenderState` (a guarded no-op unless it actually changes). Stable
-	// object identity so the virtualizer's layout stays the same instance across incidental renders.
+	// Fixed-size vertical layout: rows are a uniform height per density (bar the sparse quantized rows the
+	// `units` index tracks), so arithmetic positions them exactly — no `flow()` measurement, no sub-pixel
+	// drift. `itemSize` and `units` are kept in sync in `updateRenderState` (both guarded no-ops unless they
+	// actually change). Stable object identity so the virtualizer's layout stays the same instance across
+	// incidental renders.
 	private readonly fixedRowLayout: FixedSizeLayoutSpecifier = fixedSizeVertical(rowHeightTable);
 	private _renderCtx!: RenderCtx;
 	private _activeRowId?: string;
@@ -1079,6 +1095,8 @@ export class GlLitGraph extends LitElement {
 			total: c.total,
 			skeleton: skeleton || undefined,
 			rowHeight: c.rowHeight,
+			units: c.unitsOf(index),
+			dataUnit: c.dataUnitOf(index),
 			gutterWidth: c.gutterWidth,
 			columnWidth: c.columnWidth,
 			zones: c.zones,
@@ -1187,6 +1205,10 @@ export class GlLitGraph extends LitElement {
 	private maxColumn = 0;
 	// sha → index into `displayRows` (the rendered list — drives click/keyboard/range math).
 	private indexBySha: ReadonlyMap<string, number> = new Map();
+	// Quantized row heights: the sparse index of rows that span more than one base row height, rebuilt
+	// alongside `indexBySha` in `recomputeDisplayRows`. Stays the `uniform` singleton until a consumer
+	// asks for tall rows (see `rowUnitsActive`), so every pixel helper below takes its uniform fast path.
+	private _rowUnits: RowUnitsIndex = RowUnitsIndex.uniform;
 	private lastRowsRef?: GitGraphRow[];
 	private lastIdLength = 7;
 	private lastColumnsRef?: GraphColumnsSettings;
@@ -1269,6 +1291,11 @@ export class GlLitGraph extends LitElement {
 	// counter) picks up the new limit. Also the value the `getMaxInlineRefs` hook serves to per-row
 	// adornment resolution, so a row never re-solves the zone layout itself.
 	private lastMaxInlineRefsRef = 1;
+	// `rowUnitsActive` field-level tracking (same reasoning as `lastMaxInlineRefsRef`) — none of its three
+	// inputs (the setting, style, refs placement) are covered by `rowsChanged`/`scopeChanged`/etc., so a
+	// flip needs its own trigger to re-run recomputeDisplayRows (which rebuildRowUnits is paired to, see
+	// its own comment). Read fresh every willUpdate — `rowUnitsActive` is a cheap getter.
+	private lastRowUnitsActive = false;
 	// Row-filter tracking for branches-visibility / hidden-ref filtering — separate refs from the
 	// marker trackers above so a filter change re-runs recomputeRows (it now drops commit ROWS, not
 	// just ref labels: hidden heads/remotes/tags and Current/Smart/Favorited narrow the reachable set).
@@ -1409,10 +1436,16 @@ export class GlLitGraph extends LitElement {
 		getIssues: ref => (ref.id != null ? (this.refsMetadata?.[ref.id]?.issue ?? undefined) : undefined),
 		getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
 		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
-		// Returns the cap `updateRenderState` already resolved this pass (see `lastMaxInlineRefsRef`), not
-		// the live getter — re-running `effectiveMaxInlineRefs` per row would re-solve the zone layout on
-		// every adornment-cache miss.
-		getMaxInlineRefs: () => this.lastMaxInlineRefsRef,
+		// Returns caps `updateRenderState` already resolved this pass, not live getters — re-running
+		// `effectiveMaxInlineRefs` per row would re-solve the zone layout on every adornment-cache miss
+		// (see `lastMaxInlineRefsRef`). Own-line promoted rows branch to their own cap instead:
+		// `effectiveOwnLineRefCap` is pure math over the width `updateRenderState` cached, so it's safe
+		// per row. Every other row (including a ref-bearing workdir/stash row, which never promotes)
+		// keeps the plain resolved setting.
+		getMaxInlineRefs: row =>
+			this.rowUnitsActive && this.rowPromotesToOwnLine(row)
+				? this.effectiveOwnLineRefCap
+				: this.lastMaxInlineRefsRef,
 		getRowMarkerTips: () => this._rowMarkerTips,
 		getFindHitRefKey: () => this._refFindHitKey,
 		getPinnedRefKey: () => this._pinnedRefKey,
@@ -1997,6 +2030,13 @@ export class GlLitGraph extends LitElement {
 			configCollapseChanged ||
 			foldingChanged ||
 			searchActiveChanged;
+		// Read once, reused below AND after the chain (to latch `lastRowUnitsActive`) — a cheap getter, but
+		// no reason to re-derive `effectiveStyle`/`refsPlacement` twice in the same update.
+		const rowUnitsActive = this.rowUnitsActive;
+		// Set by the row-units branch below — the one path that can re-derive promotions (and so move unit
+		// positions above the viewport) with the row SET completely unchanged. The viewport-anchor correction
+		// further down needs that as a second trigger; `rowsChanged` alone would miss it.
+		let rowUnitsMayHaveShifted = false;
 		if (laneInputsChanged) {
 			this.lastFoldingDefault = this.foldingDefault;
 			// Refresh the DEFAULT-collapse set only when its real inputs change. A paging append keeps
@@ -2019,25 +2059,65 @@ export class GlLitGraph extends LitElement {
 			);
 		} else if (rowsPayloadOnly && !searchResultsChanged && !searchModeChanged) {
 			this.recomputeDisplayRows();
-		}
+		} else if (
+			// `rowUnitsActive`'s three gates (the setting, `effectiveStyle`, `refsPlacement`) can each flip
+			// WITHOUT a rows/scope/search change — none of the triggers above cover them — and, once active,
+			// a ref-visibility filter change (excludeChanged/downstreamsChanged) can move which rows actually
+			// promote without changing the row SET at all. Either funnels through the SAME recomputeDisplayRows
+			// call the other branches above use (never a standalone rebuildRowUnits — see its pairing comment),
+			// so it can only ever run once per update.
+			rowUnitsActive !== this.lastRowUnitsActive ||
+			(rowUnitsActive && (excludeChanged || downstreamsChanged))
+		) {
+			// A flip changes every promoted row's pill cap AND layout, but isn't in the adornment-eviction
+			// gate below — evict here so cached pills re-resolve under the new mode. (The filter cases need
+			// no eviction here: excludeChanged/downstreamsChanged are already in that gate.)
+			if (rowUnitsActive !== this.lastRowUnitsActive) {
+				this.invalidateAdornments();
+			}
 
-		// Rows inserted ABOVE the viewport shift every row down one index WITHOUT changing `scrollTop`, so the
-		// commit the user was reading silently slides out of the top slot and a newer one takes its place
-		// (measured: one commit arriving moves the content exactly one row while the scrollbar never budges).
-		// Correct by the row-index DELTA of the row we were parked on — a count, not a measurement, so this
-		// costs no layout. Paging and payload pushes resolve to a delta of 0 and are left completely alone;
-		// an earlier attempt at this that MEASURED on every push thrashed layout and starved paging.
-		if (rowsChanged && this.wasScrolled && this._viewportTopSha != null && this.rowHeight > 0) {
+			rowUnitsMayHaveShifted = true;
+			this.recomputeDisplayRows();
+		}
+		this.lastRowUnitsActive = rowUnitsActive;
+
+		// Rows inserted ABOVE the viewport shift every row down WITHOUT changing `scrollTop`, so the commit the
+		// user was reading silently slides out of the top slot and a newer one takes its place (measured: one
+		// commit arriving moves the content exactly one row while the scrollbar never budges). Correct by the
+		// UNIT-POSITION delta of the row we were parked on — still a count (of base row heights), not a
+		// measurement, so this costs no layout, and it also catches a tall row appearing above the viewport,
+		// which shifts pixels without changing any index. Paging and payload pushes resolve to a delta of 0 and
+		// are left completely alone; an earlier attempt at this that MEASURED on every push thrashed layout and
+		// starved paging.
+		// TWO triggers, not one: rows arriving/leaving (the index delta), and a promotion re-derivation with
+		// an unchanged row set (`rowUnitsMayHaveShifted` — toggling the setting, or a ref-visibility filter
+		// change while it's on). The second moves NO index at all; only the unit-position disjunct below
+		// catches it, and without it a promoted row appearing above the viewport slides the whole list.
+		if (
+			(rowsChanged || rowUnitsMayHaveShifted) &&
+			this.wasScrolled &&
+			this._viewportTopSha != null &&
+			this.rowHeight > 0
+		) {
 			const nowAt = this.indexBySha.get(this._viewportTopSha);
-			if (nowAt != null && nowAt !== this._viewportTopIndex) {
-				this._pendingViewportTop = Math.max(
-					0,
-					this._viewportScrollTop + (nowAt - this._viewportTopIndex) * this.rowHeight,
-				);
-				// The new index is committed only when the correction is actually APPLIED (a reveal can
-				// preempt it). Advancing it here would strand `_viewportTopIndex` ahead of the unmoved
-				// `_viewportScrollTop`, so the next update's delta would silently omit this shift.
-				this._pendingViewportTopIndex = nowAt;
+			if (nowAt != null) {
+				// `_rowUnits` is already the post-rebuild index: the lane/display recomputation above ran
+				// `recomputeDisplayRows`, which rebuilds it in lockstep with `indexBySha`.
+				const nowAtUnitPos = this._rowUnits.unitPosOf(nowAt);
+				// Undefined before the first scroll tracked a row — fall back to the plain index delta.
+				const wasAtUnitPos = this._viewportTopUnitPos;
+				if (nowAt !== this._viewportTopIndex || (wasAtUnitPos != null && nowAtUnitPos !== wasAtUnitPos)) {
+					this._pendingViewportTop = Math.max(
+						0,
+						this._viewportScrollTop +
+							(nowAtUnitPos - (wasAtUnitPos ?? this._viewportTopIndex)) * this.rowHeight,
+					);
+					// The new position is committed only when the correction is actually APPLIED (a reveal can
+					// preempt it). Advancing it here would strand `_viewportTopIndex` ahead of the unmoved
+					// `_viewportScrollTop`, so the next update's delta would silently omit this shift.
+					this._pendingViewportTopIndex = nowAt;
+					this._pendingViewportTopUnitPos = nowAtUnitPos;
+				}
 			}
 		}
 
@@ -2289,6 +2369,9 @@ export class GlLitGraph extends LitElement {
 		// Keep the fixed-size virtualizer layout's row height in sync with the density (guarded no-op
 		// unless it changed; a real change reflows the layout to the new idx*rowHeight positions).
 		this.fixedRowLayout.itemSize = this.rowHeight;
+		// Same guarded-no-op contract: the layout compares by instance identity, so re-applying the same
+		// index every render costs nothing.
+		this.fixedRowLayout.units = this._rowUnits;
 		// Zero-scroll column solve (expanded only — compact rows don't render zone columns): the
 		// visible content zones get exact `currentWidth`s that sum to the available width. Mid-drag we
 		// render the preserve-based preview instead. `width` is overwritten with the solved px so all
@@ -2374,6 +2457,29 @@ export class GlLitGraph extends LitElement {
 		// and cached on the instance so the ref-pill role hook reads it without recomputing per pill.
 		const tips = this.computeRowMarkerTips();
 		this._rowMarkerTips = tips;
+		// Resolved once here too — `_renderCtx.refsHostId` below reads the SAME value, and
+		// `effectiveOwnLineRefCap` needs that zone's SOLVED width (own-line pills own their whole line, so
+		// they cap against ITS width, not the inline case's share-of-row heuristic). Falls back to
+		// 'message' — `refsHostIdFor`'s own fallback when no zone is visible under the current id — so a
+		// mid-drag/zero-width render doesn't cap against a zone that resolved to none. If even THAT misses
+		// (a stale mid-drag zone snapshot), keep the previous render's width rather than collapsing to 0,
+		// which would floor the cap at one pill for a frame and re-resolve every promoted row's cached pills
+		// for nothing; the next settled render self-corrects.
+		const refsHostId = this.refsHostIdFor(zones);
+		this._ownLineRefCapWidth =
+			visibleZones.find(z => z.id === (refsHostId ?? 'message'))?.width ?? this._ownLineRefCapWidth;
+		// Same resolved-cap eviction contract as `maxInlineRefsChanged` in willUpdate, but it must live HERE:
+		// the own-line cap derives from the zone width SOLVED just above, which lands after that gate has
+		// already run — tracking it up there would compare against the previous render's width and leave
+		// promoted rows' cached pill counts stale at rest after a resize settles. Safe here: this method runs
+		// inside willUpdate (see its call site), and `invalidateAdornments` only evicts — it never schedules
+		// another update.
+		const ownLineRefCap = this.effectiveOwnLineRefCap;
+		if (this.rowUnitsActive && ownLineRefCap !== this._lastOwnLineRefCapRef) {
+			this.invalidateAdornments();
+		}
+
+		this._lastOwnLineRefCapRef = ownLineRefCap;
 		this._renderCtx = {
 			total: rows.length,
 			rowHeight: this.rowHeight,
@@ -2393,7 +2499,12 @@ export class GlLitGraph extends LitElement {
 			singleColumn: this.singleColumn,
 			laneWindow: laneWindow,
 			refsPlacement: this.refsPlacement,
-			refsHostId: this.refsHostIdFor(zones),
+			refsHostId: refsHostId,
+			unitsOf: index => this._rowUnits.unitsOf(index),
+			// This consumer's only promoted rows (units > 1) sit their commit data on unit 1 (the bottom of
+			// the 2-unit span) — see `computeRowUnits`. A future multi-unit consumer with its own placement
+			// would need its own dataUnit derivation; this one is fixed by construction.
+			dataUnitOf: index => (this._rowUnits.unitsOf(index) > 1 ? 1 : 0),
 			nodeMode: nodeMode,
 			nodeAvatars: nodeAvatars,
 			selected: this.selectedShas,
@@ -2746,8 +2857,10 @@ export class GlLitGraph extends LitElement {
 			this.cancelPendingReveal();
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
+			this._pendingViewportTopUnitPos = undefined;
 			this._viewportTopSha = undefined;
 			this._viewportTopIndex = 0;
+			this._viewportTopUnitPos = undefined;
 			this._viewportScrollTop = 0;
 			// Same overlapping-sha hazard, one field over: a sha revealed in the PREVIOUS repo would make an
 			// `'if-changed'` reveal for the same sha here read as "already handled" and silently decline,
@@ -2760,8 +2873,10 @@ export class GlLitGraph extends LitElement {
 		if (rows.length === 0) {
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
+			this._pendingViewportTopUnitPos = undefined;
 			this._viewportTopSha = undefined;
 			this._viewportTopIndex = 0;
+			this._viewportTopUnitPos = undefined;
 			this._viewportScrollTop = 0;
 		}
 
@@ -3054,6 +3169,74 @@ export class GlLitGraph extends LitElement {
 			this.focusIndex = restored ?? Math.max(0, Math.min(this.focusIndex, this.displayRows.length - 1));
 		}
 		this.requestMissingRefsMetadata();
+		// Paired with the `indexBySha`/focus rebuild above — the two must never split, or the viewport
+		// anchor's unit deltas would be measured against a stale row set.
+		this.rebuildRowUnits();
+	}
+
+	// `gitlens.graph.refs.layout` (`'stacked'`): rows with real ref decorations grow a second unit (pills on top, commit
+	// data on the bottom) — but only where that's meaningful. Table style only: list style already stacks
+	// 2 lines of its own (see renderListBody) with pills sharing line 2, and has no zone columns to split a
+	// pill line out of. `refsPlacement === 'grouped'` only: `'column'` already gives refs their own cell
+	// (nothing to promote — the pills aren't sharing a line with anything), and `'hidden'` renders no pills
+	// at all. Both `effectiveStyle` and `refsPlacement` are cheap getters/fields, safe to re-read every
+	// willUpdate (see the `lastRowUnitsActive` trigger below, which re-derives displayRows when this flips).
+	private get rowUnitsActive(): boolean {
+		return (
+			this.config?.refsLayout === 'stacked' && this.effectiveStyle === 'table' && this.refsPlacement === 'grouped'
+		);
+	}
+
+	// Whether row `row` promotes to 2 units under the own-line consumer: it carries at least one REAL,
+	// currently-VISIBLE ref decoration (a head/remote/tag surviving the active hide filters — the same
+	// `isRefHidden` check `createRefAdornmentProvider` filters through, so a row that would render zero
+	// pills never reserves a blank pill line) — never a ghost/hover pill, which only ever renders in the
+	// dedicated Refs column and carries no promotion weight here. Workdir/stash rows are excluded outright:
+	// neither has a meaningful "this row's own branch" pill in the sense this setting promotes (a WIP row's
+	// branch pill is the separate row-marker proxy, not this adornment). Shared by `computeRowUnits` (the
+	// rebuild) and the `getMaxInlineRefs` hook (the own-line cap only applies to rows that actually promote)
+	// so the two decisions can never drift apart.
+	private rowPromotesToOwnLine(row: ProcessedGraphRow): boolean {
+		if (row.kind === 'workdir' || row.kind === 'stash') return false;
+
+		const refs = this.getCommitBySha(row.sha)?.commitRefs;
+		if (refs == null || refs.length === 0) return false;
+
+		return refs.some(r => !isRefHidden(r, this.excludeTypes, this.excludeRefs, this.downstreams));
+	}
+
+	// The unit-height of the row at `index` — an integer >= 1, where 1 is an ordinary `rowHeight` row.
+	private computeRowUnits(index: number): number {
+		const row = this.displayRows[index];
+		if (row == null) return 1;
+
+		return this.rowPromotesToOwnLine(row) ? 2 : 1;
+	}
+
+	// Rebuild the tall-row index over the current `displayRows`.
+	// TODO: a paging append re-scans every row. `recomputeDisplayRows` already computes a robust identity-
+	// verified `displayRowsAppended` signal (same prefix, same endpoints) that `RowUnitsIndex.extend` could
+	// consume to re-derive just the appended tail — but that signal alone doesn't prove the UNTOUCHED
+	// prefix's promotions are still current: a ref-visibility filter change (excludeTypes/excludeRefs/
+	// downstreams) can land in the very same recomputeDisplayRows call (this method has no visibility into
+	// what triggered its caller) and move a prefix row's promotion without touching `displayRows` identity
+	// at all. Wiring that through safely needs the trigger context threaded in, not just this method — left
+	// as a full rescan (cheap relative to everything else recomputeDisplayRows already does) until a
+	// consumer needs the win.
+	private rebuildRowUnits(): void {
+		if (!this.rowUnitsActive) {
+			this._rowUnits = RowUnitsIndex.uniform;
+			return;
+		}
+
+		// Keep the CURRENT instance when the rebuild produced the same tall rows: the layout's `units` setter
+		// guards on instance identity, so handing it a fresh-but-equal index would reflow the whole
+		// virtualizer on every payload-only recompute (which never moves a promotion). The uniform case
+		// short-circuits on its own — `build` returns the shared singleton.
+		const next = RowUnitsIndex.build(this.displayRows.length, i => this.computeRowUnits(i));
+		if (!next.equalsIndex(this._rowUnits)) {
+			this._rowUnits = next;
+		}
 	}
 
 	// Fold row `i`'s payload refs into the split-pill indexes (shared by the full rebuild and the
@@ -3283,16 +3466,6 @@ export class GlLitGraph extends LitElement {
 	// applyPendingScrollAnchor.
 	private _pendingScrollAnchorTop?: number;
 
-	// Topmost-row index for a scrollTop: floor(scrollTop/rowHeight), clamped into [0, rowCount-1] — "which
-	// row is pinned at the viewport's top edge". Shared by every reader that needs that (this method,
-	// the sticky-timeline bucket/yield checks) so the clamp can't drift between them. NOT the same as
-	// onRangeChanged's own `firstVisible` (see its comment) — that one skips the upper clamp.
-	private topmostRowIndexFor(scrollTop: number, rowCount: number): number {
-		if (rowCount <= 0) return 0;
-
-		return Math.max(0, Math.min(rowCount - 1, Math.floor(scrollTop / this.rowHeight)));
-	}
-
 	// Snapshot the row pinned at the viewport's top edge BEFORE anything swaps displayRows (a lane
 	// collapse/expand, or a rows/scope update that inserts, drops or reorders rows):
 	// the topmost row intersecting `scrollTop` plus the pixels the viewport has scrolled INTO it. Returns
@@ -3308,8 +3481,8 @@ export class GlLitGraph extends LitElement {
 		if (rows.length === 0) return undefined;
 
 		const scrollTop = scroller.scrollTop;
-		const index = this.topmostRowIndexFor(scrollTop, rows.length);
-		return { rows: rows, index: index, offset: scrollTop - index * this.rowHeight };
+		const index = this.rowIndexAt(scrollTop);
+		return { rows: rows, index: index, offset: scrollTop - this.rowTop(index) };
 	}
 
 	// After the swap: put the anchored row back at the same on-screen position (exact — fixed-size layout).
@@ -3333,7 +3506,7 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 		if (newIndex == null) return undefined;
-		return Math.max(0, newIndex * this.rowHeight + offset);
+		return Math.max(0, this.rowTop(newIndex) + offset);
 	}
 
 	// Re-assert the captured scroll position after a lane collapse/expand re-renders. Runs in updated(),
@@ -3400,11 +3573,17 @@ export class GlLitGraph extends LitElement {
 	 *  instead of measurement. */
 	private _viewportTopSha?: string;
 	private _viewportTopIndex = 0;
+	/** The unit position `_viewportTopIndex` sat at when it was written. INVARIANT: every write of
+	 *  `_viewportTopIndex` writes this in the same statement group, valued `_rowUnits.unitPosOf(index)` as of
+	 *  that write — the insert-above correction takes its delta in UNITS, so a stale pairing would offset the
+	 *  viewport by whatever tall rows lie between the two positions. */
+	private _viewportTopUnitPos?: number;
 	private _viewportScrollTop = 0;
 	/** Scroll position to restore after rows were inserted above the viewport, and the index the tracked
 	 *  row moved to — both applied together in updated(), so a preempted correction commits neither. */
 	private _pendingViewportTop?: number;
 	private _pendingViewportTopIndex?: number;
+	private _pendingViewportTopUnitPos?: number;
 
 	/** The repo the pending scroll state belongs to — a swap reuses this element, so it must invalidate. */
 	private _lastScrollRepoPath?: string;
@@ -4470,14 +4649,55 @@ export class GlLitGraph extends LitElement {
 		return Math.round(h * dpr) / dpr;
 	}
 
-	// Rows per PageUp/PageDown jump — one viewport's worth, less a row of overlap for context. Reads the LIVE
-	// height on purpose: `scrollerClientHeight` only refreshes from a ResizeObserver on the host, so chrome
-	// that resizes the scroller without resizing us (the filter-mode search footer) leaves it stale, and a
-	// page jump has to land exactly. Once per PageUp/PageDown is nowhere near the arrow-key hot path.
+	// Row geometry in pixels, quantized-row aware. A row spans `unitsOf` base heights and starts at its
+	// running unit position — under a uniform index these reduce exactly to `index * rowHeight` and
+	// `rowHeight`, which is what keeps every migrated call site behavior-identical.
+	private rowTop(index: number): number {
+		return this._rowUnits.unitPosOf(index) * this.rowHeight;
+	}
+
+	private rowHeightOf(index: number): number {
+		return this._rowUnits.unitsOf(index) * this.rowHeight;
+	}
+
+	// Topmost-row index for a scrollTop — "which row is pinned at the viewport's top edge" — clamped into
+	// [0, rowCount - 1]. Shared by every reader that needs it (lane anchor capture, the sticky-timeline
+	// bucket/yield checks, onRangeChanged's minimap day-range) so the clamp can't drift between them.
+	private rowIndexAt(scrollTop: number): number {
+		const rowHeight = this.rowHeight;
+		const count = this.displayRows.length;
+		if (rowHeight <= 0 || count === 0) return 0;
+
+		return this._rowUnits.rowIndexAtUnit(Math.floor(scrollTop / rowHeight), count);
+	}
+
+	// A page's worth of HOPS — one viewport's worth of base rows, less a row of overlap for context. Only the
+	// topological Shift-extend wants this: it walks the lineage chain, where "a page" can only mean a count of
+	// hops (the chain's rows are scattered, so their pixel span is unrelated to the viewport). Plain paging
+	// goes through `pageIndexFrom` instead, which is unit-aware. Reads the LIVE height on purpose:
+	// `scrollerClientHeight` only refreshes from a ResizeObserver on the host, so chrome that resizes the
+	// scroller without resizing us (the filter-mode search footer) leaves it stale, and a page jump has to land
+	// exactly. Once per PageUp/PageDown is nowhere near the arrow-key hot path.
 	private pageStep(): number {
 		const viewportHeight = this.virtualizerRef.value?.clientHeight ?? 0;
 		const rows = Math.floor(viewportHeight / this.rowHeight) - 1;
 		return Math.max(1, rows);
+	}
+
+	// The row a PageUp/PageDown from `index` lands on, clamped into range. Steps a page in UNIT space and maps
+	// back to a row, so promoted rows between here and there consume their real pixel span: counting them as
+	// one row each (what an index delta does) overshot by a full row height per promoted row, silently skipping
+	// content. Under a uniform index this is arithmetically identical to the old index delta — `unitPosOf` is
+	// the identity there. Same live-height rationale as `pageStep` above.
+	private pageIndexFrom(index: number, direction: 1 | -1): number {
+		const count = this.displayRows.length;
+		const viewportHeight = this.virtualizerRef.value?.clientHeight ?? 0;
+		const rowHeight = this.rowHeight;
+		// Unmeasured viewport (or an unset row height) — step a single row rather than divide by zero.
+		if (viewportHeight <= 0 || rowHeight <= 0) return Math.max(0, Math.min(count - 1, index + direction));
+
+		const units = Math.max(1, Math.floor(viewportHeight / rowHeight) - 1);
+		return this._rowUnits.rowIndexAtUnit(this._rowUnits.unitPosOf(index) + direction * units, count);
 	}
 
 	// The lane spacing, COUPLED to the node size: clamped to the current mode's bounds so the
@@ -4719,6 +4939,26 @@ export class GlLitGraph extends LitElement {
 		}
 
 		return resolveAutoRefPillCap(contentWidth * 0.4);
+	}
+
+	// Resolves `gitlens.graph.refs.maxStacked`'s cap for a PROMOTED row's own pill line (row-units 'refs on
+	// their own line' — `rowPromotesToOwnLine`): a configured number passes through as a FIXED cap (clamped
+	// to [1, 10], same bounds as the setting's schema); `'auto'` derives it from the refs-host zone's SOLVED
+	// width via `resolveAutoRefPillCap` — the pills own their whole line up there, so an 'auto' cap sizes
+	// against that width regardless of `gitlens.graph.refs.maxInline` (that setting is for the
+	// inline-sharing-the-message case; there's no message text to protect a share of here).
+	// `_ownLineRefCapWidth` is resolved once per render in `updateRenderState`, not re-solved per pill.
+	private get effectiveOwnLineRefCap(): number {
+		// Same coercion discipline as `effectiveMaxInlineRefs`: the declared type is `number | 'auto'`,
+		// but the setting's schema admits ANY string, so the runtime value must be coerced, not trusted
+		// (NaN would zero out every pill and defeat the change tracking).
+		const raw: number | string = this.config?.maxStackedRefs ?? 'auto';
+		if (raw !== 'auto') {
+			const n = Math.floor(Number(raw));
+			return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 1;
+		}
+
+		return resolveAutoRefPillCap(this._ownLineRefCapWidth);
 	}
 
 	// True when the grouped gutter is capped below the full fit → the smart-scroll clamp visuals apply
@@ -5404,6 +5644,34 @@ export class GlLitGraph extends LitElement {
 		</div>`;
 	}
 
+	// The rail's row scale, from its per-row fraction `rowPx`. Drawing (`renderScrollMarkers`) and
+	// hit-testing (`nearestScrollMarker`) BOTH derive from here, and both then place bands through
+	// `scrollMarkerBandTop` — deriving positions from two independent copies of this math is exactly what
+	// let the drawn and hit-tested bands drift apart once already.
+	// When the list DOESN'T fill the viewport (e.g. a scoped re-root with only a handful of rows),
+	// `index/total` would spread the markers across the whole rail while the rows themselves cluster at the
+	// top — markers end up far below their rows. `realRowPositions` switches to REAL pixel rows there; once
+	// the list overflows (rowHeight >= rowPx) it collapses back to the index/total mapping, so scrollable
+	// graphs are unchanged.
+	private scrollMarkerScale(rowPx: number): ScrollMarkerScale {
+		const rowHeight = this._renderCtx?.rowHeight ?? 0;
+		return {
+			markerRowPx: rowHeight > 0 ? Math.min(rowHeight, rowPx) : rowPx,
+			realRowPositions: rowHeight > 0 && rowHeight < rowPx,
+		};
+	}
+
+	// Top (px) of row `index`'s band on the rail. The index/total mapping is pure INDEX space and
+	// deliberately ignores row units; only the real-pixel-row branch has to respect them, and there a
+	// promoted row's band belongs on its DATA unit — the line the commit itself renders on — not the pill
+	// line above it (mirrors `dataUnitOf` in the render context, which is where that rule is defined).
+	private scrollMarkerBandTop(index: number, scale: ScrollMarkerScale): number {
+		if (!scale.realRowPositions) return index * scale.markerRowPx;
+
+		const dataUnit = this._rowUnits.unitsOf(index) > 1 ? 1 : 0;
+		return (this._rowUnits.unitPosOf(index) + dataUnit) * scale.markerRowPx;
+	}
+
 	// Scroll-rail markers: a thin overlay pinned to the right edge of the viewport (over the scrollbar
 	// track). One full-width interactive BAND per row (placed by fraction-down-the-list, `top: N%`)
 	// carries that row's lane-colored ticks as non-interactive children — so hover/click anywhere on
@@ -5439,13 +5707,7 @@ export class GlLitGraph extends LitElement {
 		const railPx = viewportPx;
 		const total = this._renderCtx?.total ?? rows.length;
 		const rowPx = total > 0 ? railPx / total : 0;
-		// When the list DOESN'T fill the viewport (e.g. a scoped re-root with only a handful of rows),
-		// `index/total` would spread the markers across the whole rail while the rows themselves cluster
-		// at the top — markers end up far below their rows. In that case position each marker at its REAL
-		// pixel row (rowHeight px apart); once the list overflows (rowHeight ≥ rowPx) this collapses back
-		// to the index/total mapping, so scrollable graphs are unchanged.
-		const rowHeight = this._renderCtx?.rowHeight ?? 0;
-		const markerRowPx = rowHeight > 0 ? Math.min(rowHeight, rowPx) : rowPx;
+		const scale = this.scrollMarkerScale(rowPx);
 
 		return html`<div
 			class="gl-graph__scroll-markers"
@@ -5473,7 +5735,9 @@ export class GlLitGraph extends LitElement {
 						}"
 						data-marker-index=${row.index}
 						aria-hidden="true"
-						style=${cspStyleMap({ top: `${row.index * markerRowPx}px` })}
+						style=${cspStyleMap({
+							top: `${this.scrollMarkerBandTop(row.index, scale)}px`,
+						})}
 					>
 						${row.entries.map((e, idx) => {
 							// Block ticks fill their lane(s); fullLine/thinLine span the whole rail width as a
@@ -5513,21 +5777,19 @@ export class GlLitGraph extends LitElement {
 		const rect = container.getBoundingClientRect();
 		if (rect.height <= 0) return undefined;
 
-		// Match renderScrollMarkers' positioning (real pixel row when the list doesn't fill the rail,
-		// else the index/total mapping) so click-magnet hit-testing lines up with where bands actually are.
 		const total = this._renderCtx?.total ?? this.scrollMarkerRows.length;
 		// Scale off the SAME value `renderScrollMarkers` draws with, not this rect's height. They agree today,
 		// but deriving the scale from two independent sources is exactly what let the drawn and hit-tested
 		// positions drift apart. `rect` is still needed for `top` (client → rail-relative), which no cached
-		// value can supply. Falls back to the measured height while the cache is unprimed.
+		// value can supply. Falls back to the measured height while the cache is unprimed. Everything past
+		// `rowPx` — the scale and each band's top — goes through the same two helpers the draw uses.
 		const rowPx = total > 0 ? (this.scrollerClientHeight || rect.height) / total : 0;
-		const rowHeight = this._renderCtx?.rowHeight ?? 0;
-		const markerRowPx = rowHeight > 0 ? Math.min(rowHeight, rowPx) : rowPx;
+		const scale = this.scrollMarkerScale(rowPx);
 		const clickPx = clientY - rect.top;
 		let nearest: RowMarkers | undefined;
 		let bestPx = Infinity;
 		for (const row of this.scrollMarkerRows) {
-			const px = Math.abs(row.index * markerRowPx - clickPx);
+			const px = Math.abs(this.scrollMarkerBandTop(row.index, scale) - clickPx);
 			if (px < bestPx) {
 				bestPx = px;
 				nearest = row;
@@ -7665,9 +7927,7 @@ export class GlLitGraph extends LitElement {
 
 		const next = this.topologicalExtend(event)
 			? this.stepChain(this.focusIndex, dir, this.pageStep())
-			: dir === 1
-				? Math.min(last, this.focusIndex + this.pageStep())
-				: Math.max(0, this.focusIndex - this.pageStep());
+			: this.pageIndexFrom(this.focusIndex, dir);
 		if (next == null) {
 			return this.navigationDeadEnd(
 				event,
@@ -8001,10 +8261,15 @@ export class GlLitGraph extends LitElement {
 		// the top/bottom rows' dates (already epoch ms — no Date alloc or parse per scroll frame).
 		const scroller = this.virtualizerRef.value;
 		const rh = this.rowHeight;
-		const firstVisible = scroller != null && rh > 0 ? Math.max(0, Math.floor(scroller.scrollTop / rh)) : first;
+		const firstVisible = scroller != null && rh > 0 ? this.rowIndexAt(scroller.scrollTop) : first;
+		// The bottom edge maps through the same index, but from a CEIL'd unit (the last unit the viewport
+		// touches) rather than a floor'd one, so a row straddling the edge still counts as visible.
 		const lastVisible =
 			scroller != null && rh > 0
-				? Math.min(rows.length - 1, Math.ceil((scroller.scrollTop + this.scrollerClientHeight) / rh) - 1)
+				? this._rowUnits.rowIndexAtUnit(
+						Math.ceil((scroller.scrollTop + this.scrollerClientHeight) / rh) - 1,
+						rows.length,
+					)
 				: last;
 		const lo = Math.max(0, firstVisible);
 		const hi = Math.min(rows.length - 1, lastVisible);
@@ -8141,7 +8406,8 @@ export class GlLitGraph extends LitElement {
 		// `top` already includes our prior compensation; back it out to read the raw layout offset.
 		// Snap to the DEVICE grid, not CSS integers — at a fractional DPR a CSS-integer top still lands
 		// on a half device pixel (the row pitch is device-snapped in `rowHeight`, so one snapped origin
-		// keeps every boundary on the grid).
+		// keeps every boundary on the grid — quantized rows are integer multiples of that pitch, so they
+		// stay on it too).
 		const dpr = window.devicePixelRatio || 1;
 		const layoutTop = el.getBoundingClientRect().top - this.virtualizerSnapOffset;
 		const offset = Math.round(layoutTop * dpr) / dpr - layoutTop;
@@ -8397,8 +8663,8 @@ export class GlLitGraph extends LitElement {
 		// reached from there. With no viewport nothing can be comfortably placed in it.
 		if (viewportHeight <= 0) return false;
 
-		const rowHeight = this.rowHeight;
-		const rowTop = idx * rowHeight;
+		const rowHeight = this.rowHeightOf(idx);
+		const rowTop = this.rowTop(idx);
 		const scrollTop = this._viewportScrollTop;
 		// Top edge at or below the fold, bottom edge inside the comfort line.
 		return rowTop >= scrollTop && rowTop + rowHeight <= scrollTop + viewportHeight * revealComfortRatio;
@@ -8419,8 +8685,8 @@ export class GlLitGraph extends LitElement {
 		const viewportHeight = this.scrollerClientHeight;
 		const visibleRows = rowHeight > 0 ? viewportHeight / rowHeight : 0;
 		const padding = Math.max(0, Math.min(this.config?.scrollRowPadding ?? 0, Math.floor(visibleRows / 2) - 1));
-		const rowTop = idx * rowHeight;
-		const rowBottom = rowTop + rowHeight;
+		const rowTop = this.rowTop(idx);
+		const rowBottom = rowTop + this.rowHeightOf(idx);
 		// TRACKED position, not a live `scroller.scrollTop`. This runs from the keydown handler with the
 		// update's mutations still pending, so a live read forces a synchronous layout — the dominant cost
 		// of this method during rapid navigation, paid whether the scroller ends up moving or not. The same
@@ -8437,6 +8703,7 @@ export class GlLitGraph extends LitElement {
 		// Generation is bumped per WRITE, not on entry: both branches can decline to scroll (the row is
 		// already inside the padding), and cancelling a pending anchor retry when we never moved would
 		// strand the viewport where the row-set change left it.
+		// Base units on purpose: the setting counts ordinary rows of margin, not the target row's own span.
 		const padPx = padding * rowHeight;
 		if (rowTop < scrollTop + padPx) {
 			this._scrollAnchorGeneration++;
@@ -8536,7 +8803,7 @@ export class GlLitGraph extends LitElement {
 		// readback would differ by a rounding crumb on most viewport heights and every landing would take the
 		// retry path. (A ratio of 0.5 hid this: `.5` is exact in both float64 and 1/64ths.)
 		const target = Math.round(
-			Math.max(0, idx * this.rowHeight - Math.max(0, (scroller.clientHeight - this.rowHeight) * ratio)),
+			Math.max(0, this.rowTop(idx) - Math.max(0, (scroller.clientHeight - this.rowHeightOf(idx)) * ratio)),
 		);
 		// Stamped BEFORE the write, so every reveal — including one that lands cleanly and schedules no retry
 		// of its own — supersedes a retry still in flight. Stamping only on the clamped path below would leave
@@ -8865,8 +9132,8 @@ export class GlLitGraph extends LitElement {
 	};
 
 	// Remember which display row the viewport is parked on, from a scroll event's own `scrollTop`. Cheap:
-	// one divide and an array index, no DOM reads. `rowHeight` is uniform here, which is what makes the
-	// index arithmetic exact.
+	// one divide, a binary search over the (usually empty) tall-row index, and an array read — no DOM reads.
+	// The base pitch is uniform, which is what keeps the mapping exact arithmetic.
 	private trackViewportTop(scrollTop: number): void {
 		this._viewportScrollTop = scrollTop;
 
@@ -8874,21 +9141,24 @@ export class GlLitGraph extends LitElement {
 		if (rowHeight <= 0) return;
 
 		const rows = this.displayRows;
-		const index = Math.max(0, Math.min(rows.length - 1, Math.floor(scrollTop / rowHeight)));
+		const index = this.rowIndexAt(scrollTop);
 		this._viewportTopIndex = index;
+		this._viewportTopUnitPos = this._rowUnits.unitPosOf(index);
 		this._viewportTopSha = rows[index]?.sha;
 	}
 
 	// Re-park the viewport after rows were inserted above it. A pure write — the target was computed from a
-	// row-index delta and the scroll position tracked off scroll events, so nothing here measures the DOM.
+	// unit-position delta and the scroll position tracked off scroll events, so nothing here measures the DOM.
 	// A deliberate reveal still wins; it owns the viewport until it has flushed.
 	private applyPendingViewportTop(): void {
 		const target = this._pendingViewportTop;
 		if (target == null) return;
 
 		const index = this._pendingViewportTopIndex;
+		const unitPos = this._pendingViewportTopUnitPos;
 		this._pendingViewportTop = undefined;
 		this._pendingViewportTopIndex = undefined;
+		this._pendingViewportTopUnitPos = undefined;
 		// Supersede any retry still in flight, including one scheduled by a cleanly-landing application —
 		// same reasoning as `applyPendingScrollAnchor`, whose generation this deliberately shares so a reveal
 		// or an anchor correction and this one can't fight each other across frames.
@@ -8903,6 +9173,7 @@ export class GlLitGraph extends LitElement {
 		scroller.scrollTop = target;
 		if (index != null) {
 			this._viewportTopIndex = index;
+			this._viewportTopUnitPos = unitPos;
 		}
 		// Only mirror what the scroller ACTUALLY took. Rows arriving above a viewport near the old scroll
 		// maximum push the target past it before the child virtualizer has grown its spacer, so the write
@@ -8962,6 +9233,7 @@ export class GlLitGraph extends LitElement {
 			// next sample's dt instead of being dropped (advancing lastScrollTop with dt=0 loses it).
 			return;
 		} else {
+			// Base-unit heuristic: velocity feeds prefetch distance, where erring early is the safe direction.
 			const rh = this.rowHeight;
 			const rowsMoved = rh > 0 ? Math.abs(scrollTop - this._lastScrollTop) / rh : 0;
 			const instantaneous = (rowsMoved / dt) * 1000; // rows per second
@@ -8978,6 +9250,7 @@ export class GlLitGraph extends LitElement {
 		// no next sample to decay the estimate, so a finished fling's velocity would linger and over-prefetch.
 		// Treat it as stationary past the idle threshold; computePrefetchDistance stays pure.
 		const velocity = this.isScrollIdle() ? 0 : this._scrollVelocityRows;
+		// Base-unit heuristic, same as the velocity it consumes — tall rows only make it prefetch earlier.
 		return computePrefetchDistance(this.scrollerClientHeight, this.rowHeight, velocity);
 	}
 
@@ -8991,10 +9264,11 @@ export class GlLitGraph extends LitElement {
 		if (scroller != null && headSha != null) {
 			const idx = this.indexBySha.get(headSha);
 			if (idx != null) {
-				const top = idx * this.rowHeight;
+				const top = this.rowTop(idx);
+				const bottom = top + this.rowHeightOf(idx);
 				const viewTop = scroller.scrollTop;
 				const viewBottom = viewTop + scroller.clientHeight;
-				if (top + this.rowHeight <= viewTop) {
+				if (bottom <= viewTop) {
 					dir = 'up';
 				} else if (top >= viewBottom) {
 					dir = 'down';
@@ -9020,10 +9294,11 @@ export class GlLitGraph extends LitElement {
 		if (scroller != null && pinnedSha != null) {
 			const idx = this.indexBySha.get(pinnedSha);
 			if (idx != null) {
-				const top = idx * this.rowHeight;
+				const top = this.rowTop(idx);
+				const bottom = top + this.rowHeightOf(idx);
 				const viewTop = scroller.scrollTop;
 				const viewBottom = viewTop + scroller.clientHeight;
-				if (top + this.rowHeight <= viewTop) {
+				if (bottom <= viewTop) {
 					dir = 'up';
 				} else if (top >= viewBottom) {
 					dir = 'down';
@@ -9108,6 +9383,14 @@ export class GlLitGraph extends LitElement {
 	// target name). Written once in `updateRenderState`; read by the ref-pill role hook per pill so it
 	// never recomputes.
 	private _rowMarkerTips?: RowMarkerTips;
+
+	// Per-render cache of the own-line refs host zone's SOLVED width (see `effectiveOwnLineRefCap`).
+	// Written once in `updateRenderState`; read by the `getMaxInlineRefs` hook per promoted row's pill
+	// resolution so it never re-solves the zone layout.
+	private _ownLineRefCapWidth = 0;
+	// Last RESOLVED own-line cap — the eviction tracker paired with the width write above (see the
+	// comment there for why it can't ride `maxInlineRefsChanged`'s willUpdate gate).
+	private _lastOwnLineRefCapRef = 1;
 
 	// HEAD's sha for the jump/waypoint affordances: the engine's decoration-derived `headSha`, else the
 	// branch payload's tip when HEAD's row hasn't paged in (decoration is per-row, so it can't resolve
@@ -9271,9 +9554,9 @@ export class GlLitGraph extends LitElement {
 		this.stickyTimeline = { key: group.key, label: group.label, span: this.stickyTimelineSpanFor(group) };
 	}
 
-	// Derives the topmost-row index (via the shared `topmostRowIndexFor` — NOT the same formula
-	// onRangeChanged's minimap-day read uses, which skips the upper clamp), then updates the bucket
-	// through the shared, edge-gated `updateStickyTimelineBucket`. Shared by `onScroll` (the scroll hot
+	// Derives the topmost-row index (via the shared `rowIndexAt`, the same helper onRangeChanged's minimap-day
+	// read uses), then updates the bucket through the shared, edge-gated
+	// `updateStickyTimelineBucket`. Shared by `onScroll` (the scroll hot
 	// path — `updateHeadPillDirection`-style: cheap index math + one array access, no DOM read beyond
 	// the `scrollTop` the caller already has) and `recomputeStickyTimelineBucket` (a live `scrollTop`
 	// read, fine there — not the hot path).
@@ -9282,7 +9565,7 @@ export class GlLitGraph extends LitElement {
 		const rh = this.rowHeight;
 		if (rows.length === 0 || rh <= 0) return;
 
-		const idx = this.topmostRowIndexFor(scrollTop, rows.length);
+		const idx = this.rowIndexAt(scrollTop);
 		const row = rows[idx];
 		// A workdir (WIP) row's OWN date is a synthetic stamp — resolve through its EXACT anchor
 		// (parents[0], mirroring the wrapper's dateForMinimapRow) when it's loaded; the positional
@@ -9333,7 +9616,7 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		const idx = this.topmostRowIndexFor(scrollTop, rows.length);
+		const idx = this.rowIndexAt(scrollTop);
 		const row = rows[idx];
 		const yielding =
 			row != null &&

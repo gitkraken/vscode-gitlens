@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Hide Remote_ and _Show Remote_ actions to remote rows in the _Commit Graph_ side bar, and shows hidden branches, remotes, and tags dimmed with an _eye-closed_ marker and an un-hide action instead of leaving them indistinguishable from visible ones
 - Adds un-hiding a single branch of a hidden remote in the _Commit Graph_ &mdash; the remote stays hidden while just that branch returns, and hiding the branch again tucks it back under the hidden remote
 - Adds support for showing multiple branch and tag pills on a _Commit Graph_ row ([#5729](https://github.com/gitkraken/vscode-gitlens/issues/5729)) &mdash; a new `gitlens.graph.refs.maxInline` setting caps how many show before the rest collapse behind the +N counter, either a fixed count (default 1, the previous behavior) or `"auto"` to fit the available space
+- Adds a stacked layout for branch and tag pills in the _Commit Graph_ &mdash; a new `gitlens.graph.refs.layout` setting; when set to `"stacked"`, rows with pills grow a second line to show them above the commit instead of beside it, and a new `gitlens.graph.refs.maxStacked` setting caps how many show there before the rest collapse behind the +N counter (default `"auto"` to fit the line's width)
 
 ### Changed
 

@@ -4268,6 +4268,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			lanesGroupedMin: configuration.get('graph.lanes.grouped.min'),
 			lanesGroupedMax: configuration.get('graph.lanes.grouped.max'),
 			maxInlineRefs: configuration.get('graph.refs.maxInline'),
+			maxStackedRefs: configuration.get('graph.refs.maxStacked'),
+			refsLayout: configuration.get('graph.refs.layout'),
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDefaultVisibility: configuration.get('graph.minimap.defaultVisibility'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),

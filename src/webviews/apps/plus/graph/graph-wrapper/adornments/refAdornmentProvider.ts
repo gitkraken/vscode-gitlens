@@ -82,8 +82,11 @@ export interface RefPillHooks {
 	/** `gitlens.graph.refs.maxInline` — maximum number of ref pills shown inline per row before the rest
 	 *  collapse behind a +N counter, already RESOLVED (the `'auto'` setting derives this from the
 	 *  available width; this hook always returns the resolved number). Read fresh (config/width can
-	 *  change at runtime); the consumer clamps values to >= 1. */
-	getMaxInlineRefs?: () => number;
+	 *  change at runtime); the consumer clamps values to >= 1. Takes the row so a caller whose cap varies
+	 *  PER ROW (the refs-own-line consumer: promoted rows resolve an 'auto' cap against the message zone's
+	 *  width regardless of the setting; other rows keep the plain resolved value) can tell them apart —
+	 *  a caller with one render-global cap simply ignores the argument. */
+	getMaxInlineRefs?: (row: ProcessedGraphRow) => number;
 	/** Id of the ref pinned to the edge (`gitlens.graph.pinBranchToEdge`), read live so a pin/unpin shows
 	 *  up without a rebuild. Distinct from the CLICK-pinned ref (`getPinnedRefKey`) — that one is transient
 	 *  focus, this one is persisted host state. Its pill takes the pin indicator + unpin control. */
@@ -216,7 +219,7 @@ export function createRefAdornmentProvider(
 			if (!parsed || parsed.length === 0) return null;
 
 			// A row always shows at least one pill, whatever the setting says.
-			const cap = Math.max(1, hooks?.getMaxInlineRefs?.() ?? 1);
+			const cap = Math.max(1, hooks?.getMaxInlineRefs?.(row) ?? 1);
 			return renderRefPill(parsed, colorForColumn(row.column), row.sha, hooks, undefined, cap);
 		},
 

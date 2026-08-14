@@ -1820,6 +1820,56 @@ gl-lit-graph {
 		font-family: var(--vscode-editor-font-family);
 		font-size: 0.9em;
 	}
+	// `gitlens.graph.refs.layout` (`'stacked'`, row-units 'refs on their own line'): a row with real ref decorations
+	// grows to `--row-units` (2) base `--row-height`s (see the row's own `height`/`data-units` in
+	// graph-row.ts). `--row-height` stays the BASE pitch throughout (never the row's total height), so
+	// `var(--row-height)` below is exactly the SAME 24px `rowHeightTable` constant every other table-style
+	// measurement already assumes — two lines of it sum to exactly the row's own height with no fractional
+	// remainder, unlike the LIST style's 2-line block (`.gl-graph__list-content` further down; its two
+	// DIFFERENTLY-sized lines need the even/odd juggling in its own comment) — this consumer sidesteps that
+	// by construction.
+	.gl-graph__zone-stack {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+		height: 100%;
+	}
+	.gl-graph__refs-line,
+	.gl-graph__message-line {
+		display: flex;
+		align-items: center;
+		height: var(--row-height);
+		min-width: 0;
+		overflow: hidden;
+	}
+	// The pills line owns its whole line — no trailing message sibling on the SAME line to protect a share
+	// of width from (`.gl-graph__refs`' inline-case cap, `:has(~ .gl-graph__message)`, already doesn't
+	// match here for exactly that reason — the message sits on the OTHER line). Only the trailing margin
+	// (meant to gap the pills from that inline sibling) needs clearing, mirroring `.gl-graph__list-line2`'s
+	// own "pills own the whole line" case. Still clips at the line's own edge via `.gl-graph__refs-line`'s
+	// `overflow: hidden` above.
+	.gl-graph__refs-line .gl-graph__refs {
+		margin-right: 0;
+	}
+	// Every OTHER zone on a promoted row (author/date/sha/changes — anything that isn't a STACKED zone or
+	// the always-full-height graph column) centers its content on the DATA unit (the bottom one, where the
+	// dot/message/sha sit — see `dataUnitOf` in gl-lit-graph.ts) instead of the row's full span.
+	// `padding-block-start` shrinks the zone's OWN content box to exactly the bottom unit — border-box
+	// sizing (see `.gl-graph__zone` above) means this can't grow the row — and the zone's existing
+	// `align-items: center` then centers within that shrunk box for free; no other rule needs to change.
+	// The two exemptions are what keep full-height content unclipped: a stacked zone splits itself into the
+	// two lines already (and may host the grouped gutter, which spans the row), and the dedicated graph
+	// column is nothing but lanes.
+	.gl-graph__row[data-units='2'] .gl-graph__zone:not(.gl-graph__zone--stacked):not(.gl-graph__zone--graph) {
+		padding-block-start: var(--row-height);
+	}
+	// The row-action strip shrinks to the bottom unit the same way, so its (`align-items: center`) buttons
+	// land on the sha/author/date line instead of the row's full span — its `::before` backdrop mask
+	// (`inset: 0`, relative to THIS box) shrinks right along with it, no separate rule needed.
+	.gl-graph__row[data-units='2'] .gl-graph__row-actions {
+		top: var(--row-height);
+	}
 	.gl-graph__avatar {
 		flex-shrink: 0;
 		width: 1.8rem;
