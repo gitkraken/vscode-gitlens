@@ -97,10 +97,46 @@ async function focusWindows(pid: number): Promise<boolean> {
 }
 
 /** Returns the parent process ID of `pid`, or `undefined` when the lookup fails. Walks `ps`
- *  (Unix) or `wmic` (Windows). Used both by the parent-pid walk inside {@link focusProcessWindow}
- *  and by {@link isDescendantOfThisExtensionHost} below. */
+ *  (Unix) or PowerShell CIM (Windows). Used both by the parent-pid walk inside
+ *  {@link focusProcessWindow} and by {@link isDescendantOfThisExtensionHost} below. */
 export async function getProcessParentPid(pid: number): Promise<number | undefined> {
 	return getParentPid(pid);
+}
+
+/** Fetches the entire pid→parent-pid table in a single exec, so callers can walk process ancestry
+ *  in memory instead of one exec per hop. A snapshot: races with process churn between the fetch
+ *  and use are acceptable — callers treat a miss as "no match". Returns `undefined` on failure or
+ *  an empty table. */
+export async function getProcessParentPidMap(): Promise<Map<number, number> | undefined> {
+	try {
+		let stdout: string;
+		if (platform === 'win32') {
+			stdout = await exec('powershell', [
+				'-NoProfile',
+				'-NonInteractive',
+				'-Command',
+				'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }',
+			]);
+		} else {
+			stdout = await exec('ps', ['-A', '-o', 'pid=,ppid=']);
+		}
+
+		const map = new Map<number, number>();
+		for (const line of stdout.split('\n')) {
+			const tokens = line.trim().split(/\s+/);
+			if (tokens.length !== 2) continue;
+
+			const pid = parseInt(tokens[0], 10);
+			const ppid = parseInt(tokens[1], 10);
+			if (isNaN(pid) || isNaN(ppid)) continue;
+
+			map.set(pid, ppid);
+		}
+
+		return map.size > 0 ? map : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Returns `true` iff `pid` is a descendant (within `maxDepth` parent hops) of the current
@@ -123,13 +159,18 @@ async function getParentPid(pid: number): Promise<number | undefined> {
 	try {
 		let stdout: string;
 		if (platform === 'win32') {
-			stdout = await exec('wmic', ['process', 'where', `(ProcessId=${pid})`, 'get', 'ParentProcessId']);
+			stdout = await exec('powershell', [
+				'-NoProfile',
+				'-NonInteractive',
+				'-Command',
+				`(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').ParentProcessId`,
+			]);
 		} else {
 			stdout = await exec('ps', ['-o', 'ppid=', '-p', String(pid)]);
 		}
 
-		// wmic outputs a header line ("ParentProcessId") followed by the value;
-		// split on whitespace and parse the last non-empty token to skip the header.
+		// Split on whitespace and parse the last non-empty token (tolerates surrounding whitespace
+		// PowerShell may emit).
 		const tokens = stdout.trim().split(/\s+/);
 		const parsed = parseInt(tokens.at(-1)!, 10);
 		if (isNaN(parsed) || parsed <= 1) return undefined;

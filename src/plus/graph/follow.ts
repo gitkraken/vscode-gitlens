@@ -4,6 +4,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pickMostRecentSession } from '../../agents/agentStatusService.js';
+import type { AgentSession } from '../../agents/provider.js';
 import { isActiveClaudeTab } from '../../agents/utils/-webview/claudeExtension.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -19,7 +20,9 @@ type GraphShowWipArgs = NonNullable<GraphWebviewShowingArgs[0]>;
 /** Follows the active terminal (and, when it's the active tab, a Claude Code conversation) and
  *  reveals the corresponding worktree's WIP row on any currently visible Commit Graph — a view
  *  and/or one or more editor-tab instances. Passive deliveries never raise/open a graph surface;
- *  only the manual `showTerminalWorktree` command does that. */
+ *  only the manual `showTerminalWorktree` command does that. A Claude session running inside the
+ *  terminal (matched by process ancestry) takes precedence over the terminal's cwd — agents
+ *  frequently work in a worktree the shell never cd'd into. */
 export class GraphFollowController implements Disposable {
 	private readonly _disposable: Disposable;
 	private _followDisposable: Disposable | undefined;
@@ -119,15 +122,25 @@ export class GraphFollowController implements Disposable {
 		return false;
 	}
 
-	/** Terminal flow: resolves the active terminal's cwd to a repository/worktree and, if a local
-	 *  agent session is running there, enriches the delivery with that session's id. */
+	/** Terminal flow: a session running inside the terminal (matched by process ancestry) is
+	 *  authoritative for the worktree; only when none matches do we fall back to resolving the
+	 *  terminal's cwd to a repository/worktree and enriching with a cwd-matched session. */
 	private async onTerminalChanged(terminal: Terminal | undefined): Promise<void> {
 		if (terminal == null || !this.hasVisibleGraphSurface) return;
+
+		const gen = ++this._generation;
+
+		const session = await this.findSessionForTerminal(terminal);
+		if (gen !== this._generation) return;
+
+		if (session?.worktreePath != null) {
+			this.deliver(session.worktreePath, session.id, { source: 'terminal' });
+			return;
+		}
 
 		const cwd = getTerminalCwd(terminal);
 		if (cwd == null) return;
 
-		const gen = ++this._generation;
 		const repo = await this.container.git.getOrAddRepository(cwd, { opened: false, detectNested: true });
 		if (gen !== this._generation || repo == null) return;
 
@@ -137,6 +150,60 @@ export class GraphFollowController implements Disposable {
 		);
 
 		this.deliver(repo.path, winner?.id, { source: 'terminal' });
+	}
+
+	/** Ancestor-pid chains cached per live session pid. A process's ancestry is fixed at fork, so a
+	 *  chain is computed ONCE per session (one process-table fetch — on Windows a PowerShell spawn)
+	 *  and every later terminal switch is an in-memory lookup. Entries whose pid no longer backs a
+	 *  live session are pruned on use, so a reused pid can never match a dead session's chain. */
+	private readonly _sessionAncestorChains = new Map<number, number[]>();
+
+	/** Finds a live agent session running INSIDE `terminal` by process ancestry: the session's pid
+	 *  (the Claude binary) descends from the terminal's shell pid. A match is authoritative for the
+	 *  worktree — agents frequently work in a different worktree than the shell's cwd. Best-effort:
+	 *  returns undefined on web (no process table), when the terminal has no pid, or when nothing
+	 *  matches (e.g. the process tree is severed by tmux). */
+	private async findSessionForTerminal(terminal: Terminal): Promise<AgentSession | undefined> {
+		const candidates = (this.container.agentStatus?.sessions ?? []).filter(
+			(s): s is AgentSession & { pid: number; worktreePath: string } =>
+				!s.isSubagent && s.status !== 'completed' && s.pid != null && s.worktreePath != null,
+		);
+		if (candidates.length === 0) {
+			this._sessionAncestorChains.clear();
+			return undefined;
+		}
+
+		const shellPid = await terminal.processId;
+		if (shellPid == null) return undefined;
+
+		for (const pid of [...this._sessionAncestorChains.keys()]) {
+			if (!candidates.some(s => s.pid === pid)) {
+				this._sessionAncestorChains.delete(pid);
+			}
+		}
+
+		const unresolved = candidates.filter(s => !this._sessionAncestorChains.has(s.pid));
+		if (unresolved.length > 0) {
+			const { getProcessParentPidMap } = await import(/* webpackChunkName: "agents" */ '@env/focusWindow.js');
+			const parentPidMap = await getProcessParentPidMap();
+			if (parentPidMap != null) {
+				for (const candidate of unresolved) {
+					const chain = walkAncestorChain(candidate.pid, parentPidMap);
+					// An empty chain (pid missing from the snapshot, e.g. a just-started session)
+					// isn't cached, so it retries on the next lookup.
+					if (chain.length > 0) {
+						this._sessionAncestorChains.set(candidate.pid, chain);
+					}
+				}
+			}
+		}
+
+		const matches = candidates.filter(
+			s => s.pid === shellPid || this._sessionAncestorChains.get(s.pid)?.includes(shellPid),
+		);
+		if (matches.length === 0) return undefined;
+
+		return matches.length === 1 ? matches[0] : pickMostRecentSession(matches);
 	}
 
 	/** Tab flow: only acts when the active tab is a Claude Code conversation, resolved to its
@@ -177,36 +244,55 @@ export class GraphFollowController implements Disposable {
 
 	/** Manual, graph-raising reveal backing `gitlens.graph.showTerminalWorktree`. */
 	private async onShowTerminalWorktree(terminal?: unknown): Promise<void> {
-		const worktreePath = await this.resolveTerminalWorktreePath(terminal);
-		if (worktreePath == null) return;
+		const resolved = await this.resolveTerminalWorktreePath(terminal);
+		if (resolved == null) return;
 
-		void showWorktreeInGraph(this.container, worktreePath, { source: 'terminal' });
+		void showWorktreeInGraph(this.container, resolved.worktreePath, {
+			source: 'terminal',
+			agentSessionId: resolved.agentSessionId,
+		});
 	}
 
 	/** Manual, graph-raising Focus: opens the graph at the terminal's worktree AND scopes it to that
 	 *  worktree's branch. A detached worktree (no branch) just reveals without scoping; `revealOnly`
 	 *  keeps the details panel closed, matching the in-graph Focus commands. */
 	private async onFocusTerminalWorktree(terminal?: unknown): Promise<void> {
-		const worktreePath = await this.resolveTerminalWorktreePath(terminal);
-		if (worktreePath == null) return;
+		const resolved = await this.resolveTerminalWorktreePath(terminal);
+		if (resolved == null) return;
 
-		void showWorktreeInGraph(this.container, worktreePath, { source: 'terminal', focus: true });
+		void showWorktreeInGraph(this.container, resolved.worktreePath, {
+			source: 'terminal',
+			agentSessionId: resolved.agentSessionId,
+			focus: true,
+		});
 	}
 
 	private async onOpenTerminalWorktreeInNewWindow(terminal?: unknown): Promise<void> {
-		const worktreePath = await this.resolveTerminalWorktreePath(terminal);
-		if (worktreePath == null) return;
+		const resolved = await this.resolveTerminalWorktreePath(terminal);
+		if (resolved == null) return;
 
-		openWorktreeInNewWindow(worktreePath);
+		openWorktreeInNewWindow(resolved.worktreePath);
 	}
 
 	/** Resolves the terminal-menu command arg to its worktree root, showing an informational message
 	 *  when none is found. The arg is the clicked `Terminal` from `terminal/title/context`, or the
 	 *  clicked tab's `vscode-terminal:` resource from the terminal-editor surfaces — matched back to
 	 *  a terminal by title so the actions target the clicked editor, not just the focused terminal —
-	 *  falling back to the active terminal. */
-	private async resolveTerminalWorktreePath(terminal?: unknown): Promise<string | undefined> {
+	 *  falling back to the active terminal. A session running inside the target terminal (matched by
+	 *  process ancestry) is tried first and wins over the terminal's cwd; only when none matches do
+	 *  we fall back to resolving the cwd to a repository/worktree. */
+	private async resolveTerminalWorktreePath(
+		terminal?: unknown,
+	): Promise<{ worktreePath: string; agentSessionId?: string } | undefined> {
 		const target = isTerminal(terminal) ? terminal : (findTerminalForResource(terminal) ?? window.activeTerminal);
+
+		if (target != null) {
+			const session = await this.findSessionForTerminal(target);
+			if (session?.worktreePath != null) {
+				return { worktreePath: session.worktreePath, agentSessionId: session.id };
+			}
+		}
+
 		const cwd = target != null ? getTerminalCwd(target) : undefined;
 		const repo =
 			cwd != null
@@ -217,7 +303,7 @@ export class GraphFollowController implements Disposable {
 			return undefined;
 		}
 
-		return repo.path;
+		return { worktreePath: repo.path };
 	}
 }
 
@@ -239,6 +325,23 @@ function findTerminalForResource(value: unknown): Terminal | undefined {
  *  available; VS Code passes the real `Terminal` instance for `terminal/context`/`terminal/title/context`. */
 function isTerminal(value: unknown): value is Terminal {
 	return value != null && typeof value === 'object' && 'creationOptions' in value && 'processId' in value;
+}
+
+/** Walks `pid`'s parent chain through a process-table snapshot, returning its ancestor pids
+ *  nearest-first (bounded, cycle-guarded). Empty when `pid` has no parent in the snapshot. */
+function walkAncestorChain(pid: number, parentPidMap: Map<number, number>): number[] {
+	const maxHops = 8;
+	const chain: number[] = [];
+	const visited = new Set<number>([pid]);
+
+	let current = parentPidMap.get(pid);
+	while (current != null && chain.length < maxHops && !visited.has(current)) {
+		chain.push(current);
+		visited.add(current);
+		current = parentPidMap.get(current);
+	}
+
+	return chain;
 }
 
 /** Shell integration's reported cwd wins (covers in-terminal `cd`); falls back to the terminal's

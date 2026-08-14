@@ -6,6 +6,10 @@ export function getProcessParentPid(_pid: number): Promise<number | undefined> {
 	return Promise.resolve(undefined);
 }
 
+export function getProcessParentPidMap(): Promise<Map<number, number> | undefined> {
+	return Promise.resolve(undefined);
+}
+
 export function isDescendantOfThisExtensionHost(_pid: number, _maxDepth?: number): Promise<boolean> {
 	return Promise.resolve(false);
 }
