@@ -1,6 +1,6 @@
 import type { PullRequestSearchCriteria, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
-import { sanitizeGitHubSearchText } from './issueSearchQuery.js';
+import { sanitizeGitHubQualifierValue, sanitizeGitHubSearchText } from './issueSearchQuery.js';
 
 export type GitHubPullRequestSearchFacet = {
 	/** Stable GraphQL alias and composite-cursor key. */
@@ -63,6 +63,19 @@ export function toGitHubPullRequestSearchFacets(
 	const states: PullRequestStateFilter[] = requestedStates.includes('all') ? ['all'] : requestedStates;
 	const text = criteria?.text != null ? sanitizeGitHubSearchText(criteria.text) : '';
 
+	// Facet-independent, unlike the relationship/state qualifiers below — build once and share.
+	const dateQualifiers: string[] = [];
+	const pushDate = (value: string | undefined, toQualifier: (sanitized: string) => string): void => {
+		if (value == null) return;
+
+		const sanitized = sanitizeGitHubQualifierValue(value);
+		if (sanitized.length > 0) {
+			dateQualifiers.push(toQualifier(sanitized));
+		}
+	};
+	pushDate(criteria?.updatedAfter, v => `updated:>=${v}`);
+	pushDate(criteria?.createdAfter, v => `created:>=${v}`);
+
 	return relationships.flatMap(relationship =>
 		states.map(state => ({
 			alias: `${relationship != null ? relationshipAlias[relationship] : 'scope'}${stateAlias[state]}`,
@@ -74,6 +87,7 @@ export function toGitHubPullRequestSearchFacets(
 				...(criteria?.draft != null ? [`draft:${criteria.draft}`] : []),
 				...(criteria?.includeArchived === true ? [] : ['archived:false']),
 				...(text.length > 0 ? [text] : []),
+				...dateQualifiers,
 				// Contract, not an option: a capped result is the N most recently updated only under this order.
 				'sort:updated',
 			],

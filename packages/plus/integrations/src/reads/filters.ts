@@ -104,6 +104,12 @@ export function resolvePullRequestSearchCriteria(
 	if (criteria.text != null && criteria.text.trim().length > 0 && !supported.text) {
 		unsupported.push('text');
 	}
+	if (criteria.updatedAfter != null && !supported.updatedAfter) {
+		unsupported.push('updatedAfter');
+	}
+	if (criteria.createdAfter != null && !supported.createdAfter) {
+		unsupported.push('createdAfter');
+	}
 	if (criteria.includeArchived === true && !supported.includeArchived) {
 		unsupported.push('includeArchived');
 	}
@@ -283,6 +289,8 @@ const unsupportedPullRequestSearchCapabilities: PullRequestSearchCapabilities = 
 	relationships: [],
 	states: [],
 	text: false,
+	updatedAfter: false,
+	createdAfter: false,
 	includeArchived: false,
 	draft: false,
 	repositoryScope: false,

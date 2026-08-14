@@ -216,6 +216,16 @@ suite('IntegrationManager.searchPullRequestsPage', () => {
 					criteria: { relationships: [PullRequestFilter.Author], draft: true },
 					expected: /draft/,
 				},
+				{
+					capabilities: { ...supported!, updatedAfter: false },
+					criteria: { relationships: [PullRequestFilter.Author], updatedAfter: '2026-05-05' },
+					expected: /updatedAfter/,
+				},
+				{
+					capabilities: { ...supported!, createdAfter: false },
+					criteria: { relationships: [PullRequestFilter.Author], createdAfter: '2026-01-01' },
+					expected: /createdAfter/,
+				},
 			];
 
 			for (const testCase of cases) {

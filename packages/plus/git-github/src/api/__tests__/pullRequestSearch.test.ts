@@ -227,6 +227,35 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.match(query, /is:open/, 'the structured states remain authoritative');
 	});
 
+	test('emits updated/created date qualifiers on every facet', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: {
+				relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+				updatedAfter: '2026-05-05',
+				createdAfter: '2026-01-01',
+			},
+		});
+
+		for (const key of Object.keys(getCalls()[0].variables).filter(key => key.endsWith('Search'))) {
+			const query = String(getCalls()[0].variables[key]);
+			assert.match(query, /updated:>=2026-05-05/);
+			assert.match(query, /created:>=2026-01-01/);
+		}
+	});
+
+	test('drops a date qualifier emptied by sanitizing rather than emitting a bare one', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { updatedAfter: '"\n' },
+		});
+
+		const query = search(getCalls()[0], 'scopeOpen');
+		assert.doesNotMatch(query, /updated:>=/);
+	});
+
 	test('`all` subsumes every other requested state', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
