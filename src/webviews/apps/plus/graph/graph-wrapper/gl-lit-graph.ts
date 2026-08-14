@@ -8611,6 +8611,25 @@ export class GlLitGraph extends LitElement {
 	 *  it answers, not "we moved for this row". */
 	private _lastRevealedSha?: string;
 
+	/** The reveal whose multi-stage motion may still be in progress, keyed to the generation it was
+	 *  issued under — the long-jump path has windows (awaiting `layoutComplete` between the approach
+	 *  write and the final slide) where neither `_pendingRevealSha` nor an animation frame exists, so
+	 *  no single piece of live state can answer "is a reveal still working toward this row". Any
+	 *  newer reveal or cancel bumps `_revealGeneration`, which invalidates this record implicitly. */
+	private _revealInFlight?: { sha: string; generation: number };
+
+	/** Sha of a reveal still queued OR still travelling (animation, or a long-jump settle window). A
+	 *  same-target follow-up navigation (a selection-sync trailing the host reveal it mirrors) must
+	 *  not cancel a reveal it could never re-issue — its `'if-changed'` repeat no-ops against
+	 *  `_lastRevealedSha`, which banks at evaluation, so the cancel would strand the viewport
+	 *  mid-travel (deterministically at the approach point, for a long jump). */
+	get activeRevealSha(): string | undefined {
+		if (this._pendingRevealSha != null) return this._pendingRevealSha;
+
+		const inflight = this._revealInFlight;
+		return inflight != null && inflight.generation === this._revealGeneration ? inflight.sha : undefined;
+	}
+
 	/**
 	 * Scroll the row for `sha` into view, deferring until the row appears if it isn't loaded yet.
 	 *
@@ -8773,6 +8792,8 @@ export class GlLitGraph extends LitElement {
 		// across the travel instead of saying "you landed HERE".
 		this._flashOnRevealSettled = flash ? sha : undefined;
 		this.revealIndexAt(idx, landingRevealRatio, true);
+		// AFTER the call: `revealIndexAt` stamps the generation this reveal runs under.
+		this._revealInFlight = { sha: sha, generation: this._revealGeneration };
 	}
 
 	private _revealGeneration = 0;

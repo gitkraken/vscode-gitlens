@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes _Hide Remote_ in the _Commit Graph_ only hiding the selected branch instead of all of the remote's branches ([#5728](https://github.com/gitkraken/vscode-gitlens/issues/5728))
 - Fixes the split conflict status icons rendering clipped in file trees &mdash; e.g. the _Commit Graph_'s _Working Changes_ details and _Resolve_ mode, and the _Inspect_ and _Patch Details_ views
+- Fixes the _Commit Graph_ sometimes failing to scroll to a revealed row &mdash; on long jumps (deep links, _Show in Commit Graph_, and similar reveals) the selection landed but the viewport could strand partway
 
 ## [19.0.1] - 2026-08-13
 

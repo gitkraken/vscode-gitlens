@@ -1592,9 +1592,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			return pending.promise;
 		}
 
-		// Newest ask wins: supersede any different intent still waiting for its row.
+		// Newest ask wins: supersede any different intent still waiting for its row. SAME-target reveals
+		// survive: a selection-sync navigation trails the host reveal it mirrors by a render cycle, and
+		// cancelling that reveal's still-travelling animation would strand the viewport mid-scroll — the
+		// trailing `'if-changed'` repeat can never re-issue it (`_lastRevealedSha` banks at evaluation).
 		this.settlePendingNavigation({ status: 'cancelled' });
-		litGraph?.cancelPendingReveal();
+		if (litGraph?.activeRevealSha !== sha) {
+			litGraph?.cancelPendingReveal();
+		}
 		const generation = this._selectIntent.begin();
 		this._selectIntentRepositoryId = repositoryId;
 		this._selectIntentRepoPath = repoPath;
