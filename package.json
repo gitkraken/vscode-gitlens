@@ -8949,6 +8949,11 @@
 				"icon": "$(git-compare)"
 			},
 			{
+				"command": "gitlens.openTerminalWorktreeInNewWindow",
+				"title": "Open in New Window",
+				"icon": "$(empty-window)"
+			},
+			{
 				"command": "gitlens.openUnstagedChanges:commitDetails",
 				"title": "Open Unstaged Changes",
 				"icon": "$(git-compare)"

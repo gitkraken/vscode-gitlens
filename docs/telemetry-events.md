@@ -1966,7 +1966,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'shown' | 'dismissed',
+  'action': 'shown' | 'dismissed' | 'actioned',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -2795,7 +2795,8 @@ background-upgraded the extension while the host kept running the old build
   'context.config.experimental.kanban.enabled': boolean,
   'context.config.experimental.visualizations.activityDecay': '30s' | '1m' | '2m' | '5m' | '10m' | '30m',
   'context.config.experimental.visualizations.enabled': boolean,
-  'context.config.followActive': boolean,
+  'context.config.followTerminal.allowRepositorySwitching': boolean,
+  'context.config.followTerminal.enabled': boolean,
   'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,
   'context.config.lanes.density': 'compact' | 'expanded',

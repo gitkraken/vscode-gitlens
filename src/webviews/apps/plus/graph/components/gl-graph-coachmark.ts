@@ -43,6 +43,13 @@ const seenDwellMs = 1500;
  *  a settle delay and re-arms. Bounded per session so loading-time focus churn can't strobe the tip;
  *  a spent budget leaves the entry in place, parking the mark on the lightbulb. */
 const maxAutoReopens = 3;
+/** Bulb-less marks never bank `seen` (a banked showing would be unreachable forever with no
+ *  lightbulb to park on), so the incidental-close reopen check can't use the store to tell "was
+ *  displayed long enough to read" — this session-local marker fills that role, banked by the same
+ *  dwell/deliberate-close paths that would have banked `seen`. Without it every webview blur (e.g.
+ *  clicking into the very terminal the followTerminal tip is talking about) strobes the tip back
+ *  open until the reopen budget is spent. */
+const bulblessSeenThisSession = new Set<GraphCoachMarkType>();
 const reopenDelayMs = 1000;
 const autoReopensRemaining = new Map<GraphCoachMarkType, number>();
 
@@ -312,6 +319,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		.coachmark__actions {
 			display: flex;
 			justify-content: flex-end;
+			gap: 0.8rem;
 		}
 
 		.lightbulb {
@@ -582,8 +590,9 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		this._anchorObserver.observe(anchor);
 	}
 
-	/** "Got it" — persists the dismissal; neither the tip nor its lightbulb returns. */
-	private onGotItClick() {
+	/** Shared by "Got it" and a content-supplied action button: both bank the dismissal for good and
+	 *  differ only in which telemetry action they report. */
+	private dismissPermanently(action: 'dismissed' | 'actioned'): void {
 		this._acknowledged = true;
 		void this._popover?.hide();
 
@@ -591,8 +600,23 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/coachMark'>(this, {
 			name: 'graph/coachMark',
-			data: { key: this.mark, action: 'dismissed' },
+			data: { key: this.mark, action: action },
 		});
+	}
+
+	/** "Got it" — persists the dismissal; neither the tip nor its lightbulb returns. */
+	private onGotItClick() {
+		this.dismissPermanently('dismissed');
+	}
+
+	/** A content-supplied action (e.g. "Turn Off") — dismisses the same as "Got it", then notifies the
+	 *  host to carry out the action; the behavior itself stays out of the static content module. */
+	private onActionClick() {
+		this.dismissPermanently('actioned');
+
+		this.dispatchEvent(
+			new CustomEvent('gl-coachmark-action', { detail: { mark: this.mark }, bubbles: true, composed: true }),
+		);
 	}
 
 	/** ✕ — soft close: the how-to parks on the lightbulb rather than being dismissed for good. */
@@ -601,10 +625,18 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		void this._popover?.hide();
 	}
 
-	/** Banks the one force-open — on the dwell timer or an explicit close, whichever comes first. */
+	/** Banks the one force-open — on the dwell timer or an explicit close, whichever comes first.
+	 *  Bulb-less marks never bank `seen`: with no lightbulb to park on, a banked showing would be
+	 *  unreachable forever, so soft closes only defer to the next session — the buttons are the sole
+	 *  permanent endings (via the dismissal they bank). */
 	private persistSeen(): void {
 		clearTimeout(this._seenTimer);
 		this._seenTimer = undefined;
+		if (graphCoachMarks[this.mark]?.lightbulb === false) {
+			bulblessSeenThisSession.add(this.mark);
+			return;
+		}
+
 		if (this._seen?.has(this.mark) === false) {
 			this._seen.markSeen(this.mark);
 		}
@@ -647,7 +679,11 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			// instead give back the force-open (bounded) so the tip returns once things settle.
 			clearTimeout(this._seenTimer);
 			this._seenTimer = undefined;
-			if (!this._closedByEscape && this._seen?.has(this.mark) === false) {
+			if (
+				!this._closedByEscape &&
+				this._seen?.has(this.mark) === false &&
+				!bulblessSeenThisSession.has(this.mark)
+			) {
 				this.scheduleAutoReopen();
 			}
 		}
@@ -675,7 +711,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		const offered = seen === true || forceOpenedThisSession.has(this.mark);
 
 		const lightbulb =
-			offered && this.autoShow && !this._open && dismissed === false
+			content.lightbulb !== false && offered && this.autoShow && !this._open && dismissed === false
 				? html`<gl-tooltip placement="bottom" content="Show Tip: ${content.title}">
 						<button
 							type="button"
@@ -707,9 +743,19 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 							}
 							${content.title}
 						</span>
-						<gl-button appearance="toolbar" density="compact" aria-label="Close" @click=${this.onCloseClick}
-							><code-icon icon="close"></code-icon
-						></gl-button>
+						${
+							// A bulb-less mark has no parked fallback for a soft close to defer to, and its
+							// buttons are the real choices — no redundant ✕ (Esc still closes for the session).
+							content.lightbulb !== false
+								? html`<gl-button
+										appearance="toolbar"
+										density="compact"
+										aria-label="Close"
+										@click=${this.onCloseClick}
+										><code-icon icon="close"></code-icon
+									></gl-button>`
+								: nothing
+						}
 					</div>
 					<div class="coachmark__body">${content.body()}</div>
 					${
@@ -721,6 +767,13 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 							: nothing
 					}
 					<div class="coachmark__actions">
+						${
+							content.action
+								? html`<gl-button appearance="secondary" @click=${this.onActionClick}
+										>${content.action.label}</gl-button
+									>`
+								: nothing
+						}
 						<gl-button @click=${this.onGotItClick}>Got it</gl-button>
 					</div>
 				</div>

@@ -106,6 +106,9 @@ export class GlGraphOverviewBar extends LitElement {
 	@property({ type: Boolean }) statsOnHover = true;
 	/** Drives only the coach-mark auto-show trigger; the bar itself is already gated on ≥1 item. */
 	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
+	/** Latches once the follow-terminal controller's first passive reveal lands — see `graph-app`'s
+	 *  `_followTerminalRevealed`. Drives only the `followTerminal` coach mark's auto-show trigger. */
+	@property({ type: Boolean, attribute: 'follow-terminal-revealed' }) followTerminalRevealed = false;
 
 	@state() private focusedPillIndex = 0;
 
@@ -479,6 +482,12 @@ export class GlGraphOverviewBar extends LitElement {
 				placement="bottom-start"
 				.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.pills') ?? undefined}
 				?auto-show=${this.graphReady}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="followTerminal"
+				placement="bottom-start"
+				.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.pills') ?? undefined}
+				?auto-show=${this.followTerminalRevealed && this.graphReady}
 			></gl-graph-coachmark>
 			<div class="bar" @wheel=${this.wheelListener}>
 				<div

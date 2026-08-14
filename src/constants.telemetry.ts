@@ -1595,7 +1595,7 @@ interface GraphActionSidebarEvent extends GraphContextEventData {
 interface GraphCoachMarkEvent extends GraphContextEventData {
 	/** Which coach mark (`GraphCoachMarkType`) */
 	key: string;
-	action: 'shown' | 'dismissed';
+	action: 'shown' | 'dismissed' | 'actioned';
 	/** How the mark was shown — state-triggered (`auto`) or re-opened from its lightbulb (`lightbulb`) */
 	trigger?: 'auto' | 'lightbulb';
 }

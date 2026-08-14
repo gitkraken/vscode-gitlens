@@ -59,6 +59,7 @@ export const onboardingDefinitions = {
 	'graph:coachMark:overviewBar': { schema: '19.0.0', scope: 'global' },
 	'graph:coachMark:kanban': { schema: '19.0.0', scope: 'global' },
 	'graph:coachMark:visualizations': { schema: '19.0.0', scope: 'global' },
+	'graph:coachMark:followTerminal': { schema: '19.0.0', scope: 'global' },
 	// Not a tip: records that the marks have already stood down for the walkthrough banner once.
 	'graph:coachMarks:bannerDeferral': { schema: '19.0.0', scope: 'global' },
 

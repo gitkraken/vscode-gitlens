@@ -19,6 +19,7 @@ import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
+import type { GlExtensionCommands } from '../../../../constants.commands.js';
 import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import { mergeWebviewItems } from '../../../../system/webview.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
@@ -27,6 +28,7 @@ import type {
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	GraphCoachMarkType,
 	GraphComposeScopeSeed,
 	GraphDisplayMode,
 	GraphItemContext,
@@ -85,6 +87,7 @@ import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
 import type { KeymapDispatcher } from '../../shared/keymap/keymapDispatcher.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import { graphCoachMarks } from './components/coachMarks.js';
 import type { CapturedComparison } from './components/detailsState.js';
 import { shouldRestoreCapturedComparison } from './components/detailsState.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
@@ -606,6 +609,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  the flag below flips the live value and would lift the deferral in the session that set it. */
 	@state()
 	private _bannerDeferredBefore?: boolean;
+
+	/** True once the follow-terminal controller's first passive reveal (`revealOnly`) has landed —
+	 *  latched for the session; NEVER reset. The `followTerminal` coach mark's own dismissed/seen
+	 *  guards handle showing it only once ever. */
+	@state()
+	private _followTerminalRevealed = false;
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
@@ -1720,6 +1729,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		capturedComparison?: CapturedComparison;
 		agentSessionId?: string;
 		revealOnly?: boolean;
+		followed?: boolean;
 	}): Promise<void> {
 		const {
 			action,
@@ -1732,6 +1742,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			capturedComparison,
 			agentSessionId,
 			revealOnly,
+			followed,
 		} = pending;
 
 		if (action === 'scope-to-branch') {
@@ -1837,6 +1848,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const detailsAlreadyVisible = this.graphState.details?.visible === true;
 		if (revealOnly !== true) {
 			showDetails();
+		} else if (followed === true) {
+			// Only the follow controller's passive deliveries set `followed` — a manual Focus also
+			// sends `revealOnly` but must not trigger the follow coach mark.
+			// Latch — never reset; see `_followTerminalRevealed`'s own doc comment.
+			this._followTerminalRevealed = true;
 		}
 
 		await this.updateComplete;
@@ -1962,6 +1978,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			await this.updateComplete;
 		}
 		void this.graph?.navigateToCommit(e.detail.sha, { source: 'overview', flash: true });
+	};
+
+	/** A coach mark's content-supplied action button — the mark's content declares which host command
+	 *  it runs, so no per-mark dispatch lives here. The cast is needed because `gitlens.graph.`-prefixed
+	 *  ids collide with the webview-scoped naming heuristic (`GlWebviewCommands<'graph'>`) even for
+	 *  plain `registerCommand` commands. */
+	private readonly handleCoachMarkAction = async (e: CustomEvent<{ mark: GraphCoachMarkType }>): Promise<void> => {
+		const command = graphCoachMarks[e.detail.mark]?.action?.command;
+		if (command == null) return;
+
+		const commands = await this.services?.commands;
+		void commands?.execute(command as GlExtensionCommands);
 	};
 
 	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
@@ -3429,10 +3457,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									.selectedId=${selectedWipId}
 									.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
 									?graph-ready=${this.coachMarksEligible}
+									?follow-terminal-revealed=${this._followTerminalRevealed}
 									@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
 									@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
 									@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}
 									@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
+									@gl-coachmark-action=${this.handleCoachMarkAction}
 								></gl-graph-overview-bar>
 							`
 						: nothing

@@ -14,6 +14,15 @@ export interface GraphCoachMarkContent {
 	/** Same-frame arbitration when multiple marks trigger together — higher wins; the loser is
 	 *  queued and opens when the winner closes. */
 	priority: number;
+	/** Optional second action rendered before "Got it". `command` is the host command the graph app
+	 *  executes when it's pressed — content declares the behavior so the app needs no per-mark
+	 *  dispatch; the click mechanics (telemetry, dismissal, event dispatch) live in
+	 *  `gl-graph-coachmark`. */
+	action?: { label: string; command: string };
+	/** `false` = no parked lightbulb and no ✕: Esc/outside-click only defer the tip to the next
+	 *  session (`seen` never banks) — pressing a button is the only permanent ending. For event
+	 *  announcements that warrant an explicit choice and have no chrome home for a bulb. */
+	lightbulb?: boolean;
 }
 
 const detailsContent: GraphCoachMarkContent = {
@@ -374,6 +383,24 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 				</div>
 				<p class="footnote">
 					Flip views with the switcher — click into any chart to open what it's drawn from.
+				</p>`,
+	},
+	// Fires right after the follow-terminal controller moves the selection — announces something that
+	// just happened, so it must win same-frame arbitration against every other mark.
+	followTerminal: {
+		title: 'Following Your Active Terminal',
+		icon: 'terminal',
+		priority: 4,
+		lightbulb: false,
+		action: { label: 'Turn Off', command: 'gitlens.graph.followTerminalOff' },
+		body: () =>
+			html`<p class="lede">
+					The graph selected the working changes for the worktree your active terminal — or Claude Code tab —
+					is in.
+				</p>
+				<p class="footnote">
+					Switching terminals keeps it in step. Turn this off anytime from the view's overflow menu ("Stop
+					Following Active Terminal").
 				</p>`,
 	},
 };
