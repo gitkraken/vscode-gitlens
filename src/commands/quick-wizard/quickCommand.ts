@@ -1,7 +1,10 @@
 import type { QuickPickItem } from 'vscode';
+import { QuickPickItemKind } from 'vscode';
 import type { Container } from '../../container.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
-import { Directive } from '../../quickpicks/items/directive.js';
+import { createConfirmToggleQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import { executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { CustomStep } from './models/steps.custom.js';
 import type {
@@ -15,7 +18,8 @@ import type {
 import { StepResultBreak } from './models/steps.js';
 import type { QuickInputStep } from './models/steps.quickinput.js';
 import type { QuickPickStep } from './models/steps.quickpick.js';
-import { createConfirmStep } from './utils/steps.utils.js';
+import { SkipConfirmationsSettingsQuickInputButton } from './quickButtons.js';
+import { confirmOptionsSeparatorLabel, createConfirmStep, rerenderConfirmStepItems } from './utils/steps.utils.js';
 
 export abstract class QuickCommand<State = any> implements QuickPickItem {
 	readonly description?: string;
@@ -147,12 +151,79 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		this._stepsIterator = undefined;
 	}
 
+	/**
+	 * Whether this command's confirm offers the in-list Don't Ask Again toggle. Opt-in, because
+	 * `skipConfirmKey` is scoped per command, not per step — a toggle shown on an incidental confirm
+	 * (e.g. Launchpad's connect-integration prompt) would silently skip the command's real one. Only
+	 * commands listed in the `gitCommands.skipConfirmations` setting enum should opt in.
+	 */
+	protected get supportsSkipConfirmToggle(): boolean {
+		return false;
+	}
+
 	protected createConfirmStep<T extends QuickPickItem>(
 		title: string,
 		confirmations: T[],
 		cancel?: DirectiveQuickPickItem,
 		options: Partial<QuickPickStep<T>> = {},
 	): QuickPickStep<T> {
-		return createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
+		if (!this.canSkipConfirm || !this.supportsSkipConfirmToggle) {
+			return createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
+		}
+
+		let step: QuickPickStep<T>;
+
+		// The in-list companion to the settings-only skip list: offered in the moment the user is
+		// looking at the confirm they want gone; writes the same `gitCommands.skipConfirmations` entry
+		// the title-bar toggle does. The refresh re-renders the step's current rows in place —
+		// recomposing from the captured `confirmations` array here would revert any newer rows a
+		// command toggle's own refresh has since installed (e.g. a mode row with updated flags).
+		const toggle = createConfirmToggleQuickPickItem({
+			label: "Don't Ask Again",
+			// No title interpolation — command titles like "Switch to..." read badly mid-sentence
+			detail: 'Skip this confirmation from now on — change anytime in settings',
+			checked: !this.confirm(),
+			onDidChange: async () => {
+				const skipConfirmations = [...(configuration.get('gitCommands.skipConfirmations') ?? [])];
+				const index = skipConfirmations.indexOf(this.skipConfirmKey);
+				if (index !== -1) {
+					skipConfirmations.splice(index, 1);
+				} else {
+					skipConfirmations.push(this.skipConfirmKey);
+				}
+
+				await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations);
+				rerenderConfirmStepItems(step);
+			},
+		});
+
+		// The detail promises "change anytime in settings" — the row button honors it
+		toggle.buttons = [SkipConfirmationsSettingsQuickInputButton];
+
+		// Join an existing Options group rather than opening a second one
+		const hasOptionsSeparator = confirmations.some(
+			c => c.kind === QuickPickItemKind.Separator && c.label === confirmOptionsSeparatorLabel,
+		);
+		const appended = [
+			...(hasOptionsSeparator ? [] : [createQuickPickSeparator<T>(confirmOptionsSeparatorLabel)]),
+			toggle as unknown as T,
+		];
+
+		step = createConfirmStep(title, [...confirmations, ...appended], { title: this.title }, cancel, options);
+		// Survive command-driven refreshes — a command rebuilding its rows in place only knows its
+		// own rows, so the refresh helper re-appends these
+		step.appendedItems = appended;
+
+		const onDidClickItemButton = step.onDidClickItemButton;
+		step.onDidClickItemButton = (quickpick, button, item) => {
+			if (button === SkipConfirmationsSettingsQuickInputButton) {
+				void executeCoreCommand('workbench.action.openSettings', '@id:gitlens.gitCommands.skipConfirmations');
+				return false;
+			}
+
+			return onDidClickItemButton?.(quickpick, button, item);
+		};
+
+		return step;
 	}
 }

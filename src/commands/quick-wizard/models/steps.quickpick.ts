@@ -26,6 +26,18 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	matchOnDetail?: boolean;
 	multiselect?: boolean;
 	placeholder?: string | ((count: number) => string | undefined);
+	/**
+	 * Rendered between the input and the list of items. VS Code >= 1.108 only — callers must provide
+	 * their own fallback (e.g. folding the text into `placeholder` or `title`) when it matters on
+	 * older versions.
+	 */
+	prompt?: string;
+	/**
+	 * Rows the confirm machinery appends after the command's own rows (e.g. the Don't Ask Again
+	 * toggle). `refreshConfirmStepItems` re-appends these on every rebuild, so a command refreshing
+	 * its rows in place can't silently drop them.
+	 */
+	appendedItems?: QuickPickItem[];
 	selectedItems?: QuickPickItem[];
 	title?: string;
 	value?: string;

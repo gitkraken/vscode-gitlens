@@ -93,6 +93,10 @@ export abstract class QuickCommandWithSubcommands<
 		const command = this.subcommands.get(name);
 		if (command == null) throw new Error(`Subcommand '${name}' not registered`);
 
+		// Children compute their own `skipConfirmKey` (`{childKey}:{startedFrom}`) — hand down how this
+		// command was started so `:command` vs `:menu` resolves the same way as the parent's key
+		command.startedFrom = this.startedFrom;
+
 		return command.getSteps(state, this.createContext(context));
 	}
 

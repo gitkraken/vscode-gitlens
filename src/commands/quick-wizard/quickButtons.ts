@@ -323,6 +323,11 @@ export const SetRemoteAsDefaultQuickInputButton: QuickInputButton = {
 	tooltip: 'Set as Default Remote',
 };
 
+export const SkipConfirmationsSettingsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('gear'),
+	tooltip: 'Open the Skipped Confirmations Setting',
+};
+
 export const ShowDetailsViewQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('eye'),
 	tooltip: 'Inspect Details',

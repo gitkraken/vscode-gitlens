@@ -39,12 +39,7 @@ import { pickBranchOrTagStep } from '../../quick-wizard/steps/references.js';
 import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
 import { StepsController } from '../../quick-wizard/stepsController.js';
 import { getSteps } from '../../quick-wizard/utils/quickWizard.utils.js';
-import {
-	appendReposToTitle,
-	assertStepState,
-	canPickStepContinue,
-	createConfirmStep,
-} from '../../quick-wizard/utils/steps.utils.js';
+import { appendReposToTitle, assertStepState, canPickStepContinue } from '../../quick-wizard/utils/steps.utils.js';
 import type { BranchContext } from '../branch.js';
 
 const Steps = {
@@ -95,6 +90,10 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
+	}
+
+	protected override get supportsSkipConfirmToggle(): boolean {
+		return true;
 	}
 
 	protected createContext(context?: StepsContext<any>): Context {
@@ -370,10 +369,11 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			confirmItems,
-			context,
+			undefined,
+			{ placeholder: `Confirm ${context.title}` },
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

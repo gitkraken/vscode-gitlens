@@ -17,6 +17,7 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { LaunchpadCommandArgs } from '../../../plus/launchpad/launchpad.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import type { BranchQuickPickItem, TagQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
 import { createBranchQuickPickItem, createTagQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
@@ -287,6 +288,8 @@ export function* pickBranchOrTagStep<
 		title?: string;
 		value: string | undefined;
 		additionalButtons?: QuickInputButton[];
+		/** Rows shown above the refs (e.g. a worded pick-a-commit toggle) — always visible, never filtered out */
+		prependItems?: DirectiveQuickPickItem[];
 		ranges?: boolean;
 	},
 ): StepResultGenerator<GitReference> {
@@ -305,10 +308,16 @@ export function* pickBranchOrTagStep<
 			sort: true,
 		});
 	};
+
+	const withPrependedItems = (branchesAndOrTags: ReferencesQuickPickItem[]): ReferencesQuickPickItem[] =>
+		branchesAndOrTags.length !== 0 && options.prependItems?.length
+			? [...(options.prependItems as unknown as ReferencesQuickPickItem[]), ...branchesAndOrTags]
+			: branchesAndOrTags;
+
 	const items = getBranchesAndOrTagsFn().then(branchesAndOrTags =>
 		branchesAndOrTags.length === 0
 			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-			: branchesAndOrTags,
+			: withPrependedItems(branchesAndOrTags),
 	);
 
 	const step = createPickStep<ReferencesQuickPickItem>({
@@ -359,7 +368,8 @@ export function* pickBranchOrTagStep<
 										? options.placeholder
 										: options.placeholder(context)
 								} (or enter a revision using #)`;
-					quickpick.items = branchesAndOrTags;
+					// Re-include the prepended rows — replacing items wholesale would silently drop them
+					quickpick.items = withPrependedItems(branchesAndOrTags);
 				} finally {
 					quickpick.busy = false;
 				}
