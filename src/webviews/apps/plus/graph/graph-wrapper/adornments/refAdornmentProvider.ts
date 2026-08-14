@@ -469,7 +469,7 @@ export interface RowRefUnit {
  * combined pill. Absorption is ONE pass over the whole list — heads ascending, each taking the first
  * not-yet-absorbed remote it tracks — so an inline pill and a `+N` popover row pair up by the same rule.
  * The refs left over are the "units": the first `cap` render as sibling pills, the rest fold into the
- * badge, each still carrying its absorbed remote (`popoverUpstreamFor`) so the expanded rows combine too.
+ * badge, each still carrying its absorbed remote (`upstreamFor`) so the expanded rows combine too.
  *
  * ⚠ The ref at index 0 is never absorbed. `sortRowRefs` already ranks an in-sync remote by its LOCAL (see
  * `carrierFor`), so a remote that still lands first is one the row is explicitly focused on — a
@@ -489,7 +489,7 @@ export function partitionRowRefs(
 	parsed: ParsedRef[],
 	cap: number,
 	findHitRefKey: string | undefined,
-): { visible: RowRefUnit[]; rest: ParsedRef[]; popoverUpstreamFor: Map<ParsedRef, ParsedRef> } {
+): { visible: RowRefUnit[]; rest: ParsedRef[]; upstreamFor: Map<ParsedRef, ParsedRef> } {
 	const upstreamFor = new Map<ParsedRef, ParsedRef>();
 	const absorbed = new Set<ParsedRef>();
 	for (let i = 0; i < parsed.length; i++) {
@@ -524,18 +524,11 @@ export function partitionRowRefs(
 
 	const units = absorbed.size > 0 ? parsed.filter(r => !absorbed.has(r)) : parsed;
 	const rest = units.slice(cap);
-	const popoverUpstreamFor = new Map<ParsedRef, ParsedRef>();
-	for (const r of rest) {
-		const up = upstreamFor.get(r);
-		if (up != null) {
-			popoverUpstreamFor.set(r, up);
-		}
-	}
 
 	return {
 		visible: units.slice(0, cap).map(r => ({ ref: r, upstreamOnRow: upstreamFor.get(r) })),
 		rest: rest,
-		popoverUpstreamFor: popoverUpstreamFor,
+		upstreamFor: upstreamFor,
 	};
 }
 
@@ -570,7 +563,7 @@ export function renderRefPill(
 	cap = 1,
 ): TemplateResult {
 	const findHitRefKey = hooks?.getFindHitRefKey?.();
-	const { visible, rest, popoverUpstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey);
+	const { visible, rest, upstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey);
 	const restCount = rest.length;
 	const edgePinnedId = hooks?.getPinnedRefId?.();
 
@@ -666,7 +659,7 @@ export function renderRefPill(
 						r.context,
 						fromSha,
 						hooks,
-						popoverUpstreamFor.get(r),
+						upstreamFor.get(r),
 						edgePinnedId != null && r.id === edgePinnedId && rowMarker?.suppressPinControl !== true,
 					),
 				)}

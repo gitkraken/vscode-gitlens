@@ -1204,7 +1204,8 @@ export class GlLitGraph extends LitElement {
 	// `effectiveMaxInlineRefs` (the RESOLVED cap, not the raw config value — `'auto'` mode's cap moves
 	// with the available width, not with the config) field-level tracking (same reasoning as
 	// `lastShowRemoteNamesRef`) — a cap change re-resolves adornments so cached ref-pill overflow (+N
-	// counter) picks up the new limit.
+	// counter) picks up the new limit. Also the value the `getMaxInlineRefs` hook serves to per-row
+	// adornment resolution, so a row never re-solves the zone layout itself.
 	private lastMaxInlineRefsRef = 1;
 	// Row-filter tracking for branches-visibility / hidden-ref filtering — separate refs from the
 	// marker trackers above so a filter change re-runs recomputeRows (it now drops commit ROWS, not
@@ -1346,7 +1347,10 @@ export class GlLitGraph extends LitElement {
 		getIssues: ref => (ref.id != null ? (this.refsMetadata?.[ref.id]?.issue ?? undefined) : undefined),
 		getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
 		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
-		getMaxInlineRefs: () => this.effectiveMaxInlineRefs,
+		// Returns the cap `updateRenderState` already resolved this pass (see `lastMaxInlineRefsRef`), not
+		// the live getter — re-running `effectiveMaxInlineRefs` per row would re-solve the zone layout on
+		// every adornment-cache miss.
+		getMaxInlineRefs: () => this.lastMaxInlineRefsRef,
 		getRowMarkerTips: () => this._rowMarkerTips,
 		getFindHitRefKey: () => this._refFindHitKey,
 		getPinnedRefKey: () => this._pinnedRefKey,
@@ -4537,14 +4541,22 @@ export class GlLitGraph extends LitElement {
 	// grouped inline (a share of the list style's content width — kept in step with the `.gl-graph__refs`
 	// SCSS cap of `min(40%, calc(100% - 9rem))`, see graph.scss).
 	private get effectiveMaxInlineRefs(): number {
-		const raw = this.config?.maxInlineRefs ?? 1;
-		if (raw !== 'auto') return Math.max(1, raw);
+		// The declared type is `number | 'auto'`, but the setting's schema admits ANY string — so the
+		// runtime value can be an arbitrary string and must be coerced, not trusted.
+		const raw: number | string = this.config?.maxInlineRefs ?? 1;
+		if (raw !== 'auto') {
+			// Coerce and clamp to the setting's [1, 10] range, falling back to 1 (never NaN: it would zero
+			// out every pill and defeat the change tracking).
+			const n = Math.floor(Number(raw));
+			return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 1;
+		}
 
 		// Not yet measured: the first render's containerWidth is 0 until the ResizeObserver reports.
 		if (this.containerWidth === 0) return 1;
 
+		const contentWidth = Math.max(0, this.containerWidth - this.scrollbarGutterPx - this.inlineGutterWidth);
+
 		if (this.effectiveStyle === 'list') {
-			const contentWidth = Math.max(0, this.containerWidth - this.scrollbarGutterPx - this.inlineGutterWidth);
 			return resolveAutoRefPillCap(contentWidth);
 		}
 

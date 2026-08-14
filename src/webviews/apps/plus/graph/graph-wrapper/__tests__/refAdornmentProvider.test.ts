@@ -46,11 +46,11 @@ suite('refAdornmentProvider — partitionRowRefs at the default cap of 1', () =>
 	// it into the local below would demote the very ref the click asked for.
 	test('a remote ranked first is NOT absorbed by a lower-ranked local', () => {
 		const { local, upstream } = tracked('main', 'origin');
-		const { visible, rest, popoverUpstreamFor } = partitionRowRefs([upstream, local], 1, undefined);
+		const { visible, rest, upstreamFor } = partitionRowRefs([upstream, local], 1, undefined);
 
 		assert.deepStrictEqual(visible, [{ ref: upstream, upstreamOnRow: undefined }]);
 		assert.deepStrictEqual(rest, [local]);
-		assert.strictEqual(popoverUpstreamFor.get(local), undefined);
+		assert.strictEqual(upstreamFor.get(local), undefined);
 	});
 
 	// Fork topology: an UNTRACKED local matches any co-located remote sharing its bare name, so both
@@ -94,18 +94,14 @@ suite('refAdornmentProvider — partitionRowRefs at the default cap of 1', () =>
 		assert.deepStrictEqual(rest, [v1]);
 	});
 
-	test('a head in the overflow keeps its remote, paired through popoverUpstreamFor', () => {
+	test('a head in the overflow keeps its remote, paired through upstreamFor', () => {
 		const first = head('main', { current: true });
 		const feature = tracked('feature', 'origin');
-		const { visible, rest, popoverUpstreamFor } = partitionRowRefs(
-			[first, feature.local, feature.upstream],
-			1,
-			undefined,
-		);
+		const { visible, rest, upstreamFor } = partitionRowRefs([first, feature.local, feature.upstream], 1, undefined);
 
 		assert.deepStrictEqual(visible, [{ ref: first, upstreamOnRow: undefined }]);
 		assert.deepStrictEqual(rest, [feature.local], 'the absorbed remote is not a row of its own');
-		assert.strictEqual(popoverUpstreamFor.get(feature.local), feature.upstream);
+		assert.strictEqual(upstreamFor.get(feature.local), feature.upstream);
 	});
 
 	// A remote outranking the local that tracks it (e.g. a default-branch remote before an ordinary local)
@@ -113,15 +109,11 @@ suite('refAdornmentProvider — partitionRowRefs at the default cap of 1', () =>
 	test('a head absorbs the remote it tracks even when that remote is listed first', () => {
 		const current = head('other', { current: true });
 		const mine = tracked('main', 'origin');
-		const { visible, rest, popoverUpstreamFor } = partitionRowRefs(
-			[current, mine.upstream, mine.local],
-			1,
-			undefined,
-		);
+		const { visible, rest, upstreamFor } = partitionRowRefs([current, mine.upstream, mine.local], 1, undefined);
 
 		assert.deepStrictEqual(visible, [{ ref: current, upstreamOnRow: undefined }]);
 		assert.deepStrictEqual(rest, [mine.local]);
-		assert.strictEqual(popoverUpstreamFor.get(mine.local), mine.upstream);
+		assert.strictEqual(upstreamFor.get(mine.local), mine.upstream);
 	});
 
 	test('an unrelated remote is never absorbed', () => {
@@ -156,7 +148,7 @@ suite('refAdornmentProvider — partitionRowRefs above the default cap', () => {
 		const main = tracked('main', 'origin');
 		const feature = tracked('feature', 'origin');
 		const v1 = tag('v1.0');
-		const { visible, rest, popoverUpstreamFor } = partitionRowRefs(
+		const { visible, rest, upstreamFor } = partitionRowRefs(
 			[main.local, main.upstream, v1, feature.local, feature.upstream],
 			2,
 			undefined,
@@ -167,7 +159,7 @@ suite('refAdornmentProvider — partitionRowRefs above the default cap', () => {
 			{ ref: v1, upstreamOnRow: undefined },
 		]);
 		assert.deepStrictEqual(rest, [feature.local]);
-		assert.strictEqual(popoverUpstreamFor.get(feature.local), feature.upstream);
+		assert.strictEqual(upstreamFor.get(feature.local), feature.upstream);
 	});
 
 	test('a remote ranked first still keeps its own pill', () => {
@@ -184,14 +176,14 @@ suite('refAdornmentProvider — partitionRowRefs above the default cap', () => {
 	test('a cap past the unit count leaves nothing in the overflow', () => {
 		const main = tracked('main', 'origin');
 		const v1 = tag('v1.0');
-		const { visible, rest, popoverUpstreamFor } = partitionRowRefs([main.local, main.upstream, v1], 5, undefined);
+		const { visible, rest, upstreamFor } = partitionRowRefs([main.local, main.upstream, v1], 5, undefined);
 
 		assert.deepStrictEqual(visible, [
 			{ ref: main.local, upstreamOnRow: main.upstream },
 			{ ref: v1, upstreamOnRow: undefined },
 		]);
 		assert.deepStrictEqual(rest, []);
-		assert.strictEqual(popoverUpstreamFor.size, 0);
+		assert.strictEqual(upstreamFor.get(main.local), main.upstream);
 	});
 });
 
