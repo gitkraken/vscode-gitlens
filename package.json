@@ -13059,6 +13059,27 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f154"
 				}
+			},
+			"gitlens-checkbox-mixed": {
+				"description": "checkbox-mixed icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f155"
+				}
+			},
+			"gitlens-radio-checked": {
+				"description": "radio-checked icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f156"
+				}
+			},
+			"gitlens-radio-unchecked": {
+				"description": "radio-unchecked icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f157"
+				}
 			}
 		},
 		"menus": {

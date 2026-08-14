@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?19566db9a08c2154a9d6a6679c558ce1") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?fdd079892cae8dbf905cbcde3bf0673c") format("woff2");
 	}
 </style>
 */
@@ -316,4 +316,13 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-checkbox-checked:before {
 	content: '\f154';
+}
+.glicon-checkbox-mixed:before {
+	content: '\f155';
+}
+.glicon-radio-checked:before {
+	content: '\f156';
+}
+.glicon-radio-unchecked:before {
+	content: '\f157';
 }

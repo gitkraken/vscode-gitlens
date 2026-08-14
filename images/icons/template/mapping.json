@@ -84,5 +84,8 @@
   "remote-filled": 61777,
   "continue-sparkle": 61778,
   "checkbox-unchecked": 61779,
-  "checkbox-checked": 61780
+  "checkbox-checked": 61780,
+  "checkbox-mixed": 61781,
+  "radio-checked": 61782,
+  "radio-unchecked": 61783
 }

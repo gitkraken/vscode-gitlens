@@ -90,4 +90,7 @@ export const iconMap = Object.freeze({
 	'continue-sparkle': '\\f152',
 	'checkbox-unchecked': '\\f153',
 	'checkbox-checked': '\\f154',
+	'checkbox-mixed': '\\f155',
+	'radio-checked': '\\f156',
+	'radio-unchecked': '\\f157',
 });
