@@ -32,6 +32,13 @@ export type AutoRebaseEscalationReason =
 	| 'skipped-files'
 	/** The rebase paused for something other than conflicts (edit/break todo entry, …) */
 	| 'non-conflict-pause'
+	/** The rebase stopped at a `reword`/`squash` whose message needs the user (the commit exists
+	 *  with its original/auto-generated message — amend it, then resume) */
+	| 'message-edit'
+	/** The conflicted step is one the user marked `edit` — its resolutions were applied and staged,
+	 *  but continuing would commit and move on (git's conflict stop IS the edit stop), so the run
+	 *  stops here to give the user their requested editing window */
+	| 'edit-step'
 	/** A conflicted file or the rebase state changed externally while resolving */
 	| 'external-modification'
 	/** The loop stopped advancing or hit its iteration backstop */
@@ -86,7 +93,7 @@ export interface AutoRebaseSession {
 	/** Session id — also used as the AI conversation id for the whole run */
 	readonly id: string;
 	readonly repoPath: string;
-	readonly mode: 'started' | 'takeover';
+	readonly mode: 'started' | 'takeover' | 'handoff';
 	phase: AutoRebasePhase;
 	readonly preRun: {
 		/** The branch being rebased */

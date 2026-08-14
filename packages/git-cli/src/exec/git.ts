@@ -100,6 +100,7 @@ export const GitErrors = {
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
 	previousOperationEmpty: /The previous (?:cherry-pick|revert) is now empty/i,
+	problemWithEditor: /there was a problem with the editor/i,
 	pushRejected: /^error:\s*failed to push some refs to\b/m,
 	pushRejectedRefDoesNotExists: /error:\s*unable to delete '(.*?)': remote ref does not exist/m,
 	rebaseAborted: /Nothing to do|rebase.*aborted/i,
@@ -277,6 +278,9 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 	[
 		'paused-operation-continue',
 		[
+			// Kept FIRST: an editor failure's stderr can also carry broader messages ("could not
+			// commit staged changes", …) that later patterns would otherwise claim
+			[GitErrors.problemWithEditor, 'messageEditFailed'],
 			[GitErrors.previousOperationEmpty, 'emptyCommit'],
 			[GitErrors.noPausedOperation, 'nothingToContinue'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],

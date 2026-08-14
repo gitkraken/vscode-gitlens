@@ -1983,7 +1983,7 @@ export class GraphInspectServices {
 					});
 
 					this.container.telemetry.sendEvent('autoRebase/summary/shown', {
-						takeover: session.mode === 'takeover',
+						takeover: session.mode !== 'started',
 						'steps.count': session.steps.length,
 						duration: Date.now() - session.preRun.startedAt,
 					});
@@ -2054,6 +2054,8 @@ export class GraphInspectServices {
 				},
 				onAutoRebaseProgress: this.subscribeToAutoRebaseProgress(buffer, tracker),
 				cancelAutoRebase: (repoPath: string): Promise<void> => {
+					// Handles both a running loop (checkpoint cancellation) and an escalated run
+					// (immediate abort + session transition, so the Resolve panel exits)
 					this.container.autoRebase.cancel(repoPath, 'abort');
 					return Promise.resolve();
 				},

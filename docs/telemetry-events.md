@@ -950,7 +950,7 @@ void
   'confidence.threshold': number,
   // Time from run start in milliseconds
   'duration': number,
-  'reason': 'low-confidence' | 'resolve-errors' | 'ai-unavailable' | 'skipped-files' | 'non-conflict-pause' | 'external-modification' | 'step-cap' | 'continue-error' | 'stopped' | 'unexpected-error',
+  'reason': 'low-confidence' | 'resolve-errors' | 'ai-unavailable' | 'skipped-files' | 'non-conflict-pause' | 'message-edit' | 'edit-step' | 'external-modification' | 'step-cap' | 'continue-error' | 'stopped' | 'unexpected-error',
   // The step automation stopped at, when known
   'step': number,
   // Conflicted steps recorded so far
@@ -992,6 +992,8 @@ void
 
 ```typescript
 {
+  // How the run was engaged: fresh rebase, takeover of a paused one, or a pre-start handoff from the Interactive Rebase Editor
+  'mode': 'started' | 'takeover' | 'handoff',
   'takeover': boolean
 }
 ```
@@ -6036,6 +6038,27 @@ void
 }
 ```
 
+### rebaseEditor/action/continueWithAi
+
+> Sent when the user hands a paused rebase over to automatic (AI) conflict resolution
+
+```typescript
+{
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### rebaseEditor/action/openConflictChanges
 
 > Sent when the user opens current or incoming changes for a conflict file
@@ -6278,6 +6301,28 @@ void
 ### rebaseEditor/action/start
 
 > Sent when the user starts a rebase (clicks "Start Rebase")
+
+```typescript
+{
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### rebaseEditor/action/startWithAi
+
+> Sent when the user hands a pending rebase off to automatic (AI) conflict resolution
 
 ```typescript
 {

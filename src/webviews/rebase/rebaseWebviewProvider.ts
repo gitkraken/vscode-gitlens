@@ -17,6 +17,7 @@ import { extname, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
+import type { ContinueRebaseWithAiCommandArgs } from '../../commands/autoRebase.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { ResolveConflictsCommandArgs } from '../../commands/resolveConflicts.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
@@ -44,7 +45,9 @@ import {
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { resolveRecomposeScope } from '../../plus/coretools/compose/recomposeScope.js';
+import { handoffPendingRebaseRun } from '../../plus/coretools/conflict/autoRebaseProgress.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
+import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -72,6 +75,7 @@ import {
 	ChangeEntriesCommand,
 	ChangeEntryCommand,
 	ContinueCommand,
+	ContinueWithAiCommand,
 	DidChangeAvatarsNotification,
 	DidChangeCommitsNotification,
 	DidChangeNotification,
@@ -95,6 +99,7 @@ import {
 	SkipCommand,
 	StageConflictCommand,
 	StartCommand,
+	StartWithAiRequest,
 	SwitchCommand,
 	UpdateSelectionCommand,
 } from './protocol.js';
@@ -654,6 +659,23 @@ export class RebaseWebviewProvider implements Disposable {
 		await continuePausedOperation(this.container, svc, { source: 'rebaseEditor' });
 	}
 
+	@ipcCommand(ContinueWithAiCommand)
+	@debug()
+	private async onContinueWithAi(): Promise<void> {
+		if (!this.container.ai.allowed) return;
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/continueWithAi');
+
+		// Save the document first so any remaining todo edits are what the takeover executes
+		await this._todoDocument.save();
+
+		// The command owns the Pro-plan gate and routes the run's outcome (Resolve panel, summary)
+		void executeCommand<ContinueRebaseWithAiCommandArgs>('gitlens.ai.continueRebase', {
+			repoPath: this.repoPath,
+			source: 'rebaseEditor',
+		});
+	}
+
 	@ipcCommand(RecomposeCommand)
 	@debug()
 	private async onRecompose(): Promise<void> {
@@ -747,6 +769,74 @@ export class RebaseWebviewProvider implements Disposable {
 
 		await this._todoDocument.save();
 		await closeTab(this._todoDocument.uri);
+	}
+
+	private _handingOff = false;
+
+	@ipcRequest(StartWithAiRequest)
+	@debug()
+	private async onStartWithAi(): Promise<IpcResponse<typeof StartWithAiRequest>> {
+		// `ensureAvailable`'s running-session check only protects once a session is tracked, so
+		// guard the whole pre-flight window against a double-click
+		if (this._handingOff) return { started: false };
+
+		this._handingOff = true;
+
+		// A response must ALWAYS go back — the dispatcher doesn't respond for a throwing handler,
+		// which would leave the webview's request pending and its button stuck in loading
+		try {
+			this.host.sendTelemetryEvent('rebaseEditor/action/startWithAi', {
+				'context.session.duration': this.getSessionDuration(),
+			});
+
+			if (
+				!(await ensurePaidPlan(this.container, 'Automatic rebase is a Pro feature.', {
+					source: 'rebaseEditor',
+				}))
+			) {
+				return { started: false };
+			}
+
+			// Save first — saving doesn't release git (only closing the tab does), so a failure here
+			// leaves the editor open with no run started
+			await this._todoDocument.save();
+
+			// The run resolves only when it reaches a terminal phase (potentially much later), so
+			// respond as soon as its fate is knowable: either `release` ran (the handoff is underway
+			// and this tab is closing) or the run settled first (a pre-flight refusal — the editor
+			// stays open and the button re-enables). The run itself continues past this provider's
+			// disposal; `runAndRoute` owns surfacing its outcome.
+			let released = false;
+			let onReleased!: () => void;
+			const releasedPromise = new Promise<void>(resolve => (onReleased = resolve));
+
+			const svc = this.container.git.getRepositoryService(this.repoPath);
+			const run = handoffPendingRebaseRun(this.container, svc, { source: 'rebaseEditor' }, async () => {
+				this._closing = true;
+				try {
+					await closeTab(this._todoDocument.uri);
+				} catch (ex) {
+					// The editor is still open and live — a lingering `_closing` would freeze its
+					// state updates
+					this._closing = false;
+					throw ex;
+				}
+				// Signaled only once the tab actually closed — a `closeTab` failure rejects the
+				// release instead, failing the run (git stays blocked on the still-open editor), so
+				// the race below settles via `run` and the button re-enables rather than reporting
+				// started with a stuck spinner
+				released = true;
+				onReleased();
+			});
+
+			await Promise.race([run, releasedPromise]);
+			return { started: released };
+		} catch (ex) {
+			Logger.error(ex, 'onStartWithAi');
+			return { started: false };
+		} finally {
+			this._handingOff = false;
+		}
 	}
 
 	@ipcCommand(DismissCloseWarningCommand)
