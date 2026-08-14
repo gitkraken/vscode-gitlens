@@ -183,6 +183,11 @@ export interface PullRequestSearchCriteria {
 	states?: PullRequestStateFilter[];
 	/** Includes PRs from archived repositories. They are excluded by default. */
 	includeArchived?: boolean;
+	/**
+	 * Narrows on draft state: `true` returns only drafts, `false` only ready-for-review PRs. Omitted places no
+	 * constraint. A boolean rather than a truthy flag because `false` is a distinct request, not the absence of one.
+	 */
+	draft?: boolean;
 }
 
 /**
@@ -196,6 +201,8 @@ export interface PullRequestSearchCapabilities {
 	states: PullRequestStateFilter[];
 	text: boolean;
 	includeArchived: boolean;
+	/** Whether the provider can constrain the search by draft state server-side. */
+	draft: boolean;
 	/** Whether the manager's repository-descriptor scope is supported. */
 	repositoryScope: boolean;
 	/** Whether the manager's organization scope is supported. */
