@@ -1912,8 +1912,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						scopeOrigin: msg.params.scopeOrigin,
 						composeInstructions: msg.params.composeInstructions,
 						composeScope: msg.params.composeScope,
+						agentSessionId: msg.params.agentSessionId,
+						revealOnly: msg.params.revealOnly,
+						followed: msg.params.followed,
 					},
-					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
+					...(msg.params.action !== 'scope-to-branch' && !msg.params.revealOnly
+						? { details: { ...this.details, visible: true } }
+						: {}),
 				});
 				break;
 

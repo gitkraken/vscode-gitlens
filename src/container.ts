@@ -51,6 +51,7 @@ import { ProductConfigProvider } from './plus/gk/productConfigProvider.js';
 import { ServerConnection } from './plus/gk/serverConnection.js';
 import { SubscriptionService } from './plus/gk/subscriptionService.js';
 import { UrlsProvider } from './plus/gk/urlsProvider.js';
+import { GraphFollowController } from './plus/graph/follow.js';
 import { GraphStatusBarController } from './plus/graph/statusbar.js';
 import { createIntegrationServiceContext } from './plus/integrations/host/context.js';
 import { EnrichmentService } from './plus/launchpad/enrichmentService.js';
@@ -296,6 +297,7 @@ export class Container {
 		this._disposables.push(graphPanels);
 		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
 		this._disposables.push(new GraphStatusBarController(this));
+		this._disposables.push(new GraphFollowController(this, graphPanels));
 
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);

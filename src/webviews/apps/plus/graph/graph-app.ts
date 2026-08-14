@@ -1718,6 +1718,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
 		capturedComparison?: CapturedComparison;
+		agentSessionId?: string;
+		revealOnly?: boolean;
 	}): Promise<void> {
 		const {
 			action,
@@ -1728,6 +1730,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			composeInstructions,
 			composeScope,
 			capturedComparison,
+			agentSessionId,
+			revealOnly,
 		} = pending;
 
 		if (action === 'scope-to-branch') {
@@ -1828,7 +1832,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		showDetails();
+		// `revealOnly` (passive follow deliveries) selects/reveals the row above without opening the
+		// details panel.
+		const detailsAlreadyVisible = this.graphState.details?.visible === true;
+		if (revealOnly !== true) {
+			showDetails();
+		}
 
 		await this.updateComplete;
 		// Seed the WIP details commit input AFTER the panel has reconciled to the target row —
@@ -1837,6 +1846,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// edit and re-commit the message in the same box they'd normally type into.
 		if (commitMessage != null && action === 'show-wip') {
 			this.detailsPanelEl?.setCommitMessage(repoPath, commitMessage);
+		}
+
+		// Highlights an agent session's card in an already-open details panel. Sidebar-tree
+		// highlighting has no equivalent API, so that stays out of scope here.
+		// Passive deliveries only highlight into an ALREADY-open panel; a manual invocation that just
+		// opened the panel (`revealOnly` unset) highlights into it too.
+		if (action === 'show-wip' && agentSessionId != null && (detailsAlreadyVisible || revealOnly !== true)) {
+			void this.dispatchAgentHighlight(agentSessionId);
 		}
 	}
 
@@ -4195,7 +4212,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async dispatchAgentHighlight(sessionId: string): Promise<void> {
 		try {
 			await this.updateComplete;
-			this.detailsPanelEl?.highlightAgentSession(sessionId);
+			// On a cold graph the panel mounts a few frames after `setDetailsVisible(true)` — one
+			// update cycle isn't enough when the highlight's own invocation just opened it.
+			const panel = this.detailsPanelEl ?? (await this.waitForDetailsPanel());
+			panel?.highlightAgentSession(sessionId);
 		} catch (ex) {
 			Logger.error(ex, 'GraphApp.dispatchAgentHighlight');
 		}

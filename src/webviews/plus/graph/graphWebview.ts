@@ -371,6 +371,9 @@ function hasAction(arg: any): arg is {
 	source?: Source;
 	composeInstructions?: string;
 	composeScope?: GraphComposeScopeSeed;
+	agentSessionId?: string;
+	revealOnly?: boolean;
+	followed?: boolean;
 } {
 	return typeof arg?.action === 'string';
 }
@@ -1121,15 +1124,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				target?: GraphActionTarget;
 				composeInstructions?: string;
 				composeScope?: GraphComposeScopeSeed;
+				agentSessionId?: string;
+				revealOnly?: boolean;
+				followed?: boolean;
 		  }
 		| undefined;
 	private _pendingCompare: DidRequestOpenCompareModeParams | undefined;
 
 	async onShowing(
 		loading: boolean,
-		_options?: WebviewShowOptions,
+		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>
 	): Promise<[boolean, GraphShownTelemetryContext]> {
+		// Passive deliveries (e.g. a background follower) must never open/raise a hidden instance.
+		if (options?.preserveVisibility && !this.host.visible) return [false, this.getShownTelemetryContext()];
+
 		this._etag = this.container.git.etag;
 		if (this.container.git.isDiscoveringRepositories) {
 			this._discovering = this.container.git.isDiscoveringRepositories.then(r => {
@@ -1254,6 +1263,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					repo !== current &&
 					(current == null || (repo.commonPath ?? repo.path) !== (current.commonPath ?? current.path))
 				) {
+					// Passive follow deliveries never yank the graph off the repository it's showing —
+					// cross-family retargeting is opt-in; without it the delivery is ignored.
+					if (
+						options?.preserveVisibility &&
+						current != null &&
+						!configuration.get('graph.followTerminal.allowRepositorySwitching')
+					) {
+						return [false, this.getShownTelemetryContext()];
+					}
+
 					// A warm show that switches repositories must not notify immediately — the webview
 					// would consume the action against the outgoing repo's context and the mode entry
 					// no-ops. Stash the action BEFORE the switch so the setter's state rebuild delivers
@@ -1264,6 +1283,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							target: arg.target,
 							composeInstructions: arg.composeInstructions,
 							composeScope: arg.composeScope,
+							agentSessionId: arg.agentSessionId,
+							revealOnly: arg.revealOnly,
+							followed: arg.followed,
 						};
 						deferredForRepoSwitch = true;
 					}
@@ -1283,6 +1305,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const graphRepoPath = this.repository?.path ?? this._data.session?.repoPath;
 					rowId = graphRepoPath != null ? createWipRowId(graphRepoPath) : undefined;
 				}
+
+				// No same-row short-circuit here: `_selectedId` is only a paging hint that deliberately
+				// goes stale (empty selection echoes, scope filter-outs keep the old value), so gating a
+				// passive delivery on it can wrongly swallow the reveal. The webview owns selection truth
+				// and `navigateToCommit` already coalesces true no-ops.
 				this.setSelectedRows(rowId);
 			}
 			if (loading) {
@@ -1291,6 +1318,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					target: arg.target,
 					composeInstructions: arg.composeInstructions,
 					composeScope: arg.composeScope,
+					agentSessionId: arg.agentSessionId,
+					revealOnly: arg.revealOnly,
+					followed: arg.followed,
 				};
 			} else if (!deferredForRepoSwitch) {
 				// Select the targeted row in the graph too (mirrors the ref path). The action
@@ -1314,6 +1344,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						target: arg.target,
 						composeInstructions: arg.composeInstructions,
 						composeScope: arg.composeScope,
+						agentSessionId: arg.agentSessionId,
+						revealOnly: arg.revealOnly,
+						followed: arg.followed,
 					};
 				}
 				void this.host.notify(DidRequestGraphActionNotification, {
@@ -1321,6 +1354,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					target: arg.target,
 					composeInstructions: arg.composeInstructions,
 					composeScope: arg.composeScope,
+					agentSessionId: arg.agentSessionId,
+					revealOnly: arg.revealOnly,
+					followed: arg.followed,
 				});
 			}
 		} else {

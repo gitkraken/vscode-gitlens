@@ -3054,6 +3054,7 @@ export type TrackingContext = 'graph' | 'launchpad' | 'mcp' | 'visual_file_histo
 
 export type Sources =
 	| 'account'
+	| 'agents'
 	| 'ai'
 	| 'ai:markdown-preview'
 	| 'ai:markdown-editor'
@@ -3098,6 +3099,7 @@ export type Sources =
 	| 'startWork'
 	| 'statusbar:hover'
 	| 'subscription'
+	| 'terminal'
 	| 'timeline'
 	| 'trial-indicator'
 	| 'view'

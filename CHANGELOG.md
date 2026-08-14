@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds un-hiding a single branch of a hidden remote in the _Commit Graph_ &mdash; the remote stays hidden while just that branch returns, and hiding the branch again tucks it back under the hidden remote
 - Adds support for showing multiple branch and tag pills on a _Commit Graph_ row ([#5729](https://github.com/gitkraken/vscode-gitlens/issues/5729)) &mdash; a new `gitlens.graph.refs.maxInline` setting caps how many show before the rest collapse behind the +N counter, either a fixed count (default 1, the previous behavior) or `"auto"` to fit the available space
 - Adds a stacked layout for branch and tag pills in the _Commit Graph_ &mdash; a new `gitlens.graph.refs.layout` setting; when set to `"stacked"`, rows with pills grow a second line to show them above the commit instead of beside it, and a new `gitlens.graph.refs.maxStacked` setting caps how many show there before the rest collapse behind the +N counter (default `"auto"` to fit the line's width)
+- Adds following of the active terminal and Claude Code tab to the _Commit Graph_ &mdash; while a graph is visible, switching to a terminal (or a Claude Code conversation tab) selects the working changes row of the repository or worktree it is in, without raising the graph, opening the details panel, or switching repositories
+  - Adds a `gitlens.graph.followTerminal.enabled` setting (on by default) with _Follow Active Terminal_ / _Stop Following Active Terminal_ toggles in the graph's "..." menus, and a `gitlens.graph.followTerminal.allowRepositorySwitching` setting to let following switch the graph to a different repository
 
 ### Changed
 

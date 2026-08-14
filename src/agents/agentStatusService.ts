@@ -22,7 +22,8 @@ import type {
 	PermissionSuggestion,
 	ResumableSessionsResult,
 } from './provider.js';
-import { isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
+import { isActiveAgentPhase } from './provider.js';
+import { isActiveClaudeTab, isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
 import {
 	canResumeSession,
 	resumeClaudeSessionInTerminal,
@@ -994,6 +995,52 @@ export class AgentStatusService implements Disposable {
 		await this.dispatchSessionAction(session);
 	}
 
+	/** Resolves the local, worktree-bearing agent session backing the active Claude Code
+	 *  conversation tab via label matching. With `fallbackToMostRecent`, an unmatched (or unnamed)
+	 *  tab resolves to the most-recently-active session instead — appropriate for explicit user
+	 *  invocations; passive callers should omit it so a failed match does nothing. */
+	resolveSessionForActiveClaudeTab(options?: { fallbackToMostRecent?: boolean }): AgentSession | undefined {
+		const local = this.sessions.filter(s => s.worktreePath != null && !s.isPeerOwned);
+		const session = this.matchSessionToActiveClaudeTab(local);
+		if (session != null || !options?.fallbackToMostRecent) return session;
+
+		return pickMostRecentSession(local);
+	}
+
+	/** Maps the active Claude Code conversation tab to one of `candidates` by label. The Claude
+	 *  extension sets the tab title to the session summary, truncated to 24 chars + `…` when longer
+	 *  than 25 (and left as the literal "Claude Code" until a summary exists). We mirror that
+	 *  truncation across each candidate's known names; a unique hit wins, multiple hits resolve by
+	 *  recency among them. Returns `undefined` when the active tab isn't a Claude tab, is still
+	 *  unnamed, or no candidate matches — the caller then falls back to recency rather than prompting. */
+	private matchSessionToActiveClaudeTab(candidates: readonly AgentSession[]): AgentSession | undefined {
+		if (!isActiveClaudeTab()) return undefined;
+
+		const label = window.tabGroups.activeTabGroup?.activeTab?.label?.trim();
+		if (!label || label === 'Claude Code') return undefined;
+
+		// Mirror the Claude extension's tab-title truncation exactly (summary > 25 chars → first 24 + `…`).
+		const matchesLabel = (name: string | undefined) => {
+			if (name == null) return false;
+
+			const trimmed = name.trim();
+			return (trimmed.length > 25 ? `${trimmed.substring(0, 24)}…` : trimmed) === label;
+		};
+
+		const matches = candidates.filter(s => {
+			const worktreeName = this.getWorktreeMetadataForSession(s)?.name;
+			return (
+				matchesLabel(s.name) ||
+				matchesLabel(s.transcriptTitles?.custom) ||
+				matchesLabel(s.transcriptTitles?.ai) ||
+				matchesLabel(getSessionDisplayName(s, worktreeName))
+			);
+		});
+		if (matches.length === 0) return undefined;
+		if (matches.length === 1) return matches[0];
+		return pickMostRecentSession(matches);
+	}
+
 	/**
 	 * Deterministically picks the right action for a resolved session — no quickpick:
 	 *  - Extension-hosted, owned by another VS Code window → notify the owning peer (if it has
@@ -1262,4 +1309,15 @@ function isSameWorktreeMetadata(a: AgentSessionWorktreeMetadata | undefined, b: 
 	if (a.branch == null) return b.branch == null;
 	if (b.branch == null) return false;
 	return a.branch.name === b.branch.name && a.branch.upstreamName === b.branch.upstreamName;
+}
+
+/** Most-recently-active session wins, preferring those currently working or awaiting input over
+ *  idle ones — the best-effort pick when the active Claude tab can't be mapped to a single session. */
+export function pickMostRecentSession(sessions: readonly AgentSession[]): AgentSession | undefined {
+	return [...sessions].sort((a, b) => {
+		const aActive = isActiveAgentPhase(a.phase) ? 0 : 1;
+		const bActive = isActiveAgentPhase(b.phase) ? 0 : 1;
+		if (aActive !== bActive) return aActive - bActive;
+		return b.lastActivity.getTime() - a.lastActivity.getTime();
+	})[0];
 }

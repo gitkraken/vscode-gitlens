@@ -1008,6 +1008,20 @@
 						"scope": "window",
 						"order": 4
 					},
+					"gitlens.graph.followTerminal.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether a visible Commit Graph follows the active terminal or Claude Code conversation tab, selecting the working changes row of the repository or worktree it is in",
+						"scope": "window",
+						"order": 5
+					},
+					"gitlens.graph.followTerminal.allowRepositorySwitching": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether following the active terminal or Claude Code conversation tab can switch the Commit Graph to a different repository; when disabled, terminals in other repositories are ignored",
+						"scope": "window",
+						"order": 6
+					},
 					"gitlens.graph.multiselect": {
 						"type": [
 							"boolean",
@@ -8209,6 +8223,18 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.followTerminalOff",
+				"title": "Stop Following Active Terminal",
+				"category": "GitLens",
+				"icon": "$(terminal)"
+			},
+			{
+				"command": "gitlens.graph.followTerminalOn",
+				"title": "Follow Active Terminal",
+				"category": "GitLens",
+				"icon": "$(terminal)"
+			},
+			{
 				"command": "gitlens.graph.hideLocalBranch",
 				"title": "Hide Local Branch"
 			},
@@ -14048,6 +14074,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.followTerminalOff",
+					"when": "gitlens:enabled && config.gitlens.graph.followTerminal.enabled"
+				},
+				{
+					"command": "gitlens.graph.followTerminalOn",
+					"when": "gitlens:enabled && !config.gitlens.graph.followTerminal.enabled"
+				},
+				{
 					"command": "gitlens.graph.hideLocalBranch",
 					"when": "false"
 				},
@@ -17441,6 +17475,16 @@
 			],
 			"editor/title": [
 				{
+					"command": "gitlens.graph.followTerminalOff",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
+					"group": "1_gitlens_2a_follow@1"
+				},
+				{
+					"command": "gitlens.graph.followTerminalOn",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && !config.gitlens.graph.followTerminal.enabled",
+					"group": "1_gitlens_2a_follow@1"
+				},
+				{
 					"command": "gitlens.annotations.previousChange",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@-100"
@@ -17451,8 +17495,44 @@
 					"group": "navigation@-99"
 				},
 				{
+					"command": "gitlens.clearFileAnnotations",
+					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || (resource in gitlens:tabs:annotated && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.computingFileAnnotations",
+					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.diffWithPrevious:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@97",
+					"alt": "gitlens.diffWithRevision"
+				},
+				{
+					"command": "gitlens.diffWithNext:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.diffWithWorking:editor/title",
+					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
+					"group": "navigation@-99"
+				},
+				{
 					"command": "gitlens.graph.refresh",
 					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.settings.refresh",
+					"when": "activeWebviewPanelId === gitlens.settings",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.timeline.refresh",
+					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
 				},
 				{
@@ -17464,16 +17544,6 @@
 					"command": "gitlens.timeline.split",
 					"when": "activeWebviewPanelId == gitlens.timeline && resourceScheme == webview-panel && config.gitlens.visualHistory.allowMultiple",
 					"group": "navigation@-97"
-				},
-				{
-					"command": "gitlens.clearFileAnnotations",
-					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || (resource in gitlens:tabs:annotated && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.computingFileAnnotations",
-					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
-					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.toggleFileBlame:editor/title",
@@ -17499,35 +17569,9 @@
 					"group": "navigation@100"
 				},
 				{
-					"command": "gitlens.diffWithPrevious:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@97",
-					"alt": "gitlens.diffWithRevision"
-				},
-				{
 					"command": "gitlens.showQuickRevisionDetails:editor/title",
 					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@98"
-				},
-				{
-					"command": "gitlens.diffWithNext:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.diffWithWorking:editor/title",
-					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-					"group": "navigation@-99"
-				},
-				{
-					"command": "gitlens.settings.refresh",
-					"when": "activeWebviewPanelId === gitlens.settings",
-					"group": "navigation@-99"
-				},
-				{
-					"command": "gitlens.timeline.refresh",
-					"when": "activeWebviewPanelId === gitlens.timeline",
-					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -17560,11 +17604,6 @@
 					"group": "navigation@2"
 				},
 				{
-					"command": "gitlens.regenerateMarkdownDocument",
-					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
-					"group": "navigation@3"
-				},
-				{
 					"command": "gitlens.ai.feedback.helpful",
 					"when": "resourceScheme == untitled && resource in gitlens:tabs:ai:changelog && resource not in gitlens:tabs:ai:helpful && config.gitlens.telemetry.enabled && config.telemetry.telemetryLevel != off && resourceLangId == markdown",
 					"group": "navigation@1"
@@ -17593,6 +17632,11 @@
 					"command": "gitlens.rebase.abort:editor/title",
 					"when": "resourceFilename == git-rebase-todo",
 					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.regenerateMarkdownDocument",
+					"when": "resourceScheme == gitlens-ai-markdown && activeCustomEditorId == vscode.markdown.preview.editor && resourcePath =~ /^\\/explain\\//",
+					"group": "navigation@3"
 				},
 				{
 					"command": "gitlens.rebase.reopenAsInteractiveEditor:editor/title",
@@ -17660,6 +17704,16 @@
 				}
 			],
 			"editor/title/context": [
+				{
+					"command": "gitlens.graph.followTerminalOff",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.followTerminalOn",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && !config.gitlens.graph.followTerminal.enabled",
+					"group": "2_gitlens@1"
+				},
 				{
 					"command": "gitlens.graph.split",
 					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
@@ -25606,6 +25660,16 @@
 					"command": "gitlens.graph.switchToPanelLayout",
 					"when": "view == gitlens.views.graph",
 					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.followTerminalOff",
+					"when": "view == gitlens.views.graph && config.gitlens.graph.followTerminal.enabled",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.followTerminalOn",
+					"when": "view == gitlens.views.graph && !config.gitlens.graph.followTerminal.enabled",
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.whatsNew",

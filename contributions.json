@@ -3616,6 +3616,62 @@
 				]
 			}
 		},
+		"gitlens.graph.followTerminalOff": {
+			"label": "Stop Following Active Terminal",
+			"icon": "$(terminal)",
+			"commandPalette": "gitlens:enabled && config.gitlens.graph.followTerminal.enabled",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
+						"group": "1_gitlens_2a_follow",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph && config.gitlens.graph.followTerminal.enabled",
+						"group": "3_gitlens",
+						"order": 1
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.followTerminalOn": {
+			"label": "Follow Active Terminal",
+			"icon": "$(terminal)",
+			"commandPalette": "gitlens:enabled && !config.gitlens.graph.followTerminal.enabled",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && !config.gitlens.graph.followTerminal.enabled",
+						"group": "1_gitlens_2a_follow",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph && !config.gitlens.graph.followTerminal.enabled",
+						"group": "3_gitlens",
+						"order": 1
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && !config.gitlens.graph.followTerminal.enabled",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.graph.hideLocalBranch": {
 			"label": "Hide Local Branch",
 			"menus": {

@@ -1,4 +1,4 @@
-import { commands, extensions } from 'vscode';
+import { commands, extensions, TabInputWebview, window } from 'vscode';
 
 export const claudeExtensionId = 'Anthropic.claude-code';
 export const claudeExtensionOpenCommand = 'claude-vscode.editor.open';
@@ -9,6 +9,24 @@ export const claudeExtensionPrimaryEditorOpenCommand = 'claude-vscode.primaryEdi
 /** Focuses the Claude Code sidebar webview. Accepts no arguments — it cannot target a specific
  *  session — so it's only the last-resort rung of {@link tryOpenClaudeSession}. */
 export const claudeExtensionSidebarOpenCommand = 'claude-vscode.sidebar.open';
+/** The webview-panel viewType the Claude Code extension uses for its conversation editor tabs
+ *  (`window.createWebviewPanel('claudeVSCodePanel', ...)`). Lets us detect a Claude tab via the
+ *  active tab's `TabInputWebview.viewType`, and gates our `editor/title` button via the
+ *  `activeWebviewPanelId == claudeVSCodePanel` when-clause. */
+export const claudeExtensionPanelViewType = 'claudeVSCodePanel';
+
+/** Whether the window's active tab is a Claude Code conversation panel. The Tabs API surfaces
+ *  `createWebviewPanel` viewTypes with a `mainThreadWebview-` prefix, so both the raw id and the
+ *  prefixed form are accepted. The one shared detection point — tab-following and the tab
+ *  worktree commands must never drift on this heuristic. */
+export function isActiveClaudeTab(): boolean {
+	const input = window.tabGroups.activeTabGroup?.activeTab?.input;
+	if (!(input instanceof TabInputWebview)) return false;
+
+	return (
+		input.viewType === claudeExtensionPanelViewType || input.viewType.endsWith(`-${claudeExtensionPanelViewType}`)
+	);
+}
 
 /** Returns `true` when the Claude Code VS Code extension is installed AND at least one of its
  *  sessionId-bearing open commands is registered (`editor.open` or `primaryEditor.open` — older

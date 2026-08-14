@@ -45,6 +45,9 @@ export type GraphWebviewShowingArgs = [
 			source?: Source;
 			composeInstructions?: string;
 			composeScope?: GraphComposeScopeSeed;
+			agentSessionId?: string;
+			revealOnly?: boolean;
+			followed?: boolean;
 	  }
 	| undefined,
 ];

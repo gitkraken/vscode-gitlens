@@ -620,6 +620,12 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		scopeOrigin?: GraphScopeOrigin;
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
+		/** For 'show-wip': highlight this agent session's card in the details panel. */
+		agentSessionId?: string;
+		/** Selects/reveals only — suppresses opening the details panel (passive follow deliveries). */
+		revealOnly?: boolean;
+		/** Set ONLY by the follow controller's passive deliveries — drives the one-time coach mark. */
+		followed?: boolean;
 	};
 	/** A two-ref compare seeded by a cold show request (e.g. a terminal-link range). Consumed on
 	 *  bootstrap by the app, mirroring {@link pendingAction}; warm shows notify directly instead. */
@@ -1761,6 +1767,12 @@ export interface DidRequestGraphActionParams {
 	composeInstructions?: string;
 	/** For 'enter-compose': resolved commit-range seed; absent = working-changes compose. */
 	composeScope?: GraphComposeScopeSeed;
+	/** For 'show-wip': highlight this agent session's card in the details panel. */
+	agentSessionId?: string;
+	/** Selects/reveals only — suppresses opening the details panel (passive follow deliveries). */
+	revealOnly?: boolean;
+	/** Set ONLY by the follow controller's passive deliveries — drives the one-time coach mark. */
+	followed?: boolean;
 }
 export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
 	scope,

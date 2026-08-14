@@ -450,6 +450,10 @@ export interface GraphConfig {
 			readonly activityDecay: GraphActivityDecay;
 		};
 	};
+	readonly followTerminal: {
+		readonly enabled: boolean;
+		readonly allowRepositorySwitching: boolean;
+	};
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;
