@@ -210,6 +210,9 @@ interface WorkspaceStorageCore {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
 	'gitComandPalette:usage': StoredRecentUsage;
+	/** Per-repo sticky state for switch's "In a New Worktree" toggle. Key is the repo id. */
+	'gitComandPalette:switch:viaWorktree': Record<string, boolean>;
+	'gitComandPalette:worktreeDelete:actions': StoredWorktreeDeleteActions;
 	/** Passive git-slowness summary per repo path (feeds the Git Health banner). */
 	'gitHealth:slowness': Record<string, StoredGitHealthSlowness>;
 	gitPath: string;
@@ -579,6 +582,7 @@ export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;
 export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareItem>;
 export type StoredStarred = Record<string, boolean>;
 export type StoredRecentUsage = Record<string, number>;
+export type StoredWorktreeDeleteActions = { branch: boolean; upstream: boolean };
 
 export type StoredLaunchpadGroup =
 	| 'current-branch'
