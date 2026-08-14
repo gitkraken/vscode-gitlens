@@ -141,9 +141,19 @@ export abstract class QuickCommandWithSubcommands<
 	}
 
 	protected *pickSubcommandStep(state: PartialStepState<TState>): StepResultGenerator<TSubcommand> {
+		// Title Case for reading, with the raw subcommand key kept in the description so typed muscle
+		// memory ("mergetarget") still filters to the row
+		const formatSubcommandLabel = (name: string): string =>
+			name
+				.replace(/([a-z])([A-Z])/g, '$1 $2')
+				.split('-')
+				.map(word => word.charAt(0).toUpperCase() + word.slice(1))
+				.join(' ');
+
 		const items: QuickPickItemOfT<TSubcommand>[] = Array.from(this.subcommands, ([name, command]) => ({
-			label: name,
-			description: command.description,
+			label: formatSubcommandLabel(name),
+			description: name,
+			detail: command.description,
 			picked: state.subcommand === name,
 			item: name,
 		}));
@@ -151,6 +161,8 @@ export abstract class QuickCommandWithSubcommands<
 		const step = createPickStep<QuickPickItemOfT<TSubcommand>>({
 			title: this.title,
 			placeholder: `Choose a ${this.label} command`,
+			// The raw key lives in the description — without this, typing it wouldn't filter
+			matchOnDescription: true,
 			items: items,
 			buttons: [QuickInputButtons.Back],
 		});
