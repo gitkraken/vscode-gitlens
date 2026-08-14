@@ -62,6 +62,10 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 		this.initialState = { confirm: args?.confirm, mode: mode, ...args?.state };
 	}
 
+	protected override get supportsSkipConfirmToggle(): boolean {
+		return true;
+	}
+
 	protected createContext(context?: StepsContext<any>): Context {
 		return {
 			...context,
@@ -173,28 +177,22 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Mode> {
-		const step = this.createConfirmStep<{ label: string; detail: string; item: Mode }>(
+		const step = this.createConfirmStep<{ label: string; detail: string; item: Mode; picked?: boolean }>(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				{
-					label: context.title,
-					detail:
-						this.mode === 'pop'
-							? `Will delete ${getReferenceLabel(
-									state.reference,
-								)} and apply the changes to the working tree`
-							: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
-					item: this.mode,
+					label: 'Apply Stash',
+					detail: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
+					item: 'apply',
+					picked: this.mode === 'apply',
 				},
 				{
-					label: this.mode === 'pop' ? 'Apply Stash' : 'Pop Stash',
-					detail:
-						this.mode === 'pop'
-							? `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`
-							: `Will delete ${getReferenceLabel(
-									state.reference,
-								)} and apply the changes to the working tree`,
-					item: this.mode === 'pop' ? 'apply' : 'pop',
+					label: 'Pop Stash',
+					detail: `Will delete ${getReferenceLabel(
+						state.reference,
+					)} and apply the changes to the working tree`,
+					item: 'pop',
+					picked: this.mode === 'pop',
 				},
 			],
 			undefined,

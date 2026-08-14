@@ -6,11 +6,14 @@ import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js'
 import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { defer } from '@gitlens/utils/promise.js';
-import { pad } from '@gitlens/utils/string.js';
+import { pad, truncate } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
+import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
+import type { ConfirmToggleQuickPickItem, DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
+import { createConfirmToggleQuickPickItem } from '../../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { formatPath } from '../../../system/-webview/formatPath.js';
@@ -24,6 +27,7 @@ import type {
 	StepState,
 } from '../../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
+import type { QuickPickStep } from '../../quick-wizard/models/steps.quickpick.js';
 import { GenerateStashMessageQuickInputButton } from '../../quick-wizard/quickButtons.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
 import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
@@ -35,6 +39,7 @@ import {
 	canPickStepContinue,
 	canStepContinue,
 	createInputStep,
+	refreshConfirmStepItems,
 } from '../../quick-wizard/utils/steps.utils.js';
 import type { StashContext } from '../stash.js';
 
@@ -72,6 +77,10 @@ export class StashPushGitCommand extends QuickCommand<State> {
 		});
 
 		this.initialState = { confirm: args?.confirm, flags: [], ...args?.state };
+	}
+
+	protected override get supportsSkipConfirmToggle(): boolean {
+		return true;
 	}
 
 	protected createContext(context?: StepsContext<any>): Context {
@@ -115,20 +124,6 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 			assertStepState<State<GlRepository>>(state);
 
-			// Skip if the user navigated back to InputMessage — otherwise confirmOverride would trap them in Confirm
-			if (!steps.isAtStep(Steps.InputMessage) && this.confirm(confirmOverride ?? state.confirm)) {
-				using step = steps.enterStep(Steps.Confirm);
-
-				const result = yield* this.confirmStep(state, context);
-				if (result === StepResultBreak) {
-					state.flags = [];
-					if (step.goBack() == null) break;
-					continue;
-				}
-
-				state.flags = result;
-			}
-
 			if (steps.isAtStep(Steps.InputMessage) || state.message == null) {
 				using step = steps.enterStep(Steps.InputMessage);
 
@@ -148,6 +143,19 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				}
 
 				state.message = result;
+			}
+
+			if (this.confirm(confirmOverride ?? state.confirm)) {
+				using step = steps.enterStep(Steps.Confirm);
+
+				const result = yield* this.confirmStep(state, context);
+				if (result === StepResultBreak) {
+					state.flags = [];
+					if (step.goBack() == null) break;
+					continue;
+				}
+
+				state.flags = result;
 			}
 
 			try {
@@ -336,11 +344,14 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			baseFlags.push('--staged');
 		}
 
-		type StepType = FlagsQuickPickItem<Flags>;
+		type StepItem = FlagsQuickPickItem<Flags> | DirectiveQuickPickItem;
 
-		const confirmations: StepType[] = [];
+		let step: QuickPickStep<StepItem>;
+		let rows: StepItem[];
+
 		// Show confirmation options with the pre-determined flags (e.g. from the "Stash Unstaged" SCM action)
 		if (state.reducedConfirm) {
+			const confirmations: FlagsQuickPickItem<Flags>[] = [];
 			if (state.flags.includes('--include-untracked')) {
 				const withUntrackedFlags = [...state.flags];
 				const withoutUntrackedFlags = state.flags.filter(f => f !== '--include-untracked');
@@ -385,7 +396,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 					}),
 				);
 			}
+			rows = confirmations;
 		} else if (state.uris?.length) {
+			const confirmations: FlagsQuickPickItem<Flags>[] = [];
 			if (state.flags.includes('--include-untracked')) {
 				baseFlags.push('--include-untracked');
 			}
@@ -412,41 +425,85 @@ export class StashPushGitCommand extends QuickCommand<State> {
 					}),
 				);
 			}
+			rows = confirmations;
 		} else {
-			confirmations.push(
-				createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags], {
-					label: context.title,
-					detail: `Will stash ${stagedOnly ? 'staged' : 'uncommitted'} changes`,
-				}),
-				createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--snapshot'], {
-					label: `${context.title} Snapshot`,
-					detail: 'Will stash uncommitted changes without changing the working tree',
-				}),
-			);
-			if (!stagedOnly) {
-				confirmations.push(
-					createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--include-untracked'], {
-						label: `${context.title} & Include Untracked`,
-						description: '--include-untracked',
-						detail: 'Will stash uncommitted changes, including untracked files',
+			let keepStaged = state.flags.includes('--keep-index');
+			const messageSuffix = state.message ? ` with message "${truncate(state.message, 50)}"` : '';
+
+			// Folds the live Keep Staged toggle value into each mode's flags and detail — the accepted item's
+			// flags are the whole contract with `execute()` — so the list says what will actually happen.
+			const buildItems = (): FlagsQuickPickItem<Flags>[] => {
+				const items: FlagsQuickPickItem<Flags>[] = [
+					createFlagsQuickPickItem<Flags>(
+						state.flags,
+						keepStaged ? [...baseFlags, '--keep-index'] : [...baseFlags],
+						{
+							label: 'Stash Changes',
+							detail: `Will stash ${stagedOnly ? 'staged' : 'uncommitted'} changes${messageSuffix}${
+								keepStaged ? ', keeping staged changes in the working tree' : ''
+							}`,
+							picked: !state.flags.includes('--snapshot') && !state.flags.includes('--include-untracked'),
+						},
+					),
+				];
+
+				if (!stagedOnly) {
+					items.push(
+						createFlagsQuickPickItem<Flags>(
+							state.flags,
+							keepStaged
+								? [...baseFlags, '--include-untracked', '--keep-index']
+								: [...baseFlags, '--include-untracked'],
+							{
+								label: 'Stash Changes & Untracked',
+								description: '--include-untracked',
+								detail: `Will stash uncommitted changes${messageSuffix}, including untracked files${
+									keepStaged ? ', keeping staged changes in the working tree' : ''
+								}`,
+								picked: state.flags.includes('--include-untracked'),
+							},
+						),
+					);
+				}
+
+				items.push(
+					createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--snapshot'], {
+						label: 'Stash Snapshot',
+						description: keepStaged ? '· not affected — the working tree is untouched' : undefined,
+						detail: 'Will stash uncommitted changes without changing the working tree',
 					}),
 				);
-				confirmations.push(
-					createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--keep-index'], {
-						label: `${context.title} & Keep Staged`,
-						description: '--keep-index',
-						detail: `Will stash ${stagedOnly ? 'staged' : 'uncommitted'} changes, but will keep staged files intact`,
-					}),
-				);
+
+				return items;
+			};
+
+			let items = buildItems();
+
+			/** Every row the confirm step shows, minus the separator + Cancel that `createConfirmStep` appends. */
+			const buildRows = (toggle?: ConfirmToggleQuickPickItem): StepItem[] =>
+				toggle != null ? [...items, createQuickPickSeparator('Options'), toggle] : items;
+
+			if (stagedOnly) {
+				rows = buildRows();
+			} else {
+				const keepStagedToggle = createConfirmToggleQuickPickItem({
+					label: 'Keep Staged',
+					description: '--keep-index',
+					detail: 'Leave already-staged changes in the working tree',
+					checked: keepStaged,
+					onDidChange: item => {
+						keepStaged = item.checked;
+						items = buildItems();
+						refreshConfirmStepItems(step, buildRows(item));
+					},
+				});
+				rows = buildRows(keepStagedToggle);
 			}
 		}
 
-		const step = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			confirmations,
-			undefined,
-			{ placeholder: `Confirm ${context.title}` },
-		);
+		step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), rows, undefined, {
+			placeholder: `Confirm ${context.title}`,
+		});
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
