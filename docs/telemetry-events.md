@@ -3422,7 +3422,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity'
+  'mode': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health'
 }
 ```
 
@@ -3441,8 +3441,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode.new': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity',
-  'mode.old': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity',
+  'mode.new': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health',
+  'mode.old': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health',
   // `fallback` when a virtual repo forced Commits → Files on mount (not a user action)
   'reason': 'user' | 'fallback'
 }

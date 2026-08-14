@@ -9406,6 +9406,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showGitHealth",
+				"title": "Show Repository Health",
+				"category": "GitLens",
+				"icon": "$(heart)"
+			},
+			{
 				"command": "gitlens.showGraph",
 				"title": "Show Commit Graph",
 				"category": "GitLens",

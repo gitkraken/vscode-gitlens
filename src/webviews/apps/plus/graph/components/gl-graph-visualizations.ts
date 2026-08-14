@@ -5,6 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
 import { graphStateContext } from '../context.js';
 import { getEffectiveVisualizationKey } from './visualizations.utils.js';
+import './gl-graph-git-health.js';
 import './gl-graph-timeline.js';
 import './gl-graph-treemap.js';
 
@@ -55,22 +56,34 @@ export class GlGraphVisualizations extends SignalWatcher(LitElement) {
 		// the `graph/visualizations/closed` telemetry all gate identically: when the experimental
 		// flag is off it force-routes to the timeline regardless of persisted `visualizationMode`
 		// (the stored value is left untouched so re-enabling restores the user's prior choice).
-		return getEffectiveVisualizationKey(
+		const key = getEffectiveVisualizationKey(
 			this.graphState.visualizationMode,
 			this.graphState.treemapMode,
 			this.graphState.config?.experimentalVisualizationsEnabled === true,
-		) === 'timeline'
-			? 'timeline'
-			: 'treemap';
+		);
+		if (key === 'timeline') return 'timeline';
+		// Gated identically to the switcher tab: without the maintenance sub-provider there is nothing to
+		// report, so a persisted `health` choice carried onto a virtual/web/Live Share repo must fall back
+		// rather than render an all-clear for a repository that was never examined.
+		if (key === 'health') {
+			return this.graphState.config?.gitHealthAvailable === true ? 'health' : 'timeline';
+		}
+
+		return 'treemap';
 	}
 
 	override render(): unknown {
-		return this.mode === 'treemap'
-			? html`<gl-graph-treemap ?graph-ready=${this.graphReady}></gl-graph-treemap>`
-			: html`<gl-graph-timeline
+		switch (this.mode) {
+			case 'health':
+				return html`<gl-graph-git-health></gl-graph-git-health>`;
+			case 'treemap':
+				return html`<gl-graph-treemap ?graph-ready=${this.graphReady}></gl-graph-treemap>`;
+			default:
+				return html`<gl-graph-timeline
 					placement=${this.placement}
 					.scope=${this.scope}
 					?graph-ready=${this.graphReady}
 				></gl-graph-timeline>`;
+		}
 	}
 }

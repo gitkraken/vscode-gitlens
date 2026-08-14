@@ -2333,7 +2333,7 @@ interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
 /** Flat key identifying a Graph visualization — collapses the two-axis
  *  (visualizationMode × treemapMode) state so one field names the active visualization,
  *  matching the switcher's tab model. */
-export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health';
 
 interface GraphIntroShownEvent extends GraphContextEventData {
 	/** True when the layout sub-section (Side Bar vs. Bottom Panel) was shown alongside the welcome */

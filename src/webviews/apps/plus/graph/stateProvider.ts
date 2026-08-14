@@ -58,6 +58,7 @@ import {
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestSearchNotification,
+	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
@@ -1890,6 +1891,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({
 					sidebar: { ...this.sidebar, visible: true, activePanel: msg.params.panel },
 				});
+				break;
+
+			case DidRequestVisualizationNotification.is(msg):
+				// Both axes are needed: `visualizationMode` picks WHICH visualization, while `displayMode`
+				// is what makes the visualizations pane render at all — setting only the former leaves the
+				// graph on screen. (`openTimelineScope` sets the pair for the same reason.)
+				this.displayMode = 'visualizations';
+				this.visualizationMode = msg.params.visualization;
 				break;
 
 			case DidRequestGraphActionNotification.is(msg):

@@ -1108,6 +1108,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showContributorsView'
 	| 'gitlens.showDraftsView'
 	| 'gitlens.showFileHistoryView'
+	| 'gitlens.showGitHealth'
 	| 'gitlens.showGraph'
 	| 'gitlens.showGraphPage'
 	| 'gitlens.showGraphView'

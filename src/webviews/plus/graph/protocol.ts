@@ -425,7 +425,7 @@ export interface GraphScopeBranch {
  *  Adding a new visualization is a 4-step extension: extend this union, render its component in
  *  `gl-graph-visualizations`, persist any per-visualization config in `graph-app.persistStateNow`,
  *  and add the host-side data service to `GraphServices`. */
-export type VisualizationMode = 'timeline' | 'treemap';
+export type VisualizationMode = 'timeline' | 'treemap' | 'health';
 
 /** Aliased from the canonical treemap protocol so both the storage type and the graph state refer
  *  to the same union — adding a fourth mode in `treemap/protocol.ts` flows here automatically. */
@@ -818,6 +818,12 @@ export interface GraphComponentConfig {
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalKanbanEnabled?: boolean;
 	experimentalVisualizationsEnabled?: boolean;
+	/**
+	 * Whether this repo exposes the maintenance sub-provider (`repo.git.maintenance != null`). Absent on
+	 * web builds, virtual repos, and Live Share — the Repository Health tab is omitted entirely there,
+	 * since it would render with nothing to report and every lever unavailable.
+	 */
+	gitHealthAvailable?: boolean;
 	/** Raw setting value for the Activity-mode treemap decay window — drives the picker selection. */
 	activityDecay?: GraphActivityDecay;
 	/** Resolved decay window (ms) for the Activity-mode treemap heatmap. Drives how long a file's
@@ -1752,6 +1758,15 @@ export interface DidRequestActiveSidebarPanelParams {
 export const DidRequestActiveSidebarPanelNotification = new IpcNotification<DidRequestActiveSidebarPanelParams>(
 	scope,
 	'sidebar/activePanel/didRequest',
+);
+
+export interface DidRequestVisualizationParams {
+	visualization: VisualizationMode;
+}
+/** Pushed when a command (e.g. `gitlens.showGitHealth`) opens the graph on a specific visualization. */
+export const DidRequestVisualizationNotification = new IpcNotification<DidRequestVisualizationParams>(
+	scope,
+	'visualization/didRequest',
 );
 
 export interface DidRequestGraphActionParams {

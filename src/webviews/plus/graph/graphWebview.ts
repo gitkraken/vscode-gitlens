@@ -239,6 +239,7 @@ import type {
 	MergePullRequestParams,
 	SidebarWorktreeChange,
 	State,
+	VisualizationMode,
 } from './protocol.js';
 import {
 	CancelLoadRowCommand,
@@ -279,6 +280,7 @@ import {
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestSearchNotification,
+	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
 	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
@@ -365,6 +367,12 @@ function hasCompare(arg: any): arg is { repository: GlRepository; compare: Graph
 
 function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
 	return typeof arg?.sidebarPanel === 'string';
+}
+
+function hasVisualization(
+	arg: any,
+): arg is { visualization: VisualizationMode; repository?: GlRepository; source?: Source } {
+	return typeof arg?.visualization === 'string';
 }
 
 function hasAction(arg: any): arg is {
@@ -590,6 +598,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 			this.container.walkthrough.onDidChangeProgress(this.onGraphWalkthroughProgressChanged, this),
 			this.container.usage.onDidChange(this.onUsageChanged, this),
+			// Bridge the host-side health signal onto the RPC event, carrying the repo path so the
+			// view can filter to the one it's showing instead of re-fetching on every repo's change.
+			this.container.gitHealth.onDidChange(repoPath => this._gitHealthChangedEvent.fire({ repoPath: repoPath })),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			// The bar's primary continue swaps between automatic/manual with the session
@@ -1022,6 +1033,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
+	// `signal` (not `save-last`): the view re-fetches on receipt, so coalescing a burst of
+	// probe/apply/revert changes for the same repo into one wake-up is exactly the desired behavior.
+	private readonly _gitHealthChangedEvent = createRpcEvent<{ repoPath: string }>('gitHealthChanged', 'signal');
+	/** Visualization requested by a command during a cold show, replayed once the app is ready. */
+	private _pendingVisualization: VisualizationMode | undefined;
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
 		changes: Record<string, SidebarWorktreeChange | undefined>;
 	}>('sidebarWorktreeState', 'save-last');
@@ -1053,6 +1069,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
 			welcome: { continueToGraph: options => this.onWelcomeContinueToGraph(options) },
+			graphHealth: {
+				getReport: repoPath => this.container.gitHealth.getReport(repoPath),
+				getLevers: repoPath => this.container.gitHealth.getLevers(repoPath),
+				getDetails: (repoPath, signal) => this.container.gitHealth.getDetails(repoPath, signal),
+				// Ask-tier: failures propagate to the view rather than being swallowed, so a person who
+				// clicked Enable sees the actual git error instead of a silent no-op.
+				applyFix: (repoPath, id, signal) => this.container.gitHealth.applyFix(repoPath, id, signal),
+				revertFix: (repoPath, id, signal) => this.container.gitHealth.revertFix(repoPath, id, signal),
+				runMaintenance: (repoPath, signal) => this.container.gitHealth.runMaintenanceNow(repoPath, signal),
+				setCommitGraphEnabled: (repoPath, enabled, signal) =>
+					this.container.gitHealth.setCommitGraphEnabled(repoPath, enabled, signal),
+				onHealthChanged: this._gitHealthChangedEvent.subscribe(buffer, tracker),
+			},
 			launchpad: new LaunchpadService(this.container, buffer, tracker),
 			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 			graphTimeline: graphTimeline,
@@ -1182,6 +1211,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 
 				void this.revealRow(id);
+			}
+		} else if (hasVisualization(arg)) {
+			// Checked ahead of `hasCompare`/`hasRepository` — both duck-type on `arg.repository` alone,
+			// which a visualization request now carries too, and would otherwise steal this branch.
+			//
+			// Mirrors the compare-mode path below when a repository rides along: a repo switch must not
+			// notify immediately (the webview would apply the visualization against the outgoing repo's
+			// context) — deferring lets the switch's own state rebuild carry it, same as a cold show's
+			// bootstrap.
+			const repoChanged = arg.repository != null && this._repository !== arg.repository;
+			if (arg.repository != null) {
+				this.repository = arg.repository;
+			}
+
+			if (loading || repoChanged || !this.host.ready) {
+				this._pendingVisualization = arg.visualization;
+			} else {
+				void this.host.notify(DidRequestVisualizationNotification, { visualization: arg.visualization });
 			}
 		} else if (hasCompare(arg)) {
 			const repoChanged = this._repository !== arg.repository;
@@ -2160,6 +2207,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			configuration.changed(e, 'defaultCurrentUserNameStyle') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateStyle') ||
+			// Feeds the component config's `gitHealthAvailable`. Without a re-push, enabling it with a graph
+			// already open (exactly what `gitlens.showGitHealth`'s prompt does) leaves the Health tab hidden
+			// and routes the requested visualization to the timeline until the webview reloads.
+			configuration.changed(e, 'gitOptimizations.enabled') ||
 			configuration.changed(e, 'graph')
 		) {
 			void this.notifyDidChangeConfiguration();
@@ -4307,6 +4358,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
 			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
+			// Per-repo capability AND the master switch. The sub-provider is absent on web builds, virtual
+			// repos, and Live Share; and with `gitOptimizations.enabled` off every probe short-circuits, so
+			// the view would render an all-clear for a repository it never actually examined.
+			gitHealthAvailable:
+				this.repository?.git.maintenance != null && configuration.get('gitOptimizations.enabled') === true,
 			activityDecay: configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',
 			activityDecayMs: activityDecayToMs(
 				configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',
@@ -5030,7 +5086,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				showAllBranches: storedGraphState?.timeline?.showAllBranches,
 			},
 			overviewRecentThreshold: this._panels.overviewRecentThreshold,
-			visualizationMode: storedGraphState?.visualizationMode,
+			// A command that asked for a specific visualization seeds the cold show. This DOES become the
+			// user's persisted choice on the next `persistState` — same as clicking the tab — because
+			// running "Show Repository Health" is itself a choice of visualization.
+			//
+			// `displayMode` must be seeded alongside it: picking a visualization is meaningless while the
+			// pane showing visualizations isn't the one rendered. Left undefined otherwise so a normal show
+			// keeps whatever the app decides.
+			displayMode: this._pendingVisualization != null ? 'visualizations' : undefined,
+			visualizationMode: this._pendingVisualization ?? storedGraphState?.visualizationMode,
 			treemapMode: storedGraphState?.treemap?.mode,
 		};
 		// Only the bootstrap build emits the side bar slice, so only it may consume the pending panel —
@@ -5039,6 +5103,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (bootstrap) {
 			this._pendingSidebarPanel = undefined;
 		}
+		// `displayMode`/`visualizationMode` above are unconditional fields on every build, bootstrap or
+		// not — a repo-switch-triggered rebuild (see `hasVisualization`'s `onShowing` branch) delivers
+		// this outside bootstrap too, so it must clear alike or the next unrelated rebuild would re-force
+		// visualizations mode. Mirrors `_pendingAction`/`_pendingCompare` below.
+		this._pendingVisualization = undefined;
 		this._pendingAction = undefined;
 		this._pendingCompare = undefined;
 		return result;

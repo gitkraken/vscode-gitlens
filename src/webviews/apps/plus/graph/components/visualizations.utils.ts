@@ -21,7 +21,12 @@ export function getEffectiveVisualizationKey(
 	visualizationsEnabled: boolean,
 ): GraphVisualizationKey {
 	if (!visualizationsEnabled) return 'timeline';
-	if ((visualizationMode ?? 'timeline') === 'timeline') return 'timeline';
+
+	const mode = visualizationMode ?? 'timeline';
+	if (mode === 'timeline') return 'timeline';
+	// Health has no sub-mode to collapse, so it maps straight across.
+	if (mode === 'health') return 'health';
+
 	return `treemap-${treemapMode ?? 'files'}`;
 }
 

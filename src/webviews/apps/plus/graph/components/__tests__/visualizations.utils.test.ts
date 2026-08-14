@@ -23,6 +23,20 @@ suite('getEffectiveVisualizationKey', () => {
 		assert.strictEqual(getEffectiveVisualizationKey(undefined, undefined, true), 'timeline');
 		assert.strictEqual(getEffectiveVisualizationKey('treemap', undefined, true), 'treemap-files');
 	});
+
+	test('flag on maps health across, ignoring any persisted treemap sub-mode', () => {
+		// Health has no sub-mode, so a stale `treemapMode` left over from a previous choice must not
+		// leak into its key.
+		assert.strictEqual(getEffectiveVisualizationKey('health', undefined, true), 'health');
+		assert.strictEqual(getEffectiveVisualizationKey('health', 'commits', true), 'health');
+	});
+
+	test('flag off forces timeline from health too, leaving the stored mode intact', () => {
+		// Health inherits the experimental gate rather than carving itself out — the setting defaults
+		// to true, and if the flag is ever retired this branch simply stops being reachable.
+		assert.strictEqual(getEffectiveVisualizationKey('health', undefined, false), 'timeline');
+		assert.strictEqual(getEffectiveVisualizationKey('health', 'files', false), 'timeline');
+	});
 });
 
 suite('classifyTreemapZoom', () => {

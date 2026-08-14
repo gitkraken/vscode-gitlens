@@ -70,6 +70,9 @@ export class GitHealthService implements Disposable {
 
 	// Latest computed report per repo path (a key's presence also marks the repo as probed this session).
 	private readonly _reports = new Map<string, GitHealthReport>();
+	// Per-lever view rows, computed at probe time from the same snapshot + capabilities the report used —
+	// so the view can never disagree with the report about what's enabled or who enabled it.
+	private readonly _levers = new Map<string, GitHealthLever[]>();
 	// Passive-slowness accumulator per repo path (hydrated lazily from workspace storage).
 	private _slowness: Map<string, GitHealthSlowness> | undefined;
 	// Common-git-dir paths with an in-flight auto pass (per-common-path serialization).
@@ -177,6 +180,17 @@ export class GitHealthService implements Disposable {
 		return this._reports.get(repo.path);
 	}
 
+	/** Per-lever rows for the Git Health view, probing on first request like {@link getReport}. */
+	async getLevers(repoPath: string): Promise<GitHealthLever[]> {
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null) return [];
+
+		if (!this._levers.has(repo.path)) {
+			await this.probeAndMaybeRun(repo);
+		}
+		return this._levers.get(repo.path) ?? [];
+	}
+
 	/** On-demand commit count + `count-objects` breakdown for the Git Health view. */
 	async getDetails(repoPath: string, cancellation?: AbortSignal): Promise<GitHealthDetails> {
 		const maintenance = this.getMaintenance(repoPath);
@@ -243,14 +257,26 @@ export class GitHealthService implements Disposable {
 		if (resolved == null) return [];
 
 		const tasks: GitMaintenanceTask[] = ['commit-graph', 'loose-objects', 'incremental-repack'];
+
+		// Join the SAME single-flight the auto pass uses. This is now reachable from a button, and opening
+		// the Health view is itself what queues a pass — so without this a click lands straight on top of
+		// it, and concurrent `git maintenance run` invocations collide on git's per-repo lock (the losers
+		// no-op at exit 0 while telemetry counts them as runs). Report `ran: false` rather than pretending.
+		const commonPath = await this.resolveCommonPath(resolved.repo);
+		if (this._runningPasses.has(commonPath)) {
+			return tasks.map(task => ({ task: task, ran: false }));
+		}
+
+		this._runningPasses.add(commonPath);
+
 		const results: { task: GitMaintenanceTask; ran: boolean }[] = [];
 		try {
-			// Sequential: concurrent `git maintenance run` invocations collide on git's per-repo
-			// maintenance lock — the losers silently no-op (exit 0) while telemetry would count them as runs.
+			// Sequential for the same reason: they contend on that one lock.
 			for (const task of tasks) {
 				results.push({ task: task, ran: await this.runTaskWithTelemetry(repoPath, task, cancellation) });
 			}
 		} finally {
+			this._runningPasses.delete(commonPath);
 			await this.reprobe(resolved.repo);
 		}
 		return results;
@@ -397,6 +423,7 @@ export class GitHealthService implements Disposable {
 			const report = computeHealthReport(snapshot, slowness, capabilities);
 
 			this._reports.set(repo.path, report);
+			this._levers.set(repo.path, computeLevers(snapshot, capabilities, report));
 			const event = {
 				'packs.count': snapshot.packCount,
 				'packs.bytes': snapshot.packBytes,
@@ -577,6 +604,7 @@ export class GitHealthService implements Disposable {
 
 	private evict(repo: GlRepository): void {
 		this._reports.delete(repo.path);
+		this._levers.delete(repo.path);
 		this._lastProbeTelemetry.delete(repo.path);
 		this._inflightProbes.delete(repo.path);
 		const timer = this._probeTimers.get(repo.path);

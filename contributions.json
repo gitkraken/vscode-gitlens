@@ -7066,6 +7066,11 @@
 			"label": "Show File History View",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.showGitHealth": {
+			"label": "Show Repository Health",
+			"icon": "$(heart)",
+			"commandPalette": true
+		},
 		"gitlens.showGraph": {
 			"label": "Show Commit Graph",
 			"icon": "$(gitlens-graph)",

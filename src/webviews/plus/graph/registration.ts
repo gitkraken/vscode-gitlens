@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Disposable, ViewColumn, window } from 'vscode';
+import { Disposable, ViewColumn, window, workspace } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { isUri } from '@gitlens/utils/uri.js';
@@ -33,6 +33,7 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	State,
+	VisualizationMode,
 } from './protocol.js';
 
 export type GraphWebviewShowingArgs = [
@@ -41,6 +42,7 @@ export type GraphWebviewShowingArgs = [
 	| { repository: GlRepository; search?: SearchQuery; source?: Source }
 	| { repository: GlRepository; compare: GraphCompareSeed; source?: Source }
 	| { sidebarPanel: GraphSidebarPanel; source?: Source }
+	| { visualization: VisualizationMode; repository?: GlRepository; source?: Source }
 	| {
 			action: GraphShowAction;
 			target?: GraphActionTarget;
@@ -236,6 +238,81 @@ export function registerGraphWebviewCommands<T>(
 	}
 
 	return Disposable.from(
+		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {
+			// Canonical entry point for the Health surface — the palette, the Phase 3 banner CTA, and any
+			// future link all route through here, so the surface can move without breaking its callers.
+			const [arg] = args;
+			const source =
+				arg != null && typeof arg === 'object' && 'source' in arg
+					? (arg as { source?: Source }).source
+					: undefined;
+
+			// Untrusted workspaces block git execution outright, so the maintenance sub-provider would
+			// never populate — check this before the other gates so the message is unambiguous.
+			if (!workspace.isTrusted) {
+				void window.showInformationMessage('Repository Health requires a trusted workspace.');
+				return;
+			}
+
+			// The whole visualizations area (Health included) is behind this flag, so without it the command
+			// would silently open the graph on the timeline with no way to reach Health and no explanation.
+			if (!configuration.get('graph.experimental.visualizations.enabled')) {
+				const enable = 'Enable Visualizations';
+				const picked = await window.showInformationMessage(
+					'Repository Health is part of the Commit Graph visualizations, which are currently turned off.',
+					enable,
+					'Cancel',
+				);
+				if (picked !== enable) return;
+
+				await configuration.updateEffective('graph.experimental.visualizations.enabled', true);
+			}
+
+			// With optimizations off, every probe in gitHealthService short-circuits, so the view would
+			// render an all-clear for a repo it never examined instead of the real report.
+			if (configuration.get('gitOptimizations.enabled') !== true) {
+				const enable = 'Enable Git Optimizations';
+				const picked = await window.showInformationMessage(
+					'Repository Health requires Git optimizations, which are currently turned off.',
+					enable,
+					'Cancel',
+				);
+				if (picked !== enable) return;
+
+				await configuration.updateEffective('gitOptimizations.enabled', true);
+			}
+
+			// Health needs the maintenance sub-provider, which is absent on web builds, virtual repos, and
+			// Live Share guests. Select a concrete supported repository rather than merely proving one
+			// exists — the graph otherwise keeps whatever repo it currently has selected (e.g. a virtual
+			// repo in a mixed workspace), which silently falls back to Timeline. An empty workspace falls
+			// through and lets the graph handle its own empty state.
+			const { openRepositories } = container.git;
+			const best = container.git.getBestRepositoryOrFirst();
+			const repository =
+				best?.git.maintenance != null ? best : openRepositories.find(r => r.git.maintenance != null);
+			if (openRepositories.length > 0 && repository == null) {
+				void window.showInformationMessage(
+					"Repository Health isn't available here — it requires a local repository with Git installed.",
+				);
+				return;
+			}
+
+			const showingArg = {
+				visualization: 'health',
+				repository: repository,
+				source: source,
+			} satisfies GraphWebviewShowingArgs[0];
+
+			// The view command forwards its raw args straight through as showing-args, so it must NOT be
+			// given a leading options object — only the panel command takes one. Mirrors `gitlens.showGraph`.
+			if (configuration.get('graph.layout') === 'panel') {
+				await executeCommand('gitlens.showGraphView', showingArg);
+				return;
+			}
+
+			await executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', { source: source }, showingArg);
+		}),
 		registerCommand('gitlens.showGraph', (...args: unknown[]) => {
 			const [arg] = args;
 

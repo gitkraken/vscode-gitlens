@@ -31,13 +31,20 @@ const visualizationConfigs: Record<VisualizationKey, VisualizationConfig> = {
 	'treemap-files': { mode: 'treemap', treemapMode: 'files', icon: 'folder', label: 'Files Treemap' },
 	'treemap-commits': { mode: 'treemap', treemapMode: 'commits', icon: 'git-commit', label: 'Commits Treemap' },
 	'treemap-activity': { mode: 'treemap', treemapMode: 'activity', icon: 'robot', label: 'Agent Activity Treemap' },
+	health: { mode: 'health', icon: 'heart', label: 'Repository Health' },
 };
 
+/**
+ * Health sits last, after a separator. The four entries before it all render repository data as a
+ * picture; Health is status and actions, so grouping it with them would misread it — and placing it
+ * ahead of `timeline` would move the default out of first position for every existing user.
+ */
 const visualizationOrder: readonly VisualizationKey[] = [
 	'timeline',
 	'treemap-files',
 	'treemap-commits',
 	'treemap-activity',
+	'health',
 ];
 
 export interface GraphVisualizationModeChangeDetail {
@@ -71,6 +78,16 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 
 		.visualization-tablist {
 			display: contents;
+		}
+
+		/* Separates the visualization lenses from Repository Health, which is a control surface rather
+		   than another way of drawing the repo. */
+		.visualization-separator {
+			align-self: center;
+			width: var(--gl-border-width);
+			height: 1.4rem;
+			margin-inline: var(--gl-space-4);
+			background-color: var(--vscode-widget-border, var(--vscode-editorWidget-border));
 		}
 
 		.visualization-button {
@@ -133,11 +150,17 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	 *  the pressed tab, the wrapper's routing, and the `closed` telemetry can't drift. The switcher
 	 *  renders only when the flag is on (see `render`), so the gate is always satisfied here. */
 	private get activeKey(): VisualizationKey {
-		return getEffectiveVisualizationKey(
+		const key = getEffectiveVisualizationKey(
 			this.mode,
 			this.treemapMode,
 			this.graphState.config?.experimentalVisualizationsEnabled === true,
 		);
+		// The roving-tabindex contract requires exactly one RENDERED tab to be selected. `health` is
+		// omitted where the capability is absent, so fall back to the tab the router lands on instead —
+		// otherwise every button gets `tabindex="-1"` and the switcher drops out of the tab order.
+		if (key === 'health' && this.graphState.config?.gitHealthAvailable !== true) return 'timeline';
+
+		return key;
 	}
 
 	private select(key: VisualizationKey): void {
@@ -208,8 +231,19 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		const active = this.activeKey;
 		const commitsUnavailable = this.commitsUnavailable;
 
+		// Health is omitted entirely where the repo has no maintenance sub-provider (web, virtual repos,
+		// Live Share) — the tab would render permanently empty with every lever unavailable.
+		const healthAvailable = this.graphState.config?.gitHealthAvailable === true;
+
 		return html`<div role="tablist" aria-label="Visualization" class="visualization-tablist">
 			${visualizationOrder.map(key => {
+				if (key === 'health') {
+					if (!healthAvailable) return nothing;
+
+					return html`<span class="visualization-separator" role="separator"></span>
+						${this.renderButton(key, active, false, undefined)}`;
+				}
+
 				const disabled = key === 'treemap-commits' && commitsUnavailable;
 				const disabledMessage = disabled ? 'Commit history is unavailable for virtual repositories' : undefined;
 				return this.renderButton(key, active, disabled, disabledMessage);
