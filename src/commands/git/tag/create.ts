@@ -35,7 +35,6 @@ import {
 	canInputStepContinue,
 	canPickStepContinue,
 	canStepContinue,
-	createConfirmStep,
 	createInputStep,
 } from '../../quick-wizard/utils/steps.utils.js';
 import type { TagContext } from '../tag.js';
@@ -75,6 +74,10 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
+	}
+
+	protected override get supportsSkipConfirmToggle(): boolean {
+		return true;
 	}
 
 	protected createContext(context?: StepsContext<any>): Context {
@@ -240,7 +243,7 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: TagContext): StepResultGenerator<Flags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
@@ -260,7 +263,8 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 					},
 				),
 			],
-			context,
+			undefined,
+			{ placeholder: `Confirm ${context.title}` },
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

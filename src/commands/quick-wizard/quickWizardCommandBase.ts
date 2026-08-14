@@ -7,6 +7,7 @@ import { Container } from '../../container.js';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { KeyMapping } from '../../system/-webview/keyboard.js';
+import { supportedInVSCodeVersion } from '../../system/-webview/vscode.js';
 import { GlCommandBase } from '../commandBase.js';
 import type { QuickWizardCommandArgsWithCompletion } from './models/quickWizard.js';
 import type { CustomStep } from './models/steps.custom.js';
@@ -798,6 +799,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 				);
 
 				quickpick.title = step.title;
+				quickpick.prompt = supportedInVSCodeVersion('quickpick-prompt') ? step.prompt : undefined;
 				quickpick.matchOnDescription = Boolean(step.matchOnDescription);
 				quickpick.matchOnDetail = Boolean(step.matchOnDetail);
 

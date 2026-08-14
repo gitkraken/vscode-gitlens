@@ -1,4 +1,5 @@
-import type { QuickPick, QuickPickItem, ThemeIcon, Uri } from 'vscode';
+import type { QuickPick, QuickPickItem, Uri } from 'vscode';
+import { ThemeIcon } from 'vscode';
 import { pluralize } from '@gitlens/utils/string.js';
 import { proTrialLengthInDays } from '../../constants.subscription.js';
 
@@ -118,4 +119,37 @@ export function createDirectiveQuickPickItem(
 
 export function isDirectiveQuickPickItem(item: QuickPickItem): item is DirectiveQuickPickItem {
 	return item != null && 'directive' in item;
+}
+
+export type ConfirmToggleQuickPickItem = DirectiveQuickPickItem & { checked: boolean };
+
+/**
+ * Builds a confirm-step "checkbox" row: a modifier that folds into every mode row above it, shown as a
+ * row rather than a title-bar button because a title-bar button is icon-only (`iconPath` is the only
+ * visual the API exposes, with the rest on a hover tooltip) and a modifier that rewrites what every mode
+ * does should say so in words. `Directive.Noop` keeps the quickpick open on select, and the returned item
+ * is mutated in place — never recreated — so it keeps its identity, and therefore its active/selected
+ * state, across a `refreshConfirmStepItems` rebuild.
+ */
+export function createConfirmToggleQuickPickItem(options: {
+	label: string;
+	description?: string;
+	detail?: string;
+	checked: boolean;
+	onDidChange: (item: ConfirmToggleQuickPickItem, quickpick: QuickPick<any>) => void;
+}): ConfirmToggleQuickPickItem {
+	const item = createDirectiveQuickPickItem(Directive.Noop, false, {
+		label: options.label,
+		description: options.description,
+		detail: options.detail,
+		iconPath: new ThemeIcon(`gitlens-checkbox-${options.checked ? 'checked' : 'unchecked'}`),
+	}) as ConfirmToggleQuickPickItem;
+	item.checked = options.checked;
+	item.onDidSelect = quickpick => {
+		item.checked = !item.checked;
+		item.iconPath = new ThemeIcon(`gitlens-checkbox-${item.checked ? 'checked' : 'unchecked'}`);
+		options.onDidChange(item, quickpick);
+	};
+
+	return item;
 }

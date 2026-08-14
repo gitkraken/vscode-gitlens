@@ -8,6 +8,8 @@ export type GitCoreConfigKeys =
 	| 'core.excludesFile'
 	| 'diff.guitool'
 	| 'diff.tool'
+	/** `fetch.prune` — whether `git fetch` removes remote-tracking branches that no longer exist on the remote */
+	| 'fetch.prune'
 	| 'gpg.format'
 	| 'gpg.program'
 	| 'gpg.ssh.program'
@@ -15,6 +17,8 @@ export type GitCoreConfigKeys =
 	| 'init.defaultBranch'
 	/** `merge.autoStash` — whether `git merge` (and so a merging `git pull`) stashes and reapplies uncommitted changes */
 	| 'merge.autoStash'
+	/** `merge.ff` — whether `git merge` fast-forwards when possible; also accepts `'only'` to require it */
+	| 'merge.ff'
 	/** `pull.autoStash` — overrides `merge.autoStash`/`rebase.autoStash` for `git pull`, in either mode */
 	| 'pull.autoStash'
 	/** `pull.rebase` — whether `git pull` rebases instead of merging; also accepts `merges`/`interactive` */
@@ -23,6 +27,8 @@ export type GitCoreConfigKeys =
 	| 'rebase.autoStash'
 	/** `rebase.updateRefs` — whether `git rebase` also updates branches pointing to the rebased commits */
 	| 'rebase.updateRefs'
+	/** `remote.pushDefault` — the remote `git push` targets when a branch has no explicit push remote configured */
+	| 'remote.pushDefault'
 	| 'user.email'
 	| 'user.name'
 	| 'user.signingkey';
