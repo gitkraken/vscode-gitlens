@@ -1,4 +1,5 @@
 import { FlowLayout } from '@lit-labs/virtualizer/layouts/flow.js';
+import { RowUnitsIndex } from './graph-row-units.js';
 
 // Minimal structural mirrors of @lit-labs/virtualizer's internal layout value types. The package's
 // `exports` map does not expose `layouts/shared/Layout.js`, so `Positions`/`Size` aren't importable —
@@ -18,6 +19,7 @@ export type FixedSizeLayoutSpecifier = {
 	type: typeof FixedSizeVerticalLayout;
 	direction: 'vertical';
 	itemSize: number;
+	units?: RowUnitsIndex;
 };
 
 /**
@@ -29,6 +31,13 @@ export type FixedSizeLayoutSpecifier = {
  * everywhere (reveal / scroll / pill geometry), now made exact. The size changes only when the density's
  * row height changes (rare), via the `itemSize` config.
  *
+ * Rows are uniform per density EXCEPT for a sparse set of quantized (integer-multiple-of-`itemSize`)
+ * "tall" rows, tracked by an optional `RowUnitsIndex` (see `./graph-row-units.js`) set via the `units`
+ * config. Positions and sizes for tall rows remain exact arithmetic through that index — no measurement
+ * is introduced. When no `units` index is set (or it's explicitly `RowUnitsIndex.uniform`), every index
+ * lookup is the identity (`unitPosOf(i) === i`, `unitsOf(i) === 1`), so the hooks below are identical BY
+ * CONSTRUCTION to before tall rows existed — no separate uniform code path to keep in sync.
+ *
  * Implemented by SUBCLASSING `FlowLayout` — the only exported layout whose `BaseLayout` machinery
  * (viewport/scroll/reflow/scroll-into-view) we can inherit (`BaseLayout` itself isn't in the package's
  * `exports`). We override just the size/position/active-range hooks, bypassing flow's variable-size
@@ -37,6 +46,9 @@ export type FixedSizeLayoutSpecifier = {
 export class FixedSizeVerticalLayout extends FlowLayout {
 	// The uniform row height (px). Set via config; kept in sync with the density's row height.
 	private _fixedSize = 1;
+
+	// The sparse tall-row index. Defaults to the no-tall-rows singleton, matching pre-`units` behavior.
+	private _units: RowUnitsIndex = RowUnitsIndex.uniform;
 
 	// No child measurement — sizes are known and uniform (overrides flow's `true`), so the virtualizer
 	// never measures a child and never calls `updateItemSizes`.
@@ -56,19 +68,36 @@ export class FixedSizeVerticalLayout extends FlowLayout {
 		return this._fixedSize;
 	}
 
+	set units(index: RowUnitsIndex | undefined) {
+		// Guarded by instance identity, not value equality: re-applying the same `RowUnitsIndex` every
+		// render (the virtualize directive does) costs nothing, and a genuinely new index (even one with
+		// the same tall rows) reflows. `undefined` normalizes to the `uniform` singleton (no tall rows).
+		// The identity guard is only cheap because producers hold their instance STABLE across
+		// content-equal rebuilds (see `RowUnitsIndex.equalsIndex` and gl-lit-graph's `rebuildRowUnits`) —
+		// a producer that hands over a fresh-but-equal index every tick reflows the whole list every tick.
+		const next = index ?? RowUnitsIndex.uniform;
+		if (next !== this._units) {
+			this._units = next;
+			this._triggerReflow();
+		}
+	}
+	get units(): RowUnitsIndex {
+		return this._units;
+	}
+
 	// `width` here feeds only scroll-into-view centering, never the row DOM size (rows keep their own CSS
 	// box) — the viewport width is the natural value.
-	override _getItemSize(_idx: number): LayoutSize {
-		return { height: this._fixedSize, width: this._viewDim2 };
+	override _getItemSize(idx: number): LayoutSize {
+		return { height: this._units.unitsOf(idx) * this._fixedSize, width: this._viewDim2 };
 	}
 
 	// Vertical-only: exact top, no leading margin/offset — so no sub-pixel drift.
 	override _getItemPosition(idx: number): LayoutPositions {
-		return { top: idx * this._fixedSize, left: 0 };
+		return { top: this._units.unitPosOf(idx) * this._fixedSize, left: 0 };
 	}
 
 	override _updateScrollSize(): void {
-		this._scrollSize = Math.max(1, this.items.length * this._fixedSize);
+		this._scrollSize = Math.max(1, this._units.totalUnits(this.items.length) * this._fixedSize);
 	}
 
 	override _getActiveItems(): void {
@@ -87,10 +116,17 @@ export class FixedSizeVerticalLayout extends FlowLayout {
 		// BaseLayout's threshold check (which decides whether another reflow is needed) never thrashes.
 		const min = Math.max(0, this._scrollPosition - this._overhang);
 		const max = Math.min(this._scrollSize, this._scrollPosition + this._viewDim1 + this._overhang);
-		this._first = Math.max(0, Math.min(count - 1, Math.floor(min / size)));
-		this._last = Math.max(0, Math.min(count - 1, Math.ceil(max / size) - 1));
-		this._physicalMin = this._first * size;
-		this._physicalMax = (this._last + 1) * size;
+
+		// Floor/ceil overhang math computed in "unit" space and mapped back to row indices through the
+		// index — a tall row straddling `min`/`max` still gets fully included, so `_physicalMin <= min` and
+		// `_physicalMax >= max` hold. With no tall rows every lookup is the identity (`unitPos === index`),
+		// so this reduces to plain `min / size` / `max / size` row arithmetic.
+		const firstAtUnit = Math.max(0, Math.floor(min / size));
+		const lastAtUnit = Math.max(0, Math.ceil(max / size) - 1);
+		this._first = this._units.rowIndexAtUnit(firstAtUnit, count);
+		this._last = Math.max(this._first, this._units.rowIndexAtUnit(lastAtUnit, count));
+		this._physicalMin = this._units.unitPosOf(this._first) * size;
+		this._physicalMax = (this._units.unitPosOf(this._last) + this._units.unitsOf(this._last)) * size;
 	}
 
 	protected override get _delta(): number {
@@ -98,7 +134,7 @@ export class FixedSizeVerticalLayout extends FlowLayout {
 	}
 }
 
-/** `.layout=${fixedSizeVertical(rowHeight)}` — the fixed-size vertical layout specifier. */
-export function fixedSizeVertical(itemSize: number): FixedSizeLayoutSpecifier {
-	return { type: FixedSizeVerticalLayout, direction: 'vertical', itemSize: itemSize };
+/** `.layout=${fixedSizeVertical(rowHeight, units)}` — the fixed-size vertical layout specifier. */
+export function fixedSizeVertical(itemSize: number, units?: RowUnitsIndex): FixedSizeLayoutSpecifier {
+	return { type: FixedSizeVerticalLayout, direction: 'vertical', itemSize: itemSize, units: units };
 }
