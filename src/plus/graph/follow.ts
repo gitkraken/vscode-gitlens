@@ -11,6 +11,7 @@ import { registerCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { GraphWebviewShowingArgs } from '../../webviews/plus/graph/registration.js';
 import type { WebviewPanelsProxy } from '../../webviews/webviewsController.js';
+import { openWorktreeInNewWindow, showWorktreeInGraph } from './worktreeActions.js';
 
 /** The single showing-args union member used to deliver a passive/manual `show-wip` reveal. */
 type GraphShowWipArgs = NonNullable<GraphWebviewShowingArgs[0]>;
@@ -36,6 +37,15 @@ export class GraphFollowController implements Disposable {
 			),
 			registerCommand('gitlens.graph.followTerminalOff', () =>
 				configuration.updateEffective('graph.followTerminal.enabled', false),
+			),
+			registerCommand('gitlens.graph.showTerminalWorktree', (terminal?: unknown) =>
+				this.onShowTerminalWorktree(terminal),
+			),
+			registerCommand('gitlens.graph.focusTerminalWorktree', (terminal?: unknown) =>
+				this.onFocusTerminalWorktree(terminal),
+			),
+			registerCommand('gitlens.openTerminalWorktreeInNewWindow', (terminal?: unknown) =>
+				this.onOpenTerminalWorktreeInNewWindow(terminal),
 			),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
@@ -165,6 +175,70 @@ export class GraphFollowController implements Disposable {
 		}
 	}
 
+	/** Manual, graph-raising reveal backing `gitlens.graph.showTerminalWorktree`. */
+	private async onShowTerminalWorktree(terminal?: unknown): Promise<void> {
+		const worktreePath = await this.resolveTerminalWorktreePath(terminal);
+		if (worktreePath == null) return;
+
+		void showWorktreeInGraph(this.container, worktreePath, { source: 'terminal' });
+	}
+
+	/** Manual, graph-raising Focus: opens the graph at the terminal's worktree AND scopes it to that
+	 *  worktree's branch. A detached worktree (no branch) just reveals without scoping; `revealOnly`
+	 *  keeps the details panel closed, matching the in-graph Focus commands. */
+	private async onFocusTerminalWorktree(terminal?: unknown): Promise<void> {
+		const worktreePath = await this.resolveTerminalWorktreePath(terminal);
+		if (worktreePath == null) return;
+
+		void showWorktreeInGraph(this.container, worktreePath, { source: 'terminal', focus: true });
+	}
+
+	private async onOpenTerminalWorktreeInNewWindow(terminal?: unknown): Promise<void> {
+		const worktreePath = await this.resolveTerminalWorktreePath(terminal);
+		if (worktreePath == null) return;
+
+		openWorktreeInNewWindow(worktreePath);
+	}
+
+	/** Resolves the terminal-menu command arg to its worktree root, showing an informational message
+	 *  when none is found. The arg is the clicked `Terminal` from `terminal/title/context`, or the
+	 *  clicked tab's `vscode-terminal:` resource from the terminal-editor surfaces — matched back to
+	 *  a terminal by title so the actions target the clicked editor, not just the focused terminal —
+	 *  falling back to the active terminal. */
+	private async resolveTerminalWorktreePath(terminal?: unknown): Promise<string | undefined> {
+		const target = isTerminal(terminal) ? terminal : (findTerminalForResource(terminal) ?? window.activeTerminal);
+		const cwd = target != null ? getTerminalCwd(target) : undefined;
+		const repo =
+			cwd != null
+				? await this.container.git.getOrAddRepository(cwd, { opened: false, detectNested: true })
+				: undefined;
+		if (repo == null) {
+			void window.showInformationMessage('No repository was found for this terminal.');
+			return undefined;
+		}
+
+		return repo.path;
+	}
+}
+
+/** Best-effort mapping of a terminal EDITOR surface's command arg — the clicked tab's
+ *  `vscode-terminal:` resource — back to its `Terminal`. The extension API exposes no terminal
+ *  instance ids (`TabInputTerminal` is an empty marker); the workbench freezes the terminal's
+ *  title into the URI fragment AT CONSTRUCTION, so a UNIQUE match identifies the clicked terminal
+ *  only when it was created with an explicit name that hasn't changed (agent-dispatch and named
+ *  worktree shells — the common case here). Plain shells (empty ctor title), renames, and
+ *  duplicate names return undefined and the caller falls back to the active terminal. */
+function findTerminalForResource(value: unknown): Terminal | undefined {
+	if (!(value instanceof Uri) || value.scheme !== 'vscode-terminal' || !value.fragment) return undefined;
+
+	const matches = window.terminals.filter(t => t.name === value.fragment);
+	return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Duck-types the terminal-menu command arg — `Terminal` is an interface, so `instanceof` isn't
+ *  available; VS Code passes the real `Terminal` instance for `terminal/context`/`terminal/title/context`. */
+function isTerminal(value: unknown): value is Terminal {
+	return value != null && typeof value === 'object' && 'creationOptions' in value && 'processId' in value;
 }
 
 /** Shell integration's reported cwd wins (covers in-terminal `cd`); falls back to the terminal's

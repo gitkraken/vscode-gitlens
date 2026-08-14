@@ -6,6 +6,9 @@ export type ContributedCommands =
 	| ContributedPaletteCommands
 	| ContributedOrphansOrInternalCommands
 	| 'gitlens.addAuthors'
+	| 'gitlens.agents.focusSessionWorktreeInGraph'
+	| 'gitlens.agents.openSessionWorktreeInNewWindow'
+	| 'gitlens.agents.showSessionWorktreeInGraph'
 	| 'gitlens.ai.continueRebase:views'
 	| 'gitlens.ai.explainBranch:graph'
 	| 'gitlens.ai.explainBranch:views'
@@ -190,6 +193,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.deleteTag'
 	| 'gitlens.graph.deleteWorktree'
 	| 'gitlens.graph.dropCommits.multi'
+	| 'gitlens.graph.focusTerminalWorktree'
 	| 'gitlens.graph.followTerminalOff'
 	| 'gitlens.graph.followTerminalOn'
 	| 'gitlens.graph.hideLocalBranch'
@@ -252,6 +256,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.showRemote'
 	| 'gitlens.graph.showRemoteBranch'
 	| 'gitlens.graph.showTag'
+	| 'gitlens.graph.showTerminalWorktree'
 	| 'gitlens.graph.soloBranch'
 	| 'gitlens.graph.soloBranch:views'
 	| 'gitlens.graph.soloTag'
@@ -322,6 +327,7 @@ export type ContributedCommands =
 	| 'gitlens.openSelectedChanges.multi:graphDetails'
 	| 'gitlens.openStagedChanges:commitDetails'
 	| 'gitlens.openStagedChanges:graphDetails'
+	| 'gitlens.openTerminalWorktreeInNewWindow'
 	| 'gitlens.openUnstagedChanges:commitDetails'
 	| 'gitlens.openUnstagedChanges:graphDetails'
 	| 'gitlens.openWorkingFile:editor/context'

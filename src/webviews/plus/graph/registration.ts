@@ -28,6 +28,8 @@ import type {
 	GraphActionTarget,
 	GraphCompareSeed,
 	GraphComposeScopeSeed,
+	GraphScopeBranch,
+	GraphScopeOrigin,
 	GraphShowAction,
 	GraphSidebarPanel,
 	State,
@@ -48,6 +50,8 @@ export type GraphWebviewShowingArgs = [
 			agentSessionId?: string;
 			revealOnly?: boolean;
 			followed?: boolean;
+			scopeBranch?: GraphScopeBranch;
+			scopeOrigin?: GraphScopeOrigin;
 	  }
 	| undefined,
 ];

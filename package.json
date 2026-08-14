@@ -6841,6 +6841,11 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.agents.focusSessionWorktreeInGraph",
+				"title": "Focus in Commit Graph",
+				"icon": "$(target)"
+			},
+			{
 				"command": "gitlens.agents.installHooks",
 				"title": "Install GitKraken Hooks for All AI Agents",
 				"category": "GitLens"
@@ -6854,6 +6859,16 @@
 				"title": "Open AI Agent Session",
 				"category": "GitLens",
 				"icon": "$(robot)"
+			},
+			{
+				"command": "gitlens.agents.openSessionWorktreeInNewWindow",
+				"title": "Open in New Window",
+				"icon": "$(empty-window)"
+			},
+			{
+				"command": "gitlens.agents.showSessionWorktreeInGraph",
+				"title": "Open in Commit Graph",
+				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.agents.switchDefaultAgent",
@@ -8223,6 +8238,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.focusTerminalWorktree",
+				"title": "Focus in Commit Graph",
+				"icon": "$(target)"
+			},
+			{
 				"command": "gitlens.graph.followTerminalOff",
 				"title": "Stop Following Active Terminal",
 				"category": "GitLens",
@@ -8513,6 +8533,11 @@
 			{
 				"command": "gitlens.graph.showTag",
 				"title": "Show Tag"
+			},
+			{
+				"command": "gitlens.graph.showTerminalWorktree",
+				"title": "Open in Commit Graph",
+				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.graph.soloBranch",
@@ -12991,6 +13016,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.agents.focusSessionWorktreeInGraph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.agents.installHooks",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
 				},
@@ -13001,6 +13030,14 @@
 				{
 					"command": "gitlens.agents.openSession",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+				},
+				{
+					"command": "gitlens.agents.openSessionWorktreeInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.agents.showSessionWorktreeInGraph",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.agents.switchDefaultAgent",
@@ -14079,6 +14116,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.focusTerminalWorktree",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.followTerminalOff",
 					"when": "gitlens:enabled && config.gitlens.graph.followTerminal.enabled"
 				},
@@ -14328,6 +14369,10 @@
 				},
 				{
 					"command": "gitlens.graph.showTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.showTerminalWorktree",
 					"when": "false"
 				},
 				{
@@ -14660,6 +14705,10 @@
 				},
 				{
 					"command": "gitlens.openStagedChanges:graphDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openTerminalWorktreeInNewWindow",
 					"when": "false"
 				},
 				{
@@ -17480,6 +17529,16 @@
 			],
 			"editor/title": [
 				{
+					"command": "gitlens.agents.focusSessionWorktreeInGraph",
+					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.agents.showSessionWorktreeInGraph",
+					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+					"group": "navigation@2"
+				},
+				{
 					"command": "gitlens.graph.followTerminalOff",
 					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
 					"group": "1_gitlens_2a_follow@1"
@@ -17490,6 +17549,11 @@
 					"group": "1_gitlens_2a_follow@1"
 				},
 				{
+					"command": "gitlens.timeline.split",
+					"when": "activeWebviewPanelId == gitlens.timeline && resourceScheme == webview-panel && config.gitlens.visualHistory.allowMultiple",
+					"group": "navigation@-97"
+				},
+				{
 					"command": "gitlens.annotations.previousChange",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@-100"
@@ -17497,6 +17561,16 @@
 				{
 					"command": "gitlens.annotations.nextChange",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed:changes\\b/ || (resource in gitlens:tabs:annotated:changes && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.settings.refresh",
+					"when": "activeWebviewPanelId === gitlens.settings",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.timeline.refresh",
+					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
 				},
 				{
@@ -17510,10 +17584,26 @@
 					"group": "navigation@100"
 				},
 				{
+					"command": "gitlens.toggleFileBlame:editor/title",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileHeatmap:editor/title"
+				},
+				{
+					"submenu": "gitlens/editor/annotations",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
+					"group": "navigation@100"
+				},
+				{
 					"command": "gitlens.diffWithPrevious:editor/title",
 					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@97",
 					"alt": "gitlens.diffWithRevision"
+				},
+				{
+					"command": "gitlens.showQuickRevisionDetails:editor/title",
+					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
+					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.diffWithNext:editor/title",
@@ -17531,30 +17621,9 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.settings.refresh",
-					"when": "activeWebviewPanelId === gitlens.settings",
-					"group": "navigation@-99"
-				},
-				{
-					"command": "gitlens.timeline.refresh",
-					"when": "activeWebviewPanelId === gitlens.timeline",
-					"group": "navigation@-99"
-				},
-				{
 					"command": "gitlens.graph.split",
 					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
 					"group": "navigation@-97"
-				},
-				{
-					"command": "gitlens.timeline.split",
-					"when": "activeWebviewPanelId == gitlens.timeline && resourceScheme == webview-panel && config.gitlens.visualHistory.allowMultiple",
-					"group": "navigation@-97"
-				},
-				{
-					"command": "gitlens.toggleFileBlame:editor/title",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
-					"group": "navigation@100",
-					"alt": "gitlens.toggleFileHeatmap:editor/title"
 				},
 				{
 					"command": "gitlens.toggleFileChanges:editor/title",
@@ -17567,16 +17636,6 @@
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
 					"group": "navigation@100",
 					"alt": "gitlens.toggleFileBlame"
-				},
-				{
-					"submenu": "gitlens/editor/annotations",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.showQuickRevisionDetails:editor/title",
-					"when": "resource in gitlens:tabs:tracked && config.gitlens.menus.editorGroup.compare",
-					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -17624,6 +17683,11 @@
 					"group": "navigation@1"
 				},
 				{
+					"command": "gitlens.graph.focusTerminalWorktree",
+					"when": "gitlens:enabled && terminalEditorActive",
+					"group": "navigation@1"
+				},
+				{
 					"command": "gitlens.rebase.continue:editor/title",
 					"when": "resourceFilename == git-rebase-todo",
 					"group": "navigation@1"
@@ -17662,6 +17726,16 @@
 					"command": "gitlens.showSettingsPage!commit-graph",
 					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "1_gitlens_1_settings@1"
+				},
+				{
+					"command": "gitlens.graph.showTerminalWorktree",
+					"when": "gitlens:enabled && terminalEditorActive",
+					"group": "1_gitlens_1_worktree@2"
+				},
+				{
+					"command": "gitlens.openTerminalWorktreeInNewWindow",
+					"when": "gitlens:enabled && terminalEditorActive",
+					"group": "1_gitlens_1_worktree@3"
 				},
 				{
 					"command": "gitlens.graph.switchToEditorLayout",
@@ -17709,6 +17783,26 @@
 				}
 			],
 			"editor/title/context": [
+				{
+					"command": "gitlens.agents.focusSessionWorktreeInGraph",
+					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.focusTerminalWorktree",
+					"when": "gitlens:enabled && terminalEditorActive",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.agents.showSessionWorktreeInGraph",
+					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.agents.openSessionWorktreeInNewWindow",
+					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+					"group": "2_gitlens@3"
+				},
 				{
 					"command": "gitlens.graph.followTerminalOff",
 					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
@@ -17763,6 +17857,16 @@
 					"submenu": "gitlens/editor/history",
 					"when": "resourceScheme in gitlens:schemes:trackable && gitlens:enabled && config.gitlens.menus.editorTab.history",
 					"group": "2_a_gitlens_open_file@1"
+				},
+				{
+					"command": "gitlens.graph.showTerminalWorktree",
+					"when": "gitlens:enabled && terminalEditorActive",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.openTerminalWorktreeInNewWindow",
+					"when": "gitlens:enabled && terminalEditorActive",
+					"group": "2_gitlens@3"
 				}
 			],
 			"explorer/context": [
@@ -20680,6 +20784,23 @@
 					"command": "gitlens.visualizeHistory.repo:scm",
 					"when": "scmProvider == git && gitlens:enabled && !gitlens:plus:disabled && scmProviderRootUri not in gitlens:plus:disallowedRepos && config.gitlens.menus.scmRepository.visualHistory",
 					"group": "2_z_gitlens@5"
+				}
+			],
+			"terminal/title/context": [
+				{
+					"command": "gitlens.graph.focusTerminalWorktree",
+					"when": "gitlens:enabled",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.showTerminalWorktree",
+					"when": "gitlens:enabled",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.openTerminalWorktreeInNewWindow",
+					"when": "gitlens:enabled",
+					"group": "2_gitlens@3"
 				}
 			],
 			"timeline/item/context": [

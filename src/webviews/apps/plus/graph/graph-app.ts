@@ -1843,6 +1843,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
+		// A host-resolved focus (Focus in Commit Graph on a terminal) scopes to the target worktree's
+		// branch once the selection above has landed. CONSTRAINT: `scopeBranch` must cover the target
+		// row — every producer resolves it from the target worktree's OWN current branch, so this
+		// scope can't re-hide the row `unscopeToRevealWip` just revealed. A producer scoping to some
+		// OTHER branch would break that.
+		if (scopeBranch != null) {
+			await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
+				remote: scopeBranch.remote,
+				origin: scopeOrigin,
+			});
+		}
+
 		// `revealOnly` (passive follow deliveries) selects/reveals the row above without opening the
 		// details panel.
 		const detailsAlreadyVisible = this.graphState.details?.visible === true;

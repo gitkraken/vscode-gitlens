@@ -5,6 +5,7 @@ import { arePathsEqual } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import { openWorktreeInNewWindow, showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { registerCommand } from '../system/-webview/command.js';
 import type { GkAgent } from './agentService.js';
@@ -23,7 +24,11 @@ import type {
 	ResumableSessionsResult,
 } from './provider.js';
 import { isActiveAgentPhase } from './provider.js';
-import { isActiveClaudeTab, isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
+import {
+	isActiveClaudeTab,
+	isClaudeExtensionAvailable,
+	tryOpenClaudeSession,
+} from './utils/-webview/claudeExtension.js';
 import {
 	canResumeSession,
 	resumeClaudeSessionInTerminal,
@@ -872,6 +877,15 @@ export class AgentStatusService implements Disposable {
 
 				return this.showResumeSessionPicker(args.worktreePath);
 			}),
+			registerCommand('gitlens.agents.showSessionWorktreeInGraph', (sessionId?: string) =>
+				this.showSessionWorktreeInGraph(sessionId),
+			),
+			registerCommand('gitlens.agents.focusSessionWorktreeInGraph', (sessionId?: string) =>
+				this.focusSessionWorktreeInGraph(sessionId),
+			),
+			registerCommand('gitlens.agents.openSessionWorktreeInNewWindow', (sessionId?: string) =>
+				this.openSessionWorktreeInNewWindow(sessionId),
+			),
 			registerCommand('gitlens.agents.switchDefaultAgent', async () => {
 				const { pickAndSetDefaultAgent } = await import(
 					/* webpackChunkName: "agents" */ '../plus/agents/agentPicker.js'
@@ -993,6 +1007,60 @@ export class AgentStatusService implements Disposable {
 		if (session == null) return;
 
 		await this.dispatchSessionAction(session);
+	}
+
+	/** Opens the Commit Graph at a Claude session's worktree with its WIP row selected, highlighting
+	 *  the session's card in the details panel. Backs the editor-title button and tab context menu
+	 *  on Claude Code conversation tabs. Never prompts. */
+	private showSessionWorktreeInGraph(sessionId?: string): void {
+		const session = this.resolveSessionForCommand(sessionId);
+		if (session?.worktreePath == null) return;
+
+		void showWorktreeInGraph(this.container, session.worktreePath, {
+			source: 'agents',
+			agentSessionId: session.id,
+		});
+	}
+
+	/** Focus counterpart to {@link showSessionWorktreeInGraph}: also scopes the graph to the
+	 *  worktree's branch, keeping the details panel closed to match the in-graph Focus commands. */
+	private focusSessionWorktreeInGraph(sessionId?: string): void {
+		const session = this.resolveSessionForCommand(sessionId);
+		if (session?.worktreePath == null) return;
+
+		void showWorktreeInGraph(this.container, session.worktreePath, {
+			source: 'agents',
+			focus: true,
+			agentSessionId: session.id,
+		});
+	}
+
+	private openSessionWorktreeInNewWindow(sessionId?: string): void {
+		const session = this.resolveSessionForCommand(sessionId);
+		if (session?.worktreePath == null) return;
+
+		openWorktreeInNewWindow(session.worktreePath);
+	}
+
+	/** Shared resolution for the Claude tab worktree commands. `sessionId` is only a real id when a
+	 *  programmatic caller passes a string — tab buttons/menus invoke with VS Code's resource arg (a
+	 *  Uri), which is ignored in favor of the active tab's label (the Claude extension renames each
+	 *  tab to the conversation summary — the only handle it exposes), falling back to the
+	 *  most-recently-active local session. Shows a message instead of prompting when nothing matches. */
+	private resolveSessionForCommand(sessionId?: string): AgentSession | undefined {
+		let session: AgentSession | undefined;
+		if (typeof sessionId === 'string') {
+			session = this.sessions.find(s => s.id === sessionId && s.worktreePath != null);
+		} else {
+			session = this.resolveSessionForActiveClaudeTab({ fallbackToMostRecent: true });
+		}
+
+		if (session?.worktreePath == null) {
+			void window.showInformationMessage('No agent session with an associated worktree was found.');
+			return undefined;
+		}
+
+		return session;
 	}
 
 	/** Resolves the local, worktree-bearing agent session backing the active Claude Code

@@ -228,6 +228,8 @@ import type {
 	GraphRefOptData,
 	GraphRefType,
 	GraphRepository,
+	GraphScopeBranch,
+	GraphScopeOrigin,
 	GraphScrollMarkerTypes,
 	GraphSelectedRows,
 	GraphSelection,
@@ -374,6 +376,8 @@ function hasAction(arg: any): arg is {
 	agentSessionId?: string;
 	revealOnly?: boolean;
 	followed?: boolean;
+	scopeBranch?: GraphScopeBranch;
+	scopeOrigin?: GraphScopeOrigin;
 } {
 	return typeof arg?.action === 'string';
 }
@@ -1127,6 +1131,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				agentSessionId?: string;
 				revealOnly?: boolean;
 				followed?: boolean;
+				scopeBranch?: GraphScopeBranch;
+				scopeOrigin?: GraphScopeOrigin;
 		  }
 		| undefined;
 	private _pendingCompare: DidRequestOpenCompareModeParams | undefined;
@@ -1286,6 +1292,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							agentSessionId: arg.agentSessionId,
 							revealOnly: arg.revealOnly,
 							followed: arg.followed,
+							scopeBranch: arg.scopeBranch,
+							scopeOrigin: arg.scopeOrigin,
 						};
 						deferredForRepoSwitch = true;
 					}
@@ -1321,6 +1329,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					agentSessionId: arg.agentSessionId,
 					revealOnly: arg.revealOnly,
 					followed: arg.followed,
+					scopeBranch: arg.scopeBranch,
+					scopeOrigin: arg.scopeOrigin,
 				};
 			} else if (!deferredForRepoSwitch) {
 				// Select the targeted row in the graph too (mirrors the ref path). The action
@@ -1347,6 +1357,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						agentSessionId: arg.agentSessionId,
 						revealOnly: arg.revealOnly,
 						followed: arg.followed,
+						scopeBranch: arg.scopeBranch,
+						scopeOrigin: arg.scopeOrigin,
 					};
 				}
 				void this.host.notify(DidRequestGraphActionNotification, {
@@ -1357,6 +1369,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					agentSessionId: arg.agentSessionId,
 					revealOnly: arg.revealOnly,
 					followed: arg.followed,
+					scopeBranch: arg.scopeBranch,
+					scopeOrigin: arg.scopeOrigin,
 				});
 			}
 		} else {

@@ -23,6 +23,26 @@
 				]
 			}
 		},
+		"gitlens.agents.focusSessionWorktreeInGraph": {
+			"label": "Focus in Commit Graph",
+			"icon": "$(target)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+						"group": "navigation",
+						"order": 1
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.agents.installHooks": {
 			"label": "Install GitKraken Hooks for All AI Agents",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
@@ -34,6 +54,39 @@
 			"label": "Open AI Agent Session",
 			"icon": "$(robot)",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+		},
+		"gitlens.agents.openSessionWorktreeInNewWindow": {
+			"label": "Open in New Window",
+			"icon": "$(empty-window)",
+			"menus": {
+				"editor/title/context": [
+					{
+						"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+						"group": "2_gitlens",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.agents.showSessionWorktreeInGraph": {
+			"label": "Open in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+						"group": "navigation",
+						"order": 2
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
+						"group": "2_gitlens",
+						"order": 2
+					}
+				]
+			}
 		},
 		"gitlens.agents.switchDefaultAgent": {
 			"label": "Switch Default Agent...",
@@ -3616,6 +3669,33 @@
 				]
 			}
 		},
+		"gitlens.graph.focusTerminalWorktree": {
+			"label": "Focus in Commit Graph",
+			"icon": "$(target)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "gitlens:enabled && terminalEditorActive",
+						"group": "navigation",
+						"order": 1
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "gitlens:enabled && terminalEditorActive",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"terminal/title/context": [
+					{
+						"when": "gitlens:enabled",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.graph.followTerminalOff": {
 			"label": "Stop Following Active Terminal",
 			"icon": "$(terminal)",
@@ -3628,17 +3708,17 @@
 						"order": 1
 					}
 				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.graph && config.gitlens.graph.followTerminal.enabled",
-						"group": "3_gitlens",
-						"order": 1
-					}
-				],
 				"editor/title/context": [
 					{
 						"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.followTerminal.enabled",
 						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph && config.gitlens.graph.followTerminal.enabled",
+						"group": "3_gitlens",
 						"order": 1
 					}
 				]
@@ -3656,17 +3736,17 @@
 						"order": 1
 					}
 				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.graph && !config.gitlens.graph.followTerminal.enabled",
-						"group": "3_gitlens",
-						"order": 1
-					}
-				],
 				"editor/title/context": [
 					{
 						"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && !config.gitlens.graph.followTerminal.enabled",
 						"group": "2_gitlens",
+						"order": 1
+					}
+				],
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph && !config.gitlens.graph.followTerminal.enabled",
+						"group": "3_gitlens",
 						"order": 1
 					}
 				]
@@ -4572,6 +4652,33 @@
 						"when": "webviewItem =~ /gitlens:tag\\b(?=.*?\\b\\+hidden\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 10
+					}
+				]
+			}
+		},
+		"gitlens.graph.showTerminalWorktree": {
+			"label": "Open in Commit Graph",
+			"icon": "$(gitlens-graph)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "gitlens:enabled && terminalEditorActive",
+						"group": "1_gitlens_1_worktree",
+						"order": 2
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "gitlens:enabled && terminalEditorActive",
+						"group": "2_gitlens",
+						"order": 2
+					}
+				],
+				"terminal/title/context": [
+					{
+						"when": "gitlens:enabled",
+						"group": "2_gitlens",
+						"order": 2
 					}
 				]
 			}
@@ -5791,6 +5898,33 @@
 						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "0_gitlens_open",
 						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openTerminalWorktreeInNewWindow": {
+			"label": "Open in New Window",
+			"icon": "$(empty-window)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "gitlens:enabled && terminalEditorActive",
+						"group": "1_gitlens_1_worktree",
+						"order": 3
+					}
+				],
+				"editor/title/context": [
+					{
+						"when": "gitlens:enabled && terminalEditorActive",
+						"group": "2_gitlens",
+						"order": 3
+					}
+				],
+				"terminal/title/context": [
+					{
+						"when": "gitlens:enabled",
+						"group": "2_gitlens",
+						"order": 3
 					}
 				]
 			}
