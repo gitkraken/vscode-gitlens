@@ -9,6 +9,7 @@
 import * as assert from 'node:assert/strict';
 import type { CliGitProvider } from '@gitkraken/core-gitlens/git-cli/cliGitProvider.js';
 import type { Account } from '@gitkraken/core-gitlens/git/models/author.js';
+import type { PullRequestShape } from '@gitkraken/core-gitlens/git/models/pullRequest.js';
 import type { Repository } from '@gitkraken/core-gitlens/git/models/repository.js';
 import type { GitService } from '@gitkraken/core-gitlens/git/service.js';
 import type { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/openaiProvider.js';
@@ -45,6 +46,13 @@ type DocumentedCoreExports = [
 ];
 const documentedCoreExportsTypeChecks: DocumentedCoreExports | undefined = undefined;
 void documentedCoreExportsTypeChecks;
+
+// Kepler consumes this projection from the packaged manager declaration. Keep the
+// reviewed commit reachable without a cast through the flattened Core package.
+function reviewedCommitOids(pr: PullRequestShape): (string | undefined)[] {
+	return pr.latestReviews?.map(review => review.commitOid) ?? [];
+}
+void reviewedCommitOids;
 
 const internalContextStaysPrivate:
 	// @ts-expect-error The extension-host context is deliberately not exported by the consumer facade.

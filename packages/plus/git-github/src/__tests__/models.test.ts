@@ -1,11 +1,12 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../api/config.js';
 import { GitHubApi } from '../api/github.js';
 import type { GitHubTokenInfo } from '../api/token.js';
-import type { GitHubIssue, GitHubPullRequestLite } from '../models.js';
-import { fromGitHubIssue, fromGitHubPullRequestLite } from '../models.js';
+import type { GitHubIssue, GitHubPullRequest, GitHubPullRequestLite } from '../models.js';
+import { fromGitHubIssue, fromGitHubPullRequest, fromGitHubPullRequestLite } from '../models.js';
 
 /**
  * GitHub's GraphQL `Issue.author` is an `Actor` and is nullable — it comes back `null` once the
@@ -167,6 +168,126 @@ suite('fromGitHubPullRequestLite stack mapping', () => {
 		);
 
 		assert.equal(pr.stack, undefined);
+	});
+});
+
+suite('fromGitHubPullRequest review projection', () => {
+	function createPullRequest(
+		latestReviews: GitHubPullRequest['latestReviews']['nodes'],
+		viewerLatestReview: GitHubPullRequest['viewerLatestReview'],
+	): GitHubPullRequest {
+		const repository = {
+			isFork: false,
+			name: 'vscode-gitlens',
+			owner: { login: 'gitkraken' },
+			sshUrl: 'git@github.com:gitkraken/vscode-gitlens.git',
+			url: 'https://github.com/gitkraken/vscode-gitlens',
+		};
+
+		return {
+			id: 'pr-1',
+			number: 1,
+			title: 'PR 1',
+			url: 'https://github.com/gitkraken/vscode-gitlens/pull/1',
+			permalink: 'https://github.com/gitkraken/vscode-gitlens/pull/1',
+			state: 'OPEN',
+			createdAt: '2026-01-01T00:00:00Z',
+			updatedAt: '2026-01-02T00:00:00Z',
+			closed: false,
+			closedAt: null,
+			mergedAt: null,
+			author: member,
+			body: null,
+			baseRefName: 'main',
+			baseRefOid: 'base-sha',
+			headRefName: 'feature',
+			headRefOid: 'head-sha',
+			headRepository: repository,
+			repository: { ...repository, viewerPermission: 'WRITE' },
+			isCrossRepository: false,
+			isDraft: false,
+			additions: 1,
+			deletions: 0,
+			assignees: { nodes: [] },
+			checksUrl: 'https://github.com/gitkraken/vscode-gitlens/pull/1/checks',
+			mergeable: 'MERGEABLE',
+			reviewDecision: 'REVIEW_REQUIRED',
+			latestReviews: { nodes: latestReviews },
+			viewerLatestReview: viewerLatestReview,
+			reviewRequests: { nodes: [] },
+			commits: { nodes: [] },
+			totalCommentsCount: 0,
+			viewerCanUpdate: true,
+		};
+	}
+
+	const otherReview = {
+		id: 'review-other',
+		author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
+		state: 'COMMENTED' as const,
+		commit: { oid: 'other-sha' },
+	};
+
+	test('appends the viewer review when it falls outside the capped window, with its commit oid', () => {
+		const pr = fromGitHubPullRequest(
+			createPullRequest([otherReview], {
+				id: 'review-viewer',
+				author: member,
+				state: 'APPROVED',
+				commit: { oid: 'viewer-sha' },
+			}),
+			provider,
+		);
+
+		assert.equal(pr.latestReviews?.length, 2);
+		const viewer = pr.latestReviews?.find(r => r.reviewer.name === 'eamodio');
+		assert.equal(viewer?.state, PullRequestReviewState.Approved);
+		assert.equal(viewer?.commitOid, 'viewer-sha', 'the oid the review was submitted against survives');
+	});
+
+	test('does not duplicate the viewer review when it is already inside the window', () => {
+		const viewerReview = {
+			id: 'review-viewer',
+			author: member,
+			state: 'CHANGES_REQUESTED' as const,
+			commit: { oid: 'viewer-sha' },
+		};
+
+		const pr = fromGitHubPullRequest(createPullRequest([otherReview, viewerReview], viewerReview), provider);
+
+		assert.equal(pr.latestReviews?.length, 2, 'the same review id must not appear twice');
+		assert.equal(
+			pr.latestReviews?.filter(r => r.reviewer.name === 'eamodio').length,
+			1,
+			'one row per reviewer, not one per selection it arrived in',
+		);
+	});
+
+	test('drops an unsubmitted viewer draft rather than reporting it as a submitted review', () => {
+		// GitHub exposes a PENDING (unsubmitted) review only to its own author, and only through
+		// `viewerLatestReview` — appending it would tell a "needs my review" consumer the review is done.
+		const pr = fromGitHubPullRequest(
+			createPullRequest([otherReview], {
+				id: 'review-draft',
+				author: member,
+				state: 'PENDING',
+				commit: { oid: 'draft-sha' },
+			}),
+			provider,
+		);
+
+		assert.equal(pr.latestReviews?.length, 1);
+		assert.equal(pr.latestReviews?.[0]?.reviewer.name, 'octo');
+	});
+
+	test('keeps a submitted viewer review that supersedes nothing when the window is empty', () => {
+		const pr = fromGitHubPullRequest(
+			createPullRequest([], { id: 'review-viewer', author: member, state: 'APPROVED', commit: null }),
+			provider,
+		);
+
+		assert.equal(pr.latestReviews?.length, 1);
+		assert.equal(pr.latestReviews?.[0]?.commitOid, undefined, 'a review without a commit maps to no oid');
 	});
 });
 

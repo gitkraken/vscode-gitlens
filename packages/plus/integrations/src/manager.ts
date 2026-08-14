@@ -161,6 +161,22 @@ type PullRequestSweepCommonOptions = {
 	 * This extends the provider-native result; it is not a narrowing filter.
 	 */
 	includeReviewRequested?: boolean;
+	/**
+	 * Account-wide only: fetch the full PR projection (review decision, review requests, latest reviews)
+	 * instead of the default summary/lite one. Opt-in because it enlarges every account-wide page; callers
+	 * that classify by review state (e.g. a "needs my review" surface) set it, others keep the lean read.
+	 *
+	 * GitHub/GHE only today — no other provider's account-wide read has a projection switch, so they return
+	 * their native shape regardless. A cross-provider sweep therefore gets reviews from GitHub targets and
+	 * whatever the others natively carry; it is a breadth request, not a guarantee, so it does not refuse
+	 * (unlike `filters`, where dropping a member would change the requested set).
+	 *
+	 * Projection only: it cannot change which pull requests come back. Every GitHub account-wide read goes through
+	 * the same search whether or not it is set, so the Launchpad ignored-repository and organization qualifiers
+	 * (and the per-facet result ceiling) apply the same either way. What it costs is the reduced page size, and a
+	 * document whose weight scales with the number of relationship × state facets in flight.
+	 */
+	includeReviews?: boolean;
 	forceSync?: boolean;
 	maxPages?: number;
 	/**

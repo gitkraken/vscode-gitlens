@@ -21,6 +21,9 @@ node_modules
 images/settings
 custom-elements.json
 gitlens-*.vsix
+# `npm pack` output. `packages/core/.gitignore` already covers the package dir, but a tarball moved to the
+# repo root for a hand-off build would otherwise be tracked (each is ~2 MB and permanent in history).
+*.tgz
 product.json
 tsconfig*.tsbuildinfo
 *.code-workspace

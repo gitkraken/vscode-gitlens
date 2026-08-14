@@ -42,26 +42,22 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
-import entityIdentifiersModule from '@gitkraken/provider-apis/entity-identifiers';
-import providerUtilsModule from '@gitkraken/provider-apis/provider-utils';
+import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
+import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
-import type { IssueMember, IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
-	PullRequestMember,
 	PullRequestRef,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
-	PullRequestReviewer,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
-	PullRequestReviewDecision,
-	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider, ProviderReference } from '@gitlens/git/models/remoteProvider.js';
@@ -99,6 +95,7 @@ export type {
 import type { ProviderRepositoryShape } from '../results.js';
 
 export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
+import { fromProviderAccount, toProviderAccount } from './accounts.js';
 import {
 	azureAccountWideIssueSorts,
 	azureIssueSorts,
@@ -110,6 +107,15 @@ import {
 	linearIssueSorts,
 	trelloIssueSorts,
 } from './issueSorts.js';
+import type { ProviderPullRequestReview, ProviderPullRequestReviews } from './pullRequestReviews.js';
+import {
+	fromPullRequestReviewDecision,
+	providerPullRequestReviewStateDismissed,
+	toCompletedReviews,
+	toProviderReviewDecision,
+	toProviderReviews,
+	toReviewRequests,
+} from './pullRequestReviews.js';
 import { getEntityIdentifierInput } from './utils.js';
 
 type GitBuildStatusState = GitBuildStatusStateType;
@@ -117,9 +123,6 @@ type GitIssueState = GitIssueStateType;
 type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
-
-const { EntityIdentifierUtils } = entityIdentifiersModule;
-const { GitProviderUtils } = providerUtilsModule;
 
 // Local runtime copies of the `@gitkraken/provider-apis` string enums. Duplicated (not imported as
 // values) because the SDK ships as CJS whose named enum exports can't be statically imported as ESM
@@ -199,7 +202,7 @@ export function isRepoIdsInput(input: unknown): input is (string | number)[] {
 	);
 }
 
-export type ProviderPullRequest = GitPullRequest;
+export type ProviderPullRequest = Omit<GitPullRequest, 'reviews'> & { reviews: ProviderPullRequestReviews };
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
@@ -884,6 +887,7 @@ const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
 		PullRequestFilter.Author,
 		PullRequestFilter.Assignee,
 		PullRequestFilter.ReviewRequested,
+		PullRequestFilter.Reviewed,
 		PullRequestFilter.Mention,
 	],
 	states: ['open', 'closed', 'merged', 'all'],
@@ -918,6 +922,7 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedPullRequestSearch: githubPullRequestSearchCapabilities,
@@ -954,6 +959,7 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedPullRequestSearch: githubPullRequestSearchCapabilities,
@@ -1374,22 +1380,6 @@ function toStatusCheckRollupState(
 	return rollup;
 }
 
-export const toProviderPullRequestReviewState = {
-	[PullRequestReviewState.Approved]: GitPullRequestReviewState.Approved,
-	[PullRequestReviewState.ChangesRequested]: GitPullRequestReviewState.ChangesRequested,
-	[PullRequestReviewState.Commented]: GitPullRequestReviewState.Commented,
-	[PullRequestReviewState.ReviewRequested]: GitPullRequestReviewState.ReviewRequested,
-	[PullRequestReviewState.Dismissed]: null,
-	[PullRequestReviewState.Pending]: null,
-};
-
-export const fromProviderPullRequestReviewState = {
-	[GitPullRequestReviewState.Approved]: PullRequestReviewState.Approved,
-	[GitPullRequestReviewState.ChangesRequested]: PullRequestReviewState.ChangesRequested,
-	[GitPullRequestReviewState.Commented]: PullRequestReviewState.Commented,
-	[GitPullRequestReviewState.ReviewRequested]: PullRequestReviewState.ReviewRequested,
-};
-
 export const toProviderPullRequestMergeableState = {
 	[PullRequestMergeableState.Mergeable]: GitPullRequestMergeableState.Mergeable,
 	[PullRequestMergeableState.Conflicting]: GitPullRequestMergeableState.Conflicts,
@@ -1407,68 +1397,6 @@ export const fromProviderPullRequestMergeableState = {
 	[GitPullRequestMergeableState.Behind]: PullRequestMergeableState.Unknown,
 	[GitPullRequestMergeableState.UnknownAndBlocked]: PullRequestMergeableState.Unknown,
 	[GitPullRequestMergeableState.Unstable]: PullRequestMergeableState.Unknown,
-};
-
-export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPullRequest['reviews'] {
-	return reviewers
-		.filter(r => r.state !== PullRequestReviewState.Dismissed && r.state !== PullRequestReviewState.Pending)
-		.map(reviewer => ({
-			reviewer: toProviderAccount(reviewer.reviewer),
-			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
-		}));
-}
-
-export function toReviewRequests(reviews: ProviderPullRequest['reviews']): PullRequestReviewer[] | undefined {
-	return reviews == null
-		? undefined
-		: reviews
-				?.filter(r => r.state === GitPullRequestReviewState.ReviewRequested)
-				.map(r => ({
-					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
-					reviewer: fromProviderAccount(r.reviewer),
-					state: PullRequestReviewState.ReviewRequested,
-				}));
-}
-
-export function toCompletedReviews(reviews: ProviderPullRequest['reviews']): PullRequestReviewer[] | undefined {
-	return reviews == null
-		? undefined
-		: reviews
-				?.filter(r => r.state !== GitPullRequestReviewState.ReviewRequested)
-				.map(r => ({
-					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
-					reviewer: fromProviderAccount(r.reviewer),
-					state: fromProviderPullRequestReviewState[r.state],
-				}));
-}
-
-export function toProviderReviewDecision(
-	reviewDecision?: PullRequestReviewDecision,
-	reviewers?: PullRequestReviewer[],
-): GitPullRequestReviewState | null {
-	switch (reviewDecision) {
-		case PullRequestReviewDecision.Approved:
-			return GitPullRequestReviewState.Approved;
-		case PullRequestReviewDecision.ChangesRequested:
-			return GitPullRequestReviewState.ChangesRequested;
-		case PullRequestReviewDecision.ReviewRequired:
-			return GitPullRequestReviewState.ReviewRequested;
-		default: {
-			if (reviewers?.some(r => r.state === PullRequestReviewState.ReviewRequested)) {
-				return GitPullRequestReviewState.ReviewRequested;
-			} else if (reviewers?.some(r => r.state === PullRequestReviewState.Commented)) {
-				return GitPullRequestReviewState.Commented;
-			}
-			return null;
-		}
-	}
-}
-
-export const fromPullRequestReviewDecision = {
-	[GitPullRequestReviewState.Approved]: PullRequestReviewDecision.Approved,
-	[GitPullRequestReviewState.ChangesRequested]: PullRequestReviewDecision.ChangesRequested,
-	[GitPullRequestReviewState.Commented]: undefined,
-	[GitPullRequestReviewState.ReviewRequested]: PullRequestReviewDecision.ReviewRequired,
 };
 
 export function toProviderPullRequestState(state: PullRequestState): GitPullRequestState {
@@ -1595,7 +1523,11 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						name: pr.refs.head.branch,
 						oid: pr.refs.head.sha,
 					},
-		reviews: toProviderReviews(prReviews),
+		// `null` when the source carried no review data at all, rather than the empty array a lite read would
+		// otherwise produce: `toCompletedReviews`/`toReviewRequests` map `null` back to `undefined`, which is what
+		// lets a consumer tell "nobody has reviewed this" from "this read never fetched reviews" (see
+		// `PullRequestShape.latestReviews`). An empty array from a full projection stays an empty array.
+		reviews: pr.reviewRequests == null && pr.latestReviews == null ? null : toProviderReviews(prReviews),
 		reviewDecision: toProviderReviewDecision(pr.reviewDecision, prReviews),
 		repository:
 			pr.repository != null
@@ -1795,50 +1727,31 @@ export function fromProviderIssue(
 }
 
 export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
+	const { reviews, ...providerPr } = toProviderPullRequest(pr);
 	return {
-		...toProviderPullRequest(pr),
+		...providerPr,
+		// The SDK boundary: `getActionablePullRequests` categorizes by review state and only knows
+		// provider-apis' own vocabulary, so the locally-added dismissed state is dropped here rather than
+		// handed over as a value it would fall through on. Our own projection keeps it — see
+		// `providerPullRequestReviewStateDismissed`. `commitOid` rides along on the surviving reviews: it is an
+		// extra property the SDK ignores, not a value it could misread.
+		reviews:
+			reviews?.filter(
+				(r): r is ProviderPullRequestReview & { state: GitPullRequestReviewState } =>
+					r.state !== providerPullRequestReviewStateDismissed,
+			) ?? null,
 		uuid: EntityIdentifierUtils.encode(getEntityIdentifierInput(pr)),
-	};
-}
-
-export function toProviderAccount(account: PullRequestMember | IssueMember): ProviderAccount {
-	return {
-		// Stays the provider id because the categorizer matches the viewer to a pull request's people by `id`,
-		// and every provider but GitHub already agrees on that namespace. Re-keying to the login breaks Azure,
-		// whose account `username` is a display name while its members' is a UPN — different namespaces.
-		id: account.id ?? null,
-		avatarUrl: account.avatarUrl ?? null,
-		name: account.name ?? null,
-		url: account.url ?? null,
-		// TODO: Implement these in our own model
-		email: '',
-		username: account.name ?? null,
-	};
-}
-
-export function fromProviderAccount(account: ProviderAccount | null): PullRequestMember | IssueMember {
-	return {
-		id: account?.id ?? '',
-		// An absent name stays absent. `'unknown'` was a display fallback invented in the provider layer, and a
-		// consumer couldn't tell it apart from a member genuinely named that — so it couldn't be undone where a
-		// name-shaped placeholder is wrong (rendering an avatar-only chip, or building an AI prompt, where
-		// `Assignees: unknown` reads as a real assignee). It also disagreed with {@link toIssueShape}, which
-		// collapsed the same absent name to `''` — same facade method, two fallbacks. Both now emit `undefined`.
-		name: account?.name ?? undefined,
-		username: account?.username ?? undefined,
-		avatarUrl: account?.avatarUrl ?? undefined,
-		// `url` is optional, so an absent one must be `undefined`, not `''`. `''` passes a `!= null` presence
-		// check and renders as a link to nowhere, and it disagreed with {@link toIssueShape} — which already
-		// collapses to `undefined` — even though BOTH mappers feed `listIssuesPage` (the repo-scoped path goes
-		// through `toIssueShape`, Azure's account-wide path through {@link fromProviderIssue}). Same facade
-		// method, two shapes. Matches {@link toProviderRepositoryShape}, which collapses every absent optional.
-		url: account?.url ?? undefined,
 	};
 }
 
 export type ProviderActionablePullRequest = ActionablePullRequest;
 
-export type EnrichablePullRequest = ProviderPullRequest & {
+/**
+ * Built on the SDK's `GitPullRequest`, NOT the local {@link ProviderPullRequest} widening: this is handed to
+ * `getActionablePullRequests`, which categorizes by review state and only knows provider-apis' vocabulary.
+ * {@link toProviderPullRequestWithUniqueId} is what narrows `reviews` down to it.
+ */
+export type EnrichablePullRequest = GitPullRequest & {
 	uuid: string;
 	type: 'pullrequest';
 	provider: ProviderReference;

@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '../models/issue.js';
 import type { PullRequest } from '../models/pullRequest.js';
+import { PullRequestReviewState } from '../models/pullRequest.js';
 import { serializeIssue } from '../utils/issue.utils.js';
 import { serializePullRequest } from '../utils/pullRequest.utils.js';
 
@@ -32,12 +33,20 @@ suite('provider model serialization', () => {
 			updatedDate: now,
 			closed: false,
 			authoredByMe: true,
+			latestReviews: [
+				{
+					reviewer: { id: 'reviewer-1', name: 'Reviewer' },
+					state: PullRequestReviewState.Approved,
+					commitOid: 'reviewed-head',
+				},
+			],
 		};
 
 		const serialized = serializePullRequest(pullRequest);
 
 		assert.equal(serialized.number, 42);
 		assert.equal(serialized.authoredByMe, true);
+		assert.deepEqual(serialized.latestReviews, pullRequest.latestReviews);
 	});
 
 	test('preserves an issue provider type', () => {

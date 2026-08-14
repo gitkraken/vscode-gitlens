@@ -27,6 +27,15 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly mergeableState?: PullRequestMergeableState;
 	readonly reviewDecision?: PullRequestReviewDecision;
 	readonly reviewRequests?: PullRequestReviewer[];
+	/**
+	 * Reviews already submitted, as opposed to the still-pending {@link reviewRequests}. Absent means the read
+	 * didn't fetch reviews; empty means nobody has reviewed. Those are different answers and neither substitutes
+	 * for the other, so which one you get is provider- and read-dependent: GitHub/GHE carry reviews on the
+	 * repo-scoped read and the filtered search, and on the account-wide read only where `includeReviews` opts
+	 * into the full projection, while GitLab never populates the field at all.
+	 * {@link PullRequestReviewer.commitOid} is the narrower promise: only the full GitHub/GHE projection has it.
+	 */
+	readonly latestReviews?: PullRequestReviewer[];
 	readonly assignees?: PullRequestMember[];
 	readonly project?: IssueProject;
 	readonly stack?: PullRequestStackInfo;
@@ -166,6 +175,14 @@ export enum PullRequestFilter {
 	Author = 'author',
 	Assignee = 'assignee',
 	ReviewRequested = 'review-requested',
+	/**
+	 * PRs the user has already reviewed (GitHub `reviewed-by:@me`), as opposed to `ReviewRequested` (a
+	 * still-pending request). Distinguishes "waiting on the author after my review" from "waiting for my
+	 * review". Not expressible on the repo-scoped listing — no provider SDK exposes a reviewed-by axis there —
+	 * so it is advertised for the account-wide read and for the filtered search (which can still bound itself
+	 * to repositories or an org), never under `supportedPullRequestFilters`.
+	 */
+	Reviewed = 'reviewed-by',
 	Mention = 'mention',
 }
 
@@ -318,6 +335,14 @@ export interface PullRequestReviewer {
 	isCodeOwner?: boolean;
 	reviewer: PullRequestMember;
 	state: PullRequestReviewState;
+	/**
+	 * The head commit oid this review was submitted against (GitHub). Lets a consumer tell "the PR moved past
+	 * my review" (oid !== the PR's current head) from a review still at the tip — without a per-review
+	 * timestamp. Only populated where the full GitHub/GHE projection is selected: the filtered search read, and
+	 * an account-wide sweep that opts in with `includeReviews`. Undefined elsewhere, including reviews the
+	 * repo-scoped read carries natively.
+	 */
+	commitOid?: string;
 }
 
 export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<
