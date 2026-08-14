@@ -27,9 +27,11 @@ async function buildTests(target) {
 		entryNames: '[dir]/[name]',
 		external: ['vscode'],
 		format: 'cjs',
-		logLevel: 'info',
+		logLevel: 'warning',
 		logOverride: {
 			'duplicate-case': 'silent',
+			// Benchmark entry points are optional; an empty glob is expected when the repo has none.
+			'empty-glob': 'silent',
 		},
 		mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 		metafile: false,
@@ -84,12 +86,15 @@ async function buildTests(target) {
 		const ctx = await esbuild.context(config);
 		await ctx.watch();
 	} else {
-		await esbuild.build(config);
+		const result = await esbuild.build(config);
+		if (result.warnings.length !== 0) {
+			throw new Error(`esbuild emitted ${result.warnings.length} warning(s)`);
+		}
 	}
 }
 
 try {
-	await Promise.allSettled([buildTests('node')]);
+	await buildTests('node');
 } catch (ex) {
 	console.error(ex);
 	process.exit(1);

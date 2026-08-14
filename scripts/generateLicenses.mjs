@@ -9,7 +9,7 @@ import { getBundledPackageDirs } from './workspace.mjs';
 /**
  * @param { { [key: string]: PackageInfo } } packages
  */
-async function generateThirdpartyNotices(packages) {
+function generateThirdpartyNotices(packages) {
 	/**
 	 *	@type [string, PackageInfo][]
 	 */
@@ -19,7 +19,7 @@ async function generateThirdpartyNotices(packages) {
 			{
 				licenses: 'MIT',
 				repository: 'https://github.com/microsoft/vscode',
-				licenseFile: 'https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/LICENSE.txt',
+				licenseFile: path.join(process.cwd(), 'scripts', 'licenses', 'vscode.txt'),
 			},
 		],
 	];
@@ -45,18 +45,7 @@ async function generateThirdpartyNotices(packages) {
 		if (name === 'gitlens' || name.startsWith('@gitkraken') || name.startsWith('@gitlens/')) continue;
 		if (data.licenseFile == null) continue;
 
-		let license;
-		if (data.licenseFile.startsWith('https://')) {
-			const response = await fetch(data.licenseFile, { method: 'GET' });
-			// Without this, an error page's body is embedded verbatim as the licence text.
-			if (!response.ok) {
-				throw new Error(`Failed to fetch ${data.licenseFile}: ${response.status} ${response.statusText}`);
-			}
-			license = await response.text();
-		} else {
-			license = fs.readFileSync(data.licenseFile, 'utf8');
-		}
-		license = license.replace(/\r\n/g, '\n');
+		const license = fs.readFileSync(data.licenseFile, 'utf8').replace(/\r\n/g, '\n');
 
 		packageOutputs.push(`${++count}. ${name}${version ? ` version ${version}` : ''} (${data.repository})`);
 		licenseOutputs.push(
@@ -101,7 +90,7 @@ async function generate() {
 		Object.assign(packages, result.value);
 	}
 
-	await generateThirdpartyNotices(packages);
+	generateThirdpartyNotices(packages);
 }
 
 void generate();

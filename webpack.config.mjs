@@ -40,6 +40,18 @@ if (useNpm) {
 
 const pkgMgr = useNpm ? 'npm' : 'pnpm';
 
+// webpack-require-from is inherited by HtmlWebpackPlugin's build-time-only child compiler, where
+// HtmlWebpackPlugin deliberately assigns its own public path. Keep the runtime patch on emitted
+// webview bundles only so template evaluation doesn't report a false public-path override warning.
+class WebviewPublicPathPlugin extends WebpackRequireFromPlugin {
+	/** @param {import('webpack').Compilation} compilation */
+	compilationHook(compilation) {
+		if (compilation.compiler.parentCompilation != null) return;
+
+		super.compilationHook(compilation);
+	}
+}
+
 /** @typedef {'production' | 'development' | 'none'} GlMode */
 /** @typedef { 'node' | 'webworker' } GlTarget */
 
@@ -169,7 +181,7 @@ function getCommonConfig(mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [];
-	if (!env.quick && mode !== 'production') {
+	if (!env.quick) {
 		plugins.push(new DocsPlugin());
 	}
 
@@ -182,13 +194,13 @@ function getCommonConfig(mode, env) {
 					mode !== 'production'
 						? undefined
 						: () =>
-								spawnSync(pkgMgr, ['run', 'icons:svgo'], {
+								spawnSync(`${pkgMgr} run icons:svgo`, {
 									cwd: __dirname,
 									encoding: 'utf8',
 									shell: true,
 								}),
 				onComplete: () =>
-					spawnSync(pkgMgr, ['run', 'icons:apply'], { cwd: __dirname, encoding: 'utf8', shell: true }),
+					spawnSync(`${pkgMgr} run icons:apply`, { cwd: __dirname, encoding: 'utf8', shell: true }),
 			}),
 		);
 	}
@@ -296,6 +308,9 @@ function getExtensionConfig(target, mode, env) {
 		mode: mode,
 		target: target,
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
+		// Webpack's 244 KiB default assumes a conventional web page. Keep a realistic extension
+		// budget so a material bundle-size regression still becomes a warning (and fails one-shot builds).
+		performance: { maxAssetSize: 4 * 1024 * 1024, maxEntrypointSize: 4 * 1024 * 1024 },
 		output: {
 			chunkFilename: '[name].js',
 			filename: pathData => (pathData.chunk?.name === 'extension' ? 'gitlens.js' : '[name].js'),
@@ -580,7 +595,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			DEBUG: debug || mode === 'development',
 			'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : 'development'),
 		}),
-		new WebpackRequireFromPlugin({ variableName: 'webpackResourceBasePath' }),
+		new WebviewPublicPathPlugin({ variableName: 'webpackResourceBasePath' }),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
 		...Object.entries(webviews).map(([name, config]) => getHtmlPlugin(name, Boolean(config.plus), mode, env)),
 		getCspHtmlPlugin(mode, env),
@@ -640,6 +655,9 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		mode: mode,
 		target: 'web',
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
+		// Webviews are application surfaces rather than 244 KiB landing pages. Preserve a concrete
+		// budget so webpack reports—and the build rejects—future bundles that cross it.
+		performance: { maxAssetSize: 3 * 1024 * 1024, maxEntrypointSize: 3 * 1024 * 1024 },
 		output: {
 			chunkFilename: '[name].js',
 			filename: '[name].js',
@@ -693,6 +711,11 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		},
 		module: {
 			rules: [
+				{
+					test: /\.html$/,
+					loader: 'html-loader',
+					options: { minimize: false, sources: false },
+				},
 				{
 					test: /\.m?js/,
 					resolve: { fullySpecified: false },
@@ -892,7 +915,7 @@ const schema = {
 
 class FileGeneratorPlugin {
 	/**
-	 * @param {{pluginName: string; pathsToWatch: string[]; command: { name: string; command: string; args: string[] }; strings?: { starting: string; completed: string } }} config
+	 * @param {{pluginName: string; pathsToWatch: string[]; command: { name: string; command: string; args: string[] }; outputs?: string[]; cache?: boolean; strings?: { starting: string; completed: string } }} config
 	 */
 	constructor(config) {
 		this.pluginName = config.pluginName;
@@ -904,47 +927,64 @@ class FileGeneratorPlugin {
 		// When `outputs` are declared, persist an input content-hash across builds/processes so the
 		// generator's `spawnSync` is skipped when inputs are unchanged and outputs still exist —
 		// otherwise every one-shot build (and each split process) regenerates. Keyed by command args
-		// (pluginName alone collides, e.g. the contributions pair). Cyclic generators omit `outputs`
-		// (they mutually write each other's inputs, so content-hash convergence must be verified first).
-		this.cacheFile = this.outputs.length
-			? path.join(
-					__dirname,
-					'.codegen-cache',
-					`${this.pluginName}-${createHash('sha1').update(this.command.args.join(' ')).digest('hex').slice(0, 8)}.json`,
-				)
-			: undefined;
+		// (pluginName alone collides, e.g. the contributions pair). Generators with transitive inputs
+		// that can't be enumerated can disable the persisted cache while retaining watch invalidation.
+		this.cacheFile =
+			config.cache !== false && this.outputs.length
+				? path.join(
+						__dirname,
+						'.codegen-cache',
+						`${this.pluginName}-${createHash('sha1').update(this.command.args.join(' ')).digest('hex').slice(0, 8)}.json`,
+					)
+				: undefined;
 	}
 
-	/** @private Content hash of all watched inputs (stable across mtime-only churn, e.g. git checkout). */
-	inputsHash() {
+	/**
+	 * @private Content hash of the paths and contents (stable across mtime-only churn, e.g. git checkout).
+	 * @param {string[]} paths
+	 */
+	filesHash(paths) {
 		const hash = createHash('sha1');
-		for (const p of this.pathsToWatch) {
+		for (const p of paths) {
+			hash.update(p);
+			hash.update('\0');
 			try {
 				hash.update(fs.readFileSync(p));
 			} catch {
 				hash.update('\0');
 			}
+			hash.update('\0');
 		}
 		return hash.digest('hex');
 	}
 
-	/** @private Skip when the persisted input-hash matches AND every declared output still exists. */
+	/** @private Skip only when both the inputs and generated output contents still match. */
 	persistedSkip() {
 		if (!this.cacheFile) return false;
 		if (this.outputs.some(o => !fs.existsSync(o))) return false;
 		try {
-			return JSON.parse(fs.readFileSync(this.cacheFile, 'utf8')).hash === this.inputsHash();
+			const cached = JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'));
+			return (
+				cached.inputsHash === this.filesHash(this.pathsToWatch) &&
+				cached.outputsHash === this.filesHash(this.outputs)
+			);
 		} catch {
 			return false;
 		}
 	}
 
-	/** @private Persist the current input-hash after a successful generation. */
+	/** @private Persist the current input and output hashes after a successful generation. */
 	recordRun() {
 		if (!this.cacheFile) return;
 		try {
 			fs.mkdirSync(path.dirname(this.cacheFile), { recursive: true });
-			fs.writeFileSync(this.cacheFile, JSON.stringify({ hash: this.inputsHash() }));
+			fs.writeFileSync(
+				this.cacheFile,
+				JSON.stringify({
+					inputsHash: this.filesHash(this.pathsToWatch),
+					outputsHash: this.filesHash(this.outputs),
+				}),
+			);
 		} catch {}
 	}
 
@@ -980,7 +1020,6 @@ class FileGeneratorPlugin {
 
 		// Run generation when needed
 		compiler.hooks.make.tapAsync(this.pluginName, async (compilation, callback) => {
-			const logger = compiler.getInfrastructureLogger(this.pluginName);
 			try {
 				// Skip across builds/processes when inputs are unchanged and outputs exist (persisted).
 				if (this.persistedSkip()) {
@@ -988,7 +1027,8 @@ class FileGeneratorPlugin {
 					return;
 				}
 
-				const changed = this.pathsChanged(this.pathsToWatch);
+				const outputMissing = this.outputs.some(output => !fs.existsSync(output));
+				const changed = this.lastModified === 0 || outputMissing || this.pathsChanged(this.pathsToWatch);
 				// Only regenerate if the file has changed since last time
 				if (!changed) {
 					callback();
@@ -1004,30 +1044,49 @@ class FileGeneratorPlugin {
 				pendingGeneration = true;
 
 				try {
+					const logger = compiler.getInfrastructureLogger(this.pluginName);
 					logger.log(`${this.strings.starting} ${this.command.name}...`);
 					const start = Date.now();
 
-					const result = spawnSync(this.command.command, this.command.args, {
+					const result = spawnSync(`${this.command.command} ${this.command.args.join(' ')}`, {
 						cwd: __dirname,
 						encoding: 'utf8',
 						shell: true,
 					});
 
 					if (result.status === 0) {
+						const missingOutputs = this.outputs.filter(output => !fs.existsSync(output));
+						if (missingOutputs.length !== 0) {
+							callback(
+								new WebpackError(
+									`[${this.pluginName}] Generated ${this.command.name} without producing: ${missingOutputs.join(', ')}`,
+								),
+							);
+							return;
+						}
+
 						this.lastModified = Date.now();
 						this.recordRun();
 						logger.log(
 							`${this.strings.completed} ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`,
 						);
 					} else {
-						logger.error(`[${this.pluginName}] Failed to run ${this.command.name}: ${result.stderr}`);
+						const detail = (result.stderr || result.stdout || result.error?.message || '').trim();
+						callback(
+							new WebpackError(
+								`[${this.pluginName}] Failed to run ${this.command.name}${
+									detail ? `: ${detail}` : ` (exit ${result.status})`
+								}`,
+							),
+						);
+						return;
 					}
 				} finally {
 					pendingGeneration = false;
 				}
 			} catch (ex) {
-				// File doesn't exist or other error
-				logger.error(`[${this.pluginName}] Error checking source file: ${ex}`);
+				callback(new WebpackError(`[${this.pluginName}] Error checking source file: ${ex}`));
+				return;
 			}
 
 			callback();
@@ -1088,8 +1147,17 @@ class DocsPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super({
 			pluginName: 'docs',
-			pathsToWatch: [path.join(__dirname, 'src', 'constants.telemetry.ts')],
+			pathsToWatch: [
+				path.join(__dirname, 'src', 'constants.telemetry.ts'),
+				path.join(__dirname, 'src', 'telemetry', 'telemetry.ts'),
+				path.join(__dirname, 'tsconfig.node.json'),
+				path.join(__dirname, 'scripts', 'generateTelemetryDocs.mjs'),
+				path.join(__dirname, 'pnpm-lock.yaml'),
+			],
 			outputs: [path.join(__dirname, 'docs', 'telemetry-events.md')],
+			// The TypeScript program follows transitive type imports, so an exhaustive static input list
+			// would be brittle. Always regenerate on a one-shot build; the paths above drive watch rebuilds.
+			cache: false,
 			command: {
 				name: 'docs',
 				command: pkgMgr,
@@ -1103,8 +1171,13 @@ class LicensesPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super({
 			pluginName: 'licenses',
-			// The generator reads the bundled packages' manifests too, so their deps must invalidate the cache.
-			pathsToWatch: getBundledManifestPaths(),
+			pathsToWatch: [
+				...getBundledManifestPaths(),
+				path.join(__dirname, 'pnpm-lock.yaml'),
+				path.join(__dirname, 'scripts', 'generateLicenses.mjs'),
+				path.join(__dirname, 'scripts', 'workspace.mjs'),
+				path.join(__dirname, 'scripts', 'licenses', 'vscode.txt'),
+			],
 			outputs: [path.join(__dirname, 'ThirdPartyNotices.txt')],
 			command: {
 				name: 'licenses',
@@ -1232,6 +1305,7 @@ class FantasticonPlugin {
 class BuildCompletePlugin {
 	static _activeCount = 0;
 	static _hasErrors = false;
+	static _hasWarnings = false;
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	static _doneTimer;
 
@@ -1247,6 +1321,7 @@ class BuildCompletePlugin {
 
 			if (BuildCompletePlugin._activeCount === 0) {
 				BuildCompletePlugin._hasErrors = false;
+				BuildCompletePlugin._hasWarnings = false;
 				process.stdout.write('[build] Compilation starting...\n');
 			}
 			BuildCompletePlugin._activeCount++;
@@ -1259,6 +1334,9 @@ class BuildCompletePlugin {
 			if (stats.hasErrors()) {
 				BuildCompletePlugin._hasErrors = true;
 			}
+			if (stats.hasWarnings()) {
+				BuildCompletePlugin._hasWarnings = true;
+			}
 			BuildCompletePlugin._activeCount--;
 
 			if (BuildCompletePlugin._activeCount <= 0) {
@@ -1268,11 +1346,14 @@ class BuildCompletePlugin {
 				BuildCompletePlugin._doneTimer = setTimeout(() => {
 					if (BuildCompletePlugin._activeCount <= 0) {
 						BuildCompletePlugin._activeCount = 0;
-						process.stdout.write(
-							BuildCompletePlugin._hasErrors
-								? '[build] Compiled with problems\n'
-								: '[build] Compiled successfully\n',
-						);
+						let message = '[build] Compiled successfully\n';
+						if (BuildCompletePlugin._hasErrors) {
+							message = '[build] Compiled with problems\n';
+						} else if (BuildCompletePlugin._hasWarnings) {
+							message = '[build] Compiled with warnings\n';
+						}
+
+						process.stdout.write(message);
 					}
 				}, 100);
 			}
@@ -1413,7 +1494,7 @@ class CustomElementsManifestPlugin {
 				logger.log(`Generating 'custom-elements.json'...`);
 				const start = Date.now();
 
-				const result = spawnSync(pkgMgr, ['run', 'generate:customElements'], {
+				const result = spawnSync(`${pkgMgr} run generate:customElements`, {
 					cwd: __dirname,
 					encoding: 'utf8',
 					shell: true,

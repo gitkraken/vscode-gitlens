@@ -26,11 +26,14 @@ const env = {
 	NODE_FORCE_COLORS: '1',
 	FORCE_COLOR: '1',
 };
+delete env.NO_COLOR;
 
 // Build webpack command
 let cmd = `webpack`;
 if (watch) {
 	cmd += ' --watch';
+} else {
+	cmd += ' --fail-on-warnings';
 }
 cmd += ` --mode ${mode}`;
 if (build?.length || webviews?.length) {
@@ -92,7 +95,7 @@ if (build?.includes('unit-tests')) {
 	console.log(`Running: ${buildPkgsCmd}`);
 
 	const pkgsCode = await new Promise(resolve => {
-		const pkgs = spawn(buildPkgsCmd, [], {
+		const pkgs = spawn(buildPkgsCmd, {
 			shell: true,
 			stdio: 'inherit',
 			env: env,
@@ -115,14 +118,10 @@ if (!quick && !watch) {
 	console.log(`Running: ${fmtCmd}`);
 
 	const formatCode = await new Promise(resolve => {
-		const fmt = spawn(fmtCmd, [], {
+		const fmt = spawn(fmtCmd, {
 			shell: true,
 			stdio: 'inherit',
-			env: {
-				...process.env,
-				NODE_FORCE_COLORS: '1',
-				FORCE_COLOR: '1',
-			},
+			env: env,
 		});
 
 		fmt.on('exit', (code, signal) => resolve(exitCode(code, signal)));
@@ -146,7 +145,7 @@ function exitCode(code, signal) {
 /** @param {string} command @returns {Promise<number>} exit code (always resolves; never rejects) */
 function run(command) {
 	console.log(`Running: ${command}`);
-	const child = spawn(command, [], { shell: true, stdio: 'inherit', env: env });
+	const child = spawn(command, { shell: true, stdio: 'inherit', env: env });
 	return new Promise(resolve => {
 		child.on('exit', (code, signal) => resolve(exitCode(code, signal)));
 		// Spawn failures emit 'error' without 'exit' — resolve as failure so the batch never hangs.
@@ -161,7 +160,7 @@ function run(command) {
 // builds keep the single-process path.
 let bundleCmds;
 if (isFullBuild && !watch) {
-	let baseCmd = `webpack --mode ${mode}`;
+	let baseCmd = `webpack --mode ${mode} --fail-on-warnings`;
 	if (quick) {
 		baseCmd += ` --env quick`;
 	}
@@ -189,7 +188,7 @@ if (isFullBuild && !watch) {
 // the inline OxLintWebpackPlugin (added whenever not in quick mode), so they skip this standalone pass.
 const tasks = bundleCmds.map(c => run(c));
 if (!quick && !watch) {
-	tasks.push(run(`oxlint --type-aware --type-check`));
+	tasks.push(run(`oxlint --type-aware --type-check --deny-warnings`));
 	tasks.push(run(`node ./scripts/check-deps.mjs`));
 }
 

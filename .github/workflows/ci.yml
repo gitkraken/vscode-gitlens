@@ -68,6 +68,9 @@ jobs:
             - name: Build (production)
               run: pnpm run bundle
 
+            - name: Verify generated files are current
+              run: git diff --exit-code -- ThirdPartyNotices.txt docs/telemetry-events.md
+
     unit-tests:
         name: Unit Tests
         runs-on: ubuntu-latest
