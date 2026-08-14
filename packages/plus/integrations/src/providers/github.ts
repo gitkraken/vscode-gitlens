@@ -1,3 +1,4 @@
+import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
@@ -51,17 +52,6 @@ import {
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
-/**
- * Page size for GitHub's account-wide search reads: the maximum GitHub's search connection accepts, and what
- * `GitHubApi.searchMyPullRequestsPage` already caps itself to.
- *
- * Requested explicitly rather than left to the SDK's own fallback. That fallback is also 100 as of
- * `@gitkraken/provider-apis` 0.54.0 (it was 15 before, which cost a drained sweep ~7x the round trips it needs),
- * so this is now a pin rather than an override — it keeps the size this read is tuned for from silently tracking
- * a shared SDK default that other reads may want smaller.
- */
-const githubSearchMaxPageSize = 100;
-
 type GitHubPullRequestFacetCursor = Record<string, string>;
 
 function toPullRequestFacetCursor(value: unknown): GitHubPullRequestFacetCursor {
@@ -91,13 +81,6 @@ function parsePullRequestFacetCursor(cursor: string | undefined): GitHubPullRequ
 		return {};
 	}
 }
-
-const pullRequestRelationshipQualifier: Record<PullRequestFilter, string> = {
-	[PullRequestFilter.Author]: 'author:@me',
-	[PullRequestFilter.Assignee]: 'assignee:@me',
-	[PullRequestFilter.ReviewRequested]: 'review-requested:@me',
-	[PullRequestFilter.Mention]: 'mentions:@me',
-};
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -442,140 +425,124 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		},
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const explicitFilters = options?.filters?.length ? [...new Set(options.filters)] : undefined;
-		// Explicit relationships need independent search facets so the returned union is exact. State-only reads
-		// retain the provider-native `involves:@me` behavior for backward compatibility.
-		if ((options?.state?.length ?? 0) > 0 || explicitFilters != null || options?.includeReviewRequested === true) {
-			const github = await this.authenticationService.apis.github;
-			if (github == null) return undefined;
+		// Every account-wide read goes through our own facet search — there is deliberately no SDK
+		// `getPullRequestsForUser` fallback. It could express neither a state set, nor exact relationships (its
+		// `involves:` is a different question), nor the full projection, so which reads it could serve depended on
+		// the options, and the two routes disagreed on more than they had to: only this one applies the Launchpad
+		// ignored/included repository and organization qualifiers, so the same read returned different pull
+		// requests depending on options that were supposed to affect only projection or relationship. With no
+		// state and no filters this emits a single facet with no relationship qualifier, which is GitHub's own
+		// `involves:@me` and `is:open` default — the same question the fallback asked, now on one route.
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
 
-			const requestedStates: PullRequestStateFilter[] =
-				options?.state != null && options.state.length > 0 ? [...new Set(options.state)] : ['open'];
-			const facets =
-				explicitFilters?.length != null
-					? requestedStates.flatMap(state =>
-							explicitFilters.map(filter => ({
-								key: `${state}:${filter}`,
-								state: state,
-								search: pullRequestRelationshipQualifier[filter],
-							})),
-						)
-					: requestedStates.flatMap(state => [
-							{ key: state, state: state, search: undefined },
-							...(options?.includeReviewRequested === true
-								? [
-										{
-											key: `${state}:${PullRequestFilter.ReviewRequested}`,
-											state: state,
-											search: pullRequestRelationshipQualifier[PullRequestFilter.ReviewRequested],
-										},
-									]
-								: []),
-						]);
-			const cursors = parsePullRequestFacetCursor(options?.cursor);
-			const hasResumableFacetCursor = Object.keys(cursors).length !== 0;
-			const facetsWithCursor = facets.filter(facet => cursors[facet.key] != null);
-			// The first call has no cursor, so query every requested state. A continuation only happens after a
-			// prior page reported `more:true`, whose bundle carries a cursor for each facet still in flight;
-			// facets absent from the bundle are exhausted, so re-querying them from scratch would refetch the
-			// same PRs (duplicated by the dedup-free sweep) and waste an API call per page. Query only the
-			// states that still have a cursor, but degrade a malformed/empty cursor bundle, or one that doesn't
-			// apply to the current requested states, to the first page rather than returning an empty page.
-			const facetsToQuery =
-				options?.cursor != null && hasResumableFacetCursor && facetsWithCursor.length !== 0
-					? facetsWithCursor
-					: facets;
-			const results = await Promise.allSettled(
-				facetsToQuery.map(async facet => ({
-					key: facet.key,
-					result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
-						baseUrl: this.apiBaseUrl,
-						state: facet.state,
-						cursor: cursors[facet.key],
-						summary: options?.summary,
-						...(facet.search != null
-							? { search: facet.search, includeDefaultInvolvement: false }
-							: undefined),
-					}),
-				})),
-			);
-			if (results.every(result => result.status === 'rejected')) {
-				const first = results[0];
-				if (first?.status === 'rejected') throw first.reason;
-			}
-
-			const values = new Map<string, ProviderPullRequest>();
-			const nextCursors: GitHubPullRequestFacetCursor = {};
-			const failures = [];
-			let hasMore = false;
-			let truncated = false;
-			let structuralIncompleteness = false;
-			let unkeyedPullRequest = 0;
-			for (const outcome of results) {
-				if (outcome.status === 'rejected') {
-					failures.push(toCollectionScopeFailure({ providerId: this.id }, outcome.reason));
-					truncated = true;
-					continue;
-				}
-
-				const { key, result } = outcome.value;
-				for (const pr of result.values) {
-					const mapped = toProviderPullRequest(pr);
-					const identity = getProviderPullRequestIdentity(mapped) ?? `unkeyed:${unkeyedPullRequest++}`;
-					if (!values.has(identity)) {
-						values.set(identity, mapped);
-					}
-				}
-				if (result.hasMore) {
-					if (result.cursor == null || result.cursor === '{}' || result.cursor === cursors[key]) {
-						truncated = true;
-						structuralIncompleteness = true;
-					} else {
-						hasMore = true;
-						nextCursors[key] = result.cursor;
-					}
-				}
-				if (result.truncated) {
-					truncated = true;
-				}
-			}
-
-			return {
-				values: [...values.values()],
-				paging: {
-					more: hasMore,
-					cursor: hasMore ? JSON.stringify({ type: 'cursor', cursors: nextCursors }) : '{}',
-					truncated: truncated || undefined,
-				},
-				...(failures.length || structuralIncompleteness
-					? {
-							metadata: {
-								completeness: 'partial' as const,
-								...(failures.length ? { failures: failures } : {}),
-							},
-						}
-					: undefined),
-			};
+		const requestedStates: PullRequestStateFilter[] =
+			options?.state != null && options.state.length > 0 ? [...new Set(options.state)] : ['open'];
+		const facets =
+			explicitFilters?.length != null
+				? requestedStates.flatMap(state =>
+						explicitFilters.map(filter => ({
+							key: `${state}:${filter}`,
+							state: state,
+							search: gitHubPullRequestRelationshipQualifiers[filter],
+						})),
+					)
+				: requestedStates.flatMap(state => [
+						{ key: state, state: state, search: undefined },
+						...(options?.includeReviewRequested === true
+							? [
+									{
+										key: `${state}:${PullRequestFilter.ReviewRequested}`,
+										state: state,
+										search: gitHubPullRequestRelationshipQualifiers[
+											PullRequestFilter.ReviewRequested
+										],
+									},
+								]
+							: []),
+					]);
+		const cursors = parsePullRequestFacetCursor(options?.cursor);
+		const hasResumableFacetCursor = Object.keys(cursors).length !== 0;
+		const facetsWithCursor = facets.filter(facet => cursors[facet.key] != null);
+		// The first call has no cursor, so query every requested state. A continuation only happens after a
+		// prior page reported `more:true`, whose bundle carries a cursor for each facet still in flight;
+		// facets absent from the bundle are exhausted, so re-querying them from scratch would refetch the
+		// same PRs (duplicated by the dedup-free sweep) and waste an API call per page. Query only the
+		// states that still have a cursor, but degrade a malformed/empty cursor bundle, or one that doesn't
+		// apply to the current requested states, to the first page rather than returning an empty page.
+		const facetsToQuery =
+			options?.cursor != null && hasResumableFacetCursor && facetsWithCursor.length !== 0
+				? facetsWithCursor
+				: facets;
+		const results = await Promise.allSettled(
+			facetsToQuery.map(async facet => ({
+				key: facet.key,
+				result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
+					baseUrl: this.apiBaseUrl,
+					state: facet.state,
+					cursor: cursors[facet.key],
+					summary: options?.summary,
+					...(facet.search != null ? { search: facet.search, includeDefaultInvolvement: false } : undefined),
+				}),
+			})),
+		);
+		if (results.every(result => result.status === 'rejected')) {
+			const first = results[0];
+			if (first?.status === 'rejected') throw first.reason;
 		}
 
-		// The current user's login scopes the account-wide `involves:` query (see getPullRequestsForUser →
-		// getPullRequestsAssociatedWithUser). Resolve it from THIS session (multi-account safe).
-		const username = (await this.getProviderCurrentAccount(session))?.username;
-		if (username == null) return undefined;
+		const values = new Map<string, ProviderPullRequest>();
+		const nextCursors: GitHubPullRequestFacetCursor = {};
+		const failures = [];
+		let hasMore = false;
+		let truncated = false;
+		let structuralIncompleteness = false;
+		let unkeyedPullRequest = 0;
+		for (const outcome of results) {
+			if (outcome.status === 'rejected') {
+				failures.push(toCollectionScopeFailure({ providerId: this.id }, outcome.reason));
+				truncated = true;
+				continue;
+			}
 
-		const api = await this.getProvidersApi();
-		// Only reachable with NO requested state (the branch above owns every state-filtered read), so there is
-		// deliberately no `states` to forward: the SDK's `involves:` search applies its own `is:open` default
-		// qualifier, which is exactly the unfiltered "my open PRs" this path is for. Nor could a state be
-		// honored here — `getPullRequestsAssociatedWithUser` doesn't accept one — which is why the state-filtered
-		// read goes through `searchMyPullRequestsPage` instead of post-filtering a page that never contained the
-		// requested states.
-		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
-			baseUrl: this.apiBaseUrl,
-			cursor: options?.cursor,
-			// The sweep drains this read page by page, so it asks for the largest page the search allows.
-			pageSize: githubSearchMaxPageSize,
-		});
-		return result ?? undefined;
+			const { key, result } = outcome.value;
+			for (const pr of result.values) {
+				const mapped = toProviderPullRequest(pr);
+				const identity = getProviderPullRequestIdentity(mapped) ?? `unkeyed:${unkeyedPullRequest++}`;
+				if (!values.has(identity)) {
+					values.set(identity, mapped);
+				}
+			}
+			if (result.hasMore) {
+				if (result.cursor == null || result.cursor === '{}' || result.cursor === cursors[key]) {
+					truncated = true;
+					structuralIncompleteness = true;
+				} else {
+					hasMore = true;
+					nextCursors[key] = result.cursor;
+				}
+			}
+			if (result.truncated) {
+				truncated = true;
+			}
+		}
+
+		return {
+			values: [...values.values()],
+			paging: {
+				more: hasMore,
+				cursor: hasMore ? JSON.stringify({ type: 'cursor', cursors: nextCursors }) : '{}',
+				truncated: truncated || undefined,
+			},
+			...(failures.length || structuralIncompleteness
+				? {
+						metadata: {
+							completeness: 'partial' as const,
+							...(failures.length ? { failures: failures } : {}),
+						},
+					}
+				: undefined),
+		};
 	}
 
 	protected override async searchProviderMyIssues(

@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
@@ -8,6 +9,8 @@ import {
 import type { IntegrationIds } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+import { gitLabAssociationForFilter } from '../providers/gitlab.js';
+import { resolveAccountWidePullRequestFilters } from '../reads/filters.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -46,12 +49,6 @@ suite('IntegrationManager.getSupportedFilters', () => {
 
 			for (const id of allIds) {
 				const supported = manager.getSupportedFilters(id);
-				assert.ok(supported.pullRequestsAccountWide != null);
-				assert.equal(
-					supported.pullRequestsAccountWide.every(filter => supported.pullRequests.includes(filter)),
-					true,
-					`${id}: account-wide filters must remain a subset of the provider's relationship vocabulary`,
-				);
 
 				// A non-empty advertised set must be accepted whole. An empty one means the provider has no
 				// filter surface at all, and the guard rejects even a single filter there — so assert that
@@ -75,6 +72,21 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				// would leave a consumer skipping a filter the provider does support) nor over-report (which
 				// would let it build a set the read then refuses).
 				for (const filter of Object.values(PullRequestFilter)) {
+					// All-or-nothing, asserted through a MIXED set: the account-wide resolver reads the very field
+					// this accessor reports, so feeding it that field (or a single member of it) back would only
+					// restate the table. What is worth pinning is that one unadvertised member refuses the whole
+					// set rather than the read keeping the advertised part and dropping the rest.
+					if (
+						supported.pullRequestsAccountWide.length > 0 &&
+						!supported.pullRequestsAccountWide.includes(filter)
+					) {
+						assert.equal(
+							resolveAccountWidePullRequestFilters(id, [...supported.pullRequestsAccountWide, filter])
+								.unsupported,
+							true,
+							`${id}: a set mixing unadvertised '${filter}' with the advertised members must be refused whole`,
+						);
+					}
 					if (supported.pullRequests.includes(filter)) continue;
 
 					assert.equal(
@@ -103,12 +115,11 @@ suite('IntegrationManager.getSupportedFilters', () => {
 		try {
 			const first = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub);
 			const before = [...first.pullRequests];
-			const beforeAccountWide = [...(first.pullRequestsAccountWide ?? [])];
+			const beforeAccountWide = [...first.pullRequestsAccountWide];
 			// `ProvidersApi` spreads `providersMetadata[id]` shallowly, so the array is shared with the live
 			// guard table: handing out the internal reference would let one consumer's `.pop()` change what
 			// every read accepts, process-wide.
 			first.pullRequests.length = 0;
-			assert.ok(first.pullRequestsAccountWide != null);
 			first.pullRequestsAccountWide.push(PullRequestFilter.Author);
 			first.issues.length = 0;
 
@@ -167,6 +178,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				PullRequestFilter.Author,
 				PullRequestFilter.Assignee,
 				PullRequestFilter.ReviewRequested,
+				PullRequestFilter.Reviewed,
 				PullRequestFilter.Mention,
 			]);
 			// A self-managed host mirrors its cloud counterpart.
@@ -174,6 +186,69 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				manager.getSupportedFilters(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise),
 				manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub),
 			);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	/**
+	 * The invariant that replaces "account-wide ⊆ repo-scoped", which `Reviewed` deliberately broke by making the
+	 * account-wide vocabulary the WIDER of the two: every advertised member must be expressible by the provider's
+	 * own account-wide read. Over-advertising is what turns a supported-looking filter into a read that quietly
+	 * answers a different question, and only the provider's own translation table can prove otherwise — so the two
+	 * providers that declare one are checked against it. Bitbucket's and Azure's account-wide relationships are
+	 * branch logic rather than a table, and stay pinned by their own provider tests.
+	 *
+	 * GitHub's table is an exhaustive `Record<PullRequestFilter, string>`, so a MISSING entry is already a
+	 * compile error and a null check here could never fail. What the compiler cannot check is what the entry
+	 * says: an account-wide relationship means "mine", so its qualifier has to scope the search to the current
+	 * user. A new member mapped to a qualifier without `@me` would advertise a user-relationship filter that
+	 * answers a question about everyone — that is the failure this arm exists to catch.
+	 */
+	test('every advertised account-wide PR filter is expressible by the provider read', () => {
+		const translations: [IntegrationIds[], (filter: PullRequestFilter) => boolean][] = [
+			[
+				[GitCloudHostIntegrationId.GitHub, GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
+				filter => gitHubPullRequestRelationshipQualifiers[filter]?.includes(':@me') === true,
+			],
+			[
+				[GitCloudHostIntegrationId.GitLab, GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted],
+				filter => gitLabAssociationForFilter[filter] != null,
+			],
+		];
+
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			for (const [ids, isExpressible] of translations) {
+				for (const id of ids) {
+					const advertised = manager.getSupportedFilters(id).pullRequestsAccountWide;
+					assert.ok(advertised.length > 0, `${id}: expected an advertised account-wide PR filter set`);
+
+					for (const filter of advertised) {
+						assert.equal(
+							isExpressible(filter),
+							true,
+							`${id}: account-wide PR filter '${filter}' is advertised but the read cannot express it`,
+						);
+					}
+				}
+			}
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('advertises Reviewed for GitHub account-wide reads but not repo-scoped reads', () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			for (const id of [
+				GitCloudHostIntegrationId.GitHub,
+				GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			]) {
+				const supported = manager.getSupportedFilters(id);
+				assert.equal(supported.pullRequests.includes(PullRequestFilter.Reviewed), false);
+				assert.equal(supported.pullRequestsAccountWide.includes(PullRequestFilter.Reviewed), true);
+			}
 		} finally {
 			manager.dispose();
 		}
@@ -229,6 +304,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 						PullRequestFilter.Author,
 						PullRequestFilter.Assignee,
 						PullRequestFilter.ReviewRequested,
+						PullRequestFilter.Reviewed,
 						PullRequestFilter.Mention,
 					],
 					states: ['open', 'closed', 'merged', 'all'],

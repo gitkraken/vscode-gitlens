@@ -218,6 +218,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		thumbsUpCount: value.thumbsUpCount,
 		reviewDecision: value.reviewDecision,
 		reviewRequests: value.reviewRequests,
+		latestReviews: value.latestReviews,
 		assignees: value.assignees,
 		authoredByMe: value.authoredByMe,
 		project: value.project

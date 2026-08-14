@@ -70,7 +70,12 @@ export async function drainPullRequests(
 	repos: ProviderReposInput,
 	state: PullRequestStateFilter[] | undefined,
 	filters: PullRequestFilter[] | undefined,
-	includeReviewRequested: boolean,
+	/**
+	 * Breadth opt-ins that only the account-wide read can express. Grouped rather than passed positionally
+	 * because they are same-typed neighbors a transposition would silently swap, and picked from the sweep
+	 * options rather than restated so a third opt-in is declared once.
+	 */
+	accountWideOptions: Pick<PullRequestSweepOptions, 'includeReviewRequested' | 'includeReviews'> | undefined,
 	connectionId: string | undefined,
 	maxPages: number,
 	attributeUnavailableProvider: boolean,
@@ -100,6 +105,10 @@ export async function drainPullRequests(
 	// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
 	// input, so read the provider-native account-wide core instead.
 	const accountWide = repos.length === 0;
+	// The breadth opt-ins are only expressible on the account-wide core, so gate them here — the single place
+	// that already knows which core it is about to call.
+	const includeReviewRequested = accountWide && (accountWideOptions?.includeReviewRequested ?? false);
+	const includeReviews = accountWide && (accountWideOptions?.includeReviews ?? false);
 	/** Every cursor already followed, so a provider that cycles them can't keep the drain walking in circles. */
 	const seenCursors = new Set<string>();
 
@@ -115,7 +124,8 @@ export async function drainPullRequests(
 							cursor: pageCursor,
 							includeReviewRequested: includeReviewRequested,
 							filters: filters,
-							summary: true,
+							// Lite by default; the full projection (reviews) only when a caller opts in.
+							summary: !includeReviews,
 						},
 						connectionId,
 					)
