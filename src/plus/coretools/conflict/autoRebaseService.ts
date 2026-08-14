@@ -1,7 +1,9 @@
 import type { Disposable, Event } from 'vscode';
-import { CancellationTokenSource, EventEmitter } from 'vscode';
+import { CancellationTokenSource, EventEmitter, Uri } from 'vscode';
+import { getAutoRebaseMessageEditor } from '@env/git/messageEditor.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import { PausedOperationAbortError } from '@gitlens/git/errors.js';
+import type { RebaseTodoEntry } from '@gitlens/git/models/rebase.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { wait } from '@gitlens/utils/promise.js';
@@ -9,6 +11,7 @@ import type { StoredAutoRebaseUndo } from '../../../constants.storage.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
+import { readAndParseRebaseDoneFile } from '../../../git/utils/-webview/rebase.parsing.utils.js';
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import type {
@@ -41,6 +44,8 @@ interface ActiveAutoRebase {
 	 *  resume can record the human-resolved step in the summary. Set on escalation, cleared on resume. */
 	escalatedStep?: EscalatedStepSnapshot;
 	detachRequested?: boolean;
+	/** An escalated-phase abort is in flight (the session leaves `escalated` only when it lands) */
+	abortingEscalated?: boolean;
 }
 
 const runningPhases = new Set(['starting', 'resolving', 'applying', 'continuing']);
@@ -68,6 +73,19 @@ function clearTransientProgress(session: AutoRebaseSession): void {
  * record persists in workspace storage.
  */
 export class AutoRebaseService implements Disposable {
+	/** How long a handed-off rebase may stay un-started before the wait gives up — the todo editor
+	 *  was released, so the first pick should follow near-instantly; anything longer means the git
+	 *  process died while blocked (e.g. a killed terminal). */
+	private static readonly handoffStartTimeoutMs = 45000;
+	/** Poll cadence while waiting for a handed-off rebase to reach its first stop (each poll spawns
+	 *  git subprocesses, so don't poll hot); repository `rebase` change events wake it early. */
+	private static readonly handoffPollIntervalMs = 1000;
+
+	/** How long a message-editor block may hold before the wait's progress message starts hinting
+	 *  that the external git process may actually have stopped (a failed editor launch is
+	 *  observationally identical to an open one). Exposed for tests. */
+	private static readonly handoffEditorHintMs = 120000;
+
 	private readonly _onDidChange = new EventEmitter<AutoRebaseChangeEvent>();
 	get onDidChange(): Event<AutoRebaseChangeEvent> {
 		return this._onDidChange.event;
@@ -228,6 +246,229 @@ export class AutoRebaseService implements Disposable {
 	}
 
 	/**
+	 * Takes over a *pending* rebase — one prepared but not started, with git still blocked on the
+	 * Interactive Rebase Editor acting as its sequence editor — and automates it end-to-end.
+	 * `release` is the caller's hook to let the rebase proceed (save the todo document and close
+	 * the tab, which exits the sequence editor); it's called only once the run is committed to
+	 * (pre-flight refusals and the model prompt all happen first, while the rebase is still safely
+	 * blocked). After release the rebase replays unattended, so this waits for its first stop:
+	 * a pause hands off to the automation loop, and a clean finish is finalized like any other run.
+	 */
+	async handoffPending(
+		svc: GitRepositoryService,
+		source: Source,
+		release: () => Promise<void>,
+	): Promise<AutoRebaseSession> {
+		const integration = await this.ensureAvailable(svc);
+
+		const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
+		if (status?.type !== 'rebase') {
+			throw new Error('No rebase is in progress.');
+		}
+		if (status.hasStarted) {
+			throw new Error(
+				status.isPaused
+					? 'The rebase has already started — use "Continue Automatic Rebase" to automate it.'
+					: 'The rebase has already started.',
+			);
+		}
+
+		// Resolve the model while git is still blocked on the todo editor — after `release()` the
+		// rebase replays unattended, so every prompt must happen before it (see `ensureModel`)
+		const model = await this.ensureModel(source);
+
+		// A pending rebase's autostash (if any) was created before the todo editor opened, so the
+		// same takeover-style baseline applies: the entry is already in the count.
+		const [branch, stashMessages] = await Promise.all([
+			(status.incoming != null && 'name' in status.incoming ? status.incoming.name : undefined) ??
+				svc.branches.getBranch().then(b => b?.name),
+			this.listStashMessages(svc),
+		]);
+
+		const session: AutoRebaseSession = {
+			id: uuid(),
+			repoPath: svc.path,
+			mode: 'handoff',
+			phase: 'starting',
+			preRun: {
+				branch: branch,
+				// orig-head — the branch tip before the rebase was prepared
+				headSha: status.source.ref,
+				upstream: status.onto?.name ?? status.onto?.ref,
+				hadWorkingChanges: undefined,
+				hadAutostash: stashMessages[0] === 'autostash',
+				stashCount: stashMessages.length,
+				startedAt: Date.now(),
+			},
+			steps: [],
+		};
+		const active = this.trackSession(session, source);
+
+		// Handing off adopts the rebase, so later pauses auto-open under `openOnPausedRebase: 'auto'`
+		this.container.operationOrigins.markAdopted(svc.path);
+
+		try {
+			// Releases git's blocked sequence editor — from here the rebase replays unattended
+			// until it pauses or finishes
+			await release();
+
+			session.progressMessage = 'Waiting for the rebase to reach its first conflict…';
+			this.fireChange(session);
+
+			switch (await this.waitForFirstPause(svc, active)) {
+				case 'completed':
+					// `fromLoop` so an external abort during the wait (state gone, HEAD back at
+					// orig-head) reports `aborted` rather than a completed run
+					await this.finalize(svc, active, { fromLoop: true });
+					break;
+				case 'cancelled':
+					await this.handleCancelled(svc, active);
+					break;
+				case 'paused':
+					clearTransientProgress(session);
+					await this.runLoop(svc, active, integration, source, model);
+					break;
+			}
+		} catch (ex) {
+			this.fail(active, ex);
+		}
+		return session;
+	}
+
+	/**
+	 * Waits for a handed-off (pre-start) rebase — whose git process GitLens doesn't own — to reach
+	 * its first stop, purely observationally:
+	 * - `completed`: the rebase state is gone (finished, or externally aborted — the caller's
+	 *   `finalize` distinguishes by whether HEAD moved). Checked before cancellation, mirroring the
+	 *   loop's completed-before-cancelled ordering.
+	 * - `paused`: a genuine stop — conflicts, or a deliberate `edit`/`break` — confirmed across two
+	 *   consecutive polls, since REBASE_HEAD (which drives `isPaused`) also exists transiently while
+	 *   each commit is applied. A `break` stop has no REBASE_HEAD at all, so classification keys off
+	 *   the `done` file's last action (git moves each todo line there before executing it), never
+	 *   off `isPaused` alone.
+	 * - `cancelled`: cancellation was requested — honored at any stable stop or message-editor
+	 *   block, but never mid-replay (even a stable-looking unpaused state, e.g. a slow pick),
+	 *   because aborting then races a live git process that holds `index.lock`.
+	 *
+	 * A conflict-less `reword`/`squash`/`fixup -c` stop is the external git process blocked on its
+	 * own message editor (the user's terminal editor or a `code --wait` tab): not a pause — keep
+	 * waiting while the user edits. `exec` is treated the same way, since a long-running exec
+	 * command is observationally identical to a stopped one; if either actually failed, the user's
+	 * terminal shows the stop and the wait resumes as soon as they act. Because a *dead* process
+	 * (say, an editor that failed to launch) looks exactly like one of these blocks, an explicit
+	 * cancellation is honored even here — the only escape from a block that will never clear. If
+	 * the process really is alive and blocked, the abort tears the rebase down and git errors
+	 * harmlessly in the user's terminal once the editor returns — user-initiated and recoverable,
+	 * unlike an unabortable wait.
+	 *
+	 * Fails if the rebase never starts within {@link handoffStartTimeoutMs} — the todo editor was
+	 * released, so the first pick should follow near-instantly.
+	 */
+	private async waitForFirstPause(
+		svc: GitRepositoryService,
+		active: ActiveAutoRebase,
+	): Promise<'completed' | 'paused' | 'cancelled'> {
+		const { session } = active;
+		const token = active.cts.token;
+
+		// Poll on an interval, but let repository `rebase` change events (and cancellation) wake the
+		// sleep early so stops are picked up promptly without polling hot
+		let wake: (() => void) | undefined;
+		const repo = this.container.git.getRepository(svc.path);
+		const disposables = [
+			repo?.onDidChange(e => {
+				if (e.changed('rebase')) {
+					wake?.();
+				}
+			}),
+			token.onCancellationRequested(() => wake?.()),
+		];
+
+		const setProgress = (message: string): void => {
+			if (session.progressMessage === message) return;
+
+			session.progressMessage = message;
+			this.fireChange(session);
+		};
+
+		const sleep = (): Promise<void> => sleepUntilWokenOr(AutoRebaseService.handoffPollIntervalMs, w => (wake = w));
+
+		const startedAt = Date.now();
+		let previousKey: string | undefined;
+		let blockedAt: number | undefined;
+
+		try {
+			while (true) {
+				const status = await svc.pausedOps!.getPausedOperationStatus({ force: true });
+				if (status == null) return 'completed';
+
+				if (status.type !== 'rebase') {
+					// Some other operation replaced the rebase (?) — treat it as a stop and let the
+					// loop's own status check escalate it accurately
+					return token.isCancellationRequested ? 'cancelled' : 'paused';
+				}
+
+				if (!status.hasStarted) {
+					if (Date.now() - startedAt > AutoRebaseService.handoffStartTimeoutMs) {
+						throw new Error('The rebase never started — its git process may have been interrupted.');
+					}
+				} else {
+					const conflicts = (await svc.status?.getConflictingFiles?.()) ?? [];
+					const stopEntry = conflicts.length === 0 ? await this.getStepTodoEntry(svc) : undefined;
+					const stopAction = stopEntry?.action;
+
+					const key = `${status.steps.current.number}|${status.isPaused}|${conflicts.length}|${stopAction ?? ''}${stopEntry?.flag ?? ''}`;
+					const stable = key === previousKey;
+					previousKey = key;
+					if (!stable) {
+						blockedAt = undefined;
+					}
+
+					if (stable) {
+						const genuineStop = conflicts.length > 0 || stopAction === 'edit' || stopAction === 'break';
+						const messageEditBlock =
+							stopAction === 'reword' ||
+							stopAction === 'squash' ||
+							(stopAction === 'fixup' && stopEntry?.flag === '-c');
+
+						// Cancellation is honored at any stable stop or message-editor block — the
+						// latter because a dead process (an editor that failed to launch) is
+						// indistinguishable from a live block, and an explicit abort must not be
+						// trappable forever (see the doc comment). A stable-looking but *unpaused*
+						// state is still a live replay (e.g. a slow pick), so it keeps deferring.
+						if (token.isCancellationRequested && (genuineStop || messageEditBlock || status.isPaused)) {
+							return 'cancelled';
+						}
+
+						if (genuineStop) return 'paused';
+
+						if (messageEditBlock) {
+							blockedAt ??= Date.now();
+							// A block this long may be a dead process (an editor that failed to
+							// launch looks identical) — surface the way out without breaking a
+							// genuinely slow edit
+							const hint =
+								Date.now() - blockedAt > AutoRebaseService.handoffEditorHintMs
+									? ' If no editor opened, the rebase has stopped — abort from here, or continue it in your terminal.'
+									: '';
+							setProgress(`Waiting for you to edit the commit message…${hint}`);
+						} else if (stopAction === 'exec') {
+							setProgress('Waiting for the rebase todo’s exec command…');
+						}
+					}
+				}
+
+				await sleep();
+				wake = undefined;
+			}
+		} finally {
+			for (const d of disposables) {
+				d?.dispose();
+			}
+		}
+	}
+
+	/**
 	 * Re-engages automation on our own escalated run, in place. Rearms the existing session (fresh
 	 * cancellation, phase back to running) while preserving its `id` (the run's AI conversation, so
 	 * refinement/retries stay in one billed session), `preRun`, and already-recorded `steps` — so the
@@ -268,10 +509,33 @@ export class AutoRebaseService implements Disposable {
 	 * the pre-rebase state, including the autostash); `detach` leaves the rebase paused and just
 	 * stops automating. Takes effect at the loop's next checkpoint — an in-flight continue settles
 	 * first; if the run finishes before the cancellation lands, it completes normally.
+	 *
+	 * Also handles an *escalated* session's abort (its loop has already returned, so there's no
+	 * checkpoint): the paused rebase is aborted immediately and the session transitions to
+	 * `aborted`; `detach` is meaningless there and ignored.
 	 */
 	cancel(repoPath: string, mode: 'abort' | 'detach' = 'abort'): void {
 		const active = this._sessions.get(repoPath);
-		if (active == null || !runningPhases.has(active.session.phase)) return;
+		if (active == null) return;
+
+		// An escalated run isn't running — the loop has returned, so the cts checkpoint flag below
+		// would never be read — but its rebase is genuinely paused, so abort it here. Going through
+		// the service (rather than callers aborting the operation directly) is what transitions the
+		// session to `aborted`; without that update the Resolve panel never exits and keeps offering
+		// Resume/Abort for a rebase that's gone.
+		if (active.session.phase === 'escalated') {
+			if (mode !== 'abort' || active.abortingEscalated) return;
+
+			active.abortingEscalated = true;
+			active.detachRequested = false;
+			const svc = this.container.git.getRepositoryService(repoPath);
+			void this.handleCancelled(svc, active)
+				.catch((ex: unknown) => this.fail(active, ex))
+				.finally(() => (active.abortingEscalated = false));
+			return;
+		}
+
+		if (!runningPhases.has(active.session.phase)) return;
 
 		if (mode === 'detach') {
 			active.detachRequested = true;
@@ -437,6 +701,12 @@ export class AutoRebaseService implements Disposable {
 		model: AIModel,
 	): Promise<void> {
 		const signal = toAbortSignal(active.cts.token)!;
+		// Reword/squash messages are the user's to write — the wrapper editor opens them in the host
+		// window and blocks until the tab closes, while auto-accepting everything else (conflict-commit
+		// confirmations) the way a headless `true` editor does. Falls back to `true` where the wrapper
+		// isn't resolvable (browser, or a host whose CLI can't be located), where the old
+		// auto-accept-everything behavior is the safe degradation.
+		const messageEditor = await getAutoRebaseMessageEditor(this.container).catch(() => undefined);
 		const ports: AutoRebaseLoopPorts = {
 			getPausedOperationStatus: force => svc.pausedOps!.getPausedOperationStatus({ force: force }),
 			listUnmergedEntries: () => integration.listUnmergedEntries(svc),
@@ -462,7 +732,13 @@ export class AutoRebaseService implements Disposable {
 			// `git diff --quiet --staged` — index against HEAD, which is what git itself commits.
 			willCommitBeEmpty: async () =>
 				!(await svc.status.hasWorkingChanges({ staged: true, unstaged: false, untracked: false })),
-			continueOperation: options => svc.pausedOps!.continuePausedOperation({ ...options, messageEditor: 'true' }),
+			continueOperation: options =>
+				svc.pausedOps!.continuePausedOperation({
+					...options,
+					messageEditor: messageEditor?.editor ?? 'true',
+					editorEnv: messageEditor?.env,
+				}),
+			getStepTodoAction: () => this.getStepTodoEntry(svc).then(entry => entry?.action),
 			getConfidenceThreshold: () => configuration.get('ai.autoRebase.confidenceThreshold'),
 			getCustomInstructions: () =>
 				configuration.get('ai.resolveConflicts.customInstructions')?.trim() || undefined,
@@ -770,6 +1046,21 @@ export class AutoRebaseService implements Disposable {
 		return model;
 	}
 
+	/**
+	 * The todo entry of the step the rebase is stopped at — git moves each todo line into
+	 * `rebase-merge/done` before executing it, so the done file's last line names the current step.
+	 * Used by the handoff wait's stop classifier (which also needs the `fixup -c` flag) and by the
+	 * loop to honor a user-marked `edit` on a conflicted step (git delivers the edit stop AS the
+	 * conflict stop).
+	 */
+	private async getStepTodoEntry(svc: GitRepositoryService): Promise<RebaseTodoEntry | undefined> {
+		const gitDir = await svc.config.getGitDir?.();
+		if (gitDir == null) return undefined;
+
+		const todoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
+		return (await readAndParseRebaseDoneFile(todoUri))?.entries.at(-1);
+	}
+
 	private getIntegration(): Promise<ConflictToolsIntegration | undefined> {
 		// Lazily import the node-only conflict-tools integration on demand (browser resolves to a
 		// stub returning `undefined`, so the feature gates off in VS Code Web)
@@ -793,7 +1084,11 @@ export class AutoRebaseService implements Disposable {
 
 		const active: ActiveAutoRebase = { session: session, cts: new CancellationTokenSource(), source: source };
 		this._sessions.set(session.repoPath, active);
-		this.container.telemetry.sendEvent('autoRebase/started', { takeover: session.mode === 'takeover' }, source);
+		this.container.telemetry.sendEvent(
+			'autoRebase/started',
+			{ takeover: session.mode !== 'started', mode: session.mode },
+			source,
+		);
 		this.fireChange(session);
 		return active;
 	}
@@ -804,7 +1099,7 @@ export class AutoRebaseService implements Disposable {
 		duration: number;
 	} {
 		return {
-			takeover: session.mode === 'takeover',
+			takeover: session.mode !== 'started',
 			'steps.count': session.steps.length,
 			duration: Date.now() - session.preRun.startedAt,
 		};
@@ -876,6 +1171,14 @@ export class AutoRebaseService implements Disposable {
 	private fireChange(session: AutoRebaseSession): void {
 		this._onDidChange.fire({ repoPath: session.repoPath, session: session });
 	}
+}
+
+/** Sleeps for `ms`, but exposes its resolver via `register` so an event can end the sleep early. */
+function sleepUntilWokenOr(ms: number, register: (wake: () => void) => void): Promise<void> {
+	return new Promise<void>(resolve => {
+		register(resolve);
+		void wait(ms).then(resolve);
+	});
 }
 
 /** Sums an optional numeric field across records, returning undefined when none reported it — so a

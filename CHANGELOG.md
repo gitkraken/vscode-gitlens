@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.graph.followTerminal.enabled` setting (on by default) with _Follow Active Terminal_ / _Stop Following Active Terminal_ toggles in the graph's "..." menus, and a `gitlens.graph.followTerminal.allowRepositorySwitching` setting to let following switch the graph to a different repository
 - Adds _Focus in Commit Graph_, _Open in Commit Graph_, and _Open in New Window_ actions to terminal tabs, terminal editor tabs, and Claude Code conversation tabs &mdash; opening the graph at the terminal's or session's worktree with its working changes selected; _Focus_ also scopes the graph to the worktree's branch
 - Adds support for the Gemini 3.7 Flash AI model
+- Adds a _Start Auto-Rebase_ split button to the _Interactive Rebase Editor_ (with _Recompose_ tucked into its menu) &mdash; hands the pending rebase off to automatic (AI) conflict resolution before it starts, executing the todo exactly as you arranged it: the editor closes, the run waits for the rebase's first stop and takes over from there, and a rebase that finishes without pausing is reported as completed. Deliberate stops keep working the way you asked &mdash; `edit`/`break` hand back to you with a _Resume with AI_ path, and a commit message a `reword` or `squash` needs opens for you to write, both before automation engages and mid-run &mdash; where it was previously kept or auto-accepted without asking (this also applies to _Continue Automatic Rebase_) ([#5714](https://github.com/gitkraken/vscode-gitlens/issues/5714))
+- Adds persistent automatic-rebase actions where its escalations land &mdash; when a run stops for you, the _Commit Graph_'s **Resolve** panel now keeps _Resume with AI_ and _Abort Rebase_ available (previously only offered by a transient toast), and the _Interactive Rebase Editor_'s paused view gains a _Continue with AI_ button that hands the rest of the rebase to automatic conflict resolution
 
 ### Changed
 
@@ -28,6 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Hide Remote_ in the _Commit Graph_ only hiding the selected branch instead of all of the remote's branches ([#5728](https://github.com/gitkraken/vscode-gitlens/issues/5728))
 - Fixes the split conflict status icons rendering clipped in file trees &mdash; e.g. the _Commit Graph_'s _Working Changes_ details and _Resolve_ mode, and the _Inspect_ and _Patch Details_ views
 - Fixes the _Commit Graph_ sometimes failing to scroll to a revealed row &mdash; on long jumps (deep links, _Show in Commit Graph_, and similar reveals) the selection landed but the viewport could strand partway
+- Fixes an automatic rebase continuing past a conflicted commit marked `edit` &mdash; git delivers an `edit` step's stop as its conflict stop, so resolving and continuing consumed the requested pause and ran the rebase to completion; the run now resolves and stages the step's conflicts, then stops for the editing you asked for
 
 ## [19.0.1] - 2026-08-13
 

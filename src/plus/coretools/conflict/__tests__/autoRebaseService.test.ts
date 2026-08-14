@@ -1,5 +1,8 @@
 import * as assert from 'assert';
-import { CancellationTokenSource } from 'vscode';
+import * as fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { CancellationTokenSource, Uri } from 'vscode';
 import { PausedOperationAbortError } from '@gitlens/git/errors.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { StoredAutoRebaseUndo } from '../../../../constants.storage.js';
@@ -525,5 +528,446 @@ suite('coretools/conflict/AutoRebaseService pre-flight ordering', () => {
 		// picker behind a panel already showing progress, which reads as a stall (#5662)
 		assert.strictEqual(session.phase, 'completed');
 		assert.deepStrictEqual(calls, ['getModel', 'rebase']);
+	});
+});
+
+function pendingRebaseStatus(): GitPausedOperationStatus {
+	return {
+		type: 'rebase',
+		repoPath: '/repo',
+		incoming: { ref: 'incsha', name: 'feature' },
+		source: { ref: 'orig' },
+		onto: { ref: 'ontosha', name: 'main' },
+		steps: { current: { number: 0, commit: undefined }, total: 3 },
+		hasStarted: false,
+		isPaused: false,
+	} as unknown as GitPausedOperationStatus;
+}
+
+function startedRebaseStatus(step: number, isPaused: boolean): GitPausedOperationStatus {
+	return {
+		type: 'rebase',
+		repoPath: '/repo',
+		incoming: { ref: 'incsha', name: 'feature' },
+		source: { ref: 'orig' },
+		onto: { ref: 'ontosha', name: 'main' },
+		steps: { current: { number: step, commit: { ref: `c${step}` } }, total: 3 },
+		hasStarted: true,
+		isPaused: isPaused,
+	} as unknown as GitPausedOperationStatus;
+}
+
+/** One observation the handoff wait can make: the paused-operation status plus its conflict set. */
+interface HandoffTick {
+	status: GitPausedOperationStatus | undefined;
+	conflicts?: string[];
+	/** Cancel the session as this tick's status is read */
+	cancel?: boolean;
+}
+
+/**
+ * Harness for the pre-start handoff: `ticks` scripts what each successive status read observes —
+ * the first is consumed by the pre-flight, the rest by the wait/loop polls (the last tick repeats
+ * once the script runs out). `gitDirPath` (optional) backs the done-file classification with a
+ * real directory.
+ */
+function makeHandoffFakes(
+	ticks: HandoffTick[],
+	options?: { headSha?: string; gitDirPath?: string; releaseError?: Error },
+) {
+	const state = { reads: 0, aborts: 0, continues: 0, calls: [] as string[] };
+	const storage = new Map<string, unknown>();
+	let current: HandoffTick = ticks[0];
+
+	let service!: AutoRebaseService;
+
+	const svc = {
+		path: '/repo',
+		pausedOps: {
+			getPausedOperationStatus: () => {
+				current = ticks[state.reads] ?? ticks.at(-1)!;
+				state.reads++;
+				if (current.cancel) {
+					service.cancel('/repo');
+				}
+				return Promise.resolve(current.status);
+			},
+			abortPausedOperation: () => {
+				state.aborts++;
+				return Promise.resolve();
+			},
+			continuePausedOperation: () => {
+				state.continues++;
+				return Promise.resolve();
+			},
+		},
+		branches: { getBranch: () => Promise.resolve({ name: 'feature' }) },
+		revision: () => undefined,
+		status: {
+			getStatus: () => Promise.resolve({ hasChanges: false, files: [] }),
+			getConflictingFiles: () => Promise.resolve((current.conflicts ?? []).map(p => ({ path: p }))),
+		},
+		config: {
+			getGitDir:
+				options?.gitDirPath != null ? () => Promise.resolve({ uri: Uri.file(options.gitDirPath!) }) : undefined,
+		},
+		ops: { reset: () => Promise.resolve() },
+		staging: { stageFiles: () => Promise.resolve() },
+		createUnsafeGit: () => undefined,
+	} as unknown as Record<string, unknown>;
+	svc.revision = {
+		resolveRevision: () =>
+			Promise.resolve({ sha: options?.headSha ?? 'post', revision: options?.headSha ?? 'post' }),
+	};
+
+	const container = {
+		storage: {
+			getWorkspace: (key: string) => storage.get(key),
+			storeWorkspace: (key: string, value: unknown) => {
+				storage.set(key, value);
+				return Promise.resolve();
+			},
+			deleteWorkspace: (key: string) => {
+				storage.delete(key);
+				return Promise.resolve();
+			},
+		},
+		git: { getRepositoryService: () => svc, getRepository: () => undefined },
+		operationOrigins: {
+			markAdopted: () => {
+				state.calls.push('markAdopted');
+			},
+		},
+		telemetry: { sendEvent: () => {} },
+		ai: {
+			enabled: true,
+			allowed: true,
+			flushBYOKUsage: () => Promise.resolve(),
+			getModel: () => {
+				state.calls.push('getModel');
+				return Promise.resolve({ id: 'test-model', provider: { id: 'test' } });
+			},
+		},
+	} as unknown as Container;
+
+	service = new AutoRebaseService(container);
+	// Stub the lazily node-imported integration — the loop, when entered, needs only enough to
+	// classify a no-conflict pause (empty unmerged listing → non-conflict escalation)
+	(service as unknown as { _integration: Promise<unknown> })._integration = Promise.resolve({
+		listUnmergedEntries: () => Promise.resolve([]),
+	});
+
+	const release = (): Promise<void> => {
+		state.calls.push('release');
+		return options?.releaseError != null ? Promise.reject(options.releaseError) : Promise.resolve();
+	};
+
+	return {
+		service: service,
+		state: state,
+		storage: storage,
+		release: release,
+		svc: svc as unknown as GitRepositoryService,
+	};
+}
+
+suite('coretools/conflict/AutoRebaseService handoff', () => {
+	const statics = AutoRebaseService as unknown as { handoffPollIntervalMs: number; handoffStartTimeoutMs: number };
+	let savedPoll: number;
+	let savedTimeout: number;
+
+	suiteSetup(() => {
+		savedPoll = statics.handoffPollIntervalMs;
+		savedTimeout = statics.handoffStartTimeoutMs;
+		// The wait's cadence is tuned for real git subprocess costs — pointless in these fakes
+		statics.handoffPollIntervalMs = 1;
+	});
+	suiteTeardown(() => {
+		statics.handoffPollIntervalMs = savedPoll;
+		statics.handoffStartTimeoutMs = savedTimeout;
+	});
+	teardown(() => {
+		statics.handoffStartTimeoutMs = savedTimeout;
+	});
+
+	test('refuses when there is no rebase, before asking about AI or releasing', async () => {
+		const { service, state, release, svc } = makeHandoffFakes([{ status: undefined }]);
+
+		await assert.rejects(
+			service.handoffPending(svc, { source: 'rebaseEditor' }, release),
+			/No rebase is in progress\./,
+		);
+		assert.deepStrictEqual(state.calls, []);
+	});
+
+	test('refuses a rebase that has already started, pointing a paused one at takeover', async () => {
+		const { service, state, release, svc } = makeHandoffFakes([{ status: startedRebaseStatus(1, true) }]);
+
+		await assert.rejects(
+			service.handoffPending(svc, { source: 'rebaseEditor' }, release),
+			/use "Continue Automatic Rebase"/,
+		);
+		assert.deepStrictEqual(state.calls, []);
+	});
+
+	test('resolves the model before releasing the blocked rebase', async () => {
+		const { service, state, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			{ status: undefined },
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.mode, 'handoff');
+		// The model prompt must come while git is still safely blocked — before release
+		assert.deepStrictEqual(state.calls, ['getModel', 'markAdopted', 'release']);
+	});
+
+	test('a rebase that finishes with no pause completes with an undo record', async () => {
+		const { service, storage, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			{ status: startedRebaseStatus(2, false) },
+			{ status: undefined },
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'completed');
+		const stored = storage.get('autoRebase:undo:/repo') as { data: StoredAutoRebaseUndo } | undefined;
+		assert.strictEqual(stored?.data.preRebaseSha, 'orig');
+		assert.strictEqual(stored?.data.postRebaseSha, 'post');
+	});
+
+	test('an external abort during the wait reports aborted, not completed', async () => {
+		const { service, storage, release, svc } = makeHandoffFakes(
+			[{ status: pendingRebaseStatus() }, { status: undefined }],
+			// The rebase state is gone and HEAD is back at orig-head — `git rebase --abort` from a terminal
+			{ headSha: 'orig' },
+		);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'aborted');
+		assert.strictEqual(storage.has('autoRebase:undo:/repo'), false);
+	});
+
+	test('a transient conflict observation mid-replay is not treated as a pause', async () => {
+		const { service, state, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			// One poll catches step 1 looking paused with conflicts (REBASE_HEAD mid-apply)…
+			{ status: startedRebaseStatus(1, true), conflicts: ['f.txt'] },
+			// …but the next sees the replay moved on, so it was never a real stop
+			{ status: startedRebaseStatus(2, false) },
+			{ status: undefined },
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'completed');
+		assert.strictEqual(state.continues, 0);
+	});
+
+	test('a conflict stop stable across two polls hands off to the loop', async () => {
+		const conflicted: HandoffTick = { status: startedRebaseStatus(1, true), conflicts: ['f.txt'] };
+		const { service, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			conflicted,
+			conflicted,
+			// The loop's own first status read — by now the conflict was "resolved" externally, so the
+			// loop classifies the pause itself; an empty unmerged listing with nothing staged escalates
+			{ status: startedRebaseStatus(1, true) },
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'escalated');
+		assert.strictEqual(session.escalation?.reason, 'non-conflict-pause');
+	});
+
+	test('a cancel during replay is deferred until the rebase genuinely stops', async () => {
+		const conflicted: HandoffTick = { status: startedRebaseStatus(2, true), conflicts: ['f.txt'] };
+		const { service, state, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			// The cancel lands while the rebase is still replaying — aborting now would race a live
+			// git process, so the wait must ride it out to the next genuine stop
+			{ status: startedRebaseStatus(1, false), cancel: true },
+			{ status: startedRebaseStatus(1, false) },
+			conflicted,
+			conflicted,
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'aborted');
+		assert.strictEqual(state.aborts, 1);
+		// The abort was issued only once the stop was confirmed — five reads in, not two
+		assert.ok(state.reads >= 5, `expected the wait to ride out the cancel (reads=${state.reads})`);
+	});
+
+	test('a rebase that never starts fails the run instead of waiting forever', async () => {
+		statics.handoffStartTimeoutMs = 1;
+		const { service, release, svc } = makeHandoffFakes([{ status: pendingRebaseStatus() }]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'failed');
+		assert.match(session.failure ?? '', /never started/);
+	});
+
+	test('cancelling an escalated run aborts its rebase and transitions the session to aborted', async () => {
+		const conflicted: HandoffTick = { status: startedRebaseStatus(1, true), conflicts: ['f.txt'] };
+		const { service, state, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			conflicted,
+			conflicted,
+			{ status: startedRebaseStatus(1, true) },
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+		assert.strictEqual(session.phase, 'escalated');
+
+		// The escalated loop has returned, so cancel() must abort directly (not via the cts
+		// checkpoint) and fire the `aborted` update the Resolve panel exits on
+		const aborted = new Promise<void>(resolve => {
+			const disposable = service.onDidChange(e => {
+				if (e.session?.phase === 'aborted') {
+					disposable.dispose();
+					resolve();
+				}
+			});
+		});
+		service.cancel('/repo', 'abort');
+		await aborted;
+
+		assert.strictEqual(state.aborts, 1);
+		assert.strictEqual(service.getSession('/repo')?.phase, 'aborted');
+	});
+
+	test('a detach request on an escalated run is ignored (nothing is automating)', async () => {
+		const conflicted: HandoffTick = { status: startedRebaseStatus(1, true), conflicts: ['f.txt'] };
+		const { service, state, release, svc } = makeHandoffFakes([
+			{ status: pendingRebaseStatus() },
+			conflicted,
+			conflicted,
+			{ status: startedRebaseStatus(1, true) },
+		]);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+		assert.strictEqual(session.phase, 'escalated');
+
+		service.cancel('/repo', 'detach');
+		await new Promise(resolve => setTimeout(resolve, 10));
+
+		assert.strictEqual(state.aborts, 0);
+		assert.strictEqual(service.getSession('/repo')?.phase, 'escalated');
+	});
+
+	test('a release failure fails the session rather than leaving it starting', async () => {
+		const { service, release, svc } = makeHandoffFakes([{ status: pendingRebaseStatus() }], {
+			releaseError: new Error('tab refused to close'),
+		});
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'failed');
+		assert.match(session.failure ?? '', /tab refused to close/);
+	});
+});
+
+suite('coretools/conflict/AutoRebaseService handoff stop classification', () => {
+	const statics = AutoRebaseService as unknown as { handoffPollIntervalMs: number };
+	let savedPoll: number;
+	let gitDirPath: string;
+
+	suiteSetup(() => {
+		savedPoll = statics.handoffPollIntervalMs;
+		statics.handoffPollIntervalMs = 1;
+	});
+	suiteTeardown(() => {
+		statics.handoffPollIntervalMs = savedPoll;
+	});
+	setup(() => {
+		gitDirPath = fs.mkdtempSync(join(tmpdir(), 'gl-handoff-'));
+		fs.mkdirSync(join(gitDirPath, 'rebase-merge'));
+	});
+	teardown(() => {
+		fs.rmSync(gitDirPath, { recursive: true, force: true });
+	});
+
+	function writeDone(lines: string[]): void {
+		fs.writeFileSync(join(gitDirPath, 'rebase-merge', 'done'), `${lines.join('\n')}\n`);
+	}
+
+	test('a conflict-less edit stop is a genuine pause (deliberate stop point)', async () => {
+		writeDone(['pick 1111111 one', 'edit 2222222 two']);
+		const stopped: HandoffTick = { status: startedRebaseStatus(2, true) };
+		const { service, release, svc } = makeHandoffFakes(
+			[{ status: pendingRebaseStatus() }, stopped, stopped, stopped],
+			{ gitDirPath: gitDirPath },
+		);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		// Handed to the loop, which classifies a no-conflict pause as needing the user
+		assert.strictEqual(session.phase, 'escalated');
+		assert.strictEqual(session.escalation?.reason, 'non-conflict-pause');
+	});
+
+	test('a conflict-less reword stop is the external message editor — keep waiting, not a pause', async () => {
+		writeDone(['pick 1111111 one', 'reword 2222222 two']);
+		const blocked: HandoffTick = { status: startedRebaseStatus(2, true) };
+		const { service, state, release, svc } = makeHandoffFakes(
+			[
+				{ status: pendingRebaseStatus() },
+				// Stable across many polls while the user types their message…
+				blocked,
+				blocked,
+				blocked,
+				blocked,
+				// …then the editor closes and the rebase runs to completion
+				{ status: undefined },
+			],
+			{ gitDirPath: gitDirPath },
+		);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'completed');
+		// The wait never handed off to the loop while the message editor was open
+		assert.strictEqual(state.continues, 0);
+	});
+
+	test('a conflict-less fixup -c stop is also the message editor — keep waiting, not a pause', async () => {
+		writeDone(['pick 1111111 one', 'fixup -c 2222222 two']);
+		const blocked: HandoffTick = { status: startedRebaseStatus(2, true) };
+		const { service, state, release, svc } = makeHandoffFakes(
+			[{ status: pendingRebaseStatus() }, blocked, blocked, blocked, { status: undefined }],
+			{ gitDirPath: gitDirPath },
+		);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'completed');
+		assert.strictEqual(state.continues, 0);
+	});
+
+	test('a cancel during a message-editor block is honored — the only escape if the editor never opened', async () => {
+		writeDone(['pick 1111111 one', 'reword 2222222 two']);
+		const blocked: HandoffTick = { status: startedRebaseStatus(2, true) };
+		const { service, state, release, svc } = makeHandoffFakes(
+			[
+				{ status: pendingRebaseStatus() },
+				blocked,
+				// The block has held across polls (stable) when the cancel lands — a dead editor
+				// process is indistinguishable from a live one, so the abort must go through
+				{ ...blocked, cancel: true },
+			],
+			{ gitDirPath: gitDirPath },
+		);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'aborted');
+		assert.strictEqual(state.aborts, 1);
 	});
 });

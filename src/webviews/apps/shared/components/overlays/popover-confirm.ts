@@ -139,6 +139,12 @@ export class GlPopoverConfirm extends LitElement {
 	@property()
 	placement: GlPopover['placement'] = 'top-end';
 
+	/** How the confirmation opens: the anchor's click (default), or only programmatically via
+	 *  {@link show} — for confirms whose anchor is itself interactive (e.g. a menu that opens the
+	 *  confirm from a selected item) */
+	@property()
+	trigger: 'click' | 'manual' = 'click';
+
 	/** Optional icon name (uses warning by default) */
 	@property()
 	icon = 'warning';
@@ -151,7 +157,7 @@ export class GlPopoverConfirm extends LitElement {
 		return html`
 			<gl-popover
 				placement=${this.placement}
-				trigger="click"
+				trigger=${this.trigger}
 				@keydown=${this.onKeydown}
 				@gl-popover-show=${this.onPopoverShow}
 				@gl-popover-after-show=${this.onPopoverAfterShow}
