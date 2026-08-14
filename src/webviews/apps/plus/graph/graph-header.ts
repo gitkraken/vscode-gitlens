@@ -731,6 +731,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				// A landing: stepping results is driven from the search box in the header, so each hit needs
 				// to announce where it put you rather than rely on you having watched the rows.
 				flash: true,
+				// This call already has its own hidden-result affordance — a generic toast on top would
+				// double-report the same miss.
+				feedback: false,
 			});
 		} finally {
 			if (this._activeNavigationAbort === abort) {

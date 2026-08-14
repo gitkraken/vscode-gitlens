@@ -111,6 +111,12 @@ export type GraphNavigationSource =
 export type GraphNavigationOptions = {
 	/** Diagnostic origin for this navigation. Never drives behavior — see {@link GraphNavigationSource}. */
 	source?: GraphNavigationSource;
+	/**
+	 * Display name for the target, when the caller jumped via a named ref rather than a bare sha.
+	 * Carried through to `gl-graph-navigation-loading`/`gl-graph-navigation-failed` so feedback UI can
+	 * show a human-readable label instead of a sha. Never drives navigation behavior.
+	 */
+	ref?: string;
 	/** Cancel this navigation when its caller no longer owns the user intent. */
 	signal?: AbortSignal;
 	/** Move the graph's keyboard/ARIA focus anchor to the selected row after it renders. */
@@ -186,8 +192,10 @@ type PendingGraphNavigation = {
 	reveal: GraphRevealIntent;
 	signal?: AbortSignal;
 	sha: string;
-	/** Carried only to stamp the failure event — never consulted for behavior. */
+	/** Carried only to stamp the failure/loading events — never consulted for behavior. */
 	source?: GraphNavigationSource;
+	/** Carried only to stamp the failure/loading events — never consulted for behavior. */
+	ref?: string;
 	timeout?: ReturnType<typeof setTimeout>;
 	promise: Promise<GraphNavigationResult>;
 	resolve: (result: GraphNavigationResult) => void;
@@ -371,8 +379,16 @@ declare global {
 		'gl-graph-navigation-failed': CustomEvent<{
 			sha: string;
 			source?: GraphNavigationSource;
+			ref?: string;
 			reason?: GraphNavigationFailureReason;
 		}>;
+		/** A navigation started a host row load for `sha` — fired once, when the walk begins. Consumers
+		 *  can drive an interim "looking for…" affordance while `graphState.ensureLoading` is true; the
+		 *  navigation settling with a hit fires no event of its own, so absence of a later
+		 *  `gl-graph-navigation-failed` for the same sha (plus `ensureLoading` going back false) is what
+		 *  says it landed. `feedback: false` mirrors the navigation's opt-out — the load still holds
+		 *  `ensureLoading`, so consumers must clear any affordance keyed to an earlier load. */
+		'gl-graph-navigation-loading': CustomEvent<{ sha: string; ref?: string; feedback: boolean }>;
 		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GitGraphRow }>;
 		'gl-graph-row-double-click': CustomEvent<{ graphRow: GitGraphRow; preserveFocus?: boolean }>;
 		'gl-graph-row-hover': CustomEvent<{
@@ -1473,7 +1489,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (result.status === 'not-found' && pending.feedback) {
 			this.dispatchEvent(
 				new CustomEvent('gl-graph-navigation-failed', {
-					detail: { sha: pending.sha, source: pending.source, reason: result.reason },
+					detail: { sha: pending.sha, source: pending.source, ref: pending.ref, reason: result.reason },
 				}),
 			);
 		}
@@ -1616,6 +1632,20 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.querySelector('gl-lit-graph')?.cancelPendingRevealFor(sha);
 	}
 
+	/** Cancel the pending navigation targeting `sha`, exactly as a superseding {@link navigateToCommit}
+	 *  call would (a silent `'cancelled'` settlement that withdraws any still-travelling host walk).
+	 *  No-op when the pending navigation targets a different sha or none is pending — a caller (e.g. the
+	 *  jump-feedback toast's Cancel action) can't accidentally cancel a newer, unrelated navigation. */
+	cancelNavigation(sha: string): void {
+		if (this._pendingNavigation?.sha !== sha) return;
+
+		this._selectIntent.cancel();
+		this._selectIntentRepositoryId = undefined;
+		this._selectIntentRepoPath = undefined;
+		this.settlePendingNavigation({ status: 'cancelled' });
+		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+	}
+
 	/**
 	 * Load, select, and reveal a row as one latest-wins operation.
 	 *
@@ -1655,6 +1685,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const deferSynthetic = options?.deferSynthetic !== false;
 		const feedback = options?.feedback !== false;
 		const focus = options?.focus === true;
+		const ref = options?.ref;
 		const signal = options?.signal;
 		// Resolved once and shared by all three reveal sites below (loaded, deferred synthetic WIP, and
 		// host-loaded), so a row that has to be paged in lands the same way one already in hand does.
@@ -1716,6 +1747,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			feedback: feedback,
 			focus: focus,
 			generation: generation,
+			ref: ref,
 			reveal: reveal,
 			sha: sha,
 			signal: signal,
@@ -1768,6 +1800,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				if (this._pendingNavigation?.generation === generation) {
 					this._pendingNavigation.hostLoadSha = anchorSha;
 				}
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-navigation-loading', {
+						detail: { sha: sha, ref: ref, feedback: feedback },
+					}),
+				);
 				void this._ipc
 					.sendRequest(LoadRowRequest, { id: anchorSha })
 					.then(result => {
@@ -1791,6 +1828,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (this._pendingNavigation?.generation === generation) {
 			this._pendingNavigation.hostLoadSha = sha;
 		}
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-navigation-loading', { detail: { sha: sha, ref: ref, feedback: feedback } }),
+		);
 		void this._ipc
 			.sendRequest(LoadRowRequest, { id: sha })
 			.then(result => {

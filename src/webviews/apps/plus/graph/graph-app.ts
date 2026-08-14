@@ -1,6 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
+import type { TemplateResult } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -19,6 +20,7 @@ import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
+import type { GraphBranchesVisibility } from '../../../../config.js';
 import type { GlExtensionCommands } from '../../../../constants.commands.js';
 import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import { mergeWebviewItems } from '../../../../system/webview.js';
@@ -60,8 +62,11 @@ import {
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphScopeChangedCommand,
 	UpdateColumnModeCommand,
+	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
+	UpdateIncludedRefsCommand,
+	UpdateRefsVisibilityCommand,
 } from '../../../plus/graph/protocol.js';
 import { ExecuteCommand } from '../../../protocol.js';
 import { fireAndForget, noop } from '../../shared/actions/rpc.js';
@@ -92,6 +97,7 @@ import type { CapturedComparison } from './components/detailsState.js';
 import { shouldRestoreCapturedComparison } from './components/detailsState.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
+import type { GraphJumpToastKind } from './components/gl-graph-jump-toast.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type {
 	OverviewBarItem,
@@ -112,7 +118,14 @@ import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GlGraphHeader } from './graph-header.js';
-import type { GlGraphWrapper, GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
+import type { GraphRowHiddenReason } from './graph-wrapper/gl-lit-graph.js';
+import type {
+	GlGraphWrapper,
+	GraphNavigationFailureReason,
+	GraphNavigationOptions,
+	GraphNavigationResult,
+	GraphNavigationSource,
+} from './graph-wrapper/graph-wrapper.js';
 import type { GraphCrossPaneState } from './graphCrossPaneState.js';
 import { abortRunningOperations, createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
 import type { GraphLaunchpadState } from './graphLaunchpadState.js';
@@ -164,6 +177,7 @@ import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
+import './components/gl-graph-jump-toast.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
 import './components/gl-graph-overview-bar.js';
@@ -198,6 +212,42 @@ function branchNameFromRef(branchRef: string | undefined): string | undefined {
  *  appear in VS Code's worktree list and tooling. Falls back to `(detached)` for safety. */
 function primaryFallbackLabel(repoPath: string): string {
 	return basename(repoPath) || '(detached)';
+}
+
+/** What the single jump-feedback toast (see `<gl-graph-jump-toast>`) is currently showing. `sha` is
+ *  the wrapper's pending-navigation id to disarm on dismissal (see `cancelNavigationFeedback`) —
+ *  undefined for a host-initiated reveal failure, which never armed one. `onAction` is undefined for a
+ *  message-only (dismiss-only) toast. */
+type GraphJumpToastState = {
+	kind: GraphJumpToastKind;
+	message: TemplateResult;
+	actionLabel?: string;
+	sha?: string;
+	onAction?: () => void;
+};
+
+/** User-facing name for a "branches visibility" mode, for the jump-feedback toast's hidden-by-view
+ *  message. Mirrors the labels the scope popover's mode menu renders for the same values. */
+function branchesVisibilityLabel(visibility: GraphBranchesVisibility | undefined): string {
+	switch (visibility) {
+		case 'smart':
+			return 'Smart Branches';
+		case 'current':
+			return 'Current Branch';
+		case 'favorited':
+			return 'Favorited Branches';
+		case 'agents':
+			return 'Agent Branches';
+		case 'all':
+		case undefined:
+			return 'current';
+	}
+}
+
+/** The jump-feedback toast's inline rendering of the jump target: a ref name reads as a name
+ *  (`<strong>`), a bare short sha reads as code (`<code>`) — the toast's styles key on the tags. */
+function jumpTargetLabel(ref: string | undefined, label: string): TemplateResult {
+	return ref != null ? html`<strong>${label}</strong>` : html`<code>${label}</code>`;
 }
 
 /** Maps a numeric-row `KeyboardEvent.code` (`Digit0`-`Digit9`) to the shortcut index it represents:
@@ -3048,6 +3098,395 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.releaseSheetMaximize();
 	};
 
+	// ---- Jump feedback toast (issue #5699) ----
+	//
+	// A jump that can't land (hidden by a filter, or gone entirely) used to fail silently — the graph
+	// just didn't move. `gl-graph-wrapper` classifies why and reports it via
+	// `gl-graph-navigation-loading`/`gl-graph-navigation-failed`; this section owns the single toast
+	// instance that turns that classification into an actionable message, and the remedies that clear
+	// the blocker and re-run the jump.
+
+	/** The still-in-flight host row load a jump is waiting on, if any — rendered as a "searching" toast
+	 *  only while `graphState.ensureLoading` is ALSO true (see {@link renderJumpToast}), so a load that
+	 *  lands with a hit clears the toast with nothing here having to notice — the wrapper fires no
+	 *  "succeeded" event, only a failed one. `@state` so SETTING it (not just the later `ensureLoading`
+	 *  flip) schedules the render that reads `ensureLoading` and subscribes `SignalWatcher` to it. */
+	@state()
+	private _loadingJumpNav?: { sha: string; ref?: string };
+
+	/** A settled, reportable jump failure (or a host-initiated reveal failure) — takes priority over
+	 *  {@link _loadingJumpNav} once set. */
+	@state()
+	private _failedJumpToast?: GraphJumpToastState;
+
+	private _jumpToastTimer?: ReturnType<typeof setTimeout>;
+
+	/** The toast object last handed to `<gl-graph-jump-toast>` (see {@link renderJumpToast}) — its
+	 *  action/dismiss handlers fire DOM events with no payload, so they read this rather than
+	 *  re-deriving what's currently shown. */
+	private _renderedJumpToast?: GraphJumpToastState;
+
+	private handleGraphNavigationLoading = (e: CustomEventType<'gl-graph-navigation-loading'>): void => {
+		// A newer target supersedes whatever's currently shown, a still-visible failure included. An
+		// opted-out load (search stepping has its own progress UI) shows nothing, but still clears —
+		// it holds `ensureLoading` too, and a stale `_loadingJumpNav` would resurface under it with the
+		// wrong target.
+		this.clearJumpToast();
+		this._loadingJumpNav = e.detail.feedback ? { sha: e.detail.sha, ref: e.detail.ref } : undefined;
+	};
+
+	private handleGraphNavigationFailed = (e: CustomEventType<'gl-graph-navigation-failed'>): void => {
+		this.clearJumpToast();
+
+		const { sha, source, ref, reason } = e.detail;
+		const label = ref ?? sha.slice(0, 7);
+		const toast = this.buildJumpFailureToast(sha, ref, label, source, reason);
+		this._failedJumpToast = toast;
+		this.armJumpToastTimer(toast.actionLabel == null ? 6000 : 10000);
+
+		emitTelemetrySentEvent<'graph/jump/failed'>(this, {
+			name: 'graph/jump/failed',
+			data: {
+				reason: reason?.kind === 'hidden' ? reason.hidden : (reason?.kind ?? 'not-found'),
+				source: source ?? 'unknown',
+			},
+		});
+	};
+
+	/** Routed from {@link GraphAppHost} for the host's `reveal/didFail` notification — a host-initiated
+	 *  reveal (deep link, terminal link, "Open in Commit Graph") whose ref never resolved. No wrapper
+	 *  navigation was ever armed for it, so the toast carries no `sha` to disarm on dismissal. */
+	handleRevealFailed(id: string): void {
+		this.clearJumpToast();
+
+		this._failedJumpToast = {
+			kind: 'terminal',
+			message: html`'<strong>${id}</strong>' wasn't found in this repository`,
+		};
+		this.armJumpToastTimer(6000);
+
+		emitTelemetrySentEvent<'graph/jump/failed'>(this, {
+			name: 'graph/jump/failed',
+			data: { reason: 'invalid-ref', source: 'host' },
+		});
+	}
+
+	private readonly handleJumpToastAction = (): void => {
+		this._renderedJumpToast?.onAction?.();
+	};
+
+	private readonly handleJumpToastDismiss = (): void => this.clearJumpToast();
+
+	private armJumpToastTimer(ms: number): void {
+		this._jumpToastTimer = setTimeout(() => this.clearJumpToast(), ms);
+	}
+
+	private clearJumpToastTimer(): void {
+		if (this._jumpToastTimer == null) return;
+
+		clearTimeout(this._jumpToastTimer);
+		this._jumpToastTimer = undefined;
+	}
+
+	/** Hides whatever toast is showing. A settled failure disarms the reveal the wrapper left armed for
+	 *  it (`GlGraphWrapper.cancelNavigationFeedback`); a still-loading one does NOT — dismissing the
+	 *  "looking for…" card is a different ask than its own Cancel action, which goes through
+	 *  `GlGraphWrapper.cancelNavigation` instead. */
+	private clearJumpToast(): void {
+		this.clearJumpToastTimer();
+
+		const sha = this._failedJumpToast?.sha;
+		this._failedJumpToast = undefined;
+		this._loadingJumpNav = undefined;
+		if (sha != null) {
+			this.graph?.cancelNavigationFeedback(sha);
+		}
+	}
+
+	/** The toast to render this pass, or `nothing`. A failure always wins; the "searching" state is
+	 *  otherwise DERIVED (not stored) from the still-pending load and `ensureLoading`, per
+	 *  {@link _loadingJumpNav}'s doc comment. */
+	private renderJumpToast() {
+		// Read unconditionally (not behind `&&`) so `SignalWatcher` always re-subscribes to it on this
+		// render, even while `_loadingJumpNav` is unset — otherwise the FIRST render after a loading nav
+		// arrives (the one where the signal read would matter) is the one short-circuit skips it on.
+		const ensureLoading = this.graphState.ensureLoading;
+
+		let toast = this._failedJumpToast;
+		if (toast == null && this._loadingJumpNav != null && ensureLoading) {
+			const { sha, ref } = this._loadingJumpNav;
+			const label = ref ?? sha.slice(0, 7);
+			toast = {
+				kind: 'searching',
+				message: html`Looking for ${jumpTargetLabel(ref, label)} in older history…`,
+				actionLabel: 'Cancel',
+				sha: sha,
+				onAction: () => this.graph?.cancelNavigation(sha),
+			};
+		}
+
+		this._renderedJumpToast = toast;
+		if (toast == null) return nothing;
+
+		return html`<gl-graph-jump-toast
+			.kind=${toast.kind}
+			.message=${toast.message}
+			action-label=${ifDefined(toast.actionLabel)}
+			@gl-jump-toast-action=${this.handleJumpToastAction}
+			@gl-jump-toast-dismiss=${this.handleJumpToastDismiss}
+		></gl-graph-jump-toast>`;
+	}
+
+	/** Polls `predicate` (32ms tick, matching {@link waitForScopeCleared}) so a remedy that round-trips
+	 *  through the host has a settled state to re-navigate against instead of racing the push. Resolves
+	 *  either way once `timeoutMs` elapses — the retry navigation still runs; it just might not land yet. */
+	private waitForJumpRemedy(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+		if (predicate()) return Promise.resolve();
+
+		return new Promise<void>(resolve => {
+			const start = Date.now();
+			const check = (): void => {
+				if (predicate() || Date.now() - start >= timeoutMs) {
+					resolve();
+					return;
+				}
+
+				setTimeout(check, 32);
+			};
+			setTimeout(check, 32);
+		});
+	}
+
+	/** Applies a remedy, waits for its effect to settle (or times out), then re-runs the jump with the
+	 *  landing flash — the same sequence the WIP bar's scope-clear jump already relies on (see
+	 *  {@link selectOverviewBarItem}). */
+	private applyJumpRemedy(
+		sha: string,
+		ref: string | undefined,
+		source: GraphNavigationSource | undefined,
+		apply: () => void,
+		wait: () => Promise<void>,
+	): void {
+		this.clearJumpToast();
+		void (async () => {
+			apply();
+			await wait();
+			void this.graph?.navigateToCommit(sha, { source: source ?? 'jump', flash: true, ref: ref });
+		})();
+	}
+
+	private buildJumpFailureToast(
+		sha: string,
+		ref: string | undefined,
+		label: string,
+		source: GraphNavigationSource | undefined,
+		reason: GraphNavigationFailureReason | undefined,
+	): GraphJumpToastState {
+		if (reason == null) {
+			return { kind: 'terminal', message: html`Couldn't load ${jumpTargetLabel(ref, label)}`, sha: sha };
+		}
+
+		switch (reason.kind) {
+			case 'hidden':
+				return this.buildHiddenJumpFailureToast(sha, ref, label, source, reason.hidden);
+			case 'first-parent':
+				return {
+					kind: 'hidden',
+					message: html`${jumpTargetLabel(ref, label)} is hidden while following only first parents`,
+					actionLabel: 'Show All Commits',
+					sha: sha,
+					onAction: () =>
+						this.applyJumpRemedy(
+							sha,
+							ref,
+							source,
+							() =>
+								this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
+									changes: { onlyFollowFirstParent: false },
+								}),
+							() => this.waitForJumpRemedy(() => this.graphState.config?.onlyFollowFirstParent !== true),
+						),
+				};
+			case 'not-found':
+				return {
+					kind: 'terminal',
+					message: html`${jumpTargetLabel(ref, label)} wasn't found in this repository`,
+					sha: sha,
+				};
+			case 'invalid-ref':
+				return {
+					kind: 'terminal',
+					message: html`${jumpTargetLabel(ref, label)} wasn't found in this repository`,
+					sha: sha,
+				};
+			case 'timeout':
+			case 'error':
+				return { kind: 'terminal', message: html`Couldn't load ${jumpTargetLabel(ref, label)}`, sha: sha };
+		}
+	}
+
+	private buildHiddenJumpFailureToast(
+		sha: string,
+		ref: string | undefined,
+		label: string,
+		source: GraphNavigationSource | undefined,
+		hidden: GraphRowHiddenReason,
+	): GraphJumpToastState {
+		switch (hidden) {
+			case 'excluded-ref': {
+				const entry =
+					ref != null
+						? Object.values(this.graphState.excludeRefs ?? {}).find(r => r.name === ref)
+						: undefined;
+				if (entry != null) {
+					return {
+						kind: 'hidden',
+						message: html`<strong>${ref}</strong> is hidden on the graph`,
+						actionLabel: 'Show Branch',
+						sha: sha,
+						onAction: () =>
+							this.applyJumpRemedy(
+								sha,
+								ref,
+								source,
+								() =>
+									this._ipc.sendCommand(UpdateRefsVisibilityCommand, {
+										refs: [entry],
+										visible: true,
+									}),
+								() => this.waitForJumpRemedy(() => !(entry.id in (this.graphState.excludeRefs ?? {}))),
+							),
+					};
+				}
+				return this.buildShowHiddenRefsJumpToast(sha, ref, label, source);
+			}
+			case 'excluded-type': {
+				const row = this.graphState.rows?.find(r => r.sha === sha);
+				if (row?.kind === 'stash') {
+					return {
+						kind: 'hidden',
+						message: html`${jumpTargetLabel(ref, label)} is hidden on the graph`,
+						actionLabel: 'Show Hidden Refs',
+						sha: sha,
+						onAction: () =>
+							this.applyJumpRemedy(
+								sha,
+								ref,
+								source,
+								() =>
+									this._ipc.sendCommand(UpdateExcludeTypesCommand, {
+										key: 'stashes',
+										value: false,
+									}),
+								() => this.waitForJumpRemedy(() => this.graphState.excludeTypes?.stashes !== true),
+							),
+					};
+				}
+				// The row's kind isn't knowable (not currently paged in) — no single exclude-type flag to
+				// flip with confidence, so degrade to the same generic remedy the bare-sha excluded-ref
+				// case uses below.
+				return this.buildShowHiddenRefsJumpToast(sha, ref, label, source);
+			}
+			case 'visibility': {
+				const modeLabel = branchesVisibilityLabel(this.graphState.branchesVisibility);
+				return {
+					kind: 'hidden',
+					message: html`${jumpTargetLabel(ref, label)} isn't shown in the ${modeLabel} view`,
+					actionLabel: 'Show All Branches',
+					sha: sha,
+					onAction: () =>
+						this.applyJumpRemedy(
+							sha,
+							ref,
+							source,
+							() =>
+								this._ipc.sendCommand(UpdateIncludedRefsCommand, {
+									branchesVisibility: 'all',
+									refs: undefined,
+								}),
+							() => this.waitForJumpRemedy(() => this.graphState.branchesVisibility === 'all'),
+						),
+				};
+			}
+			case 'scope':
+				return {
+					kind: 'hidden',
+					message: html`${jumpTargetLabel(ref, label)} is outside the current scope`,
+					actionLabel: 'Clear Scope',
+					sha: sha,
+					onAction: () =>
+						this.applyJumpRemedy(
+							sha,
+							ref,
+							source,
+							() => this.graphState.clearScope(),
+							() => this.waitForScopeCleared(),
+						),
+				};
+			case 'search-filter':
+				return {
+					kind: 'hidden',
+					message: html`${jumpTargetLabel(ref, label)} is hidden by the search filter`,
+					actionLabel: 'Exit Filter View',
+					sha: sha,
+					onAction: () =>
+						this.applyJumpRemedy(
+							sha,
+							ref,
+							source,
+							() =>
+								this.graphHeader?.handleSearchModeChanged(
+									new CustomEvent('gl-search-modechange', {
+										detail: {
+											searchMode: 'normal',
+											useNaturalLanguage: this.graphState.useNaturalLanguageSearch === true,
+										},
+									}),
+								),
+							() => this.waitForJumpRemedy(() => this.graphState.searchMode !== 'filter'),
+						),
+				};
+			case 'collapsed':
+			case 'unknown':
+				return {
+					kind: 'hidden',
+					message: html`${jumpTargetLabel(ref, label)} can't be shown on the graph right now`,
+					sha: sha,
+				};
+		}
+	}
+
+	/** Fallback remedy for a hidden target whose specific blocker can't be targeted directly (a
+	 *  bare-sha excluded ref with no name to match, or an excluded-type row whose kind isn't known) —
+	 *  the hidden-refs popover's own "Show All" precedent: clear every currently-excluded ref. */
+	private buildShowHiddenRefsJumpToast(
+		sha: string,
+		ref: string | undefined,
+		label: string,
+		source: GraphNavigationSource | undefined,
+	): GraphJumpToastState {
+		const excludeRefs = this.graphState.excludeRefs;
+		const refs = excludeRefs != null ? Object.values(excludeRefs) : [];
+		if (refs.length === 0) {
+			return { kind: 'hidden', message: html`${jumpTargetLabel(ref, label)} is hidden on the graph`, sha: sha };
+		}
+
+		return {
+			kind: 'hidden',
+			message: html`${jumpTargetLabel(ref, label)} is hidden on the graph`,
+			actionLabel: 'Show Hidden Refs',
+			sha: sha,
+			onAction: () =>
+				this.applyJumpRemedy(
+					sha,
+					ref,
+					source,
+					() => this._ipc.sendCommand(UpdateRefsVisibilityCommand, { refs: refs, visible: true }),
+					() => this.waitForJumpRemedy(() => Object.keys(this.graphState.excludeRefs ?? {}).length === 0),
+				),
+		};
+	}
+
 	/** Monotonic stamp for PR-sheet opens — the payload resolution below can await network, so a
 	 *  newer open (or any newer details reveal) must win over one still resolving. */
 	private _prSheetResolveToken = 0;
@@ -3491,6 +3930,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+					@gl-graph-navigation-failed=${this.handleGraphNavigationFailed}
+					@gl-graph-navigation-loading=${this.handleGraphNavigationLoading}
 					@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
@@ -3505,6 +3946,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@rowhoverstart=${this.handleGraphRowHoverStart}
 					@rowhovertrack=${this.handleGraphRowHoverTrack}
 				></gl-graph-wrapper>
+				${this.renderJumpToast()}
 			</div>
 		`;
 	}
@@ -4288,7 +4730,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
 		if (sha != null) {
-			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true });
+			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true, ref: e.detail.branchName });
 		}
 
 		// If the user clicked the card without first hovering, the merge-target tip SHA isn't known
@@ -4413,7 +4855,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 			const sha = this.getOverviewBranchSelectionSha(branch.id);
 			if (sha != null) {
-				void this.graph?.navigateToCommit(sha, { source: 'sidebar', flash: true });
+				void this.graph?.navigateToCommit(sha, { source: 'sidebar', flash: true, ref: branchName });
 			}
 			return;
 		}
@@ -4464,7 +4906,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// If the helper returned the tip and tip isn't loaded, the IPC `LoadRowRequest`
 			// fallback in `navigateToCommit` will fetch it; otherwise the fast path or
 			// synthetic-WIP retry handles it.
-			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true });
+			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true, ref: branchName });
 			return;
 		}
 

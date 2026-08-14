@@ -5,6 +5,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type {
+	DidFailRevealParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
@@ -110,6 +111,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			'gl-graph-request-ensure-row-visible',
 			this._handleRequestEnsureRowVisible as EventListener,
 		);
+		this.addEventListener('gl-graph-request-reveal-failed', this._handleRequestRevealFailed as EventListener);
 	}
 
 	override disconnectedCallback(): void {
@@ -127,6 +129,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			'gl-graph-request-ensure-row-visible',
 			this._handleRequestEnsureRowVisible as EventListener,
 		);
+		this.removeEventListener('gl-graph-request-reveal-failed', this._handleRequestRevealFailed as EventListener);
 		this._sidebarActions.dispose();
 		this._onboardingDismissals.dispose();
 		this._coachMarkSeen.dispose();
@@ -138,6 +141,10 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	private _handleRequestEnsureRowVisible = (e: CustomEvent<string>): void => {
 		this.appElement?.ensureRowVisible(e.detail);
+	};
+
+	private _handleRequestRevealFailed = (e: CustomEvent<DidFailRevealParams>): void => {
+		this.appElement?.handleRevealFailed(e.detail.id);
 	};
 
 	private _handleRequestOpenTimelineScope = (e: CustomEvent<DidRequestOpenTimelineScopeParams>): void => {

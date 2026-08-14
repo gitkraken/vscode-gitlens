@@ -51,6 +51,7 @@ import {
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidCloseWipWatchesNotification,
+	DidFailRevealNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
@@ -1858,6 +1859,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						);
 					}
 				}
+				break;
+			case DidFailRevealNotification.is(msg):
+				// A host-initiated reveal that gave up before ever pushing a selection (an unresolved ref) —
+				// nothing else tells the webview the jump was a no-op, so surface it explicitly the same way
+				// `gl-graph-request-ensure-row-visible` surfaces a successful one, above.
+				this.host.dispatchEvent(
+					new CustomEvent('gl-graph-request-reveal-failed', {
+						detail: msg.params,
+						bubbles: true,
+					}),
+				);
 				break;
 
 			case DidRequestOpenCompareModeNotification.is(msg):

@@ -252,6 +252,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user clicks on the "Open Repository on Remote" header button on the Commit Graph */
 	'graph/action/sidebar': GraphActionSidebarEvent;
 
+	/** Sent when a Commit Graph jump (a ref pill, sidebar/overview select, search step, host-initiated
+	 *  reveal, …) settles without landing on its row and shows the jump-feedback toast */
+	'graph/jump/failed': GraphJumpFailedEvent;
+
 	/** Sent when a contextual coach mark (feature how-to) is shown or dismissed on the Commit Graph */
 	'graph/coachMark': GraphCoachMarkEvent;
 
@@ -1601,6 +1605,15 @@ interface GraphAutoFetchEvent extends GraphContextEventData {
 
 interface GraphActionSidebarEvent extends GraphContextEventData {
 	action: string;
+}
+
+interface GraphJumpFailedEvent extends GraphContextEventData {
+	/** The classified failure kind — a hidden row's sub-reason when applicable, else the top-level kind
+	 *  (`not-found`, `invalid-ref`, `first-parent`, `timeout`, `error`). */
+	reason: string;
+	/** Diagnostic origin of the navigation that failed (a `GraphNavigationSource`, or `'host'` for a
+	 *  host-initiated reveal that never resolved its ref). */
+	source: string;
 }
 
 interface GraphCoachMarkEvent extends GraphContextEventData {
