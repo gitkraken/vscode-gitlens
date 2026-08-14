@@ -212,6 +212,9 @@ suite('IntegrationManager.getSupportedFilters', () => {
 					draft: false,
 					repositoryScope: false,
 					organizationScope: false,
+					// Empty rather than absent, like `relationships`: a consumer reads capabilities the same way for
+					// every provider and must not have to tell `[]` from `undefined`.
+					sorts: [],
 				});
 			} finally {
 				manager.dispose();
@@ -236,6 +239,9 @@ suite('IntegrationManager.getSupportedFilters', () => {
 					draft: true,
 					repositoryScope: true,
 					organizationScope: true,
+					// The ordering vocabulary of GitHub's filtered PR search — created/updated, both directions. See
+					// `githubPullRequestSorts`.
+					sorts: ['updated:desc', 'updated:asc', 'created:desc', 'created:asc'],
 				});
 			} finally {
 				manager.dispose();

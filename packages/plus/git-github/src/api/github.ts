@@ -21,7 +21,7 @@ import type {
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
-import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import { defaultPullRequestSort, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
@@ -29,6 +29,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import { effectiveIssueSort, getIssueComparator } from '@gitlens/git/utils/issue.utils.js';
+import { getPullRequestComparator } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
 	createRevisionRange,
 	getRevisionRangeParts,
@@ -3650,8 +3651,10 @@ export class GitHubApi {
 	 * One page of the current user's pull requests, filtered by state and optionally by an explicit
 	 * relationship qualifier. Backs the PR sweeps, which drain it page by page.
 	 *
-	 * Ordering is part of the contract, not an option: always `sort:updated` (most recently updated first),
-	 * matching {@link searchPullRequestsPage}. A caller that stops before `hasMore` clears — every sweep with a
+	 * Ordering is part of the contract, not an option: always `sort:updated` (most recently updated first), which is
+	 * {@link searchPullRequestsPage}'s DEFAULT rather than its only order — that read takes a `criteria.sort`, this
+	 * one does not, because a sweep's recency window is what its page budget is defined against. A caller that stops
+	 * before `hasMore` clears — every sweep with a
 	 * page budget — therefore retains a well-defined recency window instead of an arbitrary slice of GitHub's
 	 * relevance ranking.
 	 */
@@ -4359,8 +4362,11 @@ export class GitHubApi {
 	 * every active relationship × state facet, so one HTTP request serves one page even when the logical search is
 	 * a union. The cursor preserves each facet's continuation plus the positional page.
 	 *
-	 * Ordering is always most-recently-updated-first, and user text is sanitized before it reaches the provider
-	 * query. See {@link toGitHubPullRequestSearchFacets}.
+	 * Ordering is `criteria.sort`, defaulting to most-recently-updated-first — the order this read served before it
+	 * was expressible. It is requested of the provider AND re-applied to the merged page, because the page is a
+	 * union of facets and no per-facet server order describes it. The sort is part of the cursor fingerprint, so
+	 * changing it invalidates a threaded cursor exactly as changing the text or the scope does. User text is
+	 * sanitized before it reaches the provider query. See {@link toGitHubPullRequestSearchFacets}.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchPullRequestsPage(
@@ -4520,7 +4526,15 @@ export class GitHubApi {
 					}
 				}
 			}
-			pullRequests.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+			// The PR path re-sorts the merged page rather than trusting the per-facet server order — GitHub's
+			// server-side PR sort has been unreliable (the per-branch path re-sorts for the same reason), and the
+			// union of several facets is unordered regardless. The key was validated against
+			// `githubPullRequestSearchCapabilities.sorts` upstream, so its comparator is always defined for a PR
+			// shape; the guard only guards the unreachable case rather than inventing an order for it.
+			const comparator = getPullRequestComparator(options?.criteria?.sort ?? defaultPullRequestSort);
+			if (comparator != null) {
+				pullRequests.sort(comparator);
+			}
 			const values = [
 				...uniqueBy(
 					pullRequests,

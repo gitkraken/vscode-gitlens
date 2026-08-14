@@ -1,5 +1,6 @@
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IssueSorting } from '@gitlens/git/models/issue.js';
+import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from './constants.js';
 
 export interface ConnectionStateChangeEvent {
@@ -85,8 +86,12 @@ export interface ProviderWarningOmission {
 	 * Present so a consumer can word its own "N matched, showing the first M" without assuming WHICH M: the
 	 * provider serves the top M under this key, so the sentence is only true if it names it. Absent for every
 	 * omission that isn't a ceiling, where no window was selected by an order.
+	 *
+	 * A union of both vocabularies rather than the issue one alone: `PullRequestSorting` happens to be a subset
+	 * today, so narrowing this to {@link IssueSorting} would still compile while describing only half the reads
+	 * that set it — and would break the day the PR search gains a key the issue search has no name for.
 	 */
-	sort?: IssueSorting;
+	sort?: IssueSorting | PullRequestSorting;
 	/** Which repository / project / resource was affected, when one is attributed. */
 	scope?: ProviderWarningOmissionScope;
 }

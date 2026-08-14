@@ -408,7 +408,10 @@ const filters = wanted.filter(f => capability.includes(f));
 - `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty.
 - `pullRequestSearch` — the filtered PR search (`searchPullRequestsPage`). Always present; empty `relationships`
   means the provider has no such search. It declares the exact `relationships` and `states`, plus `text`,
-  `updatedAfter`, `createdAfter`, `includeArchived`, `draft`, `repositoryScope`, and `organizationScope`.
+  `updatedAfter`, `createdAfter`, `includeArchived`, `draft`, `repositoryScope`, `organizationScope`, and `sorts`
+  — the ordering vocabulary, as `field:direction` keys. A key not in `sorts` refuses the whole read, exactly like
+  an inexpressible filter; `updated:desc` is always in it when the search exists at all, so omitting
+  `criteria.sort` never refuses.
 - `issues` — the **repo-scoped** git-host read, **and** the issue-tracker read
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
@@ -480,12 +483,15 @@ Account-wide PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention`
 `Author, Assignee, ReviewRequested`.
 PR **search** capabilities (`getSupportedFilters().pullRequestSearch`): GitHub/GHE express relationships
 `Author, Assignee, ReviewRequested, Mention`, states `open, closed, merged, all`, `text`, `updatedAfter`,
-`createdAfter`, `includeArchived`, `draft`, and repository/organization scopes. Every other provider declares empty
-lists and false flags, so the read is refused rather than returning a page that did not apply a requested criterion
-or scope. `updatedAfter` / `createdAfter` are ISO `YYYY-MM-DD` and are the most effective narrowing on a large scope
-— the way to bound a broad closed-PR read, rather than capping page iterations. `draft` is tri-state: `true` returns
-only drafts, `false` only ready-for-review PRs, and omitting it places no constraint — so a consumer sending
-`draft: false` must not treat it as "unset".
+`createdAfter`, `includeArchived`, `draft`, repository/organization scopes, and sorts
+`updated:desc|asc, created:desc|asc`. Every other provider declares empty lists and false flags, so the read is
+refused rather than returning a page that did not apply a requested criterion or scope. `updatedAfter` /
+`createdAfter` are ISO `YYYY-MM-DD` and are the most effective narrowing on a large scope — the way to bound a broad
+closed-PR read, rather than capping page iterations. `draft` is tri-state: `true` returns only drafts, `false` only
+ready-for-review PRs, and omitting it places no constraint — so a consumer sending `draft: false` must not treat it
+as "unset". The sort vocabulary is narrower than the issue search's on purpose: a merged page can only be re-ordered
+by a field a normalized pull request carries, and GitHub PRs have neither a priority nor a relevance that ranks
+stably under the result ceiling.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
 Linear + Trello `Assignee` · Bitbucket family none.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
