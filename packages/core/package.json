@@ -217,6 +217,14 @@
 		"./utils/env/node/platform.js": {
 			"types": "./dist/utils/env/node/platform.d.ts",
 			"default": "./dist/utils/env/node/platform.js"
+		},
+		"./utils/keys/chord.js": {
+			"types": "./dist/utils/keys/chord.d.ts",
+			"default": "./dist/utils/keys/chord.js"
+		},
+		"./utils/keys/keybinding.js": {
+			"types": "./dist/utils/keys/keybinding.d.ts",
+			"default": "./dist/utils/keys/keybinding.js"
 		}
 	},
 	"dependencies": {

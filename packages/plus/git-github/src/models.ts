@@ -220,7 +220,6 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	assignees: {
 		nodes: GitHubMember[];
 	};
-	body: string;
 	changedFiles: number;
 	checksUrl: string;
 	deletions: number;

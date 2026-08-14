@@ -19,7 +19,6 @@ suite('pullRequest.utils', () => {
 	});
 });
 
-
 /**
  * The comparator behind every MERGED pull-request search read — GitHub's relationship × state facets are unioned in
  * the facade, so the per-facet server order says nothing about the assembled page. This is the only thing making
