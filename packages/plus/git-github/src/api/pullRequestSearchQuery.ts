@@ -70,6 +70,8 @@ export function toGitHubPullRequestSearchFacets(
 				'is:pr',
 				...(relationship != null ? [relationshipQualifier[relationship]] : []),
 				...stateQualifiers(state),
+				// `!= null`, not truthy: `draft:false` narrows to ready-for-review PRs just as `draft:true` narrows to drafts.
+				...(criteria?.draft != null ? [`draft:${criteria.draft}`] : []),
 				...(criteria?.includeArchived === true ? [] : ['archived:false']),
 				...(text.length > 0 ? [text] : []),
 				// Contract, not an option: a capped result is the N most recently updated only under this order.
