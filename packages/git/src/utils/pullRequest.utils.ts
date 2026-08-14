@@ -21,6 +21,7 @@ export function getStackedMergeCount(
 ): number {
 	if (stack == null) return 1;
 	return options?.wholeStack ? stack.size : stack.position;
+}
 
 /**
  * How each sort field is read off a {@link PullRequestShape}, for the filtered PR search, which MERGES its

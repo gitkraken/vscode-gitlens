@@ -73,6 +73,8 @@ const uncachedIntegrationCacheProvider: IntegrationCacheProvider = {
 	getIssueOrPullRequest: (_id, _type, _resource, _integration, loader) => loadUncached(loader),
 	getIssue: (_id, _resource, _integration, loader) => loadUncached(loader),
 	getCurrentAccount: (_integration, loader) => loadUncached(loader),
+	// Nothing is cached, so there is nothing to evict.
+	deletePullRequests: () => {},
 };
 
 function toIntegrationCacheProvider(cache: IntegrationManagerCacheProvider | undefined): IntegrationCacheProvider {
