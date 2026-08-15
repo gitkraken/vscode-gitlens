@@ -18,12 +18,6 @@ suite('pullRequest.utils', () => {
 		});
 	});
 
-	/**
-	 * The comparator behind every MERGED pull-request search read — GitHub's relationship × state facets are unioned in
-	 * the facade, so the per-facet server order says nothing about the assembled page. This is the only thing making
-	 * that page ordered at all, exactly as `getIssueComparator` is for the merged issue reads.
-	 */
-
 	function mockPr(overrides: Partial<PullRequestShape>): PullRequestShape {
 		return {
 			type: 'pullrequest',
@@ -47,6 +41,11 @@ suite('pullRequest.utils', () => {
 		return [...prs].sort(comparator).map(pr => pr.title);
 	}
 
+	/**
+	 * The comparator behind every MERGED pull-request search read — GitHub's relationship × state facets are unioned in
+	 * the facade, so the per-facet server order says nothing about the assembled page. This is the only thing making
+	 * that page ordered at all, exactly as `getIssueComparator` is for the merged issue reads.
+	 */
 	suite('getPullRequestComparator', () => {
 		test('orders created dates in both directions', () => {
 			const prs = [
