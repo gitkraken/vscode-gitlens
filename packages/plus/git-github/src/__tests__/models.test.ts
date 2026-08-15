@@ -83,7 +83,7 @@ suite('fromGitHubIssue', () => {
  * reject the fields — so the mapper sees them absent (Enterprise), `null` (github.com, unstacked), or
  * populated. Only the last case may produce stack info.
  */
-function createPullRequest(stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackEntry'>): GitHubPullRequestLite {
+function createPullRequestLite(stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackEntry'>): GitHubPullRequestLite {
 	return {
 		id: 'pr-5702',
 		number: 5702,
@@ -125,7 +125,7 @@ function createPullRequest(stack?: Pick<GitHubPullRequestLite, 'stack' | 'stackE
 suite('fromGitHubPullRequestLite stack mapping', () => {
 	test('maps a stacked pull request to its layer', () => {
 		const pr = fromGitHubPullRequestLite(
-			createPullRequest({
+			createPullRequestLite({
 				stack: { id: 'stack-7', number: 7, size: 3, baseRefName: 'main' },
 				stackEntry: { position: 2 },
 			}),
@@ -137,7 +137,7 @@ suite('fromGitHubPullRequestLite stack mapping', () => {
 
 	test('keeps the stack base distinct from the pull request base', () => {
 		const pr = fromGitHubPullRequestLite(
-			createPullRequest({
+			createPullRequestLite({
 				stack: { id: 'stack-7', number: 7, size: 3, baseRefName: 'main' },
 				stackEntry: { position: 2 },
 			}),
@@ -150,20 +150,23 @@ suite('fromGitHubPullRequestLite stack mapping', () => {
 	});
 
 	test('leaves an unstacked pull request without stack info', () => {
-		const pr = fromGitHubPullRequestLite(createPullRequest({ stack: null, stackEntry: null }), provider);
+		const pr = fromGitHubPullRequestLite(createPullRequestLite({ stack: null, stackEntry: null }), provider);
 
 		assert.equal(pr.stack, undefined);
 	});
 
 	test('leaves stack info off when the fields were never selected (Enterprise)', () => {
-		const pr = fromGitHubPullRequestLite(createPullRequest(), provider);
+		const pr = fromGitHubPullRequestLite(createPullRequestLite(), provider);
 
 		assert.equal(pr.stack, undefined);
 	});
 
 	test('requires both halves — a stack without an entry has no position to report', () => {
 		const pr = fromGitHubPullRequestLite(
-			createPullRequest({ stack: { id: 'stack-7', number: 7, size: 3, baseRefName: 'main' }, stackEntry: null }),
+			createPullRequestLite({
+				stack: { id: 'stack-7', number: 7, size: 3, baseRefName: 'main' },
+				stackEntry: null,
+			}),
 			provider,
 		);
 
@@ -171,8 +174,13 @@ suite('fromGitHubPullRequestLite stack mapping', () => {
 	});
 });
 
+/**
+ * `latestReviews` is capped at 25 and `viewerLatestReview` is the escape hatch for the row a "needs my review"
+ * surface is actually asking about, so the union of the two is the delicate part of the full projection: it can
+ * lose the viewer's review, duplicate it, or invent one that was never submitted.
+ */
 suite('fromGitHubPullRequest review projection', () => {
-	function createPullRequest(
+	function createFullPullRequest(
 		latestReviews: GitHubPullRequest['latestReviews']['nodes'],
 		viewerLatestReview: GitHubPullRequest['viewerLatestReview'],
 	): GitHubPullRequest {
@@ -231,7 +239,7 @@ suite('fromGitHubPullRequest review projection', () => {
 
 	test('appends the viewer review when it falls outside the capped window, with its commit oid', () => {
 		const pr = fromGitHubPullRequest(
-			createPullRequest([otherReview], {
+			createFullPullRequest([otherReview], {
 				id: 'review-viewer',
 				author: member,
 				state: 'APPROVED',
@@ -254,7 +262,7 @@ suite('fromGitHubPullRequest review projection', () => {
 			commit: { oid: 'viewer-sha' },
 		};
 
-		const pr = fromGitHubPullRequest(createPullRequest([otherReview, viewerReview], viewerReview), provider);
+		const pr = fromGitHubPullRequest(createFullPullRequest([otherReview, viewerReview], viewerReview), provider);
 
 		assert.equal(pr.latestReviews?.length, 2, 'the same review id must not appear twice');
 		assert.equal(
@@ -268,7 +276,7 @@ suite('fromGitHubPullRequest review projection', () => {
 		// GitHub exposes a PENDING (unsubmitted) review only to its own author, and only through
 		// `viewerLatestReview` — appending it would tell a "needs my review" consumer the review is done.
 		const pr = fromGitHubPullRequest(
-			createPullRequest([otherReview], {
+			createFullPullRequest([otherReview], {
 				id: 'review-draft',
 				author: member,
 				state: 'PENDING',
@@ -283,7 +291,7 @@ suite('fromGitHubPullRequest review projection', () => {
 
 	test('keeps a submitted viewer review that supersedes nothing when the window is empty', () => {
 		const pr = fromGitHubPullRequest(
-			createPullRequest([], { id: 'review-viewer', author: member, state: 'APPROVED', commit: null }),
+			createFullPullRequest([], { id: 'review-viewer', author: member, state: 'APPROVED', commit: null }),
 			provider,
 		);
 
