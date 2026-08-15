@@ -548,7 +548,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.commits.totalCount,
 		fromGitHubPullRequestStack(pr),
 		pr.changedFiles,
-		pr.body || undefined,
+		pr.body ?? undefined,
 	);
 }
 

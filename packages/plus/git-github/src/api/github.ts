@@ -374,7 +374,6 @@ assignees(first: 25) {
 		url
 	}
 }
-body
 changedFiles
 checksUrl
 deletions
@@ -4628,6 +4627,7 @@ export class GitHubApi {
 				nodes {
 					... on PullRequest {
 						${gqlPullRequestFragment}
+						${gqlPullRequestStackFragmentFor(options)}
 					}
 				}
 			}`,
