@@ -321,7 +321,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 			isCrossRepository: pr.isCrossRepository,
 		},
 		pr.isDraft,
-		// The lite fragment selects nothing between `isDraft` and `commitCount`.
+		// The lite fragment selects nothing between `isDraft` and `stack`.
 		undefined, // additions
 		undefined, // deletions
 		undefined, // commentsCount

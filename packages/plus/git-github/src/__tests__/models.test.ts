@@ -99,6 +99,7 @@ function createPullRequestLite(stack?: Pick<GitHubPullRequestLite, 'stack' | 'st
 		isDraft: false,
 		isCrossRepository: false,
 		author: member,
+		body: null,
 		baseRefName: 'feature/stacks-model',
 		baseRefOid: 'b21f904',
 		headRefName: 'feature/stacks-merge',
@@ -119,7 +120,7 @@ function createPullRequestLite(stack?: Pick<GitHubPullRequestLite, 'stack' | 'st
 			viewerPermission: 'ADMIN',
 		},
 		...stack,
-	} as unknown as GitHubPullRequestLite;
+	};
 }
 
 suite('fromGitHubPullRequestLite stack mapping', () => {
