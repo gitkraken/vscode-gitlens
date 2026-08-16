@@ -1780,6 +1780,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		agentSessionId?: string;
 		revealOnly?: boolean;
 		followed?: boolean;
+		onlyIfWipSelected?: boolean;
 	}): Promise<void> {
 		const {
 			action,
@@ -1793,7 +1794,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			agentSessionId,
 			revealOnly,
 			followed,
+			onlyIfWipSelected,
 		} = pending;
+
+		// Passive follow to the graph's own WIP row only lands while the user is already WIP-hopping
+		// (a WIP row selected) — otherwise it would yank a deliberately-taken position for a row
+		// that's one `w` keypress away. Dropping here skips everything: selection, reveal, the
+		// coach-mark latch, and the agent highlight.
+		if (onlyIfWipSelected === true) {
+			const { single, multi } = this.activeSelection;
+			if (multi != null || single == null || !isWipSelectionSha(single.sha)) return;
+		}
 
 		if (action === 'scope-to-branch') {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope

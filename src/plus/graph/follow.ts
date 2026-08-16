@@ -20,7 +20,9 @@ type GraphShowWipArgs = NonNullable<GraphWebviewShowingArgs[0]>;
 /** Follows the active terminal (and, when it's the active tab, a Claude Code conversation) and
  *  reveals the corresponding worktree's WIP row on any currently visible Commit Graph — a view
  *  and/or one or more editor-tab instances. Passive deliveries never raise/open a graph surface;
- *  only the manual `showTerminalWorktree` command does that. A Claude session running inside the
+ *  only the manual `showTerminalWorktree` command does that. Deliveries that resolve to the
+ *  graph's own WIP row are consumed only while a WIP row is selected (see
+ *  DidRequestGraphActionParams.onlyIfWipSelected). A Claude session running inside the
  *  terminal (matched by process ancestry) takes precedence over the terminal's cwd — agents
  *  frequently work in a worktree the shell never cd'd into. */
 export class GraphFollowController implements Disposable {

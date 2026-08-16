@@ -626,6 +626,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		revealOnly?: boolean;
 		/** Set ONLY by the follow controller's passive deliveries — drives the one-time coach mark. */
 		followed?: boolean;
+		/** For passive follow deliveries targeting the graph's own WIP row: consume only while the
+		 *  current selection is a WIP row; otherwise drop the delivery entirely. */
+		onlyIfWipSelected?: boolean;
 	};
 	/** A two-ref compare seeded by a cold show request (e.g. a terminal-link range). Consumed on
 	 *  bootstrap by the app, mirroring {@link pendingAction}; warm shows notify directly instead. */
@@ -1794,6 +1797,9 @@ export interface DidRequestGraphActionParams {
 	revealOnly?: boolean;
 	/** Set ONLY by the follow controller's passive deliveries — drives the one-time coach mark. */
 	followed?: boolean;
+	/** For passive follow deliveries targeting the graph's own WIP row: consume only while the
+	 *  current selection is a WIP row; otherwise drop the delivery entirely. */
+	onlyIfWipSelected?: boolean;
 }
 export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
 	scope,

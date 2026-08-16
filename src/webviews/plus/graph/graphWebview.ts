@@ -1162,6 +1162,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				agentSessionId?: string;
 				revealOnly?: boolean;
 				followed?: boolean;
+				onlyIfWipSelected?: boolean;
 				scopeBranch?: GraphScopeBranch;
 				scopeOrigin?: GraphScopeOrigin;
 		  }
@@ -1321,12 +1322,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// `repository` setter) for a row that's already on screen. Reveals that would land on a
 			// scoped-out row unscope client-side instead.
 			let deferredForRepoSwitch = false;
+			let gateOnWipSelected = false;
 			if (target != null) {
 				const repo = await this.container.git.getOrAddRepository(Uri.file(target.worktreePath), {
 					opened: false,
 					detectNested: true,
 				});
 				const current = this.repository;
+
+				// A passive follow targeting the graph's OWN WIP row (target resolves to the shown
+				// repository itself) is gated: the webview consumes it only while a WIP row is already
+				// selected. `repo === current` also excludes every repo-switching delivery — a switch
+				// rebuilds the graph, so its reveal is the only orientation the user gets.
+				gateOnWipSelected = arg.followed === true && repo != null && repo === current;
 				// `commonPath ?? path` is the repo family key — see `RepositoryShape.commonPath`.
 				if (
 					repo != null &&
@@ -1356,6 +1364,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							agentSessionId: arg.agentSessionId,
 							revealOnly: arg.revealOnly,
 							followed: arg.followed,
+							onlyIfWipSelected: gateOnWipSelected ? true : undefined,
 							scopeBranch: arg.scopeBranch,
 							scopeOrigin: arg.scopeOrigin,
 						};
@@ -1382,7 +1391,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// goes stale (empty selection echoes, scope filter-outs keep the old value), so gating a
 				// passive delivery on it can wrongly swallow the reveal. The webview owns selection truth
 				// and `navigateToCommit` already coalesces true no-ops.
-				this.setSelectedRows(rowId);
+				if (!gateOnWipSelected) {
+					this.setSelectedRows(rowId);
+				}
 			}
 			if (loading) {
 				this._pendingAction = {
@@ -1393,6 +1404,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					agentSessionId: arg.agentSessionId,
 					revealOnly: arg.revealOnly,
 					followed: arg.followed,
+					onlyIfWipSelected: gateOnWipSelected ? true : undefined,
 					scopeBranch: arg.scopeBranch,
 					scopeOrigin: arg.scopeOrigin,
 				};
@@ -1402,7 +1414,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// graph row is never actually selected on a warm show. WIP rows + already-loaded
 				// commits select via the lightweight selection notification; an unloaded commit pages
 				// in (which carries the selection along).
-				if (rowId != null && this._data.session != null) {
+				if (!gateOnWipSelected && rowId != null && this._data.session != null) {
 					if (isWipRowId(rowId) || this._data.session.current.ids.has(rowId)) {
 						void this.notifyDidChangeSelection();
 					} else {
@@ -1421,6 +1433,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						agentSessionId: arg.agentSessionId,
 						revealOnly: arg.revealOnly,
 						followed: arg.followed,
+						onlyIfWipSelected: gateOnWipSelected ? true : undefined,
 						scopeBranch: arg.scopeBranch,
 						scopeOrigin: arg.scopeOrigin,
 					};
@@ -1433,6 +1446,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					agentSessionId: arg.agentSessionId,
 					revealOnly: arg.revealOnly,
 					followed: arg.followed,
+					onlyIfWipSelected: gateOnWipSelected ? true : undefined,
 					scopeBranch: arg.scopeBranch,
 					scopeOrigin: arg.scopeOrigin,
 				});

@@ -1936,6 +1936,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						agentSessionId: msg.params.agentSessionId,
 						revealOnly: msg.params.revealOnly,
 						followed: msg.params.followed,
+						onlyIfWipSelected: msg.params.onlyIfWipSelected,
 					},
 					...(msg.params.action !== 'scope-to-branch' && !msg.params.revealOnly
 						? { details: { ...this.details, visible: true } }
