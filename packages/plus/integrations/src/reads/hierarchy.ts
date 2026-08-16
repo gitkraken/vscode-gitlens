@@ -291,7 +291,9 @@ export async function listRepos(
 		domain?: string;
 	},
 ): Promise<ProviderPagedResult<ProviderRepositoryShape>> {
-	const page = Math.max(1, options.page ?? 1);
+	// Truncated as well as floored, like every other paged read here: `page` is reported back as
+	// `page.currentPage` and bounds the cursor walk below, and neither can be fractional.
+	const page = Math.max(1, Math.trunc(options.page ?? 1));
 	if (isIssuesHostIntegrationId(options.providerId)) {
 		return refusedPage(
 			page,
