@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds stacked-pull-request support to the published surface: `PullRequestStackInfo` (`id`, `number`, `size`, `position`, `baseRef`), `PullRequest.stack` / `PullRequestShape.stack`, and `getStackedMergeCount(stack, { wholeStack })` — how many pull requests a stacked merge affects, this layer and everything below it by default. `baseRef` is the stack's trunk and is deliberately NOT `refs.base`, which above the bottom layer names the layer below: diff a layer with `refs.base`, ask where the work lands with `baseRef`. GitHub.com only — the `stack` / `stackEntry` selections are appended per query rather than baked into the shared fragment, because GitHub Enterprise Server's schema has no `stack` field and selecting it there fails the ENTIRE query, taking every pull-request read down with it. Present on this branch's history but absent from the 0.5.110 artifact; this is the first core release to publish it (git, plus/git-github)
+- Adds `PullRequest.filesChanged`, the changed-file count, alongside the existing `commitCount` (git, plus/git-github)
+
+### Fixed
+
+- Fixes the filtered pull-request search reporting every stacked pull request as unstacked. It was the only one of six pull-request selection sites that never appended the stack fragment, so `stack` came back unselected and `fromGitHubPullRequestStack` returned `undefined` per row — degrading the Launchpad stack chip and the graph stack rows, and making `getStackedMergeCount` answer 1 for a stacked pull request, undercounting what a stacked merge affects. Nothing caught it: both fields are optional on the node type, so it type-checked (plus/git-github)
+- Fixes `PullRequest.body` disagreeing with itself across reads. The direct lookups normalized it with `||` and the search path with `??`, so a pull request with an empty description came back as `body: ''` through one and `undefined` through the other, propagating to `description: '' | null`. Both now use `??`, matching the widened `string | null` (plus/git-github)
+- Fixes a repeated warning where one condition should produce one. Three read accumulations appended without deduplicating, so a single failing token reported the same warning once per drained page, once per org in an issue-broadening fan-out, and once per project (and per resource) in an issue-tracker read. `ProviderWarning[]` contracts that no two entries are equal; genuinely distinct warnings are unaffected (plus/integrations)
+- Fixes `page.currentPage` echoing a fractional page. It is a 1-based POSITION, and a consumer replaying it as its next-page request was handed a value no read can be asked for again; the internal page drains compared the same value against a whole-page counter and spent one upstream request past the intended stop. Three paged reads floored `page` without truncating it; they now normalize as the other reads already did (plus/integrations)
+
 ## [0.5.110] - 2026-08-14
 
 ### Added
