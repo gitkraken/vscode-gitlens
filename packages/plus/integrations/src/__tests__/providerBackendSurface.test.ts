@@ -2972,6 +2972,45 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssueTrackerIssuesPage collapses the identical warning several projects produced', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		const resources: ResourceDescriptor[] = [{ key: 'one', id: 'org-1', name: 'Org One' }];
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{ key: 'a', id: 'p1', name: 'One', resourceId: 'org-1' },
+						{ key: 'b', id: 'p2', name: 'Two', resourceId: 'org-1' },
+						{ key: 'c', id: 'p3', name: 'Three', resourceId: 'org-1' },
+					],
+				},
+			});
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		// One failing token fails every project the same way. The per-project warning is built from the provider
+		// error alone and names no project, so all three are structurally identical.
+		(
+			jira as unknown as { getIssuesForProjectWithTruncationResult: () => Promise<{ error: Error }> }
+		).getIssuesForProjectWithTruncationResult = () => Promise.resolve({ error: new Error('token expired') });
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
+		assert.equal(result.warnings.length, 1, 'three projects failing identically report one warning, not three');
+		assert.equal(result.fetchFailed, true);
+
+		manager.dispose();
+	});
+
 	test('listIssueTrackerIssuesPage resolves the current user per resource, not just from the first one (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
