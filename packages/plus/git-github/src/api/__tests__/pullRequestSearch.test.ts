@@ -49,8 +49,22 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 					variables?: Record<string, unknown>;
 				};
 				const variables = body.variables ?? {};
-				calls.push({ query: body.query ?? '', variables: variables });
+				const query = body.query ?? '';
+				calls.push({ query: query, variables: variables });
 				const response = responses[Math.min(calls.length - 1, responses.length - 1)] ?? {};
+				// A GraphQL server returns only the fields the document SELECTS. Honouring that is what lets a
+				// test distinguish "the mapper reads this field" from "the query never asked for it" — a fake
+				// that serves whatever the fixture holds passes either way, which is how the missing stack
+				// selection survived a green suite in the first place.
+				const selectsStack = query.includes('stack {');
+				const asSelected = (node: unknown): unknown => {
+					if (selectsStack || node == null || typeof node !== 'object') {
+						return node;
+					}
+
+					const { stack: _stack, stackEntry: _stackEntry, ...rest } = node as Record<string, unknown>;
+					return rest;
+				};
 				const data: Record<string, unknown> = {};
 				for (const key of Object.keys(variables).filter(key => key.endsWith('Search'))) {
 					const alias = key.slice(0, -'Search'.length);
@@ -61,7 +75,7 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 							endCursor: category.endCursor ?? null,
 							hasNextPage: category.hasNextPage ?? false,
 						},
-						nodes: category.nodes ?? [],
+						nodes: (category.nodes ?? []).map(asSelected),
 					};
 				}
 				return new Response(JSON.stringify({ data: data }), {
@@ -395,6 +409,70 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.equal(restarted?.page, 1);
 		assert.equal(getCalls()[1].variables.authorOpenCursor, undefined);
 		assert.match(String(getCalls()[1].variables.authorOpenSearch), /\bnew\b/);
+	});
+
+	// This read is assembled by mapping over facets, so the stack selection has to be appended inside that
+	// template — it is the one PR read where forgetting it is invisible: `stack`/`stackEntry` are optional on
+	// the node type so it type-checks, and `fromGitHubPullRequestStack` returns undefined per row rather than
+	// throwing. A stacked pull request then reads as unstacked here while every sibling read reports it
+	// correctly, which is exactly the state this branch shipped in before it was caught.
+	test('selects the stack fields on every facet, not just the first', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: {
+				relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+				states: ['open', 'closed'],
+			},
+		});
+
+		const { query } = getCalls()[0];
+		const facets = Array.from(query.matchAll(/(\w+): search\(/g), m => m[1]);
+		assert.equal(facets.length, 4, 'two relationships x two states');
+		assert.equal(
+			(query.match(/stack \{/g) ?? []).length,
+			facets.length,
+			'every facet selects stack, or stacked PRs silently read as unstacked on that facet',
+		);
+		assert.equal((query.match(/stackEntry \{/g) ?? []).length, facets.length, 'position comes from stackEntry');
+	});
+
+	test('maps the selected stack fields onto the returned pull request', async () => {
+		const stacked = {
+			...(prNode(1, '2024-01-02T00:00:00Z') as Record<string, unknown>),
+			stack: { id: 'stack-7', number: 7, size: 3, baseRefName: 'main' },
+			stackEntry: { position: 2 },
+		};
+		const { config } = capture([
+			{ authorOpen: { issueCount: 2, nodes: [stacked, prNode(2, '2024-01-01T00:00:00Z')] } },
+		]);
+
+		const result = await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
+		});
+
+		assert.deepEqual(result?.values[0].stack, {
+			id: 'stack-7',
+			number: 7,
+			size: 3,
+			position: 2,
+			baseRef: 'main',
+		});
+		assert.equal(result?.values[1].stack, undefined, 'an unstacked pull request reports no stack');
+	});
+
+	// GitHub Enterprise Server's schema has no `stack` field, and selecting it fails the WHOLE query rather
+	// than the field — which would take this search down entirely on Enterprise, not just its stack info.
+	test('omits the stack selection off github.com', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			baseUrl: 'https://github.acme.com/api/v3',
+			criteria: { relationships: [PullRequestFilter.Author], states: ['open'] },
+		});
+
+		assert.doesNotMatch(getCalls()[0].query, /stack \{/);
 	});
 });
 
