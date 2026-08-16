@@ -560,4 +560,30 @@ suite('cursor paging contract (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	/**
+	 * `page` is reported back as `page.currentPage` and compared against the position an internal drain reached,
+	 * and neither can be fractional — so every read normalizes it the same way before either use.
+	 */
+	test('a fractional page is truncated, not carried into the position or the drain', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: () => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () => {
+			calls++;
+			return Promise.resolve({ value: endlessCursorPage([providerRepo()], calls) });
+		};
+
+		const result = await manager.listRepos({ providerId: GitCloudHostIntegrationId.GitHub, org: 'org', page: 2.7 });
+
+		assert.equal(calls, 2, 'the walk stops at page 2, not at a fractional bound');
+		assert.equal(result.page.currentPage, 2, 'the reported position is an integer page');
+
+		manager.dispose();
+	});
 });

@@ -58,7 +58,9 @@ export async function listPullRequestsPage(
 		domain?: string;
 	},
 ): Promise<ProviderPagedResult<PullRequestShape>> {
-	const page = Math.max(1, options.page ?? 1);
+	// Truncated as well as floored, like every other paged read here: `page` is reported back as
+	// `page.currentPage` and compared against the position a drain reached, and neither can be fractional.
+	const page = Math.max(1, Math.trunc(options.page ?? 1));
 	if (isIssuesHostIntegrationId(options.providerId)) {
 		return refusedPage(
 			page,
@@ -140,7 +142,10 @@ export async function listPullRequestsPage(
 							state: options.states,
 							filters: resolvedFilters.filters,
 							cursor: cursor,
-							page: options.page,
+							// The normalized `page`, so the number forwarded to the provider can't disagree with the
+							// page-number cursor beside it — both are built from the same value. Only when the caller
+							// asked for one: an omitted page is the provider's own first page.
+							page: options.page != null ? page : undefined,
 							pageSize: options.itemsPerPage,
 						},
 						options.connectionId,
@@ -165,14 +170,14 @@ export async function listPullRequestsPage(
 	if (
 		(accountWide || providersMetadata[options.providerId]?.pullRequestsPagingMode === PagingMode.Repos) &&
 		options.page != null &&
-		options.page > 1 &&
+		page > 1 &&
 		options.cursor == null &&
 		paged.page.currentPage === 1
 	) {
 		const drained = await drainToRequestedPage<ProviderPullRequest>(
 			{ items: items, paged: paged, metadata: allMetadata, fetchFailed: pageFetchFailed },
 			{
-				requestedPage: options.page,
+				requestedPage: page,
 				itemsPerPage: options.itemsPerPage,
 				warnings: warnings,
 				readPage: (cursor: string) =>
