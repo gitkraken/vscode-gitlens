@@ -79,6 +79,7 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 			'gitlens.git.tag',
 			'gitlens.git.tag.create',
 			'gitlens.git.tag.delete',
+			'gitlens.git.tag.push',
 			'gitlens.git.worktree',
 			'gitlens.git.worktree.copyWorkingChangesTo',
 			'gitlens.copyWorkingChangesToWorktree',
@@ -149,6 +150,8 @@ export class GitWizardCommand extends QuickWizardCommandBase {
 				return this.execute(getSubcommandArgs(args, 'tag', 'create'));
 			case 'gitlens.git.tag.delete':
 				return this.execute(getSubcommandArgs(args, 'tag', 'delete'));
+			case 'gitlens.git.tag.push':
+				return this.execute(getSubcommandArgs(args, 'tag', 'push'));
 			case 'gitlens.git.worktree':
 				return this.execute({ command: 'worktree', ...args });
 			case 'gitlens.git.worktree.copyWorkingChangesTo':

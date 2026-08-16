@@ -530,6 +530,16 @@ export class ViewCommands implements Disposable {
 		return TagActions.remove(node.repoPath, refs);
 	}
 
+	@command('gitlens.views.pushTag')
+	@command('gitlens.views.pushTag.multi', { multiselect: true })
+	@debug()
+	private pushTag(node: TagNode, nodes?: TagNode[]) {
+		if (!node.is('tag')) return Promise.resolve();
+
+		const refs = nodes?.length ? nodes.map(n => n.tag) : [node.tag];
+		return TagActions.push(node.repoPath, refs);
+	}
+
 	@command('gitlens.views.deleteWorktree')
 	@command('gitlens.views.deleteWorktree.multi', { multiselect: true })
 	@debug()

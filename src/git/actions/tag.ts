@@ -19,6 +19,17 @@ export function remove(repo?: string | GlRepository, refs?: GitTagReference | Gi
 	});
 }
 
+export function push(
+	repo?: string | GlRepository,
+	refs?: GitTagReference | GitTagReference[],
+	remote?: string,
+): Promise<void> {
+	return executeGitCommand({
+		command: 'tag',
+		state: { subcommand: 'push', repo: repo, references: refs, remote: remote },
+	});
+}
+
 export function revealTag(tag: GitTagReference, options?: RevealOptions): Promise<ViewNode | undefined> {
 	return Container.instance.views.revealTag(tag, options);
 }

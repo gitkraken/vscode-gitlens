@@ -1769,6 +1769,17 @@ export class GraphCommands {
 		return Promise.resolve();
 	}
 
+	@command('gitlens.graph.pushTag')
+	@debug()
+	private pushTag(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'tag')) {
+			const { ref } = item.webviewItemValue;
+			return TagActions.push(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
 	@command('gitlens.graph.createWorktree')
 	@debug()
 	private async createWorktree(item?: GraphItemContext) {

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for pushing tags ([#832](https://github.com/gitkraken/vscode-gitlens/issues/832)) &mdash; a new _Push Tag..._ action on tags in the views, the _Commit Graph_ (rows, side bar, and the tag sheet's _Next steps_), and a new _Git Push Tag..._ command in the Command Palette; choose the remote (skipped when there is only one) and confirm, with an optional force push for moved tags
 - Adds a bright lane highlight when pinning a branch's ref pill in the _Commit Graph_, and to the `Ctrl`/`Alt`-held chain highlight &mdash; the branch's lane stays lit through dimmed rows and traces down to its fork point, while other lanes mute so the highlighted one stands out
 - Adds _Hide Remote_ and _Show Remote_ actions to remote rows in the _Commit Graph_ side bar, and shows hidden branches, remotes, and tags dimmed with an _eye-closed_ marker and an un-hide action instead of leaving them indistinguishable from visible ones
 - Adds un-hiding a single branch of a hidden remote in the _Commit Graph_ &mdash; the remote stays hidden while just that branch returns, and hiding the branch again tucks it back under the hidden remote

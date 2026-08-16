@@ -97,6 +97,7 @@ export const sidebarItemActions: {
 	tag: {
 		'gitlens.graph.switchToTag': 'switchTo',
 		'gitlens.graph.deleteTag': 'delete',
+		'gitlens.graph.pushTag': 'push',
 		'gitlens.createBranch:graph': 'createBranch',
 		'gitlens.graph.resetToTag': 'reset',
 	},

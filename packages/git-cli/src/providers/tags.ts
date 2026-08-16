@@ -186,4 +186,28 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 			);
 		}
 	}
+
+	@debug()
+	async pushTag(repoPath: string, name: string, remote: string, options?: { force?: boolean }): Promise<void> {
+		const args = ['push'];
+		if (options?.force) {
+			args.push('--force');
+		}
+
+		args.push(remote, `refs/tags/${name}`);
+
+		try {
+			await this.git.run({ cwd: repoPath }, ...args);
+		} catch (ex) {
+			throw getGitCommandError(
+				'tag',
+				ex as GitError,
+				reason =>
+					new TagError(
+						{ reason: reason, action: 'push', tag: name, gitCommand: { repoPath: repoPath, args: args } },
+						ex as GitError,
+					),
+			);
+		}
+	}
 }

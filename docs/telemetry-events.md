@@ -3142,7 +3142,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'delete' | 'reset' | 'createBranch' | 'switchTo',
+  'action': 'push' | 'delete' | 'reset' | 'createBranch' | 'switchTo',
   // Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today
   'alt': boolean,
   'context.repository.closed': boolean,

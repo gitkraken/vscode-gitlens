@@ -2327,7 +2327,7 @@ interface GraphSidebarTagsTagSelectedEvent extends GraphContextEventData {
 	annotated: boolean;
 }
 
-export type GraphSidebarTagsActionName = 'switchTo' | 'delete' | 'createBranch' | 'reset';
+export type GraphSidebarTagsActionName = 'switchTo' | 'delete' | 'push' | 'createBranch' | 'reset';
 
 interface GraphSidebarTagsTagActionEvent extends GraphContextEventData {
 	action: GraphSidebarTagsActionName;

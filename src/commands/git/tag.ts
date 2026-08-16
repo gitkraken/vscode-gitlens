@@ -8,9 +8,14 @@ import type { TagCreateState, TagCreateStepNames } from './tag/create.js';
 import { TagCreateGitCommand } from './tag/create.js';
 import type { TagDeleteState, TagDeleteStepNames } from './tag/delete.js';
 import { TagDeleteGitCommand } from './tag/delete.js';
+import type { TagPushState, TagPushStepNames } from './tag/push.js';
+import { TagPushGitCommand } from './tag/push.js';
 
-type StepNames = TagCreateStepNames | TagDeleteStepNames;
-type State = SubcommandState<TagCreateState, 'create'> | SubcommandState<TagDeleteState, 'delete'>;
+type StepNames = TagCreateStepNames | TagDeleteStepNames | TagPushStepNames;
+type State =
+	| SubcommandState<TagCreateState, 'create'>
+	| SubcommandState<TagDeleteState, 'delete'>
+	| SubcommandState<TagPushState, 'push'>;
 type Subcommands = State['subcommand'];
 
 export interface TagContext<TStepNames extends StepNames = StepNames> extends StepsContext<TStepNames> {
@@ -28,7 +33,7 @@ export interface TagGitCommandArgs {
 
 export class TagGitCommand extends QuickCommandWithSubcommands<Subcommands, State, TagContext> {
 	constructor(container: Container, args?: TagGitCommandArgs) {
-		super(container, 'tag', 'tag', 'Tag', { description: 'create, or delete tags' });
+		super(container, 'tag', 'tag', 'Tag', { description: 'create, delete, or push tags' });
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}
@@ -47,5 +52,6 @@ export class TagGitCommand extends QuickCommandWithSubcommands<Subcommands, Stat
 	protected override registerSubcommands(): void {
 		this.registerSubcommand('create', new TagCreateGitCommand(this.container));
 		this.registerSubcommand('delete', new TagDeleteGitCommand(this.container));
+		this.registerSubcommand('push', new TagPushGitCommand(this.container));
 	}
 }

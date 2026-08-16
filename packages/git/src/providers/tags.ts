@@ -25,4 +25,5 @@ export interface GitTagsSubProvider {
 
 	createTag?(repoPath: string, name: string, sha: string, message?: string): Promise<void>;
 	deleteTag?(repoPath: string, name: string): Promise<void>;
+	pushTag?(repoPath: string, name: string, remote: string, options?: { force?: boolean }): Promise<void>;
 }

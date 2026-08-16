@@ -607,6 +607,12 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					actionLabel: 'Switch',
 					href: this._webview.createCommandLink<GraphItemContext>('gitlens.graph.switchToTag', context),
 				},
+				{
+					icon: 'repo-push',
+					label: `Push ${ref.name} to a remote`,
+					actionLabel: 'Push…',
+					href: this._webview.createCommandLink<GraphItemContext>('gitlens.graph.pushTag', context),
+				},
 			);
 		}
 
