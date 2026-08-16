@@ -216,7 +216,7 @@ export type ResolvedScopeAnchor = {
  * stale target tip many years back in history that means paging deep into unrelated history for an anchor
  * that will never be used, so the scope stays bare instead.
  *
- * Note this fires only when the host resolved NO base at all (default branch, no merge target, failed
+ * Note this fires only when the host resolved NO base at all (no merge target, failed
  * resolve). A resolved-but-not-yet-loaded base is published as-is — see `publishResolvedScope`.
  */
 function stripUnpairedMergeTarget(scope: GraphScope): GraphScope {
@@ -331,7 +331,7 @@ export function reconcileScopeMergeTarget(
 }
 
 /** The row marker's merge target as carried by a resolved anchor — undefined when the anchor named no
- *  target tip (detached, the default branch, or a resolve that bailed). */
+ *  target tip (detached, or a resolve that bailed). */
 function rowMarkerTargetFromAnchor(anchor: ResolvedScopeAnchor | undefined): AppState['rowMarkerMergeTarget'] {
 	return anchor?.mergeTargetTipSha != null
 		? { sha: anchor.mergeTargetTipSha, name: anchor.mergeTargetName }

@@ -118,8 +118,10 @@ export async function getBranchMergeTargetStatusInfo(
 	const targetBranch = await svc.branches.getBranch(target, cancellation);
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
-	// Must match the early-out in `computeScopeAnchor` (graphWebview.ts), or the graph anchors a merge
-	// target the sidebars say doesn't exist.
+	// Self target with equal tips (the default branch up to date with its own remote): 0/0 counts and a
+	// trivially-merged status say nothing, so the sidebars skip it. The graph's `computeScopeAnchor` still
+	// anchors this shape (scope always scopes) — the divergence is safe because `reconcileScopeMergeTarget`
+	// only backfills scope anchors from this enrichment, never strips them.
 	if (targetBranch.sha === branch.sha && isSelfMergeTarget(target, branch.name)) return undefined;
 
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([

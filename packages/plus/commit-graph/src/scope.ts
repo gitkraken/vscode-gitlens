@@ -275,8 +275,8 @@ function firstParentChainUntil(
  * at or above the base, never past it.
  *
  * A scope with NO resolved base is different in kind, not degree: git has already answered "there is no
- * boundary" (the focal branch is the default branch, has no merge target, or has no common ancestor with
- * one), so paging can never produce a terminus. An open-terminus spine there would grow deeper into trunk
+ * boundary" (the focal branch has no merge target at all, or no common ancestor with one), so paging can
+ * never produce a terminus. An open-terminus spine there would grow deeper into trunk
  * with every page — re-shuffling the view on each one — so those scopes keep the dim-in-place fallback.
  *
  * `manuallyExpanded` is the same set the lane-fold toggle maintains — a fold stub present there is

@@ -95,7 +95,6 @@ import {
 	getBranchAssociatedPullRequest,
 	getBranchMergeTargetInfo,
 	getBranchRemote,
-	isSelfMergeTarget,
 } from '../../../git/utils/-webview/branch.utils.js';
 import {
 	getCommitAssociatedPullRequest,
@@ -344,7 +343,8 @@ export interface SelectedRowState {
 
 /** Host-side shape returned by the scope-anchor resolver. `focalBranchTipSha` is set whenever
  *  the focal branch has a resolvable tip (almost always); `mergeBase` / `mergeTargetTipSha` are
- *  only set when there's a real merge target distinct from the focal branch. */
+ *  only set when a merge target resolves to a tip (its own upstream counts — see
+ *  `computeScopeAnchor`). */
 interface ResolvedScopeAnchor {
 	focalBranchTipSha?: string;
 	mergeBase?: { sha: string; date: number };
@@ -3462,8 +3462,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 * concurrent scope-resolves dedupe naturally.
 	 *
 	 * `focalBranchTipSha` is always set when the focal branch resolves; `mergeBase` /
-	 * `mergeTargetTipSha` may be undefined when there's no real merge target (default branch,
-	 * or focal branch transiently equal to its target — see `computeScopeAnchor`).
+	 * `mergeTargetTipSha` may be undefined when no merge target resolves to a tip — see
+	 * `computeScopeAnchor`.
 	 */
 	private readonly _scopeAnchorCache = new Map<string, Promise<ResolvedScopeAnchor | undefined>>();
 
@@ -3523,17 +3523,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._data.session?.current.branches.get(targetName) ?? (await svc.branches.getBranch(targetName));
 		const mergeTargetTipSha = targetBranch?.sha;
 
-		// Both tests are load-bearing. Same branch but tips apart is the default branch ahead of its own
-		// remote — anchoring re-roots onto the unpushed commits. Different branches on one commit is a
-		// branch level with a real target — anchoring gives a one-commit spine plus the older-history fold,
-		// where bailing leaves the scope bare and a bare scope dims everything off the focal first-parent
-		// line.
-		if (
-			mergeTargetTipSha == null ||
-			(mergeTargetTipSha === focalBranchTipSha && isSelfMergeTarget(targetName, branch.name))
-		) {
-			return { focalBranchTipSha: focalBranchTipSha };
-		}
+		// A resolvable target ALWAYS anchors — even the branch's own upstream with equal tips (the default
+		// branch up to date with its remote), where base == tip re-roots to a one-commit spine plus the
+		// older-history fold. Bailing there would leave the scope bare, and a bare scope dims everything off
+		// the focal first-parent line instead of scoping — for the default branch that line is the whole
+		// trunk, so almost nothing dims. Note `getBranchMergeTargetStatusInfo` (overviewEnrichment.utils.ts)
+		// still skips self-target status for the sidebars; that's safe because `reconcileScopeMergeTarget`
+		// only backfills anchors from enrichment, never strips them.
+		if (mergeTargetTipSha == null) return { focalBranchTipSha: focalBranchTipSha };
 
 		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
 		if (mergeBaseSha == null) return { focalBranchTipSha: focalBranchTipSha };
