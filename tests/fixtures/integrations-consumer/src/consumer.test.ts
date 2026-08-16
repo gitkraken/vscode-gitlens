@@ -17,6 +17,7 @@ import type { GitHubGitProviderInternal } from '@gitkraken/core-gitlens/plus/git
 import {
 	createIntegrationManager,
 	type ConfigChangeEvent,
+	GitCloudHostIntegrationId,
 	hostFromDomain,
 	type IntegrationsRemoteConfig,
 	type IntegrationManagerCacheProvider,
@@ -182,6 +183,26 @@ async function main(): Promise<void> {
 			},
 			'integrationService.js must remain unreachable through the public export map',
 		);
+	});
+
+	await check('a paged read reports an integer position for a fractional page', async () => {
+		// `page.currentPage` is a 1-based POSITION, so a consumer keying its next-page request off it must never
+		// be handed a value no read can be asked for again. Checked here rather than only in the unit tests
+		// because this is the field Kepler persists and replays, and it crosses the package boundary: the
+		// packaged artifact reported `2.7` verbatim before the reads normalized it.
+		const manager = createIntegrationManager(buildRuntime());
+		const pullRequests = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			page: 2.7,
+		});
+		assert.equal(pullRequests.page.currentPage, 2);
+		const repositories = await manager.listRepos({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			org: 'acme',
+			page: 3.9,
+		});
+		assert.equal(repositories.page.currentPage, 3);
+		manager.dispose();
 	});
 
 	await check('repository resolution classifies malformed input without exposing provider clients', async () => {
