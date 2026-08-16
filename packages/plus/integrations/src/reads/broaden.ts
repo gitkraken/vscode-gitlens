@@ -140,7 +140,12 @@ export async function broadenIssues(
 		}
 
 		items.push(...result.items);
-		warnings.push(...result.warnings);
+		// Deduped across orgs: several orgs of one provider commonly fail the same way (one expired token, one
+		// rate limit), producing the identical warning per slice, and the array's contract is that no two entries
+		// are equal — `traverseToRequestedPage` already dedupes when it folds these same warnings across rounds.
+		for (const warning of result.warnings) {
+			appendDedupedWarning(warnings, warning);
+		}
 		for (const id of result.broadenedProviderIds) {
 			broadenedProviderIds.add(id);
 		}

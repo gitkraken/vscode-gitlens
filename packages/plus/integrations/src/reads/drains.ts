@@ -174,9 +174,10 @@ export async function drainPullRequests(
 
 		// Composite account-wide queries can surface the same PR on different relationship/state pages
 		// (for example authored + review-requested, or closed + merged). Keep the first stable position but
-		// replace its value with the latest representation so a later, richer merged state wins. A provider
-		// row without a canonical URL falls back to repository-scoped identity; a row with neither stays
-		// unkeyed and is retained so unrelated incomplete rows are never collapsed.
+		// replace its value with the latest representation so a later, richer merged state wins. Repository
+		// identity is what keys a row (see `getProviderPullRequestIdentity`), falling back to the canonical
+		// URL; a row with neither stays unkeyed and is retained so unrelated incomplete rows are never
+		// collapsed.
 		for (const pullRequest of value.values) {
 			const identity = getProviderPullRequestIdentity(pullRequest);
 			if (identity == null) {
@@ -319,7 +320,9 @@ export async function drainRepositories(
 			{ warnOnMissingSession: true },
 		);
 		if (warning != null) {
-			warnings.push(warning);
+			// Deduped, like every other accumulation here: a soft warning (`{ value, error }`) repeats verbatim on
+			// each page that hits the same condition, and the array's contract is that no two entries are equal.
+			appendDedupedWarning(warnings, warning);
 		}
 		if (value == null) {
 			const interruptedAfterProgress = page > 1;

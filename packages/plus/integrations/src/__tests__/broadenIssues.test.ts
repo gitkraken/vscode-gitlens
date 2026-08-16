@@ -885,4 +885,95 @@ suite('broaden issues fan-out (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('the repository drain collapses the identical soft warning it saw on every page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let repoPage = 0;
+
+		// A soft warning (`{ value, error }`) repeats verbatim on each page that hits the same condition; the
+		// drain accumulates across pages, so it must dedupe like every other accumulation there.
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: () => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () => {
+			repoPage++;
+			return Promise.resolve({
+				value: {
+					values: [
+						{
+							id: `repo-${repoPage}`,
+							name: `repo-${repoPage}`,
+							namespace: 'org',
+						} as unknown as ProviderRepository,
+					],
+					paging:
+						repoPage < 3
+							? { more: true, cursor: `next-${repoPage}`, truncated: false }
+							: { more: false, cursor: '{}', truncated: false },
+				},
+				error: new Error('partial repository listing'),
+			});
+		};
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'i-1' } as unknown as ProviderIssue] } });
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+
+		assert.equal(repoPage, 3, 'the drain read every page');
+		assert.equal(
+			result.warnings.filter(w => w.message.includes('partial repository listing')).length,
+			1,
+			'the same soft warning on three pages reports once',
+		);
+
+		manager.dispose();
+	});
+
+	test('broadenIssues collapses the identical warning several orgs of one provider produced', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: {
+					values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository],
+				},
+			});
+		// One expired token fails every org the same way, so each slice builds a warning with the same
+		// provider/domain/kind/message — the case `appendDedupedWarning` exists to collapse.
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = () => Promise.resolve({ error: new Error('token expired') });
+
+		const result = await manager.broadenIssues({
+			orgs: [
+				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-a' },
+				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-b' },
+				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-c' },
+			],
+			page: 1,
+		});
+
+		assert.equal(result.warnings.length, 1, 'three orgs failing identically report one warning, not three');
+		assert.equal(result.fanOutCount, 3, 'the fan-out still counted every org');
+
+		manager.dispose();
+	});
 });

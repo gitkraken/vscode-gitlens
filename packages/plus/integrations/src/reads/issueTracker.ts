@@ -9,7 +9,7 @@ import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import { reconcileOmissionsWithFailure } from '../results.js';
+import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
@@ -279,7 +279,11 @@ export async function listIssueTrackerIssuesPage(
 				continue;
 			}
 
-			warnings.push(
+			// Deduped: a captured `accountWarning` carries only the provider error, with no resource in its
+			// message, so one expired token across N resources would otherwise repeat verbatim N times. The
+			// synthesized fallback names the resource, so those stay distinct on their own.
+			appendDedupedWarning(
+				warnings,
 				accountWarning ??
 					otherWarning(
 						options.providerId,
@@ -457,7 +461,9 @@ export async function listIssueTrackerIssuesPage(
 		const key = projectKey(project);
 		const retryProject = result == null;
 		if (warning != null) {
-			warnings.push(warning);
+			// Deduped: the per-project warning is built from the provider error alone and names no project, so a
+			// single failing token repeats verbatim once per project in the window.
+			appendDedupedWarning(warnings, warning);
 			fetchFailed = true;
 			projectTruncated = true;
 		}
