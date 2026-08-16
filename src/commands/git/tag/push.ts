@@ -174,15 +174,15 @@ export class TagPushGitCommand extends QuickCommand<State> {
 
 			steps.markStepsComplete();
 
-			for (const { ref } of state.references) {
-				try {
-					await state.repo.git.tags.pushTag?.(ref, state.remote.name, {
-						force: state.flags.includes('--force'),
-					});
-				} catch (ex) {
-					Logger.error(ex, context.title);
-					void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to push tag');
-				}
+			try {
+				await state.repo.git.tags.pushTag?.(
+					state.references.map(r => r.ref),
+					state.remote.name,
+					{ force: state.flags.includes('--force') },
+				);
+			} catch (ex) {
+				Logger.error(ex, context.title);
+				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to push tag');
 			}
 		}
 

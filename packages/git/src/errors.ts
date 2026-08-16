@@ -871,6 +871,7 @@ export type TagErrorReason =
 	| 'notFound'
 	| 'permissionDenied'
 	| 'remoteRejected'
+	| 'tagConflict'
 	| 'other';
 interface TagErrorDetails {
 	reason?: TagErrorReason;
@@ -909,6 +910,8 @@ export class TagError extends GitCommandError<TagErrorDetails> {
 				return `${baseMessage} because you don't have permission to push to this remote repository.`;
 			case 'remoteRejected':
 				return `${baseMessage} because the remote repository rejected the push.`;
+			case 'tagConflict':
+				return `${baseMessage} because the remote already has a tag with that name. Use force to overwrite it.`;
 			default:
 				return baseMessage;
 		}

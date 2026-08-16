@@ -3682,7 +3682,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:tag && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 4
 					}
@@ -4137,7 +4137,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem == gitlens:tag && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -11789,7 +11789,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:tag && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -11803,7 +11803,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:tag && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "viewItem =~ /gitlens:tag\\b/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -14257,7 +14257,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:tag && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}
@@ -14271,7 +14271,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem == gitlens:tag && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"when": "viewItem =~ /gitlens:tag\\b/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}

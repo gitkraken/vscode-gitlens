@@ -387,6 +387,7 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.tagNotFound, 'notFound'],
 			[GitErrors.permissionDenied, 'permissionDenied'],
 			[GitErrors.remoteRejected, 'remoteRejected'],
+			[GitErrors.tagConflict, 'tagConflict'],
 		],
 	],
 	[

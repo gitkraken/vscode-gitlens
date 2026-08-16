@@ -22768,22 +22768,22 @@
 				},
 				{
 					"command": "gitlens.views.pushTag",
-					"when": "viewItem == gitlens:tag && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.pushTag.multi",
-					"when": "viewItem == gitlens:tag && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "viewItem =~ /gitlens:tag\\b/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.deleteTag",
-					"when": "viewItem == gitlens:tag && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "viewItem =~ /gitlens:tag\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.views.deleteTag.multi",
-					"when": "viewItem == gitlens:tag && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "viewItem =~ /gitlens:tag\\b/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
 				},
 				{
@@ -28492,12 +28492,12 @@
 				},
 				{
 					"command": "gitlens.graph.pushTag",
-					"when": "webviewItem == gitlens:tag && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.graph.deleteTag",
-					"when": "webviewItem == gitlens:tag && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "webviewItem =~ /gitlens:tag\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
 				},
 				{
