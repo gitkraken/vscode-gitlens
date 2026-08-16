@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.111] - 2026-08-16
+
 ### Added
 
 - Adds stacked-pull-request support to the published surface: `PullRequestStackInfo` (`id`, `number`, `size`, `position`, `baseRef`), `PullRequest.stack` / `PullRequestShape.stack`, and `getStackedMergeCount(stack, { wholeStack })` — how many pull requests a stacked merge affects, this layer and everything below it by default. `baseRef` is the stack's trunk and is deliberately NOT `refs.base`, which above the bottom layer names the layer below: diff a layer with `refs.base`, ask where the work lands with `baseRef`. GitHub.com only — the `stack` / `stackEntry` selections are appended per query rather than baked into the shared fragment, because GitHub Enterprise Server's schema has no `stack` field and selecting it there fails the ENTIRE query, taking every pull-request read down with it. Present on this branch's history but absent from the 0.5.110 artifact; this is the first core release to publish it (git, plus/git-github)
@@ -271,7 +273,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.110...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.111...HEAD
+[0.5.111]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.110...gitkraken:releases/core/v0.5.111
 [0.5.110]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.109...gitkraken:releases/core/v0.5.110
 [0.5.109]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.108...gitkraken:releases/core/v0.5.109
 [0.5.108]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.107...gitkraken:releases/core/v0.5.108
