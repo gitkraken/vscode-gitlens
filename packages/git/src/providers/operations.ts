@@ -105,10 +105,13 @@ export interface GitOperationsSubProvider {
 			 */
 			programmaticEditor?: boolean;
 			/**
-			 * Passes `--autosquash`, folding every pending `fixup!`/`squash!` commit into its target and
-			 * reordering the todo accordingly. Mutually exclusive with {@link programmaticEditor}, which
-			 * forces `rebase.autosquash=false` so its script-based editor sees a plain, natural-order todo —
-			 * combining both is a programmer error; the CLI provider throws rather than silently dropping one.
+			 * Tri-state autosquash control. `true` passes `--autosquash`, folding every pending
+			 * `fixup!`/`squash!` commit into its target and reordering the todo accordingly; `false` passes
+			 * `--no-autosquash`, explicitly overriding a `rebase.autosquash=true` git config (omitting the
+			 * flag would let the config fold anyway); `undefined` passes neither, deferring to git config.
+			 * `true` is mutually exclusive with {@link programmaticEditor}, which forces
+			 * `rebase.autosquash=false` so its script-based editor sees a plain, natural-order todo —
+			 * combining them is a programmer error; the CLI provider throws rather than silently dropping one.
 			 */
 			autosquash?: boolean;
 			/**

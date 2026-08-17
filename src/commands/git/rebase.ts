@@ -9,6 +9,7 @@ import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/refer
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
@@ -18,7 +19,7 @@ import { showGitErrorMessage } from '../../messages.js';
 import { startAutoRebaseRun } from '../../plus/coretools/conflict/autoRebaseProgress.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
-import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import type { ConfirmToggleQuickPickItem, DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import {
 	createConfirmToggleQuickPickItem,
 	createDirectiveQuickPickItem,
@@ -73,7 +74,7 @@ interface Context extends StepsContext<StepNames> {
 
 /** `ai-resolve` is an internal pseudo-flag (never passed to git) — it routes execution through the
  *  automatic rebase service, which resolves any conflicts with AI end-to-end. */
-type Flags = '--interactive' | '--update-refs' | 'ai-resolve';
+type Flags = '--autosquash' | '--interactive' | '--update-refs' | 'ai-resolve';
 interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	destination: GitReference;
@@ -102,6 +103,15 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async execute(state: StepState<State<GlRepository>>) {
 		const interactive = state.flags.includes('--interactive');
 		const updateRefs = state.flags.includes('--update-refs');
+		// Tri-state: the toggle's choice is passed explicitly BOTH ways where git accepts the flag —
+		// `--no-autosquash` included, since a `rebase.autosquash=true` config would otherwise fold
+		// fixups with the toggle off. Non-interactive rebases only accept the flag (and only honor the
+		// config) on git 2.44+ — below that, pass neither and let the (inert) config lie. `supports()`
+		// is cached, so recomputing here beats threading it from the confirm step.
+		let autosquash: boolean | undefined;
+		if (interactive || (await state.repo.git.supports('git:rebase:autosquash'))) {
+			autosquash = state.flags.includes('--autosquash');
+		}
 
 		if (state.flags.includes('ai-resolve')) {
 			this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
@@ -113,6 +123,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				upstream: state.destination.ref,
 				branch: branch,
 				updateRefs: updateRefs,
+				autosquash: autosquash,
 				source: { source: 'quick-wizard' },
 			});
 		}
@@ -137,6 +148,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				editor: interactive ? await getHostEditorCommand(true) : undefined,
 				interactive: interactive,
 				updateRefs: updateRefs,
+				autosquash: autosquash,
 			});
 			if (result?.conflicted) {
 				void window.showWarningMessage(
@@ -386,6 +398,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		// Appended to whichever mode is chosen while the Update Branches toggle is on — `--update-refs`
 		// modifies every mode identically, so it's a toggle rather than a duplicate of each item.
 		const updateRefsClause = ', and update any branches pointing to the rebased commits';
+		// Appended to whichever mode is chosen while the Autosquash toggle is on — `--autosquash` modifies
+		// every mode identically, so it's a toggle rather than a duplicate of each item.
+		const autosquashClause = ', folding fixup commits into their targets';
+		const autosquashDetail = 'Also fold fixup! and squash! commits into the commits they target';
 
 		type Mode = { flags: Flags[]; label: string; description?: string; detail: string; picked: boolean };
 		const modes: Mode[] = [];
@@ -420,26 +436,46 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			picked: behind === 0 && !aiSeeded,
 		});
 
-		// A seeded wizard flag wins; otherwise the user's `rebase.updateRefs` config decides, so the
-		// toggle reflects what git will actually do if left untouched.
-		const updateRefsConfig = parseGitBoolean(await state.repo.git.config.getConfig?.('rebase.updateRefs')) ?? false;
+		// A seeded wizard flag wins; otherwise the user's `rebase.updateRefs`/`rebase.autosquash` config
+		// decides, so each toggle reflects what git will actually do if left untouched. Independent reads,
+		// so they run in parallel.
+		const [updateRefsConfigResult, autosquashConfigResult, autosquashNonInteractiveSupportedResult] =
+			await Promise.allSettled([
+				state.repo.git.config.getConfig?.('rebase.updateRefs'),
+				state.repo.git.config.getConfig?.('rebase.autosquash'),
+				state.repo.git.supports('git:rebase:autosquash'),
+			]);
+		const updateRefsConfig = parseGitBoolean(getSettledValue(updateRefsConfigResult)) ?? false;
 		let updateRefs = state.flags.includes('--update-refs') || updateRefsConfig;
 
-		// Folds the live toggle value into each item's flags — the accepted item's flags are the whole
+		const autosquashConfig = parseGitBoolean(getSettledValue(autosquashConfigResult)) ?? false;
+		let autosquash = state.flags.includes('--autosquash') || autosquashConfig;
+		// Interactive rebases support autosquash on every git version GitLens supports — this only gates
+		// the plain/automatic (non-interactive) modes, so the toggle's detail can call that out.
+		const autosquashNonInteractiveSupported = getSettledValue(autosquashNonInteractiveSupportedResult) ?? false;
+
+		// Folds the live toggle values into each item's flags — the accepted item's flags are the whole
 		// contract with `execute()` — and into its detail, so the list says what will actually happen.
 		const buildItems = (): FlagsQuickPickItem<Flags>[] =>
-			modes.map(m =>
-				createFlagsQuickPickItem<Flags>(
-					state.flags,
-					updateRefs ? [...m.flags, '--update-refs'] : [...m.flags],
-					{
-						label: m.label,
-						description: m.description,
-						detail: updateRefs ? `${m.detail}${updateRefsClause}` : m.detail,
-						picked: m.picked,
-					},
-				),
-			);
+			modes.map(m => {
+				const flags: Flags[] = [...m.flags];
+				let detail = m.detail;
+				if (updateRefs) {
+					flags.push('--update-refs');
+					detail += updateRefsClause;
+				}
+				if (autosquash) {
+					flags.push('--autosquash');
+					detail += autosquashClause;
+				}
+
+				return createFlagsQuickPickItem<Flags>(state.flags, flags, {
+					label: m.label,
+					description: m.description,
+					detail: detail,
+					picked: m.picked,
+				});
+			});
 
 		let items = buildItems();
 
@@ -447,25 +483,47 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		const notices: DirectiveQuickPickItem[] = [];
 
+		interface Toggles {
+			updateRefs?: ConfirmToggleQuickPickItem;
+			autosquash?: ConfirmToggleQuickPickItem;
+		}
+		// A mutable holder rather than separate variables so each toggle's handler can reach the other
+		// without forward-referencing a not-yet-declared `const` (an `eslint(no-use-before-define)` build
+		// error) — both properties are always populated below before `buildRows` is ever called.
+		const toggles: Toggles = {};
+
 		/** Every row the confirm step shows, minus the separator + Cancel that `createConfirmStep` appends.
-		 *  The separator is labelled so the toggle reads as a modifier on the modes above it rather than a
-		 *  fourth mode — the divider alone doesn't carry that. Takes the toggle row rather than closing over
-		 *  it so this can be declared before the toggle itself, which needs `buildRows` in its handler. */
-		const buildRows = (toggle: DirectiveQuickPickItem): (DirectiveQuickPickItem | FlagsQuickPickItem<Flags>)[] => [
+		 *  The separator is labelled so the toggles read as modifiers on the modes above them rather than
+		 *  extra modes — the divider alone doesn't carry that. */
+		const buildRows = (): (DirectiveQuickPickItem | FlagsQuickPickItem<Flags>)[] => [
 			...notices,
 			...items,
 			createQuickPickSeparator(confirmOptionsSeparatorLabel),
-			toggle,
+			toggles.updateRefs!,
+			toggles.autosquash!,
 		];
 
-		const updateRefsToggle = createConfirmToggleQuickPickItem({
+		toggles.updateRefs = createConfirmToggleQuickPickItem({
 			label: 'Update Branches',
 			detail: 'Also move any branches pointing to the rebased commits',
 			checked: updateRefs,
 			onDidChange: item => {
 				updateRefs = item.checked;
 				items = buildItems();
-				refreshConfirmStepItems(step, buildRows(item));
+				refreshConfirmStepItems(step, buildRows());
+			},
+		});
+
+		toggles.autosquash = createConfirmToggleQuickPickItem({
+			label: 'Autosquash',
+			detail: autosquashNonInteractiveSupported
+				? autosquashDetail
+				: `${autosquashDetail} · non-interactive rebases require Git 2.44`,
+			checked: autosquash,
+			onDidChange: item => {
+				autosquash = item.checked;
+				items = buildItems();
+				refreshConfirmStepItems(step, buildRows());
 			},
 		});
 
@@ -516,7 +574,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					);
 				}
 
-				refreshConfirmStepItems(step, buildRows(updateRefsToggle));
+				refreshConfirmStepItems(step, buildRows());
 			});
 
 			notices.push(
@@ -529,10 +587,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		step = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${title}`, state, context),
-			buildRows(updateRefsToggle),
-		);
+		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), buildRows());
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

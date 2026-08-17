@@ -730,12 +730,14 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 		}
 
-		if (options?.autosquash) {
-			if (options.programmaticEditor) {
+		if (options?.autosquash != null) {
+			if (options.autosquash && options.programmaticEditor) {
 				throw new Error('rebase: autosquash cannot be combined with programmaticEditor');
 			}
 
-			args.push('--autosquash');
+			// `--no-autosquash` is passed explicitly when `false` — omitting the flag would let a
+			// `rebase.autosquash=true` git config fold fixups anyway.
+			args.push(options.autosquash ? '--autosquash' : '--no-autosquash');
 		}
 
 		// Drive per-commit message editing (the combined message a `squash` produces, or a `reword`).

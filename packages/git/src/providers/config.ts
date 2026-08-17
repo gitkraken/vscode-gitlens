@@ -25,6 +25,8 @@ export type GitCoreConfigKeys =
 	| 'pull.rebase'
 	/** `rebase.autoStash` — whether `git rebase` (and so a rebasing `git pull`) stashes and reapplies uncommitted changes */
 	| 'rebase.autoStash'
+	/** `rebase.autosquash` — whether `git rebase` automatically folds `fixup!`/`squash!` commits into the commits they target */
+	| 'rebase.autosquash'
 	/** `rebase.updateRefs` — whether `git rebase` also updates branches pointing to the rebased commits */
 	| 'rebase.updateRefs'
 	/** `remote.pushDefault` — the remote `git push` targets when a branch has no explicit push remote configured */

@@ -15,6 +15,7 @@ export type GitFeatures =
 	| 'git:merge-tree'
 	| 'git:merge-tree:write-tree'
 	| 'git:push:force-if-includes'
+	| 'git:rebase:autosquash'
 	| 'git:rev-parse:end-of-options'
 	| 'git:signing:ssh'
 	| 'git:signing:x509'
@@ -72,6 +73,10 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:merge-tree', '2.33'],
 	['git:merge-tree:write-tree', '2.38'],
 	['git:push:force-if-includes', '2.30.0'],
+	// `--autosquash` WITHOUT `-i` (folding `fixup!`/`squash!` commits into a plain/automatic rebase).
+	// Interactive rebases support autosquash on every git version GitLens supports, so this floor only
+	// gates the non-interactive path.
+	['git:rebase:autosquash', '2.44'],
 	['git:rev-parse:end-of-options', '2.30'],
 	['git:signing:ssh', '2.34.0'],
 	['git:signing:x509', '2.19.0'],

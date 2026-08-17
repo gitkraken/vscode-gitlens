@@ -32,6 +32,7 @@ export interface AutoRebaseStartOptions {
 	branch?: string;
 	onto?: string;
 	updateRefs?: boolean;
+	autosquash?: boolean;
 	source: Source;
 }
 
@@ -164,6 +165,7 @@ export class AutoRebaseService implements Disposable {
 				branch: options.branch,
 				onto: options.onto,
 				updateRefs: options.updateRefs,
+				autosquash: options.autosquash,
 				// Suppress any message editing headlessly (interactive isn't used, but a
 				// rebase.autosquash config could still trigger message edits)
 				messageEditor: 'true',
