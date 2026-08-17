@@ -22,22 +22,16 @@ import type {
 	GraphExcludeRefs,
 	GraphRefOptData,
 	GraphSearchResults,
-	GraphSelectedRows,
 	GraphWipState,
 	State,
 } from '../../../plus/graph/protocol.js';
-import {
-	ChooseRepositoryCommand,
-	createWipRowId,
-	SearchCancelCommand,
-	SearchOpenInViewCommand,
-	SearchRequest,
-	UpdateGraphSearchModeCommand,
-	UpdateRefsVisibilityCommand,
-} from '../../../plus/graph/protocol.js';
+import { ChooseRepositoryCommand, createWipRowId, UpdateRefsVisibilityCommand } from '../../../plus/graph/protocol.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
 import type { GlSearchBox } from '../../shared/components/search/search-box.js';
-import type { SearchNavigationEventDetail } from '../../shared/components/search/search-input.js';
+import type {
+	SearchModeChangeEventDetail,
+	SearchNavigationEventDetail,
+} from '../../shared/components/search/search-input.js';
 import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
@@ -54,6 +48,8 @@ import { graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
 import { compareGraphRefOpts, getHiddenRefLabel } from './hiddenRefs.utils.js';
+import type { SearchActions } from './search/searchActions.js';
+import { searchActionsContext } from './search/searchContext.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
@@ -183,6 +179,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _sidebarActions?: SidebarActions;
+
+	@consume({ context: searchActionsContext, subscribe: true })
+	private _searchActions!: SearchActions;
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
@@ -416,7 +415,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private onSearchOpenInView() {
-		this._ipc.sendCommand(SearchOpenInViewCommand, { search: { ...this._searchQuery } });
+		this._searchActions.openInView({ ...this._searchQuery });
 	}
 
 	private _activeRowInfoCache: { row: string; info: { date: number; id: string } } | undefined;
@@ -589,10 +588,24 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			this._searchQuery.filter = restore;
 			this.applyNlForcedFilterRestore(restore);
 		}
-		// Don't eagerly clear local state — the host sends a clear notification as part of
-		// processing the cancel (or starting a new search). Eagerly clearing causes a flash
-		// where old results/errors disappear briefly before the new state arrives.
-		this._ipc.sendCommand(SearchCancelCommand, { preserveResults: preserveResults });
+		// Don't eagerly clear local state — the host's cleared snapshot (or the next search's) lands via
+		// `onDidChange`. Eagerly clearing causes a flash where old results/errors disappear briefly before
+		// the new state arrives.
+		if (preserveResults) {
+			this._searchActions.cancel();
+			// The host answers an aborted search with nothing — right for a supersede, where the newer
+			// search's snapshots own the state, but a pause has no successor: nothing else will ever drop
+			// `searching` (the spinner, the header progress bar, and the graph's search-active styling all
+			// key off it) or surface the resume affordance. Settle both here; the host's own settled state
+			// (paused cursor included) already agrees — it just never emits for an abort.
+			this.graphState.searching = false;
+			const currentResults = this.graphState.searchResultsResponse;
+			if (currentResults != null && !isGraphSearchResultsError(currentResults)) {
+				this.graphState.searchResultsResponse = { ...currentResults, hasMore: true };
+			}
+		} else {
+			this._searchActions.clear();
+		}
 	}
 
 	private async waitForSearchComplete(
@@ -617,14 +630,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	// Auto-reveal the first search match (new-search entry point only — next/prev navigation already
 	// reveals its own target via executeNavigation, so calling this there would double-reveal).
-	private revealFirstSearchMatch(selectedRows: GraphSelectedRows | undefined): void {
-		const firstSha = selectedRows != null ? Object.keys(selectedRows)[0] : undefined;
-		if (firstSha != null) {
-			void this.navigateToSearchResult(firstSha);
+	private revealFirstSearchMatch(revealSha: string | undefined): void {
+		if (revealSha != null) {
+			void this.navigateToSearchResult(revealSha);
 		}
 	}
 
 	private async startSearch() {
+		// A freshly-initiated search supersedes any stale cancel bookkeeping — otherwise a clear
+		// immediately followed by a new search can skip the null transition `updated()` watches for
+		// (Lit batches; save-last RPC replay collapses), leaving the flag stuck and suppressing the
+		// reconnect box-restore.
+		this._searchCancelInFlight = false;
+
 		if (!this.searchValid) {
 			this.cancelSearch(false);
 			return;
@@ -635,69 +653,61 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// been rewritten by notification-driven syncs.
 		const preSearchFilter = this._searchQuery.filter ?? false;
 
-		// Raise `searching` here rather than waiting for the host's first notification — that round-trip
-		// is a visible delay for anything keyed off it (the search spinner, and the minimap's auto-show,
-		// which is supposed to be up before results start streaming in). Every exit path below, plus the
-		// notification reducer, drives it back down.
+		// Raise `searching` here rather than waiting for the host's first snapshot — that round-trip is a
+		// visible delay for anything keyed off it (the search spinner, and the minimap's auto-show, which
+		// is supposed to be up before results start streaming in). Every exit path below, plus every
+		// snapshot `_searchActions` applies, drives it back down.
 		this.graphState.searching = true;
 		// A new search session starts here, not when the host answers — see `searchSession`. Resume and
-		// result-navigation issue their own `SearchRequest`s without coming through here, so they
-		// correctly leave the session (and any per-search UI state scoped to it) alone.
+		// result-navigation issue their own searches without coming through here, so they correctly leave
+		// the session (and any per-search UI state scoped to it) alone.
 		this.graphState.searchSession++;
 
 		try {
-			const rsp = await this._ipc.sendRequest(SearchRequest, { search: { ...this._searchQuery } });
+			const rsp = await this._searchActions.search({ search: { ...this._searchQuery } });
 
 			// Log whenever we have a search — the NL error message and "Query: <processed>" chip live
 			// inside logSearch, so a failed or zero-result NL search still needs it. Only a match
 			// (count > 0) is allowed into search history.
-			if (rsp.search) {
-				const matched = rsp.results != null && !('error' in rsp.results) && rsp.results.count > 0;
-				this.searchEl?.logSearch(rsp.search, { store: matched });
+			if (rsp?.state.query) {
+				const results = rsp.state.results;
+				const matched = results != null && !('error' in results) && results.count > 0;
+				this.searchEl?.logSearch(rsp.state.query, { store: matched });
 			}
 
-			// Guard: only update state if this response is still for the current search.
-			// Progressive notifications already handle results via searchId filtering,
-			// but error results only come through the IPC response.
-			if (rsp.searchId === this.graphState.currentSearchId) {
-				this.graphState.searchResultsResponse = rsp.results;
-				// The IPC response means the host-side search handler has completed —
-				// mark searching as done. For successful searches this is redundant
-				// (the final notification already set it), but for errors it's the
-				// only path that clears the searching state.
-				this.graphState.searching = false;
-				// NL search can force filter mode server-side (see `updateSearchMode` in
-				// graphSearchService.ts) — sync the local query from the response so the toggle
-				// reflects it and subsequent requests (paging/navigation) carry the routed value
-				// forward instead of reverting to whatever the toggle showed before this search.
-				// The forced mode lasts only as long as its search: remember the user's own toggle
-				// state so clearing the search restores it (see `cancelSearch`).
-				if (rsp.search != null) {
-					const nlMode =
-						typeof rsp.search.naturalLanguage === 'object' ? rsp.search.naturalLanguage.mode : undefined;
-					if (nlMode === 'filter' && rsp.search.filter && !preSearchFilter) {
-						this._nlForcedFilterRestore ??= preSearchFilter;
-					}
+			// A superseded/aborted search resolves `undefined` — nothing more to do; the search that
+			// superseded it owns the state from here.
+			if (rsp == null) return;
 
-					this._searchQuery.filter = rsp.search.filter;
-				}
-				this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
-				if (rsp.selectedRows != null) {
-					this.graphState.selectedRows = rsp.selectedRows;
+			// `applySearchState` already applied `rsp.state` (including `searchMode`) — only the
+			// header-local bookkeeping remains here.
+			//
+			// NL search can force filter mode server-side (see `updateSearchMode` in
+			// graphSearchService.ts) — sync the local query from the response so the toggle reflects it
+			// and subsequent requests (paging/navigation) carry the routed value forward instead of
+			// reverting to whatever the toggle showed before this search. The forced mode lasts only as
+			// long as its search: remember the user's own toggle state so clearing the search restores
+			// it (see `cancelSearch`).
+			const nlMode =
+				typeof rsp.state.query.naturalLanguage === 'object' ? rsp.state.query.naturalLanguage.mode : undefined;
+			if (nlMode === 'filter' && rsp.state.query.filter && !preSearchFilter) {
+				this._nlForcedFilterRestore ??= preSearchFilter;
+			}
 
-					const nlMode =
-						typeof rsp.search?.naturalLanguage === 'object' ? rsp.search.naturalLanguage.mode : undefined;
-					if (nlMode === 'select') {
-						// "Take me to X" phrasing — jump the viewport deliberately through the same
-						// queued navigation path 'first'/'last' use, instead of the plain reveal below
-						// (avoids a double-jump from also calling revealFirstSearchMatch).
-						this._pendingNavigation = 'first';
-						if (!this._isNavigating) {
-							void this.processNavigation();
-						}
-					} else {
-						this.revealFirstSearchMatch(rsp.selectedRows);
+			this._searchQuery.filter = rsp.state.query.filter;
+
+			// The selection itself arrives on the rows plane; this only says where to scroll.
+			if (rsp.revealSha != null) {
+				if (nlMode === 'select') {
+					// "Take me to X" phrasing — jump the viewport deliberately through the same
+					// queued navigation path 'first'/'last' use, instead of the plain reveal below
+					// (avoids a double-jump from also calling revealFirstSearchMatch).
+					this._pendingNavigation = 'first';
+					if (!this._isNavigating) {
+						void this.processNavigation();
 					}
+				} else {
+					this.revealFirstSearchMatch(rsp.revealSha);
 				}
 			}
 		} catch {
@@ -717,12 +727,24 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private handleSearchInput(e: CustomEvent<SearchQuery>) {
 		this._pendingNavigation = undefined;
 		this.cancelActiveSearchNavigation();
+		// Captured before the cancel below can consume it: a replacing query ends any NL-forced filter
+		// (the force lasts exactly its own search's lifetime), but the event's `filter` was built from
+		// the box's still-forced toggle — so the new search must take the user's own mode instead of
+		// inheriting the forced one.
+		const nlForcedRestore = this._nlForcedFilterRestore;
+
 		// Cancel any existing search before starting a new one
 		if (this.graphState.searching) {
 			this.cancelSearch(false);
 		}
 
-		this._searchQuery = e.detail;
+		if (nlForcedRestore != null) {
+			this._searchQuery = { ...e.detail, filter: nlForcedRestore };
+			this.applyNlForcedFilterRestore(nlForcedRestore);
+		} else {
+			this._searchQuery = e.detail;
+		}
+
 		this.updateActiveFilterColumns();
 		void this.startSearch();
 	}
@@ -740,40 +762,28 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// Set searching state immediately for responsive UI
 		this.graphState.searching = true;
 
-		// Capture current searchId before async gap to detect staleness
-		const currentSearchId = this.graphState.currentSearchId;
-
-		// Preserve current search results but ensure hasMore is true
+		// Preserve current search results but ensure hasMore is true — the host resumes from the paused
+		// cursor and won't ship its own snapshot until the next batch lands.
 		// Read from searchResultsResponse (the source) not searchResults (the derived value)
 		const currentResults = this.graphState.searchResultsResponse;
 		if (currentResults != null && !isGraphSearchResultsError(currentResults)) {
-			// Only update if we're still on the same search
-			if (this.graphState.currentSearchId === currentSearchId) {
-				this.graphState.searchResultsResponse = {
-					...currentResults,
-					hasMore: true,
-				};
-			}
+			this.graphState.searchResultsResponse = {
+				...currentResults,
+				hasMore: true,
+			};
 		}
 
-		// Resume a paused search by requesting more results.
-		// The response is deliberately discarded (void) — progressive notifications
-		// handle state updates. The host's searchId guard in processSearchStream
-		// protects against stale processing if a new search starts before this completes.
-		void this._ipc.sendRequest(SearchRequest, {
-			search: this._searchQuery,
-			more: true,
-		});
+		// Resume a paused search by requesting more results. The response is deliberately discarded
+		// (void) — `_searchActions.search` applies the resulting snapshot itself via `applySearchState`,
+		// and a superseded/aborted resume resolves `undefined` and touches nothing.
+		void this._searchActions.search({ search: this._searchQuery, more: true });
 	}
 
-	/** Load-more for search navigation — the caller reads the results as locals, so nothing lands in state. */
+	/** Load-more for search navigation — the caller reads the results as locals, so nothing lands in state
+	 *  here (`_searchActions.search` still applies the snapshot for the rest of the app). */
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		try {
-			return await this._ipc.sendRequest(SearchRequest, {
-				search: search,
-				limit: options?.limit,
-				more: options?.more,
-			});
+			return await this._searchActions.search({ search: search, limit: options?.limit, more: options?.more });
 		} catch {
 			return undefined;
 		}
@@ -922,15 +932,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				if (!isCurrent()) return;
 
 				if (
-					!moreResults?.results ||
-					isGraphSearchResultsError(moreResults.results) ||
-					count >= moreResults.results.count
+					!moreResults?.state.results ||
+					isGraphSearchResultsError(moreResults.state.results) ||
+					count >= moreResults.state.results.count
 				) {
 					break;
 				}
 
 				const priorCount = count;
-				searchResults = moreResults.results;
+				searchResults = moreResults.state.results;
 				count = searchResults.count;
 				searchIndex = direction === 'last' ? count - 1 : priorCount;
 				continue;
@@ -986,9 +996,20 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
-	handleSearchModeChanged(e: CustomEvent) {
+	handleSearchModeChanged(e: CustomEvent<SearchModeChangeEventDetail>) {
+		// An NL on/off toggle reports the CURRENT filter state, which may be NL-forced — persist only
+		// the NL preference; the mode was not chosen, so it must neither become the sticky default nor
+		// supersede a pending forced-filter restore.
+		if (!e.detail.explicitMode) {
+			this._searchActions.setMode(undefined, e.detail.useNaturalLanguage);
+			return;
+		}
+
+		// Only an explicit user mode change cancels queued/in-flight navigation — a non-user state report
+		// (e.g. search-input's willUpdate dropping NL when aiAllowed flips) must not cancel it.
 		this._pendingNavigation = undefined;
 		this.cancelActiveSearchNavigation();
+
 		// An explicit mode choice supersedes any NL-forced filter restore
 		this._nlForcedFilterRestore = undefined;
 		// Update local state immediately for responsive UI
@@ -997,10 +1018,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// Update the search query's filter property so it's included in the next search
 		this._searchQuery.filter = e.detail.searchMode === 'filter';
 
-		this._ipc.sendCommand(UpdateGraphSearchModeCommand, {
-			searchMode: e.detail.searchMode,
-			useNaturalLanguage: e.detail.useNaturalLanguage,
-		});
+		this._searchActions.setMode(e.detail.searchMode, e.detail.useNaturalLanguage);
 	}
 
 	handleMinimapToggled() {

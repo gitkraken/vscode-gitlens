@@ -1,3 +1,4 @@
+import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -13,8 +14,8 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
+import type { GraphSearchState } from '../../../plus/graph/graphService.js';
 import type {
-	DidSearchParams,
 	GraphRowsSplice,
 	GraphScope,
 	GraphSearchResults,
@@ -58,14 +59,13 @@ import {
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
-	DidRequestSearchNotification,
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
-	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
 	GetAgentSessionsRequest,
 	GetOverviewEnrichmentRequest,
 	GraphSyncResyncCommand,
+	isWipRowId,
 	ResolveGraphScopeRequest,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
@@ -95,90 +95,6 @@ export function isGraphSearchResultsError(
 	results: GraphSearchResults | GraphSearchResultsError,
 ): results is GraphSearchResultsError {
 	return 'error' in results;
-}
-
-/** The search CONTROL substate (everything a `DidSearchParams` decides EXCEPT the results object). */
-export interface GraphSearchControlState {
-	currentSearchId: number | undefined;
-	searching: boolean;
-	searchMode: 'filter' | 'normal';
-	searchQuery: SearchQuery | undefined;
-}
-
-/**
- * Pure reduction of the search control substate for an incoming {@link DidSearchParams}. Kept separate
- * from (and unit-tested independently of) the results-accumulation in `handleSearchNotification` because
- * these are the decisions that were historically under-tested and repeatedly mis-set:
- * - the spinner gate: a rows-plane RIDER (a results/coverage refresh) must NEVER raise or lower
- *   `searching`; a real new search raises it; a final/error result lowers it; a partial keeps it on;
- * - query propagation: the query rides every non-cancel notification so a rebooted/reconnected app can
- *   restore its search box (results travel their own channel) — cleared on cancellation.
- * `ignore` marks a stale (superseded) notification the caller must drop entirely.
- */
-export function reduceGraphSearchControlState(
-	prev: GraphSearchControlState,
-	params: Pick<DidSearchParams, 'searchId' | 'search' | 'results' | 'partial' | 'rider'>,
-): { ignore: boolean; next: GraphSearchControlState } {
-	const { searchId } = params;
-
-	// Stale notification from a superseded search.
-	if (prev.currentSearchId != null && searchId < prev.currentSearchId) {
-		return { ignore: true, next: prev };
-	}
-
-	const cancelled = params.results == null && params.search == null;
-	const isRider = params.rider === true;
-	const isNewId = searchId !== prev.currentSearchId;
-
-	let { currentSearchId, searching, searchMode, searchQuery } = prev;
-
-	if (isNewId) {
-		currentSearchId = searchId;
-		// A rider re-delivers an already-complete search to a rebooted app (its `currentSearchId` is
-		// unseeded, so this trips the new-id branch) — it must NOT raise the spinner; neither does cancel.
-		if (!cancelled && !isRider) {
-			searching = true;
-		}
-		if (params.search != null) {
-			searchMode = params.search.filter ? 'filter' : 'normal';
-		}
-	}
-
-	if (cancelled) {
-		return {
-			ignore: false,
-			next: {
-				currentSearchId: currentSearchId,
-				searching: false,
-				searchMode: searchMode,
-				searchQuery: undefined,
-			},
-		};
-	}
-
-	// Query rides every non-cancel notification (start/progressive/final/rider) for box restoration.
-	if (params.search != null) {
-		searchQuery = params.search;
-	}
-
-	if (params.results != null) {
-		if (isGraphSearchResultsError(params.results)) {
-			searching = false;
-		} else if (!isRider) {
-			// Final (non-partial) result stops the spinner; a partial keeps it on. A rider never drives it.
-			searching = params.partial === true;
-		}
-	}
-
-	return {
-		ignore: false,
-		next: {
-			currentSearchId: currentSearchId,
-			searching: searching,
-			searchMode: searchMode,
-			searchQuery: searchQuery,
-		},
-	};
 }
 
 /**
@@ -338,6 +254,26 @@ function rowMarkerTargetFromAnchor(anchor: ResolvedScopeAnchor | undefined): App
 		: undefined;
 }
 
+/** How many of a search's results are loaded as rows. WIP results are synthetic rows standing in for a
+ *  worktree's working changes — they have no commit to page in, so they always count as loaded.
+ *  Takes the loaded shas as a set rather than the rows, so the set survives result-only changes (a
+ *  progressive search re-counts against an unchanged graph many times over). */
+export function countLoadedSearchResults(
+	results: GraphSearchResults | GraphSearchResultsError | undefined,
+	loadedShas: ReadonlySet<string>,
+): number {
+	if (results == null || isGraphSearchResultsError(results) || results.ids == null) return 0;
+
+	let count = 0;
+	for (const id of Object.keys(results.ids)) {
+		if (isWipRowId(id) || loadedShas.has(id)) {
+			count++;
+		}
+	}
+
+	return count;
+}
+
 function getSearchResultModel(searchResults: State['searchResults']): {
 	results: undefined | GraphSearchResults;
 	resultsError: undefined | GraphSearchResultsError;
@@ -388,13 +324,6 @@ function captureLastKnownWorkDirStats(map: State['wipStateById']): void {
 }
 
 export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
-	// Track current search ID to ignore stale updates
-	private _currentSearchId: number | undefined;
-
-	get currentSearchId(): number | undefined {
-		return this._currentSearchId;
-	}
-
 	// Rows-plane sync sequencer (R1c): holds the `{generation, seq}` baseline the webview mirrors from
 	// the publisher's `DidChangeRows` channel plus the resync dedup flag. Seeded ONCE from the bootstrap
 	// `State.sync` stamp in `initializeState`; thereafter advanced ONLY by contiguous deltas / rebased by
@@ -510,6 +439,26 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor searchResults: AppState['searchResults'];
+
+	/** The loaded rows' shas, held apart from the count below so paging pays for the set once and a
+	 *  progressive search's result batches re-count against it without rebuilding it. */
+	private readonly _loadedRowShas = new Signal.Computed<ReadonlySet<string>>(
+		() => new Set(this.rows?.map(r => r.sha)),
+	);
+
+	/** {@link countLoadedSearchResults} over the active search and the loaded rows, recomputed only when
+	 *  one of them changes. Both consumers read it at render time. Reads `searchResults` before touching
+	 *  `_loadedRowShas` so an idle (no active search) run never depends on — and never rebuilds — the
+	 *  rows Set on every rows tick. */
+	private readonly _searchResultsLoadedCount = new Signal.Computed<number>(() => {
+		const results = this.searchResults;
+		if (results == null) return 0;
+
+		return countLoadedSearchResults(results, this._loadedRowShas.get());
+	});
+	get searchResultsLoadedCount(): number {
+		return this._searchResultsLoadedCount.get();
+	}
 
 	@signalState<AppState['activeFilterColumns']>(new Set())
 	accessor activeFilterColumns: AppState['activeFilterColumns'] = new Set();
@@ -1811,10 +1760,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 				updates.loading = false;
 
-				if (msg.params.search != null) {
-					this.handleSearchNotification(msg.params.search, updates);
-				}
-
 				this.updateState(updates);
 				if (DEBUG) {
 					getGraphDebugDiagnostics().markRowsApplied(this._state.rows, {
@@ -1845,10 +1790,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				});
 				break;
 
-			case DidSearchNotification.is(msg):
-				this.handleSearchNotification(msg.params, updates);
-				this.updateState(updates);
-				break;
 			case DidChangeSelectionNotification.is(msg):
 				this.updateState({ selectedRows: msg.params.selection });
 				// Host-initiated reveals (Show in Commit Graph, terminal links, deep links) push the
@@ -1890,15 +1831,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidRequestOpenTimelineScopeNotification.is(msg):
 				this.host.dispatchEvent(
 					new CustomEvent('gl-graph-request-open-timeline-scope', {
-						detail: msg.params,
-						bubbles: true,
-					}),
-				);
-				break;
-
-			case DidRequestSearchNotification.is(msg):
-				this.host.dispatchEvent(
-					new CustomEvent('gl-graph-request-search', {
 						detail: msg.params,
 						bubbles: true,
 					}),
@@ -2130,76 +2062,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 	}
 
-	private handleSearchNotification(params: DidSearchParams, updates: Partial<State>): void {
-		const prevSearchId = this._currentSearchId;
+	/**
+	 * Applies a search snapshot from the host, replacing every search field wholesale. A snapshot is
+	 * always CUMULATIVE — `state.results` already reflects everything the search has accumulated so far
+	 * — so merging any field here (instead of replacing it) would double-count a progressive batch or
+	 * resurrect a stale one. `undefined` means no active search.
+	 */
+	applySearchState(state: GraphSearchState | undefined): void {
+		this.searching = state?.searching ?? false;
+		this.searchQuery = state?.query;
+		this.searchResultsResponse = state?.results;
+		this.searchFallback = state?.fallback;
+		this.searchRelaxations = state?.relaxations;
 
-		// Control substate (id / spinner / mode / query-for-restore) is decided by the pure, unit-tested
-		// `reduceGraphSearchControlState`; the results object is accumulated inline below (it needs the
-		// prior results and isn't part of that decision). Apply the control substate immediately, exactly
-		// as before (these were direct `this.x =` assignments), plus the new `searchQuery` propagation.
-		const { ignore, next } = reduceGraphSearchControlState(
-			{
-				currentSearchId: prevSearchId,
-				searching: this.searching,
-				searchMode: this.searchMode,
-				searchQuery: this.searchQuery,
-			},
-			params,
-		);
-		if (ignore) return;
-
-		this._currentSearchId = next.currentSearchId;
-		this.searching = next.searching;
-		this.searchMode = next.searchMode;
-		this.searchQuery = next.searchQuery;
-		// Mirrors the host 1:1 (present while its fallback is active, absent otherwise) — including on
-		// cancel (`params.fallback` is unset there), and on riders (they carry the current search's own
-		// fallback state, not a progress signal, so this is safe to always apply).
-		this.searchFallback = params.fallback;
-		// Mirrors the host 1:1, same as `searchFallback` above — see that field's context.ts doc.
-		this.searchRelaxations = params.relaxations;
-
-		const cancelled = params.results == null && params.search == null;
-
-		// Starting a new search clears the prior results (the merge below reads the pre-update accessor,
-		// so this reset only affects the shipped `updates`, matching the original ordering).
-		if (params.searchId !== prevSearchId) {
-			updates.searchResults = undefined;
-		}
-
-		// Early exit for cancellation - just clear state
-		if (cancelled) {
-			updates.searchResults = params.results;
-			return;
-		}
-
-		if (params.selectedRows != null) {
-			updates.selectedRows = params.selectedRows;
-			// No auto-reveal here: this notification also fires for progressive (partial) result batches,
-			// and revealing on every tick would fight the user's scrolling. `startSearch` owns the
-			// new-search reveal; `executeNavigation` owns next/prev.
-		}
-
-		// Process search results (control substate — incl. `searching` — was already applied above).
-		if (params.results != null) {
-			if (isGraphSearchResultsError(params.results)) {
-				updates.searchResults = params.results;
-			} else if (params.partial && this.searchResults != null && !isGraphSearchResultsError(this.searchResults)) {
-				// For progressive updates, accumulate the incremental batches (backend sends only new
-				// results in each batch to save IPC bandwidth) — merge new IDs with existing ones.
-				const { ids, count, hasMore, commitsLoaded } = params.results;
-				updates.searchResults = {
-					ids: { ...this.searchResults.ids, ...ids },
-					count: this.searchResults.count + count,
-					hasMore: hasMore,
-					commitsLoaded: {
-						count: this.searchResults.commitsLoaded.count + commitsLoaded.count,
-					},
-				};
-			} else {
-				// For final results or first partial update, replace
-				updates.searchResults = params.results;
-			}
+		if (state?.query != null) {
+			this.searchMode = state.query.filter ? 'filter' : 'normal';
 		}
 	}
 

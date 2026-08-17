@@ -331,7 +331,6 @@ suite('minimapData Test Suite', () => {
 		const results: GraphSearchResults = {
 			count: 3,
 			hasMore: false,
-			commitsLoaded: { count: 3 },
 			ids: {
 				a: { date: day1, i: 0 },
 				b: { date: day1 + 3600_000, i: 1 },

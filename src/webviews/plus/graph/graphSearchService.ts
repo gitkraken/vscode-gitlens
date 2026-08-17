@@ -1,4 +1,4 @@
-import { CancellationTokenSource } from 'vscode';
+import type { CancellationTokenSource } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
@@ -15,41 +15,37 @@ import {
 	parseSearchQueryGitCommand,
 	rebuildSearchQueryFromParsed,
 } from '@gitlens/git/utils/search.utils.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { isCancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { fuzzyFilter } from '@gitlens/utils/fuzzy.js';
 import { join } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
-import { cancellable, getSettledValue } from '@gitlens/utils/promise.js';
+import { cancellable, getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage.js';
 import type { NaturalLanguageSearchOptions } from '../../../plus/search/naturalLanguageSearchProcessor.js';
-import { toAbortSignal } from '../../../system/-webview/cancellation.js';
+import { cancelAndDispose, fromAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
+import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import type { WebviewHost } from '../../webviewProvider.js';
+import type { GraphSearchResponse, GraphSearchState, GraphServices } from './graphService.js';
 import type { SelectedRowState } from './graphWebview.js';
-import { createWipRowId, DidSearchNotification } from './protocol.js';
+import { createWipRowId } from './protocol.js';
 import type {
-	DidSearchParams,
+	DidRequestSearchParams,
+	DidSearchHistoryGetParams,
+	DidSearchRepairParams,
 	GraphSearchMode,
 	GraphSearchRelaxation,
 	GraphSearchResults,
 	GraphSearchResultsError,
-	GraphSelectedRows,
 	GraphSelection,
 	GraphWipRowsById,
-	SearchHistoryDeleteRequest,
-	SearchHistoryGetRequest,
-	SearchHistoryStoreRequest,
-	SearchOpenInViewCommand,
-	SearchRepairRequest,
-	SearchRequest,
-	UpdateGraphSearchModeCommand,
+	SearchParams,
 } from './protocol.js';
 import { SearchHistory } from './searchHistory.js';
 
@@ -57,8 +53,7 @@ import { SearchHistory } from './searchHistory.js';
  *  `GraphWebviewProvider.createGraphSearchContext()`. `getRepository`/`getSession` read live provider
  *  state; the selection/etag reads and `setSelectedRows` route through the provider's selection state
  *  (kept there); `updateState`/`updateGraphWithMoreRows`/`notifyDidChangeRows` forward into the data
- *  controller; `getWipRows` forwards into the WIP service; the search cancellation callbacks
- *  route through the provider's shared `_cancellations` map, which stays there. */
+ *  controller; `getWipRows` forwards into the WIP service. */
 export type GraphSearchServiceContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
@@ -66,15 +61,12 @@ export type GraphSearchServiceContext = {
 	getSession: () => GitGraphSession | undefined;
 	getSelectedId: () => string | undefined;
 	getSelectedRows: () => Record<string, SelectedRowState> | undefined;
-	getConvertedSelectedRows: () => GraphSelectedRows;
 	getEtagRepository: () => number | undefined;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	updateState: (immediate?: boolean) => void;
 	updateGraphWithMoreRows: (id: string, limitOverride?: number) => Promise<void>;
-	notifyDidChangeRows: () => void;
+	notifyDidChangeRows: (sendSelectedRows?: boolean) => void;
 	getWipRows: () => Promise<GraphWipRowsById>;
-	createSearchCancellation: () => CancellationTokenSource;
-	cancelSearchOperation: () => void;
 	/** Overrides {@link GraphSearchService.convertNaturalLanguage}'s defensive AI round-trip timeout
 	 *  (default 30000ms) — test-only seam, never set in production. */
 	nlConversionTimeoutMs?: number;
@@ -108,6 +100,13 @@ export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError 
 	}
 
 	return { error: 'Something went wrong searching' };
+}
+
+/** Narrows a search results union to its error shape. */
+function isSearchResultsError(
+	results: GraphSearchResults | GraphSearchResultsError | undefined,
+): results is GraphSearchResultsError {
+	return results != null && 'error' in results;
 }
 
 /** One drop-one-group or AI-alternate candidate query a zero-result NL search could relax to — not yet
@@ -298,20 +297,39 @@ function buildRepairContext(query: string, error: string | undefined): string {
 	}\nReturn a corrected search query that preserves the original intent.`;
 }
 
-/** Host-side search cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the active
- *  graph search (`_search`), the supersede counter (`_searchIdCounter`), and the per-repo search
- *  history (`_searchHistoryByRepo`), along with the search-execution logic (new/continue/WIP streams,
- *  progressive supersede guards), the search-results serialization, the rows-plane search rider, and
- *  the mode/history/open-in-view handlers. The provider keeps the IPC forwarders and injects the
- *  collaborators via {@link GraphSearchServiceContext}. */
+/** Host-side search cluster for the graph RPC surface. Owns the active graph search (`_search`), its
+ *  app-facing projection (`_current`), and the per-repo search history (`_searchHistoryByRepo`), along with
+ *  the search-execution logic (new/continue/WIP streams, abort-driven supersede handling), the
+ *  search-results serialization, and the mode/history/open-in-view/repair handlers. Exposes its RPC surface
+ *  via {@link GraphSearchService.createServices} and its push channels via
+ *  `onDidChange`/`onDidRequestSearch`. */
 export class GraphSearchService {
 	private _search: GitGraphSearch | undefined;
-	private _searchIdCounter = getScopedCounter();
 	/** One {@link SearchHistory} instance per repo, kept alive for the life of the service instead of being
 	 *  torn down on repo switch — each instance owns its own write-serialization chain
 	 *  ({@link SearchHistory._writes}), so replacing the instance on every repo change would lose that
 	 *  serialization (and so a lost update) across an A→B→A repo switch. */
 	private readonly _searchHistoryByRepo = new Map<string | undefined, SearchHistory>();
+
+	/** The query+results the app should currently show. Decoupled from `_search` (which additionally
+	 *  carries git-continuation bookkeeping and stays `undefined` for a failure that never reached git,
+	 *  e.g. an NL conversion error) so a failure can still be shown. `undefined` means no active search.
+	 *  The single source `buildSearchState` reads from — every site that changes what's shown writes
+	 *  here (directly, or via `syncCurrent` when it mirrors `_search`). */
+	private _current:
+		| { query: SearchQuery; results: GraphSearchResults | GraphSearchResultsError | undefined }
+		| undefined;
+
+	/** Whether a `search()` call is currently executing — read by {@link GraphSearchService.getState} for
+	 *  a pull that lands while a search is still in flight. */
+	private _searching = false;
+
+	/** Set by {@link cancel} (a pause) and cleared by the next `search()`/`clear()`. Aborting the
+	 *  operations in flight at pause time isn't enough: a rows page-in landing AFTER the pause starts a
+	 *  fresh background continuation under a fresh signal, which would run the rest of the walk and
+	 *  publish the full tally (`hasMore: false`) over the paused state — killing the resume affordance
+	 *  ~15s after the user stopped. While paused, background continuations decline to start. */
+	private _paused = false;
 
 	/**
 	 * Set for the lifetime of a search (through its `e.more` continuations) that recovered from an
@@ -323,18 +341,18 @@ export class GraphSearchService {
 
 	/** Counted relaxation offers for the currently-active zero-result NL search, or `undefined` when none
 	 *  are active. Mirrors `_fallback`'s lifecycle: cleared at the start of every NEW search, set once
-	 *  {@link offerSearchRelaxations} finishes probing. Carried on `buildSearchRider` for reconnect fidelity. */
+	 *  {@link offerSearchRelaxations} finishes probing. */
 	private _relaxations: GraphSearchRelaxation[] | undefined;
 
-	/**
-	 * Cancellation for whichever NL/AI round-trip is currently in flight (initial conversion, the
-	 * auto-repair round, or a manual "Fix with AI" repair) — held here (not in the shared
-	 * `_cancellations` map, which is for git-operation cancellation) so a user-initiated cancel
-	 * (search-cancel / reset) can always reach the AI call, and so a defensive timeout can abort it.
-	 * Replaced (cancel+dispose the old one) at the start of each new round-trip; disposed when that
-	 * round-trip completes.
-	 */
-	private _nlCancellation: CancellationTokenSource | undefined;
+	/** One `AbortController` per in-flight `search()`/`continueInBackground()`/`repair()` call, so
+	 *  `dispose()`/`clear()` can abort whatever is still running. */
+	private readonly _operations = new Set<AbortController>();
+	/** `fromAbortSignal` bridges created for in-flight AI round-trips (NL conversion, repair), tracked so
+	 *  `dispose()` can cancel them even though their driving operation signal already fires the abort. */
+	private readonly _aiCancellations = new Set<CancellationTokenSource>();
+
+	private readonly _searchStateEvent = createRpcEvent<GraphSearchState | undefined>('searchState', 'save-last');
+	private readonly _requestSearchEvent = createRpcEvent<DidRequestSearchParams>('requestSearch', 'save-last');
 
 	constructor(private readonly context: GraphSearchServiceContext) {}
 
@@ -349,18 +367,46 @@ export class GraphSearchService {
 	}
 
 	/** The active graph search (accumulated results). Read by the data controller (page-in / auto-load)
-	 *  and the rows-plane rider. */
-	get search(): GitGraphSearch | undefined {
+	 *  and `getSearchContext`. */
+	get activeSearch(): GitGraphSearch | undefined {
 		return this._search;
 	}
 
-	/** Current supersede-counter value. Read by the data controller to stamp stale-search responses. */
-	get searchIdCounterCurrent(): number {
-		return this._searchIdCounter.current;
+	createServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): Pick<GraphServices, 'search'> {
+		const search = {
+			search: (params: SearchParams, signal?: AbortSignal) => this.search(params, signal),
+			getState: () => this.getState(),
+			cancel: () => this.cancel(),
+			clear: () => this.clear(),
+			setMode: (searchMode: GraphSearchMode | undefined, useNaturalLanguage: boolean) =>
+				this.setMode(searchMode, useNaturalLanguage),
+			openInView: (search: SearchQuery) => this.openInView(search),
+			repair: (query: string, detail?: string) => this.repair(query, detail),
+			getHistory: () => this.getHistory(),
+			storeHistory: (search: SearchQuery) => this.storeHistory(search),
+			deleteHistory: (query: string) => this.deleteHistory(query),
+			onDidChange: this._searchStateEvent.subscribe(buffer, tracker),
+			onDidRequestSearch: this._requestSearchEvent.subscribe(buffer, tracker),
+			// Collected by `proxyServices` (a top-level property with a `dispose` method) and released at
+			// webview teardown — see `disposeServices`.
+			dispose: () => this.dispose(),
+		};
+		return { search: search };
+	}
+
+	dispose(): void {
+		// The webview's driving AbortController can't fire once the webview is gone — cancel host-side so
+		// no in-flight search or AI round-trip resolves against a torn-down host.
+		for (const operation of this._operations) {
+			operation.abort();
+		}
+		this._operations.clear();
+		cancelAndDispose(this._aiCancellations);
+		this._aiCancellations.clear();
 	}
 
 	/** {@link _fallback} as the wire payload, or `undefined` when no fallback is active for the current search. */
-	private buildFallbackParam(): DidSearchParams['fallback'] {
+	private buildFallbackParam(): GraphSearchState['fallback'] {
 		return this._fallback != null ? { matchedAs: 'literal', detail: this._fallback.detail } : undefined;
 	}
 
@@ -369,6 +415,53 @@ export class GraphSearchService {
 	 *  nothing webview-facing may show the regex toggle as off. */
 	private publicSearchQuery(query: SearchQuery): SearchQuery {
 		return this._fallback != null ? { ...query, matchRegex: true } : query;
+	}
+
+	/** Assembles the complete snapshot from {@link _current}/{@link _fallback}/{@link _relaxations} plus the
+	 *  given `searching` flag — the only place that builds a {@link GraphSearchState}, so no fire site can
+	 *  drift into shipping a delta. `undefined` when there's no active search to show. */
+	private buildSearchState(searching: boolean): GraphSearchState | undefined {
+		if (this._current == null) return undefined;
+
+		return {
+			query: this._current.query,
+			results: this._current.results,
+			searching: searching,
+			fallback: this.buildFallbackParam(),
+			relaxations: this._relaxations,
+		};
+	}
+
+	/** Recomputes {@link _current} from {@link _search} (or clears it when `_search` is `undefined`) —
+	 *  called after every write to `_search` so the two never drift. */
+	private syncCurrent(): void {
+		this._current =
+			this._search != null
+				? {
+						query: this.publicSearchQuery(this._search.query),
+						results: this.getSearchResultsData(this._search) ?? {
+							count: 0,
+							hasMore: this._search.hasMore ?? false,
+						},
+					}
+				: undefined;
+	}
+
+	/** Resets the three search-tracking fields a NEW search (or one that's stopped applying to anything
+	 *  live) shares — `_search`/`_fallback`/`_relaxations` all going back to "no active search". Never
+	 *  touches `_current` — callers reset that themselves, since not every reset site wants it cleared at
+	 *  the same point (e.g. {@link clear} sets it to `undefined`, a new search sets it to the new query). */
+	private resetSearchTracking(): void {
+		this._search = undefined;
+		this._fallback = undefined;
+		this._relaxations = undefined;
+	}
+
+	/** Shows a "No repository" failure as the current search state — shared by the sites that hit this
+	 *  precondition; each keeps its own return since what's appropriate to return differs by caller. */
+	private showNoRepositoryError(query: SearchQuery): void {
+		this._current = { query: query, results: { error: 'No repository' } };
+		this._searchStateEvent.fire(this.buildSearchState(false));
 	}
 
 	/** Returns the search-history instance for the CURRENT repo, get-or-creating it in
@@ -385,57 +478,63 @@ export class GraphSearchService {
 		return searchHistory;
 	}
 
-	onSearchHistoryGetRequest(): IpcResponse<typeof SearchHistoryGetRequest> {
+	getHistory(): Promise<DidSearchHistoryGetParams> {
 		const searchHistory = this.getSearchHistory();
 		try {
-			return { history: searchHistory.get() };
+			return Promise.resolve({ history: searchHistory.get() });
 		} catch {
-			return { history: [] };
+			return Promise.resolve({ history: [] });
 		}
 	}
 
-	async onSearchHistoryStoreRequest(
-		params: IpcParams<typeof SearchHistoryStoreRequest>,
-	): Promise<IpcResponse<typeof SearchHistoryStoreRequest>> {
+	async storeHistory(search: SearchQuery): Promise<DidSearchHistoryGetParams> {
 		const searchHistory = this.getSearchHistory();
 
 		try {
-			await searchHistory.store(params.search);
+			await searchHistory.store(search);
 			return { history: searchHistory.get() };
 		} catch (ex) {
-			Logger.error(ex, 'GraphWebviewProvider', 'onSearchHistoryStoreRequest');
-			// Surface storage errors to the frontend instead of swallowing in `finally` and pretending
-			// success — the user thought the entry was saved; on reload it would be missing.
+			Logger.error(ex, 'GraphSearchService', 'storeHistory');
+			// Surface storage errors to the frontend instead of swallowing and pretending success — the
+			// user thought the entry was saved; on reload it would be missing.
 			return { history: searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
 
-	async onSearchHistoryDeleteRequest(
-		params: IpcParams<typeof SearchHistoryDeleteRequest>,
-	): Promise<IpcResponse<typeof SearchHistoryDeleteRequest>> {
+	async deleteHistory(query: string): Promise<DidSearchHistoryGetParams> {
 		const searchHistory = this.getSearchHistory();
 		try {
-			await searchHistory.delete(params.query);
+			await searchHistory.delete(query);
 			return { history: searchHistory.get() };
 		} catch (ex) {
-			Logger.error(ex, 'GraphWebviewProvider', 'onSearchHistoryDeleteRequest');
+			Logger.error(ex, 'GraphSearchService', 'deleteHistory');
 			return { history: searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
 
-	onSearchCancel(params: { preserveResults: boolean }): void {
-		this._nlCancellation?.cancel();
-		this._nlCancellation?.dispose();
-		this._nlCancellation = undefined;
-
-		// For pause (preserveResults: true), the generator will handle cancellation gracefully and return
-		// results collected so far — keep the accumulated state and just stop the git op.
-		if (params.preserveResults) {
-			this.context.cancelSearchOperation();
-			return;
+	/** Drops the active search and everything accumulated for it, aborting whatever operation is still
+	 *  running. Pausing (without dropping) is just the caller aborting `search()`'s own signal. */
+	/** Aborts every in-flight search operation — the RPC request's own work AND the data controller's
+	 *  background continuations, which run under their own signals precisely so a superseding search
+	 *  doesn't kill them, and so are unreachable from the request signal a pause aborts. State stays:
+	 *  each aborted stream drains to its cursor-bearing return, so the search can resume. Emits nothing;
+	 *  the pausing app settles its own UI. */
+	cancel(): void {
+		this._paused = true;
+		for (const operation of this._operations) {
+			operation.abort();
 		}
+	}
 
-		this.resetSearchState();
+	clear(): void {
+		this._paused = false;
+		for (const operation of this._operations) {
+			operation.abort();
+		}
+		this.resetSearchTracking();
+		this._current = undefined;
+		this._searching = false;
+		this._searchStateEvent.fire(undefined);
 	}
 
 	/**
@@ -642,169 +741,196 @@ export class GraphSearchService {
 	}
 
 	/**
-	 * Runs one NL/AI round-trip (initial conversion, auto-repair, or manual repair) against a fresh
-	 * cancellation source held on {@link _nlCancellation} — replacing (cancel+dispose) whichever
-	 * round-trip was still in flight, so cancel/reset always reaches the live AI call. Defensively
-	 * timed out at 30s so a stuck AI call (e.g. blocked model resolution) can't strand the request
-	 * forever; on timeout the token is cancelled too and the result folds into the same
-	 * `naturalLanguage.error` shape a normal AI failure would produce.
+	 * Runs one NL/AI round-trip (initial conversion, auto-repair, or manual repair) bridged onto `signal`
+	 * (the driving operation's `AbortSignal`) via {@link fromAbortSignal}, so a caller-initiated abort
+	 * reaches the live AI call. Defensively composed with a 30s timeout via `AbortSignal.any`, and the
+	 * round-trip is RACED against that composed signal — propagating the token cooperatively is not
+	 * enough, because a stuck AI call (e.g. blocked model resolution) hangs before it ever subscribes to
+	 * the token, leaving the await pending forever. On timeout the result folds into the same
+	 * `naturalLanguage.error` shape a normal AI failure would produce, while a caller abort propagates as
+	 * a real cancellation for the caller to catch.
 	 */
 	private async convertNaturalLanguage(
 		search: SearchQuery,
+		signal: AbortSignal | undefined,
 		options?: NaturalLanguageSearchOptions,
 	): Promise<SearchQuery> {
-		this._nlCancellation?.cancel();
-		this._nlCancellation?.dispose();
-		const cancellation = (this._nlCancellation = new CancellationTokenSource());
+		const timeoutMs = this.context.nlConversionTimeoutMs ?? 30000;
+		const composed =
+			signal != null ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
+		const { token, dispose } = fromAbortSignal(composed, this._aiCancellations);
 
 		try {
-			return await cancellable(
-				processNaturalLanguageToSearchQuery(
-					this.container,
-					search,
-					{ source: 'graph' },
-					options,
-					cancellation.token,
-				),
-				this.context.nlConversionTimeoutMs ?? 30000,
-				undefined,
-				{
-					onDidCancel: resolve => {
-						cancellation.cancel();
-						resolve({
-							...search,
-							naturalLanguage: { query: search.query, error: 'The AI took too long to respond' },
-						});
-					},
-				},
+			const conversion = processNaturalLanguageToSearchQuery(
+				this.container,
+				search,
+				{ source: 'graph' },
+				options,
+				token,
 			);
-		} finally {
-			if (this._nlCancellation === cancellation) {
-				this._nlCancellation.dispose();
-				this._nlCancellation = undefined;
+			// Losing the race abandons the conversion; its eventual settle must not surface as an
+			// unhandled rejection.
+			conversion.catch(() => {});
+			return await raceWithSignal(conversion, composed);
+		} catch (ex) {
+			// The defensive timeout fired (the caller's own signal, if any, is still live) — fold into a
+			// normal AI-failure result instead of stranding the request on a hung call.
+			if (isCancellationError(ex) && signal?.aborted !== true) {
+				return {
+					...search,
+					naturalLanguage: { query: search.query, error: 'The AI took too long to respond' },
+				};
 			}
+			throw ex;
+		} finally {
+			dispose();
 		}
 	}
 
-	async onSearchRequest(params: IpcParams<typeof SearchRequest>): Promise<IpcResponse<typeof SearchRequest>> {
-		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
+	/**
+	 * Runs a search, resolving with its final state — or `undefined` when `signal` aborted, which is also
+	 * how a newer search supersedes an older one (the caller owns one signal per search, and aborts the
+	 * previous one before starting the next). Ships interim states on `onDidChange` as they arrive.
+	 */
+	async search(params: SearchParams, signal?: AbortSignal): Promise<GraphSearchResponse | undefined> {
+		using sw = new Stopwatch(`GraphSearchService.search(${this.host.id})`);
 
-		if (params.search?.naturalLanguage) {
-			// Capture the supersede token first: the AI round-trip below is long enough for the user to
-			// clear the box or retype, and both bump the counter. Without the check afterwards the
-			// converted query still runs and its `DidSearchNotification` repopulates the search box the
-			// user just cleared (e.g. "changes" reappearing as `type:wip` a second later).
-			const requestedSearchId = this._searchIdCounter.current;
-
-			try {
-				const repoContext = await this.buildRepoSearchContext(params.search.query);
-				params.search = await this.convertNaturalLanguage(params.search, { context: repoContext });
-			} catch (ex) {
-				if (!isCancellationError(ex)) throw ex;
-
-				// User-initiated cancel (cleared/retyped the box, or reset) landed mid-conversion — answer
-				// with the stale id so the webview's `searchId === currentSearchId` guard drops this
-				// response instead of surfacing an error for something the user already dismissed.
-				return { search: undefined, results: undefined, partial: false, searchId: requestedSearchId };
-			}
-
-			if (this._searchIdCounter.current !== requestedSearchId) {
-				// Answer with the stale id so the webview's `searchId === currentSearchId` guard drops
-				// this response instead of clobbering whatever superseded it.
-				return { search: undefined, results: undefined, partial: false, searchId: requestedSearchId };
-			}
+		const operation = new AbortController();
+		this._operations.add(operation);
+		const onAbort = () => operation.abort();
+		if (signal?.aborted) {
+			operation.abort();
+		} else {
+			signal?.addEventListener('abort', onAbort);
 		}
 
-		const naturalLanguage =
-			typeof params.search?.naturalLanguage === 'object' ? params.search.naturalLanguage : undefined;
+		this._searching = true;
+		// Any search — new or a `more` resume — ends a pause; background continuations may run again.
+		this._paused = false;
 
-		// The conversion itself failed — `params.search.query` is still the raw English sentence, which is
-		// not a git search pattern and must never be run as one (it dies as an ERE syntax error about text
-		// the user never wrote). Answer here, before parsing/telemetry treat this as a git search failure.
-		if (naturalLanguage?.error) {
-			const searchId = this._searchIdCounter.next();
-			this._search = undefined;
-			this._fallback = undefined;
-			this._relaxations = undefined;
-
-			// Carry the same error results the response below carries — the response can get dropped by
-			// the app's searchId guard (see the supersede checks above), and the notification is what
-			// actually raises `searching` for a NEW search id, so it must be able to lower it right back
-			// down on its own instead of leaving the spinner stranded.
-			const results: GraphSearchResultsError = { error: naturalLanguage.error, reason: 'aiUnavailable' };
-
-			void this.host.notify(DidSearchNotification, {
-				search: params.search,
-				results: results,
-				partial: false,
-				searchId: searchId,
-			});
-
-			return {
-				search: params.search,
-				results: results,
-				partial: false,
-				searchId: searchId,
-			};
-		}
-
-		const query = params.search ? parseSearchQuery(params.search) : undefined;
-		const types = query != null ? join(query.operations.keys(), ',') : '';
-
-		let results: IpcResponse<typeof SearchRequest> | undefined;
+		let search: SearchQuery = params.search;
 		let exception: (Error & { original?: Error }) | undefined;
 		const repair = { attempted: false, succeeded: false };
 		let relaxationsOffered: number | undefined;
+		let revealSha: string | undefined;
+		// Per-call snapshots the telemetry `finally` below reads instead of the live `_current`/`_fallback`
+		// — a superseded call's abort/cancellation early-returns skip these writes, so its telemetry
+		// reports no results instead of a NEWER search's, which the live fields would have moved on to by
+		// the time this call's `finally` runs.
+		let currentForTelemetry:
+			| { query: SearchQuery; results: GraphSearchResults | GraphSearchResultsError | undefined }
+			| undefined;
+		let fallbackForTelemetry: { detail?: string } | undefined;
 
 		try {
-			if (naturalLanguage?.processedQuery != null && !params.more) {
-				results = await this.searchNaturalLanguageWithRepair(params, naturalLanguage, repair);
-
-				if (
-					results.partial === false &&
-					results.results != null &&
-					!('error' in results.results) &&
-					results.results.count === 0
-				) {
-					const relaxations = await this.offerSearchRelaxations(results);
-					relaxationsOffered = relaxations?.length ?? 0;
-					if (relaxations?.length) {
-						results = { ...results, relaxations: relaxations };
-					}
+			if (search.naturalLanguage) {
+				try {
+					const repoContext = await this.buildRepoSearchContext(search.query);
+					search = await this.convertNaturalLanguage(search, operation.signal, { context: repoContext });
+				} catch (ex) {
+					if (isCancellationError(ex)) return undefined;
+					throw ex;
 				}
-			} else {
-				results = await this.searchGraphOrContinue(params, true);
-			}
-			return results;
-		} catch (ex) {
-			exception = ex;
-			return {
-				search: params.search,
-				results: isCancellationError(ex) ? undefined : toGraphSearchResultsError(ex),
-				partial: false,
-				searchId: this._searchIdCounter.current,
-			};
-		} finally {
-			const cancelled = isCancellationError(exception);
 
-			this.host.sendTelemetryEvent('graph/searched', {
-				types: types,
-				duration: sw.elapsed(),
-				matches: (results?.results as GraphSearchResults)?.count ?? 0,
-				failed: exception != null,
-				'failed.reason': exception != null ? (cancelled ? 'cancelled' : 'error') : undefined,
-				'failed.error': !cancelled && exception != null ? String(exception) : undefined,
-				'failed.error.detail':
-					!cancelled && exception?.original != null ? String(exception?.original) : undefined,
-				'fallback.literal': this._fallback != null,
-				'nl.repair.attempted': repair.attempted ? true : undefined,
-				'nl.repair.succeeded': repair.succeeded ? true : undefined,
-				'nl.relaxations.offered': relaxationsOffered,
-				'nl.mode':
-					typeof results?.search?.naturalLanguage === 'object'
-						? results.search.naturalLanguage.mode
-						: undefined,
-			});
+				if (operation.signal.aborted) return undefined;
+			}
+
+			const naturalLanguage = typeof search.naturalLanguage === 'object' ? search.naturalLanguage : undefined;
+
+			// The conversion itself failed — `search.query` is still the raw English sentence, which is
+			// not a git search pattern and must never be run as one (it dies as an ERE syntax error about
+			// text the user never wrote). Answer here, before parsing/telemetry treat this as a git search
+			// failure.
+			if (naturalLanguage?.error) {
+				this.resetSearchTracking();
+				this._current = { query: search, results: { error: naturalLanguage.error, reason: 'aiUnavailable' } };
+				this._searchStateEvent.fire(this.buildSearchState(false));
+
+				// This exits before the try/finally below that normally sends 'graph/searched' — send it
+				// explicitly here so an NL conversion failure isn't silently untelemetered.
+				this.host.sendTelemetryEvent('graph/searched', {
+					types: 'naturalLanguage',
+					duration: sw.elapsed(),
+					matches: 0,
+					failed: true,
+					'failed.reason': 'error',
+					'failed.error': naturalLanguage.error,
+					'fallback.literal': this._fallback != null,
+					'nl.repair.attempted': repair.attempted ? true : undefined,
+					'nl.repair.succeeded': repair.succeeded ? true : undefined,
+					'nl.relaxations.offered': relaxationsOffered,
+					'nl.mode':
+						typeof this._current?.query.naturalLanguage === 'object'
+							? this._current.query.naturalLanguage.mode
+							: undefined,
+				});
+
+				return { state: this.buildSearchState(false)! };
+			}
+
+			const query = parseSearchQuery(search);
+			const types = join(query.operations.keys(), ',');
+
+			try {
+				if (naturalLanguage?.processedQuery != null && !params.more) {
+					revealSha = await this.searchNaturalLanguageWithRepair(
+						{ ...params, search: search },
+						naturalLanguage,
+						operation.signal,
+						repair,
+					);
+
+					const results = this._current?.results;
+					if (results != null && !isSearchResultsError(results) && results.count === 0) {
+						const relaxations = await this.offerSearchRelaxations(search, operation.signal);
+						relaxationsOffered = relaxations?.length ?? 0;
+					}
+				} else {
+					revealSha = await this.searchGraphOrContinue({ ...params, search: search }, operation.signal, true);
+				}
+
+				if (operation.signal.aborted) return undefined;
+
+				currentForTelemetry = this._current;
+				fallbackForTelemetry = this._fallback;
+
+				return { state: this.buildSearchState(false)!, revealSha: revealSha };
+			} catch (ex) {
+				exception = ex;
+				if (isCancellationError(ex)) return undefined;
+
+				this._current = { query: search, results: toGraphSearchResultsError(ex) };
+				currentForTelemetry = this._current;
+				fallbackForTelemetry = this._fallback;
+				this._searchStateEvent.fire(this.buildSearchState(false));
+				return { state: this.buildSearchState(false)! };
+			} finally {
+				const cancelled = isCancellationError(exception);
+				const results = currentForTelemetry?.results;
+
+				this.host.sendTelemetryEvent('graph/searched', {
+					types: types,
+					duration: sw.elapsed(),
+					matches: results != null && !isSearchResultsError(results) ? results.count : 0,
+					failed: exception != null,
+					'failed.reason': exception != null ? (cancelled ? 'cancelled' : 'error') : undefined,
+					'failed.error': !cancelled && exception != null ? String(exception) : undefined,
+					'failed.error.detail':
+						!cancelled && exception?.original != null ? String(exception.original) : undefined,
+					'fallback.literal': fallbackForTelemetry != null,
+					'nl.repair.attempted': repair.attempted ? true : undefined,
+					'nl.repair.succeeded': repair.succeeded ? true : undefined,
+					'nl.relaxations.offered': relaxationsOffered,
+					'nl.mode':
+						typeof currentForTelemetry?.query.naturalLanguage === 'object'
+							? currentForTelemetry.query.naturalLanguage.mode
+							: undefined,
+				});
+			}
+		} finally {
+			this._searching = false;
+			signal?.removeEventListener('abort', onAbort);
+			this._operations.delete(operation);
 		}
 	}
 
@@ -822,20 +948,18 @@ export class GraphSearchService {
 	 * is worth showing instead of a generic rephrase prompt.
 	 */
 	private async searchNaturalLanguageWithRepair(
-		e: IpcParams<typeof SearchRequest>,
+		e: SearchParams,
 		naturalLanguage: { query: string; processedQuery?: string; error?: string },
+		signal: AbortSignal,
 		repair: { attempted: boolean; succeeded: boolean },
-	): Promise<IpcResponse<typeof SearchRequest>> {
+	): Promise<string | undefined> {
 		try {
-			return await this.searchGraphOrContinue(e, true, { suppressFallback: true });
+			return await this.searchGraphOrContinue(e, signal, true, { suppressFallback: true });
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
-
 			if (!GitSearchError.is(ex) || ex.reason == null) throw ex;
 
 			repair.attempted = true;
-			// Captured before the AI round-trip so a superseding search during it is detected below.
-			const searchId = this._searchIdCounter.current;
 
 			const repoContext = await this.buildRepoSearchContext(naturalLanguage.query);
 			let repairContext = buildRepairContext(e.search.query, toGraphSearchResultsError(ex).error);
@@ -848,21 +972,20 @@ export class GraphSearchService {
 
 			const repaired = await this.convertNaturalLanguage(
 				{ ...e.search, query: naturalLanguage.query, naturalLanguage: { query: naturalLanguage.query } },
+				signal,
 				{ context: repoContext ? `${repoContext}\n\n${repairContext}` : repairContext },
 			);
 
-			if (this._searchIdCounter.current !== searchId) {
-				return { search: undefined, results: undefined, partial: false, searchId: searchId };
-			}
+			if (signal.aborted) return undefined;
 
 			const repairedNaturalLanguage =
 				typeof repaired.naturalLanguage === 'object' ? repaired.naturalLanguage : undefined;
 
 			if (repairedNaturalLanguage?.error == null && repaired.query !== e.search.query) {
 				try {
-					const response = await this.searchGraphOrContinue({ ...e, search: repaired }, true);
+					const revealSha = await this.searchGraphOrContinue({ ...e, search: repaired }, signal, true);
 					repair.succeeded = true;
-					return response;
+					return revealSha;
 				} catch (retryEx) {
 					if (isCancellationError(retryEx)) throw retryEx;
 					// Repaired query also failed — fall through to the last resort below.
@@ -870,25 +993,19 @@ export class GraphSearchService {
 			}
 
 			try {
-				return await this.searchGraphOrContinue(e, true);
+				return await this.searchGraphOrContinue(e, signal, true);
 			} catch (lastEx) {
 				if (isCancellationError(lastEx)) throw lastEx;
 
-				if (GitSearchError.is(lastEx) && lastEx.reason === 'invalidRef') {
-					return {
-						search: e.search,
-						results: toGraphSearchResultsError(lastEx),
-						partial: false,
-						searchId: this._searchIdCounter.current,
-					};
-				}
+				if (GitSearchError.is(lastEx) && lastEx.reason === 'invalidRef') throw lastEx;
 
-				return {
-					search: e.search,
+				this._search = undefined;
+				this._current = {
+					query: e.search,
 					results: { error: "Couldn't complete this search — try rephrasing" },
-					partial: false,
-					searchId: this._searchIdCounter.current,
 				};
+				this._searchStateEvent.fire(this.buildSearchState(false));
+				return undefined;
 			}
 		}
 	}
@@ -923,89 +1040,64 @@ export class GraphSearchService {
 			}),
 		);
 
-		const survivors: GraphSearchRelaxation[] = [];
-		for (const result of settled) {
-			if (result.status === 'fulfilled' && result.value.count > 0) {
-				survivors.push(result.value);
-			}
-		}
-		return survivors;
+		return getSettledValues(settled).filter(r => r.count > 0);
 	}
 
 	/**
-	 * Builds and counts relaxation candidates for a just-settled, final, zero-result NL search response,
-	 * budgeted to ~2s (matching {@link convertNaturalLanguage}'s `cancellable` pattern) so a slow repo never
-	 * stalls the response for long. Ships the result on a follow-up `DidSearchNotification` (the ORIGINAL
-	 * final notification already went out — via `processSearchStream` or the cached-results branch — before
-	 * this had a chance to compute anything, so this is a deliberate second notification for the SAME
-	 * `searchId`, exactly like a rider) and returns the survivors so the caller can also attach them to the
-	 * IPC response it's about to return. Supersede-guarded: if a newer search started while probing, this
+	 * Builds and counts relaxation candidates for a just-settled, final, zero-result NL search, budgeted to
+	 * ~2s via a composed `AbortSignal.any([signal, AbortSignal.timeout(2000)])` so a slow repo never stalls
+	 * the response for long. Fires a follow-up `onDidChange` for the SAME settled search (the terminal state
+	 * already fired once before this had a chance to compute anything) and returns the survivors so the
+	 * caller can also fold them into telemetry. Abort-guarded: if `signal` aborts while probing, this
 	 * returns `undefined` and touches nothing.
 	 */
 	private async offerSearchRelaxations(
-		response: IpcResponse<typeof SearchRequest>,
+		search: SearchQuery,
+		signal: AbortSignal,
 	): Promise<GraphSearchRelaxation[] | undefined> {
-		if (this.repository == null || response.search == null) return undefined;
+		if (this.repository == null) return undefined;
 
-		const parsed = parseSearchQuery(response.search);
-		const naturalLanguage =
-			typeof response.search.naturalLanguage === 'object' ? response.search.naturalLanguage : undefined;
+		const parsed = parseSearchQuery(search);
+		const naturalLanguage = typeof search.naturalLanguage === 'object' ? search.naturalLanguage : undefined;
 		const contributors = await this.buildRelaxationContributors();
 		const candidates = buildSearchRelaxationCandidates(parsed, naturalLanguage?.alternates, contributors);
 		if (!candidates.length) {
+			if (signal.aborted) return undefined; // superseded/aborted while gathering candidates
+
 			this._relaxations = undefined;
 			return undefined;
 		}
 
-		const searchId = response.searchId;
 		// The internally-tracked query (not the "public" one `publicSearchQuery` may have masked
 		// `matchRegex` on for a literal-fallback search) — probing must count what actually ran.
-		const baseSearch = this._search?.query ?? response.search;
+		const baseSearch = this._search?.query ?? search;
 
-		const cancellation = this.context.createSearchCancellation();
-		let survivors: GraphSearchRelaxation[];
-		try {
-			survivors = await cancellable(
-				this.probeSearchRelaxations(baseSearch, candidates, toAbortSignal(cancellation.token)),
-				2000,
-				undefined,
-				{
-					onDidCancel: resolve => {
-						cancellation.cancel();
-						resolve([]);
-					},
-				},
-			);
-		} finally {
-			cancellation.dispose();
-		}
+		const probeSignal = AbortSignal.any([signal, AbortSignal.timeout(2000)]);
+		const survivors = await this.probeSearchRelaxations(baseSearch, candidates, probeSignal);
 
-		if (searchId !== this._searchIdCounter.current) return undefined; // superseded while probing
+		if (signal.aborted) return undefined; // superseded/aborted while probing
 
 		this._relaxations = survivors.length ? survivors : undefined;
 		if (!survivors.length) return undefined;
 
-		void this.host.notify(DidSearchNotification, {
-			search: response.search,
-			results: response.results,
-			partial: false,
-			fallback: this.buildFallbackParam(),
-			relaxations: survivors,
-			searchId: searchId,
-		});
+		this._searchStateEvent.fire(this.buildSearchState(false));
 
 		return survivors;
 	}
 
-	async searchGraphOrContinue(
-		e: IpcParams<typeof SearchRequest>,
+	/** Runs a new search or continues (`e.more`) the active one, resolving with the sha to reveal (or
+	 *  `undefined` when there's nothing to reveal, or `signal` is aborted). Throws a genuine (non-abort)
+	 *  failure so the caller decides how to surface it. */
+	private async searchGraphOrContinue(
+		e: SearchParams,
+		signal: AbortSignal,
 		progressive: boolean = true,
 		options?: { suppressFallback?: boolean },
-	): Promise<IpcResponse<typeof SearchRequest>> {
+	): Promise<string | undefined> {
 		// `type:wip` rows are synthetic webview-only rows that never appear in `git log`,
 		// so they're enumerated host-side instead of going through the regular search path.
-		const wipResponse = await this.tryHandleWipSearch(e);
-		if (wipResponse != null) return wipResponse;
+		const wip = await this.tryHandleWipSearch(e, signal);
+		if (wip != null) return wip.revealSha;
 
 		let search = this._search;
 
@@ -1017,132 +1109,84 @@ export class GraphSearchService {
 			search.comparisonKey === getSearchQueryComparisonKey(e.search)
 		) {
 			if (this.repository == null) {
-				return {
-					search: e.search,
-					results: { error: 'No repository' },
-					partial: false,
-					searchId: this._searchIdCounter.current,
-				};
+				this.showNoRepositoryError(e.search);
+				return undefined;
 			}
 
-			const searchId = this._searchIdCounter.current;
-			const cancellation = this.context.createSearchCancellation();
+			// Continue search from cursor, passing existing results
+			const searchStream = this.repository.git.graph.continueSearchGraph(
+				search.paging.cursor,
+				search.results,
+				{ limit: e.limit ?? configuration.get('graph.searchItemLimit') ?? 0 },
+				signal,
+			);
+			using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
 
-			try {
-				// Continue search from cursor, passing existing results
-				const searchStream = this.repository.git.graph.continueSearchGraph(
-					search.paging.cursor,
-					search.results,
-					{
-						limit: e.limit ?? configuration.get('graph.searchItemLimit') ?? 0,
-					},
-					toAbortSignal(cancellation.token),
-				);
-				using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
+			({ search } = await this.processSearchStream(searchStream, signal, progressive, graph, {
+				seed: search,
+			}));
 
-				({ search } = await this.processSearchStream(searchStream, searchId, progressive, graph));
+			if (signal.aborted) return undefined;
 
-				if (search != null && searchId === this._searchIdCounter.current) {
-					return {
-						search: e.search,
-						results: this.getSearchResultsData(search),
-						partial: false,
-						searchId: searchId,
-					};
-				}
-
-				return {
-					search: e.search,
-					results: undefined,
-					partial: false,
-					searchId: searchId,
-				};
-			} finally {
-				cancellation.dispose();
+			if (search != null) {
+				this._search = updateSearchMode(this.container, search);
+				this.syncCurrent();
 			}
+
+			return undefined;
+		}
+
+		if (e.more && search?.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
+			// A continuation whose live search no longer matches the requested query (superseded or
+			// cleared) must never fall through into starting a brand-new search for the abandoned query.
+			return undefined;
 		}
 
 		let firstResultSelected = false;
-
-		// Captured once and used for both the cached-results notify and the final return so that
-		// awaits in either branch can't race a newer search bumping `_searchIdCounter.current` and
-		// stamping our response with the wrong (newer) id. In the new-search branch this gets
-		// reassigned to the bumped value.
-		let searchId = this._searchIdCounter.current;
+		/** The sha this search revealed, carried on the response so the app can scroll to it. */
+		let revealSha: string | undefined;
 
 		if (search?.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
 			if (this.repository == null) {
-				return {
-					search: e.search,
-					results: { error: 'No repository' },
-					partial: false,
-					searchId: searchId,
-				};
+				this.showNoRepositoryError(e.search);
+				return undefined;
 			}
 
 			if (this.repository.etag !== this.context.getEtagRepository()) {
 				this.context.updateState(true);
 			}
 
-			// Increment search ID for new search
-			searchId = this._searchIdCounter.next();
-			this._search = undefined;
-			this._fallback = undefined;
-			this._relaxations = undefined;
+			this.resetSearchTracking();
+			this._current = { query: e.search, results: undefined };
+			if (progressive) {
+				this._searchStateEvent.fire(this.buildSearchState(true));
+			}
 
-			// Clear previous search results immediately
-			void this.host.notify(DidSearchNotification, {
-				search: e.search,
-				results: undefined,
-				partial: false,
-				searchId: searchId,
-			});
-
-			const cancellation = this.context.createSearchCancellation();
+			const searchStream = this.repository.git.graph.searchGraph(
+				e.search,
+				{
+					limit: configuration.get('graph.searchItemLimit') ?? 0,
+					ordering: configuration.get('graph.commitOrdering'),
+				},
+				signal,
+			);
+			using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
 
 			try {
-				const searchStream = this.repository.git.graph.searchGraph(
-					e.search,
-					{
-						limit: configuration.get('graph.searchItemLimit') ?? 0,
-						ordering: configuration.get('graph.commitOrdering'),
-					},
-					toAbortSignal(cancellation.token),
-				);
-				using _streamDisposer = createDisposable(() => void searchStream.return?.(undefined!));
-
-				({ search, firstResultSelected } = await this.processSearchStream(
+				({ search, firstResultSelected, revealSha } = await this.processSearchStream(
 					searchStream,
-					searchId,
+					signal,
 					progressive,
 					graph,
 					{ selectFirstResult: true },
 				));
 
 				if (search == null) {
-					if (searchId !== this._searchIdCounter.current) {
-						// Search was superseded — return quietly with the original searchId
-						// so the webview's searchId guard ignores this stale response
-						return {
-							search: e.search,
-							results: undefined,
-							partial: false,
-							searchId: searchId,
-						};
-					}
+					if (signal.aborted) return undefined;
 					throw new Error('Search generator completed without returning a result');
 				}
 			} catch (ex) {
-				if (searchId !== this._searchIdCounter.current) {
-					// Search was superseded — return with the original (stale) searchId
-					// so the webview's searchId guard ignores this response
-					return {
-						search: e.search,
-						results: undefined,
-						partial: false,
-						searchId: searchId,
-					};
-				}
+				if (signal.aborted) return undefined;
 
 				// A pattern that doesn't (yet) compile as regex is normal mid-keystroke (e.g. `fix(`) — retry
 				// once as a literal search instead of flashing an error while the user is still typing it out.
@@ -1162,29 +1206,22 @@ export class GraphSearchService {
 								limit: configuration.get('graph.searchItemLimit') ?? 0,
 								ordering: configuration.get('graph.commitOrdering'),
 							},
-							toAbortSignal(cancellation.token),
+							signal,
 						);
 						using _fallbackStreamDisposer = createDisposable(
 							() => void fallbackStream.return?.(undefined!),
 						);
 
-						({ search, firstResultSelected } = await this.processSearchStream(
+						({ search, firstResultSelected, revealSha } = await this.processSearchStream(
 							fallbackStream,
-							searchId,
+							signal,
 							progressive,
 							graph,
 							{ selectFirstResult: true },
 						));
 
 						if (search == null) {
-							if (searchId !== this._searchIdCounter.current) {
-								return {
-									search: e.search,
-									results: undefined,
-									partial: false,
-									searchId: searchId,
-								};
-							}
+							if (signal.aborted) return undefined;
 							throw new Error('Fallback search generator completed without returning a result', {
 								cause: ex,
 							});
@@ -1195,14 +1232,7 @@ export class GraphSearchService {
 						// original query) still matches and continues from the literal cursor.
 						search = { ...search, comparisonKey: getSearchQueryComparisonKey(e.search) };
 					} catch {
-						if (searchId !== this._searchIdCounter.current) {
-							return {
-								search: e.search,
-								results: undefined,
-								partial: false,
-								searchId: searchId,
-							};
-						}
+						if (signal.aborted) return undefined;
 
 						this._fallback = undefined;
 						this._search = undefined;
@@ -1214,9 +1244,9 @@ export class GraphSearchService {
 				}
 			}
 
-			// Only update _search if this search hasn't been superseded by a newer one
-			if (searchId === this._searchIdCounter.current) {
+			if (!signal.aborted) {
 				this._search = updateSearchMode(this.container, search);
+				this.syncCurrent();
 			}
 		} else {
 			search = this._search!;
@@ -1227,100 +1257,99 @@ export class GraphSearchService {
 				if (firstResult != null) {
 					this.context.setSelectedRows(firstResult);
 					firstResultSelected = true;
+					revealSha = firstResult;
+					this.context.notifyDidChangeRows(true);
 				}
 			}
 
-			// Send notification with cached results (only if not superseded and not resuming)
-			// When resuming (e.more), don't send cached results - let progressive notifications handle it
-			if (searchId != null && progressive && !e.more) {
-				// Use search.query to include any mode changes (filter toggle) that happened during the search
-				void this.host.notify(DidSearchNotification, {
-					search: this.publicSearchQuery(search.query),
-					results: this.getSearchResultsData(search) ?? {
-						count: 0,
-						hasMore: false,
-						commitsLoaded: { count: 0 },
-					},
-					selectedRows: firstResultSelected ? this.context.getConvertedSelectedRows() : undefined,
-					partial: false,
-					fallback: this.buildFallbackParam(),
-					searchId: searchId,
-				});
+			// Send an update with cached results (only when not resuming — resuming lets the progressive
+			// notifications inside `processSearchStream` handle it)
+			if (progressive && !e.more) {
+				// Refresh `_current` from `_search` to include any mode change (filter toggle) that
+				// happened during the search.
+				this.syncCurrent();
+				this._searchStateEvent.fire(this.buildSearchState(false));
 			}
 		}
 
-		return {
-			search: this.publicSearchQuery(search.query),
-			results: this.getSearchResultsData(search) ?? { count: 0, hasMore: false, commitsLoaded: { count: 0 } },
-			selectedRows: firstResultSelected ? this.context.getConvertedSelectedRows() : undefined,
-			partial: false, // Final results
-			fallback: this.buildFallbackParam(),
-			searchId: searchId,
-		};
+		return revealSha;
+	}
+
+	/** Silently continues the ACTIVE search in the background (an auto-load-more keeping pace with a rows
+	 *  page-in) — no per-batch progress noise, only the settled state. Rethrows a genuine (non-abort)
+	 *  failure so the caller decides how to surface it. Resolves to whether the search's accumulated
+	 *  results or `hasMore` actually changed, so a caller can skip re-publishing state that's identical to
+	 *  what it already has (a stale/superseded continuation that bails without touching `_search` reports
+	 *  no change). */
+	async continueInBackground(query: SearchQuery): Promise<boolean> {
+		// A paused search must stay paused: this can be called AFTER the pause (a rows page-in still in
+		// flight from before it), and running would walk the rest of the history and publish the full
+		// tally over the state the user froze.
+		if (this._paused) return false;
+
+		const operation = new AbortController();
+		this._operations.add(operation);
+		const beforeSize = this._search?.results.size;
+		const beforeHasMore = this._search?.hasMore;
+		try {
+			await this.searchGraphOrContinue({ search: query, more: true }, operation.signal, false);
+			return this._search?.results.size !== beforeSize || this._search?.hasMore !== beforeHasMore;
+		} finally {
+			this._operations.delete(operation);
+		}
+	}
+
+	/** Fires the current settled state — for a caller (the data controller's background continuation) that
+	 *  updated `_search` through a non-progressive path and now needs the app to hear about it. */
+	publishState(): void {
+		this._searchStateEvent.fire(this.buildSearchState(false));
+	}
+
+	/** Shows a search failure that happened outside `search()`'s own call (the data controller's background
+	 *  continuation) as the current state — unless the failing query has already been superseded by a
+	 *  newer search by the time this lands (the continuation runs concurrently with, and isn't aborted by,
+	 *  a later foreground search), in which case it's bailed instead of misattributing the error to
+	 *  whatever the user has since moved on to. */
+	notifySearchError(query: SearchQuery, results: GraphSearchResultsError): void {
+		const liveComparisonKey =
+			this._search?.comparisonKey ??
+			(this._current != null ? getSearchQueryComparisonKey(this._current.query) : undefined);
+		if (liveComparisonKey !== getSearchQueryComparisonKey(query)) return;
+
+		this._current = { query: query, results: results };
+		this._searchStateEvent.fire(this.buildSearchState(false));
 	}
 
 	private async tryHandleWipSearch(
-		e: IpcParams<typeof SearchRequest>,
-	): Promise<IpcResponse<typeof SearchRequest> | undefined> {
+		e: SearchParams,
+		signal: AbortSignal,
+	): Promise<{ revealSha: string | undefined } | undefined> {
 		if (!e.search?.query) return undefined;
 
 		const parsed = parseSearchQueryGitCommand(e.search, undefined);
 		if (parsed.filters.type !== 'wip') return undefined;
 
 		if (this.repository == null) {
-			return {
-				search: e.search,
-				results: { error: 'No repository' },
-				partial: false,
-				searchId: this._searchIdCounter.current,
-			};
+			this.showNoRepositoryError(e.search);
+			return { revealSha: undefined };
 		}
 
 		const comparisonKey = getSearchQueryComparisonKey(e.search);
 
 		// Same wip query as the cached one (covers `e.more` too) — re-emit the cached results.
 		if (this._search?.comparisonKey === comparisonKey) {
-			const cached = this.getSearchResultsData(this._search) ?? {
-				count: 0,
-				hasMore: false,
-				commitsLoaded: { count: 0 },
-			};
-			return {
-				search: e.search,
-				results: cached,
-				partial: false,
-				searchId: this._searchIdCounter.current,
-			};
+			this.syncCurrent();
+			return { revealSha: undefined };
 		}
 
-		// Cancel any in-flight regular search before superseding. Otherwise the regular search's
-		// git stream keeps running until the outer function unwinds, wasting work and (paired with
-		// stale `_search` reads) potentially poisoning the WIP search's results.
-		this.context.cancelSearchOperation();
-
-		const searchId = this._searchIdCounter.next();
-		this._search = undefined;
-		this._fallback = undefined;
-		this._relaxations = undefined;
-
-		void this.host.notify(DidSearchNotification, {
-			search: e.search,
-			results: undefined,
-			partial: false,
-			searchId: searchId,
-		});
+		this.resetSearchTracking();
+		this._current = { query: e.search, results: undefined };
+		this._searchStateEvent.fire(this.buildSearchState(true));
 
 		// Use the same enumeration that feeds the rendered WIP rows so search and rendering agree.
 		const wipRowsById = await this.context.getWipRows();
 
-		if (searchId !== this._searchIdCounter.current) {
-			return {
-				search: e.search,
-				results: undefined,
-				partial: false,
-				searchId: searchId,
-			};
-		}
+		if (signal.aborted) return { revealSha: undefined };
 
 		const results: GitGraphSearchResults = new Map();
 		const now = Date.now();
@@ -1351,56 +1380,36 @@ export class GraphSearchService {
 			results: results,
 		};
 		this._search = updateSearchMode(this.container, search);
+		this.syncCurrent();
 
 		this.context.setSelectedRows(primaryWipRowId);
-		const selectedRows = this.context.getConvertedSelectedRows();
+		this.context.notifyDidChangeRows(true);
 
-		const resultData = this.getSearchResultsData(this._search) ?? {
-			count: 0,
-			hasMore: false,
-			commitsLoaded: { count: 0 },
-		};
+		this._searchStateEvent.fire(this.buildSearchState(false));
 
-		void this.host.notify(DidSearchNotification, {
-			search: e.search,
-			results: resultData,
-			selectedRows: selectedRows,
-			partial: false,
-			searchId: searchId,
-		});
-
-		return {
-			search: e.search,
-			results: resultData,
-			selectedRows: selectedRows,
-			partial: false,
-			searchId: searchId,
-		};
+		return { revealSha: primaryWipRowId };
 	}
 
 	private async processSearchStream(
 		searchStream: AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>,
-		searchId: number,
+		signal: AbortSignal,
 		progressive: boolean,
 		graph: GitGraph,
-		options?: { selectFirstResult?: boolean },
-	): Promise<{ search: GitGraphSearch | undefined; firstResultSelected: boolean }> {
-		// Snapshot `_search` so we can restore it if this stream gets superseded — the in-loop write
-		// at `this._search = updateSearchMode(...)` below stamps partial results of THIS search into
-		// `_search`, and if a newer search starts mid-loop those partial results would otherwise
-		// survive and poison `getSearchContext`, `updateGraphWithMoreRows`, and the bootstrap state.
-		// We compare by object identity (not just truthiness) so we never clobber the newer search's
-		// `_search` if it already wrote past ours.
-		const priorSearch = this._search;
-		let ourLastWrite: GitGraphSearch | undefined;
-		let search: GitGraphSearch | undefined;
+		options?: { selectFirstResult?: boolean; seed?: GitGraphSearch },
+	): Promise<{ search: GitGraphSearch | undefined; firstResultSelected: boolean; revealSha: string | undefined }> {
+		// A continuation seeds accumulation with the results it continues FROM — otherwise its first
+		// batch replaces the shown totals with just its own few rows (a resume visibly dropping from the
+		// paused count to ~1 before climbing back) until the final value restores the full set.
+		let search: GitGraphSearch | undefined = options?.seed;
 		let firstResultSelected = false;
+		let revealSha: string | undefined;
+
+		/** The last `_search` this stream wrote, so an abort can tell "still ours" from "a newer search
+		 *  already claimed it" by identity alone. */
+		let ourLastWrite: GitGraphSearch | undefined;
 
 		let result: IteratorResult<GitGraphSearchProgress, GitGraphSearch> | undefined;
 		while (!(result = await searchStream.next()).done) {
-			// Break out if search was cancelled or a new search started
-			if (searchId !== this._searchIdCounter.current) break;
-
 			const progress = result.value;
 			if (!progress.results.size) continue;
 
@@ -1428,102 +1437,90 @@ export class GraphSearchService {
 					hasMore: progress.hasMore,
 				};
 			}
+			// Side effects stop the moment the caller aborts, but the loop keeps draining: the provider
+			// answers a cancelled stream with a final value carrying the resumable cursor, and breaking
+			// out here would throw that away — a paused search could then never continue, only restart.
+			if (signal.aborted) continue;
+
 			this._search = updateSearchMode(this.container, search);
 			ourLastWrite = this._search;
+			this.syncCurrent();
 
-			// Select first result as soon as we find one (only once)
-			let selectedRows: GraphSelectedRows | undefined;
+			// Select first result as soon as we find one (only once). Re-check abort after the await —
+			// `setSelectedRows` is a blind write that would stomp a newer search.
 			if (options?.selectFirstResult && !firstResultSelected) {
 				const firstResult = await this.ensureSearchStartsInRange(graph, progress.results);
-				if (firstResult != null) {
+				if (firstResult != null && !signal.aborted) {
 					this.context.setSelectedRows(firstResult);
-					selectedRows = this.context.getConvertedSelectedRows();
 					firstResultSelected = true;
+					revealSha = firstResult;
+					this.context.notifyDidChangeRows(true);
 				}
 			}
 
 			if (progressive) {
-				// Send only the incremental batch to frontend (not all accumulated results)
-				void this.host.notify(DidSearchNotification, {
-					search: this.publicSearchQuery(this._search.query),
-					results: this.getSearchResultsData(progress),
-					selectedRows: selectedRows,
-					partial: true,
-					fallback: this.buildFallbackParam(),
-					searchId: searchId,
-				});
+				// The accumulated results so far — `onDidChange` is `save-last`, so a delta here would
+				// silently lose whatever batch a hidden webview's buffer drops.
+				this._searchStateEvent.fire(this.buildSearchState(true));
 			}
-		}
-
-		// Skip final result processing if this search has been superseded
-		if (searchId !== this._searchIdCounter.current) {
-			// Restore the pre-loop `_search` only if it still holds OUR partial write — by the time
-			// we get here the newer search's processStream may have already written its own results;
-			// identity comparison guards against clobbering them.
-			if (this._search === ourLastWrite) {
-				this._search = priorSearch;
-			}
-			return { search: search, firstResultSelected: firstResultSelected };
 		}
 
 		// Get final result from generator
 		if (result?.value != null) {
 			search = result.value;
-			this._search = updateSearchMode(this.container, search);
-			// Last chance to select: a per-batch attempt above misses whenever a concurrent paging walk
-			// supersedes its page-in, and without a selection here nothing ever reveals the match. Re-check
-			// the id after the await — `setSelectedRows` is a blind write that would stomp a newer search.
-			const firstResult = await this.ensureSearchStartsInRange(graph, search.results);
-			if (
-				options?.selectFirstResult &&
-				!firstResultSelected &&
-				firstResult != null &&
-				searchId === this._searchIdCounter.current
-			) {
-				this.context.setSelectedRows(firstResult);
-				firstResultSelected = true;
+			// A cancelled stream still answers with the cursor to resume from, so an abort must keep that
+			// value — a pause that dropped it could only restart. What an abort must NOT do is write over
+			// a newer search that already claimed `_search`, which identity settles without any id.
+			// (One provider path — sha resolution — returns no cursor when cancelled; a `commit:` search
+			// paused there restarts, exactly as it did before.)
+			if (!signal.aborted || this._search === ourLastWrite) {
+				this._search = updateSearchMode(this.container, search);
+				this.syncCurrent();
+			}
+			// Nothing below is state the caller keeps — an aborted operation reveals nothing and emits
+			// nothing, so its results reach no one until a `more` picks them up from the cursor above.
+			if (signal.aborted) {
+				return { search: search, firstResultSelected: firstResultSelected, revealSha: revealSha };
 			}
 
-			// Send final notification with complete results
+			// Last chance to select: a per-batch attempt above misses whenever a concurrent paging walk
+			// supersedes its page-in, and without a selection here nothing ever reveals the match. Re-check
+			// abort after the await — `setSelectedRows` is a blind write that would stomp a newer search.
+			const firstResult = await this.ensureSearchStartsInRange(graph, search.results);
+			if (options?.selectFirstResult && !firstResultSelected && firstResult != null && !signal.aborted) {
+				this.context.setSelectedRows(firstResult);
+				firstResultSelected = true;
+				revealSha = firstResult;
+				this.context.notifyDidChangeRows(true);
+			}
+
+			// Send the final, complete state
 			if (progressive) {
-				void this.host.notify(DidSearchNotification, {
-					search: this.publicSearchQuery(this._search.query),
-					results: this.getSearchResultsData(search) ?? {
-						count: 0,
-						hasMore: false,
-						commitsLoaded: { count: 0 },
-					},
-					selectedRows:
-						options?.selectFirstResult && firstResultSelected
-							? this.context.getConvertedSelectedRows()
-							: undefined,
-					partial: false,
-					fallback: this.buildFallbackParam(),
-					searchId: searchId,
-				});
+				this._searchStateEvent.fire(this.buildSearchState(false));
 			}
 		}
 
-		return { search: search, firstResultSelected: firstResultSelected };
+		return { search: search, firstResultSelected: firstResultSelected, revealSha: revealSha };
 	}
 
-	onSearchOpenInView(params: IpcParams<typeof SearchOpenInViewCommand>): void {
+	openInView(search: SearchQuery): void {
 		if (this.repository == null) return;
 
-		void this.container.views.searchAndCompare.search(this.repository.path, params.search, {
-			label: { label: `for ${params.search.query}` },
+		void this.container.views.searchAndCompare.search(this.repository.path, search, {
+			label: { label: `for ${search.query}` },
 			reveal: { select: true, focus: false, expand: true },
 		});
 	}
 
 	/** Asks AI to repair a hand-written search query git refused to compile. */
-	async onSearchRepairRequest(
-		params: IpcParams<typeof SearchRepairRequest>,
-	): Promise<IpcResponse<typeof SearchRepairRequest>> {
+	async repair(query: string, detail?: string): Promise<DidSearchRepairParams> {
+		const operation = new AbortController();
+		this._operations.add(operation);
 		try {
 			const converted = await this.convertNaturalLanguage(
-				{ query: params.query, naturalLanguage: { query: params.query } },
-				{ context: buildRepairContext(params.query, params.detail) },
+				{ query: query, naturalLanguage: { query: query } },
+				operation.signal,
+				{ context: buildRepairContext(query, detail) },
 			);
 
 			const naturalLanguage =
@@ -1537,6 +1534,8 @@ export class GraphSearchService {
 			if (isCancellationError(ex)) return { query: undefined };
 
 			return { query: undefined, error: ex instanceof Error ? ex.message : String(ex) };
+		} finally {
+			this._operations.delete(operation);
 		}
 	}
 
@@ -1545,31 +1544,10 @@ export class GraphSearchService {
 	): GraphSearchResults | undefined {
 		if (!search?.results?.size) return undefined;
 
-		// Count the commits for these search results that are loaded in the graph
-		const commitsLoaded: { count: number } = { count: 0 };
-		if (search.queryFilters?.type === 'wip') {
-			// `type:wip` results are synthetic WIP rows, not real commits — they never appear in
-			// the session's `ids`, and the full set is enumerated up front (one per worktree). There are
-			// no commits to page in, so treat them all as loaded; otherwise filter mode pages
-			// through the entire history trying to "fill" the viewport with matches.
-			commitsLoaded.count = search.results.size;
-		} else {
-			const session = this.context.getSession();
-			if (session != null) {
-				const ids = session.current.ids;
-				for (const sha of search.results.keys()) {
-					if (ids.has(sha)) {
-						commitsLoaded.count++;
-					}
-				}
-			}
-		}
-
 		return {
 			ids: Object.fromEntries(search.results),
 			count: search.results.size,
 			hasMore: search.hasMore,
-			commitsLoaded: commitsLoaded,
 		};
 	}
 
@@ -1623,100 +1601,26 @@ export class GraphSearchService {
 		};
 	}
 
-	onUpdateGraphSearchMode(params: IpcParams<typeof UpdateGraphSearchModeCommand>): void {
-		void this.container.storage.store('graph:searchMode', params.searchMode).catch();
-		void this.container.storage.store('graph:useNaturalLanguageSearch', params.useNaturalLanguage).catch();
+	setMode(searchMode: GraphSearchMode | undefined, useNaturalLanguage: boolean): void {
+		void this.container.storage.store('graph:useNaturalLanguageSearch', useNaturalLanguage).catch();
+		// No mode chosen (an NL toggle) — leave the sticky mode AND the active search's filter alone,
+		// so a live NL-forced filter isn't stamped as the preference or un-forced mid-search.
+		if (searchMode == null) return;
+
+		void this.container.storage.store('graph:searchMode', searchMode).catch();
 
 		// Update the active search query's filter property to match the new mode
-		updateSearchMode(this.container, this._search, params.searchMode);
+		updateSearchMode(this.container, this._search, searchMode);
+		this.syncCurrent();
 	}
 
-	/** The rider state last shipped (`searchId|count|commitsLoaded`), so unchanged riders are skipped. */
-	private _lastRiderKey: string | undefined;
-
-	/** How many of the search's result shas are loaded in the session's window — the piece of the rider
-	 *  payload that paging actually changes (cheap membership count; no serialization). */
-	private countLoadedSearchResults(search: GitGraphSearch): number {
-		if (search.queryFilters?.type === 'wip') return search.results.size;
-
-		const ids = this.context.getSession()?.current.ids;
-		if (ids == null) return 0;
-
-		let count = 0;
-		for (const sha of search.results.keys()) {
-			if (ids.has(sha)) {
-				count++;
-			}
-		}
-		return count;
+	/** An external request to run a search in the graph (deep link, command, another surface). */
+	requestSearch(params: DidRequestSearchParams): void {
+		this._requestSearchEvent.fire(params);
 	}
 
-	/** Current search-results envelope to ride the next rows-plane emission, or `undefined` when there
-	 *  is no ACTIVE search, or nothing changed since the last-shipped rider — the results map is
-	 *  O(matches) to serialize + merge app-side, and every scroll page-in emits a rows notification, so
-	 *  an ungated rider re-ships thousands of filter-mode matches per page. An active zero-result search
-	 *  still ships a present-but-empty envelope (so a rebooted app restores "query X, 0 matches"). */
-	buildSearchRider(): DidSearchParams | undefined {
-		const search = this._search;
-		// Gate on an ACTIVE search, not on having matches: a zero-result search must still ship an
-		// authoritative envelope so a rebooted app restores "query X, 0 matches" (and its search box)
-		// rather than showing nothing. No active search at all → nothing to restore → no rider.
-		if (search == null) return undefined;
-
-		const size = search.results?.size ?? 0;
-		const riderKey = `${this._searchIdCounter.current}|${size}|${this.countLoadedSearchResults(search)}`;
-		if (riderKey === this._lastRiderKey) return undefined;
-
-		this._lastRiderKey = riderKey;
-		return {
-			search: this.publicSearchQuery(search.query),
-			// A present-but-empty envelope for a zero-result search (getSearchResultsData returns undefined
-			// when the map is empty — the app would treat undefined+undefined-query as a cancel/clear).
-			results: this.getSearchResultsData(search) ?? {
-				ids: {},
-				count: 0,
-				hasMore: search.hasMore ?? false,
-				commitsLoaded: { count: 0 },
-			},
-			// A rider is a results/coverage REFRESH, not a progress signal — stamped so the app doesn't
-			// derive `searching` from it (an active progressive search's spinner would flicker off, and
-			// jump-to-last could skip its wait-for-complete on a partial result set).
-			rider: true,
-			partial: false,
-			fallback: this.buildFallbackParam(),
-			relaxations: this._relaxations,
-			searchId: this._searchIdCounter.current,
-		};
-	}
-
-	/** Un-gate the next search rider (see {@link buildSearchRider}'s dedup) — for (re)connects, where the
-	 *  app rebooted without search results and needs the full envelope re-shipped even though nothing
-	 *  changed host-side. */
-	invalidateRider(): void {
-		this._lastRiderKey = undefined;
-	}
-
-	resetSearchState(): void {
-		this._nlCancellation?.cancel();
-		this._nlCancellation?.dispose();
-		this._nlCancellation = undefined;
-
-		this._search = undefined;
-		this._fallback = undefined;
-		this._relaxations = undefined;
-		this._lastRiderKey = undefined;
-		this.context.cancelSearchOperation();
-		// Bump so any in-flight search's late notifications drop on the app's searchId guard, and push
-		// the clear so the webview's results/query don't outlive the state they were computed from —
-		// without this a REPO SWAP left the previous repo's match count and result shas in the search
-		// box, and navigating them silently failed against the new repo's graph.
-		this._searchIdCounter.next();
-		void this.host.notify(DidSearchNotification, {
-			search: undefined,
-			results: undefined,
-			partial: false,
-			searchId: this._searchIdCounter.current,
-		});
+	getState(): Promise<GraphSearchState | undefined> {
+		return Promise.resolve(this.buildSearchState(this._searching));
 	}
 
 	/** No-op: {@link _searchHistoryByRepo} keys instances per repo, so a repo switch already reads/writes

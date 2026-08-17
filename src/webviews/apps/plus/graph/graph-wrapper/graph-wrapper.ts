@@ -1155,6 +1155,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.refsMetadataResetToken=${graphState.refsMetadataResetToken}
 			.enabledRefMetadataTypes=${graphState.config?.enabledRefMetadataTypes}
 			.searchResults=${graphState.searchResults}
+			.searchResultsLoadedCount=${graphState.searchResultsLoadedCount}
 			.searching=${graphState.searching}
 			.searchMode=${graphState.searchMode}
 			.config=${graphState.config}
@@ -2373,7 +2374,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			searchResults != null &&
 			!isGraphSearchResultsError(searchResults) &&
 			!searchResults.hasMore &&
-			searchResults.commitsLoaded.count === searchResults.count
+			this.graphState.searchResultsLoadedCount === searchResults.count
 		);
 	}
 

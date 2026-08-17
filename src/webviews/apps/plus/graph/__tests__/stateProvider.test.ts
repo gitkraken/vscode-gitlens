@@ -2,28 +2,29 @@ import * as assert from 'assert';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type {
-	DidSearchParams,
 	emptySetMarker,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
 	GraphScope,
+	GraphSearchResults,
+	GraphSearchResultsError,
 	GraphWipRow,
 	GraphWipRowsById,
 	GraphWipState,
 	State,
 	WorkDirStats,
 } from '../../../../plus/graph/protocol.js';
+import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
 import type { AppState } from '../context.js';
-import type { GraphSearchControlState } from '../stateProvider.js';
 import {
 	applyScopeAnchorPatch,
+	countLoadedSearchResults,
 	GraphStateProvider,
 	isScopeAnchorStale,
 	mergeWipRows,
 	mergeWipState,
 	reconcileScopeMergeTarget,
-	reduceGraphSearchControlState,
 	resolveFullStateWorkingTreeStats,
 	shouldRestoreSearchQuery,
 } from '../stateProvider.js';
@@ -1360,129 +1361,6 @@ suite('getOverviewBranchSelectionSha', () => {
 	});
 });
 
-suite('reduceGraphSearchControlState', () => {
-	const base: GraphSearchControlState = {
-		currentSearchId: undefined,
-		searching: false,
-		searchMode: 'normal',
-		searchQuery: undefined,
-	};
-	function params(p: Partial<DidSearchParams> & { searchId: number }): DidSearchParams {
-		const built: DidSearchParams = { search: undefined, results: undefined, ...p };
-		return built;
-	}
-
-	test('drops a stale (superseded) notification', () => {
-		const prev = { ...base, currentSearchId: 5 };
-		const { ignore, next } = reduceGraphSearchControlState(
-			prev,
-			params({ searchId: 3, results: { ids: {}, count: 0, hasMore: false, commitsLoaded: { count: 0 } } }),
-		);
-		assert.strictEqual(ignore, true);
-		assert.strictEqual(next, prev, 'stale leaves state untouched');
-	});
-
-	test('a real new search raises the spinner and adopts id + mode + query', () => {
-		const { ignore, next } = reduceGraphSearchControlState(
-			base,
-			params({
-				searchId: 1,
-				search: { query: 'foo', filter: true },
-				partial: true,
-				results: { ids: { a: { i: 0, date: 0 } }, count: 1, hasMore: true, commitsLoaded: { count: 1 } },
-			}),
-		);
-		assert.strictEqual(ignore, false);
-		assert.strictEqual(next.currentSearchId, 1);
-		assert.strictEqual(next.searching, true, 'partial keeps the spinner on');
-		assert.strictEqual(next.searchMode, 'filter');
-		assert.deepStrictEqual(next.searchQuery, { query: 'foo', filter: true });
-	});
-
-	test('a final (non-partial) result stops the spinner', () => {
-		const prev = { ...base, currentSearchId: 1, searching: true, searchQuery: { query: 'foo' } };
-		const { next } = reduceGraphSearchControlState(
-			prev,
-			params({
-				searchId: 1,
-				search: { query: 'foo' },
-				partial: false,
-				results: { ids: {}, count: 0, hasMore: false, commitsLoaded: { count: 0 } },
-			}),
-		);
-		assert.strictEqual(next.searching, false);
-	});
-
-	test('an error result stops the spinner even on a rider', () => {
-		const prev = { ...base, currentSearchId: 1, searching: true };
-		const { next } = reduceGraphSearchControlState(
-			prev,
-			params({
-				searchId: 1,
-				rider: true,
-				search: { query: 'foo' },
-				results: { error: 'Invalid search pattern' },
-			}),
-		);
-		assert.strictEqual(next.searching, false);
-	});
-
-	test('a RIDER never raises the spinner on a rebooted app (unseeded id) and restores the query', () => {
-		// Rebooted app: currentSearchId undefined; rider carries a higher id + results + query.
-		const { ignore, next } = reduceGraphSearchControlState(
-			base,
-			params({
-				searchId: 7,
-				rider: true,
-				search: { query: 'bar', filter: true },
-				results: { ids: { a: { i: 0, date: 0 } }, count: 1, hasMore: false, commitsLoaded: { count: 1 } },
-			}),
-		);
-		assert.strictEqual(ignore, false);
-		assert.strictEqual(next.currentSearchId, 7, 'adopts the rider id');
-		assert.strictEqual(next.searching, false, 'a rider must NOT latch the spinner on');
-		assert.strictEqual(next.searchMode, 'filter');
-		assert.deepStrictEqual(next.searchQuery, { query: 'bar', filter: true }, 'query restored for the box');
-	});
-
-	test('a RIDER never lowers the spinner during an active progressive search', () => {
-		const prev = { ...base, currentSearchId: 2, searching: true, searchQuery: { query: 'baz' } };
-		const { next } = reduceGraphSearchControlState(
-			prev,
-			params({
-				searchId: 2,
-				rider: true,
-				search: { query: 'baz' },
-				partial: false,
-				results: { ids: {}, count: 0, hasMore: false, commitsLoaded: { count: 0 } },
-			}),
-		);
-		assert.strictEqual(next.searching, true, 'rider is a refresh, not progress — leaves the live spinner on');
-	});
-
-	test('a zero-result rider still carries the query for restoration', () => {
-		const { next } = reduceGraphSearchControlState(
-			base,
-			params({
-				searchId: 4,
-				rider: true,
-				search: { query: 'nomatch' },
-				results: { ids: {}, count: 0, hasMore: false, commitsLoaded: { count: 0 } },
-			}),
-		);
-		assert.deepStrictEqual(next.searchQuery, { query: 'nomatch' });
-		assert.strictEqual(next.searching, false);
-	});
-
-	test('a cancellation clears the query and stops the spinner', () => {
-		const prev = { ...base, currentSearchId: 1, searching: true, searchQuery: { query: 'foo' } };
-		const { ignore, next } = reduceGraphSearchControlState(prev, params({ searchId: 2 }));
-		assert.strictEqual(ignore, false);
-		assert.strictEqual(next.searching, false);
-		assert.strictEqual(next.searchQuery, undefined, 'cancel clears the restorable query');
-	});
-});
-
 suite('shouldRestoreSearchQuery', () => {
 	test('restores when the box is empty and a query + results are present', () => {
 		assert.strictEqual(shouldRestoreSearchQuery('', { query: 'foo' }, true, false), true);
@@ -1505,6 +1383,48 @@ suite('shouldRestoreSearchQuery', () => {
 	test('does not fire with no/empty restored query', () => {
 		assert.strictEqual(shouldRestoreSearchQuery('', undefined, true, true), false);
 		assert.strictEqual(shouldRestoreSearchQuery('', { query: '' }, true, true), false);
+	});
+});
+
+suite('countLoadedSearchResults', () => {
+	function results(ids: Record<string, { i: number; date: number }>): GraphSearchResults {
+		return { ids: ids, count: Object.keys(ids).length, hasMore: false };
+	}
+
+	test('undefined results → 0', () => {
+		assert.strictEqual(countLoadedSearchResults(undefined, new Set(['a'])), 0);
+	});
+
+	test('an error envelope → 0', () => {
+		const error: GraphSearchResultsError = { error: 'Invalid search pattern' };
+		assert.strictEqual(countLoadedSearchResults(error, new Set(['a'])), 0);
+	});
+
+	test('empty ids → 0', () => {
+		assert.strictEqual(countLoadedSearchResults(results({}), new Set(['a'])), 0);
+	});
+
+	test('every result sha present in rows → the full count', () => {
+		const sr = results({ a: { i: 0, date: 0 }, b: { i: 1, date: 0 } });
+		assert.strictEqual(countLoadedSearchResults(sr, new Set(['a', 'b', 'c'])), 2);
+	});
+
+	test('a mix of loaded and unloaded shas → only the loaded ones', () => {
+		const sr = results({ a: { i: 0, date: 0 }, b: { i: 1, date: 0 }, c: { i: 2, date: 0 } });
+		assert.strictEqual(countLoadedSearchResults(sr, new Set(['a'])), 1);
+	});
+
+	test('WIP row ids count as loaded even when absent from rows', () => {
+		const wip1 = createWipRowId('/repo');
+		const wip2 = createWipRowId('/repo2');
+		const sr = results({ [wip1]: { i: 0, date: 0 }, [wip2]: { i: 1, date: 0 }, a: { i: 2, date: 0 } });
+		assert.strictEqual(countLoadedSearchResults(sr, new Set(['a'])), 3);
+	});
+
+	test('no rows loaded → only WIP ids count', () => {
+		const wip1 = createWipRowId('/repo');
+		const sr = results({ [wip1]: { i: 0, date: 0 }, a: { i: 1, date: 0 } });
+		assert.strictEqual(countLoadedSearchResults(sr, new Set()), 1);
 	});
 });
 

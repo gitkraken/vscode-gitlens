@@ -1,6 +1,5 @@
 import * as sinon from 'sinon';
 import type { CancellationToken } from 'vscode';
-import { CancellationTokenSource } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress } from '@gitlens/git/models/graphSearch.js';
@@ -10,47 +9,20 @@ import { getSearchQueryComparisonKey } from '@gitlens/git/utils/search.utils.js'
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Container } from '../../../../container.js';
 import type { GlRepository } from '../../../../git/models/repository.js';
-import type { IpcParams } from '../../../ipc/handlerRegistry.js';
 import type { WebviewHost } from '../../../webviewProvider.js';
 import type { GraphSearchServiceContext } from '../graphSearchService.js';
 import { GraphSearchService } from '../graphSearchService.js';
-import type {
-	DidSearchParams,
-	GraphSearchRelaxation,
-	GraphSearchResults,
-	GraphSearchResultsError,
-	SearchRequest,
-} from '../protocol.js';
-import { DidSearchNotification } from '../protocol.js';
+import type { GraphSearchResponse, GraphSearchState, GraphServices } from '../graphService.js';
+import type { SearchParams } from '../protocol.js';
 
 /** Default sha pool for a fresh harness — every scripted `GitGraphSearch.results` sha must also be a
  *  member of `graphIds` or `ensureSearchStartsInRange` fires the real `updateGraphWithMoreRows` page-in
  *  logic instead of the no-op the tests want. */
 const defaultGraphIds = ['sha1', 'sha2', 'sha3', 'sha4', 'sha5'];
 
-/** The search state the app applies, projected from today's `DidSearchParams` so the flow tests assert
- *  behavior instead of the wire's supersede ids. `undefined` stands for "no active search". */
-export interface SearchStateSnapshot {
-	query: SearchQuery | undefined;
-	results: GraphSearchResults | GraphSearchResultsError | undefined;
-	searching: boolean;
-	fallback?: { matchedAs: 'literal'; detail?: string };
-	relaxations?: GraphSearchRelaxation[];
-}
-
-function toSearchState(params: DidSearchParams): SearchStateSnapshot | undefined {
-	if (params.search == null && params.results == null) return undefined;
-
-	return {
-		query: params.search,
-		results: params.results,
-		searching: params.results == null ? true : 'error' in params.results ? false : params.partial === true,
-		fallback: params.fallback,
-		relaxations: params.relaxations,
-	};
-}
-
-type SearchStreamBehavior = () => AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
+type SearchStreamBehavior = (
+	signal: AbortSignal | undefined,
+) => AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>;
 
 // oxlint-disable-next-line require-yield
 async function* resultGenerator(search: GitGraphSearch): AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void> {
@@ -75,13 +47,16 @@ async function* errorGenerator(error: unknown): AsyncGenerator<GitGraphSearchPro
 
 function createStreamStub(label: string): { stub: sinon.SinonStub; queue: SearchStreamBehavior[] } {
 	const queue: SearchStreamBehavior[] = [];
-	const stub = sinon.stub().callsFake(() => {
+	const stub = sinon.stub().callsFake((...args: unknown[]) => {
 		const behavior = queue.shift();
 		if (behavior == null) {
 			throw new Error(`${label} queue is empty — no scripted behavior was queued for this call`);
 		}
 
-		return behavior();
+		// The real provider call always ends with the driving `AbortSignal` as its last positional
+		// argument (`searchGraph(query, options, signal)` / `continueSearchGraph(cursor, results, options,
+		// signal)`) — forward it so a behavior can script a final value that depends on it.
+		return behavior(args.at(-1) as AbortSignal | undefined);
 	});
 
 	return { stub: stub, queue: queue };
@@ -155,6 +130,13 @@ export function aiHang(): AiFn {
 	};
 }
 
+/** Never settles and never subscribes to its cancellation token — a hang that happens BEFORE the AI
+ *  call reaches cooperative-cancellation territory (e.g. blocked model resolution). The timeout must
+ *  recover from this shape by racing, not by waiting for the callee to observe its token. */
+export function aiHangDeaf(): AiFn {
+	return () => new Promise(() => {});
+}
+
 /** Caller-controlled AI response, for scripting a supersede race against an in-flight round-trip. */
 export function aiDeferred(): {
 	fn: AiFn;
@@ -209,29 +191,43 @@ export interface SearchHarnessOptions {
 export interface SearchHarness {
 	service: GraphSearchService;
 	graphIds: Set<string>;
-	host: { id: string; notify: sinon.SinonStub; sendTelemetryEvent: sinon.SinonStub };
-	notifications: () => DidSearchParams[];
-	/** Drives a search the way the app will once the plane is RPC: resolves to the resulting state, or
-	 *  `undefined` when the operation was superseded or aborted. */
-	search: (params: IpcParams<typeof SearchRequest>, signal?: AbortSignal) => Promise<SearchStateSnapshot | undefined>;
-	/** Every search state the app would apply, in emission order; emissions the app's stale guard drops
-	 *  are omitted. */
-	states: () => Array<SearchStateSnapshot | undefined>;
+	host: { id: string; sendTelemetryEvent: sinon.SinonStub };
+	/** The RPC-shaped surface (`service.createServices().search`) — history/mode/repair/getState/clear
+	 *  flows that don't go through `search()` drive it directly. */
+	rpc: Pick<GraphServices, 'search'>['search'];
+	/** Drives a search through the RPC surface the way the app will — resolves `undefined` when the
+	 *  operation was superseded or aborted. */
+	search: (params: SearchParams, signal?: AbortSignal) => Promise<GraphSearchResponse | undefined>;
+	/** Every search state fired on `onDidChange`, in emission order. */
+	states: () => Array<GraphSearchState | undefined>;
 	telemetryEvents: () => Array<{ name: string; data: unknown }>;
 	graph: { searchGraph: sinon.SinonStub; continueSearchGraph: sinon.SinonStub; countSearchResults: sinon.SinonStub };
 	contributors: { getContributorsLite: sinon.SinonStub };
 	ai: { generateSearchQuery: sinon.SinonStub; queue: (fn: AiFn) => void; calls: AiCallRecord[] };
-	searchIdCounterCurrent: () => number;
 	queueSearchGraphResult: (search: GitGraphSearch) => void;
 	queueSearchGraphProgress: (progress: GitGraphSearchProgress[], final: GitGraphSearch) => void;
 	queueSearchGraphError: (error: unknown) => void;
+	/** Queues a `searchGraph` stream built from `factory`, which receives the live `AbortSignal` the call
+	 *  was made with — for scripting a stream whose FINAL value depends on whether/how it was cancelled.
+	 *  `queueSearchGraphProgress`'s final value is fixed regardless of abort, which can't express that. */
+	queueSearchGraphStream: (
+		factory: (signal: AbortSignal | undefined) => AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>,
+	) => void;
 	queueContinueSearchGraphResult: (search: GitGraphSearch) => void;
 	queueContinueSearchGraphError: (error: unknown) => void;
+	/** `queueSearchGraphStream`'s counterpart for `continueSearchGraph` — for scripting a continuation
+	 *  whose behavior depends on the live `AbortSignal` (e.g. a background continuation a pause aborts). */
+	queueContinueSearchGraphStream: (
+		factory: (signal: AbortSignal | undefined) => AsyncGenerator<GitGraphSearchProgress, GitGraphSearch, void>,
+	) => void;
 	/** Changes the active repo's path after the harness is built, for exercising repo-switch flows. */
 	setRepositoryPath: (path: string) => void;
 	/** The fake workspace-storage stubs backing {@link SearchHistory}, for asserting on the keys/values
 	 *  written by search-history read/write flows. */
 	storage: { getWorkspace: sinon.SinonStub; storeWorkspace: sinon.SinonStub };
+	/** The selection/rows-plane context stubs, for asserting that a search reveals its first match
+	 *  through the rows plane. */
+	context: { setSelectedRows: sinon.SinonStub; notifyDidChangeRows: sinon.SinonStub };
 }
 
 /** Assembles a `GraphSearchService` against fakes for every collaborator its context reaches, scripted via
@@ -269,9 +265,8 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 		current: { repoPath: repoPath, ids: graphIds } as unknown as GitGraph,
 	} as unknown as GitGraphSession;
 
-	const hostNotify = sinon.stub().resolves(true);
 	const hostSendTelemetryEvent = sinon.stub();
-	const host = { id: 'gitlens.graph', notify: hostNotify, sendTelemetryEvent: hostSendTelemetryEvent };
+	const host = { id: 'gitlens.graph', sendTelemetryEvent: hostSendTelemetryEvent };
 
 	const { stub: aiStub, queue: aiQueue, calls: aiCalls } = createAiStub();
 
@@ -292,6 +287,9 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 		},
 	} as unknown as Container;
 
+	const setSelectedRowsStub = sinon.stub();
+	const notifyDidChangeRowsStub = sinon.stub();
+
 	const context: GraphSearchServiceContext = {
 		container: container,
 		host: host as unknown as WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>,
@@ -299,58 +297,28 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 		getSession: () => session,
 		getSelectedId: () => undefined,
 		getSelectedRows: () => undefined,
-		getConvertedSelectedRows: () => ({}),
 		getEtagRepository: () => repository.etag,
-		setSelectedRows: sinon.stub(),
+		setSelectedRows: setSelectedRowsStub,
 		updateState: sinon.stub(),
 		updateGraphWithMoreRows: sinon.stub().resolves(undefined),
-		notifyDidChangeRows: sinon.stub(),
+		notifyDidChangeRows: notifyDidChangeRowsStub,
 		getWipRows: () => Promise.resolve({}),
-		createSearchCancellation: () => new CancellationTokenSource(),
-		cancelSearchOperation: sinon.stub(),
 		nlConversionTimeoutMs: options?.nlConversionTimeoutMs,
 	};
 
 	const service = new GraphSearchService(context);
+	const rpc = service.createServices().search;
+
+	const states: Array<GraphSearchState | undefined> = [];
+	rpc.onDidChange(s => states.push(s));
 
 	return {
 		service: service,
 		graphIds: graphIds,
-		host: { id: host.id, notify: hostNotify, sendTelemetryEvent: hostSendTelemetryEvent },
-		notifications: () => hostNotify.getCalls().map(call => call.args[1] as DidSearchParams),
-		search: async (params, signal) => {
-			// Aborting the caller's signal is a pause; today it reaches the same AI/git cancellation
-			// through the cancel command.
-			const onAbort = () => service.onSearchCancel({ preserveResults: true });
-			signal?.addEventListener('abort', onAbort, { once: true });
-
-			try {
-				const rsp = await service.onSearchRequest(params);
-				// The app's `rsp.searchId === currentSearchId` guard, kept inside the harness so no test
-				// has to know ids exist: a superseded or aborted operation answers with nothing.
-				if (rsp.searchId !== service.searchIdCounterCurrent) return undefined;
-
-				return toSearchState(rsp);
-			} finally {
-				signal?.removeEventListener('abort', onAbort);
-			}
-		},
-		states: () => {
-			let currentId: number | undefined;
-			const states: Array<SearchStateSnapshot | undefined> = [];
-
-			for (const call of hostNotify.getCalls()) {
-				if (call.args[0] !== DidSearchNotification) continue;
-
-				const params = call.args[1] as DidSearchParams;
-				if (currentId != null && params.searchId < currentId) continue;
-
-				currentId = params.searchId;
-				states.push(toSearchState(params));
-			}
-
-			return states;
-		},
+		host: { id: host.id, sendTelemetryEvent: hostSendTelemetryEvent },
+		rpc: rpc,
+		search: (params, signal) => rpc.search(params, signal),
+		states: () => [...states],
 		telemetryEvents: () =>
 			hostSendTelemetryEvent.getCalls().map(call => ({ name: call.args[0] as string, data: call.args[1] })),
 		graph: {
@@ -364,17 +332,19 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 			queue: (fn: AiFn) => aiQueue.push(fn),
 			calls: aiCalls,
 		},
-		searchIdCounterCurrent: () => service.searchIdCounterCurrent,
 		queueSearchGraphResult: (search: GitGraphSearch) => searchGraphQueue.push(() => resultGenerator(search)),
 		queueSearchGraphProgress: (progress: GitGraphSearchProgress[], final: GitGraphSearch) =>
 			searchGraphQueue.push(() => progressGenerator(progress, final)),
 		queueSearchGraphError: (error: unknown) => searchGraphQueue.push(() => errorGenerator(error)),
+		queueSearchGraphStream: factory => searchGraphQueue.push(factory),
 		queueContinueSearchGraphResult: (search: GitGraphSearch) =>
 			continueSearchGraphQueue.push(() => resultGenerator(search)),
 		queueContinueSearchGraphError: (error: unknown) => continueSearchGraphQueue.push(() => errorGenerator(error)),
+		queueContinueSearchGraphStream: factory => continueSearchGraphQueue.push(factory),
 		setRepositoryPath: (path: string) => {
 			repository.path = path;
 		},
 		storage: { getWorkspace: storageGetWorkspaceStub, storeWorkspace: storageStoreWorkspaceStub },
+		context: { setSelectedRows: setSelectedRowsStub, notifyDidChangeRows: notifyDidChangeRowsStub },
 	};
 }

@@ -3453,6 +3453,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 										detail: {
 											searchMode: 'normal',
 											useNaturalLanguage: this.graphState.useNaturalLanguageSearch === true,
+											explicitMode: true,
 										},
 									}),
 								),

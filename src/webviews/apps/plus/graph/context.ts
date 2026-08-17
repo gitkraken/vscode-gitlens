@@ -3,8 +3,8 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
+import type { GraphSearchState } from '../../../plus/graph/graphService.js';
 import type {
-	DidSearchParams,
 	GetOverviewWipResponse,
 	GraphColumnName,
 	GraphScope,
@@ -53,23 +53,24 @@ export interface AppState extends State {
 	searchMode: 'filter' | 'normal';
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;
+	/** How many of `searchResults`' matches are loaded as rows — derived from `searchResults` and `rows`,
+	 *  recomputed only when either changes. */
+	searchResultsLoadedCount: number;
 	searchResultsError: GraphSearchResultsError | undefined;
 	/** The active search's query, carried from the host so a rebooted/reconnected app can restore its
 	 *  search box (results ride their own channel; without this the box is blank after a reconnect). */
 	searchQuery: SearchQuery | undefined;
-	/** Mirrors the host's `DidSearchParams.fallback` — set when the active search's pattern failed to
+	/** Mirrors the host's `GraphSearchState.fallback` — set when the active search's pattern failed to
 	 *  compile as regex and matched literally instead. Cleared the moment a search completes without
 	 *  needing the fallback. Drives the search box's dimmed regex toggle and zero-result helper row. */
-	searchFallback: DidSearchParams['fallback'];
-	/** Mirrors the host's `DidSearchParams.relaxations` — counted broader alternatives offered when the
+	searchFallback: GraphSearchState['fallback'];
+	/** Mirrors the host's `GraphSearchState.relaxations` — counted broader alternatives offered when the
 	 *  active NL search settled with 0 results. Cleared (mirrors 1:1) the moment any other search event
 	 *  arrives without it — a new search, cancel, or a match. */
-	searchRelaxations: DidSearchParams['relaxations'];
-	currentSearchId: number | undefined;
+	searchRelaxations: GraphSearchState['relaxations'];
 	/** Bumped locally each time the user submits a NEW search, so consumers can scope per-search UI
-	 *  state to one search session. Unlike `currentSearchId` (assigned by the host, so it only lands a
-	 *  round-trip later) this changes the instant the search is issued. Navigating/resuming an existing
-	 *  search does not bump it. */
+	 *  state to one search session — the instant it's issued, not a round-trip later. Navigating/resuming
+	 *  an existing search does not bump it. */
 	searchSession: number;
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;

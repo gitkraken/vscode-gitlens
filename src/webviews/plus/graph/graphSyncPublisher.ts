@@ -35,7 +35,6 @@ import {
 import type { SentRowsLedger } from './graphRowsSplice.js';
 import type {
 	DidChangeRowsParams,
-	DidSearchParams,
 	GraphPaging,
 	GraphRefMetadata,
 	GraphRefsMetadata,
@@ -103,10 +102,8 @@ export class GraphSyncPublisher {
 	private _avatarsSizeCursor = 0;
 	private _refsMetadataCursor: Map<string, GraphRefMetadata> | undefined;
 
-	// Riders that must travel atomically WITH the next rows-plane emission (the search-results/selection
-	// envelope the old `notifyDidChangeRows` carried). Attached until an emission SUCCEEDS, then cleared;
-	// a failed emission keeps them so the recovery snapshot re-carries them.
-	private _riderSearch: DidSearchParams | undefined;
+	// The selection rider that must travel atomically WITH the next rows-plane emission. Attached until an
+	// emission SUCCEEDS, then cleared; a failed emission keeps it so the recovery snapshot re-carries it.
 	private _riderSelectedRows: GraphSelectedRows | undefined;
 	private _ridersPending = false;
 	/** Set by {@link markCarrier}: emit once even with nothing dirty. Cleared by the emission that honors it. */
@@ -211,22 +208,19 @@ export class GraphSyncPublisher {
 	}
 
 	/**
-	 * Attach search-results/selection riders to the NEXT emission (delta or snapshot), preserving the
-	 * atomicity envelope the old rows push had. Provided keys overwrite; omitted keys keep any pending
-	 * rider. Riders persist until an emission succeeds ({@link GraphSyncHost.notify} returns true), then
-	 * clear — so a failed send's recovery snapshot re-carries them. Does NOT schedule a flush on its own;
-	 * the accompanying {@link mark}/{@link flush} drives it.
+	 * Attach a selection rider to the NEXT emission (delta or snapshot), preserving the atomicity envelope
+	 * the old rows push had. Provided keys overwrite; omitted keys keep any pending rider. Riders persist
+	 * until an emission succeeds ({@link GraphSyncHost.notify} returns true), then clear — so a failed
+	 * send's recovery snapshot re-carries them. Does NOT schedule a flush on its own; the accompanying
+	 * {@link mark}/{@link flush} drives it.
 	 */
-	attachRiders(riders: { search?: DidSearchParams; selectedRows?: GraphSelectedRows }): void {
-		if ('search' in riders) {
-			this._riderSearch = riders.search;
-		}
+	attachRiders(riders: { selectedRows?: GraphSelectedRows }): void {
 		if ('selectedRows' in riders) {
 			this._riderSelectedRows = riders.selectedRows;
 		}
 		// Pending only when a rider is actually present (mirrors the post-send re-derivation in `doFlush`) — an
-		// all-undefined attach (e.g. a no-search reconnect) must not force an otherwise-empty emission.
-		this._ridersPending = this._riderSearch !== undefined || this._riderSelectedRows !== undefined;
+		// all-undefined attach must not force an otherwise-empty emission.
+		this._ridersPending = this._riderSelectedRows !== undefined;
 	}
 
 	/** Force the next avatars emission to ship the full map even if the Map size is unchanged (the avatar
@@ -252,7 +246,6 @@ export class GraphSyncPublisher {
 		// no watermark can vouch for a pre-bump baseline; reset it fail-safe.
 		this._seqAtConnectionReady = -1;
 		// A stale repo-A rider envelope must not ride repo-B's snapshot.
-		this._riderSearch = undefined;
 		this._riderSelectedRows = undefined;
 		this._ridersPending = false;
 		this.requireSnapshot();
@@ -399,28 +392,23 @@ export class GraphSyncPublisher {
 		const carrierSent = this._carrierRequired;
 		this._carrierRequired = false;
 
-		// Capture the rider values attached to THIS emission so a rider re-attached mid-flight (during the
-		// await) survives: on success we clear a field ONLY if it still holds the captured value.
+		// Capture the rider value attached to THIS emission so a rider re-attached mid-flight (during the
+		// await) survives: on success we clear the field ONLY if it still holds the captured value.
 		const ridersSent = this._ridersPending;
-		const sentSearch = this._riderSearch;
 		const sentSelectedRows = this._riderSelectedRows;
 		if (ridersSent) {
-			params.search = sentSearch;
 			params.selectedRows = sentSelectedRows;
 		}
 
 		const ok = await this.host.notify(params);
 		if (ok) {
 			if (ridersSent) {
-				// A failed send keeps the riders so the next (snapshot) emission re-carries the envelope; a
+				// A failed send keeps the rider so the next (snapshot) emission re-carries the envelope; a
 				// rider re-attached mid-flight (new captured value) survives here and rides the next emission.
-				if (this._riderSearch === sentSearch) {
-					this._riderSearch = undefined;
-				}
 				if (this._riderSelectedRows === sentSelectedRows) {
 					this._riderSelectedRows = undefined;
 				}
-				this._ridersPending = this._riderSearch !== undefined || this._riderSelectedRows !== undefined;
+				this._ridersPending = this._riderSelectedRows !== undefined;
 			}
 			// A refsMetadata reset REPLACE landed — delta-flagged, or a snapshot's authoritative full map —
 			// so stop re-shipping it.

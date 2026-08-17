@@ -67,7 +67,6 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
-	DidSearchParams,
 	GraphAvatars,
 	GraphColumnConfig,
 	GraphColumnName,
@@ -88,6 +87,8 @@ import type {
 	GraphScope,
 	GraphScrollMarkerTypes,
 	GraphSearchMode,
+	GraphSearchResults,
+	GraphSearchResultsError,
 	GraphSelectedRows,
 	GraphWipStateById,
 } from '../../../../plus/graph/protocol.js';
@@ -702,7 +703,10 @@ export class GlLitGraph extends LitElement {
 	// issues.enabled). Drives requestMissingRefsMetadata — a type absent here is never requested even
 	// when other types are.
 	@property({ type: Array }) enabledRefMetadataTypes?: readonly GraphRefMetadataType[];
-	@property({ type: Object }) searchResults?: DidSearchParams['results'];
+	@property({ type: Object }) searchResults?: GraphSearchResults | GraphSearchResultsError | undefined;
+	// How many of `searchResults`' matches are currently loaded as rows — derived app-side (see
+	// `countLoadedSearchResults`) since the host no longer computes it.
+	@property({ type: Number }) searchResultsLoadedCount = 0;
 	// True while a search is in flight: the host clears `searchResults` to undefined before results
 	// arrive, so this keeps lanes treated as "search active" across that gap (see searchActive below).
 	@property({ type: Boolean }) searching = false;
@@ -1275,7 +1279,7 @@ export class GlLitGraph extends LitElement {
 	// Row-scanned markers, cached so a selection/merge-target change merges its markers on top instead of
 	// rescanning the rendered rows.
 	private baseScrollMarkers: readonly ScrollMarker[] = [];
-	private lastSearchResultsRef?: DidSearchParams['results'];
+	private lastSearchResultsRef?: GraphSearchResults | GraphSearchResultsError | undefined;
 	private lastSearchModeRef?: GraphSearchMode;
 	private lastSearchActive = false;
 	private lastScrollMarkerTypesRef?: GraphScrollMarkerTypes[];
@@ -5415,7 +5419,7 @@ export class GlLitGraph extends LitElement {
 		}
 		if (this.loading) return nothing;
 
-		const allLoaded = !sr.hasMore && sr.commitsLoaded.count === sr.count;
+		const allLoaded = !sr.hasMore && this.searchResultsLoadedCount === sr.count;
 		if (allLoaded) {
 			return html`<div class="gl-graph__search-footer">
 				<span class="gl-graph__search-footer-message">Showing all ${pluralize('result', sr.count)}</span>
@@ -5424,7 +5428,7 @@ export class GlLitGraph extends LitElement {
 
 		return html`<div class="gl-graph__search-footer">
 			<span class="gl-graph__search-footer-message"
-				>Showing ${pluralize('result', sr.commitsLoaded.count)} of
+				>Showing ${pluralize('result', this.searchResultsLoadedCount)} of
 				${pluralize('result', sr.count)}${sr.hasMore ? '+' : ''}</span
 			><button type="button" class="gl-graph__search-footer-link" @click=${this.onLoadMoreResultsClick}>
 				Load More Results…

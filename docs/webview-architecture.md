@@ -13,17 +13,17 @@ surface uses: an `RpcHost` (`src/webviews/webviewController.ts:225`) and the leg
 `notify()` / pending-notification queue (`src/webviews/webviewController.ts:976` onward). A
 surface's layer is determined by what its provider and app code call.
 
-| Surface         | Layer                       | Evidence                                                                                                       |
-| --------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Settings        | RPC only                    | `apps/settings/settings.ts:66`; `settings/protocol.ts` is 7 lines, 0 IPC types                                 |
-| Commit Details  | RPC only                    | `apps/commitDetails/commitDetails.ts:59`; `commitDetails/protocol.ts` has 0 IPC types                          |
-| Home            | RPC, plus one legacy bridge | `apps/home/home.ts:103`; host still fires `DidChangeSubscription` for `PromosContext`                          |
-| Timeline        | RPC, plus one legacy bridge | `apps/plus/timeline/timeline.ts:70`; bridge documented at `plus/timeline/timelineWebview.ts:116`               |
-| Commit Graph    | **Hybrid**                  | RPC for auxiliary services; legacy IPC carries the primary data plane (92 IPC types, `plus/graph/protocol.ts`) |
-| Patch Details   | Legacy IPC                  | no `RpcController`; 30 IPC types                                                                               |
-| Rebase          | Legacy IPC                  | no `RpcController`; 29 IPC types                                                                               |
-| Welcome         | Legacy IPC                  | no `RpcController`; 6 IPC types                                                                                |
-| Allowed Signers | Legacy IPC                  | no `RpcController`; 5 IPC types                                                                                |
+| Surface         | Layer                       | Evidence                                                                                                               |
+| --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Settings        | RPC only                    | `apps/settings/settings.ts:66`; `settings/protocol.ts` is 7 lines, 0 IPC types                                         |
+| Commit Details  | RPC only                    | `apps/commitDetails/commitDetails.ts:59`; `commitDetails/protocol.ts` has 0 IPC types                                  |
+| Home            | RPC, plus one legacy bridge | `apps/home/home.ts:103`; host still fires `DidChangeSubscription` for `PromosContext`                                  |
+| Timeline        | RPC, plus one legacy bridge | `apps/plus/timeline/timeline.ts:70`; bridge documented at `plus/timeline/timelineWebview.ts:116`                       |
+| Commit Graph    | **Hybrid**                  | RPC for auxiliary services and search; legacy IPC carries the rows data plane (82 IPC types, `plus/graph/protocol.ts`) |
+| Patch Details   | Legacy IPC                  | no `RpcController`; 30 IPC types                                                                                       |
+| Rebase          | Legacy IPC                  | no `RpcController`; 29 IPC types                                                                                       |
+| Welcome         | Legacy IPC                  | no `RpcController`; 6 IPC types                                                                                        |
+| Allowed Signers | Legacy IPC                  | no `RpcController`; 5 IPC types                                                                                        |
 
 `src/webviews/protocol.ts` is **not** legacy-only — it defines the core-scope handshake every
 surface uses (`WebviewReadyRequest`, focus/visibility/configuration notifications,
@@ -32,10 +32,11 @@ surfaces alike.
 
 ### The Graph is hybrid, and the split matters
 
-The Graph has an `RpcController` (`apps/plus/graph/graph.ts:66`), but RPC covers only auxiliary
+The Graph has an `RpcController` (`apps/plus/graph/graph.ts:66`), and RPC covers the auxiliary
 services — `graphInspect`, `launchpad`, `walkthrough`, `sidebar`, `welcome`, `graphTimeline`,
-`graphTreemap` (`plus/graph/graphService.ts:728`) — plus the shared services. Rows, selection,
-search, columns, refs, and WIP all travel over legacy IPC. The ledger-diffed splice channel in
+`graphTreemap` — plus the shared services and, since the search-plane migration, `search`
+(`GraphSearchService` in `plus/graph/graphService.ts`). Rows, selection, columns, refs, and WIP still travel over
+legacy IPC. The ledger-diffed splice channel in
 `docs/graph-update-pipeline.md` is an `IpcNotification`: published at
 `plus/graph/graphWebview.ts:882`, declared at `plus/graph/protocol.ts:1870`, consumed through
 `onMessageReceived` at `apps/plus/graph/stateProvider.ts:1679`. Do not assume Graph work happens
@@ -65,6 +66,18 @@ must ride inside that same message's handler — not a separate message on the o
 regardless of send order. If a durable effect genuinely must precede the teardown-triggering
 message on a different transport, it must be ack-sequenced (await the write's response before
 sending the second message), not fire-and-forget.
+
+The search plane shows the other way out: move a whole plane rather than living with the split.
+Search once ran two channels for one operation — a request/response plus a notification stream —
+and arbitrated between them with a monotonic `searchId` stamped on every payload, because legacy
+IPC offers no per-operation cancellation and no causal ordering between a response and the
+notifications its own handler emitted. On RPC that counter is unnecessary: the caller's
+`AbortSignal` crosses the wire, so a superseded search simply resolves with nothing. The migration
+deleted the counter outright rather than porting it, along with the rows-plane rider that
+re-shipped search results on every rows emission. Two constraints came out of it and generalize:
+a plane moves **whole** (a half-migrated plane is the hazard above, by construction), and any
+payload on a `save-last` buffered event must be a **complete snapshot**, never a delta — a hidden
+webview keeps only the newest emission, so deltas silently lose everything in between.
 
 ## State ownership
 

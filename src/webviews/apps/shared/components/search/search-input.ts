@@ -19,11 +19,8 @@ import {
 	ChooseComparisonRequest,
 	ChooseFileRequest,
 	ChooseRefRequest,
-	SearchHistoryDeleteRequest,
-	SearchHistoryGetRequest,
-	SearchHistoryStoreRequest,
-	SearchRepairRequest,
 } from '../../../../plus/graph/protocol.js';
+import { searchActionsContext } from '../../../plus/graph/search/searchContext.js';
 import { ipcContext } from '../../contexts/ipc.js';
 import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete.js';
 import { GlElement } from '../element.js';
@@ -52,6 +49,11 @@ export interface SearchNavigationEventDetail {
 export interface SearchModeChangeEventDetail {
 	searchMode: 'normal' | 'filter';
 	useNaturalLanguage: boolean;
+	/** Whether `searchMode` is a deliberate user choice (filter-toggle click, an explicit exit-filter
+	 *  action) rather than a ride-along of the current state (an NL on/off toggle reporting whatever
+	 *  the filter happens to be — possibly an NL-forced value that must never be persisted as the
+	 *  user's preference nor supersede its pending restore). */
+	explicitMode: boolean;
 }
 
 export interface SearchCancelEventDetail {
@@ -336,6 +338,9 @@ background-color: var(--vscode-menu-background);
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
 
+	@consume({ context: searchActionsContext, subscribe: true })
+	private readonly _searchActions!: typeof searchActionsContext.__context__;
+
 	@query('input') input!: HTMLInputElement;
 
 	@property({ type: Boolean }) aiAllowed = true;
@@ -432,8 +437,8 @@ background-color: var(--vscode-menu-background);
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		void this._ipc
-			.sendRequest(SearchHistoryGetRequest, undefined)
+		void this._searchActions
+			.getHistory()
 			.then(response => (this.searchHistory = response.history))
 			.catch(() => {});
 	}
@@ -1124,6 +1129,7 @@ background-color: var(--vscode-menu-background);
 		this.emit('gl-search-modechange', {
 			searchMode: this.filter ? 'filter' : 'normal',
 			useNaturalLanguage: this.naturalLanguage,
+			explicitMode: true,
 		});
 		// Don't trigger a new search - just update the mode for future searches
 		// and let the UI update based on the current results
@@ -1140,9 +1146,13 @@ background-color: var(--vscode-menu-background);
 		this.explanation = undefined;
 
 		this.naturalLanguage = useNaturalLanguage && this.aiAllowed;
+		// `searchMode` here is a report of the current state, not a choice — this can fire without any
+		// user gesture (`willUpdate` drops NL mode when AI becomes unavailable), and `filter` may hold
+		// an NL-forced value.
 		this.emit('gl-search-modechange', {
 			searchMode: this.filter ? 'filter' : 'normal',
 			useNaturalLanguage: this.naturalLanguage,
+			explicitMode: false,
 		});
 
 		// Update autocomplete to reflect the new mode
@@ -1443,7 +1453,7 @@ background-color: var(--vscode-menu-background);
 		const searchToStore: SearchQuery = { ...search, query: queryToStore };
 
 		try {
-			const response = await this._ipc.sendRequest(SearchHistoryStoreRequest, { search: searchToStore });
+			const response = await this._searchActions.storeHistory(searchToStore);
 			this.searchHistory = response.history;
 			this.searchHistoryPos = -1;
 		} catch {}
@@ -1451,7 +1461,7 @@ background-color: var(--vscode-menu-background);
 
 	private async deleteHistoryEntry(query: string): Promise<void> {
 		try {
-			const response = await this._ipc.sendRequest(SearchHistoryDeleteRequest, { query: query });
+			const response = await this._searchActions.deleteHistory(query);
 			this.searchHistory = response.history;
 			// Move to next entry if available, otherwise restore original value
 			if (this.searchHistoryPos >= 0 && this.searchHistoryPos < this.searchHistory.length) {
@@ -1747,10 +1757,7 @@ background-color: var(--vscode-menu-background);
 		this.repairing = true;
 		const requested = this.value;
 		try {
-			const rsp = await this._ipc.sendRequest(SearchRepairRequest, {
-				query: this.value,
-				detail: this.fallbackDetail || undefined,
-			});
+			const rsp = await this._searchActions.repair(this.value, this.fallbackDetail || undefined);
 			// The user kept typing during the round-trip — leave their in-progress edit alone.
 			if (this.value !== requested) return;
 

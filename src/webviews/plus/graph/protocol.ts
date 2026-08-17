@@ -566,7 +566,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	searchMode?: GraphSearchMode;
 	/** Search query to be executed once */
 	searchRequest?: SearchQuery;
-	searchResults?: DidSearchParams['results'];
+	searchResults?: GraphSearchResults | GraphSearchResultsError;
 	useNaturalLanguageSearch?: boolean;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
@@ -1051,16 +1051,6 @@ export interface TreemapFileActionParams {
 }
 export const TreemapFileActionCommand = new IpcCommand<TreemapFileActionParams>(scope, 'treemap/file/action');
 
-export interface SearchOpenInViewParams {
-	search: SearchQuery;
-}
-export const SearchOpenInViewCommand = new IpcCommand<SearchOpenInViewParams>(scope, 'search/openInView');
-
-export interface SearchCancelParams {
-	preserveResults: boolean;
-}
-export const SearchCancelCommand = new IpcCommand<SearchCancelParams>(scope, 'search/cancel');
-
 export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
 	/** Monotonic per-webview-session write counter; echoed back as `columnsRevision` so the webview can
@@ -1109,12 +1099,6 @@ export interface UpdateGraphDisplayModeParams {
 	mode: GraphDisplayMode;
 }
 export const UpdateGraphDisplayModeCommand = new IpcCommand<UpdateGraphDisplayModeParams>(scope, 'displayMode/update');
-
-export interface UpdateGraphSearchModeParams {
-	searchMode: GraphSearchMode;
-	useNaturalLanguage: boolean;
-}
-export const UpdateGraphSearchModeCommand = new IpcCommand<UpdateGraphSearchModeParams>(scope, 'search/update/mode');
 
 export interface UpdateIncludedRefsParams {
 	branchesVisibility?: GraphBranchesVisibility;
@@ -1247,23 +1231,6 @@ export interface DidSearchHistoryGetParams {
 	 *  storage so the UI can still render something coherent. */
 	error?: string;
 }
-export const SearchHistoryGetRequest = new IpcRequest<void, DidSearchHistoryGetParams>(scope, 'search/history/get');
-
-export interface SearchHistoryStoreParams {
-	search: SearchQuery;
-}
-export const SearchHistoryStoreRequest = new IpcRequest<SearchHistoryStoreParams, DidSearchHistoryGetParams>(
-	scope,
-	'search/history/store',
-);
-
-export interface SearchHistoryDeleteParams {
-	query: string;
-}
-export const SearchHistoryDeleteRequest = new IpcRequest<SearchHistoryDeleteParams, DidSearchHistoryGetParams>(
-	scope,
-	'search/history/delete',
-);
 
 export type DidGetCountParams =
 	| {
@@ -1623,8 +1590,6 @@ export interface GraphSearchResults {
 	ids?: Record<string, GitGraphSearchResultData>;
 	count: number;
 	hasMore: boolean;
-	/** Whether the commits for these search results are loaded in the graph */
-	commitsLoaded: { count: number };
 }
 export interface GraphSearchResultsError {
 	error: string;
@@ -1639,40 +1604,11 @@ export interface GraphSearchRelaxation {
 	count: number;
 	capped?: boolean;
 }
-export interface DidSearchParams {
-	search: SearchQuery | undefined;
-	results: GraphSearchResults | GraphSearchResultsError | undefined;
-	selectedRows?: GraphSelectedRows;
-	/** Indicates this is a partial result (more results coming) */
-	partial?: boolean;
-	/** Set when the pattern failed to compile as a regex and the search matched literally instead */
-	fallback?: { matchedAs: 'literal'; detail?: string };
-	/** Counted broader alternatives offered when a natural-language search settled with 0 results.
-	 *  Present only on the response/notification that computed them — every other notify simply omits
-	 *  it, which is what clears stale relaxations client-side (mirrors `fallback`'s 1:1 mirroring). */
-	relaxations?: GraphSearchRelaxation[];
-	/** A results/coverage REFRESH riding a rows-plane emission — NOT search progress. The app must not
-	 *  derive `searching` from it (an active progressive search's spinner would flicker off, and
-	 *  jump-to-last could skip its wait-for-complete on a partial result set). */
-	rider?: boolean;
-	/** Search ID to track which search these results belong to */
-	searchId: number;
-}
-export const SearchRequest = new IpcRequest<SearchParams, DidSearchParams>(scope, 'search');
-
-export interface SearchRepairParams {
-	/** The query that failed to compile */
-	query: string;
-	/** Git's complaint about it, when we have one */
-	detail?: string;
-}
 export interface DidSearchRepairParams {
 	/** The corrected query, or `undefined` when no suggestion could be produced */
 	query: string | undefined;
 	error?: string;
 }
-/** Asks AI to repair a query the user wrote by hand that git refused to compile. */
-export const SearchRepairRequest = new IpcRequest<SearchRepairParams, DidSearchRepairParams>(scope, 'search/repair');
 
 // NOTIFICATIONS
 
@@ -1914,7 +1850,6 @@ export interface DidChangeRowsParams {
 	rowsStatsIncluded?: boolean;
 	/** Per-graph reachability encoding for the rows in this payload (see {@link State.reachabilityTable}). */
 	reachabilityTable?: GraphReachabilityTable;
-	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 	/**
 	 * Sequencing stamp from the rows-plane publisher (R1). Present once the publisher owns this channel:
@@ -1990,7 +1925,6 @@ export interface DidRequestSearchParams {
 	search: SearchQuery;
 	selectSha?: string;
 }
-export const DidRequestSearchNotification = new IpcNotification<DidRequestSearchParams>(scope, 'search/didRequest');
 
 export interface DidChangeWorkingTreeParams {
 	/** Full worktree topology for the repo (every worktree, primary included) — authoritative, so the
@@ -2020,8 +1954,6 @@ export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWor
 	undefined,
 	true,
 );
-
-export const DidSearchNotification = new IpcNotification<DidSearchParams>(scope, 'didSearch');
 
 export interface DidFetchParams {
 	lastFetched: Date;

@@ -280,7 +280,6 @@ import {
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
-	DidRequestSearchNotification,
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
 	DidStartFeaturePreviewNotification,
@@ -308,13 +307,6 @@ import {
 	ResetGraphFiltersCommand,
 	ResolveGraphScopeRequest,
 	RowActionCommand,
-	SearchCancelCommand,
-	SearchHistoryDeleteRequest,
-	SearchHistoryGetRequest,
-	SearchHistoryStoreRequest,
-	SearchOpenInViewCommand,
-	SearchRepairRequest,
-	SearchRequest,
 	SyncWipWatchesCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
@@ -329,7 +321,6 @@ import {
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
-	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
 	UpdatePinnedRefCommand,
 	UpdateRefsVisibilityCommand,
@@ -405,7 +396,6 @@ type CancellableOperations =
 	| 'branchStateOnly'
 	| 'hover'
 	| 'computeIncludedRefs'
-	| 'search'
 	| 'state'
 	| 'workingTree';
 
@@ -795,8 +785,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getRepository: () => this.repository,
 			getSync: () => this._graphSync,
 			getSelectedId: () => this._selectedId,
-			getSearch: () => this._searchService.search,
-			getSearchIdCounterCurrent: () => this._searchService.searchIdCounterCurrent,
+			getSearch: () => this._searchService.activeSearch,
 			getEtagRepository: () => this._etagRepository,
 			getConvertedSelectedRows: () => convertSelectedRows(this._selectedRows),
 			getSidebarEventSeq: () => this._sidebarEventCounter.current,
@@ -805,9 +794,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			isBranchStateRevisionCurrent: revision => this._producers.isBranchStateRevisionCurrent(revision),
 			commitSentBranchState: (branchState, revision) =>
 				this._producers.commitSentBranchState(branchState, revision),
-			buildSearchRider: () => this._searchService.buildSearchRider(),
 			buildState: () => this.getState(),
-			resetSearchState: () => this._searchService.resetSearchState(),
+			clearSearch: () => this._searchService.clear(),
 			resetRefsMetadata: () => void this._producers.resetRefsMetadata(),
 			resetHoverCache: () => this.resetHoverCache(),
 			clearAvatarProxyCaches: () => {
@@ -817,7 +805,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			clearLastSentOverview: () => this._panels.clearLastSentOverview(),
 			cancelComputeIncludedRefs: () => this.cancelOperation('computeIncludedRefs'),
 			replayPendingRefMetadataForGraph: graph => this._producers.replayPendingRefMetadataForGraph(graph),
-			searchGraphOrContinue: (e, progressive) => this._searchService.searchGraphOrContinue(e, progressive),
+			continueSearchInBackground: query => this._searchService.continueInBackground(query),
+			notifySearchError: (query, results) => this._searchService.notifySearchError(query, results),
+			publishSearchState: () => this._searchService.publishState(),
 			notifyDidChangeOverview: () => void this._panels.notifyDidChangeOverview(),
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
 			notifyDidChangeCanInstallHooks: () => void this.notifyDidChangeCanInstallHooks(),
@@ -870,8 +860,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Collaborator surface {@link GraphSearchService} reaches for. `getRepository`/`getSession` read
 	 *  live provider state; the selection reads/`setSelectedRows` route through the provider's selection
 	 *  state; `updateState`/`updateGraphWithMoreRows`/`notifyDidChangeRows` forward into the data
-	 *  controller; `getWipRows` forwards into the WIP service; the search cancellation callbacks
-	 *  route through the provider's shared `_cancellations` map, which stays here. */
+	 *  controller; `getWipRows` forwards into the WIP service. */
 	private createGraphSearchContext(): GraphSearchServiceContext {
 		return {
 			container: this.container,
@@ -880,16 +869,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getSession: () => this._data.session,
 			getSelectedId: () => this._selectedId,
 			getSelectedRows: () => this._selectedRows,
-			getConvertedSelectedRows: () => convertSelectedRows(this._selectedRows),
 			getEtagRepository: () => this._etagRepository,
 			setSelectedRows: (id, selection, state) => this.setSelectedRows(id, selection, state),
 			updateState: immediate => this._data.updateState(immediate),
 			updateGraphWithMoreRows: (id, limitOverride) =>
 				this._data.updateGraphWithMoreRows(id, undefined, limitOverride),
-			notifyDidChangeRows: () => this._data.notifyDidChangeRows(),
+			notifyDidChangeRows: sendSelectedRows => this._data.notifyDidChangeRows(sendSelectedRows),
 			getWipRows: async () => (await this._wip.getWipRows()).rows,
-			createSearchCancellation: () => this.createCancellation('search'),
-			cancelSearchOperation: () => this.cancelOperation('search'),
 		};
 	}
 
@@ -947,21 +933,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  first so the webview's post-bootstrap sync-hello can be satisfied by this connection's emissions
 	 *  instead of forcing a redundant second snapshot of the initial page. */
 	onReady(): void {
-		// A (re)booted iframe rebuilt its app state WITHOUT search results (bootstrap State doesn't carry
-		// them) — un-gate the search rider AND attach it to THIS flush: invalidation alone leaves the
-		// restore waiting for the next rows emission, which on an idle repo may be arbitrarily far away.
-		this._searchService.invalidateRider();
-		const search = this._searchService.buildSearchRider();
-		this._graphSync.attachRiders({ search: search });
 		this._graphSync.onConnectionReady();
-		// A rider riding a DELTA is silently lost if the freshly-booted receiver gap-drops that delta (its
-		// `notify` still returns true, so the rider clears and never rides the recovery snapshot). When there's
-		// an active search to restore, force this flush to a snapshot — applied unconditionally, it carries the
-		// rider; the post-bootstrap sync-hello then no-ops via the supersede branch (`onConnectionReady` above
-		// precedes this emission).
-		if (search != null) {
-			this._graphSync.requireSnapshot();
-		}
 		void this._graphSync.flush();
 		// Ready is the other edge a secondary-WIP tick can defer on (`runWipRefetch`), and unlike hidden
 		// it resolves without any visibility or focus transition — so nothing else would ever flush it.
@@ -980,17 +952,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  instead of trusting a possibly-pruned replay. (Within-window reloads pay one redundant snapshot —
 	 *  rare path, correctness over bytes.) */
 	onReconnect(): void {
-		// See onReady — a soft-reconnected iframe also reboots without search results, and must get the
-		// search envelope on THIS flush, not whenever the next rows emission happens to occur.
-		this._searchService.invalidateRider();
-		const search = this._searchService.buildSearchRider();
-		this._graphSync.attachRiders({ search: search });
 		this._graphSync.onConnectionReady();
-		// See onReady — a search rider on a delta is gap-dropped by the rebooted receiver; snapshot it so the
-		// active search survives the reconnect (within-window reconnects already pay a snapshot via the hello).
-		if (search != null) {
-			this._graphSync.requireSnapshot();
-		}
 		void this._graphSync.flush();
 		// See onReady — a reconnect crosses the same not-ready window.
 		this._wip.recoverDeferredSecondaryWip();
@@ -1053,6 +1015,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return proxyServices({
 			...base,
 			graphInspect: graphInspect,
+			search: this._searchService.createServices(buffer, tracker).search,
 			sidebar: {
 				getSidebarData: (panel, options, signal) =>
 					this.onGetSidebarData({ panel: panel, displayed: options?.displayed }, signal),
@@ -2130,11 +2093,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}
 		}
-	}
-
-	@ipcCommand(UpdateGraphSearchModeCommand)
-	private onUpdateGraphSearchMode(params: IpcParams<typeof UpdateGraphSearchModeCommand>): void {
-		this._searchService.onUpdateGraphSearchMode(params);
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -3248,53 +3206,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'history':
 				await commands.executeCommand('gitlens.openFileHistory', uri);
 		}
-	}
-
-	@ipcRequest(SearchHistoryGetRequest)
-	@trace()
-	private onSearchHistoryGetRequest(): IpcResponse<typeof SearchHistoryGetRequest> {
-		return this._searchService.onSearchHistoryGetRequest();
-	}
-
-	@ipcRequest(SearchHistoryStoreRequest)
-	@trace()
-	private onSearchHistoryStoreRequest(
-		params: IpcParams<typeof SearchHistoryStoreRequest>,
-	): Promise<IpcResponse<typeof SearchHistoryStoreRequest>> {
-		return this._searchService.onSearchHistoryStoreRequest(params);
-	}
-
-	@ipcRequest(SearchHistoryDeleteRequest)
-	@trace()
-	private onSearchHistoryDeleteRequest(
-		params: IpcParams<typeof SearchHistoryDeleteRequest>,
-	): Promise<IpcResponse<typeof SearchHistoryDeleteRequest>> {
-		return this._searchService.onSearchHistoryDeleteRequest(params);
-	}
-
-	@ipcCommand(SearchCancelCommand)
-	@trace()
-	private onSearchCancel(params: { preserveResults: boolean }): void {
-		this._searchService.onSearchCancel(params);
-	}
-
-	@ipcRequest(SearchRequest)
-	@trace()
-	private onSearchRequest(params: IpcParams<typeof SearchRequest>): Promise<IpcResponse<typeof SearchRequest>> {
-		return this._searchService.onSearchRequest(params);
-	}
-
-	@ipcCommand(SearchOpenInViewCommand)
-	private onSearchOpenInView(params: IpcParams<typeof SearchOpenInViewCommand>): void {
-		this._searchService.onSearchOpenInView(params);
-	}
-
-	@ipcRequest(SearchRepairRequest)
-	@trace()
-	private onSearchRepairRequest(
-		params: IpcParams<typeof SearchRepairRequest>,
-	): Promise<IpcResponse<typeof SearchRepairRequest>> {
-		return this._searchService.onSearchRepairRequest(params);
 	}
 
 	@ipcCommand(ChooseRepositoryCommand)
@@ -4957,7 +4868,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// The active search's mode wins over the stored preference — an NL search can force filter mode
 		// for its own lifetime without persisting it, and a state refresh must not revert the toggle
 		// while that search is still active
-		const activeSearchQuery = this._searchService.search?.query;
+		const activeSearchQuery = this._searchService.activeSearch?.query;
 		const searchMode: GraphSearchMode =
 			activeSearchQuery != null
 				? activeSearchQuery.filter
@@ -5839,7 +5750,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  webview applies it directly via `graphHeader.setExternalSearchQuery`. Used by callers like
 	 *  "Open File History" that want to filter the graph without re-fetching rows/refs/stats. */
 	private notifyRequestSearch(params: DidRequestSearchParams): void {
-		void this.host.notify(DidRequestSearchNotification, params);
+		this._searchService.requestSearch(params);
 	}
 
 	/**

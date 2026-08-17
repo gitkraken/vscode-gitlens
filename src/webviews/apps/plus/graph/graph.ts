@@ -20,6 +20,8 @@ import { coachMarkSeenContext, createCoachMarkSeenStore } from './coachMarkSeen.
 import { graphServicesContext } from './context.js';
 import type { GraphApp } from './graph-app.js';
 import { applyGraphThemeVariables } from './graph-wrapper/graph-theme-bridge.js';
+import { createSearchActions } from './search/searchActions.js';
+import { searchActionsContext } from './search/searchContext.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import { createSidebarActions } from './sidebar/sidebarState.js';
 import { GraphStateProvider } from './stateProvider.js';
@@ -41,6 +43,21 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		context: sidebarActionsContext,
 		initialValue: this._sidebarActions,
 	});
+
+	private _searchActions = createSearchActions();
+
+	// Same eager-provider pattern as `_sidebarActionsProvider` above.
+	private _searchActionsProvider = new ContextProvider(this, {
+		context: searchActionsContext,
+		initialValue: this._searchActions,
+	});
+
+	/** Unsubscribes the current `onDidRequestSearch` listener — reconnect-safe teardown, same pattern as
+	 *  `_sidebarActions.initialize()`'s own subscriptions. */
+	private _unsubscribeRequestSearch: (() => void) | undefined;
+	/** The search remote `_unsubscribeRequestSearch` currently belongs to — lets a superseding
+	 *  `_onRpcReady` (reconnect) detect and discard a subscribe that resolves after it's moved on. */
+	private _activeSearchRemote: unknown;
 
 	private readonly _onboardingDismissals = createOnboardingDismissals();
 
@@ -76,6 +93,26 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
+
+		const search = await services.search;
+		this._searchActions.initialize(search, this._stateProvider);
+
+		// Tear down the previous listener first — reconnect-safe, same pattern as `_sidebarActions.initialize()`.
+		this._unsubscribeRequestSearch?.();
+		this._unsubscribeRequestSearch = undefined;
+		this._activeSearchRemote = search;
+
+		const unsub = (await search.onDidRequestSearch(params => {
+			this.dispatchEvent(new CustomEvent('gl-graph-request-search', { detail: params, bubbles: true }));
+		})) as unknown as (() => void) | undefined;
+		if (typeof unsub !== 'function') return;
+
+		if (this._activeSearchRemote !== search) {
+			unsub();
+			return;
+		}
+
+		this._unsubscribeRequestSearch = unsub;
 	}
 
 	@query('gl-graph-app')
@@ -131,6 +168,9 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		);
 		this.removeEventListener('gl-graph-request-reveal-failed', this._handleRequestRevealFailed as EventListener);
 		this._sidebarActions.dispose();
+		this._searchActions.dispose();
+		this._unsubscribeRequestSearch?.();
+		this._unsubscribeRequestSearch = undefined;
 		this._onboardingDismissals.dispose();
 		this._coachMarkSeen.dispose();
 	}

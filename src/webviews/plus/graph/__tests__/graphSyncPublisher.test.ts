@@ -2,13 +2,7 @@ import * as assert from 'assert';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import { GraphSyncPublisher } from '../graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from '../graphSyncPublisher.js';
-import type {
-	DidChangeRowsParams,
-	DidSearchParams,
-	GraphPaging,
-	GraphRefMetadata,
-	GraphRowStats,
-} from '../protocol.js';
+import type { DidChangeRowsParams, GraphPaging, GraphRefMetadata, GraphRowStats } from '../protocol.js';
 
 function row(sha: string, options?: Partial<GitGraphRow>): GitGraphRow {
 	return {
@@ -345,20 +339,16 @@ suite('graphSyncPublisher', () => {
 		data.rows = rows(5);
 
 		await publisher.flush(); // snapshot, no riders attached
-		assert.strictEqual(host.last.search, undefined);
 		assert.strictEqual(host.last.selectedRows, undefined);
-
-		const search: DidSearchParams = { search: { query: 'foo' }, results: undefined, searchId: 1 };
 
 		// A failed delta carries the riders but must NOT clear them (the send failed).
 		host.ok = false;
 		data.avatars.set('a@example.com', 'url-a');
-		publisher.attachRiders({ search: search, selectedRows: { sha0: true } });
+		publisher.attachRiders({ selectedRows: { sha0: true } });
 		publisher.mark('avatars');
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 2);
 		assert.deepStrictEqual(host.last.selectedRows, { sha0: true });
-		assert.deepStrictEqual(host.last.search, search);
 		assert.strictEqual(publisher.snapshotRequired, true, 'the failed send marked broken');
 
 		// The recovery snapshot re-carries the same riders...
@@ -366,14 +356,12 @@ suite('graphSyncPublisher', () => {
 		await publisher.flush();
 		assert.strictEqual(host.last.sync?.snapshot, true);
 		assert.deepStrictEqual(host.last.selectedRows, { sha0: true }, 'riders re-ride the recovery snapshot');
-		assert.deepStrictEqual(host.last.search, search);
 
 		// ...and are cleared after the successful emission.
 		data.avatars.set('b@example.com', 'url-b');
 		publisher.mark('avatars');
 		await publisher.flush();
 		assert.strictEqual(host.last.selectedRows, undefined, 'riders cleared after a successful send');
-		assert.strictEqual(host.last.search, undefined);
 
 		publisher.dispose();
 	});
@@ -643,54 +631,24 @@ suite('graphSyncPublisher', () => {
 		data.rows = rows(5);
 		await publisher.flush(); // snapshot
 
-		const search1: DidSearchParams = { search: { query: 'one' }, results: undefined, searchId: 1 };
-		const search2: DidSearchParams = { search: { query: 'two' }, results: undefined, searchId: 2 };
-
 		host.gate = true;
 		data.avatars.set('a@example.com', 'url-a');
-		publisher.attachRiders({ search: search1 });
+		publisher.attachRiders({ selectedRows: { sha0: true } });
 		publisher.mark('avatars');
-		const inFlight = publisher.flush(); // ships delta #1 carrying search1, notify held pending
-		assert.deepStrictEqual(host.last.search, search1);
+		const inFlight = publisher.flush(); // ships delta #1 carrying the selection rider, notify held pending
+		assert.deepStrictEqual(host.last.selectedRows, { sha0: true });
 
-		// Re-attach a NEW search rider while the send is in flight.
-		publisher.attachRiders({ search: search2 });
+		// Re-attach a NEW selection rider while the send is in flight.
+		publisher.attachRiders({ selectedRows: { sha1: true } });
 
 		host.release(true); // delta #1 succeeds
 		await inFlight;
 		await tick();
 
-		// The successful send cleared the CAPTURED search1 but not the re-attached search2 — a riders-only
-		// pending state, so the trailing re-run fires exactly one carrier for the survivor.
+		// The successful send cleared the CAPTURED sha0 rider but not the re-attached sha1 one — a
+		// riders-only pending state, so the trailing re-run fires exactly one carrier for the survivor.
 		assert.strictEqual(host.sent.length, 3, 'the surviving rider forced a trailing carrier emission');
-		assert.deepStrictEqual(host.last.search, search2);
-
-		publisher.dispose();
-	});
-
-	test('a successful send clears only the riders it actually carried', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-		await publisher.flush();
-
-		const search: DidSearchParams = { search: { query: 'foo' }, results: undefined, searchId: 1 };
-		host.gate = true;
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.attachRiders({ search: search, selectedRows: { sha0: true } });
-		publisher.mark('avatars');
-		const inFlight = publisher.flush(); // carries both riders, held
-		assert.deepStrictEqual(host.last.search, search);
-		assert.deepStrictEqual(host.last.selectedRows, { sha0: true });
-
-		// Re-attach ONLY selectedRows mid-flight (a fresh selection landed); search is untouched.
-		publisher.attachRiders({ selectedRows: { sha2: true } });
-
-		host.release(true);
-		await inFlight;
-		await tick();
-
-		assert.strictEqual(host.last.search, undefined, 'the sent-and-unchanged search rider was cleared');
-		assert.deepStrictEqual(host.last.selectedRows, { sha2: true }, 'the re-attached selection survived');
+		assert.deepStrictEqual(host.last.selectedRows, { sha1: true });
 
 		publisher.dispose();
 	});
@@ -700,17 +658,13 @@ suite('graphSyncPublisher', () => {
 		data.rows = rows(5);
 		await publisher.flush();
 
-		publisher.attachRiders({
-			search: { search: { query: 'x' }, results: undefined, searchId: 1 },
-			selectedRows: { sha0: true },
-		});
+		publisher.attachRiders({ selectedRows: { sha0: true } });
 		// A repo swap bumps the generation before the riders ever shipped.
 		publisher.onGraphIdentityChanged();
 		await publisher.flush(); // gen-1 snapshot
 
 		assert.strictEqual(host.last.sync?.snapshot, true);
-		assert.strictEqual(host.last.search, undefined, 'stale riders do not ride the new-repo snapshot');
-		assert.strictEqual(host.last.selectedRows, undefined);
+		assert.strictEqual(host.last.selectedRows, undefined, 'stale riders do not ride the new-repo snapshot');
 
 		publisher.dispose();
 	});
@@ -755,13 +709,12 @@ suite('graphSyncPublisher', () => {
 		assert.strictEqual(host.last.sync?.snapshot, true);
 
 		// Now a held multi-step delta: marks + riders coalesce into one release-driven emission.
-		const search: DidSearchParams = { search: { query: 'q' }, results: undefined, searchId: 1 };
 		publisher.hold();
 		data.avatars.set('a@example.com', 'url-a');
 		data.rowsStats.set('sha0', { additions: 1, deletions: 0, files: 1 });
 		publisher.mark('avatars');
 		publisher.mark('rowsStats');
-		publisher.attachRiders({ search: search, selectedRows: { sha0: true } });
+		publisher.attachRiders({ selectedRows: { sha0: true } });
 		await publisher.flush(); // no-op while held
 		assert.strictEqual(host.sent.length, 1);
 
@@ -770,8 +723,11 @@ suite('graphSyncPublisher', () => {
 		assert.strictEqual(host.sent.length, 2, 'release flushes exactly once');
 		assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
 		assert.ok(host.last.rowsStats?.sha0, 'the coalesced delta carries every held mark');
-		assert.deepStrictEqual(host.last.search, search, 'riders attached during the hold ride the release flush');
-		assert.deepStrictEqual(host.last.selectedRows, { sha0: true });
+		assert.deepStrictEqual(
+			host.last.selectedRows,
+			{ sha0: true },
+			'the rider attached during the hold rides the release flush',
+		);
 
 		publisher.dispose();
 	});

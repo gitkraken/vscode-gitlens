@@ -3,7 +3,7 @@ import type { GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js'
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
-import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GlCommands } from '../../../constants.commands.js';
@@ -25,8 +25,16 @@ import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detail
 import type {
 	DidGetCountParams,
 	DidGetSidebarDataParams,
+	DidRequestSearchParams,
+	DidSearchHistoryGetParams,
+	DidSearchRepairParams,
+	GraphSearchMode,
+	GraphSearchRelaxation,
+	GraphSearchResults,
+	GraphSearchResultsError,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
+	SearchParams,
 	SidebarWorktreeChange,
 } from './protocol.js';
 
@@ -700,6 +708,67 @@ export interface GraphSidebarService {
 	onWorktreeStateChanged: RpcEventSubscription<{ changes: Record<string, SidebarWorktreeChange | undefined> }>;
 }
 
+/**
+ * Everything the app knows about the active search. Always a COMPLETE snapshot, never a delta —
+ * `onDidChange` is `save-last` buffered, so a hidden webview keeps only the newest emission and a
+ * delta would silently lose the batches in between. `undefined` means no active search.
+ */
+export interface GraphSearchState {
+	query: SearchQuery;
+	results: GraphSearchResults | GraphSearchResultsError | undefined;
+	/** Host still producing results — includes background continuations the app never asked for. */
+	searching: boolean;
+	/** Set when the pattern failed to compile as a regex and the search matched literally instead. */
+	fallback?: { matchedAs: 'literal'; detail?: string };
+	/** Counted broader alternatives, offered when a natural-language search settles with 0 results. */
+	relaxations?: GraphSearchRelaxation[];
+}
+
+/**
+ * A search's answer to the caller that asked for it. `state` is what the search settled on;
+ * `revealSha` is a one-shot instruction to scroll there, deliberately NOT part of {@link GraphSearchState}
+ * — state is replayed on reconnect, and replaying a scroll moves the user somewhere they never asked to go.
+ */
+export interface GraphSearchResponse {
+	state: GraphSearchState;
+	revealSha?: string;
+}
+
+export interface GraphSearchService {
+	/**
+	 * Runs a search, resolving with its final state — or `undefined` when the caller's `signal` aborted,
+	 * which is also how a newer search supersedes an older one (the client owns one signal per search).
+	 * Interim states arrive on {@link onDidChange}.
+	 */
+	search(params: SearchParams, signal?: AbortSignal): Promise<GraphSearchResponse | undefined>;
+	/** The active search, for seeding a freshly connected app. Pull-based, so no emission can be lost
+	 *  to a teardown race the way a pushed one can. */
+	getState(): Promise<GraphSearchState | undefined>;
+	/** Stops the active search's WORK — every host-side operation, including background continuations
+	 *  the data controller runs under its own signal (which aborting `search`'s request signal cannot
+	 *  reach) — while keeping the accumulated results and the resume cursor. The pause behind the search
+	 *  box's stop button; emits nothing, since the pausing app settles its own UI. */
+	cancel(): void;
+	/** Drops the active search and everything accumulated for it. */
+	clear(): void;
+	/** Persists the sticky search preferences. `searchMode: undefined` leaves the mode untouched (and
+	 *  the active search's filter unrewritten) — for an NL-preference change without a mode choice. */
+	setMode(searchMode: GraphSearchMode | undefined, useNaturalLanguage: boolean): void;
+	openInView(search: SearchQuery): void;
+	/** Asks AI to repair a query git refused to compile. */
+	repair(query: string, detail?: string): Promise<DidSearchRepairParams>;
+	getHistory(): Promise<DidSearchHistoryGetParams>;
+	storeHistory(search: SearchQuery): Promise<DidSearchHistoryGetParams>;
+	deleteHistory(query: string): Promise<DidSearchHistoryGetParams>;
+
+	/** Authoritative for host-initiated changes (background continuations, repo swap); advisory during a
+	 *  client-initiated `search`, whose true answer is that call's return value. Both carry the same
+	 *  complete snapshot, so the app applies them identically. */
+	onDidChange: RpcEventSubscription<GraphSearchState | undefined>;
+	/** An external request to run a search in the graph (deep link, command, another surface). */
+	onDidRequestSearch: RpcEventSubscription<DidRequestSearchParams>;
+}
+
 export interface GraphTimelineService {
 	/**
 	 * Fetch the dataset for the Graph webview's Timeline display mode. Delegates to the same
@@ -775,6 +844,7 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly launchpad: GraphLaunchpadService;
 	readonly walkthrough: GraphWalkthroughService;
 	readonly sidebar: GraphSidebarService;
+	readonly search: GraphSearchService;
 	readonly welcome: GraphWelcomeService;
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;

@@ -4,6 +4,7 @@ import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch } from '@gitlens/git/models/graphSearch.js';
 import type { GitGraphSession, GitGraphSessionChangedChannels } from '@gitlens/git/models/graphSession.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
@@ -22,16 +23,15 @@ import type { WebviewHost } from '../../webviewProvider.js';
 import { toGraphSearchResultsError } from './graphSearchService.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
-import { DidChangeNotification, DidSearchNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
+import { DidChangeNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
 import type {
 	BranchState,
 	CancelLoadRowCommand,
-	DidSearchParams,
 	GetMoreRowsCommand,
+	GraphSearchResultsError,
 	GraphSelectedRows,
 	GraphSyncResyncCommand,
 	LoadRowRequest,
-	SearchRequest,
 	State,
 } from './protocol.js';
 
@@ -50,7 +50,6 @@ export type GraphDataControllerContext = {
 	// Selection / search / etag reads.
 	getSelectedId: () => string | undefined;
 	getSearch: () => GitGraphSearch | undefined;
-	getSearchIdCounterCurrent: () => number;
 	getEtagRepository: () => number | undefined;
 	getConvertedSelectedRows: () => GraphSelectedRows | undefined;
 
@@ -62,19 +61,22 @@ export type GraphDataControllerContext = {
 	commitSentBranchState: (branchState: BranchState, revision: number) => void;
 
 	// Collaborators the moved bodies invoke (stay on the provider).
-	buildSearchRider: () => DidSearchParams | undefined;
 	buildState: () => Promise<State>;
-	resetSearchState: () => void;
+	clearSearch: () => void;
 	resetRefsMetadata: () => void;
 	resetHoverCache: () => void;
 	clearAvatarProxyCaches: () => void;
 	clearLastSentOverview: () => void;
 	cancelComputeIncludedRefs: () => void;
 	replayPendingRefMetadataForGraph: (graph: GitGraph) => void;
-	searchGraphOrContinue: (
-		e: IpcParams<typeof SearchRequest>,
-		progressive: boolean,
-	) => Promise<IpcResponse<typeof SearchRequest>>;
+	/** Silently continues the ACTIVE search in the background (auto-load-more keeping pace with a rows
+	 *  page-in); rethrows a genuine (non-abort) failure. Resolves to whether the search's results/`hasMore`
+	 *  actually changed. */
+	continueSearchInBackground: (query: SearchQuery) => Promise<boolean>;
+	/** Ships the current settled search state — for after a successful `continueSearchInBackground`. */
+	publishSearchState: () => void;
+	/** Shows a search failure that happened outside the search RPC's own call as the current state. */
+	notifySearchError: (query: SearchQuery, results: GraphSearchResultsError) => void;
 	notifyDidChangeOverview: () => void;
 	notifySidebarInvalidated: () => void;
 	notifyDidChangeCanInstallHooks: () => void;
@@ -262,11 +264,10 @@ export class GraphDataController {
 	notifyDidChangeRows(sendSelectedRows: boolean = false): void {
 		if (this._graphSession == null) return;
 
-		// `search` always rides (fresh truth, including undefined-to-clear). The `selectedRows` KEY is
-		// included ONLY when sending selection — `attachRiders` keys off `'selectedRows' in riders`, so
-		// omitting it can't stomp a selection rider a concurrent call left pending.
+		// The `selectedRows` KEY is included ONLY when sending selection — `attachRiders` keys off
+		// `'selectedRows' in riders`, so omitting it can't stomp a selection rider a concurrent call left
+		// pending.
 		this._graphSync.attachRiders({
-			search: this.context.buildSearchRider(),
 			...(sendSelectedRows ? { selectedRows: this.context.getConvertedSelectedRows() } : {}),
 		});
 		void this._graphSync.flush();
@@ -442,7 +443,7 @@ export class GraphDataController {
 			this.context.clearAvatarProxyCaches();
 			this.context.resetHoverCache();
 			this.context.resetRefsMetadata();
-			this.context.resetSearchState();
+			this.context.clearSearch();
 			this.context.cancelComputeIncludedRefs();
 			this.context.clearWipStatusCache();
 		} else {
@@ -624,23 +625,19 @@ export class GraphDataController {
 			if (!search?.hasMore || lastSearchResultId == null) return;
 
 			if (session.current.ids.has(lastSearchResultId)) {
-				// Auto-load more search results in the background
-				// Suppress notifications - notifyDidChangeRows will send both
-				// the search results AND the rows together to avoid race conditions
+				// Auto-load more search results in the background, without the per-batch progress noise
+				// a foreground continuation fires — only the settled state is shown. Skip the publish
+				// when nothing changed, so a no-op (or superseded) continuation doesn't re-serialize the
+				// entire accumulated result map for no reason.
 				try {
-					await this.context.searchGraphOrContinue({ search: search.query, more: true }, false);
-					// Search results are now updated in this._search
-					// notifyDidChangeRows() will send them along with the rows
+					const changed = await this.context.continueSearchInBackground(search.query);
+					if (changed) {
+						this.context.publishSearchState();
+					}
 				} catch (ex) {
 					if (isCancellationError(ex)) return;
 
-					// Only send error notifications immediately
-					void this.host.notify(DidSearchNotification, {
-						search: search.query,
-						results: toGraphSearchResultsError(ex),
-						partial: false,
-						searchId: this.context.getSearchIdCounterCurrent(),
-					});
+					this.context.notifySearchError(search.query, toGraphSearchResultsError(ex));
 				}
 			}
 		}
@@ -691,9 +688,11 @@ export class GraphDataController {
 			return;
 		}
 
-		// Hold the publisher across the whole page-in so the page rows AND the search/selection riders ship
-		// as ONE atomic emission — `updateGraphWithMoreRows` → setGraph marks the channels and its internal
-		// search-continue await would otherwise let a premature flush ship rows without the search envelope.
+		// Hold the publisher across the whole page-in so the page rows and the selectedRows rider ship as
+		// ONE atomic emission on the sync flush — `updateGraphWithMoreRows` → setGraph marks the rows
+		// channel, and its internal search-continue await would otherwise let a premature flush ship rows
+		// without the selection catching up. Search state is unrelated to this hold: it's published
+		// separately over its own RPC event (`publishSearchState`/`notifySearchError`), not the sync flush.
 		this._graphSync.hold();
 		try {
 			await this.updateGraphWithMoreRows(params.id, this._search, params.limit);
