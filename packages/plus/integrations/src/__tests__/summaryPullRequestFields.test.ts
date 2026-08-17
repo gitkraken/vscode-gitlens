@@ -2,6 +2,9 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
+import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { ProviderPullRequest } from '../providers/models.js';
+import { PagingMode } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -55,12 +58,13 @@ suite('summary pull request field selection', () => {
 			string,
 			(input: { fields?: Record<string, boolean> }) => Promise<unknown>
 		>;
+		const capture = (input: { fields?: Record<string, boolean> }) => {
+			fields ??= input.fields;
+			return Promise.resolve({ data: [], pageInfo: undefined });
+		};
 		// Both variants, so the capture holds regardless of the provider's paging mode.
 		for (const fnName of ['getPullRequestsForReposFn', 'getPullRequestsForRepoFn']) {
-			provider[fnName] = input => {
-				fields ??= input.fields;
-				return Promise.resolve({ data: [], pageInfo: undefined });
-			};
+			provider[fnName] = capture;
 		}
 
 		await (
@@ -131,12 +135,13 @@ suite('summary pull request field selection', () => {
 			string,
 			(input: { fields?: Record<string, boolean> }) => Promise<unknown>
 		>;
+		const capture = (input: { fields?: Record<string, boolean> }) => {
+			called = true;
+			sawFields ??= input.fields;
+			return Promise.resolve({ data: [], pageInfo: undefined });
+		};
 		for (const fnName of ['getPullRequestsForReposFn', 'getPullRequestsForRepoFn']) {
-			provider[fnName] = input => {
-				called = true;
-				sawFields ??= input.fields;
-				return Promise.resolve({ data: [], pageInfo: undefined });
-			};
+			provider[fnName] = capture;
 		}
 
 		await (
@@ -148,5 +153,65 @@ suite('summary pull request field selection', () => {
 		manager.dispose();
 		assert.equal(called, true, 'the read reached the provider');
 		assert.equal(sawFields, undefined, 'a non-summary read must send no field map');
+	});
+
+	test('EVERY request of a drained summary read carries the map, not just the first', async () => {
+		// A page-only request on a PagingMode.Repos host (GitHub included) walks the provider's own
+		// continuations to reach the requested page, so one call from the caller becomes N upstream
+		// requests. All N must carry the map: dropping it on the re-reads would revert to the full payload
+		// on the path that issues the MOST requests, and would return rows of a different shape than page
+		// 1 — a summary row reports `headCommit`/`commitCount` as absent, a full one does not.
+		//
+		// Asserted over all calls rather than the first because that is exactly what a single-capture test
+		// cannot see: this bug lived past a test that pinned the first request's map.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: unknown })._session = {
+			id: 'primary',
+			accessToken: 't',
+			account: { id: 'me', label: 'me' },
+			scopes: ['repo'],
+			cloud: true,
+			type: 'oauth',
+			domain: 'github.com',
+		};
+
+		const seen: (Record<string, boolean> | undefined)[] = [];
+		(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
+			Promise.resolve({
+				isRepoIdsInput: () => false,
+				getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+				getPullRequestsForRepos: (
+					_token: unknown,
+					_repos: unknown,
+					input: { fields?: Record<string, boolean> },
+				) => {
+					seen.push(input.fields);
+					return Promise.resolve({
+						values: [{ id: `page-${seen.length}` } as unknown as ProviderPullRequest],
+						paging: {
+							more: true,
+							cursor: JSON.stringify({ value: `next-${seen.length}`, type: 'cursor' }),
+						},
+					});
+				},
+			} as unknown as Awaited<ReturnType<GitHostIntegration['getProvidersApi']>>);
+
+		await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: [{ namespace: 'octo', name: 'repo' }],
+			page: 3,
+			summary: true,
+		});
+
+		manager.dispose();
+		assert.ok(seen.length > 1, `the read drained (${seen.length} upstream requests), so re-reads are covered`);
+		for (const [i, fields] of seen.entries()) {
+			assert.ok(fields != null, `request ${i + 1} of ${seen.length} sent a field map`);
+			for (const key of GATED_SUBTREE_KEYS) {
+				assert.equal(fields[key], false, `request ${i + 1} of ${seen.length} dropped ${key}`);
+			}
+		}
 	});
 });

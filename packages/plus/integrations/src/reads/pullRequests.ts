@@ -121,6 +121,25 @@ export async function listPullRequestsPage(
 	}
 
 	const includeReviewRequested = accountWide ? (options.includeReviewRequested ?? false) : false;
+	// Everything but the cursor, shared by the initial read and the drain's re-reads below so the two cannot
+	// drift. `summary` is the reason this matters beyond tidiness: a re-read that dropped it would both
+	// revert to the full payload — on the very path that issues the most requests — and return rows of a
+	// different shape than the first page, since a summary row reports `headCommit`/`commitCount` as absent.
+	const accountWideInput = {
+		state: options.states,
+		includeReviewRequested: includeReviewRequested,
+		filters: resolvedFilters.filters,
+		summary: true,
+	};
+	// `filters` scopes the read to the current user (the core resolves the account for these), so it returns
+	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Azure), whose
+	// per-repo cursor path ignores a synthesized page-number cursor, honor the requested size.
+	const scopedInput = {
+		state: options.states,
+		filters: resolvedFilters.filters,
+		pageSize: options.itemsPerPage,
+		summary: options.summary,
+	};
 	const { value, warning } = await runCaptured(
 		options.providerId,
 		domain,
@@ -128,31 +147,20 @@ export async function listPullRequestsPage(
 		() =>
 			accountWide
 				? integration.getMyPullRequestsForUserResult(
-						{
-							state: options.states,
-							cursor: cursor,
-							includeReviewRequested: includeReviewRequested,
-							filters: resolvedFilters.filters,
-							summary: true,
-						},
+						{ ...accountWideInput, cursor: cursor },
 						options.connectionId,
 					)
 				: integration.getMyPullRequestsForReposResult(
 						options.repos ?? [],
-						// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo hosts (GitLab, Bitbucket,
-						// Azure), whose per-repo cursor path ignores a synthesized page-number cursor, still honor the
-						// requested page and page size instead of always returning page 1. `filters` scopes the read to
-						// the current user (the core resolves the account for these), so it returns the user's PRs.
 						{
-							state: options.states,
-							filters: resolvedFilters.filters,
+							...scopedInput,
 							cursor: cursor,
-							// The normalized `page`, so the number forwarded to the provider can't disagree with the
-							// page-number cursor beside it — both are built from the same value. Only when the caller
-							// asked for one: an omitted page is the provider's own first page.
+							// Forward `page` alongside the cursor so PagingMode.Repo hosts honor the requested page
+							// instead of always returning page 1. The normalized `page`, so the number forwarded to the
+							// provider can't disagree with the page-number cursor beside it — both are built from the
+							// same value. Only when the caller asked for one: an omitted page is the provider's own
+							// first page.
 							page: options.page != null ? page : undefined,
-							pageSize: options.itemsPerPage,
-							summary: options.summary,
 						},
 						options.connectionId,
 					),
@@ -192,25 +200,16 @@ export async function listPullRequestsPage(
 						domain,
 						options.connectionId,
 						() =>
+							// No `page` here, unlike the initial read: a drain advances through the provider's own
+							// continuations, so the cursor is what positions these.
 							accountWide
 								? integration.getMyPullRequestsForUserResult(
-										{
-											state: options.states,
-											cursor: cursor,
-											includeReviewRequested: includeReviewRequested,
-											filters: resolvedFilters.filters,
-											summary: true,
-										},
+										{ ...accountWideInput, cursor: cursor },
 										options.connectionId,
 									)
 								: integration.getMyPullRequestsForReposResult(
 										options.repos ?? [],
-										{
-											state: options.states,
-											filters: resolvedFilters.filters,
-											cursor: cursor,
-											pageSize: options.itemsPerPage,
-										},
+										{ ...scopedInput, cursor: cursor },
 										options.connectionId,
 									),
 						{
