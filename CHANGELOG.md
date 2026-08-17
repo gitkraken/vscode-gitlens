@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a _Don't Ask Again_ checkbox to skippable confirmations in the _Git Command Palette_, with a gear button that jumps to the `gitlens.gitCommands.skipConfirmations` setting
 - Adds support for pushing tags ([#832](https://github.com/gitkraken/vscode-gitlens/issues/832)) &mdash; a new _Push Tag..._ action on tags in the views, the _Commit Graph_ (rows, side bar, and the tag sheet's _Next steps_), and a new _Git Push Tag..._ command in the Command Palette; choose the remote (skipped when there is only one) and confirm, with an optional force push for moved tags
 - Adds a bright lane highlight when pinning a branch's ref pill in the _Commit Graph_, and to the `Ctrl`/`Alt`-held chain highlight &mdash; the branch's lane stays lit through dimmed rows and traces down to its fork point, while other lanes mute so the highlighted one stands out
 - Adds _Hide Remote_ and _Show Remote_ actions to remote rows in the _Commit Graph_ side bar, and shows hidden branches, remotes, and tags dimmed with an _eye-closed_ marker and an un-hide action instead of leaving them indistinguishable from visible ones
@@ -27,11 +28,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes the _Git Command Palette_'s confirmations to one consistent design &mdash; action rows (safest pre-selected) plus checkbox toggles for options, replacing a row for every flag combination; toggles default from your Git config (`fetch.prune`, `merge.ff`), and _Force_ toggles visibly rewrite the action and never default on
+- Changes pushing in the _Git Command Palette_ to three consistent confirmation shapes &mdash; ahead, behind, and unpublished &mdash; with the blocking reason shown above the choices and the _Fetch_ action beside the input
+- Changes switching in the _Git Command Palette_ to just the targets, with an _In a New Worktree_ toggle (remembered per repository); _Switch to Local Branch & Fast-Forward_ now works in a worktree
+- Changes stashing in the _Git Command Palette_ to ask for the message first, so the final Enter stashes &mdash; and a new _Stash Changes & Untracked_ mode plus a _Keep Staged_ toggle make previously unreachable combinations possible
+- Changes worktree creation in the _Git Command Palette_ to set the location via in-place _Root Folder..._ / _Specific Folder..._ rows and an _After Creating_ choice (defaulting from `gitlens.worktrees.openAfterCreate`), replacing the post-create prompt
+- Changes worktree deletion in the _Git Command Palette_ to a single step &mdash; _Delete Branch_ / _Delete Upstream_ toggles (remembered) replace chaining into the branch-delete flow, and uncommitted-changes warnings appear before Enter instead of as modals after
+- Changes the _Git Command Palette_'s subcommand menus to Title Case labels (e.g. _Merge Target_ instead of `mergeTarget`); typing the raw key still filters
 - Changes the default remote's `default` text badge in the _Commit Graph_ side bar to a check mark, matching the current branch marker
 - Changes the _Commit Graph_'s hidden branches/tags list to show remotes with their provider's icon, matching the side bar, instead of a low-fidelity avatar image
 
 ### Fixed
 
+- Fixes the push confirmation pre-selecting _Force Push_ when the branch is behind its upstream &mdash; Enter force-pushed; _Cancel_ is now the default
+- Fixes `:command`-scoped entries in `gitlens.gitCommands.skipConfirmations` never applying to subcommands &mdash; e.g. `stash-push:command` still confirmed when stashing from a view
 - Fixes _Hide Remote_ in the _Commit Graph_ only hiding the selected branch instead of all of the remote's branches ([#5728](https://github.com/gitkraken/vscode-gitlens/issues/5728))
 - Fixes the split conflict status icons rendering clipped in file trees &mdash; e.g. the _Commit Graph_'s _Working Changes_ details and _Resolve_ mode, and the _Inspect_ and _Patch Details_ views
 - Fixes the _Commit Graph_ sometimes failing to scroll to a revealed row &mdash; on long jumps (deep links, _Show in Commit Graph_, and similar reveals) the selection landed but the viewport could strand partway
