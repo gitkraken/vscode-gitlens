@@ -167,6 +167,10 @@ export class FilesService {
 		rhsRef?: string,
 	): Promise<void> {
 		if (file.repoPath == null || lhsRef == null || rhsRef == null) return;
+		// An untracked directory that is itself a repository is reported with a trailing slash. It is a
+		// directory on disk with no content to diff against any ref. Guarded here rather than in the row
+		// component because this is where the path becomes a URI that gets handed to the diff editor.
+		if (file.path.endsWith('/')) return;
 
 		const lhsUri = GitUri.fromFile(file.originalPath ?? file.path, file.repoPath, lhsRef);
 		// `rhsRef === ''` means "working tree": construct an absolute `file://` URI directly.
