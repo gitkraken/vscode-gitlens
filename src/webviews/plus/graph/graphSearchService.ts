@@ -75,6 +75,9 @@ export type GraphSearchServiceContext = {
 	getWipRows: () => Promise<GraphWipRowsById>;
 	createSearchCancellation: () => CancellationTokenSource;
 	cancelSearchOperation: () => void;
+	/** Overrides {@link GraphSearchService.convertNaturalLanguage}'s defensive AI round-trip timeout
+	 *  (default 30000ms) — test-only seam, never set in production. */
+	nlConversionTimeoutMs?: number;
 };
 
 /** Turns a search failure into the webview-facing {@link GraphSearchResultsError}. A classified
@@ -663,7 +666,7 @@ export class GraphSearchService {
 					options,
 					cancellation.token,
 				),
-				30000,
+				this.context.nlConversionTimeoutMs ?? 30000,
 				undefined,
 				{
 					onDidCancel: resolve => {
