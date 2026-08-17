@@ -2603,9 +2603,9 @@ interface GitHealthProbeEvent {
 	'packs.bytes': number;
 	/** Extrapolated loose-object count */
 	'estimate.looseObjects': number;
-	/** Tracked-file count — the exact index-header entry count when available, else the index-bytes proxy */
+	/** Tracked-file count — a full/sparse index-entry count when usable, else the index-bytes proxy */
 	'estimate.trackedFiles': number;
-	/** Whether `estimate.trackedFiles` is the exact index-header count rather than the byte-size estimate */
+	/** Whether `estimate.trackedFiles` is the exact repository-wide count from a normal index */
 	'estimate.trackedFilesExact': boolean;
 	/** Whether a commit-graph is present */
 	'commitGraph.present': boolean;

@@ -29,16 +29,26 @@ const dailyPassIntervalMs = 24 * 60 * 60 * 1000;
 const persistSlownessDebounceMs = 5000;
 /** Debounce for change-driven re-probes so a burst of index events collapses to one probe. */
 const probeDebounceMs = 2000;
-/**
- * Git subcommands GitLens itself issues for background maintenance (the auto-tier pass + the demand-cadence
- * commit-graph write). These are legitimately slow and don't block the user, so they must NOT count as passive
- * "slowness" — else our own optimization work would justify suggesting more of it.
- *
- * Name matching is a BACKSTOP only. The primary mechanism is the exec layer's `selfMaintenance` run option,
- * which the maintenance provider sets explicitly: a subcommand name can't tell our work from the user's,
- * since the same `update-index`/`status` also serve real staging and status calls.
- */
-const selfMaintenanceOperations = new Set(['maintenance', 'commit-graph', 'repack', 'gc', 'prune', 'pack-refs']);
+/** Local operations whose runtime can plausibly be improved by the repository optimizations Health offers. */
+const localHealthSignalOperations = new Set([
+	'add',
+	'blame',
+	'cat-file',
+	'checkout',
+	'diff',
+	'for-each-ref',
+	'log',
+	'ls-files',
+	'merge-base',
+	'read-tree',
+	'restore',
+	'reset',
+	'rev-list',
+	'show',
+	'status',
+	'switch',
+	'update-index',
+]);
 /** Slowness entries idle longer than this are dropped at hydrate time so removed repos don't accrue forever. */
 const slownessMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -73,6 +83,15 @@ export class GitHealthService implements Disposable {
 	// Per-lever view rows, computed at probe time from the same snapshot + capabilities the report used —
 	// so the view can never disagree with the report about what's enabled or who enabled it.
 	private readonly _levers = new Map<string, GitHealthLever[]>();
+	// Completed on-demand details. Index/config-only changes reuse these instead of repeating full-history walks.
+	private readonly _details = new Map<string, GitHealthDetails>();
+	// Serialized report + lever state, used to suppress notifications whose visible state is identical.
+	private readonly _reportStates = new Map<string, string>();
+	// History/object-store changes can invalidate details without changing the cheap report.
+	private readonly _detailsChanged = new Set<string>();
+	// Replaced by invalidateDetails so a walk that started in an older cache epoch can't cache its stale result.
+	// Tokens are explicit and unique: deleting/clearing an epoch must never make two missing entries compare equal.
+	private readonly _detailsEpochs = new Map<string, symbol>();
 	// Passive-slowness accumulator per repo path (hydrated lazily from workspace storage).
 	private _slowness: Map<string, GitHealthSlowness> | undefined;
 	// Common-git-dir paths with an in-flight auto pass (per-common-path serialization).
@@ -144,8 +163,9 @@ export class GitHealthService implements Disposable {
 	recordSlowCommand(cwd: string | undefined, duration: number, operation: string | undefined): void {
 		if (cwd == null || cwd.length === 0) return;
 		if (!configuration.get('gitOptimizations.enabled')) return;
-		// Don't let GitLens's own background maintenance/commit-graph writes register as user slowness.
-		if (operation != null && selfMaintenanceOperations.has(operation)) return;
+		// A blacklist lets fetch/push/clone, credential prompts, hooks, and editors leak through as "repository
+		// slowness", even though scheduled maintenance cannot fix them. Only local repository operations count.
+		if (operation == null || !localHealthSignalOperations.has(operation)) return;
 
 		const repo = this.container.git.getRepository(cwd);
 		if (repo == null) return;
@@ -193,10 +213,26 @@ export class GitHealthService implements Disposable {
 
 	/** On-demand commit count + `count-objects` breakdown for the Git Health view. */
 	async getDetails(repoPath: string, cancellation?: AbortSignal): Promise<GitHealthDetails> {
-		const maintenance = this.getMaintenance(repoPath);
-		if (maintenance == null) return { commitCount: undefined, countObjects: undefined };
+		const resolved = this.resolveMaintenance(repoPath);
+		if (resolved == null) return { commitCount: undefined, countObjects: undefined };
 
-		return maintenance.getHealthDetails(cancellation);
+		const cached = this._details.get(resolved.repo.path);
+		if (cached != null) return cached;
+
+		let epoch = this._detailsEpochs.get(resolved.repo.path);
+		if (epoch == null) {
+			epoch = Symbol();
+			this._detailsEpochs.set(resolved.repo.path, epoch);
+		}
+
+		const details = await resolved.maintenance.getHealthDetails(cancellation);
+		// A superseded webview refresh aborts its walks; never cache that degraded result for the next refresh.
+		// Nor a walk that STARTED before an invalidation, eviction, or disable but completed after it — the
+		// unique epoch catches that even though this call's own cancellation never fired.
+		if (cancellation?.aborted !== true && this._detailsEpochs.get(resolved.repo.path) === epoch) {
+			this._details.set(resolved.repo.path, details);
+		}
+		return details;
 	}
 
 	/**
@@ -277,6 +313,7 @@ export class GitHealthService implements Disposable {
 			}
 		} finally {
 			this._runningPasses.delete(commonPath);
+			this.invalidateDetails(resolved.repo);
 			await this.reprobe(resolved.repo);
 		}
 		return results;
@@ -320,6 +357,10 @@ export class GitHealthService implements Disposable {
 
 		this._reports.clear();
 		this._levers.clear();
+		this._details.clear();
+		this._reportStates.clear();
+		this._detailsChanged.clear();
+		this._detailsEpochs.clear();
 		for (const repo of this.container.git.openRepositories) {
 			this._onDidChange.fire(repo.path);
 		}
@@ -329,10 +370,14 @@ export class GitHealthService implements Disposable {
 		// Re-probe only on changes that can alter object-store / working-tree shape. Crucially, a coarse
 		// `gkConfig` change (which our own `gk.maintenanceLastRun` write echoes back as) is NOT in this set,
 		// so a maintenance-timestamp write can never re-trigger the daily pass.
-		if (!e.changed('heads', 'index', 'remotes')) return;
+		if (!e.changed('heads', 'index', 'remotes', 'stash', 'tags')) return;
 
 		const repo = this.container.git.getRepository(e.repository.path);
 		if (repo == null) return;
+
+		if (e.changed('heads', 'remotes', 'stash', 'tags')) {
+			this.invalidateDetails(repo);
+		}
 
 		this.scheduleProbe(repo);
 	}
@@ -421,9 +466,14 @@ export class GitHealthService implements Disposable {
 			const capabilities = getSettledValue(capabilitiesResult) ?? [];
 			const slowness = this.getSlowness().get(repo.path);
 			const report = computeHealthReport(snapshot, slowness, capabilities);
+			const levers = computeLevers(snapshot, capabilities, report);
+			const state = JSON.stringify([report, levers]);
+			const visibleStateChanged = this._reportStates.get(repo.path) !== state;
+			const detailsChanged = this._detailsChanged.delete(repo.path);
 
 			this._reports.set(repo.path, report);
-			this._levers.set(repo.path, computeLevers(snapshot, capabilities, report));
+			this._levers.set(repo.path, levers);
+			this._reportStates.set(repo.path, state);
 			const event = {
 				'packs.count': snapshot.packCount,
 				'packs.bytes': snapshot.packBytes,
@@ -449,11 +499,23 @@ export class GitHealthService implements Disposable {
 			}
 
 			// Repo-open (and each re-probe) hints the commit-graph write so the cache stays warm across the
-			// whole extension, not just the Commit Graph webview. Fire-and-forget — the maintenance service's
-			// demand throttle decides whether anything runs.
-			maintenance.request('commit-graph');
+			// whole extension. A completed write schedules one post-write probe; the provider's demand throttle
+			// makes that probe's next request a no-op, so completion cannot form a refresh loop.
+			const graphWrite = maintenance.request('commit-graph');
+			if (graphWrite != null) {
+				void graphWrite
+					.then(wrote => {
+						if (wrote && !this._disposed && this.container.git.getRepository(repo.path) != null) {
+							return this.reprobe(repo);
+						}
+						return undefined;
+					})
+					.catch((ex: unknown) => Logger.error(ex, 'GitHealthService.probe.commitGraphCompletion'));
+			}
 
-			this._onDidChange.fire(repo.path);
+			if (visibleStateChanged || detailsChanged) {
+				this._onDidChange.fire(repo.path);
+			}
 
 			return report;
 		} catch (ex) {
@@ -532,7 +594,8 @@ export class GitHealthService implements Disposable {
 				}
 			}
 
-			// Re-probe so the report reflects the post-maintenance object store.
+			// Re-probe so the report and on-demand object counts reflect the post-maintenance object store.
+			this.invalidateDetails(repo);
 			await this.probe(repo);
 		} finally {
 			this._runningPasses.delete(commonPath);
@@ -605,6 +668,10 @@ export class GitHealthService implements Disposable {
 	private evict(repo: GlRepository): void {
 		this._reports.delete(repo.path);
 		this._levers.delete(repo.path);
+		this._details.delete(repo.path);
+		this._reportStates.delete(repo.path);
+		this._detailsChanged.delete(repo.path);
+		this._detailsEpochs.delete(repo.path);
 		this._lastProbeTelemetry.delete(repo.path);
 		this._inflightProbes.delete(repo.path);
 		const timer = this._probeTimers.get(repo.path);
@@ -614,15 +681,24 @@ export class GitHealthService implements Disposable {
 		}
 	}
 
+	private invalidateDetails(repo: GlRepository): void {
+		this._details.delete(repo.path);
+		this._detailsChanged.add(repo.path);
+		this._detailsEpochs.set(repo.path, Symbol());
+	}
+
 	private getSlowness(): Map<string, GitHealthSlowness> {
 		if (this._slowness == null) {
-			const stored = this.container.storage.getWorkspace('gitHealth:slowness') ?? {};
+			const stored = this.container.storage.getWorkspace('gitHealth:slowness:v2') ?? {};
 			// Age-prune at hydrate so entries for long-gone repos don't accumulate in workspace storage
 			// forever (entries are deliberately kept across repo close/reopen within the window).
 			const cutoff = Date.now() - slownessMaxAgeMs;
 			this._slowness = new Map<string, GitHealthSlowness>(
 				Object.entries(stored).filter(([, value]) => value.lastAt >= cutoff),
 			);
+
+			// One-time cleanup of the superseded v1 key, whose data included remote/interactive time.
+			void this.container.storage.deleteWorkspace('gitHealth:slowness').catch(() => {});
 		}
 		return this._slowness;
 	}
@@ -631,7 +707,7 @@ export class GitHealthService implements Disposable {
 		if (this._slowness == null) return;
 
 		try {
-			await this.container.storage.storeWorkspace('gitHealth:slowness', Object.fromEntries(this._slowness));
+			await this.container.storage.storeWorkspace('gitHealth:slowness:v2', Object.fromEntries(this._slowness));
 		} catch (ex) {
 			Logger.error(ex, 'GitHealthService.persistSlowness');
 		}

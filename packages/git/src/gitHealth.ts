@@ -61,10 +61,12 @@ export interface GitHealthReport {
 	readonly clearlyLarge: boolean;
 	/** Extrapolated loose-object count (from the probe sample). */
 	readonly estimatedLooseObjects: number;
-	/** Extrapolated tracked-file count (from the index-bytes proxy, or exact — see {@link trackedFilesExact}). */
+	/** Repository-size signal from the index; see {@link trackedFilesScope} for how to interpret it. */
 	readonly estimatedTrackedFiles: number;
-	/** `true` when {@link estimatedTrackedFiles} is the exact index-header count rather than the byte-size proxy. */
+	/** `true` when {@link estimatedTrackedFiles} is the exact repository-wide count from a normal index. */
 	readonly trackedFilesExact: boolean;
+	/** Whether the displayed count covers the repository, a sparse working set, or is only a byte-size estimate. */
+	readonly trackedFilesScope: 'repository' | 'sparseWorkingTree' | 'estimate';
 	readonly packCount: number;
 	readonly packBytes: number;
 	readonly commitGraph: {
@@ -108,9 +110,21 @@ export function computeHealthReport(
 		snapshot.looseObjects.objectsInSampledDirs,
 		snapshot.looseObjects.dirsSampled,
 	);
-	// Prefer the exact index-header count over the byte-size proxy whenever it's available.
-	const estimatedTrackedFiles = snapshot.indexEntryCount ?? estimateTrackedFiles(snapshot.indexBytes);
-	const trackedFilesExact = snapshot.indexEntryCount != null;
+	// A normal index header is the exact tracked-file count. A sparse index header is still a useful exact
+	// count of its populated working set, but not of the whole repository. A split index header covers only
+	// the mutable layer and conflict stages duplicate paths, so neither raw count is used.
+	const useIndexEntryCount =
+		snapshot.indexEntryCount != null &&
+		(snapshot.indexEntryCountType === 'full' || snapshot.indexEntryCountType === 'sparse');
+	const estimatedTrackedFiles = useIndexEntryCount
+		? snapshot.indexEntryCount
+		: estimateTrackedFiles(snapshot.indexBytes);
+	const trackedFilesExact = useIndexEntryCount && snapshot.indexEntryCountType === 'full';
+	const trackedFilesScope = trackedFilesExact
+		? 'repository'
+		: useIndexEntryCount && snapshot.indexEntryCountType === 'sparse'
+			? 'sparseWorkingTree'
+			: 'estimate';
 	const largeWorkingTree = estimatedTrackedFiles >= trackedFilesThreshold;
 	const clearlyLarge = largeWorkingTree || snapshot.packBytes >= largePackBytesThreshold;
 
@@ -164,7 +178,16 @@ export function computeHealthReport(
 			// Skip if already on or it previously failed to start for this repo.
 			eligible: !snapshot.config.fsmonitor && !snapshot.fsmonitorNotApplicable,
 		},
-		{ id: 'manyFiles', tier: 'ask', eligible: !snapshot.config.manyFiles },
+		{
+			id: 'manyFiles',
+			tier: 'ask',
+			// `manyFiles` defaults the untracked cache on, so a repo whose filesystem already failed that
+			// probe must not be offered it either — unless the user's own explicit `core.untrackedCache`
+			// setting overrides the default, in which case the probe result is moot.
+			eligible:
+				!snapshot.config.manyFiles &&
+				!(snapshot.untrackedCacheNotApplicable && !snapshot.config.untrackedCacheConfigured),
+		},
 	];
 	if (largeWorkingTree) {
 		for (const lever of workingTreeLevers) {
@@ -214,6 +237,7 @@ export function computeHealthReport(
 		estimatedLooseObjects: estimatedLooseObjects,
 		estimatedTrackedFiles: estimatedTrackedFiles,
 		trackedFilesExact: trackedFilesExact,
+		trackedFilesScope: trackedFilesScope,
 		packCount: snapshot.packCount,
 		packBytes: snapshot.packBytes,
 		commitGraph: snapshot.commitGraph,
@@ -279,11 +303,12 @@ export function computeLevers(
 	const blocked: Partial<Record<GitOptimizationId, boolean>> = {
 		untrackedCache: snapshot.untrackedCacheNotApplicable,
 		fsmonitor: snapshot.fsmonitorNotApplicable,
+		manyFiles: snapshot.untrackedCacheNotApplicable && !snapshot.config.untrackedCacheConfigured,
 	};
 
 	return capabilities.map<GitHealthLever>(capability => {
 		const id = capability.id;
-		const note = leverNotes[id];
+		const note = capability.note ?? leverNotes[id];
 		// Every optimization lever is ask-tier now — the auto tier only ever runs maintenance tasks.
 		const tier: GitOptimizationTier = 'ask';
 
@@ -319,7 +344,9 @@ export function computeLevers(
 				reason:
 					id === 'fsmonitor'
 						? 'The file system monitor could not start for this repository.'
-						: 'This file system does not report directory changes reliably, so Git would return incorrect status results.',
+						: id === 'manyFiles'
+							? 'This would enable the untracked cache, but this file system does not report directory changes reliably, so Git would return incorrect status results.'
+							: 'This file system does not report directory changes reliably, so Git would return incorrect status results.',
 				note: note,
 			};
 		}

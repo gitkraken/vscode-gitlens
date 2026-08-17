@@ -86,7 +86,16 @@ export type GkConfigKeys =
 	| 'gk.applied.backgroundMaintenance'
 	| 'gk.applied.maintenanceAuto'
 	/** `git maintenance register` sets `maintenance.strategy` too, and `unregister` does NOT restore it. */
-	| 'gk.applied.maintenanceStrategy';
+	| 'gk.applied.maintenanceStrategy'
+	/**
+	 * Write-ahead records for direct Git Health config mutations. A pending record is finalized into the
+	 * corresponding `gk.applied.*` marker only after the local config write succeeds; interrupted records are
+	 * reconciled on the next probe so a crash cannot silently lose ownership or claim a failed write.
+	 */
+	| 'gk.pending.untrackedCache'
+	| 'gk.pending.fsmonitor'
+	| 'gk.pending.manyFiles'
+	| 'gk.pending.skipHash';
 
 export type DeprecatedGkConfigKeys = `branch.${string}.gk-target-base`;
 

@@ -13,7 +13,7 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 /** Flat enumeration of the visualizations the switcher offers. Each entry collapses the two-axis
- *  (mode × treemapMode) state into a single key, so the UI is one tablist instead of two nested
+ *  (mode × treemapMode) state into a single key, so the UI is one button group instead of two nested
  *  toggles. Add a new visualization by extending this map; the rest of the component derives icon,
  *  tooltip, and dispatch from the entry. Aliased to the shared {@link GraphVisualizationKey} so the
  *  switcher, the wrapper's routing, and the `closed` telemetry all name visualizations identically. */
@@ -56,9 +56,9 @@ export interface GraphTreemapModeChangeDetail {
 }
 
 /**
- * Compact icon-button group for switching between Visual History (timeline) and the three treemap
- * modes. Embedded directly into each visualization's header — the wrapping `gl-graph-visualizations`
- * routes the active mode; this component is the user-visible control.
+ * Compact icon-button group for switching between Visual History (timeline), the three treemap modes,
+ * and Repository Health. Embedded directly into each visualization's header — the wrapping
+ * `gl-graph-visualizations` routes the active mode; this component is the user-visible control.
  *
  * Clicking an entry dispatches `gl-graph-visualization-mode-change` and (when applicable)
  * `gl-graph-treemap-mode-change` so graph-app's existing per-axis handlers continue to own
@@ -147,7 +147,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	}
 
 	/** Map current `(mode, treemapMode)` state to the active switcher key via the shared resolver, so
-	 *  the pressed tab, the wrapper's routing, and the `closed` telemetry can't drift. The switcher
+	 *  the pressed button, the wrapper's routing, and the `closed` telemetry can't drift. The switcher
 	 *  renders only when the flag is on (see `render`), so the gate is always satisfied here. */
 	private get activeKey(): VisualizationKey {
 		const key = getEffectiveVisualizationKey(
@@ -155,9 +155,8 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			this.treemapMode,
 			this.graphState.config?.experimentalVisualizationsEnabled === true,
 		);
-		// The roving-tabindex contract requires exactly one RENDERED tab to be selected. `health` is
-		// omitted where the capability is absent, so fall back to the tab the router lands on instead —
-		// otherwise every button gets `tabindex="-1"` and the switcher drops out of the tab order.
+		// `health` is omitted where the capability is absent, so fall back to the button the router lands
+		// on instead. This also keeps exactly one rendered button pressed.
 		if (key === 'health' && this.graphState.config?.gitHealthAvailable !== true) return 'timeline';
 
 		return key;
@@ -210,11 +209,9 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		return html`<gl-tooltip placement="bottom" content=${tooltipContent} .distance=${6}>
 			<button
 				class="visualization-button"
-				role="tab"
 				aria-pressed=${selected ? 'true' : 'false'}
 				aria-label=${config.label}
 				?disabled=${disabled}
-				tabindex=${selected ? '0' : '-1'}
 				@click=${() => this.select(key)}
 			>
 				<code-icon icon=${config.icon}></code-icon>
@@ -232,10 +229,10 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		const commitsUnavailable = this.commitsUnavailable;
 
 		// Health is omitted entirely where the repo has no maintenance sub-provider (web, virtual repos,
-		// Live Share) — the tab would render permanently empty with every lever unavailable.
+		// Live Share) — the button would render permanently empty with every lever unavailable.
 		const healthAvailable = this.graphState.config?.gitHealthAvailable === true;
 
-		return html`<div role="tablist" aria-label="Visualization" class="visualization-tablist">
+		return html`<div role="group" aria-label="Visualization" class="visualization-tablist">
 			${visualizationOrder.map(key => {
 				if (key === 'health') {
 					if (!healthAvailable) return nothing;

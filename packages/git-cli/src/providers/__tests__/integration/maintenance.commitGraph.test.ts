@@ -1,11 +1,13 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { open } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { GitMaintenanceTask } from '@gitlens/git/providers/maintenance.js';
 import type { TestRepo } from './helpers.js';
 import {
+	addCommit,
 	addEmptyCommits,
 	addWorktree,
 	commitGraphChainDir,
@@ -15,13 +17,25 @@ import {
 	setConfig,
 } from './helpers.js';
 
+function objectCount(repoPath: string): { objects: number; packs: number } {
+	const values = new Map<string, number>();
+	const stdout = execFileSync('git', ['count-objects', '-v'], { cwd: repoPath, encoding: 'utf8' });
+	for (const line of stdout.split('\n')) {
+		const [key, raw] = line.split(':', 2);
+		if (key != null && raw != null) {
+			values.set(key, Number(raw.trim()));
+		}
+	}
+	return { objects: (values.get('count') ?? 0) + (values.get('in-pack') ?? 0), packs: values.get('packs') ?? 0 };
+}
+
 /**
  * Await the private demand-cadence write (`ensureCommitGraph` returns its fire-and-forget promise purely for
  * tests) — the seam behind `request('commit-graph')`, moved from the graph sub-provider to maintenance.
  */
-function ensureCommitGraph(repo: TestRepo, repoPath: string): Promise<void> | undefined {
+function ensureCommitGraph(repo: TestRepo, repoPath: string): Promise<boolean> {
 	// oxlint-disable-next-line no-explicit-any -- deliberate reach into the private test seam
-	return (repo.provider.maintenance as any).ensureCommitGraph(repoPath) as Promise<void> | undefined;
+	return (repo.provider.maintenance as any).ensureCommitGraph(repoPath) as Promise<boolean>;
 }
 
 /**
@@ -110,6 +124,20 @@ suite('maintenance commit-graph demand cadence (ensureCommitGraph)', () => {
 		assert.strictEqual(existsSync(commitGraphChainDir(repo.path)), true);
 	});
 
+	test('an explicit run respects core.commitGraph=false', async () => {
+		setConfig(repo.path, 'core.commitGraph', 'false');
+		const ran = await maintenanceOf(repo).runMaintenanceTask(repo.path, 'commit-graph');
+		assert.strictEqual(ran, false);
+		assert.strictEqual(existsSync(commitGraphChainDir(repo.path)), false);
+	});
+
+	test('an explicit run respects the per-repository commit-graph disable marker', async () => {
+		await maintenanceOf(repo).setCommitGraphDisabled(repo.path, true);
+		const ran = await maintenanceOf(repo).runMaintenanceTask(repo.path, 'commit-graph');
+		assert.strictEqual(ran, false);
+		assert.strictEqual(existsSync(commitGraphChainDir(repo.path)), false);
+	});
+
 	test('sibling worktrees coalesce on the shared common git dir', async () => {
 		const worktreePath = `${repo.path}-mnt-wt`;
 		addWorktree(repo.path, worktreePath, 'HEAD~1');
@@ -136,8 +164,8 @@ suite('maintenance commit-graph demand cadence (ensureCommitGraph)', () => {
 		const off = createTestRepo();
 		try {
 			addEmptyCommits(off.path, 2, 'o');
-			const result = ensureCommitGraph(off, off.path);
-			assert.strictEqual(result, undefined, 'writeCommitGraph=false must gate synchronously');
+			const result = await ensureCommitGraph(off, off.path);
+			assert.strictEqual(result, false, 'writeCommitGraph=false must report that no write completed');
 			assert.strictEqual(existsSync(commitGraphChainDir(off.path)), false);
 		} finally {
 			off.cleanup();
@@ -148,7 +176,7 @@ suite('maintenance commit-graph demand cadence (ensureCommitGraph)', () => {
 		// Only the commit-graph has a demand cadence — loose-objects/incremental-repack are owned by the daily
 		// pass, so `request(...)` must never write a commit-graph for them.
 		for (const task of ['loose-objects', 'incremental-repack'] satisfies GitMaintenanceTask[]) {
-			maintenanceOf(repo).request(repo.path, task);
+			assert.strictEqual(maintenanceOf(repo).request(repo.path, task), undefined);
 		}
 		// Give any (erroneous) fire-and-forget work a turn to run; none should have been scheduled.
 		await new Promise(resolve => setTimeout(resolve, 50));
@@ -258,6 +286,73 @@ suite('maintenance commit-graph changed-path Bloom filters', () => {
 			assert.strictEqual(snapshot.commitGraph.changedPaths, false);
 		} finally {
 			plainRepo.cleanup();
+		}
+	});
+
+	test('an explicit run replaces a plain chain with unbounded changed-path filters', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:commit-graph:changed-paths'));
+		if (!supported) {
+			this.skip();
+		}
+
+		execFileSync('git', ['commit-graph', 'write', '--reachable', '--split'], { cwd: repo.path, stdio: 'pipe' });
+		assert.ok(!(await readNewestCommitGraphChunkIds(repo.path)).includes('BIDX'), 'starts without filters');
+
+		const ran = await maintenanceOf(repo).runMaintenanceTask(repo.path, 'commit-graph');
+		assert.strictEqual(ran, true);
+		assert.ok((await readNewestCommitGraphChunkIds(repo.path)).includes('BIDX'), 'explicit run writes filters');
+
+		const chain = readFileSync(join(commitGraphChainDir(repo.path), 'commit-graph-chain'), 'utf8')
+			.split('\n')
+			.filter(Boolean);
+		assert.strictEqual(chain.length, 1, 'replace write folds the reachable history into one filtered layer');
+	});
+
+	test('automatic writes do not fetch missing trees in a partial clone', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:commit-graph'));
+		if (!supported) {
+			this.skip();
+		}
+
+		const source = createTestRepo();
+		const cloneRoot = mkdtempSync(join(tmpdir(), 'gitlens-partial-clone-'));
+		const partialPath = join(cloneRoot, 'partial');
+		try {
+			for (let i = 0; i < 12; i++) {
+				addCommit(source.path, `dir-${i}/file.txt`, `content ${i}`, `partial ${i}`);
+			}
+			setConfig(source.path, 'uploadpack.allowFilter', 'true');
+			execFileSync('git', ['clone', '--filter=tree:0', '--no-checkout', `file://${source.path}`, partialPath], {
+				stdio: 'pipe',
+			});
+			assert.ok(
+				execFileSync('git', ['config', '--local', '--get', 'remote.origin.promisor'], {
+					cwd: partialPath,
+					encoding: 'utf8',
+				}).trim(),
+				'fixture is a partial clone',
+			);
+
+			const before = objectCount(partialPath);
+			const wrote = await maintenanceOf(repo).request(partialPath, 'commit-graph');
+			const after = objectCount(partialPath);
+
+			assert.strictEqual(wrote, true, 'the commit graph itself is still generated');
+			assert.deepStrictEqual(after, before, 'no objects or promisor packs were fetched');
+			const snapshot = await maintenanceOf(repo).getHealthSnapshot(partialPath);
+			assert.strictEqual(
+				snapshot.commitGraph.changedPaths,
+				false,
+				'filters are omitted when trees are not local',
+			);
+			assert.strictEqual(
+				snapshot.commitGraph.changedPathsSupported,
+				false,
+				'the repo-level capability does not offer an explicit filter build that will intentionally be omitted',
+			);
+		} finally {
+			source.cleanup();
+			rmSync(cloneRoot, { recursive: true, force: true });
 		}
 	});
 });

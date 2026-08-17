@@ -198,12 +198,14 @@ export type DeprecatedWorkspaceStorage = {
 	'graph:banners:dismissed': Record<string, boolean>;
 	/** @deprecated */
 	'views:searchAndCompare:keepResults': boolean;
+	/** @deprecated Superseded by the v2 key; its data included remote/interactive command time. */
+	'gitHealth:slowness': Record<string, StoredGitHealthSlowness>;
 } & {
 	/** @deprecated */
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
-/** Persisted passive-slowness summary for a repo (keyed by repo path in `gitHealth:slowness`). */
+/** Persisted passive-slowness summary for a repo. */
 export type StoredGitHealthSlowness = GitHealthSlowness;
 
 interface WorkspaceStorageCore {
@@ -213,8 +215,8 @@ interface WorkspaceStorageCore {
 	/** Per-repo sticky state for switch's "In a New Worktree" toggle. Key is the repo id. */
 	'gitComandPalette:switch:viaWorktree': Record<string, boolean>;
 	'gitComandPalette:worktreeDelete:actions': StoredWorktreeDeleteActions;
-	/** Passive git-slowness summary per repo path (feeds the Git Health banner). */
-	'gitHealth:slowness': Record<string, StoredGitHealthSlowness>;
+	/** Local-operation git-slowness summary per repo path (feeds the Git Health banner). */
+	'gitHealth:slowness:v2': Record<string, StoredGitHealthSlowness>;
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;

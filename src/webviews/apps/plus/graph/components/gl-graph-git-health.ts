@@ -55,7 +55,7 @@ const leverCopy: Record<GitOptimizationId, { label: string; blurb: string; detai
 
 /** Details copy for the pinned commit-graph ledger row — not a lever, so kept out of {@link leverCopy}. */
 const commitGraphDetails: LeverDetails = {
-	what: `A standard Git cache of the commit history's shape, plus per-commit file-change filters, that Git consults instead of unpacking commits — dramatically faster graph loads, history walks, and file history. Safe to delete at any time; Git rebuilds it.`,
+	what: `A standard Git cache of the commit history's shape that can also carry per-commit file-change filters. Git consults it instead of unpacking commits for dramatically faster graph loads and history walks; filters additionally accelerate file history. Safe to delete at any time; Git rebuilds it.`,
 	tradeoffs: `Uses a small amount of disk inside .git and a little background CPU after history changes. Disable it here for this repository, or everywhere via the gitlens.gitOptimizations.enabled setting, if another tool owns your repository maintenance.`,
 };
 
@@ -256,6 +256,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			display: flex;
 			flex-direction: column;
 			gap: var(--gl-space-4);
+		}
+		.lever-details[hidden] {
+			display: none;
 		}
 		.lever-details b {
 			color: var(--vscode-foreground);
@@ -655,9 +658,16 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 	}
 
-	/** `~48,200` when the count is an estimate, `48,200` when the report says it's exact. */
-	private formatTrackedFiles(report: GitHealthReport): string {
-		return `${report.trackedFilesExact ? '' : '~'}${report.estimatedTrackedFiles.toLocaleString()}`;
+	private getTrackedFilesCopy(report: GitHealthReport): { value: string; label: string } {
+		const value = `${report.trackedFilesScope === 'estimate' ? '~' : ''}${report.estimatedTrackedFiles.toLocaleString()}`;
+		switch (report.trackedFilesScope) {
+			case 'repository':
+				return { value: value, label: 'tracked files' };
+			case 'sparseWorkingTree':
+				return { value: value, label: 'populated index entries in the sparse working set' };
+			case 'estimate':
+				return { value: value, label: 'estimated tracked files' };
+		}
 	}
 
 	private renderVerdict(suggestedCount: number, incomplete: boolean) {
@@ -720,10 +730,10 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		let ariaValueText: string;
 		switch (reason) {
 			case 'trackedFiles': {
-				const files = this.formatTrackedFiles(report);
-				valueLabel = html`<b>${files}</b> tracked files`;
+				const files = this.getTrackedFilesCopy(report);
+				valueLabel = html`<b>${files.value}</b> ${files.label}`;
 				thresholdLabel = `helps above ${threshold.toLocaleString()}`;
-				ariaValueText = `${files} tracked files; ${thresholdLabel}`;
+				ariaValueText = `${files.value} ${files.label}; ${thresholdLabel}`;
 				break;
 			}
 			case 'largePacks': {
@@ -763,14 +773,16 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 	}
 
 	/** Small quiet disclosure control — shared by suggestion cards and ledger rows. */
-	private renderDetailsToggle(key: GitOptimizationId | 'commitGraph') {
+	private renderDetailsToggle(key: GitOptimizationId | 'commitGraph', label: string) {
 		const expanded = this._expanded.has(key);
+		const detailsId = `git-health-details-${key}`;
 
 		return html`<gl-button
 			class="details-toggle"
 			appearance="toolbar"
 			aria-expanded=${expanded}
-			aria-label="Details"
+			aria-controls=${detailsId}
+			aria-label=${`${expanded ? 'Hide' : 'Show'} details for ${label}`}
 			@click=${() => this.onToggleDetails(key)}
 		>
 			<code-icon icon=${expanded ? 'chevron-up' : 'chevron-down'}></code-icon>
@@ -778,9 +790,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 	}
 
 	private renderLeverDetails(key: GitOptimizationId | 'commitGraph', details: LeverDetails) {
-		if (!this._expanded.has(key)) return nothing;
-
-		return html`<div class="lever-details">
+		return html`<div id=${`git-health-details-${key}`} class="lever-details" ?hidden=${!this._expanded.has(key)}>
 			<span><b>What it does:</b> ${details.what}</span>
 			<span><b>Trade-offs:</b> ${details.tradeoffs}</span>
 		</div>`;
@@ -795,30 +805,30 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		return html`<div class="card">
 			<div class="card-head">
 				<span class="card-title">${copy.label}</span>
-				<gl-button
-					class="card-action"
-					appearance="primary"
-					?disabled=${busy || this.switching}
-					@click=${() =>
-						void this.run(lever.id, async repoPath =>
-							(await this.services!.graphHealth).applyFix(repoPath, lever.id),
-						)}
-					>${busy ? 'Enabling…' : 'Enable'}</gl-button
-				>
 			</div>
 			<div class="card-blurb-row">
 				<span class="card-blurb">${copy.blurb}</span>
-				${this.renderDetailsToggle(lever.id)}
+				${this.renderDetailsToggle(lever.id, copy.label)}
 			</div>
 			${this.renderLeverDetails(lever.id, copy.details)}
 			${finding != null && report != null ? this.renderMeter(finding, report) : nothing}
 			${
-				lever.id === 'backgroundMaintenance' && lever.note
+				lever.note
 					? html`<div class="card-note">
 							<code-icon icon="warning"></code-icon><span>${lever.note}</span>
 						</div>`
 					: nothing
 			}
+			<gl-button
+				class="card-action"
+				appearance="primary"
+				?disabled=${busy || this.switching}
+				@click=${() =>
+					void this.run(lever.id, async repoPath =>
+						(await this.services!.graphHealth).applyFix(repoPath, lever.id),
+					)}
+				>${busy ? 'Enabling…' : 'Enable'}</gl-button
+			>
 		</div>`;
 	}
 
@@ -846,7 +856,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		const packedPct = 100 - loosePct;
 
-		const filesText = this.formatTrackedFiles(report);
+		const files = this.getTrackedFilesCopy(report);
 		const looseFinding = report.findings.some(
 			f => f.action.kind === 'maintenance' && f.action.task === 'loose-objects',
 		);
@@ -869,7 +879,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 						${pluralize('object', looseCount, { only: true })}</span
 					>
 					<span class="sep">·</span>
-					<span class="fact"><b>${filesText}</b> tracked files</span>
+					<span class="fact"><b>${files.value}</b> ${files.label}</span>
 					${
 						details?.commitCount != null
 							? html`<span class="sep">·</span>
@@ -909,7 +919,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			<span class="ledger-name">${name}</span>
 			<span class="ledger-why">
 				<span class="ledger-why-text">${why}</span>
-				${this.renderDetailsToggle(key)}
+				${this.renderDetailsToggle(key, name)}
 			</span>
 			<span class="ledger-action">${action}</span>
 			${this.renderLeverDetails(key, details)}
@@ -948,11 +958,15 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			if (cg.present) {
 				icon = 'check';
 				tone = 'on';
-				// A git without changed-paths support can't write file-history filters — don't promise them.
-				const filtersBuilding =
-					!cg.changedPaths && cg.changedPathsSupported ? ' · file-history filters build over time' : '';
-				why = html`On · <span class="owner-gl">maintained by GitLens</span> — accelerates history walks and file
-					history${filtersBuilding}`;
+				if (cg.changedPaths) {
+					why = html`On · <span class="owner-gl">maintained by GitLens</span> — accelerates history walks and
+						includes file-history filters`;
+				} else if (cg.changedPathsSupported) {
+					why = html`On · <span class="owner-gl">maintained by GitLens</span> — accelerates history walks ·
+						file-history filters are not present; Run Maintenance Now to add them`;
+				} else {
+					why = html`On · <span class="owner-gl">maintained by GitLens</span> — accelerates history walks`;
+				}
 			} else {
 				icon = 'circle-large-outline';
 				tone = 'off';
@@ -1002,12 +1016,15 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			case 'available': {
 				icon = 'circle-large-outline';
 				tone = 'off';
+				const files = report != null ? this.getTrackedFilesCopy(report) : undefined;
 				const evidence =
 					lever.id === 'backgroundMaintenance'
 						? 'for large or chronically slow repositories'
-						: `helps above ${trackedFilesThreshold.toLocaleString()} tracked files; this repository has ${
-								report != null ? this.formatTrackedFiles(report) : 'fewer'
-							}`;
+						: files != null
+							? `helps above ${trackedFilesThreshold.toLocaleString()} working-tree entries; this repository has ${
+									files.value
+								} ${files.label}`
+							: `helps above ${trackedFilesThreshold.toLocaleString()} tracked files; this repository has fewer`;
 				why = `Off · not needed — ${evidence}`;
 				break;
 			}

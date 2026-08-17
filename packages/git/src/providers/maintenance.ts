@@ -31,13 +31,13 @@ export type GitOptimizationId = 'untrackedCache' | 'fsmonitor' | 'backgroundMain
  * across worktrees (keyed by common path). Everything here is derivable without inflating objects.
  */
 export interface GitHealthSnapshot {
-	/** Presence + mtime of `objects/info/commit-graph` (or the split `commit-graphs/` chain), and changed-path Bloom filter coverage. */
+	/** Presence + mtime of `objects/info/commit-graph` (or the split `commit-graphs/` chain), and changed-path Bloom filter state. */
 	readonly commitGraph: {
 		readonly present: boolean;
 		readonly mtime: number | undefined;
 		/** Whether the NEWEST graph layer carries changed-path Bloom filters (`BIDX` chunk). */
 		readonly changedPaths: boolean;
-		/** Whether this git can write them (the 2.31 gate) — lets the view promise "filters build over time" honestly. */
+		/** Whether this repo can write them (Git 2.31+ and not a partial clone). */
 		readonly changedPathsSupported: boolean;
 		/** `true` once the user disabled GitLens's automatic commit-graph maintenance for this repo (`gk.commitGraphDisabled`). */
 		readonly disabled: boolean;
@@ -56,10 +56,17 @@ export interface GitHealthSnapshot {
 	readonly packBytes: number;
 	/** Raw loose-object sample (a handful of the 256 fanout dirs); the host extrapolates the estimate. */
 	readonly looseObjects: { readonly objectsInSampledDirs: number; readonly dirsSampled: number };
-	/** Size of the worktree's `.git/index` in bytes (a tracked-file-count proxy). */
+	/** Size of the worktree index in bytes (including the largest shared base for a split index). */
 	readonly indexBytes: number;
-	/** Exact entry count from the index header (`DIRC`, version, count — all big-endian). `undefined` when the index is missing or the header is unreadable/not `DIRC`. */
+	/**
+	 * Entry count from the index header (`DIRC`, version, count — all big-endian). For a normal index this is
+	 * the exact tracked-file count; for a sparse index it counts the populated working set plus sparse-directory
+	 * entries. It is deliberately `undefined` for a split index, whose header covers only its mutable layer,
+	 * and during conflicts, whose stage entries duplicate paths.
+	 */
 	readonly indexEntryCount: number | undefined;
+	/** How {@link indexEntryCount} should be interpreted. */
+	readonly indexEntryCountType: 'full' | 'sparse' | 'split' | 'conflicted' | 'unavailable';
 	/** Current state of the config levers this feature toggles. */
 	readonly config: {
 		readonly fsmonitor: boolean;
@@ -138,12 +145,14 @@ export interface GitMaintenanceSubProvider {
 	/** Availability of each optimization lever (git version + platform gated). */
 	getCapabilities(repoPath: string): Promise<GitOptimizationCapability[]>;
 	/**
-	 * Fire-and-forget hint that a task's cache is worth refreshing now, applying that task's cadence policy.
+	 * Hint that a task's cache is worth refreshing now, applying that task's cadence policy. Callers normally
+	 * ignore the returned promise; consumers that need freshness may await it. It resolves `true` only when a
+	 * write completed and `false` when a supported request was gated or failed, and never rejects.
 	 * `commit-graph` runs the demand cadence (minutes throttle + single-flight, both keyed by common git dir),
 	 * fully gated on the auto-tier switches; `loose-objects`/`incremental-repack` are no-ops here (the daily
-	 * pass owns them). Never throws, never blocks — the service decides whether anything actually runs.
+	 * pass owns them) and return `undefined`.
 	 */
-	request(repoPath: string, task: GitMaintenanceTask): void;
+	request(repoPath: string, task: GitMaintenanceTask): Promise<boolean> | undefined;
 	/**
 	 * Atomically claims the once-per-`intervalMs` maintenance pass for this repo, stamping the shared
 	 * `gk.maintenanceLastRun` if and only if the claim succeeds. Returns `false` when another window already

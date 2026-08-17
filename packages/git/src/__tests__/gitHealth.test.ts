@@ -27,6 +27,7 @@ function makeSnapshot(
 		looseSampled?: number;
 		indexBytes?: number;
 		indexEntryCount?: number;
+		indexEntryCountType?: GitHealthSnapshot['indexEntryCountType'];
 		fsmonitor?: boolean;
 		untrackedCache?: boolean;
 		untrackedCacheConfigured?: boolean;
@@ -59,6 +60,7 @@ function makeSnapshot(
 		// `undefined` unless a test opts in — keeps every existing proxy-based expectation exercising the
 		// fallback path exactly as before.
 		indexEntryCount: o.indexEntryCount,
+		indexEntryCountType: o.indexEntryCountType ?? (o.indexEntryCount == null ? 'unavailable' : 'full'),
 		config: {
 			fsmonitor: o.fsmonitor ?? false,
 			untrackedCache: o.untrackedCache ?? false,
@@ -221,6 +223,32 @@ suite('gitHealth.computeHealthReport — ask tier', () => {
 		assert.strictEqual(optimizationIds(report.findings).includes('untrackedCache'), false);
 	});
 
+	test('does NOT suggest manyFiles when the untracked cache previously failed the filesystem probe', () => {
+		// manyFiles defaults the untracked cache on, so a repo whose filesystem already failed that probe
+		// must not be offered manyFiles either.
+		const report = computeHealthReport(
+			makeSnapshot({ indexBytes: largeIndexBytes, untrackedCacheNotApplicable: true }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.strictEqual(optimizationIds(report.findings).includes('manyFiles'), false);
+	});
+
+	test('still suggests manyFiles when the user explicitly configured core.untrackedCache', () => {
+		// An explicit config value overrides the feature default, so the not-applicable probe result is moot.
+		const report = computeHealthReport(
+			makeSnapshot({
+				indexBytes: largeIndexBytes,
+				untrackedCache: false,
+				untrackedCacheConfigured: true,
+				untrackedCacheNotApplicable: true,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.strictEqual(optimizationIds(report.findings).includes('manyFiles'), true);
+	});
+
 	test('does NOT suggest fsmonitor when previously marked not-applicable', () => {
 		const report = computeHealthReport(
 			makeSnapshot({ indexBytes: largeIndexBytes, fsmonitorNotApplicable: true }),
@@ -318,6 +346,7 @@ suite('gitHealth.isBannerEligible', () => {
 			estimatedLooseObjects: 0,
 			estimatedTrackedFiles: 0,
 			trackedFilesExact: false,
+			trackedFilesScope: 'estimate' as const,
 			packCount: 0,
 			packBytes: 0,
 			commitGraph: {
@@ -374,6 +403,13 @@ suite('gitHealth.computeLevers', () => {
 		assert.strictEqual(levers.get('fsmonitor')?.status, 'notApplicable');
 	});
 
+	test('manyFiles is notApplicable when the untracked cache previously failed the probe', () => {
+		const levers = leversFor({ indexBytes: largeIndexBytes, untrackedCacheNotApplicable: true });
+		const lever = levers.get('manyFiles');
+		assert.strictEqual(lever?.status, 'notApplicable');
+		assert.ok(lever.reason?.includes('untracked cache'), 'reason names the untracked cache');
+	});
+
 	test('scheduled maintenance carries its undo caveat before the choice, not after', () => {
 		// The OS scheduler is deliberately left installed by revert, so the view must say so on Enable.
 		const levers = leversFor({ indexBytes: largeIndexBytes });
@@ -382,6 +418,17 @@ suite('gitHealth.computeLevers', () => {
 		assert.strictEqual(lever?.status, 'suggested');
 		// `?.` is safe here specifically because an absent note SHOULD fail this assertion.
 		assert.ok(lever.note?.includes('scheduler'), 'note names the scheduler');
+	});
+
+	test('a supported capability caveat reaches the lever shown before apply', () => {
+		const capabilities = makeCapabilities();
+		const manyFiles = capabilities.find(c => c.id === 'manyFiles');
+		assert.ok(manyFiles != null);
+		const note = 'Git before 2.40 reports the index as corrupt during git fsck';
+		const withNote = capabilities.map(c => (c === manyFiles ? { ...c, note: note } : c));
+		const lever = leversFor({ indexBytes: largeIndexBytes }, withNote).get('manyFiles');
+
+		assert.strictEqual(lever?.note, note);
 	});
 
 	test('a healthy repo reports levers as available, never unavailable', () => {
@@ -418,7 +465,7 @@ suite('gitHealth.computeLevers', () => {
 });
 
 suite('gitHealth.computeHealthReport — tracked-file count source', () => {
-	test('prefers the exact index-header count over the byte-size proxy', () => {
+	test('prefers a normal index-header count over the byte-size proxy', () => {
 		const report = computeHealthReport(
 			makeSnapshot({ indexBytes: 1000, indexEntryCount: 12345 }),
 			undefined,
@@ -426,6 +473,29 @@ suite('gitHealth.computeHealthReport — tracked-file count source', () => {
 		);
 		assert.strictEqual(report.estimatedTrackedFiles, 12345);
 		assert.strictEqual(report.trackedFilesExact, true);
+		assert.strictEqual(report.trackedFilesScope, 'repository');
+	});
+
+	test('uses a sparse-index header as a working-set count, never an exact repository count', () => {
+		const report = computeHealthReport(
+			makeSnapshot({ indexBytes: 1000, indexEntryCount: 123, indexEntryCountType: 'sparse' }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.strictEqual(report.estimatedTrackedFiles, 123);
+		assert.strictEqual(report.trackedFilesExact, false);
+		assert.strictEqual(report.trackedFilesScope, 'sparseWorkingTree');
+	});
+
+	test('does not trust the mutable-layer header of a split index', () => {
+		const report = computeHealthReport(
+			makeSnapshot({ indexBytes: 8000, indexEntryCount: 999999, indexEntryCountType: 'split' }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.strictEqual(report.estimatedTrackedFiles, estimateTrackedFiles(8000));
+		assert.strictEqual(report.trackedFilesExact, false);
+		assert.strictEqual(report.trackedFilesScope, 'estimate');
 	});
 
 	test('falls back to the index-bytes proxy when the header count is unavailable', () => {
@@ -436,6 +506,7 @@ suite('gitHealth.computeHealthReport — tracked-file count source', () => {
 		);
 		assert.strictEqual(report.estimatedTrackedFiles, estimateTrackedFiles(largeIndexBytes));
 		assert.strictEqual(report.trackedFilesExact, false);
+		assert.strictEqual(report.trackedFilesScope, 'estimate');
 	});
 });
 

@@ -17,7 +17,15 @@ import type { GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import { Git } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, commitGraphChainDir, createTestRepo, gkConfig, maintenanceOf, setConfig } from './helpers.js';
+import {
+	addCommit,
+	addWorktree,
+	commitGraphChainDir,
+	createTestRepo,
+	gkConfig,
+	maintenanceOf,
+	setConfig,
+} from './helpers.js';
 
 const optimizationIds: readonly GitOptimizationId[] = [
 	'untrackedCache',
@@ -25,6 +33,11 @@ const optimizationIds: readonly GitOptimizationId[] = [
 	'backgroundMaintenance',
 	'manyFiles',
 ];
+
+type TestableMaintenance = {
+	applyOptimization(repoPath: string, optimization: GitOptimizationId, cancellation?: AbortSignal): Promise<boolean>;
+	testUntrackedCacheSupport(repoPath: string, cancellation?: AbortSignal): Promise<boolean>;
+};
 
 /** Reads a repo's LOCAL-scope config value (independent of the developer's global/system config). */
 function localConfig(cwd: string, key: string): string | undefined {
@@ -67,6 +80,12 @@ function localConfigAll(cwd: string, key: string): string[] {
 		// `--get-all` of an unset key exits non-zero.
 		return [];
 	}
+}
+
+function rawIndexEntryCount(repoPath: string): number {
+	const header = readFileSync(join(repoPath, '.git', 'index')).subarray(0, 12);
+	assert.strictEqual(header.toString('ascii', 0, 4), 'DIRC');
+	return header.readUInt32BE(8);
 }
 
 /** Reach into the private ownership-marker lock — the diagnosis, ownership, and release tests need to run
@@ -223,6 +242,111 @@ suite('MaintenanceSubProvider', () => {
 		}
 	});
 
+	test('getHealthSnapshot labels a sparse-index header as a working-set count', async function () {
+		const sparseRepo = createTestRepo();
+		try {
+			for (let area = 0; area < 4; area++) {
+				for (let file = 0; file < 4; file++) {
+					addCommit(
+						sparseRepo.path,
+						`area-${area}/file-${file}.txt`,
+						`area ${area} file ${file}`,
+						`add area ${area} file ${file}`,
+					);
+				}
+			}
+			try {
+				execFileSync('git', ['sparse-checkout', 'init', '--cone', '--sparse-index'], {
+					cwd: sparseRepo.path,
+					stdio: 'pipe',
+				});
+			} catch {
+				this.skip();
+			}
+			execFileSync('git', ['sparse-checkout', 'set', 'area-0'], { cwd: sparseRepo.path, stdio: 'pipe' });
+
+			const total = execFileSync('git', ['ls-tree', '-r', '--name-only', 'HEAD'], {
+				cwd: sparseRepo.path,
+				encoding: 'utf8',
+			})
+				.split('\n')
+				.filter(Boolean).length;
+			const snapshot = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+
+			assert.strictEqual(snapshot.indexEntryCountType, 'sparse');
+			assert.ok(snapshot.indexEntryCount != null && snapshot.indexEntryCount < total);
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('getHealthSnapshot finds a linked worktree split index in its per-worktree git dir', async () => {
+		const splitRepo = createTestRepo();
+		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-split-worktree-'));
+		try {
+			execFileSync('git', ['branch', 'linked-split'], { cwd: splitRepo.path, stdio: 'pipe' });
+			addWorktree(splitRepo.path, worktreePath, 'linked-split');
+			execFileSync('git', ['update-index', '--split-index'], { cwd: worktreePath, stdio: 'pipe' });
+
+			const snapshot = await maintenanceOf(splitRepo).getHealthSnapshot(worktreePath);
+			assert.strictEqual(snapshot.indexEntryCountType, 'split');
+			assert.strictEqual(snapshot.indexEntryCount, undefined);
+		} finally {
+			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+				cwd: splitRepo.path,
+				stdio: 'pipe',
+			});
+			rmSync(worktreePath, { recursive: true, force: true });
+			splitRepo.cleanup();
+		}
+	});
+
+	test('getHealthSnapshot ignores the mutable-layer header of an actual split index', async () => {
+		const splitRepo = createTestRepo();
+		try {
+			addCommit(splitRepo.path, 'a.txt', 'a', 'add a');
+			addCommit(splitRepo.path, 'b.txt', 'b', 'add b');
+			execFileSync('git', ['update-index', '--split-index'], { cwd: splitRepo.path, stdio: 'pipe' });
+
+			assert.strictEqual(localConfig(splitRepo.path, 'core.splitIndex'), undefined, 'config hint is unset');
+			assert.ok(rawIndexEntryCount(splitRepo.path) > 0, 'raw mutable-layer header has an entry count');
+			const mutableIndexBytes = readFileSync(join(splitRepo.path, '.git', 'index')).byteLength;
+			const snapshot = await maintenanceOf(splitRepo).getHealthSnapshot(splitRepo.path);
+			assert.strictEqual(snapshot.indexEntryCountType, 'split');
+			assert.strictEqual(snapshot.indexEntryCount, undefined, 'raw split header is never trusted');
+			assert.ok(snapshot.indexBytes > mutableIndexBytes, 'the fallback proxy includes the shared base index');
+		} finally {
+			splitRepo.cleanup();
+		}
+	});
+
+	test('getHealthSnapshot does not claim an exact path count during a conflicted merge', async () => {
+		const conflictRepo = createTestRepo();
+		try {
+			addCommit(conflictRepo.path, 'conflict.txt', 'base', 'add conflict');
+			execFileSync('git', ['checkout', '-b', 'side'], { cwd: conflictRepo.path, stdio: 'pipe' });
+			addCommit(conflictRepo.path, 'conflict.txt', 'side', 'side change');
+			execFileSync('git', ['checkout', 'main'], { cwd: conflictRepo.path, stdio: 'pipe' });
+			addCommit(conflictRepo.path, 'conflict.txt', 'main', 'main change');
+			assert.throws(() =>
+				execFileSync('git', ['merge', '--no-ff', '--no-edit', 'side'], {
+					cwd: conflictRepo.path,
+					stdio: 'pipe',
+				}),
+			);
+
+			assert.ok(
+				execFileSync('git', ['ls-files', '--unmerged'], { cwd: conflictRepo.path, encoding: 'utf8' }).trim(),
+				'fixture contains unmerged index stages',
+			);
+			const snapshot = await maintenanceOf(conflictRepo).getHealthSnapshot(conflictRepo.path);
+			assert.strictEqual(snapshot.indexEntryCountType, 'conflicted');
+			assert.strictEqual(snapshot.indexEntryCount, undefined);
+		} finally {
+			conflictRepo.cleanup();
+		}
+	});
+
 	test('getHealthSnapshot surfaces an explicit core.commitGraph=false read opt-out', async () => {
 		// `ensureCommitGraph` honors this setting as a write opt-out, so the snapshot must surface it —
 		// otherwise the Health view claims the cache is (or will be) maintained when it never will be.
@@ -328,6 +452,187 @@ suite('MaintenanceSubProvider', () => {
 		await maintenanceOf(repo).revertOptimization(repo.path, 'untrackedCache');
 		assert.strictEqual(localConfig(repo.path, 'core.untrackedCache'), undefined, 'local config unset after revert');
 		assert.strictEqual(gkConfig(repo.path, 'gk.applied.untrackedCache'), undefined, 'marker cleared after revert');
+	});
+
+	test('a failed config write does not leave an ownership marker', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:untrackedCache'));
+		if (!supported) {
+			this.skip();
+		}
+
+		const lockRepo = createTestRepo();
+		const configLock = join(lockRepo.path, '.git', 'config.lock');
+		try {
+			writeFileSync(configLock, 'held');
+			await assert.rejects(maintenanceOf(lockRepo).applyOptimization(lockRepo.path, 'untrackedCache'));
+
+			assert.strictEqual(localConfig(lockRepo.path, 'core.untrackedCache'), undefined, 'config was not changed');
+			assert.strictEqual(
+				gkConfig(lockRepo.path, 'gk.applied.untrackedCache'),
+				undefined,
+				'a failed config write cannot claim ownership',
+			);
+			assert.strictEqual(
+				gkConfig(lockRepo.path, 'gk.pending.untrackedCache'),
+				undefined,
+				'a failed config write cleans up its write-ahead record',
+			);
+		} finally {
+			rmSync(configLock, { force: true });
+			lockRepo.cleanup();
+		}
+	});
+
+	test('a probe reconciles an interrupted config write into recoverable ownership', async () => {
+		const interruptedRepo = createTestRepo();
+		try {
+			await interruptedRepo.provider.config.setGkConfig(
+				interruptedRepo.path,
+				'gk.pending.untrackedCache',
+				JSON.stringify({ prior: 'unset', value: 'true' }),
+			);
+			setConfig(interruptedRepo.path, 'core.untrackedCache', 'true');
+
+			const snapshot = await maintenanceOf(interruptedRepo).getHealthSnapshot(interruptedRepo.path);
+			assert.strictEqual(snapshot.applied.untrackedCache, true);
+			assert.strictEqual(gkConfig(interruptedRepo.path, 'gk.applied.untrackedCache'), 'unset');
+			assert.strictEqual(gkConfig(interruptedRepo.path, 'gk.pending.untrackedCache'), undefined);
+
+			await maintenanceOf(interruptedRepo).revertOptimization(interruptedRepo.path, 'untrackedCache');
+			assert.strictEqual(localConfig(interruptedRepo.path, 'core.untrackedCache'), undefined);
+		} finally {
+			interruptedRepo.cleanup();
+		}
+	});
+
+	test('a probe drops an interrupted record when its config write never landed', async () => {
+		const interruptedRepo = createTestRepo();
+		try {
+			await interruptedRepo.provider.config.setGkConfig(
+				interruptedRepo.path,
+				'gk.pending.untrackedCache',
+				JSON.stringify({ prior: 'unset', value: 'true' }),
+			);
+
+			const snapshot = await maintenanceOf(interruptedRepo).getHealthSnapshot(interruptedRepo.path);
+			assert.strictEqual(snapshot.applied.untrackedCache, false);
+			assert.strictEqual(localConfig(interruptedRepo.path, 'core.untrackedCache'), undefined);
+			assert.strictEqual(gkConfig(interruptedRepo.path, 'gk.applied.untrackedCache'), undefined);
+			assert.strictEqual(gkConfig(interruptedRepo.path, 'gk.pending.untrackedCache'), undefined);
+		} finally {
+			interruptedRepo.cleanup();
+		}
+	});
+
+	test('a probe drops a malformed pending record rather than wedging the repo forever', async () => {
+		const malformedRepo = createTestRepo();
+		try {
+			await malformedRepo.provider.config.setGkConfig(
+				malformedRepo.path,
+				'gk.pending.untrackedCache',
+				'not-json',
+			);
+			setConfig(malformedRepo.path, 'core.untrackedCache', 'true');
+
+			const snapshot = await maintenanceOf(malformedRepo).getHealthSnapshot(malformedRepo.path);
+			assert.strictEqual(snapshot.applied.untrackedCache, false);
+			assert.strictEqual(gkConfig(malformedRepo.path, 'gk.applied.untrackedCache'), undefined);
+			assert.strictEqual(gkConfig(malformedRepo.path, 'gk.pending.untrackedCache'), undefined);
+		} finally {
+			malformedRepo.cleanup();
+		}
+	});
+
+	test('a probe drops a pending record whose target does not match the lever', async () => {
+		const malformedRepo = createTestRepo();
+		try {
+			await malformedRepo.provider.config.setGkConfig(
+				malformedRepo.path,
+				'gk.pending.untrackedCache',
+				JSON.stringify({ prior: 'unset', value: 'false' }),
+			);
+			setConfig(malformedRepo.path, 'core.untrackedCache', 'false');
+
+			const snapshot = await maintenanceOf(malformedRepo).getHealthSnapshot(malformedRepo.path);
+			assert.strictEqual(snapshot.applied.untrackedCache, false);
+			assert.strictEqual(localConfig(malformedRepo.path, 'core.untrackedCache'), 'false');
+			assert.strictEqual(gkConfig(malformedRepo.path, 'gk.applied.untrackedCache'), undefined);
+			assert.strictEqual(gkConfig(malformedRepo.path, 'gk.pending.untrackedCache'), undefined);
+		} finally {
+			malformedRepo.cleanup();
+		}
+	});
+
+	test('manyFiles refuses an unsafe untracked cache before changing config', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:manyFiles'));
+		if (!supported) {
+			this.skip();
+		}
+
+		const unsafeRepo = createTestRepo();
+		try {
+			const maintenance = maintenanceOf(unsafeRepo) as unknown as TestableMaintenance;
+			maintenance.testUntrackedCacheSupport = () => Promise.resolve(false);
+
+			const applied = await maintenance.applyOptimization(unsafeRepo.path, 'manyFiles');
+			assert.strictEqual(applied, false);
+			assert.strictEqual(localConfig(unsafeRepo.path, 'feature.manyFiles'), undefined);
+			assert.strictEqual(localConfig(unsafeRepo.path, 'index.skipHash'), undefined);
+			assert.strictEqual(gkConfig(unsafeRepo.path, 'gk.applied.manyFiles'), undefined);
+			assert.strictEqual(gkConfig(unsafeRepo.path, 'gk.applied.skipHash'), undefined);
+			assert.strictEqual(gkConfig(unsafeRepo.path, 'gk.untrackedCacheNotApplicable'), 'true');
+
+			// The marker recorded above must short-circuit BEFORE the probe on the next attempt — a rejecting
+			// stub proves the probe never runs again.
+			maintenance.testUntrackedCacheSupport = () => Promise.reject(new Error('probe must not run again'));
+			const reapplied = await maintenance.applyOptimization(unsafeRepo.path, 'manyFiles');
+			assert.strictEqual(reapplied, false);
+		} finally {
+			unsafeRepo.cleanup();
+		}
+	});
+
+	test('manyFiles preserves an explicit untracked-cache choice without probing the filesystem', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:manyFiles'));
+		if (!supported) {
+			this.skip();
+		}
+
+		const configuredRepo = createTestRepo();
+		try {
+			setConfig(configuredRepo.path, 'core.untrackedCache', 'false');
+			const maintenance = maintenanceOf(configuredRepo) as unknown as TestableMaintenance;
+			maintenance.testUntrackedCacheSupport = () => Promise.reject(new Error('probe must not run'));
+
+			const applied = await maintenance.applyOptimization(configuredRepo.path, 'manyFiles');
+			assert.strictEqual(applied, true);
+			assert.strictEqual(localConfig(configuredRepo.path, 'core.untrackedCache'), 'false');
+			assert.strictEqual(localConfig(configuredRepo.path, 'feature.manyFiles'), 'true');
+		} finally {
+			configuredRepo.cleanup();
+		}
+	});
+
+	test('manyFiles does not claim a user-enabled local setting or strand its skipHash sub-lever', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:manyFiles'));
+		if (!supported) {
+			this.skip();
+		}
+
+		const configuredRepo = createTestRepo();
+		try {
+			setConfig(configuredRepo.path, 'feature.manyFiles', 'true');
+			setConfig(configuredRepo.path, 'core.untrackedCache', 'false');
+
+			const applied = await maintenanceOf(configuredRepo).applyOptimization(configuredRepo.path, 'manyFiles');
+			assert.strictEqual(applied, false);
+			assert.strictEqual(localConfig(configuredRepo.path, 'feature.manyFiles'), 'true');
+			assert.strictEqual(localConfig(configuredRepo.path, 'index.skipHash'), undefined);
+			assert.strictEqual(gkConfig(configuredRepo.path, 'gk.applied.manyFiles'), undefined);
+			assert.strictEqual(gkConfig(configuredRepo.path, 'gk.applied.skipHash'), undefined);
+		} finally {
+			configuredRepo.cleanup();
+		}
 	});
 
 	test('revert restores a PRE-EXISTING local value instead of unsetting it (never inverts)', async function () {
@@ -1119,7 +1424,7 @@ suite('MaintenanceSubProvider', () => {
 	});
 
 	test('runMaintenanceTask(commit-graph) writes the graph directly, gated on git:commit-graph (not git:maintenance)', async () => {
-		// The commit-graph task uses a DIRECT `git commit-graph write --reachable --split` (2.24+), NOT
+		// The commit-graph task uses a DIRECT `git commit-graph write --reachable --split=replace` (2.24+), NOT
 		// `git maintenance run --task=commit-graph` (2.30+) — so it runs whenever git:commit-graph is supported.
 		const cgRepo = createTestRepo();
 		try {
