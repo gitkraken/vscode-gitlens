@@ -1587,6 +1587,7 @@ export class GraphInspectServices {
 								resolutions: summaries,
 								errors: errors.length > 0 ? errors : undefined,
 								skipped: skipped.length > 0 ? skipped : undefined,
+								metrics: sumResolutionEffort(resolutions),
 							},
 						};
 					} catch (ex) {
@@ -1902,6 +1903,10 @@ export class GraphInspectServices {
 							resolutions: summaries,
 							errors: errors.length > 0 ? errors : undefined,
 							skipped: skipped.length > 0 ? skipped : undefined,
+							// The escalated step's effort, for the same reason the run path reports it —
+							// the panel doesn't report a completion for a seeded session today, so this is
+							// only for shape parity if it ever does.
+							metrics: sumResolutionEffort(handoff.resolutions),
 							autoRebase: {
 								sessionId: handoff.sessionId,
 								stepNumber: escalation?.stepNumber,
@@ -3127,6 +3132,28 @@ function combineResolveGuidance(instructions: string | undefined): string | unde
 	if (!typed) return setting;
 
 	return `${setting}\n\nAnd here is additional guidance for this run (it takes highest priority): ${typed}`;
+}
+
+/** Sums the resolver's step and tool-call counts over a run for the panel's completion telemetry —
+ *  the same accounting `autoRebase/step/resolved` reports, so the two paths can be compared. Stays
+ *  `undefined` when no resolution reported a count, matching that path's `sumOf`: a provider that
+ *  reports no metrics has to stay distinguishable from one that did the work in zero steps, or the
+ *  comparison reads "no data" as "free". */
+function sumResolutionEffort(resolutions: readonly ConflictToolsResolution[]): {
+	steps: number | undefined;
+	toolCalls: number | undefined;
+} {
+	let steps: number | undefined;
+	let toolCalls: number | undefined;
+	for (const r of resolutions) {
+		if (r.metrics?.stepCount != null) {
+			steps = (steps ?? 0) + r.metrics.stepCount;
+		}
+		if (r.metrics?.toolCallCount != null) {
+			toolCalls = (toolCalls ?? 0) + r.metrics.toolCallCount;
+		}
+	}
+	return { steps: steps, toolCalls: toolCalls };
 }
 
 /** Logs each resolution's AI token usage (when the provider reported it) plus a run total to the

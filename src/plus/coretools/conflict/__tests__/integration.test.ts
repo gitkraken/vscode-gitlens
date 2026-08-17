@@ -203,6 +203,8 @@ function makeAiFakes(responses: ScriptedResponse[], options?: { supportsTools?: 
 
 	const seenMessages: { role: string; content: string; toolCallId?: string; toolCalls?: unknown[] }[][] = [];
 	const seenTools: (readonly { name: string }[] | undefined)[] = [];
+	const seenReporting: Record<string, unknown>[] = [];
+	const seenOptions: { conversationId?: string }[] = [];
 	let call = 0;
 
 	const ai = {
@@ -216,7 +218,11 @@ function makeAiFakes(responses: ScriptedResponse[], options?: { supportsTools?: 
 			opts: any,
 		) => {
 			const scriptedRetries = responses[call]?.retries ?? 0;
-			const messages = await provider.getMessages(model, {}, {}, model.maxTokens.input, scriptedRetries);
+			// The real service passes the pending event's own data here, so keep it to assert write-backs.
+			const reporting: Record<string, unknown> = {};
+			seenReporting.push(reporting);
+			seenOptions.push(opts);
+			const messages = await provider.getMessages(model, reporting, {}, model.maxTokens.input, scriptedRetries);
 			seenMessages.push(messages);
 			// Mirror the service's own capability gate: tools are dropped for providers that can't carry them
 			seenTools.push(options?.supportsTools === false ? undefined : opts?.tools);
@@ -240,6 +246,8 @@ function makeAiFakes(responses: ScriptedResponse[], options?: { supportsTools?: 
 		container: { ai: ai } as unknown as Container,
 		seenMessages: seenMessages,
 		seenTools: seenTools,
+		seenReporting: seenReporting,
+		seenOptions: seenOptions,
 		callCount: () => call,
 	};
 }
@@ -656,5 +664,58 @@ suite('coretools/conflict repo-consultation tool loop', () => {
 		// prompt's primary evidence.
 		const prompt = ai.seenMessages[0].map(m => m.content).join('\n');
 		assert.strictEqual(prompt.includes('+line 2500'), true, 'the conflicted file’s diff must not be capped');
+	});
+});
+
+suite('coretools/conflict AI request attribution', () => {
+	let dir: string;
+
+	setup(async () => {
+		dir = await mkdtemp(join(tmpdir(), 'gitlens-conflict-telemetry-'));
+	});
+
+	teardown(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	test('reports the attempt’s real retry count, not a hardcoded 0', async () => {
+		// `sendRequest` builds the event data once and always asks for attempt 0, so without the
+		// write-back a budget-shrinking retry is indistinguishable from a clean first attempt.
+		const ai = makeAiFakes([{ text: takeTheirsResponse, retries: 2 }]);
+		const { integration, svc } = makeToolGitFakes(dir, ai.container);
+		await writeFile(join(dir, 'server.conf'), conflicted);
+		const conflict = await integration.extract({ svc: svc, filePath: 'server.conf' });
+
+		await integration.resolveSingle(
+			{ svc: svc, conflict: conflict!, conversationId: 'conv-1' },
+			{ source: 'graph' },
+		);
+
+		assert.strictEqual(ai.seenReporting[0]['retry.count'], 2, 'the retry count is written back per attempt');
+		const inputLength = ai.seenReporting[0]['input.length'];
+		assert.ok(typeof inputLength === 'number' && inputLength > 0, 'the prompt size is reported alongside it');
+	});
+
+	test('forwards the conversation ID with every request so the events can be grouped', async () => {
+		// One resolution is many requests; without this they can't be tied back to their session.
+		const ai = makeAiFakes([
+			{ toolCalls: [{ id: 'c1', name: 'grep', args: { pattern: 'useTimeout' } }] },
+			{ text: takeTheirsResponse },
+		]);
+		const { integration, svc } = makeToolGitFakes(dir, ai.container);
+		await writeFile(join(dir, 'server.conf'), conflicted);
+		const conflict = await integration.extract({ svc: svc, filePath: 'server.conf' });
+
+		await integration.resolveSingle(
+			{ svc: svc, conflict: conflict!, conversationId: 'conv-42' },
+			{ source: 'graph' },
+		);
+
+		assert.strictEqual(ai.seenOptions.length, 2, 'the tool round-trip is a second request');
+		assert.deepStrictEqual(
+			ai.seenOptions.map(o => o.conversationId),
+			['conv-42', 'conv-42'],
+			'every request in the loop carries the same conversation ID',
+		);
 	});
 });

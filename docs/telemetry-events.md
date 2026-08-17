@@ -258,6 +258,8 @@ void
   'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'compare' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -329,6 +331,8 @@ void
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -371,6 +375,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -413,6 +419,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -456,6 +464,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -498,6 +508,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -540,6 +552,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -582,6 +596,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -624,6 +640,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -668,6 +686,8 @@ or
 {
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the user's whole resolution task, and the unit the backend charges its flat per-feature fee on. Set only by conflict resolution. Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured — the event count itself can't be, since one session is many round-trips of an agentic loop. For per-operation counts use `autoRebase/step/resolved` (automatic) and `graphDetails/resolve/generateResolutions/completed` (the panel). One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`.
+  'conversationId': string,
   'correlationId': string,
   'customInstructions.commitMessage.setting.length': number,
   'customInstructions.commitMessage.setting.used': boolean,
@@ -4739,8 +4759,11 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'duration': number,
   // Number of resolutions excluded by the user before apply
   'excluded.count': number,
+  'refine.count': number,
   // Total resolutions in the pending set
-  'resolutions.count': number
+  'resolutions.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number
 }
 ```
 
@@ -4765,8 +4788,11 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'duration': number,
   // Number of resolutions excluded by the user before apply
   'excluded.count': number,
+  'refine.count': number,
   // Total resolutions in the pending set
-  'resolutions.count': number
+  'resolutions.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number
 }
 ```
 
@@ -4833,8 +4859,11 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  'refine.count': number,
   // Number of pending resolutions that were discarded
-  'resolutions.count': number
+  'resolutions.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number
 }
 ```
 
@@ -4866,7 +4895,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the run was scoped to a focused subset of conflicted files rather than all
   'focused': boolean,
   // True when this run refined/retried a prior result; false on the initial resolve
-  'refine': boolean
+  'refine': boolean,
+  'refine.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number,
+  // How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve.
+  'run.kind': 'start' | 'refine' | 'retry'
 }
 ```
 
@@ -4899,6 +4933,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'focused': boolean,
   // True when this run refined/retried a prior result; false on the initial resolve
   'refine': boolean,
+  'refine.count': number,
   // Number of files the resolver errored on
   'result.errors.count': number,
   // Number of files the AI produced a resolution for
@@ -4914,7 +4949,15 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Resolutions resolved by taking the current/ours side
   'result.strategy.takeOurs.count': number,
   // Resolutions resolved by taking the incoming/theirs side
-  'result.strategy.takeTheirs.count': number
+  'result.strategy.takeTheirs.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number,
+  // How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve.
+  'run.kind': 'start' | 'refine' | 'retry',
+  // Repo-consultation tool calls summed over the run
+  'tools.calls.count': number,
+  // Resolver steps summed over the run — one model round-trip each, mirroring `autoRebase/step/resolved` so both paths are comparable
+  'tools.steps.count': number
 }
 ```
 
@@ -4946,7 +4989,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the run was scoped to a focused subset of conflicted files rather than all
   'focused': boolean,
   // True when this run refined/retried a prior result; false on the initial resolve
-  'refine': boolean
+  'refine': boolean,
+  'refine.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number,
+  // How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve.
+  'run.kind': 'start' | 'refine' | 'retry'
 }
 ```
 
@@ -4965,6 +5013,68 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
+}
+```
+
+### graphDetails/resolve/retryFile/completed
+
+> Sent when a per-file "retry with feedback" re-resolution succeeds
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Only on `/failed` — `cancelled` is the host reporting the session went away mid-flight
+  'failed.reason': 'cancelled' | 'error',
+  'refine.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number
+}
+```
+
+### graphDetails/resolve/retryFile/failed
+
+> Sent when a per-file "retry with feedback" re-resolution fails or is cancelled
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Only on `/failed` — `cancelled` is the host reporting the session went away mid-flight
+  'failed.reason': 'cancelled' | 'error',
+  'refine.count': number,
+  'retryFile.count': number,
+  'retryFromError.count': number
 }
 ```
 

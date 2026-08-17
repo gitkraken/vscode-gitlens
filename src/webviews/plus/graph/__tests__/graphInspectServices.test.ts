@@ -707,3 +707,85 @@ suite('graphInspectServices — resolve progress reports repo consultation (#558
 		]);
 	});
 });
+
+/** Same prototype-backed shape as {@link createResolveProgressFake}, but with the per-file resolver
+ *  metrics under test standing in for the consultation replay. */
+function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?: number } | undefined)[]) {
+	const container = {
+		git: { getRepositoryService: () => ({}) },
+		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+	} as unknown as Container;
+
+	const paths = metrics.map((_, i) => `src/${i}.ts`);
+	const integration = {
+		listUnmergedEntries: () => Promise.resolve(paths.map(p => ({ path: p, reason: 'both-modified' }))),
+		resolveAllParallel: () =>
+			Promise.resolve({
+				resolutions: paths.map((p, i) => ({
+					filePath: p,
+					content: 'resolved',
+					strategy: 'ai',
+					confidence: 0.9,
+					description: 'why',
+					metrics: metrics[i],
+				})),
+				errors: [],
+				skipped: [],
+			}),
+		readWorkingFiles: () => Promise.resolve(new Map(paths.map(p => [p, 'conflicted']))),
+	};
+
+	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container },
+		_aiCancellations: new Set(),
+		_activeResolveSessions: new Map(),
+		_resolveConversationIds: new Map(),
+		_composeProgressEvent: { subscribe: () => () => {} },
+		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
+	});
+
+	return (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(fakeThis).graphInspect;
+}
+
+suite('graphInspectServices — resolver effort aggregation', () => {
+	async function resolveMetrics(metrics: ({ stepCount?: number; toolCallCount?: number } | undefined)[]) {
+		const graphInspect = createResolveMetricsFake(metrics);
+		const result = await graphInspect.resolveConflicts('/repo', undefined);
+		assert.ok(!('error' in result) && !('cancelled' in result), `resolve failed: ${JSON.stringify(result)}`);
+		return result.result.metrics;
+	}
+
+	test('sums each file’s step and tool-call counts over the run', async () => {
+		// The panel resolves files concurrently but reports one run-level total, so the per-file counts
+		// have to be added rather than last-write-wins.
+		assert.deepStrictEqual(
+			await resolveMetrics([
+				{ stepCount: 3, toolCallCount: 2 },
+				{ stepCount: 4, toolCallCount: 1 },
+			]),
+			{ steps: 7, toolCalls: 3 },
+		);
+	});
+
+	test('stays undefined when no resolution reported counts, rather than collapsing to 0', async () => {
+		// `autoRebase/step/resolved` reports undefined in this case. Sending 0 instead would make a
+		// provider that reports nothing look like one that resolved the conflict for free, and the two
+		// paths exist to be compared on exactly this.
+		assert.deepStrictEqual(await resolveMetrics([undefined, undefined]), {
+			steps: undefined,
+			toolCalls: undefined,
+		});
+	});
+
+	test('sums only the files that reported, ignoring the ones that did not', async () => {
+		assert.deepStrictEqual(await resolveMetrics([{ stepCount: 5, toolCallCount: 2 }, undefined]), {
+			steps: 5,
+			toolCalls: 2,
+		});
+	});
+
+	test('tracks the two counts independently — tools can be unreported while steps are not', async () => {
+		assert.deepStrictEqual(await resolveMetrics([{ stepCount: 6 }]), { steps: 6, toolCalls: undefined });
+	});
+});

@@ -1331,6 +1331,9 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		const telementry = provider.getTelemetryInfo(model, 0);
+		// Stamped here, not in each caller's `getTelemetryInfo`, so it also lands on the failure paths
+		// below — where an unattributable request is most costly to investigate.
+		telementry.data.conversationId = options?.conversationId;
 
 		// Resolve the provider for the resolved model independent of `this._provider` — the
 		// singleton cache reflects whichever `getModel` ran most recently, which races with

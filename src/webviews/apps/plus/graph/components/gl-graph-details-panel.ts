@@ -3668,7 +3668,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const run = this.getResolveRunScope();
 				if (run == null) return;
 
-				this._workflow.runResolve(this.effectiveRepoPath, run.scope, e.detail?.prompt);
+				this._workflow.runResolve(this.effectiveRepoPath, run.scope, e.detail?.prompt, 'start');
 			}}
 			@resolve-view-diff=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveViewDiff(e.detail.filePath)}
@@ -3698,6 +3698,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this.effectiveRepoPath,
 					resolveEntry?.focusedFilePaths ?? this._state.resolveFocusedFilePaths.get(),
 					e.detail?.prompt,
+					'refine',
 				);
 			}}
 			@resolve-retry-file=${(e: CustomEvent<{ filePath: string; prompt: string }>) =>
