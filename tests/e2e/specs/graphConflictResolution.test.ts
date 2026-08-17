@@ -29,7 +29,7 @@
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import { ensureGraphRowsRendered, scrollDetailsToFileTree, widenSideBarForGraph } from '../graphHelpers.js';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
@@ -74,40 +74,64 @@ function conflictFileContext(webview: FrameLocator) {
 	return webview.locator('[data-vscode-context*="+conflict"]');
 }
 
-/** Ensure the graph's details panel is expanded (it may start collapsed). */
-async function ensureDetailsPanelOpen(webview: FrameLocator): Promise<void> {
-	const toggle = webview.locator('gl-button[aria-label$="Details Panel"]').first();
-	await expect(toggle).toBeVisible({ timeout: MaxTimeout });
-	if ((await toggle.getAttribute('aria-label')) === 'Show Details Panel') {
-		await toggle.click();
-		await expect(webview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
-			timeout: MaxTimeout,
-		});
-	}
+/**
+ * Open or collapse the graph's details panel.
+ *
+ * Which state a step needs is load-bearing here, because the panel splits the side bar's HEIGHT with
+ * the graph. Open, it can leave the graph too short for its virtualizer to mount ANY row: measured on a
+ * cramped host, an open panel left the graph pane at 26px with the commit tree at height 0 and zero
+ * `role="treeitem"` in the DOM, while collapsing it put the tree back at 19px with its rows mounted. So
+ * anything that gates on graph rows — or clicks one — has to run while it is collapsed, and only the
+ * WIP details themselves need it open. This file reaches the starved state on its own: its gate opens
+ * the panel and the graph webview is retained across `resetUI`, so each test inherits the previous
+ * one's panel. The wider CI VS Code window has room to spare; the fork legs (Windsurf, Positron) did
+ * not.
+ *
+ * Gated on the pane's `inert` attribute rather than the toggle's label: `inert` is bound directly to
+ * `graphState.details.visible` (`graph-app.ts`, `?inert=${!detailsVisible}`), so it can't report a
+ * transient pre-render label the way a single `aria-label` read can, and it is the same invariant
+ * `graphDetails.test.ts` asserts. Retried, because the click and that state land a frame apart.
+ */
+async function setDetailsPanel(webview: FrameLocator, open: boolean): Promise<void> {
+	const pane = webview.locator('.graph__details-pane').first();
+	const toggle = webview.locator(`gl-button[aria-label="${open ? 'Show' : 'Hide'} Details Panel"]`).first();
+
+	await expect(async () => {
+		if (await toggle.isVisible().catch(() => false)) {
+			await toggle.click({ timeout: DefaultTimeout }).catch(() => {});
+		}
+
+		if (open) {
+			await expect(pane).not.toHaveAttribute('inert', '', { timeout: DefaultTimeout });
+		} else {
+			await expect(pane).toHaveAttribute('inert', '', { timeout: DefaultTimeout });
+		}
+	}).toPass({ timeout: MaxTimeout });
+}
+
+/**
+ * Select the WIP row. Kept separate from opening its details because the click needs the panel
+ * COLLAPSED: the row it targets only exists in the DOM while the graph has the height to render it (see
+ * {@link setDetailsPanel}).
+ */
+async function selectWipRow(webview: FrameLocator): Promise<void> {
+	// New Lit engine: role="treeitem", accessible name "Working Changes". Forced, because a conflicted
+	// WIP row carries adornment overlays (the "Resolve Conflicts…" chip and the modified-file stats pill)
+	// that sit over it on slower/contended renders (the workers=4 flake).
+	const wipRow = webview
+		.getByRole('treeitem', { name: /Working Changes/ })
+		.filter({ visible: true })
+		.first();
+	await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
+	await wipRow.click({ force: true });
 }
 
 /** Select the WIP row and wait for its details (file list) to render. */
 async function selectWipDetails(webview: FrameLocator): Promise<void> {
-	await ensureDetailsPanelOpen(webview);
-
-	// Prefer the dedicated WIP/overview button: it selects the WIP row from a stable, standalone target.
-	// A conflicted WIP row carries adornment overlays (the "Resolve Conflicts…" chip and the modified-
-	// file stats pill) that sit over the row on slower/contended renders (the workers=4 flake). Clicking
-	// the button sidesteps those overlays.
-	const overviewButton = webview.locator('gl-button[data-action="wip"]').first();
-	if (await overviewButton.isVisible().catch(() => false)) {
-		await overviewButton.click();
-	} else {
-		// Fallback: click the WIP row (new Lit engine: role="treeitem", accessible name "Working Changes").
-		const wipRow = webview
-			.getByRole('treeitem', { name: /Working Changes/ })
-			.filter({ visible: true })
-			.first();
-		await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
-		await wipRow.click({ force: true });
-	}
-
-	await ensureDetailsPanelOpen(webview);
+	// Collapse first so the row is there to click, then open for the details themselves.
+	await setDetailsPanel(webview, false);
+	await selectWipRow(webview);
+	await setDetailsPanel(webview, true);
 	await expect(webview.locator('gl-details-wip-panel').first()).toBeVisible({ timeout: 30000 });
 }
 
@@ -155,23 +179,28 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	// than reporting the same "context never appeared" for either. 15s each: still well over
 	// `MaxTimeout`, which the conflict state needs because it waits on a `git status` read. The stages
 	// below add to that, which is why this file raises its per-test timeout (see the describe).
+	//
+	// The order of the stages is what makes them measure what they name:
+	// - The row gate AND the WIP-row click both run with the details panel COLLAPSED, because the graph
+	//   only has the height to render its rows in that state (see `setDetailsPanel`). Run them with the
+	//   panel open and the gate reports "element(s) not found", blaming a graph that painted fine.
+	// - The panel opens after that, because the WIP row has to be the selection for `+hasConflicts` to
+	//   exist at all in this fixture (see `wipConflictContext`): with a commit selected the panel renders
+	//   `gl-details-commit-panel` and there is no `gl-details-wip-header` to carry the context. A fresh
+	//   graph auto-selects the WIP row, which is why gating on the context alone held for the first specs
+	//   in this file — but nothing keeps that selection across a spec that left another row behind.
+	// - Resolve mode is left only once the panel is open, since `exitResolveMode` probes whether the mode
+	//   panel is VISIBLE: a collapsed panel hides it, so exiting earlier would early-return and leave the
+	//   mode active, and `renderWip` then renders it INSTEAD of `gl-details-wip-panel` — surfacing as
+	//   "the WIP details never rendered", the misdiagnosis this whole gate exists to prevent. The mode
+	//   leaks in the first place because the graph webview is retained across `resetUI` and this file's
+	//   `afterEach` can miss the close chip, which re-renders under the conflicted WIP's watcher.
+	await setDetailsPanel(webview!, false);
 	await ensureGraphRowsRendered(vscode, webview!, 15000);
-	// Open the details panel FIRST, then leave resolve mode, then select the WIP row. Order matters in
-	// both steps:
-	// - `exitResolveMode` probes whether the mode panel is visible, and a collapsed details panel makes
-	//   it invisible — so exiting before opening would early-return and leave the mode active, which
-	//   `renderWip` then renders INSTEAD of `gl-details-wip-panel`, surfacing as "the WIP details never
-	//   rendered" (the misdiagnosis this whole gate exists to prevent). The mode leaks in the first place
-	//   because the graph webview is retained across `resetUI` and this file's `afterEach` can miss the
-	//   close chip, which re-renders under the conflicted WIP's watcher.
-	// - The WIP row has to be the selection for `+hasConflicts` to exist at all in this fixture (see
-	//   `wipConflictContext`): with a commit selected the panel renders `gl-details-commit-panel` and
-	//   there is no `gl-details-wip-header` to carry the context. A fresh graph auto-selects the WIP row,
-	//   which is why gating on the context alone held for the first specs in this file — but nothing
-	//   keeps that selection across a spec that left another row behind.
-	await ensureDetailsPanelOpen(webview!);
+	await selectWipRow(webview!);
+	await setDetailsPanel(webview!, true);
 	await exitResolveMode(webview!);
-	await selectWipDetails(webview!);
+	await expect(webview!.locator('gl-details-wip-panel').first()).toBeVisible({ timeout: 30000 });
 	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 15000 }).toBeGreaterThan(0);
 	return webview!;
 }
