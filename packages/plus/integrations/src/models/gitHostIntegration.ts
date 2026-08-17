@@ -139,7 +139,7 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
 
 /**
  * The provider-apis field map a summary PR read requests: every `GitPullRequest` field EXCEPT
- * `headCommit`.
+ * `headCommit` and `commitCount`.
  *
  * Spelled as an explicit allow-list rather than a negation because provider-apis' `fieldQuery` treats
  * an ABSENT map as "select everything" and a present one as the complete request — so omitting a field
@@ -147,10 +147,19 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
  * added here would silently stop being selected on summary reads. `FullFieldMap` (a `Record` over every
  * key, not a `Partial`) is what turns that into a compile error instead.
  *
- * Only `headCommit` is dropped, and it is the whole point: on GitHub it expands to
- * `commits(last: 1) { ... statusCheckRollup { contexts(first: 100) } }` per row — up to 100 check
- * contexts per PR for a page of up to 100 PRs, collapsed by consumers into a single tri-state.
- * Measured against a 100-PR repo: 55.6 KB → 14.1 KB and ~2.0s → ~1.1s per page.
+ * BOTH omissions are required, and this is the subtle part: on GitHub the two fields come from the SAME
+ * selection — `commits(last: 1) { totalCount nodes { commit { statusCheckRollup { contexts(first: 100) }
+ * } } }`, where `commitCount` is the `totalCount` and `headCommit.buildStatuses` is the rollup. So
+ * provider-apis gates the subtree on the pair; leaving `commitCount: true` here would keep the whole
+ * thing and this map would save nothing at all.
+ *
+ * That is up to 100 check contexts per PR for a page of up to 100 PRs, which consumers collapse into a
+ * single tri-state. Measured against a 100-PR repo: 55.6 KB → 14.1 KB and ~2.0s → ~1.1s per page.
+ *
+ * Giving up `commitCount` alongside the rollup is consistent with what `summary` already means here:
+ * `gqlPullRequestLiteFragment`, which `searchMyPullRequests` has always used for its summary reads,
+ * selects no `commits` either. Both fields are optional on `PullRequestShape`, so a summary row reports
+ * them as absent rather than as a zero.
  */
 const summaryPullRequestFields: FullFieldMap<GitPullRequest> = {
 	id: true,
@@ -169,7 +178,9 @@ const summaryPullRequestFields: FullFieldMap<GitPullRequest> = {
 	headRef: true,
 	commentCount: true,
 	upvoteCount: true,
-	commitCount: true,
+	// Dropped together with `headCommit`: it is that subtree's `totalCount`, so keeping it would
+	// keep the whole rollup (see the note above).
+	commitCount: false,
 	fileCount: true,
 	additions: true,
 	deletions: true,
@@ -1428,9 +1439,10 @@ export abstract class GitHostIntegration<
 				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
 				// A summary read drops the per-row build-status subtree, which on GitHub is
-				// `statusCheckRollup.contexts(first: 100)` per PR for a page of up to 100. The map is
-				// opt-out by omission, so every OTHER field stays selected and only this subtree goes;
-				// `statusCheckRollupState` is the one thing a summary consumer gives up.
+				// `commits(last: 1) { totalCount ... statusCheckRollup { contexts(first: 100) } }` per PR
+				// for a page of up to 100. The map is opt-out by omission, so every OTHER field stays
+				// selected; what a summary consumer gives up is `statusCheckRollupState` and
+				// `commitCount`, which share that one selection.
 				...(options?.summary ? { fields: summaryPullRequestFields } : {}),
 			});
 			return { value: result, duration: performance.now() - start };
