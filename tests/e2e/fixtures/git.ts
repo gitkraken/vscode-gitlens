@@ -75,11 +75,22 @@ export class GitFixture {
 		await new Promise(resolve => setTimeout(resolve, 500));
 	}
 
-	async commit(message: string, fileName: string = 'test-file.txt', content: string = 'content'): Promise<void> {
+	async commit(
+		message: string,
+		fileName: string = 'test-file.txt',
+		content: string = 'content',
+		options?: { date?: string },
+	): Promise<void> {
 		const filePath = path.join(this.repoPath, fileName);
 		await fs.writeFile(filePath, content);
 		await this.git('add', undefined, fileName);
-		await this.git('commit', undefined, '-m', message);
+		// A fixed author/committer date makes row order deterministic: commits created within the same
+		// second otherwise sort arbitrarily, which floats a branch's row in the graph.
+		const commitOptions =
+			options?.date != null
+				? { env: { GIT_AUTHOR_DATE: options.date, GIT_COMMITTER_DATE: options.date } }
+				: undefined;
+		await this.git('commit', commitOptions, '-m', message);
 	}
 
 	/**
@@ -396,7 +407,11 @@ export class GitFixture {
 		await this.git('worktree', undefined, 'prune');
 	}
 
-	private async git(command: string, options?: { configs?: string[] }, ...args: string[]): Promise<string> {
+	private async git(
+		command: string,
+		options?: { configs?: string[]; env?: Record<string, string> },
+		...args: string[]
+	): Promise<string> {
 		const fullArgs = [...(options?.configs ?? []), command, ...args];
 		return new Promise((resolve, reject) => {
 			// Fixture repos must not inherit the developer's global/system git config. A `merge.ff=only`,
@@ -406,7 +421,12 @@ export class GitFixture {
 			// on what these methods set explicitly.
 			const child = spawn('git', fullArgs, {
 				cwd: this.repoPath,
-				env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
+				env: {
+					...process.env,
+					GIT_CONFIG_GLOBAL: '/dev/null',
+					GIT_CONFIG_SYSTEM: '/dev/null',
+					...(options?.env ?? {}),
+				},
 			});
 
 			let stdout = '';
