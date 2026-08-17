@@ -1,3 +1,4 @@
+<img width="216" height="216" alt="bfb19bc5-8b43-4639-a4a1-7738b7e18a05-1_all_1" src="https://github.com/user-attachments/assets/1fdfbfab-d2cb-44ea-937f-4918621b60b4" />
 # GitLens &mdash; Supercharge Git in <!-- #vscode -->VS Code<!-- /#vscode: Your Editor -->
 
 > Understand any line of code, keep every branch, worktree, and coding agent in view, and ship cleaner history &mdash; without leaving <!-- #vscode -->VS Code<!-- /#vscode: your editor -->.
