@@ -579,6 +579,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/resolve/applyResolutions/failed': GraphDetailsResolveApplyEvent;
 	/** Sent when the user discards pending AI conflict resolutions without applying them */
 	'graphDetails/resolve/discarded': GraphDetailsResolveDiscardedEvent;
+	/** Sent when a per-file "retry with feedback" re-resolution succeeds */
+	'graphDetails/resolve/retryFile/completed': GraphDetailsResolveRetryFileEvent;
+	/** Sent when a per-file "retry with feedback" re-resolution fails or is cancelled */
+	'graphDetails/resolve/retryFile/failed': GraphDetailsResolveRetryFileEvent;
 	/** Sent when the user switches the AI model from the resolve-mode chip in the Graph Details panel */
 	'graphDetails/resolve/changeAiModel': GraphDetailsChangeAiModelEvent;
 
@@ -904,6 +908,20 @@ interface AIEventDataBase {
 
 interface AIEventDataSendBase extends AIEventDataBase {
 	correlationId?: string;
+	/**
+	 * Groups every request of one AI session — the user's whole resolution task, and the unit the
+	 * backend charges its flat per-feature fee on. Set only by conflict resolution.
+	 *
+	 * Counting distinct IDs (filtered to `type: 'resolveConflicts'`) is how feature usage is measured —
+	 * the event count itself can't be, since one session is many round-trips of an agentic loop. For
+	 * per-operation counts use `autoRebase/step/resolved` (automatic) and
+	 * `graphDetails/resolve/generateResolutions/completed` (the panel).
+	 *
+	 * One caveat: an escalated rebase's ID is deliberately adopted by the panel that finishes it, so a
+	 * single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on
+	 * `source.detail`.
+	 */
+	conversationId?: string;
 
 	'retry.count': number;
 	duration?: number;
@@ -1483,7 +1501,11 @@ interface GraphDetailsReviewActionEvent extends GraphContextEventData {
 interface GraphDetailsResolveLifecycleEvent extends GraphContextEventData {}
 
 interface GraphDetailsResolveGenerateLifecycleEvent
-	extends GraphContextEventData, GraphDetailsInstructionsEventData, GraphDetailsAIModelEventData {
+	extends
+		GraphContextEventData,
+		GraphDetailsInstructionsEventData,
+		GraphDetailsAIModelEventData,
+		GraphDetailsResolveSessionCountsEventData {
 	/** True when this run refined/retried a prior result; false on the initial resolve */
 	refine: boolean;
 	/** Whether the run was scoped to a focused subset of conflicted files rather than all */
@@ -1492,6 +1514,24 @@ interface GraphDetailsResolveGenerateLifecycleEvent
 	'files.focused.count': number;
 	/** Time from dispatch to settlement in milliseconds */
 	duration: number;
+	/** How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two
+	 *  non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve. */
+	'run.kind': 'start' | 'refine' | 'retry';
+}
+
+/**
+ * Gesture counts for one resolve session, carried on every resolve event so a session reads as
+ * "resolved after N refines and M retries". A session is one panel engagement — a cold run or an
+ * escalation seed — through apply/discard.
+ *
+ * Note this is the PANEL's session, not the AI conversation's: going back from an error or
+ * cancelling ends a panel session but leaves the host conversation open, so one `conversationId`
+ * can span two of these.
+ */
+interface GraphDetailsResolveSessionCountsEventData {
+	'refine.count': number;
+	'retryFromError.count': number;
+	'retryFile.count': number;
 }
 
 interface GraphDetailsResolveGenerateCompletedEvent extends GraphDetailsResolveGenerateLifecycleEvent {
@@ -1511,9 +1551,14 @@ interface GraphDetailsResolveGenerateCompletedEvent extends GraphDetailsResolveG
 	'result.strategy.deleted.count': number;
 	/** Resolutions left as skipped */
 	'result.strategy.skipped.count': number;
+	/** Resolver steps summed over the run — one model round-trip each, mirroring
+	 *  `autoRebase/step/resolved` so both paths are comparable */
+	'tools.steps.count'?: number;
+	/** Repo-consultation tool calls summed over the run */
+	'tools.calls.count'?: number;
 }
 
-interface GraphDetailsResolveApplyEvent extends GraphContextEventData {
+interface GraphDetailsResolveApplyEvent extends GraphContextEventData, GraphDetailsResolveSessionCountsEventData {
 	/** Total resolutions in the pending set */
 	'resolutions.count': number;
 	/** Number of resolutions actually applied (post user file-exclusion) */
@@ -1524,9 +1569,26 @@ interface GraphDetailsResolveApplyEvent extends GraphContextEventData {
 	duration: number;
 }
 
-interface GraphDetailsResolveDiscardedEvent extends GraphContextEventData {
+interface GraphDetailsResolveDiscardedEvent extends GraphContextEventData, GraphDetailsResolveSessionCountsEventData {
 	/** Number of pending resolutions that were discarded */
 	'resolutions.count': number;
+}
+
+/**
+ * A per-file "retry with feedback" re-resolution. Terminal apply/discard aside, this is the only
+ * resolve gesture that runs the AI outside a whole-run dispatch — an escalation-seeded session can
+ * consist of nothing else.
+ */
+interface GraphDetailsResolveRetryFileEvent
+	extends
+		GraphContextEventData,
+		GraphDetailsInstructionsEventData,
+		GraphDetailsAIModelEventData,
+		GraphDetailsResolveSessionCountsEventData {
+	/** Time from dispatch to settlement in milliseconds */
+	duration: number;
+	/** Only on `/failed` — `cancelled` is the host reporting the session went away mid-flight */
+	'failed.reason'?: 'error' | 'cancelled';
 }
 
 interface DetailsReachabilityLoadedEvent {

@@ -671,8 +671,15 @@ function createAiModelPort(
 				// `getMessages` is re-invoked on a provider retry with a reduced token budget, so build
 				// the history per attempt rather than once — see `buildMessages`.
 				const provider: AIRequestProvider = {
-					getMessages: (_model, _reporting, _cancellation, _maxInputTokens, retries) =>
-						Promise.resolve(buildMessages(params, useTools, signatures, retries)),
+					getMessages: (_model, reporting, _cancellation, _maxInputTokens, retries) => {
+						// `reporting` IS the pending event's data, built once before the first attempt — so the
+						// retry count must be written back here, as `resolvePrompt` does for the features built
+						// on prompt templates.
+						reporting['retry.count'] = retries;
+						const messages = buildMessages(params, useTools, signatures, retries);
+						reporting['input.length'] = messages.reduce((sum, m) => sum + m.content.length, 0);
+						return Promise.resolve(messages);
+					},
 					getProgressTitle: () => 'Resolving conflicts…',
 					getTelemetryInfo: model => ({
 						key: 'ai/generate' as const,
@@ -682,6 +689,7 @@ function createAiModelPort(
 							'model.id': model.id,
 							'model.provider.id': model.provider.id,
 							'model.provider.name': model.provider.name,
+							// Overwritten per attempt by `getMessages` above
 							'retry.count': 0,
 						},
 					}),

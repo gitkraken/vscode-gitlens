@@ -1829,3 +1829,196 @@ suite('DetailsWorkflowController.enterComposeWithScope — recompose seeding', (
 		});
 	});
 });
+
+type SentEvent = { name: string; data: Record<string, unknown> };
+
+/** Harness for the resolve-session gesture counts: records every telemetry event and lets each
+ *  resolve/re-resolve RPC be scripted, so a run can be made to succeed, fail, or cancel. */
+function setupResolveCounts(options?: { resolveResults?: unknown[]; reresolveResults?: unknown[] }): {
+	controller: DetailsWorkflowController;
+	state: DetailsState;
+	sent: SentEvent[];
+} {
+	const sent: SentEvent[] = [];
+	const resolveResults = [...(options?.resolveResults ?? [])];
+	const reresolveResults = [...(options?.reresolveResults ?? [])];
+	const okResolve = { result: { resolutions: [] } };
+	const okReresolve = { result: { filePath: 'a.ts', strategy: 'ai', confidence: 1 } };
+
+	const services = {
+		repository: {
+			onRepositoryChanged: () => () => {},
+			onRepositoryWorkingChanged: () => () => {},
+			onRepositoryOrWorktreeChanged: () => () => {},
+		},
+		graphInspect: {
+			resolveConflicts: () => Promise.resolve(resolveResults.shift() ?? okResolve),
+			reresolveFile: () => Promise.resolve(reresolveResults.shift() ?? okReresolve),
+			discardResolutions: () => Promise.resolve(),
+		},
+		telemetry: {
+			sendEvent: (name: string, data: Record<string, unknown>) => {
+				sent.push({ name: name, data: data });
+				return Promise.resolve();
+			},
+		},
+	} as unknown as ResolvedServices;
+
+	const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+	const state = createDetailsState();
+	const actions = new DetailsActions(state, services, createResources());
+	const controller = new DetailsWorkflowController(host, actions);
+	host.connectAll();
+	host.tickHostUpdate();
+	state.activeMode.set('resolve');
+	state.activeModeRepoPath.set('/A');
+
+	return { controller: controller, state: state, sent: sent };
+}
+
+const generateEvents = (sent: SentEvent[]) =>
+	sent.filter(e => e.name.startsWith('graphDetails/resolve/generateResolutions/'));
+
+suite('DetailsWorkflowController — resolve session refine/retry counts', () => {
+	test('a cold run reports run.kind start with every count at zero', async () => {
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+
+		const events = generateEvents(m.sent);
+		assert.strictEqual(events.length, 1);
+		assert.strictEqual(events[0].data['run.kind'], 'start');
+		assert.strictEqual(events[0].data['refine.count'], 0);
+		assert.strictEqual(events[0].data['retryFromError.count'], 0);
+		assert.strictEqual(events[0].data['retryFile.count'], 0);
+	});
+
+	test('each refine increments refine.count within the session', async () => {
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'refine');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'refine');
+		await flush();
+
+		const events = generateEvents(m.sent);
+		assert.deepStrictEqual(
+			events.map(e => e.data['refine.count']),
+			[0, 1, 2],
+			'the count accumulates across the session rather than resetting per run',
+		);
+		assert.deepStrictEqual(
+			events.map(e => e.data['run.kind']),
+			['start', 'refine', 'refine'],
+		);
+	});
+
+	test('a retry after an error reports run.kind retry, not start', async () => {
+		// The bug this fixes: `refine` was derived from the resource, which holds `{error}` after a
+		// failure — so a retry was indistinguishable from a cold start.
+		const m = setupResolveCounts({ resolveResults: [{ error: { message: 'boom' } }] });
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		m.controller.resolve.retryFromError();
+		await flush();
+
+		const events = generateEvents(m.sent);
+		assert.strictEqual(events.length, 2);
+		assert.strictEqual(events[1].data['run.kind'], 'retry', 'a retry must not look like a cold start');
+		assert.strictEqual(events[1].data.refine, true);
+		assert.strictEqual(events[1].data['retryFromError.count'], 1);
+	});
+
+	test('a cold run resets counts carried over from the previous session', async () => {
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'refine');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+
+		const events = generateEvents(m.sent);
+		assert.strictEqual(events[2].data['refine.count'], 0, 'a new session starts clean');
+	});
+
+	test('a per-file retry emits its own event carrying the running counts', async () => {
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'refine');
+		await flush();
+		await m.controller.resolve.retryFile('a.ts', 'prefer ours');
+
+		const retry = m.sent.filter(e => e.name === 'graphDetails/resolve/retryFile/completed');
+		assert.strictEqual(retry.length, 1, 'the per-file retry path reported nothing before this');
+		assert.strictEqual(retry[0].data['retryFile.count'], 1);
+		assert.strictEqual(retry[0].data['refine.count'], 1, 'it carries the session context too');
+		assert.strictEqual(retry[0].data['customInstructions.length'], 'prefer ours'.length);
+		assert.strictEqual(retry[0].data['customInstructions.used'], true);
+	});
+
+	test('a failed per-file retry reports the reason', async () => {
+		const m = setupResolveCounts({ reresolveResults: [{ error: { message: 'nope' } }] });
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		await m.controller.resolve.retryFile('a.ts', 'try again');
+
+		const retry = m.sent.filter(e => e.name === 'graphDetails/resolve/retryFile/failed');
+		assert.strictEqual(retry.length, 1);
+		assert.strictEqual(retry[0].data['failed.reason'], 'error');
+	});
+
+	test('concurrent per-file retries each count exactly once', async () => {
+		// The count is bumped on dispatch rather than on settle — `resolveRetryingFiles` is a Set, so
+		// several files can be in flight and a read-modify-write across the await would lose one.
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		await Promise.all([m.controller.resolve.retryFile('a.ts', 'x'), m.controller.resolve.retryFile('b.ts', 'y')]);
+
+		const counts = m.sent
+			.filter(e => e.name === 'graphDetails/resolve/retryFile/completed')
+			.map(e => e.data['retryFile.count']);
+		assert.deepStrictEqual(counts.sort(), [1, 2]);
+	});
+
+	test('discard carries the session totals', async () => {
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'refine');
+		await flush();
+		await m.controller.resolve.retryFile('a.ts', 'x');
+		m.controller.resolve.discard();
+
+		const discarded = m.sent.filter(e => e.name === 'graphDetails/resolve/discarded');
+		assert.strictEqual(discarded.length, 1);
+		assert.strictEqual(discarded[0].data['refine.count'], 1);
+		assert.strictEqual(discarded[0].data['retryFile.count'], 1);
+	});
+
+	test('cancelling the mode ends the session', async () => {
+		const m = setupResolveCounts();
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		m.controller.runResolve('/A', undefined, undefined, 'refine');
+		await flush();
+		m.controller.cancelOperation('resolve');
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+
+		const events = generateEvents(m.sent);
+		assert.strictEqual(events[2].data['refine.count'], 0);
+	});
+});

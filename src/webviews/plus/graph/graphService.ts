@@ -102,6 +102,10 @@ export type ResolveResult =
 				/** Present only when seeded from an automatic-rebase escalation — tells the panel the
 				 *  run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
 				autoRebase?: { sessionId: string; stepNumber?: number; totalSteps?: number };
+				/** Resolver effort summed over the run, for telemetry only — aggregated host-side because
+				 *  the per-file `metrics` never cross the IPC boundary. A count is `undefined` when no
+				 *  resolution reported it, so "not measured" stays distinct from "zero". */
+				metrics?: { steps?: number; toolCalls?: number };
 			};
 	  }
 	| { error: { message: string } }

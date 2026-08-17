@@ -161,6 +161,19 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _reviewFetchedForSelection: AnchorKey | undefined;
 	private _composeFetchedForSelection: AnchorKey | undefined;
 	private _resolveFetchedForSelection: AnchorKey | undefined;
+	/**
+	 * Resolve-session gesture counts, reported on every resolve telemetry event so a session can be
+	 * read as "resolved after N refines and M retries" rather than as unrelated runs. A session is one
+	 * engagement — a cold run or an escalation seed — through apply/discard; `resetResolveSession` is
+	 * the choke point that zeroes them alongside the resource.
+	 *
+	 * Panel-scoped, matching `resources.resolve` itself (only one live resolve session). Note this is
+	 * NOT the host's conversation lifetime: `backFromError`/`cancelOperation` end a panel session but
+	 * leave the host conversation open, so one conversation can span two of these.
+	 */
+	private _resolveRefineCount = 0;
+	private _resolveRetryFromErrorCount = 0;
+	private _resolveRetryFileCount = 0;
 	// endregion
 
 	constructor(
@@ -355,7 +368,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		} else {
 			const resolveHasValue = resources.resolve.value.get() != null;
 			if (resolveHasValue && this._resolveFetchedForSelection !== newKey) {
-				resources.resolve.reset();
+				this.resetResolveSession();
 				this.resolve.invalidateErrorRecovery();
 				this._resolveFetchedForSelection = undefined;
 			} else {
@@ -702,7 +715,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.compose.invalidateContinuation();
 				this._composeFetchedForSelection = undefined;
 			} else if (wasMode === 'resolve') {
-				this.actions.resources.resolve.reset();
+				this.resetResolveSession();
 				this.resolve.invalidateErrorRecovery();
 				this._resolveFetchedForSelection = undefined;
 				this.actions.state.resolveFocusedFilePaths.set(undefined);
@@ -819,6 +832,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.removeRunningOperation(key, kind);
 		this.workflowFor(kind).invalidateSnapshot();
 		this.resourceFor(kind).reset();
+		// Destroying resolve ends its session, so the gesture counts go with it — the resource reset
+		// above is mode-generic, so it can't carry them.
+		if (kind === 'resolve') {
+			this.resetResolveSessionCounts();
+		}
 		// Forget on the engaged anchor (what's being destroyed), not the host's current selection —
 		// they can diverge (e.g. destroy via the active-toggle chip while the host's selection
 		// already moved to a different row).
@@ -1664,7 +1682,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		backFromError: (): void => {
 			const anchor = this.currentAnchor();
 			this.removeRunningOperation(anchorKey(anchor), 'resolve');
-			this.actions.resources.resolve.reset();
+			this.resetResolveSession();
 		},
 		// Retry after error — re-run with the same scope (single file or all) and the run's prompt.
 		// Read the scope off the entry (survives a row-switch-and-return that clears the signal),
@@ -1677,6 +1695,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.actions.state.activeModeRepoPath.get(),
 				entry?.focusedFilePaths ?? this.actions.state.resolveFocusedFilePaths.get(),
 				entry?.prompt,
+				'retry',
 			);
 		},
 		// Apply the (optionally filtered) resolutions to the working tree. Terminal: on success the
@@ -1704,6 +1723,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					'applied.count': appliedCount,
 					'excluded.count': excludedCount,
 					duration: duration,
+					...this.resolveSessionCounts(),
 				});
 				const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(engagedAnchor))?.resolve;
 				if (entry == null) return;
@@ -1717,7 +1737,10 @@ export class DetailsWorkflowController implements ReactiveController {
 				'applied.count': appliedCount,
 				'excluded.count': excludedCount,
 				duration: duration,
+				...this.resolveSessionCounts(),
 			});
+			// Apply is terminal — zero only after the event above has carried the totals.
+			this.resetResolveSessionCounts();
 			this.removeRunningOperation(anchorKey(engagedAnchor), 'resolve');
 			this.forgetMode(engagedAnchor);
 		},
@@ -1730,10 +1753,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.sendTelemetryEvent('graphDetails/resolve/discarded', {
 				'resolutions.count':
 					planValue != null && 'result' in planValue ? planValue.result.resolutions.length : 0,
+				...this.resolveSessionCounts(),
 			});
 			void this.actions.discardResolutions(repoPath);
 			this.removeRunningOperation(anchorKey(anchor), 'resolve');
-			this.actions.resources.resolve.reset();
+			this.resetResolveSession();
 			this.forgetMode(anchor);
 			this.hideMode(this.host.currentSelection());
 		},
@@ -1742,6 +1766,14 @@ export class DetailsWorkflowController implements ReactiveController {
 		retryFile: async (filePath: string, feedback: string): Promise<void> => {
 			const repoPath = this.actions.state.activeModeRepoPath.get();
 			if (!repoPath) return;
+
+			// Count on dispatch, before any await — `resolveRetryingFiles` is a Set, so several files can
+			// be retrying at once, and a read-modify-write across the await would lose one. Snapshot the
+			// counts here too: read at settle instead, two concurrent retries would both report the
+			// higher total rather than their own position in the session.
+			this._resolveRetryFileCount++;
+			const counts = this.resolveSessionCounts();
+			const startedAt = performance.now();
 
 			const busy = this.actions.state.resolveRetryingFiles;
 			busy.set(new Set(busy.get()).add(filePath));
@@ -1752,8 +1784,21 @@ export class DetailsWorkflowController implements ReactiveController {
 				// or host-owned registry after that is UB (same guard as `onRunSettled`).
 				if (this._disconnected) return;
 
+				const base = {
+					...this.actions.buildAIModelTelemetryContext(),
+					'customInstructions.used': feedback.length > 0,
+					'customInstructions.length': feedback.length,
+					...counts,
+					duration: performance.now() - startedAt,
+				};
 				if ('result' in result) {
 					this.mergeResolvedFile(result.result);
+					this.actions.sendTelemetryEvent('graphDetails/resolve/retryFile/completed', base);
+				} else {
+					this.actions.sendTelemetryEvent('graphDetails/resolve/retryFile/failed', {
+						...base,
+						'failed.reason': 'cancelled' in result ? 'cancelled' : 'error',
+					});
 				}
 			} finally {
 				const next = new Set(this.actions.state.resolveRetryingFiles.get());
@@ -1849,6 +1894,37 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.resources.resolve.mutate(merged);
 	}
 
+	/** Ends the resolve session — clears the result AND the gesture counts together. A choke point
+	 *  because the reset sites are many (anchor switch, back-from-error, discard, cancel, repo switch)
+	 *  and a missed one would report the previous session's counts on the next cold run. */
+	private resetResolveSession(): void {
+		this.actions.resources.resolve.reset();
+		this.resetResolveSessionCounts();
+	}
+
+	/** The session gesture counts, for the events that don't go through `fireRunTelemetry`'s
+	 *  `resolveBase` — apply, discard, and the per-file retry. On the terminal pair they answer "how
+	 *  much work did this resolution take?" in a single row. */
+	private resolveSessionCounts(): {
+		'refine.count': number;
+		'retryFromError.count': number;
+		'retryFile.count': number;
+	} {
+		return {
+			'refine.count': this._resolveRefineCount,
+			'retryFromError.count': this._resolveRetryFromErrorCount,
+			'retryFile.count': this._resolveRetryFileCount,
+		};
+	}
+
+	/** The counts alone, for the two callers that must not touch the resource: `destroyEngagedOperation`
+	 *  (already resets it generically) and `seedResolveFromEscalation` (about to mutate a value in). */
+	private resetResolveSessionCounts(): void {
+		this._resolveRefineCount = 0;
+		this._resolveRetryFromErrorCount = 0;
+		this._resolveRetryFileCount = 0;
+	}
+
 	/** Runs the resolver over `focusedFilePaths` — the user-checked subset from the idle file tree
 	 *  (the full conflict set when everything is checked). Stored on `resolveFocusedFilePaths` so the
 	 *  whole-run Refine and `retryFromError` re-run the same scope. */
@@ -1856,14 +1932,23 @@ export class DetailsWorkflowController implements ReactiveController {
 		repoPath: string | undefined,
 		focusedFilePaths: readonly string[] | undefined,
 		instructions: string | undefined,
+		/** Why this run was dispatched. Declared by the caller rather than derived from the resource:
+		 *  after an error the resource holds `{error}`, so a retry used to look like a cold start. */
+		runKind: 'start' | 'refine' | 'retry' = 'start',
 	): void {
 		if (!repoPath) return;
 
 		this.actions.state.wipStale.set(false);
 		this.actions.state.resolveFocusedFilePaths.set(focusedFilePaths);
-		// A prior result-bearing value means this run is a Refine (re-resolve) rather than a fresh run
-		// — used only for the `refine` telemetry flag below.
-		const currentValue = this.actions.resources.resolve.value.get();
+		// Count before dispatching — `dispatchOperation` resets the resource but deliberately leaves the
+		// counts alone, since a refine continues the session it is refining.
+		if (runKind === 'start') {
+			this.resetResolveSession();
+		} else if (runKind === 'refine') {
+			this._resolveRefineCount++;
+		} else {
+			this._resolveRetryFromErrorCount++;
+		}
 		this._resolveFetchedForSelection = this.selectionKey();
 		this.dispatchOperation(
 			'resolve',
@@ -1877,9 +1962,15 @@ export class DetailsWorkflowController implements ReactiveController {
 				// undefined/0 for a whole-run over all conflicts.
 				excludedFilesCount: 0,
 				effectiveFilesCount: 0,
-				refine: currentValue != null && 'result' in currentValue,
+				refine: runKind !== 'start',
 				focused: focusedFilePaths != null && focusedFilePaths.length > 0,
 				focusedCount: focusedFilePaths?.length ?? 0,
+				// Captured at dispatch, not read at settle — a later gesture must not retroactively
+				// change what this run reported.
+				runKind: runKind,
+				refineCount: this._resolveRefineCount,
+				retryFromErrorCount: this._resolveRetryFromErrorCount,
+				retryFileCount: this._resolveRetryFileCount,
 			},
 			undefined,
 			focusedFilePaths,
@@ -1906,6 +1997,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (this.actions.resources.resolve.value.get() != null) return;
 
 		this._resolveFetchedForSelection = this.selectionKey();
+		// A seed starts a fresh panel session even though no run was dispatched — counts only, since
+		// `resetResolveSession` would clear the value being mutated in.
+		this.resetResolveSessionCounts();
 		this.actions.resources.resolve.mutate(seeded);
 	}
 
@@ -1933,6 +2027,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			refine: boolean;
 			focused?: boolean;
 			focusedCount?: number;
+			/** Resolve-only — the session gesture counts, captured at dispatch. */
+			runKind?: 'start' | 'refine' | 'retry';
+			refineCount?: number;
+			retryFromErrorCount?: number;
+			retryFileCount?: number;
 		},
 		basePrompt?: string,
 		/** Resolve-only run scope, persisted on the entry so it survives anchor switches. */
@@ -1992,6 +2091,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			refine: boolean;
 			focused?: boolean;
 			focusedCount?: number;
+			/** Resolve-only — the session gesture counts, captured at dispatch. */
+			runKind?: 'start' | 'refine' | 'retry';
+			refineCount?: number;
+			retryFromErrorCount?: number;
+			retryFileCount?: number;
 		},
 		controller: AbortController,
 		startedAt: number,
@@ -2018,6 +2122,10 @@ export class DetailsWorkflowController implements ReactiveController {
 				focused: runContext.focused ?? false,
 				'files.focused.count': runContext.focusedCount ?? 0,
 				duration: duration,
+				'run.kind': runContext.runKind ?? 'start',
+				'refine.count': runContext.refineCount ?? 0,
+				'retryFromError.count': runContext.retryFromErrorCount ?? 0,
+				'retryFile.count': runContext.retryFileCount ?? 0,
 			};
 
 			if (isCancelled) {
@@ -2065,6 +2173,10 @@ export class DetailsWorkflowController implements ReactiveController {
 					'result.strategy.takeTheirs.count': takeTheirs,
 					'result.strategy.deleted.count': deleted,
 					'result.strategy.skipped.count': skipped,
+					// Absent when no resolution reported a count — not zero, which would read as "the
+					// resolver did the work for free" against `autoRebase/step/resolved`.
+					'tools.steps.count': r.metrics?.steps,
+					'tools.calls.count': r.metrics?.toolCalls,
 				});
 			}
 			return;
@@ -2669,7 +2781,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		this._composeBackSnapshot = undefined;
 		this.actions.resources.review.reset();
 		this.actions.resources.compose.reset();
-		this.actions.resources.resolve.reset();
+		this.resetResolveSession();
 		// Prior repo's anchors are gone — drop their remembered modes too.
 		const modes = this.host.crossPaneState.lastModeByAnchor;
 		if (modes.get().size > 0) {
@@ -2725,7 +2837,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (kind === 'resolve') {
 			// Resolve has no Back/Resume — cancelling returns to idle (the conflicted-file list).
 			this.removeRunningOperation(key, 'resolve');
-			this.actions.resources.resolve.reset();
+			this.resetResolveSession();
 			return;
 		}
 
