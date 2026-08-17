@@ -30,6 +30,10 @@ export interface StartReviewResult {
 /**
  * Start a review from a LaunchpadItem - uses already-fetched PR and repository data.
  * This is the preferred method when you already have a LaunchpadItem.
+ *
+ * Pass `interactive: false` when the caller is programmatic (an MCP/agent request) and cannot answer a
+ * prompt — the worktree creation this reaches would otherwise yield a confirm step and an access gate
+ * that strand the caller (see #5706).
  */
 export async function startReviewFromLaunchpadItem(
 	container: Container,
@@ -38,6 +42,7 @@ export async function startReviewFromLaunchpadItem(
 	openChatOnComplete?: boolean,
 	useDefaults?: boolean,
 	agent?: AgentDescriptor,
+	interactive?: boolean,
 ): Promise<StartReviewResult> {
 	const pr = item.underlyingPullRequest;
 	if (!pr) {
@@ -102,6 +107,7 @@ export async function startReviewFromLaunchpadItem(
 			openChatOnComplete
 				? { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions, agent: agent }
 				: undefined,
+			interactive,
 		);
 	} else if (openChatOnComplete) {
 		// Worktree already exists - handle chat and workspace opening manually.
@@ -219,6 +225,7 @@ async function createPullRequestWorktree(
 	addRemote: { name: string; url: string } | undefined,
 	useDefaults?: boolean,
 	chatAction?: StartReviewChatAction,
+	interactive?: boolean,
 ): Promise<GitWorktree> {
 	// Add remote if needed (for forks)
 	if (addRemote != null) {
@@ -253,6 +260,10 @@ async function createPullRequestWorktree(
 						? 'new'
 						: undefined,
 			result: worktreeResult,
+			// `confirm: false` above is not enough: the command forces its confirm step back on and its
+			// access gate ignores `confirm` entirely, so a caller that can't answer them waits forever on
+			// the `await` below (#5706)
+			interactive: interactive,
 			chatAction: chatAction,
 		},
 	});

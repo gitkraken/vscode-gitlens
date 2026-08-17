@@ -328,6 +328,9 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 								agentDispatch.openChatOnComplete,
 								state.useDefaults,
 								agentDispatch.agent,
+								// An MCP caller can't answer the worktree-create confirm step or access gate this
+								// reaches, and a suspended one never settles `result` (#5706)
+								this.source.source !== 'mcp',
 							);
 							state.result?.fulfill(reviewResult);
 							steps.markStepsComplete();
@@ -381,6 +384,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 						agentDispatch.openChatOnComplete,
 						state.useDefaults,
 						agentDispatch.agent,
+						// Same as the other entry point above: no user to answer the nested worktree steps (#5706)
+						this.source.source !== 'mcp',
 					);
 					state.result?.fulfill(reviewResult);
 				} catch (ex) {

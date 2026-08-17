@@ -41,7 +41,7 @@ import type {
 } from '../../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
-import { ensureAccessStep } from '../../quick-wizard/steps/access.js';
+import { ensureAccessStep, getAccessGateErrorMessage } from '../../quick-wizard/steps/access.js';
 import { inputBranchNameStep } from '../../quick-wizard/steps/branches.js';
 import { pickBranchOrTagStep } from '../../quick-wizard/steps/references.js';
 import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
@@ -84,6 +84,15 @@ interface State<Repo = string | GlRepository> {
 
 	result?: Deferred<GitWorktree | undefined>;
 	reveal?: boolean;
+	/**
+	 * `false` when the caller is programmatic (an MCP/agent request) and cannot answer a quick pick or a
+	 * modal. Every step that would prompt settles {@link result} with a structured error and bails
+	 * instead of yielding — a suspended `yield` never reaches the `finally` that settles it, so the
+	 * caller would otherwise wait out its own timeout with a picker left open (see #5706).
+	 *
+	 * Only ever set by the paths that have no user to ask; `undefined` keeps the interactive behavior.
+	 */
+	interactive?: boolean;
 
 	overrides?: {
 		title?: string;
@@ -143,9 +152,14 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		using steps = new StepsController<StepNames>(context, this);
 
 		state.flags ??= [];
-		// Don't allow skipping the confirm step
-		state.confirm = true;
-		this._canSkipConfirmOverride = undefined;
+		// Don't allow skipping the confirm step — the user's `skipConfirmations` setting must never skip it,
+		// because this step is also where the worktree's path is chosen. A programmatic caller is the one
+		// exception: it can't answer the step at all, and both its entry points already ask for
+		// `confirm: false` (see #5706). Skipping it takes BOTH of these — `confirm()` short-circuits to
+		// `true` whenever `canSkipConfirm` is false, so the override has to move too.
+		const interactive = state.interactive !== false;
+		state.confirm = interactive;
+		this._canSkipConfirmOverride = interactive ? undefined : true;
 
 		let setCreateBranchFlag = false;
 
@@ -158,6 +172,15 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					if (canSkipRepositoryPick(context.repos, state.repo)) {
 						[state.repo] = context.repos;
 					} else {
+						if (!interactive) {
+							state.result?.cancel(
+								new Error(
+									'Unable to determine which repository to create the worktree in. Specify a repository and try again.',
+								),
+							);
+							return;
+						}
+
 						using step = steps.enterStep(Steps.PickRepo);
 
 						const result = yield* pickRepositoryStep(state, context, step, { excludeWorktrees: true });
@@ -176,8 +199,29 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 					using step = steps.enterStep(Steps.EnsureAccess);
 
-					const result = yield* ensureAccessStep(this.container, 'worktrees', state, context, step);
+					const result = yield* ensureAccessStep(
+						this.container,
+						'worktrees',
+						state,
+						context,
+						step,
+						interactive,
+					);
 					if (result === StepResultBreak) {
+						if (!interactive) {
+							state.result?.cancel(
+								new Error(
+									await getAccessGateErrorMessage(
+										this.container,
+										'worktrees',
+										state.repo.path,
+										'create a worktree',
+									),
+								),
+							);
+							return;
+						}
+
 						if (step.goBack() == null) break;
 						continue;
 					}
@@ -188,6 +232,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				context.pickedSpecificFolder = undefined;
 
 				if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
+					if (!interactive) {
+						state.result?.cancel(new Error('A branch or tag to create the new worktree from is required.'));
+						return;
+					}
+
 					using step = steps.enterStep(Steps.PickRef);
 
 					const result = yield* pickBranchOrTagStep(state, context, {
@@ -253,6 +302,20 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					}
 
 					if (steps.isAtStep(Steps.InputBranchName) || state.createBranch == null) {
+						if (!interactive) {
+							// Reached whenever the requested name was rejected just above — most often because
+							// the branch already exists, which a re-run of the same programmatic request hits
+							// every time. Name the cause instead of asking for another name.
+							state.result?.cancel(
+								new Error(
+									createBranchOverride != null
+										? `Unable to create a branch named '${createBranchOverride}' — it already exists or is not a valid branch name.`
+										: 'A name for the new branch is required.',
+								),
+							);
+							return;
+						}
+
 						using step = steps.enterStep(Steps.InputBranchName);
 
 						const result = yield* inputBranchNameStep(state, context, {
@@ -335,9 +398,10 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					state.flags = result[1];
 				}
 
-				// Reset any confirmation overrides
-				state.confirm = true;
-				this._canSkipConfirmOverride = undefined;
+				// Reset any confirmation overrides (back to this invocation's baseline, not unconditionally —
+				// a programmatic caller still can't answer a confirm step on a later pass)
+				state.confirm = interactive;
+				this._canSkipConfirmOverride = interactive ? undefined : true;
 
 				const uri = state.flags.includes('--direct')
 					? state.uri
@@ -382,6 +446,30 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						}
 					}
 				} catch (ex) {
+					// A programmatic caller can't answer the modal below (nor read the toasts in the other
+					// branches), and its pending result would otherwise be settled by the `finally` with a
+					// generic "cancelled" that says nothing about what went wrong. Report the actual failure.
+					if (!interactive) {
+						let error: Error;
+						if (WorktreeCreateError.is(ex, 'alreadyCheckedOut')) {
+							error = new Error(
+								`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
+									icon: false,
+									quoted: true,
+								})} is already checked out.`,
+							);
+						} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
+							error = new Error(
+								`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}' because the folder already exists and is not empty.`,
+							);
+						} else {
+							error = ex instanceof Error ? ex : new Error(String(ex));
+						}
+
+						state.result?.cancel(error);
+						return;
+					}
+
 					if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
 						const createBranch: MessageItem = { title: 'Create New Branch' };
 						const force: MessageItem = { title: 'Create Anyway' };
