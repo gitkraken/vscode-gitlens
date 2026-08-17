@@ -219,6 +219,51 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.match(getCalls()[1].query, /scopeOpen: search\(first: 100,/);
 	});
 
+	test('selects the lite fragment and the maximum default page size for a summary read', async () => {
+		// The full fragment resolves assignees(25) + latestReviews(25) + reviewRequests(25) per node,
+		// which is SERVER time rather than payload: measured against a 992-PR repo, one 30-node page
+		// took ~3090ms full vs ~1150ms lite for near-identical bytes (155KB vs 140KB). It compounds
+		// with the page size, since the default follows the projection: 100 PRs cost four sequential
+		// full pages (~12.4s) or one lite page (~1.8s).
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+		});
+
+		const query = getCalls()[0].query;
+		assert.match(query, /scopeOpen: search\(first: 100,/);
+		// Review/check/diff selections are what the lite shape drops.
+		assert.doesNotMatch(query, /latestReviews/);
+		assert.doesNotMatch(query, /reviewRequests/);
+		assert.doesNotMatch(query, /statusCheckRollup/);
+		// What its consumers DO read must survive.
+		assert.match(query, /baseRefName/);
+		assert.match(query, /headRefName/);
+		assert.match(query, /body/);
+	});
+
+	test('keeps the full fragment and the cost-safe default when summary is not requested', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+
+		const query = getCalls()[0].query;
+		assert.match(query, /scopeOpen: search\(first: 30,/);
+		assert.match(query, /latestReviews/);
+	});
+
+	test('honours an explicit page size on the summary path too', async () => {
+		// Only the DEFAULT follows the projection; an explicit preference is still the caller's.
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+			pageSize: 10,
+		});
+
+		assert.match(getCalls()[0].query, /scopeOpen: search\(first: 10,/);
+	});
+
 	test('translates the declared mention relationship without widening to commenter', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, {

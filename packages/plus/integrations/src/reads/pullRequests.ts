@@ -48,6 +48,11 @@ export async function listPullRequestsPage(
 		includeReviewRequested?: boolean;
 		page?: number;
 		cursor?: string;
+		/**
+		 * Requests the lightweight row shape (see {@link IntegrationManager.listPullRequestsPage}). The
+		 * account-wide branch has always asked for it; this forwards it on the repo-scoped branch too.
+		 */
+		summary?: boolean;
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -147,6 +152,7 @@ export async function listPullRequestsPage(
 							// asked for one: an omitted page is the provider's own first page.
 							page: options.page != null ? page : undefined,
 							pageSize: options.itemsPerPage,
+							summary: options.summary,
 						},
 						options.connectionId,
 					),

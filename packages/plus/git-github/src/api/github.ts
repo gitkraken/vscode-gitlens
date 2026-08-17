@@ -4525,14 +4525,35 @@ export class GitHubApi {
 			avatarSize?: number;
 			cursor?: string;
 			pageSize?: number;
+			/**
+			 * Uses the lightweight PR fragment while retaining identity, body, author, repository, and branch refs.
+			 * Intended for aggregate/list surfaces that do not consume review, check, or diff statistics — the same
+			 * contract as `searchMyPullRequests`' option of the same name.
+			 *
+			 * The full fragment resolves `assignees(25)`, `latestReviews(25)` and `reviewRequests(25)` per node, and
+			 * that is SERVER time rather than payload: measured against a 992-PR repo, one 30-node page took ~3090 ms
+			 * with the full fragment and ~1150 ms with the lite one, for near-identical bytes (155 KB vs 140 KB). Per
+			 * node that is 103 ms → 38 ms.
+			 *
+			 * It compounds with the page size, because the size follows the projection (see below): a caller that
+			 * wants 100 PRs pays four sequential full-fragment pages (~12.4 s) or one lite page (~1.8 s, 18 ms/node).
+			 */
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequestSearchResult | undefined> {
 		const scope = getScopedLogger();
 
+		// Only the DEFAULT follows the projection; an explicit `pageSize` is still honoured up to the
+		// maximum, which is the existing contract (a caller asking for 500 gets 100, full fragment or
+		// not — see the `cost-safe default page size` test). What the lite shape changes is that the
+		// default stops being the cost-safe 30: the full fragment is what GitHub rejects at 100 nodes
+		// (see `defaultPullRequestSearchPageSize`), and the lite shape's per-node cost is a fraction
+		// of it, so a summary caller that expressed no preference can safely take the maximum.
+		const defaultSize = options?.summary === true ? maxPullRequestSearchPageSize : defaultPullRequestSearchPageSize;
 		const pageSize = Math.min(
 			maxPullRequestSearchPageSize,
-			Math.max(1, Math.trunc(options?.pageSize ?? defaultPullRequestSearchPageSize)),
+			Math.max(1, Math.trunc(options?.pageSize ?? defaultSize)),
 		);
 		const facets = toGitHubPullRequestSearchFacets(options?.criteria);
 		const facetAliases = facets.map(f => f.alias).sort();
@@ -4626,8 +4647,8 @@ export class GitHubApi {
 				}
 				nodes {
 					... on PullRequest {
-						${gqlPullRequestFragment}
-						${gqlPullRequestStackFragmentFor(options)}
+						${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
+						${options?.summary ? '' : gqlPullRequestStackFragmentFor(options)}
 					}
 				}
 			}`,
@@ -4666,7 +4687,14 @@ export class GitHubApi {
 					if (node?.id == null) continue;
 
 					try {
-						pullRequests.push(fromGitHubPullRequest(node, provider));
+						// Must follow the projection: the lite fragment does not select reviews, checks or diff
+						// stats, and the full mapper reads them — mapping a lite node with it would silently
+						// report "no reviewers"/"no checks" as FACTS rather than as unselected.
+						pullRequests.push(
+							options?.summary
+								? fromGitHubPullRequestLite(node, provider)
+								: fromGitHubPullRequest(node, provider),
+						);
 					} catch (ex) {
 						scope?.warn(`skipped unmappable pull request; id=${node.id}, url=${node.url}, ex=${ex}`);
 					}

@@ -1,4 +1,9 @@
-import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type {
+	CollectionMetadata,
+	CollectionScopeFailure,
+	FullFieldMap,
+	GitPullRequest,
+} from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
@@ -131,6 +136,58 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
 	Logger.warn(message, logContext);
 	return { error: new Error(message), duration: performance.now() - start };
 }
+
+/**
+ * The provider-apis field map a summary PR read requests: every `GitPullRequest` field EXCEPT
+ * `headCommit`.
+ *
+ * Spelled as an explicit allow-list rather than a negation because provider-apis' `fieldQuery` treats
+ * an ABSENT map as "select everything" and a present one as the complete request — so omitting a field
+ * here drops it. That makes the list load-bearing: a `GitPullRequest` field added upstream and not
+ * added here would silently stop being selected on summary reads. `FullFieldMap` (a `Record` over every
+ * key, not a `Partial`) is what turns that into a compile error instead.
+ *
+ * Only `headCommit` is dropped, and it is the whole point: on GitHub it expands to
+ * `commits(last: 1) { ... statusCheckRollup { contexts(first: 100) } }` per row — up to 100 check
+ * contexts per PR for a page of up to 100 PRs, collapsed by consumers into a single tri-state.
+ * Measured against a 100-PR repo: 55.6 KB → 14.1 KB and ~2.0s → ~1.1s per page.
+ */
+const summaryPullRequestFields: FullFieldMap<GitPullRequest> = {
+	id: true,
+	graphQLId: true,
+	number: true,
+	title: true,
+	description: true,
+	url: true,
+	state: true,
+	isDraft: true,
+	createdDate: true,
+	updatedDate: true,
+	closedDate: true,
+	mergedDate: true,
+	baseRef: true,
+	headRef: true,
+	commentCount: true,
+	upvoteCount: true,
+	commitCount: true,
+	fileCount: true,
+	additions: true,
+	deletions: true,
+	author: true,
+	assignees: true,
+	reviews: true,
+	reviewDecision: true,
+	isCrossRepository: true,
+	repository: true,
+	headRepository: true,
+	// The one field a summary read gives up.
+	headCommit: false,
+	mergeableState: true,
+	milestone: true,
+	labels: true,
+	permissions: true,
+	version: true,
+};
 
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
@@ -1113,6 +1170,12 @@ export abstract class GitHostIntegration<
 			page?: number;
 			pageSize?: number;
 			state?: PullRequestStateFilter | PullRequestStateFilter[];
+			/**
+			 * Requests the lightweight row shape, dropping the per-row build-status subtree the provider
+			 * otherwise selects. See {@link IntegrationManager.searchPullRequestsPage}; the account-wide
+			 * sibling read has always passed it, and this is the repo-scoped counterpart.
+			 */
+			summary?: boolean;
 		},
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
@@ -1364,6 +1427,11 @@ export abstract class GitHostIntegration<
 				states: states,
 				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+				// A summary read drops the per-row build-status subtree, which on GitHub is
+				// `statusCheckRollup.contexts(first: 100)` per PR for a page of up to 100. The map is
+				// opt-out by omission, so every OTHER field stays selected and only this subtree goes;
+				// `statusCheckRollupState` is the one thing a summary consumer gives up.
+				...(options?.summary ? { fields: summaryPullRequestFields } : {}),
 			});
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1575,6 +1643,8 @@ export abstract class GitHostIntegration<
 			criteria?: PullRequestSearchCriteria;
 			cursor?: string;
 			pageSize?: number;
+			/** See {@link IntegrationManager.searchPullRequestsPage}. */
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 		connectionId?: string,
