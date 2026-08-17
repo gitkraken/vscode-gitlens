@@ -24,6 +24,7 @@ export type CommitFailureReason =
 
 export type CommitResult =
 	| { status: 'committed' }
+	| { status: 'cancelled' }
 	| { status: 'failed'; reason: CommitFailureReason; summary: string; hasOutput: boolean };
 
 export interface ClassifiedCommitFailure {

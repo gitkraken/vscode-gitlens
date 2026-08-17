@@ -1,15 +1,18 @@
 import { html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
 import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { FixupTarget } from '../utils/fixup.utils.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/gl-ai-model-chip.js';
+import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -64,6 +67,19 @@ export class GlCommitBox extends LitElement {
 
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
+
+	@property({ type: Object })
+	fixupTarget?: FixupTarget;
+
+	@query('.textarea')
+	private readonly _textareaEl?: HTMLTextAreaElement;
+
+	/** Focuses the message textarea — used to focus a box a host action just seeded (e.g. Fixup
+	 *  Commit, Undo Commit, Add Co-authors). Assumes the caller has already waited for this element
+	 *  to be mounted (e.g. via `updateComplete`). */
+	focusMessage(): void {
+		this._textareaEl?.focus({ preventScroll: true });
+	}
 
 	override render() {
 		return html`
@@ -201,6 +217,10 @@ export class GlCommitBox extends LitElement {
 					? `Stage changes above to ${action} ${branch}`
 					: '';
 
+		if (this.fixupTarget != null && !this.amend) {
+			return this.renderFixupActionBar(disabledTooltip);
+		}
+
 		return html`
 			<gl-tooltip
 				content=${disabledTooltip}
@@ -223,6 +243,54 @@ export class GlCommitBox extends LitElement {
 								: html`${label}&nbsp;<gl-branch-name .name=${branch}></gl-branch-name>`
 						}
 					</gl-button>
+				</span>
+			</gl-tooltip>
+		`;
+	}
+
+	private renderFixupActionBar(disabledTooltip: string) {
+		const target = this.fixupTarget!;
+		const disabled = !this.canCommit || this.committing;
+		const enabledTooltip = `Commits a fixup of '${target.subject}'`;
+		const menuItems: GlMenuPopoverItem[] = [
+			{ label: 'Commit Fixup & Squash', value: 'squash', disabled: disabled },
+		];
+
+		return html`
+			<gl-tooltip
+				content=${disabledTooltip}
+				?disabled=${this.canCommit || this.committing || !disabledTooltip}
+				placement="bottom"
+			>
+				<span class="commit-btn-wrapper split-btn">
+					<gl-button
+						class="commit-btn split-btn__main"
+						full
+						?disabled=${disabled}
+						aria-busy=${this.committing ? 'true' : 'false'}
+						tooltip=${this.canCommit && !this.committing ? enabledTooltip : ''}
+						@click=${this.onCommit}
+					>
+						${
+							this.committing
+								? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Committing…`
+								: html`Commit Fixup`
+						}
+					</gl-button>
+					<gl-menu-popover
+						.items=${menuItems}
+						?disabled=${disabled}
+						@gl-menu-select=${this.onCommitSquashSelect}
+					>
+						<gl-button
+							class="split-btn__menu"
+							slot="anchor"
+							aria-label="Fixup Options"
+							?disabled=${disabled}
+						>
+							<code-icon icon="chevron-down"></code-icon>
+						</gl-button>
+					</gl-menu-popover>
 				</span>
 			</gl-tooltip>
 		`;
@@ -262,6 +330,12 @@ export class GlCommitBox extends LitElement {
 		if (this.committing) return;
 
 		this.dispatchEvent(new CustomEvent('commit', { bubbles: true, composed: true }));
+	}
+
+	private onCommitSquashSelect(e: CustomEvent<{ value: string }>) {
+		if (this.committing || e.detail.value !== 'squash') return;
+
+		this.dispatchEvent(new CustomEvent('commit-squash', { bubbles: true, composed: true }));
 	}
 
 	private onGenerateMessage() {

@@ -1,6 +1,6 @@
 import type { MessageItem, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { env, ProgressLocation, Uri, window } from 'vscode';
-import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
+import { getAcceptSequenceEditor, getSquashSequenceEditor } from '@env/git/squashEditor.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
@@ -791,6 +791,151 @@ export class GraphCommands {
 		}
 
 		await this.runRebaseRewrite(repoPath, [ref], 'reword');
+	}
+
+	@command('gitlens.graph.fixupCommit')
+	@debug()
+	private async fixupCommit(item?: GraphItemContext): Promise<void> {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return;
+
+		const graph = this._graphSession?.current;
+		if (graph == null) return;
+
+		const repoPath = ref.repoPath;
+		const row = graph.rows.find(r => r.sha === ref.ref);
+		if (row != null) {
+			if (row.parents.length === 0) {
+				void window.showWarningMessage('Unable to fixup: the root commit has no parent to rebase onto.');
+				return;
+			}
+			if (row.parents.length > 1) {
+				void window.showWarningMessage('Unable to fixup: cannot fixup a merge commit.');
+				return;
+			}
+		}
+		if (!this.validateRewriteableSelection(graph, [ref], 'fixup')) return;
+
+		let subject: string;
+		if (row != null) {
+			subject = splitCommitMessage(row.message).summary;
+		} else {
+			const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(ref.ref);
+			if (commit == null) {
+				void window.showWarningMessage('Unable to fixup: the commit could not be found.');
+				return;
+			}
+
+			subject = commit.summary;
+		}
+
+		const wipRowId = createWipRowId(repoPath);
+		const message = `fixup! ${subject}`;
+
+		this.context.writeWipDraftToStorage(repoPath, { message: message, messageDirty: true });
+		this.context.setSelectedRows(wipRowId);
+		void this.context.notifyDidChangeSelection();
+		void this.host.notify(DidRequestGraphActionNotification, {
+			action: 'show-wip',
+			target: { sha: wipRowId, worktreePath: repoPath },
+			commitMessage: message,
+		});
+	}
+
+	@command('gitlens.graph.squashFixups')
+	@debug()
+	private async squashFixups(item?: GraphItemContext): Promise<void> {
+		const ref = this.getGraphItemRef(item);
+		const repoPath = ref?.repoPath ?? this.repository?.path;
+		if (repoPath == null) return;
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		if (svc.ops?.rebase == null) {
+			void window.showWarningMessage('Squashing fixups is not supported in this repository.');
+			return;
+		}
+
+		const graph = this._graphSession?.current;
+		if (graph == null) return;
+
+		const rewriteable = graph.rewriteableFromHEAD;
+		const rewriteableRows = graph.rows.filter(r => rewriteable?.has(r.sha));
+		const fixupRows = rewriteableRows.filter(r => splitCommitMessage(r.message).summary.startsWith('fixup! '));
+		if (fixupRows.length === 0) {
+			void window.showInformationMessage('No fixup commits found on the current branch.');
+			return;
+		}
+
+		// Resolve each fixup's target by matching its (de-chained) subject against the newest
+		// rewriteable row with that subject — only to compute the rebase base. Git's own
+		// `--autosquash` does the real per-commit fixup/target matching during the rebase itself.
+		let oldestTargetIndex: number | undefined;
+		for (const fixupRow of fixupRows) {
+			let subject = splitCommitMessage(fixupRow.message).summary;
+			while (subject.startsWith('fixup! ')) {
+				subject = subject.slice('fixup! '.length);
+			}
+
+			const targetIndex = rewriteableRows.findIndex(r => splitCommitMessage(r.message).summary === subject);
+			if (targetIndex === -1) continue;
+
+			if (oldestTargetIndex == null || targetIndex > oldestTargetIndex) {
+				oldestTargetIndex = targetIndex;
+			}
+		}
+		if (oldestTargetIndex == null) {
+			void window.showWarningMessage("Couldn't locate the fixup targets on the current branch.");
+			return;
+		}
+
+		const oldestTargetSha = rewriteableRows[oldestTargetIndex].sha;
+
+		let published = false;
+		try {
+			published = await isCommitPushed(repoPath, oldestTargetSha);
+		} catch {
+			// Ignore — fall back to confirming without the published warning.
+		}
+		// Always confirm — this rewrites history from the oldest target up, like Squash/Drop do.
+		const confirm: MessageItem = { title: 'Squash' };
+		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const choice = await window.showWarningMessage(
+			`Squash ${fixupRows.length === 1 ? 'fixup commit' : `${fixupRows.length} fixup commits`}?`,
+			{
+				modal: true,
+				detail: published
+					? 'One or more of the commits being rewritten have already been pushed. Squashing rewrites history and will require a force push.'
+					: `This squashes ${fixupRows.length === 1 ? 'the fixup commit' : 'each fixup commit'} on the current branch into its target commit.`,
+			},
+			confirm,
+			cancel,
+		);
+		if (choice !== confirm) return;
+
+		this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
+
+		try {
+			const sequenceEditor = getAcceptSequenceEditor(this.container);
+			const result = await svc.ops.rebase(
+				`${oldestTargetSha}^`,
+				{
+					interactive: true,
+					autosquash: true,
+					editor: sequenceEditor.editor,
+					messageEditor: await getHostEditorCommand(true),
+					updateRefs: true,
+					autoStash: true,
+				},
+				{ env: sequenceEditor.env },
+			);
+			if (result?.conflicted) {
+				void window.showWarningMessage(
+					'Squash Fixups stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+				);
+			}
+		} catch (ex) {
+			void window.showErrorMessage(`Unable to squash fixups: ${ex instanceof Error ? ex.message : String(ex)}`);
+		}
 	}
 
 	@command('gitlens.graph.modifyCommits')

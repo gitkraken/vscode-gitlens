@@ -3544,6 +3544,89 @@ export class DetailsActions {
 			// `commit` returns a discriminated result and never throws for git failures — the host
 			// classifies the error and presents the modal/full-output document itself.
 			const result = await this.services.repository.commit(repoPath, message, { amend: isAmend, all: all });
+			// Cancelled: the user backed out of a host confirmation — leave the box untouched.
+			if (result.status === 'cancelled') return;
+
+			if (result.status === 'committed') {
+				this.state.commitMessage.set('');
+				this.state.commitMessageDirty.set(false);
+				this.state.amend.set(false);
+				this.state.amendBaseSha.set(undefined);
+				// Must run before `fetchDetails`, which reads `graphState.getWipState()` synchronously.
+				this.optimisticallyClearCommittedFiles(all);
+				this.refreshWip();
+				void this.fetchDetails(sha, repoPath);
+				this.sendTelemetryEvent('graph/wip/commit/succeeded', composition);
+			} else {
+				// Message + amend are intentionally preserved so the user can fix and retry.
+				this.state.commitError.set(result.summary);
+				this.sendTelemetryEvent('graph/wip/commit/failed', {
+					...composition,
+					reason: result.reason,
+					hasOutput: result.hasOutput,
+				});
+			}
+		} finally {
+			this.state.committing.set(false);
+			this._committingRepoPath = undefined;
+		}
+	}
+
+	/** Fixup commit + squash: commits the current (`fixup! <subject>`) message, then immediately
+	 *  rebases it onto `targetSha` — the commit the message's subject resolved to (see
+	 *  `fixup.utils.ts#findFixupTargetRow`). Mirrors {@link commit} exactly (staging-op wait, gating,
+	 *  in-flight flags, `all` computation, post-success cleanup, failure handling); the only
+	 *  difference is the RPC call, which also does the follow-up squash host-side so the webview
+	 *  doesn't have to sequence two round-trips. */
+	async commitAndSquash(
+		repoPath: string | undefined,
+		sha: string | undefined,
+		targetSha: string | undefined,
+	): Promise<void> {
+		// Guard against double-submit while a commit RPC is already in flight.
+		if (!repoPath || !targetSha || !this.canCommit() || this.state.committing.get()) return;
+
+		const message = this.state.commitMessage.get();
+		const isAmend = this.state.amend.get();
+		const wip = this.state.wip.get();
+		const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
+		const smartCommit = this.state.preferences.get()?.enableSmartCommit ?? false;
+
+		// Wait for any in-flight staging operations
+		if (this._pendingStagingOp != null) {
+			await this._pendingStagingOp;
+			this._pendingStagingOp = undefined;
+		}
+
+		const all = !hasStagedFiles && smartCommit;
+
+		// Shared commit composition — emitted on both success and failure so they form a
+		// comparable funnel. Privacy-safe: counts/booleans + message length only.
+		const files = wip?.changes?.files;
+		const composition = {
+			amend: isAmend,
+			all: all,
+			smartCommit: smartCommit,
+			hasStagedFiles: hasStagedFiles,
+			'files.staged.count': files?.filter(f => f.staged).length ?? 0,
+			'files.total.count': files?.length ?? 0,
+			'message.length': message?.length ?? 0,
+		};
+
+		// Clear any prior error and enter the in-flight state (spinner + input lock).
+		this.state.commitError.set(undefined);
+		this.state.committing.set(true);
+		// Suppress host WIP pushes for this repo until the commit settles (see `applyPushedWip`).
+		this._committingRepoPath = repoPath;
+		try {
+			// Same discriminated-result contract as `commit` — never throws for git failures.
+			const result = await this.services.repository.commitAndSquashFixup(repoPath, message, {
+				targetSha: targetSha,
+				all: all,
+			});
+			// Cancelled: the user backed out of the pushed-target confirmation — leave the box untouched.
+			if (result.status === 'cancelled') return;
+
 			if (result.status === 'committed') {
 				this.state.commitMessage.set('');
 				this.state.commitMessageDirty.set(false);

@@ -1,5 +1,5 @@
 import * as assert from 'node:assert';
-import { applyRebaseActionToTodo } from '../rebaseTodo.js';
+import { applyRebaseActionToTodo, moveFixupInTodo } from '../rebaseTodo.js';
 
 // Full 40-char SHAs; todo lines below carry 7-char abbreviations (prefixes of these).
 const A = 'a1b2c3d'.padEnd(40, '0');
@@ -126,5 +126,51 @@ suite('applyRebaseActionToTodo', () => {
 		const lines = result.split('\n');
 		assert.strictEqual(lines[1], 'p b1b2c3d Commit B', 'oldest selected (B) stays the abbreviated pick target');
 		assert.strictEqual(lines[2], 'squash c1b2c3d Commit C', 'later selected (C) becomes squash');
+	});
+});
+
+suite('moveFixupInTodo', () => {
+	test('moves a newer fixup commit to directly after its target, preserving other line order', () => {
+		// D (newest, last line) is a fixup for B (mid-todo).
+		const result = moveFixupInTodo(todo, D, B);
+		const lines = result.split('\n');
+		assert.strictEqual(lines[0], 'pick a1b2c3d Commit A', 'unrelated commit A stays pick, in place');
+		assert.strictEqual(lines[1], 'pick b1b2c3d Commit B', 'target B stays pick, in place');
+		assert.strictEqual(lines[2], 'fixup d1b2c3d Commit D', 'fixup D relocated directly after its target B');
+		assert.strictEqual(lines[3], 'pick c1b2c3d Commit C', 'unrelated commit C stays pick, shifted after the move');
+		assert.strictEqual(lines[4], '', 'blank line preserved');
+		assert.ok(lines[5].startsWith('# Rebase'), 'comment preserved');
+	});
+
+	test('rewrites pick to fixup in place when the fixup already immediately follows its target', () => {
+		// C immediately follows its target B — no reordering should occur.
+		const result = moveFixupInTodo(todo, C, B);
+		const lines = result.split('\n');
+		assert.strictEqual(lines[0], 'pick a1b2c3d Commit A');
+		assert.strictEqual(lines[1], 'pick b1b2c3d Commit B', 'target B stays pick');
+		assert.strictEqual(lines[2], 'fixup c1b2c3d Commit C', 'adjacent fixup C rewritten to fixup in place');
+		assert.strictEqual(lines[3], 'pick d1b2c3d Commit D', 'unrelated commit D stays pick, in place');
+	});
+
+	test('returns the todo unchanged when the target SHA is not found', () => {
+		const missing = 'e1e2e3e'.padEnd(40, '0');
+		const result = moveFixupInTodo(todo, C, missing);
+		assert.strictEqual(result, todo, 'todo returned unchanged when the target is not in range');
+	});
+
+	test('returns the todo unchanged when the fixup SHA is not found', () => {
+		const missing = 'e1e2e3e'.padEnd(40, '0');
+		const result = moveFixupInTodo(todo, missing, B);
+		assert.strictEqual(result, todo, 'todo returned unchanged when the fixup is not in range');
+	});
+
+	test('matches abbreviated todo SHAs against full fixup/target SHAs passed as arguments', () => {
+		// Todo carries 7-char abbreviations; D/A are passed as full 40-char SHAs.
+		const result = moveFixupInTodo(todo, D, A);
+		const lines = result.split('\n');
+		assert.strictEqual(lines[0], 'pick a1b2c3d Commit A', 'target A (full SHA arg) matched via abbreviation');
+		assert.strictEqual(lines[1], 'fixup d1b2c3d Commit D', 'fixup D (full SHA arg) matched and relocated');
+		assert.strictEqual(lines[2], 'pick b1b2c3d Commit B');
+		assert.strictEqual(lines[3], 'pick c1b2c3d Commit C');
 	});
 });

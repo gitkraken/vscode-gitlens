@@ -22,3 +22,13 @@ export function getSquashSequenceEditor(container: Container): { editor: string;
 		env: { GL_REBASE_EDITOR_NODE: execPath, GL_REBASE_EDITOR_SCRIPT: script },
 	};
 }
+
+/**
+ * Returns git's `sequence.editor` command for the Commit Graph's "Squash Fixups" `--autosquash`
+ * rebase — same wrapper script as {@link getSquashSequenceEditor}, but set to accept the todo git's
+ * own `--autosquash` reordering already produced, rather than rewriting it by SHA.
+ */
+export function getAcceptSequenceEditor(container: Container): { editor: string; env: Record<string, string> } {
+	const sequenceEditor = getSquashSequenceEditor(container);
+	return { editor: sequenceEditor.editor, env: { ...sequenceEditor.env, GL_ACCEPT_TODO: '1' } };
+}

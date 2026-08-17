@@ -9,6 +9,8 @@
  */
 
 import { Disposable, FileSystemError, Uri, window, workspace } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -26,7 +28,7 @@ import {
 	getConflictIncomingRef,
 	resolveConflictFilePaths,
 } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
-import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { createRevisionRange, isSha } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -46,6 +48,7 @@ import {
 	getCommitAuthorAvatarUri,
 	getCommitCommitterAvatarUri,
 	getCommitSignature,
+	isCommitPushed,
 } from '../../../git/utils/-webview/commit.utils.js';
 import {
 	resolveAllConflicts as resolveAllConflictsHelper,
@@ -1191,6 +1194,117 @@ export class RepositoryService {
 				hasOutput: failure.output != null && failure.output.length > 0,
 			};
 		}
+	}
+
+	/**
+	 * Commits staged changes as a `fixup!`-prefixed message, then immediately relocates that fixup
+	 * commit directly under its target via a headless interactive rebase — folding it in right away
+	 * rather than waiting for a later `--autosquash` pass. Never throws; the rebase step degrades to
+	 * a toast on conflict or failure while still reporting the commit itself as succeeded.
+	 */
+	async commitAndSquashFixup(
+		repoPath: string,
+		message: string,
+		options: { targetSha: string; all?: boolean },
+	): Promise<CommitResult> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		if (svc.ops?.rebase == null) {
+			return {
+				status: 'failed',
+				reason: 'unknown',
+				summary: "Squashing fixups isn't supported in this environment",
+				hasOutput: false,
+			};
+		}
+
+		let published = false;
+		try {
+			published = await isCommitPushed(repoPath, options.targetSha);
+		} catch {
+			// Ignore — fall back to committing without the published warning.
+		}
+		if (published) {
+			const confirm: MessageItem = { title: 'Commit & Squash' };
+			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+			let choice: MessageItem | undefined;
+			try {
+				choice = await window.showWarningMessage(
+					'Commit and squash this fixup?',
+					{
+						modal: true,
+						detail: 'The target commit has already been pushed. Squashing the fixup rewrites history and will require a force push.',
+					},
+					confirm,
+					cancel,
+				);
+			} catch {
+				// An unpresentable confirmation counts as a decline — never rewrite unconfirmed.
+			}
+			if (choice !== confirm) return { status: 'cancelled' };
+		}
+
+		try {
+			await svc.ops.commit(message, { all: options.all, source: { source: 'graph' } satisfies Source });
+		} catch (ex) {
+			const failure = classifyCommitFailure(ex);
+			void presentCommitFailure(failure);
+
+			return {
+				status: 'failed',
+				reason: failure.reason,
+				summary: failure.summary,
+				hasOutput: failure.output != null && failure.output.length > 0,
+			};
+		}
+
+		let resolved;
+		try {
+			resolved = await svc.revision.resolveRevision('HEAD');
+		} catch {
+			// Fall through to the committed-without-squash path below.
+		}
+		if (resolved == null || !isSha(resolved.sha)) {
+			void window.showWarningMessage(
+				'The fixup was committed, but GitLens could not locate it to squash automatically.',
+			);
+
+			return { status: 'committed' };
+		}
+
+		try {
+			const sequenceEditor = getSquashSequenceEditor(this.container);
+			const result = await svc.ops.rebase(
+				`${options.targetSha}^`,
+				{
+					interactive: true,
+					// The editor is a script that rewrites the todo by SHA, so force git to emit a plain,
+					// natural-order todo (no autosquash reordering, no abbreviated `p` commands).
+					programmaticEditor: true,
+					editor: sequenceEditor.editor,
+					autoStash: true,
+					updateRefs: true,
+					source: { source: 'graph' } satisfies Source,
+				},
+				{
+					env: {
+						...sequenceEditor.env,
+						GL_FIXUP_SHA: resolved.sha,
+						GL_FIXUP_TARGET: options.targetSha,
+					},
+				},
+			);
+			if (result?.conflicted) {
+				void window.showWarningMessage(
+					'Fixup stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+				);
+			}
+		} catch (ex) {
+			void window.showErrorMessage(
+				`Committed the fixup, but squashing it failed: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+		}
+
+		return { status: 'committed' };
 	}
 
 	/**

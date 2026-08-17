@@ -8,3 +8,7 @@ import type { Container } from '../../../container.js';
 export function getSquashSequenceEditor(_container: Container): { editor: string; env: Record<string, string> } {
 	throw new Error('Squashing commits is not supported in this environment');
 }
+
+export function getAcceptSequenceEditor(_container: Container): { editor: string; env: Record<string, string> } {
+	throw new Error('Squashing commits is not supported in this environment');
+}

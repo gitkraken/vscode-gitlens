@@ -698,6 +698,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			editor?: string;
 			interactive?: boolean;
 			programmaticEditor?: boolean;
+			autosquash?: boolean;
 			messageEditor?: string;
 			onto?: string;
 			updateRefs?: boolean;
@@ -727,6 +728,14 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			if (options.programmaticEditor) {
 				configs.push('-c', 'rebase.autosquash=false', '-c', 'rebase.abbreviateCommands=false');
 			}
+		}
+
+		if (options?.autosquash) {
+			if (options.programmaticEditor) {
+				throw new Error('rebase: autosquash cannot be combined with programmaticEditor');
+			}
+
+			args.push('--autosquash');
 		}
 
 		// Drive per-commit message editing (the combined message a `squash` produces, or a `reword`).

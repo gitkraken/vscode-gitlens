@@ -60,6 +60,8 @@ import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
 import { graphLaunchpadContext } from '../graphLaunchpadState.js';
+import { findFixupTargetRow, parseFixupSubject } from '../utils/fixup.utils.js';
+import type { FixupTarget } from '../utils/fixup.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import type { AnchorKey } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
@@ -83,6 +85,7 @@ import type {
 import { createDetailsState, getActiveTaskAction, getOpenComparison } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
+import type { GlCommitBox } from './gl-commit-box.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
@@ -2378,6 +2381,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		});
 	}
 
+	/** Focuses the WIP commit message box. Called by `graph-app.ts` after it seeds the message via
+	 *  {@link setCommitMessage} (Fixup Commit, Undo Commit, Add Co-authors) so the user can start
+	 *  typing/reviewing immediately. Mirrors {@link focusModeAiInput}'s connected-check + rAF, since
+	 *  the seed and this call happen in the same tick the panel/box may still be mounting. */
+	focusCommitMessage(): void {
+		requestAnimationFrame(() => {
+			if (!this.isConnected) return;
+
+			// This host renders into its light DOM (`createRenderRoot` returns `this`), so query the
+			// element itself — `this.shadowRoot` is always null here.
+			this.querySelector<GlCommitBox>('gl-commit-box')?.focusMessage();
+		});
+	}
+
 	private async resolveServices(services: Remote<GraphServices>): Promise<void> {
 		// Service resolution + resource wiring lives in `detailsResolver.ts` — this element
 		// stays focused on lifecycle and render routing.
@@ -2846,9 +2863,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.commitError=${this._state.commitError.get()}
 										.signing=${wip.signing}
 										.aiModel=${this._state.aiModel.get()}
+										.fixupTarget=${this.fixupTarget}
 										@message-change=${this.handleCommitMessageChange}
 										@amend-change=${this.handleAmendChange}
 										@commit=${this.handleCommit}
+										@commit-squash=${this.handleCommitSquash}
 										@generate-message=${this.handleGenerateMessage}
 										@add-coauthors=${this.handleAddCoauthors}
 										@compose=${this.handleCompose}
@@ -4103,6 +4122,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleCommit = () => void this._actions.commit(this.effectiveRepoPath, this.sha);
+
+	/** The commit the current WIP message resolves to as a `fixup!` target, or undefined when the
+	 *  message isn't a fixup, amend is active, or no rewriteable-from-HEAD row matches its subject.
+	 *  Reads the `@consume`d `_graphState.rows` — its changes drive a render despite skipping
+	 *  `changedProperties` (see the `willUpdate` comment above). */
+	private get fixupTarget(): FixupTarget | undefined {
+		if (this._state.amend.get()) return undefined;
+
+		const subject = parseFixupSubject(this._state.commitMessage.get());
+		if (subject == null) return undefined;
+
+		return findFixupTargetRow(this._graphState?.rows, subject);
+	}
+
+	private handleCommitSquash = () => {
+		const target = this.fixupTarget;
+		if (target == null) return;
+
+		void this._actions.commitAndSquash(this.effectiveRepoPath, this.sha, target.sha);
+	};
 
 	private handleGenerateMessage = () => this._workflow.runGenerateMessage(this.effectiveRepoPath);
 

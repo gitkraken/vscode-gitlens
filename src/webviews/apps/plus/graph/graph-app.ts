@@ -1935,6 +1935,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// edit and re-commit the message in the same box they'd normally type into.
 		if (commitMessage != null && action === 'show-wip') {
 			this.detailsPanelEl?.setCommitMessage(repoPath, commitMessage);
+			// Also focuses for the existing undo-commit/add-author seeds, not just fixup.
+			this.detailsPanelEl?.focusCommitMessage();
 		}
 
 		// Highlights an agent session's card in an already-open details panel. Sidebar-tree
