@@ -154,9 +154,10 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 								? 'new'
 								: undefined,
 					result: state.result,
-					// An MCP caller can't answer a prompt, and the nested worktree creation this delegation
-					// reaches has its own confirm step and access gate — a suspended one strands the caller
-					// (#5706). #5704 covers the steps inside this wizard; this covers the ones below it.
+					// An MCP caller can't answer a prompt, and the steps below this wizard can still ask —
+					// branch-create's own base/name steps (reachable whenever `repo` or `defaultReference`
+					// above stayed undefined) and the nested worktree creation's access gate. #5704 covers the
+					// steps inside this wizard; this covers the ones below it (#5706).
 					interactive: this.source.source !== 'mcp',
 					chatAction: chatAction,
 				},

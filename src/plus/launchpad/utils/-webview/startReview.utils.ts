@@ -260,9 +260,9 @@ async function createPullRequestWorktree(
 						? 'new'
 						: undefined,
 			result: worktreeResult,
-			// `confirm: false` above is not enough: the command forces its confirm step back on and its
-			// access gate ignores `confirm` entirely, so a caller that can't answer them waits forever on
-			// the `await` below (#5706)
+			// `confirm: false` above covers only the confirm step; the command's access gate and branch-name
+			// step ignore it entirely, and a caller that can't answer those waits forever on the `await`
+			// below (#5706)
 			interactive: interactive,
 			chatAction: chatAction,
 		},

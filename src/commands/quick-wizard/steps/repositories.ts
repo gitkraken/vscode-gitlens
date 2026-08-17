@@ -64,7 +64,18 @@ export async function* pickRepositoryStep<
 	state: State,
 	context: Context,
 	parentStep: StepController<any>,
-	options?: { excludeWorktrees?: boolean; picked?: string | GlRepository; placeholder?: string },
+	options?: {
+		excludeWorktrees?: boolean;
+		picked?: string | GlRepository;
+		placeholder?: string;
+		/**
+		 * Pass `false` for a programmatic (MCP/agent) caller that can't answer the picker: the step breaks
+		 * instead of yielding, so the caller can report why (see #5706). The opt-out lives here rather than
+		 * at the call site because the resolutions below happen without prompting — bailing earlier would
+		 * refuse a repository this step would have resolved on its own.
+		 */
+		interactive?: boolean;
+	},
 ): AsyncStepResultGenerator<GlRepository> {
 	if (typeof state.repo === 'string') {
 		// Resolve the path, adding it un-surfaced (`opened: false`) when not already known — e.g. a
@@ -98,6 +109,8 @@ export async function* pickRepositoryStep<
 		parentStep?.skip();
 		return repos[0];
 	}
+
+	if (options?.interactive === false) return StepResultBreak;
 
 	const placeholder = options?.placeholder ?? 'Choose a repository';
 

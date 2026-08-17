@@ -328,7 +328,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 								agentDispatch.openChatOnComplete,
 								state.useDefaults,
 								agentDispatch.agent,
-								// An MCP caller can't answer the worktree-create confirm step or access gate this
+								// An MCP caller can't answer the worktree-create access gate or branch-name step this
 								// reaches, and a suspended one never settles `result` (#5706)
 								this.source.source !== 'mcp',
 							);

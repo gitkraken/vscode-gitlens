@@ -90,7 +90,8 @@ interface State<Repo = string | GlRepository> {
 	 * instead of yielding — a suspended `yield` never reaches the `finally` that settles it, so the
 	 * caller would otherwise wait out its own timeout with a picker left open (see #5706).
 	 *
-	 * Only ever set by the paths that have no user to ask; `undefined` keeps the interactive behavior.
+	 * Anything other than `false` keeps the interactive behavior, so callers can pass the value through
+	 * without caring whether their own caller was programmatic.
 	 */
 	interactive?: boolean;
 
@@ -152,14 +153,14 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		using steps = new StepsController<StepNames>(context, this);
 
 		state.flags ??= [];
-		// Don't allow skipping the confirm step — the user's `skipConfirmations` setting must never skip it,
-		// because this step is also where the worktree's path is chosen. A programmatic caller is the one
-		// exception: it can't answer the step at all, and both its entry points already ask for
-		// `confirm: false` (see #5706). Skipping it takes BOTH of these — `confirm()` short-circuits to
-		// `true` whenever `canSkipConfirm` is false, so the override has to move too.
+		// Don't allow skipping the confirm step. It must run even for a caller that can't answer it: the
+		// step is where `state.uri` becomes the recommended `<repo>.worktrees` root and where `-b` is put
+		// back into the flags, so skipping it creates the worktree in the wrong place, on the base branch.
+		// It doesn't prompt such a caller — `confirmStep` returns before yielding for them (see there).
+		state.confirm = true;
+		this._canSkipConfirmOverride = undefined;
+
 		const interactive = state.interactive !== false;
-		state.confirm = interactive;
-		this._canSkipConfirmOverride = interactive ? undefined : true;
 
 		let setCreateBranchFlag = false;
 
@@ -172,19 +173,22 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					if (canSkipRepositoryPick(context.repos, state.repo)) {
 						[state.repo] = context.repos;
 					} else {
-						if (!interactive) {
-							state.result?.cancel(
-								new Error(
-									'Unable to determine which repository to create the worktree in. Specify a repository and try again.',
-								),
-							);
-							return;
-						}
-
 						using step = steps.enterStep(Steps.PickRepo);
 
-						const result = yield* pickRepositoryStep(state, context, step, { excludeWorktrees: true });
+						const result = yield* pickRepositoryStep(state, context, step, {
+							excludeWorktrees: true,
+							interactive: interactive,
+						});
 						if (result === StepResultBreak) {
+							if (!interactive) {
+								state.result?.cancel(
+									new Error(
+										'Unable to determine which repository to create the worktree in. Specify a repository and try again.',
+									),
+								);
+								return;
+							}
+
 							state.repo = undefined!;
 							if (step.goBack() == null) break;
 							continue;
@@ -233,7 +237,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 				if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
 					if (!interactive) {
-						state.result?.cancel(new Error('A branch or tag to create the new worktree from is required.'));
+						state.result?.cancel(
+							new Error(
+								'A branch to create the new worktree from is required. Specify one and try again.',
+							),
+						);
 						return;
 					}
 
@@ -288,11 +296,20 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 				if (state.flags.includes('-b')) {
 					let createBranchOverride: string | undefined;
+					// Why the requested name was rejected, in the wording `branch create` already uses for the
+					// same two conditions — kept for a caller that gets the input step reported to it instead
+					// of shown (see below)
+					let createBranchError: string | undefined;
 					if (state.createBranch != null) {
 						let valid = await state.repo.git.refs.checkIfCouldBeValidBranchOrTagName(state.createBranch);
 						if (valid) {
 							const alreadyExists = await state.repo.git.branches.getBranch(state.createBranch);
 							valid = alreadyExists == null;
+							if (!valid) {
+								createBranchError = `Unable to create branch '${state.createBranch}'. A branch with that name already exists.`;
+							}
+						} else {
+							createBranchError = `Unable to create branch '${state.createBranch}'. The branch name is invalid.`;
 						}
 
 						if (!valid) {
@@ -303,14 +320,13 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 					if (steps.isAtStep(Steps.InputBranchName) || state.createBranch == null) {
 						if (!interactive) {
-							// Reached whenever the requested name was rejected just above — most often because
-							// the branch already exists, which a re-run of the same programmatic request hits
-							// every time. Name the cause instead of asking for another name.
+							// Two ways in: the requested name was rejected just above — most often it already
+							// exists, which every re-run of the same programmatic request hits — or no name was
+							// requested at all. Name the cause instead of asking for another name.
 							state.result?.cancel(
 								new Error(
-									createBranchOverride != null
-										? `Unable to create a branch named '${createBranchOverride}' — it already exists or is not a valid branch name.`
-										: 'A name for the new branch is required.',
+									createBranchError ??
+										'A name for the new branch is required. Specify one and try again.',
 								),
 							);
 							return;
@@ -398,10 +414,9 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					state.flags = result[1];
 				}
 
-				// Reset any confirmation overrides (back to this invocation's baseline, not unconditionally —
-				// a programmatic caller still can't answer a confirm step on a later pass)
-				state.confirm = interactive;
-				this._canSkipConfirmOverride = interactive ? undefined : true;
+				// Reset any confirmation overrides
+				state.confirm = true;
+				this._canSkipConfirmOverride = undefined;
 
 				const uri = state.flags.includes('--direct')
 					? state.uri
@@ -446,24 +461,29 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						}
 					}
 				} catch (ex) {
-					// A programmatic caller can't answer the modal below (nor read the toasts in the other
-					// branches), and its pending result would otherwise be settled by the `finally` with a
-					// generic "cancelled" that says nothing about what went wrong. Report the actual failure.
+					const alreadyCheckedOutMessage = `Unable to create the new worktree because ${getReferenceLabel(
+						state.reference,
+						{ icon: false, quoted: true },
+					)} is already checked out.`;
+					const alreadyExistsMessage = `Unable to create a new worktree in '${getWorkspaceFriendlyPath(
+						uri,
+					)}' because the folder already exists and is not empty.`;
+
+					// A programmatic caller can't answer the modal below, nor read the toasts in the other
+					// branches, and its pending result would otherwise be settled by the `finally` with a
+					// generic "cancelled" that names nothing. Report the actual failure, in the same words.
 					if (!interactive) {
 						let error: Error;
 						if (WorktreeCreateError.is(ex, 'alreadyCheckedOut')) {
-							error = new Error(
-								`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
-									icon: false,
-									quoted: true,
-								})} is already checked out.`,
-							);
+							error = new Error(alreadyCheckedOutMessage);
 						} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
-							error = new Error(
-								`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}' because the folder already exists and is not empty.`,
-							);
+							error = new Error(alreadyExistsMessage);
 						} else {
-							error = ex instanceof Error ? ex : new Error(String(ex));
+							error = new Error(
+								`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}': ${
+									ex instanceof Error ? ex.message : String(ex)
+								}`,
+							);
 						}
 
 						state.result?.cancel(error);
@@ -475,10 +495,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						const force: MessageItem = { title: 'Create Anyway' };
 						const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 						const result = await window.showWarningMessage(
-							`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
-								icon: false,
-								quoted: true,
-							})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
+							`${alreadyCheckedOutMessage}\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
 							{ modal: true },
 							createBranch,
 							force,
@@ -501,19 +518,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
 						const confirm: MessageItem = { title: 'OK' };
 						const openFolder: MessageItem = { title: 'Open Folder' };
-						void window
-							.showErrorMessage(
-								`Unable to create a new worktree in '${getWorkspaceFriendlyPath(
-									uri,
-								)}' because the folder already exists and is not empty.`,
-								confirm,
-								openFolder,
-							)
-							.then(result => {
-								if (result === openFolder) {
-									void revealInFileExplorer(uri);
-								}
-							});
+						void window.showErrorMessage(alreadyExistsMessage, confirm, openFolder).then(result => {
+							if (result === openFolder) {
+								void revealInFileExplorer(uri);
+							}
+						});
 					} else {
 						void showGitErrorMessage(
 							ex,
@@ -569,6 +578,10 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 								overrides: { canGoBack: false },
 								isNewWorktree: true,
 								worktreeDefaultOpen: state.worktreeDefaultOpen,
+								// `state.result` is already fulfilled by now, but this delegation still runs inside
+								// the parent's `yield* getSteps`, so a step that suspends here strands the caller's
+								// own deferred all the same (see #5706)
+								interactive: state.interactive,
 								onWorkspaceChanging: state.onWorkspaceChanging,
 							},
 						},
@@ -689,7 +702,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 		const confirmations: StepType[] = [];
 		if (!createDirectlyInFolder) {
-			if (state.worktreeDefaultOpen) {
+			// Take the recommended location without asking. `worktreeDefaultOpen` callers opted out of the
+			// prompt; a non-interactive caller (`state.interactive === false`) can't answer one at all, and
+			// this is the return that normalizes `state.uri` and the `-b` flag for them — skipping the step
+			// instead would create the worktree beside the repository, on the base branch (see #5706).
+			if (state.worktreeDefaultOpen || state.interactive === false) {
 				return [defaultOption.context, defaultOption.item];
 			}
 

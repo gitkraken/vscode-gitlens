@@ -74,9 +74,10 @@ interface State<Repo = string | GlRepository> {
 	// Pass through to worktree command
 	worktreeDefaultOpen?: 'new' | 'current' | 'none';
 	/**
-	 * `false` when the caller is programmatic (an MCP/agent request) and cannot answer a prompt. Passed
-	 * through to the nested worktree-create command, which owns the steps a `--worktree` creation would
-	 * otherwise yield (see #5706).
+	 * `false` when the caller is programmatic (an MCP/agent request) and cannot answer a prompt: each step
+	 * below reports why through {@link result} instead of yielding, since a suspended `yield` never
+	 * reaches the `finally` that settles it. Also passed through to the nested worktree-create command
+	 * (see `WorktreeCreateState.interactive` and #5706).
 	 */
 	interactive?: boolean;
 
@@ -120,6 +121,8 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 
 		state.flags ??= [];
 
+		const interactive = state.interactive !== false;
+
 		try {
 			while (!steps.isComplete) {
 				context.title = this.title;
@@ -131,8 +134,20 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 					} else {
 						using step = steps.enterStep(Steps.PickRepo);
 
-						const result = yield* pickRepositoryStep(state, context, step, { picked: state.suggestedRepo });
+						const result = yield* pickRepositoryStep(state, context, step, {
+							picked: state.suggestedRepo,
+							interactive: interactive,
+						});
 						if (result === StepResultBreak) {
+							if (!interactive) {
+								state.result?.cancel(
+									new Error(
+										'Unable to determine which repository to create the branch in. Specify a repository and try again.',
+									),
+								);
+								return;
+							}
+
 							state.repo = undefined!;
 							if (step.goBack() == null) break;
 							continue;
@@ -145,6 +160,16 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				assertStepState<State<GlRepository>>(state);
 
 				if (steps.isAtStep(Steps.PickRef) || state.reference == null) {
+					// Reachable on the programmatic path whenever the caller couldn't resolve a base itself —
+					// e.g. Start Work leaves it unset when the issue's repository is unknown or its default
+					// branch has no local counterpart (a `--single-branch` clone, or no remote HEAD)
+					if (!interactive) {
+						state.result?.cancel(
+							new Error('A base to create the new branch from is required. Specify one and try again.'),
+						);
+						return;
+					}
+
 					using step = steps.enterStep(Steps.PickRef);
 
 					const result = yield* pickBranchOrTagStep(state, context, {
@@ -166,6 +191,13 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
 
 				if (steps.isAtStep(Steps.InputName) || state.name == null) {
+					if (!interactive) {
+						state.result?.cancel(
+							new Error('A name for the new branch is required. Specify one and try again.'),
+						);
+						return;
+					}
+
 					using step = steps.enterStep(Steps.InputName);
 
 					let value: string | undefined = state.name ?? state.suggestedName;
@@ -224,8 +256,8 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 								repo: state.repo,
 								worktreeDefaultOpen: state.worktreeDefaultOpen,
 								result: worktreeResult,
-								// Without this the nested command yields its own confirm step and access gate to a
-								// caller that can't answer either, and neither deferred ever settles (#5706)
+								// Without this the nested command yields its own access gate or branch-name step to a
+								// caller that can't answer them, and neither deferred ever settles (#5706)
 								interactive: state.interactive,
 								chatAction: state.chatAction,
 							},

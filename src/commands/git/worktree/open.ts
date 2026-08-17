@@ -61,6 +61,11 @@ interface State<Repo = string | GlRepository> {
 	onWorkspaceChanging?: ((isNewWorktree?: boolean) => Promise<void>) | ((isNewWorktree?: boolean) => void);
 	isNewWorktree?: boolean;
 	worktreeDefaultOpen?: 'new' | 'current';
+	/**
+	 * `false` when the caller is programmatic (an MCP/agent request) and cannot answer a prompt — see
+	 * `WorktreeCreateState.interactive`, which passes it through when it opens a worktree it just created.
+	 */
+	interactive?: boolean;
 }
 export type WorktreeOpenState = State;
 
@@ -127,8 +132,15 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 			if (steps.isAtStepOrUnset(Steps.EnsureAccess)) {
 				using step = steps.enterStep(Steps.EnsureAccess);
 
-				const result = yield* ensureAccessStep(this.container, 'worktrees', state, context, step);
+				// A programmatic caller can't answer the gate. Reached from worktree-create's post-create open,
+				// where the access verdict was just checked — but it can flip in between, and a suspended step
+				// here strands that caller (see `State.interactive` and #5706). Give up on opening instead: the
+				// worktree itself was already created and reported.
+				const interactive = state.interactive !== false;
+
+				const result = yield* ensureAccessStep(this.container, 'worktrees', state, context, step, interactive);
 				if (result === StepResultBreak) {
+					if (!interactive) return;
 					if (step.goBack() == null) break;
 					continue;
 				}
