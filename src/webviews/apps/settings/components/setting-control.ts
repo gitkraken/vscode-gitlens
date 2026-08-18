@@ -12,6 +12,7 @@ import { evaluateStateExpression } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import './format-input.js';
+import './settings-account.js';
 import './settings-agents.js';
 import './settings-ai.js';
 import './settings-autolinks.js';
@@ -362,10 +363,8 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 			case 'setup':
 				return html`<gl-settings-setup .actions=${this.actions}></gl-settings-setup>`;
 
-			// The account panel is rendered full-bleed by settings-detail (it replaces the
-			// category header); it never reaches a per-control render, so nothing here.
 			case 'account':
-				return nothing;
+				return html`<gl-settings-account .actions=${this.actions}></gl-settings-account>`;
 
 			case 'info':
 				return html`<div class="info" role="note">

@@ -50,7 +50,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 	private _state: SettingsState = createSettingsState(this._host.storage);
 
 	/**
-	 * Subscription context for `gl-account-chip` (Account section) and the nav's avatar. Seeded with
+	 * Subscription context for `gl-settings-account` (Account section) and the nav's avatar. Seeded with
 	 * defaults, then swapped to the host-side RemoteSignals in `_onRpcReady` (same bridge as Graph/Home),
 	 * so account/avatar state stays live without copying through the settings state signals.
 	 */
@@ -120,7 +120,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			this._actions = actions;
 
 			// Swap the subscription context to the host-side RemoteSignals directly (no copy), exactly as
-			// Graph/Home do — this feeds `gl-account-chip` and the nav's avatar. Supertalk proxy properties
+			// Graph/Home do — this feeds `gl-settings-account` and the nav's avatar. Supertalk proxy properties
 			// are thenable at runtime.
 			/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
 			const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
