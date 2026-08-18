@@ -586,11 +586,11 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				id: 'manyFiles',
 				supported: manyFiles,
 				reason: manyFiles ? undefined : requiresGit('git:manyFiles'),
-				// On Git 2.40+, feature.manyFiles also enables index.skipHash. Older Git versions have two
-				// distinct compatibility behaviors documented by git-config(1).
+				// On Git 2.40+, feature.manyFiles also enables index.skipHash. Its zeroed trailing hash may not
+				// be understood by older Git versions or common third-party index readers.
 				note:
 					manyFiles && skipHash
-						? 'Also enables index.skipHash — Git before 2.13 refuses the resulting index, and Git before 2.40 reports it as corrupt during git fsck'
+						? 'Also enables index.skipHash — Git before 2.40 reports the zeroed hash as corrupt, and some libgit2- and JGit-based tools may reject or misdiagnose the index'
 						: undefined,
 			},
 		];
