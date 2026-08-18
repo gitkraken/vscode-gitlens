@@ -116,6 +116,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			display: flex;
 			flex-direction: column;
 			gap: var(--gl-space-8);
+			padding-block-end: var(--gl-space-4);
 		}
 
 		.coachmark__header {
