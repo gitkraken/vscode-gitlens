@@ -192,9 +192,7 @@ function formatBytes(bytes: number): string {
  */
 @customElement('gl-graph-git-health')
 export class GlGraphGitHealth extends SignalWatcher(LitElement) {
-	static override styles = css`
-		${scrollableBase}
-		${srOnly}
+	private static readonly componentStyles = css`
 		:host {
 			display: flex;
 			flex-direction: column;
@@ -604,6 +602,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			outline-offset: 0.2rem;
 		}
 	`;
+	static override styles = [scrollableBase, srOnly, GlGraphGitHealth.componentStyles];
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
