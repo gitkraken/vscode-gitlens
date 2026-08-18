@@ -82,6 +82,7 @@ function makeSnapshot(): GitHealthSnapshot {
 			fsmonitor: false,
 			manyFiles: false,
 			backgroundMaintenance: false,
+			sparseIndex: false,
 		},
 		supportsMaintenanceRun: true,
 		supportsPackRefsMaintenance: true,
@@ -89,7 +90,13 @@ function makeSnapshot(): GitHealthSnapshot {
 }
 
 function makeCapabilities(): GitOptimizationCapability[] {
-	const ids: GitOptimizationId[] = ['untrackedCache', 'fsmonitor', 'backgroundMaintenance', 'manyFiles'];
+	const ids: GitOptimizationId[] = [
+		'untrackedCache',
+		'fsmonitor',
+		'backgroundMaintenance',
+		'manyFiles',
+		'sparseIndex',
+	];
 	return ids.map(id => ({ id: id, supported: true }));
 }
 

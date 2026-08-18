@@ -213,6 +213,18 @@ export function computeHealthReport(
 				!snapshot.config.manyFiles &&
 				!(snapshot.untrackedCacheNotApplicable && !snapshot.config.untrackedCacheConfigured),
 		},
+		{
+			id: 'sparseIndex',
+			tier: 'ask',
+			// Sparse-directory entries are safe only in cone mode. Require a normal full index so this
+			// recommendation is based on the repository-wide path count, not a split/conflicted approximation.
+			eligible:
+				snapshot.repository.sparseCheckout === true &&
+				snapshot.repository.sparseCheckoutCone === true &&
+				snapshot.repository.sparseIndex === false &&
+				snapshot.repository.splitIndex === false &&
+				snapshot.indexEntryCountType === 'full',
+		},
 	];
 	if (largeWorkingTree) {
 		for (const lever of workingTreeLevers) {
@@ -326,6 +338,7 @@ export function computeLevers(
 		// `=== true`, not the raw (possibly `undefined`) value — an unreadable registration is handled as its
 		// own status below, and must never fall through to "enabled".
 		backgroundMaintenance: snapshot.maintenanceRegistered === true,
+		sparseIndex: snapshot.repository.sparseIndex === true,
 	};
 	const blocked: Partial<Record<GitOptimizationId, boolean>> = {
 		untrackedCache: snapshot.untrackedCacheNotApplicable,
@@ -359,6 +372,59 @@ export function computeLevers(
 		// Then ownership, which is what decides whether Undo is offered at all.
 		if (enabled[id]) {
 			return { id: id, status: snapshot.applied[id] ? 'applied' : 'userEnabled', tier: tier, note: note };
+		}
+		if (id === 'sparseIndex') {
+			if (
+				snapshot.repository.sparseCheckout == null ||
+				snapshot.repository.sparseCheckoutCone == null ||
+				snapshot.repository.sparseIndex == null ||
+				snapshot.repository.splitIndex == null
+			) {
+				return {
+					id: id,
+					status: 'unavailable',
+					tier: tier,
+					reason: "Couldn't determine this worktree’s sparse-checkout and index configuration",
+					note: note,
+					checkFailed: true,
+				};
+			}
+			if (!snapshot.repository.sparseCheckout) {
+				return {
+					id: id,
+					status: 'notApplicable',
+					tier: tier,
+					reason: 'This worktree is not using sparse checkout.',
+					note: note,
+				};
+			}
+			if (!snapshot.repository.sparseCheckoutCone) {
+				return {
+					id: id,
+					status: 'notApplicable',
+					tier: tier,
+					reason: 'Sparse indexes require cone-mode sparse checkout.',
+					note: note,
+				};
+			}
+			if (snapshot.repository.splitIndex || snapshot.indexEntryCountType === 'split') {
+				return {
+					id: id,
+					status: 'notApplicable',
+					tier: tier,
+					reason: 'This worktree uses a split index; disable it before enabling a sparse index.',
+					note: note,
+				};
+			}
+			if (snapshot.indexEntryCountType === 'conflicted') {
+				return {
+					id: id,
+					status: 'notApplicable',
+					tier: tier,
+					reason: 'Finish the current merge or rebase before enabling a sparse index.',
+					note: note,
+				};
+			}
 		}
 		// `notApplicable` means GitLens TRIED here and this repo can't use it — the gk marker records that.
 		// `capability.note` is the supported-with-caveat field, not an unavailability reason, so the

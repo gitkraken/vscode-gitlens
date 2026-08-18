@@ -1600,7 +1600,7 @@ background-upgraded the extension while the host kept running the old build
   // Coarse duration bucket
   'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
   // The config lever that was applied
-  'optimization': 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles',
+  'optimization': 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles' | 'sparseIndex',
   // Which tier applied it — `auto` is the silent daily pass, `ask` is user-initiated
   'tier': 'ask' | 'auto'
 }

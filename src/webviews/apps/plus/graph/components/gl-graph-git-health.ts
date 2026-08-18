@@ -94,6 +94,21 @@ const leverCopy: Record<GitOptimizationId, LeverCopy> = {
 			mechanics: `Switches Git's index to a compressed format and uses Git's large-repository defaults — together making status, add, and checkout faster when the index is large.`,
 		},
 	},
+	sparseIndex: {
+		label: 'Sparse index',
+		blurb: 'Keeps paths outside this sparse checkout collapsed into directory entries.',
+		benefit: 'Speeds up status, add, checkout, and other index-heavy commands in sparse worktrees.',
+		changes: {
+			before: 'Enabling runs ',
+			code: 'git sparse-checkout reapply --sparse-index',
+			after: ' for this worktree. It reapplies the existing sparse pattern and can remove clean out-of-cone files that Git had temporarily materialized.',
+		},
+		details: {
+			mechanics: `Git replaces paths outside the sparse cone with one directory entry each, so commands can operate on the populated working set instead of loading every tracked path into the index.`,
+			considerations:
+				'Use Git 2.34 or later and compatible external tools with this worktree. Older index readers may not understand sparse-directory entries.',
+		},
+	},
 	backgroundMaintenance: {
 		label: 'Scheduled maintenance',
 		blurb: 'Lets Git maintain this repository on a schedule, including while VS Code is closed.',
@@ -844,9 +859,10 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 					}
 
 					if (focusKey != null && shouldRestoreFocus && !focusMoved) {
-						focusTarget =
-							this.renderRoot.querySelector<HTMLElement>(`[data-health-action="${focusKey}"]`) ??
-							this.renderRoot.querySelector<HTMLElement>(`[data-health-item="${focusKey}"]`);
+						focusTarget = this.renderRoot.querySelector<HTMLElement>(`[data-health-action="${focusKey}"]`);
+						focusTarget ??= this.renderRoot
+							.querySelector<HTMLElement>(`[data-health-item="${focusKey}"]`)
+							?.querySelector<HTMLElement>('.twistie');
 					}
 				}
 			} finally {
@@ -1065,6 +1081,17 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 					return 'Enabling would register scheduled maintenance with your operating system’s scheduler.';
 			}
 		}
+		if (lever.id === 'sparseIndex') {
+			switch (lever.status) {
+				case 'suggested':
+				case 'available':
+					return this.renderKeyedChangesPhrase(leverCopy.sparseIndex.changes);
+				case 'userEnabled':
+					return 'This worktree already uses sparse-directory index entries.';
+				default:
+					return 'Enabling would convert this worktree’s index to sparse-directory entries.';
+			}
+		}
 
 		const copy = leverCopy[lever.id];
 		const configChange = copy.configChange;
@@ -1096,6 +1123,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		if (lever.id === 'backgroundMaintenance') {
 			return 'GitLens registered this repository for scheduled maintenance. Undo unregisters it and restores the prior maintenance configuration.';
+		}
+		if (lever.id === 'sparseIndex') {
+			return 'GitLens converted this worktree to a sparse index. Undo expands the index and reapplies the existing sparse pattern, which can remove clean out-of-cone files.';
 		}
 
 		const configChange = leverCopy[lever.id].configChange;
@@ -1155,6 +1185,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 					class="card-action"
 					data-health-action=${lever.id}
 					appearance="primary"
+					aria-label=${`Enable ${copy.label}`}
 					?disabled=${busy || this.switching}
 					@click=${() =>
 						void this.run(
@@ -1364,6 +1395,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				action = html`<gl-button
 					data-health-action=${lever.id}
 					appearance="toolbar"
+					aria-label=${`Undo ${copy.label}`}
 					?disabled=${busy || this.switching}
 					@click=${() =>
 						void this.run(

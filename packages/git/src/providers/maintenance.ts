@@ -24,7 +24,7 @@
 export type GitMaintenanceTask = 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs';
 
 /** The uniform apply/revert surface for every optimization lever (auto + ask). */
-export type GitOptimizationId = 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles';
+export type GitOptimizationId = 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles' | 'sparseIndex';
 
 /**
  * Cheap per-session shape probe — filesystem stats + config reads only, no expensive git walks. Shared
@@ -119,6 +119,8 @@ export interface GitHealthSnapshot {
 		readonly fsmonitor: boolean;
 		readonly manyFiles: boolean;
 		readonly backgroundMaintenance: boolean;
+		/** Worktree-scoped ownership; sparse indexes are not shared between linked worktrees. */
+		readonly sparseIndex: boolean;
 	};
 	/** Whether the installed git supports `git maintenance run` (2.30+) — gates the auto-tier tasks. */
 	readonly supportsMaintenanceRun: boolean;

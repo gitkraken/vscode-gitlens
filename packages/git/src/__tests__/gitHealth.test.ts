@@ -46,16 +46,21 @@ function makeSnapshot(
 		looseRefsExact?: boolean;
 		refFormat?: GitHealthSnapshot['repository']['refFormat'];
 		supportsPackRefsMaintenance?: boolean;
+		sparseCheckout?: boolean;
+		sparseCheckoutCone?: boolean;
+		sparseIndex?: boolean;
+		splitIndex?: boolean;
+		repositoryShapeUnreadable?: boolean;
 	} = {},
 ): GitHealthSnapshot {
 	return {
 		repository: {
 			shallow: false,
 			partial: false,
-			sparseCheckout: false,
-			sparseCheckoutCone: false,
-			sparseIndex: false,
-			splitIndex: false,
+			sparseCheckout: o.repositoryShapeUnreadable ? undefined : (o.sparseCheckout ?? false),
+			sparseCheckoutCone: o.repositoryShapeUnreadable ? undefined : (o.sparseCheckoutCone ?? false),
+			sparseIndex: o.repositoryShapeUnreadable ? undefined : (o.sparseIndex ?? false),
+			splitIndex: o.repositoryShapeUnreadable ? undefined : (o.splitIndex ?? false),
 			refFormat: o.refFormat ?? 'files',
 		},
 		looseRefs: { count: o.looseRefs ?? 0, exact: o.looseRefsExact ?? true },
@@ -91,6 +96,7 @@ function makeSnapshot(
 			fsmonitor: false,
 			manyFiles: false,
 			backgroundMaintenance: false,
+			sparseIndex: false,
 			...o.applied,
 		},
 		supportsMaintenanceRun: o.supportsMaintenanceRun ?? true,
@@ -104,6 +110,7 @@ function makeCapabilities(overrides?: Partial<Record<GitOptimizationId, boolean>
 		fsmonitor: true,
 		backgroundMaintenance: true,
 		manyFiles: true,
+		sparseIndex: true,
 		...overrides,
 	};
 	return (Object.keys(supported) as GitOptimizationId[]).map(id => ({ id: id, supported: supported[id] }));
@@ -224,6 +231,44 @@ suite('gitHealth.computeHealthReport — ask tier', () => {
 		assert.ok(ask.includes('fsmonitor'));
 		assert.ok(ask.includes('manyFiles'));
 		assert.ok(ask.includes('backgroundMaintenance'));
+	});
+
+	test('suggests sparse index only for a large cone-mode sparse checkout with a full index', () => {
+		const eligible = computeHealthReport(
+			makeSnapshot({
+				indexEntryCount: trackedFilesThreshold,
+				indexEntryCountType: 'full',
+				sparseCheckout: true,
+				sparseCheckoutCone: true,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.ok(optimizationIds(eligible.findings).includes('sparseIndex'));
+
+		const nonCone = computeHealthReport(
+			makeSnapshot({
+				indexEntryCount: trackedFilesThreshold,
+				indexEntryCountType: 'full',
+				sparseCheckout: true,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.strictEqual(optimizationIds(nonCone.findings).includes('sparseIndex'), false);
+
+		const alreadySparse = computeHealthReport(
+			makeSnapshot({
+				indexEntryCount: trackedFilesThreshold,
+				indexEntryCountType: 'sparse',
+				sparseCheckout: true,
+				sparseCheckoutCone: true,
+				sparseIndex: true,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.strictEqual(optimizationIds(alreadySparse.findings).includes('sparseIndex'), false);
 	});
 
 	test('does NOT suggest untracked cache when already enabled', () => {
@@ -436,6 +481,45 @@ suite('gitHealth.computeLevers', () => {
 		assert.strictEqual(theirs.get('untrackedCache')?.status, 'userEnabled');
 	});
 
+	test('sparse-index ownership is distinct from a user-enabled sparse index', () => {
+		const mine = leversFor({ sparseIndex: true, applied: { sparseIndex: true } });
+		assert.strictEqual(mine.get('sparseIndex')?.status, 'applied');
+
+		const theirs = leversFor({ sparseIndex: true });
+		assert.strictEqual(theirs.get('sparseIndex')?.status, 'userEnabled');
+	});
+
+	test('sparse index explains worktree-shape applicability instead of reporting not needed', () => {
+		const regular = leversFor({}).get('sparseIndex');
+		assert.strictEqual(regular?.status, 'notApplicable');
+		assert.ok(regular.reason?.includes('not using sparse checkout'));
+
+		const nonCone = leversFor({ sparseCheckout: true }).get('sparseIndex');
+		assert.strictEqual(nonCone?.status, 'notApplicable');
+		assert.ok(nonCone.reason?.includes('cone-mode'));
+
+		const split = leversFor({
+			sparseCheckout: true,
+			sparseCheckoutCone: true,
+			splitIndex: true,
+			indexEntryCountType: 'split',
+		}).get('sparseIndex');
+		assert.strictEqual(split?.status, 'notApplicable');
+		assert.ok(split.reason?.includes('split index'));
+
+		const conflicted = leversFor({
+			sparseCheckout: true,
+			sparseCheckoutCone: true,
+			indexEntryCountType: 'conflicted',
+		}).get('sparseIndex');
+		assert.strictEqual(conflicted?.status, 'notApplicable');
+		assert.ok(conflicted.reason?.includes('merge or rebase'));
+
+		const unknown = leversFor({ repositoryShapeUnreadable: true }).get('sparseIndex');
+		assert.strictEqual(unknown?.status, 'unavailable');
+		assert.strictEqual(unknown.checkFailed, true);
+	});
+
 	test('an eligible lever on a large repo is suggested', () => {
 		const levers = leversFor({ indexBytes: largeIndexBytes });
 		assert.strictEqual(levers.get('fsmonitor')?.status, 'suggested');
@@ -474,11 +558,13 @@ suite('gitHealth.computeLevers', () => {
 		assert.strictEqual(lever?.note, note);
 	});
 
-	test('a healthy repo reports levers as available, never unavailable', () => {
+	test('a healthy repo reports generally applicable levers as available, never unavailable', () => {
 		// A small repo produces no findings. Reporting its levers as "unavailable" would tell the user
 		// something false — they are perfectly usable, just not worth recommending.
 		const levers = leversFor({});
 		for (const lever of levers.values()) {
+			if (lever.id === 'sparseIndex') continue;
+
 			assert.strictEqual(lever.status, 'available', `${lever.id} is available`);
 			assert.strictEqual(lever.reason, undefined, `${lever.id} needs no reason`);
 		}

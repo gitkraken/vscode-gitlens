@@ -20,6 +20,7 @@ export type GitFeatures =
 	| 'git:rev-parse:end-of-options'
 	| 'git:signing:ssh'
 	| 'git:signing:x509'
+	| 'git:sparse-index'
 	| 'git:stash:push:pathspecs'
 	| 'git:stash:push:staged'
 	| 'git:stash:push:stdin'
@@ -83,6 +84,9 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:rev-parse:end-of-options', '2.30'],
 	['git:signing:ssh', '2.34.0'],
 	['git:signing:x509', '2.19.0'],
+	// Sparse-index support debuted earlier, but 2.33 shipped a corruption fix and 2.34 broadened command
+	// support. Use 2.34 as the conservative floor before offering a repository mutation.
+	['git:sparse-index', '2.34'],
 	['git:stash:push:pathspecs', '2.13.2'],
 	['git:stash:push:staged', '2.35.0'],
 	['git:stash:push:stdin', '2.30.0'],

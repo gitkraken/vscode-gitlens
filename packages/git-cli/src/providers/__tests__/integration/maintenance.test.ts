@@ -32,6 +32,7 @@ const optimizationIds: readonly GitOptimizationId[] = [
 	'fsmonitor',
 	'backgroundMaintenance',
 	'manyFiles',
+	'sparseIndex',
 ];
 
 type TestableMaintenance = {
@@ -40,12 +41,45 @@ type TestableMaintenance = {
 		refsDir: string,
 		readDirectory?: (dir: string) => Promise<{ name: string; isDirectory(): boolean }[]>,
 	): Promise<{ count: number; exact: boolean }>;
+	runSparseCheckoutReapply(repoPath: string, enabled: boolean, cancellation?: AbortSignal): Promise<void>;
 	testUntrackedCacheSupport(repoPath: string, cancellation?: AbortSignal): Promise<boolean>;
 };
 
 function testableMaintenance(repo: TestRepo): TestableMaintenance {
 	// oxlint-disable-next-line no-explicit-any -- deliberate reach into private test seams
 	return maintenanceOf(repo) as any as TestableMaintenance;
+}
+
+function blockNextSparseCheckoutReapply(repo: TestRepo): { started: Promise<void>; release(): void } {
+	const maintenance = testableMaintenance(repo);
+	const original = maintenance.runSparseCheckoutReapply.bind(maintenance);
+	let markStarted!: () => void;
+	let release!: () => void;
+	const started = new Promise<void>(resolve => (markStarted = resolve));
+	const blocked = new Promise<void>(resolve => (release = resolve));
+	maintenance.runSparseCheckoutReapply = async (repoPath, enabled, cancellation) => {
+		maintenance.runSparseCheckoutReapply = original;
+		markStarted();
+		await blocked;
+		await original(repoPath, enabled, cancellation);
+	};
+	return { started: started, release: release };
+}
+
+async function settlesWithin<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timeout = setTimeout(() => reject(new Error(message)), milliseconds);
+			}),
+		]);
+	} finally {
+		if (timeout != null) {
+			clearTimeout(timeout);
+		}
+	}
 }
 
 /** Reads a repo's LOCAL-scope config value (independent of the developer's global/system config). */
@@ -97,7 +131,7 @@ function rawIndexEntryCount(repoPath: string): number {
 	return header.readUInt32BE(8);
 }
 
-/** Reach into the private ownership-marker lock — the diagnosis, ownership, and release tests need to run
+/** Reach into the private lock helper — the diagnosis, ownership, and release tests need to run
  *  code INSIDE the critical section (or with shortened timings), which no public entry point exposes. */
 function withMarkerLock<T>(
 	repo: TestRepo,
@@ -110,9 +144,10 @@ function withMarkerLock<T>(
 		writeRecord?: (handle: unknown) => Promise<void>;
 		openLock?: (lockPath: string) => Promise<unknown>;
 	},
+	lockLocation?: { readonly dir: string; readonly contention?: 'sparseIndex'; readonly lock: string },
 ): Promise<T> {
 	// oxlint-disable-next-line no-explicit-any -- deliberate reach into the private test seam
-	return (maintenanceOf(repo) as any).withMarkerLock(repoPath, fn, timings) as Promise<T>;
+	return (maintenanceOf(repo) as any).withMarkerLock(repoPath, fn, timings, lockLocation) as Promise<T>;
 }
 
 suite('MaintenanceSubProvider', () => {
@@ -160,6 +195,7 @@ suite('MaintenanceSubProvider', () => {
 			fsmonitor: false,
 			manyFiles: false,
 			backgroundMaintenance: false,
+			sparseIndex: false,
 		});
 		assert.strictEqual(typeof snapshot.supportsMaintenanceRun, 'boolean');
 		assert.strictEqual(typeof snapshot.supportsPackRefsMaintenance, 'boolean');
@@ -494,6 +530,277 @@ suite('MaintenanceSubProvider', () => {
 		await maintenanceOf(repo).revertOptimization(repo.path, 'untrackedCache');
 		assert.strictEqual(localConfig(repo.path, 'core.untrackedCache'), undefined, 'local config unset after revert');
 		assert.strictEqual(gkConfig(repo.path, 'gk.applied.untrackedCache'), undefined, 'marker cleared after revert');
+	});
+
+	test('sparseIndex converts and restores one cone-mode sparse worktree', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			addCommit(sparseRepo.path, 'area-b/b.txt', 'b', 'add area b');
+			execFileSync('git', ['sparse-checkout', 'init', '--cone', '--no-sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', 'area-a'], { cwd: sparseRepo.path, stdio: 'pipe' });
+
+			const before = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(before.repository.sparseIndex, false);
+			assert.strictEqual(before.applied.sparseIndex, false);
+
+			const applied = await maintenanceOf(sparseRepo).applyOptimization(sparseRepo.path, 'sparseIndex');
+			assert.strictEqual(applied, true);
+			const enabled = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(enabled.repository.sparseIndex, true);
+			assert.strictEqual(enabled.indexEntryCountType, 'sparse');
+			assert.strictEqual(enabled.applied.sparseIndex, true);
+
+			await maintenanceOf(sparseRepo).revertOptimization(sparseRepo.path, 'sparseIndex');
+			const restored = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(restored.repository.sparseIndex, false);
+			assert.strictEqual(restored.indexEntryCountType, 'full');
+			assert.strictEqual(restored.applied.sparseIndex, false);
+			assert.strictEqual(
+				execFileSync('git', ['sparse-checkout', 'list'], { cwd: sparseRepo.path, encoding: 'utf8' }).trim(),
+				'area-a',
+				'undo preserves the sparse-checkout definition',
+			);
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('sparseIndex does not hold the shared marker lock while rewriting the index', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			execFileSync('git', ['sparse-checkout', 'init', '--cone', '--no-sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', 'area-a'], { cwd: sparseRepo.path, stdio: 'pipe' });
+
+			const blocker = blockNextSparseCheckoutReapply(sparseRepo);
+			const applying = maintenanceOf(sparseRepo).applyOptimization(sparseRepo.path, 'sparseIndex');
+			await blocker.started;
+			try {
+				await withMarkerLock(sparseRepo, sparseRepo.path, async () => {}, { retryMs: 0, maxAttempts: 0 });
+				await assert.rejects(
+					maintenanceOf(sparseRepo).applyOptimization(sparseRepo.path, 'sparseIndex'),
+					(ex: unknown) => {
+						assert.ok(ex instanceof Error);
+						assert.match(ex.message, /sparse-index update is still in progress/i);
+						assert.doesNotMatch(
+							ex.message,
+							/delete/i,
+							'a live sparse operation never invites lock deletion',
+						);
+						return true;
+					},
+				);
+			} finally {
+				blocker.release();
+				await applying;
+			}
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('sparseIndex snapshots stay responsive and report config changes made by in-flight operations', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			execFileSync('git', ['sparse-checkout', 'init', '--cone', '--no-sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', 'area-a'], { cwd: sparseRepo.path, stdio: 'pipe' });
+
+			const applyBlocker = blockNextSparseCheckoutReapply(sparseRepo);
+			const applying = maintenanceOf(sparseRepo).applyOptimization(sparseRepo.path, 'sparseIndex');
+			await applyBlocker.started;
+			execFileSync('git', ['config', '--worktree', 'index.sparse', 'true'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			const applyingSnapshotPromise = maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			try {
+				const applyingSnapshot = await settlesWithin(
+					applyingSnapshotPromise,
+					750,
+					'health snapshot waited for the sparse-index apply',
+				);
+				assert.strictEqual(applyingSnapshot.repository.sparseIndex, true, 'reports the current config value');
+				assert.strictEqual(applyingSnapshot.applied.sparseIndex, false, 'does not claim an in-flight apply');
+			} finally {
+				applyBlocker.release();
+				await applying;
+				await applyingSnapshotPromise;
+			}
+
+			const revertBlocker = blockNextSparseCheckoutReapply(sparseRepo);
+			const reverting = maintenanceOf(sparseRepo).revertOptimization(sparseRepo.path, 'sparseIndex');
+			await revertBlocker.started;
+			execFileSync('git', ['config', '--worktree', 'index.sparse', 'false'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			const revertingSnapshotPromise = maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			try {
+				const revertingSnapshot = await settlesWithin(
+					revertingSnapshotPromise,
+					750,
+					'health snapshot waited for the sparse-index undo',
+				);
+				assert.strictEqual(revertingSnapshot.repository.sparseIndex, false, 'reports the current config value');
+				assert.strictEqual(revertingSnapshot.applied.sparseIndex, false, 'does not claim an in-flight undo');
+			} finally {
+				revertBlocker.release();
+				await reverting;
+				await revertingSnapshotPromise;
+			}
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('sparseIndex never claims or reverts a sparse index enabled outside GitLens', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			execFileSync('git', ['sparse-checkout', 'init', '--cone', '--sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', 'area-a'], { cwd: sparseRepo.path, stdio: 'pipe' });
+
+			assert.strictEqual(
+				await maintenanceOf(sparseRepo).applyOptimization(sparseRepo.path, 'sparseIndex'),
+				false,
+			);
+			await maintenanceOf(sparseRepo).revertOptimization(sparseRepo.path, 'sparseIndex');
+			const snapshot = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(snapshot.repository.sparseIndex, true);
+			assert.strictEqual(snapshot.applied.sparseIndex, false);
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('sparseIndex refuses a non-cone sparse checkout', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			execFileSync('git', ['sparse-checkout', 'init', '--no-cone', '--no-sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', '--no-cone', 'area-a/'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+
+			assert.strictEqual(
+				await maintenanceOf(sparseRepo).applyOptimization(sparseRepo.path, 'sparseIndex'),
+				false,
+			);
+			const snapshot = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(snapshot.repository.sparseIndex, false);
+			assert.strictEqual(snapshot.applied.sparseIndex, false);
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('sparseIndex reconciles an interrupted apply into worktree ownership', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			execFileSync('git', ['sparse-checkout', 'init', '--cone', '--no-sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', 'area-a'], { cwd: sparseRepo.path, stdio: 'pipe' });
+
+			const markerDir = join(sparseRepo.path, '.git', 'gk');
+			mkdirSync(markerDir, { recursive: true });
+			writeFileSync(join(markerDir, 'sparse-index.pending'), '');
+			execFileSync('git', ['sparse-checkout', 'reapply', '--sparse-index'], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+
+			const snapshot = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(snapshot.repository.sparseIndex, true);
+			assert.strictEqual(snapshot.applied.sparseIndex, true);
+			assert.strictEqual(existsSync(join(markerDir, 'sparse-index.pending')), false);
+			assert.strictEqual(existsSync(join(markerDir, 'sparse-index.applied')), true);
+
+			await maintenanceOf(sparseRepo).revertOptimization(sparseRepo.path, 'sparseIndex');
+		} finally {
+			sparseRepo.cleanup();
+		}
+	});
+
+	test('sparseIndex ownership is scoped to one linked worktree', async function () {
+		if (!(await Promise.resolve(repo.provider.supports('git:sparse-index')))) {
+			this.skip();
+		}
+
+		const sparseRepo = createTestRepo();
+		const worktreePath = mkdtempSync(join(tmpdir(), 'gitlens-sparse-worktree-'));
+		try {
+			addCommit(sparseRepo.path, 'area-a/a.txt', 'a', 'add area a');
+			addCommit(sparseRepo.path, 'area-b/b.txt', 'b', 'add area b');
+			execFileSync('git', ['branch', 'linked-sparse'], { cwd: sparseRepo.path, stdio: 'pipe' });
+			addWorktree(sparseRepo.path, worktreePath, 'linked-sparse');
+			execFileSync('git', ['sparse-checkout', 'init', '--cone', '--no-sparse-index'], {
+				cwd: worktreePath,
+				stdio: 'pipe',
+			});
+			execFileSync('git', ['sparse-checkout', 'set', 'area-a'], { cwd: worktreePath, stdio: 'pipe' });
+
+			assert.strictEqual(await maintenanceOf(sparseRepo).applyOptimization(worktreePath, 'sparseIndex'), true);
+			const linked = await maintenanceOf(sparseRepo).getHealthSnapshot(worktreePath);
+			const main = await maintenanceOf(sparseRepo).getHealthSnapshot(sparseRepo.path);
+			assert.strictEqual(linked.repository.sparseIndex, true);
+			assert.strictEqual(linked.applied.sparseIndex, true);
+			assert.strictEqual(main.repository.sparseIndex, false);
+			assert.strictEqual(main.applied.sparseIndex, false);
+
+			await maintenanceOf(sparseRepo).revertOptimization(worktreePath, 'sparseIndex');
+		} finally {
+			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+				cwd: sparseRepo.path,
+				stdio: 'pipe',
+			});
+			rmSync(worktreePath, { recursive: true, force: true });
+			sparseRepo.cleanup();
+		}
 	});
 
 	test('a failed config write does not leave an ownership marker', async function () {
@@ -1217,6 +1524,58 @@ suite('MaintenanceSubProvider', () => {
 
 			assert.strictEqual(ran, false, 'fn never runs — a dead-owner verdict is diagnosis only, never a steal');
 			assert.strictEqual(existsSync(lockPath), true, "the dead owner's lock file survives for manual deletion");
+		} finally {
+			lockRepo.cleanup();
+		}
+	});
+
+	test('sparse lock contention gives wait-only guidance only for a confirmed live owner', async () => {
+		const lockRepo = createTestRepo();
+		try {
+			const gkDir = join(lockRepo.path, '.git', 'gk');
+			mkdirSync(gkDir, { recursive: true });
+			const lockPath = join(gkDir, 'sparse-index.lock');
+			const contents = JSON.stringify({ host: hostname(), pid: 424242, ownerId: 'sparse-owner' });
+			writeFileSync(lockPath, contents);
+			const lockLocation = { dir: gkDir, contention: 'sparseIndex' as const, lock: lockPath };
+
+			for (const verdict of ['alive', 'dead', 'unverifiable'] as const) {
+				let ran = false;
+				await assert.rejects(
+					() =>
+						withMarkerLock(
+							lockRepo,
+							lockRepo.path,
+							async () => {
+								ran = true;
+							},
+							{ retryMs: 0, maxAttempts: 0, probeOwner: () => verdict },
+							lockLocation,
+						),
+					(ex: unknown) => {
+						const message = (ex as Error).message;
+						if (verdict === 'alive') {
+							assert.match(message, /sparse-index update is still in progress/i);
+							assert.doesNotMatch(message, /delete/i);
+						} else {
+							assert.match(
+								message,
+								verdict === 'dead'
+									? /previous VS Code window appears to have crashed/i
+									: /could not verify whether another window is still updating the sparse index/i,
+							);
+							assert.match(message, /delete/i);
+							assert.ok(message.includes(lockPath), `${verdict} error names the lock path`);
+						}
+
+						return true;
+					},
+				);
+
+				assert.strictEqual(ran, false, `${verdict} contention never enters the critical section`);
+				assert.strictEqual(existsSync(lockPath), true, `${verdict} contention never removes the lock`);
+				assert.strictEqual(readFileSync(lockPath, 'utf8'), contents, `${verdict} lock remains untouched`);
+			}
 		} finally {
 			lockRepo.cleanup();
 		}

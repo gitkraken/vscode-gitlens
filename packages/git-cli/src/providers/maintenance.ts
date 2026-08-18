@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Dirent } from 'node:fs';
-import { mkdir, open, readdir, readFile, realpath, rm, stat } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, realpath, rename, rm, stat } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import * as process from 'node:process';
@@ -37,6 +37,11 @@ const looseObjectSampleDirs: readonly string[] = Array.from({ length: 16 }, (_, 
 
 /** Stops the ref probe at four times the recommendation threshold: bounded, but still useful for telemetry. */
 const looseRefProbeLimit = looseRefsThreshold * 4;
+
+/** Worktree-local ownership journal for the sparse-index command lever. */
+const sparseIndexAppliedMarker = 'sparse-index.applied';
+const sparseIndexLockFile = 'sparse-index.lock';
+const sparseIndexPendingMarker = 'sparse-index.pending';
 
 /** How long the global `maintenance.repo` registration list is served from cache (mirrors the config caches). */
 const registeredMaintenanceReposTtlMs = 30 * 1000;
@@ -88,7 +93,13 @@ type GkMarkers = Pick<GitHealthSnapshot, 'fsmonitorNotApplicable' | 'untrackedCa
 const emptyGkMarkers: GkMarkers = {
 	fsmonitorNotApplicable: false,
 	untrackedCacheNotApplicable: false,
-	applied: { untrackedCache: false, fsmonitor: false, manyFiles: false, backgroundMaintenance: false },
+	applied: {
+		untrackedCache: false,
+		fsmonitor: false,
+		manyFiles: false,
+		backgroundMaintenance: false,
+		sparseIndex: false,
+	},
 	commitGraphDisabled: false,
 };
 
@@ -103,6 +114,8 @@ type PendingConfigChange = {
 	readonly prior: string;
 	readonly value: string;
 };
+
+class MarkerLockContentionError extends Error {}
 
 const untrackedCacheChange: ConfigLeverChange = {
 	configKey: 'core.untrackedCache',
@@ -435,6 +448,12 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 		const markers = getSettledValue(gkMarkers) ?? emptyGkMarkers;
 		const configValue = getSettledValue(config);
+		const sparseIndexState = await this.reconcileSparseIndexMarkers(
+			repoPath,
+			gitDir.uri.fsPath,
+			configValue?.sparseIndex,
+			cancellation,
+		).catch(() => ({ enabled: configValue?.sparseIndex, applied: false }));
 		const rawIndexBytes = getSettledValue(indexBytes) ?? 0;
 		const rawIndexEntryCount = getSettledValue(indexEntryCount);
 		const sharedIndexValue = getSettledValue(sharedIndex);
@@ -455,7 +474,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 					? 'split'
 					: conflictOperationValue
 						? 'conflicted'
-						: configValue.sparseIndex
+						: sparseIndexState.enabled
 							? 'sparse'
 							: 'full';
 		return {
@@ -464,7 +483,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				partial: getSettledValue(partialClone),
 				sparseCheckout: configValue?.sparseCheckout,
 				sparseCheckoutCone: configValue?.sparseCheckoutCone,
-				sparseIndex: configValue?.sparseIndex,
+				sparseIndex: sparseIndexState.enabled,
 				splitIndex: splitIndex,
 				refFormat: configValue?.refFormat ?? 'unknown',
 			},
@@ -499,7 +518,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			maintenanceRegistered: getSettledValue(maintenanceRegistered),
 			fsmonitorNotApplicable: markers.fsmonitorNotApplicable,
 			untrackedCacheNotApplicable: markers.untrackedCacheNotApplicable,
-			applied: markers.applied,
+			applied: { ...markers.applied, sparseIndex: sparseIndexState.applied },
 			supportsMaintenanceRun: getSettledValue(supportsMaintenanceRun) ?? false,
 			supportsPackRefsMaintenance: getSettledValue(supportsPackRefsMaintenance) ?? false,
 		};
@@ -523,6 +542,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				fsmonitor: map.has('gk.applied.fsmonitor'),
 				manyFiles: map.has('gk.applied.manyfiles'),
 				backgroundMaintenance: map.has('gk.applied.backgroundmaintenance'),
+				sparseIndex: false,
 			},
 			commitGraphDisabled: map.get('gk.commitgraphdisabled') === 'true',
 		};
@@ -564,20 +584,28 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// backend at all has no floor to check.
 		const fsmonitorFeature = fsmonitorFeatureForPlatform();
 
-		const [untrackedCacheResult, fsmonitorResult, backgroundMaintenanceResult, manyFilesResult, skipHashResult] =
-			await Promise.allSettled([
-				this.git.supports('git:untrackedCache'),
-				fsmonitorFeature != null ? this.git.supports(fsmonitorFeature) : false,
-				this.git.supports(maintenanceStartFeature),
-				this.git.supports('git:manyFiles'),
-				this.git.supports('git:index:skipHash'),
-			]);
+		const [
+			untrackedCacheResult,
+			fsmonitorResult,
+			backgroundMaintenanceResult,
+			manyFilesResult,
+			skipHashResult,
+			sparseIndexResult,
+		] = await Promise.allSettled([
+			this.git.supports('git:untrackedCache'),
+			fsmonitorFeature != null ? this.git.supports(fsmonitorFeature) : false,
+			this.git.supports(maintenanceStartFeature),
+			this.git.supports('git:manyFiles'),
+			this.git.supports('git:index:skipHash'),
+			this.git.supports('git:sparse-index'),
+		]);
 
 		const untrackedCache = getSettledValue(untrackedCacheResult) ?? false;
 		const fsmonitor = getSettledValue(fsmonitorResult) ?? false;
 		const backgroundMaintenance = getSettledValue(backgroundMaintenanceResult) ?? false;
 		const manyFiles = getSettledValue(manyFilesResult) ?? false;
 		const skipHash = getSettledValue(skipHashResult) ?? false;
+		const sparseIndex = getSettledValue(sparseIndexResult) ?? false;
 
 		return [
 			{
@@ -617,6 +645,14 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 					manyFiles && skipHash
 						? 'Also enables index.skipHash — Git before 2.40 reports the zeroed hash as corrupt, and some libgit2- and JGit-based tools may reject or misdiagnose the index'
 						: undefined,
+			},
+			{
+				id: 'sparseIndex',
+				supported: sparseIndex,
+				reason: sparseIndex ? undefined : requiresGit('git:sparse-index'),
+				note: sparseIndex
+					? 'Older Git versions and some tools that read the index directly do not understand sparse-directory entries'
+					: undefined,
 			},
 		];
 	}
@@ -666,6 +702,8 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				return this.startBackgroundMaintenance(repoPath, cancellation);
 			case 'manyFiles':
 				return this.applyManyFiles(repoPath, cancellation);
+			case 'sparseIndex':
+				return this.applySparseIndex(repoPath, cancellation);
 		}
 	}
 
@@ -703,6 +741,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 					await this.revertConfigLever(repoPath, 'index.skipHash', 'gk.applied.skipHash', cancellation);
 					await this.revertConfigLever(repoPath, 'feature.manyFiles', 'gk.applied.manyFiles', cancellation);
 				}
+				break;
+			case 'sparseIndex':
+				await this.revertSparseIndex(repoPath, cancellation);
 				break;
 		}
 	}
@@ -896,6 +937,118 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 			return this.applyConfigChangesUnlocked(repoPath, changes, cancellation);
 		});
+	}
+
+	/** Enables sparse-directory index entries for an existing cone-mode sparse checkout. */
+	private async applySparseIndex(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
+		if (!(await this.git.supports('git:sparse-index'))) return false;
+
+		const gitDir = await this.provider.config.getGitDir(repoPath);
+		const markerPaths = this.getSparseIndexMarkerPaths(gitDir.uri.fsPath);
+		return this.withMarkerLock(
+			repoPath,
+			async () => {
+				const config = await this.probeConfig(repoPath, cancellation);
+				const current = await this.reconcileSparseIndexMarkersUnlocked(markerPaths, config.sparseIndex);
+				if (current.enabled) return current.applied;
+				if (!config.sparseCheckout || !config.sparseCheckoutCone) return false;
+
+				const [sharedIndex, conflictOperation] = await Promise.all([
+					this.probeSharedIndex(gitDir.uri.fsPath),
+					this.probeConflictOperation(gitDir.uri.fsPath),
+				]);
+				if (sharedIndex?.present === true || conflictOperation) return false;
+
+				await mkdir(markerPaths.dir, { recursive: true });
+				const pending = await open(markerPaths.pending, 'wx');
+				await pending.close();
+
+				try {
+					await this.runSparseCheckoutReapply(repoPath, true, cancellation);
+					const completed = await this.reconcileSparseIndexMarkersUnlocked(markerPaths, true);
+					return completed.enabled && completed.applied;
+				} catch (ex) {
+					try {
+						// The command can fail after replacing its config/index locks. Repair ownership from the
+						// resulting state without the cancelled signal so a successful mutation never loses Undo.
+						const repaired = await this.reconcileSparseIndexMarkersUnlocked(
+							markerPaths,
+							await this.probeSparseIndexEnabled(repoPath),
+						);
+						if (repaired.enabled && repaired.applied) return true;
+					} catch (repairEx) {
+						const error = new Error('Unable to enable the sparse index or reconcile its ownership record', {
+							cause: ex,
+						}) as Error & { errors: unknown[] };
+						error.errors = [repairEx];
+						throw error;
+					}
+					throw ex;
+				}
+			},
+			undefined,
+			markerPaths,
+		);
+	}
+
+	/** Expands a sparse index only when this worktree's marker proves GitLens enabled it. */
+	private async revertSparseIndex(repoPath: string, cancellation?: AbortSignal): Promise<void> {
+		const gitDir = await this.provider.config.getGitDir(repoPath);
+		const markerPaths = this.getSparseIndexMarkerPaths(gitDir.uri.fsPath);
+		await this.withMarkerLock(
+			repoPath,
+			async () => {
+				const current = await this.reconcileSparseIndexMarkersUnlocked(
+					markerPaths,
+					await this.probeSparseIndexEnabled(repoPath, cancellation),
+				);
+				if (!current.applied) return;
+
+				try {
+					await this.runSparseCheckoutReapply(repoPath, false, cancellation);
+					await rm(markerPaths.applied, { force: true });
+				} catch (ex) {
+					try {
+						const repaired = await this.reconcileSparseIndexMarkersUnlocked(
+							markerPaths,
+							await this.probeSparseIndexEnabled(repoPath),
+						);
+						if (!repaired.enabled && !repaired.applied) return;
+					} catch (repairEx) {
+						const error = new Error(
+							'Unable to disable the sparse index or reconcile its ownership record',
+							{
+								cause: ex,
+							},
+						) as Error & { errors: unknown[] };
+						error.errors = [repairEx];
+						throw error;
+					}
+					throw ex;
+				}
+			},
+			undefined,
+			markerPaths,
+		);
+	}
+
+	private async runSparseCheckoutReapply(
+		repoPath: string,
+		enabled: boolean,
+		cancellation?: AbortSignal,
+	): Promise<void> {
+		await this.git.run(
+			{
+				cwd: repoPath,
+				errors: 'throw',
+				priority: 'background',
+				cancellation: cancellation,
+				selfMaintenance: true,
+			},
+			'sparse-checkout',
+			'reapply',
+			enabled ? '--sparse-index' : '--no-sparse-index',
+		);
 	}
 
 	/**
@@ -1284,6 +1437,105 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		return joinPaths((gitDir.commonUri ?? gitDir.uri).fsPath, 'gk');
 	}
 
+	private getSparseIndexMarkerPaths(gitDirPath: string): {
+		readonly dir: string;
+		readonly applied: string;
+		readonly contention: 'sparseIndex';
+		readonly lock: string;
+		readonly pending: string;
+	} {
+		const dir = joinPaths(gitDirPath, 'gk');
+		return {
+			dir: dir,
+			applied: joinPaths(dir, sparseIndexAppliedMarker),
+			contention: 'sparseIndex',
+			lock: joinPaths(dir, sparseIndexLockFile),
+			pending: joinPaths(dir, sparseIndexPendingMarker),
+		};
+	}
+
+	/**
+	 * Reconciles the sparse-index command's worktree-local write-ahead marker. The fast path is filesystem
+	 * only; a pending or stale-applied marker takes the worktree's sparse-index operation lock and re-reads
+	 * Git config before mutating anything, so it cannot act on a snapshot that raced another window's
+	 * apply/undo. A live operation keeps that lock across the index rewrite, but snapshots never wait for it:
+	 * they return the last committed marker state until the operation publishes its result.
+	 */
+	private async reconcileSparseIndexMarkers(
+		repoPath: string,
+		gitDirPath: string,
+		knownEnabled: boolean | undefined,
+		cancellation?: AbortSignal,
+	): Promise<{ enabled: boolean | undefined; applied: boolean }> {
+		const markerPaths = this.getSparseIndexMarkerPaths(gitDirPath);
+		const [pending, applied] = await Promise.all([fsExists(markerPaths.pending), fsExists(markerPaths.applied)]);
+		if (knownEnabled == null) return { enabled: undefined, applied: false };
+		if (!pending && (!applied || knownEnabled)) {
+			return { enabled: knownEnabled, applied: applied && knownEnabled };
+		}
+
+		try {
+			return await this.withMarkerLock(
+				repoPath,
+				async () =>
+					this.reconcileSparseIndexMarkersUnlocked(
+						markerPaths,
+						await this.probeSparseIndexEnabled(repoPath, cancellation),
+					),
+				{ retryMs: 0, maxAttempts: 0 },
+				markerPaths,
+			);
+		} catch (ex) {
+			if (!(ex instanceof MarkerLockContentionError)) throw ex;
+
+			// The config probe is the truthful state even if the lock holder crashed after changing it. Marker
+			// presence only proves ownership while that config is still enabled; reconciliation can resume after
+			// the live operation finishes or a positively dead owner's lock is removed manually.
+			return { enabled: knownEnabled, applied: applied && knownEnabled };
+		}
+	}
+
+	/** Body of {@link reconcileSparseIndexMarkers} for a caller already holding the ownership lock. */
+	private async reconcileSparseIndexMarkersUnlocked(
+		markerPaths: { readonly dir: string; readonly applied: string; readonly pending: string },
+		enabled: boolean,
+	): Promise<{ enabled: boolean; applied: boolean }> {
+		const pending = await fsExists(markerPaths.pending);
+		let applied = await fsExists(markerPaths.applied);
+		if (pending) {
+			if (enabled) {
+				await mkdir(markerPaths.dir, { recursive: true });
+				if (applied) {
+					await rm(markerPaths.pending, { force: true });
+				} else {
+					await rename(markerPaths.pending, markerPaths.applied);
+					applied = true;
+				}
+			} else {
+				await rm(markerPaths.pending, { force: true });
+			}
+		}
+
+		if (applied && !enabled) {
+			await rm(markerPaths.applied, { force: true });
+			applied = false;
+		}
+
+		return { enabled: enabled, applied: applied };
+	}
+
+	/** Reads the effective worktree-scoped sparse-index switch without relying on a cached config map. */
+	private async probeSparseIndexEnabled(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
+		const result = await this.runQuietly(repoPath, cancellation, 'config', '--bool', '--get', 'index.sparse');
+		this.throwIfDidNotComplete(result, cancellation);
+		if (result.exitCode === gitConfigGetMissingExitCode) return false;
+		if (result.exitCode !== 0) {
+			throw new Error(`Unable to read 'index.sparse' (git exited ${String(result.exitCode)})`);
+		}
+
+		return parseGitBoolean(result.stdout);
+	}
+
 	/** Reads an ownership marker straight from `.git/gk/config`, bypassing every cache. */
 	private async readGkMarkerUncached(
 		repoPath: string,
@@ -1307,8 +1559,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	}
 
 	/**
-	 * Runs `fn` holding an exclusive on-disk lock over this repo family's ownership markers. Two layers make
-	 * this safe across processes:
+	 * Runs `fn` holding an exclusive on-disk lock over one ownership-marker scope. By default that is the
+	 * repository family's config-marker scope; callers can provide a worktree-local lock location for an
+	 * operation whose state is isolated per worktree. Two layers make this safe across processes:
 	 *
 	 * - **Exclusive-create ownership, with an identity record.** `open(lockPath, 'wx')` — the same `O_EXCL`
 	 *   primitive git uses for its own `*.lock` files — is the only atomic step; a contender that loses the
@@ -1333,10 +1586,11 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	 * holder that was never dead. Kernel-managed advisory locking (`flock`) would close that gap, but Node
 	 * exposes no portable interface to it and a native, platform-sensitive dependency is disproportionate
 	 * here. Therefore a contender NEVER mutates an existing lock — only the creator removes one, and no stale
-	 * observation can authorize mutation. Recovery is a guided MANUAL step instead: a give-up runs the same PID probe ONCE, purely to choose the error's
-	 * wording — a confirmed-dead ('dead' verdict) owner gets an error naming the lock file to delete;
-	 * anything else (live, unverifiable, or on another host) gets the generic "another window" error. Either
-	 * way the fix is the same: delete the named lock file and retry.
+	 * observation can authorize mutation. Recovery is a guided MANUAL step instead: a give-up runs the same PID
+	 * probe ONCE, purely to choose the error's wording. For the sparse-operation lock, a confirmed-live owner gets
+	 * wait-only guidance, a confirmed-dead owner gets crash-recovery guidance, and an unverifiable owner gets the
+	 * lock path plus guarded manual-recovery guidance. The shared marker lock retains its generic non-dead error.
+	 * No verdict authorizes an automatic steal.
 	 *
 	 * Because a live holder can't lose its lock, `fn` needs no cancellation coupling to the lock itself — the
 	 * critical section only ever ends on its own terms.
@@ -1354,12 +1608,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	private async withMarkerLock<T>(
 		repoPath: string,
 		fn: () => Promise<T>,
-		// Test seam only — production call sites rely on the module defaults below. `probeOwner` REPLACES the
-		// real `process.kill(pid, 0)` liveness probe used for the give-up error's wording, so a test can stage
-		// a dead (or unverifiable) owner deterministically. `writeRecord` REPLACES the real ownership-record
-		// write, so a test can force the post-open setup to fail. `openLock` REPLACES the real
-		// `open(lockPath, 'wx')` acquisition, so a test can force it to fail deterministically (POSIX mode
-		// bits don't reliably block child creation on Windows).
+		// `retryMs`/`maxAttempts` define the acquisition policy; health snapshots deliberately use zero retries
+		// for the sparse operation lock. The remaining callbacks are test seams: `probeOwner` replaces the real
+		// PID probe, `writeRecord` forces post-open setup failures, and `openLock` forces acquisition failures.
 		timings?: {
 			retryMs?: number;
 			maxAttempts?: number;
@@ -1367,12 +1618,13 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			writeRecord?: (handle: FileHandle) => Promise<void>;
 			openLock?: (lockPath: string) => Promise<FileHandle>;
 		},
+		lockLocation?: { readonly dir: string; readonly contention?: 'sparseIndex'; readonly lock: string },
 	): Promise<T> {
 		const retryMs = timings?.retryMs ?? markerLockRetryMs;
 		const maxAttempts = timings?.maxAttempts ?? markerLockMaxAttempts;
 
-		const dir = await this.getGkDir(repoPath);
-		const lockPath = joinPaths(dir, 'applied.lock');
+		const dir = lockLocation?.dir ?? (await this.getGkDir(repoPath));
+		const lockPath = lockLocation?.lock ?? joinPaths(dir, 'applied.lock');
 		try {
 			await mkdir(dir, { recursive: true });
 		} catch (ex) {
@@ -1410,16 +1662,28 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 						() => 'unverifiable' as const,
 					);
 					if (verdict === 'dead') {
-						throw new Error(
-							`A previous VS Code window appears to have crashed while updating Git maintenance ` +
-								`settings. Delete '${lockPath}' to recover.`,
+						throw new MarkerLockContentionError(
+							lockLocation?.contention === 'sparseIndex'
+								? `A previous VS Code window appears to have crashed while updating the sparse index. ` +
+										`Delete '${lockPath}' to recover.`
+								: `A previous VS Code window appears to have crashed while updating Git maintenance ` +
+										`settings. Delete '${lockPath}' to recover.`,
+							{ cause: ex },
+						);
+					}
+					if (lockLocation?.contention === 'sparseIndex' && verdict === 'alive') {
+						throw new MarkerLockContentionError(
+							'A sparse-index update is still in progress. Wait for it to finish and try again.',
 							{ cause: ex },
 						);
 					}
 
-					throw new Error(
-						`Another window is currently updating Git maintenance settings. If no other VS Code ` +
-							`window is using this repository, delete '${lockPath}' and try again.`,
+					throw new MarkerLockContentionError(
+						lockLocation?.contention === 'sparseIndex'
+							? `Could not verify whether another window is still updating the sparse index. If no ` +
+									`update is in progress, delete '${lockPath}' and try again.`
+							: `Another window is currently updating Git maintenance settings. If no other VS Code ` +
+									`window is using this repository, delete '${lockPath}' and try again.`,
 						{ cause: ex },
 					);
 				}
@@ -1483,9 +1747,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 	/**
 	 * Diagnoses the process recorded in `lockPath` for the give-up error's wording ONLY — see
-	 * `withMarkerLock`'s doc comment for why a verdict never causes an automatic steal. 'dead' only when the
-	 * OS kill-probe returns `ESRCH`; every other outcome (unreadable/malformed content, a lock recorded on
-	 * another host, a probe that succeeds, or fails with anything but `ESRCH`) is 'unverifiable'.
+	 * `withMarkerLock`'s doc comment for why a verdict never causes an automatic steal. Returns 'dead' only when
+	 * the OS kill-probe returns `ESRCH`, 'alive' when it succeeds, and 'unverifiable' for unreadable/malformed
+	 * content, a lock recorded on another host, or a probe that fails with anything but `ESRCH`.
 	 */
 	private async probeLockOwner(
 		lockPath: string,
