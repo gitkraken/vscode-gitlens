@@ -441,6 +441,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 			/* Minimap strip — a stretched-to-fit SVG, so its height is the only px-faithful axis. */
 			.graph-minimap {
+				box-sizing: content-box;
 				display: flex;
 				align-items: stretch;
 				height: 26px;

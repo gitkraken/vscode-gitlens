@@ -14,7 +14,6 @@ import { settingsStateContext } from '../state.js';
 import './setting-control.js';
 import './settings-preview.js';
 import './settings-setup.js';
-import '../../plus/shared/components/account-chip.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/icons/icon-cube.js';
@@ -120,13 +119,6 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: 1.8rem;
-				max-width: 64rem;
-				padding: 2rem 2.6rem 2.4rem;
-			}
-
-			/* The account chip carries its own header/CTAs; give it the standard pane
-			   inset and cap its width so the panel matches the other sections. */
-			.account {
 				max-width: 64rem;
 				padding: 2rem 2.6rem 2.4rem;
 			}
@@ -304,20 +296,6 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			return html`
 				<section aria-label=${category.name}>
 					<gl-settings-setup .actions=${this.actions}></gl-settings-setup>
-					${category.learnMoreUrl != null ? html`<p class="footer">${this.renderLearnMore(category)}</p>` : nothing}
-				</section>
-			`;
-		}
-
-		// The account section renders the shared account chip inline: it carries its own header
-		// (plan title + actions) and swaps to a sign-in / create-account screen when signed out,
-		// so it replaces the standard category header the same way the launchpad does.
-		if (category.controls.length === 1 && category.controls[0].kind === 'account') {
-			return html`
-				<section aria-label=${category.name}>
-					<div class="account">
-						<gl-account-chip display="panel"></gl-account-chip>
-					</div>
 					${category.learnMoreUrl != null ? html`<p class="footer">${this.renderLearnMore(category)}</p>` : nothing}
 				</section>
 			`;

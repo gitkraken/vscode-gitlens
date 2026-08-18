@@ -208,10 +208,11 @@ export interface SetupDescriptor extends DescriptorBase {
 }
 
 /**
- * The account panel — renders `gl-account-chip` inline (its panel display),
- * which shows account/plan details when signed in and a sign-in / create-account
- * screen when signed out. Driven by the shared subscription RPC signals (bridged
- * into `subscriptionContext`); `label`/`hint` exist for search.
+ * The account panel — renders `gl-settings-account`, a card stack covering the
+ * signed-in identity, the plan (badges, trial progress, feature list, upsell),
+ * GitKraken AI usage, the active organization, and referral/plan links. Driven by
+ * the shared subscription RPC signals (bridged into `subscriptionContext`) plus
+ * AI usage from the settings state; `label`/`hint` exist for search.
  */
 export interface AccountPanelDescriptor extends DescriptorBase {
 	kind: 'account';
