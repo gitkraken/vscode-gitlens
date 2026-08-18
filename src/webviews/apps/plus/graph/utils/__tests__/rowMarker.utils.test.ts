@@ -10,6 +10,7 @@ import {
 	rowMarkerRoleSpecs,
 	rowMarkerRolesTooltip,
 	scopeAnchorRoles,
+	secondaryWipRoles,
 	shortRefName,
 } from '../rowMarker.utils.js';
 
@@ -115,7 +116,15 @@ suite('rowMarkerRolesTooltip', () => {
 	test('combined roles join in spec order', () => {
 		assert.strictEqual(
 			rowMarkerRolesTooltip(flagFor('target') | flagFor('base'), 'main'),
-			'Merge Target (main) & Fork Point (Base)',
+			'Merge Target (main), Fork Point (Base)',
+		);
+	});
+
+	test('wip → empty (the row message already says it; no dangling separator when combined)', () => {
+		assert.strictEqual(rowMarkerRolesTooltip(flagFor('wip')), '');
+		assert.strictEqual(
+			rowMarkerRolesTooltip(flagFor('wip') | flagFor('target') | flagFor('base'), 'main'),
+			'Merge Target (main), Fork Point (Base)',
 		);
 	});
 });
@@ -132,6 +141,10 @@ suite('primaryRowMarkerRole', () => {
 		assert.strictEqual(primaryRowMarkerRole(flagFor('target') | flagFor('base')), 'target');
 	});
 
+	test('wip wins over HEAD — it leads the spec order, since on a workdir row it IS the identity', () => {
+		assert.strictEqual(primaryRowMarkerRole(flagFor('wip') | flagFor('head')), 'wip');
+	});
+
 	test('empty mask → undefined', () => {
 		assert.strictEqual(primaryRowMarkerRole(0), undefined);
 	});
@@ -143,6 +156,10 @@ suite('rowMarkerRolesAriaLabel', () => {
 		assert.strictEqual(rowMarkerRolesAriaLabel(flagFor('target')), 'Target');
 		assert.strictEqual(rowMarkerRolesAriaLabel(flagFor('focal') | flagFor('target')), 'Focus, Target');
 		assert.strictEqual(rowMarkerRolesAriaLabel(0), '');
+	});
+
+	test('wip rides the label as "Worktree" — free, since the label derives from `label` not `description`', () => {
+		assert.strictEqual(rowMarkerRolesAriaLabel(flagFor('wip')), 'Worktree');
 	});
 });
 
@@ -178,5 +195,24 @@ suite('isPrimaryWipRow', () => {
 
 	test('unresolved selected repo path → false', () => {
 		assert.strictEqual(isPrimaryWipRow('workdir', createWipRowId('/repo'), undefined), false);
+	});
+});
+
+suite('secondaryWipRoles', () => {
+	test('a peer worktree WIP row → the wip flag', () => {
+		assert.strictEqual(secondaryWipRoles('workdir', createWipRowId('/repo.worktrees/a'), '/repo'), flagFor('wip'));
+	});
+
+	test('the primary (selected) workdir row → 0 — it carries the ref pill instead', () => {
+		assert.strictEqual(secondaryWipRoles('workdir', createWipRowId('/repo'), '/repo'), 0);
+	});
+
+	test('a non-workdir row → 0', () => {
+		assert.strictEqual(secondaryWipRoles('commit', 'aaa', '/repo'), 0);
+	});
+
+	test('unresolved selected repo path → 0, even for a workdir row', () => {
+		// Guards against flashing the graph's OWN WIP row as a peer before the selected repo path resolves.
+		assert.strictEqual(secondaryWipRoles('workdir', createWipRowId('/repo'), undefined), 0);
 	});
 });

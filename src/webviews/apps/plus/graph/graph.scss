@@ -783,7 +783,14 @@ gl-lit-graph {
 		// surface and its small cutouts stay pixel-identical to the row. Source order here IS the precedence
 		// (anchor < hover < inRefChain < highlighted < selected).
 		&.is-anchor--target {
-			--row-background: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
+			// The row-marker token, not raw `charts-purple`: the tint must track whatever the merge-target
+			// marker is (incl. a user override of `gitlens.graphScrollMarkerMergeTargetColor`), or the row
+			// and its own marker drift apart. Charts stays the fallback.
+			--row-background: color-mix(
+				in srgb,
+				var(--gl-row-marker-target, var(--vscode-charts-purple)) 12%,
+				transparent
+			);
 		}
 		&.is-anchor--fork {
 			--row-background: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
@@ -1222,6 +1229,14 @@ gl-lit-graph {
 		pointer-events: none;
 	}
 
+	// Lane-colored, unlike every other role. A peer worktree's WIP row is one of N, and "which worktree"
+	// is the question you actually have when three of them stack at the top — a fixed hue makes them
+	// identical. Role identification isn't lost: the row already reads as a WIP row (dotted node, its own
+	// message), and the expanded pill still names it.
+	.gl-graph__row-marker-connector--wip {
+		background-color: color-mix(in srgb, var(--row-lane-color) 30%, transparent);
+	}
+
 	.gl-graph__row-marker-connector--head {
 		background-color: color-mix(in srgb, var(--gl-row-marker-head) 30%, transparent);
 	}
@@ -1337,6 +1352,11 @@ gl-lit-graph {
 		min-height: 0;
 	}
 
+	// The row's own lane color (see the connector above) — opaque, so no editor-background compositing.
+	.gl-graph__row-marker-rail-swatch--wip {
+		background-color: var(--row-lane-color);
+	}
+
 	.gl-graph__row-marker-rail-swatch--head {
 		background-color: var(--gl-row-marker-head);
 	}
@@ -1419,6 +1439,14 @@ gl-lit-graph {
 
 	// Per-role fill (the same charts tokens as the swatch bar), so the expanded segment is a continuation of
 	// its swatch. Text/icon stay knocked out (the seg `color` above).
+	.gl-graph__row-marker-rail-seg--wip {
+		background-color: var(--row-lane-color);
+		// Lane colors span a far wider lightness range than the five fixed roles below (e.g. the pale yellow
+		// lane), so the fixed editor-background knockout above fails AA there — use the per-row contrast
+		// color graph-row.ts computes for THIS lane instead, falling back to the old behavior if unset.
+		color: var(--wip-seg-fg, var(--vscode-editor-background));
+	}
+
 	.gl-graph__row-marker-rail-seg--head {
 		background-color: var(--gl-row-marker-head);
 	}
@@ -3282,7 +3310,8 @@ gl-lit-graph {
 	// The HEAD pill's merge-target jump segment — purple, reusing the split-upstream segment chrome (divider,
 	// sizing, hover). Icon-only at rest; the name reveals in the hover-expand overlay copy.
 	.gl-graph__ref-pill-target {
-		color: var(--vscode-charts-purple, #b180d7);
+		// Same reason as the anchor tint above — track the merge-target marker, not the theme's charts hue.
+		color: var(--gl-row-marker-target, var(--vscode-charts-purple));
 	}
 	.gl-graph__ref-pill-target-label {
 		margin-inline-start: 0.4rem;
@@ -4373,6 +4402,9 @@ gl-lit-graph {
 	// `…UpstreamColor` / `…MergeTargetColor`), so a customized theme carries through here for free — which a
 	// `--vscode-charts-*` derivation could not do, and a color-mix against `charts-blue` would actively drift
 	// away from. Focus aliases the scope chip's yellow for the same reason; base keeps its own muted hue.
+	// `wip` has no token here on purpose — the rail takes the ROW's lane color (`--row-lane-color`) so
+	// stacked peer-worktree rows stay distinguishable from each other. The scroll rail and minimap still
+	// use `gitlens.graphScrollMarkerWipColor` / `…MinimapMarkerWorktreeColor`, which can't be per-lane.
 	--gl-row-marker-head: var(--color-graph-scroll-marker-head);
 	--gl-row-marker-upstream: var(--color-graph-scroll-marker-upstream);
 	--gl-row-marker-target: var(--color-graph-scroll-marker-merge-target);

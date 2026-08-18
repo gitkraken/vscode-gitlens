@@ -42,6 +42,7 @@ import { agentIndicatorTooltipFor } from '../components/wipRowAgentStatus.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import {
 	combineRowMarkerRoles,
+	hasWipRole,
 	isPrimaryWipRow,
 	primaryRowMarkerRole,
 	rowMarkerRolesAriaLabel,
@@ -49,6 +50,7 @@ import {
 	rowMarkerRoleSpecs,
 	rowMarkerRolesTooltip,
 	scopeAnchorRoles,
+	secondaryWipRoles,
 } from '../utils/rowMarker.utils.js';
 import type { GutterCache } from './graph-gutter-cache.js';
 import type { NodeStyle, WipNodeState } from './graph-gutter.js';
@@ -278,7 +280,9 @@ function cachedInitials(name: string): string {
  *  (`--row-graph-left`), rendered as a direct child of the row (a sibling of the anchor rail), NOT a member
  *  of the row-action strip. One bar carries every role the row plays — so a row that is HEAD *and* its
  *  (in-sync) upstream splits the bar into equal role-colored segments (top→bottom in spec order), not two
- *  stacked pins. A muted connector band (`gl-graph__row-marker-connector`) runs from the bar across to the row's
+ *  stacked pins. Also how a peer worktree's WIP row gets its rail (HEAD / upstream / merge-target rows are
+ *  the sha-matched cases; the peer-WIP role is a kind + identity test instead — see `secondaryWipRoles`).
+ *  A muted connector band (`gl-graph__row-marker-connector`) runs from the bar across to the row's
  *  node dot to tie the indicator to its commit (see graph.scss for the `--row-lane-lead + --row-lane-x` math).
  *
  *  At REST it's a thin (~0.3rem) colored bar. It EXPANDS rightward over the lanes into a role-COLORED pill
@@ -290,7 +294,7 @@ function cachedInitials(name: string): string {
  *  because the rail must stay shrink-to-fit for the pill to expand. All state is CSS.
  *
  *  Decorative: the roles ride the row's `aria-label`, so this stays out of the a11y tree. */
-function renderRowMarkerRail(roles: number, targetName: string | undefined): TemplateResult {
+function renderRowMarkerRail(roles: number, targetName: string | undefined, laneColor: string): TemplateResult {
 	// The connector takes the primary role's color, so a grouped row's band reads as its dominant role
 	// rather than trying to stripe. Always defined here (callers pass a non-0 mask).
 	const primary = primaryRowMarkerRole(roles);
@@ -298,12 +302,24 @@ function renderRowMarkerRail(roles: number, targetName: string | undefined): Tem
 	// room for. Stays `aria-hidden` — the roles already ride the row's own aria-label, so this is a pointer
 	// affordance only, not a second announcement.
 	const tooltip = rowMarkerRolesTooltip(roles, targetName);
+	// The `wip` segment fills with the row's LANE color (see graph.scss), which spans a much wider lightness
+	// range than the fixed role colors — a pale lane (e.g. yellow) fails AA against the fixed editor-background
+	// knockout the other roles use. Compute a per-row contrast color only for that case (the other ~97% of
+	// rows with roles never pay for it).
+	const wipSegFg = hasWipRole(roles) ? contrastColor(laneColor) : undefined;
+	// `nothing` (not `''`) when there's no tooltip — a wip-only rail has no description (see the `wip` spec),
+	// and lit removes the attribute entirely for `nothing` instead of rendering `data-tooltip=""`.
 	return html`<div
 			class="gl-graph__row-marker-connector gl-graph__row-marker-connector--${primary}"
 			aria-hidden="true"
 		></div>
 		<div class="gl-graph__row-marker-hit" aria-hidden="true"></div>
-		<div class="gl-graph__row-marker-rail" aria-hidden="true" data-tooltip=${tooltip}>
+		<div
+			class="gl-graph__row-marker-rail"
+			aria-hidden="true"
+			data-tooltip=${tooltip ? tooltip : nothing}
+			style=${cspStyleMap({ '--wip-seg-fg': wipSegFg })}
+		>
 			<span class="gl-graph__row-marker-rail-bar"
 				>${rowMarkerRoleSpecs.map(spec =>
 					(roles & spec.flag) === 0
@@ -1110,12 +1126,14 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// RowMarker roles this row plays — the worktree's own (HEAD / upstream / merge target) FOLDED with the
 	// scope anchor's (focus / base; the scope's target shares the merge-target flag), as a bit mask. One rail
 	// renders the union, so a scoped graph doesn't draw two misaligned left-edge rails marking the same row.
+	// A peer worktree's WIP row folds in here too — it isn't sha-matchable against `rowMarkerTips`, so
+	// `secondaryWipRoles` runs its own kind + identity test instead.
 	// 0 for every row but the handful the two vocabularies point at, so the rest pay a few compares and
 	// nothing else. Skeleton rows skip it with the rest of the extras (the settle swap fills it in).
 	const rowMarkerRoles = ctx.skeleton
 		? 0
 		: combineRowMarkerRoles(
-				rowMarkerRolesFor(row.sha, ctx.rowMarkerTips),
+				rowMarkerRolesFor(row.sha, ctx.rowMarkerTips) | secondaryWipRoles(row.kind, row.sha, ctx.repoPath),
 				scopeAnchorRoles(ctx.isFocalAnchor, ctx.isForkAnchor, ctx.isTargetAnchor),
 			);
 	const rowMarkerAriaPrefix = rowMarkerRoles !== 0 ? `${rowMarkerRolesAriaLabel(rowMarkerRoles)}. ` : '';
@@ -1425,6 +1443,10 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// NOTE: the scope anchor's roles now ride `rowMarkerAriaPrefix` (folded into the same mask), so there's no
 	// separate anchor branch in `aria-label` below — it would announce the same fact twice ("Target. Merge
 	// target. …").
+	// Computed once and reused below for `--row-lane-color` AND the wip rail's knockout color — same value,
+	// two consumers.
+	const laneColor = colorForColumn(row.column);
+
 	return html`<div
 		id="graph-row-${row.sha}"
 		class=${rowClasses}
@@ -1450,7 +1472,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// same as an ordinary row. `--row-units` (below) is the only new signal a promoted row adds.
 			'--row-height': `${rowHeight}px`,
 			...(promoted ? { '--row-units': `${units}` } : undefined),
-			'--row-lane-color': colorForColumn(row.column),
+			'--row-lane-color': laneColor,
 			'--row-lane-x': `${laneCenterX}px`,
 			'--row-lane-lead': `${laneLead}px`,
 			// The fold strip's width (0 when folding is off) — the row markers anchor PAST it so the rail
@@ -1464,7 +1486,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			'--row-graph-width': `${isGraphColumn ? ctx.graphColumnWidth : 0}px`,
 		})}
 	>
-		${rowMarkerRoles !== 0 ? renderRowMarkerRail(rowMarkerRoles, ctx.rowMarkerTips?.targetName) : nothing}
+		${rowMarkerRoles !== 0 ? renderRowMarkerRail(rowMarkerRoles, ctx.rowMarkerTips?.targetName, laneColor) : nothing}
 		${ctx.isBucketBoundary ? html`<div class="gl-graph__row-timeline-sep" aria-hidden="true"></div>` : nothing}
 		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx)}
 	</div>`;

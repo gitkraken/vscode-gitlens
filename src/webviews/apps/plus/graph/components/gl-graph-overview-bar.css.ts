@@ -194,10 +194,16 @@ export const overviewBarStyles = css`
 		translate: 0 0.09em;
 	}
 
+	/* The worktree's uncommitted-changes dot takes the WIP marker color — the same hue the scroll rail and
+	   minimap use for a worktree's working changes, so all three surfaces say it in one color. Previously
+	   this borrowed the agent WORKING color, an agent-phase token: unrelated meaning, and it silently
+	   moved whenever that palette was retuned. References the contributed VS Code token, not graph.scss's
+	   scroll-marker-wip alias — that alias is scoped to gl-lit-graph, and this bar is its sibling, so it
+	   would not resolve here. (No backticks in this comment: it lives inside a css tagged template.) */
 	.pill__dot {
 		width: 0.7rem;
 		height: 0.7rem;
-		background: var(--gl-agent-working-color);
+		background: var(--vscode-gitlens-graphScrollMarkerWipColor, #f472b6);
 		border-radius: 50%;
 	}
 

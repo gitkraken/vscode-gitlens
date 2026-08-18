@@ -6623,10 +6623,10 @@
 				"id": "gitlens.graphMinimapMarkerWorktreeColor",
 				"description": "Specifies the color marking other worktrees on the minimap of the _Commit Graph_",
 				"defaults": {
-					"light": "#9333ea",
-					"highContrastLight": "#9333ea",
-					"dark": "#c084fc",
-					"highContrast": "#c084fc"
+					"light": "#be185d",
+					"highContrastLight": "#be185d",
+					"dark": "#f472b6",
+					"highContrast": "#f472b6"
 				}
 			},
 			{
@@ -6643,10 +6643,10 @@
 				"id": "gitlens.graphScrollMarkerMergeTargetColor",
 				"description": "Specifies the color marking the merge target on the scrollbar of the _Commit Graph_",
 				"defaults": {
-					"light": "#652d90",
-					"highContrastLight": "#652d90",
-					"dark": "#b180d7",
-					"highContrast": "#b180d7"
+					"light": "#8250df",
+					"highContrastLight": "#8250df",
+					"dark": "#a371f7",
+					"highContrast": "#a371f7"
 				}
 			},
 			{
@@ -6743,20 +6743,20 @@
 				"id": "gitlens.graphMinimapMarkerStashesColor",
 				"description": "Specifies the color marking stashes on the minimap of the _Commit Graph_",
 				"defaults": {
-					"light": "#cd55cd",
-					"highContrastLight": "#cd55cd",
-					"dark": "#9e419e",
-					"highContrast": "#9e419e"
+					"light": "#5a626d",
+					"highContrastLight": "#5a626d",
+					"dark": "#6e7681",
+					"highContrast": "#6e7681"
 				}
 			},
 			{
 				"id": "gitlens.graphScrollMarkerStashesColor",
 				"description": "Specifies the color marking stashes on the scrollbar of the _Commit Graph_",
 				"defaults": {
-					"light": "#cd55cd",
-					"highContrastLight": "#cd55cd",
-					"dark": "#9e419e",
-					"highContrast": "#9e419e"
+					"light": "#5a626d",
+					"highContrastLight": "#5a626d",
+					"dark": "#6e7681",
+					"highContrast": "#6e7681"
 				}
 			},
 			{
@@ -6783,10 +6783,10 @@
 				"id": "gitlens.graphScrollMarkerWipColor",
 				"description": "Specifies the color marking working tree (WIP) rows on the scrollbar of the _Commit Graph_",
 				"defaults": {
-					"light": "#9333ea",
-					"highContrastLight": "#9333ea",
-					"dark": "#c084fc",
-					"highContrast": "#c084fc"
+					"light": "#be185d",
+					"highContrastLight": "#be185d",
+					"dark": "#f472b6",
+					"highContrast": "#f472b6"
 				}
 			},
 			{

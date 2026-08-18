@@ -19,8 +19,17 @@ import { isPrimaryWipRowId } from '../../../../plus/graph/protocol.js';
  *
  * The scope's own `target` anchor is NOT a separate role: it's the same commit, and the same purple, as
  * `target` above, so it folds into that one segment.
+ *
+ * One more role rides the same rail, but isn't sha-matched against a tip at all:
+ *   - `wip`      — a PEER worktree's Working Changes row. The graph's OWN Working Changes row already
+ *                  carries its ref pill as its identity (see `isPrimaryWipRow`), so it never takes this
+ *                  rail — only a peer worktree's row does.
+ *
+ * `wip` is the one role NOT drawn in a fixed color: it takes the ROW's lane color (`--row-lane-color`).
+ * A marker present in an otherwise empty gutter is what makes the row stand out while scanning, so the
+ * hue is free to answer the question a fixed color can't — WHICH worktree, when several stack at the top.
  */
-export type RowMarkerRole = 'head' | 'upstream' | 'target' | 'focal' | 'base';
+export type RowMarkerRole = 'head' | 'upstream' | 'target' | 'focal' | 'base' | 'wip';
 
 // Role bit flags. A row's roles are a MASK (not an array) so the per-row check on the render path
 // allocates nothing — every row pays a few compares and a number, never an array. Consumers read the
@@ -30,6 +39,7 @@ const rowMarkerUpstream = 2;
 const rowMarkerTarget = 4;
 const rowMarkerFocal = 8;
 const rowMarkerBase = 16;
+const rowMarkerWip = 32;
 
 /**
  * The three tip shas (+ the merge-target's short name) the current worktree navigates by. Built
@@ -74,6 +84,18 @@ export const rowMarkerRoleSpecs: readonly {
 	/** Spelled-out role for the rail's tooltip — the expanded pill only has room for `label`. */
 	description: string;
 }[] = [
+	// FIRST, ahead of `head`: spec order drives both the segment order and `primaryRowMarkerRole`'s
+	// precedence. On a workdir row `wip` is the row's ENTIRE identity — it doesn't co-occur with the other
+	// roles today, but if it ever did, it should win.
+	{
+		role: 'wip',
+		flag: rowMarkerWip,
+		icon: 'gl-worktree',
+		label: 'Worktree',
+		// Empty on purpose: the row's own message already reads `Working Changes (<worktree name>)`, so a
+		// tooltip here would just echo it. The expanded pill (icon + "Worktree") carries the meaning instead.
+		description: '',
+	},
 	{ role: 'head', flag: rowMarkerHead, icon: 'vm-active', label: 'HEAD', description: 'HEAD (Current Branch Tip)' },
 	{ role: 'upstream', flag: rowMarkerUpstream, icon: 'cloud', label: 'Upstream', description: 'Upstream Tip' },
 	{ role: 'focal', flag: rowMarkerFocal, icon: 'target', label: 'Focus', description: 'Focus Branch Tip' },
@@ -82,10 +104,15 @@ export const rowMarkerRoleSpecs: readonly {
 ];
 
 /**
- * The rail's hover tooltip: every role the row plays, spelled out and joined — `Merge Target (main) & Fork
+ * The rail's hover tooltip: every role the row plays, spelled out and joined — `Merge Target (main), Fork
  * Point (Base)`. Says what the expanded pill CAN'T: the full wording, and WHICH ref the merge target is
  * (the pill only has room for `TARGET`). Restores the wording the scope anchor's own rail used to carry
  * before the two rails were unified. Empty string when the row plays no role.
+ *
+ * Joined with `, `, matching `rowMarkerRolesAriaLabel` — so the tooltip and the screen-reader announcement
+ * describe the same rail in the same shape. `&` degrades past two roles: the real ceiling is four (`head +
+ * upstream + target + base` — `focal` is suppressed when `head` is present), which reads as a chain of
+ * ampersands.
  */
 export function rowMarkerRolesTooltip(roles: number, targetName?: string): string {
 	if (roles === 0) return '';
@@ -94,13 +121,17 @@ export function rowMarkerRolesTooltip(roles: number, targetName?: string): strin
 	for (const spec of rowMarkerRoleSpecs) {
 		if ((roles & spec.flag) === 0) continue;
 
+		// `wip`'s description is empty by design (see its spec entry) — skip it rather than join in a blank
+		// segment, which would leave a dangling ", " when combined with another role.
+		if (spec.description.length === 0) continue;
+
 		parts.push(
 			spec.role === 'target' && targetName != null && targetName.length > 0
 				? `${spec.description} (${shortRefName(targetName)})`
 				: spec.description,
 		);
 	}
-	return parts.join(' & ');
+	return parts.join(', ');
 }
 
 /**
@@ -143,6 +174,14 @@ export function combineRowMarkerRoles(rowMarkerRoles: number, scopeRoles: number
 	return (roles & rowMarkerHead) !== 0 ? roles & ~rowMarkerFocal : roles;
 }
 
+/** Whether `roles` includes `wip` — the one role whose rail segment fills with the row's LANE color
+ *  instead of a fixed role color, so its knockout text needs a per-row contrast color too (fixed roles
+ *  can stay knocked out against the editor background). Allocation-free bitwise test, same shape as
+ *  `primaryRowMarkerRole`. */
+export function hasWipRole(roles: number): boolean {
+	return (roles & rowMarkerWip) !== 0;
+}
+
 /** The single role a grouped row's rail takes its color from — HEAD > upstream > focus > merge target >
  *  base (the spec order). The rail never stacks colors; it enumerates every
  *  role the row plays as segments, but the connector band takes just this one.
@@ -171,6 +210,23 @@ export function isPrimaryWipRow(
 	selectedRepoPath: string | undefined,
 ): boolean {
 	return kind === 'workdir' && isPrimaryWipRowId(sha, selectedRepoPath);
+}
+
+/** The `wip` role for one row: a PEER worktree's Working Changes row. Not sha-matched against
+ *  {@link RowMarkerTips} like the other roles — a peer WIP row's sha is a synthetic id (`wip::<path>`,
+ *  see `createWipRowId`), so this is a kind + identity test instead of a tip comparison. Returns 0 until
+ *  the selected repo path resolves: `isPrimaryWipRow` answers false without one, which would otherwise
+ *  mark the graph's OWN WIP row as a peer for the first render. */
+export function secondaryWipRoles(
+	kind: ProcessedGraphRow['kind'],
+	sha: string,
+	selectedRepoPath: string | undefined,
+): number {
+	if (selectedRepoPath == null) return 0;
+	if (kind !== 'workdir') return 0;
+	if (isPrimaryWipRow(kind, sha, selectedRepoPath)) return 0;
+
+	return rowMarkerWip;
 }
 
 /** Screen-reader prefix for a row playing one or more row-marker roles ("HEAD, Upstream"). Built for
