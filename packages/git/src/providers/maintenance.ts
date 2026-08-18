@@ -67,10 +67,16 @@ export interface GitHealthSnapshot {
 		 */
 		readonly readDisabled: boolean;
 	};
-	/** Presence of `objects/pack/multi-pack-index`. */
+	/** Presence of a classic or incremental multi-pack-index. */
 	readonly multiPackIndex: boolean;
+	/** Whether Git is configured to read/write the multi-pack-index; `undefined` when config was unreadable. */
+	readonly multiPackIndexEnabled: boolean | undefined;
 	/** Count of `*.pack` files in `objects/pack`. */
 	readonly packCount: number;
+	/** Pack files not represented by the active multi-pack-index; `undefined` when it could not be established. */
+	readonly packsOutsideMultiPackIndex: number | undefined;
+	/** Effective `maintenance.incremental-repack.auto` threshold; `undefined` when invalid or unreadable. */
+	readonly incrementalRepackAutoThreshold: number | undefined;
 	/** Total bytes of all `*.pack` files. */
 	readonly packBytes: number;
 	/** Raw loose-object sample (a handful of the 256 fanout dirs); the host extrapolates the estimate. */
@@ -184,12 +190,16 @@ export interface GitMaintenanceSubProvider {
 	 */
 	claimMaintenancePass(repoPath: string, intervalMs: number): Promise<boolean>;
 	/**
-	 * Runs a single maintenance task now (the explicit "Run Maintenance Now" path). Resolves `true` when the
-	 * task ran, `false` when the installed git can't run it (not-applicable). A genuine command failure
-	 * THROWS the git error so the ask-tier UI can surface it. `commit-graph` writes directly (2.24+);
-	 * `loose-objects`/`incremental-repack` go through `git maintenance run --task=…` (2.30+).
+	 * Runs a single maintenance task. Resolves `true` when a supported invocation completed and `false` when
+	 * it is not applicable. With `auto`, Git evaluates its native condition and may intentionally do no work.
+	 * A genuine command failure THROWS. `commit-graph` writes directly (2.24+); other tasks go through
+	 * `git maintenance run --task=…` (2.30+).
 	 */
-	runMaintenanceTask(repoPath: string, task: GitMaintenanceTask, cancellation?: AbortSignal): Promise<boolean>;
+	runMaintenanceTask(
+		repoPath: string,
+		task: GitMaintenanceTask,
+		options?: { readonly auto?: boolean; readonly cancellation?: AbortSignal },
+	): Promise<boolean>;
 	/**
 	 * Applies an optimization lever. Returns `true` when it took effect; `false` for a legitimate
 	 * not-applicable outcome (e.g. the FSMonitor daemon wouldn't start, or the untracked cache failed git's

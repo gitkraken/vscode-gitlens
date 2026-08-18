@@ -7,6 +7,7 @@ import {
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
+	renameSync,
 	rmSync,
 	statSync,
 	writeFileSync,
@@ -131,6 +132,16 @@ function rawIndexEntryCount(repoPath: string): number {
 	return header.readUInt32BE(8);
 }
 
+/** Packs every currently-unpacked reachable object into a new pack, then removes the redundant loose copies. */
+function packLooseObjects(repoPath: string): void {
+	execFileSync('git', ['pack-objects', '--all', '--unpacked', '.git/objects/pack/pack'], {
+		cwd: repoPath,
+		input: '',
+		stdio: ['pipe', 'pipe', 'pipe'],
+	});
+	execFileSync('git', ['prune-packed'], { cwd: repoPath, stdio: 'pipe' });
+}
+
 /** Reach into the private lock helper — the diagnosis, ownership, and release tests need to run
  *  code INSIDE the critical section (or with shortened timings), which no public entry point exposes. */
 function withMarkerLock<T>(
@@ -168,6 +179,12 @@ suite('MaintenanceSubProvider', () => {
 		assert.strictEqual(snapshot.packCount, 0, 'no packs yet');
 		assert.strictEqual(snapshot.packBytes, 0, 'no pack bytes yet');
 		assert.strictEqual(snapshot.multiPackIndex, false, 'no multi-pack-index yet');
+		assert.strictEqual(typeof snapshot.multiPackIndexEnabled, 'boolean');
+		assert.strictEqual(typeof snapshot.incrementalRepackAutoThreshold, 'number');
+		assert.ok(
+			snapshot.packsOutsideMultiPackIndex === 0 || snapshot.packsOutsideMultiPackIndex === undefined,
+			'an enabled MIDX reports zero uncovered packs; an inherited opt-out reports unknown',
+		);
 		assert.strictEqual(snapshot.looseObjects.dirsSampled, 16, 'samples 16 fanout dirs');
 		assert.ok(snapshot.indexBytes > 0, 'index exists after the initial commit');
 		assert.deepStrictEqual(snapshot.repository, {
@@ -1821,6 +1838,103 @@ suite('MaintenanceSubProvider', () => {
 			assert.ok(after.packCount >= 1, 'loose objects were packed into at least one pack');
 		} finally {
 			packRepo.cleanup();
+		}
+	});
+
+	test('snapshot counts only packs outside the MIDX and automatic repack honors Git config', async () => {
+		const midxRepo = createTestRepo();
+		try {
+			setConfig(midxRepo.path, 'core.multiPackIndex', 'true');
+			packLooseObjects(midxRepo.path);
+			addCommit(midxRepo.path, 'second.txt', 'second', 'second');
+			packLooseObjects(midxRepo.path);
+			execFileSync('git', ['multi-pack-index', 'write'], { cwd: midxRepo.path, stdio: 'pipe' });
+
+			const covered = await maintenanceOf(midxRepo).getHealthSnapshot(midxRepo.path);
+			assert.strictEqual(covered.multiPackIndex, true);
+			assert.ok(covered.packCount >= 2, 'fixture starts with multiple packs');
+			assert.strictEqual(covered.packsOutsideMultiPackIndex, 0, 'every current pack is represented');
+
+			addCommit(midxRepo.path, 'third.txt', 'third', 'third');
+			packLooseObjects(midxRepo.path);
+			const uncovered = await maintenanceOf(midxRepo).getHealthSnapshot(midxRepo.path);
+			assert.strictEqual(uncovered.packsOutsideMultiPackIndex, 1, 'the newly-created pack is not in the MIDX');
+
+			setConfig(midxRepo.path, 'maintenance.incremental-repack.auto', '2');
+			const skipped = await maintenanceOf(midxRepo).runMaintenanceTask(midxRepo.path, 'incremental-repack', {
+				auto: true,
+			});
+			assert.strictEqual(skipped, true, 'the supported auto task was invoked');
+			assert.strictEqual(
+				(await maintenanceOf(midxRepo).getHealthSnapshot(midxRepo.path)).packsOutsideMultiPackIndex,
+				1,
+				'Git leaves the MIDX unchanged below its configured auto threshold',
+			);
+
+			setConfig(midxRepo.path, 'maintenance.incremental-repack.auto', '1');
+			await maintenanceOf(midxRepo).runMaintenanceTask(midxRepo.path, 'incremental-repack', { auto: true });
+			assert.strictEqual(
+				(await maintenanceOf(midxRepo).getHealthSnapshot(midxRepo.path)).packsOutsideMultiPackIndex,
+				0,
+				'Git updates the MIDX once its auto condition is met',
+			);
+		} finally {
+			midxRepo.cleanup();
+		}
+	});
+
+	test('snapshot reads packs represented by an incremental MIDX chain', async () => {
+		const midxRepo = createTestRepo();
+		try {
+			setConfig(midxRepo.path, 'core.multiPackIndex', 'true');
+			packLooseObjects(midxRepo.path);
+			addCommit(midxRepo.path, 'second.txt', 'second', 'second');
+			packLooseObjects(midxRepo.path);
+			execFileSync('git', ['multi-pack-index', 'write'], { cwd: midxRepo.path, stdio: 'pipe' });
+
+			const packDir = join(midxRepo.path, '.git', 'objects', 'pack');
+			const classicPath = join(packDir, 'multi-pack-index');
+			const classic = readFileSync(classicPath);
+			const objectFormat = execFileSync('git', ['rev-parse', '--show-object-format'], {
+				cwd: midxRepo.path,
+				encoding: 'utf8',
+			}).trim();
+			const hashBytes = objectFormat === 'sha256' ? 32 : 20;
+			const hash = classic.subarray(classic.length - hashBytes).toString('hex');
+			const chainDir = join(packDir, 'multi-pack-index.d');
+			mkdirSync(chainDir);
+			renameSync(classicPath, join(chainDir, `multi-pack-index-${hash}.midx`));
+			writeFileSync(join(chainDir, 'multi-pack-index-chain'), `${hash}\n`);
+
+			const snapshot = await maintenanceOf(midxRepo).getHealthSnapshot(midxRepo.path);
+			assert.strictEqual(snapshot.multiPackIndex, true);
+			assert.strictEqual(snapshot.packsOutsideMultiPackIndex, 0);
+		} finally {
+			midxRepo.cleanup();
+		}
+	});
+
+	test('incremental repack honors an explicit core.multiPackIndex opt-out', async () => {
+		const midxRepo = createTestRepo();
+		try {
+			setConfig(midxRepo.path, 'core.multiPackIndex', 'false');
+			packLooseObjects(midxRepo.path);
+
+			const snapshot = await maintenanceOf(midxRepo).getHealthSnapshot(midxRepo.path);
+			assert.strictEqual(snapshot.multiPackIndexEnabled, false);
+			assert.strictEqual(snapshot.packsOutsideMultiPackIndex, undefined);
+			assert.strictEqual(
+				await maintenanceOf(midxRepo).runMaintenanceTask(midxRepo.path, 'incremental-repack'),
+				false,
+				'an explicit task does not claim to run against the opt-out',
+			);
+			assert.strictEqual(
+				await maintenanceOf(midxRepo).runMaintenanceTask(midxRepo.path, 'incremental-repack', { auto: true }),
+				false,
+				'an automatic task also honors the opt-out',
+			);
+		} finally {
+			midxRepo.cleanup();
 		}
 	});
 

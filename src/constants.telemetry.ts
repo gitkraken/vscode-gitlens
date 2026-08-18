@@ -2611,6 +2611,8 @@ interface GitHealthProbeEvent {
 	'repository.refFormat': 'files' | 'reftable' | 'unknown';
 	/** Number of `*.pack` files in the object store */
 	'packs.count': number;
+	/** Number of pack files not represented by the active multi-pack-index */
+	'packs.outsideMultiPackIndex': number | undefined;
 	/** Total bytes of all pack files */
 	'packs.bytes': number;
 	/** Loose refs found by the bounded files-backend probe */
@@ -2627,6 +2629,8 @@ interface GitHealthProbeEvent {
 	'commitGraph.present': boolean;
 	/** Whether a multi-pack-index is present */
 	multiPackIndex: boolean;
+	/** Whether Git is configured to use the multi-pack-index */
+	'multiPackIndex.enabled': boolean | undefined;
 	/** Whether the repo is registered for system-scheduled maintenance */
 	maintenanceRegistered: boolean;
 	/** Whether the repo is "clearly large" per the banner gate */
@@ -2642,8 +2646,10 @@ interface GitHealthProbeEvent {
 }
 
 interface GitOptimizationsMaintenanceRunEvent {
-	/** The maintenance task that ran */
+	/** The maintenance task that was invoked */
 	task: 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs';
+	/** Whether Git's native auto condition was allowed to skip the task */
+	auto: boolean;
 	/** Duration of the run in ms */
 	duration: number;
 	/** Coarse duration bucket */

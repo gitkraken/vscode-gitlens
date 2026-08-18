@@ -14,8 +14,8 @@ import type {
 export const trackedFilesThreshold = 10_000;
 /** Loose-object estimate at/above which the `loose-objects` maintenance task is worth running. */
 export const looseObjectsThreshold = 5_000;
-/** Pack-file count at/above which the `incremental-repack` maintenance task is worth running. */
-export const packCountThreshold = 20;
+/** Git's default uncovered-pack threshold for the `incremental-repack` auto condition. */
+export const packsOutsideMultiPackIndexThreshold = 10;
 /** Loose refs at/above which packing the files ref backend avoids repeated filesystem traversal. */
 export const looseRefsThreshold = 256;
 /** Total pack bytes at/above which a repo counts as "clearly large" for the banner gate (~1 GiB). */
@@ -44,7 +44,7 @@ export type GitHealthDurationBucket = '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60
 export type GitHealthFindingReason =
 	| 'looseObjects'
 	| 'looseRefs'
-	| 'packCount'
+	| 'packsOutsideMultiPackIndex'
 	| 'trackedFiles'
 	| 'largePacks'
 	| 'slowness';
@@ -80,6 +80,7 @@ export interface GitHealthReport {
 	/** Whether the displayed count covers the repository, a sparse working set, or is only a byte-size estimate. */
 	readonly trackedFilesScope: 'repository' | 'sparseWorkingTree' | 'estimate';
 	readonly packCount: number;
+	readonly packsOutsideMultiPackIndex: number | undefined;
 	readonly packBytes: number;
 	readonly commitGraph: {
 		readonly present: boolean;
@@ -155,12 +156,21 @@ export function computeHealthReport(
 				action: { kind: 'maintenance', task: 'loose-objects' },
 			});
 		}
-		if (snapshot.packCount >= packCountThreshold) {
+		const incrementalRepackThreshold = snapshot.incrementalRepackAutoThreshold;
+		const incrementalRepackDue =
+			snapshot.multiPackIndexEnabled === true &&
+			snapshot.packsOutsideMultiPackIndex != null &&
+			incrementalRepackThreshold != null &&
+			incrementalRepackThreshold !== 0 &&
+			(incrementalRepackThreshold < 0
+				? snapshot.packCount > 0
+				: snapshot.packsOutsideMultiPackIndex >= incrementalRepackThreshold);
+		if (incrementalRepackDue) {
 			findings.push({
 				tier: 'auto',
-				reason: 'packCount',
-				value: snapshot.packCount,
-				threshold: packCountThreshold,
+				reason: 'packsOutsideMultiPackIndex',
+				value: snapshot.packsOutsideMultiPackIndex,
+				threshold: incrementalRepackThreshold,
 				action: { kind: 'maintenance', task: 'incremental-repack' },
 			});
 		}
@@ -278,6 +288,7 @@ export function computeHealthReport(
 		trackedFilesExact: trackedFilesExact,
 		trackedFilesScope: trackedFilesScope,
 		packCount: snapshot.packCount,
+		packsOutsideMultiPackIndex: snapshot.packsOutsideMultiPackIndex,
 		packBytes: snapshot.packBytes,
 		commitGraph: snapshot.commitGraph,
 	};

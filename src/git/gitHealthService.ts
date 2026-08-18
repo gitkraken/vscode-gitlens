@@ -309,7 +309,10 @@ export class GitHealthService implements Disposable {
 		try {
 			// Sequential for the same reason: they contend on that one lock.
 			for (const task of tasks) {
-				results.push({ task: task, ran: await this.runTaskWithTelemetry(repoPath, task, cancellation) });
+				results.push({
+					task: task,
+					ran: await this.runTaskWithTelemetry(repoPath, task, false, cancellation),
+				});
 			}
 		} finally {
 			this._runningPasses.delete(commonPath);
@@ -482,6 +485,7 @@ export class GitHealthService implements Disposable {
 				'repository.splitIndex': snapshot.repository.splitIndex,
 				'repository.refFormat': snapshot.repository.refFormat,
 				'packs.count': snapshot.packCount,
+				'packs.outsideMultiPackIndex': snapshot.packsOutsideMultiPackIndex,
 				'packs.bytes': snapshot.packBytes,
 				'refs.loose': snapshot.looseRefs.count,
 				'refs.looseExact': snapshot.looseRefs.exact,
@@ -490,6 +494,7 @@ export class GitHealthService implements Disposable {
 				'estimate.trackedFilesExact': report.trackedFilesExact,
 				'commitGraph.present': snapshot.commitGraph.present,
 				multiPackIndex: snapshot.multiPackIndex,
+				'multiPackIndex.enabled': snapshot.multiPackIndexEnabled,
 				// Telemetry stays boolean — an unreadable registration coarsens to `false` here, but the report
 				// itself (and the lever's `unavailable` status) still tracks the tri-state distinction.
 				maintenanceRegistered: snapshot.maintenanceRegistered ?? false,
@@ -580,7 +585,7 @@ export class GitHealthService implements Disposable {
 				if (!configuration.get('gitOptimizations.enabled')) return;
 
 				try {
-					await this.runTaskWithTelemetry(repo.path, task, this._disposeAbort.signal);
+					await this.runTaskWithTelemetry(repo.path, task, true, this._disposeAbort.signal);
 				} catch (ex) {
 					Logger.error(ex, `GitHealthService.runAutoPassIfDue.task(${task})`);
 				}
@@ -639,25 +644,31 @@ export class GitHealthService implements Disposable {
 	}
 
 	/**
-	 * Runs one maintenance task and, if it actually ran, reports telemetry. Returns whether it ran. A genuine
-	 * task failure PROPAGATES (the ask-tier caller surfaces it; the auto-tier caller catches+logs).
+	 * Invokes one maintenance task and reports supported invocations. In auto mode Git can intentionally no-op
+	 * after evaluating its native condition. A genuine failure PROPAGATES (ask-tier surfaces it; auto catches).
 	 */
 	private async runTaskWithTelemetry(
 		repoPath: string,
 		task: GitMaintenanceTask,
+		auto: boolean,
 		cancellation?: AbortSignal,
 	): Promise<boolean> {
 		const maintenance = this.getMaintenance(repoPath);
 		if (maintenance == null) return false;
 
+		// The pack-refs task predates its useful native auto condition by years; on Git versions at our 2.31
+		// support floor, `maintenance run --auto --task=pack-refs` skips it entirely. Keep using Git Health's
+		// bounded loose-ref threshold there. The object tasks have had native auto conditions since inception.
+		const nativeAuto = auto && task !== 'pack-refs' && task !== 'commit-graph';
 		const start = Date.now();
-		const ran = await maintenance.runMaintenanceTask(task, cancellation);
-		// No event for unsupported (not-applicable) attempts — the event means "a maintenance task actually ran".
+		const ran = await maintenance.runMaintenanceTask(task, { auto: nativeAuto, cancellation: cancellation });
+		// No event for unsupported attempts. An auto invocation may still be a native no-op by design.
 		if (!ran) return false;
 
 		const duration = Date.now() - start;
 		this.container.telemetry.sendEvent('gitOptimizations/maintenance/run', {
 			task: task,
+			auto: nativeAuto,
 			duration: duration,
 			'duration.bucket': bucketDuration(duration),
 		});

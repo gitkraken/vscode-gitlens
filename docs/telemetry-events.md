@@ -1538,10 +1538,14 @@ background-upgraded the extension while the host kept running the old build
   'maintenanceRegistered': boolean,
   // Whether a multi-pack-index is present
   'multiPackIndex': boolean,
+  // Whether Git is configured to use the multi-pack-index
+  'multiPackIndex.enabled': boolean | undefined,
   // Total bytes of all pack files
   'packs.bytes': number,
   // Number of `*.pack` files in the object store
   'packs.count': number,
+  // Number of pack files not represented by the active multi-pack-index
+  'packs.outsideMultiPackIndex': number | undefined,
   // Loose refs found by the bounded files-backend probe
   'refs.loose': number,
   // Whether `refs.loose` is the complete count rather than the probe cap
@@ -1576,15 +1580,17 @@ background-upgraded the extension while the host kept running the old build
 
 ### gitOptimizations/maintenance/run
 
-> Sent when the auto-tier runs a `git maintenance run --task=…` one-shot (or "Run Maintenance Now")
+> Sent when the auto-tier invokes a `git maintenance run --task=…` one-shot (or "Run Maintenance Now")
 
 ```typescript
 {
+  // Whether Git's native auto condition was allowed to skip the task
+  'auto': boolean,
   // Duration of the run in ms
   'duration': number,
   // Coarse duration bucket
   'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
-  // The maintenance task that ran
+  // The maintenance task that was invoked
   'task': 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs'
 }
 ```

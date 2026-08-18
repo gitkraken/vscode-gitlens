@@ -11,7 +11,7 @@ import {
 	isBannerEligible,
 	looseObjectsThreshold,
 	looseRefsThreshold,
-	packCountThreshold,
+	packsOutsideMultiPackIndexThreshold,
 	trackedFilesThreshold,
 } from '../gitHealth.js';
 import type { GitHealthSnapshot, GitOptimizationCapability, GitOptimizationId } from '../providers/maintenance.js';
@@ -24,6 +24,9 @@ const manyLooseSampled = Math.ceil((looseObjectsThreshold * 16) / 256) + 1;
 function makeSnapshot(
 	o: {
 		packCount?: number;
+		packsOutsideMultiPackIndex?: number;
+		multiPackIndexEnabled?: boolean;
+		incrementalRepackAutoThreshold?: number;
 		packBytes?: number;
 		looseSampled?: number;
 		indexBytes?: number;
@@ -73,7 +76,10 @@ function makeSnapshot(
 			readDisabled: false,
 		},
 		multiPackIndex: o.multiPackIndex ?? false,
+		multiPackIndexEnabled: o.multiPackIndexEnabled ?? true,
 		packCount: o.packCount ?? 1,
+		packsOutsideMultiPackIndex: o.packsOutsideMultiPackIndex ?? 0,
+		incrementalRepackAutoThreshold: o.incrementalRepackAutoThreshold ?? packsOutsideMultiPackIndexThreshold,
 		packBytes: o.packBytes ?? 1000,
 		looseObjects: { objectsInSampledDirs: o.looseSampled ?? 0, dirsSampled: 16 },
 		indexBytes: o.indexBytes ?? 1000,
@@ -166,7 +172,7 @@ suite('gitHealth.computeHealthReport — auto tier', () => {
 		const report = computeHealthReport(
 			makeSnapshot({
 				looseSampled: manyLooseSampled,
-				packCount: packCountThreshold,
+				packCount: packsOutsideMultiPackIndexThreshold,
 				supportsMaintenanceRun: false,
 			}),
 			undefined,
@@ -175,13 +181,60 @@ suite('gitHealth.computeHealthReport — auto tier', () => {
 		assert.deepStrictEqual(getAutoMaintenanceTasks(report), []);
 	});
 
-	test('recommends incremental-repack when the pack count exceeds the threshold', () => {
+	test("recommends incremental-repack when uncovered packs reach Git's auto threshold", () => {
 		const report = computeHealthReport(
-			makeSnapshot({ packCount: packCountThreshold }),
+			makeSnapshot({
+				packCount: 50,
+				packsOutsideMultiPackIndex: packsOutsideMultiPackIndexThreshold,
+			}),
 			undefined,
 			makeCapabilities(),
 		);
 		assert.deepStrictEqual(getAutoMaintenanceTasks(report), ['incremental-repack']);
+	});
+
+	test('does not recommend incremental-repack for packs already covered by the MIDX', () => {
+		const report = computeHealthReport(
+			makeSnapshot({ packCount: 50, multiPackIndex: true, packsOutsideMultiPackIndex: 0 }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(report), []);
+	});
+
+	test('honors MIDX opt-out and a custom incremental-repack auto threshold', () => {
+		const disabled = computeHealthReport(
+			makeSnapshot({
+				packCount: 50,
+				packsOutsideMultiPackIndex: 50,
+				multiPackIndexEnabled: false,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(disabled), []);
+
+		const belowCustomThreshold = computeHealthReport(
+			makeSnapshot({
+				packCount: 50,
+				packsOutsideMultiPackIndex: 20,
+				incrementalRepackAutoThreshold: 25,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(belowCustomThreshold), []);
+
+		const disabledAutoCondition = computeHealthReport(
+			makeSnapshot({
+				packCount: 50,
+				packsOutsideMultiPackIndex: 50,
+				incrementalRepackAutoThreshold: 0,
+			}),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(disabledAutoCondition), []);
 	});
 
 	test('recommends pack-refs when the files backend has many loose refs', () => {
@@ -211,7 +264,12 @@ suite('gitHealth.computeHealthReport — auto tier', () => {
 
 	test('the auto tier never applies config levers, even on a large repo with every threshold crossed', () => {
 		const report = computeHealthReport(
-			makeSnapshot({ indexBytes: largeIndexBytes, packCount: packCountThreshold, packBytes: 2 * 1024 ** 3 }),
+			makeSnapshot({
+				indexBytes: largeIndexBytes,
+				packCount: packsOutsideMultiPackIndexThreshold,
+				packsOutsideMultiPackIndex: packsOutsideMultiPackIndexThreshold,
+				packBytes: 2 * 1024 ** 3,
+			}),
 			undefined,
 			makeCapabilities(),
 		);
@@ -435,6 +493,7 @@ suite('gitHealth.isBannerEligible', () => {
 			trackedFilesExact: false,
 			trackedFilesScope: 'estimate' as const,
 			packCount: 0,
+			packsOutsideMultiPackIndex: 0,
 			packBytes: 0,
 			looseRefs: { count: 0, exact: true },
 			commitGraph: {
@@ -678,13 +737,19 @@ suite('gitHealth.computeHealthReport — backgroundMaintenance evidence priority
 });
 
 suite('gitHealth.computeHealthReport — snapshot pass-through', () => {
-	test('report passes through packCount, packBytes, and commitGraph from the snapshot', () => {
+	test('report passes through pack measurements and commitGraph from the snapshot', () => {
 		const report = computeHealthReport(
-			makeSnapshot({ packCount: 7, packBytes: 12345, commitGraphPresent: false }),
+			makeSnapshot({
+				packCount: 7,
+				packsOutsideMultiPackIndex: 3,
+				packBytes: 12345,
+				commitGraphPresent: false,
+			}),
 			undefined,
 			makeCapabilities(),
 		);
 		assert.strictEqual(report.packCount, 7);
+		assert.strictEqual(report.packsOutsideMultiPackIndex, 3);
 		assert.strictEqual(report.packBytes, 12345);
 		assert.deepStrictEqual(report.commitGraph, {
 			present: false,

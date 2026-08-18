@@ -52,6 +52,13 @@ const worktreePathsTtlMs = 30 * 1000;
 /** Demand cadence for the commit-graph write: refreshed at most this often per object database. */
 const commitGraphRefreshIntervalMs = 5 * 60 * 1000;
 
+/** Git's default `maintenance.incremental-repack.auto` threshold. */
+const defaultIncrementalRepackAutoThreshold = 10;
+
+/** Bounds defensive reads of repository-controlled MIDX metadata. */
+const maxMultiPackIndexChunkBytes = 16 * 1024 * 1024;
+const maxMultiPackIndexChainBytes = 1024 * 1024;
+
 /** Sentinel recorded in a `gk.applied.*` marker when the lever's prior LOCAL value was absent (→ undo unsets it). */
 const unsetConfigSentinel = 'unset';
 /**
@@ -168,6 +175,17 @@ function isFsmonitorEnabled(value: string | undefined): boolean {
 	if (value == null) return false;
 
 	return !isGitBooleanFalse(value);
+}
+
+/** Parses Git's integer syntax, including the case-insensitive binary `k`, `m`, and `g` suffixes. */
+function parseGitInteger(value: string | undefined): number | undefined {
+	const match = /^([+-]?\d+)([kmg])?$/i.exec(value?.trim() ?? '');
+	if (match == null) return undefined;
+
+	const multiplier =
+		match[2]?.toLowerCase() === 'k' ? 1024 : match[2]?.toLowerCase() === 'm' ? 1024 ** 2 : match[2] ? 1024 ** 3 : 1;
+	const parsed = Number.parseInt(match[1], 10) * multiplier;
+	return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 /**
@@ -396,6 +414,25 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		return false;
 	}
 
+	/** Honors an explicit MIDX opt-out on both automatic and user-invoked incremental repacks. */
+	private async isMultiPackIndexEnabled(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
+		const result = await this.runQuietly(
+			repoPath,
+			cancellation,
+			'config',
+			'--bool',
+			'--get',
+			'core.multiPackIndex',
+		);
+		this.throwIfDidNotComplete(result, cancellation);
+		if (result.exitCode === gitConfigGetMissingExitCode) return true;
+		if (result.exitCode !== 0) {
+			throw new Error(`Unable to read core.multiPackIndex (git exited ${String(result.exitCode)})`);
+		}
+
+		return parseGitBoolean(result.stdout.trim());
+	}
+
 	@debug()
 	async getHealthSnapshot(repoPath: string, cancellation?: AbortSignal): Promise<GitHealthSnapshot> {
 		await this.reconcilePendingConfigChanges(repoPath, cancellation);
@@ -404,6 +441,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// Object store lives in the COMMON git dir (shared across worktrees); the index is per-worktree.
 		const commonGitDir = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		const objectsDir = joinPaths(commonGitDir, 'objects');
+		const packDir = joinPaths(objectsDir, 'pack');
 		const indexPath = joinPaths(gitDir.uri.fsPath, 'index');
 
 		const [
@@ -427,7 +465,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			supportsPackRefsMaintenance,
 		] = await Promise.allSettled([
 			this.probeCommitGraph(objectsDir),
-			fsExists(joinPaths(objectsDir, 'pack', 'multi-pack-index')),
+			this.probeMultiPackIndex(packDir),
 			this.probePacks(objectsDir),
 			this.sampleLooseObjects(objectsDir),
 			this.fileBytes(indexPath),
@@ -458,6 +496,13 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		const rawIndexEntryCount = getSettledValue(indexEntryCount);
 		const sharedIndexValue = getSettledValue(sharedIndex);
 		const conflictOperationValue = getSettledValue(conflictOperation);
+		const packsValue = getSettledValue(packs);
+		const multiPackIndexValue = getSettledValue(multiPackIndex);
+		const indexedPackNames = multiPackIndexValue?.packNames;
+		const packsOutsideMultiPackIndex =
+			configValue?.multiPackIndexEnabled === true && packsValue != null && indexedPackNames != null
+				? packsValue.names.filter(name => !indexedPackNames.has(name)).length
+				: undefined;
 		const splitIndex =
 			configValue?.splitIndex === true || sharedIndexValue?.present === true
 				? true
@@ -496,9 +541,12 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				disabled: markers.commitGraphDisabled,
 				readDisabled: configValue?.commitGraphReadDisabled ?? false,
 			},
-			multiPackIndex: getSettledValue(multiPackIndex) ?? false,
-			packCount: getSettledValue(packs)?.count ?? 0,
-			packBytes: getSettledValue(packs)?.bytes ?? 0,
+			multiPackIndex: multiPackIndexValue?.present ?? false,
+			multiPackIndexEnabled: configValue?.multiPackIndexEnabled,
+			packCount: packsValue?.names.length ?? 0,
+			packsOutsideMultiPackIndex: packsOutsideMultiPackIndex,
+			incrementalRepackAutoThreshold: configValue?.incrementalRepackAutoThreshold,
+			packBytes: packsValue?.bytes ?? 0,
 			looseObjects: getSettledValue(looseObjects) ?? { objectsInSampledDirs: 0, dirsSampled: 0 },
 			// The main file is only the mutable layer of a split index. Include its largest shared base so the
 			// byte-size fallback remains a useful working-tree signal instead of classifying it from a tiny delta.
@@ -658,7 +706,12 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	}
 
 	@debug()
-	async runMaintenanceTask(repoPath: string, task: GitMaintenanceTask, cancellation?: AbortSignal): Promise<boolean> {
+	async runMaintenanceTask(
+		repoPath: string,
+		task: GitMaintenanceTask,
+		options?: { readonly auto?: boolean; readonly cancellation?: AbortSignal },
+	): Promise<boolean> {
+		const cancellation = options?.cancellation;
 		// Not-applicable (the installed git can't run this task) short-circuits to `false`; a genuine command
 		// failure throws (the git error propagates so the ask-tier "Run Maintenance Now" UI can surface it).
 		if (task === 'commit-graph') {
@@ -673,6 +726,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 		const maintenanceFeature = task === 'pack-refs' ? 'git:maintenance:pack-refs' : 'git:maintenance';
 		if (!(await this.git.supports(maintenanceFeature))) return false;
+		if (task === 'incremental-repack' && !(await this.isMultiPackIndexEnabled(repoPath, cancellation))) {
+			return false;
+		}
 
 		await this.git.run(
 			{
@@ -684,6 +740,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			},
 			'maintenance',
 			'run',
+			...(options?.auto ? ['--auto'] : []),
 			`--task=${task}`,
 		);
 		return true;
@@ -1983,6 +2040,8 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	): Promise<
 		GitHealthSnapshot['config'] & {
 			commitGraphReadDisabled: boolean;
+			multiPackIndexEnabled: boolean | undefined;
+			incrementalRepackAutoThreshold: number | undefined;
 			refFormat: GitHealthSnapshot['repository']['refFormat'];
 			sparseCheckout: boolean;
 			sparseCheckoutCone: boolean;
@@ -2003,7 +2062,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			cancellation,
 			'config',
 			'--get-regex',
-			'^(core\\.fsmonitor|core\\.untrackedcache|core\\.commitgraph|core\\.sparsecheckout|core\\.sparsecheckoutcone|core\\.splitindex|extensions\\.refstorage|feature\\.manyfiles|index\\.sparse)$',
+			'^(core\\.fsmonitor|core\\.untrackedcache|core\\.commitgraph|core\\.multipackindex|core\\.sparsecheckout|core\\.sparsecheckoutcone|core\\.splitindex|extensions\\.refstorage|feature\\.manyfiles|index\\.sparse|maintenance\\.incremental-repack\\.auto)$',
 		);
 		this.throwIfDidNotComplete(result, cancellation);
 		// Exit 1 is git's "no matches" — genuinely unset. Anything else means we couldn't read the
@@ -2022,6 +2081,21 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// (possibly multi-line) stdout strips that meaningful trailing space and it misreads as a bareword.
 		// `parseConfigRegexOutput` already skips the blank line a trailing newline produces.
 		const map = parseConfigRegexOutput(result.stdout, { includeValueless: true });
+		const incrementalRepackAuto = map.get('maintenance.incremental-repack.auto');
+		const incrementalRepackAutoThreshold =
+			incrementalRepackAuto == null
+				? defaultIncrementalRepackAutoThreshold
+				: parseGitInteger(incrementalRepackAuto);
+
+		const multiPackIndex = map.get('core.multipackindex');
+		const multiPackIndexEnabled =
+			multiPackIndex == null
+				? true
+				: isGitBooleanFalse(multiPackIndex)
+					? false
+					: parseGitBoolean(multiPackIndex)
+						? true
+						: undefined;
 
 		return {
 			fsmonitor: isFsmonitorEnabled(map.get('core.fsmonitor')),
@@ -2033,6 +2107,8 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			// honors this same setting as a write opt-out.
 			commitGraphReadDisabled:
 				map.has('core.commitgraph') && isGitBooleanFalse(map.get('core.commitgraph') ?? ''),
+			multiPackIndexEnabled: multiPackIndexEnabled,
+			incrementalRepackAutoThreshold: incrementalRepackAutoThreshold,
 			refFormat:
 				map.get('extensions.refstorage') == null
 					? 'files'
@@ -2250,20 +2326,134 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		}
 	}
 
-	private async probePacks(objectsDir: string): Promise<{ count: number; bytes: number }> {
+	/**
+	 * Reads the pack names represented by the active classic or incremental MIDX. A classic MIDX wins when
+	 * both layouts exist, matching Git's own lookup order. Malformed metadata is reported as unknown instead
+	 * of treating every pack as uncovered and silently launching repair work.
+	 */
+	private async probeMultiPackIndex(
+		packDir: string,
+	): Promise<{ present: boolean; packNames: ReadonlySet<string> | undefined }> {
+		const classicPath = joinPaths(packDir, 'multi-pack-index');
+		try {
+			const packNames = await this.readMultiPackIndexPackNames(classicPath);
+			return { present: true, packNames: packNames };
+		} catch (ex) {
+			if ((ex as { code?: unknown }).code !== 'ENOENT') return { present: true, packNames: undefined };
+		}
+
+		const chainDir = joinPaths(packDir, 'multi-pack-index.d');
+		const chainPath = joinPaths(chainDir, 'multi-pack-index-chain');
+		let chain: string;
+		try {
+			if ((await stat(chainPath)).size > maxMultiPackIndexChainBytes) {
+				return { present: true, packNames: undefined };
+			}
+
+			chain = await readFile(chainPath, 'utf8');
+		} catch (ex) {
+			return (ex as { code?: unknown }).code === 'ENOENT'
+				? { present: false, packNames: new Set() }
+				: { present: true, packNames: undefined };
+		}
+
+		const hashes = chain
+			.split('\n')
+			.map(line => line.trim())
+			.filter(Boolean);
+		if (hashes.length === 0 || hashes.some(hash => !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(hash))) {
+			return { present: true, packNames: undefined };
+		}
+
+		const layers = await Promise.allSettled(
+			hashes.map(hash => this.readMultiPackIndexPackNames(joinPaths(chainDir, `multi-pack-index-${hash}.midx`))),
+		);
+		if (layers.some(layer => layer.status === 'rejected')) return { present: true, packNames: undefined };
+
+		const packNames = new Set<string>();
+		for (const layer of layers) {
+			if (layer.status !== 'fulfilled') continue;
+
+			for (const name of layer.value) {
+				packNames.add(name);
+			}
+		}
+		return { present: true, packNames: packNames };
+	}
+
+	/** Reads and validates the `PNAM` chunk of one MIDX file. */
+	private async readMultiPackIndexPackNames(path: string): Promise<ReadonlySet<string>> {
+		let handle: FileHandle | undefined;
+		try {
+			handle = await open(path, 'r');
+			const header = Buffer.alloc(12);
+			const { bytesRead } = await handle.read(header, 0, header.length, 0);
+			if (bytesRead < header.length || header.toString('ascii', 0, 4) !== 'MIDX') {
+				throw new Error('Invalid multi-pack-index header');
+			}
+
+			const chunkCount = header.readUInt8(6);
+			const expectedPackCount = header.readUInt32BE(8);
+			const tableLength = (chunkCount + 1) * 12;
+			const table = Buffer.alloc(tableLength);
+			const { bytesRead: tableBytesRead } = await handle.read(table, 0, tableLength, header.length);
+			if (tableBytesRead < tableLength) throw new Error('Invalid multi-pack-index chunk table');
+
+			let namesStart: number | undefined;
+			const chunkOffsets: number[] = [];
+			for (let i = 0; i <= chunkCount; i++) {
+				const offset = i * 12;
+				const chunkOffset = Number(table.readBigUInt64BE(offset + 4));
+				if (!Number.isSafeInteger(chunkOffset)) throw new Error('Invalid multi-pack-index chunk offset');
+
+				chunkOffsets.push(chunkOffset);
+				if (table.toString('ascii', offset, offset + 4) === 'PNAM') {
+					namesStart = chunkOffset;
+				}
+			}
+			if (namesStart == null) throw new Error('Multi-pack-index is missing its pack-name chunk');
+
+			const namesEnd = Math.min(...chunkOffsets.filter(offset => offset > namesStart));
+			const namesLength = namesEnd - namesStart;
+			if (!Number.isSafeInteger(namesEnd) || namesLength < 0 || namesLength > maxMultiPackIndexChunkBytes) {
+				throw new Error('Invalid multi-pack-index pack-name chunk');
+			}
+
+			const namesChunk = Buffer.alloc(namesLength);
+			const { bytesRead: namesBytesRead } = await handle.read(namesChunk, 0, namesLength, namesStart);
+			if (namesBytesRead < namesLength) throw new Error('Short multi-pack-index pack-name chunk');
+
+			const names = namesChunk
+				.toString('utf8')
+				.split('\0')
+				.filter(name => /^pack-(?:[0-9a-f]{40}|[0-9a-f]{64})\.idx$/.test(name))
+				.map(name => `${name.slice(0, -4)}.pack`);
+			if (names.length !== expectedPackCount || new Set(names).size !== names.length) {
+				throw new Error('Multi-pack-index pack-name count does not match its header');
+			}
+
+			return new Set(names);
+		} finally {
+			await handle?.close().catch(() => {});
+		}
+	}
+
+	private async probePacks(objectsDir: string): Promise<{ names: string[]; bytes: number }> {
 		const packDir = joinPaths(objectsDir, 'pack');
 		let entries: string[];
 		try {
 			entries = await readdir(packDir);
-		} catch {
-			return { count: 0, bytes: 0 };
+		} catch (ex) {
+			if ((ex as { code?: unknown }).code === 'ENOENT') return { names: [], bytes: 0 };
+
+			throw ex;
 		}
 
 		const packFiles = entries.filter(name => name.endsWith('.pack'));
 		const sizes = await Promise.allSettled(packFiles.map(name => this.fileBytes(joinPaths(packDir, name))));
 		const bytes = sizes.reduce((sum, r) => sum + (getSettledValue(r) ?? 0), 0);
 
-		return { count: packFiles.length, bytes: bytes };
+		return { names: packFiles, bytes: bytes };
 	}
 
 	private async sampleLooseObjects(
