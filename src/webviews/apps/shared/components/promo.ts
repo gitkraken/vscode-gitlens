@@ -103,6 +103,7 @@ export class GlPromo extends LitElement {
 		const content = promo.content.webview;
 		switch (this.type) {
 			case 'icon':
+				this.hasPromo = true;
 				return html`<code-icon icon="star-full" size="16"></code-icon>`;
 
 			case 'info':
