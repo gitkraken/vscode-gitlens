@@ -1,8 +1,26 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as process from 'node:process';
+import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, ShortTimeout } from '../baseTest.js';
+
+/**
+ * The rebase editor's DEFAULT action: *Start Rebase* before the rebase runs, *Continue* while it is
+ * paused (`renderStartRebaseActions` / `renderActiveRebaseActions` in `apps/rebase/rebase.ts`).
+ *
+ * Excluding the AI actions is what makes this unambiguous, not a nicety. Since `d7a92df15` each default
+ * action has an AI twin whenever AI is allowed — *Start Auto-Rebase* beside *Start Rebase*, *Continue
+ * with AI* beside *Continue* — so a bare `/Start|Continue/` resolves to two `gl-button`s and every use
+ * fails Playwright's strict mode. It isn't a state a spec can steer around either: `aiAllowed` follows
+ * `gitlens.ai.enabled`, which `defaultUserSettings` turns on for every instance.
+ */
+function primaryRebaseAction(webviewFrame: FrameLocator): Locator {
+	return webviewFrame
+		.locator('gl-button')
+		.filter({ hasText: /Start|Continue/i })
+		.filter({ hasNotText: /Auto-Rebase|with AI/i });
+}
 
 /** SHA of the initial commit - captured during repo setup */
 let initialCommitSha: string;
@@ -482,7 +500,7 @@ test.describe('Editor — Core', () => {
 			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Click Start/Continue button (gl-button custom element)
-			const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
+			const startButton = primaryRebaseAction(webviewFrame);
 			// Wait for any notifications to disappear or timeout
 			await page.waitForTimeout(ShortTimeout * 2);
 			// Try to close any visible notifications
@@ -538,7 +556,7 @@ test.describe('Editor — Core', () => {
 			await page.waitForTimeout(ShortTimeout / 2);
 
 			// Click Start/Continue button
-			const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
+			const startButton = primaryRebaseAction(webviewFrame);
 			// Wait for any notifications to disappear or timeout
 			await page.waitForTimeout(ShortTimeout * 2);
 			// Try to close any visible notifications
@@ -814,7 +832,7 @@ test.describe('Editor — Rebase Merges', () => {
 		expect(afterMessages).toEqual(beforeMessages);
 
 		// Verify Start button is NOT disabled
-		const startButton = webviewFrame.locator('gl-button').filter({ hasText: /Start|Continue/i });
+		const startButton = primaryRebaseAction(webviewFrame);
 		await expect(startButton).not.toBeDisabled();
 
 		// Signal editor done to keep it open, then abort
