@@ -393,6 +393,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _getBranchesAndTagsTips:
 		| ((sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined)
 		| undefined;
+	/** Tip shas of the current `includeOnlyRefs` set, newest-first by commit date (undated branches sort
+	 *  last), de-duped. Kept apart from the wire-format refs map because {@link GraphIncludeOnlyRef}
+	 *  carries no sha, and the data controller needs a concrete paging target — the next unloaded included
+	 *  ref's tip — to steer a branches-visibility page toward. `undefined` means "no restriction" (`all`
+	 *  visibility, or no repo/graph yet); `[]` means "restricted to nothing" (the empty-set-marker cases). */
+	private _includedRefTipShas: string[] | undefined;
 	// The graph session/window, loading promise, and restart-persistence store now live on `_data`
 	// (GraphDataController); the provider reaches them via `this._data.session` / `.loading` / `.store`.
 	// The load shape (ordering + stats inclusion) the session was built with — getState reuses the
@@ -764,6 +770,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			clearLastSentOverview: () => this._panels.clearLastSentOverview(),
 			cancelComputeIncludedRefs: () => this.cancelOperation('computeIncludedRefs'),
+			getIncludedRefTipShas: () => this._includedRefTipShas,
 			replayPendingRefMetadataForGraph: graph => this._producers.replayPendingRefMetadataForGraph(graph),
 			continueSearchInBackground: query => this._searchService.continueInBackground(query),
 			notifySearchError: (query, results) => this._searchService.notifySearchError(query, results),
@@ -4011,7 +4018,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	): Promise<{ refs: GraphIncludeOnlyRefs; continuation?: Promise<GraphIncludeOnlyRefs | undefined> }> {
 		this.cancelOperation('computeIncludedRefs');
 
-		if (graph == null) return { refs: {} };
+		if (graph == null) {
+			this._includedRefTipShas = undefined;
+			return { refs: {} };
+		}
 
 		const branchesVisibility = this.getBranchesVisibility(filters);
 
@@ -4022,7 +4032,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'smart': {
 				// Add the default branch and if the current branch has a PR associated with it then add the base of the PR
 				const current = find(graph.branches.values(), b => b.current);
-				if (current == null) return { refs: {}, continuation: continuation };
+				if (current == null) {
+					this._includedRefTipShas = undefined;
+					return { refs: {}, continuation: continuation };
+				}
 
 				const cancellation = this.createCancellation('computeIncludedRefs');
 
@@ -4031,6 +4044,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					timeout: options?.timeout,
 				});
 
+				// A newer call to `getIncludedRefs` has already superseded this one and will set
+				// `_includedRefTipShas` itself — leave it alone here.
 				if (cancellation.token.isCancellationRequested) return { refs: {}, continuation: continuation };
 
 				let targetBranchName: string | undefined;
@@ -4042,6 +4057,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							baseOrTargetBranchName: target,
 							defaultBranchName: result.defaultBranch,
 						});
+						// The continuation replaces the ref set resolved above, so it must replace the
+						// tip shas derived from it too — but only if a newer `getIncludedRefs` hasn't
+						// claimed them while `getVisibleRefs` was in flight. Re-checked AFTER the await,
+						// not just before it: the guard above can pass and the token cancel during it,
+						// which would otherwise strand a superseded ref set's tips as the paging target.
+						if (!cancellation.token.isCancellationRequested) {
+							this._includedRefTipShas = this.computeIncludedRefTipShas(refs, graph);
+						}
 						return Object.fromEntries(refs);
 					});
 				} else {
@@ -4057,7 +4080,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 			case 'current': {
 				const current = find(graph.branches.values(), b => b.current);
-				if (current == null) return { refs: {}, continuation: continuation };
+				if (current == null) {
+					this._includedRefTipShas = undefined;
+					return { refs: {}, continuation: continuation };
+				}
 
 				refs = await this.getVisibleRefs(graph, current);
 				break;
@@ -4071,6 +4097,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 
 				if (!refs?.size) {
+					this._includedRefTipShas = [];
 					return {
 						// Create an empty set to say we want to include nothing
 						refs: {
@@ -4084,6 +4111,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'agents': {
 				refs = this.getAgentBranchRefs(graph);
 				if (!refs.size) {
+					this._includedRefTipShas = [];
 					return {
 						// Create an empty set to say we want to include nothing
 						refs: {
@@ -4098,7 +4126,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 		}
 
+		this._includedRefTipShas = this.computeIncludedRefTipShas(refs, graph);
 		return { refs: refs == null ? {} : Object.fromEntries(refs), continuation: continuation };
+	}
+
+	/** Sorts the included refs' branch tips newest-first by commit date (undated branches sort last) and
+	 *  de-dupes by sha, for {@link _includedRefTipShas} — see that field's comment for why this is kept
+	 *  separate from the wire-format refs map. `undefined` means "no restriction"; a non-empty `refs` whose
+	 *  branches carry no resolvable sha yields `[]`. */
+	private computeIncludedRefTipShas(
+		refs: Map<string, GraphIncludeOnlyRef> | undefined,
+		graph: GitGraph,
+	): string[] | undefined {
+		if (refs == null) return undefined;
+		if (!refs.size) return [];
+
+		const dated: { sha: string; time: number }[] = [];
+		for (const branch of graph.branches.values()) {
+			if (branch.sha == null || !refs.has(branch.id)) continue;
+
+			dated.push({ sha: branch.sha, time: branch.date?.getTime() ?? -1 });
+		}
+
+		dated.sort((a, b) => b.time - a.time);
+
+		const shas = new Set<string>();
+		for (const { sha } of dated) {
+			shas.add(sha);
+		}
+
+		return [...shas];
 	}
 
 	private getFiltersByRepo(repoPath: string | undefined): StoredGraphFilters | undefined {
@@ -5474,6 +5531,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private resetRepositoryState() {
 		this._getBranchesAndTagsTips = undefined;
+		this._includedRefTipShas = undefined;
 		this._data.resetStateNotify();
 		this._producers.setLastSentBranchState(undefined);
 		// The publisher's cursors are reset by `setGraph(undefined)` → `onGraphIdentityChanged` below.

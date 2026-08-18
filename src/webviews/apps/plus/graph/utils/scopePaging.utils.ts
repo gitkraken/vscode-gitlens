@@ -1,3 +1,34 @@
+import { emptySetMarker } from '../../../../plus/graph/protocol.js';
+
+/**
+ * Counts how many of a branches-visibility `includeOnlyRefs` set have actually decorated a loaded row,
+ * for the footer that discloses a partially-paged filter. A ref's tip is its newest commit, so a ref
+ * absent from `loadedRefIds` has none of its unique history on screen.
+ *
+ * The `emptySetMarker` sentinel is a filter state ("narrowed to nothing"), not a ref, so it never counts
+ * toward either number — a set holding only the sentinel reports `{ loaded: 0, total: 0 }`, which reads
+ * as "nothing to disclose" rather than "0 of 1 loaded".
+ */
+export function countLoadedIncludedRefs(
+	includeOnlyRefs: Record<string, unknown> | undefined,
+	loadedRefIds: ReadonlySet<string>,
+): { loaded: number; total: number } {
+	let loaded = 0;
+	let total = 0;
+	if (includeOnlyRefs == null) return { loaded: loaded, total: total };
+
+	for (const id of Object.keys(includeOnlyRefs)) {
+		if (id === emptySetMarker) continue;
+
+		total++;
+		if (loadedRefIds.has(id)) {
+			loaded++;
+		}
+	}
+
+	return { loaded: loaded, total: total };
+}
+
 /**
  * Decides which sha to target with `rows.getMoreRows` in response to a `scopeanchorsunreachable`
  * event from the GK graph component. Returns `undefined` to suppress paging.

@@ -111,6 +111,7 @@ import { keepRowUnderRefVisibility } from '../utils/row.utils.js';
 import { serializeWipContext } from '../utils/rowContext.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
+import { countLoadedIncludedRefs } from '../utils/scopePaging.utils.js';
 import { hasDirtyCounts } from '../utils/wip.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../components/gl-graph-ref-find.js';
@@ -1333,6 +1334,49 @@ export class GlLitGraph extends LitElement {
 	 *  parent links, most of which no longer name a displayed row, so lane and lineage walks can't run. */
 	private get searchFiltering(): boolean {
 		return this.searchMode === 'filter' && this._searchMatchedShas != null;
+	}
+
+	// Cached set of every head/remote/tag ref id carried by a loaded row (undefined = not computed yet).
+	// Rebuilt only when `this.rows`' identity changes — read by the branches-visibility footer to count
+	// how many of `includeOnlyRefs` are loaded, mirroring `_searchMatchedShas`'s memoization.
+	private _loadedRefIds?: ReadonlySet<string>;
+	private lastLoadedRefIdsRowsRef?: GitGraphRow[];
+
+	/** All ref ids (heads/remotes/tags) present on `this.rows`, regardless of visibility — walked the same
+	 *  way {@link collectVisibleRefTips} walks a row's ref arrays, minus the visibility filtering. */
+	private getLoadedRefIds(): ReadonlySet<string> {
+		if (this._loadedRefIds != null && this.rows === this.lastLoadedRefIdsRowsRef) {
+			return this._loadedRefIds;
+		}
+
+		const ids = new Set<string>();
+		for (const row of this.rows ?? []) {
+			if (row.heads != null) {
+				for (const h of row.heads) {
+					if (h.id != null) {
+						ids.add(h.id);
+					}
+				}
+			}
+			if (row.remotes != null) {
+				for (const r of row.remotes) {
+					if (r.id != null) {
+						ids.add(r.id);
+					}
+				}
+			}
+			if (row.tags != null) {
+				for (const t of row.tags) {
+					if (t.id != null) {
+						ids.add(t.id);
+					}
+				}
+			}
+		}
+
+		this._loadedRefIds = ids;
+		this.lastLoadedRefIdsRowsRef = this.rows;
+		return ids;
 	}
 
 	// Scope (recomputed when rows/scope change). `syntheticChildren` feeds recomputeRows so the
@@ -5071,49 +5115,106 @@ export class GlLitGraph extends LitElement {
 		this.applyZones(this.zones.map(z => (z.id === 'changes' ? { ...z, hidden: true } : z)));
 	};
 
-	// Results bar — filter mode only, since normal/highlight mode leaves every row in place and has
-	// nothing to report.
+	// Results bar — ONE bar carrying whichever disclosure applies, so the two can never stack into a pair
+	// of near-identical strips. They're mutually exclusive by construction: the search message is
+	// filter-mode only (normal/highlight mode leaves every row in place and has nothing to report), and
+	// the branches-visibility message renders only outside filter mode.
 	//
-	// Placed as a flex sibling AFTER `.gl-graph__tree`, inside the viewport: the tree is `flex: 0 1 auto`,
-	// so a result set shorter than the viewport shrinks it to its rows and the bar lands directly under
-	// the last one, while a longer set fills the viewport and the bar sits at its foot. That reads as the
-	// terminus of the list instead of a panel band stranded below a screen of empty space.
+	// Placed as a flex sibling AFTER `.gl-graph__tree`, inside the viewport, with the tree given a
+	// definite flex basis while this shows (see `rowsContentHeight`): a result set shorter than the
+	// viewport sizes the tree to its rows and the bar lands directly under the last one, while a longer
+	// set fills the viewport and the bar sits at its foot. That reads as the terminus of the list instead
+	// of a panel band stranded below a screen of empty space.
 	//
 	// NOT inside the tree (which is `role="tree"` — a status bar among its children is invalid ARIA) and
 	// NOT inside the virtualizer's scroll content, so it still never affects row virtualization.
 	private renderResultsBar(): TemplateResult | typeof nothing {
-		if (this.searchMode !== 'filter') return nothing;
+		const content = this.renderSearchResultsMessage() ?? this.renderVisibilityMessage();
+		if (content == null) return nothing;
+
+		return html`<div class="gl-graph__results-bar">${content}</div>`;
+	}
+
+	private renderSearchResultsMessage(): TemplateResult | undefined {
+		if (this.searchMode !== 'filter') return undefined;
 
 		const sr = this.searchResults;
-		if (sr == null || !('count' in sr)) return nothing;
+		if (sr == null || !('count' in sr)) return undefined;
 
 		// "No results" reads even while a background page load is in flight — every other state needs the
 		// load settled first so the counts it reports are stable.
 		if (sr.count === 0) {
-			return html`<div class="gl-graph__results-bar">
-				<span class="gl-graph__results-bar-message">No results found</span>
-			</div>`;
+			return html`<span class="gl-graph__results-bar-message">No results found</span>`;
 		}
-		if (this.loading) return nothing;
+		if (this.loading) return undefined;
 
 		const allLoaded = !sr.hasMore && this.searchResultsRenderedCount === sr.count;
 		if (allLoaded) {
-			return html`<div class="gl-graph__results-bar">
-				<span class="gl-graph__results-bar-message">Showing all ${pluralize('result', sr.count)}</span>
-			</div>`;
+			return html`<span class="gl-graph__results-bar-message"
+				>Showing all ${pluralize('result', sr.count)}</span
+			>`;
 		}
 
-		return html`<div class="gl-graph__results-bar">
-			<span class="gl-graph__results-bar-message"
+		return html`<span class="gl-graph__results-bar-message"
 				>Showing ${this.searchResultsRenderedCount} of
 				${pluralize('result', sr.count, { infix: sr.hasMore ? '+ ' : undefined })}</span
 			><button type="button" class="gl-graph__results-bar-action" @click=${this.onLoadMoreResultsClick}>
 				Load More Results…
-			</button>
-		</div>`;
+			</button>`;
 	}
 
 	private onLoadMoreResultsClick = (): void => {
+		this.emitMoreRows();
+	};
+
+	// Branches-visibility message — discloses that `includeOnlyRefs` narrowed the graph to refs whose tips
+	// aren't all loaded yet (the host's walk is newest-first `--all`, so an old included ref's commits
+	// simply haven't paged in). Filter-mode search owns the bar outright, and there's nothing to disclose
+	// once every included ref is loaded, so this yields nothing in either case.
+	private renderVisibilityMessage(): TemplateResult | undefined {
+		if (this.searchMode === 'filter') return undefined;
+
+		const refs = this.includeOnlyRefs;
+		if (refs == null) return undefined;
+
+		const { loaded, total } = countLoadedIncludedRefs(refs, this.getLoadedRefIds());
+		if (total === 0 || loaded >= total) return undefined;
+
+		// Two states disclose the shortfall but withhold the action, because in both the button would
+		// claim to fetch the missing branches and do something else:
+		//
+		// - `hasMore === false`: the host drained the whole history and the missing refs still never
+		//   decorated a row — they're unreachable from this walk (e.g. `graph.onlyFollowFirstParent`
+		//   hides them), so paging again can't help.
+		// - A search with results not yet paged in: `updateGraphWithMoreRowsCore` steers ANY untargeted
+		//   page at the next unloaded search result — that branch is gated on `search.results.size`, NOT
+		//   on `searchMode`, so a normal/highlight-mode search preempts the included-ref target too. The
+		//   ref tips resume being targeted once the search's results are all loaded.
+		const searchResults = this.searchResults;
+		// Tested against the RENDERED count, which under-counts a WIP result whose anchor hasn't paged in.
+		// That errs toward calling a search pending and withholding the button — the safe direction here,
+		// since the cost of being wrong the other way is a button that claims to fetch branches and fetches
+		// search results instead.
+		const searchPending =
+			searchResults != null && 'count' in searchResults && this.searchResultsRenderedCount < searchResults.count;
+		const canLoadMore = this.hasMore !== false && !searchPending;
+
+		return html`<span class="gl-graph__results-bar-message"
+				>Showing ${loaded} of ${pluralize('branch', total, { plural: 'branches' })}</span
+			>${
+				canLoadMore
+					? html`<button
+							type="button"
+							class="gl-graph__results-bar-action"
+							@click=${this.onLoadMoreIncludedRefsClick}
+						>
+							Load More…
+						</button>`
+					: nothing
+			}`;
+	}
+
+	private onLoadMoreIncludedRefsClick = (): void => {
 		this.emitMoreRows();
 	};
 

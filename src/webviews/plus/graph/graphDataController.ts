@@ -64,6 +64,10 @@ export type GraphDataControllerContext = {
 	clearAvatarProxyCaches: () => void;
 	clearLastSentOverview: () => void;
 	cancelComputeIncludedRefs: () => void;
+	/** Tip shas of the current branches-visibility `includeOnlyRefs` set, newest-first — the wire-format
+	 *  refs carry no sha, so paging toward the next unloaded included ref needs this separately. See
+	 *  `GraphWebviewProvider._includedRefTipShas`. */
+	getIncludedRefTipShas: () => readonly string[] | undefined;
 	replayPendingRefMetadataForGraph: (graph: GitGraph) => void;
 	/** Silently continues the ACTIVE search in the background (auto-load-more keeping pace with a rows
 	 *  page-in); rethrows a genuine (non-abort) failure. Resolves to whether the search's results/`hasMore`
@@ -575,6 +579,19 @@ export class GraphDataController {
 					? find(search.results.keys(), sha => !session.current.ids.has(sha))
 					: undefined;
 				targetId = nextUnloadedResultId;
+			}
+		}
+
+		// No search target was chosen — if a branches-visibility mode is narrowing the graph, steer this
+		// page toward the next included ref whose tip isn't loaded yet. Unlike the search-filter case
+		// above, `limit` stays the adaptive page size: the walk still displays the current branch's whole
+		// lineage, and an uncapped walk toward a very old ref tip would walk the entire repo. The
+		// provider's own stop condition (`limit * 10` when the target isn't found) caps the cost and
+		// reports `hasMore: true`, so a shortfall just means another click.
+		if (!id && targetId == null) {
+			const includedRefTipShas = this.context.getIncludedRefTipShas();
+			if (includedRefTipShas?.length) {
+				targetId = includedRefTipShas.find(sha => !session.current.ids.has(sha));
 			}
 		}
 
