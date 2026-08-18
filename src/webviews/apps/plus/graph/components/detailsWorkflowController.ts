@@ -8,6 +8,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	ComposeResult,
+	ComposeSessionKey,
 	ConflictSide,
 	ProposedCommit,
 	QueuedTakeSide,
@@ -35,6 +36,13 @@ import type { ScopeItem } from './gl-commits-scope-pane.js';
  *  longer a mode; it has its own lifecycle via {@link DetailsWorkflowController.openCompare}
  *  / {@link DetailsWorkflowController.closeCompare} and lives in a sheet over the panel. */
 export type DetailsMode = 'review' | 'compose' | 'resolve';
+
+/** The one place an `AnchorKey` becomes a {@link ComposeSessionKey}. Both are branded strings over
+ *  the same value — compose sessions ARE anchors — but the brands are declared in different layers,
+ *  so the crossing is made once here rather than cast at each of the five compose RPCs. */
+function composeSessionKey(anchor: AnchorSelection): ComposeSessionKey {
+	return anchorKey(anchor) as string as ComposeSessionKey;
+}
 
 /** The shape of "who/what is currently selected" that every workflow transition needs. */
 export interface DetailsSelection {
@@ -767,8 +775,13 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (exitingMode === 'review') {
 			this.review.invalidateErrorRecovery();
 		} else if (exitingMode === 'compose') {
+			// Error recovery is engagement-scoped, but the refine continuation is NOT dropped here.
+			// `hideMode` is the preserve-leave choke point — it leaves the registry entry intact and
+			// deliberately captures the Refine posture + draft just above so a toggle-out or row-switch can
+			// resume. Dropping the cache key too would preserve the intent to refine while destroying the
+			// ability, so the resumed plan would silently regenerate from scratch. `exitMode` and the
+			// different-selection branch of `toggleMode` are the genuine session ends and still clear it.
 			this.compose.invalidateErrorRecovery();
-			this.compose.invalidateContinuation();
 		} else if (exitingMode === 'resolve') {
 			// The focused-file scope is an input of the engagement that set it (per-file/multi-select
 			// entry points) — clear it on exit so a later chip-initiated session defaults back to all
@@ -1208,14 +1221,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		},
-		/** Drop the cross-call continuation state — the cacheKey that drives refine and the
-		 *  locked-commits set. Called on mode exit / destroy / anchor switch so a returning
-		 *  user enters cold compose instead of resuming a stale session. The host's cache is
-		 *  keyed per-repo and cleaned up on its own cold-start path; a stale key here is
-		 *  benign (the host treats it as a missing entry and runs cold) but clearing keeps the
-		 *  webview state truthful. */
+		/** Drop the cross-call continuation state — the locked-commits set and any in-flight regen
+		 *  handle. Called from `exitMode` and from `toggleMode`'s different-selection branch, both of
+		 *  which end the session; NOT from `hideMode`, which is the preserve-leave path. The refine
+		 *  handle itself is no longer local state — it's read from the anchor's registry entry (see
+		 *  {@link DetailsWorkflowController.composeCacheKeyForAnchor}), so it lives and dies with the
+		 *  entry rather than needing to be invalidated here. */
 		invalidateContinuation: (): void => {
-			this.actions.state.composeCurrentCacheKey.set(undefined);
 			this.actions.state.composeRefineExcludedCommitIds.set(new Set());
 			// Drop any in-flight per-commit message regen handle too. The RPC's own
 			// `finally` clears it, but an anchor switch can leave the signal pointing at
@@ -1245,7 +1257,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			// Capture stale BEFORE the await — `composeCommitAll` resets `wipStale` on success.
 			const stale = this.actions.state.wipStale.get();
 			const startedAt = performance.now();
-			await this.actions.composeCommitAll(repoPath, sha, graphReachability, includedCommitIds);
+			await this.actions.composeCommitAll(
+				repoPath,
+				composeSessionKey(engagedAnchor),
+				sha,
+				graphReachability,
+				includedCommitIds,
+			);
 			const duration = performance.now() - startedAt;
 			// The host may have disconnected (panel close, repo switch torn down everything) while
 			// `composeCommitAll`'s RPC was in flight. Writing to the host-owned registry or the
@@ -1308,20 +1326,19 @@ export class DetailsWorkflowController implements ReactiveController {
 			// primary gate (disabled icon), but a second message can race the disabled state.
 			if (this.actions.state.composeRegeneratingCommitId.get() != null) return;
 
-			const repoPath = this.actions.state.activeModeRepoPath.get();
-			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
-			if (!repoPath || !cacheKey) return;
-
 			// Capture the engaged entry up front — an anchor switch / mode exit mid-call
 			// invalidates it; we'll re-resolve later and bail if it's gone.
 			const engagedAnchor = this.currentAnchor();
 			const engagedKey = anchorKey(engagedAnchor);
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.composeCacheKeyForAnchor(engagedAnchor);
+			if (!repoPath || !cacheKey) return;
 
 			this.actions.state.composeRegeneratingCommitId.set(commitId);
 			const startedAt = performance.now();
 			try {
 				const result = await this.actions.services.graphInspect.regenerateProposedCommitMessage(
-					repoPath,
+					composeSessionKey(engagedAnchor),
 					cacheKey,
 					commitId,
 					// No per-call abort signal yet — the host owns cancellation via its own
@@ -1335,11 +1352,11 @@ export class DetailsWorkflowController implements ReactiveController {
 				// User exited compose / switched anchors while the call was in flight. The
 				// engaged entry no longer applies; drop the result rather than write into a
 				// foreign state. The host has already mutated its own cache — benign on next
-				// compose run (cache is per-repo and replaced on each generate).
+				// compose run (the plan is per-anchor and replaced on each generate).
 				const stillEngaged =
 					this.actions.state.activeMode.get() === 'compose' &&
 					this.actions.state.activeModeRepoPath.get() === repoPath &&
-					this.actions.state.composeCurrentCacheKey.get() === cacheKey;
+					this.composeCacheKeyForAnchor(engagedAnchor) === cacheKey;
 				if (!stillEngaged) return;
 
 				if ('cancelled' in result) {
@@ -1412,11 +1429,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		reorderCommits: async (orderedDisplayIds: string[]): Promise<void> => {
 			if (!orderedDisplayIds.length) return;
 
+			const engagedAnchor = this.currentAnchor();
+			const engagedKey = anchorKey(engagedAnchor);
 			const repoPath = this.actions.state.activeModeRepoPath.get();
-			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			const cacheKey = this.composeCacheKeyForAnchor(engagedAnchor);
 			if (!repoPath || !cacheKey) return;
-
-			const engagedKey = anchorKey(this.currentAnchor());
 
 			const currentValue = this.actions.resources.compose.value.get();
 			if (currentValue == null || !('result' in currentValue)) return;
@@ -1452,7 +1469,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				// The host's canonical order is tip-last; the display is reversed (newest first).
 				const libraryOrder = orderedDisplayIds.toReversed();
 				const result = await this.actions.services.graphInspect.reorderProposedCommits(
-					repoPath,
+					composeSessionKey(engagedAnchor),
 					cacheKey,
 					libraryOrder,
 				);
@@ -1494,15 +1511,17 @@ export class DetailsWorkflowController implements ReactiveController {
 		moveFile: async (fromCommitId: string, toCommitId: string, paths: string[]): Promise<void> => {
 			if (!fromCommitId || !toCommitId || fromCommitId === toCommitId || paths.length === 0) return;
 
+			const engagedAnchor = this.currentAnchor();
+			const engagedKey = anchorKey(engagedAnchor);
 			const repoPath = this.actions.state.activeModeRepoPath.get();
-			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			const cacheKey = this.composeCacheKeyForAnchor(engagedAnchor);
 			if (!repoPath || !cacheKey) return;
 
-			const engagedKey = anchorKey(this.currentAnchor());
 			const startedAt = performance.now();
 			try {
 				const result = await this.actions.services.graphInspect.moveComposeFile(
 					repoPath,
+					composeSessionKey(engagedAnchor),
 					cacheKey,
 					fromCommitId,
 					toCommitId,
@@ -1513,7 +1532,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				const stillEngaged =
 					this.actions.state.activeMode.get() === 'compose' &&
 					this.actions.state.activeModeRepoPath.get() === repoPath &&
-					this.actions.state.composeCurrentCacheKey.get() === cacheKey;
+					this.composeCacheKeyForAnchor(engagedAnchor) === cacheKey;
 				if (!stillEngaged) return;
 
 				if ('error' in result) {
@@ -1607,12 +1626,21 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		this._composeFetchedForSelection = this.selectionKey();
 
-		// Refine continuation: a successfully-resolved prior plan in the resource + a tracked
-		// cache key means the user is refining. Cold start otherwise. Locked-commit ids and
-		// the prior key are forwarded as `startCompose` options; the host routes to
-		// `refinePlanForGraphDetails` when `mode === 'refine'`.
-		const priorCacheKey = this.actions.state.composeCurrentCacheKey.get();
-		const isRefine = priorCacheKey != null && currentValue != null && 'result' in currentValue;
+		// The anchor this compose is engaged on identifies the session host-side — the same key
+		// `dispatchOperation` scopes cancellation by, so what the host treats as one session is exactly
+		// what the UI treats as one run.
+		const anchor = this.currentAnchor();
+		const sessionKey = composeSessionKey(anchor);
+		// Read the refine handle off THIS anchor's registry entry rather than the global
+		// `composeCurrentCacheKey` signal: the signal is overwritten by whichever compose settles last,
+		// including a background run on another worktree row, which would otherwise aim this refine at a
+		// different anchor's plan.
+		const priorCacheKey = this.composeCacheKeyForAnchor(anchor);
+		// A live cache key IS the "there is a plan to continue" signal — it exists only after a
+		// successful run and is dropped on apply/discard/destroy. Deliberately NOT also requiring the
+		// resource to be showing a result right now: a failed refine leaves an error sentinel there, and
+		// treating that as a cold start would discard the still-valid plan and re-mint its conversation.
+		const isRefine = priorCacheKey != null;
 		const excludedCommitIds = isRefine ? this.actions.state.composeRefineExcludedCommitIds.get() : undefined;
 
 		// On refine, carry the prior entry's `basePrompt` so the original cold-start instructions
@@ -1630,6 +1658,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			controller =>
 				this.actions.startCompose(
 					repoPath,
+					sessionKey,
 					scope,
 					instructions,
 					excludedFiles,
@@ -2065,6 +2094,10 @@ export class DetailsWorkflowController implements ReactiveController {
 			prompt: prompt,
 			basePrompt: basePrompt ?? prompt,
 			focusedFilePaths: focusedFilePaths,
+			// Carry the compose plan's cache key through the in-flight window, so a refine that fails is
+			// still retryable as a refine. Safe to carry on a cold start too: the host only continues a
+			// key it still holds, and has already dropped this one.
+			...(kind === 'compose' ? { cacheKey: (prior as { cacheKey?: string } | undefined)?.cacheKey } : undefined),
 		});
 
 		promise.then(
@@ -2431,6 +2464,14 @@ export class DetailsWorkflowController implements ReactiveController {
 	}
 
 	/** Builds a {@link RunningOperationAnchor} from the currently-active mode's locked selection. */
+	/** This anchor's live compose cache key — per-anchor, so a run settling on another row can't aim a
+	 *  refine at the wrong plan, and durable across an error so a failed refine stays retryable as one.
+	 *  `undefined` when the anchor has never completed a plan. The host validates it regardless, falling
+	 *  back to a cold start if the plan is gone. */
+	private composeCacheKeyForAnchor(anchor: RunningOperationAnchor): string | undefined {
+		return this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.compose?.cacheKey;
+	}
+
 	private currentAnchor(): RunningOperationAnchor {
 		const state = this.actions.state;
 		return {
@@ -2516,14 +2557,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState = 'complete';
 		}
 
-		// Compose-only: capture the new cacheKey from the host so refine + commit-to-here can
-		// thread the session back. Clears the post-commit "Committed N of M" banner once the
-		// follow-up plan has actually landed (the user has visible work to refine again).
-		if (kind === 'compose' && execState === 'complete' && value != null && 'result' in value) {
-			const composeValue = value as Extract<ComposeResult, { result: unknown }>;
-			const newCacheKey = (composeValue.result as { cacheKey?: string }).cacheKey;
-			if (newCacheKey != null) {
-				this.actions.state.composeCurrentCacheKey.set(newCacheKey);
+		// Compose-only: stamp the plan's new cache key on a completed run, and carry the prior one
+		// forward on any other outcome — an error must stay refine-retryable.
+		let composeCacheKey: string | undefined;
+		if (kind === 'compose') {
+			composeCacheKey = (current as { cacheKey?: string }).cacheKey;
+			if (execState === 'complete' && value != null && 'result' in value) {
+				composeCacheKey = (value.result as { cacheKey?: string }).cacheKey ?? composeCacheKey;
 			}
 		}
 
@@ -2540,6 +2580,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			prompt: current.prompt,
 			basePrompt: current.basePrompt,
 			focusedFilePaths: current.focusedFilePaths,
+			cacheKey: composeCacheKey,
 		} as RunningOperation);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);

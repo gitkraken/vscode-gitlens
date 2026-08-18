@@ -48,6 +48,8 @@ function params(): AiGenerateParams {
 	return { messages: [{ role: 'user', content: 'go' }] };
 }
 
+const conversationId = '11111111-2222-3333-4444-555555555555';
+
 suite('compose createAiModelPort', () => {
 	test('forwards the advisory response format to sendRequest', async () => {
 		const { container, sent } = makeContainer({ content: '{}' });
@@ -57,15 +59,25 @@ suite('compose createAiModelPort', () => {
 		const withFormat: AiGenerateParams & { responseFormat?: AIResponseFormat } = params();
 		withFormat.responseFormat = responseFormat;
 
-		await createAiModelPort(container, source).generate(withFormat);
+		await createAiModelPort(container, source, conversationId).generate(withFormat);
 
 		assert.deepStrictEqual(sent()?.responseFormat, responseFormat);
+	});
+
+	test('forwards the conversation ID to sendRequest', async () => {
+		// Without it every call of a compose session — the library's validation retries and each
+		// refine — reads as a session of its own.
+		const { container, sent } = makeContainer({ content: '{}' });
+
+		await createAiModelPort(container, source, conversationId).generate(params());
+
+		assert.strictEqual(sent()?.conversationId, conversationId);
 	});
 
 	test('omits the response format when the caller supplies none', async () => {
 		const { container, sent } = makeContainer({ content: '{}' });
 
-		await createAiModelPort(container, source).generate(params());
+		await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.strictEqual(sent()?.responseFormat, undefined);
 	});
@@ -73,7 +85,7 @@ suite('compose createAiModelPort', () => {
 	test('surfaces an abnormal finish reason so the caller can retry or fail fast', async () => {
 		const { container } = makeContainer({ content: 'cut off', finishReason: 'length' });
 
-		const result = await createAiModelPort(container, source).generate(params());
+		const result = await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.strictEqual((result as { finishReason?: string }).finishReason, 'length');
 		assert.strictEqual(result.text, 'cut off');
@@ -82,7 +94,7 @@ suite('compose createAiModelPort', () => {
 	test('omits finishReason on a normal completion', async () => {
 		const { container } = makeContainer({ content: 'done' });
 
-		const result = await createAiModelPort(container, source).generate(params());
+		const result = await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.strictEqual('finishReason' in result, false);
 	});
@@ -93,7 +105,7 @@ suite('compose createAiModelPort', () => {
 			usage: { promptTokens: 12, completionTokens: 34 },
 		});
 
-		const result = await createAiModelPort(container, source).generate(params());
+		const result = await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.deepStrictEqual(result.usage, { inputTokens: 12, outputTokens: 34 });
 	});

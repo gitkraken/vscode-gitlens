@@ -2022,3 +2022,175 @@ suite('DetailsWorkflowController — resolve session refine/retry counts', () =>
 		assert.strictEqual(events[2].data['refine.count'], 0);
 	});
 });
+
+/** A completed compose result carrying the host's cache key — the handle a refine needs. */
+function makeComposeResultWithKey(label: string, cacheKey: string): ComposeResult {
+	return {
+		result: { commits: [], baseCommit: { sha: '0'.repeat(40), message: label }, cacheKey: cacheKey },
+	} as unknown as ComposeResult;
+}
+
+/** Like {@link setup}, but captures the args of every `composeChanges` RPC the controller issues. */
+function setupComposeCapture(repoPath: string): {
+	host: FakeHost;
+	state: DetailsState;
+	controller: DetailsWorkflowController;
+	calls: unknown[][];
+} {
+	const calls: unknown[][] = [];
+	const host = new FakeHost({ repoPath: repoPath, graphRepoPath: repoPath });
+	const state = createDetailsState();
+	const actions = new DetailsActions(
+		state,
+		createServices({
+			composeChanges: async (...args: unknown[]) => {
+				calls.push(args);
+				return { error: { message: 'stub' } };
+			},
+		}),
+		createResources(),
+	);
+	const controller = new DetailsWorkflowController(host, actions);
+	host.connectAll();
+	host.tickHostUpdate();
+	return { host: host, state: state, controller: controller, calls: calls };
+}
+
+suite('DetailsWorkflowController.runCompose — refine continuation across a leave-and-return', () => {
+	function seedCompletedPlan(host: FakeHost, state: DetailsState, repoPath: string, cacheKey: string): void {
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey(repoPath),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: repoPath, sha: uncommitted },
+							execState: 'complete' as const,
+							result: makeComposeResultWithKey('plan', cacheKey),
+							// `onRunSettled` stamps this on a real completed run; the refine handle is read
+							// from here, not from the result, so it survives the entry going to an error.
+							cacheKey: cacheKey,
+						},
+					},
+				],
+			]),
+		);
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(state, repoPath, uncommitted);
+	}
+
+	test('refines the displayed plan after toggling out of compose and back in', () => {
+		// `hideMode` is the preserve-leave path: it keeps the registry entry (so the plan is projected
+		// back on return) and captures the Refine draft precisely so the user can resume. It used to
+		// also drop the refine handle, so the resumed plan was silently regenerated from scratch — and
+		// with conversation tracking, re-minted its conversation.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+
+		// Leave to another anchor and come back — the round trip that runs `hideMode`.
+		m.controller.switchAnchorWithinMode({ sha: uncommitted, shas: undefined, repoPath: '/B' });
+		m.controller.switchAnchorWithinMode({ sha: uncommitted, shas: undefined, repoPath: '/A' });
+		// Re-establish the engaged posture the panel would have on return — the anchor round trip
+		// rebuilds scope for whichever anchor it lands on.
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1, 'one compose RPC should have been issued');
+		// composeChanges(repoPath, sessionKey, scope, instructions, excludedFiles, aiExcludedFiles, signal, options)
+		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
+		assert.strictEqual(options?.mode, 'refine', 'the run must be dispatched as a refine, not a cold start');
+		assert.strictEqual(options?.priorCacheKey, 'K1', 'and must carry the plan it is refining');
+	});
+
+	test('sends the session key of the anchor it is engaged on', () => {
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls[0][1], wipKey('/A'), 'session key must be this anchor’s key');
+	});
+
+	test('cold-starts when the anchor has no plan to continue', () => {
+		// The inverse guard: without a live plan the run must NOT claim to be a refine, or the host
+		// would try to continue a session that does not exist.
+		const m = setupComposeCapture('/A');
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+
+		m.controller.runCompose('/A', 'organize these', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1);
+		assert.strictEqual(m.calls[0][7], undefined, 'no continuation options on a cold start');
+	});
+});
+
+suite('DetailsWorkflowController.runCompose — retrying a failed refine', () => {
+	test('retries as a refine, not a cold start, after the refine errored', () => {
+		// The entry flips to an error result when a refine fails, so deriving the refine handle from
+		// that result loses it and the retry silently restarts the session — discarding a plan that was
+		// never invalid. The handle lives on the entry itself precisely so it survives this.
+		const m = setupComposeCapture('/A');
+		m.host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'error' as const,
+							result: { error: { message: 'the refine blew up' } } as unknown as ComposeResult,
+							cacheKey: 'K1',
+							prompt: 'tighten it up',
+						},
+					},
+				],
+			]),
+		);
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+
+		m.controller.compose.retryFromError('/A', uncommitted, undefined, undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1, 'the retry should have issued a compose RPC');
+		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
+		assert.strictEqual(options?.mode, 'refine', 'a retry after a failed refine is still a refine');
+		assert.strictEqual(options?.priorCacheKey, 'K1', 'and continues the same plan');
+	});
+
+	test('a settled error keeps the prior plan’s key on the entry', () => {
+		// Guards the mechanism the test above depends on: `onRunSettled` must carry the key forward
+		// rather than rebuild the entry without it.
+		const m = setupComposeCapture('/A');
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'complete' as const,
+							result: makeComposeResultWithKey('plan', 'K1'),
+							cacheKey: 'K1',
+						},
+					},
+				],
+			]),
+		);
+
+		// The stubbed RPC resolves to an error, so this run settles as a failure over the live plan.
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		return Promise.resolve().then(() => {
+			const entry = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+			assert.strictEqual(entry?.cacheKey, 'K1', 'the failed run must not drop the plan handle');
+		});
+	});
+});

@@ -53,6 +53,7 @@ import type {
 	BranchComparisonSide,
 	BranchComparisonSummary,
 	ComposeResult,
+	ComposeSessionKey,
 	ConflictSide,
 	GraphServices,
 	ReresolveFileResult,
@@ -199,7 +200,7 @@ export interface DetailsResources {
 	readonly review: Resource<ReviewResult, [string, ScopeSelection, string | undefined, string[] | undefined]>;
 	readonly compose: Resource<
 		ComposeResult,
-		[string, ScopeSelection, string | undefined, string[] | undefined, string[] | undefined]
+		[string, ComposeSessionKey, ScopeSelection, string | undefined, string[] | undefined, string[] | undefined]
 	>;
 	/** AI conflict-resolution result. Keyed on `(repoPath, focusedFilePaths, instructions)` — focused
 	 *  paths scope the run to specific conflicted files; `undefined` resolves all conflicts. */
@@ -729,6 +730,7 @@ export class DetailsActions {
 	 *  the prior plan or, after partial apply, the retained continuation cacheKey). */
 	startCompose(
 		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		scope: ScopeSelection,
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
@@ -738,6 +740,7 @@ export class DetailsActions {
 	): Promise<ComposeResult> {
 		return this.services.graphInspect.composeChanges(
 			repoPath,
+			sessionKey,
 			scope,
 			instructions,
 			excludedFiles,
@@ -2923,6 +2926,7 @@ export class DetailsActions {
 
 	async composeCommitAll(
 		repoPath: string | undefined,
+		sessionKey: ComposeSessionKey,
 		sha: string | undefined,
 		graphReachability?: GitCommitReachability,
 		includedCommitIds?: readonly string[],
@@ -2941,7 +2945,7 @@ export class DetailsActions {
 
 		this.state.composeApplying.set(true);
 		try {
-			const result = await this.services.graphInspect.commitCompose(repoPath, {
+			const result = await this.services.graphInspect.commitCompose(repoPath, sessionKey, {
 				commits: composeValue.result.commits,
 				base: composeValue.result.baseCommit,
 				includedCommitIds: includedCommitIds,
@@ -2973,7 +2977,6 @@ export class DetailsActions {
 			this.state.composePreErrorValue.set(undefined);
 			this.state.composeLastFailedAction.set(undefined);
 			this.state.composeLastCommitAllIncludedIds.set(undefined);
-			this.state.composeCurrentCacheKey.set(undefined);
 			void this.refreshScopedAiModel();
 			this.refreshWip();
 			void this.fetchDetails(sha, repoPath, graphReachability);

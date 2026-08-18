@@ -289,6 +289,22 @@ export type ComposeBaseCommit = {
 };
 
 /**
+ * Identifies one compose session. The webview supplies the key of the anchor the compose is engaged
+ * on — the same key it scopes run cancellation by — so the host's per-session state partitions the
+ * way the UI does. Opaque to the host: it only ever compares and maps by it.
+ *
+ * Every compose is WIP-anchored today, so this is currently 1:1 with `repoPath`. Keying by it anyway
+ * is what keeps that a webview detail: if compose ever becomes reachable from a second anchor on one
+ * repo, two live sessions stay separate here instead of silently sharing a conversation and evicting
+ * each other's plan.
+ *
+ * Branded, mirroring the webview's own `AnchorKey`, because it travels beside `repoPath` and
+ * `cacheKey` on these RPCs — three bare strings would let a transposition through silently, which is
+ * the exact class of mix-up keying by session instead of repo exists to prevent.
+ */
+export type ComposeSessionKey = string & { readonly __composeSessionKey: unique symbol };
+
+/**
  * Refinement knobs for {@link composeChanges}. Present means "refine the cached plan
  * identified by `priorCacheKey`" — the webview passes back the cache key tracked locally,
  * plus any commits the user has locked in the UI. Absent means cold-start compose.
@@ -526,6 +542,7 @@ export interface GraphInspectService {
 	pickCoauthors(repoPath: string, currentMessage: string | undefined): Promise<string[] | undefined>;
 	composeChanges(
 		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		scope: ScopeSelection,
 		instructions?: string,
 		excludedFiles?: string[],
@@ -533,7 +550,7 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 		options?: ComposeChangesOptions,
 	): Promise<ComposeResult>;
-	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
+	commitCompose(repoPath: string, sessionKey: ComposeSessionKey, plan: ComposeCommitPlan): Promise<CommitResult>;
 	/**
 	 * Regenerate the commit message for a single draft commit in the cached plan identified
 	 * by `cacheKey`. Uses GitLens's internal `ai.actions.generateCommitMessage` against a patch
@@ -546,7 +563,7 @@ export interface GraphInspectService {
 	 * message field changes.
 	 */
 	regenerateProposedCommitMessage(
-		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		cacheKey: string,
 		commitId: string,
 		signal?: AbortSignal,
@@ -558,7 +575,7 @@ export interface GraphInspectService {
 	 * subsequent refine honor the new sequence. Pure in-memory reorder — no AI, no git.
 	 */
 	reorderProposedCommits(
-		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		cacheKey: string,
 		orderedCommitIds: string[],
 	): Promise<ReorderProposedCommitsResult>;
@@ -570,6 +587,7 @@ export interface GraphInspectService {
 	 */
 	moveComposeFile(
 		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		cacheKey: string,
 		fromCommitId: string,
 		toCommitId: string,

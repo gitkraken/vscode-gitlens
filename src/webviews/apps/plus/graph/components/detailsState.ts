@@ -128,7 +128,14 @@ export interface GenerateMessageResult {
  *  `prompt`/`'backed'`/`'orphaned'`. `kind` matches the bucket slot so `bucket[op.kind]` indexing holds. */
 export type RunningOperation =
 	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
-	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult })
+	| (RunningOperationBase & {
+			kind: 'compose';
+			result?: ComposeResult;
+			/** Host-side cache key of this anchor's plan — the handle a refine continues. Lives here rather
+			 *  than being read back out of `result` so it survives the entry flipping to an error: a refine
+			 *  that fails must still be retryable as a refine, not silently restart the session. */
+			cacheKey?: string;
+	  })
 	| (RunningOperationBase & { kind: 'resolve'; result?: ResolveResult })
 	| (RunningOperationBase & {
 			kind: 'generateMessage';
@@ -459,11 +466,6 @@ function createTransientState() {
 	 *  All". Cleared on success / mode exit. */
 	const composeLastCommitAllIncludedIds = signal<readonly string[] | undefined>(undefined);
 
-	// Refine continuation. `composeCurrentCacheKey` is the host-side cache key for the plan
-	// currently displayed; threaded back into `composeChanges` on the next generate so the host
-	// routes to `refinePlanForGraphDetails` (chat-style continuation) instead of starting cold.
-	// Cleared on full-apply success, cold-start compose, cancel, and panel close.
-	const composeCurrentCacheKey = signal<string | undefined>(undefined);
 	// Commit ids the user has excluded from the AI recompose (a per-commit checkbox on each
 	// proposed commit row). Passed to `refinePlan` as `lockedCommits` so the AI preserves those
 	// commits' id/message/hunks across the refinement. Intentionally engagement-local — it carries
@@ -561,7 +563,6 @@ function createTransientState() {
 		reviewPreErrorValue: reviewPreErrorValue,
 		composeLastFailedAction: composeLastFailedAction,
 		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
-		composeCurrentCacheKey: composeCurrentCacheKey,
 		composeRefineExcludedCommitIds: composeRefineExcludedCommitIds,
 		composeRegeneratingCommitId: composeRegeneratingCommitId,
 
