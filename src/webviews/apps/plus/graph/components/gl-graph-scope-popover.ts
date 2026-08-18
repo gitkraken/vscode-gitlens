@@ -302,7 +302,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					'favorited',
 					'star-empty',
 					'Favorited Branches',
-					'Shows only branches that have been starred as favorites — also includes the current branch',
+					'Shows only branches that have been starred as favorites',
 					mode,
 					this.repo?.virtual ?? false,
 				)}

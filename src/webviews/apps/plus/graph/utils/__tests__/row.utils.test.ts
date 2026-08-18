@@ -1,10 +1,51 @@
 import * as assert from 'assert';
-import type { GitGraphRowHead } from '@gitlens/git/models/graph.js';
-import { pickRowUndoTarget } from '../row.utils.js';
+import type { GitGraphRow, GitGraphRowHead } from '@gitlens/git/models/graph.js';
+import { keepRowUnderRefVisibility, pickRowUndoTarget } from '../row.utils.js';
 
 function head(name: string, isCurrentHead = false, worktree?: GitGraphRowHead['worktree']): GitGraphRowHead {
 	return { name: name, id: `/mock/repo|heads/${name}`, isCurrentHead: isCurrentHead, worktree: worktree };
 }
+
+function row(
+	sha: string,
+	kind: GitGraphRow['kind'],
+	parents: string[],
+	heads?: GitGraphRowHead[],
+): Pick<GitGraphRow, 'kind' | 'sha' | 'parents' | 'heads'> {
+	return { sha: sha, kind: kind, parents: parents, heads: heads };
+}
+
+suite('keepRowUnderRefVisibility', () => {
+	test('a stash whose base commit is filtered out is dropped', () => {
+		const reachable = new Set(['included-tip']);
+		const stashRow = row('stash-sha', 'stash', ['excluded-base']);
+		assert.strictEqual(keepRowUnderRefVisibility(stashRow, reachable), false);
+	});
+
+	test('a stash whose base commit survives is kept', () => {
+		const reachable = new Set(['included-base']);
+		const stashRow = row('stash-sha', 'stash', ['included-base']);
+		assert.strictEqual(keepRowUnderRefVisibility(stashRow, reachable), true);
+	});
+
+	test('a WIP (workdir) row is kept regardless of reachability', () => {
+		const reachable = new Set<string>();
+		const wipRow = row('workdir-sha', 'workdir', []);
+		assert.strictEqual(keepRowUnderRefVisibility(wipRow, reachable), true);
+	});
+
+	test('the current-HEAD row is kept even when HEAD is not in the include set', () => {
+		const reachable = new Set(['included-tip']);
+		const headRow = row('head-sha', 'commit', ['parent-sha'], [head('main', true)]);
+		assert.strictEqual(keepRowUnderRefVisibility(headRow, reachable), true);
+	});
+
+	test('a commit reachable only from HEAD (and not from any included ref) is dropped', () => {
+		const reachable = new Set(['included-tip']);
+		const onlyFromHead = row('only-from-head-sha', 'commit', ['head-sha']);
+		assert.strictEqual(keepRowUnderRefVisibility(onlyFromHead, reachable), false);
+	});
+});
 
 const wtA = { id: '/mock/repo|worktrees/feature-a', path: '/mock/repo.worktrees/feature-a', isDefault: false };
 const wtB = { id: '/mock/repo|worktrees/feature-b', path: '/mock/repo.worktrees/feature-b', isDefault: false };

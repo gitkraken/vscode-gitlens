@@ -107,6 +107,7 @@ import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
+import { keepRowUnderRefVisibility } from '../utils/row.utils.js';
 import { serializeWipContext } from '../utils/rowContext.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
@@ -2754,15 +2755,16 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// Client-side branches-visibility + hidden-ref row filter. A commit/merge row survives iff it is
-	// reachable (full parent DAG) from at least one VISIBLE ref tip; synthetic rows (WIP / stash / rebase
-	// warning) are always kept and follow their own visibility rules. Returns `rows` unchanged when
-	// nothing narrows the ref set (the 'all' default) so the common case stays zero-cost.
+	// reachable (full parent DAG) from at least one VISIBLE ref tip; a stash row survives iff its base
+	// commit is; WIP and the current HEAD's own row always survive — see `keepRowUnderRefVisibility`.
+	// Returns `rows` unchanged when nothing narrows the ref set (the 'all' default) so the common case
+	// stays zero-cost.
 	private filterRowsByRefVisibility(rows: readonly GitGraphRow[]): readonly GitGraphRow[] {
 		const filter = this.resolveRefVisibility();
 		if (filter == null) return rows;
 
 		const reachable = collectReachable(rows, this.collectVisibleRefTips(rows, filter));
-		return rows.filter(r => (r.kind === 'commit' || r.kind === 'merge' ? reachable.has(r.sha) : true));
+		return rows.filter(r => keepRowUnderRefVisibility(r, reachable));
 	}
 
 	/**
@@ -2826,8 +2828,12 @@ export class GlLitGraph extends LitElement {
 			let visible = false;
 			if (row.heads != null) {
 				for (const h of row.heads) {
-					// The current HEAD is never hidden — it anchors "where you are" regardless of the mode.
-					if (h.isCurrentHead || refVisible(h.id, hideHeads)) {
+					// HEAD seeds the reachability walk only when it's genuinely in the mode's include set —
+					// a mode built to exclude HEAD's branch (e.g. `favorited` with HEAD unstarred) must be
+					// able to drop its ancestry. HEAD's own ROW stays visible regardless, as an orientation
+					// anchor ("you are here"); that's handled separately, in
+					// `filterRowsByRefVisibility`'s `keepRowUnderRefVisibility`, not by seeding here.
+					if (refVisible(h.id, hideHeads)) {
 						visible = true;
 						break;
 					}

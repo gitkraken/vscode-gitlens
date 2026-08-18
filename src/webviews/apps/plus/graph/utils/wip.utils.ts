@@ -151,10 +151,11 @@ export function isScopeFocalHead(
  *
  * `branchesVisibility` check (runs after scope, and only when focus didn't already decide):
  * - `'all'` (and absent): always show.
- * - `'current'`, `'smart'`, `'favorited'`: these modes always include the current branch by
- *   construction, so this returns true in normal cases.
- * - `'agents'`: only shows if the current branch is in the host-computed include set
- *   (i.e. an active agent is running on the current branch's worktree).
+ * - `'current'`, `'smart'`: these modes always include the current branch by construction, so this
+ *   returns true in normal cases.
+ * - `'favorited'`, `'agents'`: only shows if the current branch is in the host-computed include set
+ *   (favorited: the current branch is itself starred; agents: an active agent is running on the
+ *   current branch's worktree). Neither mode auto-adds the current branch.
  *
  * Empty `{}` is treated as "no filter" — same convention as `filterSecondariesForIncludeOnlyRefs`.
  * If the current branch id is unknown, defaults to showing the primary — the user's local WIP

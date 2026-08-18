@@ -4065,7 +4065,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'favorited': {
 				refs = new Map();
 				for (const branch of graph.branches.values()) {
-					if (branch.current || branch.starred) {
+					if (branch.starred) {
 						refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
 					}
 				}

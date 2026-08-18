@@ -1,3 +1,5 @@
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
+
 /**
  * Returns the committer-date for a graph row. The provider (`packages/git-cli/src/providers/graph.ts`)
  * always populates `commitDate` with the committer date — `row.date` itself follows the user's
@@ -6,6 +8,37 @@
  */
 export function getCommitDateFromRow(row: { date: number; commitDate?: number }): number {
 	return row.commitDate ?? row.date;
+}
+
+/**
+ * Decides whether a row survives the branches-visibility + hidden-ref filter
+ * (`filterRowsByRefVisibility` in `gl-lit-graph.ts`), given the shas reachable from the mode's visible
+ * ref tips (`collectReachable` over `collectVisibleRefTips`'s seeds).
+ *
+ * - `workdir` (WIP) rows always survive, unconditionally — see the "WIP rows deliberately bypass
+ *   `isVisible`/`add`" comment in `refFind.utils.ts`; the same exemption applies here.
+ * - The current HEAD's own row always survives too, but only the ROW — it anchors "you are here"
+ *   regardless of the mode. Its ancestry is NOT auto-included: `collectVisibleRefTips` seeds the
+ *   reachability walk from HEAD only when it's genuinely in the mode's include set, so a mode built to
+ *   exclude HEAD's branch still can.
+ * - `stash` rows survive iff their BASE commit is reachable. The provider (`git-cli/providers/graph.ts`)
+ *   truncates a stash row's `parents` to exactly one entry — the commit the stash was taken on top of,
+ *   dropping the index/untracked synthetic parents `git stash` also records — so `parents[0]` IS the
+ *   base commit. A stash whose base is filtered out would otherwise render with its parent commit gone,
+ *   a dangling row/lane — the same hazard `excludeTypes.stashes` avoids by dropping stash rows from the
+ *   engine input outright.
+ * - `commit`/`merge` rows survive iff their own sha is reachable.
+ */
+export function keepRowUnderRefVisibility(
+	row: Pick<GitGraphRow, 'kind' | 'sha' | 'parents' | 'heads'>,
+	reachable: ReadonlySet<string>,
+): boolean {
+	if (row.kind === 'workdir') return true;
+	if (row.heads?.some(h => h.isCurrentHead)) return true;
+
+	if (row.kind === 'stash') return row.parents[0] != null && reachable.has(row.parents[0]);
+
+	return reachable.has(row.sha);
 }
 
 /**
