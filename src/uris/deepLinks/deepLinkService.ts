@@ -18,6 +18,8 @@ import { once } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { maybeUri, normalizePath } from '@gitlens/utils/path.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer } from '@gitlens/utils/promise.js';
 import type { OpenChatActionCommandArgs } from '../../commands/openChatAction.js';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage.js';
@@ -67,6 +69,7 @@ type OpenLocationQuickPickItem = {
 
 export class DeepLinkService implements Disposable {
 	private _context: DeepLinkServiceContext;
+	private _progress: Deferred<void> | undefined;
 	private readonly _onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
 	private readonly _disposables: Disposable[] = [];
 
@@ -90,6 +93,7 @@ export class DeepLinkService implements Disposable {
 	}
 
 	dispose(): void {
+		this.completeProgress();
 		Disposable.from(...this._disposables).dispose();
 	}
 
@@ -331,6 +335,10 @@ export class DeepLinkService implements Disposable {
 
 		const link = parseDeepLinkUri(Uri.parse(pendingDeepLink.url));
 		if (link == null) return;
+
+		// A pending link can arrive from another window at any point, including while a link is suspended waiting on a
+		// repository. Taking the context away from it also takes away its only chance to finish its notification.
+		this.completeProgress();
 
 		this._context = { state: pendingDeepLink.state ?? DeepLinkServiceState.MaybeOpenRepo };
 		this.setContextFromDeepLink(link, pendingDeepLink.url);
@@ -616,46 +624,125 @@ export class DeepLinkService implements Disposable {
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
 		useProgress: boolean = true,
 	): Promise<void> {
-		let message = '';
-		let action = initialAction;
-		if (action === DeepLinkServiceAction.DeepLinkCancelled && this._context.state === DeepLinkServiceState.Idle) {
+		if (
+			initialAction === DeepLinkServiceAction.DeepLinkCancelled &&
+			this._context.state === DeepLinkServiceState.Idle
+		) {
 			return;
 		}
 
-		//Repo match
-		let matchingLocalRepoPaths: string[] = [];
-		const { targetType } = this._context;
+		// Cancelling or starting another link replaces the context wholesale, so holding onto it here is what lets a
+		// late-returning link tell whether it still owns the flow it started
+		const context = this._context;
 
+		// A link can suspend and resume in a later call (waiting on a repository to be opened), so the notification is
+		// owned by the service and adopted by the resuming call rather than being created again
+		let progress: Deferred<void> | undefined;
 		if (useProgress) {
-			queueMicrotask(
-				() =>
-					void window.withProgress(
-						{
-							cancellable: true,
-							location: ProgressLocation.Notification,
-							title: `Opening ${deepLinkTypeToString(targetType ?? DeepLinkType.Repository)} link...`,
-						},
-						(progress, token) => {
-							progress.report({ increment: 0 });
-							return new Promise<void>(resolve => {
-								token.onCancellationRequested(() => {
-									queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled));
-									resolve();
-								});
-
-								this._onDeepLinkProgressUpdated.event(({ message, increment }) => {
-									progress.report({ message: message, increment: increment });
-									if (increment === 100) {
-										resolve();
-									}
-								});
-							});
-						},
-					),
-			);
+			progress = this._progress ??= this.showProgress(context.targetType);
 		}
 
+		let unfinished = false;
+		try {
+			unfinished = await this.runDeepLink(initialAction, useProgress, context);
+		} catch (ex) {
+			Logger.error(ex, `Unable to resolve link: ${context.url}`);
+
+			// Only the idle state resets the context, so a throw would otherwise leave it mid-flight and every
+			// subsequent link would be dropped without any feedback. Reset it only while it is still ours -- a
+			// cancelled link can throw long after the user moved on, and resetting then strands the current one.
+			if (this._context === context) {
+				this.resetContext();
+
+				// Nothing opted out of progress comes from a link the user followed, so a message about an
+				// unresolvable link would be reported against an action they never took
+				if (useProgress) {
+					void window.showErrorMessage('Unable to resolve link');
+				}
+			}
+
+			// These already reached their caller before this catch existed, so keep them propagating. Two of the
+			// internal resumes are fire-and-forget and have nowhere to propagate to -- they are logged above.
+			if (!useProgress) throw ex;
+		} finally {
+			if (!unfinished && progress != null) {
+				this.completeProgress(progress);
+			}
+		}
+	}
+
+	private showProgress(targetType: DeepLinkType | undefined): Deferred<void> {
+		const deferred = defer<void>();
+
+		// Held back a turn because a link can resolve (or fail) without ever suspending -- e.g. an unknown command --
+		// and a notification for work that has already finished is just a flash
+		setTimeout(() => {
+			if (!deferred.pending) return;
+
+			void window.withProgress(
+				{
+					cancellable: true,
+					location: ProgressLocation.Notification,
+					title: `Opening ${deepLinkTypeToString(targetType ?? DeepLinkType.Repository)} link...`,
+				},
+				(progress, token) => {
+					progress.report({ increment: 0 });
+
+					const disposables = [
+						token.onCancellationRequested(() => {
+							// Cancel the link this notification was opened for, never whichever one happens to be
+							// current -- a superseded deferred has already been fulfilled and its link is gone
+							if (this._progress !== deferred) return;
+
+							this.completeProgress(deferred);
+							queueMicrotask(
+								() => void this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled, false),
+							);
+						}),
+						this._onDeepLinkProgressUpdated.event(({ message, increment }) =>
+							progress.report({ message: message, increment: increment }),
+						),
+					];
+
+					return deferred.promise.finally(() => {
+						Disposable.from(...disposables).dispose();
+					});
+				},
+			);
+		}, 0);
+
+		return deferred;
+	}
+
+	private completeProgress(deferred?: Deferred<void>): void {
+		// Don't complete a notification belonging to a newer link
+		if (deferred != null && this._progress !== deferred) return;
+
+		this._progress?.fulfill();
+		this._progress = undefined;
+	}
+
+	/**
+	 * Returns `true` if the link didn't reach a final state -- either it suspended to be resumed by a later call, or
+	 * it was cancelled or superseded and no longer owns the context it started on
+	 */
+	private async runDeepLink(
+		initialAction: DeepLinkServiceAction,
+		useProgress: boolean,
+		context: DeepLinkServiceContext,
+	): Promise<boolean> {
+		let message = '';
+		let action = initialAction;
+
+		//Repo match
+		let matchingLocalRepoPaths: string[] = [];
+
 		while (true) {
+			// Cancelling, or another link starting, replaces the context. Driving one that is no longer ours walks the
+			// transition table from a state it has no entry for, which leaves behind a state that matches nothing and
+			// silently swallows every later link.
+			if (this._context !== context) return true;
+
 			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
 			const {
 				state,
@@ -685,8 +772,11 @@ export class DeepLinkService implements Disposable {
 					}
 
 					// Deep link processing complete. Reset the context and return.
+					// Reaching idle means nothing is in flight, so nothing should still be reporting progress -- a
+					// resume that raced a cancellation can leave a notification behind that no call owns.
+					this.completeProgress();
 					this.resetContext();
-					return;
+					return false;
 				}
 				case DeepLinkServiceState.AccountCheck: {
 					if (targetType == null) {
@@ -1168,10 +1258,18 @@ export class DeepLinkService implements Disposable {
 				case DeepLinkServiceState.RepoOpening: {
 					this._disposables.push(
 						once(this.container.git.onDidChangeRepositories)(() => {
-							queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.RepoOpened));
+							queueMicrotask(() => {
+								// This listener outlives a cancellation, and a later link can be waiting on a
+								// repository of its own, so resume only the exact link that registered it
+								if (this._context !== context || context.state !== DeepLinkServiceState.RepoOpening) {
+									return;
+								}
+
+								void this.processDeepLink(DeepLinkServiceAction.RepoOpened, useProgress);
+							});
 						}),
 					);
-					return;
+					return true;
 				}
 				case DeepLinkServiceState.GoToTarget: {
 					// Need to re-fetch the remotes in case we opened in a new window
