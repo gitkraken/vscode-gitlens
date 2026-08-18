@@ -59,6 +59,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes searching by author `@username` in GitHub virtual repositories dropping the first character of the username
 - Fixes searching by author or committer `@me` in GitHub virtual repositories skipping the filter entirely for accounts without a display name
 - Fixes the _Commit Graph_'s search history reading and saving under the first-opened repository after switching repositories in a multi-repo workspace
+- Fixes the _Commit Graph_'s _Review_ mode choosing focus areas from wrong file details on large change sets &mdash; newly added files counted as modified, and changed-line counts included unchanged context ([#5658](https://github.com/gitkraken/vscode-gitlens/issues/5658))
 
 ## [19.0.1] - 2026-08-13
 
