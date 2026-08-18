@@ -48,6 +48,12 @@ export async function listPullRequestsPage(
 		includeReviewRequested?: boolean;
 		page?: number;
 		cursor?: string;
+		/**
+		 * Requests the lightweight row shape (see {@link IntegrationManager.listPullRequestsPage}). Opt-in
+		 * only, and only on the repo-scoped branch: the account-wide branch has always read the lightweight
+		 * shape and keeps doing so, so an explicit `false` does not widen it back to the full projection.
+		 */
+		summary?: boolean;
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -115,45 +121,49 @@ export async function listPullRequestsPage(
 		);
 	}
 
-	const includeReviewRequested = accountWide ? (options.includeReviewRequested ?? false) : false;
-	const { value, warning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() =>
-			accountWide
-				? integration.getMyPullRequestsForUserResult(
-						{
-							state: options.states,
-							cursor: cursor,
-							includeReviewRequested: includeReviewRequested,
-							filters: resolvedFilters.filters,
-							summary: true,
-						},
-						options.connectionId,
-					)
-				: integration.getMyPullRequestsForReposResult(
-						options.repos ?? [],
-						// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo hosts (GitLab, Bitbucket,
-						// Azure), whose per-repo cursor path ignores a synthesized page-number cursor, still honor the
-						// requested page and page size instead of always returning page 1. `filters` scopes the read to
-						// the current user (the core resolves the account for these), so it returns the user's PRs.
-						{
-							state: options.states,
-							filters: resolvedFilters.filters,
-							cursor: cursor,
-							// The normalized `page`, so the number forwarded to the provider can't disagree with the
-							// page-number cursor beside it — both are built from the same value. Only when the caller
-							// asked for one: an omitted page is the provider's own first page.
-							page: options.page != null ? page : undefined,
-							pageSize: options.itemsPerPage,
-						},
-						options.connectionId,
-					),
-		{
-			warnOnMissingSession: warnOnMissingSessionForDomain(options.providerId, options.domain),
-		},
-	);
+	// Everything but the cursor, shared by the initial read and the drain's re-reads below so the two cannot
+	// drift. `summary` is the reason this matters beyond tidiness: a re-read that dropped it would both
+	// revert to the full payload — on the very path that issues the most requests — and return rows of a
+	// different shape than the first page, since a summary row reports `headCommit`/`commitCount` as absent.
+	// `summary` is pinned true here rather than forwarded: this branch has never had a full projection to
+	// fall back to (see the option's doc), so honoring an explicit `false` would promise a widening the read
+	// cannot deliver.
+	const accountWideInput = {
+		state: options.states,
+		includeReviewRequested: options.includeReviewRequested ?? false,
+		filters: resolvedFilters.filters,
+		summary: true,
+	};
+	// `filters` scopes the read to the current user (the core resolves the account for these), so it returns
+	// the user's PRs. `pageSize` rides along so PagingMode.Repo hosts (GitLab, Bitbucket, Azure), whose
+	// per-repo cursor path ignores a synthesized page-number cursor, honor the requested size.
+	const scopedInput = {
+		state: options.states,
+		filters: resolvedFilters.filters,
+		pageSize: options.itemsPerPage,
+		summary: options.summary,
+	};
+	const readPage = (pageCursor: string | undefined, requestedPage?: number) =>
+		runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() =>
+				accountWide
+					? integration.getMyPullRequestsForUserResult(
+							{ ...accountWideInput, cursor: pageCursor },
+							options.connectionId,
+						)
+					: integration.getMyPullRequestsForReposResult(
+							options.repos ?? [],
+							{ ...scopedInput, cursor: pageCursor, page: requestedPage },
+							options.connectionId,
+						),
+			{
+				warnOnMissingSession: warnOnMissingSessionForDomain(options.providerId, options.domain),
+			},
+		);
+	const { value, warning } = await readPage(cursor, options.page != null ? page : undefined);
 
 	let items = value?.values ?? [];
 	// Cursor-only account-wide reads start at page 1; a page-only request is advanced through opaque
@@ -180,37 +190,8 @@ export async function listPullRequestsPage(
 				requestedPage: page,
 				itemsPerPage: options.itemsPerPage,
 				warnings: warnings,
-				readPage: (cursor: string) =>
-					runCaptured(
-						options.providerId,
-						domain,
-						options.connectionId,
-						() =>
-							accountWide
-								? integration.getMyPullRequestsForUserResult(
-										{
-											state: options.states,
-											cursor: cursor,
-											includeReviewRequested: includeReviewRequested,
-											filters: resolvedFilters.filters,
-											summary: true,
-										},
-										options.connectionId,
-									)
-								: integration.getMyPullRequestsForReposResult(
-										options.repos ?? [],
-										{
-											state: options.states,
-											filters: resolvedFilters.filters,
-											cursor: cursor,
-											pageSize: options.itemsPerPage,
-										},
-										options.connectionId,
-									),
-						{
-							warnOnMissingSession: warnOnMissingSessionForDomain(options.providerId, options.domain),
-						},
-					),
+				// A drain advances through provider continuations, so only the cursor positions these reads.
+				readPage: (cursor: string) => readPage(cursor),
 			},
 		);
 		items = drained.items;

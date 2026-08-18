@@ -114,7 +114,8 @@ const accountResolveBatchSize = 25;
 // exceeded` on large repositories. Thirty keeps the default within that GraphQL cost budget;
 // the 100-node maximum the connection accepts is for the lite shape, whose per-node cost is a
 // fraction of it. The budget is per DOCUMENT, and one document holds every relationship × state
-// facet, so the worst case scales with the facet count (five relationships × four states = 20).
+// facet, so the worst case scales with the facet count (five relationships × three states = 15;
+// `all` subsumes the concrete states).
 const defaultPullRequestSearchPageSize = 30;
 const maxPullRequestSearchPageSize = 100;
 // Pages `searchMyPullRequests` drains for a caller that wants a whole list rather than a page.
@@ -4525,15 +4526,17 @@ export class GitHubApi {
 			avatarSize?: number;
 			cursor?: string;
 			pageSize?: number;
+			/**
+			 * Uses the lightweight PR fragment, retaining identity, body, author, repository, branch refs, and stack
+			 * info while omitting review, check, and diff statistics. It also raises the default page budget, which
+			 * multi-facet searches share across their active facets.
+			 */
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequestSearchResult | undefined> {
 		const scope = getScopedLogger();
 
-		const pageSize = Math.min(
-			maxPullRequestSearchPageSize,
-			Math.max(1, Math.trunc(options?.pageSize ?? defaultPullRequestSearchPageSize)),
-		);
 		const facets = toGitHubPullRequestSearchFacets(options?.criteria);
 		const facetAliases = facets.map(f => f.alias).sort();
 		const scopeQualifiers = toGitHubIssueSearchScopeQualifiers(options?.org, options?.repos);
@@ -4610,6 +4613,17 @@ export class GitHubApi {
 			};
 		}
 
+		// Each active facet selects its own page in the same GraphQL document. Share the lite projection's
+		// 100-node default across those selections; an explicit page size remains a per-facet request.
+		const defaultSize =
+			options?.summary === true
+				? Math.max(1, Math.floor(maxPullRequestSearchPageSize / activeFacets.length))
+				: defaultPullRequestSearchPageSize;
+		const pageSize = Math.min(
+			maxPullRequestSearchPageSize,
+			Math.max(1, Math.trunc(options?.pageSize ?? defaultSize)),
+		);
+
 		const includeVar = (alias: string): string => `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
 		const params = facets.flatMap(f => [
 			`$${f.alias}Search: String!`,
@@ -4626,7 +4640,7 @@ export class GitHubApi {
 				}
 				nodes {
 					... on PullRequest {
-						${gqlPullRequestFragment}
+						${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 						${gqlPullRequestStackFragmentFor(options)}
 					}
 				}
@@ -4666,7 +4680,14 @@ export class GitHubApi {
 					if (node?.id == null) continue;
 
 					try {
-						pullRequests.push(fromGitHubPullRequest(node, provider));
+						// Must follow the projection: the lite fragment does not select reviews, checks or diff
+						// stats, and the full mapper reads them — mapping a lite node with it would silently
+						// report "no reviewers"/"no checks" as FACTS rather than as unselected.
+						pullRequests.push(
+							options?.summary
+								? fromGitHubPullRequestLite(node, provider)
+								: fromGitHubPullRequest(node, provider),
+						);
 					} catch (ex) {
 						scope?.warn(`skipped unmappable pull request; id=${node.id}, url=${node.url}, ex=${ex}`);
 					}
