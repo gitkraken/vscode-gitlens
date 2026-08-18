@@ -1053,6 +1053,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/** See {@link IntegrationManager.listPullRequestsPage}. */
+		summary?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return listPullRequestsPage(this, options);
 	}
@@ -1069,6 +1071,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		forceSync?: boolean;
 		connectionId?: string;
 		domain?: string;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		summary?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return searchPullRequestsPage(this, options);
 	}

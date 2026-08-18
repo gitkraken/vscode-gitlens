@@ -1,4 +1,4 @@
-import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure, GitHubPullRequestFieldMap } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
@@ -117,6 +117,18 @@ export type SearchMyPullRequestsOptions = {
 	includeReviewRequested?: boolean;
 };
 
+type MyPullRequestsForReposOptions = {
+	filters?: PullRequestFilter[];
+	cursor?: string;
+	customUrl?: string;
+	page?: number;
+	pageSize?: number;
+	/** PR states to include; when omitted the provider returns its default (open only). */
+	state?: PullRequestStateFilter | PullRequestStateFilter[];
+	/** Requests the lightweight row shape without per-row build status or commit count. */
+	summary?: boolean;
+};
+
 /**
  * Rejects a read the provider can't serve as asked: logs the reason and returns it as the `{ error }` half of an
  * {@link IntegrationResult}, timed from `start`.
@@ -131,6 +143,15 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
 	Logger.warn(message, logContext);
 	return { error: new Error(message), duration: performance.now() - start };
 }
+
+/**
+ * Both fields gate the same GitHub `commits` subtree, so either truthy key retains the build-status rollup.
+ * An absent map retains the full row; a summary read explicitly drops both optional fields.
+ */
+const summaryPullRequestFields: Required<GitHubPullRequestFieldMap> = {
+	headCommit: false,
+	commitCount: false,
+};
 
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
@@ -1084,15 +1105,7 @@ export abstract class GitHostIntegration<
 
 	async getMyPullRequestsForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: PullRequestFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			/** PR states to include; when omitted the provider returns its default (open only). */
-			state?: PullRequestStateFilter | PullRequestStateFilter[];
-		},
+		options?: MyPullRequestsForReposOptions,
 		connectionId?: string,
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		return (await this.getMyPullRequestsForReposResult(reposOrRepoIds, options, connectionId))?.value;
@@ -1106,14 +1119,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getMyPullRequestsForReposResult(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: PullRequestFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			state?: PullRequestStateFilter | PullRequestStateFilter[];
-		},
+		options?: MyPullRequestsForReposOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
@@ -1364,6 +1370,7 @@ export abstract class GitHostIntegration<
 				states: states,
 				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1575,6 +1582,8 @@ export abstract class GitHostIntegration<
 			criteria?: PullRequestSearchCriteria;
 			cursor?: string;
 			pageSize?: number;
+			/** See {@link IntegrationManager.searchPullRequestsPage}. */
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 		connectionId?: string,
@@ -1603,6 +1612,8 @@ export abstract class GitHostIntegration<
 			criteria?: PullRequestSearchCriteria;
 			cursor?: string;
 			pageSize?: number;
+			/** See the caller's option of the same name on {@link searchPullRequestsPage}. */
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined>;

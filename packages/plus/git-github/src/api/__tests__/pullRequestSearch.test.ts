@@ -219,6 +219,72 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.match(getCalls()[1].query, /scopeOpen: search\(first: 100,/);
 	});
 
+	test('selects the lite fragment and the maximum default page size for a summary read', async () => {
+		// Why the lite fragment is worth a separate projection, and why the default size follows it:
+		// see the `summary` option's doc on `GitHubApi.searchPullRequestsPage`.
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+		});
+
+		const query = getCalls()[0].query;
+		assert.match(query, /scopeOpen: search\(first: 100,/);
+		// Review/check/diff selections are what the lite shape drops.
+		assert.doesNotMatch(query, /latestReviews/);
+		assert.doesNotMatch(query, /reviewRequests/);
+		assert.doesNotMatch(query, /statusCheckRollup/);
+		// What its consumers DO read must survive.
+		assert.match(query, /baseRefName/);
+		assert.match(query, /headRefName/);
+		assert.match(query, /body/);
+		// The lite mapper reads stack, and stack absence is a NEGATIVE fact (a stacked PR would read as
+		// unstacked); the summary projection is about what costs server time, not about dropping this.
+		assert.match(query, /stack \{/);
+		assert.match(query, /stackEntry \{/);
+	});
+
+	test('shares the summary default page budget across active facets', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+			criteria: {
+				relationships: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+					PullRequestFilter.Reviewed,
+					PullRequestFilter.Mention,
+				],
+				states: ['open', 'closed', 'merged'],
+			},
+		});
+
+		assert.equal(getCalls()[0].query.match(/search\(first: 6,/g)?.length, 15);
+	});
+
+	test('keeps the full fragment and the cost-safe default when summary is not requested', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+
+		const query = getCalls()[0].query;
+		assert.match(query, /scopeOpen: search\(first: 30,/);
+		assert.match(query, /latestReviews/);
+	});
+
+	test('honours an explicit page size on the summary path too', async () => {
+		// Only the DEFAULT follows the projection; an explicit preference is still the caller's.
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+			pageSize: 10,
+		});
+
+		assert.match(getCalls()[0].query, /scopeOpen: search\(first: 10,/);
+	});
+
 	test('translates the declared mention relationship without widening to commenter', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, {

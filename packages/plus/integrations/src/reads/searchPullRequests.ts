@@ -48,6 +48,8 @@ export async function searchPullRequestsPage(
 		forceSync?: boolean;
 		connectionId?: string;
 		domain?: string;
+		/** See {@link IntegrationManager.searchPullRequestsPage}. */
+		summary?: boolean;
 	},
 ): Promise<ProviderPagedResult<PullRequestShape>> {
 	const page = Math.max(1, Math.trunc(options.page ?? 1));
@@ -142,6 +144,7 @@ export async function searchPullRequestsPage(
 						criteria: options.criteria,
 						cursor: cursor,
 						pageSize: options.itemsPerPage,
+						summary: options.summary,
 					},
 					undefined,
 					options.connectionId,
