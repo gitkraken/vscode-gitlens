@@ -16,6 +16,7 @@ import type {
 import {
 	compareSubscriptionPlans,
 	getSubscriptionEntitlement,
+	getSubscriptionNextPaidPlanId,
 	getSubscriptionPlanName,
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
@@ -808,24 +809,35 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	/** The Advanced upsell, shown to paid plans below Advanced — the same guard the account chip uses. */
+	/**
+	 * The next-tier upsell, shown to paid plans below Advanced — the same guard the account chip uses.
+	 * The target is the NEXT paid tier up, not Advanced flat: Student sits below Pro, so pitching Advanced
+	 * there would skip a tier and quote a price no student is being asked to jump to. This is also the plan
+	 * `gitlens.plus.upgrade` itself resolves to when no plan is passed, so the label and the command agree.
+	 */
 	private renderUpsell(sub: Subscription) {
 		if (!isSubscriptionPaid(sub) || compareSubscriptionPlans(this.planId, 'advanced') >= 0) return nothing;
 
+		const plan = getSubscriptionNextPaidPlanId(sub);
+		const pitch =
+			plan === 'advanced'
+				? 'Advanced adds self-hosted integrations and 2M AI credits/week.'
+				: 'Pro doubles your AI credits to 1M/week.';
+
 		return html`<div class="plan__upsell">
-			<span class="plan__upsell-text">Advanced adds self-hosted integrations and 2M AI credits/week.</span>
+			<span class="plan__upsell-text">${pitch}</span>
 			<gl-button
 				appearance="secondary"
 				href=${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-					plan: 'advanced',
+					plan: plan,
 					source: 'account',
 					detail: {
 						location: 'settings-account:upsell-bar',
 						organization: sub.activeOrganization?.id,
-						plan: 'advanced',
+						plan: plan,
 					},
 				})}
-				>Upgrade to Advanced${this.renderPromo('advanced', 'icon', 'suffix')}</gl-button
+				>Upgrade to ${getSubscriptionPlanName(plan)}${this.renderPromo(plan, 'icon', 'suffix')}</gl-button
 			>
 		</div>`;
 	}

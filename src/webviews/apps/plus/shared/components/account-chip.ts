@@ -13,6 +13,7 @@ import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/mode
 import {
 	compareSubscriptionPlans,
 	getSubscriptionEntitlement,
+	getSubscriptionNextPaidPlanId,
 	getSubscriptionPlanName,
 	getSubscriptionProductPlanName,
 	getSubscriptionProductPlanNameFromState,
@@ -676,35 +677,37 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	/** The Advanced upsell, shown to paid plans below Advanced. It rides the account row rather than a plan
-	 *  row of its own — the plan is already named in the panel's header, so a row restating it was redundant. */
+	/** The next-tier upsell, shown to paid plans below Advanced. It rides the account row rather than a plan
+	 *  row of its own — the plan is already named in the panel's header, so a row restating it was redundant.
+	 *  The target is the NEXT paid tier up, not Advanced flat: Student sits below Pro, so pitching Advanced
+	 *  there would skip a tier. Matches the plan `gitlens.plus.upgrade` resolves to on its own. */
 	private renderUpgradeButton(organizationId: string | undefined) {
-		if (
-			this.subscription == null ||
-			!isSubscriptionPaid(this.subscription) ||
-			compareSubscriptionPlans(this.planId, 'advanced') >= 0
-		) {
+		const sub = this.subscription;
+		if (sub == null || !isSubscriptionPaid(sub) || compareSubscriptionPlans(this.planId, 'advanced') >= 0) {
 			return nothing;
 		}
+
+		const plan = getSubscriptionNextPaidPlanId(sub);
+		const pitch =
+			plan === 'advanced'
+				? 'Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ 2M credits/week, and more'
+				: 'Upgrade to the Pro plan for AI features @ 1M credits/week, and more';
 
 		return html`<div class="details__button">
 			<gl-button
 				appearance="secondary"
 				href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-					plan: 'advanced',
+					plan: plan,
 					source: 'account',
 					detail: {
 						location: 'plan-section:upgrade-button',
 						organization: organizationId,
-						plan: 'advanced',
+						plan: plan,
 					},
 				})}"
-				aria-label="Upgrade to Advanced"
-				><span class="upgrade-button">Upgrade</span>${this.renderPromo('advanced', 'icon', 'suffix')}
-				<span slot="tooltip"
-					>Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ 1M
-					tokens/week, and more ${this.renderPromo('advanced', 'info')}
-				</span>
+				aria-label="Upgrade to ${getSubscriptionPlanName(plan)}"
+				><span class="upgrade-button">Upgrade</span>${this.renderPromo(plan, 'icon', 'suffix')}
+				<span slot="tooltip">${pitch} ${this.renderPromo(plan, 'info')}</span>
 			</gl-button>
 		</div>`;
 	}
