@@ -364,7 +364,7 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 				return html`<gl-settings-setup .actions=${this.actions}></gl-settings-setup>`;
 
 			case 'account':
-				return html`<gl-settings-account .actions=${this.actions}></gl-settings-account>`;
+				return html`<gl-settings-account></gl-settings-account>`;
 
 			case 'info':
 				return html`<div class="info" role="note">

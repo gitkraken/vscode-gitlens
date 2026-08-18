@@ -92,7 +92,7 @@ export class SettingsActions {
 		}
 	}
 
-	// ── Shared services (subscription/integrations/AI) ──
+	// ── Shared services (integrations/AI) ──
 
 	/**
 	 * Populates the shared-service signals progressively — the panels show
@@ -104,13 +104,13 @@ export class SettingsActions {
 		// A superseded attempt's late failure must not flip an in-flight retry
 		// back to the error state
 		const generation = ++this._servicesLoadGeneration;
-		s.serviceErrors.set({ subscription: false, integrations: false, ai: false, agents: false });
+		s.serviceErrors.set({ integrations: false, ai: false, agents: false });
 
 		// A superseded attempt's late resolution must touch neither the error flags
 		// nor the data signals, or it could overwrite fresher data from the retry
 		const current = () => generation === this._servicesLoadGeneration;
 
-		const failed = (...services: ('subscription' | 'integrations' | 'ai' | 'agents')[]) => {
+		const failed = (...services: ('integrations' | 'ai' | 'agents')[]) => {
 			if (!current()) return;
 
 			const errors = { ...s.serviceErrors.get() };
@@ -120,32 +120,22 @@ export class SettingsActions {
 			s.serviceErrors.set(errors);
 		};
 
-		let subscription;
 		let integrations;
 		let ai;
 		let agents;
 		try {
 			// Resolving the sub-service handles is itself an RPC round-trip that
 			// can reject — without this, a retry could silently skeleton forever
-			[subscription, integrations, ai, agents] = await Promise.all([
-				this.services.subscription,
+			[integrations, ai, agents] = await Promise.all([
 				this.services.integrations,
 				this.services.ai,
 				this.services.agents,
 			]);
 		} catch {
-			failed('subscription', 'integrations', 'ai', 'agents');
+			failed('integrations', 'ai', 'agents');
 			return;
 		}
 
-		void subscription.getSubscription().then(
-			sub => {
-				if (current()) {
-					s.subscription.set(sub);
-				}
-			},
-			() => failed('subscription'),
-		);
 		void integrations.getIntegrationStates().then(
 			states => {
 				if (current()) {

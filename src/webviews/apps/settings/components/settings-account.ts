@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../constants.js';
@@ -30,9 +30,6 @@ import { promosContext } from '../../shared/contexts/promos.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import { formatDate } from '../../shared/date.js';
-import type { SettingsActions } from '../actions.js';
-import type { SettingsState } from '../state.js';
-import { settingsStateContext } from '../state.js';
 import '../../shared/components/badges/badge.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
@@ -136,12 +133,11 @@ interface PlanCardContent {
 /**
  * The Account section's panel — a card stack over the standard category header: an optional
  * verification alert, the signed-in identity, the plan (badges, meta, CTA, trial progress, feature
- * list, Advanced upsell), GitKraken AI usage, the active organization, refer-a-friend, and a footer
- * link row.
+ * list, Advanced upsell), the active organization, refer-a-friend, and a footer link row.
  *
  * Account/plan state comes from the shared subscription RPC signals (via `subscriptionContext`, the same
- * bridge the Graph header and Home view use); AI usage comes from the settings state. Everything acts
- * through command links — nothing here writes config.
+ * bridge the Graph header and Home view use). Everything acts through command links — nothing here
+ * writes config.
  *
  * The compact `gl-account-chip` still owns the Graph header and Home view; this panel deliberately
  * reuses its behavior (command ids, entitlement ring, promo wiring) without reusing its layout.
@@ -581,25 +577,6 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--50);
 			}
 
-			/* ── Loading / error ── */
-
-			.error {
-				display: flex;
-				gap: var(--gl-space-8);
-				align-items: center;
-				padding: var(--gl-space-10) var(--gl-space-12);
-				font-size: var(--gl-font-md);
-				line-height: 1.5;
-				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
-				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
-				border-radius: var(--gl-radius-md);
-			}
-
-			.error span {
-				flex: 1;
-			}
-
 			@container (max-width: 520px) {
 				.plan__feature-list {
 					grid-template-columns: 1fr;
@@ -620,14 +597,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	@consume({ context: subscriptionContext, subscribe: true })
 	private _subscription!: SubscriptionContextState;
 
-	@consume({ context: settingsStateContext })
-	private _state!: SettingsState;
-
 	@consume({ context: promosContext })
 	private _promos!: PromosContext;
-
-	@property({ attribute: false })
-	actions?: SettingsActions;
 
 	private get subscription(): Subscription | undefined {
 		return this._subscription.subscription.get();
@@ -662,17 +633,6 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		// `subscription` starts undefined — even Community users get a Subscription object once it loads —
 		// so anything rendered before then would assert an account state that isn't known yet.
 		if (sub === undefined) {
-			// A failed fetch must not skeleton forever; the sibling panels offer the same retry
-			if (this._state.serviceErrors.get().subscription) {
-				return html`<div class="error" role="alert">
-					<code-icon icon="error" aria-hidden="true"></code-icon>
-					<span>Couldn’t load your account status.</span>
-					<gl-button appearance="secondary" @click=${() => void this.actions?.loadSharedServices()}
-						>Retry</gl-button
-					>
-				</div>`;
-			}
-
 			return html`<skeleton-loader
 				lines="10"
 				role="status"
@@ -806,9 +766,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				// REMAINING, not elapsed — this bar has to agree with the sentence directly above it. The meta
 				// reads "9 of 14 days left", so the bar draws that same fraction and depletes toward the
 				// deadline. Filling it with elapsed time instead would put a mostly-empty bar under "9 of 14
-				// days left", where the picture and the number contradict each other. It deliberately runs the
-				// opposite direction to the AI usage bar below: this is a resource draining, that one is a
-				// meter filling.
+				// days left", where the picture and the number contradict each other.
 				content.trialRemaining != null
 					? html`<div class="plan__progress">
 							<div class="plan__track" aria-hidden="true">

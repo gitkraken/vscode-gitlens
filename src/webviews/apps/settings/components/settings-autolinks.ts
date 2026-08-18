@@ -8,6 +8,8 @@ import type { AutolinkConfig } from '../../../../config.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -208,6 +210,9 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 	@consume({ context: settingsStateContext })
 	private _state!: SettingsState;
 
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	@property({ attribute: false })
 	actions?: SettingsActions;
 
@@ -305,11 +310,11 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 	private renderIntegrationsBanner() {
 		// Wait for both services before rendering (like the integrations panel) —
 		// the signed-out copy would flash misleadingly for signed-in users
-		if (this._state.subscription.get() === undefined || this._state.cloudIntegrations.get() === undefined) {
+		if (this._subscription.subscription.get() === undefined || this._state.cloudIntegrations.get() === undefined) {
 			return nothing;
 		}
 
-		const hasAccount = this._state.hasAccount.get();
+		const hasAccount = this._subscription.hasAccount.get();
 		const hasConnectedJira = this._state.hasConnectedJira.get();
 		const hasConnectedLinear = this._state.hasConnectedLinear.get();
 
