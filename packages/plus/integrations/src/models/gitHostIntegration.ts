@@ -1,4 +1,4 @@
-import type { CollectionMetadata, CollectionScopeFailure, FieldMap, GitPullRequest } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure, GitHubPullRequestFieldMap } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
@@ -148,7 +148,7 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
  * Both fields gate the same GitHub `commits` subtree, so either truthy key retains the build-status rollup.
  * An absent map retains the full row; a summary read explicitly drops both optional fields.
  */
-const summaryPullRequestFields: Required<Pick<FieldMap<GitPullRequest>, 'headCommit' | 'commitCount'>> = {
+const summaryPullRequestFields: Required<GitHubPullRequestFieldMap> = {
 	headCommit: false,
 	commitCount: false,
 };

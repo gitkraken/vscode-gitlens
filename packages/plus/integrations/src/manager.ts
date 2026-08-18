@@ -369,13 +369,8 @@ export interface IntegrationManager {
 		 * (`statusCheckRollupState`) and `commitCount`, which share one provider selection and are therefore
 		 * dropped together. Set it on list/aggregate surfaces that read neither.
 		 *
-		 * See `summaryPullRequestFields` in `models/gitHostIntegration.ts` for what that selection costs on
-		 * GitHub and the measurements behind it.
-		 *
-		 * The ACCOUNT-WIDE branch of this read has always requested the lightweight shape; this makes it
-		 * available on the repo-scoped branch, which had no way to ask. A provider with no lightweight
-		 * projection ignores it and returns its usual shape, so it is a hint rather than a guarantee about
-		 * which fields are present.
+		 * The account-wide branch already requests this shape. A provider without a lightweight projection
+		 * ignores the option, so it is a hint rather than a guarantee about which fields are present.
 		 */
 		summary?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
@@ -423,10 +418,7 @@ export interface IntegrationManager {
 		domain?: string;
 		/**
 		 * Requests the lightweight row shape: identity, body, author, repository, branch refs and stack info,
-		 * without review, check or diff statistics. Set it on aggregate/list surfaces that do not read those —
-		 * the provider's full projection resolves them per node, which is server time rather than payload — and
-		 * note it also raises the default page size, since that follows the projection. See the `summary` option
-		 * on `GitHubApi.searchPullRequestsPage` for the measurements.
+		 * without review, check or diff statistics. It also raises the default page size.
 		 *
 		 * A provider without a lightweight projection ignores it and returns its usual shape, so this is a hint
 		 * rather than a contract about which fields are present.

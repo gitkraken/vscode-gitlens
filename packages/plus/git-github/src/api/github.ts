@@ -4527,20 +4527,9 @@ export class GitHubApi {
 			cursor?: string;
 			pageSize?: number;
 			/**
-			 * Uses the lightweight PR fragment while retaining identity, body, author, repository, branch refs and
-			 * stack info. Intended for aggregate/list surfaces that do not consume review, check, or diff
-			 * statistics — the same contract as `searchMyPullRequests`' option of the same name, stack fragment
-			 * included: the lite mapper reads `stack`/`stackEntry`, and their absence is indistinguishable from
-			 * "not stacked", so dropping them would report a negative as a fact.
-			 *
-			 * The full fragment resolves `assignees(25)`, `latestReviews(25)` and `reviewRequests(25)` per node, and
-			 * that is SERVER time rather than payload: measured against a 992-PR repo, one 30-node page took ~3090 ms
-			 * with the full fragment and ~1150 ms with the lite one, for near-identical bytes (155 KB vs 140 KB). Per
-			 * node that is 103 ms → 38 ms.
-			 *
-			 * It compounds with the page size, because the size follows the projection (see below): a single-facet
-			 * caller that wants 100 PRs pays four sequential full-fragment pages (~12.4 s) or one lite page
-			 * (~1.8 s, 18 ms/node). Multi-facet searches share that default budget across their active facets.
+			 * Uses the lightweight PR fragment, retaining identity, body, author, repository, branch refs, and stack
+			 * info while omitting review, check, and diff statistics. It also raises the default page budget, which
+			 * multi-facet searches share across their active facets.
 			 */
 			summary?: boolean;
 		},
