@@ -113,7 +113,7 @@ const leverCopy: Record<GitOptimizationId, LeverCopy> = {
 		label: 'Scheduled maintenance',
 		blurb: 'Lets Git maintain this repository on a schedule, including while VS Code is closed.',
 		benefit:
-			'Runs Git’s own maintenance on a schedule, even while VS Code is closed — for large or chronically slow repositories.',
+			'Runs Git’s own object, history, and reference maintenance on a schedule, even while VS Code is closed.',
 		changes: {
 			before: 'Enabling registers hourly prefetch that runs even when VS Code is closed, writing global Git config and a system scheduler entry (launchd, schtasks, or a systemd timer).',
 		},
@@ -960,11 +960,11 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				ariaValueText = `${bytes} of pack data; ${thresholdLabel}`;
 				break;
 			}
-			case 'slowness': {
+			case 'worktreeSlowness': {
 				const seconds = (value / 1000).toFixed(1);
 				return html`<div class="meter">
 					<div class="meter-labels">
-						<span>slow Git commands observed (up to <b>${seconds}s</b>)</span>
+						<span>slow working-tree commands observed (up to <b>${seconds}s</b>)</span>
 						<span>threshold ${(threshold / 1000).toLocaleString()}s</span>
 					</div>
 				</div>`;

@@ -128,6 +128,10 @@ function optimizationIds(findings: readonly GitHealthFinding[]): GitOptimization
 		.filter((id): id is GitOptimizationId => id != null);
 }
 
+function makeSlowness(category: keyof GitHealthSlowness, maxDurationMs = 3000, count = 1): GitHealthSlowness {
+	return { [category]: { count: count, lastAt: Date.now(), maxDurationMs: maxDurationMs } };
+}
+
 suite('gitHealth.estimateLooseObjects', () => {
 	test('extrapolates a full sample to 256 fanout dirs', () => {
 		assert.strictEqual(estimateLooseObjects(256, 16), 4096);
@@ -441,15 +445,25 @@ suite('gitHealth.computeHealthReport — ask tier', () => {
 		assert.strictEqual(optimizationIds(report.findings).includes('backgroundMaintenance'), false);
 	});
 
-	test('slowness alone (on a small repo) suggests backgroundMaintenance with a slowness reason', () => {
-		const slowness: GitHealthSlowness = { count: 3, lastAt: Date.now(), maxDurationMs: 4200 };
+	test('worktree slowness targets worktree levers instead of background maintenance', () => {
+		const slowness = makeSlowness('worktree', 4200, 3);
 		const report = computeHealthReport(makeSnapshot(), slowness, makeCapabilities());
-		const bg = report.findings.find(
-			f => f.action.kind === 'optimization' && f.action.id === 'backgroundMaintenance',
-		);
-		assert.ok(bg != null);
-		assert.strictEqual(bg.reason, 'slowness');
-		assert.strictEqual(bg.value, 4200);
+		const worktree = report.findings.find(f => f.action.kind === 'optimization' && f.action.id === 'fsmonitor');
+		assert.ok(worktree != null);
+		assert.strictEqual(worktree.reason, 'worktreeSlowness');
+		assert.strictEqual(worktree.value, 4200);
+		assert.strictEqual(optimizationIds(report.findings).includes('backgroundMaintenance'), false);
+	});
+
+	test('history, ref, and object slowness do not manufacture unrelated optimization findings', () => {
+		for (const category of ['history', 'refs', 'objects'] as const) {
+			const report = computeHealthReport(makeSnapshot(), makeSlowness(category), makeCapabilities());
+			assert.deepStrictEqual(
+				optimizationIds(report.findings),
+				[],
+				`${category} slowness should wait for its measured cache or maintenance condition`,
+			);
+		}
 	});
 });
 
@@ -463,10 +477,18 @@ suite('gitHealth.isBannerEligible', () => {
 		assert.strictEqual(isBannerEligible(report, undefined), true);
 	});
 
-	test('fires when an ask-tier fix exists and slowness was observed', () => {
-		const slowness: GitHealthSlowness = { count: 1, lastAt: Date.now(), maxDurationMs: 3000 };
+	test('fires when a worktree-targeted fix exists and worktree slowness was observed', () => {
+		const slowness = makeSlowness('worktree');
 		const report = computeHealthReport(makeSnapshot(), slowness, makeCapabilities());
 		assert.strictEqual(isBannerEligible(report, slowness), true);
+	});
+
+	test('does not fire for history, ref, or object slowness alone', () => {
+		for (const category of ['history', 'refs', 'objects'] as const) {
+			const slowness = makeSlowness(category);
+			const report = computeHealthReport(makeSnapshot(), slowness, makeCapabilities());
+			assert.strictEqual(isBannerEligible(report, slowness), false);
+		}
 	});
 
 	test('does not fire when there are no ask-tier fixes', () => {
@@ -725,14 +747,9 @@ suite('gitHealth.computeHealthReport — backgroundMaintenance evidence priority
 		assert.strictEqual(bg.reason, 'trackedFiles');
 	});
 
-	test('slowness still wins over both when the repo is not clearly large', () => {
-		const slowness: GitHealthSlowness = { count: 1, lastAt: Date.now(), maxDurationMs: 3000 };
-		const report = computeHealthReport(makeSnapshot(), slowness, makeCapabilities());
-		const bg = report.findings.find(
-			f => f.action.kind === 'optimization' && f.action.id === 'backgroundMaintenance',
-		);
-		assert.ok(bg != null);
-		assert.strictEqual(bg.reason, 'slowness');
+	test('worktree slowness does not suggest scheduled maintenance for a small repository', () => {
+		const report = computeHealthReport(makeSnapshot(), makeSlowness('worktree'), makeCapabilities());
+		assert.strictEqual(optimizationIds(report.findings).includes('backgroundMaintenance'), false);
 	});
 });
 

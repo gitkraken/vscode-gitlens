@@ -1539,31 +1539,39 @@ background-upgraded the extension while the host kept running the old build
   // Whether a multi-pack-index is present
   'multiPackIndex': boolean,
   // Whether Git is configured to use the multi-pack-index
-  'multiPackIndex.enabled': boolean | undefined,
+  'multiPackIndex.enabled': boolean,
   // Total bytes of all pack files
   'packs.bytes': number,
   // Number of `*.pack` files in the object store
   'packs.count': number,
   // Number of pack files not represented by the active multi-pack-index
-  'packs.outsideMultiPackIndex': number | undefined,
+  'packs.outsideMultiPackIndex': number,
   // Loose refs found by the bounded files-backend probe
   'refs.loose': number,
   // Whether `refs.loose` is the complete count rather than the probe cap
   'refs.looseExact': boolean,
   // Whether the repository uses a promisor remote; undefined when unreadable
-  'repository.partial': boolean | undefined,
+  'repository.partial': boolean,
   // Repository reference-storage backend
-  'repository.refFormat': 'files' | 'reftable' | 'unknown',
+  'repository.refFormat': 'unknown' | 'files' | 'reftable',
   // Whether the local repository has an intentional shallow-history boundary; undefined when unreadable
-  'repository.shallow': boolean | undefined,
+  'repository.shallow': boolean,
   // Whether sparse checkout is enabled; undefined when config was unreadable
-  'repository.sparseCheckout': boolean | undefined,
+  'repository.sparseCheckout': boolean,
   // Whether sparse-index writes are enabled; undefined when config was unreadable
-  'repository.sparseIndex': boolean | undefined,
+  'repository.sparseIndex': boolean,
   // Whether this worktree uses a split index; undefined when detection failed
-  'repository.splitIndex': boolean | undefined,
+  'repository.splitIndex': boolean,
   // Count of slow git commands observed for this repo — persisted across sessions, pruned after 30 days idle
-  'slowness.count': number
+  'slowness.count': number,
+  // Slow history commands observed
+  'slowness.history': number,
+  // Slow object-lookup commands observed
+  'slowness.objects': number,
+  // Slow reference-iteration commands observed
+  'slowness.refs': number,
+  // Slow working-tree commands observed
+  'slowness.worktree': number
 }
 ```
 
@@ -1580,7 +1588,7 @@ background-upgraded the extension while the host kept running the old build
 
 ### gitOptimizations/maintenance/run
 
-> Sent when the auto-tier invokes a `git maintenance run --task=…` one-shot (or "Run Maintenance Now")
+> Sent when the auto-tier runs a `git maintenance run --task=…` one-shot (or "Run Maintenance Now")
 
 ```typescript
 {
@@ -7421,3 +7429,4 @@ or
   'loading': boolean
 }
 ```
+

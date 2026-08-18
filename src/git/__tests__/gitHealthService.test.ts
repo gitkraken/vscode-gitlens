@@ -222,7 +222,7 @@ suite('GitHealthService Test Suite', () => {
 		sandbox.restore();
 	});
 
-	test('records only local repository operations as passive slowness', async () => {
+	test('records only classified local operations and targets worktree slowness', async () => {
 		for (const operation of ['fetch', 'push', 'pull', 'clone', 'commit']) {
 			harness.service.recordSlowCommand(harness.repo.path, 2500, operation);
 		}
@@ -231,46 +231,102 @@ suite('GitHealthService Test Suite', () => {
 		const before = await service.probe(harness.repo);
 		assert.ok(before != null);
 		assert.strictEqual(
-			before.findings.some(f => f.reason === 'slowness'),
+			before.findings.some(f => f.reason === 'worktreeSlowness'),
 			false,
 			'remote and interactive operations must not become repository-health evidence',
+		);
+
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'log');
+		const afterHistory = await service.probe(harness.repo);
+		assert.ok(afterHistory != null);
+		assert.strictEqual(
+			afterHistory.findings.some(f => f.reason === 'worktreeSlowness'),
+			false,
+			'history slowness must not advertise worktree optimizations',
 		);
 
 		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
 		const after = await service.probe(harness.repo);
 		assert.ok(after != null);
 		assert.strictEqual(
-			after.findings.some(f => f.reason === 'slowness'),
+			after.findings.some(f => f.reason === 'worktreeSlowness'),
 			true,
 			'a slow local status operation should become repository-health evidence',
 		);
 	});
 
-	test('hydrates only v2 slowness and deletes the retired v1 key once', async () => {
+	test('hydrates only v3 slowness and deletes retired aggregate keys once', async () => {
 		const now = Date.now();
-		harness.getWorkspace.withArgs('gitHealth:slowness:v2').returns({
-			[harness.repo.path]: { count: 2, lastAt: now, maxDurationMs: 1200 },
+		harness.getWorkspace.withArgs('gitHealth:slowness:v3').returns({
+			[harness.repo.path]: { worktree: { count: 2, lastAt: now, maxDurationMs: 1200 } },
 		});
 		harness.getWorkspace.withArgs('gitHealth:slowness').returns({
+			[harness.repo.path]: { count: 100, lastAt: now, maxDurationMs: 10000 },
+		});
+		harness.getWorkspace.withArgs('gitHealth:slowness:v2').returns({
 			[harness.repo.path]: { count: 100, lastAt: now, maxDurationMs: 10000 },
 		});
 
 		harness.service.recordSlowCommand(harness.repo.path, 2000, 'status');
 		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
 
-		sinon.assert.calledOnceWithExactly(harness.getWorkspace, 'gitHealth:slowness:v2');
-		sinon.assert.calledOnceWithExactly(harness.deleteWorkspace, 'gitHealth:slowness');
+		sinon.assert.calledOnceWithExactly(harness.getWorkspace, 'gitHealth:slowness:v3');
+		sinon.assert.calledWithExactly(harness.deleteWorkspace, 'gitHealth:slowness');
+		sinon.assert.calledWithExactly(harness.deleteWorkspace, 'gitHealth:slowness:v2');
 
 		// Dispose flushes the debounced write so the persisted value proves the retired v1 data was never merged.
 		harness.service.dispose();
 		await settleAsyncWork();
 		sinon.assert.calledOnce(harness.storeWorkspace);
 		const [key, stored] = harness.storeWorkspace.firstCall.args;
-		assert.strictEqual(key, 'gitHealth:slowness:v2');
-		const storedByRepo = stored as Record<string, { count: number; lastAt: number; maxDurationMs: number }>;
-		assert.strictEqual(storedByRepo[harness.repo.path].count, 4);
-		assert.ok(storedByRepo[harness.repo.path].lastAt >= now);
-		assert.strictEqual(storedByRepo[harness.repo.path].maxDurationMs, 2500);
+		assert.strictEqual(key, 'gitHealth:slowness:v3');
+		const storedByRepo = stored as Record<
+			string,
+			{ worktree: { count: number; lastAt: number; maxDurationMs: number } }
+		>;
+		assert.strictEqual(storedByRepo[harness.repo.path].worktree.count, 4);
+		assert.ok(storedByRepo[harness.repo.path].worktree.lastAt >= now);
+		assert.strictEqual(storedByRepo[harness.repo.path].worktree.maxDurationMs, 2500);
+	});
+
+	test('persists slow operations in their worktree, history, refs, and object families', async () => {
+		for (const operation of ['status', 'log', 'for-each-ref', 'cat-file']) {
+			harness.service.recordSlowCommand(harness.repo.path, 2500, operation);
+		}
+
+		harness.service.dispose();
+		await settleAsyncWork();
+		const [, stored] = harness.storeWorkspace.firstCall.args;
+		const storedByRepo = stored as Record<
+			string,
+			Record<'worktree' | 'history' | 'refs' | 'objects', { count: number }>
+		>;
+		assert.deepStrictEqual(
+			Object.fromEntries(
+				Object.entries(storedByRepo[harness.repo.path]).map(([category, sample]) => [category, sample.count]),
+			),
+			{ worktree: 1, history: 1, refs: 1, objects: 1 },
+		);
+	});
+
+	test('drops malformed and stale v3 categories without discarding recent valid evidence', async () => {
+		const now = Date.now();
+		harness.getWorkspace.withArgs('gitHealth:slowness:v3').returns({
+			[harness.repo.path]: {
+				worktree: 'malformed',
+				history: { count: 4, lastAt: 0, maxDurationMs: 9000 },
+				refs: { count: 2, lastAt: now, maxDurationMs: 3000 },
+			},
+		});
+
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+		harness.service.dispose();
+		await settleAsyncWork();
+		const [, stored] = harness.storeWorkspace.firstCall.args;
+		const storedByRepo = stored as Record<string, Record<string, { count: number }>>;
+		assert.deepStrictEqual(Object.keys(storedByRepo[harness.repo.path]).sort(), ['refs', 'worktree']);
+		assert.strictEqual(storedByRepo[harness.repo.path].refs.count, 2);
+		assert.strictEqual(storedByRepo[harness.repo.path].worktree.count, 1);
 	});
 
 	test('caches completed details across repeated calls', async () => {

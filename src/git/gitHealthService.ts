@@ -5,6 +5,8 @@ import type {
 	GitHealthLever,
 	GitHealthReport,
 	GitHealthSlowness,
+	GitHealthSlownessCategory,
+	GitHealthSlownessSample,
 	GitOptimizationTier,
 } from '@gitlens/git/gitHealth.js';
 import {
@@ -29,27 +31,28 @@ const dailyPassIntervalMs = 24 * 60 * 60 * 1000;
 const persistSlownessDebounceMs = 5000;
 /** Debounce for change-driven re-probes so a burst of index events collapses to one probe. */
 const probeDebounceMs = 2000;
-/** Local operations whose runtime can plausibly be improved by the repository optimizations Health offers. */
-const localHealthSignalOperations = new Set([
-	'add',
-	'blame',
-	'cat-file',
-	'checkout',
-	'diff',
-	'for-each-ref',
-	'log',
-	'ls-files',
-	'merge-base',
-	'read-tree',
-	'restore',
-	'reset',
-	'rev-list',
-	'show',
-	'status',
-	'switch',
-	'update-index',
+/** Local operations whose runtime maps to a Git Health optimization surface. */
+const localHealthSignalOperations = new Map<string, GitHealthSlownessCategory>([
+	['add', 'worktree'],
+	['checkout', 'worktree'],
+	['diff', 'worktree'],
+	['ls-files', 'worktree'],
+	['read-tree', 'worktree'],
+	['restore', 'worktree'],
+	['reset', 'worktree'],
+	['status', 'worktree'],
+	['switch', 'worktree'],
+	['update-index', 'worktree'],
+	['blame', 'history'],
+	['log', 'history'],
+	['merge-base', 'history'],
+	['rev-list', 'history'],
+	['show', 'history'],
+	['for-each-ref', 'refs'],
+	['cat-file', 'objects'],
 ]);
-/** Slowness entries idle longer than this are dropped at hydrate time so removed repos don't accrue forever. */
+const healthSlownessCategories: readonly GitHealthSlownessCategory[] = ['worktree', 'history', 'refs', 'objects'];
+/** Slowness categories idle longer than this are dropped at hydrate time so removed repos don't accrue forever. */
 const slownessMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
 
 /** Coarsens a maintenance duration into a telemetry-friendly bucket. */
@@ -59,6 +62,22 @@ function bucketDuration(ms: number): GitHealthDurationBucket {
 	if (ms < 15000) return '5-15s';
 	if (ms < 60000) return '15-60s';
 	return '>60s';
+}
+
+function isSlownessSample(value: unknown): value is GitHealthSlownessSample {
+	if (value == null || typeof value !== 'object') return false;
+
+	const sample = value as Partial<GitHealthSlownessSample>;
+	return (
+		typeof sample.count === 'number' &&
+		Number.isFinite(sample.count) &&
+		sample.count >= 0 &&
+		typeof sample.lastAt === 'number' &&
+		Number.isFinite(sample.lastAt) &&
+		typeof sample.maxDurationMs === 'number' &&
+		Number.isFinite(sample.maxDurationMs) &&
+		sample.maxDurationMs >= 0
+	);
 }
 
 /**
@@ -163,28 +182,34 @@ export class GitHealthService implements Disposable {
 	recordSlowCommand(cwd: string | undefined, duration: number, operation: string | undefined): void {
 		if (cwd == null || cwd.length === 0) return;
 		if (!configuration.get('gitOptimizations.enabled')) return;
-		// A blacklist lets fetch/push/clone, credential prompts, hooks, and editors leak through as "repository
-		// slowness", even though scheduled maintenance cannot fix them. Only local repository operations count.
-		if (operation == null || !localHealthSignalOperations.has(operation)) return;
+
+		// An allowlist keeps fetch/push/clone, credential prompts, hooks, and editors from leaking through as
+		// repository slowness. The category then constrains which optimization can use the evidence.
+		const category = operation == null ? undefined : localHealthSignalOperations.get(operation);
+		if (category == null) return;
 
 		const repo = this.container.git.getRepository(cwd);
 		if (repo == null) return;
 
 		const slowness = this.getSlowness();
 		const prev = slowness.get(repo.path);
-		slowness.set(repo.path, {
-			count: (prev?.count ?? 0) + 1,
+		const prevCategory = prev?.[category];
+		const nextCategory: GitHealthSlownessSample = {
+			count: (prevCategory?.count ?? 0) + 1,
 			lastAt: Date.now(),
-			maxDurationMs: Math.max(prev?.maxDurationMs ?? 0, Math.round(duration)),
+			maxDurationMs: Math.max(prevCategory?.maxDurationMs ?? 0, Math.round(duration)),
+		};
+		slowness.set(repo.path, {
+			...prev,
+			[category]: nextCategory,
 		});
 		this._persistSlownessDebounced();
 
 		// A cached report is computed from the slowness known at probe time, so newly observed slowness
 		// would otherwise not reach the UI until an unrelated repo change or the next session. Re-probe
-		// only on the FIRST slow command: `computeHealthReport` gates on `count > 0`, so that's the one
-		// transition that can change a recommendation — and re-probing per slow command would itself run
-		// git, re-arming this hook.
-		if (prev == null) {
+		// only on the FIRST slow command in each family: that's the transition that can change a targeted
+		// recommendation, and re-probing every slow command would itself run git and re-arm this hook.
+		if (prevCategory == null) {
 			this.scheduleProbe(repo);
 		}
 	}
@@ -468,6 +493,7 @@ export class GitHealthService implements Disposable {
 
 			const capabilities = getSettledValue(capabilitiesResult) ?? [];
 			const slowness = this.getSlowness().get(repo.path);
+			const slownessCount = Object.values(slowness ?? {}).reduce((sum, sample) => sum + sample.count, 0);
 			const report = computeHealthReport(snapshot, slowness, capabilities);
 			const levers = computeLevers(snapshot, capabilities, report);
 			const state = JSON.stringify([report, levers]);
@@ -502,7 +528,11 @@ export class GitHealthService implements Disposable {
 				'findings.total': report.findings.length,
 				'findings.auto': report.findings.filter(f => f.tier === 'auto').length,
 				'findings.ask': report.findings.filter(f => f.tier === 'ask').length,
-				'slowness.count': slowness?.count ?? 0,
+				'slowness.count': slownessCount,
+				'slowness.worktree': slowness?.worktree?.count ?? 0,
+				'slowness.history': slowness?.history?.count ?? 0,
+				'slowness.refs': slowness?.refs?.count ?? 0,
+				'slowness.objects': slowness?.objects?.count ?? 0,
 			};
 			// Re-probes are frequent (debounced index changes, post-fix refreshes) — only report changes.
 			const serialized = JSON.stringify(event);
@@ -708,16 +738,28 @@ export class GitHealthService implements Disposable {
 
 	private getSlowness(): Map<string, GitHealthSlowness> {
 		if (this._slowness == null) {
-			const stored = this.container.storage.getWorkspace('gitHealth:slowness:v2') ?? {};
+			const stored = this.container.storage.getWorkspace('gitHealth:slowness:v3') ?? {};
 			// Age-prune at hydrate so entries for long-gone repos don't accumulate in workspace storage
 			// forever (entries are deliberately kept across repo close/reopen within the window).
 			const cutoff = Date.now() - slownessMaxAgeMs;
-			this._slowness = new Map<string, GitHealthSlowness>(
-				Object.entries(stored).filter(([, value]) => value.lastAt >= cutoff),
-			);
+			this._slowness = new Map<string, GitHealthSlowness>();
+			for (const [repoPath, value] of Object.entries(stored)) {
+				const recent: GitHealthSlowness = {};
+				for (const category of healthSlownessCategories) {
+					const sample = (value as Record<string, unknown> | null)?.[category];
+					if (isSlownessSample(sample) && sample.lastAt >= cutoff) {
+						recent[category] = sample;
+					}
+				}
+				if (Object.keys(recent).length !== 0) {
+					this._slowness.set(repoPath, recent);
+				}
+			}
 
-			// One-time cleanup of the superseded v1 key, whose data included remote/interactive time.
+			// One-time cleanup of the aggregate v1/v2 data. Neither can be assigned to an operation family
+			// without inventing evidence, so fail toward no recommendation instead of migrating it.
 			void this.container.storage.deleteWorkspace('gitHealth:slowness').catch(() => {});
+			void this.container.storage.deleteWorkspace('gitHealth:slowness:v2').catch(() => {});
 		}
 		return this._slowness;
 	}
@@ -726,7 +768,7 @@ export class GitHealthService implements Disposable {
 		if (this._slowness == null) return;
 
 		try {
-			await this.container.storage.storeWorkspace('gitHealth:slowness:v2', Object.fromEntries(this._slowness));
+			await this.container.storage.storeWorkspace('gitHealth:slowness:v3', Object.fromEntries(this._slowness));
 		} catch (ex) {
 			Logger.error(ex, 'GitHealthService.persistSlowness');
 		}

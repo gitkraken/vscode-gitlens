@@ -2643,6 +2643,14 @@ interface GitHealthProbeEvent {
 	'findings.ask': number;
 	/** Count of slow git commands observed for this repo — persisted across sessions, pruned after 30 days idle */
 	'slowness.count': number;
+	/** Slow working-tree commands observed */
+	'slowness.worktree': number;
+	/** Slow history commands observed */
+	'slowness.history': number;
+	/** Slow reference-iteration commands observed */
+	'slowness.refs': number;
+	/** Slow object-lookup commands observed */
+	'slowness.objects': number;
 }
 
 interface GitOptimizationsMaintenanceRunEvent {

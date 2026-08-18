@@ -25,8 +25,11 @@ export const approxBytesPerIndexEntry = 80;
 /** Duration (ms) above which a git command is "slow" — mirrors the exec-layer slow-call threshold. */
 export const slowCommandThresholdMs = 2000;
 
-/** Persisted passive-slowness summary per repo (rides the `onSlowCommand` exec hook). */
-export interface GitHealthSlowness {
+/** Git operation families whose runtime maps to a distinct repository optimization surface. */
+export type GitHealthSlownessCategory = 'worktree' | 'history' | 'refs' | 'objects';
+
+/** Persisted passive-slowness sample for one operation family. */
+export interface GitHealthSlownessSample {
 	/** Number of slow git commands observed for this repo. */
 	readonly count: number;
 	/** Epoch ms of the most recent slow command. */
@@ -34,6 +37,9 @@ export interface GitHealthSlowness {
 	/** Longest single slow-command duration observed (ms). */
 	readonly maxDurationMs: number;
 }
+
+/** Per-repo passive-slowness summary, split so recommendations only target the affected operation family. */
+export type GitHealthSlowness = Partial<Record<GitHealthSlownessCategory, GitHealthSlownessSample>>;
 
 export type GitOptimizationTier = 'auto' | 'ask';
 
@@ -47,7 +53,7 @@ export type GitHealthFindingReason =
 	| 'packsOutsideMultiPackIndex'
 	| 'trackedFiles'
 	| 'largePacks'
-	| 'slowness';
+	| 'worktreeSlowness';
 
 /** A single recommendation: a lever to apply, its tier, and the evidence that triggered it. */
 export interface GitHealthFinding {
@@ -236,37 +242,40 @@ export function computeHealthReport(
 				snapshot.indexEntryCountType === 'full',
 		},
 	];
-	if (largeWorkingTree) {
+	const worktreeSlowness = slowness?.worktree;
+	const worktreeSlownessObserved = (worktreeSlowness?.count ?? 0) > 0;
+	if (largeWorkingTree || worktreeSlownessObserved) {
+		const evidence: Pick<GitHealthFinding, 'reason' | 'value' | 'threshold'> = largeWorkingTree
+			? trackedFilesEvidence
+			: {
+					reason: 'worktreeSlowness',
+					value: worktreeSlowness?.maxDurationMs ?? 0,
+					threshold: slowCommandThresholdMs,
+				};
 		for (const lever of workingTreeLevers) {
 			if (!lever.eligible || !supported(lever.id)) continue;
 
 			findings.push({
 				tier: lever.tier,
-				...trackedFilesEvidence,
+				...evidence,
 				action: { kind: 'optimization', id: lever.id },
 			});
 		}
 	}
 
 	// Ask tier — system-scheduled background maintenance. Suggested for a not-yet-registered repo that's
-	// either clearly large OR where passive slowness has been observed (its value is that it also runs
-	// when VS Code is closed, so a chronically slow repo benefits even if it isn't huge on disk).
-	const slownessObserved = (slowness?.count ?? 0) > 0;
+	// clearly large. Passive slowness is deliberately NOT enough: worktree slowness maps to the worktree
+	// levers above, history is already covered by demand commit-graph writes, and ref/object maintenance has
+	// its own measured auto-tier conditions. A generic scheduler recommendation would promise the wrong fix.
 	// `=== false`, not falsy: `undefined` means the registration list couldn't be read, and an unknown state
 	// must never be suggested away — that's how a user's own registration gets silently reclaimed by Undo.
-	if (
-		(clearlyLarge || slownessObserved) &&
-		snapshot.maintenanceRegistered === false &&
-		supported('backgroundMaintenance')
-	) {
+	if (clearlyLarge && snapshot.maintenanceRegistered === false && supported('backgroundMaintenance')) {
 		// Resolve the evidence once so reason/value/threshold can never drift apart. Ordered so each
 		// suggestion argues from its most DISTINCTIVE signal rather than whichever crossed first: a repo
 		// large by both file count and pack bytes would otherwise attach the same tracked-files evidence to
 		// this finding as to the fsmonitor/manyFiles findings, and the view would show two identical meters.
 		let evidence: Pick<GitHealthFinding, 'reason' | 'value' | 'threshold'>;
-		if (!clearlyLarge && slownessObserved) {
-			evidence = { reason: 'slowness', value: slowness?.maxDurationMs ?? 0, threshold: slowCommandThresholdMs };
-		} else if (snapshot.packBytes >= largePackBytesThreshold) {
+		if (snapshot.packBytes >= largePackBytesThreshold) {
 			evidence = { reason: 'largePacks', value: snapshot.packBytes, threshold: largePackBytesThreshold };
 		} else {
 			evidence = trackedFilesEvidence;
@@ -485,11 +494,11 @@ export function getAutoOptimizations(report: GitHealthReport): GitOptimizationId
 }
 
 /**
- * Banner rule: fire only when the report contains an ask-tier fix AND the repo is clearly large OR
- * passive slowness has been observed. Small, fast repos never see it.
+ * Banner rule: fire only when the report contains an ask-tier fix and the repo is clearly large or slow in
+ * the working-tree family. History/ref/object slowness must not advertise unrelated worktree levers.
  */
 export function isBannerEligible(report: GitHealthReport, slowness: GitHealthSlowness | undefined): boolean {
 	const hasAskTierFix = report.findings.some(f => f.tier === 'ask');
-	const slownessObserved = (slowness?.count ?? 0) > 0;
-	return hasAskTierFix && (report.clearlyLarge || slownessObserved);
+	const worktreeSlownessObserved = (slowness?.worktree?.count ?? 0) > 0;
+	return hasAskTierFix && (report.clearlyLarge || worktreeSlownessObserved);
 }

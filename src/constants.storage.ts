@@ -1,6 +1,6 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
-import type { GitHealthSlowness } from '@gitlens/git/gitHealth.js';
+import type { GitHealthSlowness, GitHealthSlownessSample } from '@gitlens/git/gitHealth.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
 import type {
 	IntegrationIds,
@@ -198,8 +198,10 @@ export type DeprecatedWorkspaceStorage = {
 	'graph:banners:dismissed': Record<string, boolean>;
 	/** @deprecated */
 	'views:searchAndCompare:keepResults': boolean;
-	/** @deprecated Superseded by the v2 key; its data included remote/interactive command time. */
-	'gitHealth:slowness': Record<string, StoredGitHealthSlowness>;
+	/** @deprecated Superseded by v2; its data included remote/interactive command time. */
+	'gitHealth:slowness': Record<string, GitHealthSlownessSample>;
+	/** @deprecated Superseded by v3; aggregate data cannot be safely assigned to an operation family. */
+	'gitHealth:slowness:v2': Record<string, GitHealthSlownessSample>;
 } & {
 	/** @deprecated */
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
@@ -215,8 +217,8 @@ interface WorkspaceStorageCore {
 	/** Per-repo sticky state for switch's "In a New Worktree" toggle. Key is the repo id. */
 	'gitComandPalette:switch:viaWorktree': Record<string, boolean>;
 	'gitComandPalette:worktreeDelete:actions': StoredWorktreeDeleteActions;
-	/** Local-operation git-slowness summary per repo path (feeds the Git Health banner). */
-	'gitHealth:slowness:v2': Record<string, StoredGitHealthSlowness>;
+	/** Operation-classified local git-slowness summary per repo path (feeds targeted Git Health guidance). */
+	'gitHealth:slowness:v3': Record<string, StoredGitHealthSlowness>;
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
