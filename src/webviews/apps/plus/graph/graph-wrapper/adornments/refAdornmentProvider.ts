@@ -59,8 +59,10 @@ export interface ParsedRef {
  */
 export interface RefPillHooks {
 	/** Ahead/behind for a tracked ref (from the lazily-fetched upstream metadata), or undefined if not
-	 *  loaded. A remote resolves to its tracking local's metadata, read from the remote's perspective. */
-	getUpstream: (ref: ParsedRef) => { ahead: number; behind: number } | undefined;
+	 *  loaded. A remote resolves to its tracking local's metadata, read from the remote's perspective.
+	 *  `missing` marks a GONE upstream (it existed and was deleted on the remote) — never swapped like
+	 *  ahead/behind, since it's a property of the pairing, not a direction. */
+	getUpstream: (ref: ParsedRef) => { ahead: number; behind: number; missing?: boolean } | undefined;
 	/** The linked ref's row to jump to (a head's upstream remote, or a remote's tracking local) + the
 	 *  vertical direction to it relative to `fromSha`'s row + the target's display name (for the tooltip).
 	 *  Undefined when there's no linked row in view. */
@@ -866,6 +868,17 @@ function upstreamStatusTooltip(
 	return { label: label, aria: `${targetType} ${label}` };
 }
 
+// Tooltip for a GONE upstream — it existed and was deleted on the remote, so there's no ahead/behind to
+// compare and no counterpart to jump to, just the fact it's gone. Only ever an upstream (see the caller:
+// "gone" is a property of a local branch's upstream, so the remote side never renders it), hence no
+// `targetType` parameter. Same branch-name fallback as `upstreamStatusTooltip`/`jumpTooltip`; the aria
+// form names the side since the glyph isn't readable.
+function missingUpstreamTooltip(name: string | undefined): { label: string; aria: string } {
+	const branch = name != null && name.length > 0 ? name : 'upstream branch';
+	const label = `${branch} is gone`;
+	return { label: label, aria: `Upstream ${label}` };
+}
+
 /**
  * The split pill's upstream segment, linking the primary ref to its tracked counterpart:
  *  - IN SYNC (`upstreamOnRow` set — the upstream remote sits on this same row): a static combined
@@ -875,7 +888,12 @@ function upstreamStatusTooltip(
  *  - OUT OF SYNC, counterpart NOT loaded/displayed: a NON-interactive status span (glyph + ahead/behind
  *    stats, no jump arrow). The ahead/behind comes from `getUpstream` and must NOT vanish just because
  *    the jump target scrolled out of the loaded set (that was the "stats disappear on scroll" bug).
- * Renders nothing only when the ref has neither ahead/behind stats nor a reachable counterpart.
+ *  - GONE (`getUpstream` reports `missing`): the upstream existed and was deleted on the remote. A
+ *    status only, like the case above — there's no counterpart to diff against or jump to, so this
+ *    never takes the button form. Same linked-ref glyph, plus the `error` glyph in the missing-upstream
+ *    color every other GitLens surface uses for this state (`gl-tracking-pill`'s `.state--missing`).
+ * Renders nothing only when the ref has neither ahead/behind stats, a reachable counterpart, nor a gone
+ * upstream to report.
  */
 function renderUpstreamSegment(
 	ref: ParsedRef,
@@ -919,9 +937,6 @@ function renderUpstreamSegment(
 
 	const stats = hooks.getUpstream(ref);
 	const jump = hooks.resolveJump(ref, fromSha);
-	// Nothing to show: no ahead/behind AND no reachable counterpart to jump to.
-	const hasStats = stats != null && (stats.ahead > 0 || stats.behind > 0);
-	if (!hasStats && jump == null) return nothing;
 
 	// The id the RAW upstream metadata object is keyed on (same one `getUpstream` reads) — lets a
 	// double-click on this segment resolve the full object back up (pull/push routing on the host).
@@ -930,6 +945,34 @@ function renderUpstreamSegment(
 	// Leading glyph = the LINKED ref's kind: a head links to its remote upstream (cloud); a remote links
 	// to the local branch tracking it (the local-branch `vm` glyph).
 	const linkIcon = ref.kind === 'head' ? 'cloud' : 'vm';
+
+	// Gone: checked BEFORE the "nothing to show" bail below, since a gone upstream has no ahead/behind
+	// and (being gone) is never resolvable as a jump target either — without this check it would fall
+	// through to "renders nothing", same as no upstream at all.
+	//
+	// HEAD ONLY. "Gone" is a fact about a LOCAL branch's upstream, and the metadata is keyed on the local
+	// head — so a remote pill reads its tracking local's `missing` flag, which says nothing about the
+	// remote itself. It is also self-contradictory: a rendered remote pill means that remote ref exists
+	// on a row, so it plainly is not gone. Rendering it there would label an existing branch "gone" (and,
+	// with no `upstreamName` on that side, as the bare "local branch is gone").
+	if (stats?.missing && ref.kind === 'head') {
+		const missingTip = missingUpstreamTooltip(ref.upstreamName);
+		return html`<span
+			class="gl-graph__ref-pill-upstream"
+			aria-label=${missingTip.aria}
+			data-tooltip=${missingTip.label}
+			data-ref-metadata-type="upstream"
+			data-ref-id=${metadataId ?? nothing}
+		>
+			<code-icon class="gl-graph__ref-pill-upstream-icon" icon=${linkIcon}></code-icon>
+			<code-icon class="gl-graph__ref-pill-upstream-missing-icon" icon="error"></code-icon>
+		</span>`;
+	}
+
+	// Nothing to show: no ahead/behind AND no reachable counterpart to jump to.
+	const hasStats = stats != null && (stats.ahead > 0 || stats.behind > 0);
+	if (!hasStats && jump == null) return nothing;
+
 	const trackingPill =
 		stats != null && (stats.ahead > 0 || stats.behind > 0)
 			? html`<gl-tracking-pill

@@ -200,6 +200,10 @@ export interface UpstreamMetadata extends BaseRefMetadata {
 	ahead: number;
 	behind: number;
 	sha?: string;
+	/** True when the upstream branch existed but was deleted on the remote (git's "gone" state) —
+	 *  distinct from having no upstream at all, which is `RefMetadata.upstream` being `null`. Optional
+	 *  so producers/consumers that predate this field are unaffected. */
+	missing?: boolean;
 }
 export interface IssueMetadata extends BaseRefMetadata {
 	displayId: string;

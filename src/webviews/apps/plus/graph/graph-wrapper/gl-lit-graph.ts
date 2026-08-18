@@ -3351,15 +3351,17 @@ export class GlLitGraph extends LitElement {
 
 	// Ahead/behind for a tracked ref (undefined until the lazy upstream metadata loads). The host keys
 	// the ahead/behind on the LOCAL head's id, so a remote pill resolves to its tracking local's metadata
-	// and reads it from the remote's perspective (ahead/behind swapped).
-	private getUpstreamStats(ref: ParsedRef): { ahead: number; behind: number } | undefined {
+	// and reads it from the remote's perspective (ahead/behind swapped). `missing` (the upstream existed
+	// and was deleted on the remote) is carried through UNSWAPPED — it's a property of the pairing, not
+	// a direction, so both kinds see the same value.
+	private getUpstreamStats(ref: ParsedRef): { ahead: number; behind: number; missing?: boolean } | undefined {
 		const id = this.getUpstreamMetadataId(ref);
 		const u = id != null ? this.refsMetadata?.[id]?.upstream : undefined;
 		if (u == null) return undefined;
 
 		return ref.kind === 'remote'
-			? { ahead: u.behind ?? 0, behind: u.ahead ?? 0 }
-			: { ahead: u.ahead ?? 0, behind: u.behind ?? 0 };
+			? { ahead: u.behind ?? 0, behind: u.ahead ?? 0, missing: u.missing }
+			: { ahead: u.ahead ?? 0, behind: u.behind ?? 0, missing: u.missing };
 	}
 
 	// Resolve a tracked ref's linked row to jump to: a head → its upstream remote's row; a remote → the

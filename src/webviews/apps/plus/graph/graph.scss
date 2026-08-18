@@ -3733,6 +3733,20 @@ gl-lit-graph {
 		transform: translateY(0.1rem);
 		transition: transform 120ms ease-out;
 	}
+	// Gone-upstream glyph: the SAME `error` icon + missing-upstream color token every other GitLens
+	// surface uses for this state (`gl-tracking-pill`'s `.state--missing`), so "gone" reads as one
+	// vocabulary across the app. Full color, unlike the dimmed link glyph beside it — the point of this
+	// icon IS to stand out.
+	.gl-graph__ref-pill-upstream-missing-icon {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		--code-icon-size: 1.1rem;
+		color: var(--gl-tracking-missing);
+		// Same nudge as the link glyph it sits beside — that rule's comment is about levelling the PAIR,
+		// so omitting it here would leave this icon ~1px high against its own partner.
+		transform: translateY(0.1rem);
+	}
 	// In-sync remote label (owner, or owner/branch when names differ). Secondary to the local name, so a
 	// touch dimmer; ellipsises as the segment shrinks (min-width:0 lets it go below its content width —
 	// without it the "…" would reserve the full untruncated width). The descender fix mirrors the name

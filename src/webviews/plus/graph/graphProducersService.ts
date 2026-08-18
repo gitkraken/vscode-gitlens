@@ -425,8 +425,27 @@ export class GraphProducersService {
 				if (type === 'upstream') {
 					const upstream = branch?.upstream;
 
-					if (upstream == null || upstream.missing) {
+					if (upstream == null) {
 						write({ upstream: null });
+						continue;
+					}
+
+					// Gone: the branch HAD an upstream and it was deleted on the remote — a different fact
+					// than no upstream at all, so it gets real metadata (with `missing` set) instead of the
+					// same `null`. `upstream.name` still names the branch that's gone; there's no
+					// counterpart left to diff against, so ahead/behind are 0. No `context`: the non-missing
+					// path's `gitlens:upstreamStatus` context menu offers push/pull against the upstream,
+					// which isn't a valid action against a branch that no longer exists.
+					if (upstream.missing) {
+						write({
+							upstream: {
+								name: getBranchNameWithoutRemote(upstream.name),
+								owner: getRemoteNameFromBranchName(upstream.name),
+								ahead: 0,
+								behind: 0,
+								missing: true,
+							},
+						});
 						continue;
 					}
 
