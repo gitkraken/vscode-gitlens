@@ -155,9 +155,6 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 				actions.openAnchor(e.anchor);
 			});
 			// Shared-service events feeding the Cloud Integrations & AI panels (and the Autolinks banner)
-			const unsubSubscription = await subscription.onSubscriptionChanged(sub => {
-				s.subscription.set(sub);
-			});
 			const unsubIntegrations = await integrations.onIntegrationsChanged(data => {
 				s.cloudIntegrations.set(data.integrations);
 			});
@@ -181,7 +178,6 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			this._unsubscribes.push(
 				unsubConfig,
 				unsubAnchor,
-				unsubSubscription,
 				unsubIntegrations,
 				unsubAiModel,
 				unsubAiState,

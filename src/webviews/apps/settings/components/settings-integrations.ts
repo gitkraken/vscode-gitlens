@@ -14,6 +14,8 @@ import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/su
 import { createCommandLink } from '../../../../system/commands.js';
 import type { IntegrationStateInfo } from '../../../rpc/services/types.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -144,6 +146,9 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 	@consume({ context: settingsStateContext })
 	private _state!: SettingsState;
 
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	@property({ attribute: false })
 	actions?: SettingsActions;
 
@@ -152,20 +157,20 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 	}
 
 	private get isPaidAccount(): boolean {
-		return this._state.subscription.get()?.state === SubscriptionState.Paid;
+		return this._subscription.subscription.get()?.state === SubscriptionState.Paid;
 	}
 
 	private get isProAccount(): boolean {
-		return isSubscriptionTrialOrPaidFromState(this._state.subscription.get()?.state);
+		return isSubscriptionTrialOrPaidFromState(this._subscription.subscription.get()?.state);
 	}
 
 	override render(): unknown {
 		const integrations = this.integrations;
 		// Wait for both services so connection and pro/lock state render together
-		if (integrations == null || this._state.subscription.get() === undefined) {
+		if (integrations == null || this._subscription.subscription.get() === undefined) {
 			// A failed fetch must not skeleton forever — offer a retry
 			const errors = this._state.serviceErrors.get();
-			if (errors.integrations || errors.subscription) {
+			if (errors.integrations) {
 				return html`<div class="error" role="alert">
 					<code-icon icon="error" aria-hidden="true"></code-icon>
 					<span>Couldn’t load integration status.</span>
@@ -177,7 +182,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 			return html`<skeleton-loader lines="5"></skeleton-loader>`;
 		}
 
-		const anyConnected = this._state.hasAccount.get() && integrations.some(i => i.connected);
+		const anyConnected = this._subscription.hasAccount.get() && integrations.some(i => i.connected);
 
 		return html`<ul class="rows">
 				${integrations.map(i => this.renderIntegrationRow(i))}
@@ -230,7 +235,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 							? html`<gl-feature-badge
 									placement="right"
 									.source=${{ source: 'settings', detail: 'integrations' } as const}
-									.subscription=${this._state.subscription.get()}
+									.subscription=${this._subscription.subscription.get()}
 									cloud
 								></gl-feature-badge>`
 							: nothing

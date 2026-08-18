@@ -6,6 +6,8 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { linkify } from '../../shared/components/linkify.js';
 import { boxSizingBase, linkBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingDescriptor, SettingsCategory } from '../model.js';
 import { evaluateStateExpression } from '../model.js';
@@ -170,6 +172,9 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 	@consume({ context: settingsStateContext })
 	private _state!: SettingsState;
 
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	@property({ attribute: false })
 	actions?: SettingsActions;
 
@@ -317,7 +322,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 									category.pro
 										? html`<gl-feature-badge
 												.source=${{ source: 'settings', detail: 'header' } as const}
-												.subscription=${this._state.subscription.get()}
+												.subscription=${this._subscription.subscription.get()}
 											></gl-feature-badge>`
 										: nothing
 								}

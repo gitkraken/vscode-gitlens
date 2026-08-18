@@ -408,7 +408,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				category.pro
 					? html`<gl-feature-badge
 							.source=${{ source: 'settings', detail: 'nav' } as const}
-							.subscription=${this._state.subscription.get()}
+							.subscription=${this._subscription.subscription.get()}
 						></gl-feature-badge>`
 					: nothing
 			}

@@ -8,6 +8,8 @@ import { createCommandLink } from '../../../../system/commands.js';
 import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -393,6 +395,9 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 	@consume({ context: settingsStateContext })
 	private _state!: SettingsState;
 
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	@property({ attribute: false })
 	actions?: SettingsActions;
 
@@ -484,7 +489,7 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 	// ── Step builders ──
 
 	private signInStep(index: number): SetupStep {
-		const sub = this._state.subscription.get();
+		const sub = this._subscription.subscription.get();
 		const account = sub?.account;
 		const done = account != null;
 
