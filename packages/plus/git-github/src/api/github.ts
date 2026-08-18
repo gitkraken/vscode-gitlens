@@ -114,7 +114,8 @@ const accountResolveBatchSize = 25;
 // exceeded` on large repositories. Thirty keeps the default within that GraphQL cost budget;
 // the 100-node maximum the connection accepts is for the lite shape, whose per-node cost is a
 // fraction of it. The budget is per DOCUMENT, and one document holds every relationship × state
-// facet, so the worst case scales with the facet count (five relationships × four states = 20).
+// facet, so the worst case scales with the facet count (five relationships × three states = 15;
+// `all` subsumes the concrete states).
 const defaultPullRequestSearchPageSize = 30;
 const maxPullRequestSearchPageSize = 100;
 // Pages `searchMyPullRequests` drains for a caller that wants a whole list rather than a page.
@@ -4537,8 +4538,9 @@ export class GitHubApi {
 			 * with the full fragment and ~1150 ms with the lite one, for near-identical bytes (155 KB vs 140 KB). Per
 			 * node that is 103 ms → 38 ms.
 			 *
-			 * It compounds with the page size, because the size follows the projection (see below): a caller that
-			 * wants 100 PRs pays four sequential full-fragment pages (~12.4 s) or one lite page (~1.8 s, 18 ms/node).
+			 * It compounds with the page size, because the size follows the projection (see below): a single-facet
+			 * caller that wants 100 PRs pays four sequential full-fragment pages (~12.4 s) or one lite page
+			 * (~1.8 s, 18 ms/node). Multi-facet searches share that default budget across their active facets.
 			 */
 			summary?: boolean;
 		},
@@ -4546,17 +4548,6 @@ export class GitHubApi {
 	): Promise<PullRequestSearchResult | undefined> {
 		const scope = getScopedLogger();
 
-		// Only the DEFAULT follows the projection; an explicit `pageSize` is still honoured up to the
-		// maximum, which is the existing contract (a caller asking for 500 gets 100, full fragment or
-		// not — see the `cost-safe default page size` test). What the lite shape changes is that the
-		// default stops being the cost-safe 30: the full fragment is what GitHub rejects at 100 nodes
-		// (see `defaultPullRequestSearchPageSize`), and the lite shape's per-node cost is a fraction
-		// of it, so a summary caller that expressed no preference can safely take the maximum.
-		const defaultSize = options?.summary === true ? maxPullRequestSearchPageSize : defaultPullRequestSearchPageSize;
-		const pageSize = Math.min(
-			maxPullRequestSearchPageSize,
-			Math.max(1, Math.trunc(options?.pageSize ?? defaultSize)),
-		);
 		const facets = toGitHubPullRequestSearchFacets(options?.criteria);
 		const facetAliases = facets.map(f => f.alias).sort();
 		const scopeQualifiers = toGitHubIssueSearchScopeQualifiers(options?.org, options?.repos);
@@ -4632,6 +4623,17 @@ export class GitHubApi {
 				totalCount: cursor?.totalCount,
 			};
 		}
+
+		// Each active facet selects its own page in the same GraphQL document. Share the lite projection's
+		// 100-node default across those selections; an explicit page size remains a per-facet request.
+		const defaultSize =
+			options?.summary === true
+				? Math.max(1, Math.floor(maxPullRequestSearchPageSize / activeFacets.length))
+				: defaultPullRequestSearchPageSize;
+		const pageSize = Math.min(
+			maxPullRequestSearchPageSize,
+			Math.max(1, Math.trunc(options?.pageSize ?? defaultSize)),
+		);
 
 		const includeVar = (alias: string): string => `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
 		const params = facets.flatMap(f => [

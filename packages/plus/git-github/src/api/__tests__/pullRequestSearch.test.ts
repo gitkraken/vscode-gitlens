@@ -244,6 +244,26 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.match(query, /stackEntry \{/);
 	});
 
+	test('shares the summary default page budget across active facets', async () => {
+		const { config, getCalls } = capture();
+		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
+			repos: ['o/a'],
+			summary: true,
+			criteria: {
+				relationships: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+					PullRequestFilter.Reviewed,
+					PullRequestFilter.Mention,
+				],
+				states: ['open', 'closed', 'merged'],
+			},
+		});
+
+		assert.equal(getCalls()[0].query.match(/search\(first: 6,/g)?.length, 15);
+	});
+
 	test('keeps the full fragment and the cost-safe default when summary is not requested', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, { repos: ['o/a'] });
