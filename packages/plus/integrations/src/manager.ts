@@ -364,6 +364,15 @@ export interface IntegrationManager {
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/**
+		 * Requests the lightweight row shape: everything except the per-row build-status rollup
+		 * (`statusCheckRollupState`) and `commitCount`, which share one provider selection and are therefore
+		 * dropped together. Set it on list/aggregate surfaces that read neither.
+		 *
+		 * The account-wide branch already requests this shape. A provider without a lightweight projection
+		 * ignores the option, so it is a hint rather than a guarantee about which fields are present.
+		 */
+		summary?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	/**
 	 * Pull requests matching structured criteria over a repository/organization or current-user relationship
@@ -407,6 +416,14 @@ export interface IntegrationManager {
 		connectionId?: string;
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
+		/**
+		 * Requests the lightweight row shape: identity, body, author, repository, branch refs and stack info,
+		 * without review, check or diff statistics. It also raises the default page size.
+		 *
+		 * A provider without a lightweight projection ignores it and returns its usual shape, so this is a hint
+		 * rather than a contract about which fields are present.
+		 */
+		summary?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {
 		providerId: IntegrationIds;

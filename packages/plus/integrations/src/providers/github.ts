@@ -612,6 +612,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			criteria?: PullRequestSearchCriteria;
 			cursor?: string;
 			pageSize?: number;
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined> {
@@ -625,6 +626,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrl,
 				cursor: options.cursor,
 				pageSize: options.pageSize,
+				summary: options.summary,
 			},
 			cancellation,
 		);
