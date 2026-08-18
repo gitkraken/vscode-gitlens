@@ -127,7 +127,7 @@ export const urls = Object.freeze({
 	graph: `https://gitkraken.com/solutions/commit-graph?${utm}`,
 	launchpad: `https://gitkraken.com/solutions/launchpad?${utm}`,
 	platform: `https://gitkraken.com/devex?${utm}`,
-	pricing: `https://gitkraken.com/gitlens/pricing?${utm}`,
+	pricing: `https://gitkraken.com/pricing?${utm}`,
 	proFeatures: `https://gitkraken.com/gitlens/pro-features?${utm}`,
 	security: `https://help.gitkraken.com/gitlens/security?${utm}`,
 	workspaces: `https://gitkraken.com/solutions/workspaces?${utm}`,
