@@ -49,8 +49,9 @@ export async function listPullRequestsPage(
 		page?: number;
 		cursor?: string;
 		/**
-		 * Requests the lightweight row shape (see {@link IntegrationManager.listPullRequestsPage}). The
-		 * account-wide branch has always asked for it; this forwards it on the repo-scoped branch too.
+		 * Requests the lightweight row shape (see {@link IntegrationManager.listPullRequestsPage}). Opt-in
+		 * only, and only on the repo-scoped branch: the account-wide branch has always read the lightweight
+		 * shape and keeps doing so, so an explicit `false` does not widen it back to the full projection.
 		 */
 		summary?: boolean;
 		itemsPerPage?: number;
@@ -120,14 +121,16 @@ export async function listPullRequestsPage(
 		);
 	}
 
-	const includeReviewRequested = accountWide ? (options.includeReviewRequested ?? false) : false;
 	// Everything but the cursor, shared by the initial read and the drain's re-reads below so the two cannot
 	// drift. `summary` is the reason this matters beyond tidiness: a re-read that dropped it would both
 	// revert to the full payload — on the very path that issues the most requests — and return rows of a
 	// different shape than the first page, since a summary row reports `headCommit`/`commitCount` as absent.
+	// `summary` is pinned true here rather than forwarded: this branch has never had a full projection to
+	// fall back to (see the option's doc), so honoring an explicit `false` would promise a widening the read
+	// cannot deliver.
 	const accountWideInput = {
 		state: options.states,
-		includeReviewRequested: includeReviewRequested,
+		includeReviewRequested: options.includeReviewRequested ?? false,
 		filters: resolvedFilters.filters,
 		summary: true,
 	};

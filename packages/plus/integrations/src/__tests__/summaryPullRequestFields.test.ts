@@ -12,11 +12,10 @@ import { createFakeRuntime } from './fakeRuntime.js';
  * the test that makes a drift a failing build rather than a silent no-op.
  *
  * Why it needs a test of its own: the map lives in `gitHostIntegration.ts`, the gate that interprets it
- * lives in another package, and NOTHING connected the two. The first version of the map set
- * `commitCount: true` with only `headCommit: false`, which reads as correct and is not — provider-apis
- * gates the `commits(last: 1) { totalCount ... statusCheckRollup { contexts(first: 100) } }` subtree on
- * BOTH keys, because `commitCount` is that subtree's `totalCount`. The summary read therefore shipped
- * the exact payload it exists to avoid, and every test in both packages still passed.
+ * lives in another package, and NOTHING connects the two. provider-apis gates the
+ * `commits(last: 1) { totalCount ... statusCheckRollup { contexts(first: 100) } }` subtree on BOTH keys,
+ * because `commitCount` is that subtree's `totalCount`, so a map that leaves either truthy reads as
+ * correct, ships the exact payload it exists to avoid, and keeps every test in both packages green.
  *
  * The assertion is on the map that actually reaches provider-apis, captured from the real read, rather
  * than on the map's declaration — a test that restated the declaration would pass no matter what the
@@ -27,11 +26,17 @@ import { createFakeRuntime } from './fakeRuntime.js';
  */
 
 /** Keys provider-apis gates the `commits`/`statusCheckRollup` subtree on. Both must be omitted. */
-const GATED_SUBTREE_KEYS = ['headCommit', 'commitCount'] as const;
+const gatedSubtreeKeys = ['headCommit', 'commitCount'] as const;
 
 suite('summary pull request field selection', () => {
-	/** The field map the repo-scoped summary read really sends to provider-apis. */
-	async function captureSummaryFields(): Promise<Record<string, boolean> | undefined> {
+	/**
+	 * The field map the repo-scoped read really sends to provider-apis, plus whether the read reached the
+	 * provider at all — the non-summary case asserts an ABSENT map, which is indistinguishable from a read
+	 * that never fired.
+	 */
+	async function captureFields(options?: {
+		summary: boolean;
+	}): Promise<{ fields: Record<string, boolean> | undefined; called: boolean }> {
 		const runtime = createFakeRuntime();
 		await runtime.storage.store('integrations:configured', {
 			github: [{ id: 'tok', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
@@ -51,6 +56,7 @@ suite('summary pull request field selection', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 
 		let fields: Record<string, boolean> | undefined;
+		let called = false;
 		const api = await (
 			gh as unknown as { getProvidersApi(): Promise<{ providers: Record<string, unknown> }> }
 		).getProvidersApi();
@@ -58,33 +64,30 @@ suite('summary pull request field selection', () => {
 			string,
 			(input: { fields?: Record<string, boolean> }) => Promise<unknown>
 		>;
-		const capture = (input: { fields?: Record<string, boolean> }) => {
+		provider.getPullRequestsForReposFn = (input: { fields?: Record<string, boolean> }) => {
+			called = true;
 			fields ??= input.fields;
 			return Promise.resolve({ data: [], pageInfo: undefined });
 		};
-		// Both variants, so the capture holds regardless of the provider's paging mode.
-		for (const fnName of ['getPullRequestsForReposFn', 'getPullRequestsForRepoFn']) {
-			provider[fnName] = capture;
-		}
 
 		await (
 			gh as unknown as {
 				getMyPullRequestsForReposResult: (
 					repos: { namespace: string; name: string }[],
-					options: { summary: boolean },
+					options?: { summary: boolean },
 				) => Promise<unknown>;
 			}
-		).getMyPullRequestsForReposResult([{ namespace: 'octo', name: 'repo' }], { summary: true });
+		).getMyPullRequestsForReposResult([{ namespace: 'octo', name: 'repo' }], options);
 
 		manager.dispose();
-		return fields;
+		return { fields: fields, called: called };
 	}
 
 	test('a summary read omits BOTH keys that gate the check-status subtree', async () => {
-		const fields = await captureSummaryFields();
+		const { fields } = await captureFields({ summary: true });
 		assert.ok(fields != null, 'the summary read passed a field map to provider-apis');
 
-		for (const key of GATED_SUBTREE_KEYS) {
+		for (const key of gatedSubtreeKeys) {
 			assert.equal(
 				fields[key],
 				false,
@@ -96,63 +99,22 @@ suite('summary pull request field selection', () => {
 	test('a summary read drops ONLY those keys', async () => {
 		// This gates one subtree, not the row. Dropping more would be a different — and worse — bug than
 		// dropping none, and it would surface as missing data rather than as wasted bytes.
-		const fields = await captureSummaryFields();
+		const { fields } = await captureFields({ summary: true });
 		const dropped = Object.entries(fields ?? {})
 			.filter(([, selected]) => !selected)
 			.map(([key]) => key)
 			.sort();
 
-		assert.deepEqual(dropped, [...GATED_SUBTREE_KEYS].sort());
+		assert.deepEqual(dropped, [...gatedSubtreeKeys].sort());
 	});
 
 	test('a non-summary read passes no field map at all', async () => {
 		// The opt-in half of the contract: an ABSENT map is what means "request every field", so the
 		// default read must not start sending one.
-		const runtime = createFakeRuntime();
-		await runtime.storage.store('integrations:configured', {
-			github: [{ id: 'tok', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
-		});
-		await runtime.storage.storeSecret(
-			'integration.auth.cloud:github|tok',
-			JSON.stringify({
-				id: 'tok',
-				accessToken: 'token',
-				scopes: ['repo'],
-				cloud: true,
-				type: 'oauth',
-				domain: 'github.com',
-			}),
-		);
-		const manager = createIntegrationManager(runtime);
-		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		const { fields, called } = await captureFields();
 
-		let sawFields: Record<string, boolean> | undefined;
-		let called = false;
-		const api = await (
-			gh as unknown as { getProvidersApi(): Promise<{ providers: Record<string, unknown> }> }
-		).getProvidersApi();
-		const provider = api.providers.github as Record<
-			string,
-			(input: { fields?: Record<string, boolean> }) => Promise<unknown>
-		>;
-		const capture = (input: { fields?: Record<string, boolean> }) => {
-			called = true;
-			sawFields ??= input.fields;
-			return Promise.resolve({ data: [], pageInfo: undefined });
-		};
-		for (const fnName of ['getPullRequestsForReposFn', 'getPullRequestsForRepoFn']) {
-			provider[fnName] = capture;
-		}
-
-		await (
-			gh as unknown as {
-				getMyPullRequestsForReposResult: (repos: { namespace: string; name: string }[]) => Promise<unknown>;
-			}
-		).getMyPullRequestsForReposResult([{ namespace: 'octo', name: 'repo' }]);
-
-		manager.dispose();
 		assert.equal(called, true, 'the read reached the provider');
-		assert.equal(sawFields, undefined, 'a non-summary read must send no field map');
+		assert.equal(fields, undefined, 'a non-summary read must send no field map');
 	});
 
 	test('EVERY request of a drained summary read carries the map, not just the first', async () => {
@@ -162,8 +124,8 @@ suite('summary pull request field selection', () => {
 		// on the path that issues the MOST requests, and would return rows of a different shape than page
 		// 1 — a summary row reports `headCommit`/`commitCount` as absent, a full one does not.
 		//
-		// Asserted over all calls rather than the first because that is exactly what a single-capture test
-		// cannot see: this bug lived past a test that pinned the first request's map.
+		// Asserted over ALL calls rather than the first, because a single-capture test cannot see a map that
+		// is present on page 1 and dropped on the continuations.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
@@ -209,7 +171,7 @@ suite('summary pull request field selection', () => {
 		assert.ok(seen.length > 1, `the read drained (${seen.length} upstream requests), so re-reads are covered`);
 		for (const [i, fields] of seen.entries()) {
 			assert.ok(fields != null, `request ${i + 1} of ${seen.length} sent a field map`);
-			for (const key of GATED_SUBTREE_KEYS) {
+			for (const key of gatedSubtreeKeys) {
 				assert.equal(fields[key], false, `request ${i + 1} of ${seen.length} dropped ${key}`);
 			}
 		}

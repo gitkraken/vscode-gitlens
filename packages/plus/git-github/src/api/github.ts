@@ -4526,9 +4526,11 @@ export class GitHubApi {
 			cursor?: string;
 			pageSize?: number;
 			/**
-			 * Uses the lightweight PR fragment while retaining identity, body, author, repository, and branch refs.
-			 * Intended for aggregate/list surfaces that do not consume review, check, or diff statistics — the same
-			 * contract as `searchMyPullRequests`' option of the same name.
+			 * Uses the lightweight PR fragment while retaining identity, body, author, repository, branch refs and
+			 * stack info. Intended for aggregate/list surfaces that do not consume review, check, or diff
+			 * statistics — the same contract as `searchMyPullRequests`' option of the same name, stack fragment
+			 * included: the lite mapper reads `stack`/`stackEntry`, and their absence is indistinguishable from
+			 * "not stacked", so dropping them would report a negative as a fact.
 			 *
 			 * The full fragment resolves `assignees(25)`, `latestReviews(25)` and `reviewRequests(25)` per node, and
 			 * that is SERVER time rather than payload: measured against a 992-PR repo, one 30-node page took ~3090 ms
@@ -4648,7 +4650,7 @@ export class GitHubApi {
 				nodes {
 					... on PullRequest {
 						${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
-						${options?.summary ? '' : gqlPullRequestStackFragmentFor(options)}
+						${gqlPullRequestStackFragmentFor(options)}
 					}
 				}
 			}`,

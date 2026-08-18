@@ -220,11 +220,8 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 	});
 
 	test('selects the lite fragment and the maximum default page size for a summary read', async () => {
-		// The full fragment resolves assignees(25) + latestReviews(25) + reviewRequests(25) per node,
-		// which is SERVER time rather than payload: measured against a 992-PR repo, one 30-node page
-		// took ~3090ms full vs ~1150ms lite for near-identical bytes (155KB vs 140KB). It compounds
-		// with the page size, since the default follows the projection: 100 PRs cost four sequential
-		// full pages (~12.4s) or one lite page (~1.8s).
+		// Why the lite fragment is worth a separate projection, and why the default size follows it:
+		// see the `summary` option's doc on `GitHubApi.searchPullRequestsPage`.
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
 			repos: ['o/a'],
@@ -241,6 +238,10 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.match(query, /baseRefName/);
 		assert.match(query, /headRefName/);
 		assert.match(query, /body/);
+		// The lite mapper reads stack, and stack absence is a NEGATIVE fact (a stacked PR would read as
+		// unstacked); the summary projection is about what costs server time, not about dropping this.
+		assert.match(query, /stack \{/);
+		assert.match(query, /stackEntry \{/);
 	});
 
 	test('keeps the full fragment and the cost-safe default when summary is not requested', async () => {

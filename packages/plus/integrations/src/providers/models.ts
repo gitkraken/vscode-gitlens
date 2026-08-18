@@ -16,6 +16,7 @@ import type {
 	GitBuildStatus,
 	GitBuildStatusState as GitBuildStatusStateType,
 	GitHub,
+	GitHubPullRequestFieldMap,
 	GitIssueState as GitIssueStateType,
 	GitLab,
 	GitLabGroup,
@@ -329,6 +330,11 @@ export interface GetPullRequestsOptions {
 	// Opt in to repository remote metadata (clone URLs) when the PR payload lacks it. Only Azure DevOps
 	// acts on this today (extra API call); it is a no-op for the other providers.
 	includeRemoteInfo?: boolean;
+	// Field selection for the row shape. GitHub-shaped because it is the only provider whose PR read gates
+	// anything on it; the others ignore it. Declared here rather than passed through a spread so a typo or a
+	// wrong-shaped map is a compile error instead of a silently ignored key. An ABSENT map means "select
+	// everything", so only summary reads pass one.
+	fields?: GitHubPullRequestFieldMap;
 }
 
 export interface GetPullRequestsForUserOptions {

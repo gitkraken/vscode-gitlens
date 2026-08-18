@@ -366,11 +366,11 @@ export interface IntegrationManager {
 		domain?: string;
 		/**
 		 * Requests the lightweight row shape: everything except the per-row build-status rollup
-		 * (`statusCheckRollupState`). Set it on list/aggregate surfaces that do not read build statuses.
+		 * (`statusCheckRollupState`) and `commitCount`, which share one provider selection and are therefore
+		 * dropped together. Set it on list/aggregate surfaces that read neither.
 		 *
-		 * On GitHub that rollup expands to `commits(last: 1) { ... statusCheckRollup { contexts(first: 100) } }`
-		 * per row — up to 100 check contexts per PR for a page of up to 100 — and consumers collapse the whole
-		 * thing into one tri-state. Measured against a 100-PR repo: 55.6 KB → 14.1 KB and ~2.0s → ~1.1s per page.
+		 * See `summaryPullRequestFields` in `models/gitHostIntegration.ts` for what that selection costs on
+		 * GitHub and the measurements behind it.
 		 *
 		 * The ACCOUNT-WIDE branch of this read has always requested the lightweight shape; this makes it
 		 * available on the repo-scoped branch, which had no way to ask. A provider with no lightweight
@@ -422,11 +422,11 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 		/**
-		 * Requests the lightweight row shape: identity, body, author, repository and branch refs, without review,
-		 * check or diff statistics. Set it on aggregate/list surfaces that do not read those — the provider's full
-		 * projection resolves them per node, which is server time rather than payload (measured on GitHub against a
-		 * 992-PR repo: ~3090ms vs ~1150ms for one 30-node page, at near-identical bytes), and it also raises the
-		 * default page size, since that follows the projection.
+		 * Requests the lightweight row shape: identity, body, author, repository, branch refs and stack info,
+		 * without review, check or diff statistics. Set it on aggregate/list surfaces that do not read those —
+		 * the provider's full projection resolves them per node, which is server time rather than payload — and
+		 * note it also raises the default page size, since that follows the projection. See the `summary` option
+		 * on `GitHubApi.searchPullRequestsPage` for the measurements.
 		 *
 		 * A provider without a lightweight projection ignores it and returns its usual shape, so this is a hint
 		 * rather than a contract about which fields are present.

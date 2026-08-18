@@ -150,12 +150,14 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
  * selects no `commits` either. Both fields are optional on `PullRequestShape`, so a summary row reports
  * them as absent rather than as a zero.
  *
- * Typed as provider-apis' own `GitHubPullRequestFieldMap`, which is narrowed to exactly these two keys,
- * so naming a field that gates nothing is a compile error rather than a silent no-op. Note the map is
- * only meaningful when PRESENT: an absent map is what tells provider-apis to select everything, which is
- * why non-summary reads pass none at all.
+ * Typed as `Required<GitHubPullRequestFieldMap>`: the map is narrowed to exactly these two keys, so naming
+ * a field that gates nothing is a compile error, and `Required` makes OMITTING one an error too. That
+ * second half matters as much as the first, since `fieldQuery` keeps the whole subtree if either key is
+ * truthy, so a map that simply forgot `commitCount` would save nothing at all — the exact bug this branch
+ * already shipped once. Note the map is only meaningful when PRESENT: an absent map is what tells
+ * provider-apis to select everything, which is why non-summary reads pass none at all.
  */
-const summaryPullRequestFields: GitHubPullRequestFieldMap = {
+const summaryPullRequestFields: Required<GitHubPullRequestFieldMap> = {
 	headCommit: false,
 	commitCount: false,
 };
@@ -1321,6 +1323,11 @@ export abstract class GitHostIntegration<
 								states: states,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 								includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+								// Forwarded on this branch too, so the projection cannot depend on which paging
+								// mode the provider happens to use. The map is GitHub-shaped and GitHub is
+								// `PagingMode.Repos`, so today this is inert here; it stops being a question the
+								// moment a `PagingMode.Repo` provider learns to gate on it.
+								fields: options?.summary ? summaryPullRequestFields : undefined,
 							},
 						);
 						return { repoInput: repoInput, results: results };
@@ -1398,13 +1405,10 @@ export abstract class GitHostIntegration<
 				states: states,
 				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
-				// A summary read drops the per-row build-status subtree, which on GitHub is
-				// `commits(last: 1) { totalCount ... statusCheckRollup { contexts(first: 100) } }` per PR
-				// for a page of up to 100. That subtree is all the map can gate, so the rest of the row is
-				// unaffected; what a summary consumer gives up is `statusCheckRollupState` and
-				// `commitCount`, which share that one selection. Spread rather than passed as `undefined`
-				// because an absent map is what means "select everything" (see summaryPullRequestFields).
-				...(options?.summary ? { fields: summaryPullRequestFields } : {}),
+				// See {@link summaryPullRequestFields} for what a summary read gives up and why the two keys
+				// travel together. `undefined` and an absent map are the same thing to provider-apis, whose
+				// `fieldQuery` gates on truthiness, so a non-summary read still selects everything.
+				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1646,6 +1650,8 @@ export abstract class GitHostIntegration<
 			criteria?: PullRequestSearchCriteria;
 			cursor?: string;
 			pageSize?: number;
+			/** See the caller's option of the same name on {@link searchPullRequestsPage}. */
+			summary?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined>;
