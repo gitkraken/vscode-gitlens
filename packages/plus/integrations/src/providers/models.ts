@@ -12,11 +12,11 @@ import type {
 	CollectionMetadata,
 	CursorPageInput,
 	EnterpriseOptions,
+	FieldMap,
 	GetRepoInput,
 	GitBuildStatus,
 	GitBuildStatusState as GitBuildStatusStateType,
 	GitHub,
-	GitHubPullRequestFieldMap,
 	GitIssueState as GitIssueStateType,
 	GitLab,
 	GitLabGroup,
@@ -334,7 +334,7 @@ export interface GetPullRequestsOptions {
 	// anything on it; the others ignore it. Declared here rather than passed through a spread so a typo or a
 	// wrong-shaped map is a compile error instead of a silently ignored key. An ABSENT map means "select
 	// everything", so only summary reads pass one.
-	fields?: GitHubPullRequestFieldMap;
+	fields?: FieldMap<GitPullRequest>;
 }
 
 export interface GetPullRequestsForUserOptions {

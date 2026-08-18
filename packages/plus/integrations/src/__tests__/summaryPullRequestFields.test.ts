@@ -8,21 +8,8 @@ import { PagingMode } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
- * The summary PR read's field map has to stay aligned with provider-apis' gating contract, and this is
- * the test that makes a drift a failing build rather than a silent no-op.
- *
- * Why it needs a test of its own: the map lives in `gitHostIntegration.ts`, the gate that interprets it
- * lives in another package, and NOTHING connects the two. provider-apis gates the
- * `commits(last: 1) { totalCount ... statusCheckRollup { contexts(first: 100) } }` subtree on BOTH keys,
- * because `commitCount` is that subtree's `totalCount`, so a map that leaves either truthy reads as
- * correct, ships the exact payload it exists to avoid, and keeps every test in both packages green.
- *
- * The assertion is on the map that actually reaches provider-apis, captured from the real read, rather
- * than on the map's declaration — a test that restated the declaration would pass no matter what the
- * gate does with it. It deliberately does NOT reach into provider-apis' query builder: that is not
- * public API of that package, and coupling to it here would be a second, worse version of the same
- * cross-package assumption. What it pins instead is the contract this side owes: the two keys that share
- * the gated subtree must both be false, and nothing else may be.
+ * provider-apis gates the shared commits/status subtree on both keys. Assert the map at the integration boundary,
+ * rather than restating its declaration, so a wiring regression cannot leave the expensive subtree selected.
  */
 
 /** Keys provider-apis gates the `commits`/`statusCheckRollup` subtree on. Both must be omitted. */
@@ -83,29 +70,9 @@ suite('summary pull request field selection', () => {
 		return { fields: fields, called: called };
 	}
 
-	test('a summary read omits BOTH keys that gate the check-status subtree', async () => {
+	test('a summary read drops exactly both keys that gate the check-status subtree', async () => {
 		const { fields } = await captureFields({ summary: true });
-		assert.ok(fields != null, 'the summary read passed a field map to provider-apis');
-
-		for (const key of gatedSubtreeKeys) {
-			assert.equal(
-				fields[key],
-				false,
-				`${key} must be false: provider-apis gates the commits/statusCheckRollup subtree on both keys, so leaving either truthy keeps the whole payload and the summary read saves nothing`,
-			);
-		}
-	});
-
-	test('a summary read drops ONLY those keys', async () => {
-		// This gates one subtree, not the row. Dropping more would be a different — and worse — bug than
-		// dropping none, and it would surface as missing data rather than as wasted bytes.
-		const { fields } = await captureFields({ summary: true });
-		const dropped = Object.entries(fields ?? {})
-			.filter(([, selected]) => !selected)
-			.map(([key]) => key)
-			.sort();
-
-		assert.deepEqual(dropped, [...gatedSubtreeKeys].sort());
+		assert.deepEqual(fields, { headCommit: false, commitCount: false });
 	});
 
 	test('a non-summary read passes no field map at all', async () => {

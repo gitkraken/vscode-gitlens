@@ -1,4 +1,4 @@
-import type { CollectionMetadata, CollectionScopeFailure, GitHubPullRequestFieldMap } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure, FieldMap, GitPullRequest } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
@@ -117,6 +117,18 @@ export type SearchMyPullRequestsOptions = {
 	includeReviewRequested?: boolean;
 };
 
+type MyPullRequestsForReposOptions = {
+	filters?: PullRequestFilter[];
+	cursor?: string;
+	customUrl?: string;
+	page?: number;
+	pageSize?: number;
+	/** PR states to include; when omitted the provider returns its default (open only). */
+	state?: PullRequestStateFilter | PullRequestStateFilter[];
+	/** Requests the lightweight row shape without per-row build status or commit count. */
+	summary?: boolean;
+};
+
 /**
  * Rejects a read the provider can't serve as asked: logs the reason and returns it as the `{ error }` half of an
  * {@link IntegrationResult}, timed from `start`.
@@ -133,31 +145,10 @@ function unsupportedRead<T>(message: string, start: number, logContext?: string)
 }
 
 /**
- * The provider-apis field map a summary PR read requests. Both keys it can name are dropped; every other
- * field of the row comes back untouched, because those two are all this map is able to gate.
- *
- * They must go TOGETHER, and that is the subtle part: on GitHub both come from the SAME selection —
- * `commits(last: 1) { totalCount nodes { commit { statusCheckRollup { contexts(first: 100) } } } }`,
- * where `commitCount` is the `totalCount` and `headCommit.buildStatuses` is the rollup. provider-apis
- * therefore gates the subtree on the pair, and `fieldQuery` keys off truthiness: leaving `commitCount:
- * true` here would keep the whole thing and this map would save nothing at all.
- *
- * That subtree is up to 100 check contexts per PR for a page of up to 100 PRs, which consumers collapse
- * into a single tri-state. Measured against a 100-PR repo: 55.6 KB → 14.1 KB and ~2.0s → ~1.1s per page.
- *
- * Giving up `commitCount` alongside the rollup is consistent with what `summary` already means here:
- * `gqlPullRequestLiteFragment`, which `searchMyPullRequests` has always used for its summary reads,
- * selects no `commits` either. Both fields are optional on `PullRequestShape`, so a summary row reports
- * them as absent rather than as a zero.
- *
- * Typed as `Required<GitHubPullRequestFieldMap>`: the map is narrowed to exactly these two keys, so naming
- * a field that gates nothing is a compile error, and `Required` makes OMITTING one an error too. That
- * second half matters as much as the first, since `fieldQuery` keeps the whole subtree if either key is
- * truthy, so a map that simply forgot `commitCount` would save nothing at all — the exact bug this branch
- * already shipped once. Note the map is only meaningful when PRESENT: an absent map is what tells
- * provider-apis to select everything, which is why non-summary reads pass none at all.
+ * Both fields gate the same GitHub `commits` subtree, so either truthy key retains the build-status rollup.
+ * An absent map retains the full row; a summary read explicitly drops both optional fields.
  */
-const summaryPullRequestFields: Required<GitHubPullRequestFieldMap> = {
+const summaryPullRequestFields: Required<Pick<FieldMap<GitPullRequest>, 'headCommit' | 'commitCount'>> = {
 	headCommit: false,
 	commitCount: false,
 };
@@ -1114,15 +1105,7 @@ export abstract class GitHostIntegration<
 
 	async getMyPullRequestsForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: PullRequestFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			/** PR states to include; when omitted the provider returns its default (open only). */
-			state?: PullRequestStateFilter | PullRequestStateFilter[];
-		},
+		options?: MyPullRequestsForReposOptions,
 		connectionId?: string,
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		return (await this.getMyPullRequestsForReposResult(reposOrRepoIds, options, connectionId))?.value;
@@ -1136,20 +1119,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getMyPullRequestsForReposResult(
 		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: PullRequestFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			state?: PullRequestStateFilter | PullRequestStateFilter[];
-			/**
-			 * Requests the lightweight row shape, dropping the per-row build-status subtree the provider
-			 * otherwise selects. See {@link IntegrationManager.searchPullRequestsPage}; the account-wide
-			 * sibling read has always passed it, and this is the repo-scoped counterpart.
-			 */
-			summary?: boolean;
-		},
+		options?: MyPullRequestsForReposOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
@@ -1323,11 +1293,6 @@ export abstract class GitHostIntegration<
 								states: states,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 								includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
-								// Forwarded on this branch too, so the projection cannot depend on which paging
-								// mode the provider happens to use. The map is GitHub-shaped and GitHub is
-								// `PagingMode.Repos`, so today this is inert here; it stops being a question the
-								// moment a `PagingMode.Repo` provider learns to gate on it.
-								fields: options?.summary ? summaryPullRequestFields : undefined,
 							},
 						);
 						return { repoInput: repoInput, results: results };
@@ -1405,9 +1370,6 @@ export abstract class GitHostIntegration<
 				states: states,
 				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
-				// See {@link summaryPullRequestFields} for what a summary read gives up and why the two keys
-				// travel together. `undefined` and an absent map are the same thing to provider-apis, whose
-				// `fieldQuery` gates on truthiness, so a non-summary read still selects everything.
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			return { value: result, duration: performance.now() - start };
