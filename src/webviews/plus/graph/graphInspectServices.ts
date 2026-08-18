@@ -845,10 +845,20 @@ export class GraphInspectServices {
 							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 						);
 						signal?.throwIfAborted();
+						// Pass 1 has nothing but this manifest to rank focus areas from — no diff content — so
+						// every field has to be what git would report: the parsed status per file (not a blanket
+						// "modified", which reads an added file as having a previous version to compare against),
+						// and changed-line counts that exclude unchanged context (see
+						// `countDiffInsertionsAndDeletions`).
 						const parsed = parseGitDiff(data.diff);
 						const parsedFiles = parsed.files.map(f => {
 							const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
-							return { path: f.path, status: 'M', additions: insertions, deletions: deletions };
+							return {
+								path: f.path,
+								status: f.status,
+								additions: insertions,
+								deletions: deletions,
+							};
 						});
 						const fileManifest = JSON.stringify(parsedFiles);
 
