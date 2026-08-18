@@ -475,6 +475,12 @@ export class GitHealthService implements Disposable {
 			this._levers.set(repo.path, levers);
 			this._reportStates.set(repo.path, state);
 			const event = {
+				'repository.shallow': snapshot.repository.shallow,
+				'repository.partial': snapshot.repository.partial,
+				'repository.sparseCheckout': snapshot.repository.sparseCheckout,
+				'repository.sparseIndex': snapshot.repository.sparseIndex,
+				'repository.splitIndex': snapshot.repository.splitIndex,
+				'repository.refFormat': snapshot.repository.refFormat,
 				'packs.count': snapshot.packCount,
 				'packs.bytes': snapshot.packBytes,
 				'estimate.looseObjects': report.estimatedLooseObjects,

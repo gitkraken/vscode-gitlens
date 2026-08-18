@@ -340,6 +340,7 @@ suite('maintenance commit-graph changed-path Bloom filters', () => {
 			assert.strictEqual(wrote, true, 'the commit graph itself is still generated');
 			assert.deepStrictEqual(after, before, 'no objects or promisor packs were fetched');
 			const snapshot = await maintenanceOf(repo).getHealthSnapshot(partialPath);
+			assert.strictEqual(snapshot.repository.partial, true, 'snapshot identifies the promisor clone');
 			assert.strictEqual(
 				snapshot.commitGraph.changedPaths,
 				false,

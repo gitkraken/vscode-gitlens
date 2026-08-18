@@ -377,21 +377,14 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		return false;
 	}
 
-	private async supportsChangedPathsForRepo(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
-		const [supported, partialClone] = await Promise.all([
-			this.git.supports('git:commit-graph:changed-paths'),
-			this.isPartialClone(repoPath, cancellation),
-		]);
-		return supported && !partialClone;
-	}
-
 	@debug()
 	async getHealthSnapshot(repoPath: string, cancellation?: AbortSignal): Promise<GitHealthSnapshot> {
 		await this.reconcilePendingConfigChanges(repoPath, cancellation);
 
 		const gitDir = await this.provider.config.getGitDir(repoPath);
 		// Object store lives in the COMMON git dir (shared across worktrees); the index is per-worktree.
-		const objectsDir = joinPaths((gitDir.commonUri ?? gitDir.uri).fsPath, 'objects');
+		const commonGitDir = (gitDir.commonUri ?? gitDir.uri).fsPath;
+		const objectsDir = joinPaths(commonGitDir, 'objects');
 		const indexPath = joinPaths(gitDir.uri.fsPath, 'index');
 
 		const [
@@ -408,7 +401,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			gkMarkers,
 			supportsMaintenanceRun,
 			changedPaths,
-			changedPathsSupported,
+			changedPathsFeatureSupported,
+			shallowRepository,
+			partialClone,
 		] = await Promise.allSettled([
 			this.probeCommitGraph(objectsDir),
 			fsExists(joinPaths(objectsDir, 'pack', 'multi-pack-index')),
@@ -423,7 +418,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			this.probeGkMarkers(repoPath),
 			this.git.supports('git:maintenance'),
 			this.probeChangedPathFilters(objectsDir),
-			this.supportsChangedPathsForRepo(repoPath, cancellation),
+			this.git.supports('git:commit-graph:changed-paths'),
+			this.probePathPresence(joinPaths(commonGitDir, 'shallow')),
+			this.isPartialClone(repoPath, cancellation),
 		]);
 
 		const markers = getSettledValue(gkMarkers) ?? emptyGkMarkers;
@@ -432,13 +429,19 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		const rawIndexEntryCount = getSettledValue(indexEntryCount);
 		const sharedIndexValue = getSettledValue(sharedIndex);
 		const conflictOperationValue = getSettledValue(conflictOperation);
+		const splitIndex =
+			configValue?.splitIndex === true || sharedIndexValue?.present === true
+				? true
+				: configValue != null && sharedIndexValue != null
+					? false
+					: undefined;
 		const indexEntryCountType: GitHealthSnapshot['indexEntryCountType'] =
 			configValue == null ||
 			rawIndexEntryCount == null ||
 			sharedIndexValue == null ||
 			conflictOperationValue == null
 				? 'unavailable'
-				: configValue.splitIndex || sharedIndexValue.present
+				: splitIndex
 					? 'split'
 					: conflictOperationValue
 						? 'conflicted'
@@ -446,10 +449,20 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 							? 'sparse'
 							: 'full';
 		return {
+			repository: {
+				shallow: getSettledValue(shallowRepository),
+				partial: getSettledValue(partialClone),
+				sparseCheckout: configValue?.sparseCheckout,
+				sparseCheckoutCone: configValue?.sparseCheckoutCone,
+				sparseIndex: configValue?.sparseIndex,
+				splitIndex: splitIndex,
+				refFormat: configValue?.refFormat ?? 'unknown',
+			},
 			commitGraph: {
 				...(getSettledValue(commitGraphStat) ?? { present: false, mtime: undefined }),
 				changedPaths: getSettledValue(changedPaths) ?? false,
-				changedPathsSupported: getSettledValue(changedPathsSupported) ?? false,
+				changedPathsSupported:
+					getSettledValue(changedPathsFeatureSupported) === true && getSettledValue(partialClone) === false,
 				disabled: markers.commitGraphDisabled,
 				readDisabled: configValue?.commitGraphReadDisabled ?? false,
 			},
@@ -1693,6 +1706,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	): Promise<
 		GitHealthSnapshot['config'] & {
 			commitGraphReadDisabled: boolean;
+			refFormat: GitHealthSnapshot['repository']['refFormat'];
+			sparseCheckout: boolean;
+			sparseCheckoutCone: boolean;
 			sparseIndex: boolean;
 			splitIndex: boolean;
 		}
@@ -1710,7 +1726,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			cancellation,
 			'config',
 			'--get-regex',
-			'^(core\\.fsmonitor|core\\.untrackedcache|core\\.commitgraph|core\\.splitindex|feature\\.manyfiles|index\\.sparse)$',
+			'^(core\\.fsmonitor|core\\.untrackedcache|core\\.commitgraph|core\\.sparsecheckout|core\\.sparsecheckoutcone|core\\.splitindex|extensions\\.refstorage|feature\\.manyfiles|index\\.sparse)$',
 		);
 		this.throwIfDidNotComplete(result, cancellation);
 		// Exit 1 is git's "no matches" — genuinely unset. Anything else means we couldn't read the
@@ -1740,6 +1756,14 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			// honors this same setting as a write opt-out.
 			commitGraphReadDisabled:
 				map.has('core.commitgraph') && isGitBooleanFalse(map.get('core.commitgraph') ?? ''),
+			refFormat:
+				map.get('extensions.refstorage') == null
+					? 'files'
+					: map.get('extensions.refstorage') === 'reftable'
+						? 'reftable'
+						: 'unknown',
+			sparseCheckout: parseGitBoolean(map.get('core.sparsecheckout')),
+			sparseCheckoutCone: parseGitBoolean(map.get('core.sparsecheckoutcone')),
 			sparseIndex: parseGitBoolean(map.get('index.sparse')),
 			splitIndex: parseGitBoolean(map.get('core.splitindex')),
 		};
@@ -1988,6 +2012,18 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			return (await stat(path)).mtimeMs;
 		} catch {
 			return undefined;
+		}
+	}
+
+	/** Presence probe that distinguishes a missing path from an unreadable one. */
+	private async probePathPresence(path: string): Promise<boolean> {
+		try {
+			await stat(path);
+			return true;
+		} catch (ex) {
+			if ((ex as { code?: unknown }).code === 'ENOENT') return false;
+
+			throw ex;
 		}
 	}
 

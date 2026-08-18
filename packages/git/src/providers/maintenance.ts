@@ -31,6 +31,23 @@ export type GitOptimizationId = 'untrackedCache' | 'fsmonitor' | 'backgroundMain
  * across worktrees (keyed by common path). Everything here is derivable without inflating objects.
  */
 export interface GitHealthSnapshot {
+	/** Repository shape that changes how the remaining measurements should be interpreted. */
+	readonly repository: {
+		/** Whether local history stops at an intentional shallow boundary; `undefined` when detection failed. */
+		readonly shallow: boolean | undefined;
+		/** Whether missing objects may be supplied by a promisor remote; `undefined` when detection failed. */
+		readonly partial: boolean | undefined;
+		/** Whether the worktree is populated from a sparse specification; `undefined` when config was unreadable. */
+		readonly sparseCheckout: boolean | undefined;
+		/** Whether sparse checkout uses directory-based cone mode; `undefined` when config was unreadable. */
+		readonly sparseCheckoutCone: boolean | undefined;
+		/** Whether the index is configured to use sparse-directory entries; `undefined` when config was unreadable. */
+		readonly sparseIndex: boolean | undefined;
+		/** Whether this worktree uses a split index; `undefined` when detection failed. */
+		readonly splitIndex: boolean | undefined;
+		/** Reference storage selected by the repository format. */
+		readonly refFormat: 'files' | 'reftable' | 'unknown';
+	};
 	/** Presence + mtime of `objects/info/commit-graph` (or the split `commit-graphs/` chain), and changed-path Bloom filter state. */
 	readonly commitGraph: {
 		readonly present: boolean;

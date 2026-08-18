@@ -126,6 +126,15 @@ suite('MaintenanceSubProvider', () => {
 		assert.strictEqual(snapshot.multiPackIndex, false, 'no multi-pack-index yet');
 		assert.strictEqual(snapshot.looseObjects.dirsSampled, 16, 'samples 16 fanout dirs');
 		assert.ok(snapshot.indexBytes > 0, 'index exists after the initial commit');
+		assert.deepStrictEqual(snapshot.repository, {
+			shallow: false,
+			partial: false,
+			sparseCheckout: false,
+			sparseCheckoutCone: false,
+			sparseIndex: false,
+			splitIndex: false,
+			refFormat: 'files',
+		});
 
 		// The config levers read MERGED config (they can be inherited from the developer's global/system
 		// config), so only assert they resolve to booleans — not a specific value.
@@ -275,6 +284,9 @@ suite('MaintenanceSubProvider', () => {
 
 			assert.strictEqual(snapshot.indexEntryCountType, 'sparse');
 			assert.ok(snapshot.indexEntryCount != null && snapshot.indexEntryCount < total);
+			assert.strictEqual(snapshot.repository.sparseCheckout, true);
+			assert.strictEqual(snapshot.repository.sparseCheckoutCone, true);
+			assert.strictEqual(snapshot.repository.sparseIndex, true);
 		} finally {
 			sparseRepo.cleanup();
 		}
@@ -291,6 +303,7 @@ suite('MaintenanceSubProvider', () => {
 			const snapshot = await maintenanceOf(splitRepo).getHealthSnapshot(worktreePath);
 			assert.strictEqual(snapshot.indexEntryCountType, 'split');
 			assert.strictEqual(snapshot.indexEntryCount, undefined);
+			assert.strictEqual(snapshot.repository.splitIndex, true);
 		} finally {
 			execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
 				cwd: splitRepo.path,
@@ -298,6 +311,22 @@ suite('MaintenanceSubProvider', () => {
 			});
 			rmSync(worktreePath, { recursive: true, force: true });
 			splitRepo.cleanup();
+		}
+	});
+
+	test('getHealthSnapshot marks a depth-limited clone as shallow', async () => {
+		const source = createTestRepo();
+		const cloneRoot = mkdtempSync(join(tmpdir(), 'gitlens-shallow-clone-'));
+		const shallowPath = join(cloneRoot, 'shallow');
+		try {
+			addCommit(source.path, 'second.txt', 'second', 'second');
+			execFileSync('git', ['clone', '--depth=1', `file://${source.path}`, shallowPath], { stdio: 'pipe' });
+
+			const snapshot = await maintenanceOf(repo).getHealthSnapshot(shallowPath);
+			assert.strictEqual(snapshot.repository.shallow, true);
+		} finally {
+			source.cleanup();
+			rmSync(cloneRoot, { recursive: true, force: true });
 		}
 	});
 

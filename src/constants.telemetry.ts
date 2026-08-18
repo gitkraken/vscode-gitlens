@@ -2597,6 +2597,18 @@ interface OperationGateDeadlockEvent {
 }
 
 interface GitHealthProbeEvent {
+	/** Whether the local repository has an intentional shallow-history boundary; undefined when unreadable */
+	'repository.shallow': boolean | undefined;
+	/** Whether the repository uses a promisor remote; undefined when unreadable */
+	'repository.partial': boolean | undefined;
+	/** Whether sparse checkout is enabled; undefined when config was unreadable */
+	'repository.sparseCheckout': boolean | undefined;
+	/** Whether sparse-index writes are enabled; undefined when config was unreadable */
+	'repository.sparseIndex': boolean | undefined;
+	/** Whether this worktree uses a split index; undefined when detection failed */
+	'repository.splitIndex': boolean | undefined;
+	/** Repository reference-storage backend */
+	'repository.refFormat': 'files' | 'reftable' | 'unknown';
 	/** Number of `*.pack` files in the object store */
 	'packs.count': number;
 	/** Total bytes of all pack files */

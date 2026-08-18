@@ -1542,6 +1542,18 @@ background-upgraded the extension while the host kept running the old build
   'packs.bytes': number,
   // Number of `*.pack` files in the object store
   'packs.count': number,
+  // Whether the repository uses a promisor remote; undefined when unreadable
+  'repository.partial': boolean | undefined,
+  // Repository reference-storage backend
+  'repository.refFormat': 'files' | 'reftable' | 'unknown',
+  // Whether the local repository has an intentional shallow-history boundary; undefined when unreadable
+  'repository.shallow': boolean | undefined,
+  // Whether sparse checkout is enabled; undefined when config was unreadable
+  'repository.sparseCheckout': boolean | undefined,
+  // Whether sparse-index writes are enabled; undefined when config was unreadable
+  'repository.sparseIndex': boolean | undefined,
+  // Whether this worktree uses a split index; undefined when detection failed
+  'repository.splitIndex': boolean | undefined,
   // Count of slow git commands observed for this repo — persisted across sessions, pruned after 30 days idle
   'slowness.count': number
 }
@@ -7399,4 +7411,3 @@ or
   'loading': boolean
 }
 ```
-

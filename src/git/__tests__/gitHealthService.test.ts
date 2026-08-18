@@ -48,6 +48,15 @@ type Harness = {
 
 function makeSnapshot(): GitHealthSnapshot {
 	return {
+		repository: {
+			shallow: false,
+			partial: false,
+			sparseCheckout: false,
+			sparseCheckoutCone: false,
+			sparseIndex: false,
+			splitIndex: false,
+			refFormat: 'files',
+		},
 		commitGraph: {
 			present: true,
 			mtime: 1000,

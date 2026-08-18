@@ -57,6 +57,8 @@ export interface GitHealthFinding {
 
 export interface GitHealthReport {
 	readonly findings: readonly GitHealthFinding[];
+	/** Repository shape that scopes local history, object, and working-tree measurements. */
+	readonly repository: GitHealthSnapshot['repository'];
 	/** Whether the repo is "clearly large" (any working-tree threshold met, or pack bytes ≥ ~1 GiB). */
 	readonly clearlyLarge: boolean;
 	/** Extrapolated loose-object count (from the probe sample). */
@@ -233,6 +235,7 @@ export function computeHealthReport(
 
 	return {
 		findings: findings,
+		repository: snapshot.repository,
 		clearlyLarge: clearlyLarge,
 		estimatedLooseObjects: estimatedLooseObjects,
 		estimatedTrackedFiles: estimatedTrackedFiles,

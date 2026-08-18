@@ -44,6 +44,15 @@ function makeSnapshot(
 	} = {},
 ): GitHealthSnapshot {
 	return {
+		repository: {
+			shallow: false,
+			partial: false,
+			sparseCheckout: false,
+			sparseCheckoutCone: false,
+			sparseIndex: false,
+			splitIndex: false,
+			refFormat: 'files',
+		},
 		commitGraph: {
 			present: o.commitGraphPresent ?? true,
 			mtime: o.commitGraphPresent === false ? undefined : 1000,
@@ -342,6 +351,7 @@ suite('gitHealth.isBannerEligible', () => {
 					action: { kind: 'optimization' as const, id: 'fsmonitor' as const },
 				},
 			],
+			repository: makeSnapshot().repository,
 			clearlyLarge: false,
 			estimatedLooseObjects: 0,
 			estimatedTrackedFiles: 0,
