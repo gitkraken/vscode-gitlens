@@ -9,6 +9,7 @@ export type GitFeatures =
 	| 'git:ignoreRevsFile'
 	| 'git:index:skipHash'
 	| 'git:maintenance'
+	| 'git:maintenance:pack-refs'
 	| 'git:maintenance:start'
 	| 'git:maintenance:start:systemd'
 	| 'git:manyFiles'
@@ -62,6 +63,8 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// the loose-objects + incremental-repack tasks the auto tier uses landed in 2.30 (and `core.multiPackIndex`
 	// is default-on from 2.30, so no separate midx config write is needed) — 2.30 is the safe floor.
 	['git:maintenance', '2.30'],
+	// The pack-refs maintenance task landed one release after the maintenance builtin.
+	['git:maintenance:pack-refs', '2.31'],
 	// `git maintenance start` — the subcommands exist from 2.30 (cron only); launchctl (macOS) + schtasks
 	// (Windows) scheduling arrived in 2.31, so 2.31 is the cross-platform-safe floor.
 	['git:maintenance:start', '2.31'],

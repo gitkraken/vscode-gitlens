@@ -16,6 +16,8 @@ export const trackedFilesThreshold = 10_000;
 export const looseObjectsThreshold = 5_000;
 /** Pack-file count at/above which the `incremental-repack` maintenance task is worth running. */
 export const packCountThreshold = 20;
+/** Loose refs at/above which packing the files ref backend avoids repeated filesystem traversal. */
+export const looseRefsThreshold = 256;
 /** Total pack bytes at/above which a repo counts as "clearly large" for the banner gate (~1 GiB). */
 export const largePackBytesThreshold = 1024 ** 3;
 /** Rough bytes-per-entry of a git v2 index — turns `.git/index` size into a tracked-file-count proxy. */
@@ -39,7 +41,13 @@ export type GitOptimizationTier = 'auto' | 'ask';
 export type GitHealthDurationBucket = '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s';
 
 /** Which measured signal tripped a finding (drives view copy + telemetry buckets). */
-export type GitHealthFindingReason = 'looseObjects' | 'packCount' | 'trackedFiles' | 'largePacks' | 'slowness';
+export type GitHealthFindingReason =
+	| 'looseObjects'
+	| 'looseRefs'
+	| 'packCount'
+	| 'trackedFiles'
+	| 'largePacks'
+	| 'slowness';
 
 /** A single recommendation: a lever to apply, its tier, and the evidence that triggered it. */
 export interface GitHealthFinding {
@@ -63,6 +71,8 @@ export interface GitHealthReport {
 	readonly clearlyLarge: boolean;
 	/** Extrapolated loose-object count (from the probe sample). */
 	readonly estimatedLooseObjects: number;
+	/** Loose refs found by the bounded files-backend probe. */
+	readonly looseRefs: { readonly count: number; readonly exact: boolean };
 	/** Repository-size signal from the index; see {@link trackedFilesScope} for how to interpret it. */
 	readonly estimatedTrackedFiles: number;
 	/** `true` when {@link estimatedTrackedFiles} is the exact repository-wide count from a normal index. */
@@ -155,6 +165,19 @@ export function computeHealthReport(
 			});
 		}
 	}
+	if (
+		snapshot.supportsPackRefsMaintenance &&
+		snapshot.repository.refFormat === 'files' &&
+		snapshot.looseRefs.count >= looseRefsThreshold
+	) {
+		findings.push({
+			tier: 'auto',
+			reason: 'looseRefs',
+			value: snapshot.looseRefs.count,
+			threshold: looseRefsThreshold,
+			action: { kind: 'maintenance', task: 'pack-refs' },
+		});
+	}
 
 	// Large-working-tree levers share the same evidence; they differ only in tier and eligibility.
 	const trackedFilesEvidence = {
@@ -238,6 +261,7 @@ export function computeHealthReport(
 		repository: snapshot.repository,
 		clearlyLarge: clearlyLarge,
 		estimatedLooseObjects: estimatedLooseObjects,
+		looseRefs: snapshot.looseRefs,
 		estimatedTrackedFiles: estimatedTrackedFiles,
 		trackedFilesExact: trackedFilesExact,
 		trackedFilesScope: trackedFilesScope,

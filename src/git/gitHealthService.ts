@@ -292,7 +292,7 @@ export class GitHealthService implements Disposable {
 		const resolved = this.resolveMaintenance(repoPath);
 		if (resolved == null) return [];
 
-		const tasks: GitMaintenanceTask[] = ['commit-graph', 'loose-objects', 'incremental-repack'];
+		const tasks: GitMaintenanceTask[] = ['commit-graph', 'loose-objects', 'incremental-repack', 'pack-refs'];
 
 		// Join the SAME single-flight the auto pass uses. This is now reachable from a button, and opening
 		// the Health view is itself what queues a pass — so without this a click lands straight on top of
@@ -483,6 +483,8 @@ export class GitHealthService implements Disposable {
 				'repository.refFormat': snapshot.repository.refFormat,
 				'packs.count': snapshot.packCount,
 				'packs.bytes': snapshot.packBytes,
+				'refs.loose': snapshot.looseRefs.count,
+				'refs.looseExact': snapshot.looseRefs.exact,
 				'estimate.looseObjects': report.estimatedLooseObjects,
 				'estimate.trackedFiles': report.estimatedTrackedFiles,
 				'estimate.trackedFilesExact': report.trackedFilesExact,

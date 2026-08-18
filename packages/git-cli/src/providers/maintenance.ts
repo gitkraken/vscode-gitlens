@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Dirent } from 'node:fs';
 import { mkdir, open, readdir, readFile, realpath, rm, stat } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import { hostname } from 'node:os';
@@ -7,6 +8,7 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFeatures } from '@gitlens/git/features.js';
 import { gitFeaturesByVersion } from '@gitlens/git/features.js';
+import { looseRefsThreshold } from '@gitlens/git/gitHealth.js';
 import type { GkConfigKeys } from '@gitlens/git/providers/config.js';
 import type {
 	GitHealthDetails,
@@ -32,6 +34,9 @@ import { canonicalizeGitConfigKey, isGitBooleanFalse, parseConfigRegexOutput, pa
 const looseObjectSampleDirs: readonly string[] = Array.from({ length: 16 }, (_, i) =>
 	(i * 16).toString(16).padStart(2, '0'),
 );
+
+/** Stops the ref probe at four times the recommendation threshold: bounded, but still useful for telemetry. */
+const looseRefProbeLimit = looseRefsThreshold * 4;
 
 /** How long the global `maintenance.repo` registration list is served from cache (mirrors the config caches). */
 const registeredMaintenanceReposTtlMs = 30 * 1000;
@@ -222,13 +227,14 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 	request(repoPath: string, task: GitMaintenanceTask): Promise<boolean> | undefined {
 		// Only the commit-graph has a demand cadence — its cache is most valuable immediately after a history
-		// walk, so graph-load and repo-open hint it and the throttle decides. loose-objects/incremental-repack
-		// are owned by the daily pass (a demand write buys nothing there), so they no-op here.
+		// walk, so graph-load and repo-open hint it and the throttle decides. Other maintenance tasks are owned
+		// by the daily pass (a demand write buys nothing there), so they no-op here.
 		switch (task) {
 			case 'commit-graph':
 				return this.ensureCommitGraph(repoPath);
 			case 'loose-objects':
 			case 'incremental-repack':
+			case 'pack-refs':
 				return undefined;
 		}
 	}
@@ -404,6 +410,8 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			changedPathsFeatureSupported,
 			shallowRepository,
 			partialClone,
+			looseRefs,
+			supportsPackRefsMaintenance,
 		] = await Promise.allSettled([
 			this.probeCommitGraph(objectsDir),
 			fsExists(joinPaths(objectsDir, 'pack', 'multi-pack-index')),
@@ -421,6 +429,8 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			this.git.supports('git:commit-graph:changed-paths'),
 			this.probePathPresence(joinPaths(commonGitDir, 'shallow')),
 			this.isPartialClone(repoPath, cancellation),
+			this.probeLooseRefs(joinPaths(commonGitDir, 'refs')),
+			this.git.supports('git:maintenance:pack-refs'),
 		]);
 
 		const markers = getSettledValue(gkMarkers) ?? emptyGkMarkers;
@@ -458,6 +468,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				splitIndex: splitIndex,
 				refFormat: configValue?.refFormat ?? 'unknown',
 			},
+			looseRefs: getSettledValue(looseRefs) ?? { count: 0, exact: false },
 			commitGraph: {
 				...(getSettledValue(commitGraphStat) ?? { present: false, mtime: undefined }),
 				changedPaths: getSettledValue(changedPaths) ?? false,
@@ -490,6 +501,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			untrackedCacheNotApplicable: markers.untrackedCacheNotApplicable,
 			applied: markers.applied,
 			supportsMaintenanceRun: getSettledValue(supportsMaintenanceRun) ?? false,
+			supportsPackRefsMaintenance: getSettledValue(supportsPackRefsMaintenance) ?? false,
 		};
 	}
 
@@ -623,7 +635,8 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			return true;
 		}
 
-		if (!(await this.git.supports('git:maintenance'))) return false;
+		const maintenanceFeature = task === 'pack-refs' ? 'git:maintenance:pack-refs' : 'git:maintenance';
+		if (!(await this.git.supports(maintenanceFeature))) return false;
 
 		await this.git.run(
 			{
@@ -2005,6 +2018,50 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 		const objectsInSampledDirs = counts.reduce((sum, r) => sum + (getSettledValue(r) ?? 0), 0);
 		return { objectsInSampledDirs: objectsInSampledDirs, dirsSampled: looseObjectSampleDirs.length };
+	}
+
+	/**
+	 * Counts loose refs without traversing past the point where the recommendation decision is already made.
+	 * `readDirectory` is a test seam for deterministic ref-layout races between parent and child reads.
+	 */
+	private async probeLooseRefs(
+		refsDir: string,
+		readDirectory: (dir: string) => Promise<Dirent[]> = dir => readdir(dir, { withFileTypes: true }),
+	): Promise<{ count: number; exact: boolean }> {
+		const pending = [refsDir];
+		let count = 0;
+		while (pending.length !== 0) {
+			const dir = pending.pop()!;
+			let entries: Dirent[];
+			try {
+				entries = await readDirectory(dir);
+			} catch (ex) {
+				const code = (ex as { code?: unknown }).code;
+				if (code === 'ENOENT' || (dir !== refsDir && code === 'ENOTDIR')) {
+					if (dir === refsDir) return { count: 0, exact: true };
+
+					// Ref updates can remove a child directory or replace it with a same-named ref after its
+					// parent was listed. It contributes no child refs now, so continue the bounded walk.
+					continue;
+				}
+
+				throw ex;
+			}
+
+			for (const entry of entries) {
+				if (entry.isDirectory()) {
+					pending.push(joinPaths(dir, entry.name));
+					continue;
+				}
+				// Lock files are transient coordination state, not refs `pack-refs` can optimize.
+				if (entry.name.endsWith('.lock')) continue;
+
+				count++;
+				if (count >= looseRefProbeLimit) return { count: count, exact: false };
+			}
+		}
+
+		return { count: count, exact: true };
 	}
 
 	private async statMtime(path: string): Promise<number | undefined> {

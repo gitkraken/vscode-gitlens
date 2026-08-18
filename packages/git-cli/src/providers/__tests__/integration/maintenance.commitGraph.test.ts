@@ -175,7 +175,7 @@ suite('maintenance commit-graph demand cadence (ensureCommitGraph)', () => {
 	test('request() only drives a demand write for commit-graph; the daily-pass tasks no-op here', async () => {
 		// Only the commit-graph has a demand cadence — loose-objects/incremental-repack are owned by the daily
 		// pass, so `request(...)` must never write a commit-graph for them.
-		for (const task of ['loose-objects', 'incremental-repack'] satisfies GitMaintenanceTask[]) {
+		for (const task of ['loose-objects', 'incremental-repack', 'pack-refs'] satisfies GitMaintenanceTask[]) {
 			assert.strictEqual(maintenanceOf(repo).request(repo.path, task), undefined);
 		}
 		// Give any (erroneous) fire-and-forget work a turn to run; none should have been scheduled.

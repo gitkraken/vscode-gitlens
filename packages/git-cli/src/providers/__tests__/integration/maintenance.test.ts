@@ -36,8 +36,17 @@ const optimizationIds: readonly GitOptimizationId[] = [
 
 type TestableMaintenance = {
 	applyOptimization(repoPath: string, optimization: GitOptimizationId, cancellation?: AbortSignal): Promise<boolean>;
+	probeLooseRefs(
+		refsDir: string,
+		readDirectory?: (dir: string) => Promise<{ name: string; isDirectory(): boolean }[]>,
+	): Promise<{ count: number; exact: boolean }>;
 	testUntrackedCacheSupport(repoPath: string, cancellation?: AbortSignal): Promise<boolean>;
 };
+
+function testableMaintenance(repo: TestRepo): TestableMaintenance {
+	// oxlint-disable-next-line no-explicit-any -- deliberate reach into private test seams
+	return maintenanceOf(repo) as any as TestableMaintenance;
+}
 
 /** Reads a repo's LOCAL-scope config value (independent of the developer's global/system config). */
 function localConfig(cwd: string, key: string): string | undefined {
@@ -135,6 +144,7 @@ suite('MaintenanceSubProvider', () => {
 			splitIndex: false,
 			refFormat: 'files',
 		});
+		assert.deepStrictEqual(snapshot.looseRefs, { count: 1, exact: true }, 'the main branch starts loose');
 
 		// The config levers read MERGED config (they can be inherited from the developer's global/system
 		// config), so only assert they resolve to booleans — not a specific value.
@@ -152,6 +162,7 @@ suite('MaintenanceSubProvider', () => {
 			backgroundMaintenance: false,
 		});
 		assert.strictEqual(typeof snapshot.supportsMaintenanceRun, 'boolean');
+		assert.strictEqual(typeof snapshot.supportsPackRefsMaintenance, 'boolean');
 	});
 
 	test('getHealthSnapshot reads a BAREWORD (valueless) boolean entry as configured and enabled', async () => {
@@ -336,6 +347,8 @@ suite('MaintenanceSubProvider', () => {
 			addCommit(splitRepo.path, 'a.txt', 'a', 'add a');
 			addCommit(splitRepo.path, 'b.txt', 'b', 'add b');
 			execFileSync('git', ['update-index', '--split-index'], { cwd: splitRepo.path, stdio: 'pipe' });
+			writeFileSync(join(splitRepo.path, 'c.txt'), 'c');
+			execFileSync('git', ['add', 'c.txt'], { cwd: splitRepo.path, stdio: 'pipe' });
 
 			assert.strictEqual(localConfig(splitRepo.path, 'core.splitIndex'), undefined, 'config hint is unset');
 			assert.ok(rawIndexEntryCount(splitRepo.path) > 0, 'raw mutable-layer header has an entry count');
@@ -1450,6 +1463,87 @@ suite('MaintenanceSubProvider', () => {
 		} finally {
 			packRepo.cleanup();
 		}
+	});
+
+	test('runMaintenanceTask(pack-refs) packs a ref-heavy files backend', async function () {
+		const supported = await Promise.resolve(repo.provider.supports('git:maintenance:pack-refs'));
+		if (!supported) {
+			this.skip();
+		}
+
+		const refsRepo = createTestRepo();
+		try {
+			const looseRefCount = 256;
+			const oid = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: refsRepo.path, encoding: 'utf8' }).trim();
+			for (let i = 0; i < looseRefCount; i++) {
+				writeFileSync(join(refsRepo.path, '.git', 'refs', 'heads', `health-${String(i)}`), `${oid}\n`);
+			}
+			assert.strictEqual(
+				readdirSync(join(refsRepo.path, '.git', 'refs', 'heads')).length,
+				looseRefCount + 1,
+				'fixture created all loose refs',
+			);
+
+			const before = await maintenanceOf(refsRepo).getHealthSnapshot(refsRepo.path);
+			assert.ok(
+				before.looseRefs.count >= looseRefCount,
+				`fixture crosses the bounded ref threshold (reported ${String(before.looseRefs.count)})`,
+			);
+
+			const ran = await maintenanceOf(refsRepo).runMaintenanceTask(refsRepo.path, 'pack-refs');
+			assert.strictEqual(ran, true);
+
+			const after = await maintenanceOf(refsRepo).getHealthSnapshot(refsRepo.path);
+			assert.deepStrictEqual(after.looseRefs, { count: 0, exact: true });
+			assert.strictEqual(existsSync(join(refsRepo.path, '.git', 'packed-refs')), true);
+		} finally {
+			refsRepo.cleanup();
+		}
+	});
+
+	test('loose-ref probing tolerates a child directory removed or replaced during the walk', async () => {
+		const maintenance = testableMaintenance(repo);
+		const probeChildRace = async (code: 'ENOENT' | 'ENOTDIR') => {
+			let reads = 0;
+			const result = await maintenance.probeLooseRefs('/refs', async () => {
+				reads++;
+				if (reads === 1) {
+					return [
+						{ name: 'heads', isDirectory: () => true },
+						{ name: 'root-ref', isDirectory: () => false },
+					];
+				}
+
+				throw Object.assign(new Error('child layout changed'), { code: code });
+			});
+			return { reads: reads, result: result };
+		};
+
+		for (const code of ['ENOENT', 'ENOTDIR'] as const) {
+			const { reads, result } = await probeChildRace(code);
+
+			assert.deepStrictEqual(result, { count: 1, exact: true }, code);
+			assert.strictEqual(reads, 2, code);
+		}
+
+		let reads = 0;
+		await assert.rejects(
+			maintenance.probeLooseRefs('/refs', async () => {
+				reads++;
+				if (reads === 1) return [{ name: 'heads', isDirectory: () => true }];
+
+				throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+			}),
+			/permission denied/,
+			'non-race filesystem failures remain observable',
+		);
+		await assert.rejects(
+			maintenance.probeLooseRefs('/refs', async () => {
+				throw Object.assign(new Error('top-level refs is not a directory'), { code: 'ENOTDIR' });
+			}),
+			/top-level refs is not a directory/,
+			'ENOTDIR is routine only for a child that was already observed as a directory',
+		);
 	});
 
 	test('runMaintenanceTask(commit-graph) writes the graph directly, gated on git:commit-graph (not git:maintenance)', async () => {

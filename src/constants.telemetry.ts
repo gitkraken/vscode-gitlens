@@ -2613,6 +2613,10 @@ interface GitHealthProbeEvent {
 	'packs.count': number;
 	/** Total bytes of all pack files */
 	'packs.bytes': number;
+	/** Loose refs found by the bounded files-backend probe */
+	'refs.loose': number;
+	/** Whether `refs.loose` is the complete count rather than the probe cap */
+	'refs.looseExact': boolean;
 	/** Extrapolated loose-object count */
 	'estimate.looseObjects': number;
 	/** Tracked-file count — a full/sparse index-entry count when usable, else the index-bytes proxy */
@@ -2639,7 +2643,7 @@ interface GitHealthProbeEvent {
 
 interface GitOptimizationsMaintenanceRunEvent {
 	/** The maintenance task that ran */
-	task: 'commit-graph' | 'loose-objects' | 'incremental-repack';
+	task: 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs';
 	/** Duration of the run in ms */
 	duration: number;
 	/** Coarse duration bucket */

@@ -10,6 +10,7 @@ import {
 	getAutoOptimizations,
 	isBannerEligible,
 	looseObjectsThreshold,
+	looseRefsThreshold,
 	packCountThreshold,
 	trackedFilesThreshold,
 } from '../gitHealth.js';
@@ -41,6 +42,10 @@ function makeSnapshot(
 		supportsMaintenanceRun?: boolean;
 		commitGraphPresent?: boolean;
 		multiPackIndex?: boolean;
+		looseRefs?: number;
+		looseRefsExact?: boolean;
+		refFormat?: GitHealthSnapshot['repository']['refFormat'];
+		supportsPackRefsMaintenance?: boolean;
 	} = {},
 ): GitHealthSnapshot {
 	return {
@@ -51,8 +56,9 @@ function makeSnapshot(
 			sparseCheckoutCone: false,
 			sparseIndex: false,
 			splitIndex: false,
-			refFormat: 'files',
+			refFormat: o.refFormat ?? 'files',
 		},
+		looseRefs: { count: o.looseRefs ?? 0, exact: o.looseRefsExact ?? true },
 		commitGraph: {
 			present: o.commitGraphPresent ?? true,
 			mtime: o.commitGraphPresent === false ? undefined : 1000,
@@ -88,6 +94,7 @@ function makeSnapshot(
 			...o.applied,
 		},
 		supportsMaintenanceRun: o.supportsMaintenanceRun ?? true,
+		supportsPackRefsMaintenance: o.supportsPackRefsMaintenance ?? true,
 	};
 }
 
@@ -168,6 +175,31 @@ suite('gitHealth.computeHealthReport — auto tier', () => {
 			makeCapabilities(),
 		);
 		assert.deepStrictEqual(getAutoMaintenanceTasks(report), ['incremental-repack']);
+	});
+
+	test('recommends pack-refs when the files backend has many loose refs', () => {
+		const report = computeHealthReport(
+			makeSnapshot({ looseRefs: looseRefsThreshold }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(report), ['pack-refs']);
+	});
+
+	test('does not recommend pack-refs for reftable or an unsupported maintenance task', () => {
+		const reftable = computeHealthReport(
+			makeSnapshot({ looseRefs: looseRefsThreshold, refFormat: 'reftable' }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(reftable), []);
+
+		const unsupported = computeHealthReport(
+			makeSnapshot({ looseRefs: looseRefsThreshold, supportsPackRefsMaintenance: false }),
+			undefined,
+			makeCapabilities(),
+		);
+		assert.deepStrictEqual(getAutoMaintenanceTasks(unsupported), []);
 	});
 
 	test('the auto tier never applies config levers, even on a large repo with every threshold crossed', () => {
@@ -359,6 +391,7 @@ suite('gitHealth.isBannerEligible', () => {
 			trackedFilesScope: 'estimate' as const,
 			packCount: 0,
 			packBytes: 0,
+			looseRefs: { count: 0, exact: true },
 			commitGraph: {
 				present: false,
 				mtime: undefined,

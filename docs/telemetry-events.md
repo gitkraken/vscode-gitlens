@@ -1542,6 +1542,10 @@ background-upgraded the extension while the host kept running the old build
   'packs.bytes': number,
   // Number of `*.pack` files in the object store
   'packs.count': number,
+  // Loose refs found by the bounded files-backend probe
+  'refs.loose': number,
+  // Whether `refs.loose` is the complete count rather than the probe cap
+  'refs.looseExact': boolean,
   // Whether the repository uses a promisor remote; undefined when unreadable
   'repository.partial': boolean | undefined,
   // Repository reference-storage backend
@@ -1581,7 +1585,7 @@ background-upgraded the extension while the host kept running the old build
   // Coarse duration bucket
   'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
   // The maintenance task that ran
-  'task': 'commit-graph' | 'loose-objects' | 'incremental-repack'
+  'task': 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs'
 }
 ```
 

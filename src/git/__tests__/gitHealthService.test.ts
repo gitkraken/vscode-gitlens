@@ -57,6 +57,7 @@ function makeSnapshot(): GitHealthSnapshot {
 			splitIndex: false,
 			refFormat: 'files',
 		},
+		looseRefs: { count: 0, exact: true },
 		commitGraph: {
 			present: true,
 			mtime: 1000,
@@ -83,6 +84,7 @@ function makeSnapshot(): GitHealthSnapshot {
 			backgroundMaintenance: false,
 		},
 		supportsMaintenanceRun: true,
+		supportsPackRefsMaintenance: true,
 	};
 }
 

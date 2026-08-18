@@ -19,9 +19,9 @@
 
 /**
  * Auto-tier maintenance tasks. `commit-graph` runs a DIRECT `git commit-graph write --reachable --split`
- * (2.24+); `loose-objects`/`incremental-repack` run `git maintenance run --task=…` (2.30+).
+ * (2.24+); the others run their native `git maintenance run --task=…` implementations.
  */
-export type GitMaintenanceTask = 'commit-graph' | 'loose-objects' | 'incremental-repack';
+export type GitMaintenanceTask = 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs';
 
 /** The uniform apply/revert surface for every optimization lever (auto + ask). */
 export type GitOptimizationId = 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles';
@@ -48,6 +48,8 @@ export interface GitHealthSnapshot {
 		/** Reference storage selected by the repository format. */
 		readonly refFormat: 'files' | 'reftable' | 'unknown';
 	};
+	/** Bounded loose-reference count for the files ref backend; exact unless the probe reached its cap. */
+	readonly looseRefs: { readonly count: number; readonly exact: boolean };
 	/** Presence + mtime of `objects/info/commit-graph` (or the split `commit-graphs/` chain), and changed-path Bloom filter state. */
 	readonly commitGraph: {
 		readonly present: boolean;
@@ -120,6 +122,8 @@ export interface GitHealthSnapshot {
 	};
 	/** Whether the installed git supports `git maintenance run` (2.30+) — gates the auto-tier tasks. */
 	readonly supportsMaintenanceRun: boolean;
+	/** Whether the installed git includes the `pack-refs` maintenance task (2.31+). */
+	readonly supportsPackRefsMaintenance: boolean;
 }
 
 /** On-demand detail computed only when the Git Health view opens (cheap-ish git walks). */
