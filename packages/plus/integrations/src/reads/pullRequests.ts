@@ -143,34 +143,27 @@ export async function listPullRequestsPage(
 		pageSize: options.itemsPerPage,
 		summary: options.summary,
 	};
-	const { value, warning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() =>
-			accountWide
-				? integration.getMyPullRequestsForUserResult(
-						{ ...accountWideInput, cursor: cursor },
-						options.connectionId,
-					)
-				: integration.getMyPullRequestsForReposResult(
-						options.repos ?? [],
-						{
-							...scopedInput,
-							cursor: cursor,
-							// Forward `page` alongside the cursor so PagingMode.Repo hosts honor the requested page
-							// instead of always returning page 1. The normalized `page`, so the number forwarded to the
-							// provider can't disagree with the page-number cursor beside it — both are built from the
-							// same value. Only when the caller asked for one: an omitted page is the provider's own
-							// first page.
-							page: options.page != null ? page : undefined,
-						},
-						options.connectionId,
-					),
-		{
-			warnOnMissingSession: warnOnMissingSessionForDomain(options.providerId, options.domain),
-		},
-	);
+	const readPage = (pageCursor: string | undefined, requestedPage?: number) =>
+		runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() =>
+				accountWide
+					? integration.getMyPullRequestsForUserResult(
+							{ ...accountWideInput, cursor: pageCursor },
+							options.connectionId,
+						)
+					: integration.getMyPullRequestsForReposResult(
+							options.repos ?? [],
+							{ ...scopedInput, cursor: pageCursor, page: requestedPage },
+							options.connectionId,
+						),
+			{
+				warnOnMissingSession: warnOnMissingSessionForDomain(options.providerId, options.domain),
+			},
+		);
+	const { value, warning } = await readPage(cursor, options.page != null ? page : undefined);
 
 	let items = value?.values ?? [];
 	// Cursor-only account-wide reads start at page 1; a page-only request is advanced through opaque
@@ -197,28 +190,8 @@ export async function listPullRequestsPage(
 				requestedPage: page,
 				itemsPerPage: options.itemsPerPage,
 				warnings: warnings,
-				readPage: (cursor: string) =>
-					runCaptured(
-						options.providerId,
-						domain,
-						options.connectionId,
-						() =>
-							// No `page` here, unlike the initial read: a drain advances through the provider's own
-							// continuations, so the cursor is what positions these.
-							accountWide
-								? integration.getMyPullRequestsForUserResult(
-										{ ...accountWideInput, cursor: cursor },
-										options.connectionId,
-									)
-								: integration.getMyPullRequestsForReposResult(
-										options.repos ?? [],
-										{ ...scopedInput, cursor: cursor },
-										options.connectionId,
-									),
-						{
-							warnOnMissingSession: warnOnMissingSessionForDomain(options.providerId, options.domain),
-						},
-					),
+				// A drain advances through provider continuations, so only the cursor positions these reads.
+				readPage: (cursor: string) => readPage(cursor),
 			},
 		);
 		items = drained.items;
