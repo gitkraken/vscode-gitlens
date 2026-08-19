@@ -2038,11 +2038,14 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			const shows = (text: string) => [...rows].some(item => item.includes(text));
 			// Bounded by a press count, not by "nothing new appeared" — the early presses move the active
 			// row within what is already on screen, so a no-growth test stops the walk before it scrolls.
-			const walk = async (expected: string[]) => {
+			// The direction is a parameter because the caller knows where the active row is: walking away
+			// from it reaches the far end through wrap-around, which happens to work but leaves the spec
+			// resting on list-wrapping semantics it never states.
+			const walk = async (expected: string[], direction: 'ArrowDown' | 'ArrowUp' = 'ArrowDown') => {
 				rows.clear();
 				await collect();
 				for (let press = 0; press < 30 && expected.some(text => !shows(text)); press++) {
-					await page.keyboard.press('ArrowDown');
+					await page.keyboard.press(direction);
 					await collect();
 				}
 			};
@@ -2073,7 +2076,10 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// to this workspace". Assert the clause is gone entirely rather than just the newWindow wording:
 			// the `vscode` fixture is worker-scoped, so creating with either of the other two selected would
 			// move this window out from under every spec that follows.
-			await walk(['Will create worktree']);
+			// Selecting a radio leaves the active row near the bottom of the list, so walk back up: the
+			// action row is the first row, and it has to be on screen both to be read here and to be
+			// clicked below — `selectItem` only matches rows the virtualized list has rendered.
+			await walk(['Will create worktree'], 'ArrowUp');
 			const actionRow = [...rows].find(item => item.includes('Will create worktree'));
 			expect(actionRow).toBeDefined();
 			expect(actionRow).not.toContain(', then');
