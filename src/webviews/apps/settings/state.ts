@@ -6,7 +6,6 @@ import type {
 	AgentInfo,
 	AiModelInfo,
 	AIState,
-	AiUsageInfo,
 	IntegrationStateInfo,
 	ScopedAiModelInfo,
 } from '../../rpc/services/types.js';
@@ -53,8 +52,6 @@ export function createSettingsState(storage?: HostStorage) {
 	const cloudIntegrations = signal<IntegrationStateInfo[] | undefined>(undefined);
 	const aiState = signal<AIState | undefined>(undefined);
 	const aiModel = signal<AiModelInfo | undefined>(undefined);
-	/** GitKraken AI weekly usage. `undefined` = not yet loaded; `null` = unavailable, so the panel hides the card. */
-	const aiUsage = signal<AiUsageInfo | null | undefined>(undefined);
 	const agents = signal<AgentInfo[] | undefined>(undefined);
 	/** Progress of the two Get Started walkthroughs; non-critical, so its own failure never gates the app. */
 	const walkthrough = signal<WalkthroughProgressPayload | undefined>(undefined);
@@ -139,7 +136,6 @@ export function createSettingsState(storage?: HostStorage) {
 		cloudIntegrations: cloudIntegrations,
 		aiState: aiState,
 		aiModel: aiModel,
-		aiUsage: aiUsage,
 		agents: agents,
 		walkthrough: walkthrough,
 		scopedAiModels: scopedAiModels,

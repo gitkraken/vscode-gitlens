@@ -1214,14 +1214,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Swap the subscription context to use the host-side RemoteSignals directly (no copy),
 			// exactly as Home does. Supertalk proxy properties are thenable at runtime.
 			/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
-			const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
-				await Promise.all([
-					subscription.subscriptionState,
-					subscription.orgSettingsState,
-					subscription.avatarState,
-					subscription.hasAccountState,
-					subscription.organizationsCountState,
-				]);
+			const [
+				subscriptionSignal,
+				orgSettingsSignal,
+				avatarSignal,
+				hasAccountSignal,
+				orgCountSignal,
+				aiUsageSignal,
+			] = await Promise.all([
+				subscription.subscriptionState,
+				subscription.orgSettingsState,
+				subscription.avatarState,
+				subscription.hasAccountState,
+				subscription.organizationsCountState,
+				subscription.aiUsageState,
+			]);
 			/* eslint-enable @typescript-eslint/await-thenable */
 			this._subscriptionCtx.setValue(
 				{
@@ -1230,6 +1237,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					avatar: avatarSignal,
 					hasAccount: hasAccountSignal,
 					organizationsCount: orgCountSignal,
+					aiUsage: aiUsageSignal,
 				},
 				true,
 			);
