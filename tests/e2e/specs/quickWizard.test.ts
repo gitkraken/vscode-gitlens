@@ -2128,7 +2128,7 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Confirm options: Delete, Force Delete, Delete with Branch, Force Delete with Branch', async ({
+		test('Confirm options: the Force and Delete Branch toggles fold into the action row', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -2146,21 +2146,32 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Delete Worktree/i });
 
-			// Verify all expected options are present
+			// `e216d7553` converted this confirm to the modes-plus-toggles grammar. Where there were four
+			// fixed rows (Delete / Force Delete / Delete with Branch / Force Delete with Branch) there is
+			// now a single action row whose label and detail fold in the `Force` and `Delete Branch`
+			// toggles, so the combinations are asserted by flipping them rather than by looking for four
+			// labels. Toggles are `Directive.Noop`: selecting one re-renders this step instead of
+			// advancing, and nothing is deleted unless the action row itself is selected — which this
+			// spec deliberately never does.
 			// Note: getVisibleItems() returns all text content including descriptions
-			const items = await quickPick.getVisibleItems();
-			// Basic delete has "Will delete worktree" without "forcibly"
-			const hasDelete = items.some(
-				item => item.includes('Delete Worktree') && item.includes('Will delete') && !item.includes('forcibly'),
-			);
-			const hasForceDelete = items.some(item => item.includes('Force Delete Worktree'));
-			const hasDeleteWithBranch = items.some(item => item.includes('Delete Worktree & Branch'));
-			const hasForceDeleteWithBranch = items.some(item => item.includes('Force Delete Worktree & Branch'));
+			let items = await quickPick.getVisibleItems();
+			expect(items.some(item => item.includes('Delete Worktree') && item.includes('Will delete'))).toBeTruthy();
+			expect(items.some(item => item.startsWith('Force'))).toBeTruthy();
+			expect(items.some(item => item.startsWith('Delete Branch'))).toBeTruthy();
 
-			expect(hasDelete).toBeTruthy();
-			expect(hasForceDelete).toBeTruthy();
-			expect(hasDeleteWithBranch).toBeTruthy();
-			expect(hasForceDeleteWithBranch).toBeTruthy();
+			// Force folds into the action row, which restates itself as a forcible delete
+			await quickPick.selectItem(/^Force/);
+			items = await quickPick.getVisibleItems();
+			expect(
+				items.some(item => item.includes('Force Delete Worktree') && item.includes('Will forcibly delete')),
+			).toBeTruthy();
+
+			// Delete Branch folds in as well — the branch shows up in the detail, not in the label
+			await quickPick.selectItem(/^Delete Branch/);
+			items = await quickPick.getVisibleItems();
+			expect(
+				items.some(item => item.includes('Force Delete Worktree') && item.includes('along with its branch')),
+			).toBeTruthy();
 
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();
