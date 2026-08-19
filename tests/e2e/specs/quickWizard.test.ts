@@ -1575,6 +1575,7 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
+				page,
 			},
 		}) => {
 			await selectCommandAndWaitForStepWithOptionalRepo(vscode, 'search', {
@@ -1582,19 +1583,46 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 				placeholder: /e.g. "Updates dependencies" author:eamodio/i,
 			});
 
-			// Verify search operators are shown in the list
-			const items = await quickPick.getVisibleItems();
+			// The quick pick list is virtualized, so `getVisibleItems()` only ever reports the rows
+			// currently rendered — a single snapshot answers "does this row fit on screen", not "is this
+			// operator offered". That distinction stopped being academic when `7ed75990e` grew the list to
+			// 11 rows with Search by Committer and Exclude by Message: the tail stopped fitting on the
+			// shorter Windsurf window in CI and this spec failed there alone, on its last assertion, while
+			// passing everywhere the window happened to be tall enough. Walk the list with the keyboard
+			// instead and union what each step renders, which holds at any window height.
+			const seen = new Set<string>();
+			const collect = async () => {
+				for (const item of await quickPick.getVisibleItems()) {
+					seen.add(item);
+				}
+			};
+
+			await collect();
+			let previous = 0;
+			// Stop once two consecutive steps reveal nothing new — the walk has reached the end
+			for (let stable = 0; stable < 2 && seen.size < 50;) {
+				await page.keyboard.press('ArrowDown');
+				await collect();
+				stable = seen.size === previous ? stable + 1 : 0;
+				previous = seen.size;
+			}
+
+			const offers = (operator: string) => [...seen].some(item => item.includes(operator));
 
 			// Check for expected search operators
-			expect(items.some(item => item.includes('Search by Message'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Author'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Commit SHA'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Reference or Range'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Type'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by File'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Changes'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search After Date'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search Before Date'))).toBeTruthy();
+			expect(offers('Search by Message')).toBeTruthy();
+			expect(offers('Search by Author')).toBeTruthy();
+			expect(offers('Search by Commit SHA')).toBeTruthy();
+			expect(offers('Search by Reference or Range')).toBeTruthy();
+			expect(offers('Search by Type')).toBeTruthy();
+			expect(offers('Search by File')).toBeTruthy();
+			expect(offers('Search by Changes')).toBeTruthy();
+			expect(offers('Search After Date')).toBeTruthy();
+			expect(offers('Search Before Date')).toBeTruthy();
+
+			// Added by `7ed75990e`; asserted so the list growing again is a deliberate change
+			expect(offers('Search by Committer')).toBeTruthy();
+			expect(offers('Exclude by Message')).toBeTruthy();
 
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();
