@@ -2244,21 +2244,31 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// labels. Toggles are `Directive.Noop`: selecting one re-renders this step instead of
 			// advancing, and nothing is deleted unless the action row itself is selected — which this
 			// spec deliberately never does.
+			//
+			// Match the toggles on their details rather than their labels. `Force` renders as
+			// `$(warning) Force` once checked, so its text stops starting with "Force" — while the action
+			// row starts with "Force Delete Worktree" in exactly that state. A `/^Force/` selector points
+			// at the toggle in one state and at the action row in the other, and the action row is one
+			// click from deleting a worktree and its branch. The details are unique and state-independent.
+			const forceToggle = 'Delete even with uncommitted changes';
+			// A regex here because the wording is singular or plural with the number of worktrees picked
+			const deleteBranchToggle = /Also delete the .* checked out in the/;
+
 			// Note: getVisibleItems() returns all text content including descriptions
 			let items = await quickPick.getVisibleItems();
 			expect(items.some(item => item.includes('Delete Worktree') && item.includes('Will delete'))).toBeTruthy();
-			expect(items.some(item => item.startsWith('Force'))).toBeTruthy();
-			expect(items.some(item => item.startsWith('Delete Branch'))).toBeTruthy();
+			expect(items.some(item => item.includes(forceToggle))).toBeTruthy();
+			expect(items.some(item => deleteBranchToggle.test(item))).toBeTruthy();
 
 			// Force folds into the action row, which restates itself as a forcible delete
-			await quickPick.selectItem(/^Force/);
+			await quickPick.selectItem(forceToggle);
 			items = await quickPick.getVisibleItems();
 			expect(
 				items.some(item => item.includes('Force Delete Worktree') && item.includes('Will forcibly delete')),
 			).toBeTruthy();
 
 			// Delete Branch folds in as well — the branch shows up in the detail, not in the label
-			await quickPick.selectItem(/^Delete Branch/);
+			await quickPick.selectItem(deleteBranchToggle);
 			items = await quickPick.getVisibleItems();
 			expect(
 				items.some(item => item.includes('Force Delete Worktree') && item.includes('along with its branch')),
