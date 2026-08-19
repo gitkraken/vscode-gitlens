@@ -233,6 +233,19 @@ test.describe('Smoke Tests — GitLens Inspect views', () => {
 		await expect(inspectWebview!.locator('gl-commit-details-app')).toBeVisible({ timeout: MaxTimeout });
 	});
 
+	test('should keep GitLens Inspect open when it is already the active container', async ({ vscode }) => {
+		// `openTab` is meant to skip the click when the container is already active, because clicking the
+		// active tab collapses the side bar. Nothing exercised that: every caller reached it from another
+		// container, so the click always did the right thing by accident and a broken guard looked fine.
+		await vscode.gitlens.executeCommand('gitlens.showCommitDetailsView');
+		await expect(vscode.gitlens.inspectViewSection).toBeVisible({ timeout: MaxTimeout });
+
+		await vscode.gitlens.openGitLensInspect();
+
+		// Still open — asking for a container that is already showing is not a request to hide it
+		await expect(vscode.gitlens.inspectViewSection).toBeVisible({ timeout: MaxTimeout });
+	});
+
 	test('should show File History view', async ({ vscode }) => {
 		// open the file history view
 		await vscode.gitlens.showFileHistoryView();
