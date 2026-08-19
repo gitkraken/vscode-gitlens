@@ -1941,10 +1941,11 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Specific Folder: the Location row opens the specific-folder chooser', async ({
+		test('Cancelling Specific Folder picker returns to confirm', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
+				page,
 			},
 		}) => {
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'worktree', 'create', {
@@ -1959,25 +1960,30 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// The Location rows open the folder chooser through `window.showOpenDialog`. The harness sets
-			// `files.simpleDialog.enable` (baseTest.ts), so that renders as a quick input which *replaces*
-			// this wizard's own quick pick rather than a native dialog floating above it, and GitLens only
-			// re-renders the confirm on the picker's success path. Measured: once the chooser is up the
-			// confirm never comes back, whether the chooser is dismissed or accepted. At default settings
-			// the dialog is native and the confirm survives behind it on `ignoreFocusOut` (create.ts:673),
-			// so the round trip back to the confirm is not something this harness can exercise. What is
-			// real here is that the row opens the right chooser — the two rows are easy to cross-wire.
-			await quickPick.selectItem(/^Specific Folder/);
-			await quickPick.waitForTitle(/Choose a Specific Folder for this Worktree/i);
+			// Select "Specific Folder..." option
+			await quickPick.selectItem(/Specific Folder/i);
+
+			// The folder picker dialog should appear - press Escape to cancel it
+			await page.waitForTimeout(ShortTimeout);
+			await page.keyboard.press('Escape');
+
+			// Should return to confirm step after escaping folder picker
+			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
+
+			// === REVERSE NAVIGATION ===
+
+			// Back from confirm → branch picker
+			await quickPick.goBackAndWaitForStep({ title: /Create Worktree/i, placeholder: /Choose a branch/i });
 
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Root Folder: the Location row opens the root-folder chooser', async ({
+		test('Cancelling Root Folder picker returns to confirm', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
+				page,
 			},
 		}) => {
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'worktree', 'create', {
@@ -1992,10 +1998,20 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Same harness constraint as the Specific Folder spec above: the chooser replaces the wizard's
-			// quick pick, so only the wiring is observable here.
-			await quickPick.selectItem(/^Root Folder/);
-			await quickPick.waitForTitle(/Choose a Different Root Folder for this Worktree/i);
+			// Select "Root Folder..." option
+			await quickPick.selectItem(/Root Folder/i);
+
+			// The folder picker dialog should appear - press Escape to cancel it
+			await page.waitForTimeout(ShortTimeout);
+			await page.keyboard.press('Escape');
+
+			// Should return to confirm step after escaping folder picker
+			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
+
+			// === REVERSE NAVIGATION ===
+
+			// Back from confirm → branch picker
+			await quickPick.goBackAndWaitForStep({ title: /Create Worktree/i, placeholder: /Choose a branch/i });
 
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();

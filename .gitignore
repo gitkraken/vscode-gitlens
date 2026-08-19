@@ -1,4 +1,5 @@
 .agents
+.amp/portals/
 .claude/plans/**
 !.claude/settings.json
 .claude/settings.local.json

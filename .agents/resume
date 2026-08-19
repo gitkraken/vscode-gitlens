@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+node_version="$(sed -nE 's/^[[:space:]]*"node":[[:space:]]*">=[[:space:]]*([0-9.]+)",?$/\1/p' package.json)"
+pnpm_version="$(sed -nE 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@([0-9.]+)",?$/\1/p' package.json)"
+
+case "$(uname -m)" in
+	x86_64) node_arch="x64" ;;
+	aarch64 | arm64) node_arch="arm64" ;;
+	*)
+		echo "Unsupported architecture: $(uname -m)" >&2
+		exit 1
+		;;
+esac
+
+node_dir="$HOME/.local/share/node-v${node_version}-linux-${node_arch}"
+if [[ ! -x "$node_dir/bin/node" ]]; then
+	echo "GitLens toolchain is missing; run .agents/setup" >&2
+	exit 1
+fi
+
+mkdir -p "$HOME/.local/bin"
+for executable in node npm npx corepack; do
+	ln -sfn "$node_dir/bin/$executable" "$HOME/.local/bin/$executable"
+done
+
+export PATH="$HOME/.local/bin:$PATH"
+hash -r
+corepack enable pnpm
+
+if [[ "$(node --version)" != "v$node_version" || "$(pnpm --version)" != "$pnpm_version" ]]; then
+	echo "GitLens toolchain does not match package.json; run .agents/setup" >&2
+	exit 1
+fi
+
+echo "GitLens orb resumed with Node.js $(node --version) and pnpm $(pnpm --version)"
