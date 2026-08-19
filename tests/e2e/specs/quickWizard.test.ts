@@ -1597,17 +1597,33 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 				}
 			};
 
+			const offers = (operator: string) => [...seen].some(item => item.includes(operator));
+
+			const operators = [
+				'Search by Message',
+				'Search by Author',
+				'Search by Commit SHA',
+				'Search by Reference or Range',
+				'Search by Type',
+				'Search by File',
+				'Search by Changes',
+				'Search After Date',
+				'Search Before Date',
+				// Added by `7ed75990e`; asserted so the list growing again is a deliberate change
+				'Search by Committer',
+				'Exclude by Message',
+			];
+
+			// Bound the walk by a press count and stop once everything expected has been seen. Stopping on
+			// "the last press revealed nothing new" instead ends it early: the first presses move the active
+			// row within the rows already on screen and reveal nothing, so the walk quits before it ever
+			// scrolls — which passes wherever the whole list happens to fit and still misses the tail where
+			// it does not.
 			await collect();
-			let previous = 0;
-			// Stop once two consecutive steps reveal nothing new — the walk has reached the end
-			for (let stable = 0; stable < 2 && seen.size < 50;) {
+			for (let press = 0; press < 30 && operators.some(operator => !offers(operator)); press++) {
 				await page.keyboard.press('ArrowDown');
 				await collect();
-				stable = seen.size === previous ? stable + 1 : 0;
-				previous = seen.size;
 			}
-
-			const offers = (operator: string) => [...seen].some(item => item.includes(operator));
 
 			// Check for expected search operators
 			expect(offers('Search by Message')).toBeTruthy();
@@ -1619,8 +1635,6 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 			expect(offers('Search by Changes')).toBeTruthy();
 			expect(offers('Search After Date')).toBeTruthy();
 			expect(offers('Search Before Date')).toBeTruthy();
-
-			// Added by `7ed75990e`; asserted so the list growing again is a deliberate change
 			expect(offers('Search by Committer')).toBeTruthy();
 			expect(offers('Exclude by Message')).toBeTruthy();
 
@@ -2021,20 +2035,25 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 					rows.add(item);
 				}
 			};
-			const walk = async () => {
+			const shows = (text: string) => [...rows].some(item => item.includes(text));
+			// Bounded by a press count, not by "nothing new appeared" — the early presses move the active
+			// row within what is already on screen, so a no-growth test stops the walk before it scrolls.
+			const walk = async (expected: string[]) => {
 				rows.clear();
 				await collect();
-				let previous = 0;
-				for (let stable = 0; stable < 2 && rows.size < 50;) {
+				for (let press = 0; press < 30 && expected.some(text => !shows(text)); press++) {
 					await page.keyboard.press('ArrowDown');
 					await collect();
-					stable = rows.size === previous ? stable + 1 : 0;
-					previous = rows.size;
 				}
 			};
-			const shows = (text: string) => [...rows].some(item => item.includes(text));
 
-			await walk();
+			await walk([
+				'Open in New Window',
+				'Open in Current Window',
+				'Add to Workspace',
+				"Don't Open",
+				'Will create worktree',
+			]);
 			expect(shows('Open in New Window')).toBeTruthy();
 			expect(shows('Open in Current Window')).toBeTruthy();
 			expect(shows('Add to Workspace')).toBeTruthy();
@@ -2054,7 +2073,7 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// to this workspace". Assert the clause is gone entirely rather than just the newWindow wording:
 			// the `vscode` fixture is worker-scoped, so creating with either of the other two selected would
 			// move this window out from under every spec that follows.
-			await walk();
+			await walk(['Will create worktree']);
 			const actionRow = [...rows].find(item => item.includes('Will create worktree'));
 			expect(actionRow).toBeDefined();
 			expect(actionRow).not.toContain(', then');
