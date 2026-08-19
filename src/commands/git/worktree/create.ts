@@ -669,9 +669,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 			refreshConfirmStepItems(step, buildRows());
 		};
 
-		// Property rows: accepting one opens the folder dialog and rewrites the confirm in place --
-		// confirm steps set `ignoreFocusOut`, so the quickpick survives the dialog's focus steal
+		// Property rows: accepting one freezes the confirm while the folder dialog is active, then
+		// restores it and rewrites its rows in place when a folder was selected
 		const chooseFolder = async (options: { title: string; label: string; specific: boolean }): Promise<void> => {
+			using _frozen = step.freeze?.();
+
 			const uris = await window.showOpenDialog({
 				canSelectFiles: false,
 				canSelectFolders: true,
@@ -697,26 +699,24 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 			label: 'Root Folder\u2026',
 			description: rootDescription(),
 			detail: 'Choose a different root folder for worktrees',
-			onDidSelect: () => {
-				void chooseFolder({
+			onDidSelect: () =>
+				chooseFolder({
 					title: 'Choose a Different Root Folder for this Worktree',
 					label: 'Choose Root Folder',
 					specific: false,
-				});
-			},
+				}),
 		});
 
 		rows.specific = createDirectiveQuickPickItem(Directive.Noop, false, {
 			label: 'Specific Folder\u2026',
 			description: specificDescription(),
 			detail: 'Create directly in an exact folder instead of under the root',
-			onDidSelect: () => {
-				void chooseFolder({
+			onDidSelect: () =>
+				chooseFolder({
 					title: 'Choose a Specific Folder for this Worktree',
 					label: 'Choose Worktree Folder',
 					specific: true,
-				});
-			},
+				}),
 		});
 
 		// Radios pair with their choice by index — never by label, which selection state shouldn't

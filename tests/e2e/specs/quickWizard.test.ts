@@ -1895,7 +1895,7 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Choose Specific Folder: selecting folder returns to confirm, escaping returns to confirm', async ({
+		test('Cancelling Specific Folder picker returns to confirm', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1914,8 +1914,8 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Select "Choose Specific Folder..." option
-			await quickPick.selectItem(/Choose Specific Folder/i);
+			// Select "Specific Folder..." option
+			await quickPick.selectItem(/Specific Folder/i);
 
 			// The folder picker dialog should appear - press Escape to cancel it
 			await page.waitForTimeout(ShortTimeout);
@@ -1933,7 +1933,7 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Change Root Folder: selecting folder returns to confirm, escaping returns to confirm', async ({
+		test('Cancelling Root Folder picker returns to confirm', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1952,8 +1952,8 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Select "Change Root Folder..." option
-			await quickPick.selectItem(/Change Root Folder/i);
+			// Select "Root Folder..." option
+			await quickPick.selectItem(/Root Folder/i);
 
 			// The folder picker dialog should appear - press Escape to cancel it
 			await page.waitForTimeout(ShortTimeout);
