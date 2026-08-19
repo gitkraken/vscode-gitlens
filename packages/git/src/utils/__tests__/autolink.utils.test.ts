@@ -39,11 +39,11 @@ suite('Autolink Utils Test Suite', () => {
 			assert.strictEqual(match[3], '456');
 		});
 
-		test('matches prefix after opening brackets', () => {
+		test('matches prefix after supported boundaries', () => {
 			const ref = makeRef();
 			ensureCachedRegex(ref, 'plaintext');
 
-			for (const opener of ['(', '[', '{']) {
+			for (const opener of ['(', '[', '{', '/']) {
 				ref.messageRegex.lastIndex = 0;
 				const match = ref.messageRegex.exec(`${opener}JIRA-99)`);
 				assert.ok(match != null, `Should match after '${opener}'`);

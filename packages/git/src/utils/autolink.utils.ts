@@ -58,20 +58,21 @@ export function ensureCachedRegex(
 	// If the ref is a matched Autolink then only match the exact `id`
 	const refPattern = ref.id ? ref.id : ref.alphanumeric ? '\\w+' : '\\d+';
 	const refFlags = !ref.id && ref.ignoreCase ? 'gi' : 'g';
+	const prefixBoundary = '^|[\\[\\s({/]';
 
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown') {
 		ref.messageMarkdownRegex ??= new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${refPattern}))\\b`,
+			`(${prefixBoundary})(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${refPattern}))\\b`,
 			refFlags,
 		);
 	} else if (outputFormat === 'html') {
 		ref.messageHtmlRegex ??= new RegExp(
-			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${refPattern}))\\b`,
+			`(${prefixBoundary})(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${refPattern}))\\b`,
 			refFlags,
 		);
 	} else {
-		ref.messageRegex ??= new RegExp(`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${refPattern}))\\b`, refFlags);
+		ref.messageRegex ??= new RegExp(`(${prefixBoundary})(${escapeRegex(ref.prefix)}(${refPattern}))\\b`, refFlags);
 	}
 }
 

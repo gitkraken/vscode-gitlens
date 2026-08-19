@@ -50,6 +50,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes custom autolinks failing to match references after a forward slash ([#5757](https://github.com/gitkraken/vscode-gitlens/issues/5757))
 - Fixes cancelling the _Root Folder..._ or _Specific Folder..._ picker closing the _Create Worktree_ wizard instead of returning to its confirmation step ([#5752](https://github.com/gitkraken/vscode-gitlens/issues/5752))
 - Fixes clicking an untracked nested repository's row in the _Commit Graph_'s _Compare_ panel opening a tab that fails to render ([#5657](https://github.com/gitkraken/vscode-gitlens/issues/5657))
 - Fixes the push confirmation pre-selecting _Force Push_ when the branch is behind its upstream &mdash; Enter force-pushed; _Cancel_ is now the default
