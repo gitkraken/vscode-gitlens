@@ -74,8 +74,8 @@ test.describe('Smoke Tests — Core', () => {
 
 		// GitLens Inspect is its own view container, and VS Code registers a container the first time
 		// one of its views is shown — so the tab is simply absent on a freshly launched instance. Show
-		// an Inspect view here: the old `countTabs(/GitLens/) >= 1` was satisfied by the GitLens tab
-		// alone, so this test passed without ever seeing the second icon it is named for.
+		// an Inspect view here: this used to assert that at least one tab matched /GitLens/, which the
+		// GitLens tab satisfied alone, so it passed without ever seeing the second icon it is named for.
 		await vscode.gitlens.executeCommand('gitlens.showCommitDetailsView');
 		await expect(vscode.gitlens.gitlensInspectTab).toBeVisible({ timeout: MaxTimeout });
 	});

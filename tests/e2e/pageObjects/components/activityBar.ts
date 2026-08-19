@@ -41,13 +41,6 @@ export class ActivityBar {
 	}
 
 	/**
-	 * Get all tabs matching a pattern
-	 */
-	getTabs(name: string | RegExp): Locator {
-		return this.container.getByRole('tab', { name: name });
-	}
-
-	/**
 	 * Click a tab to activate its view
 	 */
 	async clickTab(name: string | RegExp, exact = true): Promise<void> {
@@ -104,13 +97,6 @@ export class ActivityBar {
 	 */
 	async waitForTab(name: string | RegExp, exact = true, timeout = MaxTimeout): Promise<void> {
 		await this.getTab(name, exact).waitFor({ state: 'visible', timeout: timeout });
-	}
-
-	/**
-	 * Count tabs matching a pattern
-	 */
-	async countTabs(name: string | RegExp): Promise<number> {
-		return this.getTabs(name).count();
 	}
 
 	// Common VS Code activity bar tabs

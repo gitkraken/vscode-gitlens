@@ -44,14 +44,6 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	/**
-	 * Get the count of GitLens-related tabs in the activity bar
-	 * Should be 2: GitLens and GitLens Inspect
-	 */
-	async getActivityBarTabCount(): Promise<number> {
-		return this.activityBar.countTabs(/GitLens/);
-	}
-
-	/**
 	 * Wait for GitLens extension to fully activate
 	 * This is indicated by the GitLens activity bar icon becoming visible
 	 */
