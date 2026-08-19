@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+step() {
+	local description="$1"
+	shift
+	local started_at=$SECONDS
+
+	echo "==> $description"
+	"$@"
+	echo "<== $description completed in $((SECONDS - started_at))s"
+}
+
+install_system_packages() {
+	local missing_packages=()
+	local package
+	for package in xauth xvfb xz-utils; do
+		if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed'; then
+			missing_packages+=("$package")
+		fi
+	done
+
+	if ((${#missing_packages[@]} == 0)); then
+		echo "Required system packages are already installed"
+		return
+	fi
+
+	sudo apt-get update
+	sudo apt-get install -y --no-install-recommends "${missing_packages[@]}"
+}
+
+node_version="$(sed -nE 's/^[[:space:]]*"node":[[:space:]]*">=[[:space:]]*([0-9.]+)",?$/\1/p' package.json)"
+pnpm_version="$(sed -nE 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@([0-9.]+)",?$/\1/p' package.json)"
+if [[ -z "$node_version" || -z "$pnpm_version" ]]; then
+	echo "Unable to read the Node.js or pnpm version from package.json" >&2
+	exit 1
+fi
+
+case "$(uname -m)" in
+	x86_64) node_arch="x64" ;;
+	aarch64 | arm64) node_arch="arm64" ;;
+	*)
+		echo "Unsupported architecture: $(uname -m)" >&2
+		exit 1
+		;;
+esac
+
+node_release="node-v${node_version}-linux-${node_arch}"
+node_dir="$HOME/.local/share/$node_release"
+
+install_node() {
+	if [[ -x "$node_dir/bin/node" && "$($node_dir/bin/node --version)" == "v$node_version" ]]; then
+		echo "Node.js v$node_version is already installed"
+		return
+	fi
+
+	local archive="$node_release.tar.xz"
+	local download_dir
+	download_dir="$(mktemp -d)"
+
+	curl -fsSLo "$download_dir/$archive" "https://nodejs.org/dist/v${node_version}/$archive"
+	curl -fsSLo "$download_dir/SHASUMS256.txt" "https://nodejs.org/dist/v${node_version}/SHASUMS256.txt"
+	(
+		cd "$download_dir"
+		grep "  $archive\$" SHASUMS256.txt | sha256sum --check --strict -
+	)
+
+	mkdir -p "$(dirname "$node_dir")"
+	rm -rf "$node_dir"
+	tar -xJf "$download_dir/$archive" -C "$(dirname "$node_dir")"
+	rm -rf "$download_dir"
+}
+
+configure_toolchain() {
+	mkdir -p "$HOME/.local/bin"
+	for executable in node npm npx corepack; do
+		ln -sfn "$node_dir/bin/$executable" "$HOME/.local/bin/$executable"
+	done
+
+	export PATH="$HOME/.local/bin:$PATH"
+	hash -r
+
+	local corepack_version
+	corepack_version="$(corepack --version)"
+	if [[ "$(printf '%s\n' 0.31.0 "$corepack_version" | sort -V | head -n 1)" != "0.31.0" ]]; then
+		npm install --global corepack@0.34.0
+		corepack_version="$(corepack --version)"
+	fi
+
+	corepack enable pnpm
+	if [[ "$(pnpm --version 2>/dev/null || true)" != "$pnpm_version" ]]; then
+		corepack install --global "pnpm@$pnpm_version"
+	fi
+
+	local profile_marker="# GitLens orb toolchain"
+	if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+		cat >> "$HOME/.bash_profile" <<'EOF'
+
+# GitLens orb toolchain
+case ":$PATH:" in
+	*:"$HOME/.local/bin":*) ;;
+	*) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+EOF
+	fi
+
+	echo "Node.js $(node --version), Corepack $corepack_version, pnpm $(pnpm --version)"
+}
+
+step "Install system packages" install_system_packages
+step "Install Node.js" install_node
+step "Configure Node.js and pnpm" configure_toolchain
+step "Install workspace dependencies" pnpm install --frozen-lockfile
+
+echo "Orb setup complete"
