@@ -621,35 +621,31 @@ test.describe('Quick Wizard — Tag Commands', () => {
 
 test.describe('Quick Wizard — Stash Commands', () => {
 	test.describe('Stash Push Flow', () => {
-		test('Complete flow: command → subcommand → confirm → message & reverse', async ({
+		test('Complete flow: command → subcommand → message → confirm & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
 			},
 		}) => {
-			// The push wizard was reversed (commit "Reverses the stash push wizard"): the confirm
-			// step now precedes the message input to avoid back-navigation loops with confirm overrides.
-			// The confirm step shows because launching via the menu (`gitlens.gitCommands`, no args) makes
-			// `startedFrom === 'menu'`, so the skip key is `stash-push:menu` — not the default-skipped
-			// `stash-push:command`. If `stash-push:menu` is ever added to `gitCommands.skipConfirmations`,
-			// the confirm step vanishes and this test would time out on the (now-absent) confirm step.
+			// "Reverses the stash push wizard" (ed34a9fbd) had once put the confirm ahead of the message
+			// input, gating it on `!steps.isAtStep(Steps.InputMessage)`. The confirm-grammar conversion
+			// (76a9d1425) dropped that gate, so the order is back to repo → message → confirm.
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'stash', 'push', {
-				title: /Confirm Push Stash/i,
-				placeholder: /Confirm Push Stash/i,
+				title: /Push Stash/i,
+				placeholder: /Stash message/i,
 			});
 
-			// Select the plain "Push Stash" confirmation option (negative lookahead excludes the
-			// "Snapshot" / "& …" variants, so this is order-independent rather than relying on `.first()`)
-			await quickPick.selectItem(/Push Stash(?! Snapshot| &)/);
+			// Submitting a message is safe: the confirm step still stands between it and execution.
+			await quickPick.enterTextAndSubmit('e2e stash message');
 
-			// Message step (placeholder distinguishes it from the still-matching "Confirm Push Stash" title)
-			await quickPick.waitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
+			// Confirm step (title and placeholder both carry the "Confirm" prefix)
+			await quickPick.waitForStep({ title: /Confirm Push Stash/i, placeholder: /Confirm Push Stash/i });
 
 			// === REVERSE NAVIGATION ===
-			// Do not submit a message — submitting would execute the stash. Navigate back instead.
+			// Do not select a confirm row — that would execute the stash. Navigate back instead.
 
-			// Back from message → confirm
-			await quickPick.goBackAndWaitForStep({ title: /Confirm Push Stash/i, placeholder: /Confirm Push Stash/i });
+			// Back from confirm → message
+			await quickPick.goBackAndWaitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
 
 			await reverseCommandSubcommandAndRepo(vscode, 'stash');
 
