@@ -621,35 +621,31 @@ test.describe('Quick Wizard — Tag Commands', () => {
 
 test.describe('Quick Wizard — Stash Commands', () => {
 	test.describe('Stash Push Flow', () => {
-		test('Complete flow: command → subcommand → confirm → message & reverse', async ({
+		test('Complete flow: command → subcommand → message → confirm & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
 			},
 		}) => {
-			// The push wizard was reversed (commit "Reverses the stash push wizard"): the confirm
-			// step now precedes the message input to avoid back-navigation loops with confirm overrides.
-			// The confirm step shows because launching via the menu (`gitlens.gitCommands`, no args) makes
-			// `startedFrom === 'menu'`, so the skip key is `stash-push:menu` — not the default-skipped
-			// `stash-push:command`. If `stash-push:menu` is ever added to `gitCommands.skipConfirmations`,
-			// the confirm step vanishes and this test would time out on the (now-absent) confirm step.
+			// "Reverses the stash push wizard" (ed34a9fbd) had once put the confirm ahead of the message
+			// input, gating it on `!steps.isAtStep(Steps.InputMessage)`. The confirm-grammar conversion
+			// (76a9d1425) dropped that gate, so the order is back to repo → message → confirm.
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'stash', 'push', {
-				title: /Confirm Push Stash/i,
-				placeholder: /Confirm Push Stash/i,
+				title: /Push Stash/i,
+				placeholder: /Stash message/i,
 			});
 
-			// Select the plain "Push Stash" confirmation option (negative lookahead excludes the
-			// "Snapshot" / "& …" variants, so this is order-independent rather than relying on `.first()`)
-			await quickPick.selectItem(/Push Stash(?! Snapshot| &)/);
+			// Submitting a message is safe: the confirm step still stands between it and execution.
+			await quickPick.enterTextAndSubmit('e2e stash message');
 
-			// Message step (placeholder distinguishes it from the still-matching "Confirm Push Stash" title)
-			await quickPick.waitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
+			// Confirm step (title and placeholder both carry the "Confirm" prefix)
+			await quickPick.waitForStep({ title: /Confirm Push Stash/i, placeholder: /Confirm Push Stash/i });
 
 			// === REVERSE NAVIGATION ===
-			// Do not submit a message — submitting would execute the stash. Navigate back instead.
+			// Do not select a confirm row — that would execute the stash. Navigate back instead.
 
-			// Back from message → confirm
-			await quickPick.goBackAndWaitForStep({ title: /Confirm Push Stash/i, placeholder: /Confirm Push Stash/i });
+			// Back from confirm → message
+			await quickPick.goBackAndWaitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
 
 			await reverseCommandSubcommandAndRepo(vscode, 'stash');
 
@@ -1102,7 +1098,7 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Toggle commit selection: command → toggle button → branch → commits & reverse', async ({
+		test('Toggle commit selection: command → toggle row → branch → commits & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1114,11 +1110,15 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 				placeholder: /Choose a branch/i,
 			});
 
-			// At branch selection step, click the commit toggle button (initially shows "Choose a Branch")
-			// The button tooltip when off is "Choose a Branch or Tag", click to toggle to commit mode
-			await quickPick.clickActionButton(/Choose a Branch/i);
+			// `76a9d1425` dropped the icon-only title-bar toggle in favour of a worded row at the top of
+			// the ref list. It is a `Directive.Noop` checkbox, so selecting it flips the pick-commit
+			// state in place and stays on this step instead of advancing.
+			await quickPick.selectItem(/Choose a Specific Commit/i);
 
-			// Select a branch (after toggle, selecting a branch will then show commits)
+			// Still on the branch step — the toggle modifies it rather than moving past it
+			await quickPick.waitForStep({ title: /Merge/i, placeholder: /Choose a branch/i });
+
+			// Select a branch (with the toggle on, selecting a branch leads to the commit step)
 			await quickPick.enterTextAndWaitForItems('feature-1');
 			await quickPick.selectItem(/feature-1/i);
 			await page.waitForTimeout(ShortTimeout);
@@ -1247,7 +1247,7 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Toggle commit selection: command → toggle button → branch → commits → confirm & reverse', async ({
+		test('Toggle commit selection: command → toggle row → branch → commits → confirm & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1259,11 +1259,15 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 				placeholder: /Choose a branch/i,
 			});
 
-			// At branch selection step, click the commit toggle button (initially shows "Choose a Branch")
-			// The button tooltip when off is "Choose a Branch or Tag", click to toggle to commit mode
-			await quickPick.clickActionButton(/Choose a Branch/i);
+			// `76a9d1425` dropped the icon-only title-bar toggle in favour of a worded row at the top of
+			// the ref list. It is a `Directive.Noop` checkbox, so selecting it flips the pick-commit
+			// state in place and stays on this step instead of advancing.
+			await quickPick.selectItem(/Choose a Specific Commit/i);
 
-			// Select a branch (after toggle, selecting a branch will then show commits)
+			// Still on the branch step — the toggle modifies it rather than moving past it
+			await quickPick.waitForStep({ title: /Rebase/i, placeholder: /Choose a branch/i });
+
+			// Select a branch (with the toggle on, selecting a branch leads to the commit step)
 			await quickPick.enterTextAndWaitForItems('feature-1');
 			await quickPick.selectItem(/feature-1/i);
 			await page.waitForTimeout(ShortTimeout);
@@ -1571,6 +1575,7 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
+				page,
 			},
 		}) => {
 			await selectCommandAndWaitForStepWithOptionalRepo(vscode, 'search', {
@@ -1578,19 +1583,60 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 				placeholder: /e.g. "Updates dependencies" author:eamodio/i,
 			});
 
-			// Verify search operators are shown in the list
-			const items = await quickPick.getVisibleItems();
+			// The quick pick list is virtualized, so `getVisibleItems()` only ever reports the rows
+			// currently rendered — a single snapshot answers "does this row fit on screen", not "is this
+			// operator offered". That distinction stopped being academic when `7ed75990e` grew the list to
+			// 11 rows with Search by Committer and Exclude by Message: the tail stopped fitting on the
+			// shorter Windsurf window in CI and this spec failed there alone, on its last assertion, while
+			// passing everywhere the window happened to be tall enough. Walk the list with the keyboard
+			// instead and union what each step renders, which holds at any window height.
+			const seen = new Set<string>();
+			const collect = async () => {
+				for (const item of await quickPick.getVisibleItems()) {
+					seen.add(item);
+				}
+			};
+
+			const offers = (operator: string) => [...seen].some(item => item.includes(operator));
+
+			const operators = [
+				'Search by Message',
+				'Search by Author',
+				'Search by Commit SHA',
+				'Search by Reference or Range',
+				'Search by Type',
+				'Search by File',
+				'Search by Changes',
+				'Search After Date',
+				'Search Before Date',
+				// Added by `7ed75990e`; asserted so the list growing again is a deliberate change
+				'Search by Committer',
+				'Exclude by Message',
+			];
+
+			// Bound the walk by a press count and stop once everything expected has been seen. Stopping on
+			// "the last press revealed nothing new" instead ends it early: the first presses move the active
+			// row within the rows already on screen and reveal nothing, so the walk quits before it ever
+			// scrolls — which passes wherever the whole list happens to fit and still misses the tail where
+			// it does not.
+			await collect();
+			for (let press = 0; press < 30 && operators.some(operator => !offers(operator)); press++) {
+				await page.keyboard.press('ArrowDown');
+				await collect();
+			}
 
 			// Check for expected search operators
-			expect(items.some(item => item.includes('Search by Message'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Author'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Commit SHA'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Reference or Range'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Type'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by File'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search by Changes'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search After Date'))).toBeTruthy();
-			expect(items.some(item => item.includes('Search Before Date'))).toBeTruthy();
+			expect(offers('Search by Message')).toBeTruthy();
+			expect(offers('Search by Author')).toBeTruthy();
+			expect(offers('Search by Commit SHA')).toBeTruthy();
+			expect(offers('Search by Reference or Range')).toBeTruthy();
+			expect(offers('Search by Type')).toBeTruthy();
+			expect(offers('Search by File')).toBeTruthy();
+			expect(offers('Search by Changes')).toBeTruthy();
+			expect(offers('Search After Date')).toBeTruthy();
+			expect(offers('Search Before Date')).toBeTruthy();
+			expect(offers('Search by Committer')).toBeTruthy();
+			expect(offers('Exclude by Message')).toBeTruthy();
 
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();
@@ -1972,10 +2018,11 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 		});
 
 		// This test must run LAST in the Worktree Create Flow section because it actually creates a worktree
-		test('Create → Open transition: after creating worktree, open prompt appears', async ({
+		test('After Creating: the open choice folds into the action row and is applied on create', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
+				page,
 			},
 		}) => {
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'worktree', 'create', {
@@ -1990,23 +2037,87 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Should go directly to confirm step (no branch name input needed)
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Confirm to actually create the worktree
-			// Select the default option "Create Worktree from Branch"
-			await quickPick.selectItem(/Create Worktree from Branch/i);
+			// `b52976a1c` moved the open decision into this confirm as an `After Creating` radio group,
+			// seeded from `worktrees.openAfterCreate`, so there is no separate open prompt after creation
+			// any more. The choice is visible up front and folded into the action row's detail.
+			//
+			// This confirm is the longest in the suite — action row, two Location rows, two separators and
+			// four radios — so the tail sits below the fold on a short window and the list is virtualized.
+			// Collect by walking it rather than trusting one `getVisibleItems()` snapshot, the same way the
+			// search-operator spec does; a snapshot here would go missing exactly on the shorter forks.
+			const rows = new Set<string>();
+			const collect = async () => {
+				for (const item of await quickPick.getVisibleItems()) {
+					rows.add(item);
+				}
+			};
+			const shows = (text: string) => [...rows].some(item => item.includes(text));
+			// Bounded by a press count, not by "nothing new appeared" — the early presses move the active
+			// row within what is already on screen, so a no-growth test stops the walk before it scrolls.
+			// The direction is a parameter because the caller knows where the active row is: walking away
+			// from it reaches the far end through wrap-around, which happens to work but leaves the spec
+			// resting on list-wrapping semantics it never states.
+			const walk = async (expected: string[], direction: 'ArrowDown' | 'ArrowUp' = 'ArrowDown') => {
+				rows.clear();
+				await collect();
+				for (let press = 0; press < 30 && expected.some(text => !shows(text)); press++) {
+					await page.keyboard.press(direction);
+					await collect();
+				}
+			};
 
-			// After worktree is created, should transition to "Open Worktree" confirm step
-			// The default setting is "prompt" so the open dialog should appear
-			await quickPick.waitForStep(
-				{ title: /Open Worktree.*feature-2|Confirm.*Open.*Worktree/i },
-				15000, // Worktree creation can take a moment
-			);
+			await walk([
+				'Open in New Window',
+				'Open in Current Window',
+				'Add to Workspace',
+				"Don't Open",
+				'Will create worktree',
+			]);
+			expect(shows('Open in New Window')).toBeTruthy();
+			expect(shows('Open in Current Window')).toBeTruthy();
+			expect(shows('Add to Workspace')).toBeTruthy();
+			expect(shows("Don't Open")).toBeTruthy();
 
-			// Verify the open options are shown
-			const items = await quickPick.getVisibleItems();
-			expect(items.some(item => item.includes('Open Worktree'))).toBeTruthy();
-			expect(items.some(item => item.includes('New Window'))).toBeTruthy();
+			// The seeded choice is spelled out on the action row
+			expect(shows('Will create worktree')).toBeTruthy();
+			expect(shows('open it in a new window')).toBeTruthy();
 
-			// Cancel without opening the worktree (to avoid changing the workspace)
+			// Choosing "Don't Open" is a `Directive.Noop` radio: it stays on this step and rewrites the
+			// action row, dropping the open clause.
+			await quickPick.selectItem(/^Don't Open/);
+			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
+
+			// Every open mode appends a ", then …" clause to the action row — newWindow says "then open it
+			// in a new window", currentWindow "then switch this window to it", addToWorkspace "then add it
+			// to this workspace". Assert the clause is gone entirely rather than just the newWindow wording:
+			// the `vscode` fixture is worker-scoped, so creating with either of the other two selected would
+			// move this window out from under every spec that follows.
+			// Selecting a radio leaves the active row near the bottom of the list, so walk back up: the
+			// action row is the first row, and it has to be on screen both to be read here and to be
+			// clicked below — `selectItem` only matches rows the virtualized list has rendered.
+			await walk(['Will create worktree'], 'ArrowUp');
+			const actionRow = [...rows].find(item => item.includes('Will create worktree'));
+			expect(actionRow).toBeDefined();
+			expect(actionRow).not.toContain(', then');
+
+			// Create the worktree. With "Don't Open" selected the wizard finishes here rather than
+			// handing off to a follow-up prompt.
+			await quickPick.selectItem(/^Create Worktree from Branch/);
+
+			await quickPick.waitForHidden();
+			expect(await quickPick.isVisible()).toBeFalsy();
+
+			// `waitForHidden` alone is also satisfied when the create *fails* — on a CI retry the branch
+			// already has a worktree, `worktrees.create` throws and the quick pick closes just the same,
+			// which would leave the spec green while proving nothing. Observe the worktree through the
+			// wizard that lists them, so the name ("applied on create") stays honest.
+			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'worktree', 'open', {
+				title: /Open Worktree|Worktree/i,
+				placeholder: /Choose worktree/i,
+			});
+			await quickPick.waitForItems(ShortTimeout);
+			expect((await quickPick.getVisibleItems()).some(item => item.includes('feature-2'))).toBeTruthy();
+
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
@@ -2124,7 +2235,7 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Confirm options: Delete, Force Delete, Delete with Branch, Force Delete with Branch', async ({
+		test('Confirm options: the Force and Delete Branch toggles fold into the action row', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -2142,21 +2253,42 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Delete Worktree/i });
 
-			// Verify all expected options are present
-			// Note: getVisibleItems() returns all text content including descriptions
-			const items = await quickPick.getVisibleItems();
-			// Basic delete has "Will delete worktree" without "forcibly"
-			const hasDelete = items.some(
-				item => item.includes('Delete Worktree') && item.includes('Will delete') && !item.includes('forcibly'),
-			);
-			const hasForceDelete = items.some(item => item.includes('Force Delete Worktree'));
-			const hasDeleteWithBranch = items.some(item => item.includes('Delete Worktree & Branch'));
-			const hasForceDeleteWithBranch = items.some(item => item.includes('Force Delete Worktree & Branch'));
+			// `e216d7553` converted this confirm to the modes-plus-toggles grammar. Where there were four
+			// fixed rows (Delete / Force Delete / Delete with Branch / Force Delete with Branch) there is
+			// now a single action row whose label and detail fold in the `Force` and `Delete Branch`
+			// toggles, so the combinations are asserted by flipping them rather than by looking for four
+			// labels. Toggles are `Directive.Noop`: selecting one re-renders this step instead of
+			// advancing, and nothing is deleted unless the action row itself is selected — which this
+			// spec deliberately never does.
+			//
+			// Match the toggles on their details rather than their labels. `Force` renders as
+			// `$(warning) Force` once checked, so its text stops starting with "Force" — while the action
+			// row starts with "Force Delete Worktree" in exactly that state. A `/^Force/` selector points
+			// at the toggle in one state and at the action row in the other, and the action row is one
+			// click from deleting a worktree and its branch. The details are unique and state-independent.
+			const forceToggle = 'Delete even with uncommitted changes';
+			// A regex here because the wording is singular or plural with the number of worktrees picked
+			const deleteBranchToggle = /Also delete the .* checked out in the/;
 
-			expect(hasDelete).toBeTruthy();
-			expect(hasForceDelete).toBeTruthy();
-			expect(hasDeleteWithBranch).toBeTruthy();
-			expect(hasForceDeleteWithBranch).toBeTruthy();
+			// Note: getVisibleItems() returns all text content including descriptions
+			let items = await quickPick.getVisibleItems();
+			expect(items.some(item => item.includes('Delete Worktree') && item.includes('Will delete'))).toBeTruthy();
+			expect(items.some(item => item.includes(forceToggle))).toBeTruthy();
+			expect(items.some(item => deleteBranchToggle.test(item))).toBeTruthy();
+
+			// Force folds into the action row, which restates itself as a forcible delete
+			await quickPick.selectItem(forceToggle);
+			items = await quickPick.getVisibleItems();
+			expect(
+				items.some(item => item.includes('Force Delete Worktree') && item.includes('Will forcibly delete')),
+			).toBeTruthy();
+
+			// Delete Branch folds in as well — the branch shows up in the detail, not in the label
+			await quickPick.selectItem(deleteBranchToggle);
+			items = await quickPick.getVisibleItems();
+			expect(
+				items.some(item => item.includes('Force Delete Worktree') && item.includes('along with its branch')),
+			).toBeTruthy();
 
 			await quickPick.cancel();
 			expect(await quickPick.isVisible()).toBeFalsy();
