@@ -70,8 +70,14 @@ test.describe('Smoke Tests — Core', () => {
 	});
 
 	test('should contain GitLens & GitLens Inspect icons in activity bar', async ({ vscode }) => {
-		const tabCount = await vscode.gitlens.getActivityBarTabCount();
-		expect(tabCount).toBeGreaterThanOrEqual(1);
+		await expect(vscode.gitlens.gitlensTab).toBeVisible({ timeout: MaxTimeout });
+
+		// GitLens Inspect is its own view container, and VS Code registers a container the first time
+		// one of its views is shown — so the tab is simply absent on a freshly launched instance. Show
+		// an Inspect view here: the old `countTabs(/GitLens/) >= 1` was satisfied by the GitLens tab
+		// alone, so this test passed without ever seeing the second icon it is named for.
+		await vscode.gitlens.executeCommand('gitlens.showCommitDetailsView');
+		await expect(vscode.gitlens.gitlensInspectTab).toBeVisible({ timeout: MaxTimeout });
 	});
 
 	test('should show GitLens status bar items', async ({ vscode }) => {
@@ -205,6 +211,18 @@ test.describe('Smoke Tests — GitLens Inspect views', () => {
 	});
 
 	test('should show GitLens Inspect views when clicking GitLens Inspect icon', async ({ vscode }) => {
+		// Register the Inspect view container and wait for its tab before clicking it. Opening the file
+		// above happens to register it too, but relying on that side effect is what made this spec fail
+		// on Positron in CI: the tab had not appeared yet, so the click below spent its full actionability
+		// timeout waiting for an element that nothing had asked VS Code to create.
+		await vscode.gitlens.executeCommand('gitlens.showCommitDetailsView');
+		await expect(vscode.gitlens.gitlensInspectTab).toBeVisible({ timeout: MaxTimeout });
+
+		// Showing the view also makes Inspect the active container, and clicking the active tab collapses
+		// the sidebar. Go back to Explorer so the click below is what opens Inspect — which is the whole
+		// subject of this test.
+		await vscode.gitlens.executeCommand('workbench.view.explorer');
+
 		// open inspect
 		await vscode.gitlens.openGitLensInspect();
 		await expect(vscode.gitlens.inspectViewSection).toBeVisible({ timeout: MaxTimeout });
