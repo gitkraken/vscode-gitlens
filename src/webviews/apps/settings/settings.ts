@@ -123,14 +123,21 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			// Graph/Home do — this feeds `gl-settings-account` and the nav's avatar. Supertalk proxy properties
 			// are thenable at runtime.
 			/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
-			const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
-				await Promise.all([
-					subscription.subscriptionState,
-					subscription.orgSettingsState,
-					subscription.avatarState,
-					subscription.hasAccountState,
-					subscription.organizationsCountState,
-				]);
+			const [
+				subscriptionSignal,
+				orgSettingsSignal,
+				avatarSignal,
+				hasAccountSignal,
+				orgCountSignal,
+				aiUsageSignal,
+			] = await Promise.all([
+				subscription.subscriptionState,
+				subscription.orgSettingsState,
+				subscription.avatarState,
+				subscription.hasAccountState,
+				subscription.organizationsCountState,
+				subscription.aiUsageState,
+			]);
 			/* eslint-enable @typescript-eslint/await-thenable */
 			this._subscriptionCtx.setValue(
 				{
@@ -139,6 +146,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 					avatar: avatarSignal,
 					hasAccount: hasAccountSignal,
 					organizationsCount: orgCountSignal,
+					aiUsage: aiUsageSignal,
 				},
 				true,
 			);
@@ -155,11 +163,6 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 				actions.openAnchor(e.anchor);
 			});
 			// Shared-service events feeding the Cloud Integrations & AI panels (and the Autolinks banner)
-			const unsubSubscription = await subscription.onSubscriptionChanged(() => {
-				// The usage allowance is scoped to the account/org, so it must be re-read whenever
-				// either changes (sign-in/out, org switch, plan change) — this push doesn't carry it.
-				void actions.refreshAiUsage();
-			});
 			const unsubIntegrations = await integrations.onIntegrationsChanged(data => {
 				s.cloudIntegrations.set(data.integrations);
 			});
@@ -183,7 +186,6 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			this._unsubscribes.push(
 				unsubConfig,
 				unsubAnchor,
-				unsubSubscription,
 				unsubIntegrations,
 				unsubAiModel,
 				unsubAiState,

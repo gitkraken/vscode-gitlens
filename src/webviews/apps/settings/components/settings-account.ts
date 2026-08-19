@@ -34,8 +34,6 @@ import { promosContext } from '../../shared/contexts/promos.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import { formatDate } from '../../shared/date.js';
-import type { SettingsState } from '../state.js';
-import { settingsStateContext } from '../state.js';
 import '../../shared/components/badges/badge.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
@@ -51,16 +49,15 @@ declare global {
 /**
  * Unit word for the GitKraken AI allowance — credits, per the GitKraken AI help docs and pricing
  * (allowances are stated per-plan as credits/week; gk.dev's per-action breakdown tracks tokens as a
- * separate figure). Matches this panel's plan copy from `getPlanAiCredits` ("N credits/week"). Kept as
- * a single constant so the unit lives in one place.
+ * separate figure). Matches this panel's plan copy from `getSubscriptionPlanAiCredits`
+ * ("N credits/week"). Kept as a single constant so the unit lives in one place.
  */
 const aiUsageUnit = 'credits';
 
 /**
  * Compact figures for the AI usage card ("63K", "250K", "1M"). `formatNumeric` in
- * `@gitlens/utils/date.js` has no `notation` option, and a single consumer doesn't warrant a new shared
- * utility. Resolves against the system locale rather than the configured date locale — that module keeps
- * its resolved locales private.
+ * `@gitlens/utils/date.js` has no `notation` option. Resolves against the system locale rather than the
+ * configured date locale — that module keeps its resolved locales private.
  */
 const compactNumberFormatter = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 
@@ -142,8 +139,8 @@ interface PlanCardContent {
  * link row.
  *
  * Account/plan state comes from the shared subscription RPC signals (via `subscriptionContext`, the same
- * bridge the Graph header and Home view use); AI usage comes from the settings state. Everything acts
- * through command links — nothing here writes config.
+ * bridge the Graph header and Home view use), AI usage included — the host owns that fetch so this panel
+ * and the chip read one value. Everything acts through command links — nothing here writes config.
  *
  * The compact `gl-account-chip` still owns the Graph header and Home view; this panel deliberately
  * reuses its behavior (command ids, entitlement ring, promo wiring) without reusing its layout.
@@ -677,9 +674,6 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	@consume({ context: subscriptionContext, subscribe: true })
 	private _subscription!: SubscriptionContextState;
 
-	@consume({ context: settingsStateContext })
-	private _state!: SettingsState;
-
 	@consume({ context: promosContext })
 	private _promos!: PromosContext;
 
@@ -927,7 +921,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		// clears, so without this gate the previous account's usage card renders on a signed-out panel.
 		if (sub.account == null) return nothing;
 
-		const usage: AiUsageInfo | null | undefined = this._state.aiUsage.get();
+		const usage: AiUsageInfo | null | undefined = this._subscription.aiUsage.get();
 		// `undefined` = not loaded yet, `null` = unavailable (on-premise orgs, or the fetch failed). The card
 		// is supplementary to the plan above it, so neither warrants a skeleton or an error row.
 		if (usage == null) return nothing;

@@ -444,13 +444,14 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// thenable; the disable is required — this is how Supertalk property access works.
 
 		/* oxlint-disable typescript/await-thenable -- Supertalk proxy properties are thenable at runtime */
-		const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
+		const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal, aiUsageSignal] =
 			await Promise.all([
 				subscription.subscriptionState,
 				subscription.orgSettingsState,
 				subscription.avatarState,
 				subscription.hasAccountState,
 				subscription.organizationsCountState,
+				subscription.aiUsageState,
 			]);
 		/* oxlint-enable typescript/await-thenable */
 
@@ -462,6 +463,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				avatar: avatarSignal,
 				hasAccount: hasAccountSignal,
 				organizationsCount: orgCountSignal,
+				aiUsage: aiUsageSignal,
 			},
 			true,
 		);
