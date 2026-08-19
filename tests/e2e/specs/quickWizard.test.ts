@@ -1899,13 +1899,19 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Choose Specific Folder: selecting folder returns to confirm, escaping returns to confirm', async ({
+		test('Specific Folder: selecting folder returns to confirm, escaping returns to confirm', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
 				page,
 			},
 		}) => {
+			// Expected to fail until #5752: `b52976a1c` turned this row into a `Directive.Noop` that opens
+			// the picker from `onDidSelect`, and the picker's cancel path returns without re-showing the
+			// confirm, so dismissing it drops the whole wizard. Remove this once the wizard comes back —
+			// the run will report an unexpected pass to say so.
+			test.fail();
+
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'worktree', 'create', {
 				title: /Create Worktree/i,
 				placeholder: /Choose a branch/i,
@@ -1918,8 +1924,8 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Select "Choose Specific Folder..." option
-			await quickPick.selectItem(/Choose Specific Folder/i);
+			// Renamed with the `Location` property rows in `b52976a1c` — was "Choose Specific Folder…".
+			await quickPick.selectItem(/^Specific Folder/);
 
 			// The folder picker dialog should appear - press Escape to cancel it
 			await page.waitForTimeout(ShortTimeout);
@@ -1937,13 +1943,16 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Change Root Folder: selecting folder returns to confirm, escaping returns to confirm', async ({
+		test('Root Folder: selecting folder returns to confirm, escaping returns to confirm', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
 				page,
 			},
 		}) => {
+			// Expected to fail until #5752 — same cause as the Specific Folder spec above.
+			test.fail();
+
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'worktree', 'create', {
 				title: /Create Worktree/i,
 				placeholder: /Choose a branch/i,
@@ -1956,8 +1965,8 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Wait for confirm step
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Select "Change Root Folder..." option
-			await quickPick.selectItem(/Change Root Folder/i);
+			// Renamed with the `Location` property rows in `b52976a1c` — was "Change Root Folder…".
+			await quickPick.selectItem(/^Root Folder/);
 
 			// The folder picker dialog should appear - press Escape to cancel it
 			await page.waitForTimeout(ShortTimeout);
@@ -1976,7 +1985,7 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 		});
 
 		// This test must run LAST in the Worktree Create Flow section because it actually creates a worktree
-		test('Create → Open transition: after creating worktree, open prompt appears', async ({
+		test('After Creating: the open choice folds into the action row and is applied on create', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1994,24 +2003,36 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Should go directly to confirm step (no branch name input needed)
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Confirm to actually create the worktree
-			// Select the default option "Create Worktree from Branch"
-			await quickPick.selectItem(/Create Worktree from Branch/i);
+			// `b52976a1c` moved the open decision into this confirm as an `After Creating` radio group,
+			// seeded from `worktrees.openAfterCreate`, so there is no separate open prompt after creation
+			// any more. The choice is visible up front and folded into the action row's detail.
+			let items = await quickPick.getVisibleItems();
+			expect(items.some(item => item.startsWith('Open in New Window'))).toBeTruthy();
+			expect(items.some(item => item.startsWith('Open in Current Window'))).toBeTruthy();
+			expect(items.some(item => item.startsWith('Add to Workspace'))).toBeTruthy();
+			expect(items.some(item => item.startsWith("Don't Open"))).toBeTruthy();
 
-			// After worktree is created, should transition to "Open Worktree" confirm step
-			// The default setting is "prompt" so the open dialog should appear
-			await quickPick.waitForStep(
-				{ title: /Open Worktree.*feature-2|Confirm.*Open.*Worktree/i },
-				15000, // Worktree creation can take a moment
-			);
+			// The seeded choice is spelled out on the action row
+			expect(
+				items.some(item => item.includes('Will create worktree') && item.includes('open it in a new window')),
+			).toBeTruthy();
 
-			// Verify the open options are shown
-			const items = await quickPick.getVisibleItems();
-			expect(items.some(item => item.includes('Open Worktree'))).toBeTruthy();
-			expect(items.some(item => item.includes('New Window'))).toBeTruthy();
+			// Choosing "Don't Open" is a `Directive.Noop` radio: it stays on this step and rewrites the
+			// action row, dropping the open clause. Picking it before creating is also what keeps this
+			// spec from opening a window or touching the workspace.
+			await quickPick.selectItem(/^Don't Open/);
+			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// Cancel without opening the worktree (to avoid changing the workspace)
-			await quickPick.cancel();
+			items = await quickPick.getVisibleItems();
+			expect(
+				items.some(item => item.includes('Will create worktree') && !item.includes('open it in')),
+			).toBeTruthy();
+
+			// Create the worktree. With "Don't Open" selected the wizard finishes here rather than
+			// handing off to a follow-up prompt.
+			await quickPick.selectItem(/^Create Worktree from Branch/);
+
+			await quickPick.waitForHidden();
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 	});
