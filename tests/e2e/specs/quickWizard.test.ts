@@ -1098,7 +1098,7 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Toggle commit selection: command → toggle button → branch → commits & reverse', async ({
+		test('Toggle commit selection: command → toggle row → branch → commits & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1110,11 +1110,15 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 				placeholder: /Choose a branch/i,
 			});
 
-			// At branch selection step, click the commit toggle button (initially shows "Choose a Branch")
-			// The button tooltip when off is "Choose a Branch or Tag", click to toggle to commit mode
-			await quickPick.clickActionButton(/Choose a Branch/i);
+			// `76a9d1425` dropped the icon-only title-bar toggle in favour of a worded row at the top of
+			// the ref list. It is a `Directive.Noop` checkbox, so selecting it flips the pick-commit
+			// state in place and stays on this step instead of advancing.
+			await quickPick.selectItem(/Choose a Specific Commit/i);
 
-			// Select a branch (after toggle, selecting a branch will then show commits)
+			// Still on the branch step — the toggle modifies it rather than moving past it
+			await quickPick.waitForStep({ title: /Merge/i, placeholder: /Choose a branch/i });
+
+			// Select a branch (with the toggle on, selecting a branch leads to the commit step)
 			await quickPick.enterTextAndWaitForItems('feature-1');
 			await quickPick.selectItem(/feature-1/i);
 			await page.waitForTimeout(ShortTimeout);
@@ -1243,7 +1247,7 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 			expect(await quickPick.isVisible()).toBeFalsy();
 		});
 
-		test('Toggle commit selection: command → toggle button → branch → commits → confirm & reverse', async ({
+		test('Toggle commit selection: command → toggle row → branch → commits → confirm & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
@@ -1255,11 +1259,15 @@ test.describe('Quick Wizard — Merge/Rebase/Cherry-pick/Reset/Revert Commands',
 				placeholder: /Choose a branch/i,
 			});
 
-			// At branch selection step, click the commit toggle button (initially shows "Choose a Branch")
-			// The button tooltip when off is "Choose a Branch or Tag", click to toggle to commit mode
-			await quickPick.clickActionButton(/Choose a Branch/i);
+			// `76a9d1425` dropped the icon-only title-bar toggle in favour of a worded row at the top of
+			// the ref list. It is a `Directive.Noop` checkbox, so selecting it flips the pick-commit
+			// state in place and stays on this step instead of advancing.
+			await quickPick.selectItem(/Choose a Specific Commit/i);
 
-			// Select a branch (after toggle, selecting a branch will then show commits)
+			// Still on the branch step — the toggle modifies it rather than moving past it
+			await quickPick.waitForStep({ title: /Rebase/i, placeholder: /Choose a branch/i });
+
+			// Select a branch (with the toggle on, selecting a branch leads to the commit step)
 			await quickPick.enterTextAndWaitForItems('feature-1');
 			await quickPick.selectItem(/feature-1/i);
 			await page.waitForTimeout(ShortTimeout);
