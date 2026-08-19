@@ -2469,7 +2469,14 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  `undefined` when the anchor has never completed a plan. The host validates it regardless, falling
 	 *  back to a cold start if the plan is gone. */
 	private composeCacheKeyForAnchor(anchor: RunningOperationAnchor): string | undefined {
-		return this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.compose?.cacheKey;
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.compose;
+		// `'backed'` retains the plan only so `forward()` can restore it without re-running the AI —
+		// the panel is showing the idle scope picker, so a generate from there is the user starting
+		// over and must recollect their scope and abandon the plan's session. `forward()` puts the
+		// entry back to `'complete'`, which resumes refining it.
+		if (entry == null || entry.execState === 'backed') return undefined;
+
+		return entry.cacheKey;
 	}
 
 	private currentAnchor(): RunningOperationAnchor {

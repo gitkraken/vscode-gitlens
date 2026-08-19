@@ -2034,6 +2034,7 @@ function makeComposeResultWithKey(label: string, cacheKey: string): ComposeResul
 function setupComposeCapture(repoPath: string): {
 	host: FakeHost;
 	state: DetailsState;
+	actions: DetailsActions;
 	controller: DetailsWorkflowController;
 	calls: unknown[][];
 } {
@@ -2053,33 +2054,33 @@ function setupComposeCapture(repoPath: string): {
 	const controller = new DetailsWorkflowController(host, actions);
 	host.connectAll();
 	host.tickHostUpdate();
-	return { host: host, state: state, controller: controller, calls: calls };
+	return { host: host, state: state, actions: actions, controller: controller, calls: calls };
+}
+
+function seedCompletedPlan(host: FakeHost, state: DetailsState, repoPath: string, cacheKey: string): void {
+	host.crossPaneState.runningOperations.set(
+		new Map([
+			[
+				wipKey(repoPath),
+				{
+					compose: {
+						kind: 'compose' as const,
+						anchor: { kind: 'wip' as const, repoPath: repoPath, sha: uncommitted },
+						execState: 'complete' as const,
+						result: makeComposeResultWithKey('plan', cacheKey),
+						// `onRunSettled` stamps this on a real completed run; the refine handle is read
+						// from here, not from the result, so it survives the entry going to an error.
+						cacheKey: cacheKey,
+					},
+				},
+			],
+		]),
+	);
+	state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+	enterMockMode(state, repoPath, uncommitted);
 }
 
 suite('DetailsWorkflowController.runCompose — refine continuation across a leave-and-return', () => {
-	function seedCompletedPlan(host: FakeHost, state: DetailsState, repoPath: string, cacheKey: string): void {
-		host.crossPaneState.runningOperations.set(
-			new Map([
-				[
-					wipKey(repoPath),
-					{
-						compose: {
-							kind: 'compose' as const,
-							anchor: { kind: 'wip' as const, repoPath: repoPath, sha: uncommitted },
-							execState: 'complete' as const,
-							result: makeComposeResultWithKey('plan', cacheKey),
-							// `onRunSettled` stamps this on a real completed run; the refine handle is read
-							// from here, not from the result, so it survives the entry going to an error.
-							cacheKey: cacheKey,
-						},
-					},
-				],
-			]),
-		);
-		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
-		enterMockMode(state, repoPath, uncommitted);
-	}
-
 	test('refines the displayed plan after toggling out of compose and back in', () => {
 		// `hideMode` is the preserve-leave path: it keeps the registry entry (so the plan is projected
 		// back on return) and captures the Refine draft precisely so the user can resume. It used to
@@ -2160,6 +2161,49 @@ suite('DetailsWorkflowController.runCompose — retrying a failed refine', () =>
 		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
 		assert.strictEqual(options?.mode, 'refine', 'a retry after a failed refine is still a refine');
 		assert.strictEqual(options?.priorCacheKey, 'K1', 'and continues the same plan');
+	});
+
+	test('walking Back to the scope picker cold-starts the next generate', () => {
+		// Back retains the plan so `forward()` can restore it without re-running the AI, but the panel
+		// is showing the idle scope picker. A generate from there is the user starting over: it must
+		// recollect the scope they just chose and abandon the plan's session, not silently refine the
+		// plan they walked away from under its old conversation.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.actions.resources.compose.mutate(makeComposeResultWithKey('plan', 'K1'));
+
+		m.controller.compose.back();
+		assert.strictEqual(
+			m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose?.execState,
+			'backed',
+			'precondition: Back parks the entry in `backed`',
+		);
+
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.controller.runCompose('/A', 'organize these instead', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1);
+		assert.strictEqual(m.calls[0][7], undefined, 'Back then generate must not be dispatched as a refine');
+	});
+
+	test('going Forward again restores the refine continuation', () => {
+		// The inverse: `forward()` returns the entry to `complete` with the plan on screen, so the
+		// session it belongs to is resumable again.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.actions.resources.compose.mutate(makeComposeResultWithKey('plan', 'K1'));
+
+		m.controller.compose.back();
+		assert.strictEqual(m.controller.compose.forward(), true);
+
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
+		assert.strictEqual(options?.mode, 'refine');
+		assert.strictEqual(options?.priorCacheKey, 'K1');
 	});
 
 	test('a settled error keeps the prior plan’s key on the entry', () => {
