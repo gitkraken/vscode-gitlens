@@ -953,6 +953,7 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 	});
 
 	let failNext = options?.failGenerate ?? false;
+	let failAfterPlan = false;
 	const integration = {
 		generatePlanForGraphDetails: (input: { conversationId: string }) => {
 			generated.push(input.conversationId);
@@ -982,8 +983,17 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
 		// Turning a library plan into display commits needs the virtual-FS session machinery, which has
-		// nothing to do with the conversation lifecycle under test.
-		deriveComposeCommits: () => [],
+		// nothing to do with the conversation lifecycle under test. Doubles as the seam for a
+		// downstream failure: it runs after the library has already produced (and, on a refine,
+		// swapped in) its plan.
+		deriveComposeCommits: () => {
+			if (failAfterPlan) {
+				failAfterPlan = false;
+				throw new Error('deriving commits blew up');
+			}
+
+			return [];
+		},
 	});
 
 	const { graphInspect } = (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(
@@ -1010,6 +1020,11 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		// exercises the apply path's conversation teardown and nothing else.
 		apply: (repoPath: string, sessionKey: ComposeSessionKey = sessionKeyFor(repoPath)) =>
 			graphInspect.commitCompose(repoPath, sessionKey, { commits: [], base: undefined as never }),
+		failNextAfterPlan: () => (failAfterPlan = true),
+		trackedKey: (repoPath: string) =>
+			(fakeThis as unknown as { _activeComposeCacheKeys: Map<string, string> })._activeComposeCacheKeys.get(
+				sessionKeyFor(repoPath),
+			),
 	};
 }
 
@@ -1096,6 +1111,29 @@ suite('graphInspectServices — compose conversation lifecycle', () => {
 			'each refine must resume its own repo’s conversation',
 		);
 		assert.deepStrictEqual(m.flushed, [], 'neither session was abandoned by the other');
+	});
+
+	test('a refine that fails after swapping the plan lets go of the dead key', async () => {
+		// A refine that reaches the library swaps in a new plan and drops the prior one. If a later
+		// step then throws, the new plan is discarded — leaving the key we had registered naming a plan
+		// the library no longer holds. Keeping it would let the next attempt satisfy the refine gate
+		// with a dead key and fail the lookup instead of starting fresh.
+		const m = createComposeConversationFake();
+		const firstKey = await composeAndGetKey(m, '/repo');
+		assert.strictEqual(m.trackedKey('/repo'), firstKey, 'precondition: the plan is registered');
+
+		m.failNextAfterPlan();
+		const result = await m.refine('/repo', firstKey);
+
+		assert.ok('error' in result, 'the refine should have surfaced the downstream failure');
+		assert.strictEqual(m.trackedKey('/repo'), undefined, 'the dead key must not stay registered');
+		assert.deepStrictEqual(m.flushed, [], 'a retryable failure must not end the session');
+
+		// The retry cold-starts, because the plan really is gone — but it continues the same
+		// conversation, since the user is retrying this session rather than abandoning it.
+		await composeAndGetKey(m, '/repo');
+		assert.strictEqual(m.generated[1], m.generated[0], 'the retry must continue the same conversation');
+		assert.deepStrictEqual(m.flushed, [], 'and still not have ended it');
 	});
 
 	test('two sessions on ONE repo path stay separate', async () => {

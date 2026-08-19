@@ -1163,6 +1163,9 @@ export class GraphInspectServices {
 					// `generatePlan...` cache write leaks the cached plan in the compose-tools
 					// library with no path to discard it.
 					let cacheKeyToRegister: string | undefined;
+					// Set once a refine has produced its replacement plan, which is the point the library drops
+					// the prior one. Lets the catch tell that case from a failed cold start, which drops nothing.
+					let refineSwappedPlan = false;
 					try {
 						signal?.throwIfAborted();
 
@@ -1281,6 +1284,7 @@ export class GraphInspectServices {
 						// until we know the full pipeline succeeded; only then do we register it
 						// for `commitCompose` to apply.
 						cacheKeyToRegister = simulated ? undefined : (planResult as { cacheKey: string }).cacheKey;
+						refineSwappedPlan = useRefinePath;
 
 						// getCommit('HEAD') is optional base metadata — tolerate its failure.
 						const headCommitPromise = svc.commits.getCommit('HEAD').catch(() => undefined);
@@ -1331,6 +1335,13 @@ export class GraphInspectServices {
 						// for the discard call here.
 						if (cacheKeyToRegister != null) {
 							this._composeToolsForGraph?.discardCachedPlan(cacheKeyToRegister);
+							if (refineSwappedPlan) {
+								// The refine swapped the plan before this throw, so the key we still have registered
+								// names a plan the library has already dropped. Let go of it, or the next attempt's
+								// refine gate matches a dead key and fails the lookup instead of starting fresh. The
+								// conversation stays — the user is retrying this session, not abandoning it.
+								this._activeComposeCacheKeys.delete(sessionKey);
+							}
 						}
 						if (isCancellationError(ex) || isComposeCancelled(ex)) {
 							return { cancelled: true };
