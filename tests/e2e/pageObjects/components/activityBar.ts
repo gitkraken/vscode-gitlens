@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { MaxTimeout } from '../../baseTest.js';
 import type { VSCodePage } from '../vscodePage.js';
 
@@ -54,24 +55,41 @@ export class ActivityBar {
 	}
 
 	/**
+	 * Whether a tab's view container is currently open.
+	 *
+	 * The active tab carries `aria-expanded="true"` and `aria-selected="true"` (plus a `checked` class),
+	 * both written by the same branch of the composite bar's `updateChecked`. It has no `aria-checked`,
+	 * which is what the guard below used to read — so it never skipped anything.
+	 *
+	 * `aria-expanded` is the one that means "the container is open", so it wins whenever it is present;
+	 * `aria-selected` is only a fallback for a fork that omits it. They are not interchangeable: under
+	 * tablist semantics a selected tab may keep `aria-selected="true"` while its panel is hidden, and
+	 * treating that as open would leave `openTab` never clicking at all.
+	 */
+	private async isTabOpen(tab: Locator): Promise<boolean> {
+		const expanded = await tab.getAttribute('aria-expanded');
+		if (expanded != null) return expanded === 'true';
+
+		return (await tab.getAttribute('aria-selected')) === 'true';
+	}
+
+	/**
 	 * Open a tab's view, only clicking if not already active.
 	 * This prevents accidentally closing an already-open sidebar.
-	 *
-	 * The active tab carries `aria-expanded="true"` and `aria-selected="true"` (plus a `checked` class);
-	 * it has no `aria-checked`, so reading that one never skipped the click and the guard did nothing.
-	 * Both are checked, matching `Panel.isTabSelected` — they move together on VS Code, but these specs
-	 * run on forks too, and a guard resting on one attribute would fail the same silent way the
-	 * `aria-checked` one did if a fork rendered only the other.
 	 */
 	async openTab(name: string | RegExp, exact = true): Promise<void> {
 		const tab = this.getTab(name, exact);
-		const [expanded, selected] = await Promise.all([
-			tab.getAttribute('aria-expanded'),
-			tab.getAttribute('aria-selected'),
-		]);
-		if (expanded !== 'true' && selected !== 'true') {
-			await tab.click();
-		}
+		if (await this.isTabOpen(tab)) return;
+
+		await tab.click();
+
+		// Clicking a tab toggles its container, so confirm the click opened one rather than closing it.
+		// A single pre-click snapshot is not enough: `workbench.action.focusSideBar` un-hides the side
+		// bar without awaiting the composite's activation, so a read taken a moment too early says "not
+		// open" and the click then lands on a container that has since become active — collapsing the
+		// very side bar this guard exists to protect. Failing here names that, instead of leaving the
+		// caller to time out later on a view that never appears.
+		await expect.poll(() => this.isTabOpen(tab), { timeout: MaxTimeout }).toBe(true);
 	}
 
 	/**
