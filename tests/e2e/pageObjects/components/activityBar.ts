@@ -56,10 +56,14 @@ export class ActivityBar {
 	/**
 	 * Open a tab's view, only clicking if not already active.
 	 * This prevents accidentally closing an already-open sidebar.
+	 *
+	 * The active tab carries `aria-expanded="true"` (alongside `aria-selected` and a `checked` class);
+	 * it has no `aria-checked`, so reading that one never skipped the click and the guard did nothing.
+	 * `aria-expanded` is the one that says what this cares about — whether the container is open.
 	 */
 	async openTab(name: string | RegExp, exact = true): Promise<void> {
 		const tab = this.getTab(name, exact);
-		const isActive = await tab.getAttribute('aria-checked');
+		const isActive = await tab.getAttribute('aria-expanded');
 		if (isActive !== 'true') {
 			await tab.click();
 		}
