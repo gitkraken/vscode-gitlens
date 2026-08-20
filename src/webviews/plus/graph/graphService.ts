@@ -552,6 +552,18 @@ export interface GraphInspectService {
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, sessionKey: ComposeSessionKey, plan: ComposeCommitPlan): Promise<CommitResult>;
 	/**
+	 * Ends a compose session the webview has dropped its handle on — Discard, the Restart-then-close
+	 * destroy, and the registry clear on a repository switch. Releases the cached plan and closes the
+	 * session's conversation, which otherwise linger until the next compose on that session or panel
+	 * teardown.
+	 *
+	 * `cacheKey` is the plan the webview believed the session held. The host acts only while that still
+	 * matches what it holds, so a call that arrives after the user has started a new compose cannot tear
+	 * down the newer plan or its conversation. Passing `undefined` ends a session that never produced a
+	 * plan, which is how a cancelled or failed generate's conversation gets closed.
+	 */
+	discardCompose(sessionKey: ComposeSessionKey, cacheKey: string | undefined): Promise<void>;
+	/**
 	 * Regenerate the commit message for a single draft commit in the cached plan identified
 	 * by `cacheKey`. Uses GitLens's internal `ai.actions.generateCommitMessage` against a patch
 	 * rebuilt from the cached hunks (with AI-excluded file content re-masked, matching the

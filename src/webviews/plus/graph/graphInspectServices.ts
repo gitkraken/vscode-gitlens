@@ -1358,6 +1358,22 @@ export class GraphInspectServices {
 					}
 				},
 				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
+				discardCompose: (sessionKey, cacheKey) => {
+					const trackedCacheKey = this._activeComposeCacheKeys.get(sessionKey);
+					// Only act while the session still holds the plan the webview dropped. A call that lands after
+					// the user started a new compose would otherwise discard the newer plan and end a conversation
+					// that is still in use. Both being undefined is the no-plan case (a cancelled or failed
+					// generate), where there is still a conversation to close.
+					if (trackedCacheKey !== cacheKey) return Promise.resolve();
+
+					if (trackedCacheKey != null) {
+						this._composeToolsForGraph?.discardCachedPlan(trackedCacheKey);
+						this._activeComposeCacheKeys.delete(sessionKey);
+					}
+
+					this.endComposeConversation(sessionKey);
+					return Promise.resolve();
+				},
 				commitCompose: async (repoPath, sessionKey, plan) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
@@ -1416,10 +1432,15 @@ export class GraphInspectServices {
 							return { error: { message: 'Unable to build a diff for the selected commit.' } };
 						}
 
+						// Regenerating one commit's message is part of the compose the user is in, not a task of
+						// its own, so it continues that session's conversation.
 						const result = await this.container.ai.actions.generateCommitMessage(
 							patch,
 							{ source: 'graph-details', correlationId: this.host.instanceId },
-							{ cancellation: cancellation },
+							{
+								cancellation: cancellation,
+								conversationId: this.getOrCreateComposeConversationId(sessionKey),
+							},
 						);
 
 						if (result === 'cancelled') return { cancelled: true };

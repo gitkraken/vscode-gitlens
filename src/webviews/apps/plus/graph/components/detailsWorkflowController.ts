@@ -842,6 +842,16 @@ export class DetailsWorkflowController implements ReactiveController {
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
 		entry?.abortController?.abort();
+		// Destroying a compose drops the webview's only handle on its plan, so tell the host to let go
+		// of it and close the session rather than leaving both until the next compose on this anchor or
+		// panel teardown. Read the key before the entry goes.
+		if (kind === 'compose') {
+			void this.actions.services.graphInspect.discardCompose(
+				composeSessionKey(anchor),
+				(entry as { cacheKey?: string } | undefined)?.cacheKey,
+			);
+		}
+
 		this.removeRunningOperation(key, kind);
 		this.workflowFor(kind).invalidateSnapshot();
 		this.resourceFor(kind).reset();
@@ -2824,6 +2834,15 @@ export class DetailsWorkflowController implements ReactiveController {
 	private cancelAllRunningOperations(): void {
 		// Shared abort-and-clear core (also used by gl-graph-app teardown); this method layers on the
 		// controller-only resets below.
+		// The clear below drops every anchor's entry, so any compose the host is still holding a plan
+		// for becomes unreachable from here. Close those sessions before letting go of their keys.
+		for (const bucket of this.host.crossPaneState.runningOperations.get().values()) {
+			const compose = bucket.compose;
+			if (compose == null) continue;
+
+			void this.actions.services.graphInspect.discardCompose(composeSessionKey(compose.anchor), compose.cacheKey);
+		}
+
 		abortRunningOperations(this.host.crossPaneState);
 		this._reviewBackSnapshot = undefined;
 		this._composeBackSnapshot = undefined;

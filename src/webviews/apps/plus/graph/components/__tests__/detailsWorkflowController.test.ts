@@ -104,6 +104,7 @@ function createResources(): DetailsResources {
 function createServices(overrides?: {
 	reviewChanges?: (...args: unknown[]) => Promise<ReviewResult>;
 	composeChanges?: (...args: unknown[]) => Promise<ComposeResult>;
+	discardCompose?: (...args: unknown[]) => Promise<void>;
 }): ResolvedServices {
 	const noopUnsubscribe = () => {};
 	return {
@@ -115,6 +116,7 @@ function createServices(overrides?: {
 		graphInspect: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			composeChanges: overrides?.composeChanges ?? (async () => ({ error: { message: 'not implemented' } })),
+			discardCompose: overrides?.discardCompose ?? (() => Promise.resolve()),
 		},
 		telemetry: {
 			sendEvent: () => Promise.resolve(),
@@ -2161,6 +2163,34 @@ suite('DetailsWorkflowController.runCompose — retrying a failed refine', () =>
 		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
 		assert.strictEqual(options?.mode, 'refine', 'a retry after a failed refine is still a refine');
 		assert.strictEqual(options?.priorCacheKey, 'K1', 'and continues the same plan');
+	});
+
+	test('discarding a compose tells the host to end the session', () => {
+		// The host cannot see a Discard on its own: the webview just drops the entry. Without this call
+		// the plan and its conversation sit on the host until the next compose here or panel teardown.
+		const calls: unknown[][] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				discardCompose: (...args: unknown[]) => {
+					calls.push(args);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		seedCompletedPlan(host, state, '/A', 'K1');
+
+		controller.compose.discard();
+
+		assert.strictEqual(calls.length, 1, 'the host must be told the session is over');
+		assert.strictEqual(calls[0][0], wipKey('/A'), 'for this anchor’s session');
+		assert.strictEqual(calls[0][1], 'K1', 'naming the plan being discarded, so a late call is a no-op');
 	});
 
 	test('walking Back to the scope picker cold-starts the next generate', () => {

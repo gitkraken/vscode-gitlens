@@ -910,12 +910,15 @@ interface AIEventDataSendBase extends AIEventDataBase {
 	correlationId?: string;
 	/**
 	 * Groups every request of one AI session — the whole user-facing task. Set by conflict resolution
-	 * (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`); absent on every other
-	 * feature, whose requests are one-per-task anyway.
+	 * (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`, and `'generate-commitMessage'`
+	 * for a message regenerated inside a compose); absent on every other feature, whose requests are
+	 * one-per-task anyway.
 	 *
 	 * Counting distinct IDs (filtered by `type`) is how usage is measured for both — the event count
 	 * itself can't be, since one session is many round-trips: an agentic loop for resolution, and the
-	 * library's validation retries plus the user's refines for compose. For per-operation counts use
+	 * library's validation retries plus the user's refines and per-commit message regenerations for
+	 * compose. Note a compose session's IDs therefore span two `type`s, so counting sessions means
+	 * counting distinct IDs across both rather than per `type`. For per-operation counts use
 	 * `autoRebase/step/resolved` (automatic resolution), `graphDetails/resolve/generateResolutions/completed`
 	 * (the resolve panel), and `graphDetails/compose/applyPlan/completed` (compose).
 	 *
