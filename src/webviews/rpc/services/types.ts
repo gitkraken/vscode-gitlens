@@ -233,6 +233,12 @@ export interface AiUsageInfo {
 	 * Same sentinels as `limit`.
 	 */
 	readonly organization?: { readonly used: number; readonly limit: number };
+	/**
+	 * This user's own consumption drawn from the shared organization pool — the slice of
+	 * `organization.used` attributable to the current account, NOT a separate allowance and NOT part of
+	 * `used` above. Lets the pool's bar separate this user's draw from the rest of the organization's.
+	 */
+	readonly sharedUsed?: number;
 }
 
 // ============================================================

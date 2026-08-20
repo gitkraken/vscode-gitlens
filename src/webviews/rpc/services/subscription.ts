@@ -179,6 +179,7 @@ export class SubscriptionService implements Disposable {
 									usage.organization != null
 										? { used: usage.organization.used, limit: usage.organization.limit }
 										: undefined,
+								sharedUsed: usage.sharedUsed,
 							}
 						: null,
 				);
