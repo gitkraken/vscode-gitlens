@@ -223,7 +223,8 @@ routed its hook events here — so don't treat every event as a dropped IPC sign
 
 ### ai/credits/addOnClicked
 
-> Sent when the user clicks "Get More Credits" on the weekly AI usage-limit notification
+> Sent when the user takes the AI credit add-on purchase path — "Get More Credits" on the weekly AI
+usage-limit notification, or "Get more AI credits" on the Settings account panel's AI usage card
 
 ```typescript
 {

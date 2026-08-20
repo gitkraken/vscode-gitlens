@@ -487,6 +487,9 @@
 		"gitlens.ai.mcp.uninstallForAgent": {
 			"label": "Uninstall GitKraken MCP for Agent"
 		},
+		"gitlens.ai.purchaseCredits": {
+			"label": "Get More AI Credits"
+		},
 		"gitlens.ai.recomposeBranch": {
 			"label": "Recompose Commits...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
