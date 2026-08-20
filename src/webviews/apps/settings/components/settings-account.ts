@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { getDateDifference } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
@@ -17,9 +18,10 @@ import {
 	compareSubscriptionPlans,
 	getSubscriptionEntitlement,
 	getSubscriptionNextPaidPlanId,
+	getSubscriptionPlanAiCredits,
 	getSubscriptionPlanName,
-	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
+	isSubscriptionPaidPlan,
 } from '../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AiUsageInfo } from '../../../rpc/services/types.js';
@@ -66,33 +68,16 @@ const compactNumberFormatter = new Intl.NumberFormat(undefined, { notation: 'com
 const planDateFormat = 'MMMM Do, YYYY';
 
 /**
- * Weekly GitKraken AI credit allowance, per plan. A trial carries its OWN, much smaller grant than the
- * plan it previews — reading the previewed plan's number here would overstate a trial's budget 4x.
- */
-function getPlanAiCredits(planId: SubscriptionPlanIds, trial: boolean): string {
-	if (trial) return '250K';
-
-	switch (planId) {
-		case 'student':
-			return '500K';
-		case 'advanced':
-			return '2M';
-		case 'teams':
-			return '3M';
-		case 'enterprise':
-			return '4M';
-		default:
-			return '1M';
-	}
-}
-
-/**
  * What the given plan includes. Each paid tier above Pro stacks on the one below it with an
  * "Everything in X" lead, mirroring how GitKraken's own pricing presents them, so the list stays short
  * enough to scan instead of restating four tiers' worth of bullets.
  */
 function getPlanFeatures(planId: SubscriptionPlanIds, trial: boolean): string[] {
-	const credits = `AI features — ${getPlanAiCredits(planId, trial)} credits/week`;
+	// This branch is the Pro pitch, shown to Community/unpaid users as well as to Pro and Student — so a
+	// Community id must resolve to Pro's figure deliberately (via the paid-plan guard), not by falling
+	// through `getSubscriptionPlanAiCredits`'s exhaustive switch, which can't accept an unpaid id at all.
+	const creditsPlanId = isSubscriptionPaidPlan(planId) ? planId : 'pro';
+	const credits = `AI features — ${getSubscriptionPlanAiCredits(creditsPlanId, trial)} credits/week`;
 
 	switch (planId) {
 		case 'advanced':
@@ -719,13 +704,6 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		return this.subscription?.plan.effective.id ?? 'pro';
 	}
 
-	private get trialDaysRemaining(): number {
-		const sub = this.subscription;
-		if (sub == null) return 0;
-
-		return getSubscriptionTimeRemaining(sub, 'days') ?? 0;
-	}
-
 	override render(): unknown {
 		const sub = this.subscription;
 		// `subscription` starts undefined — even Community users get a Subscription object once it loads —
@@ -919,10 +897,12 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		if (!isSubscriptionPaid(sub) || compareSubscriptionPlans(this.planId, 'advanced') >= 0) return nothing;
 
 		const plan = getSubscriptionNextPaidPlanId(sub);
+		// "doubles" holds because the only plan this branch pitches Pro to is Student, whose 500K is half of
+		// Pro's 1M — the figures come from the shared table so the claim can't quietly stop being true.
 		const pitch =
 			plan === 'advanced'
-				? 'Advanced adds self-hosted integrations and 2M AI credits/week.'
-				: 'Pro doubles your AI credits to 1M/week.';
+				? `Advanced adds self-hosted integrations and ${getSubscriptionPlanAiCredits('advanced', false)} AI credits/week.`
+				: `Pro doubles your AI credits to ${getSubscriptionPlanAiCredits('pro', false)}/week.`;
 
 		return html`<div class="plan__upsell">
 			<span class="plan__upsell-text">${pitch}</span>
@@ -1137,14 +1117,15 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				// A trial's tier rides on the EFFECTIVE plan (what the trial grants), not the actual one
 				const tier = getSubscriptionPlanName(this.effectivePlanId);
 				const named = tier !== 'Pro' && tier !== 'Community';
-				const days = this.trialDaysRemaining;
+				const days = this.getTrialDaysRemaining(sub);
+				const totalDays = this.getTrialTotalDays(sub);
 
 				return {
 					title: 'GitLens Pro',
 					tier: named ? tier : undefined,
 					status: 'Trial',
 					meta: `${
-						days < 1 ? 'Less than a day' : `${days} of ${proTrialLengthInDays} days`
+						days < 1 ? 'Less than a day' : `${days} of ${totalDays} days`
 					} left in your ${tier === 'Student' ? 'Student' : 'Pro'} trial. When it ends, Pro features keep working on publicly-hosted repos only.`,
 					cta: {
 						label: 'Upgrade to Pro',
@@ -1249,14 +1230,53 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		return `Your Pro trial ended ${formatDate(ended, planDateFormat)}.`;
 	}
 
-	/** Remaining share (0–100) of the trial window, or `undefined` when the window can't be resolved. */
-	private getTrialRemaining(sub: Subscription): number | undefined {
+	/**
+	 * The actual trial window, resolved once so the "N of M days left" sentence and the progress bar's fill
+	 * (`getTrialRemaining`) can never drift apart by computing it separately — see the note above the bar's
+	 * markup for what happens when they do. `undefined` when the dates can't be resolved: missing,
+	 * unparseable, or an end at or before start.
+	 */
+	private getTrialWindow(sub: Subscription): { start: number; end: number } | undefined {
 		const { effective } = sub.plan;
 		const start = new Date(effective.startedOn).getTime();
 		const end = effective.expiresOn != null ? new Date(effective.expiresOn).getTime() : Number.NaN;
 		if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return undefined;
 
-		return Math.min(100, Math.max(0, ((end - Date.now()) / (end - start)) * 100));
+		return { start: start, end: end };
+	}
+
+	/** Remaining share (0–100) of the trial window, or `undefined` when the window can't be resolved. */
+	private getTrialRemaining(sub: Subscription): number | undefined {
+		const window = this.getTrialWindow(sub);
+		if (window == null) return undefined;
+
+		return Math.min(100, Math.max(0, ((window.end - Date.now()) / (window.end - window.start)) * 100));
+	}
+
+	/**
+	 * The trial window's actual length in days — falls back to the nominal `proTrialLengthInDays` when the
+	 * window can't be resolved, so a reactivated trial or a backend-set date still gets a sane denominator.
+	 */
+	private getTrialTotalDays(sub: Subscription): number {
+		const window = this.getTrialWindow(sub);
+		if (window == null) return proTrialLengthInDays;
+
+		return getDateDifference(window.start, window.end, 'days', Math.round);
+	}
+
+	/**
+	 * Days left in the trial, clamped to `[0, total]`. Rounding `end - now` alone (as
+	 * `getSubscriptionTimeRemaining` does) is unclamped, so a trial that just started can read one day over
+	 * its own total — e.g. "15 of 14 days" — since `expiresOn` usually lands a few hours into what's really
+	 * the final day. Clamping against this SAME window's total (not the nominal constant) keeps the
+	 * sentence honest even when the actual window is longer or shorter than `proTrialLengthInDays`.
+	 */
+	private getTrialDaysRemaining(sub: Subscription): number {
+		const window = this.getTrialWindow(sub);
+		if (window == null) return 0;
+
+		const remaining = getDateDifference(Date.now(), window.end, 'days', Math.round);
+		return Math.min(this.getTrialTotalDays(sub), Math.max(0, remaining));
 	}
 
 	private getPlanFootnote(sub: Subscription): string {

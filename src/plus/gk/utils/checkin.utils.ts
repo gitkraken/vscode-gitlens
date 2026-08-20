@@ -104,6 +104,7 @@ export function getSubscriptionFromCheckIn(
 			license.organizationId,
 			new Date(license.latestStartDate),
 			new Date(license.latestEndDate),
+			isLicenseCancelled(license.latestStatus),
 		);
 	}
 
@@ -136,7 +137,7 @@ export function getSubscriptionFromCheckIn(
 			license.organizationId,
 			new Date(license.latestStartDate),
 			new Date(license.latestEndDate),
-			license.latestStatus === 'cancelled',
+			isLicenseCancelled(license.latestStatus),
 			license.nextOptInDate ?? data.nextOptInDate,
 		);
 	}
@@ -215,6 +216,26 @@ function isBundleLicenseType(licenseType: GKLicenseType): boolean {
 			return false;
 	}
 }
+
+/**
+ * Whether a license's status means it will NOT renew — the "Ends" vs "Renews" plan-card copy turns on
+ * this. `GKLicense['latestStatus']` carries three distinct spellings/values for that same real-world
+ * outcome — `'cancelled'` (double-l), `'canceled'` (single-l), and `'non_renewing'` — so all three must
+ * feed the flag identically, or two of the three silently render "Renews" for a plan that won't. This is a
+ * different question from `licenseStatusPriority` below (which license to prefer when several are
+ * present) — don't fold the two together.
+ */
+function isLicenseCancelled(status: GKLicense['latestStatus']): boolean {
+	switch (status) {
+		case 'canceled':
+		case 'cancelled':
+		case 'non_renewing':
+			return true;
+		default:
+			return false;
+	}
+}
+
 function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 	switch (status) {
 		case 'active':

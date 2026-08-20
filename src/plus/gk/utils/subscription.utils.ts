@@ -201,6 +201,35 @@ export function getSubscriptionProductPlanNameFromState(
 	}
 }
 
+/**
+ * Weekly GitKraken AI credit allowance for a paid plan — the bare figure only (e.g. `'1M'`, `'500K'`);
+ * each caller composes its own "… credits/week" phrasing, since consumers phrase it differently (a plan
+ * card's feature bullet, an upsell pitch sentence, a popover tooltip). Takes `PaidSubscriptionPlanIds`
+ * rather than `SubscriptionPlanIds` — Community plans have no AI credit allowance at all, so the type
+ * system makes passing one impossible rather than silently returning Pro's figure for it; callers with a
+ * possibly-unpaid id must narrow first (see `isSubscriptionPaidPlan`).
+ *
+ * A trial carries its OWN, much smaller grant (`'250K'`) than the plan it previews — reading the
+ * previewed plan's number here would overstate a trial's budget 4x — so `trial` short-circuits the
+ * per-plan table rather than being derived from `planId`.
+ */
+export function getSubscriptionPlanAiCredits(planId: PaidSubscriptionPlanIds, trial: boolean): string {
+	if (trial) return '250K';
+
+	switch (planId) {
+		case 'student':
+			return '500K';
+		case 'pro':
+			return '1M';
+		case 'advanced':
+			return '2M';
+		case 'teams':
+			return '3M';
+		case 'enterprise':
+			return '4M';
+	}
+}
+
 export function getSubscriptionStateString(state: SubscriptionState | undefined): SubscriptionStateString {
 	switch (state) {
 		case SubscriptionState.VerificationRequired:
