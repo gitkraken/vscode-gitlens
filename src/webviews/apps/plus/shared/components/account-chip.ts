@@ -14,6 +14,7 @@ import {
 	compareSubscriptionPlans,
 	getSubscriptionEntitlement,
 	getSubscriptionNextPaidPlanId,
+	getSubscriptionPlanAiCredits,
 	getSubscriptionPlanName,
 	getSubscriptionProductPlanName,
 	getSubscriptionProductPlanNameFromState,
@@ -690,8 +691,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		const plan = getSubscriptionNextPaidPlanId(sub);
 		const pitch =
 			plan === 'advanced'
-				? 'Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ 2M credits/week, and more'
-				: 'Upgrade to the Pro plan for AI features @ 1M credits/week, and more';
+				? `Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ ${getSubscriptionPlanAiCredits('advanced', false)} credits/week, and more`
+				: `Upgrade to the Pro plan for AI features @ ${getSubscriptionPlanAiCredits('pro', false)} credits/week, and more`;
 
 		return html`<div class="details__button">
 			<gl-button
@@ -892,7 +893,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 					<ul>
 						<li>Unlimited cloud integrations</li>
-						<li>Smart AI features &mdash; 250K tokens/week</li>
+						<li>Smart AI features &mdash; ${getSubscriptionPlanAiCredits('pro', false)} credits/week</li>
 						<li>
 							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees for private repos
 						</li>
@@ -919,7 +920,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 					<ul>
 						<li>Self-hosted integrations</li>
-						<li>Advanced AI features &mdash; 1M tokens/week</li>
+						<li>
+							Advanced AI features &mdash; ${getSubscriptionPlanAiCredits('advanced', false)} credits/week
+						</li>
 					</ul>
 				</div>
 			</div>
