@@ -14,7 +14,8 @@ export interface SubscriptionContextState {
 	/**
 	 * GitKraken AI weekly usage. `undefined` = not yet resolved (the host seeds it asynchronously, so this
 	 * is still a real state after connect); `null` = resolved but unavailable (signed out, on-premise org,
-	 * or a failed fetch). Consumers render nothing for both.
+	 * or a failed fetch). The two must stay distinct — the Settings Account card skeletons the first and
+	 * offers a Retry for the second; the account chip's compact meter hides for both.
 	 */
 	readonly aiUsage: ReadableSignal<AiUsageInfo | null | undefined>;
 }

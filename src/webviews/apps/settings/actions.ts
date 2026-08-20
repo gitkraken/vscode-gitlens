@@ -261,6 +261,22 @@ export class SettingsActions {
 		await this.refreshAiModels();
 	}
 
+	/**
+	 * Asks the host to re-fetch the GitKraken AI allowance — the Account card's Retry after it resolved
+	 * unavailable. The host owns that signal end to end: it flips it back to its loading state and
+	 * republishes, so there is nothing to set locally.
+	 *
+	 * Never rejects: the call site fires this from a click handler, so an escaping rejection would land as
+	 * an unhandled rejection. A failed retry needs no local handling either — the host publishes `null`
+	 * again, which is exactly the state the user is already looking at.
+	 */
+	async retryAiUsage(): Promise<void> {
+		try {
+			const subscription = await this.services.subscription;
+			await subscription.refreshAiUsage();
+		} catch {}
+	}
+
 	// ── Config writes ──
 
 	/**

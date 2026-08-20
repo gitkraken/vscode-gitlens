@@ -44,8 +44,9 @@ export class SubscriptionService implements Disposable {
 	 * GitKraken AI weekly usage standing. Three distinct states that consumers must keep distinct:
 	 * `undefined` = not yet resolved (the seed below is async, so a webview CAN connect before the first
 	 * fetch lands); `null` = resolved but unavailable (signed out, an on-premise org, or a failed fetch);
-	 * a value = a real allowance. Consumers render nothing for both nullish states — no skeleton, no error
-	 * row — so collapsing `undefined` into `null` would silently trade "still loading" for "gone".
+	 * a value = a real allowance. Consumers render the two nullish states differently — a skeleton for
+	 * `undefined`, an error row with a Retry for `null` — so collapsing them would either strand a loading
+	 * skeleton forever or accuse a slow fetch of having failed.
 	 *
 	 * Lives on the subscription service rather than `AIService` because the allowance is plan-scoped and
 	 * its invalidation trigger is precisely the subscription change this class already observes, and this
@@ -250,5 +251,27 @@ export class SubscriptionService implements Disposable {
 	 */
 	getOrgSettings(): Promise<OrgSettings> {
 		return Promise.resolve(this.#readOrgSettings());
+	}
+
+	/**
+	 * Re-fetch the AI allowance on request — what the Settings Account card's Retry asks for after the
+	 * allowance resolved unavailable. Deliberately a request rather than a webview-side write: the host
+	 * stays the single writer of `aiUsageState`, which is what removed the two-writer ordering race
+	 * (b76b89b6c). The stale-answer guard inside `#updateAiUsageState` covers a retry racing a
+	 * subscription change, so no extra coordination is needed here.
+	 */
+	refreshAiUsage(): Promise<void> {
+		const sub = this.subscriptionState.get();
+		// Nothing seeded yet means the constructor's async seed is still in flight and will publish a first
+		// value on its own — there's no subscription to retry against, and clearing the signal would only
+		// re-announce a loading state that's already true.
+		if (sub === undefined) return Promise.resolve();
+
+		// Back to the loading state for the duration of the retry. Without this the card keeps showing the
+		// failed state it's retrying out of, so Retry reads as inert until the fetch resolves.
+		this.aiUsageState.set(undefined);
+		this.#updateAiUsageState(sub, true);
+
+		return Promise.resolve();
 	}
 }
