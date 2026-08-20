@@ -2217,6 +2217,50 @@ suite('DetailsWorkflowController.runCompose — retrying a failed refine', () =>
 		assert.strictEqual(m.calls[0][7], undefined, 'Back then generate must not be dispatched as a refine');
 	});
 
+	test('destroying a compose while its run is in flight does not end the session', () => {
+		// Aborting is a request to stop, not proof that it stopped. A refine that lands anyway would
+		// report under a conversation this call had already closed, so its usage would accumulate against
+		// an ID nothing will flush again. Those sessions are left for the next compose here, or dispose.
+		const calls: unknown[][] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				discardCompose: (...args: unknown[]) => {
+					calls.push(args);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		// A refine in flight: the entry is `generating` and still names the plan it is refining.
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'generating' as const,
+							cacheKey: 'K1',
+						},
+					},
+				],
+			]),
+		);
+		enterMockMode(state, '/A', uncommitted);
+
+		controller.compose.discard();
+
+		assert.deepStrictEqual(calls, [], 'an in-flight run’s session must not be closed under it');
+	});
+
 	test('a cold start after Back does not carry the abandoned plan’s key onto its entry', () => {
 		// The entry's key is what later teardown calls name when they tell the host which plan to let go
 		// of. A cold start makes the host discard the plan it held, so inheriting that key would leave the

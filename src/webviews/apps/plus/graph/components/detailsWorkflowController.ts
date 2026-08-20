@@ -780,7 +780,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			// deliberately captures the Refine posture + draft just above so a toggle-out or row-switch can
 			// resume. Dropping the cache key too would preserve the intent to refine while destroying the
 			// ability, so the resumed plan would silently regenerate from scratch. `exitMode` and the
-			// different-selection branch of `toggleMode` are the genuine session ends and still clear it.
+			// different-selection branch of `toggleMode` still drop it — they end the engagement, though the
+			// host's session outlives them until something calls `discardCompose`.
 			this.compose.invalidateErrorRecovery();
 		} else if (exitingMode === 'resolve') {
 			// The focused-file scope is an input of the engagement that set it (per-file/multi-select
@@ -845,7 +846,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Destroying a compose drops the webview's only handle on its plan, so tell the host to let go
 		// of it and close the session rather than leaving both until the next compose on this anchor or
 		// panel teardown. Read the key before the entry goes.
-		if (kind === 'compose') {
+		//
+		// Not while a request is still in flight, though: the abort above is a request to stop, not proof
+		// that it has, and a run that lands anyway would report under a conversation this call had already
+		// closed. Those are left for the next compose here, or for dispose.
+		if (kind === 'compose' && entry?.execState !== 'generating') {
 			void this.actions.services.graphInspect.discardCompose(
 				composeSessionKey(anchor),
 				(entry as { cacheKey?: string } | undefined)?.cacheKey,
@@ -1232,9 +1237,12 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		},
 		/** Drop the cross-call continuation state — the locked-commits set and any in-flight regen
-		 *  handle. Called from `exitMode` and from `toggleMode`'s different-selection branch, both of
-		 *  which end the session; NOT from `hideMode`, which is the preserve-leave path. The refine
-		 *  handle itself is no longer local state — it's read from the anchor's registry entry (see
+		 *  handle. Called from `exitMode` and from `toggleMode`'s different-selection branch, not from
+		 *  `hideMode`, which is the preserve-leave path.
+		 *
+		 *  This is local posture only: neither caller ends the host's session, which outlives them until
+		 *  something calls `discardCompose`. The refine handle is likewise no longer local state — it is
+		 *  read from the anchor's registry entry (see
 		 *  {@link DetailsWorkflowController.composeCacheKeyForAnchor}), so it lives and dies with the
 		 *  entry rather than needing to be invalidated here. */
 		invalidateContinuation: (): void => {
@@ -2789,7 +2797,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			// Include the captured Refine posture/draft so a refine-only update (same execState + result,
 			// written by `captureEngagedRefineState` on mode-leave) isn't dropped as a no-op.
 			existing.refineMode === op.refineMode &&
-			existing.refineDraft === op.refineDraft
+			existing.refineDraft === op.refineDraft &&
+			// And the compose plan handle, so an update that only re-points it is never deduped away.
+			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey
 		) {
 			return;
 		}
@@ -2836,16 +2846,22 @@ export class DetailsWorkflowController implements ReactiveController {
 	private cancelAllRunningOperations(): void {
 		// Shared abort-and-clear core (also used by gl-graph-app teardown); this method layers on the
 		// controller-only resets below.
-		// The clear below drops every anchor's entry, so any compose the host is still holding a plan
-		// for becomes unreachable from here. Close those sessions before letting go of their keys.
-		for (const bucket of this.host.crossPaneState.runningOperations.get().values()) {
-			const compose = bucket.compose;
-			if (compose == null) continue;
+		// Abort before telling the host anything, matching `destroyEngagedOperation` — a session must not
+		// be closed ahead of the request that is still reporting under it.
+		const composes = Array.from(this.host.crossPaneState.runningOperations.get().values(), b => b.compose).filter(
+			c => c != null,
+		);
+		abortRunningOperations(this.host.crossPaneState);
+
+		// The clear above dropped every anchor's entry, so any compose the host still holds a plan for is
+		// now unreachable from here — close those sessions. In-flight runs are skipped for the same
+		// reason as in `destroyEngagedOperation`: aborting is a request, not a guarantee, so one that
+		// lands anyway would report under a closed conversation. Dispose is the backstop for those.
+		for (const compose of composes) {
+			if (compose.execState === 'generating') continue;
 
 			void this.actions.services.graphInspect.discardCompose(composeSessionKey(compose.anchor), compose.cacheKey);
 		}
-
-		abortRunningOperations(this.host.crossPaneState);
 		this._reviewBackSnapshot = undefined;
 		this._composeBackSnapshot = undefined;
 		this.actions.resources.review.reset();
