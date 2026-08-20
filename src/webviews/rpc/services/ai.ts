@@ -16,7 +16,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
-import type { AiModelInfo, AIState, RpcEventSubscription, ScopedAiModelInfo } from './types.js';
+import type { AiModelInfo, AIState, AiUsageInfo, RpcEventSubscription, ScopedAiModelInfo } from './types.js';
 
 export class AIService {
 	/**
@@ -170,6 +170,28 @@ export class AIService {
 	 */
 	isEnabled(): Promise<boolean> {
 		return Promise.resolve(this.#container.ai.enabled);
+	}
+
+	/**
+	 * Get the GitKraken AI weekly usage standing, or `undefined` when unavailable — no account,
+	 * an on-premise org (which has no usage data), or a failed fetch. Callers hide the surface
+	 * rather than showing a broken zero-state.
+	 */
+	async getUsage(force?: boolean): Promise<AiUsageInfo | undefined> {
+		const usage = await this.#container.ai.getUsage({ force: force });
+		if (usage == null) return undefined;
+
+		// Copied field-by-field rather than forwarded, so a future field on the host type doesn't
+		// silently widen what crosses the RPC boundary — the nested org pool included.
+		return {
+			limit: usage.limit,
+			used: usage.used,
+			resetsOn: usage.resetsOn,
+			organization:
+				usage.organization != null
+					? { used: usage.organization.used, limit: usage.organization.limit }
+					: undefined,
+		} satisfies AiUsageInfo;
 	}
 }
 

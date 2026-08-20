@@ -54,6 +54,7 @@ import { map } from '@gitlens/utils/iterable.js';
 import type { Lazy } from '@gitlens/utils/lazy.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
@@ -118,6 +119,15 @@ export interface AIResultContext extends Serialized<Omit<AIResponse<any>, 'conte
 export type AISourceContext<T> = Source & { context: T };
 
 /**
+ * The `GET v1/ai-tasks/usage` 200 body, per `api-docs` `v1/schemas/ai-tasks.yaml#AIUsageResponse`:
+ * the shared `ApiResponseEnvelope` (`{ data: object }`) carrying an `AIUsage` record. The spec
+ * declares no `error` member on 200s (application errors are non-200 `APIError`), but the live
+ * endpoint sends `error: null` alongside `data` — modeled here so a non-null value can be rejected
+ * defensively, mirroring gk.dev's own client.
+ */
+type AIUsageResponse = { data?: Record<string, unknown> | null; error?: { message?: string } | null };
+
+/**
  * Identifies an operation that maintains its own remembered AI model, independent of the
  * global default. Picking a model from a scoped surface (the composer chip, the graph
  * compose/review/resolve mode chip) writes only to that scope's storage — the global `ai.model`
@@ -133,6 +143,29 @@ export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
 	/** Scope whose model changed, or `undefined` when the global default changed. */
 	readonly scope?: AIModelScope;
+}
+
+/**
+ * GitKraken AI weekly usage standing for the active account/org — the fields of the
+ * `GET v1/ai-tasks/usage` payload we consume.
+ *
+ * `limit === -1` means unlimited and `limit === 0` means no allowance; never conflate the two, or a
+ * trial user with no allowance reads as having infinite AI. The response also carries `sharedUsed`
+ * (this user's own draw from the shared pool) — deliberately not surfaced here, since nothing
+ * consumes it and typing it without validating it would hand callers a shape the backend never
+ * guaranteed.
+ */
+export interface AIUsageLimits {
+	readonly limit: number;
+	readonly used: number;
+	readonly resetsOn: string;
+	/**
+	 * The organization's shared pool rollup, when the payload carries a usable one — 20% of every seat's
+	 * weekly allowance funds it, which is why `limit` above reads below the plan's stated per-week figure.
+	 * Same sentinels as `limit`. The payload's `remaining` is dropped: it's `limit - used`, and no
+	 * consumer needs it precomputed.
+	 */
+	readonly organization?: { readonly used: number; readonly limit: number };
 }
 
 type AIModelUpdateOptions = {
@@ -440,6 +473,20 @@ export class AIProviderService implements AIService, Disposable {
 	// called at session end.
 	private readonly _pendingBYOKUsage = new Map<string, Map<string, BYOKUsage>>();
 
+	// Cached GitKraken AI weekly usage standing (`getUsage`), keyed by `${accountId}|${orgId}` (the org id
+	// is '' when there is none). The allowance is org-scoped, but the account id has to be in the key too:
+	// keyed on the org alone, account B signing in inside the TTL is served account A's allowance — and
+	// personal accounts all collide on ''. TTL 5 minutes, mirroring gk.dev's react-query `staleTime` —
+	// short enough to reflect a reset/plan change within a session, long enough that repeated panel renders
+	// don't hammer the backend. A cache hit returns the stored value even when it's `undefined`, so a
+	// failing or unreachable backend isn't retried on every render; `force` evicts and refills it.
+	// `PromiseCache` also single-flights concurrent reads, so a stale in-flight fetch can't re-stamp the
+	// entry with a fresh TTL after an eviction (its late settle is ownership-guarded).
+	private readonly _usage = new PromiseCache<string, AIUsageLimits | undefined>({
+		createTTL: 5 * 60 * 1000, // 5 minutes
+		expireOnError: false,
+	});
+
 	private _actions: AIActions | undefined;
 	get actions(): AIActions {
 		this._actions ??= new AIActions(this);
@@ -477,6 +524,9 @@ export class AIProviderService implements AIService, Disposable {
 				if (accountChanged || planChanged) {
 					this._modelCache.clear();
 					this._providerModelsCache.clear();
+					// The account id is in the usage key, so an account change already misses — but a PLAN
+					// change moves the allowance under an unchanged key, so the entry has to go either way.
+					this._usage.clear();
 					clearResponseFormatRejections();
 
 					// Re-resolve now rather than waiting for a consumer to ask — signing in is what makes
@@ -1081,6 +1131,59 @@ export class AIProviderService implements AIService, Disposable {
 			),
 		);
 		return new Map<AIProviders, AIProviderDescriptorWithConfiguration>(getSettledValues(promises));
+	}
+
+	/**
+	 * Gets the GitKraken AI weekly usage standing (allowance, consumption, reset) for the active
+	 * account/org, or `undefined` when there's no account or the fetch fails or returns something
+	 * unusable — including on-premise enterprise orgs, which have no usage data and which GitLens has
+	 * no way to detect up front; hiding the surface is the graceful-degradation path for that case.
+	 *
+	 * Cached for 5 minutes per account/org (see `_usage`); pass `force: true` to evict that entry and
+	 * refill it, e.g. after a subscription/org change.
+	 */
+	@debug()
+	async getUsage(options?: { force?: boolean }): Promise<AIUsageLimits | undefined> {
+		const scope = getScopedLogger();
+
+		const subscription = await this.container.subscription.getSubscription(true);
+		if (subscription.account == null) {
+			scope?.addExitInfo('skipped: no account');
+			return undefined;
+		}
+
+		const key = `${subscription.account.id}|${subscription.activeOrganization?.id ?? ''}`;
+		// A hard `delete` rather than `invalidate`: `force` means "this value is wrong now", so an in-flight
+		// fetch started before the change must not be shared with this caller. Installing a successor under
+		// the same key is safe — the evicted entry's late settle is ownership-guarded (see `PromiseCache`).
+		if (options?.force) {
+			this._usage.delete(key);
+		}
+
+		return this._usage.getOrCreate(key, () => this.fetchUsage(scope));
+	}
+
+	/**
+	 * Every failure here resolves to `undefined` so the caller can hide the surface — but it must never
+	 * fail SILENTLY. `handleGkUnsuccessfulResponse` returns without logging for any 4xx
+	 * (`serverConnection.ts`), which is exactly the band this endpoint fails in when the token is
+	 * rejected (401/403) or the path is wrong (404) — so without logging the status here, a broken
+	 * allowance is indistinguishable from a legitimately absent one, in an output channel that shows
+	 * nothing either way.
+	 */
+	private async fetchUsage(scope: ScopedLogger | undefined): Promise<AIUsageLimits | undefined> {
+		try {
+			const rsp = await this.connection.fetchGkApi('v1/ai-tasks/usage', { method: 'GET' });
+			if (!rsp.ok) {
+				scope?.error(undefined, `Unable to get AI usage: ${rsp.status} ${rsp.statusText}`);
+				return undefined;
+			}
+
+			return parseAiUsageResponse(await rsp.json(), scope);
+		} catch (ex) {
+			scope?.error(ex, 'Unable to get AI usage');
+			return undefined;
+		}
 	}
 
 	private async ensureProviderConfigured(provider: AIProviderDescriptorWithType, silent: boolean): Promise<boolean> {
@@ -2389,4 +2492,68 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 		};
 	}
 	return { provider: undefined, model: undefined };
+}
+
+/**
+ * Parses the `GET v1/ai-tasks/usage` response body into `AIUsageLimits`, or `undefined` when the body
+ * is unusable. The usage record is the envelope's `data`, never the body itself (see
+ * `AIUsageResponse`); gk.dev's own `getAiUsage` parses this same endpoint the same way — `error`
+ * checked first, then `data`. The spec marks every `AIUsage` field optional, but the three consumed
+ * here are required by gk.dev's schema too, so a record missing them is rejected rather than
+ * half-rendered. The `organization` pool is the exception — supplementary, so it's validated on its own
+ * and never takes the record down with it. Every reject logs why, distinctly per failure mode — see
+ * `fetchUsage` on why silence here is unacceptable.
+ */
+function parseAiUsageResponse(body: unknown, scope: ScopedLogger | undefined): AIUsageLimits | undefined {
+	const rsp = body as AIUsageResponse | null;
+	if (rsp?.error != null) {
+		scope?.error(undefined, `Unable to get AI usage: ${JSON.stringify(rsp.error)}`);
+		return undefined;
+	}
+
+	if (rsp?.data == null) {
+		scope?.error(
+			undefined,
+			rsp == null
+				? 'Unable to get AI usage: empty response'
+				: `Unable to get AI usage: unexpected response shape (keys: ${Object.keys(rsp).join(', ')})`,
+		);
+		return undefined;
+	}
+
+	const { limit, used, resetsOn } = rsp.data;
+	if (typeof limit !== 'number' || typeof used !== 'number' || typeof resetsOn !== 'string' || !resetsOn) {
+		scope?.error(
+			undefined,
+			`Unable to get AI usage: unexpected response shape (keys: ${Object.keys(rsp.data).join(', ')})`,
+		);
+		return undefined;
+	}
+
+	// `-1` (unlimited) and `0` (no allowance) are the only sentinels the API documents, so anything below
+	// `-1` is a shape we don't understand — and one that renders as nonsense ("63K of -2 credits").
+	if (limit < -1) {
+		scope?.error(undefined, `Unable to get AI usage: unexpected limit (${limit})`);
+		return undefined;
+	}
+
+	// The `organization` pool rollup is supplementary to the personal figures, so it's validated on its own:
+	// a malformed or absent member yields `undefined` for it and leaves the primary record intact.
+	let organization: AIUsageLimits['organization'];
+	const org = rsp.data.organization;
+	if (org != null) {
+		const { used: orgUsed, limit: orgLimit } = org as { used?: unknown; limit?: unknown };
+		if (typeof orgUsed === 'number' && typeof orgLimit === 'number' && orgLimit >= -1) {
+			organization = { used: orgUsed, limit: orgLimit };
+		} else {
+			scope?.error(undefined, `Unable to get AI usage organization pool: ${JSON.stringify(org)}`);
+		}
+	}
+
+	scope?.addExitInfo(
+		`limit=${limit}, used=${used}, resetsOn=${resetsOn}${
+			organization != null ? `, org.limit=${organization.limit}, org.used=${organization.used}` : ''
+		}`,
+	);
+	return { limit: limit, used: used, resetsOn: resetsOn, organization: organization };
 }
