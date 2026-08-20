@@ -139,7 +139,6 @@ type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, Sto
 	Record<`provider:authentication:skip:${string}`, boolean> &
 	Record<`gk:promo:${string}:ai:allAccess:dismissed`, boolean> &
 	Record<`gk:promo:${string}:ai:allAccess:notified`, boolean> &
-	Record<`gk:${string}:checkin`, Stored<StoredGKCheckInResponse>> &
 	Record<`gk:${string}:organizations`, Stored<StoredOrganization[]>> &
 	Record<`jira:${string}:organizations`, Stored<StoredJiraOrganization[] | undefined>> &
 	Record<`jira:${string}:projects`, Stored<StoredJiraProject[] | undefined>> &
@@ -269,59 +268,6 @@ export interface Stored<T, SchemaVersion extends number = 1> {
 	data: T;
 	timestamp?: number;
 }
-
-export type StoredGKLicenses = Partial<Record<StoredGKLicenseType, StoredGKLicense>>;
-
-export interface StoredGKCheckInResponse {
-	user: StoredGKUser;
-	licenses: {
-		paidLicenses: StoredGKLicenses;
-		effectiveLicenses: StoredGKLicenses;
-	};
-}
-
-export interface StoredGKUser {
-	id: string;
-	name: string;
-	email: string;
-	status: 'activated' | 'pending';
-	createdDate: string;
-	firstGitLensCheckIn?: string;
-}
-
-export interface StoredGKLicense {
-	latestStatus: 'active' | 'canceled' | 'cancelled' | 'expired' | 'in_trial' | 'non_renewing' | 'trial';
-	latestStartDate: string;
-	latestEndDate: string;
-	organizationId: string | undefined;
-	reactivationCount?: number;
-}
-
-export type StoredGKLicenseType =
-	| 'gitlens-pro'
-	| 'gitlens-advanced'
-	| 'gitlens-teams'
-	| 'gitlens-hosted-enterprise'
-	| 'gitlens-self-hosted-enterprise'
-	| 'gitlens-standalone-enterprise'
-	| 'bundle-pro'
-	| 'bundle-advanced'
-	| 'bundle-teams'
-	| 'bundle-hosted-enterprise'
-	| 'bundle-self-hosted-enterprise'
-	| 'bundle-standalone-enterprise'
-	| 'gitkraken_v1-pro'
-	| 'gitkraken_v1-advanced'
-	| 'gitkraken_v1-teams'
-	| 'gitkraken_v1-hosted-enterprise'
-	| 'gitkraken_v1-self-hosted-enterprise'
-	| 'gitkraken_v1-standalone-enterprise'
-	| 'gitkraken-v1-pro'
-	| 'gitkraken-v1-advanced'
-	| 'gitkraken-v1-teams'
-	| 'gitkraken-v1-hosted-enterprise'
-	| 'gitkraken-v1-self-hosted-enterprise'
-	| 'gitkraken-v1-standalone-enterprise';
 
 export interface StoredOrganization {
 	id: string;
