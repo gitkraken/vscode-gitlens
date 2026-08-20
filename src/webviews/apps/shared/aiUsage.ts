@@ -26,6 +26,13 @@ export interface ResolvedAiUsage {
 	/** `undefined` when there's no ratio to draw, which suppresses the bar (and the reset line). */
 	percent: number | undefined;
 	nearlyOut: boolean;
+	/**
+	 * The genuinely-unlimited sentinel, kept separate from `percent == null` because the "no weekly
+	 * allowance" sentinel produces that too. A surface offering to top the allowance up has to tell them
+	 * apart: there's nothing to add to an unlimited allowance, while a zero one is precisely where buying
+	 * credits is the only way to get any.
+	 */
+	unlimited: boolean;
 }
 
 /**
@@ -38,9 +45,11 @@ export interface ResolvedAiUsage {
  * everything. Neither sentinel has a ratio to draw, so both suppress the bar (as gk.dev does).
  */
 export function resolveAiUsage(usage: AiUsageInfo): ResolvedAiUsage {
+	const unlimited = usage.limit === -1;
+
 	let figure: string;
 	let percent: number | undefined;
-	if (usage.limit === -1) {
+	if (unlimited) {
 		figure = 'Unlimited';
 	} else if (usage.limit === 0) {
 		figure = 'No weekly allowance';
@@ -52,7 +61,12 @@ export function resolveAiUsage(usage: AiUsageInfo): ResolvedAiUsage {
 	// gk.dev warns as the allowance runs out. Strictly greater than 90 — exactly 90% is not a warning.
 	// Whatever surfaces this must also carry it in words, so the amber fill is never the only signal
 	// (docs/accessibility.md).
-	return { figure: figure, percent: percent, nearlyOut: percent != null && percent > 90 };
+	return {
+		figure: figure,
+		percent: percent,
+		nearlyOut: percent != null && percent > 90,
+		unlimited: unlimited,
+	};
 }
 
 /** What the organization pool row renders — see `resolveAiOrgPool`. */

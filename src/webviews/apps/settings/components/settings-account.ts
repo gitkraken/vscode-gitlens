@@ -15,6 +15,7 @@ import type {
 	SubscriptionUpgradeCommandArgs,
 } from '../../../../plus/gk/models/subscription.js';
 import {
+	canPurchaseAiCredits,
 	compareSubscriptionPlans,
 	getSubscriptionEntitlement,
 	getSubscriptionNextPaidPlanId,
@@ -633,6 +634,21 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
+			/* The card's footer action. A wider gap than the rows above it take from each other, so it reads
+			   as the card's action rather than another line of the pool block it follows. */
+			.ai__credits {
+				display: flex;
+				margin-block-start: var(--gl-space-16);
+			}
+
+			/* Not an action: this user can't buy credits, so the line names who can instead of offering a
+			   control that would only bounce them. Same subdued register as the reset line. */
+			.ai__credits-note {
+				margin-block: var(--gl-space-16) 0;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
+			}
+
 			/* Stands in for the figure and the bar together, so the card holds roughly its loaded height
 			   while the host's async seed lands instead of growing under the pointer. Block, because the
 			   skeleton's host element is inline by default. */
@@ -1056,7 +1072,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 		// Resolved by the shared helper the account chip's compact meter also calls, so the two can't
 		// disagree — sentinel handling and the "nearly out" threshold both live there.
-		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
+		const { figure, percent, nearlyOut, unlimited } = resolveAiUsage(usage);
 
 		return html`<div class="card ai">
 			${this.renderAiUsageHead(figure, nearlyOut)}
@@ -1077,6 +1093,49 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				percent != null ? this.renderAiReset(usage.resetsOn) : nothing
 			}
 			${usage.organization != null ? this.renderAiOrgPool(usage.organization, usage.sharedUsed) : nothing}
+			${this.renderAiCredits(sub, unlimited)}
+		</div>`;
+	}
+
+	/**
+	 * The path to more AI credits (#5743), as the loaded card's footer action — the loading and failure
+	 * states deliberately don't get it, since neither has established there's an allowance to add to.
+	 *
+	 * Paid only. The issue's "otherwise, a path to upgrade to a paid plan" half is already carried by the
+	 * plan card directly above this one, which renders an upgrade CTA in every non-paid state it can
+	 * ("Try GitLens Pro" on Community, "Upgrade to Pro" on a trial and on an expired trial, "Reactivate
+	 * GitLens Pro Trial" when eligible) — so stacking a second CTA here would compete with that one rather
+	 * than add a path anyone was missing. This is the one branch read as already-satisfied by adjacency
+	 * instead of implemented.
+	 *
+	 * Who may buy comes from the same host predicate the weekly usage-limit notification gates on, so the
+	 * card and the notification can't end up offering the purchase to different people; everyone else gets
+	 * that notification's own copy, pointing at the person who can. The purchase goes through a command
+	 * rather than a plain href because `getGkDevUrl` resolves staging vs production host-side, and the
+	 * click's telemetry belongs next to the notification's.
+	 */
+	private renderAiCredits(sub: Subscription, unlimited: boolean) {
+		// An unlimited allowance has nothing to add to, and the figure line above has just said so. A ZERO
+		// allowance is the opposite case and keeps the offer: buying credits is the only way to get any.
+		if (unlimited || !isSubscriptionPaid(sub)) return nothing;
+
+		if (!canPurchaseAiCredits(sub)) {
+			return html`<p class="ai__credits-note">
+				Contact your organization admin or owner to request more AI credits.
+			</p>`;
+		}
+
+		return html`<div class="ai__credits">
+			<gl-button
+				class="button--quiet"
+				appearance="secondary"
+				href=${createCommandLink<Source>('gitlens.ai.purchaseCredits', {
+					source: 'account',
+					detail: { location: 'settings-account:ai-usage' },
+				})}
+				>Get more AI credits
+				<code-icon icon="link-external" slot="suffix" aria-hidden="true"></code-icon>
+			</gl-button>
 		</div>`;
 	}
 
