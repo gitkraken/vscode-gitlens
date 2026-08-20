@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a _GitKraken AI Usage_ card to the _Account_ section of _GitLens Settings_ &mdash; shows your weekly credit allowance, how much of it you've used, and when it resets, along with your organization's shared pool when one applies ([#5743](https://github.com/gitkraken/vscode-gitlens/issues/5743))
   - Adds a compact AI usage meter to the account rollup in the _Commit Graph_ header and on _Home_, which opens the full meter in _GitLens Settings_ when clicked
+  - Adds a _Get more AI credits_ action for paid plans, or guidance to contact an org admin for those who can't buy
   - Shows a loading placeholder while your usage is being fetched, and an error with a _Retry_ when it can't be loaded, rather than silently omitting the card
   - Breaks the organization pool down into your own draw against the rest of the organization's, matching how GitKraken Desktop presents it
   - Refreshes your usage when you switch active organization, rather than continuing to show the previous organization's allowance and pool
