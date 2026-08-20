@@ -127,7 +127,6 @@ export class SubscriptionService implements Disposable {
 
 	private _disposable: Disposable;
 	private _subscription!: Subscription;
-	private _getCheckInData: () => Promise<GKCheckInResponse | undefined>;
 	private _statusBarSubscription: StatusBarItem | undefined;
 	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -156,11 +155,6 @@ export class SubscriptionService implements Disposable {
 		);
 
 		const subscription = this.getStoredSubscription();
-		this._getCheckInData = () => Promise.resolve(undefined);
-		if (subscription?.account?.id != null) {
-			this._getCheckInData = () => this.loadStoredCheckInData(subscription.account!.id);
-		}
-
 		this.changeSubscription(subscription, undefined, { silent: true });
 		setTimeout(() => void this.ensureSession(false, undefined), 10000);
 
@@ -1080,21 +1074,15 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (!rsp.ok) {
-				this._getCheckInData = () => Promise.resolve(undefined);
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
 
 			this._onDidCheckIn.fire({ force: force });
 
 			const data: GKCheckInResponse = (await rsp.json()) as GKCheckInResponse;
-			this._getCheckInData = () => Promise.resolve(data);
-			this.storeCheckInData(data);
-
-			await this.validateAndUpdateSubscriptions(data, session, source);
+			await this.validateAndUpdateSubscriptions(data, session, source, organizationId);
 			return data;
 		} catch (ex) {
-			this._getCheckInData = () => Promise.resolve(undefined);
-
 			scope?.error(ex);
 			debugger;
 
@@ -1124,67 +1112,39 @@ export class SubscriptionService implements Disposable {
 		);
 	}
 
-	private storeCheckInData(data: GKCheckInResponse): void {
-		if (data.user?.id == null) return;
-
-		void this.container.storage
-			.store(`gk:${data.user.id}:checkin`, {
-				v: 1,
-				timestamp: Date.now(),
-				data: data,
-			})
-			.catch();
-	}
-
-	@trace()
-	private async loadStoredCheckInData(userId: string): Promise<GKCheckInResponse | undefined> {
-		const scope = getScopedLogger();
-
-		const storedCheckIn = this.container.storage.get(`gk:${userId}:checkin`);
-		// If more than a day old, ignore
-		if (storedCheckIn?.timestamp == null || Date.now() - storedCheckIn.timestamp > 24 * 60 * 60 * 1000) {
-			// Attempt a check-in to see if we can get a new one
-			const session = await this.getAuthenticationSession(false);
-			if (session == null) return undefined;
-
-			try {
-				return await this.checkInAndValidate(session, undefined, { force: true });
-			} catch (ex) {
-				scope?.error(ex);
-				return undefined;
-			}
-		}
-
-		return storedCheckIn?.data;
-	}
-
 	@trace()
 	private async validateAndUpdateSubscriptions(
 		data: GKCheckInResponse,
 		session: AuthenticationSession,
 		source: Source | undefined,
+		organizationId?: string,
 	): Promise<void> {
 		const scope = getScopedLogger();
-		let organizations: Organization[];
+		let organizations: Organization[] | undefined;
 		try {
 			organizations =
 				(await this.container.organizations.getOrganizations({
 					force: true,
 					accessToken: session.accessToken,
 					userId: session.account.id,
-				})) ?? [];
+				})) ?? undefined;
 		} catch (ex) {
 			scope?.error(ex);
-			organizations = [];
+			organizations = undefined;
 		}
-		let chosenOrganizationId = getConfiguredActiveOrganizationId();
+		let chosenOrganizationId = organizationId ?? getConfiguredActiveOrganizationId();
 		if (chosenOrganizationId === '') {
 			chosenOrganizationId = undefined;
-		} else if (chosenOrganizationId != null && !organizations.some(o => o.id === chosenOrganizationId)) {
+		} else if (
+			chosenOrganizationId != null &&
+			organizations != null &&
+			!organizations.some(o => o.id === chosenOrganizationId)
+		) {
+			// Only reset the chosen organization when the fetched list actually excludes it, not when the list couldn't be fetched
 			chosenOrganizationId = undefined;
 			void updateActiveOrganizationId(undefined);
 		}
-		const subscription = getSubscriptionFromCheckIn(data, organizations, chosenOrganizationId);
+		const subscription = getSubscriptionFromCheckIn(data, organizations ?? [], chosenOrganizationId);
 		this._lastValidatedDate = new Date();
 		this.changeSubscription(
 			{
@@ -1642,23 +1602,9 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		const checkInData = await this._getCheckInData();
-		if (checkInData == null) return;
-
-		const organizationSubscription = getSubscriptionFromCheckIn(checkInData, organizations, pick.org.id);
-
 		if (getConfiguredActiveOrganizationId() !== pick.org.id) {
 			await updateActiveOrganizationId(pick.org.id);
 		}
-
-		this.changeSubscription(
-			{
-				...this._subscription,
-				...organizationSubscription,
-			},
-			source,
-			{ store: true },
-		);
 	}
 
 	@info()
