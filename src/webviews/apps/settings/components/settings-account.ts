@@ -26,6 +26,7 @@ import {
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AiUsageInfo } from '../../../rpc/services/types.js';
 import { accountRingStyles } from '../../plus/shared/components/accountRing.css.js';
+import { resolveAiOrgPoolFigure, resolveAiUsage } from '../../shared/aiUsage.js';
 import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
 import type { GlPromo } from '../../shared/components/promo.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
@@ -45,21 +46,6 @@ declare global {
 		['gl-settings-account']: GlSettingsAccount;
 	}
 }
-
-/**
- * Unit word for the GitKraken AI allowance — credits, per the GitKraken AI help docs and pricing
- * (allowances are stated per-plan as credits/week; gk.dev's per-action breakdown tracks tokens as a
- * separate figure). Matches this panel's plan copy from `getSubscriptionPlanAiCredits`
- * ("N credits/week"). Kept as a single constant so the unit lives in one place.
- */
-const aiUsageUnit = 'credits';
-
-/**
- * Compact figures for the AI usage card ("63K", "250K", "1M"). `formatNumeric` in
- * `@gitlens/utils/date.js` has no `notation` option. Resolves against the system locale rather than the
- * configured date locale — that module keeps its resolved locales private.
- */
-const compactNumberFormatter = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 
 /** Absolute-date format used across the panel — the same one the commit surfaces use. */
 const planDateFormat = 'MMMM Do, YYYY';
@@ -926,24 +912,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		// is supplementary to the plan above it, so neither warrants a skeleton or an error row.
 		if (usage == null) return nothing;
 
-		// The two sentinels mean opposite things and must NEVER collapse into each other: -1 is genuinely
-		// unlimited, while 0 is "no weekly allowance at all" (e.g. trials, org-disabled AI). Rendering 0 as
-		// unlimited — or as a 0/0 bar that reads as full — tells a user with nothing that they have
-		// everything. Neither sentinel has a ratio to draw, so both suppress the bar (as gk.dev does).
-		let figure: string;
-		let percent: number | undefined;
-		if (usage.limit === -1) {
-			figure = 'Unlimited';
-		} else if (usage.limit === 0) {
-			figure = 'No weekly allowance';
-		} else {
-			figure = `${compactNumberFormatter.format(usage.used)} of ${compactNumberFormatter.format(usage.limit)} ${aiUsageUnit}`;
-			percent = Math.min(100, Math.max(0, (usage.used / usage.limit) * 100));
-		}
-
-		// gk.dev warns as the allowance runs out; the "Nearly out" text carries the same warning in words so
-		// the amber fill is never the only signal (docs/accessibility.md).
-		const nearlyOut = percent != null && percent > 90;
+		// Resolved by the shared helper the account chip's compact meter also calls, so the two can't
+		// disagree — sentinel handling and the "nearly out" threshold both live there.
+		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
 
 		return html`<div class="card ai">
 			<div class="ai__head">
@@ -979,18 +950,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	 * whole org's draw rather than an allowance this user can spend down.
 	 */
 	private renderAiOrgPool(organization: NonNullable<AiUsageInfo['organization']>) {
-		// The same two sentinels as the personal figure, kept just as distinct: -1 is genuinely unlimited,
-		// 0 is no shared pool at all, and neither has a ratio to state.
-		let figure: string;
-		if (organization.limit === -1) {
-			figure = 'Unlimited';
-		} else if (organization.limit === 0) {
-			figure = 'No shared allowance';
-		} else {
-			figure = `${compactNumberFormatter.format(organization.used)} of ${compactNumberFormatter.format(organization.limit)} ${aiUsageUnit}`;
-		}
-
-		return html`<p class="ai__org">Organization pool &middot; ${figure}</p>`;
+		return html`<p class="ai__org">Organization pool &middot; ${resolveAiOrgPoolFigure(organization)}</p>`;
 	}
 
 	private renderAiReset(resetsOn: AiUsageInfo['resetsOn']) {
