@@ -1230,6 +1230,7 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.ai.autoRebase.undo'
 	| 'gitlens.ai.mcp.installForAgent'
 	| 'gitlens.ai.mcp.uninstallForAgent'
+	| 'gitlens.ai.purchaseCredits'
 	| 'gitlens.graph.commitViaSCM'
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'

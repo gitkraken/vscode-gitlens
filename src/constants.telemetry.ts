@@ -93,7 +93,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a user provides feedback (rating and optional details) for an AI feature */
 	'ai/feedback': AIFeedbackEvent;
 
-	/** Sent when the user clicks "Get More Credits" on the weekly AI usage-limit notification */
+	/**
+	 * Sent when the user takes the AI credit add-on purchase path — "Get More Credits" on the weekly AI
+	 * usage-limit notification, or "Get more AI credits" on the Settings account panel's AI usage card
+	 */
 	'ai/credits/addOnClicked': AICreditsNotificationEvent;
 	/** Sent when the user dismisses the weekly AI usage-limit notification */
 	'ai/credits/addOnDismissed': AICreditsNotificationEvent;

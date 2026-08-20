@@ -7069,6 +7069,10 @@
 				"title": "Uninstall GitKraken MCP for Agent"
 			},
 			{
+				"command": "gitlens.ai.purchaseCredits",
+				"title": "Get More AI Credits"
+			},
+			{
 				"command": "gitlens.ai.recomposeBranch",
 				"title": "Recompose Commits...",
 				"category": "GitLens"
@@ -13276,6 +13280,10 @@
 				},
 				{
 					"command": "gitlens.ai.mcp.uninstallForAgent",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.purchaseCredits",
 					"when": "false"
 				},
 				{

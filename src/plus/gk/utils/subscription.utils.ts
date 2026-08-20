@@ -29,6 +29,20 @@ export function compareSubscriptionPlans(
 }
 
 /**
+ * Whether this user is allowed to buy AI credit add-ons for whoever is paying: inside an organization only
+ * its owner, admin, or billing contact can, and someone with no active organization is spending their own
+ * money. Says nothing about whether they NEED more credits — callers still gate on the plan.
+ *
+ * Shared with the webviews on purpose: the Settings account panel's AI usage card and the weekly
+ * usage-limit notification both decide who gets a purchase path from this one predicate, so they can't
+ * drift into offering it to different people.
+ */
+export function canPurchaseAiCredits(subscription: Subscription): boolean {
+	const role = subscription.activeOrganization?.role;
+	return role == null || role === 'owner' || role === 'admin' || role === 'billing';
+}
+
+/**
  * Whether the account itself blocks access — none connected, or one whose email isn't verified.
  * Surfaces gated on this (e.g. the Commit Graph) replace their entire content with an account screen,
  * so callers routing work to one must treat it as unusable ahead of any plan/visibility check.

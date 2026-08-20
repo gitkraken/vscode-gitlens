@@ -23,6 +23,24 @@ export class EnableAICommand extends GlCommandBase {
 }
 
 /**
+ * Opens the GitKraken AI credit add-on purchase page. Deliberately absent from the command palette (no
+ * `commandPalette` in `contributions.json`, which lands it in `ContributedOrphansOrInternalCommands` and
+ * contributes a `"when": "false"` palette entry): it's only meaningful from a surface that has already
+ * established the user is on a paid plan and allowed to buy — reached today from the Settings account
+ * panel's AI usage card, which needs a command because only the host can resolve the gk.dev URL.
+ */
+@command()
+export class PurchaseAICreditsCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super(['gitlens.ai.purchaseCredits']);
+	}
+
+	async execute(source?: Source): Promise<void> {
+		await this.container.ai.openAiCreditAddOn(source);
+	}
+}
+
+/**
  * Args accepted by `gitlens.ai.switchProvider`. `scope` lets surfaces that maintain their
  * own remembered model (compose, review) opt into scoped persistence — the picker writes
  * the selection to scoped storage and leaves the global default `ai.model` untouched.

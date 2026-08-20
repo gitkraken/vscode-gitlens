@@ -82,6 +82,7 @@ import type { ServerConnection } from '../gk/serverConnection.js';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils.js';
 import { isAiAllAccessPromotionActive } from '../gk/utils/-webview/promo.utils.js';
 import {
+	canPurchaseAiCredits,
 	compareSubscriptionPlans,
 	getSubscriptionPlanName,
 	isSubscriptionPaid,
@@ -792,6 +793,28 @@ export class AIProviderService implements AIService, Disposable {
 			this.container.telemetry.sendEvent('ai/enabled', undefined, source);
 		}
 		await configuration.updateEffective('ai.enabled', true);
+	}
+
+	/**
+	 * Opens the GitKraken AI credit add-on purchase page, measuring the click on the way out.
+	 *
+	 * Shared by the weekly usage-limit notification and the Settings account panel's AI usage card (via
+	 * `gitlens.ai.purchaseCredits`), which is the whole point: the destination resolves host-side against
+	 * the configured gk.dev environment, so a webview can't build it, and keeping the telemetry here stops
+	 * the two entry points from measuring the same purchase intent differently.
+	 *
+	 * Callers are expected to have already gated on `canPurchaseAiCredits` — this doesn't re-check, so the
+	 * affordance and the action stay one decision rather than two that can disagree.
+	 */
+	async openAiCreditAddOn(source?: Source): Promise<void> {
+		const sub = await this.container.subscription.getSubscription();
+		this.container.telemetry.sendEvent(
+			'ai/credits/addOnClicked',
+			{ 'organization.role': sub.activeOrganization?.role },
+			source,
+		);
+
+		await openUrl(await this.container.urls.getGkDevUrl('subscription/credit-add-on'));
 	}
 
 	/**
@@ -1750,11 +1773,11 @@ export class AIProviderService implements AIService, Disposable {
 								}
 								case AIErrorReason.UserQuotaExceeded: {
 									const sub = await this.container.subscription.getSubscription();
+									// Kept for telemetry — the purchase gate itself is the shared predicate the
+									// Settings AI usage card also renders from, so the two can't disagree.
 									const role = sub.activeOrganization?.role;
-									const canPurchase =
-										role == null || role === 'owner' || role === 'admin' || role === 'billing';
 
-									if (canPurchase) {
+									if (canPurchaseAiCredits(sub)) {
 										const getMoreCredits: MessageItem = {
 											title: 'Get More Credits',
 										};
@@ -1769,14 +1792,7 @@ export class AIProviderService implements AIService, Disposable {
 										);
 
 										if (result === getMoreCredits) {
-											this.container.telemetry.sendEvent(
-												'ai/credits/addOnClicked',
-												{ 'organization.role': role },
-												source,
-											);
-											void openUrl(
-												await this.container.urls.getGkDevUrl('subscription/credit-add-on'),
-											);
+											void this.openAiCreditAddOn(source);
 										} else {
 											this.container.telemetry.sendEvent(
 												'ai/credits/addOnDismissed',
