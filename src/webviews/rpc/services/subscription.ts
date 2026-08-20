@@ -82,13 +82,21 @@ export class SubscriptionService implements Disposable {
 				const serialized = serialize(e.current);
 				this.subscriptionState.set(serialized);
 				this.#updateDerivedState(serialized);
-				// The AI allowance only moves with account identity or plan, so it's filtered out of the
-				// derived-state pass above — the same filter, and for the same reason, that
-				// `AIProviderService` applies before clearing its own usage cache: this event also fires on
-				// no-op ticks like a session refresh, and a forced refetch on each of those would be one
-				// wasted round trip per open webview.
+				// The AI allowance doesn't move with every subscription tick — this event also fires on no-op
+				// ones like a session refresh, and a forced refetch on each would be a wasted round trip per
+				// open webview — so it's filtered out of the derived-state pass above and re-read only when
+				// one of its own inputs moved.
+				//
+				// Those inputs are every input to the allowance's cache key (`${accountId}|${orgId}` in
+				// `AIProviderService.getUsage`) plus the plan, which changes the allowance's SIZE under an
+				// unchanged key. The organization is easy to miss here: `AIProviderService` filters on
+				// account and plan alone when clearing that cache, but it doesn't need the org, because an
+				// org switch changes the key and simply misses the old entry. This filter has the opposite
+				// job — deciding whether to re-read — so leaving the org out stranded anyone switching
+				// between two same-tier orgs on the previous org's allowance and shared-pool split.
 				if (
 					e.current.account?.id !== e.previous.account?.id ||
+					e.current.activeOrganization?.id !== e.previous.activeOrganization?.id ||
 					e.current.plan?.actual?.id !== e.previous.plan?.actual?.id
 				) {
 					this.#updateAiUsageState(serialized, true);
