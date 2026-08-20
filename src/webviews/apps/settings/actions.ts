@@ -51,6 +51,13 @@ export class SettingsActions {
 
 	private _anchorNonce = 0;
 	private _servicesLoadGeneration = 0;
+	// Orders the two independent writers to `aiUsage` — the startup fetch in `loadSharedServices` and
+	// `refreshAiUsage`. Without it they're last-writer-wins: a forced refresh triggered by a subscription
+	// change can resolve BEFORE the slower startup fetch, which then overwrites it with the previous
+	// account's allowance (or resurrects it on a signed-out panel). Deliberately separate from
+	// `_servicesLoadGeneration`, which tracks retry generations and says nothing about ordering against
+	// `refreshAiUsage`; the startup fetch has to satisfy both.
+	private _aiUsageWriteToken = 0;
 
 	// ── Navigation ──
 
@@ -161,6 +168,28 @@ export class SettingsActions {
 			() => failed('ai'),
 		);
 
+		// GitKraken AI weekly usage feeds the Account panel's usage card. Modeled on the walkthrough
+		// fetch below, not the `failed('ai')` siblings above: this is non-critical, so a rejection
+		// must never flag `serviceErrors.ai` — that banner is about model resolution, not the
+		// allowance. Unlike walkthrough though, an unavailable/failed result still needs a signal,
+		// so the card hides (`null`) instead of skeletoning forever.
+		// Both guards are required: `current()` retires a superseded retry generation, while the write
+		// token keeps this slower unforced read from clobbering a `refreshAiUsage` that already landed.
+		const usageToken = ++this._aiUsageWriteToken;
+		const usageCurrent = () => current() && usageToken === this._aiUsageWriteToken;
+		void ai
+			.getUsage()
+			.then(usage => {
+				if (usageCurrent()) {
+					s.aiUsage.set(usage ?? null);
+				}
+			})
+			.catch(() => {
+				if (usageCurrent()) {
+					s.aiUsage.set(null);
+				}
+			});
+
 		// Walkthrough progress feeds the Get Started launchpad's two walkthrough steps. It's
 		// non-critical — a failure just leaves those steps reading "Not started", never an error.
 		void this.services.walkthrough
@@ -211,6 +240,31 @@ export class SettingsActions {
 			this.setAiServiceError(false);
 		} catch {
 			this.setAiServiceError(true);
+		}
+	}
+
+	/**
+	 * Force-refreshes the GitKraken AI usage standing — called when the subscription changes
+	 * (sign-in/out, plan change, a manual status sync), any of which can move the allowance.
+	 *
+	 * Never rejects: every call site fires this off with `void`, so an escaping rejection would
+	 * land as an unhandled rejection instead of anything the user can act on. A failure sets the
+	 * signal to `null`, hiding the card, rather than flagging the AI shared service — but only if
+	 * this call is still the latest writer (see `_aiUsageWriteToken`); a superseded refresh must
+	 * leave the fresher value alone, including on its failure path.
+	 */
+	async refreshAiUsage(): Promise<void> {
+		const token = ++this._aiUsageWriteToken;
+		try {
+			const ai = await this.services.ai;
+			const usage = await ai.getUsage(true);
+			if (token !== this._aiUsageWriteToken) return;
+
+			this.state.aiUsage.set(usage ?? null);
+		} catch {
+			if (token !== this._aiUsageWriteToken) return;
+
+			this.state.aiUsage.set(null);
 		}
 	}
 

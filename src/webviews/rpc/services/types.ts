@@ -219,6 +219,22 @@ export interface AIState {
 	readonly defaultAgent: { readonly id: string; readonly label: string } | undefined;
 }
 
+/**
+ * GitKraken AI weekly usage standing (allowance, consumption, reset). `limit === -1` means unlimited,
+ * `limit === 0` means no allowance — never conflate the two.
+ */
+export interface AiUsageInfo {
+	readonly limit: number;
+	readonly used: number;
+	readonly resetsOn: string;
+	/**
+	 * The organization's shared pool rollup, when the backend reports a usable one — 20% of every seat's
+	 * weekly allowance funds it, which is why `limit` above reads below the plan's stated per-week figure.
+	 * Same sentinels as `limit`.
+	 */
+	readonly organization?: { readonly used: number; readonly limit: number };
+}
+
 // ============================================================
 // Commit Signature DTO
 // ============================================================
