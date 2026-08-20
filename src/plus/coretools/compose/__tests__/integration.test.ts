@@ -24,8 +24,10 @@ const responseFormat: AIResponseFormat = {
 function makeContainer(response: Record<string, unknown>): {
 	container: Container;
 	sent: () => Record<string, unknown> | undefined;
+	allSent: () => Record<string, unknown>[];
 } {
 	let sent: Record<string, unknown> | undefined;
+	const all: Record<string, unknown>[] = [];
 	const container = {
 		ai: {
 			sendRequest: (
@@ -36,12 +38,13 @@ function makeContainer(response: Record<string, unknown>): {
 				options: Record<string, unknown>,
 			) => {
 				sent = options;
+				all.push(options);
 				return Promise.resolve({ promise: Promise.resolve(response) });
 			},
 		},
 	} as unknown as Container;
 
-	return { container: container, sent: () => sent };
+	return { container: container, sent: () => sent, allSent: () => all };
 }
 
 function params(): AiGenerateParams {
@@ -62,6 +65,24 @@ suite('compose createAiModelPort', () => {
 		await createAiModelPort(container, source, conversationId).generate(withFormat);
 
 		assert.deepStrictEqual(sent()?.responseFormat, responseFormat);
+	});
+
+	test('every call through one port shares the conversation ID', async () => {
+		// This is what makes the library's internal validation retries part of the run: it calls
+		// `generate` repeatedly on the ONE port it was handed, which closed over the ID. A port built
+		// per call instead would give each retry its own session, and nothing else here would notice.
+		const { container, allSent } = makeContainer({ content: '{}' });
+		const port = createAiModelPort(container, source, conversationId);
+
+		await port.generate(params());
+		await port.generate(params());
+		await port.generate(params());
+
+		assert.deepStrictEqual(
+			allSent().map(o => o.conversationId),
+			[conversationId, conversationId, conversationId],
+			'each retry must continue the run, not start its own',
+		);
 	});
 
 	test('forwards the conversation ID to sendRequest', async () => {

@@ -298,6 +298,9 @@ export type ComposeBaseCommit = {
  * repo, two live sessions stay separate here instead of silently sharing a conversation and evicting
  * each other's plan.
  *
+ * A repository path travels alongside it only on the compose RPCs that do real repository work; the
+ * ones that only mutate the library's in-memory plan take the session and cache keys alone.
+ *
  * Branded, mirroring the webview's own `AnchorKey`, because it travels beside `repoPath` and
  * `cacheKey` on these RPCs — three bare strings would let a transposition through silently, which is
  * the exact class of mix-up keying by session instead of repo exists to prevent.

@@ -1364,6 +1364,11 @@ export class GraphInspectServices {
 					// the user started a new compose would otherwise discard the newer plan and end a conversation
 					// that is still in use. Both being undefined is the no-plan case (a cancelled or failed
 					// generate), where there is still a conversation to close.
+					//
+					// Deliberately NOT relaxed to 'end it whenever we hold no plan': a session whose first generate
+					// is still in flight also holds no plan, and a late call would then flush a conversation that is
+					// about to be used. Skipping instead costs a delayed end — dispose still flushes it — which is
+					// the cheaper of the two errors.
 					if (trackedCacheKey !== cacheKey) return Promise.resolve();
 
 					if (trackedCacheKey != null) {

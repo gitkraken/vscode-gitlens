@@ -2104,10 +2104,12 @@ export class DetailsWorkflowController implements ReactiveController {
 			prompt: prompt,
 			basePrompt: basePrompt ?? prompt,
 			focusedFilePaths: focusedFilePaths,
-			// Carry the compose plan's cache key through the in-flight window, so a refine that fails is
-			// still retryable as a refine. Safe to carry on a cold start too: the host only continues a
-			// key it still holds, and has already dropped this one.
-			...(kind === 'compose' ? { cacheKey: (prior as { cacheKey?: string } | undefined)?.cacheKey } : undefined),
+			// Carry the compose plan's cache key through the in-flight window so a refine that fails is
+			// still retryable as a refine. Read it through the same predicate that decided whether this
+			// run IS a refine, so the key is inherited only when the run continues it — a cold start (a
+			// `backed` entry, say) must not carry a key the host is about to discard, or the entry would
+			// go on naming a dead plan and later teardown calls would name it too.
+			...(kind === 'compose' ? { cacheKey: this.composeCacheKeyForAnchor(anchor) } : undefined),
 		});
 
 		promise.then(

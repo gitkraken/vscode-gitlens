@@ -2217,6 +2217,36 @@ suite('DetailsWorkflowController.runCompose — retrying a failed refine', () =>
 		assert.strictEqual(m.calls[0][7], undefined, 'Back then generate must not be dispatched as a refine');
 	});
 
+	test('a cold start after Back does not carry the abandoned plan’s key onto its entry', () => {
+		// The entry's key is what later teardown calls name when they tell the host which plan to let go
+		// of. A cold start makes the host discard the plan it held, so inheriting that key would leave the
+		// entry naming something already gone — and a Discard or repository switch would then name it too,
+		// miss the host's match guard, and leave the session's conversation open.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.actions.resources.compose.mutate(makeComposeResultWithKey('plan', 'K1'));
+		m.controller.compose.back();
+
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.controller.runCompose('/A', 'organize these instead', undefined, undefined, 0);
+
+		const dispatched = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(dispatched?.execState, 'generating', 'precondition: the cold start dispatched');
+		assert.strictEqual(dispatched?.cacheKey, undefined, 'a cold start must not inherit the dead key');
+	});
+
+	test('a refine keeps the plan’s key on its in-flight entry', () => {
+		// The inverse: a refine IS continuing that plan, so the key has to survive the in-flight window or
+		// a refine that fails could not be retried as a refine.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		const dispatched = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(dispatched?.cacheKey, 'K1', 'a refine keeps the key it is continuing');
+	});
+
 	test('going Forward again restores the refine continuation', () => {
 		// The inverse: `forward()` returns the entry to `complete` with the plan on screen, so the
 		// session it belongs to is resumable again.
