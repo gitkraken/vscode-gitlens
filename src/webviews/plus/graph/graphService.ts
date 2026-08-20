@@ -561,9 +561,10 @@ export interface GraphInspectService {
 	 * teardown.
 	 *
 	 * `cacheKey` is the plan the webview believed the session held. The host acts only while that still
-	 * matches what it holds, so a call that arrives after the user has started a new compose cannot tear
-	 * down the newer plan or its conversation. Passing `undefined` ends a session that never produced a
-	 * plan, which is how a cancelled or failed generate's conversation gets closed.
+	 * matches what it holds, so a call arriving after the user has started a new compose cannot tear down
+	 * the newer plan or its conversation. Passing `undefined` is a no-op for the same reason: a session
+	 * still waiting on its first generate also holds no plan, so there is nothing to tell those two
+	 * states apart. A session that never produced a plan is continued by a retry or flushed on dispose.
 	 */
 	discardCompose(sessionKey: ComposeSessionKey, cacheKey: string | undefined): Promise<void>;
 	/**

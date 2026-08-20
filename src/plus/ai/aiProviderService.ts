@@ -1841,10 +1841,16 @@ export class AIProviderService implements AIService, Disposable {
 		const key = `${model.provider.id}/${model.id}`;
 		const bucket = buckets.get(key);
 		if (bucket == null) {
+			// A conversation is one piece of work, so it reports one action: whichever opened it. The
+			// aggregate takes its action from whichever bucket holds the most tokens, so without this a
+			// session that mixes actions — a compose whose user also regenerates a commit message — could
+			// be reported as the wrong one once a model switch put the bulk of the tokens in the later
+			// bucket.
+			const openedWith = buckets.values().next().value?.action;
 			buckets.set(key, {
 				provider: model.provider.id,
 				model: model.id,
-				action: action,
+				action: openedWith ?? action,
 				totalTokens: totalTokens,
 				inputTokens: promptTokens ?? 0,
 			});

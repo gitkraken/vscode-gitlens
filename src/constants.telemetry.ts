@@ -910,7 +910,7 @@ interface AIEventDataSendBase extends AIEventDataBase {
 	correlationId?: string;
 	/**
 	 * Groups every request of one AI session — the whole user-facing task. Set by conflict resolution
-	 * (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`, and `'generate-commitMessage'`
+	 * (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`, and `'commitMessage'`
 	 * for a message regenerated inside a compose); absent on every other feature, whose requests are
 	 * one-per-task anyway.
 	 *

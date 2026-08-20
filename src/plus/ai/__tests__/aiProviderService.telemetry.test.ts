@@ -93,3 +93,45 @@ suite('AIProviderService — conversationId reaches the ai/generate event', () =
 		assert.strictEqual(sentEvents[0].data.conversationId, undefined);
 	});
 });
+
+suite('AIProviderService — a conversation reports the action that opened it', () => {
+	test('a later action with more tokens does not relabel the session', async () => {
+		// Buckets are per provider/model and the aggregate reports whichever holds the most tokens, so a
+		// compose whose user regenerates a commit message after switching models could otherwise be
+		// reported as message generation rather than as the compose it was.
+		const reported: unknown[][] = [];
+		const fakeThis = Object.assign(Object.create(AIProviderService.prototype) as object, {
+			_pendingBYOKUsage: new Map(),
+			postBYOKUsageReport: (...args: unknown[]) => {
+				reported.push(args);
+				return Promise.resolve();
+			},
+		});
+		const accumulate = (
+			AIProviderService.prototype as unknown as {
+				accumulateBYOKUsage: (id: string, action: string, response: unknown) => void;
+			}
+		).accumulateBYOKUsage;
+		const flush = (
+			AIProviderService.prototype as unknown as {
+				flushBYOKUsage: (id: string) => Promise<void>;
+			}
+		).flushBYOKUsage;
+
+		const response = (modelId: string, totalTokens: number) => ({
+			model: { id: modelId, provider: { id: 'openai', name: 'OpenAI' } },
+			usage: { promptTokens: 1, completionTokens: totalTokens - 1, totalTokens: totalTokens },
+		});
+
+		// The compose opens the conversation; the message regen lands on a different model with more
+		// tokens, so it wins the dominant-bucket contest.
+		accumulate.call(fakeThis, 'conv-1', 'generate-commits', response('gpt-4o', 10));
+		accumulate.call(fakeThis, 'conv-1', 'generate-commitMessage', response('gpt-5', 500));
+
+		await flush.call(fakeThis, 'conv-1');
+
+		assert.strictEqual(reported.length, 1, 'one report per session');
+		assert.strictEqual(reported[0][2], 'generate-commits', 'the action that opened the session');
+		assert.strictEqual(reported[0][3], 510, 'with every bucket’s tokens counted');
+	});
+});

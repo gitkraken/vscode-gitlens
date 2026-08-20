@@ -1359,23 +1359,18 @@ export class GraphInspectServices {
 				},
 				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
 				discardCompose: (sessionKey, cacheKey) => {
-					const trackedCacheKey = this._activeComposeCacheKeys.get(sessionKey);
-					// Only act while the session still holds the plan the webview dropped. A call that lands after
-					// the user started a new compose would otherwise discard the newer plan and end a conversation
-					// that is still in use. Both being undefined is the no-plan case (a cancelled or failed
-					// generate), where there is still a conversation to close.
-					//
-					// Deliberately NOT relaxed to 'end it whenever we hold no plan': a session whose first generate
-					// is still in flight also holds no plan, and a late call would then flush a conversation that is
-					// about to be used. Skipping instead costs a delayed end — dispose still flushes it — which is
-					// the cheaper of the two errors.
-					if (trackedCacheKey !== cacheKey) return Promise.resolve();
+					// Naming no plan is not enough to end a session: a session whose first generate is still in
+					// flight also holds no plan, so a call that lands after the user has started over would end a
+					// conversation that request is about to report under — splitting the session and leaving its
+					// later usage with nothing to flush it. Those sessions are instead continued by a retry, which
+					// is what should happen to a cancelled or failed generate, or flushed on dispose.
+					if (cacheKey == null) return Promise.resolve();
 
-					if (trackedCacheKey != null) {
-						this._composeToolsForGraph?.discardCachedPlan(trackedCacheKey);
-						this._activeComposeCacheKeys.delete(sessionKey);
-					}
+					// And only while we still hold that exact plan, so a late call cannot discard a newer one.
+					if (this._activeComposeCacheKeys.get(sessionKey) !== cacheKey) return Promise.resolve();
 
+					this._composeToolsForGraph?.discardCachedPlan(cacheKey);
+					this._activeComposeCacheKeys.delete(sessionKey);
 					this.endComposeConversation(sessionKey);
 					return Promise.resolve();
 				},

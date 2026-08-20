@@ -1136,6 +1136,25 @@ suite('graphInspectServices — compose conversation lifecycle', () => {
 		assert.notStrictEqual(m.generated[1], m.generated[0], 'the next compose is a new session');
 	});
 
+	test('a discard naming no plan leaves the session alone', async () => {
+		// A destroyed run that never produced a plan names none. So does a session still waiting on its
+		// first generate, and the host cannot tell those apart — so acting on it would let a late call end
+		// a conversation the in-flight request is about to report under, splitting the session and leaving
+		// its later usage with nothing to flush it. Retry or dispose closes these instead.
+		const m = createComposeConversationFake({ failGenerate: true });
+		const failed = await m.compose('/repo');
+		assert.ok('error' in failed, 'precondition: the generate failed, so no plan was registered');
+		assert.strictEqual(m.trackedKey('/repo'), undefined, 'precondition: no plan tracked');
+
+		await m.discard('/repo', undefined);
+
+		assert.deepStrictEqual(m.flushed, [], 'nothing to release, so nothing to end');
+
+		// The retry continues that same conversation, which is what the no-op preserves.
+		await composeAndGetKey(m, '/repo');
+		assert.strictEqual(m.generated[1], m.generated[0], 'the retry must continue the same conversation');
+	});
+
 	test('a discard that arrives late cannot end a newer session', async () => {
 		// The call is fire-and-forget from the webview, so it can land after the user has already started
 		// over. Naming the plan it believes it is discarding is what makes that case a no-op instead of
