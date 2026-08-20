@@ -55,13 +55,60 @@ export function resolveAiUsage(usage: AiUsageInfo): ResolvedAiUsage {
 	return { figure: figure, percent: percent, nearlyOut: percent != null && percent > 90 };
 }
 
-/**
- * The organization's shared pool figure. The same two sentinels as the personal figure, kept just as
- * distinct: -1 is genuinely unlimited, 0 is no shared pool at all, and neither has a ratio to state.
- */
-export function resolveAiOrgPoolFigure(organization: NonNullable<AiUsageInfo['organization']>): string {
-	if (organization.limit === -1) return 'Unlimited';
-	if (organization.limit === 0) return 'No shared allowance';
+/** What the organization pool row renders — see `resolveAiOrgPool`. */
+export interface ResolvedAiOrgPool {
+	figure: string;
+	/**
+	 * Shares of the pool's limit, as percentages: `yours` is this user's draw, `rest` is everyone else's,
+	 * and what's left of the 100 is the remaining allowance (the bar's own track, never a third segment).
+	 * `undefined` when there's no ratio to draw, which suppresses the bar and its legend.
+	 */
+	segments: { yours: number; rest: number } | undefined;
+	/**
+	 * The split stated in credits, for a screen reader — the legend is a color key, so it conveys nothing
+	 * on its own. `undefined` whenever `segments` is.
+	 */
+	summary: string | undefined;
+}
 
-	return `${formatAiCredits(organization.used)} of ${formatAiCredits(organization.limit)} ${aiUsageUnit}`;
+/**
+ * The organization's shared pool figure, plus the segments of its bar. The same two sentinels as the
+ * personal figure, kept just as distinct: -1 is genuinely unlimited, 0 is no shared pool at all, and
+ * neither has a ratio to state — so neither gets segments, and the figure alone says there's nothing to
+ * divide up.
+ *
+ * `sharedUsed` is this user's own draw from the pool (a slice of `organization.used`); absent, the whole
+ * used share is attributed to the rest of the organization rather than split on a guess.
+ */
+export function resolveAiOrgPool(
+	organization: NonNullable<AiUsageInfo['organization']>,
+	sharedUsed: number | undefined,
+): ResolvedAiOrgPool {
+	if (organization.limit === -1) return { figure: 'Unlimited', segments: undefined, summary: undefined };
+	if (organization.limit === 0) return { figure: 'No shared allowance', segments: undefined, summary: undefined };
+
+	// The figure states what the backend reported; only the geometry below is clamped, so a nonsense
+	// payload stays visible as a number instead of being silently normalized away.
+	const figure = `${formatAiCredits(organization.used)} of ${formatAiCredits(organization.limit)} ${aiUsageUnit}`;
+	const usedCredits = Math.max(0, organization.used);
+	// Over-draw pins the bar full rather than overflowing it, exactly as the personal meter does.
+	const usedPercent = Math.min(100, Math.max(0, (usedCredits / organization.limit) * 100));
+
+	// `sharedUsed` is clamped to the pool's own total because the two are independent fields: a backend
+	// reporting this user's draw ahead of the rollup would otherwise drive `rest` negative and paint a
+	// negative-width segment. (GitKraken Desktop has exactly that bug — it does no clamping here.)
+	const yoursCredits = sharedUsed != null ? Math.min(Math.max(0, sharedUsed), usedCredits) : 0;
+	// Scaled against `used`, not `limit`, so the two segments always sum to the used share — and guarded,
+	// since a pool with nothing drawn from it has no share to apportion.
+	const yours = usedCredits > 0 ? usedPercent * (yoursCredits / usedCredits) : 0;
+	const restCredits = usedCredits - yoursCredits;
+	const remainingCredits = Math.max(0, organization.limit - usedCredits);
+
+	return {
+		figure: figure,
+		segments: { yours: yours, rest: usedPercent - yours },
+		summary: `Your usage ${formatAiCredits(yoursCredits)} ${aiUsageUnit}, rest of organization ${formatAiCredits(
+			restCredits,
+		)} ${aiUsageUnit}, remaining ${formatAiCredits(remainingCredits)} ${aiUsageUnit}`,
+	};
 }

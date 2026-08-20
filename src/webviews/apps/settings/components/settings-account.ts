@@ -26,9 +26,10 @@ import {
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AiUsageInfo } from '../../../rpc/services/types.js';
 import { accountRingStyles } from '../../plus/shared/components/accountRing.css.js';
-import { resolveAiOrgPoolFigure, resolveAiUsage } from '../../shared/aiUsage.js';
+import { resolveAiOrgPool, resolveAiUsage } from '../../shared/aiUsage.js';
 import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
 import type { GlPromo } from '../../shared/components/promo.js';
+import { srOnly } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { PromosContext } from '../../shared/contexts/promos.js';
 import { promosContext } from '../../shared/contexts/promos.js';
@@ -137,6 +138,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
 		linkBase,
+		srOnly,
 		accountRingStyles,
 		css`
 			:host {
@@ -282,7 +284,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			.identity__email {
-				margin: var(--gl-space-2) 0 0;
+				margin-block: var(--gl-space-2) 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-md);
@@ -374,7 +376,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			.plan__meta {
-				margin: var(--gl-space-6) 0 0;
+				margin-block: var(--gl-space-6) 0;
 				font-size: var(--gl-font-md);
 				line-height: 1.5;
 				color: var(--color-foreground--75);
@@ -421,7 +423,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 			/* Matches settings-detail's .preview__label — the same uppercase eyebrow, in the same pane */
 			.plan__features-title {
-				margin: 0 0 var(--gl-space-10);
+				margin-block: 0 var(--gl-space-10);
 				font-size: 1.05rem;
 				font-weight: 400;
 				color: var(--color-foreground--50);
@@ -542,18 +544,93 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Supplementary to the personal figure, so it stays in the subdued register of the reset line
-			   below rather than competing with the meter above — a second bar for the pool would read as a
-			   second allowance this user can spend. */
+			   below rather than competing with the meter above. */
 			.ai__org {
-				margin: var(--gl-space-8) 0 0;
+				display: flex;
+				flex-direction: row;
+				gap: 1ch;
+				justify-content: space-between;
+				margin-block: var(--gl-space-20) 0;
 				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--65);
 			}
 
-			.ai__reset {
-				margin: var(--gl-space-8) 0 0;
+			.ai__org-figure {
+				font-family: var(--vscode-editor-font-family);
+			}
+
+			/* Same recipe as the personal meter's track so the two read as siblings, but laid out as a flex
+			   row: the pool is split between this user and everyone else, and whatever no segment covers is
+			   the pool's remaining allowance — the track itself, never a third painted element. */
+			.ai__org-track {
+				display: flex;
+				height: 0.6rem;
+				margin-block-start: var(--gl-space-8);
+				overflow: hidden;
+				background: color-mix(in srgb, var(--color-foreground) 12%, transparent);
+				border-radius: var(--gl-radius-circle);
+			}
+
+			.ai__org-fill {
+				flex: none;
+				height: 100%;
+			}
+
+			/* Deliberately the personal meter's own fill token: this segment is the same person's
+			   consumption, and sharing the color is what ties their draw on the pool to their allowance
+			   above instead of reading as an unrelated quantity. */
+			.ai__org-fill--yours {
+				background: var(--vscode-progressBar-background);
+			}
+
+			/* Everyone else's draw is context rather than this user's standing, so it takes a muted
+			   foreground tint — clearly weaker than the progress fill, still clear of the track behind it. */
+			.ai__org-fill--rest {
+				background: var(--color-foreground--50);
+			}
+
+			/* A color key for the bar, sized as a supplementary row inside a card rather than a chart
+			   legend. It carries no values — those stay in the figure line above and the screen-reader
+			   summary beside it. */
+			.ai__legend {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--gl-space-4) var(--gl-space-10);
+				margin-block: var(--gl-space-6) 0;
 				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
+				color: var(--color-foreground--65);
+			}
+
+			.ai__legend-item {
+				display: flex;
+				gap: var(--gl-space-4);
+				align-items: center;
+			}
+
+			.ai__legend-swatch {
+				flex: none;
+				inline-size: 0.8rem;
+				block-size: 0.8rem;
+				border-radius: var(--gl-radius-circle);
+			}
+
+			.ai__legend-swatch--yours {
+				background: var(--vscode-progressBar-background);
+			}
+
+			.ai__legend-swatch--rest {
+				background: var(--color-foreground--50);
+			}
+
+			/* Hollow, because "remaining" is the track showing through rather than anything painted on it. */
+			.ai__legend-swatch--remaining {
+				border: var(--gl-border-width) solid var(--color-foreground--50);
+			}
+
+			.ai__reset {
+				margin-block: var(--gl-space-6) 0;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			/* Stands in for the figure and the bar together, so the card holds roughly its loaded height
@@ -616,7 +693,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			.org__meta {
-				margin: var(--gl-space-2) 0 0;
+				margin-block: var(--gl-space-2) 0;
 				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--65);
 			}
@@ -993,13 +1070,13 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 						</div>`
 					: nothing
 			}
-			${usage.organization != null ? this.renderAiOrgPool(usage.organization) : nothing}
 			${
 				// The sentinels suppress the reset line just as they suppress the bar: "resets Monday"
 				// refers to a finite weekly allowance, which "Unlimited" and "No weekly allowance" have
 				// each just said doesn't exist.
 				percent != null ? this.renderAiReset(usage.resetsOn) : nothing
 			}
+			${usage.organization != null ? this.renderAiOrgPool(usage.organization, usage.sharedUsed) : nothing}
 		</div>`;
 	}
 
@@ -1019,11 +1096,47 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	/**
 	 * The organization's shared pool — 20% of every seat's weekly allowance funds it, which is why the
 	 * personal `limit` above lands below the per-week figure the plan card states; without this line the two
-	 * numbers read as a bug. Text only, and no ratio bar: the card gets one meter, and this pool is the
-	 * whole org's draw rather than an allowance this user can spend down.
+	 * numbers read as a bug. The bar is segmented into this user's draw and the rest of the organization's,
+	 * because the pool is spent by the whole org and the only part of it this user can act on is their own.
+	 *
+	 * Both sentinel figures suppress the bar and the legend: there's no ratio to draw, so a key to its
+	 * colors would be labeling nothing.
+	 *
+	 * The bar and the legend are both decorative — the legend is a key to the bar's colors and states no
+	 * values, so on its own it tells a screen-reader user nothing the figure line didn't already say. The
+	 * split reaches them as the visually-hidden sentence instead, which is the only place the two shares
+	 * exist in words.
 	 */
-	private renderAiOrgPool(organization: NonNullable<AiUsageInfo['organization']>) {
-		return html`<p class="ai__org">Organization pool &middot; ${resolveAiOrgPoolFigure(organization)}</p>`;
+	private renderAiOrgPool(organization: NonNullable<AiUsageInfo['organization']>, sharedUsed: number | undefined) {
+		const { figure, segments, summary } = resolveAiOrgPool(organization, sharedUsed);
+
+		return html`<p class="ai__org">
+				<span>Weekly Shared Organization Pool</span> <span class="ai__org-figure">${figure}</span>
+			</p>
+			${
+				segments != null
+					? html`<div class="ai__org-track" aria-hidden="true">
+								<div
+									class="ai__org-fill ai__org-fill--yours"
+									style=${cspStyleMap({ inlineSize: `${segments.yours}%` })}
+								></div>
+								<div
+									class="ai__org-fill ai__org-fill--rest"
+									style=${cspStyleMap({ inlineSize: `${segments.rest}%` })}
+								></div>
+							</div>
+							<p class="ai__legend">
+								<span class="ai__legend-item" aria-hidden="true"
+									><span class="ai__legend-swatch ai__legend-swatch--yours"></span>Your usage</span
+								><span class="ai__legend-item" aria-hidden="true"
+									><span class="ai__legend-swatch ai__legend-swatch--rest"></span>Rest of
+									organization</span
+								><span class="ai__legend-item" aria-hidden="true"
+									><span class="ai__legend-swatch ai__legend-swatch--remaining"></span>Remaining</span
+								><span class="sr-only">${summary}</span>
+							</p>`
+					: nothing
+			}`;
 	}
 
 	private renderAiReset(resetsOn: AiUsageInfo['resetsOn']) {

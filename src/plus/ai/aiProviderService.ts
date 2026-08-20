@@ -150,10 +150,7 @@ export interface AIModelChangeEvent {
  * `GET v1/ai-tasks/usage` payload we consume.
  *
  * `limit === -1` means unlimited and `limit === 0` means no allowance; never conflate the two, or a
- * trial user with no allowance reads as having infinite AI. The response also carries `sharedUsed`
- * (this user's own draw from the shared pool) — deliberately not surfaced here, since nothing
- * consumes it and typing it without validating it would hand callers a shape the backend never
- * guaranteed.
+ * trial user with no allowance reads as having infinite AI.
  */
 export interface AIUsageLimits {
 	readonly limit: number;
@@ -166,6 +163,14 @@ export interface AIUsageLimits {
 	 * consumer needs it precomputed.
 	 */
 	readonly organization?: { readonly used: number; readonly limit: number };
+	/**
+	 * This user's own consumption drawn from the shared organization pool — i.e. the slice of
+	 * `organization.used` attributable to the current account, NOT a separate allowance and NOT part of
+	 * `used` above (which is the personal allowance). It's what lets the pool's bar separate this user's
+	 * draw from everyone else's. Supplementary like `organization`, so an absent or unusable value is
+	 * `undefined` rather than a rejected record.
+	 */
+	readonly sharedUsed?: number;
 }
 
 type AIModelUpdateOptions = {
@@ -2500,9 +2505,9 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
  * `AIUsageResponse`); gk.dev's own `getAiUsage` parses this same endpoint the same way — `error`
  * checked first, then `data`. The spec marks every `AIUsage` field optional, but the three consumed
  * here are required by gk.dev's schema too, so a record missing them is rejected rather than
- * half-rendered. The `organization` pool is the exception — supplementary, so it's validated on its own
- * and never takes the record down with it. Every reject logs why, distinctly per failure mode — see
- * `fetchUsage` on why silence here is unacceptable.
+ * half-rendered. The `organization` pool and `sharedUsed` are the exceptions — supplementary, so each is
+ * validated on its own and neither takes the record down with it. Every reject logs why, distinctly per
+ * failure mode — see `fetchUsage` on why silence here is unacceptable.
  */
 function parseAiUsageResponse(body: unknown, scope: ScopedLogger | undefined): AIUsageLimits | undefined {
 	const rsp = body as AIUsageResponse | null;
@@ -2550,10 +2555,29 @@ function parseAiUsageResponse(body: unknown, scope: ScopedLogger | undefined): A
 		}
 	}
 
+	// This user's slice of the pool, validated independently of the pool itself — the two arrive as
+	// separate members, so one being malformed says nothing about the other, and losing this one only
+	// costs the pool bar its split.
+	let sharedUsed: number | undefined;
+	const shared = rsp.data.sharedUsed;
+	if (shared != null) {
+		if (typeof shared === 'number' && shared >= 0) {
+			sharedUsed = shared;
+		} else {
+			scope?.error(undefined, `Unable to get AI usage shared usage: ${JSON.stringify(shared)}`);
+		}
+	}
+
 	scope?.addExitInfo(
 		`limit=${limit}, used=${used}, resetsOn=${resetsOn}${
 			organization != null ? `, org.limit=${organization.limit}, org.used=${organization.used}` : ''
-		}`,
+		}${sharedUsed != null ? `, sharedUsed=${sharedUsed}` : ''}`,
 	);
-	return { limit: limit, used: used, resetsOn: resetsOn, organization: organization };
+	return {
+		limit: limit,
+		used: used,
+		resetsOn: resetsOn,
+		organization: organization,
+		sharedUsed: sharedUsed,
+	};
 }
