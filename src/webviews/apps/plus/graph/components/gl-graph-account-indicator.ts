@@ -93,6 +93,10 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				display: inline-flex;
 			}
 
+			gl-popover {
+				--max-width: 85vw;
+			}
+
 			/* Account pill: the avatar carries a state ring (which entitlement is active) plus an
 			   always-visible chevron signposting that the pill opens something. The ring is painted with
 			   box-shadow on the avatar part — same technique as the Visual History rail avatars

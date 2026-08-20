@@ -344,7 +344,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.ai__head {
 				display: flex;
 				flex-wrap: wrap;
-				gap: 0 var(--gl-space-6);
+				gap: 1ch var(--gl-space-6);
 				align-items: center;
 			}
 
@@ -356,6 +356,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.ai__title {
 				flex: 1;
 				font-size: var(--gl-font-base);
+
+				span {
+					white-space: nowrap;
+				}
 			}
 
 			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color alone
@@ -812,8 +816,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 	/**
 	 * The compact GitKraken AI meter — a summary plus a way through to the full one on the Settings Account
 	 * screen (issue #5743). Deliberately narrower than that card: no reset date and no organization pool,
-	 * which stay exclusive to it. Figures come from the shared resolver the card also calls, so the two
-	 * surfaces can't state different numbers or disagree about the sentinels.
+	 * which stay exclusive to it, and a bare percentage where the card spells out the credits. Both read the
+	 * same shared resolver, so the compaction can't drift into disagreeing with the card.
+	 *
+	 * The sentinels keep their words rather than compacting: there is no percentage of an unlimited or
+	 * absent allowance, and "0%" for a plan with no allowance would read as "none of it spent yet" — the
+	 * exact collapse the two sentinels exist to prevent. The accessible name keeps the full figure either
+	 * way; the percentage is a space saving on a dense panel, not a decision to tell anyone less.
 	 *
 	 * The whole row is the link, and it links regardless of `settingsNav` — that property only decides
 	 * whether the cog goes to Settings or to gk.dev, not whether Settings is reachable, and every surface
@@ -831,6 +840,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		if (usage == null) return nothing;
 
 		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
+		const compact = percent != null ? `${Math.round(percent)}%` : figure;
 
 		return html`<a
 			class="ai"
@@ -839,9 +849,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		>
 			<span class="ai__head">
 				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
-				<span class="ai__title">GitKraken AI</span>
+				<span class="ai__title"><span>GitKraken AI</span></span>
 				${when(nearlyOut, () => html`<span class="ai__warning">Nearly out</span>`)}
-				<span class="ai__figure">${figure}</span>
+				<span class="ai__figure">${compact}</span>
 			</span>
 			${
 				percent != null
