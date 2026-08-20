@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { getDateDifference } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -35,6 +35,7 @@ import { promosContext } from '../../shared/contexts/promos.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import { formatDate } from '../../shared/date.js';
+import type { SettingsActions } from '../actions.js';
 import '../../shared/components/badges/badge.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
@@ -555,6 +556,35 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--50);
 			}
 
+			/* Stands in for the figure and the bar together, so the card holds roughly its loaded height
+			   while the host's async seed lands instead of growing under the pointer. Block, because the
+			   skeleton's host element is inline by default. */
+			.ai__skeleton {
+				display: block;
+				margin-block-start: var(--gl-space-10);
+			}
+
+			/* The same filled error recipe settings-integrations uses for its retry row. Restated here
+			   rather than shared: these are separate shadow roots, and one reuse doesn't earn a shared
+			   module. */
+			.ai__error {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
+				padding: var(--gl-space-10) var(--gl-space-12);
+				margin-block-start: var(--gl-space-10);
+				font-size: var(--gl-font-md);
+				line-height: 1.5;
+				color: var(--color-foreground--85);
+				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
+				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				border-radius: var(--gl-radius-md);
+			}
+
+			.ai__error-text {
+				flex: 1;
+			}
+
 			/* ── Organization ── */
 
 			.org {
@@ -662,6 +692,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 	@consume({ context: promosContext })
 	private _promos!: PromosContext;
+
+	@property({ attribute: false })
+	actions?: SettingsActions;
 
 	private get subscription(): Subscription | undefined {
 		return this._subscription.subscription.get();
@@ -908,21 +941,48 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		if (sub.account == null) return nothing;
 
 		const usage: AiUsageInfo | null | undefined = this._subscription.aiUsage.get();
-		// `undefined` = not loaded yet, `null` = unavailable (on-premise orgs, or the fetch failed). The card
-		// is supplementary to the plan above it, so neither warrants a skeleton or an error row.
-		if (usage == null) return nothing;
+
+		// All three states render the card and its head, so the section holds its place instead of appearing
+		// out of nowhere once the allowance lands. Both nullish states used to render nothing at all, which
+		// left a failed fetch and a still-loading one looking identical — an empty panel either way, with no
+		// way back from the failure.
+		if (usage === undefined) {
+			// Not resolved yet: the host seeds this signal asynchronously, so a webview can render before the
+			// first fetch lands.
+			return html`<div class="card ai">
+				${this.renderAiUsageHead()}
+				<skeleton-loader
+					class="ai__skeleton"
+					lines="2"
+					role="status"
+					aria-label="Loading GitKraken AI usage"
+				></skeleton-loader>
+			</div>`;
+		}
+
+		if (usage === null) {
+			// Resolved but unavailable. The copy deliberately names no cause: GitLens can't tell a failed
+			// fetch from an allowance that legitimately doesn't exist here (an on-premise org isn't
+			// detectable up front), so anything more specific would be a guess stated as fact. Retry is
+			// offered either way — it's the only recovery, and it costs one round trip.
+			return html`<div class="card ai">
+				${this.renderAiUsageHead()}
+				<div class="ai__error" role="alert">
+					<code-icon icon="error" aria-hidden="true"></code-icon>
+					<span class="ai__error-text">Couldn’t load AI usage.</span>
+					<gl-button appearance="secondary" @click=${() => void this.actions?.retryAiUsage()}
+						>Retry</gl-button
+					>
+				</div>
+			</div>`;
+		}
 
 		// Resolved by the shared helper the account chip's compact meter also calls, so the two can't
 		// disagree — sentinel handling and the "nearly out" threshold both live there.
 		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
 
 		return html`<div class="card ai">
-			<div class="ai__head">
-				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
-				<h3 class="ai__title">GitKraken AI Usage</h3>
-				${nearlyOut ? html`<span class="ai__warning">Nearly out</span>` : nothing}
-				<span class="ai__figure">${figure}</span>
-			</div>
+			${this.renderAiUsageHead(figure, nearlyOut)}
 			${
 				percent != null
 					? html`<div class="ai__track" aria-hidden="true">
@@ -940,6 +1000,19 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				// each just said doesn't exist.
 				percent != null ? this.renderAiReset(usage.resetsOn) : nothing
 			}
+		</div>`;
+	}
+
+	/**
+	 * The card's head, shared by all three states — the loading and failure states pass no figure, so the
+	 * icon and title alone identify what the skeleton or the error row below is about.
+	 */
+	private renderAiUsageHead(figure?: string, nearlyOut?: boolean) {
+		return html`<div class="ai__head">
+			<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
+			<h3 class="ai__title">GitKraken AI Usage</h3>
+			${nearlyOut ? html`<span class="ai__warning">Nearly out</span>` : nothing}
+			${figure != null ? html`<span class="ai__figure">${figure}</span>` : nothing}
 		</div>`;
 	}
 
