@@ -23,10 +23,11 @@ export function isPausedOperationStepped(
 /** The strip's leading phrase; the paused-at pill and the refs are appended to it by the caller. */
 export function getPausedOperationBarLabel(status: GitPausedOperationStatus, variant: PausedOperationVariant): string {
 	const strings = pausedOperationStatusStringsByType[status.type];
-	if (variant === 'conflicts') return `${strings.prose} paused`;
+	// Title Case throughout — these read as state names on a pill or a bar, not as prose.
+	if (variant === 'conflicts') return `${strings.prose} Paused`;
 	// The shared `pending` string trails a preposition for callers that append a ref inline (the tree
 	// view). The bar's refs can shed, so it carries that "of" inside the refs group instead.
-	if (variant === 'pending' && status.type === 'rebase') return 'Pending rebase';
+	if (variant === 'pending' && status.type === 'rebase') return 'Pending Rebase';
 	return strings.label;
 }
 

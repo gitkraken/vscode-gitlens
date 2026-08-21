@@ -1188,6 +1188,12 @@ export class GlLitGraph extends LitElement {
 				row.kind === 'workdir' && row.sha === c.primaryWipRowId
 					? c.wipStateById?.[row.sha]?.hasConflicts
 					: undefined,
+			// UNGATED counterparts of `hasConflicts` above — every workdir row (own AND peer worktrees) gets
+			// these, driving the read-only paused-op/conflicts indicator. Never widen `hasConflicts` itself:
+			// that field's gate is deliberate (it drives the interactive Resolve action).
+			wipPausedOpStatus: row.kind === 'workdir' ? c.wipStateById?.[row.sha]?.pausedOpStatus : undefined,
+			wipHasConflicts: row.kind === 'workdir' ? c.wipStateById?.[row.sha]?.hasConflicts : undefined,
+			wipConflictsCount: row.kind === 'workdir' ? c.wipStateById?.[row.sha]?.conflictsCount : undefined,
 			isUnpushed: commit.isUnpublished,
 			isUnpulled: commit.isUnpulled,
 			undoTarget: commit.undo,
@@ -4533,25 +4539,36 @@ export class GlLitGraph extends LitElement {
 		if (this.wipStateById != null) {
 			for (const [sha, state] of Object.entries(this.wipStateById)) {
 				const s = state?.workDirStats;
-				if (s == null) continue;
+				const pausedOpStatus = state?.pausedOpStatus;
+				const hasConflicts = state?.hasConflicts;
+				// An entry with neither loaded stats nor a paused-op/conflicts signal has nothing to show —
+				// same "not loaded yet" gate as before, just widened to admit a paused-op-only entry (stats
+				// not fetched yet, but the paused-op pill still has something to say).
+				if (s == null && pausedOpStatus == null && hasConflicts !== true) continue;
 
 				out.set(sha, {
-					added: s.added,
-					modified: s.modified,
-					deleted: s.deleted,
-					renamed: s.renamed,
-					stale: state.workDirStatsStale === true,
+					added: s?.added,
+					modified: s?.modified,
+					deleted: s?.deleted,
+					renamed: s?.renamed,
+					stale: state?.workDirStatsStale === true,
+					pausedOpStatus: pausedOpStatus,
+					hasConflicts: hasConflicts,
+					conflictsCount: state?.conflictsCount,
 				});
 			}
 		}
 		this.wipStatsProvider = createWipStatsAdornmentProvider({ statsBySha: out });
 
 		// Derive a per-sha clean/dirty signal from the SAME stats (so primary + each secondary worktree
-		// WIP row get an independent glyph). Only shas with a stats entry are added — an absent key means
-		// "not loaded yet", so the node draws NO glyph (never a misleading clean check). Stale counts draw
+		// WIP row get an independent glyph). Only shas with LOADED counts feed the glyph — a paused-op-only
+		// entry (counts not fetched yet) says nothing about clean/dirty, so it must not paint a premature
+		// "clean" glyph; an absent key still means "not loaded yet", drawing no glyph. Stale counts draw
 		// a dimmed dirty dot, matching how the stats pill renders them: unverified, but not nothing.
 		const wipState = new Map<Sha, WipNodeState>();
 		for (const [sha, s] of out) {
+			if (this.wipStateById?.[sha]?.workDirStats == null) continue;
+
 			wipState.set(sha, hasDirtyCounts(s) ? (s.stale ? 'dirty-stale' : 'dirty') : 'clean');
 		}
 		this.wipStateBySha = wipState;
@@ -9847,14 +9864,14 @@ export class GlLitGraph extends LitElement {
 		const hasRowMarkerDecorator =
 			isPrimaryWipRow(row.kind, row.sha, this.repoPath) &&
 			this.wipRowMarkerPillTarget(this._rowMarkerTips) != null;
-		return hasPersistentRowActions(
-			row.kind,
-			wipAgent,
-			wipOperation,
-			commit?.isUnpublished,
-			commit?.isUnpulled,
-			hasRowMarkerDecorator,
-		);
+		return hasPersistentRowActions({
+			kind: row.kind,
+			wipAgent: wipAgent,
+			wipOperation: wipOperation,
+			isUnpushed: commit?.isUnpublished,
+			isUnpulled: commit?.isUnpulled,
+			hasRowMarker: hasRowMarkerDecorator,
+		});
 	}
 
 	// Exact date span for a group's elapsed window [lo, hi) — short month + day, en dash between; the

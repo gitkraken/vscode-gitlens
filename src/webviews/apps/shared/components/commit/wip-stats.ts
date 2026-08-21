@@ -7,6 +7,7 @@ import {
 	pausedOperationVariantIcons,
 } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import { getPausedOperationBarLabel } from '../../../plus/shared/components/merge-rebase-status.utils.js';
 import { baseStyles as pillStyles } from '../pills/pill.css.js';
 import './commit-stats.js';
 import '../code-icon.js';
@@ -188,10 +189,17 @@ export class GlWipStats extends LitElement {
 	}
 
 	private renderPausedOp(pausedOp: GitPausedOperationStatus) {
-		// Mirrors the paused-operation bar's state set so the header badge and the bar can't disagree
+		// Mirrors the paused-operation bar's state set so the header badge and the bar can't disagree —
+		// including its LABEL. Reading `pausedOperationStatusStringsByType` directly instead shares the
+		// string table but not the decision on top of it, which is where they drift: the table has no
+		// `pending` entry, so a rebase that hasn't reached its first step read as "Rebasing" here while
+		// every other surface said "Pending Rebase".
 		const variant = getPausedOperationVariant(pausedOp, this.hasConflicts);
 		const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
-		const label = variant === 'conflicts' ? pluralize('conflict', this.conflictsCount ?? 1) : opStrings.label;
+		const label =
+			variant === 'conflicts'
+				? pluralize('Conflict', this.conflictsCount ?? 1)
+				: getPausedOperationBarLabel(pausedOp, variant);
 
 		const badge = html`<span
 			class="paused-op-badge${variant === 'conflicts' ? ' paused-op-badge--conflicts' : ''}${

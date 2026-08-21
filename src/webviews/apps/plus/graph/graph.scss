@@ -4323,6 +4323,41 @@ gl-lit-graph {
 		// shorter than the branch pills. Bump it so both pill types line up at the same height.
 		--commit-stats-pill-line-height: 1.8rem;
 	}
+	// Paused-op/conflicts pill: REPLACES the stats pill (still wrapped in `.gl-graph__wip-stats` — see
+	// `renderPausedOpPill`) while a workdir row's worktree (own OR peer) has a paused rebase/merge/
+	// cherry-pick/revert, or unresolved conflicts with no operation recorded. Filled badge colored by the
+	// SAME decoration colors the details header's paused-op bar (`gl-merge-rebase-status`) and the WIP
+	// header/overview badge (`gl-wip-stats`'s own `.paused-op-badge`) use, so all three surfaces read as
+	// one state language. Sized off `--commit-stats-pill-line-height` (1.8rem, set on the `.gl-graph__wip-
+	// stats` wrapper above) so a row doesn't change height when an operation starts or ends.
+	.gl-graph__paused-op-pill {
+		display: inline-flex;
+		gap: var(--gl-space-4);
+		align-items: center;
+		min-height: var(--commit-stats-pill-line-height, 1.8rem);
+		padding: 0 0.8rem 0 0.6rem;
+		font-size: var(--gl-font-sm);
+		font-weight: 600;
+		line-height: var(--commit-stats-pill-line-height, 1.8rem);
+		color: #000;
+		white-space: nowrap;
+		background-color: var(--vscode-gitlens-decorations\.statusMergingOrRebasingForegroundColor);
+		border-radius: var(--gl-radius-sm);
+	}
+	.gl-graph__paused-op-pill--conflicts {
+		color: #fff;
+		background-color: var(--vscode-gitlens-decorations\.statusMergingOrRebasingConflictForegroundColor);
+	}
+	.gl-graph__paused-op-pill--ready {
+		color: #06150a;
+		background-color: var(--vscode-gitlens-decorations\.statusPausedOperationReadyForegroundColor);
+	}
+	// The light theme's green is dark enough to carry white text; dark's is not (mirrors `gl-wip-stats`'s
+	// own paused-op badge and the details header's paused-op bar).
+	body.vscode-light .gl-graph__paused-op-pill--ready,
+	body.vscode-high-contrast-light .gl-graph__paused-op-pill--ready {
+		color: #fff;
+	}
 	// In the dedicated Refs column a WIP row's stats badge sits at the column's trailing edge (near the
 	// message). Push only the badge wrapper (margin-left:auto) — NOT the whole flex cell — so that when
 	// the graph is inlined INTO the Refs column its lane gutter still sits at the left; justifying the

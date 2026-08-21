@@ -29,6 +29,7 @@ import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle, ZoneSpec } from
 import { relativeTime, rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/view.js';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -160,8 +161,20 @@ export interface RowRenderContext {
 	wipOperation?: RunningOperationBucket;
 	/** Workdir-only: attached AI-agent status — drives the agent-indicator action button. */
 	wipAgent?: WipRowAgentStatus;
-	/** Workdir-only: whether this worktree's working tree has merge/rebase conflicts — gates the Resolve action button. */
+	/** Workdir-only: whether this worktree's working tree has merge/rebase conflicts — gates the Resolve action button.
+	 *  Deliberately scoped to the graph's OWN worktree's WIP row (see `gl-lit-graph.ts`); a peer worktree's
+	 *  conflicts still surface, but only via {@link wipHasConflicts}'s read-only indicator. */
 	hasConflicts?: boolean;
+	/** Workdir-only, ALL worktrees (own + peer): this worktree's paused rebase/merge/cherry-pick operation,
+	 *  when any. Drives the persistent, read-only paused-op/conflicts indicator — distinct from
+	 *  {@link hasConflicts}, which only gates the interactive Resolve action on the graph's own worktree. */
+	wipPausedOpStatus?: GitPausedOperationStatus;
+	/** Workdir-only, ALL worktrees (own + peer): whether this worktree has merge/rebase conflicts, ungated
+	 *  (unlike {@link hasConflicts}). Drives the same read-only indicator as {@link wipPausedOpStatus} — a
+	 *  worktree can have conflicts with no paused operation recorded (e.g. conflicts left by a plain merge). */
+	wipHasConflicts?: boolean;
+	/** Number of conflicted paths, when {@link wipHasConflicts}. */
+	wipConflictsCount?: number;
 	/** Commit/merge-only: the commit is ahead of HEAD's upstream — drives the always-on Push-to-Commit
 	 *  indicator (and flips the row-action strip into per-button mode so the indicator shows at rest). */
 	isUnpushed?: boolean;
@@ -845,17 +858,32 @@ const unpulledAriaText = 'not yet pulled';
 /** Whether a row's action strip has a PERSISTENT member (a row-marker decorator, an agent attached, an
  *  active resolve/compose/review op, or an unpushed/unpulled commit) — i.e. it switches to per-button
  *  `--has-persistent` mode instead of the whole-strip hover/focus/selected fade. NOT simply
- *  `kind === 'workdir'` — a workdir row with no agent/active op is JUST as hover-gated as a commit row.
+ *  `kind === 'workdir'` — a workdir row with none of the above is JUST as hover-gated as a commit row.
  *  Exported so callers outside the row template (the sticky-timeline pill's yield-to-row check) read the
- *  EXACT same decision `renderRowActions` makes below, rather than re-deriving/drifting from it. */
-export function hasPersistentRowActions(
-	kind: ProcessedGraphRow['kind'],
-	wipAgent: WipRowAgentStatus | undefined,
-	wipOperation: RunningOperationBucket | undefined,
-	isUnpushed: boolean | undefined,
-	isUnpulled: boolean | undefined,
-	hasRowMarker?: boolean,
-): boolean {
+ *  EXACT same decision `renderRowActions` makes below, rather than re-deriving/drifting from it.
+ *
+ *  A paused op / conflicts state does NOT belong here: since the read-only paused-op indicator moved into
+ *  the WIP stats pill (`wipStatsAdornmentProvider.ts`), nothing paused-op-related lives in the action
+ *  strip any more — the strip's persistence is driven solely by the agent/operation buttons below. */
+/** Named rather than positional: the signature otherwise carries four interchangeable
+ *  `boolean | undefined` flags, and transposing any two of them at a call site type-checks clean. */
+export interface PersistentRowActionsInput {
+	kind: ProcessedGraphRow['kind'];
+	wipAgent?: WipRowAgentStatus;
+	wipOperation?: RunningOperationBucket;
+	isUnpushed?: boolean;
+	isUnpulled?: boolean;
+	hasRowMarker?: boolean;
+}
+
+export function hasPersistentRowActions({
+	kind,
+	wipAgent,
+	wipOperation,
+	isUnpushed,
+	isUnpulled,
+	hasRowMarker,
+}: PersistentRowActionsInput): boolean {
 	// The row-marker decorator (the primary WIP row's jump pill) is always shown, so its strip is live.
 	if (hasRowMarker === true) return true;
 
@@ -916,10 +944,15 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// Resolve only appears at all when there's something to resolve (or a run is already engaged) —
 			// unlike Compose/Review, which are always-available actions on any workdir row.
 			const showResolve = resolveActive || ctx.hasConflicts === true;
-
 			// Active compose/review stay visible at rest so their status icon reads; idle ones reveal on
-			// interaction. The agent indicator is always visible when present.
-			hasPersistent = hasPersistentRowActions(row.kind, agent, op, undefined, undefined);
+			// interaction. The agent indicator is always visible when present. The read-only paused-op/
+			// conflicts state no longer has a strip member — it moved into the WIP stats pill — so it plays
+			// no part in this decision any more.
+			hasPersistent = hasPersistentRowActions({
+				kind: row.kind,
+				wipAgent: agent,
+				wipOperation: op,
+			});
 
 			actions = html`${
 					agent != null
@@ -1018,7 +1051,11 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			const undo = ctx.undoTarget;
 			const isUnpushed = ctx.isUnpushed === true;
 			const isUnpulled = ctx.isUnpulled === true;
-			hasPersistent = hasPersistentRowActions(row.kind, undefined, undefined, isUnpushed, isUnpulled);
+			hasPersistent = hasPersistentRowActions({
+				kind: row.kind,
+				isUnpushed: isUnpushed,
+				isUnpulled: isUnpulled,
+			});
 			const undoLabel = undo?.branchName != null ? `Undo Commit on ${undo.branchName}` : 'Undo Commit';
 
 			actions = html`${
@@ -1125,6 +1162,13 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// rides the row label instead — same treatment the row-marker rail gets. The unpushed badge needs no
 	// equivalent: it's a real button carrying its own accessible name.
 	const unpulledAriaSuffix = !ctx.skeleton && ctx.isUnpulled === true ? `, ${unpulledAriaText}` : '';
+	// Same treatment for the paused-op/conflicts indicator (workdir rows only, own OR peer worktree): it's
+	// `aria-hidden` (it now renders inside the WIP stats pill, not a strip member), so its meaning rides
+	// the row label instead. Reuses `pausedOpIndicatorInfo` (moved to `utils/pausedOp.utils.ts`, shared
+	// with `wipStatsAdornmentProvider.ts`'s `describeForA11y`) so the two can't disagree.
+	// The paused-op state rides `ctx.adornmentLabel` (the WIP stats adornment announces it in place of
+	// the stats sentence once an operation is paused), so there is no separate suffix here — a second
+	// fragment would state the same fact twice in one label, the way the scope-anchor prefix does above.
 	// RowMarker roles this row plays — the worktree's own (HEAD / upstream / merge target) FOLDED with the
 	// scope anchor's (focus / base; the scope's target shares the merge-target flag), as a bit mask. One rail
 	// renders the union, so a scoped graph doesn't draw two misaligned left-edge rails marking the same row.
