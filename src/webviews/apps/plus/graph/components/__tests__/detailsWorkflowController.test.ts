@@ -2217,6 +2217,47 @@ suite('DetailsWorkflowController.runCompose — retrying a failed refine', () =>
 		assert.strictEqual(m.calls[0][7], undefined, 'Back then generate must not be dispatched as a refine');
 	});
 
+	test('discarding while a commit message is being written does not end the session', () => {
+		// A message rewrite runs while its plan reads as complete, so the in-flight check on the run's
+		// state cannot see it. Ending the session here would flush it before the rewrite reports back,
+		// and that request's usage would then have nothing to flush it.
+		const calls: unknown[][] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				discardCompose: (...args: unknown[]) => {
+					calls.push(args);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		seedCompletedPlan(host, state, '/A', 'K1');
+		state.composeRegeneratingCommitId.set('commit-1');
+
+		controller.compose.discard();
+
+		assert.deepStrictEqual(calls, [], 'the session must outlive the rewrite it belongs to');
+		// And the plan itself must still be here — tearing the panel down under a running rewrite would
+		// leave its result with nothing to land on. This is what the guard on `discard` itself buys,
+		// beyond the one on the teardown helper.
+		assert.notStrictEqual(
+			host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose,
+			undefined,
+			'the plan must survive a discard attempted mid-rewrite',
+		);
+
+		// Once the rewrite settles, the same gesture ends it as usual.
+		state.composeRegeneratingCommitId.set(undefined);
+		controller.compose.discard();
+		assert.strictEqual(calls.length, 1, 'and ends normally afterwards');
+	});
+
 	test('destroying a compose while its run is in flight does not end the session', () => {
 		// Aborting is a request to stop, not proof that it stopped. A refine that lands anyway would
 		// report under a conversation this call had already closed, so its usage would accumulate against

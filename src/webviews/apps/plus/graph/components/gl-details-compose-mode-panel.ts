@@ -810,6 +810,10 @@ export class GlDetailsComposeModePanel extends LitElement {
 		if (!this.commits?.length) return nothing;
 
 		const includedCount = this.commits.length - this._excludedCommitIds.size;
+		// Applying or discarding the plan ends it, and a message still being written belongs to it —
+		// let that land first so the plan the user acts on is the one they can see.
+		const regenerating = this.regeneratingCommitId != null;
+		const regeneratingReason = 'Wait for the commit message to finish generating';
 		const allIncluded = this._excludedCommitIds.size === 0;
 		// "Change Sets" only appears with a count (a partial selection); the whole-set and disabled
 		// cases use the plain "Changes" (matching the gate), so the button never reads "0" or "All".
@@ -852,7 +856,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 								.value=${this.refineDraft}
 							>
 								<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-								<gl-button slot="actions" appearance="secondary" @click=${this.handleDiscard}
+								<gl-button
+									slot="actions"
+									appearance="secondary"
+									aria-disabled=${regenerating ? 'true' : nothing}
+									tooltip=${regenerating ? regeneratingReason : nothing}
+									@click=${this.handleDiscard}
 									>Discard</gl-button
 								>
 							</gl-ai-input>`,
@@ -861,16 +870,28 @@ export class GlDetailsComposeModePanel extends LitElement {
 							<gl-button
 								class="compose-plan__commit"
 								full
-								aria-disabled=${includedCount === 0 ? 'true' : nothing}
-								tooltip=${includedCount === 0 ? 'Include a change set to commit' : nothing}
+								aria-disabled=${includedCount === 0 || regenerating ? 'true' : nothing}
+								tooltip=${
+									includedCount === 0
+										? 'Include a change set to commit'
+										: regenerating
+											? regeneratingReason
+											: nothing
+								}
 								@click=${() => {
-									if (includedCount === 0) return;
+									if (includedCount === 0 || regenerating) return;
 
 									this.handleCommitAll();
 								}}
 								>${commitButtonLabel}</gl-button
 							>
-							<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
+							<gl-button
+								appearance="secondary"
+								aria-disabled=${regenerating ? 'true' : nothing}
+								tooltip=${regenerating ? regeneratingReason : nothing}
+								@click=${this.handleDiscard}
+								>Discard</gl-button
+							>
 						</div>`
 			}
 		</div>`;

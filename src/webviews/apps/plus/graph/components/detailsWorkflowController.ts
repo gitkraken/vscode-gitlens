@@ -850,7 +850,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Not while a request is still in flight, though: the abort above is a request to stop, not proof
 		// that it has, and a run that lands anyway would report under a conversation this call had already
 		// closed. Those are left for the next compose here, or for dispose.
-		if (kind === 'compose' && entry?.execState !== 'generating') {
+		// A message rewrite is in flight without the entry saying so — the plan is `complete` while it
+		// runs — so it has to be checked separately from `execState`.
+		const regenerating = this.actions.state.composeRegeneratingCommitId.get() != null;
+		if (kind === 'compose' && entry?.execState !== 'generating' && !regenerating) {
 			void this.actions.services.graphInspect.discardCompose(
 				composeSessionKey(anchor),
 				(entry as { cacheKey?: string } | undefined)?.cacheKey,
@@ -1120,6 +1123,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Discard a ready plan and exit compose mode — full teardown back to plain WIP details.
 		// Working-tree changes are untouched; only the in-memory plan + mode state are dropped.
 		discard: (): void => {
+			// The panel disables this while a message is being written, but a click can still race that
+			// render — and discarding would end a session the in-flight rewrite still reports under.
+			if (this.actions.state.composeRegeneratingCommitId.get() != null) return;
+
 			this.destroyEngagedOperation('compose');
 		},
 		back: (): void => {
@@ -1261,6 +1268,10 @@ export class DetailsWorkflowController implements ReactiveController {
 			graphReachability: GitCommitReachability | undefined,
 			includedCommitIds: readonly string[] | undefined,
 		): Promise<void> => {
+			// Same reason as `discard`: applying ends the session, and a message still being written
+			// belongs to it. The panel gates the button; this covers a click that beat the re-render.
+			if (this.actions.state.composeRegeneratingCommitId.get() != null) return;
+
 			const repoPath = this.actions.state.activeModeRepoPath.get();
 			// Capture the engaged anchor BEFORE the await — the action's success branch clears
 			// the `activeMode*` signals (so `currentAnchor()` after the await reflects the host's
@@ -2857,8 +2868,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		// now unreachable from here — close those sessions. In-flight runs are skipped for the same
 		// reason as in `destroyEngagedOperation`: aborting is a request, not a guarantee, so one that
 		// lands anyway would report under a closed conversation. Dispose is the backstop for those.
+		// As in `destroyEngagedOperation`: a message rewrite runs while its plan reads as `complete`, so
+		// `execState` alone does not show it. At most one runs at a time, and skipping a session that
+		// did not need it only delays its close to dispose, so gating them all is the safe direction.
+		const regenerating = this.actions.state.composeRegeneratingCommitId.get() != null;
 		for (const compose of composes) {
-			if (compose.execState === 'generating') continue;
+			if (compose.execState === 'generating' || regenerating) continue;
 
 			void this.actions.services.graphInspect.discardCompose(composeSessionKey(compose.anchor), compose.cacheKey);
 		}
