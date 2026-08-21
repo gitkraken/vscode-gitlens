@@ -111,8 +111,8 @@ export class ComposeToolsIntegration {
 		return createComposeGitPort(svc);
 	}
 
-	protected createAiModelPort(telemetrySource: Source): AiModelPort {
-		return createAiModelPort(this.container, telemetrySource);
+	protected createAiModelPort(telemetrySource: Source, conversationId: string): AiModelPort {
+		return createAiModelPort(this.container, telemetrySource, conversationId);
 	}
 
 	protected buildLargePromptGate(initiallySuppressed: boolean): OnBeforePrompt {
@@ -177,8 +177,13 @@ function createComposeGitPort(svc: GitRepositoryService): ComposeGitPort {
  * Cancellation (`'cancelled'` outcome from sendRequest) surfaces as a thrown
  * `ComposeWorkflowError('CANCELLED')` from the library, because the library catches
  * adapter errors and wraps cancellation.
+ *
+ * `conversationId` tracks one compose session — every call this port makes, including the library's
+ * own validation retries, shares it. Required, not optional: a missing ID silently splits one session
+ * into as many sessions as it made calls. It also aggregates the session's usage reporting, so
+ * whoever minted the ID MUST call `AIProviderService.flushBYOKUsage` when the session ends.
  */
-export function createAiModelPort(container: Container, source: Source): AiModelPort {
+export function createAiModelPort(container: Container, source: Source, conversationId: string): AiModelPort {
 	return {
 		generate: async (params: AiGenerateParams): Promise<AiGenerateResult> => {
 			const cancellationSource = new CancellationTokenSource();
@@ -229,6 +234,7 @@ export function createAiModelPort(container: Container, source: Source): AiModel
 					source,
 					{
 						cancellation: cancellationSource.token,
+						conversationId: conversationId,
 						modelOptions: {
 							outputTokens: params.maxTokens,
 							temperature: params.temperature,

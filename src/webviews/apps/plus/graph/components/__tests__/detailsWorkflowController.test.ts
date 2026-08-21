@@ -104,6 +104,7 @@ function createResources(): DetailsResources {
 function createServices(overrides?: {
 	reviewChanges?: (...args: unknown[]) => Promise<ReviewResult>;
 	composeChanges?: (...args: unknown[]) => Promise<ComposeResult>;
+	discardCompose?: (...args: unknown[]) => Promise<void>;
 }): ResolvedServices {
 	const noopUnsubscribe = () => {};
 	return {
@@ -115,6 +116,7 @@ function createServices(overrides?: {
 		graphInspect: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			composeChanges: overrides?.composeChanges ?? (async () => ({ error: { message: 'not implemented' } })),
+			discardCompose: overrides?.discardCompose ?? (() => Promise.resolve()),
 		},
 		telemetry: {
 			sendEvent: () => Promise.resolve(),
@@ -2020,5 +2022,364 @@ suite('DetailsWorkflowController — resolve session refine/retry counts', () =>
 
 		const events = generateEvents(m.sent);
 		assert.strictEqual(events[2].data['refine.count'], 0);
+	});
+});
+
+/** A completed compose result carrying the host's cache key — the handle a refine needs. */
+function makeComposeResultWithKey(label: string, cacheKey: string): ComposeResult {
+	return {
+		result: { commits: [], baseCommit: { sha: '0'.repeat(40), message: label }, cacheKey: cacheKey },
+	} as unknown as ComposeResult;
+}
+
+/** Like {@link setup}, but captures the args of every `composeChanges` RPC the controller issues. */
+function setupComposeCapture(repoPath: string): {
+	host: FakeHost;
+	state: DetailsState;
+	actions: DetailsActions;
+	controller: DetailsWorkflowController;
+	calls: unknown[][];
+} {
+	const calls: unknown[][] = [];
+	const host = new FakeHost({ repoPath: repoPath, graphRepoPath: repoPath });
+	const state = createDetailsState();
+	const actions = new DetailsActions(
+		state,
+		createServices({
+			composeChanges: async (...args: unknown[]) => {
+				calls.push(args);
+				return { error: { message: 'stub' } };
+			},
+		}),
+		createResources(),
+	);
+	const controller = new DetailsWorkflowController(host, actions);
+	host.connectAll();
+	host.tickHostUpdate();
+	return { host: host, state: state, actions: actions, controller: controller, calls: calls };
+}
+
+function seedCompletedPlan(host: FakeHost, state: DetailsState, repoPath: string, cacheKey: string): void {
+	host.crossPaneState.runningOperations.set(
+		new Map([
+			[
+				wipKey(repoPath),
+				{
+					compose: {
+						kind: 'compose' as const,
+						anchor: { kind: 'wip' as const, repoPath: repoPath, sha: uncommitted },
+						execState: 'complete' as const,
+						result: makeComposeResultWithKey('plan', cacheKey),
+						// `onRunSettled` stamps this on a real completed run; the refine handle is read
+						// from here, not from the result, so it survives the entry going to an error.
+						cacheKey: cacheKey,
+					},
+				},
+			],
+		]),
+	);
+	state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+	enterMockMode(state, repoPath, uncommitted);
+}
+
+suite('DetailsWorkflowController.runCompose — refine continuation across a leave-and-return', () => {
+	test('refines the displayed plan after toggling out of compose and back in', () => {
+		// `hideMode` is the preserve-leave path: it keeps the registry entry (so the plan is projected
+		// back on return) and captures the Refine draft precisely so the user can resume. It used to
+		// also drop the refine handle, so the resumed plan was silently regenerated from scratch — and
+		// with conversation tracking, re-minted its conversation.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+
+		// Leave to another anchor and come back — the round trip that runs `hideMode`.
+		m.controller.switchAnchorWithinMode({ sha: uncommitted, shas: undefined, repoPath: '/B' });
+		m.controller.switchAnchorWithinMode({ sha: uncommitted, shas: undefined, repoPath: '/A' });
+		// Re-establish the engaged posture the panel would have on return — the anchor round trip
+		// rebuilds scope for whichever anchor it lands on.
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1, 'one compose RPC should have been issued');
+		// composeChanges(repoPath, sessionKey, scope, instructions, excludedFiles, aiExcludedFiles, signal, options)
+		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
+		assert.strictEqual(options?.mode, 'refine', 'the run must be dispatched as a refine, not a cold start');
+		assert.strictEqual(options?.priorCacheKey, 'K1', 'and must carry the plan it is refining');
+	});
+
+	test('sends the session key of the anchor it is engaged on', () => {
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls[0][1], wipKey('/A'), 'session key must be this anchor’s key');
+	});
+
+	test('cold-starts when the anchor has no plan to continue', () => {
+		// The inverse guard: without a live plan the run must NOT claim to be a refine, or the host
+		// would try to continue a session that does not exist.
+		const m = setupComposeCapture('/A');
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+
+		m.controller.runCompose('/A', 'organize these', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1);
+		assert.strictEqual(m.calls[0][7], undefined, 'no continuation options on a cold start');
+	});
+});
+
+suite('DetailsWorkflowController.runCompose — retrying a failed refine', () => {
+	test('retries as a refine, not a cold start, after the refine errored', () => {
+		// The entry flips to an error result when a refine fails, so deriving the refine handle from
+		// that result loses it and the retry silently restarts the session — discarding a plan that was
+		// never invalid. The handle lives on the entry itself precisely so it survives this.
+		const m = setupComposeCapture('/A');
+		m.host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'error' as const,
+							result: { error: { message: 'the refine blew up' } } as unknown as ComposeResult,
+							cacheKey: 'K1',
+							prompt: 'tighten it up',
+						},
+					},
+				],
+			]),
+		);
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+
+		m.controller.compose.retryFromError('/A', uncommitted, undefined, undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1, 'the retry should have issued a compose RPC');
+		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
+		assert.strictEqual(options?.mode, 'refine', 'a retry after a failed refine is still a refine');
+		assert.strictEqual(options?.priorCacheKey, 'K1', 'and continues the same plan');
+	});
+
+	test('discarding a compose tells the host to end the session', () => {
+		// The host cannot see a Discard on its own: the webview just drops the entry. Without this call
+		// the plan and its conversation sit on the host until the next compose here or panel teardown.
+		const calls: unknown[][] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				discardCompose: (...args: unknown[]) => {
+					calls.push(args);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		seedCompletedPlan(host, state, '/A', 'K1');
+
+		controller.compose.discard();
+
+		assert.strictEqual(calls.length, 1, 'the host must be told the session is over');
+		assert.strictEqual(calls[0][0], wipKey('/A'), 'for this anchor’s session');
+		assert.strictEqual(calls[0][1], 'K1', 'naming the plan being discarded, so a late call is a no-op');
+	});
+
+	test('walking Back to the scope picker cold-starts the next generate', () => {
+		// Back retains the plan so `forward()` can restore it without re-running the AI, but the panel
+		// is showing the idle scope picker. A generate from there is the user starting over: it must
+		// recollect the scope they just chose and abandon the plan's session, not silently refine the
+		// plan they walked away from under its old conversation.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.actions.resources.compose.mutate(makeComposeResultWithKey('plan', 'K1'));
+
+		m.controller.compose.back();
+		assert.strictEqual(
+			m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose?.execState,
+			'backed',
+			'precondition: Back parks the entry in `backed`',
+		);
+
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.controller.runCompose('/A', 'organize these instead', undefined, undefined, 0);
+
+		assert.strictEqual(m.calls.length, 1);
+		assert.strictEqual(m.calls[0][7], undefined, 'Back then generate must not be dispatched as a refine');
+	});
+
+	test('discarding while a commit message is being written does not end the session', () => {
+		// A message rewrite runs while its plan reads as complete, so the in-flight check on the run's
+		// state cannot see it. Ending the session here would flush it before the rewrite reports back,
+		// and that request's usage would then have nothing to flush it.
+		const calls: unknown[][] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				discardCompose: (...args: unknown[]) => {
+					calls.push(args);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		seedCompletedPlan(host, state, '/A', 'K1');
+		state.composeRegeneratingCommitId.set('commit-1');
+
+		controller.compose.discard();
+
+		assert.deepStrictEqual(calls, [], 'the session must outlive the rewrite it belongs to');
+		// And the plan itself must still be here — tearing the panel down under a running rewrite would
+		// leave its result with nothing to land on. This is what the guard on `discard` itself buys,
+		// beyond the one on the teardown helper.
+		assert.notStrictEqual(
+			host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose,
+			undefined,
+			'the plan must survive a discard attempted mid-rewrite',
+		);
+
+		// Once the rewrite settles, the same gesture ends it as usual.
+		state.composeRegeneratingCommitId.set(undefined);
+		controller.compose.discard();
+		assert.strictEqual(calls.length, 1, 'and ends normally afterwards');
+	});
+
+	test('destroying a compose while its run is in flight does not end the session', () => {
+		// Aborting is a request to stop, not proof that it stopped. A refine that lands anyway would
+		// report under a conversation this call had already closed, so its usage would accumulate against
+		// an ID nothing will flush again. Those sessions are left for the next compose here, or dispose.
+		const calls: unknown[][] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				discardCompose: (...args: unknown[]) => {
+					calls.push(args);
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		// A refine in flight: the entry is `generating` and still names the plan it is refining.
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'generating' as const,
+							cacheKey: 'K1',
+						},
+					},
+				],
+			]),
+		);
+		enterMockMode(state, '/A', uncommitted);
+
+		controller.compose.discard();
+
+		assert.deepStrictEqual(calls, [], 'an in-flight run’s session must not be closed under it');
+	});
+
+	test('a cold start after Back does not carry the abandoned plan’s key onto its entry', () => {
+		// The entry's key is what later teardown calls name when they tell the host which plan to let go
+		// of. A cold start makes the host discard the plan it held, so inheriting that key would leave the
+		// entry naming something already gone — and a Discard or repository switch would then name it too,
+		// miss the host's match guard, and leave the session's conversation open.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.actions.resources.compose.mutate(makeComposeResultWithKey('plan', 'K1'));
+		m.controller.compose.back();
+
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.controller.runCompose('/A', 'organize these instead', undefined, undefined, 0);
+
+		const dispatched = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(dispatched?.execState, 'generating', 'precondition: the cold start dispatched');
+		assert.strictEqual(dispatched?.cacheKey, undefined, 'a cold start must not inherit the dead key');
+	});
+
+	test('a refine keeps the plan’s key on its in-flight entry', () => {
+		// The inverse: a refine IS continuing that plan, so the key has to survive the in-flight window or
+		// a refine that fails could not be retried as a refine.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		const dispatched = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(dispatched?.cacheKey, 'K1', 'a refine keeps the key it is continuing');
+	});
+
+	test('going Forward again restores the refine continuation', () => {
+		// The inverse: `forward()` returns the entry to `complete` with the plan on screen, so the
+		// session it belongs to is resumable again.
+		const m = setupComposeCapture('/A');
+		seedCompletedPlan(m.host, m.state, '/A', 'K1');
+		m.actions.resources.compose.mutate(makeComposeResultWithKey('plan', 'K1'));
+
+		m.controller.compose.back();
+		assert.strictEqual(m.controller.compose.forward(), true);
+
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		const options = m.calls[0][7] as { mode?: string; priorCacheKey?: string } | undefined;
+		assert.strictEqual(options?.mode, 'refine');
+		assert.strictEqual(options?.priorCacheKey, 'K1');
+	});
+
+	test('a settled error keeps the prior plan’s key on the entry', () => {
+		// Guards the mechanism the test above depends on: `onRunSettled` must carry the key forward
+		// rather than rebuild the entry without it.
+		const m = setupComposeCapture('/A');
+		m.state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(m.state, '/A', uncommitted);
+		m.host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'complete' as const,
+							result: makeComposeResultWithKey('plan', 'K1'),
+							cacheKey: 'K1',
+						},
+					},
+				],
+			]),
+		);
+
+		// The stubbed RPC resolves to an error, so this run settles as a failure over the live plan.
+		m.controller.runCompose('/A', 'tighten it up', undefined, undefined, 0);
+
+		return Promise.resolve().then(() => {
+			const entry = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+			assert.strictEqual(entry?.cacheKey, 'K1', 'the failed run must not drop the plan handle');
+		});
 	});
 });

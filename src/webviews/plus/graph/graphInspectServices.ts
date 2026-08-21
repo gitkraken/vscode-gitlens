@@ -95,6 +95,7 @@ import type {
 	BranchComparisonContributor,
 	BranchComparisonFile,
 	ComposeProgressUpdate,
+	ComposeSessionKey,
 	ConflictFallbackInfo,
 	GraphServices,
 	ProposedCommit,
@@ -208,7 +209,15 @@ export class GraphInspectServices {
 		sessionId?: string;
 	};
 	private _composeToolsForGraph?: GraphComposeIntegration;
-	private readonly _activeComposeCacheKeys = new Map<string, string>();
+	/** Active compose plan per session — see {@link ComposeSessionKey} for why the key is the webview's
+	 *  anchor key rather than a repo path. */
+	private readonly _activeComposeCacheKeys = new Map<ComposeSessionKey, string>();
+	/** Tracker for each session's AI conversation — sent with every AI request so the library's
+	 *  validation retries and every refine of the resulting plan read as one session rather than many.
+	 *  Kept separate from {@link _activeComposeCacheKeys} because it must exist before the first AI call
+	 *  and survive a cancelled/failed generate that produced no plan (so the user's retry reuses it);
+	 *  ended when the plan it belongs to is applied or abandoned — see {@link endComposeConversation}. */
+	private readonly _composeConversationIds = new Map<ComposeSessionKey, string>();
 	/** Virtual FS session backing the resolve panel's per-file resolved-vs-conflicted diffs. Lazy-initialized on first resolve. */
 	private _resolveVirtual?: {
 		readonly provider: GraphResolveVirtualContentProvider;
@@ -282,6 +291,12 @@ export class GraphInspectServices {
 			}
 		}
 		this._activeComposeCacheKeys.clear();
+		// Flush each conversation's aggregated usage so a webview teardown mid-session doesn't drop it.
+		// Snapshot the keys — the helper drops each entry as it goes, which is also why this needs no
+		// follow-up `clear()`.
+		for (const sessionKey of [...this._composeConversationIds.keys()]) {
+			this.endComposeConversation(sessionKey);
+		}
 		if (this._composeVirtual != null) {
 			this._composeVirtual.provider.dispose();
 			this._composeVirtual.registration.dispose();
@@ -1131,6 +1146,7 @@ export class GraphInspectServices {
 				},
 				composeChanges: async (
 					repoPath,
+					sessionKey,
 					scope,
 					instructions,
 					excludedFiles,
@@ -1147,6 +1163,9 @@ export class GraphInspectServices {
 					// `generatePlan...` cache write leaks the cached plan in the compose-tools
 					// library with no path to discard it.
 					let cacheKeyToRegister: string | undefined;
+					// Set once a refine has produced its replacement plan, which is the point the library drops
+					// the prior one. Lets the catch tell that case from a failed cold start, which drops nothing.
+					let refineSwappedPlan = false;
 					try {
 						signal?.throwIfAborted();
 
@@ -1177,18 +1196,35 @@ export class GraphInspectServices {
 							return { error: { message: 'Compose is not available in this environment.' } };
 						}
 
-						// Prior cache key threaded from the webview, falling back to our tracked active key per repo.
-						const priorCacheKey = options?.priorCacheKey ?? this._activeComposeCacheKeys.get(repoPath);
-						const isRefine = options?.mode === 'refine';
-						if (!isRefine && priorCacheKey != null) {
-							composeTools?.discardCachedPlan(priorCacheKey);
-							this._activeComposeCacheKeys.delete(repoPath);
+						// Refine path: chat-style continuation against the cached plan. NO git operations, NO
+						// re-analysis. Gated on the webview's key matching the plan we still hold for this
+						// session: a handle that outlived its plan (host restarted between turns, or the
+						// webview retried a cold run that already discarded it) falls through to a fresh
+						// generate rather than failing the library's cache lookup.
+						const trackedCacheKey = this._activeComposeCacheKeys.get(sessionKey);
+						const priorCacheKey = options?.priorCacheKey ?? trackedCacheKey;
+						const useRefinePath =
+							!simulated &&
+							options?.mode === 'refine' &&
+							priorCacheKey != null &&
+							priorCacheKey === trackedCacheKey &&
+							composeTools != null;
+
+						if (!useRefinePath && trackedCacheKey != null) {
+							// Starting fresh while we still hold a plan means that plan is abandoned — the user
+							// walked back and is starting over — so its conversation ends with it. Holding NO
+							// plan instead means the prior attempt errored or was cancelled, and the
+							// `getOrCreate` below reuses that conversation rather than starting a second one.
+							composeTools?.discardCachedPlan(trackedCacheKey);
+							this._activeComposeCacheKeys.delete(sessionKey);
+							this.endComposeConversation(sessionKey);
 						}
 
-						// Refine path: chat-style continuation against the cached plan. NO git
-						// operations, NO re-analysis. Falls through to a fresh generate if the
-						// prior cache is missing (e.g. the host restarted between turns).
-						const useRefinePath = !simulated && isRefine && priorCacheKey != null && composeTools != null;
+						// One conversation ID per compose session — the library's validation retries and
+						// every refine of the resulting plan reuse it until the plan is applied or
+						// abandoned, so the whole session is tracked as one conversation instead of one
+						// per AI request.
+						const conversationId = this.getOrCreateComposeConversationId(sessionKey);
 
 						this._composeProgressEvent.fire({
 							phase: useRefinePath ? 'refining' : 'collecting',
@@ -1214,6 +1250,7 @@ export class GraphInspectServices {
 										customInstructions: instructions,
 										excludedCommitIds: options?.excludedCommitIds,
 										cancellation: cancellation,
+										conversationId: conversationId,
 										telemetrySource: { source: 'graph' },
 										onProgress: event => {
 											this._composeProgressEvent.fire({
@@ -1229,6 +1266,7 @@ export class GraphInspectServices {
 										excludedFiles: excludedFiles,
 										aiExcludedFiles: aiExcludedFiles,
 										cancellation: cancellation,
+										conversationId: conversationId,
 										telemetrySource: { source: 'graph' },
 										onProgress: event => {
 											this._composeProgressEvent.fire({
@@ -1246,6 +1284,7 @@ export class GraphInspectServices {
 						// until we know the full pipeline succeeded; only then do we register it
 						// for `commitCompose` to apply.
 						cacheKeyToRegister = simulated ? undefined : (planResult as { cacheKey: string }).cacheKey;
+						refineSwappedPlan = useRefinePath;
 
 						// getCommit('HEAD') is optional base metadata — tolerate its failure.
 						const headCommitPromise = svc.commits.getCommit('HEAD').catch(() => undefined);
@@ -1269,7 +1308,7 @@ export class GraphInspectServices {
 						// catch below, where we explicitly `discardCachedPlan` so the
 						// library doesn't leak the abandoned plan.
 						if (cacheKeyToRegister != null) {
-							this._activeComposeCacheKeys.set(repoPath, cacheKeyToRegister);
+							this._activeComposeCacheKeys.set(sessionKey, cacheKeyToRegister);
 						}
 
 						void this.container.usage.track('action:gitlens.ai.generateCommits:happened');
@@ -1296,6 +1335,13 @@ export class GraphInspectServices {
 						// for the discard call here.
 						if (cacheKeyToRegister != null) {
 							this._composeToolsForGraph?.discardCachedPlan(cacheKeyToRegister);
+							if (refineSwappedPlan) {
+								// The refine swapped the plan before this throw, so the key we still have registered
+								// names a plan the library has already dropped. Let go of it, or the next attempt's
+								// refine gate matches a dead key and fails the lookup instead of starting fresh. The
+								// conversation stays — the user is retrying this session, not abandoning it.
+								this._activeComposeCacheKeys.delete(sessionKey);
+							}
 						}
 						if (isCancellationError(ex) || isComposeCancelled(ex)) {
 							return { cancelled: true };
@@ -1312,13 +1358,29 @@ export class GraphInspectServices {
 					}
 				},
 				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
-				commitCompose: async (repoPath, plan) => {
+				discardCompose: (sessionKey, cacheKey) => {
+					// Naming no plan is not enough to end a session: a session whose first generate is still in
+					// flight also holds no plan, so a call that lands after the user has started over would end a
+					// conversation that request is about to report under — splitting the session and leaving its
+					// later usage with nothing to flush it. Those sessions are instead continued by a retry, which
+					// is what should happen to a cancelled or failed generate, or flushed on dispose.
+					if (cacheKey == null) return Promise.resolve();
+
+					// And only while we still hold that exact plan, so a late call cannot discard a newer one.
+					if (this._activeComposeCacheKeys.get(sessionKey) !== cacheKey) return Promise.resolve();
+
+					this._composeToolsForGraph?.discardCachedPlan(cacheKey);
+					this._activeComposeCacheKeys.delete(sessionKey);
+					this.endComposeConversation(sessionKey);
+					return Promise.resolve();
+				},
+				commitCompose: async (repoPath, sessionKey, plan) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
 					}
 
-					const cacheKey = this._activeComposeCacheKeys.get(repoPath);
+					const cacheKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (cacheKey == null) {
 						return { error: { message: 'No active compose plan; please regenerate.' } };
 					}
@@ -1326,7 +1388,10 @@ export class GraphInspectServices {
 					try {
 						return await executeComposeCommit(this.container, repoPath, plan, composeTools, cacheKey);
 					} finally {
-						this._activeComposeCacheKeys.delete(repoPath);
+						this._activeComposeCacheKeys.delete(sessionKey);
+						// Apply is terminal on both success and failure — the plan is dropped either way,
+						// so the session's conversation ends with it (a re-compose mints a new one).
+						this.endComposeConversation(sessionKey);
 						// `discardCachedPlan` is idempotent (Map.delete on missing key is a no-op).
 						// Always call so a thrown `executeComposeCommit` can't leak the library
 						// plan — once we drop our cache-key handle, the library has no other way
@@ -1334,7 +1399,7 @@ export class GraphInspectServices {
 						composeTools.discardCachedPlan(cacheKey);
 					}
 				},
-				regenerateProposedCommitMessage: async (repoPath, cacheKey, commitId, signal) => {
+				regenerateProposedCommitMessage: async (sessionKey, cacheKey, commitId, signal) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
@@ -1343,7 +1408,7 @@ export class GraphInspectServices {
 					// Defend against a stale cacheKey (refine swaps keys, panel close discards):
 					// the panel must always send the active key from its workflow signal. A miss
 					// surfaces a recoverable error so the user can simply re-run compose.
-					const activeKey = this._activeComposeCacheKeys.get(repoPath);
+					const activeKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (activeKey !== cacheKey) {
 						return {
 							error: { message: 'This compose plan is no longer active; please regenerate.' },
@@ -1367,10 +1432,15 @@ export class GraphInspectServices {
 							return { error: { message: 'Unable to build a diff for the selected commit.' } };
 						}
 
+						// Regenerating one commit's message is part of the compose the user is in, not a task of
+						// its own, so it continues that session's conversation.
 						const result = await this.container.ai.actions.generateCommitMessage(
 							patch,
 							{ source: 'graph-details', correlationId: this.host.instanceId },
-							{ cancellation: cancellation },
+							{
+								cancellation: cancellation,
+								conversationId: this.getOrCreateComposeConversationId(sessionKey),
+							},
 						);
 
 						if (result === 'cancelled') return { cancelled: true };
@@ -1401,7 +1471,7 @@ export class GraphInspectServices {
 						disposeCancellation();
 					}
 				},
-				reorderProposedCommits: async (repoPath, cacheKey, orderedCommitIds) => {
+				reorderProposedCommits: async (sessionKey, cacheKey, orderedCommitIds) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
@@ -1410,7 +1480,7 @@ export class GraphInspectServices {
 					// Defend against a stale cacheKey (refine swaps keys, panel close discards): the
 					// panel must always send the active key from its workflow signal. A miss surfaces
 					// a recoverable error so the user can simply re-run compose.
-					const activeKey = this._activeComposeCacheKeys.get(repoPath);
+					const activeKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (activeKey !== cacheKey) {
 						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
 					}
@@ -1421,13 +1491,13 @@ export class GraphInspectServices {
 
 					return { result: true };
 				},
-				moveComposeFile: async (repoPath, cacheKey, fromCommitId, toCommitId, paths) => {
+				moveComposeFile: async (repoPath, sessionKey, cacheKey, fromCommitId, toCommitId, paths) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
 					}
 
-					const activeKey = this._activeComposeCacheKeys.get(repoPath);
+					const activeKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (activeKey !== cacheKey) {
 						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
 					}
@@ -2515,6 +2585,29 @@ export class GraphInspectServices {
 			this._conflictToolsForGraph ??= createConflictToolsIntegration(this.container);
 		}
 		return this._conflictToolsForGraph;
+	}
+
+	/** Gets the compose session's AI conversation ID, minting one for a new session. */
+	private getOrCreateComposeConversationId(sessionKey: ComposeSessionKey): string {
+		let conversationId = this._composeConversationIds.get(sessionKey);
+		if (conversationId == null) {
+			conversationId = uuid();
+			this._composeConversationIds.set(sessionKey, conversationId);
+		}
+		return conversationId;
+	}
+
+	/**
+	 * Ends a compose session's conversation — sends its accumulated usage as ONE report (the reason for
+	 * accumulating it in the first place) and drops the ID so the next compose mints a fresh one. No-op
+	 * when there's no conversation, so it's safe on every terminal path (apply, abandon, dispose).
+	 */
+	private endComposeConversation(sessionKey: ComposeSessionKey): void {
+		const conversationId = this._composeConversationIds.get(sessionKey);
+		if (conversationId == null) return;
+
+		this._composeConversationIds.delete(sessionKey);
+		void this.container.ai.flushBYOKUsage(conversationId);
 	}
 
 	/** Gets the repo's resolve-session AI conversation ID, minting one for a new session. */

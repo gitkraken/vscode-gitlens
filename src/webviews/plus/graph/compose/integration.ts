@@ -36,6 +36,10 @@ export interface GeneratePlanForGraphDetailsInput {
 	aiExcludedFiles?: string[];
 	cancellation?: CancellationToken;
 	telemetrySource: Source;
+	/** Tracker for a single compose session, forwarded with every AI request that session makes — the
+	 *  initial generate, the library's validation retries, and every later refine of the resulting
+	 *  plan. Required: without it each request reads as a session of its own. */
+	conversationId: string;
 	suppressLargePromptWarning?: boolean;
 	onProgress?: (event: ComposeProgressEvent) => void;
 }
@@ -90,6 +94,10 @@ export interface RefinePlanForGraphDetailsInput {
 	excludedCommitIds?: readonly string[];
 	cancellation?: CancellationToken;
 	telemetrySource: Source;
+	/** Conversation ID of the session that produced `priorCacheKey`'s plan — see
+	 *  {@link GeneratePlanForGraphDetailsInput.conversationId}. A refine continues that session, so it
+	 *  reuses that ID rather than starting a new one. */
+	conversationId: string;
 	suppressLargePromptWarning?: boolean;
 	onProgress?: (event: RefineProgressEvent) => void;
 }
@@ -122,7 +130,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		input: GeneratePlanForGraphDetailsInput,
 	): Promise<GeneratePlanForGraphDetailsResult> {
 		const git = this.createGitPort(input.svc);
-		const model = this.createAiModelPort(input.telemetrySource);
+		const model = this.createAiModelPort(input.telemetrySource, input.conversationId);
 		const { signal, dispose: disposeSignal } = cancellationTokenToSignal(input.cancellation);
 		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
 
@@ -246,7 +254,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			throw new Error(`Cannot refine — prior cache entry lacks scope metadata. Regenerate a fresh plan first.`);
 		}
 
-		const model = this.createAiModelPort(input.telemetrySource);
+		const model = this.createAiModelPort(input.telemetrySource, input.conversationId);
 		const { signal, dispose: disposeSignal } = cancellationTokenToSignal(input.cancellation);
 		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
 

@@ -8,6 +8,7 @@ import type {
 	BranchComparisonSummary,
 	CommitResult,
 	ComposeResult,
+	ComposeSessionKey,
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
@@ -49,7 +50,11 @@ function createResources(overrides: Partial<DetailsResources> = {}): DetailsReso
 	};
 }
 
-function createServices(commitCompose?: (repoPath: string, plan: unknown) => Promise<CommitResult>): ResolvedServices {
+const sessionKey = 'wip|/repo' as string as ComposeSessionKey;
+
+function createServices(
+	commitCompose?: (repoPath: string, sessionKey: ComposeSessionKey, plan: unknown) => Promise<CommitResult>,
+): ResolvedServices {
 	return {
 		graphInspect: {
 			commitCompose: commitCompose ?? (async () => ({ success: true })),
@@ -179,7 +184,6 @@ suite('DetailsActions', () => {
 		state.activeMode.set('compose');
 		state.activeModeContext.set('wip');
 		state.composeForwardAvailable.set(true);
-		state.composeCurrentCacheKey.set('cache-key');
 		state.composeRefineExcludedCommitIds.set(new Set(['c1']));
 
 		let committedPlan: unknown;
@@ -188,7 +192,7 @@ suite('DetailsActions', () => {
 
 		const actions = new DetailsActions(
 			state,
-			createServices(async (_repoPath, plan) => {
+			createServices(async (_repoPath, _sessionKey, plan) => {
 				committedPlan = plan;
 				return { success: true };
 			}),
@@ -199,7 +203,7 @@ suite('DetailsActions', () => {
 			fetchedDetails = { sha: sha, repoPath: repoPath };
 		};
 
-		await actions.composeCommitAll('/repo', 'abc');
+		await actions.composeCommitAll('/repo', sessionKey, 'abc');
 
 		assert.deepStrictEqual(committedPlan, {
 			commits: composeResult.result.commits,
@@ -209,7 +213,6 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.activeMode.get(), null);
 		assert.strictEqual(state.activeModeContext.get(), null);
 		assert.strictEqual(state.composeForwardAvailable.get(), false);
-		assert.strictEqual(state.composeCurrentCacheKey.get(), undefined);
 		assert.strictEqual(resources.compose.status.get(), 'idle');
 		assert.strictEqual(resources.compose.value.get(), undefined);
 		assert.deepStrictEqual(fetchedDetails, { sha: 'abc', repoPath: '/repo' });
@@ -226,7 +229,7 @@ suite('DetailsActions', () => {
 
 		const actions = new DetailsActions(
 			state,
-			createServices(async (_repoPath, plan) => {
+			createServices(async (_repoPath, _sessionKey, plan) => {
 				committedPlan = plan;
 				return { success: true };
 			}),
@@ -234,7 +237,7 @@ suite('DetailsActions', () => {
 		);
 		actions.fetchDetails = async () => undefined;
 
-		await actions.composeCommitAll('/repo', 'abc', undefined, ['c1']);
+		await actions.composeCommitAll('/repo', sessionKey, 'abc', undefined, ['c1']);
 
 		assert.deepStrictEqual(committedPlan, {
 			commits: composeResult.result.commits,

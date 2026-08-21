@@ -289,6 +289,26 @@ export type ComposeBaseCommit = {
 };
 
 /**
+ * Identifies one compose session. The webview supplies the key of the anchor the compose is engaged
+ * on — the same key it scopes run cancellation by — so the host's per-session state partitions the
+ * way the UI does. Opaque to the host: it only ever compares and maps by it.
+ *
+ * Every compose is WIP-anchored today, so this is currently 1:1 with `repoPath`. Keying by it anyway
+ * is what keeps that a webview detail: if compose ever becomes reachable from a second anchor on one
+ * repo, two live sessions stay separate here instead of silently sharing a conversation and evicting
+ * each other's plan.
+ *
+ * A repository path travels alongside it only where the handler needs one — to collect changes, to
+ * apply a plan, or to re-derive the display commits after mutating one. The rest take the session and
+ * cache keys alone.
+ *
+ * Branded, mirroring the webview's own `AnchorKey`, because it travels beside `repoPath` and
+ * `cacheKey` on these RPCs — three bare strings would let a transposition through silently, which is
+ * the exact class of mix-up keying by session instead of repo exists to prevent.
+ */
+export type ComposeSessionKey = string & { readonly __composeSessionKey: unique symbol };
+
+/**
  * Refinement knobs for {@link composeChanges}. Present means "refine the cached plan
  * identified by `priorCacheKey`" — the webview passes back the cache key tracked locally,
  * plus any commits the user has locked in the UI. Absent means cold-start compose.
@@ -526,6 +546,7 @@ export interface GraphInspectService {
 	pickCoauthors(repoPath: string, currentMessage: string | undefined): Promise<string[] | undefined>;
 	composeChanges(
 		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		scope: ScopeSelection,
 		instructions?: string,
 		excludedFiles?: string[],
@@ -533,7 +554,20 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 		options?: ComposeChangesOptions,
 	): Promise<ComposeResult>;
-	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
+	commitCompose(repoPath: string, sessionKey: ComposeSessionKey, plan: ComposeCommitPlan): Promise<CommitResult>;
+	/**
+	 * Ends a compose session the webview has dropped its handle on — Discard, the Restart-then-close
+	 * destroy, and the registry clear on a repository switch. Releases the cached plan and closes the
+	 * session's conversation, which otherwise linger until the next compose on that session or panel
+	 * teardown.
+	 *
+	 * `cacheKey` is the plan the webview believed the session held. The host acts only while that still
+	 * matches what it holds, so a call arriving after the user has started a new compose cannot tear down
+	 * the newer plan or its conversation. Passing `undefined` is a no-op for the same reason: a session
+	 * still waiting on its first generate also holds no plan, so there is nothing to tell those two
+	 * states apart. A session that never produced a plan is continued by a retry or flushed on dispose.
+	 */
+	discardCompose(sessionKey: ComposeSessionKey, cacheKey: string | undefined): Promise<void>;
 	/**
 	 * Regenerate the commit message for a single draft commit in the cached plan identified
 	 * by `cacheKey`. Uses GitLens's internal `ai.actions.generateCommitMessage` against a patch
@@ -546,7 +580,7 @@ export interface GraphInspectService {
 	 * message field changes.
 	 */
 	regenerateProposedCommitMessage(
-		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		cacheKey: string,
 		commitId: string,
 		signal?: AbortSignal,
@@ -558,7 +592,7 @@ export interface GraphInspectService {
 	 * subsequent refine honor the new sequence. Pure in-memory reorder — no AI, no git.
 	 */
 	reorderProposedCommits(
-		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		cacheKey: string,
 		orderedCommitIds: string[],
 	): Promise<ReorderProposedCommitsResult>;
@@ -570,6 +604,7 @@ export interface GraphInspectService {
 	 */
 	moveComposeFile(
 		repoPath: string,
+		sessionKey: ComposeSessionKey,
 		cacheKey: string,
 		fromCommitId: string,
 		toCommitId: string,

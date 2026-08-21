@@ -22,6 +22,10 @@ export async function generateCommitMessage(
 	options?: {
 		cancellation?: CancellationToken;
 		context?: string;
+		/** Groups this request with the session it belongs to, when it is made from inside one — a
+		 *  commit message regenerated within a Commit Composer session continues that session rather
+		 *  than reading as a task of its own. Unset for a standalone message generation. */
+		conversationId?: string;
 		customInstructions?: string;
 		generating?: Deferred<AIModel>;
 		progress?: ProgressOptions;

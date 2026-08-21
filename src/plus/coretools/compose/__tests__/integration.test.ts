@@ -24,8 +24,10 @@ const responseFormat: AIResponseFormat = {
 function makeContainer(response: Record<string, unknown>): {
 	container: Container;
 	sent: () => Record<string, unknown> | undefined;
+	allSent: () => Record<string, unknown>[];
 } {
 	let sent: Record<string, unknown> | undefined;
+	const all: Record<string, unknown>[] = [];
 	const container = {
 		ai: {
 			sendRequest: (
@@ -36,17 +38,20 @@ function makeContainer(response: Record<string, unknown>): {
 				options: Record<string, unknown>,
 			) => {
 				sent = options;
+				all.push(options);
 				return Promise.resolve({ promise: Promise.resolve(response) });
 			},
 		},
 	} as unknown as Container;
 
-	return { container: container, sent: () => sent };
+	return { container: container, sent: () => sent, allSent: () => all };
 }
 
 function params(): AiGenerateParams {
 	return { messages: [{ role: 'user', content: 'go' }] };
 }
+
+const conversationId = '11111111-2222-3333-4444-555555555555';
 
 suite('compose createAiModelPort', () => {
 	test('forwards the advisory response format to sendRequest', async () => {
@@ -57,15 +62,43 @@ suite('compose createAiModelPort', () => {
 		const withFormat: AiGenerateParams & { responseFormat?: AIResponseFormat } = params();
 		withFormat.responseFormat = responseFormat;
 
-		await createAiModelPort(container, source).generate(withFormat);
+		await createAiModelPort(container, source, conversationId).generate(withFormat);
 
 		assert.deepStrictEqual(sent()?.responseFormat, responseFormat);
+	});
+
+	test('every call through one port shares the conversation ID', async () => {
+		// This is what makes the library's internal validation retries part of the run: it calls
+		// `generate` repeatedly on the ONE port it was handed, which closed over the ID. A port built
+		// per call instead would give each retry its own session, and nothing else here would notice.
+		const { container, allSent } = makeContainer({ content: '{}' });
+		const port = createAiModelPort(container, source, conversationId);
+
+		await port.generate(params());
+		await port.generate(params());
+		await port.generate(params());
+
+		assert.deepStrictEqual(
+			allSent().map(o => o.conversationId),
+			[conversationId, conversationId, conversationId],
+			'each retry must continue the run, not start its own',
+		);
+	});
+
+	test('forwards the conversation ID to sendRequest', async () => {
+		// Without it every call of a compose session — the library's validation retries and each
+		// refine — reads as a session of its own.
+		const { container, sent } = makeContainer({ content: '{}' });
+
+		await createAiModelPort(container, source, conversationId).generate(params());
+
+		assert.strictEqual(sent()?.conversationId, conversationId);
 	});
 
 	test('omits the response format when the caller supplies none', async () => {
 		const { container, sent } = makeContainer({ content: '{}' });
 
-		await createAiModelPort(container, source).generate(params());
+		await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.strictEqual(sent()?.responseFormat, undefined);
 	});
@@ -73,7 +106,7 @@ suite('compose createAiModelPort', () => {
 	test('surfaces an abnormal finish reason so the caller can retry or fail fast', async () => {
 		const { container } = makeContainer({ content: 'cut off', finishReason: 'length' });
 
-		const result = await createAiModelPort(container, source).generate(params());
+		const result = await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.strictEqual((result as { finishReason?: string }).finishReason, 'length');
 		assert.strictEqual(result.text, 'cut off');
@@ -82,7 +115,7 @@ suite('compose createAiModelPort', () => {
 	test('omits finishReason on a normal completion', async () => {
 		const { container } = makeContainer({ content: 'done' });
 
-		const result = await createAiModelPort(container, source).generate(params());
+		const result = await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.strictEqual('finishReason' in result, false);
 	});
@@ -93,7 +126,7 @@ suite('compose createAiModelPort', () => {
 			usage: { promptTokens: 12, completionTokens: 34 },
 		});
 
-		const result = await createAiModelPort(container, source).generate(params());
+		const result = await createAiModelPort(container, source, conversationId).generate(params());
 
 		assert.deepStrictEqual(result.usage, { inputTokens: 12, outputTokens: 34 });
 	});

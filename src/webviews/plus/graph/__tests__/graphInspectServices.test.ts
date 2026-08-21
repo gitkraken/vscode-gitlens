@@ -5,7 +5,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Container } from '../../../../container.js';
 import type { ConflictProgressEvent } from '../../../../plus/coretools/conflict/types.js';
 import { GraphInspectServices } from '../graphInspectServices.js';
-import type { GraphInspectService, ResolveProgressUpdate, ScopeSelection } from '../graphService.js';
+import type { ComposeSessionKey, GraphInspectService, ResolveProgressUpdate, ScopeSelection } from '../graphService.js';
 
 // `getDiffForScope` is private and only reaches `this.container.git.getRepositoryService(repoPath)` and
 // `this.buildChangesContext(...)`, so we exercise it against a minimal fake `this` rather than constructing
@@ -909,5 +909,358 @@ suite('graphInspectServices — resolver effort aggregation', () => {
 
 	test('tracks the two counts independently — tools can be unreported while steps are not', async () => {
 		assert.deepStrictEqual(await resolveMetrics([{ stepCount: 6 }]), { steps: 6, toolCalls: undefined });
+	});
+});
+
+/**
+ * Prototype-backed fake for the compose conversation lifecycle, in the same shape as
+ * {@link createResolveMetricsFake}. Records the `conversationId` each generate/refine was handed and
+ * every ID flushed through `AIProviderService.flushBYOKUsage` — together the two observable halves of
+ * "one conversation per compose session".
+ */
+/** Mirrors what the webview sends: compose is WIP-anchored, so the session key is the WIP anchor's. */
+function sessionKeyFor(repoPath: string): ComposeSessionKey {
+	return `wip|${repoPath}` as ComposeSessionKey;
+}
+
+function createComposeConversationFake(options?: { failGenerate?: boolean }) {
+	const flushed: string[] = [];
+	const regenConversations: (string | undefined)[] = [];
+	const container = {
+		git: {
+			getRepositoryService: (repoPath: string) => ({
+				path: repoPath,
+				commits: { getCommit: () => Promise.resolve(undefined) },
+			}),
+		},
+		usage: { track: () => Promise.resolve() },
+		ai: {
+			flushBYOKUsage: (conversationId: string) => {
+				flushed.push(conversationId);
+				return Promise.resolve();
+			},
+			actions: {
+				generateCommitMessage: (_patch: unknown, _source: unknown, o?: { conversationId?: string }) => {
+					regenConversations.push(o?.conversationId);
+					return Promise.resolve({ result: { summary: 'regenerated', body: undefined } });
+				},
+			},
+		},
+	} as unknown as Container;
+
+	const generated: string[] = [];
+	const refined: string[] = [];
+	let nextKey = 0;
+	const planResult = (cacheKey: string) => ({
+		cacheKey: cacheKey,
+		kind: 'wip-only' as const,
+		headSha: 'head',
+		rewriteFromSha: 'head',
+		selectedShas: undefined,
+	});
+
+	let failNext = options?.failGenerate ?? false;
+	let failAfterPlan = false;
+	const integration = {
+		generatePlanForGraphDetails: (input: { conversationId: string }) => {
+			generated.push(input.conversationId);
+			if (failNext) {
+				failNext = false;
+				return Promise.reject(new Error('AI is having a day'));
+			}
+			return Promise.resolve(planResult(`key-${++nextKey}`));
+		},
+		refinePlanForGraphDetails: (input: { conversationId: string }) => {
+			refined.push(input.conversationId);
+			return Promise.resolve(planResult(`key-${++nextKey}`));
+		},
+		discardCachedPlan: () => {},
+		getMaskedHunksForCachedCommit: () => ({
+			hunks: [
+				{
+					fileName: 'a.ts',
+					diffHeader: 'diff --git a/a.ts b/a.ts',
+					content: '@@ -1 +1 @@\n-a\n+b\n',
+				},
+			],
+		}),
+		updateCachedPlanCommitMessage: () => {},
+	};
+
+	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container, host: { instanceId: 'test-instance' } },
+		_aiCancellations: new Set(),
+		_activeComposeCacheKeys: new Map<string, string>(),
+		_composeConversationIds: new Map<string, string>(),
+		_composeToolsForGraph: integration,
+		_activeResolveSessions: new Map(),
+		_resolveConversationIds: new Map<string, string>(),
+		_autoRebaseOwnedConversations: new Set<string>(),
+		_composeProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
+		// Turning a library plan into display commits needs the virtual-FS session machinery, which has
+		// nothing to do with the conversation lifecycle under test. Doubles as the seam for a
+		// downstream failure: it runs after the library has already produced (and, on a refine,
+		// swapped in) its plan.
+		deriveComposeCommits: () => {
+			if (failAfterPlan) {
+				failAfterPlan = false;
+				throw new Error('deriving commits blew up');
+			}
+
+			return [];
+		},
+	});
+
+	const { graphInspect } = (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(
+		fakeThis,
+	);
+
+	const wip: ScopeSelection = { type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] };
+
+	return {
+		generated: generated,
+		refined: refined,
+		flushed: flushed,
+		dispose: () => (fakeThis as unknown as { dispose: () => void }).dispose(),
+		// `sessionKey` defaults to the shape the webview actually sends for a compose — every compose is
+		// WIP-anchored, so `wip|<repoPath>`. Tests that care about two sessions on ONE repo pass it.
+		compose: (repoPath: string, sessionKey: ComposeSessionKey = sessionKeyFor(repoPath)) =>
+			graphInspect.composeChanges(repoPath, sessionKey, wip, undefined, undefined, undefined),
+		refine: (repoPath: string, priorCacheKey: string, sessionKey: ComposeSessionKey = sessionKeyFor(repoPath)) =>
+			graphInspect.composeChanges(repoPath, sessionKey, wip, 'tighten it up', undefined, undefined, undefined, {
+				mode: 'refine',
+				priorCacheKey: priorCacheKey,
+			}),
+		// An empty commit list short-circuits `executeComposeCommit` before any git work, so this
+		// exercises the apply path's conversation teardown and nothing else.
+		apply: (repoPath: string, sessionKey: ComposeSessionKey = sessionKeyFor(repoPath)) =>
+			graphInspect.commitCompose(repoPath, sessionKey, { commits: [], base: undefined as never }),
+		failNextAfterPlan: () => (failAfterPlan = true),
+		discard: (repoPath: string, cacheKey: string | undefined) =>
+			graphInspect.discardCompose(sessionKeyFor(repoPath), cacheKey),
+		regenConversations: regenConversations,
+		regenerateMessage: (repoPath: string, cacheKey: string) =>
+			graphInspect.regenerateProposedCommitMessage(sessionKeyFor(repoPath), cacheKey, 'commit-1'),
+		trackedKey: (repoPath: string) =>
+			(fakeThis as unknown as { _activeComposeCacheKeys: Map<string, string> })._activeComposeCacheKeys.get(
+				sessionKeyFor(repoPath),
+			),
+	};
+}
+
+async function composeAndGetKey(
+	m: ReturnType<typeof createComposeConversationFake>,
+	repoPath: string,
+	sessionKey?: ComposeSessionKey,
+): Promise<string> {
+	const result = await m.compose(repoPath, sessionKey);
+	assert.ok(!('error' in result) && !('cancelled' in result), `compose failed: ${JSON.stringify(result)}`);
+	assert.ok(result.result.cacheKey != null, 'a successful compose must register a cache key');
+	return result.result.cacheKey;
+}
+
+suite('graphInspectServices — compose conversation lifecycle', () => {
+	test('a refine continues the generate’s conversation', async () => {
+		// The whole point: a plan the user refines is one session, not two.
+		const m = createComposeConversationFake();
+
+		const key = await composeAndGetKey(m, '/repo');
+		await m.refine('/repo', key);
+
+		assert.strictEqual(m.generated.length, 1);
+		assert.strictEqual(m.refined[0], m.generated[0], 'the refine must reuse the generate’s conversation ID');
+		assert.deepStrictEqual(m.flushed, [], 'an ongoing session must not report its usage yet');
+	});
+
+	test('a cold start while a plan is live abandons that conversation and mints a new one', async () => {
+		// Walking back to the start of the compose UX and generating again is a new session — the prior
+		// plan is discarded, so its accumulated usage has to be reported before the ID is dropped.
+		const m = createComposeConversationFake();
+
+		await m.compose('/repo');
+		await m.compose('/repo');
+
+		assert.strictEqual(m.generated.length, 2);
+		assert.notStrictEqual(m.generated[1], m.generated[0], 'a fresh compose must not reuse the abandoned ID');
+		assert.deepStrictEqual(m.flushed, [m.generated[0]], 'the abandoned conversation must be flushed exactly once');
+	});
+
+	test('retrying a generate that failed continues the same conversation', async () => {
+		// The failed attempt already sent requests under that ID. Minting a new one for the retry would
+		// split one compose into two sessions — the bug this wiring exists to fix.
+		const m = createComposeConversationFake({ failGenerate: true });
+
+		const failed = await m.compose('/repo');
+		assert.ok('error' in failed, 'the first generate was supposed to fail');
+
+		await m.compose('/repo');
+
+		assert.strictEqual(m.generated.length, 2);
+		assert.strictEqual(m.generated[1], m.generated[0], 'a retry after failure is the same session');
+		assert.deepStrictEqual(m.flushed, [], 'nothing was abandoned — no plan was ever produced');
+	});
+
+	test('regenerating one commit’s message continues the compose session', async () => {
+		// Regenerating a message is a distinct AI action, but it happens inside a compose the user is
+		// already in — so it belongs to that session rather than reading as a task of its own.
+		const m = createComposeConversationFake();
+		const key = await composeAndGetKey(m, '/repo');
+
+		await m.regenerateMessage('/repo', key);
+
+		assert.deepStrictEqual(
+			m.regenConversations,
+			[m.generated[0]],
+			'the regen must carry the session’s conversation',
+		);
+		assert.deepStrictEqual(m.flushed, [], 'and must not end it — the session is still open');
+
+		// Still refinable afterwards, under the same conversation.
+		await m.refine('/repo', key);
+		assert.strictEqual(m.refined.at(-1), m.generated[0]);
+	});
+
+	test('discarding a plan ends its conversation right away', async () => {
+		// Discard drops the webview's only handle on the plan. Without telling the host, the plan and its
+		// conversation sat there until the next compose on this session or panel teardown.
+		const m = createComposeConversationFake();
+		const key = await composeAndGetKey(m, '/repo');
+
+		await m.discard('/repo', key);
+
+		assert.deepStrictEqual(m.flushed, [m.generated[0]], 'the discarded session must be closed');
+
+		await composeAndGetKey(m, '/repo');
+		assert.notStrictEqual(m.generated[1], m.generated[0], 'the next compose is a new session');
+	});
+
+	test('a discard naming no plan leaves the session alone', async () => {
+		// A destroyed run that never produced a plan names none. So does a session still waiting on its
+		// first generate, and the host cannot tell those apart — so acting on it would let a late call end
+		// a conversation the in-flight request is about to report under, splitting the session and leaving
+		// its later usage with nothing to flush it. Retry or dispose closes these instead.
+		const m = createComposeConversationFake({ failGenerate: true });
+		const failed = await m.compose('/repo');
+		assert.ok('error' in failed, 'precondition: the generate failed, so no plan was registered');
+		assert.strictEqual(m.trackedKey('/repo'), undefined, 'precondition: no plan tracked');
+
+		await m.discard('/repo', undefined);
+
+		assert.deepStrictEqual(m.flushed, [], 'nothing to release, so nothing to end');
+
+		// The retry continues that same conversation, which is what the no-op preserves.
+		await composeAndGetKey(m, '/repo');
+		assert.strictEqual(m.generated[1], m.generated[0], 'the retry must continue the same conversation');
+	});
+
+	test('a discard that arrives late cannot end a newer session', async () => {
+		// The call is fire-and-forget from the webview, so it can land after the user has already started
+		// over. Naming the plan it believes it is discarding is what makes that case a no-op instead of
+		// tearing down the live plan and conversation that replaced it.
+		const m = createComposeConversationFake();
+		const staleKey = await composeAndGetKey(m, '/repo');
+		await m.discard('/repo', staleKey);
+		const liveKey = await composeAndGetKey(m, '/repo');
+		const flushedBefore = [...m.flushed];
+
+		await m.discard('/repo', staleKey);
+
+		assert.deepStrictEqual(m.flushed, flushedBefore, 'the live session must be untouched');
+		await m.refine('/repo', liveKey);
+		assert.strictEqual(m.refined.at(-1), m.generated[1], 'and must still be refinable');
+	});
+
+	test('applying the plan ends the conversation, and the next compose starts a new one', async () => {
+		const m = createComposeConversationFake();
+
+		await m.compose('/repo');
+		await m.apply('/repo');
+
+		assert.deepStrictEqual(m.flushed, [m.generated[0]], 'apply is terminal — the session must report once');
+
+		await m.compose('/repo');
+
+		assert.notStrictEqual(m.generated[1], m.generated[0], 'a post-apply compose is a new session');
+	});
+
+	test('concurrent composes in a repo and its worktree each keep their own conversation', async () => {
+		// A worktree is a distinct repo path, so both plans can be live at once — each refine has to
+		// resume its own run's conversation rather than whichever ran most recently.
+		const m = createComposeConversationFake();
+
+		const mainKey = await composeAndGetKey(m, '/repo');
+		const worktreeKey = await composeAndGetKey(m, '/repo/.worktrees/feature');
+		assert.notStrictEqual(m.generated[1], m.generated[0], 'two runs are two sessions');
+
+		await m.refine('/repo', mainKey);
+		await m.refine('/repo/.worktrees/feature', worktreeKey);
+
+		assert.deepStrictEqual(
+			m.refined,
+			[m.generated[0], m.generated[1]],
+			'each refine must resume its own repo’s conversation',
+		);
+		assert.deepStrictEqual(m.flushed, [], 'neither session was abandoned by the other');
+	});
+
+	test('a refine that fails after swapping the plan lets go of the dead key', async () => {
+		// A refine that reaches the library swaps in a new plan and drops the prior one. If a later
+		// step then throws, the new plan is discarded — leaving the key we had registered naming a plan
+		// the library no longer holds. Keeping it would let the next attempt satisfy the refine gate
+		// with a dead key and fail the lookup instead of starting fresh.
+		const m = createComposeConversationFake();
+		const firstKey = await composeAndGetKey(m, '/repo');
+		assert.strictEqual(m.trackedKey('/repo'), firstKey, 'precondition: the plan is registered');
+
+		m.failNextAfterPlan();
+		const result = await m.refine('/repo', firstKey);
+
+		assert.ok('error' in result, 'the refine should have surfaced the downstream failure');
+		assert.strictEqual(m.trackedKey('/repo'), undefined, 'the dead key must not stay registered');
+		assert.deepStrictEqual(m.flushed, [], 'a retryable failure must not end the session');
+
+		// The retry cold-starts, because the plan really is gone — but it continues the same
+		// conversation, since the user is retrying this session rather than abandoning it.
+		await composeAndGetKey(m, '/repo');
+		assert.strictEqual(m.generated[1], m.generated[0], 'the retry must continue the same conversation');
+		assert.deepStrictEqual(m.flushed, [], 'and still not have ended it');
+	});
+
+	test('two sessions on ONE repo path stay separate', async () => {
+		// Not reachable through today's UI — compose is only enterable on the WIP anchor, so one repo has
+		// one compose session. That invariant lives in a single webview line (`enterModeForWip` nulls
+		// `shas`), and the host is keyed so it doesn't have to trust it: if compose ever becomes
+		// reachable from a second anchor, these two must not share a conversation or evict each other's
+		// plan. Keyed by repo path, both assertions below fail.
+		const m = createComposeConversationFake();
+		const multicommitKey = 'multicommit|/repo|c1,c2' as string as ComposeSessionKey;
+
+		const firstKey = await composeAndGetKey(m, '/repo', sessionKeyFor('/repo'));
+		const secondKey = await composeAndGetKey(m, '/repo', multicommitKey);
+
+		assert.notStrictEqual(m.generated[1], m.generated[0], 'the second session must mint its own ID');
+		assert.deepStrictEqual(m.flushed, [], 'neither session abandoned the other');
+
+		await m.refine('/repo', firstKey, sessionKeyFor('/repo'));
+		await m.refine('/repo', secondKey, multicommitKey);
+
+		assert.deepStrictEqual(
+			m.refined,
+			[m.generated[0], m.generated[1]],
+			'each refine must resume its own session, not whichever ran last',
+		);
+	});
+
+	test('disposing the panel flushes every conversation still open', async () => {
+		// Usage accumulated for an unapplied plan would otherwise be silently dropped on teardown.
+		const m = createComposeConversationFake();
+
+		await m.compose('/repo');
+		await m.compose('/other');
+		m.dispose();
+
+		assert.deepStrictEqual([...m.flushed].sort(), [...m.generated].sort());
 	});
 });

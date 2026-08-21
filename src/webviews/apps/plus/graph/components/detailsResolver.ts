@@ -1,5 +1,10 @@
 import type { Remote } from '@eamodio/supertalk';
-import type { BranchComparisonOptions, GraphServices, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type {
+	BranchComparisonOptions,
+	ComposeSessionKey,
+	GraphServices,
+	ScopeSelection,
+} from '../../../../plus/graph/graphService.js';
 import { createResource } from '../../../shared/state/resource.js';
 import type { DetailsResources, ResolvedServices } from './detailsActions.js';
 import { DetailsActions } from './detailsActions.js';
@@ -110,11 +115,21 @@ export async function resolveDetailsActions(
 			(
 				signal,
 				repoPath: string,
+				sessionKey: ComposeSessionKey,
 				scope: ScopeSelection,
 				instructions: string | undefined,
 				excludedFiles: string[] | undefined,
 				aiExcludedFiles: string[] | undefined,
-			) => graphInspect.composeChanges(repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal),
+			) =>
+				graphInspect.composeChanges(
+					repoPath,
+					sessionKey,
+					scope,
+					instructions,
+					excludedFiles,
+					aiExcludedFiles,
+					signal,
+				),
 		),
 		resolve: createResource(
 			(
