@@ -44,6 +44,7 @@ import {
 	buildAgentSessionContext,
 	canResolvePermission,
 	describeAgentSession,
+	filterAgentSessionsForFamily,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
@@ -927,14 +928,22 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// reactive notifications. Synthesize a `DidGetSidebarDataParams`-shaped value so the standard
 		// tree-view rendering flow (filter box + leaves) takes over.
 		if (this.activePanel === 'agents') {
-			const sessions = this._state.agentSessions ?? [];
+			const graphAnchor = this.resolveGraphAnchorContext();
+			const familyWorktreePaths =
+				this._state.worktreePaths != null ? new Set(this._state.worktreePaths) : undefined;
+			const sessions = filterAgentSessionsForFamily(
+				this._state.agentSessions,
+				graphAnchor?.family,
+				familyWorktreePaths,
+			);
 			const showPast = this._state.sidebar?.showPastAgentSessions ?? false;
 			const data: DidGetSidebarDataParams = {
 				panel: 'agents',
 				items: showPast ? sessions : sessions.filter(s => s.phase !== 'ended'),
 				layout: this._actions.agentsLayout.get(),
 			};
-			// The banner is keyed to the unfiltered total — it means "no sessions at all", not "all hidden".
+			// The banner is keyed to the family-filtered total — it means "no sessions for this repo's
+			// family", not "all hidden" by the past-sessions toggle.
 			return html`<div class="panel">
 				${this.renderHeader(config, false)} ${this.renderAgentsBanner(sessions.length === 0)}
 				<div class="content">${this.renderTreeContent(config, data)}</div>
@@ -2682,7 +2691,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// (graph → kanban/visualizations → graph) hide/show the split but preserve the value, and
 		// rail re-clicks that set the same panel don't transition. Close/reopen does re-fire
 		// (`hideSidebar` clears `activePanel`).
-		const sessions = this._state.agentSessions ?? [];
+		const graphAnchor = this.resolveGraphAnchorContext();
+		const familyWorktreePaths = this._state.worktreePaths != null ? new Set(this._state.worktreePaths) : undefined;
+		const sessions = filterAgentSessionsForFamily(
+			this._state.agentSessions,
+			graphAnchor?.family,
+			familyWorktreePaths,
+		);
 		let working = 0;
 		let needsInput = 0;
 		let idle = 0;

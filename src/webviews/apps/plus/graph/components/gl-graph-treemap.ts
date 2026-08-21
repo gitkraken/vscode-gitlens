@@ -19,6 +19,7 @@ import type {
 	TreemapMode,
 	TreemapNode,
 } from '../../../../plus/treemap/protocol.js';
+import { filterAgentSessionsForFamily } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -868,7 +869,11 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const repoFamilyPath = repo.commonPath ?? repo.path;
 		// Scope to same-family sessions once, up front — both the root set and the activity merge
 		// below run off this list, so "which sessions count" is decided here and only here.
-		const familySessions = (sessions ?? []).filter(s => (s.commonPath ?? s.worktreePath) === repoFamilyPath);
+		const familySessions = filterAgentSessionsForFamily(
+			sessions,
+			repoFamilyPath,
+			this.graphState.worktreePaths != null ? new Set(this.graphState.worktreePaths) : undefined,
+		);
 		const familyRoots = this.collectFamilyRoots(
 			repo.path,
 			repo.commonPath,
@@ -984,7 +989,11 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		if (sessions == null || sessions.length === 0) return emptySessions;
 
 		const repoFamilyPath = repo.commonPath ?? repo.path;
-		const result = sessions.filter(s => (s.commonPath ?? s.worktreePath) === repoFamilyPath);
+		const result = filterAgentSessionsForFamily(
+			sessions,
+			repoFamilyPath,
+			this.graphState.worktreePaths != null ? new Set(this.graphState.worktreePaths) : undefined,
+		);
 		return result.length > 0 ? result : emptySessions;
 	}
 

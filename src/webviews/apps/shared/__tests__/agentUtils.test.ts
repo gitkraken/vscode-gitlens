@@ -4,6 +4,7 @@ import type { OverviewBranch } from '../../../shared/overviewBranches.js';
 import {
 	canResolvePermission,
 	createPastAgentSessionsResolver,
+	filterAgentSessionsForFamily,
 	findOverviewBranchForSession,
 	formatAgentElapsed,
 	indexAgentSessionsByRepoAndWorktree,
@@ -326,5 +327,60 @@ suite('canResolvePermission', () => {
 		assert.strictEqual(canResolvePermission('working', tool), false);
 		assert.strictEqual(canResolvePermission('idle', tool), false);
 		assert.strictEqual(canResolvePermission('ended', tool), false);
+	});
+});
+
+suite('filterAgentSessionsForFamily', () => {
+	const family = repo;
+	const otherFamily = '/repo-other/main';
+
+	test('a session whose commonPath matches family is kept', () => {
+		const s = makeSession({ id: 's', commonPath: family, worktreePath: wtA });
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('commonPath takes precedence — a different repo is excluded even if worktreePath equals family', () => {
+		const s = makeSession({ id: 's', commonPath: otherFamily, worktreePath: family });
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], family), []);
+	});
+
+	test('commonPath == null and worktreePath === family (root) is kept', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: family });
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('commonPath == null and worktreePath inside familyWorktreePaths is kept', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: wtA });
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family, new Set([wtA, wtB])).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('commonPath == null and worktreePath outside familyWorktreePaths is excluded', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: '/repo-other/wt' });
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], family, new Set([wtA, wtB])), []);
+	});
+
+	test('commonPath == null and no worktreePath at all is excluded', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: undefined });
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], family, new Set([wtA, wtB])), []);
+	});
+
+	test('commonPath == null, worktreePath not in family, and familyWorktreePaths omitted is excluded', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: wtA });
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], family), []);
+	});
+
+	test('family == null returns [] regardless of input sessions', () => {
+		const s = makeSession({ id: 's', commonPath: family, worktreePath: wtA });
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], undefined), []);
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], undefined, new Set([wtA])), []);
 	});
 });

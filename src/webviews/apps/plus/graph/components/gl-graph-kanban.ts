@@ -13,6 +13,7 @@ import {
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
+	filterAgentSessionsForFamily,
 	formatAgentElapsed,
 	fpField,
 	getAgentPhaseLabel,
@@ -461,6 +462,16 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		buckets: Map<KanbanColumnId, AgentSessionState[]>;
 	};
 
+	/** Memoized family filter, keyed on raw-array identity AND `family`. `graphState.agentSessions`
+	 *  gets a fresh array reference on every host push even when only a foreign-family session
+	 *  changed — without this, `buildBuckets`'s own identity-keyed cache (`_bucketsCache`) would
+	 *  miss on every such push despite the filtered content being unchanged. */
+	private _familyFilterCache?: {
+		sessionsRef: readonly AgentSessionState[];
+		family: string | undefined;
+		filtered: AgentSessionState[];
+	};
+
 	/** Monotonically-increasing tick counter mixed into {@link computeFingerprint} so the periodic
 	 *  live-tick deterministically invalidates the no-op-render guard once per interval — without
 	 *  it, `shouldUpdate` would short-circuit the tick (session content is unchanged across the
@@ -481,6 +492,24 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  detail for the resolver's default 3s window. Permission detail lines are not stickified —
 	 *  they reflect a steady state rather than a stream of events. */
 	private readonly _stickyResolver: StickyDetailResolver = createStickyDetailResolver();
+
+	/** Filters `sessions` down to the selected repo's family, returning a STABLE reference across
+	 *  renders when the raw array reference and `family` haven't changed — required so
+	 *  `buildBuckets`'s own identity-keyed cache (see {@link _bucketsCache}) doesn't miss on every
+	 *  host push. */
+	private familyFilteredSessions(sessions: readonly AgentSessionState[]): AgentSessionState[] {
+		const family = this.family;
+		const cache = this._familyFilterCache;
+		if (cache?.sessionsRef === sessions && cache?.family === family) return cache.filtered;
+
+		const filtered = filterAgentSessionsForFamily(
+			sessions,
+			family,
+			this.graphState.worktreePaths != null ? new Set(this.graphState.worktreePaths) : undefined,
+		);
+		this._familyFilterCache = { sessionsRef: sessions, family: family, filtered: filtered };
+		return filtered;
+	}
 
 	private buildBuckets(sessions: readonly AgentSessionState[]): {
 		sorted: AgentSessionState[];
@@ -553,7 +582,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	}
 
 	override shouldUpdate(_changedProps: PropertyValues): boolean {
-		const fingerprint = this.computeFingerprint(this.graphState.agentSessions ?? []);
+		const fingerprint = this.computeFingerprint(this.familyFilteredSessions(this.graphState.agentSessions ?? []));
 		if (this._lastFingerprint === fingerprint) {
 			return false;
 		}
@@ -568,7 +597,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		// fingerprint. Storing before `super.update()` would advance `_lastFingerprint` to the
 		// just-failed inputs and lock the kanban on whatever paint survived.
 		super.update(changedProps);
-		this._lastFingerprint = this.computeFingerprint(this.graphState.agentSessions ?? []);
+		this._lastFingerprint = this.computeFingerprint(
+			this.familyFilteredSessions(this.graphState.agentSessions ?? []),
+		);
 	}
 
 	/** Impression telemetry — point-in-time snapshot, fired once per mount (the component mounts
@@ -580,7 +611,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  "loaded but empty" indistinguishable, so deferring — as the treemap does on `data.root` — isn't
 	 *  possible here). */
 	protected override firstUpdated(): void {
-		const sessions = this.graphState.agentSessions ?? [];
+		const sessions = this.familyFilteredSessions(this.graphState.agentSessions ?? []);
 		const { buckets } = this.buildBuckets(sessions);
 		emitTelemetrySentEvent<'graph/kanban/shown'>(this, {
 			name: 'graph/kanban/shown',
@@ -645,8 +676,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		const session = (this.graphState.agentSessions ?? []).find(s => s.id === sessionId);
 		if (session == null) return;
 
-		const repo = this.effectiveRepo;
-		const family = repo == null ? undefined : (repo.commonPath ?? repo.path);
+		const family = this.family;
 		emitTelemetrySentEvent<'graph/kanban/sessionSelected'>(this, {
 			name: 'graph/kanban/sessionSelected',
 			data: {
@@ -725,6 +755,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		return repoId != null ? repos?.find(r => r.id === repoId) : repos?.[0];
 	}
 
+	/** The effective repo's family path (`commonPath ?? path`), for scoping which agent sessions
+	 *  the kanban shows and for the `session.sameRepo` telemetry comparison. */
+	private get family(): string | undefined {
+		const repo = this.effectiveRepo;
+		return repo == null ? undefined : (repo.commonPath ?? repo.path);
+	}
+
 	private onCardKeydown = (event: KeyboardEvent): void => {
 		// Enter and Space activate the card as an "open WIP details" affordance, matching the
 		// implicit semantics that `<button>` would provide — we use `<div role="button">` to avoid
@@ -742,7 +779,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	};
 
 	override render(): unknown {
-		const rawSessions = this.graphState.agentSessions ?? [];
+		const rawSessions = this.familyFilteredSessions(this.graphState.agentSessions ?? []);
 		const { sorted: sessions, buckets: sessionsByColumn } = this.buildBuckets(rawSessions);
 
 		return html`

@@ -9,6 +9,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
+import { filterAgentSessionsForFamily } from '../../../shared/agentUtils.js';
 import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -364,6 +365,13 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
 		const kanbanEnabled = this._state.config?.experimentalKanbanEnabled ?? false;
 		return visibleSidebarRailEntries(repo?.virtual ?? false, kanbanEnabled);
+	}
+
+	/** The selected repo's family path (`commonPath ?? path`), for scoping the agents badge count
+	 *  to the same repo family the sidebar panel shows. `undefined` when no repo is resolved. */
+	private get family(): string | undefined {
+		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
+		return repo?.commonPath ?? repo?.path;
 	}
 
 	/** Panels included for the current repo kind, in canonical rail order — see `sidebarPanels.ts`.
@@ -827,7 +835,9 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		// badge updates without paying the round-trip and skips the loading/error states. Follows the
 		// same past-sessions filter as the panel so the badge matches what's shown.
 		if (icon.type === 'agents') {
-			const sessions = this._state.agentSessions ?? [];
+			const familyWorktreePaths =
+				this._state.worktreePaths != null ? new Set(this._state.worktreePaths) : undefined;
+			const sessions = filterAgentSessionsForFamily(this._state.agentSessions, this.family, familyWorktreePaths);
 			const showPast = this._state.sidebar?.showPastAgentSessions ?? false;
 			const count = showPast ? sessions.length : sessions.filter(s => s.phase !== 'ended').length;
 			return renderCount(count || undefined);

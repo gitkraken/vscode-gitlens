@@ -471,6 +471,35 @@ export function matchAgentSessionsForWorktree(
 	return matches.length > 0 ? matches : undefined;
 }
 
+/** Filters sessions down to those belonging to `family` (`repo.commonPath ?? repo.path` — the
+ *  repo's common root plus every worktree of it). Display-only: session ingestion stays
+ *  machine-global, this decides what the graph's agent-session surfaces render.
+ *
+ *  A session matches when `session.commonPath === family`. `commonPath` is backfilled host-side
+ *  (`agentSessionState.ts:183`) but can still be `null` for cold-cache / past sessions — those fall
+ *  back to `worktreePath`, matching when it's the family root (`worktreePath === family`) or is one
+ *  of the family's known worktrees (`familyWorktreePaths`, when the caller has them). A session with
+ *  neither a matching `commonPath` nor a matching `worktreePath` is excluded — deliberate, an
+ *  unresolved session isn't known to belong to this family. `family == null` (no selected repo
+ *  resolved) returns `[]` — show nothing rather than everything. */
+export function filterAgentSessionsForFamily(
+	sessions: readonly AgentSessionState[] | undefined,
+	family: string | undefined,
+	familyWorktreePaths?: ReadonlySet<string>,
+): AgentSessionState[] {
+	if (family == null || sessions == null || sessions.length === 0) return [];
+
+	return sessions.filter(session => {
+		if (session.commonPath != null) return session.commonPath === family;
+
+		if (session.worktreePath === family) return true;
+
+		return (
+			familyWorktreePaths != null && session.worktreePath != null && familyWorktreePaths.has(session.worktreePath)
+		);
+	});
+}
+
 /** Reverse of {@link matchAgentSessionsForWorktree}: given a session, find the `OverviewBranch`
  *  representing the currently-checked-out branch of the session's worktree. Iterates `active`
  *  first then `recent` because a named worktree that isn't opened in the workspace ends up in
