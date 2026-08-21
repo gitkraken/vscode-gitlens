@@ -21,6 +21,7 @@ import {
 import { renderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../../../shared/components/agents/agent-status-styles.css.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
+import '../../../shared/components/agents/gl-agent-mark.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/code-icon.js';
@@ -78,9 +79,11 @@ declare global {
  * (chevron + label + dot cluster + counts, with a hover popover for per-session detail) above
  * a cards list. The heading button toggles between collapsed (bar only) and expanded (all
  * cards). The panel can also project `partial` automatically — only needs-input cards visible —
- * when an agent surfaces a new request while the user has the section collapsed. Needs-input
- * and working cards adopt a gradient + icon-circle treatment so each surfaces as actionable at
- * a glance.
+ * when an agent surfaces a new request while the user has the section collapsed. Needs-input and
+ * working cards both adopt a gradient background so each surfaces as actionable at a glance;
+ * every card's rail draws the ONE agent-phase mark (`<gl-agent-mark>`, shared with the Commit
+ * Graph's WIP-row indicator and the agent-sessions tree leaf) — shape and tempo, not just color,
+ * carry the phase, so working/needs-input/idle/ended stay distinguishable from each other.
  */
 @customElement('gl-details-agent-status')
 export class GlDetailsAgentStatus extends LitElement {
@@ -106,28 +109,6 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			:host([hidden]) {
 				display: none;
-			}
-
-			@keyframes gl-agent-pulse {
-				0%,
-				100% {
-					opacity: 1;
-				}
-
-				50% {
-					opacity: 0.45;
-				}
-			}
-
-			@media (prefers-reduced-motion: reduce) {
-				.card--working .card__dot {
-					animation: none;
-				}
-
-				/* Outer-tree rule wins over code-icon's own :host([modifier='spin']) animation. */
-				.card__icon code-icon[modifier='spin'] {
-					animation: none;
-				}
 			}
 
 			/* ---------- Section (heading + cards list) ---------- */
@@ -162,7 +143,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section__heading {
 				position: sticky;
 				top: 0;
-				z-index: 1;
+				z-index: 2;
 				display: flex;
 				gap: var(--gl-space-6);
 				align-items: center;
@@ -331,8 +312,8 @@ export class GlDetailsAgentStatus extends LitElement {
 				background-color: var(--gl-agent-idle-color);
 			}
 
-			.section__cluster-dot--completed {
-				background-color: var(--vscode-descriptionForeground);
+			.section__cluster-dot--ended {
+				background-color: var(--gl-agent-ended-color);
 			}
 
 			.section__cluster-dot--overflow {
@@ -379,9 +360,10 @@ export class GlDetailsAgentStatus extends LitElement {
 				opacity: 0.7;
 			}
 
-			/* Hollow ring (vs. the live cards' filled .card__dot disc) so a past row reads as
-	   "no process" at a glance, reusing the same idle phase color. Sits in a .card__rail so the
-	   body column lines up with the live cards above it. */
+			/* Hollow ring so a past row reads as "no process" at a glance, reusing the same idle
+	   phase color. Sits in a .card__rail so the body column lines up with the live cards above
+	   it — deliberately its own plain ring, not <gl-agent-mark>: a past row has no live category
+	   to draw (it's simply gone), so it stays this file's one bespoke "archived" glyph. */
 			.section__past-dot {
 				flex: none;
 				width: 0.8rem;
@@ -483,27 +465,28 @@ export class GlDetailsAgentStatus extends LitElement {
 				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 			}
 
-			.section__hover-dot {
+			/* One row per session, so it draws the shared phase mark rather than a plain dot — the
+	   same shapes the card rails use. The heading's cluster dots deliberately stay plain: at
+	   cluster size a row of ringed, pulsing marks reads as noise, and that cluster answers
+	   "how many, roughly what mix", not per-session state. */
+			gl-agent-mark.section__hover-dot {
 				flex: none;
-				width: 0.7rem;
-				height: 0.7rem;
-				border-radius: 50%;
 			}
 
 			.section__hover-dot--working {
-				background-color: var(--gl-agent-working-color);
+				color: var(--gl-agent-working-color);
 			}
 
 			.section__hover-dot--needs-input {
-				background-color: var(--gl-agent-waiting-color);
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.section__hover-dot--idle {
-				background-color: var(--gl-agent-idle-color);
+				color: var(--gl-agent-idle-color);
 			}
 
-			.section__hover-dot--completed {
-				background-color: var(--vscode-descriptionForeground);
+			.section__hover-dot--ended {
+				color: var(--gl-agent-ended-color);
 			}
 
 			.section__hover-name {
@@ -601,8 +584,8 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* Terminal sessions read as done — muted accent + stronger dim than idle so live rows lead. */
-			.card--completed {
-				--card-accent: var(--vscode-descriptionForeground);
+			.card--ended {
+				--card-accent: var(--gl-agent-ended-color);
 
 				opacity: 0.7;
 			}
@@ -628,36 +611,17 @@ export class GlDetailsAgentStatus extends LitElement {
 				justify-content: center;
 
 				/* Fixed rail width so the body column lines up across cards regardless of which
-		   indicator (icon-circle vs small dot) sits inside. */
+		   phase mark sits inside. */
 				width: 2.4rem;
 				min-height: 1.6em;
 			}
 
-			/* Idle cards keep a small dot — the icon-circle treatment is reserved for actionable phases. */
-			.card__dot {
-				flex: none;
-				width: 0.8rem;
-				height: 0.8rem;
-				aspect-ratio: 1;
-				background-color: var(--card-accent);
-				border-radius: 50%;
-			}
-
-			/* Icon-circle for needs-input/working cards. Carries the banner's prior visual weight. */
-			.card__icon {
-				display: inline-flex;
-				flex: none;
-				align-items: center;
-				justify-content: center;
-				width: 2.4rem;
-				height: 2.4rem;
-				font-size: 1.6em;
+			/* The ONE agent-phase mark, shared with the Commit Graph's WIP-row indicator and the
+	   agent-sessions tree leaf — shape/tempo differ per phase (working/needs-input carry a
+	   ring + waves, idle is a hollow ring, ended a static filled square), so all four are
+	   distinguishable in FORM, not just color, and stay so with prefers-reduced-motion: reduce. */
+			.card__rail gl-agent-mark {
 				color: var(--card-accent);
-				background-color: color-mix(in srgb, var(--card-accent) 18%, transparent);
-				border-radius: 50%;
-				transition:
-					color var(--gl-duration-slow) ease,
-					background-color var(--gl-duration-slow) ease;
 			}
 
 			.card__body {
@@ -934,8 +898,12 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *  Hover still surfaces the per-session detail via the same shared popover body. */
 	private renderClusterOnly(sessions: AgentSessionState[]): unknown {
 		const counts = this.tally(sessions);
-		const visibleDots = sessions.slice(0, maxClusterDots);
-		const overflow = sessions.length - visibleDots.length;
+		// LIVE only. The cluster answers "what is happening right now", and ended sessions are
+		// history — a few hundred of them would swamp the dots and turn the overflow badge into a
+		// four-digit pill. The "N past" figure in the summary beside it is where that count belongs.
+		const clusterSessions = sessions.filter(s => agentPhaseToCategory[s.phase] !== 'ended');
+		const visibleDots = clusterSessions.slice(0, maxClusterDots);
+		const overflow = clusterSessions.length - visibleDots.length;
 		// `.section__hover` has no max-height, and active sessions are deliberately uncapped, so a
 		// busy panel can produce a popover taller than the viewport. `auto-size-vertical` clamps and
 		// scrolls it instead of letting it render past the panel edge with no way to reach the bottom.
@@ -1086,8 +1054,12 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	private renderSectionHeading(sessions: AgentSessionState[], counts: Record<AgentSessionCategory, number>): unknown {
 		const state = this.expand;
-		const visibleDots = sessions.slice(0, maxClusterDots);
-		const overflow = sessions.length - visibleDots.length;
+		// LIVE only. The cluster answers "what is happening right now", and ended sessions are
+		// history — a few hundred of them would swamp the dots and turn the overflow badge into a
+		// four-digit pill. The "N past" figure in the summary beside it is where that count belongs.
+		const clusterSessions = sessions.filter(s => agentPhaseToCategory[s.phase] !== 'ended');
+		const visibleDots = clusterSessions.slice(0, maxClusterDots);
+		const overflow = clusterSessions.length - visibleDots.length;
 
 		// The row is a container, not the button: the resume action sits inside it, and a control
 		// nested in a <button> is invalid and unreachable by keyboard.
@@ -1185,8 +1157,8 @@ export class GlDetailsAgentStatus extends LitElement {
 		if (counts.idle > 0) {
 			parts.push(html`<span>${counts.idle} idle</span>`);
 		}
-		if (counts.completed > 0) {
-			parts.push(html`<span>${counts.completed} completed</span>`);
+		if (counts.ended > 0) {
+			parts.push(html`<span>${counts.ended} past</span>`);
 		}
 
 		const out: unknown[] = [];
@@ -1256,7 +1228,11 @@ export class GlDetailsAgentStatus extends LitElement {
 
 		return html`
 			<div class="section__hover-row">
-				<span class=${`section__hover-dot section__hover-dot--${category}`}></span>
+				<gl-agent-mark
+					class=${`section__hover-dot section__hover-dot--${category}`}
+					category=${category}
+					aria-hidden="true"
+				></gl-agent-mark>
 				<gl-tooltip content=${session.displayName} placement="bottom">
 					<span class="section__hover-name">${session.displayName}</span>
 				</gl-tooltip>
@@ -1403,16 +1379,12 @@ export class GlDetailsAgentStatus extends LitElement {
 		</gl-tooltip>`;
 	}
 
-	/** Rail content for the card. needs-input gets a warning glyph; working gets a spinning sync —
-	 *  matches the prior banner icon-circle treatment. Idle keeps the small dot. */
+	/** Rail content for the card — the ONE agent-phase mark, shared with the Commit Graph's
+	 *  WIP-row indicator and the agent-sessions tree leaf. Shape/tempo (not just color) carry the
+	 *  phase: working/needs-input get a ring + waves, idle is a hollow ring, ended a static
+	 *  filled square — so all four stay distinguishable with `prefers-reduced-motion: reduce`. */
 	private renderCardRail(category: AgentSessionCategory): unknown {
-		if (category === 'needs-input') {
-			return html`<span class="card__icon"><code-icon icon="warning"></code-icon></span>`;
-		}
-		if (category === 'working') {
-			return html`<span class="card__icon"><code-icon icon="sync" modifier="spin"></code-icon></span>`;
-		}
-		return html`<span class="card__dot"></span>`;
+		return html`<gl-agent-mark category=${category} aria-hidden="true"></gl-agent-mark>`;
 	}
 
 	/** Renders the needs-input action row. Open is hoisted into the card title row as an action
