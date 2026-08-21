@@ -92,7 +92,15 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.group__header .group__label {
+				min-width: 0;
 				margin-block: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.group__header .threshold-filter {
+				flex: none;
 			}
 
 			.group__count {
