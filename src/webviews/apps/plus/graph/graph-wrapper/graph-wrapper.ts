@@ -24,6 +24,7 @@ import type {
 	GraphScope,
 	GraphSelectedRows,
 	GraphSelection,
+	GraphWipRow,
 	GraphWipRowsById,
 	GraphWipStateById,
 	GraphZoneType,
@@ -743,7 +744,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	// Injects a synthetic WIP row for the graph's own worktree at [0] and one per peer worktree
 	// immediately above the commit it's anchored at, so the graph renders one row per worktree. Every
-	// one of them is identified by `createWipRowId(<its worktree path>)`.
+	// one of them is identified by `createWipRowId(<its worktree path>)`. Under a scope, the peer whose
+	// branch IS the focal branch is pinned at the top instead — see the note below.
 	private getDecoratedRows(): {
 		rows: GitGraphRow[] | undefined;
 		showPrimary: boolean;
@@ -787,12 +789,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// The row's id IS its worktree path, so an unresolved repo path means there's no row to
 		// synthesize yet — the next render (once `repositories`/`selectedRepository` land) shows it.
 		const primaryWipRowId = primaryRepoPath != null ? createWipRowId(primaryRepoPath) : undefined;
-		// One uniform plane, two PLACEMENT rules — the only place the primary still forks. Every worktree's
-		// row is built the same way from the same record; the graph's own is pinned at [0] and anchored via
-		// the rows' HEAD decoration (so it survives a scope re-root, and shows even when HEAD isn't in the
-		// loaded page), while peers are interleaved above their own `parentSha` and dropped when it isn't
-		// anchorable. Their VISIBILITY rules differ for the same reason: the primary belongs to HEAD, peers
-		// to their branch. Partitioning on the row id also guarantees the two can't emit the same sha twice.
+		// One uniform plane, three PLACEMENT rules — the only place the primary (and, under a scope, the
+		// focal peer) still fork. Every worktree's row is built the same way from the same record; the
+		// graph's own is pinned at [0] and anchored via the rows' HEAD decoration (so it survives a scope
+		// re-root, and shows even when HEAD isn't in the loaded page), while peers are interleaved above
+		// their own `parentSha` and dropped when it isn't anchorable. Their VISIBILITY rules differ for the
+		// same reason: the primary belongs to HEAD, peers to their branch. Partitioning on the row id also
+		// guarantees the two can't emit the same sha twice. Under a scope, the peer whose branch IS the
+		// focal branch is pulled out of the interleave and pinned at the top instead, right after the
+		// primary: the scoped view leads with its subject, and pinning it pre-layout (rather than letting it
+		// sort wherever its anchor commit falls) is what lets the engine give the focal chain lane 0 ahead of
+		// the merge target's line — otherwise a merge target with a newer tip sorts above the WIP row.
 		const peerWipRows = partitionOutPrimaryWipRow(wipRowsById, primaryWipRowId);
 		const showPrimary =
 			primaryWipRowId != null &&
@@ -805,11 +812,31 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			includeOnlyRefs,
 		);
 
+		// Pull the focal peer (the one whose branch IS the scope) out of the interleave set — at most one
+		// can match, since a branch is checked out in at most one worktree.
+		let focalPeerId: string | undefined;
+		let focalPeerWipRow: GraphWipRow | undefined;
+		let remainingPeers: GraphWipRowsById | undefined = filteredPeers;
+		if (scope != null && filteredPeers != null) {
+			for (const [id, wipRow] of Object.entries(filteredPeers)) {
+				if (wipRow.branchRef !== scope.branchRef) continue;
+
+				focalPeerId = id;
+				focalPeerWipRow = wipRow;
+				break;
+			}
+
+			if (focalPeerId != null) {
+				const { [focalPeerId]: _focal, ...rest } = filteredPeers;
+				remainingPeers = rest;
+			}
+		}
+
 		// The engine never auto-injects a primary WIP row, so whenever one should show we must
 		// synthesize it here — not only when peers force the interleave path.
-		const hasSecondaryWips = filteredPeers != null && Object.keys(filteredPeers).length > 0;
+		const hasSecondaryWips = remainingPeers != null && Object.keys(remainingPeers).length > 0;
 		let resultRows: GitGraphRow[] | undefined;
-		if (rows != null && (hasSecondaryWips || showPrimary)) {
+		if (rows != null && (hasSecondaryWips || showPrimary || focalPeerId != null)) {
 			// Anchor the primary on the SAME row the scope re-root projection roots its spine at — that
 			// walk resolves the focal tip by branch NAME (`computeScopeAnchors`) while this one uses the
 			// `isCurrentHead` flag, and `computeScopeProjection` drops any workdir row whose parent isn't
@@ -845,10 +872,28 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					? this.buildWipRow(primaryWipRowId, headRefSha, undefined)
 					: undefined;
 
-			// Single-worktree case (no peers to place): the result is just the primary ahead of the host
+			// The focal peer, when scoped to a branch checked out in another worktree: pinned at the top
+			// like the primary (see the comment above `peerWipRows`), built the same way as any other peer
+			// row — same `buildWipRow` call, same tolerance for an unloaded `parentSha` (the engine reserves
+			// a lane and connects it once that commit pages in, rather than dropping the row).
+			const focalPeer: GitGraphRow | undefined =
+				focalPeerId != null && focalPeerWipRow != null
+					? this.buildWipRow(focalPeerId, focalPeerWipRow.parentSha, focalPeerWipRow.label)
+					: undefined;
+
+			const pinned: GitGraphRow[] = [];
+			if (primary != null) {
+				pinned.push(primary);
+			}
+
+			if (focalPeer != null) {
+				pinned.push(focalPeer);
+			}
+
+			// No (remaining) peers to interleave: the result is just the pinned row(s) ahead of the host
 			// rows, so skip the index map and the interleave walk below — both are O(loaded) per cache miss.
 			if (!hasSecondaryWips) {
-				resultRows = primary != null ? [primary, ...rows] : rows.slice();
+				resultRows = pinned.length > 0 ? [...pinned, ...rows] : rows.slice();
 			} else {
 				// Group peer WIP rows by the index of their parent commit in `rows`, so each
 				// worktree's WIP row renders directly above the commit it's anchored at. Worktrees whose
@@ -860,7 +905,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				}
 
 				const secondariesByParentIdx = new Map<number, GitGraphRow[]>();
-				for (const [sha, wipRow] of Object.entries(filteredPeers ?? {})) {
+				for (const [sha, wipRow] of Object.entries(remainingPeers ?? {})) {
 					const idx = wipRow.parentSha != null ? rowIndexBySha.get(wipRow.parentSha) : undefined;
 					if (idx == null) continue;
 
@@ -873,7 +918,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					}
 				}
 
-				const interleaved: GitGraphRow[] = primary != null ? [primary] : [];
+				const interleaved: GitGraphRow[] = [...pinned];
 				for (let i = 0; i < rows.length; i++) {
 					const atThisIdx = secondariesByParentIdx.get(i);
 					if (atThisIdx != null) {
