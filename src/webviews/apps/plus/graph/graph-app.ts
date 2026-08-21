@@ -85,6 +85,7 @@ import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDis
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
+import { HeldActionController } from '../../shared/controllers/held-action.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import { isTextEntryTarget } from '../../shared/dom.js';
@@ -100,6 +101,7 @@ import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js
 import type { GraphJumpToastKind } from './components/gl-graph-jump-toast.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type {
+	OverviewBarFocusDetail,
 	OverviewBarItem,
 	OverviewBarJumpDetail,
 	OverviewBarSelectDetail,
@@ -305,6 +307,10 @@ const detailsAutoBottomMaxPx = 1600;
 
 const minimapDefaultPx = 40;
 const minimapMaxPct = 40;
+
+/** A typical OS double-click interval — how long sidebar interactions wait to see whether a second
+ *  click lands. */
+const sidebarDblClickGraceMs = 300;
 
 type GraphSelectedCommit = {
 	sha: string;
@@ -1448,6 +1454,41 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.sidebarRailEl?.focus();
 	}
 
+	/** Pending focus handoff to the graph after an overlay-sidebar row select. Deferred rather than
+	 *  immediate: the handoff's focusout is what auto-collapses the unpinned overlay, and an immediate
+	 *  collapse tears the row out from under a double-click's second click — which would then land on
+	 *  the graph underneath, even on rows whose double-click does nothing. Restarted on every select,
+	 *  so the second click extends it; when it fires after a scope, it collapses the overlay over the
+	 *  now-scoped graph. */
+	private readonly _overlayFocusHandoff = new HeldActionController(this, sidebarDblClickGraceMs);
+
+	private deferOverlayFocusHandoff(): void {
+		this._overlayFocusHandoff.hold(() => {
+			if (!this.shouldAutoCollapseOverlay()) return;
+
+			this.graph?.focus();
+		});
+	}
+
+	/** A sidebar row select's navigation, held for the double-click grace window on rows whose
+	 *  double-click scopes (see `GraphSidebarPanelSelectEventDetail.canFocus`) — navigating immediately
+	 *  scrolls to the row's commit and then the scope restructures the view, two jarring moves. A scope
+	 *  arriving inside the window supersedes it (`handleScopeToBranchFromHeader`); the scope path
+	 *  navigates on its own. */
+	private readonly _sidebarSelectNav = new HeldActionController(this, sidebarDblClickGraceMs);
+
+	private deferSidebarSelectNavigation(navigate: () => void): void {
+		// Captured at arm time: a scope change landing inside the grace window (a double-click's
+		// unfocus toggle clears the scope WITHOUT a scope-to-branch event) means the held navigation
+		// belongs to a view that no longer exists — skip it rather than yank the restructured graph.
+		const armedScopeRef = this.graphState.scope?.branchRef;
+		this._sidebarSelectNav.hold(() => {
+			if (this.graphState.scope?.branchRef !== armedScopeRef) return;
+
+			navigate();
+		});
+	}
+
 	// Pre-collapse open state captured synchronously when the auto-collapse fires. The
 	// sidebar toggle button's click runs in a later task — by then the queued hide has
 	// already mutated state, so handleToggleSidebar would see the post-collapse value and
@@ -2075,9 +2116,32 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		void commands?.execute(command as GlExtensionCommands);
 	};
 
-	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
-		await this.selectOverviewBarItem(e.detail);
+	/** A pill click's select, held for the double-click grace window — the single-click flow can
+	 *  CLEAR the scope (and reload the unscoped rows) to reveal the worktree's row, which a
+	 *  double-click's own scope would immediately redo in reverse: unscope → scroll → re-scope
+	 *  churn. The pill's highlight still moves instantly (component-local state); only the heavy
+	 *  select flow waits. The digit-shortcut path calls `selectOverviewBarItem` directly and is
+	 *  deliberately NOT held — no double-press vocabulary exists there. */
+	private readonly _overviewBarSelect = new HeldActionController(this, sidebarDblClickGraceMs);
+
+	private handleOverviewBarSelect = (e: CustomEvent<OverviewBarSelectDetail>): void => {
+		const detail = e.detail;
+		this._overviewBarSelect.hold(() => void this.selectOverviewBarItem(detail));
 	};
+
+	/** Double-click on an overview-bar pill — focus (scope) the graph on its worktree's branch, or
+	 *  unfocus when that branch is already the live scope. Mirrors the sidebar rows' toggle. */
+	private handleOverviewBarFocus(e: CustomEvent<OverviewBarFocusDetail>): void {
+		// The double-click supersedes its own clicks' held select — the scope owns positioning now.
+		this._overviewBarSelect.cancel();
+		if (this.graphState.scope?.branchRef === e.detail.branchId) {
+			this.graphState.clearScope();
+
+			return;
+		}
+
+		void this.scopeToBranchByName(e.detail.branch, undefined, { source: 'wip-row' });
+	}
 
 	/** Selects a WIP overview-bar item (click or digit shortcut) — puts the graph in graph mode, drops
 	 *  a scope that would hide the target worktree, opens the WIP details panel, and reveals the row.
@@ -2122,7 +2186,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (wasVisible) {
 			this.emitDetailsVisibilityTelemetry(true, 'request-graph-wip-bar');
 		}
-		await this.openWipDetails(repoPath, uncommitted, undefined, 'request-graph-wip-bar');
+		// Graph may be freshly mounted by the display-mode switch above — wait one update cycle so
+		// `this.graph` exists before navigating (what the `openWipDetails` await used to cover).
+		await this.updateComplete;
 		// When we cleared the scope above, the unscoped rows arrive via a host round-trip
 		// (`ResetGraphFilters` → `DidChangeRefsVisibilityNotification`), which can take longer than
 		// `navigateToCommit`'s deferred render path. Wait for the scope to actually clear first
@@ -2131,12 +2197,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (scopeCleared) {
 			await this.waitForScopeCleared();
 		}
-		// Select + reveal the WIP row in the graph itself — the bar's stated intent. The `id` is
-		// `uncommitted` for the graph's own worktree and the peer's WIP row id otherwise;
-		// `navigateToCommit` handles both and waits through the render + scope catch-up. The
-		// `openWipDetails` await above ensures the graph is mounted (e.g. after the displayMode
-		// switch) before we call it.
+		// Select + reveal the WIP row in the graph itself — the bar's stated intent, and the user's
+		// immediate feedback — BEFORE opening the details panel. The `id` is `uncommitted` for the
+		// graph's own worktree and the peer's WIP row id otherwise; `navigateToCommit` handles both
+		// and waits through the render + scope catch-up.
 		void this.graph?.navigateToCommit(id, { source: 'overview', flash: true });
+
+		// Open the details panel on the NEXT frame, after the row highlight commits — the panel
+		// render is heavy for a worktree with many agent sessions, and sequencing it in front of the
+		// selection made the click read sluggish (a half-second highlight lag on such worktrees).
+		await this.updateComplete;
+		requestAnimationFrame(() => {
+			// A later pill click supersedes this deferred open — its own flow owns the panel now.
+			if (this._selectedCommit?.repoPath !== repoPath) return;
+
+			void this.openWipDetails(repoPath, uncommitted, undefined, 'request-graph-wip-bar');
+		});
 
 		if (options?.returnFocusToGraph) {
 			void this.updateComplete.then(() => this.graph?.focus());
@@ -2148,12 +2224,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  subsequent `navigateToCommit` run against the settled unscoped state rather than racing
 	 *  the reload. Polls with `setTimeout` (not RAF) so it still resolves if the webview is hidden. */
 	private waitForScopeCleared(timeoutMs = 2000): Promise<void> {
-		if (this.graphState.scope == null) return Promise.resolve();
+		// Both halves matter: the state clears synchronously, but the graph's projection lifts on
+		// its next update — a jump re-run in between classifies its target against the STALE
+		// projection and reports "outside the current scope" for a scope that no longer exists.
+		const cleared = (): boolean => this.graphState.scope == null && this.graph?.isScopeProjectionActive() !== true;
+		if (cleared()) return Promise.resolve();
 
 		return new Promise<void>(resolve => {
 			const start = Date.now();
 			const check = (): void => {
-				if (this.graphState.scope == null || Date.now() - start >= timeoutMs) {
+				if (cleared() || Date.now() - start >= timeoutMs) {
 					resolve();
 					return;
 				}
@@ -2162,6 +2242,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			};
 			setTimeout(check, 32);
 		});
+	}
+
+	/** Waits for the scope's projection to actually apply to the rendered rows (or `timeoutMs`, for
+	 *  scopes that resolve dim-only and never project) — positioning before the restructure lands
+	 *  scrolls the old layout and then yanks to the new one. Poll cadence matches waitForScopeCleared. */
+	private waitForScopeProjection(timeoutMs = 800): Promise<void> {
+		const applied = (): boolean => this.graph?.isScopeProjectionActive() === true;
+		if (applied()) return Promise.resolve();
+
+		return new Promise<void>(resolve => {
+			const start = Date.now();
+			const check = (): void => {
+				if (applied() || Date.now() - start >= timeoutMs) {
+					resolve();
+					return;
+				}
+
+				setTimeout(check, 32);
+			};
+			setTimeout(check, 32);
+		});
+	}
+
+	/** Navigates to a just-applied scope's selection, then re-asserts the reveal once after the
+	 *  restructure's geometry settles. The projection flag flips before the virtualizer re-measures
+	 *  the restructured rows, so the first reveal can scroll stale geometry and get clamped when the
+	 *  re-measure lands — selection right, viewport wrong. The re-assert is a visual no-op when the
+	 *  first reveal landed (same target, no flash), and is dropped when a newer scope owns the view
+	 *  by then. */
+	private revealForScope(sha: string, ref: string, branchRef: string, source: 'sidebar' | 'overview'): void {
+		void this.graph?.navigateToCommit(sha, { source: source, flash: true, ref: ref });
+		setTimeout(() => {
+			if (this.graphState.scope?.branchRef !== branchRef) return;
+
+			void this.graph?.navigateToCommit(sha, { source: source, reveal: 'always', feedback: false });
+		}, sidebarDblClickGraceMs);
 	}
 
 	/** Whether a clicked WIP pill's worktree is part of the active graph scope. The primary WIP
@@ -3933,6 +4049,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									?follow-terminal-revealed=${this._followTerminalRevealed}
 									@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
 									@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
+									@gl-graph-overview-bar-focus=${this.handleOverviewBarFocus}
 									@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}
 									@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 									@gl-coachmark-action=${this.handleCoachMarkAction}
@@ -4687,9 +4804,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>): void {
-		void this.graph?.navigateToCommit(e.detail.sha, { source: 'sidebar', flash: true });
+		const navigate = () =>
+			void this.graph?.navigateToCommit(e.detail.sha, { source: 'sidebar', flash: true, ref: e.detail.name });
+
+		if (e.detail.scoped) {
+			// The select's own scope event is restructuring the view — position once that lands, not
+			// against the outgoing layout.
+			void this.waitForScopeProjection().then(navigate);
+		} else if (e.detail.canFocus) {
+			this.deferSidebarSelectNavigation(navigate);
+		} else {
+			// This select supersedes any navigation still held for a previous row — without the clear,
+			// the stale timer fires after this immediate navigation and snaps the graph back.
+			this._sidebarSelectNav.cancel();
+			navigate();
+		}
+
 		if (this.shouldAutoCollapseOverlay()) {
-			this.graph?.focus();
+			this.deferOverlayFocusHandoff();
 		}
 
 		// Agent leaves carry a `sessionId`; when present, open the details panel anchored on the
@@ -4748,6 +4880,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// parked, publishing a different scope. If `this.graphState.scope` is no longer for our
 		// branch by the time we resume, the newer scope owns the selection — don't fire a stale
 		// `navigateToCommit` against the wrong scope.
+		if (this.graphState.scope?.branchRef !== e.detail.branchId) return;
+
+		// Wait for the projection to actually restructure the rows before positioning — otherwise the
+		// scroll runs against the outgoing layout and then yanks to the new one once it lands.
+		await this.waitForScopeProjection();
+		// Same supersession guard: a newer scope can land during this second wait too.
 		if (this.graphState.scope?.branchRef !== e.detail.branchId) return;
 
 		const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
@@ -4814,6 +4952,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		>,
 	): Promise<void> {
+		// A scope supersedes a sidebar select's held navigation — the scope path navigates on its own.
+		this._sidebarSelectNav.cancel();
+
 		// The scope carries additional branches as ref ids, so resolve them against the same repo path
 		// `scopeToBranchByName` builds the focal ref from — a mismatched path yields ids that match no row.
 		const repoPath = this.fallbackRepoPath;
@@ -4875,9 +5016,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// the wrong scope (would land selection on the previous click's WIP/tip).
 			if (this.graphState.scope?.branchRef !== branch.id) return;
 
+			// Position against the restructured rows, not the outgoing layout — the projection moves
+			// rows after the publish, so navigating early scrolls to a stale position. Re-guard after:
+			// a newer scope can land during the wait.
+			await this.waitForScopeProjection();
+			if (this.graphState.scope?.branchRef !== branch.id) return;
+
 			const sha = this.getOverviewBranchSelectionSha(branch.id);
 			if (sha != null) {
-				void this.graph?.navigateToCommit(sha, { source: 'sidebar', flash: true, ref: branchName });
+				this.revealForScope(sha, branchName, branch.id, 'sidebar');
 			}
 			return;
 		}
@@ -4898,6 +5045,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			source,
 		);
 		// Same supersession guard as above.
+		if (this.graphState.scope?.branchRef !== branchRef) return;
+
+		// Same restructure-first positioning as the overview path — and the tip lookup below must run
+		// against the settled rows too.
+		await this.waitForScopeProjection();
 		if (this.graphState.scope?.branchRef !== branchRef) return;
 
 		const isCurrent = !remote && this.graphState.branch?.name === branchName;
@@ -4928,7 +5080,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// If the helper returned the tip and tip isn't loaded, the IPC `LoadRowRequest`
 			// fallback in `navigateToCommit` will fetch it; otherwise the fast path or
 			// synthetic-WIP retry handles it.
-			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true, ref: branchName });
+			this.revealForScope(sha, branchName, branchRef, 'overview');
 			return;
 		}
 

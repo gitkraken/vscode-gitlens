@@ -194,6 +194,14 @@ export interface GraphSidebarPanelSelectEventDetail {
 	 *  pane, and scroll it into view alongside the WIP row selection. Absent on non-agent leaves
 	 *  (branches, tags, stashes, …). */
 	sessionId?: string;
+	/** Display name of the clicked row's ref (branch/tag/stash), for jump-failure feedback. */
+	name?: string;
+	/** Whether the row carries the Focus inline action — a double-click on it scopes the graph, so
+	 *  the select handler holds navigation briefly to see if one lands. */
+	canFocus?: boolean;
+	/** Whether this select also dispatched a scope — the app positions after the scope's restructure
+	 *  instead of immediately. */
+	scoped?: boolean;
 }
 
 export type GraphSidebarTogglePinnedEventDetail = void;
@@ -210,6 +218,16 @@ export interface SidebarItemScope {
  *  branches pointing at the same commit, so telemetry resolves the clicked branch by name
  *  (the name itself is not emitted). */
 type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope, sessionId?: string, name?: string];
+
+/** Builds a {@link SidebarItemContext} from named fields — the tuple's optional middle slots are
+ *  meaningless for most panels, and hand-counting `undefined` placeholders to reach a later slot
+ *  invites a silent transposition (several slots share `string | undefined`). */
+function sidebarItemContext(
+	sha: string | undefined,
+	options?: { scope?: SidebarItemScope; sessionId?: string; name?: string },
+): SidebarItemContext {
+	return [sha, options?.scope, options?.sessionId, options?.name];
+}
 
 interface LeafProps {
 	label: string;
@@ -1305,7 +1323,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						icon: 'archive',
 						description: parts.length > 0 ? parts.join(', ') : undefined,
 						checkable: false,
-						context: [s.sha] as SidebarItemContext,
+						context: sidebarItemContext(s.sha, { name: s.name }),
 						actions: [
 							{ icon: 'gl-stash-pop', label: 'Apply / Pop Stash...', action: 'gitlens.stashApply:graph' },
 							{ icon: 'trash', label: 'Delete Stash...', action: 'gitlens.stashDelete:graph' },
@@ -1355,7 +1373,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: branchTreeIcon(b),
 			description: b.date != null ? fromNow(b.date) : undefined,
 			muted: hidden,
-			context: [b.sha, undefined, undefined, b.name] as SidebarItemContext,
+			context: sidebarItemContext(b.sha, { name: b.name }),
 			// Pin before check so the checkmark closes the row — it's the more permanent of the two states,
 			// and keeping it outermost stops it shifting when a pin comes and goes.
 			decorations: [
@@ -1540,7 +1558,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					? [{ type: 'icon' as const, icon: groupIcon, label: groupLabel ?? '', kind: decorationKind }]
 					: []),
 			] satisfies TreeItemDecoration[],
-			context: [pr.headSha] as SidebarItemContext,
+			context: sidebarItemContext(pr.headSha),
 			contextValue: pr.context,
 			actions: actions,
 		};
@@ -1556,7 +1574,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: 'tag',
 			description: t.message,
 			muted: hidden,
-			context: [t.sha] as SidebarItemContext,
+			context: sidebarItemContext(t.sha, { name: t.name }),
 			decorations: hidden ? [hiddenDecoration] : undefined,
 			actions: [
 				{ icon: 'gl-switch', label: 'Switch to Tag...', action: 'gitlens.graph.switchToTag' },
@@ -1647,7 +1665,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			tooltip: tooltip,
 			icon: w.branch != null ? { type: 'branch', status: w.status, hasChanges: w.hasChanges } : 'git-commit',
 			description: formatWorktreeDescription(w),
-			context: [w.wipSha] as SidebarItemContext,
+			context: sidebarItemContext(w.wipSha, { name: branchName }),
 			decorations: [
 				...wipDecoration,
 				...(trackingDecorations(w.tracking) ?? []),
@@ -1793,7 +1811,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// Completed sessions are done history — dim the whole row so they read as distinct from
 			// the still-live idle/stale sessions they share the Inactive grouping with.
 			muted: category === 'completed',
-			context: [sha, scope, session.id] as SidebarItemContext,
+			context: sidebarItemContext(sha, { scope: scope, sessionId: session.id }),
 			actions: actions,
 		};
 	}
@@ -1891,7 +1909,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					icon: group.type === 'worktree' ? { type: 'branch' as const, worktree: true } : 'folder',
 					description: description !== group.name ? description : undefined,
 					checkable: false,
-					context: [group.anchor.wipSha, group.anchor.scope] as SidebarItemContext,
+					context: sidebarItemContext(group.anchor.wipSha, { scope: group.anchor.scope }),
 					contextData: contextData,
 					children: children,
 					actions: actions,
@@ -1945,7 +1963,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						filterText: isTree ? b.name : undefined,
 						tooltip: `$(git-branch) \`${r.name}/${b.name}\``,
 						icon: 'git-branch',
-						context: [b.sha] as SidebarItemContext,
+						context: sidebarItemContext(b.sha, { name: `${r.name}/${b.name}` }),
 						muted: hidden,
 						decorations: [
 							...(b.pinned ? [pinnedToEdgeDecoration] : []),
@@ -2480,6 +2498,21 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private handleTreeItemSelected(
 		e: CustomEvent<TreeItemSelectionDetail & { context?: SidebarItemContext; node?: { path?: string } }>,
 	) {
+		// A double-click is the row's Focus action: scope (or unscope) the graph to the row's branch,
+		// same toggle semantics as the inline target chip. Rows without a Focus action — tags, stashes,
+		// group/header rows, unborn branches — have nothing to focus and fall through to nothing.
+		// The two single-click events preceding a dblclick already did selection, so return here
+		// rather than re-running telemetry/navigation a third time.
+		if (e.detail.dblClick) {
+			const node = e.detail.node as TreeModelFlat | undefined;
+			const focus = node?.actions?.find(a => a.action === focusRefActionId);
+			if (focus != null) {
+				this.focusRef(focus.arguments?.[0] as FocusRefActionArgs | undefined);
+			}
+
+			return;
+		}
+
 		if (this.activePanel != null && e.detail.node?.path != null) {
 			this._actions.selectedPath[this.activePanel] = e.detail.node.path;
 		}
@@ -2558,7 +2591,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
-				detail: { sha: sha, sessionId: sessionId },
+				detail: {
+					sha: sha,
+					sessionId: sessionId,
+					name: context?.[3],
+					canFocus:
+						(e.detail.node as TreeModelFlat | undefined)?.actions?.some(
+							a => a.action === focusRefActionId,
+						) === true,
+					scoped: scope != null,
+				},
 				bubbles: true,
 				composed: true,
 			}),

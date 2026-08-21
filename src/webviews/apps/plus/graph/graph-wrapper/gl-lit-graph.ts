@@ -8687,6 +8687,15 @@ export class GlLitGraph extends LitElement {
 		return 'unknown';
 	}
 
+	/** Whether a scope projection is currently applied to the rendered rows — while it is, a row the
+	 *  graph hasn't loaded can never render (paging in deeper history only adds rows the projection
+	 *  drops), which is what lets a jump to an unloaded target answer as scope-hidden without a host
+	 *  walk. The state-level scope clears synchronously; this lifts on the next update — remedy
+	 *  flows poll it so a re-run jump can't classify against the stale projection. */
+	isScopeProjectionActive(): boolean {
+		return this.scopeProjection != null;
+	}
+
 	// Reachability probes for `getRowHiddenReason`, keyed by which narrowing was waived. Dropped whole
 	// whenever any input the row filter reads changes — the host ships a fresh object per change, so
 	// identity is the invalidation signal (same compare `lastExcludeRefsForRows` & co. use).

@@ -94,6 +94,11 @@ export interface OverviewBarJumpDetail {
 	sha: string;
 }
 
+export interface OverviewBarFocusDetail {
+	branchId: string;
+	branch: string;
+}
+
 @customElement('gl-graph-overview-bar')
 export class GlGraphOverviewBar extends LitElement {
 	static override styles = [boxSizingBase, focusableBaseStyles, overviewBarStyles];
@@ -137,6 +142,23 @@ export class GlGraphOverviewBar extends LitElement {
 		if (id == null) return;
 
 		this.selectWipById(id, e);
+	};
+
+	/** Double-click a pill → focus (scope) the graph on its worktree's branch, same vocabulary as the
+	 *  sidebar rows. Detached worktrees (no `branchId`) have no branch to focus — no-op. */
+	private readonly onItemDblClick = (e: MouseEvent): void => {
+		const id = (e.currentTarget as HTMLElement).dataset.id;
+		const item = id != null ? this.items.find(i => i.id === id) : undefined;
+		if (item?.branchId == null) return;
+
+		e.stopPropagation();
+		this.dispatchEvent(
+			new CustomEvent<OverviewBarFocusDetail>('gl-graph-overview-bar-focus', {
+				detail: { branchId: item.branchId, branch: item.branch },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	};
 
 	private selectWipById(id: string, e: Event): void {
@@ -558,6 +580,7 @@ export class GlGraphOverviewBar extends LitElement {
 						data-id=${item.id}
 						data-index=${index}
 						@click=${this.onItemClick}
+						@dblclick=${this.onItemDblClick}
 						@mouseenter=${this.onPillHover}
 						@focus=${this.onPillHover}
 						aria-current=${isSelected ? 'true' : nothing}

@@ -1457,6 +1457,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return matched.map(row => this.withVisibility(row));
 	}
 
+	/** Whether the graph is still rendering under a scope projection — see
+	 *  {@link GlLitGraph.isScopeProjectionActive}. Remedy flows poll this, not just the cleared
+	 *  scope state, before re-running a jump. */
+	isScopeProjectionActive(): boolean {
+		return this.querySelector('gl-lit-graph')?.isScopeProjectionActive() === true;
+	}
+
 	private withVisibility(row: GitGraphRow): ReadonlyGraphRow {
 		const lit = this.querySelector('gl-lit-graph');
 		return { ...row, hidden: lit != null ? !lit.isRowDisplayed(row.sha) : false };
@@ -1761,6 +1768,25 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				pending.reveal = merged;
 				litGraph?.scrollToSha(sha, merged);
 			}
+
+			// Same upgrade-don't-discard rule again for feedback: a silent ambient load (e.g. the
+			// synthetic-WIP anchor page-in, `feedback: false`) must not swallow a user click's right to
+			// a toast when the click coalesces onto it.
+			pending.feedback ||= feedback;
+			// Re-surface the feedback the first ask may have outlived — a repeat click on a row whose
+			// load is still in flight otherwise reads as a dead click once its toast was dismissed or
+			// superseded. Gated on THIS ask's `feedback`, not the merged flag: a silent ambient repeat
+			// (e.g. a trailing selection-sync) must not resurrect a toast the user dismissed. The
+			// announcement re-arms the searching toast (shown only while the load actually holds
+			// `ensureLoading`, so it can't invent progress that isn't happening).
+			if (feedback) {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-navigation-loading', {
+						detail: { sha: sha, ref: ref ?? pending.ref, feedback: true },
+					}),
+				);
+			}
+
 			return pending.promise;
 		}
 
@@ -1822,6 +1848,20 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			this._selectIntentRepositoryId = undefined;
 			this._selectIntentRepoPath = undefined;
 			this.settleNavigationOnRow(row, feedback);
+			return navigation;
+		}
+
+		// While the scope projection is dropping rows, a target the graph isn't showing can never
+		// appear: paging in deeper history only adds rows the projection drops (even refs merely
+		// REACHABLE from the scope tips, like old merged branches, sit off the first-parent spines),
+		// and an unsynthesized WIP row stays unsynthesized (synthesis is scope-gated, and a worktree
+		// the scope covers already has its row — its anchor is the displayed branch tip). Answer as
+		// scope-hidden right here instead of paying for a host walk (or a deferred intent's silent
+		// timeout) that ends in the same toast. The one target this misjudges — a ref tip on the
+		// focal spine deeper than the loaded rows — is rare from the sidebar and fully recovered by
+		// the toast's Clear Scope re-run.
+		if (litGraph?.isScopeProjectionActive() === true) {
+			this.rejectPendingNavigation(generation, { kind: 'hidden', hidden: 'scope' });
 			return navigation;
 		}
 
