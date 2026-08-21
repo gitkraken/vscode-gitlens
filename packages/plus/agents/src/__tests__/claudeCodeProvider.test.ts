@@ -660,6 +660,117 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
+		test('a scratch cwd with a CLI-seated worktree resolves commonPath from the worktree root', async () => {
+			// The cwd itself (e.g. /tmp/x) isn't a repo, but the CLI attributed the session to a real
+			// worktree via cwdTimeline. Without a fallback probe of that worktree, commonPath would
+			// stay permanently unresolved even though the session's repo identity is knowable.
+			const worktree = '/repo/main';
+			const scratch = '/tmp/scratch';
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: (cwd: string) =>
+					Promise.resolve(
+						cwd === worktree
+							? { repoRoot: worktree, worktreePath: worktree, isWorktree: false }
+							: undefined,
+					),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([worktree]);
+				const handler = handlers.get('agents/session')!;
+				await handler(
+					{
+						event: 'SessionStart',
+						sessionId: 's1',
+						cwd: scratch,
+						pid: process.pid,
+						cwdTimeline: [{ cwd: scratch, worktree: worktree }],
+					},
+					new URLSearchParams(),
+				);
+				await flushMicrotasks();
+				await flushMicrotasks();
+
+				const s = provider.sessions.find(x => x.id === 's1');
+				assert.strictEqual(s?.worktreePath, worktree, 'the CLI-seated worktree is kept, not overwritten');
+				assert.strictEqual(s?.commonPath, worktree, 'commonPath comes from probing the worktree root');
+				assert.strictEqual(s?.initialCommonPath, worktree);
+				assert.strictEqual(s?.cwd, scratch, 'cwd stays the live scratch dir');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a transient git probe failure does not latch gitInfoUnresolvable, so the next event retries', async () => {
+			let calls = 0;
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: () => {
+					calls++;
+					if (calls === 1) return Promise.reject(new Error('git not available'));
+
+					return Promise.resolve({ repoRoot: '/repo', worktreePath: '/repo', isWorktree: false });
+				},
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', '/repo'), new URLSearchParams());
+				await flushMicrotasks();
+				assert.strictEqual(
+					provider.sessions.find(x => x.id === 's1')?.commonPath,
+					undefined,
+					'the transient failure resolves nothing yet',
+				);
+
+				// A follow-up hook event, same cwd — must retry rather than staying stuck.
+				await handler(
+					{ event: 'PreToolUse', sessionId: 's1', cwd: '/repo', toolName: 'Read' },
+					new URLSearchParams(),
+				);
+				await flushMicrotasks();
+				await flushMicrotasks();
+
+				assert.ok(calls >= 2, 'the follow-up event must retry the probe');
+				assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.commonPath, '/repo');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a confirmed non-repo cwd with no worktree attribution latches gitInfoUnresolvable after one probe', async () => {
+			let calls = 0;
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: () => {
+					calls++;
+					return Promise.resolve(undefined);
+				},
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', '/tmp/nogit'), new URLSearchParams());
+				await flushMicrotasks();
+
+				await handler(
+					{ event: 'PreToolUse', sessionId: 's1', cwd: '/tmp/nogit', toolName: 'Read' },
+					new URLSearchParams(),
+				);
+				await flushMicrotasks();
+				await handler(
+					{ event: 'PostToolUse', sessionId: 's1', cwd: '/tmp/nogit', toolName: 'Read' },
+					new URLSearchParams(),
+				);
+				await flushMicrotasks();
+
+				assert.strictEqual(calls, 1, 'no retry storm for a confirmed non-repo cwd');
+				assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.commonPath, undefined);
+			} finally {
+				provider.dispose();
+			}
+		});
+
 		test('updateWorkspacePaths normalizes and re-publishes', async () => {
 			const { callbacks, publishedPaths } = createMockCallbacks();
 			const provider = new ClaudeCodeProvider(callbacks);
@@ -2145,6 +2256,59 @@ suite('ClaudeCodeProvider ended sessions', () => {
 				'ended',
 				'a stale pre-completion snapshot must not resurrect the terminal row',
 			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a poll revive whose worktree moved re-probes even when cwd stays the same', async () => {
+		// The revive branch drops `commonPath` whenever the record's worktree differs from the
+		// held one (`worktreeMoved ? undefined : existing.commonPath`), but the follow-up probe
+		// used to fire only on a cwd change — a move where cwd stays put left commonPath
+		// undefined forever.
+		const WORKTREE = `${REPO}.worktrees/feature`;
+		let gitInfoCalls = 0;
+		const options: {
+			cliResponse?: string;
+			resolveGitInfo?: () => Promise<{ repoRoot: string; worktreePath: string; isWorktree: boolean }>;
+		} = {
+			cliResponse: JSON.stringify([
+				endedRecord('moved-wt', {
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: '2026-07-08T00:00:00.000Z' }],
+				}),
+			]),
+			resolveGitInfo: () => {
+				gitInfoCalls++;
+				return Promise.resolve({ repoRoot: WORKTREE, worktreePath: WORKTREE, isWorktree: true });
+			},
+		};
+		const { callbacks } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const ended = provider.sessions.find(s => s.id === 'moved-wt');
+			assert.strictEqual(ended?.status, 'ended');
+			assert.strictEqual(ended?.worktreePath, REPO);
+
+			// Revive with the SAME cwd but a NEW worktree in the timeline — no cwd change to key
+			// off, so only the widened worktree-moved check can trigger the probe.
+			options.cliResponse = JSON.stringify([
+				{
+					...sessionFileData('moved-wt', REPO),
+					updatedAt: '2026-07-10T00:05:00.000Z',
+					cwdTimeline: [{ cwd: REPO, worktree: WORKTREE, at: '2026-07-10T00:05:00.000Z' }],
+				},
+			]);
+			await provider.runGatedSync();
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'moved-wt');
+			assert.notStrictEqual(s?.status, 'ended', 'the row is live again');
+			assert.strictEqual(s?.cwd, REPO);
+			assert.strictEqual(s?.worktreePath, WORKTREE, 'the record’s new worktree wins');
+			assert.ok(gitInfoCalls >= 1, 'the moved worktree must still trigger the commonPath probe');
+			assert.strictEqual(s?.commonPath, WORKTREE, 'commonPath is refilled by the probe');
 		} finally {
 			provider.dispose();
 		}

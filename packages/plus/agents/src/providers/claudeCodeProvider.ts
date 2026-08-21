@@ -2309,10 +2309,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		this._resolveGitInfoInFlight.set(sessionId, cwd);
 		try {
 			let info: Awaited<ReturnType<typeof resolveGitInfo>> | undefined;
+			let failed = false;
 			try {
 				info = await resolveGitInfo(cwd);
 			} catch {
-				// Git not available or not a git repo — fall through to mark unresolvable below
+				// A transient git/spawn failure, distinct from a confirmed "not a repo" (`info ==
+				// null` below). Must not latch `gitInfoUnresolvable` — the next hook event retries
+				// via `ensureSession`'s `commonPath == null` check.
+				failed = true;
 				info = undefined;
 			}
 
@@ -2323,6 +2327,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// already left, so applying it would undo the newer location. Drop it — the `finally`
 			// below re-runs for the newest cwd.
 			if (this._resolveGitInfoPending.has(sessionId)) return;
+
+			if (failed) return;
 
 			const session = this._sessions[index];
 
@@ -2341,6 +2347,44 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// followed by a new session start).
 			if (info == null) {
 				this.getBookkeeping(sessionId).gitInfoUnresolvable = true;
+
+				// The cwd itself isn't a repo, but a CLI-seated worktree (from `cwdTimeline`, see
+				// `worktreeFromEvent`) may still name one — e.g. a scratch cwd like `/tmp/x` whose
+				// session the CLI attributed to a real worktree. Probe the worktree root inline, in
+				// the same in-flight window, so a scratch cwd doesn't leave `commonPath` permanently
+				// unresolved.
+				if (session.worktreePath != null && session.worktreePath !== cwd && session.commonPath == null) {
+					let worktreeInfo: Awaited<ReturnType<typeof resolveGitInfo>> | undefined;
+					try {
+						worktreeInfo = await resolveGitInfo(session.worktreePath);
+					} catch {
+						worktreeInfo = undefined;
+					}
+
+					const worktreeIndex = this._sessions.findIndex(s => s.id === sessionId);
+					if (worktreeIndex < 0) return;
+
+					if (this._resolveGitInfoPending.has(sessionId)) return;
+
+					if (worktreeInfo != null) {
+						const worktreeSession = this._sessions[worktreeIndex];
+						const worktreeFirstResolve = worktreeSession.initialCommonPath == null;
+						this._sessions[worktreeIndex] = {
+							...worktreeSession,
+							cwd: cwd,
+							commonPath: worktreeInfo.repoRoot,
+							initialWorktreePath: worktreeFirstResolve
+								? worktreeSession.worktreePath
+								: worktreeSession.initialWorktreePath,
+							initialCommonPath: worktreeFirstResolve
+								? worktreeInfo.repoRoot
+								: worktreeSession.initialCommonPath,
+						};
+						this._onDidChangeSessions.fire();
+						return;
+					}
+				}
+
 				if (cwd !== session.cwd) {
 					this._sessions[index] = { ...session, cwd: cwd };
 					this._onDidChangeSessions.fire();
@@ -2898,7 +2942,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// The record's worktree is the CLI's own resolution; without one the probe owns
 						// attribution again.
 						this.getBookkeeping(data.sessionId).cliSeatedWorktree = revivedWorktreeRoot != null;
-						if (data.cwd != null && data.cwd !== existing.cwd) {
+						// A revive whose worktree moved but whose cwd happens to equal the prior one still
+						// dropped `commonPath` above and needs the probe to refill it.
+						if (
+							data.cwd != null &&
+							(data.cwd !== existing.cwd || revivedWorktreePath !== existing.worktreePath)
+						) {
 							void this.resolveGitInfo(data.sessionId, data.cwd);
 						}
 						changed = true;
