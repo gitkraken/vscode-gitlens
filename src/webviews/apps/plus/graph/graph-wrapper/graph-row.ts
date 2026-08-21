@@ -55,6 +55,7 @@ import {
 import type { GutterCache } from './graph-gutter-cache.js';
 import type { NodeStyle, WipNodeState } from './graph-gutter.js';
 import { nodeRadiusFor, wipRingInnerRadius } from './graph-gutter.js';
+import '../../../shared/components/agents/gl-agent-mark.js';
 import '../../../shared/components/code-icon.js';
 
 /**
@@ -908,7 +909,6 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			const composeTip = rowAdornmentTooltipFor('compose', op?.compose?.execState, composeHasResult);
 			const reviewTip = rowAdornmentTooltipFor('review', op?.review?.execState, reviewHasResult);
 			const agent = ctx.wipAgent;
-			const agentIcon = agent != null ? agentSuffixIconFor(agent.category) : undefined;
 			const agentTip = agent != null ? agentIndicatorTooltipFor(agent.category) : '';
 			const resolveActive = op?.resolve != null;
 			const resolveHasResult = op?.resolve?.result != null;
@@ -932,10 +932,13 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 								data-tooltip=${agentTip}
 								aria-label=${agentTip}
 							>
-								<code-icon icon="robot"></code-icon>${renderActionStatus(
-									agentIcon,
-									agent.category === 'working',
-								)}
+								<code-icon icon="robot"></code-icon>
+								<gl-agent-mark
+									class="gl-graph__row-action-status"
+									category=${agent.category}
+									variant="badge"
+									aria-hidden="true"
+								></gl-agent-mark>
 							</button>`
 						: nothing
 				}${

@@ -1161,17 +1161,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						></gl-button>`
 					: nothing
 			}${
-				showCompletedAgentSessions != null
+				showPastAgentSessions != null
 					? html`<gl-button
 							slot="filter-actions"
 							appearance="toolbar"
 							density="compact"
 							role="checkbox"
-							aria-checked=${showCompletedAgentSessions ? 'true' : 'false'}
-							tooltip="${showCompletedAgentSessions ? 'Hide Completed Sessions' : 'Show Completed Sessions'}"
-							aria-label="Show Completed Sessions"
-							@click=${this.handleToggleShowCompletedAgentSessions}
-							><code-icon icon="${showCompletedAgentSessions ? 'pass-filled' : 'pass'}"></code-icon
+							aria-checked=${showPastAgentSessions ? 'true' : 'false'}
+							tooltip="${showPastAgentSessions ? 'Hide Past Sessions' : 'Show Past Sessions'}"
+							aria-label="Show Past Sessions"
+							@click=${this.handleToggleShowPastAgentSessions}
+							><code-icon icon="history"></code-icon
 						></gl-button>`
 					: nothing
 			}${
@@ -1800,17 +1800,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 		}
 
-		// Phase status is conveyed by the leaf's agent icon (glyph + `--gl-agent-*` color) and the
-		// tooltip — no redundant text decoration.
+		// Phase status is conveyed by the leaf's agent mark (shape + `--gl-agent-*` color) and the
+		// tooltip — no redundant text decoration. The provider travels with the icon so the leaf can
+		// draw its logomark and overlay the phase mark on it.
 		return {
 			label: session.displayName,
 			tooltip: html`<gl-agent-tooltip .sessionId=${session.id}></gl-agent-tooltip>`,
 			filterText: `${session.displayName} ${session.lastPrompt ?? ''}`.trim(),
-			icon: { type: 'agent', phase: session.phase },
+			icon: { type: 'agent', phase: session.phase, provider: session.providerId },
 			description: description,
-			// Completed sessions are done history — dim the whole row so they read as distinct from
+			// Ended sessions are done history — dim the whole row so they read as distinct from
 			// the still-live idle/stale sessions they share the Inactive grouping with.
-			muted: category === 'completed',
+			muted: category === 'ended',
 			context: sidebarItemContext(sha, { scope: scope, sessionId: session.id }),
 			actions: actions,
 		};
@@ -2140,19 +2141,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		);
 	};
 
-	private handleToggleShowCompletedAgentSessions = () => {
-		const enabled = !(this._state.sidebar?.showCompletedAgentSessions ?? false);
-		emitTelemetrySentEvent<'graph/agents/showCompletedToggled'>(this, {
-			name: 'graph/agents/showCompletedToggled',
+	private handleToggleShowPastAgentSessions = () => {
+		const enabled = !(this._state.sidebar?.showPastAgentSessions ?? false);
+		emitTelemetrySentEvent<'graph/agents/showEndedToggled'>(this, {
+			name: 'graph/agents/showEndedToggled',
 			data: {
 				enabled: enabled,
-				'sessions.completed.count': (this._state.agentSessions ?? []).filter(s => s.phase === 'completed')
-					.length,
+				'sessions.ended.count': (this._state.agentSessions ?? []).filter(s => s.phase === 'ended').length,
 			},
 		});
-		this._state.sidebar = { showCompletedAgentSessions: enabled };
+		this._state.sidebar = { showPastAgentSessions: enabled };
 		this.dispatchEvent(
-			new CustomEvent<boolean>('gl-graph-sidebar-show-completed-agents-change', {
+			new CustomEvent<boolean>('gl-graph-sidebar-show-past-agents-change', {
 				detail: enabled,
 				bubbles: true,
 				composed: true,

@@ -5,7 +5,12 @@ import { customElement, property } from 'lit/decorators.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
-import { agentPhaseToCategory, formatAgentElapsed, getAgentPhaseLabel } from '../../../shared/agentUtils.js';
+import {
+	agentPhaseToCategory,
+	agentProviderIcon,
+	formatAgentElapsed,
+	getAgentPhaseLabel,
+} from '../../../shared/agentUtils.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/code-icon.js';
 import { graphStateContext } from '../context.js';
@@ -71,7 +76,6 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		.header__phase {
 			display: inline-flex;
 			flex: 0 0 auto;
-			gap: var(--gl-space-4);
 			align-items: center;
 			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
@@ -87,8 +91,8 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 			color: var(--gl-agent-waiting-color);
 		}
 
-		.header__phase--completed {
-			color: var(--vscode-descriptionForeground);
+		.header__phase--ended {
+			color: var(--gl-agent-ended-color);
 		}
 
 		.identity-line {
@@ -171,15 +175,6 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		const category = agentPhaseToCategory[session.phase];
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		// Mirrors the leaf's glyph mapping in `gl-tree-view` so hovering a row doesn't swap icons.
-		const phaseIcon =
-			category === 'needs-input'
-				? 'warning'
-				: category === 'working'
-					? 'sync'
-					: category === 'completed'
-						? 'pass'
-						: 'circle-filled';
 
 		const wt = session.worktree;
 		const folderPath = wt?.path ?? session.workspacePath;
@@ -187,11 +182,12 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		return html`
 			<div class="header">
 				<span class="header__identity">
-					<code-icon icon="claude"></code-icon>
+					<code-icon icon=${agentProviderIcon(session.providerId)}></code-icon>
 					<span class="header__name">${session.displayName}</span>
 				</span>
+				<!-- No glyph: the phase is already spelled out in words right here, and the row this
+				     tooltip describes carries the mark. A second copy of it adds nothing. -->
 				<span class="header__phase header__phase--${category}">
-					<code-icon icon=${phaseIcon}></code-icon>
 					${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}
 				</span>
 			</div>

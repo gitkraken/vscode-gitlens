@@ -34,6 +34,24 @@ export function canResolvePermission(
 	return category === 'needs-input' && permission != null && permission.resolvable !== false;
 }
 
+/** Identity glyph for the agent's provider. Rendered PLAIN — never phase-coloured, never carrying a
+ *  badge: a logomark is a thin, radial thing (Claude's asterisk, Gemini's spark) and comes apart the
+ *  moment something is punched through it or laid over it. Phase belongs on the mark; this only says
+ *  who. Falls back to the generic robot for a provider with no glyph of its own yet. */
+export function agentProviderIcon(providerName: string | undefined): string {
+	switch (providerName) {
+		case 'claudeCode':
+		case 'claude-code':
+			return 'claude';
+		case 'copilot':
+			return 'copilot';
+		case 'cursor':
+			return 'cursor';
+		default:
+			return 'robot';
+	}
+}
+
 export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	switch (category) {
 		case 'needs-input':
@@ -42,31 +60,13 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 			return 'Working';
 		case 'idle':
 			return 'Idle';
-		case 'completed':
-			return 'Completed';
-	}
-}
-
-/** Corner-badge glyph overlaid on the `robot` identity icon. `idle` has no badge — the bare robot
- *  in its color carries the meaning. Shared by the graph's WIP row indicator and the file tree's
- *  agent decoration so both read the same. Callers holding an `AgentSessionPhase` must map through
- *  {@link agentPhaseToCategory} first (`waiting` → `needs-input`). Pair `working`'s `sync` with
- *  `modifier="spin"`. */
-export function agentSuffixIconFor(category: AgentSessionCategory): string | undefined {
-	switch (category) {
-		case 'needs-input':
-			return 'warning';
-		case 'working':
-			return 'sync';
-		case 'idle':
-			return undefined;
-		case 'completed':
-			return 'pass';
+		case 'ended':
+			return 'Past';
 	}
 }
 
 /** The "open" affordance for an agent session — `Open Session` for every live phase, `Resume
- *  Session` for a completed one that has a directory to resume into. */
+ *  Session` for an ended one that has a directory to resume into. */
 export type AgentSessionOpenAction =
 	| {
 			label: 'Open Session';
@@ -84,15 +84,15 @@ export type AgentSessionOpenAction =
 	  };
 
 /** Picks between `Open Session` (there's a live process to attach to) and `Resume Session`
- *  (the process is gone, but the transcript can be replayed into a fresh one). Only a completed
- *  session with a resolvable cwd gets `Resume Session` — a completed session with nowhere to
+ *  (the process is gone, but the transcript can be replayed into a fresh one). Only an ended
+ *  session with a resolvable cwd gets `Resume Session` — an ended session with nowhere to
  *  resume from has nothing to offer but the openSession modal's terminal fallback.
  *
  *  cwd resolution mirrors {@link toResumableSessionRef}'s cascade (`claudeResume.ts`): live `cwd`
  *  wins over `initialCwd` because Claude migrates the transcript file to follow the session's
  *  current directory, not its launch directory. */
 export function getAgentSessionOpenAction(session: AgentSessionState): AgentSessionOpenAction {
-	if (session.phase === 'completed') {
+	if (session.phase === 'ended') {
 		const cwd = session.cwd ?? session.initialCwd ?? session.worktreePath ?? session.workspacePath;
 		if (cwd != null) {
 			return {

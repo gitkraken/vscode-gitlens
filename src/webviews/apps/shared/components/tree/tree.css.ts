@@ -68,6 +68,7 @@ export const treeItemStyles = [
 			z-index: 1;
 			color: var(--vscode-list-hoverForeground);
 			background-color: var(--vscode-list-hoverBackground);
+			--gl-tree-row-bg: var(--vscode-list-hoverBackground);
 		}
 
 		/* Disabled state — propagated from disable-check so AI-excluded files (or any other
@@ -96,7 +97,7 @@ export const treeItemStyles = [
 			background-color: transparent;
 		}
 
-		/* Muted — de-emphasized but still fully interactive (e.g. a completed agent session shown as
+		/* Muted — de-emphasized but still fully interactive (e.g. an ended agent session shown as
 	   done history). Dims the label/icon/description only; actions stay at full strength so the
 	   row's affordances (Open, Archive) remain prominent on hover. */
 		:host([muted]) .item,
@@ -122,6 +123,11 @@ export const treeItemStyles = [
 				var(--vscode-list-inactiveSelectionForeground)
 			);
 			background-color: color-mix(
+				in srgb,
+				var(--vscode-list-activeSelectionBackground) calc(var(--gl-tree-focus-within, 0) * 100%),
+				var(--vscode-list-inactiveSelectionBackground)
+			);
+			--gl-tree-row-bg: color-mix(
 				in srgb,
 				var(--vscode-list-activeSelectionBackground) calc(var(--gl-tree-focus-within, 0) * 100%),
 				var(--vscode-list-inactiveSelectionBackground)

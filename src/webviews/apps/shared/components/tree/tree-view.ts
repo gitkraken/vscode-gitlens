@@ -7,7 +7,7 @@ import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { when } from 'lit/directives/when.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
-import { agentPhaseToCategory, agentSuffixIconFor } from '../../agentUtils.js';
+import { agentPhaseToCategory, agentProviderIcon } from '../../agentUtils.js';
 import type { CollectionIndexController } from '../../controllers/collection-index.js';
 import { FilterController } from '../../controllers/filter.js';
 import type { FocusController } from '../../controllers/focus.js';
@@ -31,6 +31,7 @@ import type {
 } from './base.js';
 import type { GlTreeItem } from './tree-item.js';
 import '@lit-labs/virtualizer';
+import '../agents/gl-agent-mark.js';
 import '../chips/action-chip.js';
 import '../branch-icon.js';
 import '../commit/wip-stats.js';
@@ -260,53 +261,71 @@ export class GlTreeView extends GlElement {
 
 			/* Phase-tinted agent icon — pulls from the shared --gl-agent-* palette defined in
 	   theme.scss so leaf, tooltip, pill, and details panel all dereference the same set
-	   of variables. code-icon's :host inherits color from its parent, so styling the
-	   element here flows through to its rendered glyph. */
-			code-icon.tree-icon-agent {
+	   of variables. Unqualified (not scoped to code-icon) so the same rules also tint the
+	   gl-agent-mark corner badge below — both the identity glyph and its phase mark carry
+	   these classes and must always agree on color. code-icon's :host inherits color from its
+	   parent, so styling the element here flows through to its rendered glyph; gl-agent-mark
+	   draws entirely in currentColor, so it picks the color up the same way. */
+			.tree-icon-agent {
 				color: var(--gl-agent-idle-color);
 			}
 
-			code-icon.tree-icon-agent--working {
+			.tree-icon-agent--working {
 				color: var(--gl-agent-working-color);
 			}
 
-			code-icon.tree-icon-agent--waiting {
+			.tree-icon-agent--waiting {
 				color: var(--gl-agent-waiting-color);
 			}
 
-			code-icon.tree-icon-agent--completed {
-				color: var(--vscode-descriptionForeground);
+			.tree-icon-agent--ended {
+				color: var(--gl-agent-ended-color);
 			}
 
-			/* Positioning context for the robot + its overlaid phase badge, which together read as
+			/* Positioning context for the robot + its overlaid phase mark, which together read as
 	   one identity marker. The decoration slot's gap applies between this wrapper and any
 	   sibling decoration, never inside it. */
+			/* The leaf's logomark gets the graph's icon size, not the tree's 1.3rem default: at 1.3rem
+	   the badge covers more than half of a thin radial mark. Scoped to this anchor so file-tree
+	   decorations keep the tree's own sizing. */
 			.tree-icon-agent-anchor {
 				position: relative;
 				display: inline-flex;
 				align-items: center;
 			}
 
-			/* Phase glyph overlaid on the robot's bottom-right corner, mirroring the graph's WIP row
-	   indicator (.gl-graph__row-action-status). Sized via code-icon's own size attribute
-	   rather than font-size, so it lands on the same 12px disc the graph uses. */
-			code-icon.tree-icon-agent__badge {
-				position: absolute;
-				right: -0.1rem;
-				bottom: -0.1rem;
+			/* Opaque chip behind the mark, in the row's own colour, so the identity glyph is
+	   OCCLUDED rather than cut. A cutout has to survive whatever glyph it lands on, and a thin
+	   radiating mark like Claude's comes apart when you punch a hole through it. The chip needs
+	   the row's background, which tree-item publishes as --gl-tree-row-bg for each of its states
+	   (rest / hover / selected); custom properties inherit through the flattened tree, so slotted
+	   content picks up the right one without tracking state itself.
+
+	   Sized to circumscribe the mark's RING, in em so it tracks the glyph — the triangle runs
+	   wider than the circle and the square's corners reach furthest, so both take the larger disc.
+	   Painted between the glyph and the mark, hence the z-index ladder. */
+			/* The leaf mirrors the graph's WIP-row indicator exactly — same glyph size, same badge
+	   basis, same offsets — so one composition is learned once. The mark draws its own opaque
+	   backing in its own silhouette; all this supplies is the colour to cut with, which
+	   tree-item publishes per row state as --gl-tree-row-bg. */
+			.tree-icon-agent-anchor--leaf {
+				--code-icon-size: 1.6rem;
 			}
 
-			/* Punch a hole in the robot behind the badge rather than backing the badge with an opaque
-	   chip (what the graph does). A chip has to re-tint itself against every row state; this
-	   component has no row-tint variable to track, and a cutout needs none — the row's own
-	   background (rest, hover, selected, drag) shows through untouched. Geometry resolves
-	   against the robot's own em box (1em = --code-icon-size = 16px): the badge's 12px disc
-	   centers ~0.69em in from each edge, so a 0.4em radius clears it with a hair to spare.
-	   Only applied when a badge is actually present, so a lone robot isn't needlessly notched. */
-			code-icon.tree-icon-agent--badged {
-				--gl-agent-badge-cutout: radial-gradient(circle 0.4em at 0.69em 0.69em, transparent 96%, #000 100%);
-				-webkit-mask-image: var(--gl-agent-badge-cutout);
-				mask-image: var(--gl-agent-badge-cutout);
+			.tree-icon-agent-anchor gl-agent-mark.tree-icon-agent {
+				/* Composited, not a bare var: the hover and selection colours tree-item publishes are
+		   semi-transparent, so painting one directly leaves a see-through chip that occludes
+		   nothing — the cut vanishes exactly when a row is hovered or selected. Layering the row
+		   colour over the panel's opaque background reproduces the row's effective surface. */
+				--gl-agent-mark-chip:
+					linear-gradient(var(--gl-tree-row-bg, transparent), var(--gl-tree-row-bg, transparent)),
+					var(--color-view-background, var(--vscode-sideBar-background));
+
+				position: absolute;
+				font-size: 1.2rem;
+				right: 0.05em;
+				bottom: 0.05em;
+				z-index: 2;
 			}
 		`,
 	];
@@ -715,7 +734,7 @@ export class GlTreeView extends GlElement {
 			| { type: 'status'; name: GlGitStatus['status'] }
 			| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean }
 			| { type: 'file-icon'; filename: string }
-			| { type: 'agent'; phase: AgentSessionPhase }
+			| { type: 'agent'; phase: AgentSessionPhase; provider?: string }
 			| { type: 'pull-request'; state?: string; draft?: boolean },
 	) {
 		if (icon == null) return nothing;
@@ -742,26 +761,22 @@ export class GlTreeView extends GlElement {
 		}
 
 		if (icon.type === 'agent') {
-			// Phase-driven glyph AND color so the leaf telegraphs state at a glance — color alone
-			// is a single-axis signal and fails for color-blind scanning. Idle keeps the Claude
-			// brand asterisk (default state retains provider identity); working spins a `sync`
-			// glyph as an activity cue; waiting flips to `warning` as a call-to-action; completed
-			// settles on a neutral `pass` check. Colors come from the shared palette via static styles.
-			const phaseIcon =
-				icon.phase === 'working'
-					? 'sync'
-					: icon.phase === 'waiting'
-						? 'warning'
-						: icon.phase === 'completed'
-							? 'pass'
-							: 'claude';
-			const modifier = icon.phase === 'working' ? 'spin' : undefined;
-			return html`<code-icon
-				slot="icon"
-				icon="${phaseIcon}"
-				modifier=${ifDefined(modifier)}
-				class="tree-icon-agent tree-icon-agent--${icon.phase}"
-			></code-icon>`;
+			// Provider glyph with the phase mark OVERLAID on its corner, same composition as the
+			// graph's WIP-row indicator and the file decoration below. The glyph is rendered at the
+			// larger icon size here so the badge reads as a badge rather than swallowing it — a
+			// logomark is thinner than the robot and needs the extra room to survive an overlay.
+			return html`<span class="tree-icon-agent-anchor tree-icon-agent-anchor--leaf" slot="icon">
+				<code-icon
+					icon=${agentProviderIcon(icon.provider)}
+					class="tree-icon-agent tree-icon-agent--${icon.phase}"
+				></code-icon>
+				<gl-agent-mark
+					class="tree-icon-agent tree-icon-agent--${icon.phase}"
+					category=${agentPhaseToCategory[icon.phase]}
+					variant="badge"
+					aria-hidden="true"
+				></gl-agent-mark>
+			</span>`;
 		}
 
 		if (icon.type === 'pull-request') {
@@ -871,34 +886,27 @@ export class GlTreeView extends GlElement {
 
 			if (decoration.type === 'agent') {
 				// One identity glyph: the robot (never animates) carries identity + phase color, with
-				// the phase glyph overlaid as a corner badge — the same vocabulary the graph's WIP row
-				// indicator uses, via the shared `agentSuffixIconFor`. The badge must be its own
+				// the ONE agent-phase mark (`<gl-agent-mark>`) overlaid as a corner badge — the same
+				// mark the graph's WIP row indicator and the details panel's cards use, so every
+				// surface agrees on shape/tempo per phase, not just color. The mark must be its own
 				// element rather than a ::after on the robot: code-icon's `modifier="spin"` rotates
 				// the whole host, which would spin the robot along with it. Color comes from the
-				// shared --gl-agent-* palette via `tree-icon-agent--${phase}` on each `code-icon`.
+				// shared --gl-agent-* palette via `tree-icon-agent--${phase}` on both elements.
 				const tooltip = decoration.tooltip ?? decoration.label;
 				const category = agentPhaseToCategory[decoration.phase];
-				const badge = agentSuffixIconFor(category);
 				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
 					<span class="tree-icon-agent-anchor">
 						<code-icon
 							icon="robot"
-							class="tree-icon-agent tree-icon-agent--${decoration.phase} ${
-								badge != null ? 'tree-icon-agent--badged' : ''
-							}"
+							class="tree-icon-agent tree-icon-agent--${decoration.phase}"
 							aria-label=${ifDefined(tooltip)}
 						></code-icon>
-						${
-							badge != null
-								? html`<code-icon
-										icon=${badge}
-										size="12"
-										modifier=${category === 'working' ? 'spin' : ''}
-										class="tree-icon-agent tree-icon-agent--${decoration.phase} tree-icon-agent__badge"
-										aria-hidden="true"
-									></code-icon>`
-								: nothing
-						}
+						<gl-agent-mark
+							class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+							category=${category}
+							variant="badge"
+							aria-hidden="true"
+						></gl-agent-mark>
 					</span>
 					<span slot="content">${tooltip}</span>
 				</gl-tooltip>`;

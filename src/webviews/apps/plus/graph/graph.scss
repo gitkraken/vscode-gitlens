@@ -1157,8 +1157,8 @@ gl-lit-graph {
 	.gl-graph__row-action.agent-indicator--idle {
 		color: var(--gl-agent-idle-color);
 	}
-	.gl-graph__row-action.agent-indicator--completed {
-		color: var(--vscode-descriptionForeground);
+	.gl-graph__row-action.agent-indicator--ended {
+		color: var(--gl-agent-ended-color);
 	}
 	.gl-graph__row-action {
 		position: relative;
@@ -1183,7 +1183,7 @@ gl-lit-graph {
 			outline-offset: -1px;
 		}
 	}
-	// Compose/review operation status (loading/result) + the agent indicator's category icon — a small
+	// Compose/review operation status (loading/result) + the agent indicator's phase mark — a small
 	// badge in the button's bottom-right corner, on an opaque chip so it reads over the main icon.
 	.gl-graph__row-action-status {
 		position: absolute;
@@ -1195,13 +1195,42 @@ gl-lit-graph {
 		background: linear-gradient(var(--row-background), var(--row-background)), var(--color-background);
 		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
 	}
-	// The agent badge IS the phase signal, so it takes the phase color from its button instead of the
-	// neutral foreground above — matching the file tree's agent decoration,
-	// whose suffix icon already inherits the color from `.agent-indicator`. Scoped to the agent button:
-	// the compose/review/resolve badges sharing this class encode operation state (loading/pass/error),
-	// which must not read as an agent phase. Outranks the base rule on specificity, not source order.
+	// The mark IS the phase signal on an agent button, so it takes the phase color from the button
+	// instead of the neutral foreground the chip class sets. Scoped to the agent button: the
+	// compose/review/resolve badges sharing that class encode operation state and must not read as
+	// an agent phase. The mark itself — shape, tempo, the always-present static ring — is the shared
+	// `<gl-agent-mark>` custom element (`shared/components/agents/gl-agent-mark.ts`), which draws
+	// into light DOM the same way it does into shadow DOM, so this is the ONLY copy of the geometry
+	// (no hand-synced SCSS duplicate to keep in lock-step anymore).
 	.gl-graph__row-action--agent .gl-graph__row-action-status {
 		color: inherit;
+	}
+	// The chip's job is to cut the robot's corner, so it has to be the size of the mark's RING, not
+	// of the mark's core box. `gl-agent-mark` sizes itself to the core (the ring overflows it,
+	// centred on the same point), so left alone the opaque backing would be half the width it needs
+	// and the robot would show straight through behind the ring.
+	// The mark draws its own opaque backing in its own silhouette — see gl-agent-mark. All this has
+	// to supply is the colour to cut with: the row's effective surface, same recipe the other
+	// row-action chips use.
+	.gl-graph__row-action--agent {
+		position: relative;
+
+		> code-icon {
+			position: relative;
+			z-index: 0;
+		}
+	}
+
+	gl-agent-mark.gl-graph__row-action-status {
+		// The row colour can be translucent, so hand over the same composite the other row-action
+		// chips use rather than a bare var — a semi-transparent chip hides nothing.
+		--gl-agent-mark-chip: linear-gradient(var(--row-background), var(--row-background)), var(--color-background);
+
+		background: none;
+		border-radius: 0;
+		right: 0.05em;
+		bottom: 0.05em;
+		z-index: 2;
 	}
 
 	// NOTE: the scope anchor's own thin left-edge rail (`.gl-graph__anchor`) AND its inline marker chips

@@ -106,15 +106,11 @@ export class GlAgentStatusPill extends LitElement {
 				--gl-agent-pill-idle-bg: color-mix(in srgb, var(--gl-agent-pill-idle-color) 10%, transparent);
 				--gl-agent-pill-idle-border: color-mix(in srgb, var(--gl-agent-pill-idle-color) 35%, transparent);
 
-				/* Completed (terminal) — neutral descriptionForeground, matching the details panel's
-		   completed accent, so done reads as history rather than another live state. */
-				--gl-agent-pill-completed-color: var(--vscode-descriptionForeground);
-				--gl-agent-pill-completed-bg: color-mix(in srgb, var(--gl-agent-pill-completed-color) 10%, transparent);
-				--gl-agent-pill-completed-border: color-mix(
-					in srgb,
-					var(--gl-agent-pill-completed-color) 35%,
-					transparent
-				);
+				/* Ended (terminal) — neutral descriptionForeground, matching the details panel's
+		   ended accent, so done reads as history rather than another live state. */
+				--gl-agent-pill-ended-color: var(--gl-agent-ended-color);
+				--gl-agent-pill-ended-bg: color-mix(in srgb, var(--gl-agent-pill-ended-color) 10%, transparent);
+				--gl-agent-pill-ended-border: color-mix(in srgb, var(--gl-agent-pill-ended-color) 35%, transparent);
 			}
 
 			/* Pill badge */

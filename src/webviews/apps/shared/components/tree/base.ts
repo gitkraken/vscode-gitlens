@@ -160,7 +160,7 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 		| { type: 'status'; name: GitFileStatus }
 		| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean }
 		| { type: 'file-icon'; filename: string }
-		| { type: 'agent'; phase: AgentSessionPhase }
+		| { type: 'agent'; phase: AgentSessionPhase; provider?: string }
 		| { type: 'pull-request'; state?: string; draft?: boolean };
 	description?: string;
 	context?: Context;
@@ -176,7 +176,7 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	/** Lower sorts first within its parent; treated as `0` when unset. */
 	priority?: number;
 	/** Dims the whole row (label, icon, description) to de-emphasize it while keeping it legible and
-	 *  its actions clickable — e.g. a completed agent session shown as done history. */
+	 *  its actions clickable — e.g. an ended agent session shown as done history. */
 	muted?: boolean;
 }
 
