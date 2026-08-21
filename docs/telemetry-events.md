@@ -157,7 +157,7 @@
 
 ### agents/session/archived
 
-> Sent when a completed agent session is archived (dismissed) via the CLI
+> Sent when an ended agent session is archived (dismissed) via the CLI
 
 ```typescript
 {
@@ -1841,16 +1841,16 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'layout': 'list' | 'tree',
-  'session.category': 'working' | 'needs-input' | 'idle' | 'completed',
+  'session.category': 'working' | 'needs-input' | 'idle' | 'ended',
   'session.hasPendingPermission': boolean,
   'session.phase': string,
   'session.sameRepo': boolean
 }
 ```
 
-### graph/agents/showCompletedToggled
+### graph/agents/showEndedToggled
 
-> Sent when the user toggles completed sessions on/off in the sidebar agents panel
+> Sent when the user toggles ended (past) sessions on/off in the sidebar agents panel
 
 ```typescript
 {
@@ -1864,8 +1864,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'enabled': boolean,
-  // Completed session count BEFORE the toggle takes effect
-  'sessions.completed.count': number
+  // Ended session count BEFORE the toggle takes effect
+  'sessions.ended.count': number
 }
 ```
 
@@ -1885,8 +1885,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'layout': 'list' | 'tree',
-  'sessions.completed.count': number,
   'sessions.count': number,
+  'sessions.ended.count': number,
   'sessions.idle.count': number,
   'sessions.needsInput.count': number,
   'sessions.working.count': number
@@ -2306,7 +2306,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'session.category': 'working' | 'needs-input' | 'idle' | 'completed',
+  'session.category': 'working' | 'needs-input' | 'idle' | 'ended',
   'session.hasPendingPermission': boolean,
   'session.phase': string,
   'session.sameRepo': boolean

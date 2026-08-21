@@ -31,7 +31,7 @@ export interface TranscriptSessionListing {
 	readonly total: number;
 }
 
-export interface CompletedTranscriptDetails {
+export interface EndedTranscriptDetails {
 	titles: TranscriptTitles;
 	firstPrompt?: string;
 	lastPrompt?: string;
@@ -155,9 +155,9 @@ export class ClaudeCodeTranscriptReader {
 	}
 
 	/**
-	 * One-shot read for a *completed* (terminal, static) session: extracts the transcript titles plus
+	 * One-shot read for an *ended* (terminal, static) session: extracts the transcript titles plus
 	 * the first and last user prompts. Unlike {@link resolve}, it bypasses the tail cache — a finished
-	 * transcript never grows, so it's read once on demand (when a completed row is opened) and the
+	 * transcript never grows, so it's read once on demand (when an ended row is opened) and the
 	 * result applied to the session. `last-prompt` entries carry the prompt as of that point; the first
 	 * one bearing a value is the session's opening prompt, the last its most recent. Returns `undefined`
 	 * when no transcript is found (archived/purged) — the caller keeps whatever durable-store fields it
@@ -169,10 +169,7 @@ export class ClaudeCodeTranscriptReader {
 	 * past any fixed head window, and a windowed read would then mistake a later prompt for the first,
 	 * poisoning the derived session name.
 	 */
-	async resolveCompletedDetails(
-		sessionId: string,
-		cwd: string | undefined,
-	): Promise<CompletedTranscriptDetails | undefined> {
+	async resolveEndedDetails(sessionId: string, cwd: string | undefined): Promise<EndedTranscriptDetails | undefined> {
 		const path = await this.locateTranscript(sessionId, cwd);
 		if (path == null) return undefined;
 

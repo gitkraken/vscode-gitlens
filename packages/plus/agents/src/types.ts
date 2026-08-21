@@ -45,10 +45,11 @@ export type AgentSessionStatus =
 	| 'compacting'
 	| 'permission_requested'
 	// Terminal state: the session has ended (SessionEnd fired, or the CLI's durable store reports it
-	// `ended`). Kept in the list as a de-emphasized "completed" row until archived or 30-day-purged.
-	| 'completed';
+	// `ended`). Kept in the list as a de-emphasized "ended" row (shown as "Past" in the UI) until
+	// archived or 30-day-purged.
+	| 'ended';
 
-export type AgentSessionPhase = 'idle' | 'working' | 'waiting' | 'completed';
+export type AgentSessionPhase = 'idle' | 'working' | 'waiting' | 'ended';
 
 export function getPhaseForStatus(status: AgentSessionStatus): AgentSessionPhase {
 	switch (status) {
@@ -62,8 +63,8 @@ export function getPhaseForStatus(status: AgentSessionStatus): AgentSessionPhase
 			return 'waiting';
 		case 'idle':
 			return 'idle';
-		case 'completed':
-			return 'completed';
+		case 'ended':
+			return 'ended';
 	}
 }
 
@@ -167,7 +168,7 @@ export interface AgentSession {
 	 *  the CLI's durable session record. */
 	readonly model?: string;
 	/** Why the session ended: `session-end | rotated | stale | dead-pid | pid-zero-idle | archived`.
-	 *  Present only for `completed` sessions. */
+	 *  Present only for `ended` sessions. */
 	readonly endReason?: string;
 	/** Epoch ms the session ended — matches the RPC convention for dates crossing to a webview
 	 *  (see `PastAgentSessionState.lastActivity`), and keeps `SerializedAgentSession` free of
@@ -266,19 +267,19 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	 *  applies rather than after. */
 	listResumableSessions?(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult>;
 
-	/** Archives a completed (non-live) session via the CLI, dismissing it from the list. Ends an
+	/** Archives an ended (non-live) session via the CLI, dismissing it from the list. Ends an
 	 *  active session first (the CLI broadcasts a synthetic SessionEnd) — but callers should only
-	 *  offer this on `completed` sessions, and a provider refuses (returns `false`) any non-completed
+	 *  offer this on `ended` sessions, and a provider refuses (returns `false`) any non-ended
 	 *  row that resumed since the click, so the CLI never terminates live work. Resolves to `true` when
 	 *  the session was archived (removed locally; the next reconciliation poll confirms it). */
 	archiveSession?(sessionId: string): Promise<boolean>;
 
-	/** Resolves git identity + the transcript title and first/last prompt for a completed session
-	 *  lazily — called by the host when the user *opens* a completed row (the `Open Session` action),
-	 *  not on mere display. Completed sessions skip eager resolution during the poll so a 30-day
+	/** Resolves git identity + the transcript title and first/last prompt for an ended session
+	 *  lazily — called by the host when the user *opens* an ended row (the `Open Session` action),
+	 *  not on mere display. Ended sessions skip eager resolution during the poll so a 30-day
 	 *  cold-start doesn't fan out hundreds of git probes + transcript reads; the row shows its
-	 *  durable-store label until opened. No-op if the session isn't a tracked completed one. */
-	resolveCompletedSessionDetails?(sessionId: string): void;
+	 *  durable-store label until opened. No-op if the session isn't a tracked ended one. */
+	resolveEndedSessionDetails?(sessionId: string): void;
 
 	/** Lists the ids of sessions that have been archived. Used to exclude them from the "Past"
 	 *  transcript-store listing — the tracked row is gone once archived, but the transcript on disk
@@ -332,6 +333,18 @@ export interface IpcRegistrar {
 	): UnifiedDisposable;
 	publishAgents(workspacePaths: string[]): Promise<void>;
 	unpublishAgents(): Promise<void>;
+}
+
+/** One entry of the host's live-agent listing — what the agent tool itself reports as running right
+ *  now, independent of the CLI's durable store. `kind: 'background'` entries carry `state` and no
+ *  `pid`; interactive ones carry `pid` and `status`. */
+export interface LiveAgentSession {
+	pid?: number;
+	cwd?: string;
+	kind?: string;
+	status?: string;
+	state?: string;
+	waitingFor?: string;
 }
 
 export interface AgentProviderCallbacks {
@@ -400,4 +413,17 @@ export interface AgentProviderCallbacks {
 	 * this to `claude-vscode.editor.open`. Throws if the extension isn't installed/active.
 	 */
 	openSessionInClaudeExtension?(sessionId: string): Promise<void>;
+
+	/**
+	 * Host-supplied lookup of Claude sessions that are ACTUALLY alive right now (interactive or
+	 * background), keyed by session id. Exists because the CLI's durable session store never
+	 * revives a resumed session: once it moves a record to its `ended` store, nothing moves it
+	 * back, so a resumed still-running agent is reported `ended` forever unless checked against
+	 * this. `status` is set for `kind: 'interactive'` entries (`'waiting'`, `'busy'`, …); `state` is
+	 * set for `kind: 'background'` entries instead (no `pid`). Declared structurally (not imported
+	 * from `@env/`) because this package cannot depend on the host's environment abstraction.
+	 * Optional — omitted in tests and on hosts with no such lookup, in which case an `ended` record
+	 * is trusted as-is.
+	 */
+	getLiveAgentSessions?(): Promise<ReadonlyMap<string, LiveAgentSession>>;
 }

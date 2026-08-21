@@ -368,8 +368,8 @@ suite('ClaudeCodeProvider', () => {
 				await send(sessionEnd('sess'));
 
 				const session = provider.sessions.find(s => s.id === 'sess');
-				assert.ok(session != null, 'SessionEnd keeps the session as a terminal completed row');
-				assert.strictEqual(session.status, 'completed');
+				assert.ok(session != null, 'SessionEnd keeps the session as a terminal ended row');
+				assert.strictEqual(session.status, 'ended');
 				assert.strictEqual(
 					fileActivityOf(provider, 'sess').length,
 					0,
@@ -1499,8 +1499,8 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		}
 	});
 
-	test('keeps polling for completed-only state, but at the idle cadence', async () => {
-		// The poll is the only thing that drops a completed row the CLI stopped listing (archived
+	test('keeps polling for ended-only state, but at the idle cadence', async () => {
+		// The poll is the only thing that drops an ended row the CLI stopped listing (archived
 		// elsewhere, or aged out) AND the only trigger for the CLI's own retention sweep — so it must
 		// not gate out. With nothing live it just runs less often.
 		const { callbacks, cliCalls } = createMockCallbacks({
@@ -1523,7 +1523,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 			await flushMicrotasks();
 			provider.setClaudeHooksInstalled(false);
 			assert.ok(
-				provider.sessions.some(s => s.status === 'completed'),
+				provider.sessions.some(s => s.status === 'ended'),
 				'bootstrap should have ingested the ended record',
 			);
 			cliCalls.length = 0;
@@ -1541,7 +1541,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 			assert.strictEqual(
 				listSessionsCalls(cliCalls),
 				1,
-				'once the idle window passes, completed-only state still reconciles',
+				'once the idle window passes, ended-only state still reconciles',
 			);
 		} finally {
 			provider.dispose();
@@ -1717,17 +1717,17 @@ suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
 	});
 });
 
-suite('ClaudeCodeProvider completed sessions', () => {
+suite('ClaudeCodeProvider ended sessions', () => {
 	const REPO = '/home/user/projectA';
 	const ENDED_AT = '2026-07-10T00:00:00.000Z';
 
-	/** A `list-sessions` poll entry for a durable `ended` (completed) session. */
+	/** A `list-sessions` poll entry for a durable `ended` session. */
 	function endedRecord(sessionId: string, overrides?: Record<string, unknown>): Record<string, unknown> {
 		return {
 			sessionId: sessionId,
 			event: 'Stop',
 			cwd: REPO,
-			pid: 999999, // not a live process — completed classification ignores pid anyway
+			pid: 999999, // not a live process — ended classification ignores pid anyway
 			status: 'ended',
 			endReason: 'session-end',
 			endedAt: ENDED_AT,
@@ -1736,7 +1736,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		};
 	}
 
-	test('SessionEnd transitions the session to completed instead of removing it', async () => {
+	test('SessionEnd transitions the session to ended instead of removing it', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -1753,8 +1753,8 @@ suite('ClaudeCodeProvider completed sessions', () => {
 
 			const s = provider.sessions.find(x => x.id === 's1');
 			assert.ok(s != null, 'session should remain after SessionEnd, not be removed');
-			assert.strictEqual(s.status, 'completed');
-			assert.strictEqual(s.phase, 'completed');
+			assert.strictEqual(s.status, 'ended');
+			assert.strictEqual(s.phase, 'ended');
 			assert.strictEqual(s.subagents, undefined, 'subagents are dropped on completion');
 			assert.strictEqual(s.pendingPermission, undefined);
 		} finally {
@@ -1762,7 +1762,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		}
 	});
 
-	test('a completed session takes worktreePath from the CLI record without a git probe', async () => {
+	test('an ended session takes worktreePath from the CLI record without a git probe', async () => {
 		let gitInfoCalls = 0;
 		const { callbacks } = createMockCallbacks({
 			cliResponse: JSON.stringify([
@@ -1788,7 +1788,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		}
 	});
 
-	test('poll surfaces an ended record as a completed session even with a dead pid', async () => {
+	test('poll surfaces an ended record as an ended session even with a dead pid', async () => {
 		const { callbacks } = createMockCallbacks({ cliResponse: JSON.stringify([endedRecord('gone')]) });
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -1796,16 +1796,16 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			await flushMicrotasks();
 
 			const s = provider.sessions.find(x => x.id === 'gone');
-			assert.ok(s != null, 'an ended record should surface as a completed session');
-			assert.strictEqual(s.status, 'completed');
-			assert.strictEqual(s.phase, 'completed');
+			assert.ok(s != null, 'an ended record should surface as an ended session');
+			assert.strictEqual(s.status, 'ended');
+			assert.strictEqual(s.phase, 'ended');
 			assert.strictEqual(s.lastActivity.toISOString(), ENDED_AT, 'lastActivity comes from endedAt');
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('an ended record with a live pid is completed, never re-added as a live session', async () => {
+	test('an ended record with a live pid is ended, never re-added as a live session', async () => {
 		// The `/clear` case: SessionEnd fired but the process continues under a new id, so the old
 		// ended record still carries a live pid. Classification must key off status, not pid liveness.
 		const { callbacks } = createMockCallbacks({
@@ -1818,7 +1818,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 
 			assert.strictEqual(
 				provider.sessions.find(x => x.id === 'cleared')?.status,
-				'completed',
+				'ended',
 				'a live pid must not resurrect an ended session as live',
 			);
 		} finally {
@@ -1826,7 +1826,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		}
 	});
 
-	test('poll transitions a tracked live session to completed when the CLI reports it ended', async () => {
+	test('poll transitions a tracked live session to ended when the CLI reports it ended', async () => {
 		const options: { cliResponse?: string } = { cliResponse: '[]' };
 		const { callbacks, handlers } = createMockCallbacks(options);
 		const provider = new GateTestProvider(callbacks);
@@ -1845,7 +1845,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 
 			assert.strictEqual(
 				provider.sessions.find(s => s.id === 'live')?.status,
-				'completed',
+				'ended',
 				'the poll must reap a live-pid zombie the live path missed',
 			);
 		} finally {
@@ -1853,15 +1853,15 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		}
 	});
 
-	test('a completed session is removed once a later poll omits it', async () => {
+	test('an ended session is removed once a later poll omits it', async () => {
 		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
 		const { callbacks } = createMockCallbacks(options);
 		const provider = new GateTestProvider(callbacks);
 		try {
-			await provider.runGatedSync(); // poll #1 discovers 'done' as completed, sets polledAtLeastOnce
+			await provider.runGatedSync(); // poll #1 discovers 'done' as ended, sets polledAtLeastOnce
 			assert.ok(
 				provider.sessions.some(s => s.id === 'done'),
-				'completed session discovered',
+				'ended session discovered',
 			);
 
 			options.cliResponse = '[]';
@@ -1869,14 +1869,14 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			assert.strictEqual(
 				provider.sessions.some(s => s.id === 'done'),
 				false,
-				'omitted completed session removed',
+				'omitted ended session removed',
 			);
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('a freshly completed session is not reconcile-removed before its first poll confirmation', async () => {
+	test('a freshly ended session is not reconcile-removed before its first poll confirmation', async () => {
 		const options: { cliResponse?: string } = { cliResponse: '[]' };
 		const { callbacks, handlers } = createMockCallbacks(options);
 		const provider = new GateTestProvider(callbacks);
@@ -1885,30 +1885,30 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			await flushMicrotasks();
 			const handler = handlers.get('agents/session')!;
 			await handler(sessionStart('s1', REPO), new URLSearchParams());
-			await handler(sessionEnd('s1'), new URLSearchParams()); // → completed, no polledAtLeastOnce yet
+			await handler(sessionEnd('s1'), new URLSearchParams()); // → ended, no polledAtLeastOnce yet
 
 			// Age it a few seconds — inside the grace, but NOT the same millisecond as the poll. Without
 			// this the assertion would hold even with the grace removed, since `phaseSince < pollStartedAt`
 			// is false only at identical timestamps. Paired with the after-the-grace test below, this pins
 			// both sides of the boundary.
-			const completed = provider.sessions.find(x => x.id === 's1')!;
-			(completed as { phaseSince: Date }).phaseSince = new Date(Date.now() - 5 * 1000);
+			const ended = provider.sessions.find(x => x.id === 's1')!;
+			(ended as { phaseSince: Date }).phaseSince = new Date(Date.now() - 5 * 1000);
 
 			await provider.runGatedSync(); // an in-flight poll that raced before the CLI file was visible
 
 			const s = provider.sessions.find(x => x.id === 's1');
 			assert.ok(s != null, 'must survive an in-flight empty poll it legitimately predates');
-			assert.strictEqual(s.status, 'completed');
+			assert.strictEqual(s.status, 'ended');
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('an unconfirmed completed row is reconciled away once the grace elapses', async () => {
+	test('an unconfirmed ended row is reconciled away once the grace elapses', async () => {
 		// The ghost case: the record was archived from another window (or purged) before any poll
 		// observed it, so `polledAtLeastOnce` can never be set and the row would otherwise be pinned
 		// for the window's lifetime. Absence becomes authoritative once the row is older than the
-		// grace that protects a just-completed session from a not-yet-visible record.
+		// grace that protects a just-ended session from a not-yet-visible record.
 		const { callbacks, handlers } = createMockCallbacks({ cliResponse: '[]' });
 		const provider = new GateTestProvider(callbacks);
 		try {
@@ -1917,25 +1917,25 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			const handler = handlers.get('agents/session')!;
 			await handler(sessionStart('s1', REPO), new URLSearchParams());
 			await handler(sessionEnd('s1'), new URLSearchParams());
-			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'ended');
 
 			// Age the completion past the grace rather than sleeping through it.
-			const completed = provider.sessions.find(s => s.id === 's1')!;
-			(completed as { phaseSince: Date }).phaseSince = new Date(Date.now() - 5 * 60 * 1000);
+			const ended = provider.sessions.find(s => s.id === 's1')!;
+			(ended as { phaseSince: Date }).phaseSince = new Date(Date.now() - 5 * 60 * 1000);
 
 			await provider.runGatedSync();
 
 			assert.strictEqual(
 				provider.sessions.some(s => s.id === 's1'),
 				false,
-				'an aged, never-confirmed completed row must not survive the poll that omits it',
+				'an aged, never-confirmed ended row must not survive the poll that omits it',
 			);
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('poll does not eagerly resolve git info for completed sessions', async () => {
+	test('poll does not eagerly resolve git info for ended sessions', async () => {
 		let gitInfoCalls = 0;
 		const { callbacks } = createMockCallbacks({
 			cliResponse: JSON.stringify([endedRecord('done')]),
@@ -1949,14 +1949,14 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			provider.start([REPO]);
 			await flushMicrotasks();
 
-			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'completed');
-			assert.strictEqual(gitInfoCalls, 0, 'completed sessions must defer git resolution');
+			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'ended');
+			assert.strictEqual(gitInfoCalls, 0, 'ended sessions must defer git resolution');
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('resolveCompletedSessionDetails resolves git info on demand', async () => {
+	test('resolveEndedSessionDetails resolves git info on demand', async () => {
 		let gitInfoCalls = 0;
 		const { callbacks } = createMockCallbacks({
 			cliResponse: JSON.stringify([endedRecord('done')]),
@@ -1971,7 +1971,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			await flushMicrotasks();
 			assert.strictEqual(gitInfoCalls, 0, 'not resolved eagerly');
 
-			provider.resolveCompletedSessionDetails('done');
+			provider.resolveEndedSessionDetails('done');
 			await flushMicrotasks();
 
 			assert.strictEqual(gitInfoCalls, 1, 'lazy resolution fires on demand');
@@ -2006,7 +2006,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		}
 	});
 
-	test('SessionStart on a completed session revives it to a live idle row', async () => {
+	test('SessionStart on an ended session revives it to a live idle row', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -2014,26 +2014,26 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			const handler = handlers.get('agents/session')!;
 			await handler(sessionStart('s1', REPO), new URLSearchParams());
 			await handler(sessionEnd('s1'), new URLSearchParams());
-			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'ended');
 
-			// Resuming reuses the id, so a SessionStart on a completed row is the resume signal.
+			// Resuming reuses the id, so a SessionStart on an ended row is the resume signal.
 			await handler(sessionStart('s1', REPO), new URLSearchParams());
 
 			const s = provider.sessions.find(x => x.id === 's1');
-			assert.strictEqual(s?.status, 'idle', 'a resumed session must leave the completed/archivable state');
+			assert.strictEqual(s?.status, 'idle', 'a resumed session must leave the ended/archivable state');
 			assert.strictEqual(s?.phase, 'idle');
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('poll revives a completed session the CLI reports as a live process', async () => {
+	test('poll revives an ended session the CLI reports as a live process', async () => {
 		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
 		const { callbacks } = createMockCallbacks(options);
 		const provider = new GateTestProvider(callbacks);
 		try {
-			await provider.runGatedSync(); // discovers 'done' as completed
-			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'completed');
+			await provider.runGatedSync(); // discovers 'done' as ended
+			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'ended');
 
 			// Resumed out-of-band: the CLI now lists it active with a live pid and an `updatedAt` past
 			// the end (a real resume always advances it). `sessionFileData` uses a `UserPromptSubmit`
@@ -2047,7 +2047,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			assert.strictEqual(
 				provider.sessions.find(s => s.id === 'done')?.status,
 				'thinking',
-				'a revived completed row must take the CLI event-derived status, not idle',
+				'a revived ended row must take the CLI event-derived status, not idle',
 			);
 		} finally {
 			provider.dispose();
@@ -2066,10 +2066,10 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		try {
 			provider.start([MOVED]);
 			await flushMicrotasks();
-			const completed = provider.sessions.find(s => s.id === 'moved');
-			assert.strictEqual(completed?.status, 'completed');
-			assert.strictEqual(completed?.endReason, 'session-end');
-			assert.strictEqual(completed?.workspacePath, undefined, 'it ended outside this workspace');
+			const ended = provider.sessions.find(s => s.id === 'moved');
+			assert.strictEqual(ended?.status, 'ended');
+			assert.strictEqual(ended?.endReason, 'session-end');
+			assert.strictEqual(ended?.workspacePath, undefined, 'it ended outside this workspace');
 
 			options.cliResponse = JSON.stringify([
 				{ ...sessionFileData('moved', MOVED), updatedAt: '2026-07-10T00:05:00.000Z' },
@@ -2104,9 +2104,9 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
-			const completed = provider.sessions.find(s => s.id === 'older');
-			assert.strictEqual(completed?.status, 'completed');
-			assert.strictEqual(completed?.worktreePath, REPO, 'the completed row is attributed from its record');
+			const ended = provider.sessions.find(s => s.id === 'older');
+			assert.strictEqual(ended?.status, 'ended');
+			assert.strictEqual(ended?.worktreePath, REPO, 'the ended row is attributed from its record');
 
 			options.cliResponse = JSON.stringify([
 				{ ...sessionFileData('older', OUTSIDE), updatedAt: '2026-07-10T00:05:00.000Z' },
@@ -2114,7 +2114,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			await provider.runGatedSync();
 
 			const s = provider.sessions.find(x => x.id === 'older');
-			assert.notStrictEqual(s?.status, 'completed', 'the row is live again');
+			assert.notStrictEqual(s?.status, 'ended', 'the row is live again');
 			assert.strictEqual(s?.cwd, OUTSIDE, 'cwd still follows the record');
 			assert.strictEqual(s?.worktreePath, REPO, 'the worktree attribution is kept');
 		} finally {
@@ -2122,17 +2122,17 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		}
 	});
 
-	test('poll does not revive a completed session off a snapshot older than the completion', async () => {
+	test('poll does not revive an ended session off a snapshot older than the completion', async () => {
 		// `SessionEnd` fires while the process is still winding down, so a poll whose `list-sessions`
 		// call started BEFORE it comes back with a snapshot that still says "active" with a live pid.
 		// Reviving off that stale record resurrects the row, and `pruneDeadSessions` then deletes it
-		// outright once the process exits — the completed row would vanish moments after it appeared.
+		// outright once the process exits — the ended row would vanish moments after it appeared.
 		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
 		const { callbacks } = createMockCallbacks(options);
 		const provider = new GateTestProvider(callbacks);
 		try {
-			await provider.runGatedSync(); // discovers 'done' as completed
-			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'completed');
+			await provider.runGatedSync(); // discovers 'done' as ended
+			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'ended');
 
 			// Stale snapshot: live pid, but `updatedAt` predates `endedAt`.
 			options.cliResponse = JSON.stringify([
@@ -2142,7 +2142,7 @@ suite('ClaudeCodeProvider completed sessions', () => {
 
 			assert.strictEqual(
 				provider.sessions.find(s => s.id === 'done')?.status,
-				'completed',
+				'ended',
 				'a stale pre-completion snapshot must not resurrect the terminal row',
 			);
 		} finally {
@@ -2202,21 +2202,21 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			// The CLI reports it ended before that timer fires; completeSession must cancel the timer.
 			options.cliResponse = JSON.stringify([endedRecord('s1', { pid: process.pid, event: 'UserPromptSubmit' })]);
 			await provider.runGatedSync();
-			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'ended');
 
 			await wait(900); // let the (now-cancelled) Stop→idle window elapse
 
 			assert.strictEqual(
 				provider.sessions.find(s => s.id === 's1')?.status,
-				'completed',
-				'a completed row must not be revived to idle by a stale Stop→idle timer',
+				'ended',
+				'an ended row must not be revived to idle by a stale Stop→idle timer',
 			);
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('archiveSession refuses to archive a non-completed (live) session', async () => {
+	test('archiveSession refuses to archive a non-ended (live) session', async () => {
 		const { callbacks, handlers, cliCalls } = createMockCallbacks();
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -2386,14 +2386,14 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			assert.strictEqual(
 				provider.sessions.some(s => s.id === 's1'),
 				false,
-				'without a durable store a completed row could never be confirmed or archived — remove on end',
+				'without a durable store an ended row could never be confirmed or archived — remove on end',
 			);
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('a legacy poll reconciles away a completed row it can never confirm', async () => {
+	test('a legacy poll reconciles away an ended row it can never confirm', async () => {
 		// Models SessionEnd landing before the poll has discovered the CLI is legacy: the row
 		// completes (optimistic default), then the first legacy poll — which can never list it —
 		// must drop it rather than let the polledAtLeastOnce guard pin it forever.
@@ -2401,11 +2401,11 @@ suite('ClaudeCodeProvider completed sessions', () => {
 		const provider = new GateTestProvider(callbacks);
 		try {
 			provider.start([REPO]);
-			await flushMicrotasks(); // bootstrap poll succeeds with --status → completed support assumed
+			await flushMicrotasks(); // bootstrap poll succeeds with --status → ended support assumed
 			const handler = handlers.get('agents/session')!;
 			await handler(sessionStart('s1', REPO), new URLSearchParams());
 			await handler(sessionEnd('s1'), new URLSearchParams());
-			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'ended');
 
 			callbacks.runCLICommand = (args: string[]) => {
 				if (args.includes('--status')) return Promise.reject(new Error('unknown flag: --status'));
@@ -2416,24 +2416,24 @@ suite('ClaudeCodeProvider completed sessions', () => {
 			assert.strictEqual(
 				provider.sessions.some(s => s.id === 's1'),
 				false,
-				'the legacy poll is authoritative — an unconfirmable completed row must not linger',
+				'the legacy poll is authoritative — an unconfirmable ended row must not linger',
 			);
 		} finally {
 			provider.dispose();
 		}
 	});
 
-	test('drift telemetry ignores completed sessions', async () => {
+	test('drift telemetry ignores ended sessions', async () => {
 		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
 		const { callbacks, syncDiscrepancies } = createMockCallbacks(options);
 		const provider = new GateTestProvider(callbacks);
 		try {
-			await provider.runGatedSync(); // discovers completed 'done'
+			await provider.runGatedSync(); // discovers ended 'done'
 			syncDiscrepancies.length = 0;
 
 			await provider.runGatedSync(); // still lists 'done' as ended → no live drift
 
-			assert.strictEqual(syncDiscrepancies.length, 0, 'a completed session absent from polledAlive is not drift');
+			assert.strictEqual(syncDiscrepancies.length, 0, 'an ended session absent from polledAlive is not drift');
 		} finally {
 			provider.dispose();
 		}
@@ -3709,7 +3709,7 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 			}
 		});
 
-		test('does not create a completed row for another host’s ended record', async () => {
+		test('does not create an ended row for another host’s ended record', async () => {
 			const { callbacks } = createMockCallbacks({
 				cliResponse: JSON.stringify([
 					{
@@ -3729,7 +3729,7 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 			try {
 				await provider.runGatedSync();
 
-				assert.strictEqual(provider.sessions.length, 0, 'a foreign ended record must not surface as completed');
+				assert.strictEqual(provider.sessions.length, 0, 'a foreign ended record must not surface as ended');
 			} finally {
 				provider.dispose();
 			}

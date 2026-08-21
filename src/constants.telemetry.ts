@@ -144,7 +144,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/session/ended': AgentProviderEvent;
 	/** Sent when a past agent session is resumed from its transcript */
 	'agents/sessionResumed': AgentSessionResumedEvent;
-	/** Sent when a completed agent session is archived (dismissed) via the CLI */
+	/** Sent when an ended agent session is archived (dismissed) via the CLI */
 	'agents/session/archived': AgentProviderEvent;
 	/** Sent when a permission request is resolved */
 	'agents/permission/resolved': AgentPermissionResolvedEvent;
@@ -352,8 +352,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
 	/** Sent when the user toggles the tree/list layout in the sidebar agents panel */
 	'graph/agents/layoutToggled': GraphSidebarAgentsLayoutToggledEvent;
-	/** Sent when the user toggles completed sessions on/off in the sidebar agents panel */
-	'graph/agents/showCompletedToggled': GraphSidebarAgentsShowCompletedToggledEvent;
+	/** Sent when the user toggles ended (past) sessions on/off in the sidebar agents panel */
+	'graph/agents/showEndedToggled': GraphSidebarAgentsShowEndedToggledEvent;
 	/** Sent when the sidebar agents filter toggles between empty and non-empty (not on every keystroke) */
 	'graph/agents/filtered': GraphSidebarAgentsFilteredEvent;
 
@@ -2110,12 +2110,12 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 	'sessions.working.count': number;
 	'sessions.needsInput.count': number;
 	'sessions.idle.count': number;
-	'sessions.completed.count': number;
+	'sessions.ended.count': number;
 }
 
 interface GraphSidebarAgentsSessionSelectedEvent extends GraphContextEventData {
 	'session.phase': string;
-	'session.category': 'working' | 'needs-input' | 'idle' | 'completed';
+	'session.category': 'working' | 'needs-input' | 'idle' | 'ended';
 	'session.hasPendingPermission': boolean;
 	'session.sameRepo': boolean;
 	layout: 'list' | 'tree';
@@ -2140,10 +2140,10 @@ interface GraphSidebarAgentsLayoutToggledEvent extends GraphContextEventData {
 	'sessions.count': number;
 }
 
-interface GraphSidebarAgentsShowCompletedToggledEvent extends GraphContextEventData {
+interface GraphSidebarAgentsShowEndedToggledEvent extends GraphContextEventData {
 	enabled: boolean;
-	/** Completed session count BEFORE the toggle takes effect */
-	'sessions.completed.count': number;
+	/** Ended session count BEFORE the toggle takes effect */
+	'sessions.ended.count': number;
 }
 
 interface GraphSidebarAgentsFilteredEvent extends GraphContextEventData {
@@ -2528,7 +2528,7 @@ interface GraphKanbanShownEvent extends GraphContextEventData {
 
 interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
 	'session.phase': string;
-	'session.category': 'working' | 'needs-input' | 'idle' | 'completed';
+	'session.category': 'working' | 'needs-input' | 'idle' | 'ended';
 	'session.hasPendingPermission': boolean;
 	'session.sameRepo': boolean;
 	column: 'needs-input' | 'working' | 'idle' | 'inactive';

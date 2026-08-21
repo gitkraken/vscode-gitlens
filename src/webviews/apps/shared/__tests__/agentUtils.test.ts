@@ -325,6 +325,6 @@ suite('canResolvePermission', () => {
 	test('a session that is not awaiting input offers no actions', () => {
 		assert.strictEqual(canResolvePermission('working', tool), false);
 		assert.strictEqual(canResolvePermission('idle', tool), false);
-		assert.strictEqual(canResolvePermission('completed', tool), false);
+		assert.strictEqual(canResolvePermission('ended', tool), false);
 	});
 });

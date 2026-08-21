@@ -35,7 +35,7 @@ interface AgentPillSummary {
 /** Summary popovers cap at the most recent rows — the input arrays arrive most-recent-first
  *  (sorted upstream by `sortAgentSessions`), so a slice keeps the freshest sessions. A hover is a
  *  glance surface, not a browser: the footer hands off to the resume picker for the rest, which
- *  matters most for completed sessions since those accumulate into the hundreds. */
+ *  matters most for ended sessions since those accumulate into the hundreds. */
 const maxSummaryRows = 3;
 
 function formatElapsed(value: Date | number | undefined): string | undefined {
@@ -262,15 +262,15 @@ export class GlAgentStatusPill extends LitElement {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
 
-			/* Completed */
-			.pill--completed {
-				color: var(--gl-agent-pill-completed-color);
-				background-color: var(--gl-agent-pill-completed-bg);
-				border-color: var(--gl-agent-pill-completed-border);
+			/* Ended */
+			.pill--ended {
+				color: var(--gl-agent-pill-ended-color);
+				background-color: var(--gl-agent-pill-ended-bg);
+				border-color: var(--gl-agent-pill-ended-border);
 			}
 
-			.pill--completed .pill__dot {
-				background-color: var(--gl-agent-pill-completed-color);
+			.pill--ended .pill__dot {
+				background-color: var(--gl-agent-pill-ended-color);
 			}
 
 			@media (prefers-reduced-motion: reduce) {
@@ -319,8 +319,8 @@ export class GlAgentStatusPill extends LitElement {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
 
-			.hover-header__dot--completed {
-				background-color: var(--gl-agent-pill-completed-color);
+			.hover-header__dot--ended {
+				background-color: var(--gl-agent-pill-ended-color);
 			}
 
 			.hover-header__text {
@@ -447,7 +447,7 @@ export class GlAgentStatusPill extends LitElement {
 					var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 15%, transparent));
 			}
 
-			/* Completed rows add a 4th track for Resume/Archive actions — rows without actions keep
+			/* Ended rows add a 4th track for Resume/Archive actions — rows without actions keep
 	   the base 3-track layout. */
 			.hover-summary-row--actions {
 				grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -476,8 +476,8 @@ export class GlAgentStatusPill extends LitElement {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
 
-			.hover-summary-row__dot--completed {
-				background-color: var(--gl-agent-pill-completed-color);
+			.hover-summary-row__dot--ended {
+				background-color: var(--gl-agent-pill-ended-color);
 			}
 
 			.hover-summary-row__name {
@@ -651,8 +651,8 @@ export class GlAgentStatusPill extends LitElement {
 	}
 
 	/** Beyond `maxSummaryRows`, the popover switches to a count-only footer instead of growing
-	 *  unbounded — completed sessions especially can accumulate into the hundreds. The footer links
-	 *  into the resume picker (scoped to the shared worktree) only for completed sessions that all
+	 *  unbounded — ended sessions especially can accumulate into the hundreds. The footer links
+	 *  into the resume picker (scoped to the shared worktree) only for ended sessions that all
 	 *  share one worktree — `showResumeSessionPicker` no-ops without a `worktreePath`, and other
 	 *  categories have no equivalent picker to route to. */
 	private renderSummaryFooter(
@@ -668,7 +668,7 @@ export class GlAgentStatusPill extends LitElement {
 		);
 
 		let sharedWorktreePath: string | undefined;
-		if (category === 'completed') {
+		if (category === 'ended') {
 			sharedWorktreePath = sessions[0].worktreePath ?? undefined;
 			if (sharedWorktreePath != null && !sessions.every(s => s.worktreePath === sharedWorktreePath)) {
 				sharedWorktreePath = undefined;
@@ -711,7 +711,7 @@ export class GlAgentStatusPill extends LitElement {
 					});
 
 		return html`
-			<div class=${`hover-summary-row${category === 'completed' ? ' hover-summary-row--actions' : ''}`}>
+			<div class=${`hover-summary-row${category === 'ended' ? ' hover-summary-row--actions' : ''}`}>
 				<span class=${`hover-summary-row__dot hover-summary-row__dot--${category}`}></span>
 				<gl-tooltip content=${session.displayName} placement="bottom">
 					<span class="hover-summary-row__name">${session.displayName}</span>
@@ -724,10 +724,10 @@ export class GlAgentStatusPill extends LitElement {
 		`;
 	}
 
-	/** Completed rows keep their Resume / Archive affordances even after rolling up into the
+	/** Ended rows keep their Resume / Archive affordances even after rolling up into the
 	 *  summary popover — rolling up shouldn't cost the actions a live pill would have offered. */
 	private renderSummaryRowActions(session: AgentSessionState, category: AgentSessionCategory): unknown {
-		if (category !== 'completed') return nothing;
+		if (category !== 'ended') return nothing;
 
 		const openAction = getAgentSessionOpenAction(session);
 		const openActionHref = createAgentSessionOpenHref(session);
@@ -772,7 +772,7 @@ export class GlAgentStatusPill extends LitElement {
 			case 'needs-input':
 				return this.renderNeedsInputHover(session, omitActions);
 			case 'idle':
-			case 'completed':
+			case 'ended':
 				return this.renderIdleHover(session, omitActions);
 		}
 	}
@@ -787,7 +787,7 @@ export class GlAgentStatusPill extends LitElement {
 		canResolve: boolean,
 	): unknown {
 		// Plain openSession link — feeds `renderMoreActionsMenu`, which is only reached from the
-		// needs-input path (never completed), so it never needs the resume variant.
+		// needs-input path (never ended), so it never needs the resume variant.
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 
 		if (category === 'needs-input' && canResolve) {
@@ -821,7 +821,7 @@ export class GlAgentStatusPill extends LitElement {
 		}
 
 		const archiveHref =
-			category === 'completed'
+			category === 'ended'
 				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
 				: undefined;
 		const openAction = getAgentSessionOpenAction(session);
@@ -1022,14 +1022,14 @@ export class GlAgentStatusPill extends LitElement {
 	private renderIdleHover(session: AgentSessionState, omitActions: boolean): unknown {
 		const openAction = getAgentSessionOpenAction(session);
 		const openHref = createAgentSessionOpenHref(session);
-		// Archive is offered only on terminal (completed) sessions — a live idle one would have to be
+		// Archive is offered only on terminal (ended) sessions — a live idle one would have to be
 		// killed first, so it's not surfaced here.
 		const archiveHref =
-			session.phase === 'completed'
+			session.phase === 'ended'
 				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
 				: undefined;
 
-		const dotModifier = session.phase === 'completed' ? 'completed' : 'idle';
+		const dotModifier = session.phase === 'ended' ? 'ended' : 'idle';
 
 		return html`
 			<div class="hover-header">

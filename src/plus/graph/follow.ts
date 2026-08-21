@@ -168,7 +168,7 @@ export class GraphFollowController implements Disposable {
 	private async findSessionForTerminal(terminal: Terminal): Promise<AgentSession | undefined> {
 		const candidates = (this.container.agentStatus?.sessions ?? []).filter(
 			(s): s is AgentSession & { pid: number; worktreePath: string } =>
-				!s.isSubagent && s.status !== 'completed' && s.pid != null && s.worktreePath != null,
+				!s.isSubagent && s.status !== 'ended' && s.pid != null && s.worktreePath != null,
 		);
 		if (candidates.length === 0) {
 			this._sessionAncestorChains.clear();

@@ -175,7 +175,7 @@ export function serializeAgentSession(
 	return {
 		...rest,
 		// Backfill repo identity from the host's worktree lookup when the provider never resolved it.
-		// Completed sessions read from the CLI's durable store carry a `worktreePath` but no
+		// Ended sessions read from the CLI's durable store carry a `worktreePath` but no
 		// `commonPath` (no git probe, by design — a 30-day history must not fan out). Consumers gate
 		// on `commonPath` to decide whether a session belongs to the repo they're showing, so without
 		// this those sessions' cards would stay permanently inert rather than briefly (see

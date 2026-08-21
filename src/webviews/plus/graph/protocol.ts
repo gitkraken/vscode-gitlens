@@ -605,8 +605,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		activePanel?: GraphSidebarPanel;
 		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
 		searchBoxFilter?: boolean;
-		/** Whether the agents panel shows completed sessions. Defaults to false (hidden). */
-		showCompletedAgentSessions?: boolean;
+		/** Whether the agents panel shows past (ended) sessions. Defaults to false (hidden). */
+		showPastAgentSessions?: boolean;
 	};
 	minimap?: {
 		visible?: boolean;

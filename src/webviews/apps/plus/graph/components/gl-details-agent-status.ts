@@ -39,9 +39,9 @@ export type ExpandState = 'collapsed' | 'partial' | 'expanded';
  *  so the heading width stays bounded. */
 const maxClusterDots = 5;
 
-/** Cap on completed rows in the session hovers. Active sessions are never truncated — only
- *  completed ones accumulate (retained ~30 days), and the footer counts the remainder. */
-const maxHoverCompletedRows = 3;
+/** Cap on ended rows in the session hovers. Active sessions are never truncated — only
+ *  ended ones accumulate (retained ~30 days), and the footer counts the remainder. */
+const maxHoverEndedRows = 3;
 
 /** Periodic re-render driver matching the kanban's tick. Without this, the component's
  *  `shouldUpdate` short-circuit would freeze elapsed labels (`Working · 5m`) and prevent the
@@ -57,7 +57,7 @@ const liveTickIntervalMs = 30 * 1000;
 export const expandVisibleCategories: Record<ExpandState, ReadonlySet<AgentSessionCategory>> = {
 	collapsed: new Set<AgentSessionCategory>(),
 	partial: new Set<AgentSessionCategory>(['needs-input']),
-	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle', 'completed']),
+	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle', 'ended']),
 };
 
 declare global {
@@ -1200,36 +1200,36 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	/** Shared body for both hover popovers (cluster-only and section-heading). Sessions arrive
-	 *  pre-sorted (`sortAgentSessions` upstream) with completed last and most-recent-first within a
-	 *  phase, so slicing the completed tail keeps the freshest completed rows. Active sessions are
+	 *  pre-sorted (`sortAgentSessions` upstream) with ended last and most-recent-first within a
+	 *  phase, so slicing the ended tail keeps the freshest ended rows. Active sessions are
 	 *  never truncated — the hover is the only per-session detail surface while collapsed. */
 	private renderHoverList(sessions: AgentSessionState[]): unknown {
 		const active: AgentSessionState[] = [];
-		const completed: AgentSessionState[] = [];
+		const ended: AgentSessionState[] = [];
 		for (const s of sessions) {
-			if (agentPhaseToCategory[s.phase] === 'completed') {
-				completed.push(s);
+			if (agentPhaseToCategory[s.phase] === 'ended') {
+				ended.push(s);
 			} else {
 				active.push(s);
 			}
 		}
 
-		const shownCompleted = completed.slice(0, maxHoverCompletedRows);
+		const shownEnded = ended.slice(0, maxHoverEndedRows);
 		return html`
 			<div slot="content" class="section__hover">
-				${[...active, ...shownCompleted].map(s => this.renderHoverRow(s))}
-				${this.renderHoverFooter(completed.length - shownCompleted.length)}
+				${[...active, ...shownEnded].map(s => this.renderHoverRow(s))}
+				${this.renderHoverFooter(ended.length - shownEnded.length)}
 			</div>
 		`;
 	}
 
-	/** Count-only overflow line for completed rows hidden by the hover cap. No link: the heading
+	/** Count-only overflow line for ended rows hidden by the hover cap. No link: the heading
 	 *  already has a separate `Resume Session…` picker chip, and compact mode has no `worktreePath`
 	 *  to scope a picker to. */
 	private renderHoverFooter(hidden: number): unknown {
 		if (hidden <= 0) return nothing;
 
-		const countText = pluralize('more completed session', hidden);
+		const countText = pluralize('more past session', hidden);
 		return html`
 			<div class="section__hover-footer">
 				<span class="section__hover-count">${countText}</span>
@@ -1328,7 +1328,7 @@ export class GlDetailsAgentStatus extends LitElement {
 							href=${openHref}
 						></gl-action-chip>
 						${
-							category === 'completed'
+							category === 'ended'
 								? html`<gl-action-chip
 										class="card__archive"
 										icon="archive"
@@ -1468,7 +1468,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	private tally(sessions: AgentSessionState[]): Record<AgentSessionCategory, number> {
-		const counts: Record<AgentSessionCategory, number> = { working: 0, 'needs-input': 0, idle: 0, completed: 0 };
+		const counts: Record<AgentSessionCategory, number> = { working: 0, 'needs-input': 0, idle: 0, ended: 0 };
 		for (const s of sessions) {
 			counts[agentPhaseToCategory[s.phase]]++;
 		}

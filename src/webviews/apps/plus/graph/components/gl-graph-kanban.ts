@@ -79,7 +79,7 @@ const columns: readonly KanbanColumnDef[] = [
 function columnIdForSession(session: AgentSessionState): KanbanColumnId {
 	// Terminal sessions are done — group them with the abandoned/idle-too-long Inactive column
 	// rather than surfacing them as live Idle work.
-	if (session.phase === 'completed') return 'inactive';
+	if (session.phase === 'ended') return 'inactive';
 
 	if (session.phase === 'waiting' || session.pendingPermission != null) return 'needs-input';
 
@@ -879,7 +879,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 						: html`<span class="card__subtitle"></span>`
 				}
 				${
-					session.phase === 'completed'
+					session.phase === 'ended'
 						? html`<gl-button
 								class="card__archive"
 								appearance="toolbar"

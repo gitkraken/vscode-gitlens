@@ -114,7 +114,7 @@ suite('AgentStatusService session snapshot publishing', () => {
 			provider.fire();
 
 			// Providers replace immutably — that identity change is what invalidates the memo entry.
-			provider.sessions = [{ ...session, status: 'completed', phase: 'completed' }];
+			provider.sessions = [{ ...session, status: 'ended', phase: 'ended' }];
 			provider.fire();
 			assert.strictEqual(published.length, 2);
 		} finally {

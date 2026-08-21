@@ -9,16 +9,16 @@ const phaseRank: Record<AgentSessionPhase, number> = {
 	working: 1,
 	idle: 2,
 	// Terminal sessions sort last so live agents always lead the list.
-	completed: 3,
+	ended: 3,
 };
 
-export type AgentSessionCategory = 'working' | 'needs-input' | 'idle' | 'completed';
+export type AgentSessionCategory = 'working' | 'needs-input' | 'idle' | 'ended';
 
 export const agentPhaseToCategory: Record<AgentSessionPhase, AgentSessionCategory> = {
 	working: 'working',
 	waiting: 'needs-input',
 	idle: 'idle',
-	completed: 'completed',
+	ended: 'ended',
 };
 
 /** Whether a surface may offer Allow / Deny for this session's ask.
@@ -145,7 +145,7 @@ export function getAgentPhaseLabel(
 /** "Last active …" granularity helper used by the graph details panel and the graph agents
  *  sidebar panel — short-and-stable formatting (no seconds past 1 minute). Accepts either a
  *  `Date` (the wire-shape's `phaseSince`/`lastActivity` fields) or a numeric timestamp. Rolls the
- *  top unit over as it crosses each boundary (`m → h → d → w`) so an hours-old completed session
+ *  top unit over as it crosses each boundary (`m → h → d → w`) so an hours-old ended session
  *  reads `2d 3h` rather than `51h`. The agent-status pill has its own slightly more granular
  *  variant inline. `now` defaults to `Date.now()`; pass it to pin the instant (a caller deriving
  *  `value` from its own clock read otherwise sits one unpredictable tick away from the bucket it
@@ -243,7 +243,7 @@ function describePendingPermission(
 }
 
 /** Canonical sort order for agent sessions across every UI surface. Category-actionability first
- *  (needs-input → working → idle → completed), then most-recent phase entry within a category, then
+ *  (needs-input → working → idle → ended), then most-recent phase entry within a category, then
  *  alphabetical by name. Applied once at each state-entry point so all consumers — banners,
  *  pills, cards, hovers — render the same order. Actionable always wins: a fresh idle session
  *  never outranks a session that's actually waiting on you.

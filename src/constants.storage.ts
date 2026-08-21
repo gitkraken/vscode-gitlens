@@ -405,8 +405,8 @@ export interface StoredGraphState {
 			activePanel?: GraphSidebarPanel;
 			/** How the sidebar's filter input presents non-matches: `true` hides them (filter), `false` dims them (highlight). */
 			searchBoxFilter?: boolean;
-			/** Whether the agents panel shows completed sessions. Defaults to false (hidden). */
-			showCompletedAgentSessions?: boolean;
+			/** Whether the agents panel shows past (ended) sessions. Defaults to false (hidden). */
+			showPastAgentSessions?: boolean;
 		};
 		minimap?: {
 			visible?: boolean;

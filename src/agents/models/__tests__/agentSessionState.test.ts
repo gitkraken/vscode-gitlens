@@ -181,11 +181,11 @@ suite('serializeAgentSession', () => {
 	};
 
 	test('backfills commonPath from the resolved worktree when the provider never probed', () => {
-		// Completed sessions read from the CLI's durable store carry a `worktreePath` but no
+		// Ended sessions read from the CLI's durable store carry a `worktreePath` but no
 		// `commonPath` — consumers gate card actions on repo identity, so it must be filled in.
 		const session = makeSession({
-			status: 'completed',
-			phase: 'completed',
+			status: 'ended',
+			phase: 'ended',
 			worktreePath: '/repo/.worktrees/feature-x',
 		});
 		assert.strictEqual(serializeAgentSession(session, worktreeMetadata).commonPath, '/repo');

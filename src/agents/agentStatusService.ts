@@ -61,7 +61,7 @@ export class AgentStatusService implements Disposable {
 	 * content: a cache hit means nothing about that session changed.
 	 *
 	 * This exists because the change-detect below runs on every `onDidChangeSessions` — which fires
-	 * per hook event (each tool call) — while `_sessions` also holds every `completed` session in the
+	 * per hook event (each tool call) — while `_sessions` also holds every `ended` session in the
 	 * CLI's 30-day window. Re-serializing and stringifying that whole set per event scales the live
 	 * path by total history rather than by what's actually running. Terminal rows never change, so
 	 * they land here once and cost a lookup thereafter.
@@ -87,7 +87,7 @@ export class AgentStatusService implements Disposable {
 	 */
 	private readonly _worktreeNameByPath = new Map<string, AgentSessionWorktreeMetadata>();
 	/** Worktree paths a refresh has already attempted, resolved or not. Gates the deferred-publish
-	 *  branch in the `onDidChangeSessions` trigger: a path no open repo owns — a completed session
+	 *  branch in the `onDidChangeSessions` trigger: a path no open repo owns — an ended session
 	 *  from a repo this window doesn't have open — never resolves, and without this every phase tick
 	 *  would take the deferral and re-run the (ungated) refresh. Repos opening later still resolve
 	 *  it: `onDidChangeRepositories` re-runs the refresh regardless of this set. */
@@ -415,33 +415,33 @@ export class AgentStatusService implements Disposable {
 	 * Lists the past, resumable sessions for `worktreePath`, most-recently-active first.
 	 *
 	 * Excludes sessions that are still live (working/idle) — those already flow to consumers through
-	 * {@link onDidChangeSessions} and are opened, not resumed. Terminal `completed` sessions are kept
+	 * {@link onDidChangeSessions} and are opened, not resumed. Terminal `ended` sessions are kept
 	 * by default: they're themselves resumable-past sessions, so they fall through and pick up a
 	 * proper `displayName` from the transcript store below. Archived sessions ARE excluded — the
 	 * tracked row is gone, but the transcript on disk survives and would otherwise resurface. The
 	 * exclude set is passed down via `excludeSessionIds` so a provider excludes it before its own
 	 * `limit` applies, rather than this method dropping them from an already-limited slice.
 	 *
-	 * `excludeCompleted` is for callers that already render tracked completed sessions themselves
+	 * `excludeEnded` is for callers that already render tracked ended sessions themselves
 	 * (the webviews show them as cards). Without it those sessions occupy the `limit` slots here and
 	 * are then deduped away at render, so a worktree whose newest transcripts are all tracked can
 	 * show NO past rows — and no "N more" footer — while older ones exist. The resume picker leaves
-	 * it off: it drops completed from its live group precisely so they surface here instead.
+	 * it off: it drops ended from its live group precisely so they surface here instead.
 	 */
 	async getPastSessions(
 		worktreePath: string,
-		options?: { limit?: number; excludeCompleted?: boolean },
+		options?: { limit?: number; excludeEnded?: boolean },
 	): Promise<PastAgentSessionsResult> {
 		const excludeIds = new Set(
 			this.sessions
 				.filter(
 					s =>
-						s.status !== 'completed' ||
-						// Scoped to the ones the caller actually renders a card for HERE. A completed
+						s.status !== 'ended' ||
+						// Scoped to the ones the caller actually renders a card for HERE. An ended
 						// session whose worktree never resolved (an old CLI record with no worktree
 						// data) matches no worktree, so it has no card — excluding it would make it
 						// invisible rather than merely deduped, and this list is its only surface.
-						(options?.excludeCompleted === true &&
+						(options?.excludeEnded === true &&
 							s.worktreePath != null &&
 							arePathsEqual(s.worktreePath, worktreePath)),
 				)
@@ -507,14 +507,14 @@ export class AgentStatusService implements Disposable {
 	}
 
 	/** The worktree's sessions as the resume picker shows them: the live ones it can open, then the
-	 *  past ones it can resume. `completed` sessions are excluded from `live` — they're resumable-past,
+	 *  past ones it can resume. `ended` sessions are excluded from `live` — they're resumable-past,
 	 *  not open-able, so they're picked up by {@link getPastSessions} instead. */
 	async getResumableSessions(
 		worktreePath: string,
 		options?: { limit?: number },
 	): Promise<{ live: AgentSession[]; past: PastAgentSessionState[]; total: number }> {
 		const live = this.sessions.filter(
-			s => !s.isSubagent && s.status !== 'completed' && s.worktreePath === worktreePath,
+			s => !s.isSubagent && s.status !== 'ended' && s.worktreePath === worktreePath,
 		);
 		const { sessions, total } = await this.getPastSessions(worktreePath, options);
 		return { live: live, past: sessions, total: total };
@@ -681,7 +681,7 @@ export class AgentStatusService implements Disposable {
 				//
 				// Keying by the session's `worktreePath` when `commonPath` is missing would be a real
 				// fan-out: `getWorktrees()` dedupes by common path, and an UNREGISTERED worktree dir
-				// resolves to itself — one `git worktree list` per path. Completed sessions read from
+				// resolves to itself — one `git worktree list` per path. Ended sessions read from
 				// the CLI's durable store are exactly that case (they carry a `worktreePath` but never
 				// a `commonPath`, since they're never git-probed) and can span a 30-day history.
 				//
@@ -744,7 +744,7 @@ export class AgentStatusService implements Disposable {
 							name: wt.name,
 							type: wt.type,
 							isDefault: wt.isDefault,
-							// The owning repo — the identity a probe-less completed session lacks. Taken
+							// The owning repo — the identity a probe-less ended session lacks. Taken
 							// from the path we QUERIED, not `wt.repoPath`: the cache rewrites that to the
 							// caller's path whenever it differs from the common path, so it can't be
 							// trusted as an identity.
@@ -933,9 +933,9 @@ export class AgentStatusService implements Disposable {
 
 			try {
 				// The CLI archive is keyed by session id and machine-global, so archiving succeeds
-				// regardless of which window discovered the (completed) session. Only record the
+				// regardless of which window discovered the (ended) session. Only record the
 				// telemetry when the provider actually archived — it returns `false` when it refused a
-				// row that resumed out of `completed` since the click.
+				// row that resumed out of `ended` since the click.
 				const archived = await provider.archiveSession?.(sessionId);
 				if (archived) {
 					this.container.telemetry.sendEvent('agents/session/archived', { 'agent.provider': provider.id });
@@ -1131,13 +1131,16 @@ export class AgentStatusService implements Disposable {
 		// its array between the user's pick and this dispatch.
 		const provider = this._providers.find(p => p.sessions.some(s => s.id === session.id));
 
-		// A completed session has no live process — its retained `pid` is a dead (and, across the
+		// An ended session has no live process — its retained `pid` is a dead (and, across the
 		// 30-day retention window, potentially reused) process id, so it must NOT reach the
-		// classify/focus dispatch below. Trigger lazy title/prompt resolution (the poll skips it),
-		// then route straight to resume: `canResumeSession` includes `completed`, so the user gets a
-		// "Resume in Terminal" prompt instead of a focus attempt on an unrelated process.
-		if (session.status === 'completed') {
-			provider?.resolveCompletedSessionDetails?.(session.id);
+		// classify/focus dispatch below. This is true by construction, not assumption: the provider
+		// checks every `ended` CLI record against `claude agents --json` before accepting `ended`,
+		// so a session that's actually still running never reaches this state. Trigger lazy
+		// title/prompt resolution (the poll skips it), then route straight to resume:
+		// `canResumeSession` includes `ended`, so the user gets a "Resume in Terminal" prompt
+		// instead of a focus attempt on an unrelated process.
+		if (session.status === 'ended') {
+			provider?.resolveEndedSessionDetails?.(session.id);
 			await this.offerResumeOrWarn(session, 'This agent session has ended.');
 			return;
 		}
@@ -1222,7 +1225,7 @@ export class AgentStatusService implements Disposable {
 		// away) is still safe to resume — its transcript is on disk and nothing is holding it.
 		//
 		// The test is that status AND pid are unchanged, not merely that it's still resumable. A
-		// resume elsewhere revives a `completed` row to `idle`, which `canResumeSession` accepts, so
+		// resume elsewhere revives an `ended` row to `idle`, which `canResumeSession` accepts, so
 		// a resumability check alone would wave the second process straight through; and a reconnect
 		// can swap the pid while HOLDING `idle`, which a status-only check would miss. Either move
 		// means the situation the user agreed to no longer holds.

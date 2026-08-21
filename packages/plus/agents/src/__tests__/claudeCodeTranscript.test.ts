@@ -499,7 +499,7 @@ function lastPrompt(sessionId: string, value?: string): string {
 	});
 }
 
-suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
+suite('ClaudeCodeTranscriptReader.resolveEndedDetails', () => {
 	let tmpRoot: string;
 	let transcriptPath: string;
 	const sessionId = 'done-42';
@@ -526,7 +526,7 @@ suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
 		);
 
 		const reader = new TestReader(transcriptPath);
-		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+		const details = await reader.resolveEndedDetails(sessionId, undefined);
 
 		assert.strictEqual(details?.titles.ai, 'Do the thing');
 		assert.strictEqual(details?.firstPrompt, 'first thing');
@@ -537,7 +537,7 @@ suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
 		await writeFile(transcriptPath, jsonl(customTitle(sessionId, 'named-it')));
 
 		const reader = new TestReader(transcriptPath);
-		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+		const details = await reader.resolveEndedDetails(sessionId, undefined);
 
 		assert.strictEqual(details?.titles.custom, 'named-it');
 		assert.strictEqual(details?.firstPrompt, undefined);
@@ -548,7 +548,7 @@ suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
 		await writeFile(transcriptPath, jsonl(lastPrompt('other-session', 'not mine'), lastPrompt(sessionId, 'mine')));
 
 		const reader = new TestReader(transcriptPath);
-		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+		const details = await reader.resolveEndedDetails(sessionId, undefined);
 
 		assert.strictEqual(details?.firstPrompt, 'mine');
 		assert.strictEqual(details?.lastPrompt, 'mine');
@@ -556,7 +556,7 @@ suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
 
 	test('returns undefined when no transcript is found', async () => {
 		const reader = new TestReader(undefined);
-		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+		const details = await reader.resolveEndedDetails(sessionId, undefined);
 
 		assert.strictEqual(details, undefined);
 	});
@@ -586,7 +586,7 @@ suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
 		await writeFile(transcriptPath, body);
 
 		const reader = new TestReader(transcriptPath);
-		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+		const details = await reader.resolveEndedDetails(sessionId, undefined);
 
 		assert.strictEqual(
 			details?.firstPrompt,

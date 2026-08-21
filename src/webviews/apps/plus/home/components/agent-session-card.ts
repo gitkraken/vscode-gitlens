@@ -108,14 +108,14 @@ export class GlAgentSessionCard extends LitElement {
 	override render(): unknown {
 		if (this.sessions.length === 0) return nothing;
 
-		// Completed sessions accumulate (retained ~30 days), so they collapse into one summary pill
+		// Ended sessions accumulate (retained ~30 days), so they collapse into one summary pill
 		// instead of one row each — the popover carries the per-session detail.
 		const rest: AgentSessionState[] = [];
-		const completed: AgentSessionState[] = [];
+		const ended: AgentSessionState[] = [];
 		for (const s of this.sessions) {
 			const cat: AgentSessionCategory = agentPhaseToCategory[s.phase];
-			if (cat === 'completed') {
-				completed.push(s);
+			if (cat === 'ended') {
+				ended.push(s);
 			} else {
 				rest.push(s);
 			}
@@ -137,11 +137,11 @@ export class GlAgentSessionCard extends LitElement {
 					<div class="sessions">
 						${rest.map(s => this.renderSession(s))}
 						${
-							completed.length > 0
+							ended.length > 0
 								? html`<div class="session">
 										<code-icon icon="robot" title="Agent"></code-icon>
 										<gl-agent-status-pill
-											.summary=${{ category: 'completed', sessions: completed }}
+											.summary=${{ category: 'ended', sessions: ended }}
 										></gl-agent-status-pill>
 									</div>`
 								: nothing

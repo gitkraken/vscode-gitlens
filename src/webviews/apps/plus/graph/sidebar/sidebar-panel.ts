@@ -913,10 +913,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// tree-view rendering flow (filter box + leaves) takes over.
 		if (this.activePanel === 'agents') {
 			const sessions = this._state.agentSessions ?? [];
-			const showCompleted = this._state.sidebar?.showCompletedAgentSessions ?? false;
+			const showPast = this._state.sidebar?.showPastAgentSessions ?? false;
 			const data: DidGetSidebarDataParams = {
 				panel: 'agents',
-				items: showCompleted ? sessions : sessions.filter(s => s.phase !== 'completed'),
+				items: showPast ? sessions : sessions.filter(s => s.phase !== 'ended'),
 				layout: this._actions.agentsLayout.get(),
 			};
 			// The banner is keyed to the unfiltered total — it means "no sessions at all", not "all hidden".
@@ -1126,8 +1126,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this.activePanel === 'agents';
 		const currentLayout = data.layout;
 		const showRemoteBranches = data.panel === 'branches' ? (data.showRemoteBranches ?? false) : undefined;
-		const showCompletedAgentSessions =
-			data.panel === 'agents' ? (this._state.sidebar?.showCompletedAgentSessions ?? false) : undefined;
+		const showPastAgentSessions =
+			data.panel === 'agents' ? (this._state.sidebar?.showPastAgentSessions ?? false) : undefined;
 
 		const isPullRequests = this.activePanel === 'pullRequests';
 
@@ -1789,9 +1789,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			action: openAction.command,
 			arguments: openAction.args,
 		});
-		// Archive is offered only on terminal (completed) sessions — a live one would have to be
+		// Archive is offered only on terminal (ended) sessions — a live one would have to be
 		// killed first, so it stays out of the action row for anything still running.
-		if (category === 'completed') {
+		if (category === 'ended') {
 			actions.push({
 				icon: 'archive',
 				label: 'Archive Session',
@@ -2666,15 +2666,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		let working = 0;
 		let needsInput = 0;
 		let idle = 0;
-		let completed = 0;
+		let ended = 0;
 		for (const s of sessions) {
 			const category = agentPhaseToCategory[s.phase];
 			if (category === 'working') {
 				working++;
 			} else if (category === 'needs-input') {
 				needsInput++;
-			} else if (category === 'completed') {
-				completed++;
+			} else if (category === 'ended') {
+				ended++;
 			} else {
 				idle++;
 			}
@@ -2688,7 +2688,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				'sessions.working.count': working,
 				'sessions.needsInput.count': needsInput,
 				'sessions.idle.count': idle,
-				'sessions.completed.count': completed,
+				'sessions.ended.count': ended,
 			},
 		});
 	}

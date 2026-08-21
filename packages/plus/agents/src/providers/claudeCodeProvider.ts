@@ -25,6 +25,7 @@ import type {
 	AgentSessionProvider,
 	AgentSessionStatus,
 	ClaudeCodeHookEvent,
+	LiveAgentSession,
 	PendingPermission,
 	PendingPermissionKind,
 	PermissionDecision,
@@ -130,14 +131,14 @@ interface SessionBookkeeping {
 	 *  window (e.g., Stop → idle → working after a continuation crosses the debounce). */
 	priorPhase?: { phase: AgentSessionPhase; phaseSince: Date };
 	/** Set once the reconciliation poll has seen this session's durable `ended` record. Gates
-	 *  completed-session removal: a session the live `SessionEnd` path just transitioned is never
+	 *  ended-session removal: a session the live `SessionEnd` path just transitioned is never
 	 *  reconcile-removed by an already-in-flight poll that legitimately missed it — only after a poll
 	 *  has confirmed the CLI still lists it. */
 	polledAtLeastOnce?: boolean;
-	/** Set once a completed session's transcript has been read on demand (via
-	 *  `resolveCompletedSessionDetails`). Terminal transcripts don't change, so the read happens at
+	/** Set once an ended session's transcript has been read on demand (via
+	 *  `resolveEndedSessionDetails`). Terminal transcripts don't change, so the read happens at
 	 *  most once regardless of how many times the row is opened. */
-	completedDetailsResolved?: boolean;
+	endedDetailsResolved?: boolean;
 }
 
 const staleCheckIntervalMs = 15 * 60 * 1000; // 15 minutes
@@ -146,21 +147,21 @@ const staleCheckIntervalMs = 15 * 60 * 1000; // 15 minutes
  *  to reap, leaving only terminal-history reconciliation and the CLI's retention sweep — both fine
  *  hourly. Window startup polls ungated, so this never delays a fresh window. */
 const idleReconcileIntervalMs = 60 * 60 * 1000; // 1 hour
-/** How long a freshly-completed row is protected from absence-based removal. The CLI persists the
+/** How long a freshly-ended row is protected from absence-based removal. The CLI persists the
  *  ended record (atomic temp+rename) BEFORE broadcasting the hook event, so a poll that starts after
- *  we mark a row completed will list it — this guards only against that ordering changing on the CLI
- *  side, where the cost of being wrong is a completed row silently vanishing. */
-const completedRemovalGraceMs = 30 * 1000; // 30 seconds
+ *  we mark a row ended will list it — this guards only against that ordering changing on the CLI
+ *  side, where the cost of being wrong is an ended row silently vanishing. */
+const endedRemovalGraceMs = 30 * 1000; // 30 seconds
 /** How long the machine-global archived-session id list (fetched via a separate `--status archived`
  *  CLI query) is cached. `getPastSessions` asks for it once per worktree on panel open, so without
  *  this a multi-worktree graph spawns N identical CLI processes. `archiveSession` invalidates the
  *  cache, so a just-archived row never lingers under "Past". */
 const archivedSessionIdsCacheTtlMs = 10 * 1000; // 10 seconds
-/** Completed sessions defer git + transcript resolution (a 30-day cold-start would otherwise fan out
+/** Ended sessions defer git + transcript resolution (a 30-day cold-start would otherwise fan out
  *  hundreds of probes). Exception: sessions ended within this window still surface on WIP rows /
  *  branch cards, which match strictly by resolved `worktreePath` — so their git info is resolved
  *  eagerly at poll time (a handful), keeping the older tail lazy. Mirrors the 24h WIP-row window. */
-const recentCompletedGitResolveThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
+const recentEndedGitResolveThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
 /** Default cooldown between PostToolUse and dropping the file from `fileActivity`. Held long
  *  enough that the treemap activity overlay can render a decay tail well past the moment the tool
  *  call completed. The host may override per-call via `AgentProviderCallbacks.getActivityDecayMs`
@@ -188,7 +189,7 @@ interface SessionFileData {
 	initialCwd?: string;
 	/** Worktree roots (`git rev-parse --show-toplevel`) the CLI resolved for this session's cwd
 	 *  visits, newest last. Absent on older CLIs. Lets us read `worktreePath` straight from the
-	 *  durable store — so completed sessions attach to branch cards / WIP rows / the resume picker at
+	 *  durable store — so ended sessions attach to branch cards / WIP rows / the resume picker at
 	 *  any age without a git probe (the CLI already ran `rev-parse` at hook time). */
 	cwdTimeline?: { cwd: string; worktree?: string; at?: string }[];
 	worktrees?: string[];
@@ -205,12 +206,12 @@ interface SessionFileData {
 	prompt?: string | null;
 	firstPrompt?: string | null;
 	/** CLI durable-session lifecycle status. Absent on legacy files → treated as `active`. `ended`
-	 *  records are surfaced as terminal `completed` sessions; `archived` is excluded by the query. */
+	 *  records are surfaced as terminal `ended` sessions; `archived` is excluded by the query. */
 	status?: 'active' | 'ended' | 'archived';
 	/** Why the session ended (`session-end`, `rotated`, `stale`, `dead-pid`, `pid-zero-idle`,
 	 *  `archived`). Present only on `ended`/`archived` records. */
 	endReason?: string;
-	/** RFC3339 timestamp the session ended; used as `lastActivity`/`phaseSince` for completed rows. */
+	/** RFC3339 timestamp the session ended; used as `lastActivity`/`phaseSince` for ended rows. */
 	endedAt?: string;
 }
 
@@ -373,6 +374,68 @@ function fileActivityStructurallyEqual(
 	return true;
 }
 
+/**
+ * Maps what `claude agents --json` reports for a live session onto `AgentSessionStatus`, per Claude's
+ * documented agent-view vocabulary.
+ *
+ * `kind: 'interactive'` entries carry `status` while their process is alive, plus `waitingFor` when
+ * that status is `waiting` — `'permission prompt'` is the one value with a distinct status of its own
+ * here, since a permission request is a different kind of block from an ordinary question.
+ *
+ * `kind: 'background'` entries carry `state` instead: `working` / `blocked` / `done` / `failed` /
+ * `stopped`, where `blocked` IS the documented "needs input" state.
+ *
+ * Returns `undefined` for a background session in a TERMINAL state. `--json` lists background
+ * sessions "still working or blocked even when their process has exited", so a listing is not by
+ * itself proof of life — without this, a genuinely finished session would be resurrected as `idle`,
+ * which is the opposite of the bug this override exists to fix. Callers must leave such a session to
+ * complete normally.
+ *
+ * Anything unrecognized degrades to `'idle'` rather than guessing a working/waiting phase.
+ */
+/** Resolves whether Claude's live listing contradicts a store record that says `ended`, and with
+ *  what status. `undefined` means "let the record stand": either the listing doesn't mention this
+ *  session, or it lists it in a terminal background state, which is not aliveness (see
+ *  {@link statusFromLiveSession}). Shared by both ended-record branches of the poll — the one
+ *  updating a row already tracked and the one discovering a row for the first time — so the two
+ *  can't drift apart on what counts as live. */
+function liveOverrideFor(
+	liveSessions: ReadonlyMap<string, LiveAgentSession> | undefined,
+	sessionId: string,
+): { live: LiveAgentSession; status: AgentSessionStatus } | undefined {
+	const live = liveSessions?.get(sessionId);
+	if (live == null) return undefined;
+
+	const status = statusFromLiveSession(live);
+	return status != null ? { live: live, status: status } : undefined;
+}
+
+function statusFromLiveSession(live: {
+	status?: string;
+	state?: string;
+	waitingFor?: string;
+}): AgentSessionStatus | undefined {
+	switch (live.status) {
+		case 'waiting':
+			return live.waitingFor === 'permission prompt' ? 'permission_requested' : 'waiting';
+		case 'busy':
+			return 'thinking';
+	}
+
+	switch (live.state) {
+		case 'blocked':
+			return 'waiting';
+		case 'working':
+			return 'thinking';
+		case 'done':
+		case 'failed':
+		case 'stopped':
+			return undefined;
+	}
+
+	return 'idle';
+}
+
 /** True when a CLI invocation failed because it didn't recognize a flag/command. `--status` and the
  *  active-only `list-sessions` default shipped together (gk 3.1.69); an older CLI rejects `--status`
  *  and returns all sessions unfiltered, so the flagless retry is the correct legacy equivalent. */
@@ -417,8 +480,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private _claudeHooksInstalled = true;
 	/** Whether the CLI supports `list-sessions --status` (and with it the durable ended-session
 	 *  store). Optimistic until the poll's flagless fallback proves otherwise. When unsupported,
-	 *  completed rows are untenable — no poll can ever confirm or archive one — so `SessionEnd`
-	 *  reverts to removing the session and reconciliation drops any completed stragglers. */
+	 *  ended rows are untenable — no poll can ever confirm or archive one — so `SessionEnd`
+	 *  reverts to removing the session and reconciliation drops any ended stragglers. */
 	private _statusFilterSupported = true;
 	protected _transcriptReader: ClaudeCodeTranscriptReader = new ClaudeCodeTranscriptReader();
 
@@ -572,11 +635,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}),
 			this.callbacks.ipc.registerHandler('agents/sessions/list', () =>
 				Promise.resolve(
-					// Exclude terminal `completed` rows: an older-version peer has no `completed` phase and
-					// would import them as phantom "idle" sessions. Our own poll surfaces completed sessions
+					// Exclude terminal `ended` rows: an older-version peer has no `ended` phase and
+					// would import them as phantom "idle" sessions. Our own poll surfaces ended sessions
 					// independently, so peers never need them from here.
 					this._sessions
-						.filter(s => s.status !== 'completed')
+						.filter(s => s.status !== 'ended')
 						.map(s => ({
 							...s,
 							lastActivity: s.lastActivity.toISOString(),
@@ -701,10 +764,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					}
 				} else {
 					const prev = this._sessions[index];
-					if (prev.status === 'completed') {
-						// Resuming a terminal session reuses its id, so a SessionStart on a completed
+					if (prev.status === 'ended') {
+						// Resuming a terminal session reuses its id, so a SessionStart on an ended
 						// row IS the resume signal — revive it to a live `idle` row (clearing the
-						// completed/archivable state) with clean bookkeeping that completeSession tore
+						// ended/archivable state) with clean bookkeeping that endSession tore
 						// down. The next real event advances it out of idle. A `SessionStart` arrives on
 						// THIS window's hook flow, so the resume is locally owned now: clear the peer
 						// ownership carried over from the terminal record, and take the resume's pid
@@ -745,12 +808,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const index = this._sessions.findIndex(s => s.id === event.sessionId);
 				if (index >= 0) {
 					if (this._statusFilterSupported) {
-						// Transition to a terminal `completed` row rather than removing it — completed
+						// Transition to a terminal `ended` row rather than removing it — ended
 						// sessions stay visible (de-emphasized) until archived or 30-day-purged by the CLI.
-						this.completeSession(index, new Date());
+						this.endSession(index, new Date());
 					} else {
-						// Legacy CLI (no `--status` durable store): a completed row could never be
-						// poll-confirmed nor archived, so keep the pre-completed remove-on-end behavior.
+						// Legacy CLI (no `--status` durable store): an ended row could never be
+						// poll-confirmed nor archived, so keep the pre-ended remove-on-end behavior.
 						this._sessions.splice(index, 1);
 						const bk = this._sessionBookkeeping.get(event.sessionId);
 						if (bk != null) {
@@ -1637,10 +1700,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		this.cancelPendingIdleTransition(sessionId);
 		const timer = setTimeout(() => {
 			this._pendingIdleTimers.delete(sessionId);
-			// Session may have been removed (SessionEnd, prune) during the window, or completed by a
+			// Session may have been removed (SessionEnd, prune) during the window, or ended by a
 			// poll/SessionEnd that raced this timer — reviving a terminal row to idle would zombie it.
 			const idx = this._sessions.findIndex(s => s.id === sessionId);
-			if (idx < 0 || this._sessions[idx].status === 'completed') return;
+			if (idx < 0 || this._sessions[idx].status === 'ended') return;
 
 			this.updateSessionStatus(sessionId, 'idle');
 		}, stopToIdleDebounceMs);
@@ -1817,14 +1880,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	async archiveSession(sessionId: string): Promise<boolean> {
 		// Authoritative status guard: the CLI's `archive-session` ends an active session first, so a
-		// stale webview action (or a row that resumed out of `completed` since the click) must never
+		// stale webview action (or a row that resumed out of `ended` since the click) must never
 		// reach the CLI — archiving is only ever valid on a terminal row. Callers gate the UI too,
 		// but this is the last line that owns live process safety. Returns `false` when refused so the
 		// host doesn't record a success telemetry event for an archive that never happened.
 		const session = this._sessions.find(s => s.id === sessionId);
-		if (session != null && session.status !== 'completed') {
+		if (session != null && session.status !== 'ended') {
 			Logger.warn(
-				`ClaudeCodeProvider.archiveSession: refusing to archive non-completed ${this.sessionTag(sessionId)} (status=${session.status})`,
+				`ClaudeCodeProvider.archiveSession: refusing to archive non-ended ${this.sessionTag(sessionId)} (status=${session.status})`,
 			);
 			return false;
 		}
@@ -1877,37 +1940,37 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 	}
 
-	resolveCompletedSessionDetails(sessionId: string): void {
+	resolveEndedSessionDetails(sessionId: string): void {
 		const session = this._sessions.find(s => s.id === sessionId);
-		// Only completed sessions defer resolution; live sessions resolve eagerly on discovery.
-		if (session?.status !== 'completed') return;
+		// Only ended sessions defer resolution; live sessions resolve eagerly on discovery.
+		if (session?.status !== 'ended') return;
 
 		// The durable store drops the prompt (and only ever carries an auto-slug name) for most ended
 		// sessions, so read the terminal transcript once on demand to recover a real title + the
 		// first/last prompt. Both the git probe and transcript read sit under the guard so repeated
 		// opens don't re-probe git or re-read a possibly-large file.
 		const bk = this.getBookkeeping(sessionId);
-		if (bk.completedDetailsResolved) return;
+		if (bk.endedDetailsResolved) return;
 
-		bk.completedDetailsResolved = true;
+		bk.endedDetailsResolved = true;
 
 		if (session.cwd) {
 			void this.resolveGitInfo(sessionId, session.cwd);
 		}
-		void this.applyCompletedTranscriptDetails(sessionId, session.cwd);
+		void this.applyEndedTranscriptDetails(sessionId, session.cwd);
 	}
 
-	private async applyCompletedTranscriptDetails(sessionId: string, cwd: string | undefined): Promise<void> {
+	private async applyEndedTranscriptDetails(sessionId: string, cwd: string | undefined): Promise<void> {
 		let details;
 		try {
-			details = await this._transcriptReader.resolveCompletedDetails(sessionId, cwd);
+			details = await this._transcriptReader.resolveEndedDetails(sessionId, cwd);
 		} catch {
 			// A read error (transient I/O, permissions) is not terminal state — clear the once-only
 			// guard so a later open retries. A `undefined` result IS terminal (no transcript on disk),
 			// so it keeps the guard and never re-scans.
 			const bk = this._sessionBookkeeping.get(sessionId);
 			if (bk != null) {
-				bk.completedDetailsResolved = false;
+				bk.endedDetailsResolved = false;
 			}
 			return;
 		}
@@ -1918,7 +1981,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		const session = this._sessions[index];
 		// The session may have been archived/removed while we were reading.
-		if (session.status !== 'completed') return;
+		if (session.status !== 'ended') return;
 
 		const { titles } = details;
 		const nextTitles =
@@ -2355,17 +2418,17 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		this._onDidChangeSessions.fire();
 	}
 
-	/** Transitions the session at `index` to the terminal `completed` state in place: keeps the row,
+	/** Transitions the session at `index` to the terminal `ended` state in place: keeps the row,
 	 *  stamps `endedAt` as its activity time, clears transient state (statusDetail, pendingPermission,
 	 *  subagents), and tears down its bookkeeping/timers. Shared by the live `SessionEnd` path and the
 	 *  poll backstop for a `SessionEnd` the live path missed. Does not fire change events — the caller
 	 *  batches those. */
-	private completeSession(index: number, endedAt: Date): void {
+	private endSession(index: number, endedAt: Date): void {
 		const prev = this._sessions[index];
 		this._sessions[index] = {
 			...prev,
-			status: 'completed',
-			phase: 'completed',
+			status: 'ended',
+			phase: 'ended',
 			phaseSince: endedAt,
 			lastActivity: endedAt,
 			statusDetail: undefined,
@@ -2382,7 +2445,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// live zombie).
 		const pending = this._pendingPermissions.get(prev.id);
 		if (pending != null) {
-			this.rejectAllPending(pending, new Error('Session completed'));
+			this.rejectAllPending(pending, new Error('Session ended'));
 			this._pendingPermissions.delete(prev.id);
 		}
 		this.cancelPendingIdleTransition(prev.id);
@@ -2400,9 +2463,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const kept: AgentSession[] = [];
 		const removedIds: string[] = [];
 		for (const s of this._sessions) {
-			// Completed sessions are terminal and durable — their PID is usually dead by design, so
+			// Ended sessions are terminal and durable — their PID is usually dead by design, so
 			// liveness pruning must never drop them (they leave only via poll reconciliation).
-			if (s.status === 'completed') {
+			if (s.status === 'ended') {
 				kept.push(s);
 				continue;
 			}
@@ -2451,7 +2514,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// sessions exist — that's the only local backstop for pruning agents that die without firing
 		// `SessionEnd`, and it keeps us correct even if hook detection is stale/wrong. The bootstrap
 		// call in `ensureIpcServer` passes no options, so cold-start discovery always runs.
-		// Deliberately counts ALL tracked sessions, completed included. A completed row is something
+		// Deliberately counts ALL tracked sessions, ended included. An ended row is something
 		// we have to reconcile — it's removed only when the CLI stops listing it (archived from
 		// another window, or aged out) — and this poll is the sole mechanism that does so. It's also
 		// what triggers the CLI's own 30-day retention sweep, which runs on `list-sessions` and
@@ -2468,15 +2531,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (
 			options?.gate &&
 			!this._claudeHooksInstalled &&
-			!this._sessions.some(s => s.status !== 'completed') &&
+			!this._sessions.some(s => s.status !== 'ended') &&
 			Date.now() - this._lastSyncAt < idleReconcileIntervalMs
 		) {
 			return;
 		}
 
 		// Stamped BEFORE the CLI call so the reconciliation below can tell "this poll's snapshot was
-		// taken after we completed the row" from "an in-flight poll that predates it" — see the
-		// completed-removal filter.
+		// taken after we ended the row" from "an in-flight poll that predates it" — see the
+		// ended-removal filter.
 		const pollStartedAt = Date.now();
 		this._lastSyncAt = pollStartedAt;
 
@@ -2486,7 +2549,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			try {
 				// `--status active,ended` surfaces both live sessions and the CLI's durable ended records
 				// (excluding `archived`). Newer CLIs default `list-sessions` to active-only, so the flag
-				// is required to see completed sessions at all.
+				// is required to see ended sessions at all.
 				output = await this.callbacks.runCLICommand([
 					'ai',
 					'hook',
@@ -2506,7 +2569,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				output = await this.callbacks.runCLICommand(['ai', 'hook', 'list-sessions', '--json']);
 			}
 			sessions = JSON.parse(output) as SessionFileData[];
-		} catch {
+		} catch (ex) {
+			// Expected whenever the CLI is missing or still installing, so not an error — but log it:
+			// every session in the window silently stops reconciling until the next tick, and without
+			// this the symptom ("no agents anywhere") is indistinguishable from having no agents.
+			Logger.debug(
+				`ClaudeCodeProvider.syncSessions: poll skipped — ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
 			if (this.pruneDeadSessions()) {
 				this._onDidChangeSessions.fire();
 			}
@@ -2516,25 +2585,37 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// Snapshot what the live IPC path had already tracked, so we can detect drift between it and
 		// what the poll returns. Ideally they match exactly — any difference means the live push path
 		// missed an add (poll discovers it) or a teardown (poll no longer reports a session we track).
-		// Drift is measured over *live* sessions only; completed sessions are durable history, so their
+		// Drift is measured over *live* sessions only; ended sessions are durable history, so their
 		// absence from `polledAlive` is expected and must not skew the discrepancy signal.
-		const trackedLiveBefore = new Set(this._sessions.filter(s => s.status !== 'completed').map(s => s.id));
+		const trackedLiveBefore = new Set(this._sessions.filter(s => s.status !== 'ended').map(s => s.id));
 		const polledAlive = new Set<string>();
-		// Every id the poll returned (live *and* completed). Drives completed-session reconciliation:
-		// a tracked completed session absent from this set was archived/purged by the CLI.
+		// Every id the poll returned (live *and* ended). Drives ended-session reconciliation:
+		// a tracked ended session absent from this set was archived/purged by the CLI.
 		const polledIds = new Set<string>();
 		// Accumulates ids already tracked or added during this poll, so the membership check is O(1)
 		// and duplicate ids within a single response are only added once.
 		const known = new Set(this._sessions.map(s => s.id));
 
+		// The CLI's durable store never revives a resumed session — once it moves a record to its
+		// `ended` store, nothing moves it back, so a record reporting `ended` isn't proof the session
+		// is over. Fetched once per poll (not per row) and consulted below wherever the CLI's `ended`
+		// record would otherwise transition the row to our terminal `ended` status; the host caches the
+		// underlying `claude agents --json` invocation behind a short TTL, so this doesn't spawn a
+		// process per session.
+		const liveSessions = await this.callbacks.getLiveAgentSessions?.();
+
 		let changed = false;
 		let discovered = 0;
+		/** Ids kept alive against a stale `ended` record. Logged below — this path has no other
+		 *  observability, and "the agent isn't showing up" is otherwise indistinguishable from
+		 *  "the listing never ran". */
+		const keptAlive: string[] = [];
 
 		for (const data of sessions) {
 			if (!data.sessionId) continue;
 
 			// Another AI host's record in the CLI's shared store. Must stay ahead of `polledIds`/
-			// `polledAlive`: an id in either would skew completed-row reconciliation and the
+			// `polledAlive`: an id in either would skew ended-row reconciliation and the
 			// `onSyncDiscrepancy` drift signal below.
 			if (data.providerId != null && data.providerId !== 'claude-code') continue;
 
@@ -2549,11 +2630,56 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 				const existingIndex = this._sessions.findIndex(s => s.id === data.sessionId);
 				if (existingIndex >= 0) {
-					// Already tracked. If the live path missed the SessionEnd (e.g. `/clear` kept the
-					// PID alive under a new id), transition it to completed now — otherwise a live-status
-					// row would linger as a zombie, since pruneDeadSessions can't reap a live PID.
-					if (this._sessions[existingIndex].status !== 'completed') {
-						this.completeSession(existingIndex, endedDate);
+					const override = liveOverrideFor(liveSessions, data.sessionId);
+					if (override != null) {
+						const { live: liveSession, status: liveStatus } = override;
+						// `claude agents --json` still lists this exact session id as live — the store's
+						// `ended` record is stale. Keep the row alive instead of ending it, and prefer the
+						// listing's pid — the record's own may already be dead, or reused. Background sessions
+						// carry no pid at all, so fall back to whatever pid the row already has.
+						//
+						// The listing establishes LIVENESS, not status. It's a poll SAMPLE of a value that flips
+						// many times per turn, so adopting it every poll stamps a row back to `idle` moments after
+						// a hook event moved it to `tool_use`/`thinking` — the row then reads idle almost always
+						// and working almost never. Hook events are strictly fresher, so the sample is only taken
+						// when the row has nothing better: it was ended, and this poll is what revives it.
+						const trackedSession = this._sessions[existingIndex];
+						// The listing's pid, or none. Never fall back to the pid we already hold: the listing
+						// omits one only for background sessions, which have no process of their own, and the
+						// pid on the row is the dead one whose exit produced the `ended` record. Carrying it
+						// onto a live row makes `pruneDeadSessions` reap the row later in this same poll.
+						const nextPid = liveSession.pid;
+						const revived = trackedSession.status === 'ended';
+						const nextStatus = revived ? liveStatus : trackedSession.status;
+						if (
+							trackedSession.status !== nextStatus ||
+							trackedSession.pid !== nextPid ||
+							trackedSession.endReason != null ||
+							trackedSession.endedAt != null
+						) {
+							this._sessions[existingIndex] = {
+								...trackedSession,
+								status: nextStatus,
+								phase: getPhaseForStatus(nextStatus),
+								// Only re-stamp the phase/activity clocks on the revive itself; otherwise a poll
+								// keeps resetting them under a row whose status it didn't change.
+								phaseSince: revived ? new Date(pollStartedAt) : trackedSession.phaseSince,
+								lastActivity: revived ? new Date(pollStartedAt) : trackedSession.lastActivity,
+								pid: nextPid,
+								statusDetail: revived ? undefined : trackedSession.statusDetail,
+								endReason: undefined,
+								endedAt: undefined,
+							};
+							changed = true;
+						}
+						keptAlive.push(`${data.sessionId.substring(0, 8)}:${nextStatus}`);
+						polledAlive.add(data.sessionId);
+					} else if (this._sessions[existingIndex].status !== 'ended') {
+						// Already tracked, and Claude no longer lists it as live. If the live path missed the
+						// SessionEnd (e.g. `/clear` kept the PID alive under a new id), transition it to
+						// ended now — otherwise a live-status row would linger as a zombie, since
+						// pruneDeadSessions can't reap a live PID.
+						this.endSession(existingIndex, endedDate);
 						changed = true;
 					}
 
@@ -2569,7 +2695,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// is no longer trustworthy — it may point into a different repo entirely — so drop it
 					// rather than leave the card filed under the wrong branch, and re-resolve below. A cwd
 					// change is a discrete event, so that's one probe, not the cold-start fan-out the
-					// completed path exists to avoid.
+					// ended path exists to avoid.
 					const nextWorktreePath =
 						worktreeRoot != null
 							? normalizePath(worktreeRoot)
@@ -2608,19 +2734,62 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				known.add(data.sessionId);
 				const workspacePath = this.resolveWorkspacePath(data.cwd);
 				const worktreeRoot = worktreeRootFromData(data);
+
+				const override = liveOverrideFor(liveSessions, data.sessionId);
+				if (override != null) {
+					const { live: liveSession, status: liveStatus } = override;
+					// This window is learning about the session for the first time via its `ended`
+					// record, but `claude agents --json` still lists it as live — same override as the
+					// tracked branch above, just pushing a fresh row instead of updating one in place.
+					this._sessions.push({
+						id: data.sessionId,
+						providerId: this.id,
+						providerName: this.name,
+						name: data.sessionName || undefined,
+						status: liveStatus,
+						phase: getPhaseForStatus(liveStatus),
+						phaseSince: new Date(pollStartedAt),
+						// Listing's pid or none — never the record's, which is the dead process whose exit
+						// wrote the `ended` record (see the tracked branch above).
+						pid: liveSession.pid,
+						lastActivity: new Date(pollStartedAt),
+						isSubagent: false,
+						workspacePath: workspacePath,
+						worktreePath: worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
+						cwd: data.cwd,
+						initialCwd: data.initialCwd ?? data.cwd,
+						planFile: data.planFile ?? undefined,
+						isInWorkspace: workspacePath != null,
+						lastPrompt: prepareStoredPrompt(data.prompt ?? undefined),
+						firstPrompt: prepareStoredPrompt(data.firstPrompt ?? undefined),
+						model: data.model ?? undefined,
+					});
+					this.getBookkeeping(data.sessionId).polledAtLeastOnce = true;
+					this.getBookkeeping(data.sessionId).cliSeatedWorktree = worktreeRoot != null;
+					changed = true;
+					discovered++;
+					keptAlive.push(`${data.sessionId.substring(0, 8)}:${liveStatus}`);
+					polledAlive.add(data.sessionId);
+					if (worktreeRoot == null && data.cwd) {
+						void this.resolveGitInfo(data.sessionId, data.cwd);
+					}
+					void this.resolveTranscriptTitles(data.sessionId, data.cwd);
+					continue;
+				}
+
 				this._sessions.push({
 					id: data.sessionId,
 					providerId: this.id,
 					providerName: this.name,
 					name: data.sessionName || undefined,
-					status: 'completed',
-					phase: 'completed',
+					status: 'ended',
+					phase: 'ended',
 					phaseSince: endedDate,
 					pid: data.pid,
 					lastActivity: endedDate,
 					isSubagent: false,
 					workspacePath: workspacePath,
-					// Read straight from the CLI's durable record so completed sessions attach to branch
+					// Read straight from the CLI's durable record so ended sessions attach to branch
 					// cards / WIP rows / the resume picker at any age, no git probe.
 					worktreePath: worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
 					cwd: data.cwd,
@@ -2637,14 +2806,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				});
 				this.getBookkeeping(data.sessionId).polledAtLeastOnce = true;
 				changed = true;
-				// Titles/prompts still resolve lazily via resolveCompletedSessionDetails (a 30-day
+				// Titles/prompts still resolve lazily via resolveEndedSessionDetails (a 30-day
 				// cold-start must not fan out transcript reads). worktreePath comes from the record
 				// above; only fall back to an eager git probe when the record predates that CLI field,
 				// and only for the recent (WIP-window) tail so the fallback stays bounded.
 				if (
 					worktreeRoot == null &&
 					data.cwd &&
-					Date.now() - endedDate.getTime() < recentCompletedGitResolveThresholdMs
+					Date.now() - endedDate.getTime() < recentEndedGitResolveThresholdMs
 				) {
 					void this.resolveGitInfo(data.sessionId, data.cwd);
 				}
@@ -2666,17 +2835,17 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// (`PreToolUse` → tool_use, `UserPromptSubmit` → thinking), and hardcoding `idle` would
 					// mislabel active work and risk a concurrent-write resume.
 					const polledStatus = deriveStatusFromEvent(data.event);
-					if (existing.status === 'completed') {
-						// We hold it as `completed` but the CLI now reports it as a live process (a
+					if (existing.status === 'ended') {
+						// We hold it as `ended` but the CLI now reports it as a live process (a
 						// resume the live SessionStart path missed) — revive it, the symmetric backstop
-						// to the ended-branch's live→completed transition above. Leave genuinely-live
+						// to the ended-branch's live→ended transition above. Leave genuinely-live
 						// rows to the IPC path.
 						const revivedAt = new Date(data.updatedAt);
-						// Only when the record is at least as new as the completion. `SessionEnd` fires
+						// Only when the record is at least as new as the end. `SessionEnd` fires
 						// while the process is still winding down, so a poll whose CLI call started
 						// BEFORE it returns a snapshot that still says "active" with a live pid — reviving
 						// off that stale record would resurrect the row, and `pruneDeadSessions` would
-						// then delete it outright once the process exits, losing the completed row.
+						// then delete it outright once the process exits, losing the ended row.
 						if (revivedAt.getTime() < existing.phaseSince.getTime()) continue;
 
 						// The poll has no blocking hook entry for this ask (it's discovered off the CLI's
@@ -2687,9 +2856,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 								? synthesizeUnresolvableAsk(data.toolName, data.planFile ?? undefined)
 								: undefined;
 						// Seat worktreePath from the record, mirroring the ended-record re-seat above — the
-						// existing row is otherwise stuck with whatever (or nothing) it had while completed.
+						// existing row is otherwise stuck with whatever (or nothing) it had while ended.
 						const revivedWorktreeRoot = worktreeRootFromData(data);
-						// No record worktree data (older CLI): KEEP the completed row's attribution. A
+						// No record worktree data (older CLI): KEEP the ended row's attribution. A
 						// resume whose cwd is scratch space (e.g. /tmp) still belongs to its worktree —
 						// re-rooting happens only when git affirmatively resolves a new one (the probe
 						// below, on success). Attribution persists until something better is known.
@@ -2720,7 +2889,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							// A worktree move can cross repos — drop the stale repo identity and let the
 							// probe below refill it.
 							commonPath: revivedWorktreePath !== existing.worktreePath ? undefined : existing.commonPath,
-							// No longer terminal: leaving these set makes the row read as completed to
+							// No longer terminal: leaving these set makes the row read as ended to
 							// consumers that key off them.
 							endReason: undefined,
 							endedAt: undefined,
@@ -2780,7 +2949,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					? synthesizeUnresolvableAsk(data.toolName, data.planFile ?? undefined)
 					: undefined;
 			// Read straight from the CLI's durable record so the row attaches to the right branch
-			// card/WIP row immediately, no git probe — mirrors the completed-session push below.
+			// card/WIP row immediately, no git probe — mirrors the ended-session push below.
 			const worktreeRoot = worktreeRootFromData(data);
 
 			const subagents: AgentSession[] | undefined = data.subagents?.map(sub => ({
@@ -2836,34 +3005,42 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			void this.resolveTranscriptTitles(data.sessionId, data.cwd);
 		}
 
-		// The poll is authoritative for completed-session removal (archived elsewhere or 30-day-purged).
+		// The poll is authoritative for ended-session removal (archived elsewhere or 30-day-purged).
 		// Only remove ones a prior poll confirmed present — never a session the live SessionEnd path just
 		// transitioned, which an already-in-flight poll can legitimately miss (guarded by polledAtLeastOnce).
-		// On a legacy CLI (no `--status`) no poll can ever confirm a completed row, so the guard would
+		// On a legacy CLI (no `--status`) no poll can ever confirm an ended row, so the guard would
 		// instead pin it forever — there, absence from the poll is the confirmation.
-		const staleCompleted = this._sessions.filter(
+		const staleEnded = this._sessions.filter(
 			s =>
-				s.status === 'completed' &&
+				s.status === 'ended' &&
 				!polledIds.has(s.id) &&
 				(!this._statusFilterSupported ||
 					this._sessionBookkeeping.get(s.id)?.polledAtLeastOnce === true ||
-					// Or this poll's snapshot postdates the completion, so its absence is authoritative.
+					// Or this poll's snapshot postdates the end, so its absence is authoritative.
 					// `polledAtLeastOnce` alone can never be set for a session whose record disappeared
 					// (archived from another window, or purged) before any poll observed it — and
-					// `completeSession` drops the bookkeeping — so without this the row is unremovable for
+					// `endSession` drops the bookkeeping — so without this the row is unremovable for
 					// the window's lifetime. The timestamp answers the same question the flag was proxying:
-					// could this poll have seen it? The grace keeps a just-completed row out of reach of
+					// could this poll have seen it? The grace keeps a just-ended row out of reach of
 					// an absence that's really a not-yet-visible record.
-					s.phaseSince.getTime() < pollStartedAt - completedRemovalGraceMs),
+					s.phaseSince.getTime() < pollStartedAt - endedRemovalGraceMs),
 		);
-		if (staleCompleted.length > 0) {
-			const staleIds = new Set(staleCompleted.map(s => s.id));
+		if (staleEnded.length > 0) {
+			const staleIds = new Set(staleEnded.map(s => s.id));
 			this._sessions = this._sessions.filter(s => !staleIds.has(s.id));
-			for (const s of staleCompleted) {
+			for (const s of staleEnded) {
 				this._sessionBookkeeping.delete(s.id);
 				this._transcriptReader.forget(s.id);
 			}
 			changed = true;
+		}
+
+		if (liveSessions != null) {
+			Logger.debug(
+				`ClaudeCodeProvider.syncSessions: Claude lists ${liveSessions.size} live session(s); kept ${keptAlive.length} alive against a stale ended record${
+					keptAlive.length > 0 ? `: ${keptAlive.join(', ')}` : ''
+				}`,
+			);
 		}
 
 		if (this.pruneDeadSessions()) {
@@ -2930,11 +3107,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			if (peerSessions == null) continue;
 
 			for (const peerSession of peerSessions) {
-				// Skip terminal rows a peer published: completed sessions live in the machine-global CLI
+				// Skip terminal rows a peer published: ended sessions live in the machine-global CLI
 				// store, so our own poll surfaces them with proper reconciliation. Importing them from a
 				// peer would add a row with no `polledAtLeastOnce` that our poll can't confirm — a ghost
 				// pinned for this window's lifetime if the store later drops it.
-				if (peerSession.status === 'completed') continue;
+				if (peerSession.status === 'ended') continue;
 
 				const peerActivity = new Date(peerSession.lastActivity);
 				const peerPhaseSince = new Date(peerSession.phaseSince);
@@ -2957,7 +3134,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// poll/SessionStart revive paths: take the peer's pid (retaining the terminal
 						// record's dead — and possibly reused — pid would let dispatch focus an unrelated
 						// process) and mark it peer-owned so opens route through the peer's IPC.
-						const revivedFromCompleted = existing.status === 'completed';
+						const revivedFromEnded = existing.status === 'ended';
 						// Peer is the authoritative hook recipient for this session, so wipe any
 						// local bookkeeping that survived from a previous local-ownership window.
 						// Without this, refcounts/timers from a prior local-hosting stretch would
@@ -2985,7 +3162,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 								(peerSession.pendingPermission != null
 									? { ...peerSession.pendingPermission, resolvable: false }
 									: undefined),
-							...(revivedFromCompleted ? { pid: peerSession.pid, isPeerOwned: true } : undefined),
+							...(revivedFromEnded ? { pid: peerSession.pid, isPeerOwned: true } : undefined),
 							subagents: rehydrateSubagents(peerSession.subagents),
 							// Carry the peer's published fileActivity across so peer-window WIP
 							// decorations + treemap heatmap follow the agent. Owned by the peer (it's

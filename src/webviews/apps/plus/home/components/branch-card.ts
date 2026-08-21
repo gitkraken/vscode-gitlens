@@ -825,36 +825,36 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		if (sessions == null || sessions.length === 0) return nothing;
 
 		// Actionable (`needs-input`) sessions never aggregate — each one needs its own Allow/Deny
-		// popover. Working, idle, and completed sessions collapse into one summary pill per category.
+		// popover. Working, idle, and ended sessions collapse into one summary pill per category.
 		const needsInput: AgentSessionState[] = [];
 		const working: AgentSessionState[] = [];
 		const idle: AgentSessionState[] = [];
-		const completed: AgentSessionState[] = [];
+		const ended: AgentSessionState[] = [];
 		for (const s of sessions) {
 			const cat = agentPhaseToCategory[s.phase];
 			if (cat === 'needs-input') {
 				needsInput.push(s);
 			} else if (cat === 'working') {
 				working.push(s);
-			} else if (cat === 'completed') {
-				completed.push(s);
+			} else if (cat === 'ended') {
+				ended.push(s);
 			} else {
 				idle.push(s);
 			}
 		}
 
-		const completedPill =
-			completed.length > 0
-				? // Completed sessions attach here at any age: worktreePath comes straight from the CLI's
+		const endedPill =
+			ended.length > 0
+				? // Ended sessions attach here at any age: worktreePath comes straight from the CLI's
 					// durable record, no git probe needed. The 24h cutoff is specific to the graph WIP-row
 					// indicator, which limits itself to recent activity.
 					html`<gl-agent-status-pill
-						.summary=${{ category: 'completed', sessions: completed }}
+						.summary=${{ category: 'ended', sessions: ended }}
 					></gl-agent-status-pill>`
 				: nothing;
 
 		if (this.expanded) {
-			// Completed sessions always roll up regardless of expansion — only actionable/active
+			// Ended sessions always roll up regardless of expansion — only actionable/active
 			// sessions warrant individual pills when expanded.
 			return html`
 				<div class="branch-item__agents">
@@ -862,7 +862,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 					${[...needsInput, ...working, ...idle].map(
 						s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`,
 					)}
-					${completedPill}
+					${endedPill}
 				</div>
 			`;
 		}
@@ -885,7 +885,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 							></gl-agent-status-pill>`
 						: nothing
 				}
-				${completedPill}
+				${endedPill}
 			</div>
 		`;
 	}
