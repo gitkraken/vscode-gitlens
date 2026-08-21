@@ -27575,13 +27575,8 @@
 					"group": "1_conflict@0"
 				},
 				{
-					"command": "gitlens.openWorktreeInNewWindow:graph",
+					"command": "gitlens.openWorktree:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_action@1"
-				},
-				{
-					"command": "gitlens.switchToAnotherBranch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@1"
 				},
 				{
@@ -27590,13 +27585,18 @@
 					"group": "1_gitlens_action@1"
 				},
 				{
-					"command": "gitlens.openWorktree:graph",
+					"command": "gitlens.openWorktreeInNewWindow:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@2"
 				},
 				{
 					"command": "gitlens.graph.openInWorktree",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|checkedout|worktree)\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_action@3"
+				},
+				{
+					"command": "gitlens.switchToAnotherBranch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(current|checkedout)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@3"
 				},
 				{
