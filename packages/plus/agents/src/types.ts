@@ -124,6 +124,10 @@ export interface AgentSession {
 	readonly phase: AgentSessionPhase;
 	readonly statusDetail?: string;
 	readonly worktreePath?: string;
+	/** Distinct worktree roots this session has been observed in (normalized, insertion order,
+	 *  includes the current `worktreePath`). Accumulated from the CLI's `cwdTimeline` and the
+	 *  git probe; never pruned for the session's lifetime. */
+	readonly visitedWorktreePaths?: readonly string[];
 	/** Common (parent) repo path shared by every worktree in this session's repo. Set together
 	 *  with `worktreePath` by `resolveGitInfo` — equal to `worktreePath` for a default-worktree
 	 *  session, otherwise the parent repo's common path. Use this for "same repo" identity

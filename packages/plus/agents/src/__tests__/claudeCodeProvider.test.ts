@@ -589,6 +589,115 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
+		test('an event carrying a cwdTimeline with two distinct worktrees records both as visited', async () => {
+			const repo = '/repo';
+			const worktree = '/repo.worktrees/feature';
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: () => new Promise(() => {}),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([repo]);
+				const handler = handlers.get('agents/session')!;
+				await handler(
+					{
+						event: 'SessionStart',
+						sessionId: 's1',
+						cwd: worktree,
+						pid: process.pid,
+						cwdTimeline: [
+							{ cwd: repo, worktree: repo },
+							{ cwd: worktree, worktree: worktree },
+						],
+					},
+					new URLSearchParams(),
+				);
+
+				const s = provider.sessions.find(x => x.id === 's1');
+				assert.strictEqual(s?.worktreePath, worktree, 'worktreePath matches the timeline entry for event.cwd');
+				assert.deepStrictEqual(
+					[...(s?.visitedWorktreePaths ?? [])].sort(),
+					[repo, worktree].sort(),
+					'both worktrees from the timeline are recorded as visited',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('two events carrying the same cwdTimeline do not reallocate visitedWorktreePaths', async () => {
+			const repo = '/repo';
+			const worktree = '/repo.worktrees/feature';
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: () => new Promise(() => {}),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([repo]);
+				const handler = handlers.get('agents/session')!;
+				const timeline = [
+					{ cwd: repo, worktree: repo },
+					{ cwd: worktree, worktree: worktree },
+				];
+				await handler(
+					{ event: 'SessionStart', sessionId: 's1', cwd: worktree, pid: process.pid, cwdTimeline: timeline },
+					new URLSearchParams(),
+				);
+				const afterFirst = provider.sessions.find(x => x.id === 's1')?.visitedWorktreePaths;
+
+				await handler(
+					{ event: 'PreToolUse', sessionId: 's1', cwd: worktree, toolName: 'Read', cwdTimeline: timeline },
+					new URLSearchParams(),
+				);
+				const afterSecond = provider.sessions.find(x => x.id === 's1')?.visitedWorktreePaths;
+
+				assert.ok(
+					Object.is(afterFirst, afterSecond),
+					'visitedWorktreePaths reference is unchanged when nothing new was visited',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a cwd move keeps both the old and new worktree in visitedWorktreePaths while worktreePath reflects only the new one', async () => {
+			const repo = '/repo';
+			const worktree = '/repo.worktrees/feature';
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: () => new Promise(() => {}),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([repo]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', repo), new URLSearchParams());
+
+				await handler(
+					{
+						event: 'PreToolUse',
+						sessionId: 's1',
+						cwd: worktree,
+						toolName: 'Read',
+						cwdTimeline: [
+							{ cwd: repo, worktree: repo },
+							{ cwd: worktree, worktree: worktree },
+						],
+					},
+					new URLSearchParams(),
+				);
+
+				const s = provider.sessions.find(x => x.id === 's1');
+				assert.strictEqual(s?.worktreePath, worktree, 'worktreePath (current) reflects only the new worktree');
+				assert.deepStrictEqual(
+					[...(s?.visitedWorktreePaths ?? [])].sort(),
+					[repo, worktree].sort(),
+					'visitedWorktreePaths retains both the old and new worktree after the move',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
 		test('a git probe superseded by a newer cwd does not overwrite the newer location', async () => {
 			// The in-flight guard dedupes by session, so a probe started for the OLD cwd is still
 			// running when a correction for a NEW one arrives (e.g. the durable ended record fixing a

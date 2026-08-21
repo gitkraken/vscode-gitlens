@@ -420,10 +420,27 @@ function sessionWorktreeKey(session: AgentSessionState): string | undefined {
 	return session.worktreePath;
 }
 
+/** Whether `worktreePath` is the session's CURRENT worktree, as opposed to one merely visited in
+ *  the past (see {@link AgentSessionState.visitedWorktreePaths}). `false` when either side is
+ *  missing — an unresolved session is never "current" for any path. */
+export function isAgentSessionCurrentForWorktree(
+	session: AgentSessionState,
+	worktreePath: string | undefined,
+): boolean {
+	if (session.worktreePath == null || worktreePath == null) return false;
+
+	return session.worktreePath === worktreePath;
+}
+
 /** Builds a lookup index for batch matching across many worktrees in one render (overview cards).
  *  Single-shot consumers can call {@link matchAgentSessionsForWorktree} directly with the array.
  *  Keyed by the session's effective worktree path so the lookup is robust to whether the agent's
- *  workspace folder is the main repo or the worktree itself. */
+ *  workspace folder is the main repo or the worktree itself.
+ *
+ *  Also indexed under every entry of {@link AgentSessionState.visitedWorktreePaths} so a lookup for
+ *  a visited-but-not-current worktree still finds the session — see
+ *  {@link matchAgentSessionsForWorktree}'s `includeVisited` option, which consumes those ghost
+ *  entries. A key that coincides with the session's current key is only pushed once. */
 export function indexAgentSessionsByRepoAndWorktree(
 	sessions: readonly AgentSessionState[] | undefined,
 ): AgentSessionWorktreeIndex | undefined {
@@ -431,14 +448,23 @@ export function indexAgentSessionsByRepoAndWorktree(
 
 	const index: AgentSessionWorktreeIndex = new Map();
 	for (const session of sessions) {
-		const key = sessionWorktreeKey(session);
-		if (key == null) continue;
+		const keys = new Set<string>();
+		const currentKey = sessionWorktreeKey(session);
+		if (currentKey != null) {
+			keys.add(currentKey);
+		}
 
-		const existing = index.get(key);
-		if (existing != null) {
-			existing.push(session);
-		} else {
-			index.set(key, [session]);
+		for (const visited of session.visitedWorktreePaths ?? []) {
+			keys.add(visited);
+		}
+
+		for (const key of keys) {
+			const existing = index.get(key);
+			if (existing != null) {
+				existing.push(session);
+			} else {
+				index.set(key, [session]);
+			}
 		}
 	}
 	return index;
@@ -451,23 +477,38 @@ export function indexAgentSessionsByRepoAndWorktree(
  *  is intentionally not consulted: it's a synthesized field that holds either the matching
  *  VS Code workspace folder or the common-path fallback, depending on Claude Code's launch dir.
  *  Sessions whose worktree hasn't been resolved yet (cold-cache window) won't match — narrow in
- *  practice since `resolveGitInfo` runs on the first hook. */
+ *  practice since `resolveGitInfo` runs on the first hook.
+ *
+ *  Default behavior (no `options`) is unchanged: current-worktree-only, exactly as before
+ *  `visitedWorktreePaths` existed. Pass `{ includeVisited: true }` to also return sessions that
+ *  merely *visited* this worktree in the past — the index (built by
+ *  {@link indexAgentSessionsByRepoAndWorktree}) stores those under the visited key too, so the
+ *  Map branch re-filters back to current-only when the option is off. */
 export function matchAgentSessionsForWorktree(
 	source: readonly AgentSessionState[] | AgentSessionWorktreeIndex | undefined,
 	target: AgentSessionWorktreeTarget,
+	options?: { includeVisited?: boolean },
 ): AgentSessionState[] | undefined {
 	if (source == null) return undefined;
 
 	const targetKey = targetWorktreeKey(target);
+	const includeVisited = options?.includeVisited === true;
 
 	if (source instanceof Map) {
 		const found = source.get(targetKey);
-		return found != null && found.length > 0 ? found : undefined;
+		if (found == null) return undefined;
+
+		const matches = includeVisited ? found : found.filter(session => sessionWorktreeKey(session) === targetKey);
+		return matches.length > 0 ? matches : undefined;
 	}
 
 	if (!source.length) return undefined;
 
-	const matches = source.filter(session => sessionWorktreeKey(session) === targetKey);
+	const matches = source.filter(
+		session =>
+			sessionWorktreeKey(session) === targetKey ||
+			(includeVisited && (session.visitedWorktreePaths?.includes(targetKey) ?? false)),
+	);
 	return matches.length > 0 ? matches : undefined;
 }
 
@@ -475,13 +516,16 @@ export function matchAgentSessionsForWorktree(
  *  repo's common root plus every worktree of it). Display-only: session ingestion stays
  *  machine-global, this decides what the graph's agent-session surfaces render.
  *
- *  A session matches when `session.commonPath === family`. `commonPath` is backfilled host-side
- *  (`agentSessionState.ts:183`) but can still be `null` for cold-cache / past sessions — those fall
- *  back to `worktreePath`, matching when it's the family root (`worktreePath === family`) or is one
- *  of the family's known worktrees (`familyWorktreePaths`, when the caller has them). A session with
- *  neither a matching `commonPath` nor a matching `worktreePath` is excluded — deliberate, an
- *  unresolved session isn't known to belong to this family. `family == null` (no selected repo
- *  resolved) returns `[]` — show nothing rather than everything. */
+ *  A session matches when: `session.commonPath === family` (fast path — `commonPath` is backfilled
+ *  host-side, `agentSessionState.ts:183`); OR `worktreePath` is the family root or one of the
+ *  family's known worktrees (`familyWorktreePaths`, when the caller has them) — covers cold-cache
+ *  sessions where `commonPath` hasn't resolved yet; OR any entry of `visitedWorktreePaths` is the
+ *  family root or one of its known worktrees — a session that once ran in this family still belongs
+ *  to it even after `cd`ing elsewhere, REGARDLESS of what `commonPath` now says (a non-matching
+ *  `commonPath` falls through to this check rather than excluding the session outright). A session
+ *  matching none of these is excluded — deliberate, an unresolved (or genuinely unrelated) session
+ *  isn't known to belong to this family. `family == null` (no selected repo resolved) returns `[]` —
+ *  show nothing rather than everything. */
 export function filterAgentSessionsForFamily(
 	sessions: readonly AgentSessionState[] | undefined,
 	family: string | undefined,
@@ -490,12 +534,20 @@ export function filterAgentSessionsForFamily(
 	if (family == null || sessions == null || sessions.length === 0) return [];
 
 	return sessions.filter(session => {
-		if (session.commonPath != null) return session.commonPath === family;
+		if (session.commonPath === family) return true;
 
 		if (session.worktreePath === family) return true;
 
-		return (
-			familyWorktreePaths != null && session.worktreePath != null && familyWorktreePaths.has(session.worktreePath)
+		if (
+			familyWorktreePaths != null &&
+			session.worktreePath != null &&
+			familyWorktreePaths.has(session.worktreePath)
+		) {
+			return true;
+		}
+
+		return (session.visitedWorktreePaths ?? []).some(
+			path => path === family || (familyWorktreePaths?.has(path) ?? false),
 		);
 	});
 }

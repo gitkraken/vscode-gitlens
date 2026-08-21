@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { basename } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -19,6 +20,7 @@ import {
 	fpField,
 	getAgentPhaseLabel,
 	getAgentSessionOpenAction,
+	isAgentSessionCurrentForWorktree,
 	permissionFingerprint,
 } from '../../../shared/agentUtils.js';
 import { renderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
@@ -593,6 +595,14 @@ export class GlDetailsAgentStatus extends LitElement {
 				opacity: 0.7;
 			}
 
+			/* A ghost (visited-but-not-current) card/row — same dim idiom as .card--ended, applied
+			   on top of whichever phase accent the session currently carries. Combined with the hover
+			   list's equivalent row so the two surfaces agree visually. */
+			.card--ghost,
+			.section__hover-row--ghost {
+				opacity: 0.6;
+			}
+
 			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
 	   inset outline reads as "you picked this one" without overwhelming the card's
 	   own gradient/accent treatment — the prior halo+border combo was too loud against
@@ -803,6 +813,9 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *    `lastPrompt` (card prompt + fallback line), `phaseSince` (ms, drives elapsed labels).
 	 *  - `pendingPermission` — encoded by {@link permissionFingerprint} so every needs-input
 	 *    variant's renderable fields contribute, not just kind/toolName.
+	 *  - `worktreePath`/`worktree.name` — drive the ghost (visited-but-not-current) dimming and
+	 *    "now in X" hint on cards and hover rows; a session moving worktrees must repaint even
+	 *    when nothing else about it changed.
 	 *  - `pastSessions.total` plus, per past row, `id`/`displayName`/`lastPrompt`/`lastActivity`.
 	 *
 	 *  Adding a new rendered field requires extending this fingerprint (or
@@ -824,7 +837,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		const sessions = this.sessions ?? [];
 		for (const s of sessions) {
 			parts.push(
-				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince.getTime()}|${permissionFingerprint(s.pendingPermission)}`,
+				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince.getTime()}|${permissionFingerprint(s.pendingPermission)}|${fpField(s.worktreePath)}|${fpField(s.worktree?.name)}`,
 			);
 		}
 		const past = this.pastSessions;
@@ -894,17 +907,26 @@ export class GlDetailsAgentStatus extends LitElement {
 		const past = this.pastSessions?.sessions.filter(p => !liveIds.has(p.id));
 		if (live.length === 0 && (past?.length ?? 0) === 0) return nothing;
 
-		return this.renderSection(live, this.tally(live), past);
+		// Counts and dots reflect only sessions actually current in this worktree — a ghost
+		// (visited-but-not-current) shouldn't inflate "N working"/"N need input" for a worktree
+		// it merely passed through. `renderSection` still receives the full `live` set so its
+		// cards keep showing ghost rows (dimmed, see `renderCard`).
+		const currentLive = live.filter(s => isAgentSessionCurrentForWorktree(s, this.worktreePath));
+		return this.renderSection(live, this.tally(currentLive), past);
 	}
 
 	/** Compact render: just the cluster + counts popover, no surrounding heading button or cards.
 	 *  Hover still surfaces the per-session detail via the same shared popover body. */
 	private renderClusterOnly(sessions: AgentSessionState[]): unknown {
-		const counts = this.tally(sessions);
-		// LIVE only. The cluster answers "what is happening right now", and ended sessions are
-		// history — a few hundred of them would swamp the dots and turn the overflow badge into a
-		// four-digit pill. The "N past" figure in the summary beside it is where that count belongs.
-		const clusterSessions = sessions.filter(s => agentPhaseToCategory[s.phase] !== 'ended');
+		// Counts exclude ghosts — see the matching note in `render()`.
+		const currentSessions = sessions.filter(s => isAgentSessionCurrentForWorktree(s, this.worktreePath));
+		const counts = this.tally(currentSessions);
+		// LIVE and CURRENT only. The cluster answers "what is happening right now, in this
+		// worktree" — a ghost dot in a five-dot cluster would be indistinguishable from a real one
+		// and would disagree with the count beside it.
+		const clusterSessions = sessions.filter(
+			s => agentPhaseToCategory[s.phase] !== 'ended' && isAgentSessionCurrentForWorktree(s, this.worktreePath),
+		);
 		const visibleDots = clusterSessions.slice(0, maxClusterDots);
 		const overflow = clusterSessions.length - visibleDots.length;
 		// `.section__hover` has no max-height, and active sessions are deliberately uncapped, so a
@@ -1061,10 +1083,12 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	private renderSectionHeading(sessions: AgentSessionState[], counts: Record<AgentSessionCategory, number>): unknown {
 		const state = this.expand;
-		// LIVE only. The cluster answers "what is happening right now", and ended sessions are
-		// history — a few hundred of them would swamp the dots and turn the overflow badge into a
+		// LIVE and CURRENT only — see the matching note in `renderClusterOnly`. Ended sessions are
+		// also excluded: history would swamp the dots and turn the overflow badge into a
 		// four-digit pill. The "N past" figure in the summary beside it is where that count belongs.
-		const clusterSessions = sessions.filter(s => agentPhaseToCategory[s.phase] !== 'ended');
+		const clusterSessions = sessions.filter(
+			s => agentPhaseToCategory[s.phase] !== 'ended' && isAgentSessionCurrentForWorktree(s, this.worktreePath),
+		);
 		const visibleDots = clusterSessions.slice(0, maxClusterDots);
 		const overflow = clusterSessions.length - visibleDots.length;
 
@@ -1232,15 +1256,21 @@ export class GlDetailsAgentStatus extends LitElement {
 						awaitingPrefix: 'short',
 						idleFallback: 'lastPrompt',
 					});
+		// A ghost (visited-but-not-current) row still lists here — see `renderCard` for why — but
+		// dims and its name tooltip gains a "now in X" hint pointing at where it actually is.
+		const isGhost = !isAgentSessionCurrentForWorktree(session, this.worktreePath);
+		const nameTooltip = isGhost
+			? `${session.displayName} — now in ${this.ghostLocationLabel(session)}`
+			: session.displayName;
 
 		return html`
-			<div class="section__hover-row">
+			<div class=${`section__hover-row${isGhost ? ' section__hover-row--ghost' : ''}`}>
 				<gl-agent-mark
 					class=${`section__hover-dot section__hover-dot--${category}`}
 					category=${category}
 					aria-hidden="true"
 				></gl-agent-mark>
-				<gl-tooltip content=${session.displayName} placement="bottom">
+				<gl-tooltip content=${nameTooltip} placement="bottom">
 					<span class="section__hover-name">${session.displayName}</span>
 				</gl-tooltip>
 				<span class=${`section__hover-phase section__hover-phase--${category}`}>
@@ -1283,10 +1313,18 @@ export class GlDetailsAgentStatus extends LitElement {
 		// agent's own session, which the title row's open action already reaches.
 		const canResolve = canResolvePermission(category, permission);
 		const isSelected = this.selectedSessionId != null && this.selectedSessionId === session.id;
+		// A ghost (visited-but-not-current) session still gets a card here — this worktree is part
+		// of its history — but dims, and its name tooltip gains a "now in X" hint. Session-id-based
+		// actions (open, resolve permission, archive) stay fully functional: they address the
+		// session wherever it actually is, not this worktree specifically.
+		const isGhost = !isAgentSessionCurrentForWorktree(session, this.worktreePath);
+		const nameTooltip = isGhost
+			? `${session.displayName} — now in ${this.ghostLocationLabel(session)}`
+			: session.displayName;
 
 		return html`
 			<div
-				class=${`card card--${category}${isSelected ? ' card--selected' : ''}`}
+				class=${`card card--${category}${isSelected ? ' card--selected' : ''}${isGhost ? ' card--ghost' : ''}`}
 				data-session-id=${session.id}
 				data-vscode-context=${serializeWebviewItemContext(buildAgentSessionContext(session, category))}
 				aria-current=${isSelected ? 'true' : nothing}
@@ -1294,7 +1332,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				<div class="card__rail">${this.renderCardRail(category)}</div>
 				<div class="card__body">
 					<div class="card__title-row">
-						<gl-tooltip content=${session.displayName} placement="bottom">
+						<gl-tooltip content=${nameTooltip} placement="bottom">
 							<span class="card__name">${session.displayName}</span>
 						</gl-tooltip>
 						${
@@ -1445,6 +1483,15 @@ export class GlDetailsAgentStatus extends LitElement {
 				${denyLabel}
 			</gl-button>
 		`;
+	}
+
+	/** Label for a ghost session's actual current location — the worktree path's directory
+	 *  basename, falling back to the provider name if the session has no resolved worktree at all.
+	 *  Deliberately not the worktree's branch-derived display name: branch names repeat across
+	 *  repos ("main" everywhere), so a cross-repo ghost's "now in main" would read as this repo's
+	 *  main worktree. Used in the "now in X" hint on ghost cards/hover rows. */
+	private ghostLocationLabel(session: AgentSessionState): string {
+		return session.worktreePath ? basename(session.worktreePath) : session.providerName;
 	}
 
 	private tally(sessions: AgentSessionState[]): Record<AgentSessionCategory, number> {

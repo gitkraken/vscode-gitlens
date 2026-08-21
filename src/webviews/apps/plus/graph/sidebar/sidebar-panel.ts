@@ -1747,16 +1747,26 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		};
 	}
 
-	private toAgentLeaf(session: AgentSessionState, anchor: { wipSha?: string; scope?: SidebarItemScope }): LeafProps {
+	private toAgentLeaf(
+		session: AgentSessionState,
+		anchor: { wipSha?: string; scope?: SidebarItemScope },
+		ghost?: { currentLabel: string },
+	): LeafProps {
 		const category = agentPhaseToCategory[session.phase];
 		// Description = the describeSession line for needs-input / working (`Awaiting: tool` /
 		// `Running tool`), which falls back to the last prompt for everything else. The
 		// "Last active …" fallback is intentionally excluded — elapsed time is already surfaced
 		// in the tooltip, no need to repeat it.
-		const description = describeAgentSession(session, category, {
-			awaitingPrefix: 'short',
-			idleFallback: 'lastPrompt',
-		});
+		// A ghost row (session visited this worktree in the past, no longer current) states where
+		// the session actually lives now instead of the normal status line — the row's own group
+		// already tells the viewer this isn't the session's current location.
+		const description =
+			ghost != null
+				? `now in ${ghost.currentLabel}`
+				: describeAgentSession(session, category, {
+						awaitingPrefix: 'short',
+						idleFallback: 'lastPrompt',
+					});
 
 		// `anchor.wipSha`/`anchor.scope` are pre-computed in `buildAgentTree` — all sessions in a
 		// group share workspace + worktree, so they share the same anchor. Avoids recomputing the
@@ -1837,9 +1847,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			filterText: `${session.displayName} ${session.lastPrompt ?? ''}`.trim(),
 			icon: { type: 'agent', phase: session.phase, provider: session.providerId },
 			description: description,
-			// Ended sessions are done history — dim the whole row so they read as distinct from
-			// the still-live idle/stale sessions they share the Inactive grouping with.
-			muted: category === 'ended',
+			// Ended sessions are done history, and ghost rows are a "was here" echo — both dim the
+			// whole row so they read as distinct from the session's real, current-location row.
+			muted: ghost != null || category === 'ended',
 			context: sidebarItemContext(sha, { scope: scope, sessionId: session.id }),
 			contextValue: buildAgentSessionContext(session, category),
 			actions: actions,
@@ -1852,11 +1862,24 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  display without restarting the agent), falling back to the worktree directory basename or
 	 *  `Unattached` for sessions with no worktree. Group order preserves the input's actionability
 	 *  sort (needs-input → working → idle) by tracking each group's first appearance index in the
-	 *  source list. */
+	 *  source list.
+	 *
+	 *  `items` can include a session currently in a FOREIGN repo that merely visited this family
+	 *  (the upstream family filter admits those too) — such a session gets no real group here, only
+	 *  a ghost under whichever of its visited worktrees belong to this family. See `belongsToFamily`
+	 *  below. */
 	private buildAgentTree(items: readonly AgentSessionState[]): TreeModel<SidebarItemContext>[] {
 		if (items.length === 0) return [];
 
 		const graphAnchor = this.resolveGraphAnchorContext();
+		// The upstream family filter (`filterAgentSessionsForFamily`, at the panel's render call
+		// site) already admits a session whose CURRENT worktree is a foreign repo it merely
+		// VISITED this family from — `items` here isn't family-pure. Both passes below re-test
+		// against the same family so a foreign current worktree never gets a real group (only
+		// ghosts), and a foreign visited path never gets a ghost-only group at all.
+		const familyWorktreePaths = this._state.worktreePaths != null ? new Set(this._state.worktreePaths) : undefined;
+		const belongsToFamily = (path: string): boolean =>
+			path === graphAnchor?.family || (familyWorktreePaths?.has(path) ?? false);
 
 		interface Group {
 			key: string;
@@ -1866,12 +1889,29 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			type: 'worktree' | 'folder';
 			anchor: { wipSha?: string; scope?: SidebarItemScope };
 			sessions: AgentSessionState[];
+			// Ghost rows for sessions whose CURRENT group is elsewhere but that have visited this
+			// worktree in the past (`session.visitedWorktreePaths`). Kept separate from `sessions`
+			// so the ghost/real split survives into the `children` map below.
+			ghostSessions: AgentSessionState[];
 		}
 
 		// Key by `worktreePath`; fall back to `workspacePath` so sessions in a non-repo workspace
 		// folder still cluster together. Empty-string key groups truly unattached sessions.
 		const groups = new Map<string, Group>();
 		items.forEach((session, index) => {
+			// A session's CURRENT worktree must belong to THIS family to get a normal row — otherwise
+			// it renders here ONLY as a ghost (second pass), and its real (foreign) location gets no
+			// group in this panel at all. Sessions with no resolved `worktreePath` keep their existing
+			// ungated "Unattached" placement: the upstream family filter is what decided they belong
+			// here (via `commonPath` or a visited path), there's no worktree identity to re-test.
+			if (session.worktreePath != null) {
+				const isFamilyCurrent =
+					session.commonPath != null
+						? session.commonPath === graphAnchor?.family
+						: belongsToFamily(session.worktreePath);
+				if (!isFamilyCurrent) return;
+			}
+
 			const key = session.worktreePath ?? session.workspacePath ?? '';
 			let group = groups.get(key);
 			if (group == null) {
@@ -1890,18 +1930,64 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					// Sessions in a group share the same worktree → share the same anchor.
 					anchor: this.resolveAgentAnchor(session, graphAnchor),
 					sessions: [],
+					ghostSessions: [],
 				};
 				groups.set(key, group);
 			}
 			group.sessions.push(session);
 		});
 
+		// Second pass: for every worktree a session has visited besides its current one, add a
+		// ghost row to that (possibly ghost-only) group. A ghost's anchor is resolved from the
+		// SESSION's own current worktree in `children` below, not from the ghost group's key — the
+		// row says "this session was here", not "act on it here". A visited path outside THIS
+		// family never gets a group here at all — otherwise a session that once visited a foreign
+		// repo would spawn that repo's worktree group inside this panel.
+		for (const session of items) {
+			const currentKey = session.worktreePath ?? session.workspacePath ?? '';
+			for (const visited of session.visitedWorktreePaths ?? []) {
+				if (visited === currentKey) continue;
+				if (!belongsToFamily(visited)) continue;
+
+				let group = groups.get(visited);
+				if (group == null) {
+					group = {
+						key: visited,
+						worktreePath: visited,
+						firstIndex: items.length, // ghost-only groups sort after all real groups
+						name: basename(visited),
+						type: 'worktree',
+						anchor: {},
+						sessions: [],
+						ghostSessions: [],
+					};
+					groups.set(visited, group);
+				}
+				group.ghostSessions.push(session);
+			}
+		}
+
 		return [...groups.values()]
 			.sort((a, b) => a.firstIndex - b.firstIndex)
 			.map(group => {
-				const children = group.sessions.map(s =>
-					leafToTreeModel(this.toAgentLeaf(s, group.anchor), `agent:${s.id}`, 2),
-				);
+				const children = [
+					...group.sessions.map(s => leafToTreeModel(this.toAgentLeaf(s, group.anchor), `agent:${s.id}`, 2)),
+					// Ghosts resolve their anchor from the session's OWN current worktree, not this
+					// group's — clicking a ghost jumps to the session's real (current) row, never to
+					// a synthetic sha in the worktree it merely used to visit.
+					...group.ghostSessions.map(s => {
+						const currentAnchor = this.resolveAgentAnchor(s, graphAnchor);
+						// Directory basename, not the worktree's branch-derived display name — branch
+						// names repeat across repos ("main" everywhere), so a cross-repo ghost's "now
+						// in main" would read as OUR main worktree.
+						const currentLabel = s.worktreePath ? basename(s.worktreePath) : s.providerName;
+						return leafToTreeModel(
+							this.toAgentLeaf(s, currentAnchor, { currentLabel: currentLabel }),
+							`agent:${s.id}@${group.key}`,
+							2,
+						);
+					}),
+				];
 
 				// Description hints at the physical worktree directory when its basename differs
 				// from the display name (e.g. a worktree at `feature-x/` checked out on a branch

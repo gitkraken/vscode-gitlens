@@ -8,6 +8,7 @@ import {
 	findOverviewBranchForSession,
 	formatAgentElapsed,
 	indexAgentSessionsByRepoAndWorktree,
+	isAgentSessionCurrentForWorktree,
 	matchAgentSessionsForWorktree,
 } from '../agentUtils.js';
 
@@ -124,6 +125,87 @@ suite('agentUtils', () => {
 			const flat = matchAgentSessionsForWorktree(sessions, { repoPath: repo, worktreePath: wtA });
 			const indexed = matchAgentSessionsForWorktree(index, { repoPath: repo, worktreePath: wtA });
 			assert.deepStrictEqual(flat?.map(s => s.id).sort(), indexed?.map(s => s.id).sort());
+		});
+
+		test('a visited-but-not-current worktree only matches with includeVisited', () => {
+			const s = makeSession({
+				id: 's',
+				workspacePath: repo,
+				worktreePath: wtA,
+				worktree: { path: wtA },
+				visitedWorktreePaths: [wtA, wtB],
+			});
+			const index = indexAgentSessionsByRepoAndWorktree([s]);
+
+			// no options: default behavior unchanged, ghost entry excluded
+			assert.strictEqual(matchAgentSessionsForWorktree([s], { repoPath: repo, worktreePath: wtB }), undefined);
+			assert.strictEqual(matchAgentSessionsForWorktree(index, { repoPath: repo, worktreePath: wtB }), undefined);
+
+			// includeVisited: ghost entry surfaces
+			assert.deepStrictEqual(
+				matchAgentSessionsForWorktree(
+					[s],
+					{ repoPath: repo, worktreePath: wtB },
+					{ includeVisited: true },
+				)?.map(x => x.id),
+				['s'],
+			);
+			assert.deepStrictEqual(
+				matchAgentSessionsForWorktree(
+					index,
+					{ repoPath: repo, worktreePath: wtB },
+					{ includeVisited: true },
+				)?.map(x => x.id),
+				['s'],
+			);
+
+			// the current worktree matches with or without the option
+			assert.deepStrictEqual(
+				matchAgentSessionsForWorktree([s], { repoPath: repo, worktreePath: wtA })?.map(x => x.id),
+				['s'],
+			);
+			assert.deepStrictEqual(
+				matchAgentSessionsForWorktree(index, { repoPath: repo, worktreePath: wtA })?.map(x => x.id),
+				['s'],
+			);
+			assert.deepStrictEqual(
+				matchAgentSessionsForWorktree(
+					[s],
+					{ repoPath: repo, worktreePath: wtA },
+					{ includeVisited: true },
+				)?.map(x => x.id),
+				['s'],
+			);
+			assert.deepStrictEqual(
+				matchAgentSessionsForWorktree(
+					index,
+					{ repoPath: repo, worktreePath: wtA },
+					{ includeVisited: true },
+				)?.map(x => x.id),
+				['s'],
+			);
+		});
+	});
+
+	suite('isAgentSessionCurrentForWorktree', () => {
+		test("true when worktreePath equals the session's current worktreePath", () => {
+			const s = makeSession({ id: 's', worktreePath: wtA });
+			assert.strictEqual(isAgentSessionCurrentForWorktree(s, wtA), true);
+		});
+
+		test("false when worktreePath differs from the session's current worktreePath", () => {
+			const s = makeSession({ id: 's', worktreePath: wtA });
+			assert.strictEqual(isAgentSessionCurrentForWorktree(s, wtB), false);
+		});
+
+		test('false when the session has no resolved worktreePath', () => {
+			const s = makeSession({ id: 's' });
+			assert.strictEqual(isAgentSessionCurrentForWorktree(s, wtA), false);
+		});
+
+		test('false when worktreePath is undefined', () => {
+			const s = makeSession({ id: 's', worktreePath: wtA });
+			assert.strictEqual(isAgentSessionCurrentForWorktree(s, undefined), false);
 		});
 	});
 
@@ -342,9 +424,12 @@ suite('filterAgentSessionsForFamily', () => {
 		);
 	});
 
-	test('commonPath takes precedence — a different repo is excluded even if worktreePath equals family', () => {
+	test('a non-matching commonPath falls through to the worktree check — matches when worktreePath equals family', () => {
 		const s = makeSession({ id: 's', commonPath: otherFamily, worktreePath: family });
-		assert.deepStrictEqual(filterAgentSessionsForFamily([s], family), []);
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family).map(x => x.id),
+			['s'],
+		);
 	});
 
 	test('commonPath == null and worktreePath === family (root) is kept', () => {
@@ -382,5 +467,67 @@ suite('filterAgentSessionsForFamily', () => {
 		const s = makeSession({ id: 's', commonPath: family, worktreePath: wtA });
 		assert.deepStrictEqual(filterAgentSessionsForFamily([s], undefined), []);
 		assert.deepStrictEqual(filterAgentSessionsForFamily([s], undefined, new Set([wtA])), []);
+	});
+
+	test('commonPath == null, worktreePath not matching, but visitedWorktreePaths contains the family root is kept', () => {
+		const s = makeSession({
+			id: 's',
+			commonPath: undefined,
+			worktreePath: '/repo-other/wt',
+			visitedWorktreePaths: [family],
+		});
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('commonPath == null, worktreePath not matching, but visitedWorktreePaths contains a familyWorktreePaths entry is kept', () => {
+		const s = makeSession({
+			id: 's',
+			commonPath: undefined,
+			worktreePath: '/repo-other/wt',
+			visitedWorktreePaths: [wtB],
+		});
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family, new Set([wtA, wtB])).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('a non-matching commonPath falls through to visitedWorktreePaths — a session that visited this family and has since moved elsewhere still matches', () => {
+		const s = makeSession({
+			id: 's',
+			commonPath: otherFamily,
+			worktreePath: '/repo-other/wt',
+			visitedWorktreePaths: [family],
+		});
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('commonPath in another repo, visitedWorktreePaths containing a familyWorktreePaths entry, is kept', () => {
+		const s = makeSession({
+			id: 's',
+			commonPath: '/repoB',
+			worktreePath: '/repoB/wt',
+			visitedWorktreePaths: ['/repoA/wt1'],
+		});
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], '/repoA', new Set(['/repoA/wt1'])).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('commonPath in another repo, visited nowhere near the family, is excluded', () => {
+		const s = makeSession({
+			id: 's',
+			commonPath: '/repoB',
+			worktreePath: '/repoB/wt',
+			visitedWorktreePaths: ['/repoC/wt1'],
+		});
+		assert.deepStrictEqual(filterAgentSessionsForFamily([s], '/repoA', new Set(['/repoA/wt1'])), []);
 	});
 });

@@ -47,6 +47,7 @@ import type { AgentSessionCategory, PastAgentSessionsResolver } from '../../../s
 import {
 	agentPhaseToCategory,
 	createPastAgentSessionsResolver,
+	isAgentSessionCurrentForWorktree,
 	matchAgentSessionsForWorktree,
 } from '../../../shared/agentUtils.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
@@ -1972,7 +1973,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const sessions = wip != null ? this.getWorktreeAgentSessions(wip) : undefined;
 		this._cycleAgentSessions = sessions;
 		if (sessions != null && sessions.length > 0) {
-			this.applyAgentAutoSurface(sessions);
+			this.applyAgentAutoSurface(sessions.filter(s => isAgentSessionCurrentForWorktree(s, wip?.repo?.path)));
 		}
 
 		// Resolve past sessions in the same step, for the same reason: `renderWip` gates the agents
@@ -3252,10 +3253,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const primaryRepoPath = this.graphRepoPath() ?? wip.repo?.path;
 		if (primaryRepoPath == null) return undefined;
 
-		return matchAgentSessionsForWorktree(this._graphState?.agentSessions, {
-			repoPath: primaryRepoPath,
-			worktreePath: wip.repo?.path,
-		});
+		return matchAgentSessionsForWorktree(
+			this._graphState?.agentSessions,
+			{
+				repoPath: primaryRepoPath,
+				worktreePath: wip.repo?.path,
+			},
+			{ includeVisited: true },
+		);
 	}
 
 	private renderCommit() {

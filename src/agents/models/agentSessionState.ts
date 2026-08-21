@@ -46,10 +46,15 @@ export interface AgentSessionWorktreeState {
  *    cascade — the raw harness-supplied `name?: string` field still flows through for callers
  *    that want to distinguish "harness-named" from "fallback-named" sessions.
  */
-export type AgentSessionState = Omit<Shape<AgentSession>, 'subagents'> & {
+export type AgentSessionState = Omit<Shape<AgentSession>, 'subagents' | 'visitedWorktreePaths'> & {
 	readonly displayName: string;
 	readonly subagentCount: number;
 	readonly worktree?: AgentSessionWorktreeState;
+	/** Distinct worktree roots this session has been observed in — see
+	 *  {@link AgentSession.visitedWorktreePaths}. Redeclared here rather than left to
+	 *  `Shape<AgentSession>`: `Shape<>` mangles a `readonly T[]` field into a method-stripped
+	 *  array-like object type (same reason {@link AgentSession.fileActivity} uses a mutable array). */
+	readonly visitedWorktreePaths?: readonly string[];
 };
 
 /**
