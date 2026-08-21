@@ -32,7 +32,6 @@ import { html, nothing, svg } from 'lit';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import { agentSuffixIconFor } from '../../../shared/agentUtils.js';
 import type { StyleInfo } from '../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
