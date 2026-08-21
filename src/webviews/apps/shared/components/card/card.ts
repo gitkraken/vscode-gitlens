@@ -1,4 +1,4 @@
-import { html, LitElement } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { cardStyles } from './card.css.js';
@@ -53,6 +53,12 @@ export class GlCard extends LitElement {
 	@property()
 	href?: string;
 
+	/** Opt-in toggle state. Undefined (the default) keeps the card a plain focusable/link element —
+	 *  no `role` or `aria-pressed` are emitted. Set it (even to `false`) to expose the card as a
+	 *  toggle button to assistive tech, e.g. a scope/filter card that can be pressed and unpressed. */
+	@property({ type: Boolean })
+	pressed?: boolean;
+
 	private _focusable = false;
 	@property({ type: Boolean, reflect: true })
 	get focusable(): boolean {
@@ -76,13 +82,30 @@ export class GlCard extends LitElement {
 	}
 
 	override render(): unknown {
+		// `aria-pressed` is only meaningful on a `button`-rolelike element, and the base `<a>`/`<div>`
+		// otherwise carry no explicit role — so pair the state with `role="button"` and gate both the
+		// same way. Left undefined (the default), the focusable element is untouched.
+		const role = this.pressed === undefined ? nothing : 'button';
+		const ariaPressed = this.pressed === undefined ? nothing : this.pressed ? 'true' : 'false';
+
 		if (this.href != null) {
-			return html`<a part="base" class=${classMap(this.classNames)} href=${this.href}
+			return html`<a
+				part="base"
+				class=${classMap(this.classNames)}
+				href=${this.href}
+				role=${role}
+				aria-pressed=${ariaPressed}
 				>${this.renderContent()}</a
 			>`;
 		}
 
-		return html`<div part="base" tabindex=${this.focusable ? 0 : -1} class=${classMap(this.classNames)}>
+		return html`<div
+			part="base"
+			tabindex=${this.focusable ? 0 : -1}
+			class=${classMap(this.classNames)}
+			role=${role}
+			aria-pressed=${ariaPressed}
+		>
 			${this.renderContent()}
 		</div>`;
 	}

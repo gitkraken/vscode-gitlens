@@ -461,6 +461,7 @@ export class GlGraphOverviewCard extends LitElement {
 					slot="anchor"
 					class=${cardClasses}
 					focusable
+					.pressed=${this.scoped}
 					.indicator=${branchIndicator}
 					data-vscode-context=${ifDefined(vscodeContext)}
 					@click=${this.onCardClick}
