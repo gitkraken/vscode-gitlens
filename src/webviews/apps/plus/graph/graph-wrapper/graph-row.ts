@@ -54,7 +54,7 @@ import {
 } from '../utils/rowMarker.utils.js';
 import type { GutterCache } from './graph-gutter-cache.js';
 import type { NodeStyle, WipNodeState } from './graph-gutter.js';
-import { nodeRadiusFor } from './graph-gutter.js';
+import { nodeRadiusFor, wipRingInnerRadius } from './graph-gutter.js';
 import '../../../shared/components/code-icon.js';
 
 /**
@@ -1474,6 +1474,11 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			...(promoted ? { '--row-units': `${units}` } : undefined),
 			'--row-lane-color': laneColor,
 			'--row-lane-x': `${laneCenterX}px`,
+			// The WIP ring's interior is transparent, so the row-marker connector band masks out a hole
+			// of exactly this radius at the dot center it runs under — see graph.scss.
+			...(row.kind === 'workdir'
+				? { '--row-node-hole': `${wipRingInnerRadius(ctx.nodeMode, ctx.rowHeight)}px` }
+				: undefined),
 			'--row-lane-lead': `${laneLead}px`,
 			// The fold strip's width (0 when folding is off) — the row markers anchor PAST it so the rail
 			// never covers the fold chevron, which shares the graph column's left edge with it.

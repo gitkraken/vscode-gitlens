@@ -1235,6 +1235,23 @@ gl-lit-graph {
 	// message), and the expanded pill still names it.
 	.gl-graph__row-marker-connector--wip {
 		background-color: color-mix(in srgb, var(--row-lane-color) 30%, transparent);
+		// The WIP node is a hollow dotted ring with a transparent interior (the row's gradient shines
+		// through — see `renderNode`'s workdir branch), so the band it runs under would show as a stripe
+		// across the icon. Instead of ending it early — the ring is mostly dash gaps, so a band stopping
+		// at its outer edge reads detached — keep the full reach to the dot center (the band's right
+		// edge, hence `circle at 100% 50%`) and mask out the ring's interior: `--row-node-hole` is the
+		// ring's exact inner radius, published per workdir row (`wipRingInnerRadius`). The band stays
+		// visible through the dash gaps and flows into the ring; only the blank middle stays clean.
+		-webkit-mask-image: radial-gradient(
+			circle at 100% 50%,
+			transparent calc(var(--row-node-hole, 0.6rem) - 0.5px),
+			#000 var(--row-node-hole, 0.6rem)
+		);
+		mask-image: radial-gradient(
+			circle at 100% 50%,
+			transparent calc(var(--row-node-hole, 0.6rem) - 0.5px),
+			#000 var(--row-node-hole, 0.6rem)
+		);
 	}
 
 	.gl-graph__row-marker-connector--head {

@@ -66,6 +66,26 @@ export function nodeRadiusFor(mode: NodeStyle['mode'], rowHeight?: number): numb
 	return rowHeight != null && rowHeight >= tallRowThreshold ? avatarNodeRadiusTall : avatarNodeRadius;
 }
 
+// The WIP ring's dotted stroke width — mirrors `.gl-graph__node-outline`'s `stroke-width` in graph.scss
+// (CSS can't export it): change one, change the other.
+const wipOutlineStrokeWidth = 1.75;
+
+// The WIP ring's radius: trimmed a touch below the avatar node radius so its hover/select grow
+// (scale 1.18) stays inside the 24px row — at r=10 the stroked ring's grown diameter (~25.7px)
+// clipped top/bottom against the gutter viewport. Dots mode (r=5) never clips, so it's left as-is.
+function wipRingRadius(mode: NodeStyle['mode'], rowHeight?: number): number {
+	const r = nodeRadiusFor(mode, rowHeight);
+	return mode === 'avatar' ? r - 1.5 : r;
+}
+
+/** Distance from the WIP node's center to the INNER edge of its dotted ring. Published per workdir row
+ *  as `--row-node-hole`: the row-marker connector band runs under the dot center and masks this circle
+ *  out, so it stays visible through the ring's dash gaps (reading connected) without showing through
+ *  the transparent middle. */
+export function wipRingInnerRadius(mode: NodeStyle['mode'], rowHeight?: number): number {
+	return wipRingRadius(mode, rowHeight) - wipOutlineStrokeWidth / 2;
+}
+
 // Extra gap (px) past the node diameter for EXPANDED lane spacing — leaves clear air between a node
 // and the neighboring lane.
 const laneGapExpanded = 6;
@@ -358,10 +378,7 @@ function renderNode(
 		// (background fill, stroke width/cap/dash) lives in `.gl-graph__node-outline`; the bg-mask keeps
 		// the 1px gap to the lane line above/below. A DIRTY working tree adds a small solid center dot
 		// (with a ~2px gap inside the ring); a clean tree is just the empty dotted ring.
-		// Trim the WIP ring a touch below the avatar node radius so its hover/select grow (scale 1.18)
-		// stays inside the 24px row — at r=10 the stroked ring's grown diameter (~25.7px) clipped
-		// top/bottom against the gutter viewport. Dots mode (r=5) never clips, so it's left as-is.
-		const wipR = mode === 'avatar' ? r - 1.5 : r;
+		const wipR = wipRingRadius(mode, rowHeight);
 		// Dirty WIP: a small solid center dot. Sized a touch smaller than the ring's inner edge so a
 		// clear gap rings it (the row gradient shows in the gap); derived from `wipR` so the interior
 		// gap stays balanced when the ring is trimmed. Clean WIP: no center — just the ring.
