@@ -10,6 +10,7 @@ import { getSelectedRepo } from '../utils/repository.utils.js';
 import type { GraphVisualizationKey } from './visualizations.utils.js';
 import { getEffectiveVisualizationKey } from './visualizations.utils.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/indicators/new-indicator.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 /** Flat enumeration of the visualizations the switcher offers. Each entry collapses the two-axis
@@ -238,7 +239,9 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 					if (!healthAvailable) return nothing;
 
 					return html`<span class="visualization-separator" role="separator"></span>
-						${this.renderButton(key, active, false, undefined)}`;
+						<gl-new-indicator key="graph:visualizations:health:callout"
+							>${this.renderButton(key, active, false, undefined)}</gl-new-indicator
+						>`;
 				}
 
 				const disabled = key === 'treemap-commits' && commitsUnavailable;

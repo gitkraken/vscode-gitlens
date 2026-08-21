@@ -354,12 +354,13 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 				</div>`,
 	},
 	visualizations: {
-		title: 'Four Views of Your Repo',
+		title: 'Visualizations & Health',
 		icon: 'pulse',
 		priority: 2,
 		body: () =>
 			html`<p class="lede">
-					Your repo, visualized — history over time, hot spots in the tree, and live agent activity.
+					Your repo, visualized — history over time, hot spots in the tree, live agent activity, and the
+					repo's own health.
 				</p>
 				<div class="rows">
 					<div class="row">
@@ -380,10 +381,48 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 							<strong>Agent Activity Treemap</strong> — files light up as agents read and edit them
 						</div>
 					</div>
+					<div class="row">
+						<code-icon class="row__icon" icon="heart"></code-icon>
+						<div class="row__body">
+							<strong>Repository Health</strong> — one-click tune-ups that keep git fast
+						</div>
+					</div>
 				</div>
 				<p class="footnote">
 					Flip views with the switcher — click into any chart to open what it's drawn from.
 				</p>`,
+	},
+	gitHealth: {
+		title: 'Keep This Repo Fast',
+		icon: 'heart',
+		priority: 2,
+		trust: 'Nothing is applied without you — and anything GitLens applies can be undone.',
+		body: () =>
+			html`<p class="lede">
+					GitLens checks this repository against git's performance features and suggests the ones worth
+					turning on.
+				</p>
+				<div class="rows">
+					<div class="row">
+						<code-icon class="row__icon" icon="sparkle"></code-icon>
+						<div class="row__body">
+							<strong>Suggested</strong> — optimizations this repo would benefit from
+						</div>
+					</div>
+					<div class="row">
+						<code-icon class="row__icon" icon="tools"></code-icon>
+						<div class="row__body">
+							<span class="chip">Run Maintenance Now</span> — repack, prune, and refresh caches on demand
+						</div>
+					</div>
+					<div class="row">
+						<code-icon class="row__icon" icon="list-unordered"></code-icon>
+						<div class="row__body">
+							<strong>Optimizations</strong> — each one's state, who set it, and Undo for anything GitLens
+							applied
+						</div>
+					</div>
+				</div>`,
 	},
 	// Fires right after the follow-terminal controller moves the selection — announces something that
 	// just happened, so it must win same-frame arbitration against every other mark.

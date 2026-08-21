@@ -55,9 +55,9 @@ const proStripSlides: ProStripSlide[] = [
 		vignette: renderLaunchpadVignette,
 	},
 	{
-		name: 'Visualizations',
+		name: 'Visualizations & Health',
 		description:
-			'Analyze how your code evolves — Visual History, hotspots, and Files, Commits, and Agent Activity treemaps.',
+			'Analyze how your code evolves — Visual History, hotspots, and treemaps — plus Repository Health tune-ups that keep git fast.',
 		vignette: renderVizVignette,
 	},
 ];

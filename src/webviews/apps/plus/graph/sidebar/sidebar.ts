@@ -71,7 +71,7 @@ const displayModeToggleByMode: Record<Exclude<GraphDisplayMode, 'graph'>, Displa
 		mode: 'visualizations',
 		icon: 'pulse',
 		activeTooltip: 'Show Commit Graph',
-		inactiveTooltip: 'Show Visualizations',
+		inactiveTooltip: 'Show Visualizations & Health',
 		onboardingKey: 'graph:visualizations:buttonCallout',
 	},
 };

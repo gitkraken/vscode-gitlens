@@ -155,12 +155,13 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="pulse"></code-icon></span>
-							<strong>Deep Visualizations</strong>
+							<strong>Deep Visualizations & Health</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
 							>Analyze repo evolution with the Visual History. Pinpoint hotspots and trends or watch agent
-							activity in real-time using the Files, Commits, and Agent Activity treemaps</span
+							activity in real-time using the Files, Commits, and Agent Activity treemaps. Keep git fast
+							with Repository Health tune-ups</span
 						>
 					</details>
 				</div>

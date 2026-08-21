@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { GitHealthFinding, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 // Derives from the live threshold so tuning it can't strand stale numbers in the UI.
 import { trackedFilesThreshold } from '@gitlens/git/gitHealth.js';
@@ -15,6 +15,7 @@ import { scrollableBase } from '../../../shared/components/styles/lit/base.css.j
 import { graphServicesContext, graphStateContext } from '../context.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import './gl-graph-coachmark.js';
 import './gl-graph-visualizations-switcher.js';
 
 type LeverDetails = { mechanics: string; considerations?: string };
@@ -603,6 +604,10 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 	`;
 	static override styles = [scrollableBase, srOnly, GlGraphGitHealth.componentStyles];
+
+	/** Mirrors graph-app's coach-mark eligibility gate — the mark auto-shows only once the app is ready. */
+	@property({ type: Boolean, attribute: 'graph-ready' })
+	graphReady = false;
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -1442,6 +1447,15 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		);
 	}
 
+	/** `.header-row__title` goes display: none at side-bar widths (container query) — anchor to the
+	 *  switcher instead, a real box in every state. */
+	private readonly queryHeaderAnchor = (): HTMLElement | undefined => {
+		const title = this.renderRoot.querySelector<HTMLElement>('.header-row__title');
+		if (title != null && title.offsetWidth > 0) return title;
+
+		return this.renderRoot.querySelector<HTMLElement>('gl-graph-visualizations-switcher') ?? undefined;
+	};
+
 	override render(): unknown {
 		const maintenanceBusy = this.isBusy('maintenance');
 		const suggested = this._levers.filter(l => l.status === 'suggested');
@@ -1456,10 +1470,16 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			<div class="header-row">
 				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
 				<span class="header-row__title">Repository Health</span>
+				<gl-graph-coachmark
+					mark="gitHealth"
+					placement="bottom"
+					.anchor=${this.queryHeaderAnchor}
+					?auto-show=${this.graphReady}
+				></gl-graph-coachmark>
 				<div class="header-row__right">
 					<gl-button
 						data-health-action="maintenance"
-						appearance="toolbar"
+						appearance="secondary"
 						?disabled=${maintenanceBusy || this.switching}
 						tooltip="Run Maintenance Now"
 						aria-label="Run Maintenance Now"
@@ -1472,7 +1492,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 									focusKey: 'maintenance',
 								},
 							)}
-						><code-icon icon="tools"></code-icon
+						><code-icon icon="tools" slot="prefix"></code-icon
 						><span class="run-label"
 							>${maintenanceBusy ? 'Running…' : 'Run Maintenance Now'}</span
 						></gl-button

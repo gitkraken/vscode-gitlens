@@ -21,8 +21,11 @@ export const onboardingDefinitions = {
 		state: undefined as unknown as { stepReached: number },
 	},
 
-	// Graph Visualizations Toggle (first-interaction callout)
-	'graph:visualizations:buttonCallout': { schema: '18.0.0', scope: 'global' },
+	// Graph Visualizations Toggle (first-interaction callout; re-armed for Repository Health)
+	'graph:visualizations:buttonCallout': { schema: '18.0.0', scope: 'global', reshowAfter: '19.1.0' },
+
+	// Graph Visualizations switcher's Repository Health entry (first-interaction callout)
+	'graph:visualizations:health:callout': { schema: '19.1.0', scope: 'global' },
 
 	// Graph Kanban Toggle (first-interaction callout)
 	'graph:kanban:buttonCallout': { schema: '18.2.0', scope: 'global' },
@@ -59,6 +62,7 @@ export const onboardingDefinitions = {
 	'graph:coachMark:overviewBar': { schema: '19.0.0', scope: 'global' },
 	'graph:coachMark:kanban': { schema: '19.0.0', scope: 'global' },
 	'graph:coachMark:visualizations': { schema: '19.0.0', scope: 'global' },
+	'graph:coachMark:gitHealth': { schema: '19.1.0', scope: 'global' },
 	'graph:coachMark:followTerminal': { schema: '19.0.0', scope: 'global' },
 	// Not a tip: records that the marks have already stood down for the walkthrough banner once.
 	'graph:coachMarks:bannerDeferral': { schema: '19.0.0', scope: 'global' },

@@ -75,7 +75,7 @@ export class GlGraphVisualizations extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		switch (this.mode) {
 			case 'health':
-				return html`<gl-graph-git-health></gl-graph-git-health>`;
+				return html`<gl-graph-git-health ?graph-ready=${this.graphReady}></gl-graph-git-health>`;
 			case 'treemap':
 				return html`<gl-graph-treemap ?graph-ready=${this.graphReady}></gl-graph-treemap>`;
 			default:
