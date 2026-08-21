@@ -693,12 +693,14 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 						// the match so the matcher's `worktreePath ?? repoPath` fallback doesn't
 						// false-match it to the default-worktree session).
 						const matchWorktreePath = b.worktree?.path ?? (b.opened ? b.repoPath : undefined);
+						// Ended sessions are history — the card surfaces live presence only,
+						// matching the hover's filter (`gl-branch-hover`).
 						const agentSessions =
 							matchWorktreePath != null
 								? matchAgentSessionsForWorktree(sessionsByRepoAndWorktree, {
 										repoPath: b.repoPath,
 										worktreePath: matchWorktreePath,
-									})
+									})?.filter(s => s.phase !== 'ended')
 								: undefined;
 						return html`
 							<gl-graph-overview-card
