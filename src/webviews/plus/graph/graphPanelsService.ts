@@ -357,6 +357,8 @@ export class GraphPanelsService {
 
 		const data = this._graphSession.current;
 		const worktreesByBranch = data.worktreesByBranch ?? new Map();
+		const pinnedRefId = this.context.getPinnedRefId(data.repoPath);
+		const { hiddenIds } = this.getHiddenRefState(data.repoPath);
 
 		for (const branch of data.branches.values()) {
 			if (branch.remote) continue;
@@ -369,10 +371,18 @@ export class GraphPanelsService {
 			);
 			switch (branchType) {
 				case 'active':
-					active.push(toOverviewBranch(branch, worktreesByBranch, true));
+					active.push({
+						...toOverviewBranch(branch, worktreesByBranch, true),
+						// Same context vocabulary as the sidebar branches panel — see `buildBranchContext`.
+						// Overview never lists remote branches, so `hiddenByRemote` is always `false` here.
+						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
+					});
 					break;
 				case 'recent':
-					recent.push(toOverviewBranch(branch, worktreesByBranch, false));
+					recent.push({
+						...toOverviewBranch(branch, worktreesByBranch, false),
+						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
+					});
 					break;
 			}
 		}
@@ -466,6 +476,46 @@ export class GraphPanelsService {
 		return providerByRemote;
 	}
 
+	/**
+	 * Builds a local/remote branch's native right-click context (the `gitlens:branch...` webviewItem and
+	 * its `webviewItemValue`) — shared by the sidebar branches panel and the Overview panel's branch
+	 * cards so the two surfaces can't drift out of the same menu. `hiddenByRemote` only ever applies to a
+	 * remote branch under a wildcard-hidden remote (see `getHiddenRefState`); the Overview panel only
+	 * ever lists local branches, so its caller always passes `false`.
+	 */
+	private buildBranchContext(
+		b: GitBranch,
+		repoPath: string,
+		pinnedRefId: string | undefined,
+		hiddenIds: Set<string>,
+		hiddenByRemote: boolean,
+	): GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin {
+		// Exclude the default worktree from the worktree indicator (matches view behavior)
+		const isCheckedOut = b.worktree != null && b.worktree !== false;
+		const hasWorktree = isCheckedOut && !b.worktree.isDefault;
+		return {
+			webview: this.host.id,
+			webviewItemOrigin: sidebarItemOrigin,
+			webviewItem: `gitlens:branch${b.remote ? '+remote' : ''}${b.current ? '+current' : ''}${
+				b.upstream != null && !b.upstream.missing ? '+tracking' : ''
+			}${hasWorktree ? '+worktree' : ''}${
+				b.current || isCheckedOut ? '+checkedout' : ''
+			}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
+				pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
+			}${!b.current && hiddenIds.has(b.id) ? '+hidden' : ''}${hiddenByRemote ? '+hiddenbyremote' : ''}`,
+			webviewItemValue: {
+				type: 'branch',
+				ref: createReference(b.name, repoPath, {
+					id: b.id,
+					refType: 'branch',
+					name: b.name,
+					remote: b.remote,
+					upstream: b.upstream,
+				}),
+			},
+		};
+	}
+
 	private getSidebarBranches(graph: GitGraph) {
 		const providerByRemote = this.getProviderByRemote(graph);
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
@@ -523,27 +573,7 @@ export class GraphPanelsService {
 				providerIcon: provider?.icon,
 				starred: b.starred || undefined,
 				pinned: (pinnedRefId != null && b.id === pinnedRefId) || undefined,
-				context: {
-					webview: this.host.id,
-					webviewItemOrigin: sidebarItemOrigin,
-					webviewItem: `gitlens:branch${b.remote ? '+remote' : ''}${b.current ? '+current' : ''}${
-						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
-					}${hasWorktree ? '+worktree' : ''}${
-						b.current || isCheckedOut ? '+checkedout' : ''
-					}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
-						pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
-					}${!b.current && hiddenIds.has(b.id) ? '+hidden' : ''}${hiddenByRemote ? '+hiddenbyremote' : ''}`,
-					webviewItemValue: {
-						type: 'branch',
-						ref: createReference(b.name, graph.repoPath, {
-							id: b.id,
-							refType: 'branch',
-							name: b.name,
-							remote: b.remote,
-							upstream: b.upstream,
-						}),
-					},
-				} satisfies GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin,
+				context: this.buildBranchContext(b, graph.repoPath, pinnedRefId, hiddenIds, hiddenByRemote),
 			};
 		});
 		return {

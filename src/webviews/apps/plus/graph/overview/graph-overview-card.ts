@@ -4,17 +4,16 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
+import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { BranchRef } from '../../../../home/protocol.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
-import type {
-	OverviewBranch,
-	OverviewBranchEnrichment,
-	OverviewBranchWip,
-} from '../../../../shared/overviewBranches.js';
+import type { GraphOverviewBranch } from '../../../../plus/graph/protocol.js';
+import type { OverviewBranchEnrichment, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
 import type { ActionItem } from '../../../shared/components/actions/action-item.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -44,7 +43,7 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 
 function getBranchCardIndicator(
-	branch: OverviewBranch,
+	branch: GraphOverviewBranch,
 	wip?: OverviewBranchWip,
 	enrichment?: OverviewBranchEnrichment,
 ): string | undefined {
@@ -359,7 +358,7 @@ export class GlGraphOverviewCard extends LitElement {
 	private _graphState?: AppState;
 
 	@property({ type: Object })
-	branch!: OverviewBranch;
+	branch!: GraphOverviewBranch;
 
 	@property({ type: Object })
 	wip?: OverviewBranchWip;
@@ -442,6 +441,11 @@ export class GlGraphOverviewCard extends LitElement {
 		const hasRight = issuesIndicator !== nothing || prIndicator !== nothing || agentsIndicator !== nothing;
 		const inlineFold = !branch.opened && !hasRight && hasLeft;
 
+		// Same serialized shape the sidebar branches panel stamps on its tree leaves — gets the card
+		// the identical native right-click branch menu. `ContextMenuProxyController` on the sidebar
+		// panel bridges it across the shadow-DOM boundaries up to where VS Code can read it.
+		const vscodeContext = branch.context != null ? serializeWebviewItemContext(branch.context) : undefined;
+
 		// placement="right" so the popover floats over the Graph (which sits to the right of
 		// the sidebar in typical layouts) rather than into the editor's left margin. The
 		// popover's flip behavior auto-corrects when there isn't room.
@@ -458,6 +462,7 @@ export class GlGraphOverviewCard extends LitElement {
 					class=${cardClasses}
 					focusable
 					.indicator=${branchIndicator}
+					data-vscode-context=${ifDefined(vscodeContext)}
 					@click=${this.onCardClick}
 					@keydown=${this.onCardKeydown}
 					@focusin=${this.onCardFocusIn}

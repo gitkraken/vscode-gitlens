@@ -8,6 +8,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import { createCommandLink } from '../../../../../system/commands.js';
 import type {
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -30,6 +31,7 @@ import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
 import './graph-overview-card.js';
+import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/menu/menu-popover.js';
 
@@ -162,6 +164,17 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				font-size: var(--gl-font-sm);
 				font-style: italic;
 				color: var(--vscode-descriptionForeground);
+			}
+
+			.actions {
+				display: flex;
+				gap: var(--gl-space-8);
+				margin-bottom: var(--gl-space-16);
+			}
+
+			.actions gl-button {
+				flex: 1 1 0;
+				min-width: 0;
 			}
 		`,
 	];
@@ -603,6 +616,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 						</div>
 					`,
 				)}
+				${this.renderStartActions()}
 				${when(
 					hasRecent,
 					() => html`
@@ -617,6 +631,28 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 						</div>
 					`,
 				)}
+			</div>
+		`;
+	}
+
+	/** Start Work button between the Current work and Recent groups. `showOpenInAgent` makes the
+	 *  wizard end with its manual-vs-agent hand-off step, so this one entry point covers both routes
+	 *  — no separate Start Agent affordance. Sourced so it reads apart from the agents panel header's
+	 *  action in telemetry. */
+	private renderStartActions() {
+		return html`
+			<div class="actions">
+				<gl-button
+					full
+					appearance="secondary"
+					density="tight"
+					href=${createCommandLink('gitlens.startWork', {
+						source: { source: 'graph-sidebar' as const, detail: 'overview' },
+						showOpenInAgent: 'agent',
+					})}
+				>
+					Start Work...
+				</gl-button>
 			</div>
 		`;
 	}

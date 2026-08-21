@@ -431,9 +431,19 @@ export type VisualizationMode = 'timeline' | 'treemap' | 'health';
  *  to the same union — adding a fourth mode in `treemap/protocol.ts` flows here automatically. */
 export type GraphTreemapMode = TreemapMode;
 
+/**
+ * An overview branch card's native right-click context — the same wire shape as
+ * {@link GraphSidebarBranch.context}, built by the same host-side helper (`buildBranchContext` in
+ * `graphPanelsService.ts`), so the overview cards get the identical branch menu with zero
+ * contributions changes and no drift from the sidebar branches panel.
+ */
+export interface GraphOverviewBranch extends OverviewBranch {
+	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
+}
+
 export interface GraphOverviewData {
-	active: OverviewBranch[];
-	recent: OverviewBranch[];
+	active: GraphOverviewBranch[];
+	recent: GraphOverviewBranch[];
 	/** Set when the host couldn't compute the overview. `active`/`recent` are still
 	 *  structurally-valid (empty arrays) so existing consumers don't crash on `.length`. */
 	error?: string;
