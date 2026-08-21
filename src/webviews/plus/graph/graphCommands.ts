@@ -94,6 +94,8 @@ import { getHostEditorCommand, revealInFileExplorer } from '../../../system/-web
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator } from '../../../system/decorators/command.js';
+import type { WebviewItemContext } from '../../../system/webview.js';
+import { isWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
 import type { WebviewHost } from '../../webviewProvider.js';
@@ -2935,10 +2937,24 @@ export class GraphCommands {
 
 	@command('gitlens.openInIntegratedTerminal:')
 	@debug()
-	private async openInIntegratedTerminal(item?: GraphItemContext | { worktreeUri: string }): Promise<void> {
+	private async openInIntegratedTerminal(
+		item?: GraphItemContext | { worktreeUri: string } | WebviewItemContext<{ worktreePath?: string }>,
+	): Promise<void> {
 		// Header button path: a full URI string is provided so remote-dev schemes are preserved.
 		if (item != null && typeof item === 'object' && 'worktreeUri' in item && typeof item.worktreeUri === 'string') {
 			void executeCoreCommand('openInIntegratedTerminal', Uri.parse(item.worktreeUri));
+			return;
+		}
+
+		// Agent-session context menu path (sidebar row / details card): the session's worktree path
+		// rides on webviewItemValue.worktreePath rather than a host-serialized ref.
+		if (
+			isWebviewItemContext<{ worktreePath?: string }>(item) &&
+			item.webviewItem.startsWith('gitlens:agent-session')
+		) {
+			if (item.webviewItemValue.worktreePath != null) {
+				void executeCoreCommand('openInIntegratedTerminal', Uri.file(item.webviewItemValue.worktreePath));
+			}
 			return;
 		}
 

@@ -1,6 +1,7 @@
-import type { PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
+import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { AgentSessionPhase } from '../../../agents/provider.js';
 import { createCommandLink } from '../../../system/commands.js';
+import type { WebviewItemContext } from '../../../system/webview.js';
 import type { AgentSessionState } from '../../home/protocol.js';
 import type { OverviewBranch } from '../../shared/overviewBranches.js';
 
@@ -117,6 +118,121 @@ export function createAgentSessionOpenHref(session: AgentSessionState): string {
 
 	// A bare string reaches the command link unquoted, which isn't valid JSON for the arg parser.
 	return createCommandLink(action.command, JSON.stringify(action.args[0]));
+}
+
+/** Value carried by a `gitlens:agent-session…` webview-item context — see {@link buildAgentSessionContext}
+ *  and {@link buildPastAgentSessionContext}. Kept intentionally small: the host resolves the rest of a
+ *  LIVE session by `sessionId` where it needs to; `cwd`/`lastPrompt`/`planFilePath` ride along only for
+ *  what a host-side lookup can't recover on its own (a past row has no tracked session to look up, and
+ *  the clipboard commands read straight off the context to avoid a round trip). */
+export interface AgentSessionContextValue {
+	sessionId: string;
+	worktreePath?: string;
+	/** Resolved resume directory — present only when the context also carries `+resumable`. */
+	cwd?: string;
+	lastPrompt?: string;
+	/** Present only when the context also carries `+plan`. */
+	planFilePath?: string;
+}
+
+/**
+ * Builds the `gitlens:agent-session…` webview-item context for a live session — the single source of the
+ * right-click vocabulary shared by the sidebar Agents panel rows and the WIP details panel's session
+ * cards, so the two surfaces' context menus can't drift apart. Computed entirely client-side: unlike the
+ * graph's row contexts, agent sessions don't flow through a host-serialized `contexts.row`, so every flag
+ * here is derived from fields already present on the serialized {@link AgentSessionState}.
+ *
+ * Flag grammar (see `contributions.json`'s `gitlens:agent-session` entries for the menu `when` clauses):
+ *  - `+live` / `+ended` — mutually exclusive category flags.
+ *  - `+resolvable` — {@link canResolvePermission} is true (an Allow/Deny-able ask).
+ *  - `+alwaysallow` — resolvable AND the ask is a plain tool permission with suggestions (mirrors the
+ *    row's alt-action condition in `sidebar-panel.ts`'s `toAgentLeaf`).
+ *  - `+plan` — a needs-input `plan` ask with a `planFilePath` — independent of `+resolvable`, matching
+ *    `toAgentLeaf`'s View Plan action (an unroutable plan ask still gets "View Plan").
+ *  - `+resumable` — an ended session {@link getAgentSessionOpenAction} would resume rather than open.
+ *  - `+worktree` — the session has a `worktreePath`.
+ *  - `+prompt` — the session has a `lastPrompt`.
+ *  - `+peer` — `session.isPeerOwned` — Resolve/Archive are meaningless from this window for these.
+ */
+export function buildAgentSessionContext(
+	session: AgentSessionState,
+	category: AgentSessionCategory,
+): WebviewItemContext<AgentSessionContextValue> {
+	const permission = session.pendingPermission;
+
+	let resolvable = false;
+	let alwaysAllow = false;
+	if (canResolvePermission(category, permission)) {
+		resolvable = true;
+		alwaysAllow = permission.kind === 'tool' && permission.suggestions != null && permission.suggestions.length > 0;
+	}
+
+	const isPlan = category === 'needs-input' && permission?.kind === 'plan' && permission.planFilePath != null;
+
+	const openAction = getAgentSessionOpenAction(session);
+	const resumable = openAction.command === 'gitlens.agents.resumeSession';
+
+	let webviewItem = `gitlens:agent-session+${category === 'ended' ? 'ended' : 'live'}`;
+	if (resolvable) {
+		webviewItem += '+resolvable';
+	}
+	if (alwaysAllow) {
+		webviewItem += '+alwaysallow';
+	}
+	if (isPlan) {
+		webviewItem += '+plan';
+	}
+	if (resumable) {
+		webviewItem += '+resumable';
+	}
+	if (session.worktreePath != null) {
+		webviewItem += '+worktree';
+	}
+	if (session.lastPrompt) {
+		webviewItem += '+prompt';
+	}
+	if (session.isPeerOwned) {
+		webviewItem += '+peer';
+	}
+
+	return {
+		webviewItem: webviewItem,
+		webviewItemValue: {
+			sessionId: session.id,
+			worktreePath: session.worktreePath,
+			cwd: openAction.command === 'gitlens.agents.resumeSession' ? openAction.args[0].cwd : undefined,
+			lastPrompt: session.lastPrompt,
+			planFilePath: isPlan ? permission?.planFilePath : undefined,
+		},
+	};
+}
+
+/**
+ * Reduced counterpart of {@link buildAgentSessionContext} for a {@link PastAgentSessionState} row — there's
+ * no process, so none of the permission/phase-derived flags apply. Marks `+past` alongside `+ended` so
+ * consumers can tell a recovered-transcript row from a tracked ended session apart: the Archive Session
+ * menu item gates on `!+past` since archiving walks a live provider's tracked session list, which a past
+ * row was never part of, and would silently no-op for one.
+ */
+export function buildPastAgentSessionContext(
+	session: PastAgentSessionState,
+): WebviewItemContext<AgentSessionContextValue> {
+	let webviewItem = 'gitlens:agent-session+ended+past';
+	if (session.cwd) {
+		webviewItem += '+resumable';
+	}
+	if (session.lastPrompt) {
+		webviewItem += '+prompt';
+	}
+
+	return {
+		webviewItem: webviewItem,
+		webviewItemValue: {
+			sessionId: session.id,
+			cwd: session.cwd,
+			lastPrompt: session.lastPrompt,
+		},
+	};
 }
 
 /** Kind-aware label for a needs-input phase. Surfaces "Plan ready" / "Question" / "Input needed"

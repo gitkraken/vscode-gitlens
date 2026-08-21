@@ -23,6 +23,97 @@
 				]
 			}
 		},
+		"gitlens.agents.allowPermission": {
+			"label": "Allow",
+			"icon": "$(check)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?!.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_resolve",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.agents.alwaysAllowPermission": {
+			"label": "Always Allow",
+			"icon": "$(check-all)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?=.*?\\b\\+alwaysallow\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_resolve",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.agents.approvePlan": {
+			"label": "Approve Plan",
+			"icon": "$(check)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_resolve",
+						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.agents.archiveSession": {
+			"label": "Archive Session",
+			"icon": "$(archive)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?!.*?\\b\\+peer\\b)(?!.*?\\b\\+past\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "9_manage",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.agents.copyLastPrompt": {
+			"label": "Copy Last Prompt",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+prompt\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.agents.copySessionId": {
+			"label": "Copy Session Id",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.agents.denyPermission": {
+			"label": "Deny",
+			"icon": "$(close)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?!.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_resolve",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.agents.focusSessionWorktreeInGraph": {
 			"label": "Focus in Commit Graph",
 			"icon": "$(target)",
@@ -50,10 +141,32 @@
 		"gitlens.agents.installHooksForAgent": {
 			"label": "Install GitKraken Hooks for Agent"
 		},
+		"gitlens.agents.openPlanFile": {
+			"label": "View Plan",
+			"icon": "$(tasklist)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "2_plan",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.agents.openSession": {
-			"label": "Open AI Agent Session",
+			"label": "Open Agent Session",
 			"icon": "$(robot)",
-			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+live\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "3_open",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.agents.openSessionWorktreeInNewWindow": {
 			"label": "Open in New Window",
@@ -64,6 +177,58 @@
 						"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
 						"group": "2_gitlens",
 						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.agents.openWorktree": {
+			"label": "Open Worktree",
+			"icon": "$(window)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "4_worktree",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.agents.openWorktreeInNewWindow": {
+			"label": "Open Worktree in New Window",
+			"icon": "$(empty-window)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "4_worktree",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.agents.rejectPlan": {
+			"label": "Reject Plan",
+			"icon": "$(close)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_resolve",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.agents.resumeSession": {
+			"label": "Resume Session",
+			"icon": "$(debug-restart)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?=.*?\\b\\+resumable\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "3_open",
+						"order": 2
 					}
 				]
 			}
@@ -5681,6 +5846,11 @@
 			"icon": "$(terminal)",
 			"menus": {
 				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "4_worktree",
+						"order": 1
+					},
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree_1",

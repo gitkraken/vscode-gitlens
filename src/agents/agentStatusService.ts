@@ -1,13 +1,15 @@
 import type { Disposable, QuickPickItem } from 'vscode';
-import { commands, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { commands, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import { openWorktreeInNewWindow, showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
+import { showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { registerCommand } from '../system/-webview/command.js';
+import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
+import { isWebviewItemContext } from '../system/webview.js';
 import type { GkAgent } from './agentService.js';
 import type {
 	AgentSessionState,
@@ -35,6 +37,38 @@ import {
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
 import { areHooksAllowedForAgent, getHookClientId } from './utils/agentHooks.js';
+
+/** Value carried by a `gitlens:agent-session…` webview-item context — mirrors
+ *  `agentUtils.ts`'s `AgentSessionContextValue` (webview-side). Declared separately here rather
+ *  than imported: host code (this file) must not import from `webviews/apps/*`, and the shape
+ *  only needs to agree at the JSON boundary, not share a TS type. */
+interface AgentSessionContextArgValue {
+	sessionId?: string;
+	worktreePath?: string;
+	cwd?: string;
+	lastPrompt?: string;
+	planFilePath?: string;
+}
+
+/**
+ * Normalizes the three arg shapes an agent-session command can receive into one
+ * `{sessionId, cwd, ...}` value: a bare session id (older tree/card action links), the
+ * `{sessionId, cwd}` object the resume commands already used, or a real right-click's
+ * webview-item context (whose fields ride on `webviewItemValue`). Returns `undefined` only when
+ * none of the three match, so callers can `?.` straight into the fields they need.
+ */
+function resolveAgentSessionArg(arg: unknown): AgentSessionContextArgValue | undefined {
+	if (arg == null) return undefined;
+	if (typeof arg === 'string') return { sessionId: arg };
+
+	if (isWebviewItemContext<AgentSessionContextArgValue>(arg) && arg.webviewItem.startsWith('gitlens:agent-session')) {
+		return arg.webviewItemValue;
+	}
+
+	if (typeof arg === 'object' && 'sessionId' in arg) return arg as AgentSessionContextArgValue;
+
+	return undefined;
+}
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -866,25 +900,34 @@ export class AgentStatusService implements Disposable {
 			registerCommand('gitlens.agents.uninstallHooksForAgent', (args?: { agentId?: string; source?: Sources }) =>
 				this.handleHooksOperationForAgentCommand('uninstall', args),
 			),
-			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
-			registerCommand('gitlens.agents.resumeSession', (args?: { sessionId: string; cwd: string }) => {
-				if (args?.sessionId == null) return Promise.resolve();
+			registerCommand('gitlens.agents.openSession', (arg?: unknown) =>
+				this.openSession(resolveAgentSessionArg(arg)?.sessionId),
+			),
+			registerCommand('gitlens.agents.resumeSession', (arg?: unknown) => {
+				const resolved = resolveAgentSessionArg(arg);
+				if (resolved?.sessionId == null || resolved.cwd == null) return Promise.resolve();
 
-				return this.resumeSession(args.sessionId, args.cwd, 'default', 'webview');
+				return this.resumeSession(resolved.sessionId, resolved.cwd, 'default', 'webview');
 			}),
 			registerCommand('gitlens.agents.showResumeSessionPicker', (args?: { worktreePath: string }) => {
 				if (args?.worktreePath == null) return Promise.resolve();
 
 				return this.showResumeSessionPicker(args.worktreePath);
 			}),
-			registerCommand('gitlens.agents.showSessionWorktreeInGraph', (sessionId?: string) =>
-				this.showSessionWorktreeInGraph(sessionId),
+			registerCommand('gitlens.agents.showSessionWorktreeInGraph', (arg?: unknown) =>
+				this.showSessionWorktreeInGraph(resolveAgentSessionArg(arg)?.sessionId),
 			),
-			registerCommand('gitlens.agents.focusSessionWorktreeInGraph', (sessionId?: string) =>
-				this.focusSessionWorktreeInGraph(sessionId),
+			registerCommand('gitlens.agents.focusSessionWorktreeInGraph', (arg?: unknown) =>
+				this.focusSessionWorktreeInGraph(resolveAgentSessionArg(arg)?.sessionId),
 			),
-			registerCommand('gitlens.agents.openSessionWorktreeInNewWindow', (sessionId?: string) =>
-				this.openSessionWorktreeInNewWindow(sessionId),
+			registerCommand('gitlens.agents.openSessionWorktreeInNewWindow', (arg?: unknown) =>
+				this.openSessionWorktree(resolveAgentSessionArg(arg)?.sessionId, 'newWindow'),
+			),
+			registerCommand('gitlens.agents.openWorktree', (arg?: unknown) =>
+				this.openSessionWorktree(resolveAgentSessionArg(arg)?.sessionId, 'currentWindow'),
+			),
+			registerCommand('gitlens.agents.openWorktreeInNewWindow', (arg?: unknown) =>
+				this.openSessionWorktree(resolveAgentSessionArg(arg)?.sessionId, 'newWindow'),
 			),
 			registerCommand('gitlens.agents.switchDefaultAgent', async () => {
 				const { pickAndSetDefaultAgent } = await import(
@@ -892,7 +935,17 @@ export class AgentStatusService implements Disposable {
 				);
 				await pickAndSetDefaultAgent(this.container);
 			}),
-			registerCommand('gitlens.agents.openPlanFile', async (planFilePath?: string) => {
+			registerCommand('gitlens.agents.openPlanFile', async (arg?: unknown) => {
+				let planFilePath: string | undefined;
+				if (typeof arg === 'string') {
+					planFilePath = arg;
+				} else if (
+					arg != null &&
+					isWebviewItemContext<AgentSessionContextArgValue>(arg) &&
+					arg.webviewItem.startsWith('gitlens:agent-session')
+				) {
+					planFilePath = arg.webviewItemValue.planFilePath;
+				}
 				if (!planFilePath) return;
 
 				try {
@@ -909,20 +962,60 @@ export class AgentStatusService implements Disposable {
 				(args?: { sessionId: string; decision: PermissionDecision; alwaysAllow?: boolean }) => {
 					if (args?.sessionId == null || args.decision == null) return;
 
-					let updatedPermissions: PermissionSuggestion[] | undefined;
-					if (args.alwaysAllow) {
-						const session = this.sessions.find(s => s.id === args.sessionId);
-						const suggestions = session?.pendingPermission?.suggestions;
-						if (suggestions != null && suggestions.length > 0) {
-							updatedPermissions = [...suggestions];
-						}
-					}
-
-					this.resolvePermission(args.sessionId, args.decision, updatedPermissions);
+					this.resolvePermissionFromArg(args.sessionId, args.decision, args.alwaysAllow ?? false);
 				},
 			),
-			registerCommand('gitlens.agents.archiveSession', (sessionId?: string) => this.archiveSession(sessionId)),
+			registerCommand('gitlens.agents.allowPermission', (arg?: unknown) =>
+				this.resolvePermissionFromArg(arg, 'allow'),
+			),
+			registerCommand('gitlens.agents.alwaysAllowPermission', (arg?: unknown) =>
+				this.resolvePermissionFromArg(arg, 'allow', true),
+			),
+			registerCommand('gitlens.agents.denyPermission', (arg?: unknown) =>
+				this.resolvePermissionFromArg(arg, 'deny'),
+			),
+			registerCommand('gitlens.agents.approvePlan', (arg?: unknown) =>
+				this.resolvePermissionFromArg(arg, 'allow'),
+			),
+			registerCommand('gitlens.agents.rejectPlan', (arg?: unknown) => this.resolvePermissionFromArg(arg, 'deny')),
+			registerCommand('gitlens.agents.archiveSession', (arg?: unknown) =>
+				this.archiveSession(resolveAgentSessionArg(arg)?.sessionId),
+			),
+			registerCommand('gitlens.agents.copySessionId', async (arg?: unknown) => {
+				const sessionId = resolveAgentSessionArg(arg)?.sessionId;
+				if (!sessionId) return;
+
+				await env.clipboard.writeText(sessionId);
+			}),
+			registerCommand('gitlens.agents.copyLastPrompt', async (arg?: unknown) => {
+				const lastPrompt = resolveAgentSessionArg(arg)?.lastPrompt;
+				if (!lastPrompt) return;
+
+				await env.clipboard.writeText(lastPrompt);
+			}),
 		];
+	}
+
+	/** Shared by the direct `resolvePermission` command (bare `{sessionId, decision, alwaysAllow}` arg,
+	 *  used by the tree/card action links) and the five label-specific webview-context wrappers
+	 *  (Allow/Always Allow/Deny/Approve Plan/Reject Plan) — VS Code can't pass a per-invocation
+	 *  `decision`/`alwaysAllow` from a `webview/context` menu (it always passes the single merged
+	 *  context object), so those wrappers bake the decision into the command id instead and share this
+	 *  resolution + always-allow-suggestions logic. */
+	private resolvePermissionFromArg(arg: unknown, decision: PermissionDecision, alwaysAllow = false): void {
+		const sessionId = resolveAgentSessionArg(arg)?.sessionId;
+		if (sessionId == null) return;
+
+		let updatedPermissions: PermissionSuggestion[] | undefined;
+		if (alwaysAllow) {
+			const session = this.sessions.find(s => s.id === sessionId);
+			const suggestions = session?.pendingPermission?.suggestions;
+			if (suggestions != null && suggestions.length > 0) {
+				updatedPermissions = [...suggestions];
+			}
+		}
+
+		this.resolvePermission(sessionId, decision, updatedPermissions);
 	}
 
 	private async archiveSession(sessionId?: string): Promise<void> {
@@ -1035,11 +1128,11 @@ export class AgentStatusService implements Disposable {
 		});
 	}
 
-	private openSessionWorktreeInNewWindow(sessionId?: string): void {
+	private openSessionWorktree(sessionId: string | undefined, location: 'currentWindow' | 'newWindow'): void {
 		const session = this.resolveSessionForCommand(sessionId);
 		if (session?.worktreePath == null) return;
 
-		openWorktreeInNewWindow(session.worktreePath);
+		openWorkspace(Uri.file(session.worktreePath), { location: location });
 	}
 
 	/** Shared resolution for the Claude tab worktree commands. `sessionId` is only a real id when a

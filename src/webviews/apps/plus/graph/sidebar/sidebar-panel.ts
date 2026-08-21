@@ -41,6 +41,7 @@ import {
 } from '../../../../plus/graph/sidebarTooltips.js';
 import {
 	agentPhaseToCategory,
+	buildAgentSessionContext,
 	canResolvePermission,
 	describeAgentSession,
 	getAgentSessionOpenAction,
@@ -1813,6 +1814,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// the still-live idle/stale sessions they share the Inactive grouping with.
 			muted: category === 'ended',
 			context: sidebarItemContext(sha, { scope: scope, sessionId: session.id }),
+			contextValue: buildAgentSessionContext(session, category),
 			actions: actions,
 		};
 	}

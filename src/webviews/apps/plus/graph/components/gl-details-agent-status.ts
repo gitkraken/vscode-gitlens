@@ -4,10 +4,13 @@ import { customElement, property } from 'lit/decorators.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
+import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	buildAgentSessionContext,
+	buildPastAgentSessionContext,
 	canResolvePermission,
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
@@ -989,7 +992,11 @@ export class GlDetailsAgentStatus extends LitElement {
 		}`;
 
 		return html`
-			<div class="section__past-row" data-session-id=${session.id}>
+			<div
+				class="section__past-row"
+				data-session-id=${session.id}
+				data-vscode-context=${serializeWebviewItemContext(buildPastAgentSessionContext(session))}
+			>
 				<div class="card__rail"><span class="section__past-dot"></span></div>
 				<div class="section__past-body">
 					<div class="section__past-title-row">
@@ -1281,6 +1288,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			<div
 				class=${`card card--${category}${isSelected ? ' card--selected' : ''}`}
 				data-session-id=${session.id}
+				data-vscode-context=${serializeWebviewItemContext(buildAgentSessionContext(session, category))}
 				aria-current=${isSelected ? 'true' : nothing}
 			>
 				<div class="card__rail">${this.renderCardRail(category)}</div>

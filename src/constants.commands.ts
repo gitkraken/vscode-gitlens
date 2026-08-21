@@ -81,12 +81,7 @@ type InternalHomeWebviewCommands =
 	| 'gitlens.visualizeHistory.repo:home'
 	| 'gitlens.visualizeHistory.branch:home';
 
-type InternalAgentCommands =
-	| 'gitlens.agents.resolvePermission'
-	| 'gitlens.agents.openPlanFile'
-	| 'gitlens.agents.resumeSession'
-	| 'gitlens.agents.showResumeSessionPicker'
-	| 'gitlens.agents.archiveSession';
+type InternalAgentCommands = 'gitlens.agents.resolvePermission' | 'gitlens.agents.showResumeSessionPicker';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
