@@ -4892,7 +4892,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Seed the Overview "Recent" timeframe from the memento before `getOverviewData()` runs
 		// below — keeps host-pushed overview updates in sync with the persisted choice on reload.
-		this._panels.setOverviewRecentThreshold(storedGraphState?.overview?.recentThreshold ?? 'OneWeek');
+		// A dev build may have persisted a now-removed value (e.g. the retired `All` timeframe) —
+		// coerce anything unrecognized back to the default rather than passing it through.
+		const storedRecentThreshold = storedGraphState?.overview?.recentThreshold;
+		this._panels.setOverviewRecentThreshold(
+			storedRecentThreshold === 'OneDay' ||
+				storedRecentThreshold === 'OneWeek' ||
+				storedRecentThreshold === 'OneMonth'
+				? storedRecentThreshold
+				: 'OneWeek',
+		);
 
 		// If the underlying fetch returned undefined (cancelled/failed), leave the graph's own worktree
 		// out of `wipStateById` rather than fabricating a confident `{0,0,0}` — `gl-wip-stats` renders

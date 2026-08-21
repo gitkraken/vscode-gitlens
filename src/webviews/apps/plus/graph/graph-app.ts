@@ -4225,7 +4225,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			opened = true;
 		}
 		if (gs.sidebar?.activePanel == null) {
-			next.activePanel = 'worktrees';
+			next.activePanel = 'overview';
 			opened = true;
 		}
 		next.position = e.detail.position;
@@ -4624,7 +4624,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this.graph?.focus();
 			}
 		} else {
-			this.setSidebarPanel(gs.sidebar?.activePanel ?? 'branches');
+			this.setSidebarPanel(gs.sidebar?.activePanel ?? 'overview');
 		}
 	}
 

@@ -75,6 +75,7 @@ import type {
 	GraphBranchContextValue,
 	GraphItemRefContext,
 	GraphItemTypedContext,
+	GraphOverviewBranch,
 	GraphOverviewData,
 	GraphPullRequestContextValue,
 	GraphRemoteContextValue,
@@ -107,6 +108,12 @@ export type GraphPanelsServiceContext = {
 	fireSidebarInvalidated: () => void;
 	addPendingNotification: (notification: IpcNotification<any>) => void;
 };
+
+/** Page size for the Overview panel's "Load More" older-branches paging — how many additional
+ *  older branches one page reveals. Mirrored on the webview side (`graph-overview.ts`); the host
+ *  never sees a page size larger than what the webview asks for via `olderLimit`, but this bounds a
+ *  malformed/oversized request. */
+const overviewOlderBranchesMaxLimit = 500;
 
 /** Open-PR list TTL. Matches Launchpad's list-level cache, which fronts the same kind of query. */
 const pullRequestsCacheExpiration = 30 * 60 * 1000;
@@ -219,6 +226,10 @@ export class GraphPanelsService {
 	// Timeframe for the Overview panel's "Recent" section. Seeded from the `graph:state` memento
 	// in `getState`, updated in-place by `onGetOverview` when the webview changes it.
 	private _overviewRecentThreshold: OverviewRecentThreshold = 'OneWeek';
+	// How many older-than-threshold branches to include in `GraphOverviewData.older`. Updated in-place
+	// by `onGetOverview` when the webview changes it (paging via "Load More"). Not persisted — each
+	// panel mount/refresh starts back at 0, matching the webview's own `_olderLimit` reset.
+	private _overviewOlderLimit = 0;
 	// Last overview shipped to the webview. `setGraph` fires `notifyDidChangeOverview` on every graph
 	// reload (repo/visibility/filter change, refresh); most reloads reproduce the prior overview, so
 	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
@@ -248,6 +259,9 @@ export class GraphPanelsService {
 	onGetOverview(params: IpcParams<typeof GetOverviewRequest>): GraphOverviewData {
 		if (params.recentThreshold != null) {
 			this._overviewRecentThreshold = params.recentThreshold;
+		}
+		if (params.olderLimit != null) {
+			this._overviewOlderLimit = Math.max(0, Math.min(params.olderLimit, overviewOlderBranchesMaxLimit));
 		}
 		try {
 			return this.getOverviewData();
@@ -350,6 +364,7 @@ export class GraphPanelsService {
 	getOverviewData(): GraphOverviewData {
 		const active: GraphOverviewData['active'] = [];
 		const recent: GraphOverviewData['recent'] = [];
+		const older: GraphOverviewBranch[] = [];
 
 		if (this._graphSession == null || this.repository == null) {
 			return { active: active, recent: recent };
@@ -384,12 +399,28 @@ export class GraphPanelsService {
 						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
 					});
 					break;
+				// 'stale' and `undefined` both fall outside the Recent threshold — pageable via "Load More"
+				// rather than dropped.
+				default:
+					older.push({
+						...toOverviewBranch(branch, worktreesByBranch, false),
+						context: this.buildBranchContext(branch, data.repoPath, pinnedRefId, hiddenIds, false),
+					});
+					break;
 			}
 		}
 
 		recent.sort((a, b) => (b.timestamp ?? -1) - (a.timestamp ?? -1));
 
-		return { active: active, recent: recent };
+		const overview: GraphOverviewData = { active: active, recent: recent };
+		if (older.length > 0) {
+			older.sort((a, b) => (b.timestamp ?? -1) - (a.timestamp ?? -1));
+			overview.olderTotal = older.length;
+			if (this._overviewOlderLimit > 0) {
+				overview.older = older.slice(0, this._overviewOlderLimit);
+			}
+		}
+		return overview;
 	}
 
 	@trace()

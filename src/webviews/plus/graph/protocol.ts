@@ -444,6 +444,13 @@ export interface GraphOverviewBranch extends OverviewBranch {
 export interface GraphOverviewData {
 	active: GraphOverviewBranch[];
 	recent: GraphOverviewBranch[];
+	/** Branches older than the selected Recent threshold (previously dropped entirely), paged in via
+	 *  "Load More". Same shape as `recent`. Absent until the first page is requested. */
+	older?: GraphOverviewBranch[];
+	/** Total count of branches older than the threshold. Always set whenever it's greater than 0 —
+	 *  independent of whether `older` has been paged in yet — so the "Load More" button can render
+	 *  before any page is fetched. */
+	olderTotal?: number;
 	/** Set when the host couldn't compute the overview. `active`/`recent` are still
 	 *  structurally-valid (empty arrays) so existing consumers don't crash on `.length`. */
 	error?: string;
@@ -1256,6 +1263,9 @@ export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, '
 export interface GetOverviewParams {
 	/** When set, updates the host's stored "Recent" timeframe before computing the overview. */
 	recentThreshold?: OverviewRecentThreshold;
+	/** When set (> 0), updates the host's stored older-branches page size before computing the
+	 *  overview — 0 or absent means no older branches are included. */
+	olderLimit?: number;
 }
 export const GetOverviewRequest = new IpcRequest<GetOverviewParams, GraphOverviewData>(scope, 'overview/get');
 

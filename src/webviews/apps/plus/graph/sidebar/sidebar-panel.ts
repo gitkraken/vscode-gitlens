@@ -588,6 +588,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private _prSearchData: DidGetSidebarDataParams | undefined;
 	@state() private _prSearchState: 'idle' | 'searching' | 'notFound' = 'idle';
 
+	/** Mirrors `<gl-graph-overview>`'s in-flight `GetOverviewRequest` state (bubbled via
+	 *  `gl-graph-overview-loading-change`) into the header's `progress-indicator` — the overview panel
+	 *  fetches its own data outside the sidebar's resource/IPC fetch loop, so `renderHeader` can't read
+	 *  a resource's `loading` signal for it the way every other panel does. */
+	@state() private _overviewLoading = false;
+
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	private _pendingFocus = false;
@@ -705,6 +711,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this._prSearchRepoId = undefined;
 			this._prSearchData = undefined;
 			this._prSearchState = 'idle';
+
+			// The overview panel's `<gl-graph-overview>` is destroyed on switch-away (a structurally
+			// different render branch) — an in-flight request's `finally` fires on the orphaned instance
+			// and can't bubble its "done" event up to us, so reset here rather than risk a stuck header
+			// progress bar the next time the panel is shown.
+			this._overviewLoading = false;
 
 			this.emitWorktreesFilteredTelemetryDebounced.cancel();
 			this.emitBranchesFilteredTelemetryDebounced.cancel();
@@ -902,9 +914,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		if (this.activePanel === 'overview') {
 			return html`<div class="panel">
-				${this.renderHeader(config, false)}
+				${this.renderHeader(config, this._overviewLoading)}
 				<div class="content">
-					<gl-graph-overview></gl-graph-overview>
+					<gl-graph-overview
+						@gl-graph-overview-loading-change=${this.handleOverviewLoadingChange}
+					></gl-graph-overview>
 				</div>
 			</div>`;
 		}
@@ -1027,6 +1041,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			{ integrationId: integrationId },
 		]);
 	}
+
+	private readonly handleOverviewLoadingChange = (e: CustomEvent<{ loading: boolean }>): void => {
+		this._overviewLoading = e.detail.loading;
+	};
 
 	private renderHeader(config: PanelConfig, isLoading: boolean) {
 		const pinned = this._state.config?.sidebarPinned ?? false;
