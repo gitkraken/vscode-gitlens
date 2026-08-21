@@ -4897,6 +4897,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async handleOverviewBranchSelected(
 		e: CustomEvent<{ branchId: string; branchName: string; mergeTargetTipSha?: string }>,
 	): Promise<void> {
+		// Toggle: clicking the card whose branch is already the active scope clears the scope
+		// instead of re-scoping. Mirror the overview bar's scope-clearing click — clear, wait for
+		// the host round-trip to settle, then re-reveal the branch so the user keeps their place.
+		if (this.graphState.scope?.branchRef === e.detail.branchId) {
+			this.graphState.clearScope();
+			await this.waitForScopeCleared();
+
+			const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
+			if (sha != null) {
+				void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true, ref: e.detail.branchName });
+			}
+
+			if (this.shouldAutoCollapseOverlay()) {
+				this.graph?.focus();
+			}
+
+			return;
+		}
+
 		// Await scope publish so the post-scope `navigateToCommit` runs against the settled
 		// GK row index — eliminates the "WIP-not-selected on first scope" race where the bare
 		// publish hadn't yet been replaced by the anchored publish at selection time.
