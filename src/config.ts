@@ -1146,7 +1146,7 @@ interface VisualHistoryConfig {
 
 interface WorktreesConfig {
 	readonly defaultLocation: string | null;
-	readonly openAfterCreate: 'always' | 'alwaysNewWindow' | 'onlyWhenEmpty' | 'never' | 'prompt';
+	readonly openAfterCreate: 'newWindow' | 'currentWindow' | 'addToWorkspace' | 'none' | 'onlyWhenEmpty';
 	readonly promptForLocation: boolean;
 }
 

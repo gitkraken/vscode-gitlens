@@ -3328,22 +3328,22 @@
 					},
 					"gitlens.worktrees.openAfterCreate": {
 						"type": "string",
-						"default": "prompt",
+						"default": "newWindow",
 						"enum": [
-							"always",
-							"alwaysNewWindow",
-							"onlyWhenEmpty",
-							"never",
-							"prompt"
+							"newWindow",
+							"currentWindow",
+							"addToWorkspace",
+							"none",
+							"onlyWhenEmpty"
 						],
 						"enumDescriptions": [
-							"Always open the new worktree in the current window",
 							"Always open the new worktree in a new window",
-							"Only open the new worktree in the current window when no folder is opened",
+							"Always open the new worktree in the current window",
+							"Always add the new worktree to the current workspace",
 							"Never open the new worktree",
-							"Always prompt to open the new worktree"
+							"Open the new worktree in the current window only when no folder is opened, otherwise in a new window. Choosing an After Creating option in the Create Worktree dialog replaces this with that direct choice."
 						],
-						"markdownDescription": "Specifies how and when to open a worktree after it is created",
+						"markdownDescription": "Specifies how and when to open a worktree after it is created. Choosing an _After Creating_ option in the Create Worktree dialog updates this setting.",
 						"scope": "resource",
 						"order": 12
 					},

@@ -2037,9 +2037,10 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			// Should go directly to confirm step (no branch name input needed)
 			await quickPick.waitForStep({ title: /Confirm Create Worktree.*feature-2/i });
 
-			// `b52976a1c` moved the open decision into this confirm as an `After Creating` radio group,
-			// seeded from `worktrees.openAfterCreate`, so there is no separate open prompt after creation
-			// any more. The choice is visible up front and folded into the action row's detail.
+			// `b52976a1c` moved the open decision into this confirm as an `After Creating` radio group
+			// bound two-way to `worktrees.openAfterCreate` — the setting seeds the radios and picking a
+			// radio writes back to it — so there is no separate open prompt after creation any more. The
+			// choice is visible up front and folded into the action row's detail.
 			//
 			// This confirm is the longest in the suite — action row, two Location rows, two separators and
 			// four radios — so the tail sits below the fold on a short window and the list is virtualized.
@@ -2078,9 +2079,13 @@ test.describe('Quick Wizard — Worktree Commands', () => {
 			expect(shows('Add to Workspace')).toBeTruthy();
 			expect(shows("Don't Open")).toBeTruthy();
 
-			// The seeded choice is spelled out on the action row
+			// The radio choice folds into the action row's detail -- asserted via explicit selection so
+			// the spec does not depend on which choice the setting seeds (radios write through to it)
+			await quickPick.selectItem(/^Open in Current Window/);
+			rows.clear();
+			await collect();
 			expect(shows('Will create worktree')).toBeTruthy();
-			expect(shows('open it in a new window')).toBeTruthy();
+			expect(shows('switch this window to it')).toBeTruthy();
 
 			// Choosing "Don't Open" is a `Directive.Noop` radio: it stays on this step and rewrites the
 			// action row, dropping the open clause.

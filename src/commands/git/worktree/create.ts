@@ -12,7 +12,6 @@ import {
 import { basename } from '@gitlens/utils/path.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { truncateLeft } from '@gitlens/utils/string.js';
-import type { Config } from '../../../config.js';
 import type { Container } from '../../../container.js';
 import { convertLocationToOpenFlags, revealWorktree } from '../../../git/actions/worktree.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -70,6 +69,31 @@ export type WorktreeCreateStepNames = StepNames;
 
 type Context = WorktreeContext<StepNames>;
 
+type OpenChoice = NonNullable<State['openAfterCreate']>;
+
+/**
+ * Maps the configured worktrees.openAfterCreate value onto the After Creating radio choices.
+ * Legacy values, renamed to match the radios, map as: always -> currentWindow,
+ * alwaysNewWindow -> newWindow, never -> none, prompt -> newWindow (its previous seed).
+ * onlyWhenEmpty resolves against whether any folder is open in the current window.
+ */
+function getConfiguredOpenChoice(value: string, hasOpenFolders: boolean): OpenChoice {
+	switch (value) {
+		case 'currentWindow':
+		case 'always':
+			return 'currentWindow';
+		case 'addToWorkspace':
+			return 'addToWorkspace';
+		case 'none':
+		case 'never':
+			return 'none';
+		case 'onlyWhenEmpty':
+			return hasOpenFolders ? 'newWindow' : 'currentWindow';
+		default:
+			return 'newWindow';
+	}
+}
+
 type Flags = '--force' | '-b' | '--detach' | '--direct';
 interface State<Repo = string | GlRepository> {
 	repo: Repo;
@@ -99,7 +123,11 @@ interface State<Repo = string | GlRepository> {
 	 */
 	worktreeDefaultOpen?: 'new' | 'current' | 'none';
 
-	/** Chosen via the confirm step's After Creating radio group; overrides `worktrees.openAfterCreate` for this run */
+	/**
+	 * Chosen via the confirm step's After Creating radio group; overrides `worktrees.openAfterCreate`
+	 * for this run. Picking a radio also writes through to that setting, making it the remembered
+	 * default for future runs.
+	 */
 	openAfterCreate?: 'newWindow' | 'currentWindow' | 'addToWorkspace' | 'none';
 
 	// Chat action for deeplink storage
@@ -400,43 +428,27 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					}, 100);
 				}
 
-				type OpenAction = Config['worktrees']['openAfterCreate'];
-				const action: OpenAction = configuration.get('worktrees.openAfterCreate');
 				// The After Creating radio choice from the confirm step is the whole answer to the open
-				// question — the `worktrees.openAfterCreate` config only decides for flows that never
-				// showed the confirm (worktreeDefaultOpen short-circuits, skipped confirmations)
-				const skipOpen =
-					state.openAfterCreate != null
-						? state.openAfterCreate === 'none'
-						: state.worktreeDefaultOpen === 'none' || action === 'never';
+				// question — flows that never showed the confirm (worktreeDefaultOpen short-circuits,
+				// skipped confirmations) fall back to the worktrees.openAfterCreate setting
+				const action = getConfiguredOpenChoice(
+					configuration.get('worktrees.openAfterCreate'),
+					Boolean(workspace.workspaceFolders?.length),
+				);
+				const openChoice: OpenChoice = state.openAfterCreate ?? action;
+				const skipOpen = openChoice === 'none' || state.worktreeDefaultOpen === 'none';
 				if (!skipOpen) {
-					let flags: WorktreeOpenState['flags'];
-					if (state.openAfterCreate != null && state.openAfterCreate !== 'none') {
-						flags = convertLocationToOpenFlags(state.openAfterCreate);
-					} else {
-						switch (action) {
-							case 'always':
-								flags = convertLocationToOpenFlags('currentWindow');
-								break;
-							case 'alwaysNewWindow':
-								flags = convertLocationToOpenFlags('newWindow');
-								break;
-							case 'onlyWhenEmpty':
-								flags = convertLocationToOpenFlags(
-									workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow',
-								);
-								break;
-							default:
-								flags = [];
-								break;
-						}
-					}
+					// Narrowed to a concrete location here -- `skipOpen` above excluded 'none'
+					const flags: WorktreeOpenState['flags'] = convertLocationToOpenFlags(openChoice);
 
 					yield* getSteps(
 						this.container,
 						{
 							command: 'worktree',
-							confirm: state.openAfterCreate == null && action === 'prompt',
+							// The radio choice (or the setting) is the whole answer to the open question -- the
+							// open command's own confirm must stay suppressed, and omitting it would fall back
+							// to the skipConfirmations check and re-ask
+							confirm: false,
 							state: {
 								subcommand: 'open',
 								repo: state.repo,
@@ -521,31 +533,19 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 		let location = computeLocation();
 
-		// After Creating selection; seeded from the `worktrees.openAfterCreate` config so the default
-		// Enter matches what would have happened without the radio group
-		type OpenChoice = NonNullable<State['openAfterCreate']>;
 		const openChoices: { choice: OpenChoice; label: string; clause: string }[] = [
 			{ choice: 'newWindow', label: 'Open in New Window', clause: ', then open it in a new window' },
 			{ choice: 'currentWindow', label: 'Open in Current Window', clause: ', then switch this window to it' },
 			{ choice: 'addToWorkspace', label: 'Add to Workspace', clause: ', then add it to this workspace' },
 			{ choice: 'none', label: "Don't Open", clause: '' },
 		];
-		const configuredOpen: Config['worktrees']['openAfterCreate'] = configuration.get('worktrees.openAfterCreate');
-		let openChoice: OpenChoice;
-		switch (configuredOpen) {
-			case 'always':
-				openChoice = 'currentWindow';
-				break;
-			case 'never':
-				openChoice = 'none';
-				break;
-			case 'onlyWhenEmpty':
-				openChoice = workspace.workspaceFolders?.length ? 'newWindow' : 'currentWindow';
-				break;
-			default:
-				openChoice = 'newWindow';
-				break;
-		}
+
+		// After Creating selection; seeded from the worktrees.openAfterCreate setting -- which the
+		// radios also write back to on selection, making the setting the remembered default
+		let openChoice: OpenChoice = getConfiguredOpenChoice(
+			configuration.get('worktrees.openAfterCreate'),
+			Boolean(workspace.workspaceFolders?.length),
+		);
 
 		const openClause = (): string => openChoices.find(c => c.choice === openChoice)?.clause ?? '';
 
@@ -727,6 +727,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				iconPath: new ThemeIcon(`gitlens-radio-${openChoice === c.choice ? 'checked' : 'unchecked'}`),
 				onDidSelect: () => {
 					openChoice = c.choice;
+					void configuration.updateEffective('worktrees.openAfterCreate', c.choice);
 					for (const [i, radio] of rows.radios!.entries()) {
 						radio.iconPath = new ThemeIcon(
 							`gitlens-radio-${openChoice === openChoices[i].choice ? 'checked' : 'unchecked'}`,
