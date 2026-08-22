@@ -4,8 +4,8 @@
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
 	"version": "19.0.1",
 	"engines": {
-		"node": ">= 22.18.0",
-		"pnpm": ">= 10.0.0",
+		"node": ">= 24",
+		"pnpm": ">= 11.0.0",
 		"vscode": "^1.101.0"
 	},
 	"license": "SEE LICENSE IN LICENSE",

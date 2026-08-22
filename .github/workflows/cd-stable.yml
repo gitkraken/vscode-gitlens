@@ -14,15 +14,15 @@ jobs:
             contents: write
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
-            - name: Setup node
-              uses: actions/setup-node@v4
+              uses: actions/checkout@v7
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
               with:
-                  node-version: '22'
+                  node-version: '24'
             - name: Setup pnpm
-              uses: pnpm/action-setup@v3
+              uses: pnpm/setup@v2
               with:
-                  version: 10
+                  install: false
             - name: Setup Environment
               run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version + '\nPACKAGE_NAME=' + require('./package.json').name + '-' + require('./package.json').version)" >> $GITHUB_ENV
             - name: Verify versions
@@ -45,7 +45,7 @@ jobs:
                   path: ./CHANGELOG.md
             - name: Create GitHub release
               id: create_release
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:

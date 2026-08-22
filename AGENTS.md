@@ -14,7 +14,7 @@ This workspace contains **GitLens** - a powerful VS Code extension that supercha
 
 ## Development Environment
 
-- **Node.js** ≥ 22.12.0, **pnpm** ≥ 10.x (install via corepack: `corepack enable`), **Corepack** ≥ 0.31.0, **Git** ≥ 2.7.2
+- **Node.js** ≥ 24, **pnpm** ≥ 11.x (install via corepack: `corepack enable`), **Corepack** ≥ 0.31.0, **Git** ≥ 2.7.2
 
 ## Development Commands
 

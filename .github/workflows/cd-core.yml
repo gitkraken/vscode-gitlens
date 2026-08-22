@@ -19,20 +19,20 @@ jobs:
             contents: read
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
-            - name: Setup node
-              uses: actions/setup-node@v4
+            # Publishing relies on pnpm resolving this package's `catalog:` dependencies when packing;
+            # pnpm/setup reads the version to install from `packageManager` in the root manifest.
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
               with:
-                  node-version: '22'
+                  node-version: '24'
                   registry-url: 'https://registry.npmjs.org'
 
-            # Publishing relies on pnpm resolving this package's `catalog:` dependencies when packing,
-            # so pin the major we verify against locally (`packageManager` in the root manifest).
             - name: Setup pnpm
-              uses: pnpm/action-setup@v3
+              uses: pnpm/setup@v2
               with:
-                  version: 11
+                  install: false
 
             - name: Verify tag matches package version
               if: github.event_name == 'push'
@@ -64,7 +64,7 @@ jobs:
               run: pnpm --filter @gitkraken/core-gitlens pack --pack-destination packages/core
 
             - name: Upload tarball artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: core-gitlens-tarball
                   path: packages/core/*.tgz
