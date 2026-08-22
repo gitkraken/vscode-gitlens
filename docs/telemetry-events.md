@@ -5486,7 +5486,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the active selection is the WIP / uncommitted row
   'selection.uncommitted': boolean,
   // What caused the panel to be shown
-  'trigger': 'toggle' | 'request-compare' | 'request-mode' | 'request-agents' | 'request-graph-wip-bar' | 'auto-restore'
+  'trigger': 'toggle' | 'placement' | 'request-compare' | 'request-mode' | 'request-agents' | 'request-graph-wip-bar' | 'auto-restore'
 }
 ```
 

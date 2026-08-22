@@ -1,7 +1,7 @@
 import { computed, SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -26,6 +26,7 @@ import type {
 	State,
 } from '../../../plus/graph/protocol.js';
 import { ChooseRepositoryCommand, createWipRowId, UpdateRefsVisibilityCommand } from '../../../plus/graph/protocol.js';
+import type { GlPopover } from '../../shared/components/overlays/popover.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
 import type { GlSearchBox } from '../../shared/components/search/search-box.js';
 import type {
@@ -201,6 +202,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	 *  accounts for `auto` width resolution, so the toggle reflects where the panel actually is. */
 	@property({ attribute: 'details-effective-location' })
 	detailsEffectiveLocation: 'right' | 'bottom' = 'right';
+
+	/** The configured details location (raw setting; `auto` also when unset). */
+	@property({ attribute: 'details-location' })
+	detailsLocation: 'auto' | 'right' | 'bottom' = 'auto';
+
+	/** The width-driven side `auto` would pick right now — independent of any explicit pin, so the
+	 *  popover's Auto option previews what choosing it would do. */
+	@property({ attribute: 'details-auto-location' })
+	detailsAutoLocation: 'right' | 'bottom' = 'right';
 
 	@property({ type: Boolean, attribute: 'minimap-visible' })
 	minimapVisible = false;
@@ -1055,6 +1065,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@query('gl-graph-scope-popover')
 	private readonly scopePopoverEl!: GlGraphScopePopover | null;
 
+	@query('.split-toolbar__popover')
+	private readonly detailsPlacementPopoverEl!: GlPopover | null;
+
 	override render() {
 		const repo = this.graphState.repositories?.find(repo => repo.id === this.graphState.selectedRepository);
 
@@ -1428,41 +1441,140 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								</gl-button>
 							`,
 						)}
-						${(() => {
-							// Source the side from the resolved effective location (handles `auto`); Alt+Click
-							// pins to the opposite side, so the alt preview/label use that opposite.
-							const currentLocation = this.detailsEffectiveLocation;
-							const altLocation = currentLocation === 'bottom' ? 'right' : 'bottom';
-							const previewLocation = this._modifiers.altKey ? altLocation : currentLocation;
-							const isBottom = previewLocation === 'bottom';
-							const baseLabel = this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel';
-							const altLabel = `Show Details Panel on ${altLocation === 'bottom' ? 'Bottom' : 'Right'}`;
-							const tooltip = this._modifiers.altKey
-								? altLabel
-								: `${baseLabel}\n[${getAltKeySymbol()}] ${altLabel}`;
-							return html`<gl-button
-								appearance="toolbar"
-								tooltip=${tooltip}
-								aria-label=${baseLabel}
-								@click=${this.handleToggleDetails}
-							>
-								<code-icon
-									icon=${
-										isBottom
-											? this.detailsVisible || this._modifiers.altKey
-												? 'layout-panel'
-												: 'layout-panel-off'
-											: this.detailsVisible || this._modifiers.altKey
-												? 'layout-sidebar-right'
-												: 'layout-sidebar-right-off'
-									}
-								></code-icon>
-							</gl-button>`;
-						})()}
+						${this.renderDetailsToggle()}
 					</action-nav>
 				</div>
 			</div>
 		`;
+	}
+
+	/** The details toggle as a split control: the main half toggles show/hide (and, per Alt+Click,
+	 *  pins the panel to the opposite side) and never writes configuration; the chevron half opens a
+	 *  popover of placement thumbnails that persist a pick. */
+	private renderDetailsToggle() {
+		// Source the side from the resolved effective location (handles `auto`); Alt+Click
+		// pins to the opposite side, so the alt preview/label use that opposite.
+		const currentLocation = this.detailsEffectiveLocation;
+		const altLocation = currentLocation === 'bottom' ? 'right' : 'bottom';
+		const previewLocation = this._modifiers.altKey ? altLocation : currentLocation;
+		const isBottom = previewLocation === 'bottom';
+		const baseLabel = this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel';
+		const altLabel = `Show Details Panel on ${altLocation === 'bottom' ? 'Bottom' : 'Right'}`;
+		const tooltip = this._modifiers.altKey ? altLabel : `${baseLabel}\n[${getAltKeySymbol()}] ${altLabel}`;
+
+		return html`<span class="split-toolbar">
+			<gl-button
+				class="split-toolbar__main"
+				appearance="toolbar"
+				tooltip=${tooltip}
+				aria-label=${baseLabel}
+				@click=${this.handleToggleDetails}
+			>
+				<code-icon
+					icon=${
+						isBottom
+							? this.detailsVisible || this._modifiers.altKey
+								? 'layout-panel'
+								: 'layout-panel-off'
+							: this.detailsVisible || this._modifiers.altKey
+								? 'layout-sidebar-right'
+								: 'layout-sidebar-right-off'
+					}
+				></code-icon>
+			</gl-button>
+			<gl-popover
+				class="split-toolbar__popover"
+				placement="bottom-end"
+				trigger="click focus"
+				?arrow=${false}
+				.distance=${0}
+			>
+				<gl-button
+					slot="anchor"
+					class="split-toolbar__chevron"
+					appearance="toolbar"
+					aria-label="Details Panel Placement"
+					aria-haspopup="menu"
+				>
+					<code-icon icon="chevron-down"></code-icon>
+				</gl-button>
+				<div slot="content" class="details-placement" role="menu" aria-label="Details Panel Placement">
+					${this.renderDetailsPlacementOption('auto')} ${this.renderDetailsPlacementOption('right')}
+					${this.renderDetailsPlacementOption('bottom')}
+				</div>
+			</gl-popover>
+		</span>`;
+	}
+
+	private renderDetailsPlacementOption(location: 'auto' | 'right' | 'bottom') {
+		const checked = this.detailsLocation === location;
+		const label = location === 'auto' ? 'Auto' : location === 'right' ? 'Right' : 'Bottom';
+		const description =
+			location === 'auto'
+				? `Picks a side to fit the window's shape — currently ${this.detailsAutoLocation}`
+				: location === 'right'
+					? 'Always docked to the right'
+					: 'Always docked at the bottom';
+
+		return html`<gl-tooltip placement="bottom">
+			<button
+				type="button"
+				class="details-placement__option"
+				role="menuitemradio"
+				aria-checked=${checked}
+				aria-label=${label}
+				@click=${() => this.handleSelectDetailsLocation(location)}
+			>
+				${this.renderDetailsPlacementThumbnail(location)}
+				<span>${label}</span>
+			</button>
+			<span slot="content">${description}</span>
+		</gl-tooltip>`;
+	}
+
+	private renderDetailsPlacementThumbnail(location: 'auto' | 'right' | 'bottom') {
+		const panelSide = location === 'auto' ? this.detailsAutoLocation : location;
+		const panelOpacity = location === 'auto' ? 0.45 : 1;
+		const panelD =
+			panelSide === 'right'
+				? 'M33 2 h16 a2 2 0 0 1 2 2 v28 a2 2 0 0 1 -2 2 h-16 z'
+				: 'M2 21 h48 v11 a2 2 0 0 1 -2 2 h-44 a2 2 0 0 1 -2 -2 z';
+
+		return svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 36" aria-hidden="true">
+			<rect
+				x="1"
+				y="1"
+				width="50"
+				height="34"
+				rx="3"
+				stroke="var(--vscode-descriptionForeground)"
+				stroke-width="1.4"
+				fill="none"
+			></rect>
+			<path d=${panelD} fill="color-mix(in srgb, var(--vscode-focusBorder) 55%, transparent)" opacity=${panelOpacity}></path>
+			${
+				location === 'auto'
+					? svg`<text
+						x=${panelSide === 'right' ? 20 : 26}
+						y=${panelSide === 'right' ? 22 : 15}
+						text-anchor="middle"
+						font-size="13"
+						fill="currentColor"
+					>A</text>`
+					: nothing
+			}
+		</svg>`;
+	}
+
+	private handleSelectDetailsLocation(location: 'auto' | 'right' | 'bottom') {
+		this.dispatchEvent(
+			new CustomEvent('select-details-location', {
+				detail: { location: location },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		void this.detailsPlacementPopoverEl?.hide();
 	}
 
 	/** The leading glyph on a hidden-ref row. Decorative: the row's own text names the ref, so an alt/label

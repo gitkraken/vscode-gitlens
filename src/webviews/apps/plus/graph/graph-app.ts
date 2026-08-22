@@ -331,6 +331,7 @@ type GraphSelectedCommits = {
 /** What asked the details panel to become visible — feeds telemetry and `withDetailsPanel`. */
 type DetailsVisibleTrigger =
 	| 'toggle'
+	| 'placement'
 	| 'request-compare'
 	| 'request-mode'
 	| 'request-agents'
@@ -2934,10 +2935,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							.navigateToCommit=${this.navigateToCommit}
 							.detailsVisible=${detailsVisible}
 							.detailsEffectiveLocation=${this.effectiveDetailsLocation}
+							.detailsLocation=${this.graphState.config?.detailsLocation ?? 'auto'}
+							.detailsAutoLocation=${this._autoEffectiveLocation}
 							.minimapVisible=${minimapVisible}
 							.hasSelectedCommit=${single != null || multi != null}
 							@toggle-sidebar=${this.handleToggleSidebar}
 							@toggle-details=${this.handleToggleDetails}
+							@select-details-location=${this.handleSelectDetailsLocation}
 							@show-details=${this.handleShowDetails}
 							@toggle-minimap=${this.handleToggleMinimap}
 							@jump-to-wip=${this.handleJumpToWip}
@@ -4376,11 +4380,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		gs.details = visible ? { visible: visible } : { visible: visible, maximized: false };
 		this.persistState();
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
+	}
 
-		// Hiding the panel clears an Alt+Click pin back to `auto` — so the pin is a per-session nudge
-		// and closing the panel is the natural "return to width-aware" gesture.
-		if (!visible && gs.config?.detailsLocation != null && gs.config.detailsLocation !== 'auto') {
-			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: 'auto' } });
+	/** Persists an explicit placement pick (from the split-toggle's chevron popover). Picking a
+	 *  placement implies wanting to see it, so a hidden panel is shown as part of the pick. */
+	private setDetailsLocation(location: 'auto' | 'right' | 'bottom'): void {
+		const effectiveSide = location === 'auto' ? this._autoEffectiveLocation : location;
+		// Maximize is bottom-only — drop it when the pick lands on the right.
+		if (effectiveSide === 'right' && this.graphState.details?.maximized) {
+			this.graphState.details = { maximized: false };
+		}
+
+		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: location } });
+
+		if (!this.graphState.details?.visible) {
+			this.setDetailsVisible(true, 'placement');
+			this.ensureDetailsPosition();
 		}
 	}
 
@@ -4620,13 +4635,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (e.detail?.altKey) {
 			// Pin to the opposite of the current effective side — this disables `auto` (the value is
 			// an explicit `right`/`bottom`) and gives immediate visual feedback. Reset to `auto` via
-			// the setting to re-enable width-aware behavior.
+			// the placement popover to re-enable width-aware behavior.
 			const next = this.effectiveDetailsLocation === 'bottom' ? 'right' : 'bottom';
-			// Maximize is bottom-only — drop it when pinning to the side.
-			if (next === 'right' && this.graphState.details?.maximized) {
-				this.graphState.details = { maximized: false };
-			}
-			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: next } });
+			this.setDetailsLocation(next);
 			return;
 		}
 
@@ -4643,6 +4654,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
 		}
+	}
+
+	private handleSelectDetailsLocation(e: CustomEvent<{ location: 'auto' | 'right' | 'bottom' }>) {
+		this.setDetailsLocation(e.detail.location);
 	}
 
 	/**

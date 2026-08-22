@@ -1325,6 +1325,7 @@ interface GraphDetailsShownEvent {
 	/** What caused the panel to be shown */
 	trigger:
 		| 'toggle'
+		| 'placement'
 		| 'request-compare'
 		| 'request-mode'
 		| 'request-agents'
