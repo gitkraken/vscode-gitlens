@@ -512,36 +512,10 @@ export const rebaseStyles = css`
 		align-items: center;
 	}
 
-	/* One control, two hit targets: outside radii live on the container's ends, the seam is a
-	   hairline of the button's own foreground so it tracks any theme. Host-level radius/border
-	   overrides work because author styles on the host element beat shadow :host rules.
-	   (Mirrors the Commit Graph PR sheet's split button.) */
+	/* Both halves are secondary-appearance buttons here, so the seam derives from the secondary
+	   foreground instead of the shared module's primary-foreground default. */
 	.split-btn {
-		display: inline-flex;
-		align-items: stretch;
-		flex: none;
-	}
-
-	/* The popover wrappers sit between the container and the menu half — stretch through them so
-	   both halves share one height. */
-	.split-btn gl-menu-popover,
-	.split-btn gl-popover-confirm {
-		display: inline-flex;
-		align-items: stretch;
-	}
-
-	.split-btn__main {
-		border-start-end-radius: 0;
-		border-end-end-radius: 0;
-	}
-
-	.split-btn__menu {
-		height: 100%;
-		border-start-start-radius: 0;
-		border-end-start-radius: 0;
-		border-left: var(--gl-border-width) solid
-			color-mix(in srgb, transparent 72%, var(--vscode-button-secondaryForeground));
-		--button-padding-inline: 0.5rem;
+		--gl-split-btn-seam: color-mix(in srgb, transparent 72%, var(--vscode-button-secondaryForeground));
 	}
 
 	gl-rebase-conflict-indicator {

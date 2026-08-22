@@ -53,6 +53,7 @@ import { GlAppHost } from '../shared/appHost.js';
 import type { GlPopoverConfirm } from '../shared/components/overlays/popover-confirm.js';
 import type { GlSelect } from '../shared/components/select/select.js';
 import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
+import { splitButtonStyles } from '../shared/components/styles/lit/split-button.css.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemDecoration,
@@ -109,7 +110,7 @@ const actionKeyMap: Record<string, RebaseTodoCommitAction> = {
 
 @customElement('gl-rebase-editor')
 export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
-	static override styles = [scrollableBase, rebaseStyles];
+	static override styles = [scrollableBase, splitButtonStyles, rebaseStyles];
 
 	@query('lit-virtualizer')
 	private readonly _virtualizer?: LitVirtualizer;
@@ -2063,9 +2064,10 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			</div>
 			<div class="actions">
 				${
-					// Pre-start, Recompose lives in the Start Auto-Rebase split button's menu instead
-					// (see renderStartRebaseActions)
-					isActive ? this.renderRecomposeAction(true) : nothing
+					// Recompose lives in the relevant split button's menu when AI is allowed (Start Auto-Rebase
+					// pre-start, Continue with Auto-Rebase once active) — the standalone form only appears when
+					// AI isn't allowed at all.
+					isActive && !(this.state?.aiAllowed ?? false) ? this.renderRecomposeAction(true) : nothing
 				}
 				${isActive ? this.renderActiveRebaseActions(hasConflicts) : this.renderStartRebaseActions()}
 			</div>
@@ -2151,11 +2153,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 									slot="anchor"
 									.items=${[
 										{
-											label: 'Open Commit Composer & Recompose...',
+											label: 'Recompose Commits...',
 											value: 'recompose',
 										},
 									]}
-									@gl-menu-select=${this.onStartMenuSelect}
+									@gl-menu-select=${this.onRecomposeMenuSelect}
 								>
 									<gl-button
 										class="split-btn__menu"
@@ -2174,7 +2176,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			<gl-button appearance="secondary" @click=${this.onAbortClicked}>Abort</gl-button>`;
 	}
 
-	private onStartMenuSelect = async (e: CustomEvent<{ value: string }>) => {
+	/** Handles the Recompose menu entry shared by both split buttons — the pre-start Start
+	 *  Auto-Rebase split button and the active-rebase Continue with Auto-Rebase split button. */
+	private onRecomposeMenuSelect = async (e: CustomEvent<{ value: string }>) => {
 		if (e.detail.value !== 'recompose') return;
 
 		// The selection rides the same confirmation the standalone Recompose button anchored — the
@@ -2210,22 +2214,51 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private renderActiveRebaseActions(hasConflicts: boolean) {
 		return html`
-			${
-				this.state?.aiAllowed
-					? html`<gl-button
-							appearance="secondary"
-							tooltip="Resolves any conflicts automatically and continues the rest of the rebase — pausing for your input when confidence is low, with a reviewable, undoable summary at the end"
-							@click=${this.onContinueWithAiClicked}
-						>
-							<code-icon slot="prefix" icon="sparkle"></code-icon>
-							Continue with AI
-						</gl-button>`
-					: nothing
-			}
 			<gl-button @click=${this.onContinueClicked} ?disabled=${hasConflicts}>
 				<span>Continue</span>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
 			</gl-button>
+			${
+				this.state?.aiAllowed
+					? html`<span class="split-btn">
+							<gl-button
+								class="split-btn__main"
+								appearance="secondary"
+								tooltip="Resolves any conflicts automatically and continues the rest of the rebase — pausing for your input when confidence is low, with a reviewable, undoable summary at the end"
+								@click=${this.onContinueWithAiClicked}
+							>
+								<code-icon slot="prefix" icon="sparkle"></code-icon>
+								Continue with Auto-Rebase
+							</gl-button>
+							<gl-popover-confirm
+								class="split-btn__confirm"
+								trigger="manual"
+								heading="Abort Rebase &amp; Recompose"
+								message=${this.recomposeConfirmMessage}
+								confirm="Abort &gt; Recompose"
+								confirm-variant="danger"
+								initial-focus="cancel"
+								icon="error"
+								@gl-confirm=${this.onRecomposeCommitsClicked}
+							>
+								<gl-menu-popover
+									slot="anchor"
+									.items=${[{ label: 'Recompose Commits...', value: 'recompose' }]}
+									@gl-menu-select=${this.onRecomposeMenuSelect}
+								>
+									<gl-button
+										class="split-btn__menu"
+										slot="anchor"
+										appearance="secondary"
+										aria-label="More Actions"
+									>
+										<code-icon icon="chevron-down"></code-icon>
+									</gl-button>
+								</gl-menu-popover>
+							</gl-popover-confirm>
+						</span>`
+					: nothing
+			}
 			<gl-button appearance="secondary" @click=${this.onSkipClicked}>Skip</gl-button>
 			<gl-button variant="danger" @click=${this.onAbortClicked}>Abort</gl-button>
 		`;

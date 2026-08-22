@@ -5,6 +5,7 @@ import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
 import type { FixupTarget } from '../utils/fixup.utils.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
 import '../../../shared/components/button.js';
@@ -33,7 +34,7 @@ if (typeof CSS !== 'undefined' && 'registerProperty' in CSS) {
 
 @customElement('gl-commit-box')
 export class GlCommitBox extends LitElement {
-	static override styles = [elementBase, commitBoxStyles, scrollableBase];
+	static override styles = [elementBase, splitButtonStyles, commitBoxStyles, scrollableBase];
 
 	@property()
 	message = '';

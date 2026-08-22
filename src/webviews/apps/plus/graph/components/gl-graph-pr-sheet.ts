@@ -8,6 +8,7 @@ import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
 import { getAutolinkIcon } from '../../../shared/components/rich/utils.js';
+import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
 import { SheetWrapper } from './sheetWrapper.js';
@@ -100,486 +101,462 @@ function joinPrNumbers(numbers: string[]): string {
  */
 @customElement('gl-graph-pr-sheet')
 export class GlGraphPrSheet extends SheetWrapper(LitElement) {
-	static override styles = css`
-		:host {
-			display: block;
-		}
+	static override styles = [
+		splitButtonStyles,
+		css`
+			:host {
+				display: block;
+			}
 
-		.state--opened {
-			color: var(--vscode-gitlens-openPullRequestIconColor);
-		}
+			.state--opened {
+				color: var(--vscode-gitlens-openPullRequestIconColor);
+			}
 
-		.state--merged {
-			color: var(--vscode-gitlens-mergedPullRequestIconColor);
-		}
+			.state--merged {
+				color: var(--vscode-gitlens-mergedPullRequestIconColor);
+			}
 
-		.state--closed {
-			color: var(--vscode-gitlens-closedPullRequestIconColor);
-		}
+			.state--closed {
+				color: var(--vscode-gitlens-closedPullRequestIconColor);
+			}
 
-		.state--draft {
-			color: var(--vscode-descriptionForeground);
-		}
+			.state--draft {
+				color: var(--vscode-descriptionForeground);
+			}
 
-		.title {
-			display: inline-flex;
-			gap: var(--gl-space-6);
-			align-items: center;
-			min-width: 0;
-		}
+			.title {
+				display: inline-flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+			}
 
-		.title__icon--stack {
-			color: var(--vscode-gitlens-graphLane1Color);
-		}
+			.title__icon--stack {
+				color: var(--vscode-gitlens-graphLane1Color);
+			}
 
-		.title__name {
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
+			.title__name {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
 
-		.title__id {
-			flex: none;
-			color: var(--color-foreground--65);
-			font-variant-numeric: tabular-nums;
-			font-weight: 400;
-		}
+			.title__id {
+				flex: none;
+				color: var(--color-foreground--65);
+				font-variant-numeric: tabular-nums;
+				font-weight: 400;
+			}
 
-		/* The glance-level stacked/unstacked discriminator; the stack rail below carries the detail. */
-		.title__count {
-			display: inline-flex;
-			gap: var(--gl-space-2);
-			align-items: center;
-			flex: none;
-			padding: 0 var(--gl-space-4);
-			border-radius: 1rem;
-			background: color-mix(in srgb, transparent 88%, var(--color-foreground));
-			color: var(--color-foreground--65);
-			font-size: var(--gl-font-sm);
-			font-variant-numeric: tabular-nums;
-			font-weight: 400;
-			--code-icon-size: 1.1rem;
-		}
+			/* The glance-level stacked/unstacked discriminator; the stack rail below carries the detail. */
+			.title__count {
+				display: inline-flex;
+				gap: var(--gl-space-2);
+				align-items: center;
+				flex: none;
+				padding: 0 var(--gl-space-4);
+				border-radius: 1rem;
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+				color: var(--color-foreground--65);
+				font-size: var(--gl-font-sm);
+				font-variant-numeric: tabular-nums;
+				font-weight: 400;
+				--code-icon-size: 1.1rem;
+			}
 
-		/* The digits have no descenders so their ink rides high in the text box, while the glyph centers
+			/* The digits have no descenders so their ink rides high in the text box, while the glyph centers
 		   in its em box — box-centering alone leaves the icon reading ~1px low (measured). */
-		.title__count code-icon {
-			margin-top: -0.1rem;
-		}
+			.title__count code-icon {
+				margin-top: -0.1rem;
+			}
 
-		.subtitle {
-			display: flex;
-			gap: var(--gl-space-6);
-			align-items: center;
-			min-width: 0;
-			padding-top: var(--gl-space-2);
-		}
+			.subtitle {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+				padding-top: var(--gl-space-2);
+			}
 
-		.subtitle__state {
-			flex: none;
-			font-weight: 600;
-		}
+			.subtitle__state {
+				flex: none;
+				font-weight: 600;
+			}
 
-		.subtitle__author {
-			min-width: 0;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
+			.subtitle__author {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
 
-		.subtitle__date {
-			flex: none;
-			margin-left: auto;
-			white-space: nowrap;
-		}
+			.subtitle__date {
+				flex: none;
+				margin-left: auto;
+				white-space: nowrap;
+			}
 
-		.subtitle gl-avatar {
-			flex: none;
-			--gl-avatar-size: 1.6rem;
-		}
+			.subtitle gl-avatar {
+				flex: none;
+				--gl-avatar-size: 1.6rem;
+			}
 
-		.muted {
-			color: var(--color-foreground--65);
-		}
+			.muted {
+				color: var(--color-foreground--65);
+			}
 
-		.body {
-			display: flex;
-			flex-direction: column;
-			gap: var(--gl-space-10);
-			padding: var(--gl-space-10) var(--gl-space-12);
-		}
+			.body {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-10);
+				padding: var(--gl-space-10) var(--gl-space-12);
+			}
 
-		/* Matches the branch sheet's section heading treatment. */
-		.section-label {
-			display: flex;
-			gap: var(--gl-space-6);
-			align-items: baseline;
-			justify-content: space-between;
-			margin-bottom: var(--gl-space-4);
-			color: var(--color-foreground--65);
-			font-size: var(--gl-font-sm);
-			font-weight: 500;
-			text-transform: uppercase;
-			letter-spacing: 0.05em;
-		}
+			/* Matches the branch sheet's section heading treatment. */
+			.section-label {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: baseline;
+				justify-content: space-between;
+				margin-bottom: var(--gl-space-4);
+				color: var(--color-foreground--65);
+				font-size: var(--gl-font-sm);
+				font-weight: 500;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+			}
 
-		/* The heading row's right-side annotation keeps normal casing. */
-		.section-label__aside {
-			font-weight: 400;
-			text-transform: none;
-			letter-spacing: normal;
-		}
+			/* The heading row's right-side annotation keeps normal casing. */
+			.section-label__aside {
+				font-weight: 400;
+				text-transform: none;
+				letter-spacing: normal;
+			}
 
-		/* The soft-card fill both card-shaped sections below share — same background formula as the
+			/* The soft-card fill both card-shaped sections below share — same background formula as the
 		   app's gl-card, without pulling in its whole (state-indicator-heavy) style module. A fill
 		   reads as "grouped content" without the harder bordered-box look. */
-		.meta-card,
-		.stack-rail {
-			background: var(--gl-card-background, color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%));
-			border-radius: var(--gl-radius-sm);
-		}
+			.meta-card,
+			.stack-rail {
+				background: var(
+					--gl-card-background,
+					color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%)
+				);
+				border-radius: var(--gl-radius-sm);
+			}
 
-		.meta-card {
-			display: flex;
-			flex-direction: column;
-			overflow: hidden;
-		}
+			.meta-card {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
 
-		/* Wraps at narrow panel widths: refs row first, stats cluster dropping below it whole. */
-		.meta-card__row {
-			display: flex;
-			flex-wrap: wrap;
-			gap: var(--gl-space-4) var(--gl-space-8);
-			align-items: center;
-			padding: var(--gl-space-4) var(--gl-space-8);
-		}
+			/* Wraps at narrow panel widths: refs row first, stats cluster dropping below it whole. */
+			.meta-card__row {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--gl-space-4) var(--gl-space-8);
+				align-items: center;
+				padding: var(--gl-space-4) var(--gl-space-8);
+			}
 
-		/* The branch-chain row: pills wrap on the left, the switch/worktree toolbar stays put on the
+			/* The branch-chain row: pills wrap on the left, the switch/worktree toolbar stays put on the
 		   right — the row itself never wraps as a whole. */
-		/* Reserves the toolbar's height even when it's hidden (merged/current pull requests) so the
+			/* Reserves the toolbar's height even when it's hidden (merged/current pull requests) so the
 		   row never changes height. */
-		.meta-card__row--chain {
-			flex-wrap: nowrap;
-			min-height: 3.2rem;
-		}
+			.meta-card__row--chain {
+				flex-wrap: nowrap;
+				min-height: 3.2rem;
+			}
 
-		.meta-card__refs {
-			display: flex;
-			flex: 1 1 auto;
-			flex-wrap: wrap;
-			gap: var(--gl-space-4);
-			align-items: center;
-			min-width: 0;
-		}
+			.meta-card__refs {
+				display: flex;
+				flex: 1 1 auto;
+				flex-wrap: wrap;
+				gap: var(--gl-space-4);
+				align-items: center;
+				min-width: 0;
+			}
 
-		/* Kept no taller than the branch pills so the chain row's height doesn't change with the
+			/* Kept no taller than the branch pills so the chain row's height doesn't change with the
 		   toolbar's presence (it hides on merged/current pull requests). */
-		.meta-card__toolbar {
-			display: flex;
-			flex: none;
-			gap: var(--gl-space-2);
-			align-items: center;
-		}
+			.meta-card__toolbar {
+				display: flex;
+				flex: none;
+				gap: var(--gl-space-2);
+				align-items: center;
+			}
 
-		.meta-card__toolbar gl-button {
-			--button-compact-padding: 0.2rem;
-			--button-line-height: 1.2;
-		}
+			.meta-card__toolbar gl-button {
+				--button-compact-padding: 0.2rem;
+				--button-line-height: 1.2;
+			}
 
-		.branch-arrow {
-			opacity: 0.5;
-		}
+			.branch-arrow {
+				opacity: 0.5;
+			}
 
-		.meta-card__ellipsis {
-			color: var(--color-foreground--65);
-			font-family: var(--vscode-editor-font-family);
-			letter-spacing: 0.2rem;
-		}
+			.meta-card__ellipsis {
+				color: var(--color-foreground--65);
+				font-family: var(--vscode-editor-font-family);
+				letter-spacing: 0.2rem;
+			}
 
-		/* The head pill leads the chain; the accent separates it from the bases it flows into. */
-		.meta-card__ref--head {
-			--gl-branch-color: var(--vscode-textLink-foreground);
-		}
+			/* The head pill leads the chain; the accent separates it from the bases it flows into. */
+			.meta-card__ref--head {
+				--gl-branch-color: var(--vscode-textLink-foreground);
+			}
 
-		.meta-card__stats {
-			color: var(--color-foreground--65);
-			font-size: var(--gl-font-sm);
-			font-variant-numeric: tabular-nums;
-		}
+			.meta-card__stats {
+				color: var(--color-foreground--65);
+				font-size: var(--gl-font-sm);
+				font-variant-numeric: tabular-nums;
+			}
 
-		.meta-card__stats > * {
-			display: inline-flex;
-			gap: var(--gl-space-2);
-			align-items: center;
-		}
+			.meta-card__stats > * {
+				display: inline-flex;
+				gap: var(--gl-space-2);
+				align-items: center;
+			}
 
-		.meta-card__review--ok {
-			color: var(--vscode-gitlens-openPullRequestIconColor);
-		}
+			.meta-card__review--ok {
+				color: var(--vscode-gitlens-openPullRequestIconColor);
+			}
 
-		.meta-card__review--warn {
-			color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
-		}
+			.meta-card__review--warn {
+				color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+			}
 
-		.meta-card__actions {
-			gap: var(--gl-space-4) var(--gl-space-6);
-			justify-content: flex-end;
-			padding-top: var(--gl-space-6);
-		}
+			.meta-card__actions {
+				gap: var(--gl-space-4) var(--gl-space-6);
+				justify-content: flex-end;
+				padding-top: var(--gl-space-6);
+			}
 
-		/* Composed from state — the accent stripe and faint fill both key off --verdict-accent. */
-		.verdict {
-			display: flex;
-			flex-direction: column;
-			gap: var(--gl-space-4);
-			padding: var(--gl-space-8) var(--gl-space-10);
-			background: color-mix(in srgb, transparent 92%, var(--verdict-accent));
-			border-radius: var(--gl-radius-sm);
-			/* stylelint-disable-next-line declaration-property-value-disallowed-list */
-			box-shadow: inset 0.3rem 0 0 var(--verdict-accent);
-		}
+			/* Composed from state — the accent stripe and faint fill both key off --verdict-accent. */
+			.verdict {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-4);
+				padding: var(--gl-space-8) var(--gl-space-10);
+				background: color-mix(in srgb, transparent 92%, var(--verdict-accent));
+				border-radius: var(--gl-radius-sm);
+				/* stylelint-disable-next-line declaration-property-value-disallowed-list */
+				box-shadow: inset 0.3rem 0 0 var(--verdict-accent);
+			}
 
-		.verdict--ready {
-			--verdict-accent: var(--vscode-gitlens-openPullRequestIconColor);
-		}
+			.verdict--ready {
+				--verdict-accent: var(--vscode-gitlens-openPullRequestIconColor);
+			}
 
-		.verdict--conflict {
-			--verdict-accent: var(--vscode-gitlens-closedPullRequestIconColor);
-		}
+			.verdict--conflict {
+				--verdict-accent: var(--vscode-gitlens-closedPullRequestIconColor);
+			}
 
-		.verdict--draft {
-			--verdict-accent: var(--vscode-descriptionForeground);
-		}
+			.verdict--draft {
+				--verdict-accent: var(--vscode-descriptionForeground);
+			}
 
-		.verdict--merged {
-			--verdict-accent: var(--vscode-gitlens-mergedPullRequestIconColor);
-		}
+			.verdict--merged {
+				--verdict-accent: var(--vscode-gitlens-mergedPullRequestIconColor);
+			}
 
-		.verdict__head {
-			display: flex;
-			gap: var(--gl-space-8);
-			align-items: center;
-			justify-content: space-between;
-		}
+			.verdict__head {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
+				justify-content: space-between;
+			}
 
-		.verdict__title {
-			align-self: center;
-			color: var(--verdict-accent);
-			font-weight: 600;
-			line-height: 1.2;
-		}
+			.verdict__title {
+				align-self: center;
+				color: var(--verdict-accent);
+				font-weight: 600;
+				line-height: 1.2;
+			}
 
-		/* One control, two hit targets: outside radii live on the container's ends, the seam is a
-		   hairline of the button's own foreground so it tracks any theme. Host-level radius/border
-		   overrides work because author styles on the host element beat shadow :host rules. */
-		.split-btn {
-			display: inline-flex;
-			align-items: stretch;
-			flex: none;
-		}
+			/* The blast-radius count as a badge on the button itself, GitHub-style — a wash of the
+			   button's own foreground so it survives any theme's button color. */
+			.split-btn__count {
+				margin-left: var(--gl-space-4);
+				padding: 0 var(--gl-space-4);
+				border-radius: 1rem;
+				background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
+				font-size: var(--gl-font-sm);
+				font-variant-numeric: tabular-nums;
+			}
 
-		/* The popover wrapper sits between the container and the menu half — stretch through it so
-		   both halves share one height. */
-		.split-btn gl-menu-popover {
-			display: inline-flex;
-			align-items: stretch;
-		}
+			.verdict__reasons {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--gl-space-4) var(--gl-space-10);
+				color: var(--color-foreground--65);
+				font-size: var(--gl-font-sm);
+			}
 
-		.split-btn__main {
-			border-start-end-radius: 0;
-			border-end-end-radius: 0;
-		}
+			.verdict__blast {
+				color: var(--color-foreground--65);
+				font-size: var(--gl-font-sm);
+			}
 
-		.split-btn__menu {
-			height: 100%;
-			border-start-start-radius: 0;
-			border-end-start-radius: 0;
-			border-left: var(--gl-border-width) solid
-				color-mix(in srgb, transparent 72%, var(--vscode-button-foreground));
-			--button-padding-inline: 0.5rem;
-		}
+			/* The fine print's load-bearing facts — which pull requests, which branch. */
+			.verdict__num {
+				color: var(--color-foreground);
+				font-variant-numeric: tabular-nums;
+				font-weight: 500;
+			}
 
-		/* The blast-radius count as a badge on the button itself, GitHub-style — a wash of the
-		   button's own foreground so it survives any theme's button color. */
-		.split-btn__count {
-			margin-left: var(--gl-space-4);
-			padding: 0 var(--gl-space-4);
-			border-radius: 1rem;
-			background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
-			font-size: var(--gl-font-sm);
-			font-variant-numeric: tabular-nums;
-		}
+			.verdict__ref {
+				color: var(--color-foreground);
+				font-family: var(--vscode-editor-font-family);
+			}
 
-		.verdict__reasons {
-			display: flex;
-			flex-wrap: wrap;
-			gap: var(--gl-space-4) var(--gl-space-10);
-			color: var(--color-foreground--65);
-			font-size: var(--gl-font-sm);
-		}
+			.description {
+				position: relative;
+				overflow: hidden;
+			}
 
-		.verdict__blast {
-			color: var(--color-foreground--65);
-			font-size: var(--gl-font-sm);
-		}
+			.description--collapsed {
+				max-height: 10rem;
+			}
 
-		/* The fine print's load-bearing facts — which pull requests, which branch. */
-		.verdict__num {
-			color: var(--color-foreground);
-			font-variant-numeric: tabular-nums;
-			font-weight: 500;
-		}
+			.description__content {
+				font-size: var(--gl-font-sm);
+			}
 
-		.verdict__ref {
-			color: var(--color-foreground);
-			font-family: var(--vscode-editor-font-family);
-		}
+			.description__fade {
+				position: absolute;
+				right: 0;
+				bottom: 0;
+				left: 0;
+				height: 3rem;
+				background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
+				pointer-events: none;
+			}
 
-		.description {
-			position: relative;
-			overflow: hidden;
-		}
+			.description__toggle {
+				padding: 0;
+				margin-top: var(--gl-space-4);
+				color: var(--vscode-textLink-foreground);
+				font-size: var(--gl-font-sm);
+				background: none;
+				border: none;
+				cursor: pointer;
+			}
 
-		.description--collapsed {
-			max-height: 10rem;
-		}
+			.description__toggle:hover,
+			.description__toggle:focus-visible {
+				text-decoration: underline;
+			}
 
-		.description__content {
-			font-size: var(--gl-font-sm);
-		}
+			.stack-rail {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
 
-		.description__fade {
-			position: absolute;
-			right: 0;
-			bottom: 0;
-			left: 0;
-			height: 3rem;
-			background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
-			pointer-events: none;
-		}
+			.stack-rail__trunk {
+				font-family: var(--vscode-editor-font-family);
+			}
 
-		.description__toggle {
-			padding: 0;
-			margin-top: var(--gl-space-4);
-			color: var(--vscode-textLink-foreground);
-			font-size: var(--gl-font-sm);
-			background: none;
-			border: none;
-			cursor: pointer;
-		}
+			.stack-rail__rows {
+				display: flex;
+				flex-direction: column;
+				padding: var(--gl-space-2) 0;
+			}
 
-		.description__toggle:hover,
-		.description__toggle:focus-visible {
-			text-decoration: underline;
-		}
+			.stack-rail__row {
+				display: grid;
+				grid-template-columns: 2rem 1fr auto auto;
+				gap: var(--gl-space-6);
+				align-items: center;
+				padding: var(--gl-space-4) var(--gl-space-8);
+			}
 
-		.stack-rail {
-			display: flex;
-			flex-direction: column;
-			overflow: hidden;
-		}
+			.stack-rail__row--current {
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+			}
 
-		.stack-rail__trunk {
-			font-family: var(--vscode-editor-font-family);
-		}
+			.stack-rail__row[role='button'] {
+				cursor: pointer;
+			}
 
-		.stack-rail__rows {
-			display: flex;
-			flex-direction: column;
-			padding: var(--gl-space-2) 0;
-		}
+			.stack-rail__row[role='button']:hover,
+			.stack-rail__row[role='button']:focus-visible {
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+			}
 
-		.stack-rail__row {
-			display: grid;
-			grid-template-columns: 2rem 1fr auto auto;
-			gap: var(--gl-space-6);
-			align-items: center;
-			padding: var(--gl-space-4) var(--gl-space-8);
-		}
+			.stack-rail__dot-col {
+				position: relative;
+				display: flex;
+				align-self: stretch;
+				align-items: center;
+				justify-content: center;
+			}
 
-		.stack-rail__row--current {
-			background: color-mix(in srgb, transparent 88%, var(--color-foreground));
-		}
+			.stack-rail__dot-col::before {
+				content: '';
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: 50%;
+				width: var(--gl-border-width);
+				background: var(--color-foreground--25);
+				transform: translateX(-50%);
+			}
 
-		.stack-rail__row[role='button'] {
-			cursor: pointer;
-		}
+			.stack-rail__rows > .stack-rail__row:first-child .stack-rail__dot-col::before {
+				top: 50%;
+			}
 
-		.stack-rail__row[role='button']:hover,
-		.stack-rail__row[role='button']:focus-visible {
-			background: color-mix(in srgb, transparent 88%, var(--color-foreground));
-		}
+			.stack-rail__rows > .stack-rail__row:last-child .stack-rail__dot-col::before {
+				bottom: 50%;
+			}
 
-		.stack-rail__dot-col {
-			position: relative;
-			display: flex;
-			align-self: stretch;
-			align-items: center;
-			justify-content: center;
-		}
+			.stack-rail__dot {
+				position: relative;
+				width: 0.8rem;
+				height: 0.8rem;
+				background: var(--vscode-sideBar-background);
+				border: var(--gl-border-width) solid var(--color-foreground--25);
+				border-radius: 50%;
+			}
 
-		.stack-rail__dot-col::before {
-			content: '';
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			left: 50%;
-			width: var(--gl-border-width);
-			background: var(--color-foreground--25);
-			transform: translateX(-50%);
-		}
+			.stack-rail__dot--landing {
+				border-color: var(--vscode-gitlens-openPullRequestIconColor);
+			}
 
-		.stack-rail__rows > .stack-rail__row:first-child .stack-rail__dot-col::before {
-			top: 50%;
-		}
+			.stack-rail__dot--merged {
+				background: var(--vscode-gitlens-mergedPullRequestIconColor);
+				border-color: var(--vscode-gitlens-mergedPullRequestIconColor);
+			}
 
-		.stack-rail__rows > .stack-rail__row:last-child .stack-rail__dot-col::before {
-			bottom: 50%;
-		}
+			.stack-rail__dot--current {
+				background: var(--color-foreground);
+				border-color: var(--color-foreground);
+			}
 
-		.stack-rail__dot {
-			position: relative;
-			width: 0.8rem;
-			height: 0.8rem;
-			background: var(--vscode-sideBar-background);
-			border: var(--gl-border-width) solid var(--color-foreground--25);
-			border-radius: 50%;
-		}
+			.stack-rail__title {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
 
-		.stack-rail__dot--landing {
-			border-color: var(--vscode-gitlens-openPullRequestIconColor);
-		}
+			.stack-rail__position {
+				flex: none;
+				color: var(--color-foreground--65);
+				font-family: var(--vscode-editor-font-family);
+				font-size: var(--gl-font-sm);
+				font-variant-numeric: tabular-nums;
+			}
 
-		.stack-rail__dot--merged {
-			background: var(--vscode-gitlens-mergedPullRequestIconColor);
-			border-color: var(--vscode-gitlens-mergedPullRequestIconColor);
-		}
-
-		.stack-rail__dot--current {
-			background: var(--color-foreground);
-			border-color: var(--color-foreground);
-		}
-
-		.stack-rail__title {
-			min-width: 0;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
-
-		.stack-rail__position {
-			flex: none;
-			color: var(--color-foreground--65);
-			font-family: var(--vscode-editor-font-family);
-			font-size: var(--gl-font-sm);
-			font-variant-numeric: tabular-nums;
-		}
-
-		.stack-rail__position--current {
-			color: var(--color-foreground);
-			font-weight: 600;
-		}
-	`;
+			.stack-rail__position--current {
+				color: var(--color-foreground);
+				font-weight: 600;
+			}
+		`,
+	];
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _sidebarActions?: SidebarActions;

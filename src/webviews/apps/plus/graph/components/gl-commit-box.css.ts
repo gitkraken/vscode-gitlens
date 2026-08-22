@@ -259,33 +259,13 @@ export const commitBoxStyles = css`
 		--button-hover-background: color-mix(in srgb, #fff 10%, var(--vscode-inputValidation-warningBorder, #b89500));
 	}
 
-	/* One control, two hit targets: outside radii live on the container's ends, the seam is a
-	   hairline of the button's own foreground so it tracks any theme. The pair spans the same
-	   full width the single commit button occupies. */
+	/* The pair spans the same full width the single commit button occupies (the shared module
+	   defaults to inline-flex/flex:none, sized to content). */
 	.split-btn {
 		display: flex;
-		align-items: stretch;
-	}
-
-	/* The popover wrapper sits between the container and the menu half — stretch through it so
-	   both halves share one height. */
-	.split-btn gl-menu-popover {
-		display: inline-flex;
-		flex: none;
-		align-items: stretch;
-	}
-
-	/* flex/min-width for the shrink-to-fit-space behavior come from the co-applied .commit-btn class. */
-	.split-btn__main {
-		border-start-end-radius: 0;
-		border-end-end-radius: 0;
 	}
 
 	.split-btn__menu {
-		height: 100%;
-		border-start-start-radius: 0;
-		border-end-start-radius: 0;
-		border-left: var(--gl-border-width) solid color-mix(in srgb, transparent 72%, var(--vscode-button-foreground));
 		--button-padding-inline: var(--gl-space-6);
 	}
 `;
