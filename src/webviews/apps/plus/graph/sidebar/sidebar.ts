@@ -6,6 +6,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
@@ -225,11 +226,40 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		/* Must target the button itself: gl-button's own :host([appearance='toolbar']) declaration of
    --button-foreground beats a value merely inherited from the gl-new-indicator wrapper. */
 		.display-mode-toggle gl-button {
+			position: relative;
 			--button-foreground: var(--color-view-foreground--65);
 		}
 
 		.display-mode-toggle:hover gl-button {
 			--button-foreground: var(--color-view-foreground);
+		}
+
+		/* Evidence dot for the Git Health banner's indicator — armed only on the visualizations
+		   toggle; see renderDisplayModeToggle. Suppresses the onboarding new-indicator dot while
+		   shown, so the two never double up. */
+		.display-mode-toggle .health-dot {
+			position: absolute;
+			top: 0.1rem;
+			right: 0.1rem;
+			width: 0.6rem;
+			height: 0.6rem;
+			pointer-events: none;
+			background: var(--vscode-activityBarBadge-background);
+			border-radius: var(--gl-radius-circle);
+		}
+
+		/* Rich tooltip content for the evidence-dot path — the plain tooltip strings need no styling
+		   of their own, only the appended "suggested" hint line. */
+		.toggle-tooltip__hint {
+			display: flex;
+			gap: var(--gl-space-4);
+			align-items: center;
+			margin-top: var(--gl-space-2);
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.toggle-tooltip__hint code-icon {
+			color: var(--color-alert-infoBorder);
 		}
 
 		/* Tighten the spacing between consecutive display-mode toggles so they read as one
@@ -480,20 +510,59 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	private renderDisplayModeToggle(toggle: DisplayModeToggle, current: GraphDisplayMode) {
 		const isActive = current === toggle.mode;
 		const tooltip = isActive ? toggle.activeTooltip : toggle.inactiveTooltip;
-		return html`<gl-new-indicator class="display-mode-toggle" key=${ifDefined(toggle.onboardingKey)}>
-			<gl-button
-				appearance="toolbar"
-				role="switch"
-				data-roving-key="displayMode:${toggle.mode}"
-				aria-checked=${isActive ? 'true' : 'false'}
-				aria-label=${tooltip}
-				tooltip=${tooltip}
-				tooltipPlacement="right"
-				@click=${() => this.handleDisplayModeToggle(toggle)}
-			>
-				<code-icon icon=${toggle.icon}></code-icon>
-			</gl-button>
+
+		// Health-banner state only applies to the visualizations toggle. The tooltip's suggestion line
+		// and the dot decouple deliberately: the hint is a current fact (suggestions outstanding), so it
+		// shows while any are; the dot means "you haven't seen this", so a health-view visit clears only it.
+		const banner = toggle.mode === 'visualizations' ? this._state.gitHealthBanner : undefined;
+		const suggestedCount = banner?.suggestedCount ?? 0;
+		const showHint = this._state.config?.gitHealthAvailable === true && suggestedCount > 0;
+		const showEvidenceDot = showHint && banner?.indicator === true;
+
+		return html`<gl-new-indicator
+			class="display-mode-toggle"
+			key=${ifDefined(showEvidenceDot ? undefined : toggle.onboardingKey)}
+		>
+			${
+				showHint
+					? html`<gl-tooltip placement="right">
+							${this.renderDisplayModeButton(toggle, isActive, tooltip, undefined, showEvidenceDot)}
+							<div slot="content" class="toggle-tooltip">
+								${tooltip}
+								<span class="toggle-tooltip__hint">
+									<code-icon icon="heart"></code-icon>
+									${pluralize('optimization', suggestedCount)} suggested
+								</span>
+							</div>
+						</gl-tooltip>`
+					: this.renderDisplayModeButton(toggle, isActive, tooltip, tooltip, false)
+			}
 		</gl-new-indicator>`;
+	}
+
+	/** Shared button markup for a display-mode toggle — `visibleTooltip` is omitted when the caller
+	 *  wraps the button in its own `<gl-tooltip>` instead (the evidence-dot path), since a set
+	 *  `tooltip` attribute on `<gl-button>` would otherwise render a second, plain tooltip of its own. */
+	private renderDisplayModeButton(
+		toggle: DisplayModeToggle,
+		isActive: boolean,
+		ariaLabel: string,
+		visibleTooltip: string | undefined,
+		showHealthDot: boolean,
+	) {
+		return html`<gl-button
+			appearance="toolbar"
+			role="switch"
+			data-roving-key="displayMode:${toggle.mode}"
+			aria-checked=${isActive ? 'true' : 'false'}
+			aria-label=${ariaLabel}
+			tooltip=${ifDefined(visibleTooltip)}
+			tooltipPlacement=${ifDefined(visibleTooltip != null ? 'right' : undefined)}
+			@click=${() => this.handleDisplayModeToggle(toggle)}
+		>
+			<code-icon icon=${toggle.icon}></code-icon>
+			${showHealthDot ? html`<span class="health-dot" aria-hidden="true"></span>` : nothing}
+		</gl-button>`;
 	}
 
 	private handleDisplayModeToggle(toggle: DisplayModeToggle): void {

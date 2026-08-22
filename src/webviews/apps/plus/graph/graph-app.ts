@@ -179,6 +179,7 @@ import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
+import './components/gl-graph-health-banner.js';
 import './components/gl-graph-jump-toast.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
@@ -4057,6 +4058,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							`
 						: nothing
 				}
+				<gl-graph-health-banner @gl-graph-show-git-health=${this.handleShowGitHealth}></gl-graph-health-banner>
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
 					.keymap=${this.keymap}
@@ -4780,6 +4782,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			next.showAllBranches = e.detail.showAllBranches;
 		}
 		gs.timeline = next;
+		this.persistState();
+	};
+
+	/** Opens Repository Health from the in-graph health banner — same target as picking Health from
+	 *  the visualizations switcher, plus the graph→visualizations entry the switcher never needs
+	 *  because it only renders once already in visualizations mode. */
+	private handleShowGitHealth = (): void => {
+		const gs = this.graphState;
+		gs.visualizationMode = 'health';
+		// Mirrors `handleVisualizationModeChange`'s guard: a user-driven pick must clear any pending
+		// scope-restore mode, or `handleTimelineScopeApplied` could clobber this choice later.
+		this._modeBeforeScope = undefined;
+
+		if (gs.displayMode !== 'visualizations') {
+			// Mirrors `handleDisplayModeChange`'s own gate on entering 'visualizations' — a fresh
+			// entry primes rowsStats the same way the sidebar rail toggle and the visualizations
+			// switcher already do, in case the user switches to Visual History from here.
+			if (!gs.rowsStatsIncluded) {
+				gs.rowsStatsLoading = true;
+			}
+			gs.displayMode = 'visualizations';
+		}
+
 		this.persistState();
 	};
 

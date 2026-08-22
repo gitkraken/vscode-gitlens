@@ -341,6 +341,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor displayMode: AppState['displayMode'];
 
+	@signalState()
+	accessor gitHealthBanner: AppState['gitHealthBanner'];
+
 	@signalObjectState()
 	accessor timeline: AppState['timeline'];
 

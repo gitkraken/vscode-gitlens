@@ -209,6 +209,9 @@ export type DeprecatedWorkspaceStorage = {
 /** Persisted passive-slowness summary for a repo. */
 export type StoredGitHealthSlowness = GitHealthSlowness;
 
+/** Per-repo Git Health banner suppression timestamps. */
+export type StoredGitHealthBannerSuppression = { dismissedAt?: number; visitedAt?: number };
+
 interface WorkspaceStorageCore {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
@@ -216,6 +219,8 @@ interface WorkspaceStorageCore {
 	/** Per-repo sticky state for switch's "In a New Worktree" toggle. Key is the repo id. */
 	'gitComandPalette:switch:viaWorktree': Record<string, boolean>;
 	'gitComandPalette:worktreeDelete:actions': StoredWorktreeDeleteActions;
+	/** Per-repo Git Health banner suppression — when the user dismissed the strip and last visited the health view. */
+	'gitHealth:banner:v1': Record<string, StoredGitHealthBannerSuppression>;
 	/** Operation-classified local git-slowness summary per repo path (feeds targeted Git Health guidance). */
 	'gitHealth:slowness:v3': Record<string, StoredGitHealthSlowness>;
 	gitPath: string;

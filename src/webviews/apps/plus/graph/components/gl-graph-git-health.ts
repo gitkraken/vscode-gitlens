@@ -906,7 +906,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		if (suggestedCount > 0) {
 			return html`<div class="verdict" data-tone="attn">
-				<code-icon icon="sparkle"></code-icon>
+				<code-icon icon="dashboard"></code-icon>
 				<div class="verdict-text">
 					<span class="verdict-title">${pluralize('optimization', suggestedCount)} suggested</span>
 					${this.renderFactsStrip(report)}

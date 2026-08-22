@@ -1,5 +1,5 @@
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
-import type { GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
+import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -872,6 +872,12 @@ export interface GraphHealthService {
 	runMaintenance(repoPath: string, signal?: AbortSignal): Promise<{ task: GitMaintenanceTask; ran: boolean }[]>;
 	/** Enables or disables GitLens's automatic commit-graph maintenance for this repo. User-clicked, so failures propagate. */
 	setCommitGraphEnabled(repoPath: string, enabled: boolean, signal?: AbortSignal): Promise<void>;
+	/** Evidence-gated banner state for the graph's Git Health strip and the Visualizations toggle's evidence dot. */
+	getBannerState(repoPath: string, signal?: AbortSignal): Promise<GitHealthBannerState | undefined>;
+	/** Dismisses the Git Health banner strip for a repo. */
+	dismissBanner(repoPath: string): Promise<void>;
+	/** Records a Repository Health view visit for a repo, suppressing the banner and its indicator. */
+	markHealthViewVisited(repoPath: string): Promise<void>;
 
 	/** Fires with the repo path after any probe, apply, revert, or maintenance pass changes that repo's report. */
 	readonly onHealthChanged: RpcEventSubscription<{ repoPath: string }>;

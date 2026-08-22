@@ -289,6 +289,9 @@ export class ResetCommand extends GlCommandBase {
 				await this.container.onboarding.resetAll();
 				await this.container.usage.reset();
 				await this.container.storage.delete('home:sections:collapsed');
+				// Evidence-gated Git Health banner suppression — per-repo workspace data, not an
+				// onboarding key, but it IS a dismissed notice, which is what this reset promises.
+				await this.container.gitHealth.resetBannerSuppression();
 
 				// Deprecated keys — defensive cleanup in case migration didn't run
 				await this.container.storage.delete('home:banners:dismissed');

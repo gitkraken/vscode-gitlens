@@ -502,3 +502,21 @@ export function isBannerEligible(report: GitHealthReport, slowness: GitHealthSlo
 	const worktreeSlownessObserved = (slowness?.worktree?.count ?? 0) > 0;
 	return hasAskTierFix && (report.clearlyLarge || worktreeSlownessObserved);
 }
+
+/** Evidence-gated banner state for one repository — undefined when the banner has nothing to say. */
+export interface GitHealthBannerState {
+	/** Show the in-graph banner strip (eligible and not explicitly dismissed). */
+	readonly banner: boolean;
+	/** Show the evidence dot on the Visualizations & Health toggle (eligible, view not visited recently). */
+	readonly indicator: boolean;
+	/** Which evidence family armed it — measured worktree slowness, or repo scale alone. */
+	readonly reason: 'slowness' | 'large';
+	/** Worst observed slow-command duration (ms); present when reason is 'slowness'. */
+	readonly maxDurationMs?: number;
+	/** Tracked-file count evidence; present when reason is 'large'. */
+	readonly trackedFiles?: number;
+	/** Whether trackedFiles is exact (report.trackedFilesScope !== 'estimate'). */
+	readonly trackedFilesExact?: boolean;
+	/** Count of levers the health view will show as "suggested" — keep in sync with its verdict. */
+	readonly suggestedCount: number;
+}

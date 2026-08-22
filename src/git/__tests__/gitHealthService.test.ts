@@ -489,4 +489,82 @@ suite('GitHealthService Test Suite', () => {
 		assert.strictEqual(harness.getHealthSnapshot.callCount, 2, 'a gated request must not create a probe loop');
 		assert.strictEqual(harness.request.callCount, 2);
 	});
+
+	test('getBannerState reports worktree-slowness evidence and the suggested-lever count', async () => {
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+
+		const state = await harness.service.getBannerState(harness.repo.path);
+		assert.ok(state != null);
+		assert.strictEqual(state.banner, true);
+		assert.strictEqual(state.indicator, true);
+		assert.strictEqual(state.reason, 'slowness');
+		assert.strictEqual(state.maxDurationMs, 2500);
+		assert.strictEqual(state.trackedFiles, undefined);
+		assert.strictEqual(state.suggestedCount, 3);
+	});
+
+	test('dismissBanner suppresses the banner but leaves the indicator armed', async () => {
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+
+		await harness.service.dismissBanner(harness.repo.path);
+
+		const state = await harness.service.getBannerState(harness.repo.path);
+		assert.ok(state != null);
+		assert.strictEqual(state.banner, false);
+		assert.strictEqual(state.indicator, true);
+	});
+
+	test('markHealthViewVisited quiets the indicator but leaves the banner up', async () => {
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+
+		await harness.service.markHealthViewVisited(harness.repo.path);
+
+		const state = await harness.service.getBannerState(harness.repo.path);
+		assert.ok(state != null);
+		assert.strictEqual(state.banner, true, 'only an explicit dismissal quiets the strip');
+		assert.strictEqual(state.indicator, false);
+	});
+
+	test('dismiss plus visit suppresses both flags but keeps reporting the facts', async () => {
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+
+		await harness.service.dismissBanner(harness.repo.path);
+		await harness.service.markHealthViewVisited(harness.repo.path);
+
+		const state = await harness.service.getBannerState(harness.repo.path);
+		assert.ok(state != null, 'the suggestion count outlives the strip and the dot (toggle tooltip fact)');
+		assert.strictEqual(state.banner, false);
+		assert.strictEqual(state.indicator, false);
+		assert.strictEqual(state.suggestedCount, 3);
+	});
+
+	test('markHealthViewVisited only fires a change event on an actual suppression change', async () => {
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+		const changed: string[] = [];
+		const subscription = harness.service.onDidChange(path => changed.push(path));
+		try {
+			await harness.service.markHealthViewVisited(harness.repo.path);
+			await harness.service.markHealthViewVisited(harness.repo.path);
+			assert.deepStrictEqual(
+				changed,
+				[harness.repo.path],
+				'a repeat visit within the suppression window must not re-fire',
+			);
+		} finally {
+			subscription.dispose();
+		}
+	});
+
+	test('a 30-day-old dismissal expires and re-arms the banner', async () => {
+		const staleAt = Date.now() - 31 * 24 * 60 * 60 * 1000;
+		harness.getWorkspace.withArgs('gitHealth:banner:v1').returns({
+			[harness.repo.path]: { dismissedAt: staleAt, visitedAt: staleAt },
+		});
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'status');
+
+		const state = await harness.service.getBannerState(harness.repo.path);
+		assert.ok(state != null);
+		assert.strictEqual(state.banner, true, 'an expired dismissal must not keep suppressing the banner');
+		assert.strictEqual(state.indicator, true, 'an expired visit must not keep suppressing the indicator');
+	});
 });

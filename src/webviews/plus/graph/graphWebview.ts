@@ -1047,6 +1047,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				runMaintenance: (repoPath, signal) => this.container.gitHealth.runMaintenanceNow(repoPath, signal),
 				setCommitGraphEnabled: (repoPath, enabled, signal) =>
 					this.container.gitHealth.setCommitGraphEnabled(repoPath, enabled, signal),
+				getBannerState: repoPath => this.container.gitHealth.getBannerState(repoPath),
+				dismissBanner: repoPath => this.container.gitHealth.dismissBanner(repoPath),
+				markHealthViewVisited: repoPath => this.container.gitHealth.markHealthViewVisited(repoPath),
 				onHealthChanged: this._gitHealthChangedEvent.subscribe(buffer, tracker),
 			},
 			launchpad: new LaunchpadService(this.container, buffer, tracker),

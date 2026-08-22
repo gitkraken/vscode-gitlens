@@ -443,6 +443,13 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the Graph leaves Visualizations display mode (close button, sidebar rail, external search request, etc.) */
 	'graph/visualizations/closed': GraphVisualizationsClosedEvent;
 
+	/** Sent when the Git Health banner strip is shown in the Commit Graph */
+	'graph/gitHealth/banner/shown': GraphGitHealthBannerEvent;
+	/** Sent when the user dismisses the Git Health banner strip */
+	'graph/gitHealth/banner/dismissed': GraphGitHealthBannerEvent;
+	/** Sent when the user opens Repository Health from the banner strip */
+	'graph/gitHealth/banner/opened': GraphGitHealthBannerEvent;
+
 	/** Sent when the embedded Visual History (timeline) visualization becomes visible */
 	'graph/timeline/shown': GraphTimelineShownEvent;
 	/** Sent when the user selects a commit in the embedded Visual History chart (first-paint auto-selections excluded) */
@@ -2454,6 +2461,13 @@ interface GraphVisualizationsModeChangedEvent extends GraphContextEventData {
 	'mode.new': GraphVisualizationKey;
 	/** `fallback` when a virtual repo forced Commits → Files on mount (not a user action) */
 	reason: 'user' | 'fallback';
+}
+
+interface GraphGitHealthBannerEvent extends GraphContextEventData {
+	/** Which evidence family armed the banner */
+	reason: 'slowness' | 'large';
+	/** Count of suggested optimizations advertised */
+	'findings.suggested': number;
 }
 
 interface GraphVisualizationsClosedEvent extends GraphContextEventData {

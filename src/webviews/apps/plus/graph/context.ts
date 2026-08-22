@@ -1,4 +1,5 @@
 import { createContext } from '@lit/context';
+import type { GitHealthBannerState } from '@gitlens/git/gitHealth.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
@@ -82,6 +83,10 @@ export interface AppState extends State {
 	 * contract (`State`); lives purely in the reducer→component signal path.
 	 */
 	refsMetadataResetToken: number;
+
+	/** Evidence-gated Git Health banner state for the selected repo (webview-owned; fetched by
+	 *  gl-graph-health-banner). */
+	gitHealthBanner?: GitHealthBannerState;
 
 	/**
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph

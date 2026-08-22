@@ -2190,6 +2190,72 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/gitHealth/banner/dismissed
+
+> Sent when the user dismisses the Git Health banner strip
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Count of suggested optimizations advertised
+  'findings.suggested': number,
+  // Which evidence family armed the banner
+  'reason': 'slowness' | 'large'
+}
+```
+
+### graph/gitHealth/banner/opened
+
+> Sent when the user opens Repository Health from the banner strip
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Count of suggested optimizations advertised
+  'findings.suggested': number,
+  // Which evidence family armed the banner
+  'reason': 'slowness' | 'large'
+}
+```
+
+### graph/gitHealth/banner/shown
+
+> Sent when the Git Health banner strip is shown in the Commit Graph
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Count of suggested optimizations advertised
+  'findings.suggested': number,
+  // Which evidence family armed the banner
+  'reason': 'slowness' | 'large'
+}
+```
+
 ### graph/intro/shown
 
 > Sent when the one-time Graph intro (welcome + optional layout prompt) is shown on first entry

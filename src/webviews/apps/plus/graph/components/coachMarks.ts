@@ -404,7 +404,7 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 				</p>
 				<div class="rows">
 					<div class="row">
-						<code-icon class="row__icon" icon="sparkle"></code-icon>
+						<code-icon class="row__icon" icon="dashboard"></code-icon>
 						<div class="row__body">
 							<strong>Suggested</strong> — optimizations this repo would benefit from
 						</div>

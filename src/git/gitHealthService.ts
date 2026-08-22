@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type {
+	GitHealthBannerState,
 	GitHealthDurationBucket,
 	GitHealthLever,
 	GitHealthReport,
@@ -14,6 +15,7 @@ import {
 	computeLevers,
 	getAutoMaintenanceTasks,
 	getAutoOptimizations,
+	isBannerEligible,
 } from '@gitlens/git/gitHealth.js';
 import type { RepositoryChangeEvent } from '@gitlens/git/models/repositoryChangeEvent.js';
 import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
@@ -21,6 +23,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { StoredGitHealthBannerSuppression } from '../constants.storage.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import type { GlRepository } from './models/repository.js';
@@ -80,6 +83,18 @@ function isSlownessSample(value: unknown): value is GitHealthSlownessSample {
 	);
 }
 
+function isBannerSuppression(value: unknown): value is StoredGitHealthBannerSuppression {
+	if (value == null || typeof value !== 'object') return false;
+
+	const suppression = value as Partial<StoredGitHealthBannerSuppression>;
+	return (
+		(suppression.dismissedAt === undefined ||
+			(typeof suppression.dismissedAt === 'number' && Number.isFinite(suppression.dismissedAt))) &&
+		(suppression.visitedAt === undefined ||
+			(typeof suppression.visitedAt === 'number' && Number.isFinite(suppression.visitedAt)))
+	);
+}
+
 /**
  * Host-side orchestrator for the Git Health feature. Runs the cheap per-session shape probe, accumulates
  * passive slowness (via the exec-layer `onSlowCommand` hook), runs the once-a-day auto-tier maintenance
@@ -113,6 +128,8 @@ export class GitHealthService implements Disposable {
 	private readonly _detailsEpochs = new Map<string, symbol>();
 	// Passive-slowness accumulator per repo path (hydrated lazily from workspace storage).
 	private _slowness: Map<string, GitHealthSlowness> | undefined;
+	// Banner dismiss/visit suppression timestamps per repo path (hydrated lazily from workspace storage).
+	private _bannerSuppression: Map<string, StoredGitHealthBannerSuppression> | undefined;
 	// Common-git-dir paths with an in-flight auto pass (per-common-path serialization).
 	private readonly _runningPasses = new Set<string>();
 	// In-memory last-pass times — the session-local throttle backstop when the gk-config stamp can't persist.
@@ -234,6 +251,81 @@ export class GitHealthService implements Disposable {
 			await this.probeAndMaybeRun(repo);
 		}
 		return this._levers.get(repo.path) ?? [];
+	}
+
+	/**
+	 * Evidence-gated Git Health banner state for a repo — undefined when there's nothing to show. Combines
+	 * {@link isBannerEligible}'s report/slowness gate with the suggested-lever count and the dismiss/visit
+	 * suppression windows so the graph and the Visualizations toggle read the same verdict.
+	 */
+	async getBannerState(repoPath: string): Promise<GitHealthBannerState | undefined> {
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null) return undefined;
+
+		const report = await this.getReport(repoPath);
+		if (report == null) return undefined;
+
+		const slowness = this.getSlowness().get(repo.path);
+		if (!isBannerEligible(report, slowness)) return undefined;
+
+		// The banner promises "N optimizations suggested" — zero means nothing to show even though the
+		// report/slowness gate passed.
+		const suggestedCount = (await this.getLevers(repoPath)).filter(l => l.status === 'suggested').length;
+		if (suggestedCount === 0) return undefined;
+
+		const worktree = slowness?.worktree;
+		const reason = (worktree?.count ?? 0) > 0 ? 'slowness' : 'large';
+
+		const suppression = this.getBannerSuppression().get(repo.path);
+		const now = Date.now();
+		const dismissSuppressed = suppression?.dismissedAt != null && now - suppression.dismissedAt < slownessMaxAgeMs;
+		const visitSuppressed = suppression?.visitedAt != null && now - suppression.visitedAt < slownessMaxAgeMs;
+
+		// Only an explicit ✕ quiets the strip — a visit is not a decision about the banner (applying the
+		// suggestions ends it via the eligibility gate instead). A visit does clear the indicator: the dot
+		// means "something here you haven't seen", and visiting resolves exactly that.
+		const banner = !dismissSuppressed;
+		const indicator = !visitSuppressed;
+		// Returned even when both flags are suppressed — the toggle tooltip's "N optimizations
+		// suggested" line is a current fact, not a notice, so it outlives the strip and the dot.
+		return {
+			banner: banner,
+			indicator: indicator,
+			reason: reason,
+			maxDurationMs: reason === 'slowness' ? worktree?.maxDurationMs : undefined,
+			trackedFiles: reason === 'large' ? report.estimatedTrackedFiles : undefined,
+			trackedFilesExact: reason === 'large' ? report.trackedFilesScope !== 'estimate' : undefined,
+			suggestedCount: suggestedCount,
+		};
+	}
+
+	/** Dismisses the Git Health banner strip for a repo; suppresses the banner (not the indicator) for 30 days. */
+	async dismissBanner(repoPath: string): Promise<void> {
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null) return;
+
+		const suppression = this.getBannerSuppression();
+		suppression.set(repo.path, { ...suppression.get(repo.path), dismissedAt: Date.now() });
+		await this.persistBannerSuppression();
+		this._onDidChange.fire(repo.path);
+	}
+
+	/** Records a Repository Health view visit for a repo; quiets the indicator (not the strip) for 30 days. */
+	async markHealthViewVisited(repoPath: string): Promise<void> {
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null) return;
+
+		const suppression = this.getBannerSuppression();
+		const prevVisitedAt = suppression.get(repo.path)?.visitedAt;
+		const now = Date.now();
+		suppression.set(repo.path, { ...suppression.get(repo.path), visitedAt: now });
+		await this.persistBannerSuppression();
+
+		// The health view is visited on every open — a repeat visit inside the window extends the quiet
+		// period (persisted above) but must not refire, or every visit would loop a refresh.
+		if (prevVisitedAt != null && now - prevVisitedAt < slownessMaxAgeMs) return;
+
+		this._onDidChange.fire(repo.path);
 	}
 
 	/** On-demand commit count + `count-objects` breakdown for the Git Health view. */
@@ -771,6 +863,50 @@ export class GitHealthService implements Disposable {
 			await this.container.storage.storeWorkspace('gitHealth:slowness:v3', Object.fromEntries(this._slowness));
 		} catch (ex) {
 			Logger.error(ex, 'GitHealthService.persistSlowness');
+		}
+	}
+
+	/** Clears every repo's banner dismiss/visit suppression — the "Reset Onboarding" path. */
+	async resetBannerSuppression(): Promise<void> {
+		const suppression = this.getBannerSuppression();
+		const repoPaths = [...suppression.keys()];
+		suppression.clear();
+		await this.container.storage.deleteWorkspace('gitHealth:banner:v1');
+
+		for (const repoPath of repoPaths) {
+			this._onDidChange.fire(repoPath);
+		}
+	}
+
+	private getBannerSuppression(): Map<string, StoredGitHealthBannerSuppression> {
+		if (this._bannerSuppression == null) {
+			const stored = this.container.storage.getWorkspace('gitHealth:banner:v1') ?? {};
+			// Age-prune at hydrate by the NEWEST timestamp — suppression expires at 30d, so an entry whose
+			// latest dismiss/visit is already past that window is dead weight in workspace storage.
+			const cutoff = Date.now() - slownessMaxAgeMs;
+			this._bannerSuppression = new Map<string, StoredGitHealthBannerSuppression>();
+			for (const [repoPath, value] of Object.entries(stored)) {
+				if (!isBannerSuppression(value)) continue;
+
+				const newest = Math.max(value.dismissedAt ?? 0, value.visitedAt ?? 0);
+				if (newest >= cutoff) {
+					this._bannerSuppression.set(repoPath, value);
+				}
+			}
+		}
+		return this._bannerSuppression;
+	}
+
+	private async persistBannerSuppression(): Promise<void> {
+		if (this._bannerSuppression == null) return;
+
+		try {
+			await this.container.storage.storeWorkspace(
+				'gitHealth:banner:v1',
+				Object.fromEntries(this._bannerSuppression),
+			);
+		} catch (ex) {
+			Logger.error(ex, 'GitHealthService.persistBannerSuppression');
 		}
 	}
 }
