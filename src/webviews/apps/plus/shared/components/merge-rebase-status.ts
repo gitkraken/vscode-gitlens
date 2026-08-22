@@ -242,12 +242,6 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, attribute: 'ai-active' })
 	aiActive = false;
 
-	/** Whether the working tree has anything staged. Mirrors the takeover loop's own
-	 *  `hasStagedChanges()` gate, so the "Continue using Automatic Rebase" affordance matches what a takeover would
-	 *  actually do on a rebase paused without conflicts. */
-	@property({ type: Boolean, attribute: 'has-staged-changes' })
-	hasStagedChanges = false;
-
 	/** Render the bar as a plain status read-out — no paused-op action buttons and no clickable
 	 *  conflicts text. Set by hosts that are in a mode (compose/review/resolve) so the bar doesn't
 	 *  compete with the mode's own controls. */
@@ -479,13 +473,12 @@ export class GlMergeConflictWarning extends LitElement {
 
 	private renderActions(status: GitPausedOperationStatus, variant: PausedOperationVariant) {
 		const type = status.type;
-		// The AI continue mirrors the takeover loop's own gate (`resumingThisStep ||
-		// hasStagedChanges()`): with conflicts it resolves them, and with a staged resolution it
-		// continues and keeps resolving the REMAINING steps — so hiding it once the user stages an
-		// escalated step would strand them on plain "Continue", which ends automation for the rest of
-		// the run. Still hidden for a genuine non-conflict stop (an interactive edit/break with nothing
-		// staged), where a takeover has nothing to continue and would only escalate.
-		const aiRebase = type === 'rebase' && this.aiResume && (this.conflicts || this.hasStagedChanges);
+		// Taking over IS consent to continue past a non-conflict pause at the step the rebase is
+		// currently sitting on: the takeover loop auto-resolves whatever follows and hands back at any
+		// later edit/break it encounters mid-run. So the action is offered for any paused rebase, not
+		// just a conflicted or already-staged one — the host's `aiResume` gate is what keeps it from
+		// showing where AI isn't allowed at all.
+		const aiRebase = type === 'rebase' && this.aiResume;
 		// Continue continues in the vein the rebase started: with an automatic session active the
 		// primary resumes it, and the manual continue becomes the secondary instead of the sparkle.
 		const aiPrimary = type === 'rebase' && this.aiResume && this.aiActive && variant !== 'conflicts';

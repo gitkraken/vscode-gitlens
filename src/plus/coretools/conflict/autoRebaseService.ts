@@ -44,6 +44,9 @@ interface ActiveAutoRebase {
 	/** Durable copy of the escalated step's pre-resolution state (survives handoff consumption), so a
 	 *  resume can record the human-resolved step in the summary. Set on escalation, cleared on resume. */
 	escalatedStep?: EscalatedStepSnapshot;
+	/** See {@link AutoRebaseResumeContext.consentStepNumber} — set by explicit takeover/resume, never
+	 *  by a fresh started or pending-handoff run. */
+	consentStep?: number;
 	detachRequested?: boolean;
 	/** An escalated-phase abort is in flight (the session leaves `escalated` only when it lands) */
 	abortingEscalated?: boolean;
@@ -203,6 +206,9 @@ export class AutoRebaseService implements Disposable {
 		// takeover session, so the end-of-run summary spans the whole rebase.
 		const existing = this._sessions.get(svc.path);
 		if (existing?.session.phase === 'escalated') {
+			// The user clicked to take over a paused rebase — that click IS consent to continue past a
+			// non-conflict pause at the step it's currently sitting on.
+			existing.consentStep = status.steps.current.number;
 			return this.resumeEscalatedSession(svc, existing, integration, source, model);
 		}
 
@@ -235,6 +241,7 @@ export class AutoRebaseService implements Disposable {
 			steps: [],
 		};
 		const active = this.trackSession(session, source);
+		active.consentStep = status.steps.current.number;
 
 		// Taking over adopts the rebase, so later pauses auto-open under `openOnPausedRebase: 'auto'`
 		this.container.operationOrigins.markAdopted(svc.path);
@@ -818,6 +825,7 @@ export class AutoRebaseService implements Disposable {
 		const result = await runAutoRebaseLoop(active.session, ports, signal, onLoopChange, {
 			escalatedStep: active.escalatedStep,
 			previousResolutions: priorResolutions,
+			consentStepNumber: active.consentStep,
 		});
 		switch (result.type) {
 			case 'completed':
@@ -827,6 +835,9 @@ export class AutoRebaseService implements Disposable {
 				// step, so drop it rather than retain it for the terminal session's lifetime. A
 				// re-escalation takes the `escalated` branch below and re-sets a fresh snapshot.
 				active.escalatedStep = undefined;
+				// Consent was scoped to the step the run was resumed at — a stale value must never leak
+				// into a later resume that didn't re-set it.
+				active.consentStep = undefined;
 				if (result.type === 'completed') {
 					await this.finalize(svc, active, { fromLoop: true });
 				} else {
@@ -850,6 +861,9 @@ export class AutoRebaseService implements Disposable {
 								})),
 							}
 						: undefined;
+				// Consent was scoped to the step the run was resumed at — a stale value must never leak
+				// into a later resume that didn't re-set it.
+				active.consentStep = undefined;
 				active.session.phase = 'escalated';
 				clearTransientProgress(active.session);
 				this.sendEscalatedEvent(active);

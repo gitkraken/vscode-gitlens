@@ -800,6 +800,36 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'non-conflict-pause');
 	});
 
+	test('continues a non-conflict pause at the consented step (explicit takeover/resume)', async () => {
+		// The user's takeover/resume click IS consent to continue past a non-conflict pause at the
+		// step the rebase was sitting on — even with nothing staged.
+		const repo = makeRepo({ 1: [] }, 1);
+		const session = makeSession();
+
+		const result = await runAutoRebaseLoop(session, makePorts(repo), new AbortController().signal, () => {}, {
+			consentStepNumber: 1,
+		});
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(repo.continues.length, 1);
+	});
+
+	test('a later non-conflict pause still escalates despite an earlier consented step', async () => {
+		// Consent only covers the specific step the user took over/resumed at — an `edit`/`break`
+		// the run encounters mid-flight at a later step must still hand back.
+		const repo = makeRepo({ 1: [], 2: [] }, 2);
+		const session = makeSession();
+
+		const result = await runAutoRebaseLoop(session, makePorts(repo), new AbortController().signal, () => {}, {
+			consentStepNumber: 1,
+		});
+
+		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'non-conflict-pause');
+		assert.strictEqual(result.type === 'escalated' && result.escalation.stepNumber, 2);
+		// Step 1 (consented) continued before step 2 escalated.
+		assert.strictEqual(repo.continues.length, 1);
+	});
+
 	test('continues a takeover that starts on a step already resolved and staged externally', async () => {
 		// After an escalation the user applies via the Resolve panel (everything staged) and then
 		// re-engages automation — the paused step has no conflicts but IS ready to continue

@@ -153,6 +153,11 @@ export interface AutoRebaseResumeContext {
 	 *  consistently with what the original run decided (the same guarantee a single continuous run
 	 *  gives). */
 	previousResolutions?: Resolution[];
+	/** The step (msgnum) the rebase sat paused at when the user explicitly initiated or resumed
+	 *  automation. Their click IS the consent the loop otherwise lacks for a non-conflict pause —
+	 *  a pause at this step with nothing staged continues instead of escalating. Later non-conflict
+	 *  pauses (an `edit`/`break` the run encounters mid-flight) still escalate. */
+	consentStepNumber?: number;
 }
 
 /** One-shot payload handed to the Resolve panel when automation escalates mid-step. */

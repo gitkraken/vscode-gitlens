@@ -260,11 +260,14 @@ export async function runAutoRebaseLoop(
 			// Paused with nothing conflicted. Continue when the step's resolution is staged, OR when
 			// we're resuming a step we escalated for conflicts: no unmerged entries left means the human
 			// resolved it — even a resolution matching HEAD (e.g. "stage current" on a both-modified
-			// binary) leaves nothing staged and continues as an empty, skipped commit. Otherwise it's a
-			// genuine non-conflict stop (an interactive `edit`/`break`) that needs a human.
+			// binary) leaves nothing staged and continues as an empty, skipped commit. OR when this is
+			// the step the user explicitly took over/resumed at: their click IS consent to continue
+			// past a non-conflict pause here. Otherwise it's a genuine non-conflict stop (an interactive
+			// `edit`/`break`) that needs a human, including any later one hit mid-run even after an
+			// earlier step was consented to.
 			const snap = resume?.escalatedStep;
 			const resumingThisStep = snap?.stepNumber === stepNumber;
-			if (resumingThisStep || (await ports.hasStagedChanges())) {
+			if (resumingThisStep || stepNumber === resume?.consentStepNumber || (await ports.hasStagedChanges())) {
 				// If this is the escalated step being resumed after a manual resolution, record it so
 				// the summary spans the whole run (the AI couldn't finish it, but the user did).
 				// Best-effort: a snapshot failure must never break the resume. Record at most once.
