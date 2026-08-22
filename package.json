@@ -6893,7 +6893,7 @@
 			},
 			{
 				"command": "gitlens.agents.copySessionId",
-				"title": "Copy Session Id",
+				"title": "Copy Session ID",
 				"icon": "$(copy)"
 			},
 			{

@@ -89,7 +89,7 @@
 			}
 		},
 		"gitlens.agents.copySessionId": {
-			"label": "Copy Session Id",
+			"label": "Copy Session ID",
 			"icon": "$(copy)",
 			"menus": {
 				"webview/context": [
