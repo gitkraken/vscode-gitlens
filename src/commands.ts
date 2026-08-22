@@ -67,6 +67,7 @@ import './commands/resets.js';
 import './commands/resolveConflicts.js';
 import './commands/resetViewsLayout.js';
 import './commands/runPromptInAgent.js';
+import './commands/runTaskOnWorktree.js';
 import './commands/searchCommits.js';
 import './commands/sendToChat.js';
 import './commands/showCommitsInView.js';

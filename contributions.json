@@ -7121,6 +7121,32 @@
 				]
 			}
 		},
+		"gitlens.runTaskOnWorktree:graph": {
+			"label": "Run Task on Worktree...",
+			"icon": "$(play)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree_2",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.runTaskOnWorktree:views": {
+			"label": "Run Task on Worktree...",
+			"icon": "$(play)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree_2",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.setRemoteAsDefault:graph": {
 			"label": "Set as Default",
 			"menus": {

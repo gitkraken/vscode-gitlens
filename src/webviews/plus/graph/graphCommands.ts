@@ -45,6 +45,7 @@ import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openP
 import type { ApplyPatchFromClipboardCommandArgs, CreatePatchCommandArgs } from '../../../commands/patches.js';
 import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch.js';
 import type { RecomposeFromCommitCommandArgs } from '../../../commands/recomposeFromCommit.js';
+import type { RunTaskOnWorktreeCommandArgs } from '../../../commands/runTaskOnWorktree.js';
 import type { StartAgentSessionCommandArgs } from '../../../commands/startAgentSession.js';
 import type { GraphScrollMarkersAdditionalTypes } from '../../../config.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands.js';
@@ -1830,6 +1831,17 @@ export class GraphCommands {
 		});
 	}
 
+	/** WIP-row context menu — runs a VS Code task (or ad-hoc command) with the row's worktree as cwd. */
+	@command('gitlens.runTaskOnWorktree:')
+	@debug()
+	private runTaskOnWorktree(item?: GraphItemContext): void {
+		if (!isGraphItemRefContext(item, 'revision')) return;
+
+		const { worktreePath } = item.webviewItemValue;
+		if (worktreePath == null) return;
+
+		void executeCommand<RunTaskOnWorktreeCommandArgs>('gitlens.runTaskOnWorktree', { worktreePath: worktreePath });
+	}
 
 	/** WIP-row context menu — opens the resume-session picker for the row's worktree. */
 	@command('gitlens.graph.resumeAgentSession')

@@ -394,6 +394,8 @@ export type ContributedCommands =
 	| 'gitlens.revealFileInExplorer:commitDetails'
 	| 'gitlens.revealFileInExplorer:graphDetails'
 	| 'gitlens.reviewChanges:graph'
+	| 'gitlens.runTaskOnWorktree:graph'
+	| 'gitlens.runTaskOnWorktree:views'
 	| 'gitlens.setRemoteAsDefault:graph'
 	| 'gitlens.setRemoteAsDefault:views'
 	| 'gitlens.setUpstream:graph'

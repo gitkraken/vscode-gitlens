@@ -163,6 +163,7 @@ type InternalGlCommands =
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.runPromptInAgent'
+	| 'gitlens.runTaskOnWorktree'
 	| 'gitlens.sendToChat'
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.onboarding.dismiss'

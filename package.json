@@ -9426,6 +9426,16 @@
 				"icon": "$(checklist)"
 			},
 			{
+				"command": "gitlens.runTaskOnWorktree:graph",
+				"title": "Run Task on Worktree...",
+				"icon": "$(play)"
+			},
+			{
+				"command": "gitlens.runTaskOnWorktree:views",
+				"title": "Run Task on Worktree...",
+				"icon": "$(play)"
+			},
+			{
 				"command": "gitlens.setRemoteAsDefault:graph",
 				"title": "Set as Default"
 			},
@@ -15221,6 +15231,14 @@
 				},
 				{
 					"command": "gitlens.reviewChanges:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.runTaskOnWorktree:graph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.runTaskOnWorktree:views",
 					"when": "false"
 				},
 				{
@@ -25329,6 +25347,11 @@
 					"group": "0_gitlens_worktree_2@2"
 				},
 				{
+					"command": "gitlens.runTaskOnWorktree:views",
+					"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_2@3"
+				},
+				{
 					"command": "gitlens.copyWorkingChangesToWorktree:views",
 					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "0_gitlens_worktree_2@99"
@@ -28915,6 +28938,11 @@
 					"command": "gitlens.openInIntegratedTerminal:graph",
 					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 					"group": "0_gitlens_worktree_2@2"
+				},
+				{
+					"command": "gitlens.runTaskOnWorktree:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_2@3"
 				},
 				{
 					"command": "gitlens.ai.resolveAllConflicts:graph",
