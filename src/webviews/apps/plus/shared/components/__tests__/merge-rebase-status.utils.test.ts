@@ -128,10 +128,10 @@ suite('isPausedOperationStepped', () => {
 
 suite('getPausedOperationBarLabel', () => {
 	test('conflicts name the paused operation', () => {
-		assert.strictEqual(getPausedOperationBarLabel(createMerge(), 'conflicts'), 'Merge paused');
-		assert.strictEqual(getPausedOperationBarLabel(createRebase(), 'conflicts'), 'Rebase paused');
-		assert.strictEqual(getPausedOperationBarLabel(createCherryPick(), 'conflicts'), 'Cherry-pick paused');
-		assert.strictEqual(getPausedOperationBarLabel(createRevert(), 'conflicts'), 'Revert paused');
+		assert.strictEqual(getPausedOperationBarLabel(createMerge(), 'conflicts'), 'Merge Paused');
+		assert.strictEqual(getPausedOperationBarLabel(createRebase(), 'conflicts'), 'Rebase Paused');
+		assert.strictEqual(getPausedOperationBarLabel(createCherryPick(), 'conflicts'), 'Cherry-pick Paused');
+		assert.strictEqual(getPausedOperationBarLabel(createRevert(), 'conflicts'), 'Revert Paused');
 	});
 
 	test('ready is verb-led', () => {
@@ -144,7 +144,7 @@ suite('getPausedOperationBarLabel', () => {
 	test('a pending rebase stands alone, since its refs can shed', () => {
 		assert.strictEqual(
 			getPausedOperationBarLabel(createRebase({ current: 0, total: 0 }), 'pending'),
-			'Pending rebase',
+			'Pending Rebase',
 		);
 	});
 });
