@@ -326,10 +326,10 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	private _overflowingReasons = new Set<string>();
 
 	override render(): unknown {
-		return html`<gl-detail-sheet esc-managed aria-label="Automatic rebase summary" close-label="Close">
+		return html`<gl-detail-sheet esc-managed aria-label="Auto-Rebase summary" close-label="Close">
 			<span slot="title" class="title">
 				<code-icon icon="gl-merge"></code-icon>
-				<span class="title__name">Automatic Rebase Summary</span>
+				<span class="title__name">Auto-Rebase Summary</span>
 			</span>
 			<div class="body scrollable">${this.renderContent()}</div>
 			${this.renderFooter()}
@@ -373,7 +373,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 		try {
 			summary = await this.getSummary?.(repoPath);
 			if (summary == null) {
-				error = 'No automatic rebase summary is available.';
+				error = 'No Auto-Rebase summary is available.';
 			}
 		} catch (ex) {
 			error = ex instanceof Error ? ex.message : 'Unable to load the rebase summary.';

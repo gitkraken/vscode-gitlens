@@ -6898,12 +6898,12 @@
 			},
 			{
 				"command": "gitlens.ai.autoRebase",
-				"title": "Automatic Rebase...",
+				"title": "Auto-Rebase...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.autoRebase.undo",
-				"title": "Undo Automatic Rebase"
+				"title": "Undo Auto-Rebase"
 			},
 			{
 				"command": "gitlens.ai.connectAgents",
@@ -6912,12 +6912,12 @@
 			},
 			{
 				"command": "gitlens.ai.continueRebase",
-				"title": "Continue Automatic Rebase",
+				"title": "Continue with Auto-Rebase",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.continueRebase:views",
-				"title": "Continue Automatic Rebase",
+				"title": "Continue with Auto-Rebase",
 				"icon": "$(gitlens-continue-sparkle)"
 			},
 			{

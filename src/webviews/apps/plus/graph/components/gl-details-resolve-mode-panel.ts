@@ -951,7 +951,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				${
 					// An escalated run left the rebase paused for the user — keep the toast's actions
 					// available here durably, since the toast itself is transient and the palette command
-					// (`Continue Automatic Rebase`) isn't discoverable from the panel
+					// (`Continue with Auto-Rebase`) isn't discoverable from the panel
 					run.phase === 'escalated'
 						? html`<div class="auto-rebase__actions">
 								<gl-tooltip
@@ -984,7 +984,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		return html`<div class="auto-rebase__context">
 			<div class="auto-rebase__header">
 				<code-icon icon="gl-merge"></code-icon>
-				<span class="auto-rebase__title">Automatic Rebase</span>
+				<span class="auto-rebase__title">Auto-Rebase</span>
 				${
 					run.step != null
 						? html`<span class="auto-rebase__onto"
@@ -1004,7 +1004,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 	private renderAutoRebaseHeader(run: AutoRebaseRunUpdate): unknown {
 		return html`<div class="auto-rebase__header">
 			<code-icon icon="gl-merge"></code-icon>
-			<span class="auto-rebase__title">Automatic Rebase</span>
+			<span class="auto-rebase__title">Auto-Rebase</span>
 			${run.branch ? html`<gl-branch-name .name=${run.branch}></gl-branch-name>` : nothing}
 			${
 				run.upstream

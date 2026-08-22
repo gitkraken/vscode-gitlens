@@ -790,7 +790,7 @@ export class RebaseWebviewProvider implements Disposable {
 			});
 
 			if (
-				!(await ensurePaidPlan(this.container, 'Automatic rebase is a Pro feature.', {
+				!(await ensurePaidPlan(this.container, 'Auto-Rebase is a Pro feature.', {
 					source: 'rebaseEditor',
 				}))
 			) {

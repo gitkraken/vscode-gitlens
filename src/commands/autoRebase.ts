@@ -24,7 +24,7 @@ export class AutoRebaseCommand extends GlCommandBase {
 
 	async execute(): Promise<void> {
 		if (
-			!(await ensurePaidPlan(this.container, 'Automatic rebase is a Pro feature.', {
+			!(await ensurePaidPlan(this.container, 'Auto-Rebase is a Pro feature.', {
 				source: 'commandPalette',
 			}))
 		) {
@@ -35,7 +35,7 @@ export class AutoRebaseCommand extends GlCommandBase {
 			await executeGitCommand({ command: 'rebase', state: { flags: ['ai-resolve'] } });
 		} catch (ex) {
 			Logger.error(ex, 'AutoRebaseCommand', 'execute');
-			void showGenericErrorMessage('Unable to start the automatic rebase');
+			void showGenericErrorMessage('Unable to start the Auto-Rebase');
 		}
 	}
 }
@@ -72,14 +72,14 @@ export class ContinueRebaseWithAiCommand extends GlCommandBase {
 
 	async execute(args?: ContinueRebaseWithAiCommandArgs): Promise<void> {
 		const source: Source = { source: args?.source ?? 'commandPalette' };
-		if (!(await ensurePaidPlan(this.container, 'Continue Automatic Rebase is a Pro feature.', source))) {
+		if (!(await ensurePaidPlan(this.container, 'Continue with Auto-Rebase is a Pro feature.', source))) {
 			return;
 		}
 
 		try {
 			let repoPath = args?.repoPath;
 			if (repoPath == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Continue Automatic Rebase');
+				const repo = await getRepositoryOrShowPicker(this.container, 'Continue with Auto-Rebase');
 				repoPath = repo?.path;
 			}
 			if (repoPath == null) return;
@@ -111,7 +111,7 @@ export class UndoAutoRebaseCommand extends GlCommandBase {
 		try {
 			let repoPath = args?.repoPath;
 			if (repoPath == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Undo Automatic Rebase');
+				const repo = await getRepositoryOrShowPicker(this.container, 'Undo Auto-Rebase');
 				repoPath = repo?.path;
 			}
 			if (repoPath == null) return;
@@ -120,14 +120,14 @@ export class UndoAutoRebaseCommand extends GlCommandBase {
 			// reload) is what a validated undo actually needs.
 			const record = this.container.autoRebase.getStoredUndo(repoPath);
 			if (record == null) {
-				void showGenericErrorMessage('There is no automatic rebase to undo');
+				void showGenericErrorMessage('There is no Auto-Rebase to undo');
 				return;
 			}
 
 			await undoWithConfirmation(this.container, repoPath, record.branch);
 		} catch (ex) {
 			Logger.error(ex, 'UndoAutoRebaseCommand', 'execute');
-			void showGenericErrorMessage('Unable to undo the automatic rebase');
+			void showGenericErrorMessage('Unable to undo the Auto-Rebase');
 		}
 	}
 }

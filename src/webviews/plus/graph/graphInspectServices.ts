@@ -2008,7 +2008,7 @@ export class GraphInspectServices {
 					} as const;
 					const outcome = terminalOutcomes[session.phase as keyof typeof terminalOutcomes];
 					if (outcome == null) {
-						return { error: { message: 'The automatic rebase is still running.' } };
+						return { error: { message: 'The Auto-Rebase is still running.' } };
 					}
 
 					const validation = await this.container.autoRebase.canUndo(repoPath);
@@ -2105,14 +2105,14 @@ export class GraphInspectServices {
 					const refuse = (message: string): UndoAutoRebaseResult => {
 						void window.showWarningMessage(
 							// Validation refusals already lead with "Can't undo" — don't stutter.
-							message.startsWith("Can't undo") ? message : `Can't undo the automatic rebase — ${message}`,
+							message.startsWith("Can't undo") ? message : `Can't undo the Auto-Rebase — ${message}`,
 						);
 						return { error: { message: message } };
 					};
 
 					const session = this.container.autoRebase.getSession(repoPath);
 					if (session == null || session.id !== sessionId) {
-						return refuse('The automatic rebase session is no longer available.');
+						return refuse('The Auto-Rebase session is no longer available.');
 					}
 
 					const result = await this.container.autoRebase.undo(repoPath);

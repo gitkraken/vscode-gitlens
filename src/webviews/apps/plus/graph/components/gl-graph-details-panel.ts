@@ -1526,7 +1526,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private readonly getRebaseSummary = async (repoPath: string): Promise<AutoRebaseSummary | undefined> => {
 		await this._actionsReady;
 		const result = await this._actions.fetchAutoRebaseSummary(repoPath);
-		if (result == null) throw new Error('No automatic rebase summary is available.');
+		if (result == null) throw new Error('No Auto-Rebase summary is available.');
 		if ('error' in result) throw new Error(result.error.message);
 
 		return result.summary;

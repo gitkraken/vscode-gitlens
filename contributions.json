@@ -101,22 +101,22 @@
 			"label": "Uninstall GitKraken Hooks for Agent"
 		},
 		"gitlens.ai.autoRebase": {
-			"label": "Automatic Rebase...",
+			"label": "Auto-Rebase...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
 		},
 		"gitlens.ai.autoRebase.undo": {
-			"label": "Undo Automatic Rebase"
+			"label": "Undo Auto-Rebase"
 		},
 		"gitlens.ai.connectAgents": {
 			"label": "Connect AI Agents (Install MCP and Hooks)",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
 		"gitlens.ai.continueRebase": {
-			"label": "Continue Automatic Rebase",
+			"label": "Continue with Auto-Rebase",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
 		},
 		"gitlens.ai.continueRebase:views": {
-			"label": "Continue Automatic Rebase",
+			"label": "Continue with Auto-Rebase",
 			"icon": "$(gitlens-continue-sparkle)",
 			"menus": {
 				"view/item/context": [

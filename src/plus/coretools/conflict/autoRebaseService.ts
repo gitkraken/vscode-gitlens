@@ -126,7 +126,7 @@ export class AutoRebaseService implements Disposable {
 		if (existing != null) {
 			throw new Error(
 				existing.type === 'rebase'
-					? 'A rebase is already in progress — use "Continue Automatic Rebase" to automate it.'
+					? 'A rebase is already in progress — use "Continue with Auto-Rebase" to automate it.'
 					: `A ${existing.type} is already in progress.`,
 			);
 		}
@@ -277,7 +277,7 @@ export class AutoRebaseService implements Disposable {
 		if (status.hasStarted) {
 			throw new Error(
 				status.isPaused
-					? 'The rebase has already started — use "Continue Automatic Rebase" to automate it.'
+					? 'The rebase has already started — use "Continue with Auto-Rebase" to automate it.'
 					: 'The rebase has already started.',
 			);
 		}
@@ -569,7 +569,7 @@ export class AutoRebaseService implements Disposable {
 	async canUndo(repoPath: string): Promise<AutoRebaseUndoValidation> {
 		const record = this.getStoredUndo(repoPath);
 		if (record == null) {
-			return { ok: false, reason: 'no-record', message: 'There is no automatic rebase to undo.' };
+			return { ok: false, reason: 'no-record', message: 'There is no Auto-Rebase to undo.' };
 		}
 		return this.validateUndo(this.container.git.getRepositoryService(repoPath), record);
 	}
@@ -604,7 +604,7 @@ export class AutoRebaseService implements Disposable {
 	): Promise<AutoRebaseUndoResult> {
 		const record = this.getStoredUndo(repoPath);
 		if (record == null) {
-			return { ok: false, reason: 'no-record', message: 'There is no automatic rebase to undo.' };
+			return { ok: false, reason: 'no-record', message: 'There is no Auto-Rebase to undo.' };
 		}
 
 		const svc = this.container.git.getRepositoryService(repoPath);
@@ -628,7 +628,7 @@ export class AutoRebaseService implements Disposable {
 				case 'stash':
 					if (svc.stash == null) return validation;
 
-					await svc.stash.saveStash('Automatic rebase undo', undefined, { includeUntracked: true });
+					await svc.stash.saveStash('Auto-Rebase undo', undefined, { includeUntracked: true });
 					// A conflicted autostash application is the post-rebase tree (markers + any manual
 					// fixes) whose diff is relative to the post-rebase tip — popping it back onto the
 					// pre-rebase tip would re-conflict. Leave it stashed; the original autostash entry
@@ -1028,12 +1028,12 @@ export class AutoRebaseService implements Disposable {
 
 		const integration = await this.getIntegration();
 		if (integration == null || svc.ops == null || svc.pausedOps == null || svc.staging == null) {
-			throw new Error('Automatic rebase is not available in this environment.');
+			throw new Error('Auto-Rebase is not available in this environment.');
 		}
 
 		const existing = this._sessions.get(svc.path);
 		if (existing != null && runningPhases.has(existing.session.phase)) {
-			throw new Error('An automatic rebase is already running for this repository.');
+			throw new Error('An Auto-Rebase is already running for this repository.');
 		}
 
 		return integration;
@@ -1056,7 +1056,7 @@ export class AutoRebaseService implements Disposable {
 		if (model == null) {
 			// Dismissing the picker is a refusal to start, handled like the other pre-flight refusals: the
 			// caller surfaces this message and the repository is never touched.
-			throw new Error('Automatic rebase needs an AI model — none was selected.');
+			throw new Error('Auto-Rebase needs an AI model — none was selected.');
 		}
 
 		return model;

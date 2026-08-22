@@ -231,7 +231,7 @@ export async function runAutoRebaseLoop(
 		if (++iterations > maxIterations) {
 			return escalate({
 				reason: 'step-cap',
-				message: 'The automatic rebase exceeded its step limit.',
+				message: 'The Auto-Rebase exceeded its step limit.',
 				stepNumber: stepNumber,
 			});
 		}
@@ -397,7 +397,7 @@ export async function runAutoRebaseLoop(
 				return escalate(
 					{
 						reason: 'ai-unavailable',
-						message: `Automatic rebase stopped — ${unavailable.error.message} This step’s conflicts are still unresolved.`,
+						message: `Auto-Rebase stopped — ${unavailable.error.message} This step’s conflicts are still unresolved.`,
 						stepNumber: stepNumber,
 						files: result.errors.map(e => ({ path: e.filePath, error: e.error.message })),
 					},

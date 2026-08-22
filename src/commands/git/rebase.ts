@@ -421,7 +421,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		if (aiOffered) {
 			modes.push({
 				flags: ['ai-resolve'],
-				label: `Automatic ${this.title}`,
+				label: `Auto-${this.title}`,
 				description: 'AI resolves conflicts · Preview',
 				detail: `Will update ${branchLabel} ${applying}, resolving any conflicts with AI and pausing for review only when confidence is low`,
 				picked: aiSeeded,

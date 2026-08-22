@@ -498,7 +498,7 @@ export class GlMergeConflictWarning extends LitElement {
 				aiRebase && !aiPrimary,
 				() =>
 					html`<action-item
-						label=${this.aiActive ? 'Continue Automatic Rebase' : 'Continue using Automatic Rebase'}
+						label=${this.aiActive ? 'Continue Auto-Rebase' : 'Continue with Auto-Rebase'}
 						href=${this.onContinueWithAiUrl}
 						icon="gl-continue-sparkle"
 					></action-item>`,
@@ -546,10 +546,10 @@ export class GlMergeConflictWarning extends LitElement {
 			const continuing = this.isContinuing;
 			const label = continuing
 				? aiPrimary
-					? 'Continuing Automatic Rebase…'
+					? 'Continuing Auto-Rebase…'
 					: `Continuing ${pausedOperationStatusStringsByType[status.type].name}…`
 				: aiPrimary
-					? 'Continue Automatic Rebase'
+					? 'Continue Auto-Rebase'
 					: getPausedOperationBarActionLabel(status, variant, this.conflictsCount);
 
 			// One template across both states, and the href kept even while busy, so Lit reuses the button

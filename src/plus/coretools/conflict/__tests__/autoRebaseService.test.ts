@@ -705,7 +705,7 @@ suite('coretools/conflict/AutoRebaseService handoff', () => {
 
 		await assert.rejects(
 			service.handoffPending(svc, { source: 'rebaseEditor' }, release),
-			/use "Continue Automatic Rebase"/,
+			/use "Continue with Auto-Rebase"/,
 		);
 		assert.deepStrictEqual(state.calls, []);
 	});
