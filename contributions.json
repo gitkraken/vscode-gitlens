@@ -4496,7 +4496,7 @@
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 						"group": "0_gitlens_worktree_1",
-						"order": 2
+						"order": 3
 					}
 				]
 			}
@@ -4508,7 +4508,7 @@
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree_2",
-						"order": 1
+						"order": 3
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection",
@@ -5078,15 +5078,23 @@
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 						"group": "0_gitlens_worktree_1",
-						"order": 1,
-						"alt": "gitlens.graph.startAgentSessionWith"
+						"order": 1
 					}
 				]
 			}
 		},
 		"gitlens.graph.startAgentSessionWith": {
 			"label": "Start Agent Session With...",
-			"icon": "$(robot)"
+			"icon": "$(robot)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 2
+					}
+				]
+			}
 		},
 		"gitlens.graph.switchToCommit": {
 			"label": "Checkout Commit...",
@@ -5872,7 +5880,7 @@
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree_2",
-						"order": 2
+						"order": 1
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
@@ -7129,7 +7137,7 @@
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree_2",
-						"order": 3
+						"order": 2
 					}
 				]
 			}
@@ -16052,7 +16060,7 @@
 					{
 						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 						"group": "0_gitlens_worktree_1",
-						"order": 2
+						"order": 3
 					}
 				]
 			}
@@ -18580,15 +18588,23 @@
 					{
 						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 						"group": "0_gitlens_worktree_1",
-						"order": 1,
-						"alt": "gitlens.views.startAgentSessionWith"
+						"order": 1
 					}
 				]
 			}
 		},
 		"gitlens.views.startAgentSessionWith": {
 			"label": "Start Agent Session With...",
-			"icon": "$(robot)"
+			"icon": "$(robot)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 2
+					}
+				]
+			}
 		},
 		"gitlens.views.stashes.attach": {
 			"label": "Group into GitLens View",
