@@ -77,7 +77,7 @@ export interface WebviewProvider<
 	 * Returns services to expose via RPC (Supertalk).
 	 *
 	 * If provided, these services will be exposed to the webview and can be
-	 * called via `wrapServices<T>()` from the webview side. This enables a
+	 * called via `RpcController` / `createRpcClient<T>()` from the webview side. This enables a
 	 * service-oriented architecture alongside or instead of IPC messages.
 	 *
 	 * @example

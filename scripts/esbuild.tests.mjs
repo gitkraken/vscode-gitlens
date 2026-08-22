@@ -46,7 +46,22 @@ async function buildTests(target) {
 		// `@gitkraken/commit-graph` is a vendored source-only package (extension-less internal
 		// imports), so it must bundle from source too — externalized, Node's ESM loader can't
 		// resolve it in the test host.
-		plugins: [nodeExternalsPlugin({ allowList: [/^@gitlens\//, /^@gitkraken\/commit-graph/] })],
+		// `signal-polyfill` and its two consumers bundle rather than externalize so the
+		// `signal-polyfill` alias below can deduplicate them — an external keeps Node's own
+		// resolution, which no alias can reach, and the linked `@eamodio/supertalk-signals` resolves
+		// its own copy, breaking `instanceof Signal.State` in SignalHandler.canHandle(). All three
+		// must bundle together: one of them left external would reintroduce a second copy.
+		plugins: [
+			nodeExternalsPlugin({
+				allowList: [
+					/^@gitlens\//,
+					/^@gitkraken\/commit-graph/,
+					/^@eamodio\/supertalk-signals/,
+					/^@lit-labs\/signals$/,
+					/^signal-polyfill$/,
+				],
+			}),
+		],
 		sourcemap: true,
 		target: ['es2023', 'chrome124', 'node20.14.0'],
 		tsconfig: target === 'webworker' ? 'tsconfig.test.browser.json' : 'tsconfig.test.json',
@@ -63,6 +78,11 @@ async function buildTests(target) {
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
 		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
+
+		// Deduplicate signal-polyfill: linked @eamodio/supertalk* packages resolve to their own
+		// node_modules copy, breaking instanceof checks in SignalHandler.canHandle(). Mirrors the
+		// same alias in webpack.config.mjs.
+		'signal-polyfill': path.resolve(__dirname, 'node_modules', 'signal-polyfill'),
 
 		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),

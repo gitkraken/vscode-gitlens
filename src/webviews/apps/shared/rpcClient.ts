@@ -1,23 +1,25 @@
 /**
- * RPC Client helper for webview apps.
+ * RPC client helper for webview apps.
  *
- * This module provides a helper to wrap RPC services in webview apps.
+ * Owns the long-lived pieces of a webview's RPC link — the endpoint, the handlers, and the
+ * supertalk `Connection` — and hands out one session per mount.
  *
- * Creates the Connection (sets up listener) and waits for the host to call
- * expose(). The host calls expose() when it receives WebviewReadyRequest,
- * which is the unified readiness signal for all webviews.
+ * The `Connection` is created ONCE and survives element remounts. Each mount re-arms it
+ * (`reset()`) and waits for the host to call `expose()`, which the host does when it receives
+ * `WebviewReadyRequest` — the unified readiness signal for all webviews. Reusing the instance is
+ * what makes supertalk's `subscribe()` resubscription work: it fans out on `_onReady` per
+ * successful handshake on the SAME connection, so a connection thrown away per mount would never
+ * resubscribe.
  */
 import type { Handler, Options, Remote } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
 import { SignalHandler } from '@eamodio/supertalk-signals';
-import { Logger } from '@gitlens/utils/logger.js';
 import type { WebviewIds } from '../../../constants.views.js';
 import { GlAbortSignalHandler } from '../../../system/rpc/abortSignalHandler.js';
 import { rpcHandlers } from '../../../system/rpc/handlers.js';
 import { createSupertalkLogger, formatWebviewLogTag } from '../../../system/rpc/logger.js';
-import { isConnectionClosedError } from './actions/rpc.js';
 import { getHost } from './host/context.js';
-import { cacheRemoteServices } from './rpc/cachedRemote.js';
+import { connectRpcSession } from './rpc/session.js';
 import type { DisposableEndpoint } from './webviewEndpoint.js';
 
 export interface RpcClientOptions {
@@ -40,6 +42,9 @@ export interface RpcClientOptions {
 	/**
 	 * Additional handlers beyond the default rpcHandlers.
 	 * The default handlers (Date, Map, Set, RegExp) and SignalHandler are always included.
+	 *
+	 * Handlers are constructed once per client, not per session — pass instances the app owns for
+	 * its whole lifetime (e.g. the Graph's rows `SequencedChannel`).
 	 */
 	handlers?: Handler[];
 
@@ -86,66 +91,56 @@ export interface RpcClientOptions {
 	 * @default 60000 (60 seconds — allows for slow cold starts; warnings fire at 20s and 40s)
 	 */
 	timeout?: number;
-
-	/**
-	 * Optional abort signal for cancelling connection setup.
-	 * If aborted before the handshake completes, the connection is cleaned up immediately.
-	 */
-	signal?: AbortSignal;
 }
 
 /**
- * Result of wrapping RPC services.
- * Includes both the services proxy and a dispose function for cleanup.
+ * A webview app's RPC link. The connection and its handlers live for the client's lifetime;
+ * {@link RpcClient.connect} starts one session per mount.
  */
-export interface RpcConnection<TServices extends object> {
+export interface RpcClient<TServices extends object> {
 	/**
-	 * Proxy for calling the exposed services.
+	 * The supertalk connection, stable across element remounts. Use it as the anchor for
+	 * `subscribe()` — pass this, never the services proxy, which is wrapped for property caching
+	 * and so fails supertalk's root-proxy check.
 	 */
-	services: Remote<TServices>;
+	readonly connection: Connection;
+
+	/** Re-arms the connection and waits for the host handshake, resolving this session's services. */
+	connect(signal?: AbortSignal): Promise<Remote<TServices>>;
 
 	/**
-	 * Disposes the RPC connection, removing all event listeners.
-	 * Call this when the component unmounts to prevent memory leaks.
+	 * Ends the current session: settles in-flight calls with `ConnectionClosedError('reset')` and
+	 * re-arms the connection. The connection keeps listening, so the next {@link connect} resumes
+	 * on the same instance.
 	 */
-	dispose: () => void;
+	stop(): void;
+
+	/** Closes the connection and disposes the endpoint. Final teardown only — see `RpcController.dispose`. */
+	dispose(): void;
 }
 
 /**
- * Wraps the RPC services exposed by the extension host.
+ * Creates a webview app's RPC client: one endpoint, one handler set, one `Connection`.
  *
- * This function creates a connection to the host and returns a proxy
- * for calling the exposed services, along with a dispose function.
- *
- * Usage in a webview app:
+ * Usage in a webview app (normally via `RpcController`, which drives the lifecycle):
  * ```typescript
- * interface IServices {
- *   echo(msg: string): string;
- *   add(a: number, b: number): number;
- * }
- *
- * // In your app initialization:
- * const { services, dispose } = await wrapServices<IServices>();
- *
- * // Use the services:
+ * const client = createRpcClient<IServices>();
+ * const services = await client.connect();
  * const result = await services.echo('hello');
- * const sum = await services.add(1, 2);
- *
- * // In disconnectedCallback or cleanup:
- * dispose();
  * ```
- *
- * @returns A promise that resolves to an RpcConnection with services and dispose
  */
-export async function wrapServices<TServices extends object>(
-	options?: RpcClientOptions,
-): Promise<RpcConnection<TServices>> {
-	const webviewId = typeof options?.webviewId === 'function' ? options.webviewId() : options?.webviewId;
-	const webviewInstanceId =
-		typeof options?.webviewInstanceId === 'function' ? options.webviewInstanceId() : options?.webviewInstanceId;
-	const webviewTag = formatWebviewLogTag(webviewId, webviewInstanceId);
-	const logPrefix = `RpcClient(${webviewTag})`;
+export function createRpcClient<TServices extends object>(options?: RpcClientOptions): RpcClient<TServices> {
+	const resolveTag = (): string => {
+		const webviewId = typeof options?.webviewId === 'function' ? options.webviewId() : options?.webviewId;
+		const webviewInstanceId =
+			typeof options?.webviewInstanceId === 'function' ? options.webviewInstanceId() : options?.webviewInstanceId;
+		return formatWebviewLogTag(webviewId, webviewInstanceId);
+	};
 
+	// One endpoint for the connection's lifetime. `createWebviewEndpoint` is a stateless adapter over
+	// the iframe's `window` and the persistent `acquireVsCodeApi()` handle, both of which outlive any
+	// element, so it needs no per-session replacement. Disposing it per session would also strip the
+	// Connection's own message listener, which `reset()` re-adds only when the connection was closed.
 	const endpoint = options?.endpoint?.() ?? getHost().createEndpoint();
 
 	// Create SignalHandler for reactive state synchronization
@@ -168,119 +163,25 @@ export async function wrapServices<TServices extends object>(
 		debug: options?.debug,
 		// Coalesce synchronous calls into a single postMessage
 		batching: true,
-		logger: createSupertalkLogger(`client(${webviewTag})`),
+		// Resolved per line, not per connection — Timeline learns its webview id after the first mount.
+		logger: createSupertalkLogger(() => `client(${resolveTag()})`),
 	};
 
 	// Create Connection (sets up message listener FIRST)
 	const connection = new Connection(endpoint, connectionOptions);
 
-	const timeoutMs = options?.timeout ?? 60_000;
-	// Fixed (not timeout-relative) warn markers. At 20s we suspect extension-host
-	// slowness; at 40s we suspect a stuck peer. Only scheduled if timeout is long
-	// enough that they fire strictly before the timeout would.
-	const firstWarnMs = 20_000;
-	const secondWarnMs = 40_000;
-	const warnTimers: Array<ReturnType<typeof setTimeout>> = [];
-	let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-	let abortListener: (() => void) | undefined;
-
-	const clearSetup = () => {
-		for (const t of warnTimers) {
-			clearTimeout(t);
-		}
-		warnTimers.length = 0;
-		if (timeoutTimer != null) {
-			clearTimeout(timeoutTimer);
-			timeoutTimer = undefined;
-		}
-		if (abortListener != null) {
-			options?.signal?.removeEventListener('abort', abortListener);
-			abortListener = undefined;
-		}
+	return {
+		connection: connection,
+		connect: (signal?: AbortSignal): Promise<Remote<TServices>> =>
+			connectRpcSession<TServices>(connection, {
+				logPrefix: `RpcClient(${resolveTag()})`,
+				timeout: options?.timeout,
+				signal: signal,
+			}),
+		stop: (): void => connection.reset(),
+		dispose: (): void => {
+			connection.close();
+			endpoint.dispose();
+		},
 	};
-
-	const disposeConnection = () => {
-		clearSetup();
-		connection.close();
-		endpoint.dispose();
-	};
-
-	const getAbortError = () => {
-		const reason = options?.signal?.reason;
-		return reason instanceof Error ? reason : new Error('RPC connection aborted');
-	};
-
-	try {
-		if (options?.signal?.aborted) {
-			throw getAbortError();
-		}
-
-		Logger.debug(`${logPrefix}: Connecting to host...`);
-
-		// Wait for the host to call expose() (triggered by WebviewReadyRequest)
-		// and send the ready signal. The Connection listener is already set up,
-		// so we just wait for the signal to arrive.
-		if (firstWarnMs < timeoutMs) {
-			warnTimers.push(
-				setTimeout(
-					() => Logger.warn(`${logPrefix}: Connection still pending after ${firstWarnMs}ms`),
-					firstWarnMs,
-				),
-			);
-		}
-		if (secondWarnMs < timeoutMs) {
-			warnTimers.push(
-				setTimeout(
-					() =>
-						Logger.warn(
-							`${logPrefix}: Connection still pending after ${secondWarnMs}ms — peer may be stuck`,
-						),
-					secondWarnMs,
-				),
-			);
-		}
-		const services = (await Promise.race([
-			connection.waitForReady(),
-			new Promise<never>(
-				(_resolve, reject) =>
-					(timeoutTimer = setTimeout(
-						() => reject(new Error(`RPC connection timed out after ${timeoutMs}ms`)),
-						timeoutMs,
-					)),
-			),
-			...(options?.signal != null
-				? [
-						new Promise<never>((_resolve, reject) => {
-							abortListener = () => reject(getAbortError());
-							options.signal!.addEventListener('abort', abortListener, { once: true });
-						}),
-					]
-				: []),
-		])) as Remote<TServices>;
-		clearSetup();
-		Logger.debug(`${logPrefix}: Connected to host successfully`);
-		return {
-			// Wrap so each non-method property's thenable resolves at most once per session — see
-			// the comment on `cacheRemoteServices` for the supertalk-side rationale. Every webview
-			// app reaches its services through this function (directly or via `RpcController`),
-			// so this is the single choke point that makes `await services.X` safe in repeated
-			// callbacks for our stable-handle service bags. Producers must expose only methods
-			// and stable sub-service handles (a property whose value never changes for a given
-			// connection); dynamic-value getters that allocate a different object per access
-			// would break under memoization and are not safe here.
-			services: cacheRemoteServices(services),
-			dispose: () => {
-				Logger.debug(`${logPrefix}: Disposing connection...`);
-				disposeConnection();
-			},
-		};
-	} catch (ex) {
-		disposeConnection();
-		if (isConnectionClosedError(ex)) {
-			Logger.debug(`${logPrefix}: connect dropped by deliberate connection teardown`);
-		} else {
-			Logger.error(ex, `${logPrefix}: Failed to connect to host`);
-		}
-		throw ex;
-	}
 }

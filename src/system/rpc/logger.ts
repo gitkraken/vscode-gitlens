@@ -47,16 +47,16 @@ function findError(rest: unknown[]): unknown {
 	return undefined;
 }
 
-function adaptLogger(prefix: string): SupertalkLogger {
-	const tag = `[RPC:${prefix}]`;
+function adaptLogger(prefix: string | (() => string)): SupertalkLogger {
+	const tag = typeof prefix === 'function' ? () => `[RPC:${prefix()}]` : () => `[RPC:${prefix}]`;
 	return {
 		debug: (...data: unknown[]) => {
 			const [message, rest] = toMessage(data);
-			Logger.debug(`${tag} ${message}`, ...normalizeRest(rest));
+			Logger.debug(`${tag()} ${message}`, ...normalizeRest(rest));
 		},
 		warn: (...data: unknown[]) => {
 			const [message, rest] = toMessage(data);
-			Logger.warn(`${tag} ${message}`, ...normalizeRest(rest));
+			Logger.warn(`${tag()} ${message}`, ...normalizeRest(rest));
 		},
 		error: (...data: unknown[]) => {
 			const [message, rest] = toMessage(data);
@@ -64,7 +64,7 @@ function adaptLogger(prefix: string): SupertalkLogger {
 			// "AbortError: ..." instead of "[object Object]". Logger.error ignores
 			// additional params, so Error context is preserved only via `ex`.
 			const ex = findError(rest);
-			Logger.error(ex, `${tag} ${message}`);
+			Logger.error(ex, `${tag()} ${message}`);
 		},
 	};
 }
@@ -76,8 +76,11 @@ function adaptLogger(prefix: string): SupertalkLogger {
  * Example prefixes:
  * - `host(gitlens.views.home|5cf1bc7c)` — host-side logger for the Home webview
  * - `client(gitlens.views.timeline|4103a120)` — client-side logger inside the Timeline webview
+ *
+ * Pass a thunk when the tag isn't final at wiring time — the client's connection outlives every
+ * mount, but Timeline only learns its webview id once the first mount hands it a context.
  */
-export function createSupertalkLogger(prefix: string): SupertalkLogger {
+export function createSupertalkLogger(prefix: string | (() => string)): SupertalkLogger {
 	return adaptLogger(prefix);
 }
 

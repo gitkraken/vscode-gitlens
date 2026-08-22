@@ -128,9 +128,9 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		initialValue: undefined,
 	});
 
-	// The rows plane's inbound channel. Declared BEFORE `_rpc` so it exists when the controller connects,
-	// and reused across reconnects — the controller closes the old Connection (which disconnects the
-	// channel, clearing its inbound generation) and constructs a new one with this same instance.
+	// The rows plane's inbound channel. Declared BEFORE `_rpc` so it exists when the controller builds
+	// its client, and reused across reconnects — each session resets the Connection, which cycles this
+	// channel's disconnect/connect and clears its inbound generation before the next handshake.
 	private readonly _rowsChannel = new SequencedChannel<GraphRowsPayload>('graph:rows', { replay: 0 });
 
 	private _rpc = new RpcController<GraphServices>(this, {

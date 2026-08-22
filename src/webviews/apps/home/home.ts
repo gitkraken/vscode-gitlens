@@ -313,7 +313,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._readyAbort?.abort(new DOMException('home: disconnected', 'AbortError'));
 		this._readyAbort = undefined;
 
-		// Unsubscribe RPC event callbacks (before RPC connection is disposed)
+		// Unsubscribe RPC event callbacks (before the RPC session ends)
 		this._unsubscribeEvents?.();
 		this._unsubscribeEvents = undefined;
 		this._wipWatchUnsubscribe?.();
@@ -344,7 +344,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._commandsState.service = undefined;
 
 		// GlWebviewApp: cleans up focus tracker, disposes ipc/promos/telemetry/DOM listeners
-		// Lit framework: calls RpcController.hostDisconnected() → disposes RPC connection
+		// Lit framework: calls RpcController.hostDisconnected() → ends the RPC session (the connection lives on)
 		super.disconnectedCallback?.();
 	}
 

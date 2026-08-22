@@ -91,7 +91,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
-		// Unsubscribe RPC event callbacks (before RPC connection is disposed)
+		// Unsubscribe RPC event callbacks (before the RPC session ends)
 		this._unsubscribeEvents?.();
 		this._unsubscribeEvents = undefined;
 
@@ -116,7 +116,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		this._state.resetAll();
 
 		// GlWebviewApp: cleans up focus tracker, disposes ipc/promos/telemetry/DOM listeners
-		// Lit framework: calls RpcController.hostDisconnected() → disposes RPC connection
+		// Lit framework: calls RpcController.hostDisconnected() → ends the RPC session (the connection lives on)
 		super.disconnectedCallback?.();
 	}
 

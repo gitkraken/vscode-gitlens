@@ -2,8 +2,9 @@
  * RPC controller for webview apps.
  *
  * Implements Lit's ReactiveController pattern for managing the RPC lifecycle:
- * - Automatic RPC connection on hostConnected (component mount)
- * - Automatic disposal on hostDisconnected (component unmount)
+ * - A single long-lived supertalk Connection, built on the first hostConnected
+ * - A fresh RPC session per hostConnected (component mount)
+ * - The session ended, but the connection kept, on hostDisconnected (component unmount)
  *
  * Usage:
  * ```typescript
@@ -23,13 +24,13 @@
  * }
  * ```
  */
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Remote } from '@eamodio/supertalk';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { isErrorLike } from '@gitlens/utils/error.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { isConnectionClosedError } from '../actions/rpc.js';
-import type { RpcClientOptions } from '../rpcClient.js';
-import { wrapServices } from '../rpcClient.js';
+import type { RpcClient, RpcClientOptions } from '../rpcClient.js';
+import { createRpcClient } from '../rpcClient.js';
 
 export interface RpcControllerOptions<TServices extends object> {
 	/**
@@ -57,10 +58,10 @@ export interface RpcControllerOptions<TServices extends object> {
  * Lit ReactiveController that manages the RPC connection lifecycle.
  *
  * The controller:
- * - Establishes RPC connection in hostConnected
- * - Disposes connection in hostDisconnected
- * - Calls onReady when connection is established
- * - Calls onError if connection fails
+ * - Establishes an RPC session in hostConnected, on a connection that outlives every mount
+ * - Ends the session — without closing the connection — in hostDisconnected
+ * - Calls onReady when the session is established
+ * - Calls onError if the session fails
  */
 /** Reasons tagged on `.abort()` calls during the webview lifecycle so unhandled rejections that escape
  * to the iframe's global handler are diagnosable instead of opaque "signal is aborted without reason". */
@@ -68,8 +69,8 @@ const abortReasonReconnect = new DOMException('rpc reconnect: host reconnected',
 const abortReasonHostDisconnected = new DOMException('rpc disconnect: host disconnected', 'AbortError');
 
 export class RpcController<TServices extends object> implements ReactiveController {
+	private _client?: RpcClient<TServices>;
 	private _services?: Remote<TServices>;
-	private _disposeRpc?: () => void;
 	private _connectionAbort?: AbortController;
 
 	/**
@@ -77,6 +78,16 @@ export class RpcController<TServices extends object> implements ReactiveControll
 	 */
 	get services(): Remote<TServices> | undefined {
 		return this._services;
+	}
+
+	/**
+	 * The long-lived supertalk connection, or undefined before the first `hostConnected`.
+	 *
+	 * Stable across element remounts, so it is the legal anchor for `subscribe()` — pass this, not
+	 * {@link services}, which is wrapped for property caching and fails supertalk's root-proxy check.
+	 */
+	get connection(): Connection | undefined {
+		return this._client?.connection;
 	}
 
 	constructor(
@@ -96,38 +107,51 @@ export class RpcController<TServices extends object> implements ReactiveControll
 			this._connectionAbort.abort(abortReasonReconnect);
 		}
 		this._connectionAbort = new AbortController();
-		void this._connect(this._connectionAbort.signal);
+		// Built on the first mount and kept for every later one — the endpoint, the handlers, and the
+		// Connection must be the same instances across remounts for `subscribe()` to resubscribe.
+		this._client ??= createRpcClient<TServices>(this.options?.rpcOptions);
+		void this._connect(this._client, this._connectionAbort.signal);
 	}
 
 	hostDisconnected(): void {
 		this._connectionAbort?.abort(abortReasonHostDisconnected);
 		this._connectionAbort = undefined;
-		this._disposeRpc?.();
-		this._disposeRpc = undefined;
+		// Ends the session — settles in-flight work — but leaves the connection listening and re-armed
+		// for the next mount. Closing here would defeat the whole point of the long-lived connection.
+		this._client?.stop();
 		this._services = undefined;
 	}
 
-	private async _connect(signal: AbortSignal): Promise<void> {
-		try {
-			const { services, dispose } = await wrapServices<TServices>({
-				...this.options?.rpcOptions,
-				signal: signal,
-			});
+	/**
+	 * Closes the long-lived connection and disposes its endpoint.
+	 *
+	 * Nothing calls this in production: Lit has no "destroyed for good" hook — `disconnectedCallback`
+	 * fires on a plain remount too — so the connection lives until VS Code tears down the webview's
+	 * iframe, which takes the whole JS realm (window listeners included) with it. Provided for hosts
+	 * and tests that can prove a final teardown.
+	 */
+	dispose(): void {
+		this._connectionAbort?.abort(abortReasonHostDisconnected);
+		this._connectionAbort = undefined;
+		this._services = undefined;
+		// `dispose()`, not `stop()` then `dispose()` — `close()` already settles in-flight work.
+		this._client?.dispose();
+		this._client = undefined;
+	}
 
-			if (signal.aborted) {
-				dispose();
-				return;
-			}
+	private async _connect(client: RpcClient<TServices>, signal: AbortSignal): Promise<void> {
+		try {
+			const services = await client.connect(signal);
+
+			if (signal.aborted) return;
 
 			this._services = services;
-			this._disposeRpc = dispose;
 
 			if (this.options?.onReady != null) {
 				try {
 					await this.options.onReady(services);
 				} catch (ex) {
-					dispose();
-					this._disposeRpc = undefined;
+					client.stop();
 					this._services = undefined;
 					throw ex;
 				}
