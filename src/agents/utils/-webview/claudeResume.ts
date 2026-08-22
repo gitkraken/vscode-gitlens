@@ -1,7 +1,8 @@
-import { ThemeIcon, window, workspace } from 'vscode';
+import { ThemeIcon, workspace } from 'vscode';
 import { isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
+import { openTerminal } from '../../../system/-webview/terminal.js';
 import type { AgentSession } from '../../provider.js';
 
 /** Phases for which `claude --resume <id>` is safe to invoke. Idle is the strict baseline — the
@@ -58,7 +59,7 @@ export async function resumeClaudeSessionInTerminal(session: ResumableSessionRef
 
 	const executable = await resolveClaudeExecutable(container);
 
-	const terminal = window.createTerminal({
+	const terminal = openTerminal({
 		name: `Claude (${session.name ?? session.id})`,
 		cwd: cwd,
 		iconPath: new ThemeIcon('claude'),

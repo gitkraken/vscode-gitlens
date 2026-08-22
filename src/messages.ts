@@ -12,6 +12,7 @@ import type { Container } from './container.js';
 import { formatIdentityDisplayName, getCommitFormattedDate } from './git/utils/-webview/commit.utils.js';
 import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
+import { openTerminal } from './system/-webview/terminal.js';
 import { openUrl } from './system/-webview/vscode/uris.js';
 
 export function showBlameInvalidIgnoreRevsFileWarningMessage(
@@ -109,7 +110,7 @@ function escapeShellArg(arg: string): string {
 }
 
 function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitCommandError<any>): void {
-	const terminal = window.createTerminal({
+	const terminal = openTerminal({
 		cwd: gitCommand.repoPath,
 		name: 'GitLens',
 		hideFromUser: false,

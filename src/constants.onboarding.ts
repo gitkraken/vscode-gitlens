@@ -79,6 +79,9 @@ export const onboardingDefinitions = {
 	'details:compare:buttonCallout': { schema: '18.2.0', scope: 'global' },
 	'details:resolve:buttonCallout': { schema: '18.2.0', scope: 'global' },
 
+	// Terminal
+	'terminal:locationCallout': { schema: '19.0.1', scope: 'global' },
+
 	// Views
 	'views:scmGrouped:welcome': { schema: '17.8.0', scope: 'global' },
 } as const satisfies Record<string, OnboardingItemDefinition<unknown>>;

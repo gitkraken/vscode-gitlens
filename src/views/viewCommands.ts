@@ -69,6 +69,7 @@ import {
 } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
+import { openTerminal } from '../system/-webview/terminal.js';
 import { revealInFileExplorer } from '../system/-webview/vscode.js';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
 import { openMergeEditor } from '../system/-webview/vscode/editors.js';
@@ -626,22 +627,25 @@ export class ViewCommands implements Disposable {
 
 	@command('gitlens.views.openInTerminal')
 	@debug()
-	private openInTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
-		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
+	private async openInTerminal(
+		node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode,
+	): Promise<void> {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return;
 
-		return executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
+		await executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
 	}
 
 	@command('gitlens.openInIntegratedTerminal:views')
 	@debug()
 	private openInIntegratedTerminal(
 		node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode | WorktreeNode,
-	) {
+	): Promise<void> {
 		if (!node.isAny('tracking-status', 'repository', 'repo-folder', 'worktree')) return Promise.resolve();
-		// worktree.uri preserves remote-dev schemes, unlike Uri.file(node.repoPath).
-		if (node.is('worktree')) return executeCoreCommand('openInIntegratedTerminal', node.worktree.uri);
 
-		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
+		// worktree.uri preserves remote-dev schemes, unlike Uri.file(node.repoPath).
+		const uri = node.is('worktree') ? node.worktree.uri : Uri.file(node.repoPath);
+		openTerminal({ cwd: uri }).show();
+		return Promise.resolve();
 	}
 
 	@command('gitlens.views.startAgentSession')

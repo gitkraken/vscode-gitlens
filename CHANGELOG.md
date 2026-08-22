@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a `gitlens.openInTerminalLocation` setting &mdash; controls where GitLens opens the terminals it creates (the _Open in Integrated Terminal_ actions in the views and _Commit Graph_, plus agent session start/resume terminals), either in the terminal panel (default) or as an editor tab; a one-time notification offers to switch to editor tabs
 - Adds a _Start Agent Session..._ action to working-changes (WIP) rows in the _Commit Graph_ and to worktrees in the views &mdash; opens a terminal at the worktree running your default coding agent CLI, offering a choice when several are detected; _Resume Agent Session..._ now also appears on worktrees in the views
 - Adds a _Run Task on Worktree..._ action to worktree working-changes (WIP) rows in the _Commit Graph_ and to worktrees in the views &mdash; runs a VS Code task (from `tasks.json`, or auto-detected ones like npm scripts) with the worktree as its working directory and `GITLENS_WORKTREE_PATH` in its environment, so build, test, and launch tasks can target a worktree without opening it; each worktree keeps its recently run tasks at the top of the picker
 - Adds a _GitKraken AI Usage_ card to the _Account_ section of _GitLens Settings_ &mdash; shows your weekly credit allowance, how much of it you've used, and when it resets, along with your organization's shared pool when one applies ([#5743](https://github.com/gitkraken/vscode-gitlens/issues/5743))

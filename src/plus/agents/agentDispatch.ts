@@ -1,6 +1,7 @@
-import { commands, env, ThemeIcon, window, workspace } from 'vscode';
+import { commands, env, ThemeIcon, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
+import { openTerminal } from '../../system/-webview/terminal.js';
 import type { ChatMode } from '../chat/utils/-webview/chat.utils.js';
 import { openChat } from '../chat/utils/-webview/chat.utils.js';
 import type { AgentDescriptor } from './agentDescriptor.js';
@@ -14,6 +15,19 @@ const bpmStart = '\u001b[200~';
 const bpmEnd = '\u001b[201~';
 
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+function getAgentTerminalIcon(agentName: string): ThemeIcon {
+	switch (agentName) {
+		case 'claude-cli':
+			return new ThemeIcon('claude');
+		case 'codex':
+			return new ThemeIcon('openai');
+		case 'copilot':
+			return new ThemeIcon('copilot');
+		default:
+			return new ThemeIcon('robot');
+	}
+}
 
 export interface RunAgentOptions {
 	/** Working directory for the CLI dispatch path. Required for CLI; ignored by IDE chat / extension. */
@@ -97,10 +111,10 @@ async function dispatchCli(
 	const executable = descriptor.agent.executable;
 	if (executable == null) throw new Error(`CLI agent '${descriptor.label}' has no executable path`);
 
-	const terminal = window.createTerminal({
-		name: `GitLens · ${descriptor.label}`,
+	const terminal = openTerminal({
+		name: descriptor.label,
 		cwd: cwd,
-		iconPath: new ThemeIcon('gitlens-gitlens'),
+		iconPath: getAgentTerminalIcon(descriptor.agent.name),
 	});
 	terminal.show();
 

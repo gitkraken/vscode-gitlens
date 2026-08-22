@@ -4572,6 +4572,21 @@
 						"scope": "window",
 						"order": 50
 					},
+					"gitlens.openInTerminalLocation": {
+						"type": "string",
+						"default": "panel",
+						"enum": [
+							"panel",
+							"editor"
+						],
+						"enumDescriptions": [
+							"Open in the terminal panel",
+							"Open as an editor tab"
+						],
+						"markdownDescription": "Specifies where GitLens opens the terminals it creates",
+						"scope": "window",
+						"order": 90
+					},
 					"gitlens.terminal.overrideGitEditor": {
 						"type": "boolean",
 						"default": true,

@@ -92,6 +92,7 @@ import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWor
 import { executeActionCommand, executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, setContext } from '../../../system/-webview/context.js';
+import { openTerminal } from '../../../system/-webview/terminal.js';
 import { getHostEditorCommand, revealInFileExplorer } from '../../../system/-webview/vscode.js';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
@@ -2983,7 +2984,7 @@ export class GraphCommands {
 	): Promise<void> {
 		// Header button path: a full URI string is provided so remote-dev schemes are preserved.
 		if (item != null && typeof item === 'object' && 'worktreeUri' in item && typeof item.worktreeUri === 'string') {
-			void executeCoreCommand('openInIntegratedTerminal', Uri.parse(item.worktreeUri));
+			openTerminal({ cwd: Uri.parse(item.worktreeUri) }).show();
 			return;
 		}
 
@@ -2994,7 +2995,7 @@ export class GraphCommands {
 			item.webviewItem.startsWith('gitlens:agent-session')
 		) {
 			if (item.webviewItemValue.worktreePath != null) {
-				void executeCoreCommand('openInIntegratedTerminal', Uri.file(item.webviewItemValue.worktreePath));
+				openTerminal({ cwd: Uri.file(item.webviewItemValue.worktreePath) }).show();
 			}
 			return;
 		}
@@ -3010,7 +3011,7 @@ export class GraphCommands {
 			uri = Uri.file(ref.repoPath);
 		}
 
-		void executeCoreCommand('openInIntegratedTerminal', uri);
+		openTerminal({ cwd: uri }).show();
 	}
 
 	@command('gitlens.graph.revealWorktreeInExplorer')

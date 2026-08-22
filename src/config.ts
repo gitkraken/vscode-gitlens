@@ -37,6 +37,7 @@ export interface Config {
 	readonly menus: boolean | MenuConfig;
 	readonly mode: ModeConfig;
 	readonly modes: ModesConfig | null;
+	readonly openInTerminalLocation: 'panel' | 'editor';
 	readonly partners: PartnersConfig | null;
 	readonly plusFeatures: PlusFeaturesConfig;
 	readonly rebaseEditor: RebaseEditorConfig;
