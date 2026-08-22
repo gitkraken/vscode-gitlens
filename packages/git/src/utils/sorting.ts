@@ -240,8 +240,8 @@ export function sortRemotes<T extends GitRemote>(remotes: T[]): T[] {
 	return remotes.sort(
 		(a, b) =>
 			(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-			(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
 			(a.name === 'upstream' ? -1 : 1) - (b.name === 'upstream' ? -1 : 1) ||
+			(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
 			sortCompare(a.name, b.name),
 	);
 }
