@@ -153,13 +153,18 @@ export class AgentStatusService implements Disposable {
 					// status row) stay snappy.
 					this._onDidChange.fire();
 
-					// If any session has a worktree path we haven't resolved yet, defer the rich
-					// snapshot publish until the refresh completes so webviews don't paint with a
-					// cold-fallback name (`On <path-basename>`) and then re-paint a moment later
-					// with the proper branch name. The refresh publishes itself when metadata
-					// changed; we only fire here when it didn't (couldn't resolve the path) or
-					// failed, so the new session is never permanently swallowed.
+					// If any session has a worktree path we haven't resolved yet, the tick that STARTS a
+					// fresh refresh defers its snapshot publish until that refresh completes, so webviews
+					// don't paint with a cold-fallback name (`On <path-basename>`) and then re-paint a
+					// moment later with the proper branch name. Every other tick — including one that
+					// lands while a refresh is already in flight — publishes immediately instead of also
+					// waiting: a wedged `getWorktrees()` call (hung git subprocess) can leave a refresh
+					// in flight indefinitely, and piling every subsequent tick onto its `.then()` would
+					// freeze the webview on stale state until it eventually settles. The `.then()`
+					// continuation is still attached so the refresh's own eventual completion re-publishes
+					// too; `maybeFireSessionsChanged()`'s change-gate coalesces the redundant call.
 					if (this.hasUnresolvedWorktreePaths()) {
+						const refreshInFlight = this._worktreeRefreshPromise != null;
 						this.refreshWorktreeNameCache().then(
 							changed => {
 								if (!changed) {
@@ -168,6 +173,10 @@ export class AgentStatusService implements Disposable {
 							},
 							() => this.maybeFireSessionsChanged(),
 						);
+
+						if (refreshInFlight) {
+							this.maybeFireSessionsChanged();
+						}
 					} else {
 						this.maybeFireSessionsChanged();
 						this.refreshWorktreeNameCacheIfSessionsChanged();
@@ -642,6 +651,8 @@ export class AgentStatusService implements Disposable {
 		}
 		if (!changed && !force) return;
 
+		Logger.debug(`AgentStatusService.maybeFireSessionsChanged: publishing ${states.length} sessions`);
+
 		this._lastSessionKeys = keys;
 		this._onDidChangeSessions.fire(states);
 	}
@@ -702,6 +713,7 @@ export class AgentStatusService implements Disposable {
 
 		this._worktreeRefreshPromise = (async () => {
 			let changed = false;
+			const start = Date.now();
 			try {
 				// Capture the path set this run resolves so the noisy session trigger can skip
 				// no-op refreshes; the `finally` re-checks it to catch paths that appeared while
@@ -758,8 +770,13 @@ export class AgentStatusService implements Disposable {
 					}
 				}
 
+				Logger.debug(
+					`AgentStatusService.refreshWorktreeNameCache: refreshing ${repoPaths.size} repo(s) for ${referencedWorktreePaths.size} worktree path(s)`,
+				);
+
+				const repoPathList = [...repoPaths];
 				const results = await Promise.allSettled(
-					Array.from(repoPaths, async repoPath => {
+					repoPathList.map(async repoPath => {
 						const worktrees = await this.container.git
 							.getRepositoryService(repoPath)
 							.worktrees?.getWorktrees();
@@ -767,10 +784,16 @@ export class AgentStatusService implements Disposable {
 					}),
 				);
 
-				for (const r of results) {
-					const value = getSettledValue(r);
-					if (value == null) continue;
+				for (const [i, r] of results.entries()) {
+					if (r.status === 'rejected') {
+						Logger.error(
+							r.reason,
+							`AgentStatusService.refreshWorktreeNameCache: getWorktrees failed for ${repoPathList[i]}`,
+						);
+						continue;
+					}
 
+					const value = r.value;
 					for (const wt of value.worktrees) {
 						if (!referencedWorktreePaths.has(wt.path)) continue;
 
@@ -827,6 +850,9 @@ export class AgentStatusService implements Disposable {
 				}
 			} finally {
 				this._worktreeRefreshPromise = undefined;
+				Logger.debug(
+					`AgentStatusService.refreshWorktreeNameCache: completed in ${Date.now() - start}ms, changed=${changed}`,
+				);
 				// A session worktree path may have appeared/changed while this run was in-flight
 				// (it snapshotted `this.sessions` at the top, and `_worktreeRefreshPromise`
 				// deduped any calls since). Re-run if the set no longer matches what we resolved.
@@ -844,7 +870,16 @@ export class AgentStatusService implements Disposable {
 	 *  unconditionally — the repair path behind the sidebar's Refresh action. The forced publish is
 	 *  the point: a change-gated one would skip a no-op reconcile and leave a diverged webview stale. */
 	async refresh(): Promise<void> {
-		await Promise.allSettled(this._providers.map(p => p.sync?.() ?? Promise.resolve()));
+		Logger.debug(`AgentStatusService.refresh: reconciling ${this._providers.length} provider(s)`);
+
+		const results = await Promise.allSettled(this._providers.map(p => p.sync?.() ?? Promise.resolve()));
+		for (const [i, r] of results.entries()) {
+			if (r.status === 'rejected') {
+				Logger.error(r.reason, `AgentStatusService.refresh: sync failed for provider ${this._providers[i].id}`);
+			}
+		}
+
+		Logger.debug('AgentStatusService.refresh: sync settled, forcing a snapshot publish');
 		this.maybeFireSessionsChanged(true);
 	}
 

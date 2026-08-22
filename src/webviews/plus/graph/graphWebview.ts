@@ -1806,6 +1806,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async notifyDidChangeAgentSessions(sessions?: AgentSessionState[]): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeAgentSessionsNotification, this._ipcNotificationMap, this);
+			Logger.debug(
+				`GraphWebviewProvider.notifyDidChangeAgentSessions: queued as pending (ready=${this.host.ready}, visible=${this.host.visible})`,
+			);
 			return false;
 		}
 

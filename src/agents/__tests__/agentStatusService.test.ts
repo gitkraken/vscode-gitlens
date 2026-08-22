@@ -73,9 +73,9 @@ function makeSession(overrides: Partial<AgentSession> & { id: string }): AgentSe
 }
 
 /** Builds the service around a {@link TestProvider} and records every published snapshot. */
-function setup() {
+function setup(containerOptions?: Parameters<typeof makeContainer>[0]) {
 	const provider = new TestProvider();
-	const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+	const service = new AgentStatusService(makeContainer(containerOptions), [provider], { registerCommands: false });
 	const published: number[] = [];
 	const subscription = service.onDidChangeSessions(sessions => published.push(sessions.length));
 	return {
@@ -117,6 +117,29 @@ suite('AgentStatusService session snapshot publishing', () => {
 			provider.sessions = [{ ...session, status: 'ended', phase: 'ended' }];
 			provider.fire();
 			assert.strictEqual(published.length, 2);
+		} finally {
+			dispose();
+		}
+	});
+
+	test('a change while a worktree refresh is starved by a wedged getWorktrees() still publishes', () => {
+		const { provider, published, dispose } = setup({ onGetWorktrees: () => new Promise(() => {}) });
+		try {
+			// commonPath (not just worktreePath) is required — it's what seeds refreshWorktreeNameCache's
+			// repoPaths set, which is what actually triggers the (never-settling) getWorktrees() call.
+			const session = makeSession({ id: 's1', worktreePath: '/repo/wt1', commonPath: '/repo' });
+			provider.sessions = [session];
+			provider.fire();
+			// The worktree path is unresolved, so this tick STARTS the refresh and defers its publish
+			// to the refresh's completion — which never comes, since getWorktrees() is wedged.
+			assert.strictEqual(published.length, 0, 'first tick defers to the still-pending refresh');
+
+			provider.sessions = [{ ...session, status: 'ended', phase: 'ended' }];
+			provider.fire();
+			// A refresh is already in flight, so this tick must publish immediately instead of only
+			// attaching to the same stuck promise — otherwise a wedged getWorktrees() would starve
+			// every subsequent session change forever.
+			assert.strictEqual(published.length, 1, 'a tick during an in-flight refresh still publishes');
 		} finally {
 			dispose();
 		}
