@@ -372,6 +372,12 @@ declare global {
 		}>;
 		'gl-graph-change-column-mode': CustomEvent<{ name: GraphColumnName; mode: ColumnMode | undefined }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
+		/** A downward fork-point/ref-row search paging past the loaded end (Alt+`↑`/`↓`, `[`/`]`) —
+		 *  `'started'` while it's in flight, then exactly one of `'found'` / `'exhausted'` / `'cancelled'`. */
+		'gl-graph-edge-search': CustomEvent<{
+			kind: 'forkPoint' | 'refRow';
+			status: 'started' | 'found' | 'exhausted' | 'cancelled';
+		}>;
 		'gl-graph-enable-changes-column': CustomEvent<void>;
 		'gl-graph-filter-column': CustomEvent<{ zone: GraphZoneType }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
@@ -1229,6 +1235,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}
 			?windowFocused=${graphState.windowFocused}
 			@gl-graph-changeselection=${this.onGraphSelectionChanged}
+			@gl-graph-edge-search=${this.onEdgeSearch}
 			@gl-graph-rowdoubleclick=${this.onGraphRowDoubleClick}
 			@gl-graph-refdoubleclick=${this.onGraphRefDoubleClick}
 			@gl-graph-contextmenu=${this.onGraphContextMenu}
@@ -1697,6 +1704,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._selectIntentRepoPath = undefined;
 		this.settlePendingNavigation({ status: 'cancelled' });
 		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+	}
+
+	/** Cancel the in-flight edge-nav search (Alt+`↑`/`↓`, `[`/`]` paging past the loaded end) — the
+	 *  edge-search toast's Cancel action. */
+	cancelEdgeSearch(): void {
+		this.querySelector('gl-lit-graph')?.cancelEdgeNavigation();
 	}
 
 	/**
@@ -2627,6 +2640,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// Re-emit under the app-wide name: the minimap and graph-app listen for
 		// `gl-graph-change-visible-days`, not for the graph element's own event.
 		this.dispatchEvent(new CustomEvent('gl-graph-change-visible-days', { detail: event.detail }));
+	}
+
+	private onEdgeSearch(
+		event: CustomEvent<{ kind: 'forkPoint' | 'refRow'; status: 'started' | 'found' | 'exhausted' | 'cancelled' }>,
+	) {
+		// Re-emit unchanged so graph-app can drive the edge-search toast off the wrapper's own events.
+		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: event.detail }));
 	}
 
 	private onGraphRefDoubleClick(

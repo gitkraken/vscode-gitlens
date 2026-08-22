@@ -3257,6 +3257,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@state()
 	private _failedJumpToast?: GraphJumpToastState;
 
+	/** An in-flight edge-nav search (Alt+`↑`/`↓`, `[`/`]` paging past the loaded end) — between
+	 *  {@link _failedJumpToast} and {@link _loadingJumpNav} in priority (see {@link renderJumpToast}). */
+	@state()
+	private _edgeSearchToast?: GraphJumpToastState;
+
 	private _jumpToastTimer?: ReturnType<typeof setTimeout>;
 
 	/** The toast object last handed to `<gl-graph-jump-toast>` (see {@link renderJumpToast}) — its
@@ -3289,6 +3294,49 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				source: source ?? 'unknown',
 			},
 		});
+	};
+
+	/** Arming delay before the edge-search toast shows, so a page that lands quickly never flashes a
+	 *  card — same rationale as the jump toast's searching interim state. */
+	private _edgeSearchToastArmTimer?: ReturnType<typeof setTimeout>;
+
+	private clearEdgeSearchToastArmTimer(): void {
+		if (this._edgeSearchToastArmTimer == null) return;
+
+		clearTimeout(this._edgeSearchToastArmTimer);
+		this._edgeSearchToastArmTimer = undefined;
+	}
+
+	private handleGraphEdgeSearch = (e: CustomEventType<'gl-graph-edge-search'>): void => {
+		const { kind, status } = e.detail;
+		const label = kind === 'forkPoint' ? 'fork point' : 'ref';
+		if (status === 'started') {
+			this.clearJumpToast();
+			this._edgeSearchToastArmTimer = setTimeout(() => {
+				this._edgeSearchToastArmTimer = undefined;
+				this._edgeSearchToast = {
+					kind: 'searching',
+					message: html`Looking for the next ${label} in older history…`,
+					actionLabel: 'Cancel',
+					onAction: () => this.graph?.cancelEdgeSearch(),
+				};
+			}, 250);
+			return;
+		}
+
+		// A dismissed or superseded search settling late has nothing left to clear — `clearJumpToast`
+		// disarms both the shown card and the arming timer, so either one still standing means this
+		// search's feedback is live.
+		if (this._edgeSearchToastArmTimer == null && this._edgeSearchToast == null) return;
+
+		this.clearEdgeSearchToastArmTimer();
+		this._edgeSearchToast = undefined;
+		// A dead end deserves its card even when the search settled before the arming delay — that
+		// message is the answer, not interim progress.
+		if (status === 'exhausted') {
+			this._failedJumpToast = { kind: 'terminal', message: html`No further ${label} in this history` };
+			this.armJumpToastTimer(6000);
+		}
 	};
 
 	/** Routed from {@link GraphAppHost} for the host's `reveal/didFail` notification — a host-initiated
@@ -3336,21 +3384,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const sha = this._failedJumpToast?.sha;
 		this._failedJumpToast = undefined;
 		this._loadingJumpNav = undefined;
+		this._edgeSearchToast = undefined;
+		this.clearEdgeSearchToastArmTimer();
 		if (sha != null) {
 			this.graph?.cancelNavigationFeedback(sha);
 		}
 	}
 
-	/** The toast to render this pass, or `nothing`. A failure always wins; the "searching" state is
-	 *  otherwise DERIVED (not stored) from the still-pending load and `ensureLoading`, per
-	 *  {@link _loadingJumpNav}'s doc comment. */
+	/** The toast to render this pass, or `nothing`. A failure always wins, an edge-nav search comes next,
+	 *  and the "searching" jump state is otherwise DERIVED (not stored) from the still-pending load and
+	 *  `ensureLoading`, per {@link _loadingJumpNav}'s doc comment. */
 	private renderJumpToast() {
 		// Read unconditionally (not behind `&&`) so `SignalWatcher` always re-subscribes to it on this
 		// render, even while `_loadingJumpNav` is unset — otherwise the FIRST render after a loading nav
 		// arrives (the one where the signal read would matter) is the one short-circuit skips it on.
 		const ensureLoading = this.graphState.ensureLoading;
 
-		let toast = this._failedJumpToast;
+		let toast = this._failedJumpToast ?? this._edgeSearchToast;
 		if (toast == null && this._loadingJumpNav != null && ensureLoading) {
 			const { sha, ref } = this._loadingJumpNav;
 			const label = ref ?? sha.slice(0, 7);
@@ -4073,6 +4123,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 					@gl-graph-navigation-failed=${this.handleGraphNavigationFailed}
 					@gl-graph-navigation-loading=${this.handleGraphNavigationLoading}
+					@gl-graph-edge-search=${this.handleGraphEdgeSearch}
 					@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}

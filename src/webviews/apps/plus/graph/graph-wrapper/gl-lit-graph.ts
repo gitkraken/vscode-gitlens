@@ -1680,6 +1680,9 @@ export class GlLitGraph extends LitElement {
 		}
 		this.emitMoreRows.cancel();
 		this.announceLoadingMore.cancel();
+		// Settles (not just clears) so a persisting toast host hears the cancel — the graph element can be
+		// torn down (engine swap) while the app shell lives on.
+		this.settleEdgeNavigation('cancelled');
 		this.cancelPendingPillActivation();
 		// A reveal animation holds a rAF that would otherwise keep writing `scrollTop` on a detached scroller.
 		this.cancelRevealAnimation();
@@ -3168,8 +3171,13 @@ export class GlLitGraph extends LitElement {
 			if (this.needsMoreRows(this.pendingRangeLast)) {
 				this.dispatchMoreRows();
 			}
+
+			this.continueEdgeNavigation();
 		} else if (!displayRowsUnchanged) {
 			this.lastIndexedDisplayRowsRef = this.displayRows;
+			// The row set was replaced outright (repo/scope/filter swap), not appended to — whatever the
+			// search was walking no longer applies.
+			this.settleEdgeNavigation('cancelled');
 		}
 
 		// Split-pill counterpart indexes — built over the FULL processed rows (NOT just displayRows) so a
@@ -3405,6 +3413,9 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private jumpToRefRow(sha: Sha, options?: { focus?: boolean; flash?: boolean }): void {
+		// A fresh jump supersedes any edge-nav search still paging for its own target.
+		this.settleEdgeNavigation('cancelled');
+
 		const focus = options?.focus ?? true;
 		// If the target is hidden inside a collapsed lane, expand that lane first so it can be revealed —
 		// scrollToSha keeps the reveal PENDING and retries once the expanded row renders.
@@ -7831,7 +7842,7 @@ export class GlLitGraph extends LitElement {
 
 		// Reuse the anchored fork while focus is still on one of its lanes; otherwise this row is the fork.
 		let origin = this._forkNavOrigin;
-		let lanes: readonly { sha: string; index: number }[] =
+		let lanes: readonly { sha: string; index: number | undefined }[] =
 			origin != null ? this.resolveForkLaneRows(origin.lanes) : [];
 		if (lanes.every(l => l.index !== this.focusIndex)) {
 			const forkLanes = collectForkLanes(
@@ -7846,8 +7857,8 @@ export class GlLitGraph extends LitElement {
 			lanes = this.resolveForkLaneRows(forkLanes);
 		}
 
-		// Check the RESOLVED lanes, not what the walk collected: resolution drops lanes with nothing to land
-		// on (unloaded, or folded inside a nested collapse), and one landable lane is no fork to walk.
+		// Check the RESOLVED lanes, not what the walk collected: a fork with one visible lane and one
+		// unresolvable (unloaded/hidden) lane is still walkable — that's the point of keeping them.
 		if (lanes.length < 2) return false;
 
 		const cursor = lanes.findIndex(l => l.index === this.focusIndex);
@@ -7863,25 +7874,36 @@ export class GlLitGraph extends LitElement {
 			return true;
 		}
 
-		const moved = this.applyRowNavigation(event, target.index);
-		// After `applyRowNavigation`, which clears the anchor on every move — including this one.
+		let moved: boolean;
+		if (target.index != null) {
+			// `applyRowNavigation` clears the anchor on every move — including this one — so it's
+			// re-armed below regardless of which branch ran.
+			moved = this.applyRowNavigation(event, target.index);
+		} else {
+			// Unresolved lane: load/unhide it and let the armed reveal land it once it renders.
+			event.preventDefault();
+			this.jumpToRefRow(target.sha, { focus: true, flash: true });
+			moved = true;
+		}
+
+		// Keep the anchor so the next Ctrl/Cmd+Arrow continues the same fork once this lane lands.
 		this._forkNavOrigin = origin;
 		this.announce(`Lane ${cursor + dir + 1} of ${lanes.length} at fork point.`);
 		return moved;
 	}
 
 	/** Map fork lanes onto the rows actually rendered, preserving `collectForkLanes`' ascending-column
-	 *  order and dropping lanes with nothing to land on. A lane hidden inside a collapsed segment resolves
-	 *  to that segment's chip row instead (same fallback `findBranchingPointIndex` applies). */
-	private resolveForkLaneRows(lanes: readonly { sha: string }[]): readonly { sha: string; index: number }[] {
-		const rows: { sha: string; index: number }[] = [];
-		for (const lane of lanes) {
-			const index = this.indexBySha.get(lane.sha) ?? this.mapFoldedRowIndex(lane.sha);
-			if (index == null) continue;
-
-			rows.push({ sha: lane.sha, index: index });
-		}
-		return rows;
+	 *  order. A lane with nothing to land on (unloaded, or hidden by a search filter) is kept with
+	 *  `index: undefined` rather than dropped, so the walk can jump-load or unhide it. A lane hidden inside
+	 *  a collapsed segment resolves to that segment's chip row instead (same fallback `findBranchingPointIndex`
+	 *  applies). */
+	private resolveForkLaneRows(
+		lanes: readonly { sha: string }[],
+	): readonly { sha: string; index: number | undefined }[] {
+		return lanes.map(lane => ({
+			sha: lane.sha,
+			index: this.indexBySha.get(lane.sha) ?? this.mapFoldedRowIndex(lane.sha),
+		}));
 	}
 
 	/** Fold or unfold every collapsible lane in one step (Shift+Left / Shift+Right). Deliberately not
@@ -7958,6 +7980,81 @@ export class GlLitGraph extends LitElement {
 		return index;
 	}
 
+	/** A downward fork-point / ref-row search that ran off the loaded end: keep paging until the finder
+	 *  hits, then land on it. `fromSha` re-derives the walk origin after each append; the backstop stops
+	 *  a search whose pages stop arriving. */
+	private _pendingEdgeNav?: { kind: 'forkPoint' | 'refRow'; fromSha: Sha; backstop: ReturnType<typeof setTimeout> };
+
+	/** Arm (or re-arm) the 30s giveup timer for the pending edge-nav search. */
+	private armEdgeNavBackstop(): ReturnType<typeof setTimeout> {
+		return setTimeout(() => {
+			this.settleEdgeNavigation('cancelled');
+			this.announce('Stopped waiting for more commits.');
+		}, 30000);
+	}
+
+	/** Start a persistent downward search for the next fork point / ref row that keeps paging until the
+	 *  finder hits — supersedes any search already in flight (silently, so the new one owns the toast). */
+	private startEdgeNavigation(kind: 'forkPoint' | 'refRow', fromSha: Sha): void {
+		this.settleEdgeNavigation('cancelled');
+		this._pendingEdgeNav = { kind: kind, fromSha: fromSha, backstop: this.armEdgeNavBackstop() };
+		this.emitMoreRows();
+		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: { kind: kind, status: 'started' } }));
+		this.announce('Loading more commits…');
+	}
+
+	/** Settle the pending edge-nav search, if any, and report why. No-op when nothing is pending, so a
+	 *  stray call (e.g. a row-set replace with no search running) can't fire a spurious event. */
+	private settleEdgeNavigation(status: 'found' | 'exhausted' | 'cancelled'): void {
+		const pending = this._pendingEdgeNav;
+		if (pending == null) return;
+
+		clearTimeout(pending.backstop);
+		this._pendingEdgeNav = undefined;
+		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: { kind: pending.kind, status: status } }));
+	}
+
+	/** Retry the pending edge-nav search against freshly-appended rows — called from
+	 *  `recomputeDisplayRows` once a page lands. Lands on a hit, keeps paging while more rows are still
+	 *  reachable, or settles once the row set runs dry. */
+	private continueEdgeNavigation(): void {
+		const pending = this._pendingEdgeNav;
+		if (pending == null) return;
+
+		const from = this.indexBySha.get(pending.fromSha);
+		if (from == null) {
+			// The walk origin itself vanished — a repo/scope/filter swap outran this settle path.
+			this.settleEdgeNavigation('cancelled');
+			return;
+		}
+
+		const next =
+			pending.kind === 'forkPoint' ? this.findBranchingPointIndex(from, 1) : this.findRefRowIndex(from, 1);
+		if (next != null) {
+			// Settle FIRST: `commitRowNavigation` clears `_forkNavOrigin`, not this search, but landing
+			// should read as done before the move fires its own selection/reveal events.
+			this.settleEdgeNavigation('found');
+			this.commitRowNavigation(next, false);
+			return;
+		}
+
+		if (this.needsMoreRows(this.displayRows.length - 1)) {
+			// Progress arrived without a hit yet — the search is still alive, so keep paging.
+			clearTimeout(pending.backstop);
+			pending.backstop = this.armEdgeNavBackstop();
+			this.emitMoreRows();
+			return;
+		}
+
+		this.settleEdgeNavigation('exhausted');
+		this.announce(pending.kind === 'forkPoint' ? 'No further fork.' : 'No further ref.');
+	}
+
+	/** Cancel the in-flight edge-nav search, if any — the jump toast's Cancel action calls through here. */
+	cancelEdgeNavigation(): void {
+		this.settleEdgeNavigation('cancelled');
+	}
+
 	/** Step along the first-parent lineage (Ctrl/Cmd+`↑`/`↓`). */
 	private stepLineage(event: KeyboardEvent, dir: 1 | -1): boolean {
 		const last = this.displayRows.length - 1;
@@ -7967,12 +8064,26 @@ export class GlLitGraph extends LitElement {
 
 		const next = this.findTopologicalRowIndex(this.focusIndex, dir);
 		if (next == null) {
-			return this.navigationDeadEnd(
-				event,
-				dir,
-				last,
-				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
-			);
+			// Downward: the target sha is KNOWN even when its row isn't loaded — jump to it directly
+			// instead of blind-paging. `dir === -1` has no known target to chase, so it keeps dead-ending.
+			if (dir === 1) {
+				const cur = this.displayRows[this.focusIndex];
+				// Display `parents[0]` is the projection's remapped first VISIBLE ancestor (see
+				// `findTopologicalRowIndex`) — fall back to the raw row's true first parent when the
+				// projection omitted it.
+				const parentSha =
+					cur?.parents?.[0] ?? (cur != null ? this.getRowByShaMap()?.get(cur.sha)?.parents?.[0] : undefined);
+				event.preventDefault();
+				if (parentSha != null) {
+					this.jumpToRefRow(parentSha, { focus: true, flash: true });
+				} else {
+					this.announce('No older commit in this lineage.');
+				}
+
+				return true;
+			}
+
+			return this.navigationDeadEnd(event, dir, last, 'No newer commit in this lineage.');
 		}
 
 		return this.applyRowNavigation(event, next);
@@ -7986,6 +8097,16 @@ export class GlLitGraph extends LitElement {
 
 		const next = this.findBranchingPointIndex(this.focusIndex, dir);
 		if (next == null) {
+			// Downward, the next fork isn't knowable until further rows load — keep paging for it rather
+			// than asking for one blind page per press. The finder also returns null for an unresolvable
+			// `focusIndex`, so the origin sha must be re-checked before it can anchor a search.
+			const fromSha = this.displayRows[this.focusIndex]?.sha;
+			if (dir === 1 && fromSha != null && !this.searchFiltering && this.needsMoreRows(last)) {
+				event.preventDefault();
+				this.startEdgeNavigation('forkPoint', fromSha);
+				return true;
+			}
+
 			return this.navigationDeadEnd(event, dir, last, dir === 1 ? 'No further fork.' : 'No previous fork.');
 		}
 
@@ -7999,6 +8120,16 @@ export class GlLitGraph extends LitElement {
 
 		const next = this.findRefRowIndex(this.focusIndex, dir);
 		if (next == null) {
+			// Downward, the next ref isn't knowable until further rows load — keep paging for it rather
+			// than asking for one blind page per press. Guarded like the fork search: an unresolvable
+			// `focusIndex` has no sha to anchor the walk on.
+			const fromSha = this.displayRows[this.focusIndex]?.sha;
+			if (dir === 1 && fromSha != null && !this.searchFiltering && this.needsMoreRows(last)) {
+				event.preventDefault();
+				this.startEdgeNavigation('refRow', fromSha);
+				return true;
+			}
+
 			return this.navigationDeadEnd(event, dir, last, dir === 1 ? 'No further ref.' : 'No previous ref.');
 		}
 
@@ -8093,16 +8224,24 @@ export class GlLitGraph extends LitElement {
 	/** Commit a row move to `next`: focus + selection (Shift extends the range from the anchor), reveal, and
 	 *  the paging ask. Returns true — the key is consumed either way, even when the target row is gone. */
 	private applyRowNavigation(event: KeyboardEvent, next: number): boolean {
+		event.preventDefault();
+
+		this.settleEdgeNavigation('cancelled');
+		const multiEnabled = this.config?.multiSelectionMode !== false;
+		return this.commitRowNavigation(next, event.shiftKey && multiEnabled);
+	}
+
+	/** The move `applyRowNavigation` commits, factored out so a landed edge-nav search (which has no
+	 *  `KeyboardEvent` to read Shift from) can drive the same focus/selection/reveal path. */
+	private commitRowNavigation(next: number, extendRange: boolean): boolean {
 		// Any ordinary move leaves the fork the lateral lane walk was anchored at, so the next
 		// Ctrl/Cmd+Arrow re-derives its lanes from wherever focus landed.
 		this._forkNavOrigin = undefined;
 
-		event.preventDefault();
 		const targetSha = this.displayRows[next]?.sha;
 		if (targetSha == null) return true;
 
-		const multiEnabled = this.config?.multiSelectionMode !== false;
-		if (event.shiftKey && multiEnabled) {
+		if (extendRange) {
 			// Shift+Arrow extends a range selection from the fixed anchor to the new row; the details panel
 			// follows the moving end. The anchor stays put across successive Shift+Arrows.
 			const anchor = this.selectionAnchorIndex;

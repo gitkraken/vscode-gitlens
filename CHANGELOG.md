@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves _Commit Graph_ keyboard navigation across not-yet-loaded history &mdash; `Ctrl`+`↓` now jumps straight to the first parent even when it isn't loaded yet, `Alt`+`↓` and `]` keep loading until the next fork point or ref is found (with a cancellable _Looking for…_ indicator), and `Ctrl`+`←`/`→` can reach fork lanes that are hidden or not yet loaded instead of skipping them
 - Changes the _Git Command Palette_'s confirmations to one consistent design &mdash; action rows (safest pre-selected) plus checkbox toggles for options, replacing a row for every flag combination; toggles default from your Git config (`fetch.prune`, `merge.ff`), and _Force_ toggles visibly rewrite the action and never default on
 - Changes pushing in the _Git Command Palette_ to three consistent confirmation shapes &mdash; ahead, behind, and unpublished &mdash; with the blocking reason shown above the choices and the _Fetch_ action beside the input
 - Changes switching in the _Git Command Palette_ to just the targets, with an _In a New Worktree_ toggle (remembered per repository); _Switch to Local Branch & Fast-Forward_ now works in a worktree
