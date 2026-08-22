@@ -81,6 +81,14 @@
 			}
 		},
 		{
+			"label": "dev:launch (build)",
+			"type": "shell",
+			"command": "pnpm",
+			"args": ["run", "dev:launch", "-b"],
+			"group": "test",
+			"problemMatcher": []
+		},
+		{
 			"label": "Run (local web)",
 			"type": "npm",
 			"script": "web",
