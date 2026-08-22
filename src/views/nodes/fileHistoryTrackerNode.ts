@@ -143,10 +143,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
 	@trace({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		// If we are losing the active editor, give more time before assuming its really gone
-		// For virtual repositories the active editor event takes a while to fire
-		// Ultimately we need to be using the upcoming Tabs api to avoid this
-		if (editor == null && isVirtualUri(this._uri)) {
+		// If we are losing the active editor, give more time before assuming its really gone.
+		// This can happen on initial activation before the editor is fully established,
+		// including for non-virtual URIs. Ultimately we need to be using the upcoming Tabs api to avoid this.
+		if (editor == null && (this.hasUri || isVirtualUri(this._uri))) {
 			this._triggerChangeDebounced ??= debounce(() => this.triggerChange(), 1500);
 			void this._triggerChangeDebounced();
 			return;
