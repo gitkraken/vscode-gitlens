@@ -509,6 +509,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
 	private _treemapInvalidateSubscription: Disposable | undefined;
+	private _agentStatusSubscriptions: Disposable[] | undefined;
 
 	// The state-notify coalescer (pending notify/op, last-sent watermark, freshness retry timer, dirty flag)
 	// now lives on `_data` (GraphDataController); the provider drives it via `_data.resetStateNotify()`,
@@ -683,16 +684,42 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 			},
 			this.container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionChanged, this),
-			this.container.agentStatus?.onDidChangeSessions(this.onAgentSessionsChanged, this) ?? {
-				dispose: () => {},
+			{
+				dispose: () => {
+					this._agentStatusSubscriptions?.forEach(d => {
+						d.dispose();
+					});
+					this._agentStatusSubscriptions = undefined;
+				},
 			},
-			this.container.agentStatus?.onDidChangeHooksInstallState(
-				() => void this.notifyDidChangeCanInstallHooks(),
-				this,
-			) ?? { dispose: () => {} },
+			this.container.onDidChangeAgentStatus(() => this.subscribeToAgentStatus(), this),
 		);
 
 		this.subscribeToTreemapInvalidations();
+		this.subscribeToAgentStatus();
+	}
+
+	// `container.agentStatus` is created/disposed asynchronously by the container as the org/AI gate
+	// flips; a one-shot subscription would either latch a no-op (constructed before the service exists)
+	// or go stale (service disposed and recreated). Resubscribe on the container's healing signal instead.
+	private subscribeToAgentStatus(): void {
+		this._agentStatusSubscriptions?.forEach(d => {
+			d.dispose();
+		});
+		this._agentStatusSubscriptions = undefined;
+
+		if (this.container.agentStatus != null) {
+			this._agentStatusSubscriptions = [
+				this.container.agentStatus.onDidChangeSessions(this.onAgentSessionsChanged, this),
+				this.container.agentStatus.onDidChangeHooksInstallState(
+					() => void this.notifyDidChangeCanInstallHooks(),
+					this,
+				),
+			];
+		}
+
+		void this.notifyDidChangeAgentSessions();
+		void this.notifyDidChangeCanInstallHooks();
 	}
 
 	private subscribeToTreemapInvalidations(): void {

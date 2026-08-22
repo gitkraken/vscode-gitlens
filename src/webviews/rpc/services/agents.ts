@@ -63,8 +63,20 @@ export class AgentsService {
 			buffer,
 			'agentsChanged',
 			'save-last',
-			buffered =>
-				Disposable.from(
+			buffered => {
+				let hooksSubscription: Disposable | undefined;
+
+				// `container.agentStatus` is created/disposed asynchronously by the container; resubscribe
+				// on the container's healing signal instead of latching a one-shot reference.
+				const wireHooksSubscription = () => {
+					hooksSubscription?.dispose();
+					hooksSubscription = this.container.agentStatus?.onDidChangeHooksInstallState(() => {
+						void this.getAgents().then(buffered);
+					});
+				};
+				wireHooksSubscription();
+
+				return Disposable.from(
 					configuration.onDidChange(e => {
 						if (configuration.changed(e, 'ai.defaultAgent')) {
 							void this.getAgents().then(buffered);
@@ -78,10 +90,17 @@ export class AgentsService {
 					this.container.agents.onDidChangeAgents(() => {
 						void this.getAgents().then(buffered);
 					}),
-					this.container.agentStatus?.onDidChangeHooksInstallState(() => {
+					this.container.onDidChangeAgentStatus(() => {
+						wireHooksSubscription();
 						void this.getAgents().then(buffered);
-					}) ?? { dispose: () => {} },
-				),
+					}),
+					{
+						dispose: () => {
+							hooksSubscription?.dispose();
+						},
+					},
+				);
+			},
 			undefined,
 			tracker,
 		);

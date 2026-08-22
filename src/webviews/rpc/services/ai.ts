@@ -62,8 +62,20 @@ export class AIService {
 			buffer,
 			'aiStateChanged',
 			'save-last',
-			buffered =>
-				Disposable.from(
+			buffered => {
+				let hooksSubscription: Disposable | undefined;
+
+				// `container.agentStatus` is created/disposed asynchronously by the container; resubscribe
+				// on the container's healing signal instead of latching a one-shot reference.
+				const wireHooksSubscription = () => {
+					hooksSubscription?.dispose();
+					hooksSubscription = container.agentStatus?.onDidChangeHooksInstallState(() => {
+						void this.#getAIState().then(buffered);
+					});
+				};
+				wireHooksSubscription();
+
+				return Disposable.from(
 					configuration.onDidChange(e => {
 						if (configuration.changed(e, ['ai.enabled', 'gitkraken.mcp.autoEnabled', 'ai.defaultAgent'])) {
 							void this.#getAIState().then(buffered);
@@ -78,13 +90,20 @@ export class AIService {
 							void this.#getAIState().then(buffered);
 						}
 					}),
-					container.agentStatus?.onDidChangeHooksInstallState(() => {
-						void this.#getAIState().then(buffered);
-					}) ?? { dispose: () => {} },
 					container.agents.onDidChangeAgents(() => {
 						void this.#getAIState().then(buffered);
 					}),
-				),
+					container.onDidChangeAgentStatus(() => {
+						wireHooksSubscription();
+						void this.#getAIState().then(buffered);
+					}),
+					{
+						dispose: () => {
+							hooksSubscription?.dispose();
+						},
+					},
+				);
+			},
 			undefined,
 			tracker,
 		);
