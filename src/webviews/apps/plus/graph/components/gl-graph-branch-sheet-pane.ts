@@ -826,10 +826,11 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const worktreePath = branch.worktree?.path;
 		if (worktreePath == null) return nothing;
 
-		const sessions = matchAgentSessionsForWorktree(this.graphState?.agentSessions, {
-			repoPath: branch.repoPath,
-			worktreePath: worktreePath,
-		});
+		const sessions = matchAgentSessionsForWorktree(
+			this.graphState?.agentSessions,
+			{ repoPath: branch.repoPath, worktreePath: worktreePath },
+			{ includeVisited: true },
+		);
 		// Gate on the resolved list, not the raw cache — see `_cyclePastSessions`.
 		if ((sessions?.length ?? 0) === 0 && (this._cyclePastSessions?.sessions.length ?? 0) === 0) return nothing;
 

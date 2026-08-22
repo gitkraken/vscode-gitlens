@@ -19,7 +19,7 @@ import type {
 	TreemapMode,
 	TreemapNode,
 } from '../../../../plus/treemap/protocol.js';
-import { filterAgentSessionsForFamily } from '../../../shared/agentUtils.js';
+import { filterAgentSessionsForFamily, isAgentSessionCurrentInFamily } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -867,18 +867,23 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		if (sessions == null || sessions.length === 0) return emptyActivity;
 
 		const repoFamilyPath = repo.commonPath ?? repo.path;
+		const worktreePathsSet =
+			this.graphState.worktreePaths != null ? new Set(this.graphState.worktreePaths) : undefined;
 		// Scope to same-family sessions once, up front — both the root set and the activity merge
 		// below run off this list, so "which sessions count" is decided here and only here.
-		const familySessions = filterAgentSessionsForFamily(
-			sessions,
-			repoFamilyPath,
-			this.graphState.worktreePaths != null ? new Set(this.graphState.worktreePaths) : undefined,
+		const familySessions = filterAgentSessionsForFamily(sessions, repoFamilyPath, worktreePathsSet);
+		// Ghost sessions (admitted into `familySessions` only via visited history) run their live
+		// edits wherever they are NOW, not here — restrict the root set and the activity merge to
+		// sessions whose CURRENT identity is actually in-family, or a ghost's foreign-repo file
+		// paths would strip against a foreign root and paint onto this repo's tree.
+		const currentFamilySessions = familySessions.filter(s =>
+			isAgentSessionCurrentInFamily(s, repoFamilyPath, worktreePathsSet),
 		);
 		const familyRoots = this.collectFamilyRoots(
 			repo.path,
 			repo.commonPath,
 			this.graphState.worktreePaths,
-			familySessions,
+			currentFamilySessions,
 		);
 		let entries: Map<string, ActivityEntry> | undefined;
 
@@ -886,7 +891,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		// kinds are tracked independently (no write-wins) so the chart can blend the two
 		// chromes by relative heat. When multiple sessions touch the same path, the smaller
 		// `readAt`/`editedAt` (= more recent) wins and `reading`/`editing` OR-reduce.
-		for (const session of familySessions) {
+		for (const session of currentFamilySessions) {
 			const activity = session.fileActivity;
 			if (!activity?.length) continue;
 

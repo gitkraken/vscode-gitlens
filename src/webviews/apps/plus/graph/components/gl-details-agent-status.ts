@@ -791,7 +791,10 @@ export class GlDetailsAgentStatus extends LitElement {
 	pastSessions?: PastAgentSessionsResult;
 
 	/** The worktree the past sessions belong to — threaded into the "Resume Session…" footer
-	 *  button's `showResumeSessionPicker` command link. */
+	 *  button's `showResumeSessionPicker` command link. Also the worktree scope for ghost
+	 *  detection: `undefined` means this surface has no worktree dimension (e.g. the treemap's
+	 *  compact Activity-toolbar cluster, which spans an entire repo family) — every session is
+	 *  then treated as current and none render as ghosts. See {@link isCurrent}. */
 	@property({ attribute: false })
 	worktreePath?: string;
 
@@ -911,7 +914,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		// (visited-but-not-current) shouldn't inflate "N working"/"N need input" for a worktree
 		// it merely passed through. `renderSection` still receives the full `live` set so its
 		// cards keep showing ghost rows (dimmed, see `renderCard`).
-		const currentLive = live.filter(s => isAgentSessionCurrentForWorktree(s, this.worktreePath));
+		const currentLive = live.filter(s => this.isCurrent(s));
 		return this.renderSection(live, this.tally(currentLive), past);
 	}
 
@@ -919,14 +922,12 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *  Hover still surfaces the per-session detail via the same shared popover body. */
 	private renderClusterOnly(sessions: AgentSessionState[]): unknown {
 		// Counts exclude ghosts — see the matching note in `render()`.
-		const currentSessions = sessions.filter(s => isAgentSessionCurrentForWorktree(s, this.worktreePath));
+		const currentSessions = sessions.filter(s => this.isCurrent(s));
 		const counts = this.tally(currentSessions);
 		// LIVE and CURRENT only. The cluster answers "what is happening right now, in this
 		// worktree" — a ghost dot in a five-dot cluster would be indistinguishable from a real one
 		// and would disagree with the count beside it.
-		const clusterSessions = sessions.filter(
-			s => agentPhaseToCategory[s.phase] !== 'ended' && isAgentSessionCurrentForWorktree(s, this.worktreePath),
-		);
+		const clusterSessions = sessions.filter(s => agentPhaseToCategory[s.phase] !== 'ended' && this.isCurrent(s));
 		const visibleDots = clusterSessions.slice(0, maxClusterDots);
 		const overflow = clusterSessions.length - visibleDots.length;
 		// `.section__hover` has no max-height, and active sessions are deliberately uncapped, so a
@@ -1086,9 +1087,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		// LIVE and CURRENT only — see the matching note in `renderClusterOnly`. Ended sessions are
 		// also excluded: history would swamp the dots and turn the overflow badge into a
 		// four-digit pill. The "N past" figure in the summary beside it is where that count belongs.
-		const clusterSessions = sessions.filter(
-			s => agentPhaseToCategory[s.phase] !== 'ended' && isAgentSessionCurrentForWorktree(s, this.worktreePath),
-		);
+		const clusterSessions = sessions.filter(s => agentPhaseToCategory[s.phase] !== 'ended' && this.isCurrent(s));
 		const visibleDots = clusterSessions.slice(0, maxClusterDots);
 		const overflow = clusterSessions.length - visibleDots.length;
 
@@ -1258,7 +1257,7 @@ export class GlDetailsAgentStatus extends LitElement {
 					});
 		// A ghost (visited-but-not-current) row still lists here — see `renderCard` for why — but
 		// dims and its name tooltip gains a "now in X" hint pointing at where it actually is.
-		const isGhost = !isAgentSessionCurrentForWorktree(session, this.worktreePath);
+		const isGhost = !this.isCurrent(session);
 		const nameTooltip = isGhost
 			? `${session.displayName} — now in ${this.ghostLocationLabel(session)}`
 			: session.displayName;
@@ -1317,7 +1316,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		// of its history — but dims, and its name tooltip gains a "now in X" hint. Session-id-based
 		// actions (open, resolve permission, archive) stay fully functional: they address the
 		// session wherever it actually is, not this worktree specifically.
-		const isGhost = !isAgentSessionCurrentForWorktree(session, this.worktreePath);
+		const isGhost = !this.isCurrent(session);
 		const nameTooltip = isGhost
 			? `${session.displayName} — now in ${this.ghostLocationLabel(session)}`
 			: session.displayName;
@@ -1492,6 +1491,15 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *  main worktree. Used in the "now in X" hint on ghost cards/hover rows. */
 	private ghostLocationLabel(session: AgentSessionState): string {
 		return session.worktreePath ? basename(session.worktreePath) : session.providerName;
+	}
+
+	/** Whether `session` counts as "current" for this component's worktree scope. `worktreePath ==
+	 *  null` means this surface has no worktree dimension at all (e.g. the treemap's compact
+	 *  Activity-toolbar cluster, which shows sessions across an entire repo family, not one
+	 *  worktree) — every session counts as current and none render as ghosts. Otherwise defers to
+	 *  {@link isAgentSessionCurrentForWorktree}. */
+	private isCurrent(session: AgentSessionState): boolean {
+		return this.worktreePath == null || isAgentSessionCurrentForWorktree(session, this.worktreePath);
 	}
 
 	private tally(sessions: AgentSessionState[]): Record<AgentSessionCategory, number> {

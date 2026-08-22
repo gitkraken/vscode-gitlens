@@ -2423,6 +2423,59 @@ suite('ClaudeCodeProvider ended sessions', () => {
 		}
 	});
 
+	test('an ended row re-seated onto a new worktree still refills commonPath', async () => {
+		// The still-ended re-seat branch (record keeps reporting `ended`, just onto a different
+		// worktree) always drops `commonPath` when the worktree moves, but the follow-up probe used
+		// to fire only when the record left `worktreePath` empty (`nextWorktreePath == null`) — a
+		// record that DOES name a worktree, just a different one, dropped commonPath and never
+		// refilled it. Distinct from the revive-branch test above: this record stays `ended` the
+		// whole time, never reporting `active`.
+		const WORKTREE = `${REPO}.worktrees/feature`;
+		let gitInfoCalls = 0;
+		const options: {
+			cliResponse?: string;
+			resolveGitInfo?: () => Promise<{ repoRoot: string; worktreePath: string; isWorktree: boolean }>;
+		} = {
+			cliResponse: JSON.stringify([
+				endedRecord('ended-wt', { cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }] }),
+			]),
+			resolveGitInfo: () => {
+				gitInfoCalls++;
+				return Promise.resolve({ repoRoot: WORKTREE, worktreePath: WORKTREE, isWorktree: true });
+			},
+		};
+		const { callbacks } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			let s = provider.sessions.find(x => x.id === 'ended-wt');
+			assert.strictEqual(s?.status, 'ended');
+			assert.strictEqual(s?.worktreePath, REPO);
+			assert.strictEqual(gitInfoCalls, 0, 'no probe while the record already names the worktree');
+
+			// A later poll re-seats the SAME (still-ended) record onto a different worktree.
+			options.cliResponse = JSON.stringify([
+				endedRecord('ended-wt', {
+					cwd: WORKTREE,
+					cwdTimeline: [{ cwd: WORKTREE, worktree: WORKTREE, at: '2026-07-10T00:05:00.000Z' }],
+					updatedAt: '2026-07-10T00:05:00.000Z',
+				}),
+			]);
+			await provider.runGatedSync();
+			await flushMicrotasks();
+
+			s = provider.sessions.find(x => x.id === 'ended-wt');
+			assert.strictEqual(s?.status, 'ended', 'the record still reports ended — no revive');
+			assert.strictEqual(s?.worktreePath, WORKTREE, 'the record’s new worktree wins');
+			assert.ok(gitInfoCalls >= 1, 'the new worktree must still trigger the commonPath probe');
+			assert.strictEqual(s?.commonPath, WORKTREE, 'commonPath is refilled by the probe');
+		} finally {
+			provider.dispose();
+		}
+	});
+
 	test('poll re-resolves the transcript title for a tracked live session that still lacks one', async () => {
 		// A poll-discovered session (another worktree/window owns its hooks) gets no idle-transition
 		// re-resolve, so one discovered before Claude wrote its ai-title would show the repo slug
@@ -3698,6 +3751,61 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 			assert.strictEqual(s?.worktreePath, ELSEWHERE);
 			assert.strictEqual(s?.workspacePath, undefined, 'membership honestly drops after a real re-root');
 			assert.strictEqual(s?.isInWorkspace, false);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a worktree move with the SAME cwd still re-probes and refills commonPath', async () => {
+		// `locationNeedsProbe` used to require `cwdMoved`, so a CLI-attributed worktree move that
+		// arrives with the same cwd (cwdTimeline updated, cwd unchanged) never re-fired the probe.
+		// The scratch-cwd fallback fills `commonPath` from the first worktree, latches
+		// `gitInfoUnresolvable`, and nothing afterward could ever clear it to refill for the new one.
+		const SCRATCH = '/tmp/scratch';
+		const REPO_A = '/repoA';
+		const REPO_B = '/repoB';
+		const { callbacks, handlers } = createMockCallbacks({
+			resolveGitInfo: (cwd: string) =>
+				Promise.resolve(cwd === SCRATCH ? undefined : { repoRoot: cwd, worktreePath: cwd, isWorktree: false }),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO_A, REPO_B]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{
+					event: 'SessionStart',
+					sessionId: 's1',
+					cwd: SCRATCH,
+					pid: process.pid,
+					cwdTimeline: [{ cwd: SCRATCH, worktree: REPO_A }],
+				},
+				new URLSearchParams(),
+			);
+			await flushMicrotasks();
+			await flushMicrotasks();
+
+			let s = provider.sessions.find(x => x.id === 's1');
+			assert.strictEqual(s?.worktreePath, REPO_A);
+			assert.strictEqual(s?.commonPath, REPO_A, 'the fallback probe fills commonPath from repoA');
+
+			// Same cwd, but the CLI now attributes the session to a different worktree.
+			await handler(
+				{
+					event: 'PreToolUse',
+					sessionId: 's1',
+					cwd: SCRATCH,
+					toolName: 'Read',
+					cwdTimeline: [{ cwd: SCRATCH, worktree: REPO_B }],
+				},
+				new URLSearchParams(),
+			);
+			await flushMicrotasks();
+			await flushMicrotasks();
+
+			s = provider.sessions.find(x => x.id === 's1');
+			assert.strictEqual(s?.worktreePath, REPO_B, 'attribution follows the CLI-explained move');
+			assert.strictEqual(s?.commonPath, REPO_B, 'commonPath is refilled for the new worktree');
 		} finally {
 			provider.dispose();
 		}

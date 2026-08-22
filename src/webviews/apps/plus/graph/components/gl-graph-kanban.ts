@@ -4,6 +4,7 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
@@ -18,6 +19,7 @@ import {
 	fpField,
 	getAgentPhaseLabel,
 	getAgentSessionOpenAction,
+	isAgentSessionCurrentInFamily,
 	permissionFingerprint,
 	sortAgentSessions,
 } from '../../../shared/agentUtils.js';
@@ -306,6 +308,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				outline-offset: -1px;
 			}
 
+			/* A ghost (visited-but-not-current) card — same dim idiom as the details panel's
+		   .card--ghost (opacity 0.6), applied on top of whichever column accent the card
+		   otherwise carries. */
+			.card--ghost {
+				opacity: 0.6;
+			}
+
 			.card[data-column='needs-input'] {
 				border-left: 2px solid var(--gl-agent-waiting-color);
 			}
@@ -469,6 +478,10 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	private _familyFilterCache?: {
 		sessionsRef: readonly AgentSessionState[];
 		family: string | undefined;
+		// `graphState.worktreePaths` arrives on a DIFFERENT notification channel than
+		// `agentSessions` — comparing this reference too (not just `sessionsRef`/`family`) catches a
+		// worktree add/remove that would otherwise serve a stale filtered list.
+		worktreePathsRef: readonly string[] | undefined;
 		filtered: AgentSessionState[];
 	};
 
@@ -499,15 +512,19 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  host push. */
 	private familyFilteredSessions(sessions: readonly AgentSessionState[]): AgentSessionState[] {
 		const family = this.family;
+		const worktreePaths = this.graphState.worktreePaths;
 		const cache = this._familyFilterCache;
-		if (cache?.sessionsRef === sessions && cache?.family === family) return cache.filtered;
+		if (cache?.sessionsRef === sessions && cache?.family === family && cache?.worktreePathsRef === worktreePaths) {
+			return cache.filtered;
+		}
 
-		const filtered = filterAgentSessionsForFamily(
-			sessions,
-			family,
-			this.graphState.worktreePaths != null ? new Set(this.graphState.worktreePaths) : undefined,
-		);
-		this._familyFilterCache = { sessionsRef: sessions, family: family, filtered: filtered };
+		const filtered = filterAgentSessionsForFamily(sessions, family, this.familyWorktreePaths);
+		this._familyFilterCache = {
+			sessionsRef: sessions,
+			family: family,
+			worktreePathsRef: worktreePaths,
+			filtered: filtered,
+		};
 		return filtered;
 	}
 
@@ -566,6 +583,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  - `pendingPermission` — encoded by {@link permissionFingerprint} so every needs-input
 	 *    variant's renderable fields (plan summary/file, question text/count, tool name/desc, …)
 	 *    contribute, not just the kind/toolName pair the early version captured.
+	 *  - `worktreePath`/`commonPath` — drive the ghost (visited-but-not-current) dimming, "now in X"
+	 *    detail-line override, and the header/column count exclusion; a session moving repos must
+	 *    repaint even when nothing else about it changed.
 	 *
 	 *  Adding a new rendered field requires extending this fingerprint (or {@link permissionFingerprint}
 	 *  for permission-typed fields) or the kanban will silently fail to update when only that
@@ -575,7 +595,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		for (const s of sessions) {
 			const subtitle = s.worktree?.branch?.name ?? s.worktree?.name ?? s.worktree?.path ?? '';
 			parts.push(
-				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${fpField(subtitle)}|${s.phaseSince.getTime()}|${Math.floor(s.lastActivity.getTime() / 60000)}|${permissionFingerprint(s.pendingPermission)}`,
+				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${fpField(subtitle)}|${s.phaseSince.getTime()}|${Math.floor(s.lastActivity.getTime() / 60000)}|${permissionFingerprint(s.pendingPermission)}|${fpField(s.worktreePath)}|${fpField(s.commonPath)}`,
 			);
 		}
 		return parts.join('\n');
@@ -762,6 +782,32 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		return repo == null ? undefined : (repo.commonPath ?? repo.path);
 	}
 
+	/** Repo-family worktree paths as a Set, for `isAgentSessionCurrentInFamily`/`filterAgentSessionsForFamily`
+	 *  lookups. Constructed fresh each read — the arrays involved are small and this mirrors what
+	 *  `familyFilteredSessions` already does; not worth a separate memo on top of that method's own
+	 *  reference-keyed cache. */
+	private get familyWorktreePaths(): Set<string> | undefined {
+		const worktreePaths = this.graphState.worktreePaths;
+		return worktreePaths != null ? new Set(worktreePaths) : undefined;
+	}
+
+	/** Whether `session` is a ghost for the active family — admitted into `familyFilteredSessions`
+	 *  only via its visited history, while its CURRENT identity (commonPath/worktreePath) is a
+	 *  foreign repo. Ghost cards dim and show a "now in <dir>" hint instead of rendering as
+	 *  ordinary active work — see `renderCard`. Hoisted here alongside `family` since both the
+	 *  card renderer and the column/header counts need it. */
+	private isGhost(session: AgentSessionState): boolean {
+		return !isAgentSessionCurrentInFamily(session, this.family, this.familyWorktreePaths);
+	}
+
+	/** Label for a ghost card's actual current location — mirrors `gl-details-agent-status`'s
+	 *  `ghostLocationLabel`: the worktree path's directory basename, falling back to the provider
+	 *  name when the session has no resolved worktree at all. Copy stays exactly `now in <dir>` so
+	 *  every surface (details panel, branch sheet, kanban) reads the same. */
+	private ghostLocationHint(session: AgentSessionState): string {
+		return `now in ${session.worktreePath ? basename(session.worktreePath) : session.providerName}`;
+	}
+
 	private onCardKeydown = (event: KeyboardEvent): void => {
 		// Enter and Space activate the card as an "open WIP details" affordance, matching the
 		// implicit semantics that `<button>` would provide — we use `<div role="button">` to avoid
@@ -781,6 +827,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const rawSessions = this.familyFilteredSessions(this.graphState.agentSessions ?? []);
 		const { sorted: sessions, buckets: sessionsByColumn } = this.buildBuckets(rawSessions);
+		// Ghosts are still rendered (dimmed, in their column) but must not inflate the header count
+		// — it answers "how many sessions are actually running in this family right now".
+		const currentCount = sessions.filter(s => !this.isGhost(s)).length;
 
 		return html`
 			<section aria-label="Agent Kanban">
@@ -802,7 +851,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 							?auto-show=${this.graphReady}
 						></gl-graph-coachmark>
 						<span class="header__count" aria-live="polite"
-							>${sessions.length} session${sessions.length === 1 ? '' : 's'}</span
+							>${currentCount} session${currentCount === 1 ? '' : 's'}</span
 						>
 					</div>
 					<gl-button
@@ -855,13 +904,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 	private renderColumn(column: KanbanColumnDef, sessions: readonly AgentSessionState[]) {
 		const headingId = `kanban-column-heading-${column.id}`;
+		// Same rationale as the header count — ghosts still render as cards below but don't count
+		// toward the column's own badge.
+		const currentCount = sessions.filter(s => !this.isGhost(s)).length;
 		return html`<section class="column" aria-labelledby=${headingId}>
 			<header class="column__heading" data-column=${column.id} id=${headingId}>
 				<h3 class="column__heading-label">${column.label}</h3>
-				<span
-					class="column__count"
-					aria-label=${`${sessions.length} session${sessions.length === 1 ? '' : 's'}`}
-					>${sessions.length}</span
+				<span class="column__count" aria-label=${`${currentCount} session${currentCount === 1 ? '' : 's'}`}
+					>${currentCount}</span
 				>
 			</header>
 			<div class="column__list scrollable">
@@ -883,7 +933,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		const subtitle = sessionSubtitle(session);
-		const detail = this.resolveStickyDetail(session, category);
+		// A ghost (visited-but-not-current) session still gets a card in whichever column its phase
+		// maps to — this family is part of its history — but its detail line is replaced with where
+		// it actually is now, and the card dims (`.card--ghost`) so it doesn't read as ordinary
+		// active work. Session-id-based actions (open, resolve permission, archive) stay fully
+		// functional: they address the session wherever it actually is.
+		const ghost = this.isGhost(session);
+		const detail = ghost ? this.ghostLocationHint(session) : this.resolveStickyDetail(session, category);
 		const openAction = getAgentSessionOpenAction(session);
 
 		// Use a `<div role="button" tabindex="0">` rather than a native `<button>` so we can host
@@ -894,7 +950,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		// before tabbing into the inner actions.
 		const ariaLabel = `${session.displayName} — ${phaseLabel}${elapsed != null ? ` (${elapsed})` : ''}`;
 		return html`<div
-			class="card"
+			class="card${ghost ? ' card--ghost' : ''}"
 			role="button"
 			tabindex="0"
 			data-column=${columnId}

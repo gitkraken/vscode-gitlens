@@ -9,6 +9,7 @@ import {
 	formatAgentElapsed,
 	indexAgentSessionsByRepoAndWorktree,
 	isAgentSessionCurrentForWorktree,
+	isAgentSessionCurrentInFamily,
 	matchAgentSessionsForWorktree,
 } from '../agentUtils.js';
 
@@ -529,5 +530,62 @@ suite('filterAgentSessionsForFamily', () => {
 			visitedWorktreePaths: ['/repoC/wt1'],
 		});
 		assert.deepStrictEqual(filterAgentSessionsForFamily([s], '/repoA', new Set(['/repoA/wt1'])), []);
+	});
+});
+
+suite('isAgentSessionCurrentInFamily', () => {
+	const family = repo;
+	const otherFamily = '/repo-other/main';
+
+	test('commonPath === family is current', () => {
+		const s = makeSession({ id: 's', commonPath: family, worktreePath: wtA });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family), true);
+	});
+
+	test('an in-family worktreePath counts as current even alongside a stale foreign commonPath', () => {
+		// Peer-merge can carry a foreign commonPath next to an already-moved worktree; the sidebar
+		// placement gate treats that as current, so this helper must agree.
+		const s = makeSession({ id: 's', commonPath: otherFamily, worktreePath: family });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family), true);
+	});
+
+	test('commonPath == null and worktreePath === family is current', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: family });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family), true);
+	});
+
+	test('commonPath == null and worktreePath inside familyWorktreePaths is current', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: wtA });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family, new Set([wtA, wtB])), true);
+	});
+
+	test('commonPath == null and worktreePath outside familyWorktreePaths is not current', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: '/repo-other/wt' });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family, new Set([wtA, wtB])), false);
+	});
+
+	test('commonPath == null and no worktreePath at all is not current', () => {
+		const s = makeSession({ id: 's', commonPath: undefined, worktreePath: undefined });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family, new Set([wtA, wtB])), false);
+	});
+
+	test('visited history does not make a session current, unlike filterAgentSessionsForFamily', () => {
+		const s = makeSession({
+			id: 's',
+			commonPath: otherFamily,
+			worktreePath: '/repo-other/wt',
+			visitedWorktreePaths: [family],
+		});
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, family), false);
+		assert.deepStrictEqual(
+			filterAgentSessionsForFamily([s], family).map(x => x.id),
+			['s'],
+		);
+	});
+
+	test('family == null is never current, regardless of session shape', () => {
+		const s = makeSession({ id: 's', commonPath: family, worktreePath: wtA });
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, undefined), false);
+		assert.strictEqual(isAgentSessionCurrentInFamily(s, undefined, new Set([wtA])), false);
 	});
 });

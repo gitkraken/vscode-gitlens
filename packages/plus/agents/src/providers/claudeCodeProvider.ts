@@ -2337,7 +2337,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// call per hook event for an answer we already have. A first seat (no prior worktree) still
 		// counts as a location change: the move may be out of a non-git dir whose probe latched
 		// `gitInfoUnresolvable`, and `commonPath` still needs the probe.
-		const locationNeedsProbe = cwdMoved && (worktreePath == null || worktreeMoved || existing.worktreePath == null);
+		//
+		// A worktree move is a location change on its own, even with the SAME cwd (cwdTimeline
+		// updated, cwd unchanged) — the `commonPath` drop above (`worktreeMoved ? undefined : …`)
+		// needs the probe to refill it, and without `worktreeMoved` here nothing else would fire it.
+		const locationNeedsProbe =
+			worktreeMoved || (cwdMoved && (worktreePath == null || existing.worktreePath == null));
 		if (locationNeedsProbe) {
 			this.getBookkeeping(sessionId).gitInfoUnresolvable = false;
 		}
@@ -2423,44 +2428,45 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				// session the CLI attributed to a real worktree. Probe the worktree root inline, in
 				// the same in-flight window, so a scratch cwd doesn't leave `commonPath` permanently
 				// unresolved.
+				let worktreeInfo: Awaited<ReturnType<typeof resolveGitInfo>> | undefined;
+				let liveIndex = index;
+				let liveSession = session;
 				if (session.worktreePath != null && session.worktreePath !== cwd && session.commonPath == null) {
-					let worktreeInfo: Awaited<ReturnType<typeof resolveGitInfo>> | undefined;
 					try {
 						worktreeInfo = await resolveGitInfo(session.worktreePath);
 					} catch {
 						worktreeInfo = undefined;
 					}
 
-					const worktreeIndex = this._sessions.findIndex(s => s.id === sessionId);
-					if (worktreeIndex < 0) return;
+					// Re-find and re-read after this second await, for both the success and
+					// fall-through writes below — the array can have been reassigned/spliced (e.g.
+					// `pruneDeadSessions`), or the session's own fields updated, while the probe ran.
+					liveIndex = this._sessions.findIndex(s => s.id === sessionId);
+					if (liveIndex < 0) return;
 
 					if (this._resolveGitInfoPending.has(sessionId)) return;
 
-					if (worktreeInfo != null) {
-						const worktreeSession = this._sessions[worktreeIndex];
-						const worktreeFirstResolve = worktreeSession.initialCommonPath == null;
-						this._sessions[worktreeIndex] = {
-							...worktreeSession,
-							cwd: cwd,
-							commonPath: worktreeInfo.repoRoot,
-							initialWorktreePath: worktreeFirstResolve
-								? worktreeSession.worktreePath
-								: worktreeSession.initialWorktreePath,
-							initialCommonPath: worktreeFirstResolve
-								? worktreeInfo.repoRoot
-								: worktreeSession.initialCommonPath,
-							visitedWorktreePaths: unionVisited(
-								worktreeSession.visitedWorktreePaths,
-								worktreeSession.worktreePath,
-							),
-						};
-						this._onDidChangeSessions.fire();
-						return;
-					}
+					liveSession = this._sessions[liveIndex];
 				}
 
-				if (cwd !== session.cwd) {
-					this._sessions[index] = { ...session, cwd: cwd };
+				if (worktreeInfo != null) {
+					const worktreeFirstResolve = liveSession.initialCommonPath == null;
+					this._sessions[liveIndex] = {
+						...liveSession,
+						cwd: cwd,
+						commonPath: worktreeInfo.repoRoot,
+						initialWorktreePath: worktreeFirstResolve
+							? liveSession.worktreePath
+							: liveSession.initialWorktreePath,
+						initialCommonPath: worktreeFirstResolve ? worktreeInfo.repoRoot : liveSession.initialCommonPath,
+						visitedWorktreePaths: unionVisited(liveSession.visitedWorktreePaths, liveSession.worktreePath),
+					};
+					this._onDidChangeSessions.fire();
+					return;
+				}
+
+				if (cwd !== liveSession.cwd) {
+					this._sessions[liveIndex] = { ...liveSession, cwd: cwd };
 					this._onDidChangeSessions.fire();
 				}
 				return;
@@ -2845,9 +2851,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						};
 						changed = true;
 
-						// Nothing in the record to re-seat it with (older CLI), so resolve the new cwd
-						// once rather than leaving the row location-less.
-						if (nextWorktreePath == null && data.cwd) {
+						// Nothing in the record to re-seat it with (older CLI), or the record names a
+						// NEW worktree the drop above just cleared `commonPath` for — either way, resolve
+						// the cwd once rather than leaving the row location-less until some later event
+						// happens to change `cwd`/`worktreePath` again (a same-worktree poll afterward
+						// skips this branch entirely, since `worktreeMoved` goes false).
+						if (data.cwd && (nextWorktreePath == null || worktreeMoved)) {
 							void this.resolveGitInfo(data.sessionId, data.cwd);
 						}
 					}

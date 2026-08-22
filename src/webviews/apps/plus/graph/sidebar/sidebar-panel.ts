@@ -1906,9 +1906,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// here (via `commonPath` or a visited path), there's no worktree identity to re-test.
 			if (session.worktreePath != null) {
 				const isFamilyCurrent =
-					session.commonPath != null
-						? session.commonPath === graphAnchor?.family
-						: belongsToFamily(session.worktreePath);
+					session.commonPath === graphAnchor?.family || belongsToFamily(session.worktreePath);
 				if (!isFamilyCurrent) return;
 			}
 

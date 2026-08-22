@@ -552,6 +552,31 @@ export function filterAgentSessionsForFamily(
 	});
 }
 
+/** Whether a session's CURRENT identity (`commonPath`/`worktreePath`) — not merely a visited
+ *  history — belongs to `family`. Same core test {@link filterAgentSessionsForFamily} applies to
+ *  those two fields, without the `visitedWorktreePaths` fallback that also admits a ghost (a
+ *  session `filterAgentSessionsForFamily` keeps because it once visited this family, but whose
+ *  CURRENT location is a foreign repo). Used wherever "counts as this family's live activity"
+ *  must exclude ghosts — the treemap's file-activity attribution, the kanban's ghost-card test —
+ *  while the wider filter still surfaces those sessions for display (dimmed). `family == null`
+ *  is never current for anything. An in-family `worktreePath` counts as current even alongside a
+ *  mismatched non-null `commonPath` — peer-merge can carry a stale foreign `commonPath` next to
+ *  an already-moved worktree, and the sidebar tree's placement gate treats that as current, so
+ *  this must too or the surfaces disagree. */
+export function isAgentSessionCurrentInFamily(
+	session: AgentSessionState,
+	family: string | undefined,
+	familyWorktreePaths?: ReadonlySet<string>,
+): boolean {
+	if (family == null) return false;
+	if (session.commonPath === family) return true;
+
+	return (
+		session.worktreePath === family ||
+		(session.worktreePath != null && (familyWorktreePaths?.has(session.worktreePath) ?? false))
+	);
+}
+
 /** Reverse of {@link matchAgentSessionsForWorktree}: given a session, find the `OverviewBranch`
  *  representing the currently-checked-out branch of the session's worktree. Iterates `active`
  *  first then `recent` because a named worktree that isn't opened in the workspace ends up in

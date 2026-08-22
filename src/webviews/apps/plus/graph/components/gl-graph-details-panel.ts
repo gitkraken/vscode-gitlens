@@ -1973,7 +1973,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const sessions = wip != null ? this.getWorktreeAgentSessions(wip) : undefined;
 		this._cycleAgentSessions = sessions;
 		if (sessions != null && sessions.length > 0) {
-			this.applyAgentAutoSurface(sessions.filter(s => isAgentSessionCurrentForWorktree(s, wip?.repo?.path)));
+			// Gate on the CURRENT-only subset, not the ghost-inclusive `sessions.length` check above
+			// — an all-ghost worktree must not call `applyAgentAutoSurface([])`, which would wipe the
+			// snapshot this gate exists to protect.
+			const current = sessions.filter(s => isAgentSessionCurrentForWorktree(s, wip?.repo?.path));
+			if (current.length > 0) {
+				this.applyAgentAutoSurface(current);
+			}
 		}
 
 		// Resolve past sessions in the same step, for the same reason: `renderWip` gates the agents
