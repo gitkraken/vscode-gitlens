@@ -38,8 +38,9 @@ export interface RunAgentResult {
  * Dispatches a rendered prompt to the chosen agent. Re-validates the descriptor at dispatch time —
  * picker-time validation does not guarantee dispatch-time validity (different window / profile / env).
  *
- * On failure, copies the prompt to the system clipboard so the work isn't lost, and returns
- * `success: false` so the caller can surface a toast with retry / pick-another affordances.
+ * On failure, copies the prompt to the system clipboard so the work isn't lost (unless `prompt` is
+ * empty — nothing to preserve), and returns `success: false` so the caller can surface a toast with
+ * retry / pick-another affordances.
  */
 export async function runAgent(
 	descriptor: AgentDescriptor,
@@ -48,6 +49,10 @@ export async function runAgent(
 ): Promise<RunAgentResult> {
 	// Re-validate before dispatch.
 	if (!(await isAgentAvailable(descriptor))) {
+		if (!prompt) {
+			return { success: false, error: new Error(`Agent '${descriptor.label}' is no longer available`) };
+		}
+
 		await copyPromptAsFallback(prompt);
 		return {
 			success: false,
@@ -70,6 +75,10 @@ export async function runAgent(
 		}
 	} catch (ex) {
 		Logger.error(ex, 'agentDispatch', 'runAgent');
+		if (!prompt) {
+			return { success: false, error: ex instanceof Error ? ex : new Error(String(ex)) };
+		}
+
 		await copyPromptAsFallback(prompt);
 		return {
 			success: false,
@@ -98,6 +107,8 @@ async function dispatchCli(
 	// Launch the CLI bare. Multi-line argv is unreliable across shells; deliver the prompt
 	// via paste block once the TUI is ready.
 	terminal.sendText(executable, true);
+	if (!prompt) return;
+
 	await wait(defaultBootDelayMs);
 	terminal.show();
 

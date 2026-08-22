@@ -191,7 +191,7 @@ export async function* pickAgentStep(
 	}
 
 	const step = createPickStep<AgentItem>({
-		title: options?.title ?? 'Choose an agent',
+		title: options?.title ?? 'Choose an Agent',
 		placeholder:
 			available.length === 0
 				? 'No agents available'
@@ -280,7 +280,7 @@ export async function pickAgentStandalone(
 	};
 
 	try {
-		qp.title = options?.title ?? 'Choose an agent';
+		qp.title = options?.title ?? 'Choose an Agent';
 		qp.placeholder =
 			available.length === 0
 				? 'No agents available'

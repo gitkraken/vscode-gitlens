@@ -167,6 +167,7 @@ type InternalGlCommands =
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.onboarding.dismiss'
 	| 'gitlens.showQuickCommitDetails'
+	| 'gitlens.startAgentSession'
 	| 'gitlens.toggleFileBlame:codelens'
 	| 'gitlens.toggleFileBlame:mode'
 	| 'gitlens.toggleFileBlame:statusbar'

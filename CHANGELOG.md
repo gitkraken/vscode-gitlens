@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a _Start Agent Session..._ action to working-changes (WIP) rows in the _Commit Graph_ and to worktrees in the views &mdash; opens a terminal at the worktree running your default coding agent CLI, offering a choice when several are detected; _Resume Agent Session..._ now also appears on worktrees in the views
 - Adds a _GitKraken AI Usage_ card to the _Account_ section of _GitLens Settings_ &mdash; shows your weekly credit allowance, how much of it you've used, and when it resets, along with your organization's shared pool when one applies ([#5743](https://github.com/gitkraken/vscode-gitlens/issues/5743))
   - Adds a compact AI usage meter to the account rollup in the _Commit Graph_ header and on _Home_, which opens the full meter in _GitLens Settings_ when clicked
   - Adds a _Get more AI credits_ action for paid plans, or guidance to contact an org admin for those who can't buy

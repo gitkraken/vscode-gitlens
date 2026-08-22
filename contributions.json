@@ -2045,7 +2045,7 @@
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 99
 					}
 				]
@@ -2062,7 +2062,7 @@
 					},
 					{
 						"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 99
 					}
 				]
@@ -4496,7 +4496,7 @@
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 						"group": "0_gitlens_worktree_1",
-						"order": 3
+						"order": 2
 					}
 				]
 			}
@@ -4507,12 +4507,12 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 1
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 1
 					}
 				]
@@ -5069,6 +5069,24 @@
 					}
 				]
 			}
+		},
+		"gitlens.graph.startAgentSession": {
+			"label": "Start Agent Session...",
+			"icon": "$(robot)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 1,
+						"alt": "gitlens.graph.startAgentSessionWith"
+					}
+				]
+			}
+		},
+		"gitlens.graph.startAgentSessionWith": {
+			"label": "Start Agent Session With...",
+			"icon": "$(robot)"
 		},
 		"gitlens.graph.switchToCommit": {
 			"label": "Checkout Commit...",
@@ -5853,12 +5871,12 @@
 					},
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 2
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 2
 					}
 				]
@@ -5885,7 +5903,7 @@
 					},
 					{
 						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 2
 					}
 				]
@@ -16000,6 +16018,19 @@
 				]
 			}
 		},
+		"gitlens.views.resumeAgentSession": {
+			"label": "Resume Agent Session...",
+			"icon": "$(robot)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.views.revealRepositoryInExplorer": {
 			"label": "Reveal in File Explorer",
 			"menus": {
@@ -16023,7 +16054,7 @@
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 1
 					}
 				]
@@ -18514,6 +18545,24 @@
 					}
 				]
 			}
+		},
+		"gitlens.views.startAgentSession": {
+			"label": "Start Agent Session...",
+			"icon": "$(robot)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 1,
+						"alt": "gitlens.views.startAgentSessionWith"
+					}
+				]
+			}
+		},
+		"gitlens.views.startAgentSessionWith": {
+			"label": "Start Agent Session With...",
+			"icon": "$(robot)"
 		},
 		"gitlens.views.stashes.attach": {
 			"label": "Group into GitLens View",
