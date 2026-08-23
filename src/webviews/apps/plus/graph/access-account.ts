@@ -1033,7 +1033,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	graphState!: typeof graphStateContext.__context__;
 
 	/** The task that brought the user here (parked by the app while gated) — selects the

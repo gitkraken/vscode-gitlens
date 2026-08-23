@@ -62,7 +62,7 @@ export class GlWorktreeTooltip extends SignalWatcher(LitElement) {
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _actions!: SidebarActions;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private _graphState!: GraphStateProvider;
 
 	/** The row's existing markdown body (identity, folder, branch) — rendered above the stats line. */

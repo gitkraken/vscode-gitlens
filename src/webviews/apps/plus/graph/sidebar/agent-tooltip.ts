@@ -162,7 +162,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		}
 	`;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private readonly _state!: typeof graphStateContext.__context__;
 
 	@property({ attribute: false })

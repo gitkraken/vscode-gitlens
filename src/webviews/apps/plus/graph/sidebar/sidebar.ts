@@ -405,7 +405,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _actions!: SidebarActions;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private readonly _state!: typeof graphStateContext.__context__;
 
 	private _suppressTransition = true;

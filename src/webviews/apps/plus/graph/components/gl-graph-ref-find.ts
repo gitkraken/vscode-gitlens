@@ -54,7 +54,7 @@ export interface GraphRefFindJumpEventDetail {
 export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	static override styles = [graphRefFindStyles];
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private _graphState!: AppState;
 
 	@consume({ context: sidebarActionsContext, subscribe: true })

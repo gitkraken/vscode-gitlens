@@ -114,7 +114,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		}
 	`;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: graphServicesContext, subscribe: true })

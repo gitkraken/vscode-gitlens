@@ -76,7 +76,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private _services?: Remote<GraphServices> | undefined;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: sidebarActionsContext, subscribe: true })

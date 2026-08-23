@@ -132,7 +132,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 	`;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	private get mode(): VisualizationMode {

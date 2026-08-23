@@ -28,6 +28,10 @@ export abstract class StateProviderBase<
 	protected readonly provider: ContextProvider<TContext, ReactiveElementHost>;
 
 	protected _state: State;
+	/** The bootstrap state snapshot. Providers that keep all live values in signal accessors (e.g. the
+	 *  graph's) stop mirroring into this after construction, so here it serves only identity getters
+	 *  (`webviewId`/`webviewInstanceId`/`timestamp`) and one-time seeding; providers without accessors
+	 *  (rebase/welcome/allowedSigners) still treat it as their live store. */
 	get state(): State {
 		return this._state;
 	}
@@ -84,6 +88,12 @@ export abstract class StateProviderBase<
 		}
 	}
 
+	/**
+	 * NOTE: replaces `_state` wholesale WITHOUT syncing subclass signal accessors — any provider that
+	 * opts into `deferBootstrap` must re-seed its accessors here (or override this), or they'll keep
+	 * serving bootstrap values. Latent trap: no current subclass defers, but the graph's accessor-based
+	 * provider would silently desync if it ever adopted it.
+	 */
 	protected onDeferredBootstrapStateReceived(state: State): void {
 		this._state = { ...state, timestamp: Date.now() };
 		this.provider.setValue(this._state as ContextType<TContext>, true);

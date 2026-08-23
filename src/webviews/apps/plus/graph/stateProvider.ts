@@ -660,6 +660,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor agentsBannerCollapsed: AppState['agentsBannerCollapsed'];
 
+	/** Upgraded from a pre-19 version — drives the sign-in screen's "new home for the Commit Graph"
+	 *  notice (fed by the host's bootstrap state; see `GlGraphAccessAccount.upgradedFromPreV19`).
+	 *  Deliberate accessor: without one this key rode `updateState`'s default-case plain-property
+	 *  write, which is how it silently never reached the UI before the state-mirror retirement. */
+	@signalState()
+	accessor upgradedFromPreV19: AppState['upgradedFromPreV19'];
+
 	@signalState()
 	accessor mcpCanAutoRegister: AppState['mcpCanAutoRegister'];
 
@@ -832,7 +839,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					this.updateState({
 						columns: data.columns,
 						context: {
-							...this._state.context,
+							...this.context,
 							header: data.headerContext,
 							settings: data.settingsContext,
 							scrollMarkers: data.scrollMarkersContext,
@@ -998,10 +1005,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					const next: Partial<State> = { ...incoming };
 					// Both WIP planes merge rather than replace — the host only sends topology plus whatever
 					// status it produced, so client-fetched peer stats (via `wip.getStats`) have to
-					// survive a full-state push. Read from the accessors (`this.wipRowsById` /
-					// `this.wipStateById`) rather than `_state`: writebacks from `graph-wrapper.ts` and
-					// `graph-app.ts` assign through the accessor and don't update `_state`, so reading `_state`
-					// would see a stale map and drop those stats (the visible pill flash).
+					// survive a full-state push. Read the live values off the accessors (`this.wipRowsById` /
+					// `this.wipStateById`): writebacks from `graph-wrapper.ts` and `graph-app.ts` assign through
+					// the accessor, so only they see them.
 					if (incoming.wipRowsById != null) {
 						next.wipRowsById = mergeWipRows(this.wipRowsById, incoming.wipRowsById);
 					}
@@ -1015,7 +1021,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// `GraphRepoStatusService.onDidFetch`) land these ~20-30ms before the heavier full-state
 					// rebuild; without this guard the bulk push re-assigns the same values and Lit's
 					// identity-based reactivity forces a redundant header re-render for every pull/push/fetch.
-					if (areEqual(next.branchState, this._state.branchState)) {
+					if (areEqual(next.branchState, this.branchState)) {
 						delete next.branchState;
 					}
 					// `lastFetched` has the same build-start-read / late-ship race as `branchState`, but needs no
@@ -1031,13 +1037,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// The repo-id gap this used to leave open — a fetch for repo B landing before B's full push
 					// writes B's timestamp while `selectedRepository` still reads A — is now closed upstream:
 					// `onDidFetch` carries `repoPath`, and `applyLastFetched` (below) ignores an event whose
-					// repo isn't the one currently selected, so `this._state.lastFetched` can no longer be
+					// repo isn't the one currently selected, so `lastFetched` can no longer be
 					// wrongly stamped with another repo's time in the first place.
-					if (next.lastFetched != null && this._state.lastFetched != null) {
+					if (next.lastFetched != null && this.lastFetched != null) {
 						const sameRepo =
-							(incoming.selectedRepository ?? this._state.selectedRepository) ===
-							this._state.selectedRepository;
-						if (sameRepo && next.lastFetched <= this._state.lastFetched) {
+							(incoming.selectedRepository ?? this.selectedRepository) === this.selectedRepository;
+						if (sameRepo && next.lastFetched <= this.lastFetched) {
 							delete next.lastFetched;
 						}
 					}
@@ -1052,8 +1057,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						// The incoming push's own primary, resolved from the repositories/selection it carries (both
 						// travel on a full state) with a fallback to what's already applied.
 						const incomingPrimaryRowId = getPrimaryWipRowId({
-							repositories: next.repositories ?? this._state.repositories,
-							selectedRepository: incoming.selectedRepository ?? this._state.selectedRepository,
+							repositories: next.repositories ?? this.repositories,
+							selectedRepository: incoming.selectedRepository ?? this.selectedRepository,
 						});
 						const { seed, wipStatsRowId } = resolveFullStateWorkingTreeStats(
 							incomingPrimaryRowId,
@@ -1118,15 +1123,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	protected override async initializeState(): Promise<void> {
 		await super.initializeState();
 
-		if (this._state.searchMode != null) {
-			this.searchMode = this._state.searchMode;
+		// The deserialized bootstrap snapshot. `_state` is frozen after construction (the graph never
+		// defers bootstrap, so nothing replaces it) and `updateState` no longer mirrors writes into it —
+		// it serves only the base-class identity getters (`webviewId`, etc.) and this one-time seeding.
+		const bootstrap = this._state;
+
+		if (bootstrap.searchMode != null) {
+			this.searchMode = bootstrap.searchMode;
 		}
 
 		// Bootstrap rows arrive lean: the host ships only `contexts.flags`, not the serialized commit
 		// `contexts.row`/`contexts.avatar` blobs. Those are now reconstructed on demand at right-click /
 		// selection time (see `graph-wrapper`), so nothing to rebuild here. Reachability is likewise
-		// decoded on demand from `_state.reachabilityTable` via `getRowReachability`.
-		this.updateState(this._state, true);
+		// decoded on demand from the accumulated table via `getRowReachability`. Seeded from a copy of
+		// the snapshot, not the mirror itself.
+		this.updateState({ ...bootstrap }, true);
 
 		// No rows-plane baseline to seed: the bootstrap `State` carries no rows plane at all, and the
 		// `graph:rows` channel starts with no inbound generation — it adopts whatever the host's first
@@ -1605,7 +1616,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _rowMarkerTargetBranchId: string | undefined;
 
 	ensureRowMarkerMergeTarget(): void {
-		const branch = this._state.branch;
+		const branch = this.branch;
 		// Detached / no branch — no branch to resolve a merge target for.
 		if (branch?.id == null || branch.name == null) {
 			this._rowMarkerBranchId = undefined;
@@ -1669,7 +1680,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * dedup and bump the request id so an in-flight fallback resolve can't land on top of it.
 	 */
 	private reconcileRowMarkerMergeTarget(enrichment: AppState['overviewEnrichment']): void {
-		const branch = this._state.branch;
+		const branch = this.branch;
 		if (branch?.id == null) return;
 
 		const mergeTarget = enrichment?.[branch.id]?.mergeTarget;
@@ -1800,6 +1811,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.ensureRowMarkerMergeTarget();
 	}
 
+	/**
+	 * The host-owned, accumulated reachability table — this provider's SOLE authoritative store for it.
+	 * Written ONLY by {@link applyReachabilityTable} and read by {@link getRowReachability}; never
+	 * routed through `updateState` or exposed as a signal, because rows decode from it on demand and
+	 * nothing re-renders on its arrival alone. (`undefined` until the first rows payload ships one.)
+	 */
+	private _reachabilityTable: GraphReachabilityTable | undefined;
+
 	/** On-demand decode cache for `getRowReachability`, keyed by the host table's stable set index.
 	 *  Shared across pages and consumers; reset by `resetReachabilityCache` on a new table generation. */
 	private readonly _reachabilityCache = new Map<number, GitCommitReachability>();
@@ -1817,7 +1836,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * and consumer that shares it.
 	 */
 	getRowReachability(row: NonNullable<State['rows']>[number]): GitCommitReachability | undefined {
-		const table = this._state.reachabilityTable;
+		const table = this._reachabilityTable;
 		if (table == null) return undefined;
 
 		const index = row.contexts?.reachabilityIndex;
@@ -1849,7 +1868,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * same-generation pagination. So a different `id` (or no table yet) → replace + reset the decode
 	 * cache (set indices restart for a new generation); the same `id` → concatenate the delta and KEEP
 	 * the cache (existing indices stay valid — new entries only append). `undefined` means nothing was
-	 * shipped (deduped/no reachability) → keep what we have. Owns `_state.reachabilityTable` directly,
+	 * shipped (deduped/no reachability) → keep what we have. Owns `_reachabilityTable` directly,
 	 * so callers must NOT also route the table through `updateState`.
 	 */
 	private applyReachabilityTable(incoming: GraphReachabilityTable | undefined, snapshot?: boolean): void {
@@ -1857,23 +1876,23 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			// A SNAPSHOT is an authoritative replace even with no table (the new graph has no reachability):
 			// reclaim the stale table + decode cache — the snapshot's rows carry no indices, so the old table
 			// would never be read again, just retained.
-			if (snapshot && this._state.reachabilityTable != null) {
-				this._state.reachabilityTable = undefined;
+			if (snapshot && this._reachabilityTable != null) {
+				this._reachabilityTable = undefined;
 				this.resetReachabilityCache();
 			}
 			return;
 		}
 
-		const current = this._state.reachabilityTable;
+		const current = this._reachabilityTable;
 		// A publisher snapshot ships the FULL table (reset-anchor) — replace even on a same-`id` push,
 		// or a same-generation recovery snapshot would double the table via the append branch below.
 		if (snapshot || current?.id !== incoming.id) {
-			this._state.reachabilityTable = incoming;
+			this._reachabilityTable = incoming;
 			this.resetReachabilityCache();
 			return;
 		}
 
-		this._state.reachabilityTable = {
+		this._reachabilityTable = {
 			id: current.id,
 			dictionary: [...current.dictionary, ...incoming.dictionary],
 			sets: [...current.sets, ...incoming.sets],
@@ -1889,7 +1908,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * rows) after driving the same {@link resyncRows} recovery a channel gap would.
 	 */
 	private applyRowsSplice(splice: GraphRowsSplice): GitGraphRow[] | undefined {
-		const current = this._state.rows;
+		const current = this.rows;
 		const spanEnd = splice.reusedStart + splice.reusedCount;
 		if (
 			current == null ||
@@ -1982,8 +2001,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			if (spliced == null) return;
 
 			rows = spliced;
-		} else if (params.rows.length && params.paging?.startingCursor != null && this._state.rows != null) {
-			const previousRows = this._state.rows;
+		} else if (params.rows.length && params.paging?.startingCursor != null && this.rows != null) {
+			const previousRows = this.rows;
 			const startingCursor = params.paging.startingCursor;
 
 			this.logger.debug(
@@ -1995,7 +2014,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		} else if (params.rows.length === 0) {
 			// A carrier delta (riders/enrichment with no rows change) — retain what we hold.
 			this.logger.debug(undefined, 'rows unchanged (carrier delta)');
-			rows = this._state.rows;
+			rows = this.rows;
 		} else {
 			this.logger.debug(undefined, `setting to ${params.rows.length} rows`);
 			rows = params.rows;
@@ -2014,7 +2033,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		updates.paging = params.paging;
 		// `rowsStats`: a snapshot REPLACEs wholesale (authoritative), a delta spread-merges the new keys.
 		if (params.rowsStats != null) {
-			updates.rowsStats = snapshot ? { ...params.rowsStats } : { ...this._state.rowsStats, ...params.rowsStats };
+			updates.rowsStats = snapshot ? { ...params.rowsStats } : { ...this.rowsStats, ...params.rowsStats };
 		}
 		updates.rowsStatsLoading = params.rowsStatsLoading;
 		if (params.rowsStatsIncluded !== undefined) {
@@ -2027,11 +2046,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		this.updateState(updates);
 		if (DEBUG) {
-			getGraphDebugDiagnostics().markRowsApplied(this._state.rows, {
+			getGraphDebugDiagnostics().markRowsApplied(this.rows, {
 				generation: meta.generation,
 				seq: meta.seq,
 				snapshot: snapshot,
-				rows: this._state.rows?.length ?? 0,
+				rows: this.rows?.length ?? 0,
 				receivedRows: params.rows.length,
 				splice: params.rowsSplice != null,
 				cursor: params.paging?.startingCursor,
@@ -2086,8 +2105,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * and a slower full-state push both write `lastFetched` and can arrive out of order.
 	 */
 	applyLastFetched(repoPath: string, lastFetched: number): void {
-		if (repoPath !== getSelectedRepoPath(this._state)) return;
-		if (this._state.lastFetched != null && lastFetched <= this._state.lastFetched) return;
+		const selectedRepoPath = getSelectedRepoPath({
+			repositories: this.repositories,
+			selectedRepository: this.selectedRepository,
+		});
+		if (repoPath !== selectedRepoPath) return;
+		if (this.lastFetched != null && lastFetched <= this.lastFetched) return;
 
 		this.updateState({ lastFetched: lastFetched });
 	}
@@ -2097,7 +2120,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	applyAvatars(avatars: Record<string, string>): void {
 		if (Object.keys(avatars).length === 0) return;
 
-		this.updateState({ avatars: { ...this._state.avatars, ...avatars } });
+		this.updateState({ avatars: { ...this.avatars, ...avatars } });
 	}
 
 	/** Merges a `getMissingRefsMetadata` response into the map. Additive (spread-merge): the response
@@ -2107,9 +2130,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		// A `null` map means the feature is off — enrichment can't be arriving, and merging onto it would
 		// silently turn the feature back on for the component.
-		if (this._state.refsMetadata === null) return;
+		if (this.refsMetadata === null) return;
 
-		this.updateState({ refsMetadata: { ...this._state.refsMetadata, ...metadata } });
+		this.updateState({ refsMetadata: { ...this.refsMetadata, ...metadata } });
 	}
 
 	/** Applies an `onRefsMetadataChanged` reset: an authoritative REPLACE with a COMPLETE snapshot (`null`
@@ -2166,7 +2189,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** The graph's own worktree's WIP row id, from the selected repository. Undefined before the repo
 	 *  list lands. Cheap (a small `find`) and read only on WIP writes, so it isn't memoized. */
 	get primaryWipRowId(): string | undefined {
-		return getPrimaryWipRowId(this._state);
+		return getPrimaryWipRowId({ repositories: this.repositories, selectedRepository: this.selectedRepository });
 	}
 
 	/**
@@ -2202,9 +2225,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * ride separate RPC events precisely because their payloads are disjoint: one `save-last` slot
 	 * between them would let a probe overwrite an undelivered tick and lose its `wip` for good.
 	 *
-	 * Read from the accessors (`this.wipRowsById` / `this.wipStateById`) rather than `this._state`:
-	 * writebacks from `graph-wrapper.ts` and `graph-app.ts` assign through the accessor and don't
-	 * update `_state`, so reading `_state` here sees a stale anchor-only map and the merge drops
+	 * Read the live maps off the accessors (`this.wipRowsById` / `this.wipStateById`): writebacks from
+	 * `graph-wrapper.ts` and `graph-app.ts` assign through the accessor, so only they see those values —
+	 * a read of anything else would see a stale anchor-only map and the merge would drop
 	 * freshly-fetched `workDirStats` from every peer row (the visible pill flash).
 	 *
 	 * Drop a payload reflecting an older working tree than what's already applied (see `isStaleWip`) —
@@ -2560,7 +2583,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	/** Patch one `(worktreePath, draft)` slot in the wipDrafts map. Routes through
-	 *  {@link updateState} so `_state.wipDrafts` stays in sync with the signal accessor. Pass
+	 *  {@link updateState} so the signal accessor (and every subscriber) sees the change. Pass
 	 *  `draft: null` to delete; the parent map collapses to `undefined` when empty.
 	 *  Short-circuits when the slot's content is unchanged so per-keystroke flushes don't
 	 *  trigger redundant panel re-renders.
@@ -2592,6 +2615,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
+	/**
+	 * Applies a state patch by assigning each key to its signal accessor — the accessors are the ONLY
+	 * store; nothing is mirrored back into `_state` (the base's bootstrap snapshot). Base webview keys
+	 * (`timestamp`, `webviewId`, `webviewInstanceId`) are identity/bootstrap-only and skipped, as is
+	 * anything without an accessor — notably `reachabilityTable`, which {@link applyReachabilityTable}
+	 * owns exclusively and callers must NOT route through here.
+	 */
 	protected updateState(partial: Partial<State>, silent?: boolean) {
 		// Capture the selected repo so we can re-pin its WIP cache entry below if it changes.
 		const prevSelectedRepo = this.selectedRepository;
@@ -2599,12 +2629,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		for (const key in partial) {
 			hasChanges = true;
 
-			const value = partial[key as keyof State];
-			// @ts-expect-error key is a key of State
-			this._state[key] = value;
-
 			if (BaseWebviewStateKeys.includes(key)) continue;
 
+			const value = partial[key as keyof State];
 			// Update corresponding accessors
 			switch (key) {
 				case 'allowed':

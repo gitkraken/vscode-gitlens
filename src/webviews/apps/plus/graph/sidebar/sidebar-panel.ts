@@ -679,7 +679,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _actions!: SidebarActions;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private readonly _state!: AppState;
 
 	/** Memo for `buildTreeModel`. Renders fire on every filter/expansion change, so without this

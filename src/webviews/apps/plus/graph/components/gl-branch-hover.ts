@@ -98,7 +98,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private _services?: Remote<GraphServices> | undefined;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private _graphState?: AppState;
 
 	/** The branch this hover describes, in scope ref-id format (`{repoPath}|heads/{name}`). Undefined for

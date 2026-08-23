@@ -262,7 +262,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private readonly _state!: AppState;
 
 	@consume({ context: graphServicesContext, subscribe: true })

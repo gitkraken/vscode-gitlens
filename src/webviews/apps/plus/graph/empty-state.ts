@@ -61,7 +61,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 		}
 	`;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	graphState!: typeof graphStateContext.__context__;
 
 	override render(): unknown {

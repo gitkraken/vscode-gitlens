@@ -116,7 +116,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 	/** Live agent sessions — self-served via the graph's reactive state (see `stateProvider.ts`)
 	 *  rather than threaded in as a 13th property, matching `gl-graph-treemap`'s precedent. */
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	/** The ref this sheet is scoped to (name/refType/remote/sha). */

@@ -177,7 +177,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private _services?: typeof graphServicesContext.__context__;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: subscriptionContext, subscribe: true })

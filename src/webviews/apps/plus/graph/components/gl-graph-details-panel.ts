@@ -217,7 +217,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@state()
 	private _remoteServices?: Remote<GraphServices>;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private _graphState?: typeof graphStateContext.__context__;
 
 	// Shared Launchpad summary, owned/fetched by `gl-graph-app`. Read here only to feed the WIP

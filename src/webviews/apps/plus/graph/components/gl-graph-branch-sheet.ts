@@ -103,7 +103,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private _graphState?: typeof graphStateContext.__context__;
 
 	@consume({ context: graphServicesContext, subscribe: true })

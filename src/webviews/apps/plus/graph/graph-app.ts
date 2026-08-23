@@ -651,7 +651,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return this;
 	}
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: onboardingDismissalsContext, subscribe: true })

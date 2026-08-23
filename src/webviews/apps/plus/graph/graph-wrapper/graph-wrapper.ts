@@ -419,7 +419,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return this;
 	}
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private readonly graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: graphCrossPaneContext })

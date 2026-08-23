@@ -350,7 +350,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 *  auto-show trigger; mounting this view (in treemap mode) is itself the mode entry. */
 	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: graphServicesContext, subscribe: true })

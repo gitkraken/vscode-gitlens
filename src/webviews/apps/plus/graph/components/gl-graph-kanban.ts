@@ -456,7 +456,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	/** Drives only the coach-mark auto-show trigger; mounting this view is itself the mode entry. */
 	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private graphState!: typeof graphStateContext.__context__;
 
 	/** Periodic re-render driver. Connected on `connectedCallback`, cleared on disconnect so we

@@ -750,7 +750,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private _services?: Remote<GraphServices> | undefined;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	private _graphState?: AppState;
 
 	@property({ type: Object })

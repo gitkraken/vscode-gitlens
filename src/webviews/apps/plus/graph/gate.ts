@@ -25,7 +25,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	@consume({ context: subscriptionContext, subscribe: true })
 	private _subscription!: SubscriptionContextState;
 
-	@consume({ context: graphStateContext, subscribe: true })
+	@consume({ context: graphStateContext, subscribe: false })
 	graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: graphServicesContext, subscribe: true })
