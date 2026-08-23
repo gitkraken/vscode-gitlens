@@ -12,10 +12,25 @@
  * - Zero work on restore if nothing fired while hidden
  */
 
+import { notify } from '@eamodio/supertalk';
 import type { Disposable } from 'vscode';
 import type { RpcEventSubscription, Unsubscribe } from './services/types.js';
 
 export type EventVisibilityKey = string | symbol;
+
+/**
+ * Wraps a remote callback proxy for one-way emission — the host fires events without acking or
+ * awaiting a discarded promise that would otherwise reject unhandled on teardown. `notify()` only
+ * accepts remote proxies, so a local function (unit tests, in-process callers) falls back to a
+ * plain synchronous invocation.
+ */
+export function toEventNotifier<T>(handler: (data: T) => unknown): (data: T) => void {
+	try {
+		return notify(handler);
+	} catch {
+		return data => void handler(data);
+	}
+}
 
 /**
  * Tracks outstanding RPC event subscriptions so they can be cleaned up on
@@ -146,12 +161,13 @@ export function bufferEventHandler<T>(
 	mode: 'save-last' | 'signal',
 	signalValue?: T,
 ): (data: T) => void {
-	if (buffer == null) return handler;
+	const notifier = toEventNotifier(handler);
+	if (buffer == null) return notifier;
 	return (data: T) => {
 		if (buffer.visible) {
-			handler(data);
+			notifier(data);
 		} else {
-			buffer.addPending(key, () => handler(mode === 'save-last' ? data : (signalValue as T)));
+			buffer.addPending(key, () => notifier(mode === 'save-last' ? data : (signalValue as T)));
 		}
 	};
 }

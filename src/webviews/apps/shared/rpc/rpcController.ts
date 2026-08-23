@@ -27,6 +27,7 @@ import type { Remote } from '@eamodio/supertalk';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { isErrorLike } from '@gitlens/utils/error.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { isConnectionClosedError } from '../actions/rpc.js';
 import type { RpcClientOptions } from '../rpcClient.js';
 import { wrapServices } from '../rpcClient.js';
 
@@ -140,7 +141,11 @@ export class RpcController<TServices extends object> implements ReactiveControll
 			const id = typeof idOpt === 'function' ? idOpt() : idOpt;
 			const instance = typeof instanceOpt === 'function' ? instanceOpt() : instanceOpt;
 			const tag = instance != null ? `${id ?? '?'}|${instance}` : (id ?? '?');
-			Logger.error(error, `RpcController(${tag}): Failed to connect`);
+			if (isConnectionClosedError(error)) {
+				Logger.debug(`RpcController(${tag}): connect dropped by deliberate connection teardown`);
+			} else {
+				Logger.error(error, `RpcController(${tag}): Failed to connect`);
+			}
 
 			if (this.options?.onError != null) {
 				this.options.onError(error);

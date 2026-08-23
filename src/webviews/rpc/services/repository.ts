@@ -60,7 +60,7 @@ import { getReachableWorktrees } from '../../../git/utils/-webview/worktree.util
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { bufferEventHandler } from '../eventVisibilityBuffer.js';
+import { bufferEventHandler, toEventNotifier } from '../eventVisibilityBuffer.js';
 import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
 import { classifyFilesForDiscard, discardOneWith } from './discard.utils.js';
@@ -128,6 +128,7 @@ export class RepositoryService {
 		const pendingKey = Symbol(`repositoryChanged:${repoPath}`);
 		const pendingChanges = new Set<RepositoryChange>();
 		let pendingUri: string | undefined;
+		const notifier = toEventNotifier(callback);
 
 		const disposable = this.container.git.onDidChangeRepository(e => {
 			if (e.repository.path !== repoPath) return;
@@ -138,14 +139,14 @@ export class RepositoryService {
 				changes: extractRepositoryChanges(e),
 			};
 			if (!this.buffer || this.buffer.visible) {
-				callback(data);
+				notifier(data);
 			} else {
 				pendingUri = data.repoUri;
 				for (const c of data.changes) {
 					pendingChanges.add(c);
 				}
 				this.buffer.addPending(pendingKey, () => {
-					callback({ repoPath: repoPath, repoUri: pendingUri!, changes: [...pendingChanges] });
+					notifier({ repoPath: repoPath, repoUri: pendingUri!, changes: [...pendingChanges] });
 					pendingChanges.clear();
 					pendingUri = undefined;
 				});

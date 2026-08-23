@@ -13,7 +13,7 @@ import type {
 	TreemapMode,
 	TreemapNode,
 } from '../../../../plus/treemap/protocol.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { notifyService } from '../../../shared/actions/rpc.js';
 import { filterAgentSessionsForFamily, isAgentSessionCurrentInFamily } from '../../../shared/agentUtils.js';
 import type { Disposable } from '../../../shared/events.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -1055,10 +1055,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		const services = this.services;
 		if (services != null) {
-			fireAndForget(
-				(async () => (await services.configuration).update({ activityDecay: decay }))(),
-				'configuration/update',
-			);
+			notifyService(services.configuration, 'configuration/update', svc => svc.update({ activityDecay: decay }));
 		}
 	};
 
@@ -1310,9 +1307,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget(
-			(async () => (await services.rowActions).openTreemapFile(action, rootPath, relPath))(),
-			'rowActions/treemapFile',
+		notifyService(services.rowActions, 'rowActions/treemapFile', svc =>
+			svc.openTreemapFile(action, rootPath, relPath),
 		);
 	}
 

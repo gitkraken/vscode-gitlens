@@ -6,6 +6,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { OnboardingKeys } from '../../../../constants.onboarding.js';
 import type { OnboardingRpcService } from '../../../rpc/services/onboarding.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
+import { isConnectionClosedError } from '../actions/rpc.js';
 import { subscribeAll } from '../events/subscriptions.js';
 
 type OnboardingRemote = Awaited<Remote<{ onboarding: OnboardingRpcService }>['onboarding']>;
@@ -76,6 +77,11 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 					sig.set(dismissed);
 				}
 			} catch (ex) {
+				if (isConnectionClosedError(ex)) {
+					Logger.debug(`OnboardingDismissals: fetch '${key}' dropped by deliberate connection teardown`);
+					return;
+				}
+
 				// Healed by the next refresh (reconnect or visibility restore)
 				Logger.error(ex, `OnboardingDismissals: failed to fetch '${key}'`);
 			}
@@ -94,6 +100,11 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 				await r.dismiss(key);
 				pendingDismissals.delete(key);
 			} catch (ex) {
+				if (isConnectionClosedError(ex)) {
+					Logger.debug(`OnboardingDismissals: dismiss '${key}' dropped by deliberate connection teardown`);
+					return;
+				}
+
 				// Stays queued; retried on the next (re)connect
 				Logger.error(ex, `OnboardingDismissals: failed to dismiss '${key}'`);
 			}
@@ -145,7 +156,14 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 					}
 					refresh();
 				},
-				(ex: unknown) => Logger.error(ex, 'OnboardingDismissals: failed to connect'),
+				(ex: unknown) => {
+					if (isConnectionClosedError(ex)) {
+						Logger.debug('OnboardingDismissals: connect dropped by deliberate connection teardown');
+						return;
+					}
+
+					Logger.error(ex, 'OnboardingDismissals: failed to connect');
+				},
 			);
 		},
 

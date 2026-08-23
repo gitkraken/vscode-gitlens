@@ -13,7 +13,7 @@ import { createCommandLink } from '../../../../../system/commands.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { BranchState, GraphAutoFetchMode, GraphWipState, State } from '../../../../plus/graph/protocol.js';
 import type { PullConflictPreview } from '../../../../rpc/services/branches.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { notifyService } from '../../../shared/actions/rpc.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -492,9 +492,8 @@ export class GlFetchButton extends LitElement {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget(
-			(async () => (await services.configuration).update({ autoFetchEnabled: $el.checked }))(),
-			'configuration/update',
+		notifyService(services.configuration, 'configuration/update', svc =>
+			svc.update({ autoFetchEnabled: $el.checked }),
 		);
 	}
 }

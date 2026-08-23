@@ -1,4 +1,6 @@
 /*global document window*/
+import type { Notify } from '@eamodio/supertalk';
+import { notify } from '@eamodio/supertalk';
 import type { WipCandidate } from '@gitkraken/commit-graph/nearestWip.js';
 import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-graph/nearestWip.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
@@ -14,6 +16,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
+import type { GraphSelectionService } from '../../../../plus/graph/graphService.js';
 import type {
 	DidLoadRowParams,
 	GraphAvatars,
@@ -35,7 +38,7 @@ import type {
 	SelectCommitsOptions,
 } from '../../../../plus/graph/protocol.js';
 import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '../../../../plus/graph/protocol.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { fireAndForget, notifyService } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../../shared/contexts/telemetry.js';
@@ -1982,7 +1985,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			action === 'undo-commit'
 				? { action: action, row: rowRef, worktreePath: worktreePath }
 				: { action: action, row: rowRef };
-		fireAndForget((async () => (await services.rowActions).executeRowAction(params))(), 'rowActions/execute');
+		notifyService(services.rowActions, 'rowActions/execute', svc => svc.executeRowAction(params));
 	}
 
 	/** Ref pill's pin zone → clear the edge pin. Goes through the filters service's own pinned-ref write
@@ -1993,7 +1996,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.filters).setPinnedRef(null))(), 'filters/pinnedRef');
+		notifyService(services.filters, 'filters/pinnedRef', svc => svc.setPinnedRef(null));
 	}
 
 	// New-engine WIP row-open button (resolve/compose/review/agents) → look the full row up by sha and
@@ -2243,12 +2246,30 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private _lastSentSelectionKey: string | undefined;
 
-	/** Ships one selection report to the host. Fire-and-forget: a click must never wait on the ack. */
+	/** Memoized one-way notifier for `selection.updateSelection`, keyed on the resolved sub-service
+	 *  proxy's identity — `notify()` only works on a RESOLVED nested proxy, not the cached `services`
+	 *  root (it throws there), and a proxy from a torn-down session silently no-ops, so this is rebuilt
+	 *  whenever the resolved proxy changes. */
+	private _selectionNotifier?: { svc: unknown; notifier: Notify<GraphSelectionService> };
+
+	/** Ships one selection report to the host as a one-way notify: a click must never wait on an ack.
+	 *  `updateSelection`'s return is never read host-side; errors on either side now surface via the
+	 *  connection's logger instead of an awaited/discarded promise. */
 	private sendSelection(selection: GraphSelection[]): void {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.selection).updateSelection(selection))(), 'selection/update');
+		fireAndForget(
+			(async () => {
+				const svc = await services.selection;
+				if (this._selectionNotifier?.svc !== svc) {
+					this._selectionNotifier = { svc: svc, notifier: notify(svc) };
+				}
+
+				this._selectionNotifier.notifier.updateSelection(selection);
+			})(),
+			'selection/update',
+		);
 	}
 
 	/**
@@ -2770,10 +2791,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget(
-			(async () => (await services.rowActions).handleRefDoubleClick(ref, metadata))(),
-			'rowActions/refDoubleClick',
-		);
+		notifyService(services.rowActions, 'rowActions/refDoubleClick', svc => svc.handleRefDoubleClick(ref, metadata));
 	}
 
 	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {
@@ -2947,7 +2965,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		const services = this.services;
 		if (services != null) {
-			fireAndForget((async () => (await services.wip).syncWatches(shas))(), 'wip/watches/sync');
+			notifyService(services.wip, 'wip/watches/sync', svc => svc.syncWatches(shas));
 		}
 
 		// Mirror the host's watcher set into graphState so `getWipState().isLive` reflects which

@@ -9,6 +9,7 @@ import type {
 	GraphSidebarPullRequest,
 	SidebarWorktreeChange,
 } from '../../../../plus/graph/protocol.js';
+import { isConnectionClosedError } from '../../../shared/actions/rpc.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import { createResource } from '../../../shared/state/resource.js';
 
@@ -283,6 +284,13 @@ export function createSidebarActions(): SidebarActions {
 					// Leave the entry ABSENT so the next open retries — recording `null` would make a one-off
 					// failure permanent. Resolving (not rethrowing) is what unsticks the tooltip: it waits on
 					// this promise, not on the missing entry, to decide whether anything is still coming.
+					if (isConnectionClosedError(ex)) {
+						Logger.debug(
+							`Worktree WIP stats fetch for '${path}' dropped by deliberate connection teardown`,
+						);
+						return;
+					}
+
 					Logger.warn(`Unable to get worktree WIP stats for '${path}': ${String(ex)}`);
 				})
 				.finally(() => {

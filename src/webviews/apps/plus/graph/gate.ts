@@ -6,7 +6,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
-import { fireAndForget } from '../../shared/actions/rpc.js';
+import { notifyService } from '../../shared/actions/rpc.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
@@ -172,13 +172,13 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.pickers).chooseRepository())(), 'pickers/chooseRepository');
+		notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
 	}
 
 	private onSwitchOrgs(): void {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.pickers).chooseAccountOrg())(), 'pickers/chooseAccountOrg');
+		notifyService(services.pickers, 'pickers/chooseAccountOrg', svc => svc.chooseAccountOrg());
 	}
 }

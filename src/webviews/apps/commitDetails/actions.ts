@@ -49,8 +49,10 @@ import {
 	enrichmentGuard,
 	fireAndForget,
 	fireRpc,
+	isConnectionClosedError,
 	noop,
 	noopUnlessReal,
+	notifyService,
 	optimisticFireAndForget,
 } from '../shared/actions/rpc.js';
 import { NavigationStack } from '../shared/controllers/navigationStack.js';
@@ -186,14 +188,14 @@ export class CommitDetailsActions {
 	// ============================================================
 
 	updateTelemetryContext(context: InspectWebviewTelemetryContext): void {
-		fireAndForget(this.services.telemetry.updateContext(context));
+		notifyService(this.services.telemetry, 'telemetry/updateContext', svc => svc.updateContext(context));
 	}
 
 	sendTelemetryEvent(
 		name: keyof TelemetryEvents,
 		data?: Record<string, string | number | boolean | undefined>,
 	): void {
-		fireAndForget(this.services.telemetry.sendEvent(name, data));
+		notifyService(this.services.telemetry, 'telemetry/sendEvent', svc => svc.sendEvent(name, data));
 	}
 
 	// ============================================================
@@ -212,7 +214,11 @@ export class CommitDetailsActions {
 			this.state.searchContext.set(undefined);
 			await this.fetchCommit(target.repoPath, target.sha, { force: true });
 		} catch (ex) {
-			Logger.error(ex, 'navigate back failed');
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('navigate back dropped by deliberate connection teardown');
+			} else {
+				Logger.error(ex, 'navigate back failed');
+			}
 		} finally {
 			this._navigating = false;
 		}
@@ -230,7 +236,11 @@ export class CommitDetailsActions {
 			this.state.searchContext.set(undefined);
 			await this.fetchCommit(target.repoPath, target.sha, { force: true });
 		} catch (ex) {
-			Logger.error(ex, 'navigate forward failed');
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('navigate forward dropped by deliberate connection teardown');
+			} else {
+				Logger.error(ex, 'navigate forward failed');
+			}
 		} finally {
 			this._navigating = false;
 		}
@@ -386,16 +396,18 @@ export class CommitDetailsActions {
 	 * Execute a non-webview GitLens command.
 	 */
 	executeCommand(command: GlExtensionCommands, ...args: unknown[]): void {
-		fireAndForget(this.services.commands.execute(command, ...args), `command: ${command}`);
+		notifyService(this.services.commands, `command: ${command}`, svc => svc.execute(command, ...args));
 	}
 
 	openOnRemote(repoPath: string | undefined, sha: string): void {
 		if (!repoPath || isUncommitted(sha)) return;
 
-		void this.services.commands.execute('gitlens.openOnRemote', {
-			repoPath: repoPath,
-			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
-		});
+		notifyService(this.services.commands, 'command: gitlens.openOnRemote', svc =>
+			svc.execute('gitlens.openOnRemote', {
+				repoPath: repoPath,
+				resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
+			}),
+		);
 	}
 
 	/** Delegate inspect's Review/Compose mode toggles to the graph: open it, select the target row
@@ -405,10 +417,12 @@ export class CommitDetailsActions {
 		if (commit?.repoPath == null || commit.sha == null) return;
 		if (mode !== 'review' && mode !== 'compose') return;
 
-		void this.services.commands.execute('gitlens.showGraph', {
-			action: mode === 'review' ? 'enter-review' : 'enter-compose',
-			target: { sha: commit.sha, worktreePath: commit.repoPath },
-		});
+		notifyService(this.services.commands, 'command: gitlens.showGraph', svc =>
+			svc.execute('gitlens.showGraph', {
+				action: mode === 'review' ? 'enter-review' : 'enter-compose',
+				target: { sha: commit.sha, worktreePath: commit.repoPath },
+			}),
+		);
 	}
 
 	changeFilesLayout(layout: ViewFilesLayout): void {
@@ -539,7 +553,11 @@ export class CommitDetailsActions {
 				await this.fetchCommit(initialCommit.repoPath, initialCommit.sha);
 			}
 		} catch (ex) {
-			Logger.error(ex, 'Failed to fetch initial state');
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('Initial state fetch dropped by deliberate connection teardown');
+			} else {
+				Logger.error(ex, 'Failed to fetch initial state');
+			}
 			this.state.error.set(ex instanceof Error ? ex.message : 'Failed to initialize');
 		} finally {
 			this.state.loading.set(false);
@@ -781,6 +799,11 @@ export class CommitDetailsActions {
 				this.state.capabilities.autolinksEnabled = autolinksEnabled;
 			}
 		} catch (ex) {
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('Preferences fetch dropped by deliberate connection teardown');
+				return;
+			}
+
 			Logger.error(ex, 'Failed to fetch preferences');
 		}
 	}
@@ -793,6 +816,11 @@ export class CommitDetailsActions {
 			const states = await this.services.integrations.getIntegrationStates();
 			this.state.capabilities.hasIntegrationsConnected = states.some(i => i.connected);
 		} catch (ex) {
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('Integrations status check dropped by deliberate connection teardown');
+				return;
+			}
+
 			Logger.error(ex, 'Failed to check integrations status');
 		}
 	}

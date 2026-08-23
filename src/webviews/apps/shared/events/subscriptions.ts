@@ -5,6 +5,7 @@
  */
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
+import { isConnectionClosedError } from '../actions/rpc.js';
 
 /**
  * Subscribe to multiple RPC events in parallel with automatic cleanup.
@@ -37,7 +38,11 @@ export async function subscribeAll(
 		if (result.status === 'fulfilled' && typeof result.value === 'function') {
 			unsubscribers.push(result.value);
 		} else if (result.status === 'rejected') {
-			Logger.error(result.reason, 'Failed to subscribe');
+			if (isConnectionClosedError(result.reason)) {
+				Logger.debug('Subscribe dropped by deliberate connection teardown');
+			} else {
+				Logger.error(result.reason, 'Failed to subscribe');
+			}
 		}
 	}
 	return () => {

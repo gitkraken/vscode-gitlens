@@ -5,6 +5,7 @@ import { createContext } from '@lit/context';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { GraphCoachMarkType } from '../../../plus/graph/protocol.js';
 import type { OnboardingRpcService } from '../../../rpc/services/onboarding.js';
+import { isConnectionClosedError } from '../../shared/actions/rpc.js';
 
 type OnboardingRemote = Awaited<Remote<{ onboarding: OnboardingRpcService }>['onboarding']>;
 
@@ -50,6 +51,11 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 					pending.delete(m);
 				}
 			} catch (ex) {
+				if (isConnectionClosedError(ex)) {
+					Logger.debug('CoachMarkSeenStore: persist dropped by deliberate connection teardown');
+					return;
+				}
+
 				// Stays queued; retried on the next (re)connect
 				Logger.error(ex, 'CoachMarkSeenStore: failed to persist seen state');
 			}
@@ -84,6 +90,11 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 					persist();
 				}
 			} catch (ex) {
+				if (isConnectionClosedError(ex)) {
+					Logger.debug('CoachMarkSeenStore: fetch dropped by deliberate connection teardown');
+					return;
+				}
+
 				// Leave `undefined` — no mark force-opens rather than risk re-showing a seen one
 				Logger.error(ex, 'CoachMarkSeenStore: failed to fetch seen state');
 			}
@@ -113,7 +124,14 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 					remote = resolved;
 					fetch(gen);
 				},
-				(ex: unknown) => Logger.error(ex, 'CoachMarkSeenStore: failed to connect'),
+				(ex: unknown) => {
+					if (isConnectionClosedError(ex)) {
+						Logger.debug('CoachMarkSeenStore: connect dropped by deliberate connection teardown');
+						return;
+					}
+
+					Logger.error(ex, 'CoachMarkSeenStore: failed to connect');
+				},
 			);
 		},
 

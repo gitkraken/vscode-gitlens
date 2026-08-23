@@ -38,7 +38,7 @@ import type {
 	CopyWipPatchEventDetail,
 	OpenMultipleChangesArgs,
 } from '../../../shared/actions/file.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { notifyService } from '../../../shared/actions/rpc.js';
 import type { AgentSessionCategory, PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
@@ -1357,7 +1357,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const services = this._remoteServices;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.wip).updateDraft(worktreePath, draft))(), 'wip/updateDraft');
+		notifyService(services.wip, 'wip/updateDraft', svc => svc.updateDraft(worktreePath, draft));
 	}
 
 	/** Snapshot the commit-form signals and schedule a debounced flush to the host. Re-runs on

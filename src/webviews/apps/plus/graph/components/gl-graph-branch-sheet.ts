@@ -6,7 +6,7 @@ import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphExcludedRef, GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, OrgSettings } from '../../../../rpc/services/types.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { notifyService } from '../../../shared/actions/rpc.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -341,7 +341,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.filters).setRefsVisibility([ref], visible))(), 'filters/refs');
+		notifyService(services.filters, 'filters/refs', svc => svc.setRefsVisibility([ref], visible));
 	}
 
 	/** The sheet's Open on Remote chip — only for a ref that actually exists on a remote. A remote ref

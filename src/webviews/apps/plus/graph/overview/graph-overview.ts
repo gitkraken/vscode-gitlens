@@ -16,7 +16,7 @@ import type {
 	GraphOverviewData,
 	OverviewRecentThreshold,
 } from '../../../../plus/graph/protocol.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { isConnectionClosedError, notifyService } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
@@ -532,9 +532,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		// the walkthrough-step completion for the whole mount.
 		if (!this._shownEmitted && overview != null && this._state.sidebar?.visible && this.services != null) {
 			this._shownEmitted = true;
-			fireAndForget(
-				this.services.telemetry.then(t => t.trackUsage('action:gitlens.graph.overview.shown:happened')),
-				'track usage',
+			notifyService(this.services.telemetry, 'track usage', svc =>
+				svc.trackUsage('action:gitlens.graph.overview.shown:happened'),
 			);
 			emitTelemetrySentEvent<'graph/overview/shown'>(this, {
 				name: 'graph/overview/shown',
@@ -661,6 +660,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		if (fingerprint !== this._lastOverviewFingerprint) {
 			this._lastOverviewFingerprint = fingerprint;
 			void this.fetchOverviewData(overview, fingerprint).catch((ex: unknown) => {
+				if (isConnectionClosedError(ex)) {
+					Logger.debug('GraphOverview: overview data fetch dropped by deliberate connection teardown');
+					return;
+				}
+
 				Logger.error(ex, 'GraphOverview: Failed to fetch overview data');
 			});
 		}

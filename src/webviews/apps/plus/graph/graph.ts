@@ -16,6 +16,7 @@ import type {
 	State,
 } from '../../../plus/graph/protocol.js';
 import type { AgentInfo } from '../../../rpc/services/types.js';
+import { isConnectionClosedError } from '../../shared/actions/rpc.js';
 import { sortAgentSessions } from '../../shared/agentUtils.js';
 import { GlAppHost } from '../../shared/appHost.js';
 import { createOnboardingDismissals, onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
@@ -305,6 +306,11 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 			this._stateProvider.applyAccess(state);
 		} catch (ex) {
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('GraphAppHost: access plane connect dropped by deliberate connection teardown');
+				return;
+			}
+
 			// The bootstrap state already seeded all three fields, so a failure here leaves the walls
 			// on their first-render verdict rather than an unknown one.
 			Logger.error(ex, 'GraphAppHost: failed to connect the access plane');
@@ -339,6 +345,11 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 			this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
 		} catch (ex) {
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('GraphAppHost: repo-status plane connect dropped by deliberate connection teardown');
+				return;
+			}
+
 			// The bootstrap state already seeded `lastFetched`, so a failure here just leaves the header
 			// on its first-render value rather than an unknown one.
 			Logger.error(ex, 'GraphAppHost: failed to connect the repo-status plane');

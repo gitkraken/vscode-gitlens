@@ -126,10 +126,14 @@ suite('EventVisibilityBuffer Test Suite', () => {
 	});
 
 	suite('bufferEventHandler', () => {
-		test('should return the original handler when buffer is undefined', () => {
+		test('should call the handler when buffer is undefined', () => {
 			const handler = sinon.spy();
 			const result = bufferEventHandler(undefined, 'key', handler, 'save-last');
-			assert.strictEqual(result, handler, 'should return the same function reference');
+			// Notify-wrapped (see toEventNotifier): a local (non-proxy) handler falls back to a plain
+			// synchronous call, so the wrapper is a new function — identity is no longer preserved.
+			result('data1');
+			assert.strictEqual(handler.callCount, 1);
+			assert.strictEqual(handler.firstCall.args[0], 'data1');
 		});
 
 		test('should invoke handler immediately when visible (save-last)', () => {

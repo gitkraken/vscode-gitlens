@@ -14,7 +14,7 @@ import type { Remote } from '@eamodio/supertalk';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { HomeServices } from '../../home/homeService.js';
 import type { OverviewFilters } from '../../home/protocol.js';
-import { noop } from '../shared/actions/rpc.js';
+import { isConnectionClosedError, noop } from '../shared/actions/rpc.js';
 import { sortAgentSessions } from '../shared/agentUtils.js';
 import type { LaunchpadService, LaunchpadState } from '../shared/contexts/launchpad.js';
 import type { HomeRootState } from './state.js';
@@ -52,6 +52,11 @@ export async function restoreOverviewFilter(
 		await home.setOverviewFilter(persistedOverviewFilter);
 		applyOverviewFilter(await home.getOverviewFilterState());
 	} catch (ex) {
+		if (isConnectionClosedError(ex)) {
+			Logger.debug('Home: restore overview filter dropped by deliberate connection teardown');
+			return;
+		}
+
 		Logger.error(ex, 'Home: Failed to restore overview filter');
 	}
 }
@@ -98,7 +103,11 @@ export function populateInitialState(
 			state.home.ready.set(true); // render gate — set last
 		} else {
 			const ex = ctxResult.reason;
-			Logger.error(ex, 'Home: Failed to fetch initial context');
+			if (isConnectionClosedError(ex)) {
+				Logger.debug('Home: initial context fetch dropped by deliberate connection teardown');
+			} else {
+				Logger.error(ex, 'Home: Failed to fetch initial context');
+			}
 			state.home.error.set(ex instanceof Error ? ex.message : 'Failed to load');
 		}
 	});
@@ -138,6 +147,11 @@ export async function restoreOverviewRepositoryPath(
 			state.overviewRepositoryPath.set(currentOverviewRepositoryPath);
 		}
 	} catch (ex) {
+		if (isConnectionClosedError(ex)) {
+			Logger.debug('Home: restore overview repository path dropped by deliberate connection teardown');
+			return;
+		}
+
 		Logger.error(ex, 'Home: Failed to restore overview repository path');
 	}
 }
@@ -155,7 +169,11 @@ export async function fetchLaunchpadSummary(
 		const summary = await launchpad.getSummary(options);
 		state.launchpadSummary.set(summary);
 	} catch (ex) {
-		Logger.error(ex, 'Home: Failed to fetch launchpad summary');
+		if (isConnectionClosedError(ex)) {
+			Logger.debug('Home: launchpad summary fetch dropped by deliberate connection teardown');
+		} else {
+			Logger.error(ex, 'Home: Failed to fetch launchpad summary');
+		}
 		const error = ex instanceof Error ? ex : new Error('Failed to load');
 		state.launchpadSummary.set({ error: { name: error.name, message: error.message } });
 	} finally {

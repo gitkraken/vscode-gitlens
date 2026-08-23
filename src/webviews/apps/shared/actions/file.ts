@@ -9,7 +9,7 @@
  */
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { FileShowOptions, OpenMultipleChangesArgs } from '../../../rpc/services/types.js';
-import { fireAndForget } from './rpc.js';
+import { notifyService } from './rpc.js';
 
 // Re-export for consumers that import from this module
 export type { FileShowOptions, OpenMultipleChangesArgs } from '../../../rpc/services/types.js';
@@ -59,7 +59,7 @@ export function openFile(
 	showOptions?: FileShowOptions,
 	ref?: { ref: string; stash?: boolean },
 ): void {
-	fireAndForget(commands.openFile(file, showOptions, ref), 'open file');
+	notifyService(commands, 'open file', svc => svc.openFile(file, showOptions, ref));
 }
 
 export function openFileOnRemote(
@@ -67,7 +67,7 @@ export function openFileOnRemote(
 	file: GitFileChangeShape,
 	ref?: { ref: string; stash?: boolean },
 ): void {
-	fireAndForget(commands.openFileOnRemote(file, ref), 'open file on remote');
+	notifyService(commands, 'open file on remote', svc => svc.openFileOnRemote(file, ref));
 }
 
 export function openFileCompareWorking(
@@ -82,7 +82,7 @@ export function openFileCompareWorking(
 	showOptions?: FileShowOptions,
 	ref?: { ref: string; stash?: boolean },
 ): void {
-	fireAndForget(commands.openFileCompareWorking(file, showOptions, ref), 'compare file with working');
+	notifyService(commands, 'compare file with working', svc => svc.openFileCompareWorking(file, showOptions, ref));
 }
 
 export function openFileComparePrevious(
@@ -97,7 +97,7 @@ export function openFileComparePrevious(
 	showOptions?: FileShowOptions,
 	ref?: { ref: string; stash?: boolean },
 ): void {
-	fireAndForget(commands.openFileComparePrevious(file, showOptions, ref), 'compare file with previous');
+	notifyService(commands, 'compare file with previous', svc => svc.openFileComparePrevious(file, showOptions, ref));
 }
 
 export function openFileCompareWipChanges(
@@ -107,7 +107,7 @@ export function openFileCompareWipChanges(
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
 ): void {
-	fireAndForget(commands.openFileCompareWipChanges(file, showOptions), 'compare WIP file changes');
+	notifyService(commands, 'compare WIP file changes', svc => svc.openFileCompareWipChanges(file, showOptions));
 }
 
 export function openFileCompareBetween(
@@ -124,7 +124,9 @@ export function openFileCompareBetween(
 	lhsRef?: string,
 	rhsRef?: string,
 ): void {
-	fireAndForget(commands.openFileCompareBetween(file, showOptions, lhsRef, rhsRef), 'compare file between refs');
+	notifyService(commands, 'compare file between refs', svc =>
+		svc.openFileCompareBetween(file, showOptions, lhsRef, rhsRef),
+	);
 }
 
 // ============================================================
@@ -141,7 +143,7 @@ export function openVirtualFile(
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
 ): void {
-	fireAndForget(commands.openVirtualFile(ref, file, showOptions), 'open virtual file');
+	notifyService(commands, 'open virtual file', svc => svc.openVirtualFile(ref, file, showOptions));
 }
 
 export function openVirtualFileComparePrevious(
@@ -156,9 +158,8 @@ export function openVirtualFileComparePrevious(
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
 ): void {
-	fireAndForget(
-		commands.openVirtualFileComparePrevious(ref, file, showOptions),
-		'compare virtual file with previous',
+	notifyService(commands, 'compare virtual file with previous', svc =>
+		svc.openVirtualFileComparePrevious(ref, file, showOptions),
 	);
 }
 
@@ -174,7 +175,7 @@ export function openVirtualMultipleChanges(
 	files: readonly GitFileChangeShape[],
 	showOptions?: FileShowOptions,
 ): void {
-	fireAndForget(commands.openVirtualMultipleChanges(ref, files, showOptions), 'open virtual multi-diff');
+	notifyService(commands, 'open virtual multi-diff', svc => svc.openVirtualMultipleChanges(ref, files, showOptions));
 }
 
 export function executeFileAction(
@@ -189,12 +190,12 @@ export function executeFileAction(
 	showOptions?: FileShowOptions,
 	ref?: { ref: string; stash?: boolean },
 ): void {
-	fireAndForget(commands.executeFileAction(file, showOptions, ref), 'file action');
+	notifyService(commands, 'file action', svc => svc.executeFileAction(file, showOptions, ref));
 }
 
 export function openMultipleChanges(
 	commands: { openMultipleChanges(args: OpenMultipleChangesArgs): Promise<void> },
 	args: OpenMultipleChangesArgs,
 ): void {
-	fireAndForget(commands.openMultipleChanges(args), 'open multiple changes');
+	notifyService(commands, 'open multiple changes', svc => svc.openMultipleChanges(args));
 }

@@ -19,7 +19,7 @@ import type {
 	GraphSidebarBranch,
 	GraphSidebarPullRequest,
 } from '../../../../plus/graph/protocol.js';
-import { fireAndForget } from '../../../shared/actions/rpc.js';
+import { notifyService } from '../../../shared/actions/rpc.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { TreeItemDecoration, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base.js';
 import type { GlTreeView } from '../../../shared/components/tree/tree-view.js';
@@ -1081,7 +1081,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		this.graphState.deferScopeClear();
 		const services = this._services;
 		if (services != null) {
-			fireAndForget((async () => (await services.filters).reset())(), 'filters/reset');
+			notifyService(services.filters, 'filters/reset', svc => svc.reset());
 		}
 		this.hideModePopover();
 	};
@@ -1124,24 +1124,21 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.configuration).update(changes))(), 'configuration/update');
+		notifyService(services.configuration, 'configuration/update', svc => svc.update(changes));
 	}
 
 	private onExcludeTypesChanged(key: keyof GraphExcludeTypes, value: boolean) {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.filters).setExcludeType(key, value))(), 'filters/excludeTypes');
+		notifyService(services.filters, 'filters/excludeTypes', svc => svc.setExcludeType(key, value));
 	}
 
 	private onRefIncludesChanged(branchesVisibility: GraphBranchesVisibility, refs?: GraphRefOptData[]) {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget(
-			(async () => (await services.filters).setIncludedRefs(branchesVisibility, refs))(),
-			'filters/includedRefs',
-		);
+		notifyService(services.filters, 'filters/includedRefs', svc => svc.setIncludedRefs(branchesVisibility, refs));
 	}
 }
 

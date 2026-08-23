@@ -7,26 +7,26 @@
  */
 import type { Signal } from '@lit-labs/signals';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import { fireAndForget, fireRpc } from './rpc.js';
+import { fireRpc, notifyService } from './rpc.js';
 
 // ============================================================
 // Repository Operations (fire-and-forget — backend shows UI)
 // ============================================================
 
 export function fetch(git: { fetch(repoPath: string): Promise<void> }, repoPath: string): void {
-	fireAndForget(git.fetch(repoPath), 'fetch');
+	notifyService(git, 'fetch', svc => svc.fetch(repoPath));
 }
 
 export function push(git: { push(repoPath: string): Promise<void> }, repoPath: string): void {
-	fireAndForget(git.push(repoPath), 'push');
+	notifyService(git, 'push', svc => svc.push(repoPath));
 }
 
 export function pull(git: { pull(repoPath: string): Promise<void> }, repoPath: string): void {
-	fireAndForget(git.pull(repoPath), 'pull');
+	notifyService(git, 'pull', svc => svc.pull(repoPath));
 }
 
 export function switchBranch(git: { switchBranch(repoPath: string): Promise<void> }, repoPath: string): void {
-	fireAndForget(git.switchBranch(repoPath), 'switch branch');
+	notifyService(git, 'switch branch', svc => svc.switchBranch(repoPath));
 }
 
 // ============================================================

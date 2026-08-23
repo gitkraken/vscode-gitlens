@@ -80,11 +80,12 @@ import * as fileActions from '../../../shared/actions/file.js';
 import * as prActions from '../../../shared/actions/pr.js';
 import {
 	enrichmentGuard,
-	fireAndForget,
 	guardedEnrich,
 	isAbortError,
+	isConnectionClosedError,
 	noop,
 	noopUnlessReal,
+	notifyService,
 } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
@@ -299,7 +300,7 @@ export class DetailsActions {
 		name: keyof TelemetryEvents,
 		data?: Record<string, string | number | boolean | undefined>,
 	): void {
-		fireAndForget(this.services.telemetry.sendEvent(name, data));
+		notifyService(this.services.telemetry, 'telemetry/sendEvent', svc => svc.sendEvent(name, data));
 	}
 
 	/** Builds the shared scope/AI/instructions payload for graph-details mode telemetry events.
@@ -2369,7 +2370,11 @@ export class DetailsActions {
 		} catch (ex) {
 			if (signal.aborted) return;
 
-			Logger.error(ex, `Failed to fetch files for commit ${sha}`);
+			if (isConnectionClosedError(ex)) {
+				Logger.debug(`Fetch files for commit ${sha} dropped by deliberate connection teardown`);
+			} else {
+				Logger.error(ex, `Failed to fetch files for commit ${sha}`);
+			}
 		} finally {
 			if (this._compareCommitFilesControllers.get(controllerKey) === controller) {
 				this._compareCommitFilesControllers.delete(controllerKey);
@@ -3088,7 +3093,9 @@ export class DetailsActions {
 	}
 
 	copyWipPatchToClipboard(repoPath: string, scope: 'all' | 'staged' | 'unstaged', uris?: readonly string[]): void {
-		fireAndForget(this.services.drafts.copyWipPatchToClipboard(repoPath, scope, uris), 'copy WIP patch');
+		notifyService(this.services.drafts, 'copy WIP patch', svc =>
+			svc.copyWipPatchToClipboard(repoPath, scope, uris),
+		);
 	}
 
 	/**
@@ -3096,7 +3103,9 @@ export class DetailsActions {
 	 * `to` is the commit sha, `from` the parent (undefined for a root commit).
 	 */
 	copyCommitPatchToClipboard(repoPath: string, to: string, from?: string): void {
-		fireAndForget(this.services.drafts.copyCommitPatchToClipboard(repoPath, to, from), 'copy commit patch');
+		notifyService(this.services.drafts, 'copy commit patch', svc =>
+			svc.copyCommitPatchToClipboard(repoPath, to, from),
+		);
 	}
 
 	stageFile(detail: FileChangeListItemDetail): void {
@@ -3300,7 +3309,11 @@ export class DetailsActions {
 		try {
 			await op;
 		} catch (ex) {
-			Logger.error(ex, `Staging op failed (${context})`);
+			if (isConnectionClosedError(ex)) {
+				Logger.debug(`Staging op dropped by deliberate connection teardown (${context})`);
+			} else {
+				Logger.error(ex, `Staging op failed (${context})`);
+			}
 			if (telemetry != null) {
 				this.sendTelemetryEvent('graph/wip/staging/failed', telemetry);
 			}
@@ -3696,43 +3709,53 @@ export class DetailsActions {
 	switchBranch(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
-		void this.services.repository.switchBranch(repoPath);
+		notifyService(this.services.repository, 'repository/switchBranch', svc => svc.switchBranch(repoPath));
 	}
 
 	createBranch(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
-		void this.services.repository.createBranch(repoPath);
+		notifyService(this.services.repository, 'repository/createBranch', svc => svc.createBranch(repoPath));
 	}
 
 	stashSave(repoPath: string | undefined, onlyStaged?: boolean): void {
 		if (!repoPath) return;
 
-		void this.services.commands.execute('gitlens.stashSave', { repoPath: repoPath, onlyStaged: onlyStaged });
+		notifyService(this.services.commands, 'command: gitlens.stashSave', svc =>
+			svc.execute('gitlens.stashSave', { repoPath: repoPath, onlyStaged: onlyStaged }),
+		);
 	}
 
 	applyStash(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
-		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
+		notifyService(this.services.commands, 'command: gitlens.stashesApply', svc =>
+			svc.execute('gitlens.stashesApply', { repoPath: repoPath }),
+		);
 	}
 
 	createWorktree(): void {
-		void this.services.commands.execute('gitlens.views.createWorktree');
+		notifyService(this.services.commands, 'command: gitlens.views.createWorktree', svc =>
+			svc.execute('gitlens.views.createWorktree'),
+		);
 	}
 
 	startWork(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
-		void this.services.commands.execute('gitlens.startWork', {
-			source: 'graph-details' as const,
-			...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
-		});
+		notifyService(this.services.commands, 'command: gitlens.startWork', svc =>
+			svc.execute('gitlens.startWork', {
+				source: 'graph-details' as const,
+				...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
+			}),
+		);
 	}
 
 	startPRReview(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
-		void this.services.commands.execute('gitlens.startReview', {
-			source: { source: 'graph-details' },
-			...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
-		});
+		notifyService(this.services.commands, 'command: gitlens.startReview', svc =>
+			svc.execute('gitlens.startReview', {
+				source: { source: 'graph-details' },
+				...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
+			}),
+		);
 	}
 
 	createPullRequest(repoPath: string | undefined, options?: { describeWithAI?: boolean }): void {
@@ -3743,26 +3766,32 @@ export class DetailsActions {
 		const upstreamName = branch?.upstream?.name;
 		if (branch?.name == null || upstreamName == null) return;
 
-		void this.services.commands.execute('gitlens.createPullRequestOnRemote', {
-			repoPath: repoPath,
-			compare: branch.name,
-			remote: getRemoteNameFromBranchName(upstreamName),
-			describeWithAI: options?.describeWithAI,
-		});
+		notifyService(this.services.commands, 'command: gitlens.createPullRequestOnRemote', svc =>
+			svc.execute('gitlens.createPullRequestOnRemote', {
+				repoPath: repoPath,
+				compare: branch.name,
+				remote: getRemoteNameFromBranchName(upstreamName),
+				describeWithAI: options?.describeWithAI,
+			}),
+		);
 	}
 
 	rebaseOntoMergeTarget(): void {
 		const ref = this.buildMergeTargetBranchRef();
 		if (ref == null) return;
 
-		void this.services.commands.executeScoped('gitlens.rebaseCurrentOnto:graph', ref);
+		notifyService(this.services.commands, 'command: gitlens.rebaseCurrentOnto:graph', svc =>
+			svc.executeScoped('gitlens.rebaseCurrentOnto:graph', ref),
+		);
 	}
 
 	mergeMergeTargetIntoCurrent(): void {
 		const ref = this.buildMergeTargetBranchRef();
 		if (ref == null) return;
 
-		void this.services.commands.executeScoped('gitlens.mergeIntoCurrent:graph', ref);
+		notifyService(this.services.commands, 'command: gitlens.mergeIntoCurrent:graph', svc =>
+			svc.executeScoped('gitlens.mergeIntoCurrent:graph', ref),
+		);
 	}
 
 	private buildMergeTargetBranchRef(): { repoPath: string; branchId: string; branchName: string } | undefined {
@@ -3777,10 +3806,12 @@ export class DetailsActions {
 	openOnRemote(repoPath: string | undefined, sha: string): void {
 		if (!repoPath) return;
 
-		void this.services.commands.execute('gitlens.openOnRemote', {
-			repoPath: repoPath,
-			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
-		});
+		notifyService(this.services.commands, 'command: gitlens.openOnRemote', svc =>
+			svc.execute('gitlens.openOnRemote', {
+				repoPath: repoPath,
+				resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
+			}),
+		);
 	}
 
 	changeFilesLayout(layout: ViewFilesLayout): void {

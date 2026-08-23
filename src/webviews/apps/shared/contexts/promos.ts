@@ -6,6 +6,7 @@ import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/model
 import { ApplicablePromoRequest } from '../../../protocol.js';
 import type { SubscriptionService } from '../../../rpc/services/subscription.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
+import { isConnectionClosedError } from '../actions/rpc.js';
 import type { Disposable } from '../events.js';
 import { subscribeAll } from '../events/subscriptions.js';
 import type { HostIpc } from '../ipc.js';
@@ -53,7 +54,14 @@ export class PromosContext implements Disposable {
 				this.stopListening();
 				this._unsubscribe = subscribeAll([() => resolved.onSubscriptionChanged(() => this.invalidate())]);
 			},
-			(ex: unknown) => Logger.error(ex, 'PromosContext: failed to connect'),
+			(ex: unknown) => {
+				if (isConnectionClosedError(ex)) {
+					Logger.debug('PromosContext: connect dropped by deliberate connection teardown');
+					return;
+				}
+
+				Logger.error(ex, 'PromosContext: failed to connect');
+			},
 		);
 	}
 

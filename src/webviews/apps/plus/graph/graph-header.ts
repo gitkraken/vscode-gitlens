@@ -26,7 +26,7 @@ import type {
 	State,
 } from '../../../plus/graph/protocol.js';
 import { createWipRowId } from '../../../plus/graph/protocol.js';
-import { fireAndForget } from '../../shared/actions/rpc.js';
+import { notifyService } from '../../shared/actions/rpc.js';
 import type { GlPopover } from '../../shared/components/overlays/popover.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
 import type { GlSearchBox } from '../../shared/components/search/search-box.js';
@@ -735,7 +735,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const services = this._services;
 		if (services == null) return;
 
-		fireAndForget((async () => (await services.filters).setRefsVisibility(refs, visible))(), 'filters/refs');
+		notifyService(services.filters, 'filters/refs', svc => svc.setRefsVisibility(refs, visible));
 	}
 
 	private handleSearch() {
@@ -1050,7 +1050,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				const services = this._services;
 				if (services == null) break;
 
-				fireAndForget((async () => (await services.pickers).chooseRepository())(), 'pickers/chooseRepository');
+				notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
 				break;
 			}
 

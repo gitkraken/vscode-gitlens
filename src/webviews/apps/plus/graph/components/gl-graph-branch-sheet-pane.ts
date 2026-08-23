@@ -20,7 +20,7 @@ import type {
 	OverviewBranchPullRequest,
 	OverviewBranchRemote,
 } from '../../../../shared/overviewBranches.js';
-import { isAbortError, noopUnlessReal } from '../../../shared/actions/rpc.js';
+import { isAbortError, noopUnlessReal, notifyService } from '../../../shared/actions/rpc.js';
 import type { PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
 import { createPastAgentSessionsResolver, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
@@ -1482,11 +1482,17 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	}
 
 	private pull(checkoutPath: string): void {
-		void this.services?.repository.pull(checkoutPath);
+		const repository = this.services?.repository;
+		if (repository == null) return;
+
+		notifyService(repository, 'repository/pull', svc => svc.pull(checkoutPath));
 	}
 
 	private forcePush(checkoutPath: string): void {
-		void this.services?.repository.push(checkoutPath, true);
+		const repository = this.services?.repository;
+		if (repository == null) return;
+
+		notifyService(repository, 'repository/push', svc => svc.push(checkoutPath, true));
 	}
 }
 

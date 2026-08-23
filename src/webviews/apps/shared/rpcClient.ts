@@ -15,6 +15,7 @@ import type { WebviewIds } from '../../../constants.views.js';
 import { GlAbortSignalHandler } from '../../../system/rpc/abortSignalHandler.js';
 import { rpcHandlers } from '../../../system/rpc/handlers.js';
 import { createSupertalkLogger, formatWebviewLogTag } from '../../../system/rpc/logger.js';
+import { isConnectionClosedError } from './actions/rpc.js';
 import { getHost } from './host/context.js';
 import { cacheRemoteServices } from './rpc/cachedRemote.js';
 import type { DisposableEndpoint } from './webviewEndpoint.js';
@@ -275,7 +276,11 @@ export async function wrapServices<TServices extends object>(
 		};
 	} catch (ex) {
 		disposeConnection();
-		Logger.error(ex, `${logPrefix}: Failed to connect to host`);
+		if (isConnectionClosedError(ex)) {
+			Logger.debug(`${logPrefix}: connect dropped by deliberate connection teardown`);
+		} else {
+			Logger.error(ex, `${logPrefix}: Failed to connect to host`);
+		}
 		throw ex;
 	}
 }

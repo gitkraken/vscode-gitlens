@@ -54,7 +54,7 @@ import {
 	isWipSelectionSha,
 } from '../../../plus/graph/protocol.js';
 import { ExecuteCommand } from '../../../protocol.js';
-import { fireAndForget, noop } from '../../shared/actions/rpc.js';
+import { fireAndForget, noop, notifyService } from '../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
@@ -682,10 +682,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget(
-			services.telemetry.then(t => t.trackUsage(key)),
-			'track usage',
-		);
+		notifyService(services.telemetry, 'track usage', svc => svc.trackUsage(key));
 	}
 
 	/** Persists a graph config change via RPC, resolving once the write lands (the new config
@@ -4737,9 +4734,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// dismissal write and the view move ride the same causally-ordered RPC message (see
 		// docs/webview-architecture.md).
 		if (this.services != null) {
-			fireAndForget(
-				(async () => (await this.services!.welcome).continueToGraph({ layoutChoice: choice }))(),
-				'welcome/continueToGraph',
+			notifyService(this.services.welcome, 'welcome/continueToGraph', svc =>
+				svc.continueToGraph({ layoutChoice: choice }),
 			);
 		}
 	}
@@ -5696,10 +5692,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget(
-			services.columns.then(c => c.setColumnMode(e.detail.name, e.detail.mode)),
-			'set column mode',
-		);
+		notifyService(services.columns, 'set column mode', svc => svc.setColumnMode(e.detail.name, e.detail.mode));
 	}
 
 	// The dormant Changes column's one-time opt-in — a dedicated consent write (`graph.changesColumn.enabled`).
@@ -5707,10 +5700,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget(
-			services.columns.then(c => c.enableChangesColumn()),
-			'enable changes column',
-		);
+		notifyService(services.columns, 'enable changes column', svc => svc.enableChangesColumn());
 	}
 
 	private handleGraphFilterColumn(e: CustomEventType<'gl-graph-filter-column'>) {

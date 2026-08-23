@@ -32,6 +32,7 @@ import type {
 	RepositoryChangeEventData,
 	Unsubscribe,
 } from '../../rpc/services/types.js';
+import { isConnectionClosedError } from '../shared/actions/rpc.js';
 import { sortAgentSessions } from '../shared/agentUtils.js';
 import { subscribeAll } from '../shared/events/subscriptions.js';
 import type { HomeRootState } from './state.js';
@@ -170,7 +171,14 @@ export function setupSubscriptions(
 					repos => {
 						state.home.repositories.set(repos);
 					},
-					(ex: unknown) => Logger.error(ex, 'Home: Failed to refetch repositories state'),
+					(ex: unknown) => {
+						if (isConnectionClosedError(ex)) {
+							Logger.debug('Home: repositories refetch dropped by deliberate connection teardown');
+							return;
+						}
+
+						Logger.error(ex, 'Home: Failed to refetch repositories state');
+					},
 				);
 				actions.refreshOverview();
 			}),

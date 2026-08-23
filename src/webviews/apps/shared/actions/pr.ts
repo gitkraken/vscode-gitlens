@@ -5,14 +5,14 @@
  * the relevant commands service method via structural typing.
  */
 import type { PullRequestRefs } from '@gitlens/git/models/pullRequest.js';
-import { fireAndForget } from './rpc.js';
+import { notifyService } from './rpc.js';
 
 export function openPullRequestChanges(
 	commands: { openPullRequestChanges(repoPath: string, prRefs: PullRequestRefs): Promise<void> },
 	repoPath: string,
 	refs: PullRequestRefs,
 ): void {
-	fireAndForget(commands.openPullRequestChanges(repoPath, refs), 'open PR changes');
+	notifyService(commands, 'open PR changes', svc => svc.openPullRequestChanges(repoPath, refs));
 }
 
 export function openPullRequestComparison(
@@ -20,14 +20,14 @@ export function openPullRequestComparison(
 	repoPath: string,
 	refs: PullRequestRefs,
 ): void {
-	fireAndForget(commands.openPullRequestComparison(repoPath, refs), 'open PR comparison');
+	notifyService(commands, 'open PR comparison', svc => svc.openPullRequestComparison(repoPath, refs));
 }
 
 export function openPullRequestOnRemote(
 	commands: { openPullRequestOnRemote(prUrl: string): Promise<void> },
 	url: string,
 ): void {
-	fireAndForget(commands.openPullRequestOnRemote(url), 'open PR on remote');
+	notifyService(commands, 'open PR on remote', svc => svc.openPullRequestOnRemote(url));
 }
 
 export function openPullRequestDetails(
@@ -36,5 +36,5 @@ export function openPullRequestDetails(
 	id: string,
 	provider: string,
 ): void {
-	fireAndForget(commands.openPullRequestDetails(repoPath, id, provider), 'open PR details');
+	notifyService(commands, 'open PR details', svc => svc.openPullRequestDetails(repoPath, id, provider));
 }
