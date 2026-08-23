@@ -8,6 +8,7 @@ import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import { trimTrailingSlash } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
@@ -56,6 +57,8 @@ import './tree-view.js';
 
 export type FileItem = GitFileChangeShape & { stats?: GitFileChangeStats; conflictMarkers?: number };
 type Files = Mutable<FileItem[]>;
+type FilesLayoutConfig = Pick<ViewsFilesConfig, 'layout' | 'threshold' | 'compact'>;
+type CheckableState = { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };
 
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
@@ -132,8 +135,13 @@ export class GlFileTreePane extends LitElement {
 
 	// --- File layout (replaces preferences.files) ---
 
-	@property({ attribute: false })
-	filesLayout?: Pick<ViewsFilesConfig, 'layout' | 'threshold' | 'compact'>;
+	@property({
+		attribute: false,
+		// Callers pass a fresh literal per parent render; only rebuild when a value we read changes.
+		hasChanged: (next: FilesLayoutConfig | undefined, prev: FilesLayoutConfig | undefined) =>
+			next?.layout !== prev?.layout || next?.threshold !== prev?.threshold || next?.compact !== prev?.compact,
+	})
+	filesLayout?: FilesLayoutConfig;
 
 	/**
 	 * Working-files sort order (VS Code's `scm.defaultViewSortKey`). Honored only in list layout,
@@ -198,8 +206,25 @@ export class GlFileTreePane extends LitElement {
 	 * `disabledReason` overrides the default include/exclude tooltip when the row is disabled
 	 * (e.g. "Excluded by AI ignore rules") so users understand WHY they can't toggle it.
 	 */
-	@property({ attribute: false })
-	checkableStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string }>;
+	@property({
+		attribute: false,
+		// Freshly built per parent render with conditionally-inserted entries — compare entry-wise;
+		// reference equality or equal sizes alone can't prove equal contents.
+		hasChanged: (next: Map<string, CheckableState> | undefined, prev: Map<string, CheckableState> | undefined) => {
+			if (next === prev) return false;
+			if (next == null || prev == null) return true;
+
+			let matched = 0;
+			for (const [path, state] of next) {
+				const prevState = prev.get(path);
+				if (prevState == null || !areEqual(state, prevState)) return true;
+
+				matched++;
+			}
+			return matched !== prev.size;
+		},
+	})
+	checkableStates?: Map<string, CheckableState>;
 
 	@property({ attribute: false })
 	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };

@@ -652,6 +652,34 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 	};
 
+	/** Memoized `.filesLayout` payload for the inner pane — a fresh literal per render would trip
+	 * the pane's tree-model rebuild via Lit's reference-equality dirty check. */
+	private _paneFilesLayout?: { layout: ViewFilesLayout };
+	private get paneFilesLayout(): { layout: ViewFilesLayout } {
+		let cached = this._paneFilesLayout;
+		if (cached?.layout !== this.fileLayout) {
+			cached = { layout: this.fileLayout };
+			this._paneFilesLayout = cached;
+		}
+		return cached;
+	}
+
+	/** Cache key for the baked-in row contexts: `getFileContext` reads both `scope` and `repoPath`,
+	 * so both must key the revision — keying on either alone leaves rows on a stale context when
+	 * the other changes. Memoized on identity so the stringify runs only when the scope actually
+	 * changes rather than on every parent render. */
+	private _contextRevision?: { scope: ScopeSelection | undefined; repoPath: string | undefined; value: string };
+	private get contextRevision(): string {
+		const cached = this._contextRevision;
+		if (cached != null && cached.scope === this.scope && cached.repoPath === this.repoPath) {
+			return cached.value;
+		}
+
+		const value = `${this.repoPath ?? ''}|${this.scope ? JSON.stringify(this.scope) : ''}`;
+		this._contextRevision = { scope: this.scope, repoPath: this.repoPath, value: value };
+		return value;
+	}
+
 	private renderFileCuration(files?: readonly ScopeFile[]) {
 		// Always render the section — when there are no files, gl-file-tree-pane shows the
 		// `empty-text` message inside its body so the section header / scope context stays
@@ -676,10 +704,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 		}
 
-		// `getFileContext` reads both `scope` and `repoPath`, so both must key the cached context model —
-		// a scope-only or repoPath-only revision would leave rows on a stale context after the other changes.
-		const contextRevision = `${this.repoPath ?? ''}|${this.scope ? JSON.stringify(this.scope) : ''}`;
-
 		return html`<div class="scope-files__tree">
 			<webview-pane-group flexible>
 				<gl-file-tree-pane
@@ -688,11 +712,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 					?multi-selectable=${true}
 					?show-file-icons=${true}
 					.collapsable=${false}
-					.filesLayout=${{ layout: this.fileLayout }}
+					.filesLayout=${this.paneFilesLayout}
 					.checkableStates=${checkableStates}
 					.fileActions=${this.fileActionsForFile}
 					.fileContext=${this.getFileContext}
-					.contextRevision=${contextRevision}
+					.contextRevision=${this.contextRevision}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					selection-action="file-compare-range"
 					@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>

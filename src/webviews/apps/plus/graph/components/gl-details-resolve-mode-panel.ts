@@ -1040,6 +1040,18 @@ export class GlDetailsResolveModePanel extends LitElement {
 		);
 	}
 
+	/** Memoized `.filesLayout` payload for the inner pane — a fresh literal per render would trip
+	 * the pane's tree-model rebuild via Lit's reference-equality dirty check. */
+	private _paneFilesLayout?: { layout: ViewFilesLayout };
+	private get paneFilesLayout(): { layout: ViewFilesLayout } {
+		let cached = this._paneFilesLayout;
+		if (cached?.layout !== this.fileLayout) {
+			cached = { layout: this.fileLayout };
+			this._paneFilesLayout = cached;
+		}
+		return cached;
+	}
+
 	private renderIdle(): unknown {
 		const files = this.conflictedFiles ?? [];
 
@@ -1066,7 +1078,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 						?multi-selectable=${true}
 						?show-file-icons=${true}
 						.collapsable=${false}
-						.filesLayout=${{ layout: this.fileLayout }}
+						.filesLayout=${this.paneFilesLayout}
 						.checkableStates=${checkableStates}
 						.fileContext=${this.getFileContext}
 						.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}

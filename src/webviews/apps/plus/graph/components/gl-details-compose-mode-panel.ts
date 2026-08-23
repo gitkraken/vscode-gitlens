@@ -588,6 +588,18 @@ export class GlDetailsComposeModePanel extends LitElement {
 		`;
 	}
 
+	/** Memoized `.filesLayout` payload for the inner panes — a fresh literal per render would trip
+	 * the pane's tree-model rebuild via Lit's reference-equality dirty check. */
+	private _paneFilesLayout?: { layout: ViewFilesLayout };
+	private get paneFilesLayout(): { layout: ViewFilesLayout } {
+		let cached = this._paneFilesLayout;
+		if (cached?.layout !== this.fileLayout) {
+			cached = { layout: this.fileLayout };
+			this._paneFilesLayout = cached;
+		}
+		return cached;
+	}
+
 	private renderFileCuration() {
 		// Always render the section — empty-text shows the empty state inside the pane so the
 		// header / scope context stays visible even when the current scope yields zero files.
@@ -615,7 +627,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 					?multi-selectable=${true}
 					?show-file-icons=${true}
 					.collapsable=${false}
-					.filesLayout=${{ layout: this.fileLayout }}
+					.filesLayout=${this.paneFilesLayout}
 					.checkableStates=${checkableStates}
 					.fileActions=${this.idleFileActionsForFile}
 					.fileContext=${this.getIdleFileContext}
@@ -1101,7 +1113,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		return html`<gl-file-tree-pane
 			.files=${files}
-			.filesLayout=${{ layout: this.fileLayout }}
+			.filesLayout=${this.paneFilesLayout}
 			.collapsable=${false}
 			show-file-icons
 			header="File Changes"
