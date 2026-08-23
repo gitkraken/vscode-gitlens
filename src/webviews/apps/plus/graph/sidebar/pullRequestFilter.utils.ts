@@ -1,4 +1,5 @@
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 
 /** Whether the query is a URL, i.e. something pasted rather than typed as search text. */
@@ -49,4 +50,36 @@ export function getPullRequestNumberFromQuery(query: string): string | undefined
 	if (urlRegex.test(trimmed)) return getPullRequestNumberFromUrl(trimmed);
 
 	return /^#?(\d+)$/.exec(trimmed)?.[1];
+}
+
+/** How a {@link searchPullRequest} ended. */
+export type PullRequestSearchResult =
+	| { kind: 'found'; pr: GraphSidebarPullRequest }
+	| { kind: 'not-found' }
+	| { kind: 'superseded' };
+
+/**
+ * Looks up the pull request `number` addresses — the engine behind the "Not in open pull requests →
+ * search" fallbacks shared by the sidebar's pull requests panel and the scope popover's Focus pane.
+ * Both lists hold only *open* pull requests, so a pasted URL for a merged or closed one finds nothing
+ * until we go ask, mirroring how Launchpad falls back to `getPullRequest` when its query names a PR
+ * outside the loaded set.
+ *
+ * Rejects when the lookup fails; each caller decides how failure reads (both map it to not-found).
+ */
+export async function searchPullRequest(
+	number: string,
+	options: {
+		/** The live filter query — re-parsed once the lookup settles, so a query that moved on to a
+		 *  different pull request while the request was in flight reports `superseded` rather than
+		 *  silently injecting a PR nobody is asking about anymore. */
+		getQuery: () => string;
+		/** Resolves a pull request the loaded list doesn't hold. */
+		find: (number: string) => Promise<GraphSidebarPullRequest | undefined>;
+	},
+): Promise<PullRequestSearchResult> {
+	const pr = await options.find(number);
+	if (getPullRequestNumberFromQuery(options.getQuery()) !== number) return { kind: 'superseded' };
+
+	return pr != null ? { kind: 'found', pr: pr } : { kind: 'not-found' };
 }

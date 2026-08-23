@@ -29,6 +29,7 @@ import { branchTreeIcon, remoteProviderFolderIcon, remoteProviderIconsByName } f
 import {
 	getPullRequestNumberFromQuery,
 	parsePullRequestFilterTerms,
+	searchPullRequest,
 	withSearchedPullRequest,
 } from '../sidebar/pullRequestFilter.utils.js';
 import { groupPullRequestsByStack } from '../sidebar/pullRequestStacks.utils.js';
@@ -790,19 +791,21 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const number = getPullRequestNumberFromQuery(this._prFilterQuery);
 		if (number == null || this._sidebarActions == null) return;
 
+		const actions = this._sidebarActions;
 		this._prSearchState = 'searching';
 		try {
-			const pr = await this._sidebarActions.findPullRequest(number);
-			// The query may have moved on while the request was in flight; a stale result would
-			// silently inject a PR the user is no longer asking about.
-			if (getPullRequestNumberFromQuery(this._prFilterQuery) !== number) return;
+			const result = await searchPullRequest(number, {
+				getQuery: () => this._prFilterQuery,
+				find: n => actions.findPullRequest(n),
+			});
+			if (result.kind === 'superseded') return;
 
-			if (pr == null) {
+			if (result.kind === 'not-found') {
 				this._prSearchState = 'notFound';
 				return;
 			}
 
-			this._prSearchResult = pr;
+			this._prSearchResult = result.pr;
 			this._prSearchRepoId = this.repo?.id;
 			this._prSearchState = 'idle';
 		} catch {

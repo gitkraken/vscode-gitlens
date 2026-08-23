@@ -1,7 +1,9 @@
 import * as assert from 'assert';
+import type { GraphSidebarPullRequest } from '../../../../../plus/graph/protocol.js';
 import {
 	getPullRequestNumberFromQuery,
 	parsePullRequestFilterTerms,
+	searchPullRequest,
 	withSearchedPullRequest,
 } from '../pullRequestFilter.utils.js';
 
@@ -105,5 +107,51 @@ suite('getPullRequestNumberFromQuery', () => {
 		for (const query of ['', 'graph panel', 'bug/2-fix', 'feature/5619-graph', 'https://github.com/o/r']) {
 			assert.strictEqual(getPullRequestNumberFromQuery(query), undefined, query);
 		}
+	});
+});
+
+suite('searchPullRequest', () => {
+	function pr(number: string): GraphSidebarPullRequest {
+		return { number: number } as unknown as GraphSidebarPullRequest;
+	}
+
+	test('returns the pull request the lookup found', async () => {
+		const result = await searchPullRequest('12', {
+			getQuery: () => 'https://github.com/o/r/pull/12',
+			find: async () => pr('12'),
+		});
+		assert.deepStrictEqual(result, { kind: 'found', pr: pr('12') });
+	});
+
+	test('returns not-found when the lookup comes up empty', async () => {
+		const result = await searchPullRequest('12', {
+			getQuery: () => '#12',
+			find: async () => undefined,
+		});
+		assert.deepStrictEqual(result, { kind: 'not-found' });
+	});
+
+	// The guard both callers rely on: the query is re-read only *after* the request settles, so a
+	// result for a question nobody is asking anymore never reaches the UI.
+	test('reports superseded when the query moved on while the request was in flight', async () => {
+		let query = '#12';
+		const result = await searchPullRequest('12', {
+			getQuery: () => query,
+			find: async () => {
+				query = 'feature/x';
+				return pr('12');
+			},
+		});
+		assert.deepStrictEqual(result, { kind: 'superseded' });
+	});
+
+	test('rejects on lookup failure — each caller decides how failure reads', async () => {
+		await assert.rejects(
+			searchPullRequest('12', {
+				getQuery: () => '#12',
+				find: () => Promise.reject(new Error('lookup failed')),
+			}),
+			/lookup failed/,
+		);
 	});
 });

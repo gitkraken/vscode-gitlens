@@ -66,6 +66,7 @@ import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnri
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GraphServices } from './graphService.js';
 import { markSidebarInlineInvocation } from './graphSidebarActionTelemetry.js';
+import { buildBranchContextSuffix, buildPullRequestContextSuffix } from './graphWebview.utils.js';
 import type {
 	DidGetSidebarDataParams,
 	GetOverviewParams,
@@ -538,19 +539,15 @@ export class GraphPanelsService {
 		hiddenIds: Set<string>,
 		hiddenByRemote: boolean,
 	): GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin {
-		// Exclude the default worktree from the worktree indicator (matches view behavior)
-		const isCheckedOut = b.worktree != null && b.worktree !== false;
-		const hasWorktree = isCheckedOut && !b.worktree.isDefault;
 		return {
 			webview: this.host.id,
 			webviewItemOrigin: sidebarItemOrigin,
-			webviewItem: `gitlens:branch${b.remote ? '+remote' : ''}${b.current ? '+current' : ''}${
-				b.upstream != null && !b.upstream.missing ? '+tracking' : ''
-			}${hasWorktree ? '+worktree' : ''}${
-				b.current || isCheckedOut ? '+checkedout' : ''
-			}${b.upstream?.state.ahead ? '+ahead' : ''}${b.upstream?.state.behind ? '+behind' : ''}${
-				pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''
-			}${!b.current && hiddenIds.has(b.id) ? '+hidden' : ''}${hiddenByRemote ? '+hiddenbyremote' : ''}`,
+			webviewItem: buildBranchContextSuffix(b, {
+				isCheckedOut: b.worktree != null && b.worktree !== false,
+				pinnedRefId: pinnedRefId,
+				hiddenIds: hiddenIds,
+				hiddenByRemote: hiddenByRemote,
+			}),
 			webviewItemValue: {
 				type: 'branch',
 				ref: createReference(b.name, repoPath, {
@@ -1192,18 +1189,8 @@ export class GraphPanelsService {
 			context: {
 				webview: this.host.id,
 				webviewItemOrigin: sidebarItemOrigin,
-				// Every suffix names a precondition some handler actually checks, because a suffix that
-				// merely says "a refs object exists" gates nothing: the providers-api path always builds
-				// `refs`, filling a gone head with empty strings. So — `+head` for an actionable head
-				// (branch and url both non-empty, what switch/worktree need), `+shas` for a diffable pair
-				// (changes/comparison), `+focus` for a scope target that's really in this repo. `+head`
-				// isn't fork-gated: those commands work for a fork off its own url, since the deep link
-				// adds the remote. Kept in sync with the graph row's producer (`GraphProducersService`).
-				webviewItem: `gitlens:pullrequest${
-					headBranch != null && headUrl != null ? '+head' : ''
-				}${pr.refs?.base?.sha && pr.refs.head?.sha ? '+shas' : ''}${
-					pr.state !== 'opened' ? '+closed' : ''
-				}${pr.refs?.isCrossRepository === true ? '+fork' : ''}${isCurrent ? '+current' : ''}`,
+				// Suffix tokens and their preconditions are documented on `buildPullRequestContextSuffix`.
+				webviewItem: buildPullRequestContextSuffix(pr, isCurrent === true),
 				webviewItemValue: {
 					type: 'pullrequest',
 					id: pr.id,

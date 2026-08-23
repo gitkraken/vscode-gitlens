@@ -35,6 +35,7 @@ import { toOverviewBranch } from '../../shared/overviewBranches.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GitBranchShape, Wip, WipStats } from './detailsProtocol.js';
 import type { GraphWorkingTreeChange, GraphWorktreeEnrichment } from './graphService.js';
+import { buildBranchContextSuffix } from './graphWebview.utils.js';
 import type {
 	GraphItemContext,
 	GraphWipRowsById,
@@ -1189,18 +1190,17 @@ export class GraphWipService {
 
 		// Serialize the current branch's context so the WIP header's left kebab opens the same branch
 		// actions menu as a graph branch row. Undefined on detached HEAD (no branch) so the header hides
-		// that kebab. Mirrors the `webviewItem` suffix logic in `getSidebarBranches`.
+		// that kebab. Same host-side suffix builder as the sidebar branches panel
+		// (`buildBranchContextSuffix`), so the menus can't drift — including `+worktree`, which follows
+		// the branch's actual worktree (non-default ones only) rather than this row's secondary status.
 		const pinnedRefId = this.context.getPinnedRefId(repo.path);
 		const branchContext =
 			branch != null
 				? serializeWebviewItemContext<GraphItemContext>({
-						webviewItem: `gitlens:branch${branch.current ? '+current' : ''}${
-							branch.upstream != null && !branch.upstream.missing ? '+tracking' : ''
-						}${isSecondaryWorktree ? '+worktree' : ''}${branch.current || isSecondaryWorktree ? '+checkedout' : ''}${
-							branch.upstream?.state.ahead ? '+ahead' : ''
-						}${branch.upstream?.state.behind ? '+behind' : ''}${
-							pinnedRefId != null && branch.id === pinnedRefId ? '+pinned' : ''
-						}`,
+						webviewItem: buildBranchContextSuffix(branch, {
+							isCheckedOut: isSecondaryWorktree,
+							pinnedRefId: pinnedRefId,
+						}),
 						webviewItemValue: {
 							type: 'branch',
 							ref: createReference(branch.name, repo.path, {

@@ -31,6 +31,7 @@ import { getContext } from '../../../system/-webview/context.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import {
+	buildPullRequestContextSuffix,
 	isRepoHostingIntegrationConnected,
 	stripRefsMetadataTypes,
 	toGraphHostingServiceType,
@@ -343,25 +344,14 @@ export class GraphProducersService {
 							? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
 							: undefined,
 					context: serializeWebviewItemContext<GraphItemContext>({
-						// Every suffix names a precondition some handler actually checks — a suffix that
-						// merely says "a refs object exists" gates nothing, since the providers-api path
-						// always builds `refs`, filling a gone head with empty strings. `+current` because
-						// this pill hangs off a branch we already resolved: without it the current branch's
-						// own pull request offers a Switch the deep link turns into "show WIP" and an Open
-						// in Worktree that opens the folder you're already in. Kept in sync with the sidebar's
-						// producer (`GraphPanelsService`).
-						webviewItem: `gitlens:pullrequest${
-							pr.refs?.head?.branch && pr.refs.head.url ? '+head' : ''
-						}${pr.refs?.base?.sha && pr.refs.head?.sha ? '+shas' : ''}${
-							pr.state !== 'opened' ? '+closed' : ''
-						}${pr.refs?.isCrossRepository === true ? '+fork' : ''}${
+						// Suffix tokens and their preconditions are documented on `buildPullRequestContextSuffix`.
+						webviewItem: buildPullRequestContextSuffix(
+							pr,
 							branch?.current === true ||
-							(branch != null &&
-								currentBranchName != null &&
-								getBranchNameWithoutRemote(branch.name) === currentBranchName)
-								? '+current'
-								: ''
-						}`,
+								(branch != null &&
+									currentBranchName != null &&
+									getBranchNameWithoutRemote(branch.name) === currentBranchName),
+						),
 						webviewItemValue: {
 							type: 'pullrequest',
 							id: pr.id,
