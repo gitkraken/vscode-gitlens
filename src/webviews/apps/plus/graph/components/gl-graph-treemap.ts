@@ -4,8 +4,6 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GraphActivityDecay } from '../../../../../config.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
-import type { TreemapFileActionParams } from '../../../../plus/graph/protocol.js';
-import { DidInvalidateGraphTreemapNotification, TreemapFileActionCommand } from '../../../../plus/graph/protocol.js';
 import type { TimelinePeriod } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
 import type {
@@ -17,7 +15,6 @@ import type {
 } from '../../../../plus/treemap/protocol.js';
 import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { filterAgentSessionsForFamily, isAgentSessionCurrentInFamily } from '../../../shared/agentUtils.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { periodLabels } from '../../timeline/components/header.js';
@@ -359,9 +356,6 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
 
-	@consume({ context: ipcContext })
-	private _ipc?: typeof ipcContext.__context__;
-
 	@state()
 	private _data?: TreemapData;
 
@@ -448,33 +442,54 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
-		this.subscribeToInvalidations();
+		void this.subscribeToInvalidations();
 		void this.refreshIfNeeded();
 	}
 
 	/** Subscribe to host treemap-invalidation pushes. The host fires this when its per-repo
 	 *  aggregator cache is dropped (file watcher edits, branch switches, repo unload). We bust
 	 *  BOTH fingerprint gates so the next refreshIfNeeded refetches fresh data rather than
-	 *  short-circuiting on a stale success or stale error fingerprint match. */
-	private subscribeToInvalidations(): void {
-		const ipc = this._ipc;
-		if (ipc == null) return;
+	 *  short-circuiting on a stale success or stale error fingerprint match.
+	 *
+	 *  `onDidInvalidate` is `save-last` buffered host-side, so an invalidation queued while this
+	 *  component is unmounted (or hidden) is replaced by the newest one rather than queued — matches
+	 *  the legacy notification's behavior, where a hidden webview only ever saw the latest pending
+	 *  postMessage on reveal. */
+	private async subscribeToInvalidations(): Promise<void> {
+		const services = this.services;
+		if (services == null) return;
 
-		this._subscriptions.push(
-			ipc.onReceiveMessage(msg => {
-				if (!DidInvalidateGraphTreemapNotification.is(msg)) return;
-				if (msg.params.repoPath !== this.effectiveRepo?.path) return;
+		let graphTreemap;
+		try {
+			graphTreemap = await services.graphTreemap;
+		} catch {
+			// The RPC surface can reject (channel torn down, service not yet available) — degrade to
+			// polling-free (refreshIfNeeded still runs on repo/mode changes) rather than leaving an
+			// unhandled rejection.
+			return;
+		}
 
-				this._lastFingerprint = undefined;
-				this._lastErrorFingerprint = undefined;
-				// Also abort any in-flight refresh — its result is now stale relative to the new
-				// host-side state, and the in-flight dedup would otherwise swallow this invalidation.
-				this._abortController?.abort();
-				this._abortController = undefined;
-				this._inFlightFingerprint = undefined;
-				void this.refreshIfNeeded();
-			}),
-		);
+		const unsub = graphTreemap.onDidInvalidate(payload => {
+			if (payload.repoPath !== this.effectiveRepo?.path) return;
+
+			this._lastFingerprint = undefined;
+			this._lastErrorFingerprint = undefined;
+			// Also abort any in-flight refresh — its result is now stale relative to the new
+			// host-side state, and the in-flight dedup would otherwise swallow this invalidation.
+			this._abortController?.abort();
+			this._abortController = undefined;
+			this._inFlightFingerprint = undefined;
+			void this.refreshIfNeeded();
+		});
+
+		// A disconnect (or reconnect) can race this await — unsub immediately instead of leaking the
+		// listener on an unmounted component.
+		if (!this.isConnected) {
+			void Promise.resolve(unsub).then(fn => fn?.());
+			return;
+		}
+
+		this._subscriptions.push({ dispose: () => void Promise.resolve(unsub).then(fn => fn?.()) });
 	}
 
 	override disconnectedCallback(): void {
@@ -1280,7 +1295,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private sendFileAction(action: TreemapFileActionParams['action'], absPath: string): void {
+	private sendFileAction(action: 'open' | 'history', absPath: string): void {
 		// Send the repo-relative path + the repo it belongs to, so the host can scheme-preserve
 		// the URI rehydration (Uri.file() on the host would coerce virtual-workspace paths to
 		// non-resolving file:// URIs). Skip if we can't resolve a repo — shouldn't happen for a
@@ -1292,11 +1307,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const relPath = toRepoRelative(rootPath, absPath);
 		if (relPath == null) return;
 
-		this._ipc?.sendCommand(TreemapFileActionCommand, {
-			action: action,
-			repoPath: rootPath,
-			path: relPath,
-		});
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget(
+			(async () => (await services.rowActions).openTreemapFile(action, rootPath, relPath))(),
+			'rowActions/treemapFile',
+		);
 	}
 
 	/** Locate the agent session currently reading or writing the clicked file. Both sides are

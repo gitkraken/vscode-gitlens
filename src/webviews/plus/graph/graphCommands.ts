@@ -101,7 +101,6 @@ import type { WebviewItemContext } from '../../../system/webview.js';
 import { isWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
-import type { WebviewHost } from '../../webviewProvider.js';
 import type { Change } from '../patchDetails/protocol.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { DetailsItemTypedContext } from './detailsProtocol.js';
@@ -114,6 +113,7 @@ import {
 	isGraphItemTypedContext,
 } from './graphWebview.utils.js';
 import type {
+	DidRequestGraphActionParams,
 	DidRequestOpenCompareModeParams,
 	GraphColumnModeFor,
 	GraphColumnName,
@@ -125,11 +125,7 @@ import type {
 	GraphScopeBranch,
 	GraphSelection,
 } from './protocol.js';
-import {
-	createWipRowId,
-	DidRequestGraphActionNotification,
-	DidRequestOpenCompareModeNotification,
-} from './protocol.js';
+import { createWipRowId } from './protocol.js';
 import type { ShowInCommitGraphCommandArgs } from './registration.js';
 
 type GraphItemRefs<T> = {
@@ -148,7 +144,6 @@ function getPullRequestNumber(pr: { id: string; url: string }): string {
  *  read live provider state; the rest forward to provider methods that remain there. */
 export type GraphCommandsContext = {
 	container: Container;
-	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
 	getRepository: () => GlRepository | undefined;
 	getSession: () => GitGraphSession | undefined;
 	getActiveSelection: () => GitRevisionReference | undefined;
@@ -158,7 +153,9 @@ export type GraphCommandsContext = {
 	setColumnMode: <T extends GraphColumnName>(name: T, mode?: GraphColumnModeFor<T>) => Promise<void>;
 	updateColumns: (columnsCfg: GraphColumnsConfig) => Promise<void>;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
-	notifyDidChangeSelection: () => Promise<boolean>;
+	/** Fires the `GraphSelectionService.onSelectionChanged` push with the selection just written by
+	 *  {@link setSelectedRows} — see `GraphWebviewProvider.createGraphCommandsContext()`. */
+	notifyDidChangeSelection: () => void;
 	writeWipDraftToStorage: (worktreePath: string, draft: StoredGraphWipDraft | null) => Promise<void>;
 	pushUpToCommit: (repoPath: string, sha: string) => Promise<void>;
 	getOpenEditorShowOptions: () => (TextDocumentShowOptions & { sourceViewColumn?: ViewColumn }) | undefined;
@@ -170,6 +167,11 @@ export type GraphCommandsContext = {
 	showRemoteRefs: (repoPath: string | undefined, remoteName: string) => void;
 	updatePinnedRef: (repoPath: string | undefined, ref: GraphPinnedRef | null) => void;
 	_undoCommit: (ref: GitRevisionReference, worktreePath: string | undefined) => Promise<void>;
+	/** Fires the warm `GraphNavigationService.onRequestAction`/`onRequestOpenCompareMode` events —
+	 *  see `GraphWebviewProvider.createGraphCommandsContext()`. Every caller here is a warm,
+	 *  already-open-graph command, so there's no cold/bootstrap counterpart to route through. */
+	fireRequestAction: (params: DidRequestGraphActionParams) => void;
+	fireRequestOpenCompareMode: (params: DidRequestOpenCompareModeParams) => void;
 };
 
 const graphCommandDecorator = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'graph'>>();
@@ -183,9 +185,6 @@ export class GraphCommands {
 
 	private get container(): Container {
 		return this.context.container;
-	}
-	private get host(): WebviewHost<'gitlens.views.graph' | 'gitlens.graph'> {
-		return this.context.host;
 	}
 	private get repository(): GlRepository | undefined {
 		return this.context.getRepository();
@@ -839,8 +838,8 @@ export class GraphCommands {
 
 		void this.context.writeWipDraftToStorage(repoPath, { message: message, messageDirty: true });
 		this.context.setSelectedRows(wipRowId);
-		void this.context.notifyDidChangeSelection();
-		void this.host.notify(DidRequestGraphActionNotification, {
+		this.context.notifyDidChangeSelection();
+		this.context.fireRequestAction({
 			action: 'show-wip',
 			target: { sha: wipRowId, worktreePath: repoPath },
 			commitMessage: message,
@@ -1190,14 +1189,14 @@ export class GraphCommands {
 
 	@command('gitlens.ai.resolveConflicts:')
 	@debug()
-	private async resolveConflicts(item?: DetailsItemTypedContext): Promise<void> {
+	private resolveConflicts(item?: DetailsItemTypedContext): void {
 		const value = item?.webviewItemValue;
 		if (value?.type !== 'file' || !value.path || !value.repoPath) return;
 
 		// Enter the WIP details resolve mode scoped to this one conflicted file. Target that worktree's
 		// WIP ROW id — a bare `uncommitted` would select the graph's own primary WIP row instead.
 		const wipRowId = createWipRowId(value.repoPath);
-		await this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'enter-resolve',
 			target: { sha: wipRowId, worktreePath: value.repoPath, filePaths: [value.path] },
 		});
@@ -1205,7 +1204,7 @@ export class GraphCommands {
 
 	@command('gitlens.ai.resolveConflicts.multi:')
 	@debug()
-	private async resolveConflictsMulti(item?: DetailsItemTypedContext): Promise<void> {
+	private resolveConflictsMulti(item?: DetailsItemTypedContext): void {
 		// The right-clicked row carries the whole multi-selection in `webviewItemsValues`; keep just
 		// the conflicted file entries (the menu gates on `webviewItemsUnion`, which matches when ANY
 		// selected item is a conflict — others may be plain changes).
@@ -1219,7 +1218,7 @@ export class GraphCommands {
 		// Target the worktree's WIP ROW id — a bare `uncommitted` would select the primary WIP row.
 		const worktreePath = files[0].repoPath;
 		const wipRowId = createWipRowId(worktreePath);
-		await this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'enter-resolve',
 			target: { sha: wipRowId, worktreePath: worktreePath, filePaths: files.map(f => f.path) },
 		});
@@ -1227,7 +1226,7 @@ export class GraphCommands {
 
 	@command('gitlens.ai.resolveAllConflicts:')
 	@debug()
-	private async resolveAllConflicts(item?: GraphItemContext): Promise<void> {
+	private resolveAllConflicts(item?: GraphItemContext): void {
 		// Invoked from the WIP-row context menu (sibling to Compose/Review), so the item is a WIP-row
 		// ref — mirror `composeCommits`. For a secondary WIP row `ref.repoPath` is that worktree's path.
 		const ref = this.getGraphItemRef(item);
@@ -1237,7 +1236,7 @@ export class GraphCommands {
 		// Enter resolve mode for all conflicts (no `filePath`). Target that worktree's WIP ROW id — a
 		// bare `uncommitted` would select the graph's own primary WIP row instead.
 		const wipRowId = createWipRowId(repoPath);
-		await this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'enter-resolve',
 			target: { sha: wipRowId, worktreePath: repoPath },
 		});
@@ -1588,7 +1587,7 @@ export class GraphCommands {
 
 		// Invoked from a context menu inside the open graph (warm), so notify the webview directly to
 		// focus (scope) onto the branch — mirrors the `scope-to-branch` action the popover/overview use.
-		void this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'scope-to-branch',
 			scopeBranch: scopeBranch,
 		});
@@ -1620,7 +1619,7 @@ export class GraphCommands {
 		// One layer, and only that layer — a stacked pull request's own commits against the layer below are
 		// exactly the diff being reviewed, which is what makes a stack reviewable at all. Seeing the whole
 		// stack is a different question, asked from the stack row in the pull requests panel.
-		void this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'scope-to-branch',
 			scopeBranch:
 				target.localBranch != null
@@ -2729,8 +2728,8 @@ export class GraphCommands {
 	}
 
 	@command('gitlens.composeCommits:')
-	private composeCommitsCommand(item?: GraphItemContext) {
-		return this.composeCommits(item);
+	private composeCommitsCommand(item?: GraphItemContext): void {
+		this.composeCommits(item);
 	}
 
 	@command('gitlens.ai.recomposeSelectedCommits:')
@@ -2744,8 +2743,8 @@ export class GraphCommands {
 	}
 
 	@command('gitlens.reviewChanges:')
-	private reviewChangesCommand(item?: GraphItemContext) {
-		return this.reviewChanges(item);
+	private reviewChangesCommand(item?: GraphItemContext): void {
+		this.reviewChanges(item);
 	}
 
 	@command('gitlens.ai.explainCommit:')
@@ -3072,8 +3071,8 @@ export class GraphCommands {
 
 		void this.context.writeWipDraftToStorage(repoPath, { ...existing, message: message, messageDirty: true });
 		this.context.setSelectedRows(wipRowId);
-		void this.context.notifyDidChangeSelection();
-		void this.host.notify(DidRequestGraphActionNotification, {
+		this.context.notifyDidChangeSelection();
+		this.context.fireRequestAction({
 			action: 'show-wip',
 			target: { sha: wipRowId, worktreePath: repoPath },
 			commitMessage: message,
@@ -3287,7 +3286,7 @@ export class GraphCommands {
 	}
 
 	@debug()
-	private async composeCommits(item?: GraphItemContext) {
+	private composeCommits(item?: GraphItemContext): void {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return;
 
@@ -3297,14 +3296,14 @@ export class GraphCommands {
 		// select the graph's own primary WIP row instead, regardless of `worktreePath`.
 		const worktreePath = this.getGraphItemWorktreePath(item) ?? ref.repoPath;
 		const wipRowId = createWipRowId(worktreePath);
-		await this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'enter-compose',
 			target: { sha: wipRowId, worktreePath: worktreePath },
 		});
 	}
 
 	@debug()
-	private async reviewChanges(item?: GraphItemContext) {
+	private reviewChanges(item?: GraphItemContext): void {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return;
 
@@ -3314,7 +3313,7 @@ export class GraphCommands {
 		// repo, so using it alone would review the wrong worktree's changes.
 		const worktreePath = this.getGraphItemWorktreePath(item) ?? ref.repoPath;
 		const wipRowId = createWipRowId(worktreePath);
-		await this.host.notify(DidRequestGraphActionNotification, {
+		this.context.fireRequestAction({
 			action: 'enter-review',
 			target: { sha: wipRowId, worktreePath: worktreePath },
 		});
@@ -3346,7 +3345,7 @@ export class GraphCommands {
 	}
 
 	private notifyOpenCompareMode(params: DidRequestOpenCompareModeParams): Promise<void> {
-		void this.host.notify(DidRequestOpenCompareModeNotification, params);
+		this.context.fireRequestOpenCompareMode(params);
 		return Promise.resolve();
 	}
 

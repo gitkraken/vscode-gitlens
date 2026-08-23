@@ -35,10 +35,16 @@ import type {
 	DidChooseComparisonParams,
 	DidChooseFileParams,
 	DidChooseRefParams,
+	DidFailRevealParams,
 	DidGetCountParams,
 	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
+	DidRequestActiveSidebarPanelParams,
+	DidRequestGraphActionParams,
+	DidRequestOpenCompareModeParams,
+	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	DidRequestVisualizationParams,
 	DidResolveGraphScopeParams,
 	DidSearchHistoryGetParams,
 	DidSearchRepairParams,
@@ -57,16 +63,21 @@ import type {
 	GraphIncludeOnlyRefs,
 	GraphOverviewData,
 	GraphPinnedRef,
+	GraphRef,
+	GraphRefMetadataItem,
 	GraphScope,
 	GraphSearchMode,
 	GraphSearchRelaxation,
 	GraphSearchResults,
 	GraphSearchResultsError,
+	GraphSelectedRows,
+	GraphSelection,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
 	GraphWipRowsById,
 	GraphWipStateById,
 	MergePullRequestResult,
+	RowActionParams,
 	SearchParams,
 	SidebarWorktreeChange,
 } from './protocol.js';
@@ -878,6 +889,10 @@ export interface GraphTreemapService {
 	 * `session.fileActivity` directly. No separate streaming RPC is needed.
 	 */
 	getData(repoPath: string, mode: TreemapMode, config: TreemapConfig, signal?: AbortSignal): Promise<TreemapData>;
+
+	/** Fires with the repo path whenever the host's per-repo aggregate cache is dropped (file watcher
+	 *  edits, branch switches, repo unload) — the treemap re-fetches for the current repo/mode. */
+	readonly onDidInvalidate: RpcEventSubscription<{ repoPath: string }>;
 }
 
 /**
@@ -1214,6 +1229,12 @@ export interface GraphPickersService {
 		type: 'file' | 'folder',
 		options?: { openLabel?: string; picked?: string[] },
 	): Promise<DidChooseFileParams>;
+	/** Shows the repository picker and switches the graph to the chosen repo (a no-op if the user
+	 *  cancels). Used by the header's repo selector and the gate's "switch repos" affordance. */
+	chooseRepository(): Promise<void>;
+	/** Runs the `gitlens.gk.switchOrganization` command sourced from the graph. Used by the gate's
+	 *  "switch orgs" affordance. */
+	chooseAccountOrg(): Promise<void>;
 }
 
 export interface GraphPullRequestService {
@@ -1223,6 +1244,14 @@ export interface GraphPullRequestService {
 		number: string,
 		options?: { confirmed?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
 	): Promise<MergePullRequestResult>;
+}
+
+/** Row-level graph actions: the row-button menu (open changes, push-to-commit, stash, undo-commit),
+ *  ref pill double-click, and the visualizations treemap's file double-click. */
+export interface GraphRowActionsService {
+	executeRowAction(params: RowActionParams): Promise<void>;
+	handleRefDoubleClick(ref: GraphRef, metadata?: GraphRefMetadataItem): Promise<void>;
+	openTreemapFile(action: 'open' | 'history', repoPath: string, path: string): Promise<void>;
 }
 
 /**
@@ -1254,6 +1283,53 @@ export interface GraphHealthService {
 	readonly onHealthChanged: RpcEventSubscription<{ repoPath: string }>;
 }
 
+/**
+ * Host→app navigation plane: the WARM pushes that steer an already-open graph — enter a mode, focus a
+ * branch, open compare/timeline, switch visualization or sidebar panel.
+ *
+ * Every event is `save-last`: each carries a complete, self-contained request, so a hidden webview only
+ * ever needs the newest one per event and replaying it on show is exactly right. The five are keyed
+ * SEPARATELY on purpose — two different requests (say an action and a compare) issued while hidden are
+ * unrelated instructions, and one shared slot would silently drop whichever landed first.
+ *
+ * The COLD paths do not live here: a request arriving before the app is ready (or one that switches
+ * repositories) rides the state bootstrap instead — `State.pendingAction`, `State.pendingCompare`,
+ * `State.displayMode`/`visualizationMode`, `State.sidebar.activePanel` — so it lands together with the
+ * repo's state rather than racing it.
+ */
+export interface GraphNavigationService {
+	/** Enter a mode / reveal a row / focus a branch on the open graph. */
+	readonly onRequestAction: RpcEventSubscription<DidRequestGraphActionParams>;
+	readonly onRequestOpenCompareMode: RpcEventSubscription<DidRequestOpenCompareModeParams>;
+	/** Switch the graph into its embedded Visual History mode, scoped to a file/folder. No cold
+	 *  counterpart — the only callers are graph-details items, reachable solely from a visible graph. */
+	readonly onRequestOpenTimelineScope: RpcEventSubscription<DidRequestOpenTimelineScopeParams>;
+	readonly onRequestVisualization: RpcEventSubscription<DidRequestVisualizationParams>;
+	readonly onRequestActiveSidebarPanel: RpcEventSubscription<DidRequestActiveSidebarPanelParams>;
+}
+
+/**
+ * The selection plane, and the only bidirectional one: the app reports what the user selected, the
+ * host reports the reveals it initiates.
+ *
+ * {@link updateSelection} is fire-and-forget and DEBOUNCED on the app side (~50ms trailing, 250ms
+ * max) — a click or arrow-key scrub must never block on an ack, and only the final row of a scrub
+ * matters here. The host keeps the report as a paging hint plus the command-target fallback for
+ * palette invocations; the app owns selection truth, so an empty report is ignored rather than
+ * treated as a clear.
+ *
+ * {@link onSelectionChanged} carries HOST-initiated reveals only (deep links, "Open in Commit Graph",
+ * terminal-link jumps) — a user's own click is never echoed back. `save-last`: the payload is the
+ * complete selection map, so a hidden webview only ever needs the newest one, and `State.selectedRows`
+ * re-seeds it on the next bootstrap regardless.
+ */
+export interface GraphSelectionService {
+	updateSelection(selection: GraphSelection[]): Promise<void>;
+	readonly onSelectionChanged: RpcEventSubscription<GraphSelectedRows>;
+	/** Fires when a host-initiated reveal gave up before ever pushing a selection. `save-last`. */
+	readonly onRevealFailed: RpcEventSubscription<DidFailRevealParams>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly access: GraphAccessService;
 	readonly columns: GraphColumnsService;
@@ -1262,9 +1338,11 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly graphInspect: GraphInspectService;
 	readonly graphHealth: GraphHealthService;
 	readonly launchpad: GraphLaunchpadService;
+	readonly navigation: GraphNavigationService;
 	readonly walkthrough: GraphWalkthroughService;
 	readonly sidebar: GraphSidebarService;
 	readonly search: GraphSearchService;
+	readonly selection: GraphSelectionService;
 	readonly welcome: GraphWelcomeService;
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
@@ -1275,6 +1353,7 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly hover: GraphHoverService;
 	readonly pickers: GraphPickersService;
 	readonly pullRequest: GraphPullRequestService;
+	readonly rowActions: GraphRowActionsService;
 }
 
 export interface GraphLaunchpadService {

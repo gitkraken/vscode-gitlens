@@ -332,7 +332,11 @@ export class GraphInspectServices {
 	createServices(
 		buffer?: EventVisibilityBuffer,
 		tracker?: SubscriptionTracker,
-	): Pick<GraphServices, 'graphInspect' | 'graphTimeline' | 'graphTreemap'> {
+	): Pick<GraphServices, 'graphInspect' | 'graphTimeline'> & {
+		// `onDidInvalidate` isn't produced here — graphWebview.ts owns the invalidation event and
+		// spreads it into this block when wiring `getRpcServices()`.
+		graphTreemap: Omit<GraphServices['graphTreemap'], 'onDidInvalidate'>;
+	} {
 		return {
 			graphInspect: {
 				getAiExcludedFiles: async (repoPath: string, filePaths: string[]) => {

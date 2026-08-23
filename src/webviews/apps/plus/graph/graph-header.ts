@@ -25,7 +25,7 @@ import type {
 	GraphWipState,
 	State,
 } from '../../../plus/graph/protocol.js';
-import { ChooseRepositoryCommand, createWipRowId } from '../../../plus/graph/protocol.js';
+import { createWipRowId } from '../../../plus/graph/protocol.js';
 import { fireAndForget } from '../../shared/actions/rpc.js';
 import type { GlPopover } from '../../shared/components/overlays/popover.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
@@ -35,7 +35,6 @@ import type {
 	SearchNavigationEventDetail,
 } from '../../shared/components/search/search-input.js';
 import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
@@ -171,9 +170,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 		`,
 	];
-
-	@consume({ context: ipcContext })
-	private _ipc!: typeof ipcContext.__context__;
 
 	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
 	private _telemetry!: TelemetryContext;
@@ -1050,9 +1046,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@debounce(250)
 	private onRepositorySelectorClicked(e: CustomEvent<RepoButtonGroupClickEvent>) {
 		switch (e.detail.part) {
-			case 'label':
-				this._ipc.sendCommand(ChooseRepositoryCommand);
+			case 'label': {
+				const services = this._services;
+				if (services == null) break;
+
+				fireAndForget((async () => (await services.pickers).chooseRepository())(), 'pickers/chooseRepository');
 				break;
+			}
 
 			case 'icon':
 				emitTelemetrySentEvent<'graph/action/openRepoOnRemote'>(e.target!, {

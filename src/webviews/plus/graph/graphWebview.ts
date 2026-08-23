@@ -199,11 +199,15 @@ import type {
 	DidChooseComparisonParams,
 	DidChooseFileParams,
 	DidChooseRefParams,
+	DidFailRevealParams,
 	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
+	DidRequestActiveSidebarPanelParams,
+	DidRequestGraphActionParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	DidRequestVisualizationParams,
 	DidResolveGraphScopeParams,
 	emptySetMarker,
 	GetWipLineStatsResponse,
@@ -228,6 +232,8 @@ import type {
 	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphPinnedRef,
+	GraphRef,
+	GraphRefMetadataItem,
 	GraphRefOptData,
 	GraphRefType,
 	GraphRepository,
@@ -242,28 +248,18 @@ import type {
 	GraphSidebarPanel,
 	MergePullRequestParams,
 	MergePullRequestResult,
+	RowActionParams,
 	SidebarWorktreeChange,
 	State,
 	VisualizationMode,
 } from './protocol.js';
 import {
 	CancelLoadRowCommand,
-	ChooseAccountOrgCommand,
-	ChooseRepositoryCommand,
 	createWipRowId,
 	DidChangeBranchStateNotification,
 	DidChangeNotification,
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
-	DidChangeSelectionNotification,
-	DidFailRevealNotification,
-	DidInvalidateGraphTreemapNotification,
-	DidRequestActiveSidebarPanelNotification,
-	DidRequestGraphActionNotification,
-	DidRequestOpenCompareModeNotification,
-	DidRequestOpenTimelineScopeNotification,
-	DidRequestVisualizationNotification,
-	DoubleClickedCommand,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
@@ -272,9 +268,6 @@ import {
 	isWipRowId,
 	LoadRowRequest,
 	ProxyAvatarsCommand,
-	RowActionCommand,
-	TreemapFileActionCommand,
-	UpdateSelectionCommand,
 } from './protocol.js';
 import type { GraphWebviewShowingArgs } from './registration.js';
 
@@ -437,7 +430,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean | void>>([
 		[DidChangeBranchStateNotification, () => this._producers.notifyDidChangeBranchStateOnly()],
 		[DidChangeNotification, () => this._data.notifyDidChangeState()],
-		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
 	]);
 	private _selectedId?: string;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
@@ -659,9 +651,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (configuration.get('graph.experimental.visualizations.enabled') !== true) return;
 
 		this._treemapInvalidateSubscription = this.container.treemapAggregator.onDidInvalidate(repoPath => {
-			void this.host.notify(DidInvalidateGraphTreemapNotification, { repoPath: repoPath });
+			this._treemapInvalidatedEvent.fire({ repoPath: repoPath });
 		});
 	}
+
+	// `save-last`: a superseded invalidation is stale relative to whatever refetch the newest one
+	// triggers, so latest-wins is fine — matches the legacy notification's semantics, where a hidden
+	// webview only ever saw the newest queued postMessage on reveal.
+	private readonly _treemapInvalidatedEvent = createRpcEvent<{ repoPath: string }>('treemapInvalidated', 'save-last');
 
 	/** Shared collaborator members most service contexts declare — spread into the factories whose
 	 *  context type includes all of these. */
@@ -683,7 +680,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private createGraphCommandsContext(): GraphCommandsContext {
 		return {
 			container: this.container,
-			host: this.host,
 			getRepository: () => this.repository,
 			getSession: () => this._data.session,
 			getActiveSelection: () => this.activeSelection,
@@ -702,6 +698,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			showRemoteRefs: (repoPath, remoteName) => this.showRemoteRefs(repoPath, remoteName),
 			updatePinnedRef: (repoPath, ref) => this.updatePinnedRef(repoPath, ref),
 			_undoCommit: (ref, worktreePath) => this._undoCommit(ref, worktreePath),
+			fireRequestAction: params => this._requestActionEvent.fire(params),
+			fireRequestOpenCompareMode: params => this._requestOpenCompareModeEvent.fire(params),
 		};
 	}
 
@@ -935,10 +933,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._producers.dispose();
 		// Cancel the other debounced notifiers too — a trailing fire after dispose would call
 		// `host.notify()` on a torn-down host (the exact class of bug this dispose pass exists
-		// to fix). `_fireSelectionChangedDebounced` is technically host-I/O-free but cancelling
-		// it still clears its pending timer.
+		// to fix).
 		this._data.cancelDebouncedNotifiers();
-		this._fireSelectionChangedDebounced?.cancel();
 		this._data.disposeSession();
 		this._graphSync.dispose();
 		// The periodic interval set by `ensureLastFetchedSubscription` was previously not cleaned
@@ -1004,6 +1000,34 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: a superseded refetch is an older read of the same worktree, and the client orders by
 	// `Wip.revision` regardless — see `GraphWipService.onWipRefetched`.
 	private readonly _wipRefetchedEvent = createRpcEvent<{ repoPath: string; wip?: Wip }>('wipRefetched', 'save-last');
+	// The five navigation events — all `save-last`, all keyed separately so a hidden webview keeps the
+	// newest of EACH rather than letting one kind of request drop another. See `GraphNavigationService`.
+	// Only WARM pushes fire these: a cold show (or one that switches repositories) routes through the
+	// state bootstrap instead, so the request lands with the repo's state rather than racing it.
+	private readonly _requestActionEvent = createRpcEvent<DidRequestGraphActionParams>('requestAction', 'save-last');
+	private readonly _requestOpenCompareModeEvent = createRpcEvent<DidRequestOpenCompareModeParams>(
+		'requestOpenCompareMode',
+		'save-last',
+	);
+	private readonly _requestOpenTimelineScopeEvent = createRpcEvent<DidRequestOpenTimelineScopeParams>(
+		'requestOpenTimelineScope',
+		'save-last',
+	);
+	private readonly _requestVisualizationEvent = createRpcEvent<DidRequestVisualizationParams>(
+		'requestVisualization',
+		'save-last',
+	);
+	private readonly _requestActiveSidebarPanelEvent = createRpcEvent<DidRequestActiveSidebarPanelParams>(
+		'requestActiveSidebarPanel',
+		'save-last',
+	);
+	// `save-last`: the payload is the complete selection map, so a hidden webview only ever needs the
+	// newest one — and `State.selectedRows` re-seeds it on the next bootstrap anyway. Only HOST-initiated
+	// reveals fire this; a user's own click is never echoed back. See `GraphSelectionService`.
+	private readonly _selectionChangedEvent = createRpcEvent<GraphSelectedRows>('selectionChanged', 'save-last');
+	// `save-last`: each payload names the one ref the host gave up on, and only the newest failed jump is
+	// worth surfacing on show. See `GraphSelectionService.onRevealFailed`.
+	private readonly _revealFailedEvent = createRpcEvent<DidFailRevealParams>('revealFailed', 'save-last');
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -1060,6 +1084,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onSidebarInvalidated: this._sidebarInvalidatedEvent.subscribe(buffer, tracker),
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
+			selection: {
+				updateSelection: selection => {
+					this.updateSelection(selection);
+					return Promise.resolve();
+				},
+				onSelectionChanged: this._selectionChangedEvent.subscribe(buffer, tracker),
+				onRevealFailed: this._revealFailedEvent.subscribe(buffer, tracker),
+			},
 			welcome: { continueToGraph: options => this.onWelcomeContinueToGraph(options) },
 			graphHealth: {
 				getReport: repoPath => this.container.gitHealth.getReport(repoPath),
@@ -1078,9 +1110,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onHealthChanged: this._gitHealthChangedEvent.subscribe(buffer, tracker),
 			},
 			launchpad: new LaunchpadService(this.container, buffer, tracker),
+			navigation: {
+				onRequestAction: this._requestActionEvent.subscribe(buffer, tracker),
+				onRequestOpenCompareMode: this._requestOpenCompareModeEvent.subscribe(buffer, tracker),
+				onRequestOpenTimelineScope: this._requestOpenTimelineScopeEvent.subscribe(buffer, tracker),
+				onRequestVisualization: this._requestVisualizationEvent.subscribe(buffer, tracker),
+				onRequestActiveSidebarPanel: this._requestActiveSidebarPanelEvent.subscribe(buffer, tracker),
+			},
 			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 			graphTimeline: graphTimeline,
-			graphTreemap: graphTreemap,
+			graphTreemap: {
+				...graphTreemap,
+				onDidInvalidate: this._treemapInvalidatedEvent.subscribe(buffer, tracker),
+			},
 			repoStatus: {
 				getLastFetched: () => this.getRepoStatus(),
 				onDidFetch: this._repoStatusEvent.subscribe(buffer, tracker),
@@ -1109,9 +1151,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				chooseComparison: title => this.chooseComparison(title),
 				chooseAuthor: (title, placeholder, picked) => this.chooseAuthor(title, placeholder, picked),
 				chooseFile: (title, type, options) => this.chooseFile(title, type, options),
+				chooseRepository: () => this.chooseRepository(),
+				chooseAccountOrg: () => this.chooseAccountOrg(),
 			},
 			pullRequest: {
 				merge: (number, options) => this.mergePullRequest(number, options),
+			},
+			rowActions: {
+				executeRowAction: params => this.executeRowAction(params),
+				handleRefDoubleClick: (ref, metadata) => this.handleRefDoubleClick(ref, metadata),
+				openTreemapFile: (action, repoPath, path) => this.openTreemapFile(action, repoPath, path),
 			},
 		} satisfies GraphServices);
 	}
@@ -1241,14 +1290,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			if (unresolved) {
-				void this.host.notify(DidFailRevealNotification, { id: id, reason: 'invalidRef' });
+				this._revealFailedEvent.fire({ id: id, reason: 'invalidRef' });
 			} else {
 				this.setSelectedRows(id);
 
 				if (this._data.session != null) {
 					// Synthetic WIP rows can't be paged in via `onGetMoreRows`; selecting + notifying is enough.
 					if (isWipRow || this._data.session.current.ids.has(id)) {
-						void this.notifyDidChangeSelection();
+						this.notifyDidChangeSelection();
 						return [true, this.getShownTelemetryContext()];
 					}
 
@@ -1271,19 +1320,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (loading || repoChanged || !this.host.ready) {
 				this._pendingVisualization = arg.visualization;
 			} else {
-				void this.host.notify(DidRequestVisualizationNotification, { visualization: arg.visualization });
+				this._requestVisualizationEvent.fire({ visualization: arg.visualization });
 			}
 		} else if (hasCompare(arg)) {
 			const repoChanged = this._repository !== arg.repository;
 			this.repository = arg.repository;
 			const params: DidRequestOpenCompareModeParams = { repoPath: arg.repository.path, ...arg.compare };
-			// Cold show / repo swap / not-yet-ready must route through the state bootstrap (a bare
-			// notification would be wiped by `clearPendingIpcNotifications`); a warm same-repo show
-			// notifies directly. Mirrors the search path below and the `pendingAction` mechanism.
+			// Cold show / repo swap / not-yet-ready must route through the state bootstrap so the compare
+			// lands with the repo's own state instead of racing it; a warm same-repo show fires the
+			// navigation event directly. Mirrors the search path below and the `pendingAction` mechanism.
 			if (loading || repoChanged || !this.host.ready) {
 				this._pendingCompare = params;
 			} else {
-				void this.host.notify(DidRequestOpenCompareModeNotification, params);
+				this._requestOpenCompareModeEvent.fire(params);
 			}
 		} else if (hasRepository(arg)) {
 			const repoChanged = this._repository !== arg.repository;
@@ -1304,7 +1353,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					if (this._data.session != null) {
 						// Synthetic WIP rows can't be paged in; selecting + notifying is enough.
 						if (isWipRowId(selectSha) || this._data.session.current.ids.has(selectSha)) {
-							void this.notifyDidChangeSelection();
+							this.notifyDidChangeSelection();
 						} else {
 							void this.revealRow(selectSha);
 						}
@@ -1332,7 +1381,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (loading) {
 				this._pendingSidebarPanel = arg.sidebarPanel;
 			} else {
-				void this.host.notify(DidRequestActiveSidebarPanelNotification, { panel: arg.sidebarPanel });
+				this._requestActiveSidebarPanelEvent.fire({ panel: arg.sidebarPanel });
 			}
 		} else if (hasAction(arg)) {
 			if (arg.action === 'scope-to-branch' && arg.target == null) {
@@ -1441,7 +1490,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// in (which carries the selection along).
 				if (!gateOnWipSelected && rowId != null && this._data.session != null) {
 					if (isWipRowId(rowId) || this._data.session.current.ids.has(rowId)) {
-						void this.notifyDidChangeSelection();
+						this.notifyDidChangeSelection();
 					} else {
 						void this.revealRow(rowId);
 					}
@@ -1463,7 +1512,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						scopeOrigin: arg.scopeOrigin,
 					};
 				}
-				void this.host.notify(DidRequestGraphActionNotification, {
+				this._requestActionEvent.fire({
 					action: arg.action,
 					target: arg.target,
 					composeInstructions: arg.composeInstructions,
@@ -2644,45 +2693,48 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcCommand(DoubleClickedCommand)
-	private onDoubleClick(params: IpcParams<typeof DoubleClickedCommand>) {
-		if (params.type === 'ref' && params.ref.context) {
-			let item = this.getGraphItemContext(params.ref.context);
-			if (isGraphItemRefContext(item)) {
-				if (params.metadata != null) {
-					item = this.getGraphItemContext(params.metadata.data.context);
-					if (params.metadata.type === 'upstream' && isGraphItemTypedContext(item, 'upstreamStatus')) {
-						const { ahead, behind, ref } = item.webviewItemValue;
-						if (behind > 0) {
-							return void RepoActions.pull(ref.repoPath, ref);
-						}
-						if (ahead > 0) {
-							return void RepoActions.push(ref.repoPath, false, ref);
-						}
-					} else if (params.metadata.type === 'pullRequest' && isGraphItemTypedContext(item, 'pullrequest')) {
-						return void this._commands.openPullRequestOnRemote(item);
-					} else if (params.metadata.type === 'issue' && isGraphItemTypedContext(item, 'issue')) {
-						return void this.openIssueOnRemote(item);
-					}
+	/** Ref pill double-click (row double-click is a no-op — the app handles it locally). */
+	private async handleRefDoubleClick(ref: GraphRef, metadata?: GraphRefMetadataItem): Promise<void> {
+		if (!ref.context) return;
 
+		let item = this.getGraphItemContext(ref.context);
+		if (!isGraphItemRefContext(item)) return;
+
+		if (metadata != null) {
+			item = this.getGraphItemContext(metadata.data.context);
+			if (metadata.type === 'upstream' && isGraphItemTypedContext(item, 'upstreamStatus')) {
+				const { ahead, behind, ref: itemRef } = item.webviewItemValue;
+				if (behind > 0) {
+					await RepoActions.pull(itemRef.repoPath, itemRef);
 					return;
 				}
-
-				const { ref } = item.webviewItemValue;
-				if (params.ref.refType === 'head' && params.ref.isCurrentHead) {
-					return RepoActions.switchTo(ref.repoPath);
+				if (ahead > 0) {
+					await RepoActions.push(itemRef.repoPath, false, itemRef);
+					return;
 				}
-
-				// Override the default confirmation if the setting is unset
-				return RepoActions.switchTo(
-					ref.repoPath,
-					ref,
-					configuration.isUnset('gitCommands.skipConfirmations') ? true : undefined,
-				);
+			} else if (metadata.type === 'pullRequest' && isGraphItemTypedContext(item, 'pullrequest')) {
+				await this._commands.openPullRequestOnRemote(item);
+				return;
+			} else if (metadata.type === 'issue' && isGraphItemTypedContext(item, 'issue')) {
+				await this.openIssueOnRemote(item);
+				return;
 			}
+
+			return;
 		}
 
-		return Promise.resolve();
+		const { ref: itemRef } = item.webviewItemValue;
+		if (ref.refType === 'head' && ref.isCurrentHead) {
+			await RepoActions.switchTo(itemRef.repoPath);
+			return;
+		}
+
+		// Override the default confirmation if the setting is unset
+		await RepoActions.switchTo(
+			itemRef.repoPath,
+			itemRef,
+			configuration.isUnset('gitCommands.skipConfirmations') ? true : undefined,
+		);
 	}
 
 	private async mergePullRequest(
@@ -2740,7 +2792,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._data.updateState(true);
 	}
 
-	// Not a registered command — invoked only by `onDoubleClick` for issue ref-metadata badges.
+	// Not a registered command — invoked only by `handleRefDoubleClick` for issue ref-metadata badges.
 	@debug()
 	private openIssueOnRemote(item?: GraphItemContext): Promise<void> {
 		if (isGraphItemTypedContext(item, 'issue')) {
@@ -3036,18 +3088,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async revealRow(id: string): Promise<void> {
 		await this.onGetMoreRows({ id: id, limit: 0 }, true);
 
-		// The rows push above only ever projects a HIGHLIGHT; `DidChangeSelectionNotification` is what drives
+		// The rows push above only ever projects a HIGHLIGHT; the selection push is what drives
 		// `ensureRowVisible` → `navigateToCommit`, so the row also scrolls and adopts the anchor. Re-check
 		// `_selectedId`: this walk is uncapped and nothing cancels it, so a click mid-walk would otherwise
 		// make us ship that newer selection and scroll the user back to it.
 		if (this._selectedId === id && this._data.session?.current.ids.has(id)) {
-			void this.notifyDidChangeSelection();
+			this.notifyDidChangeSelection();
 		}
 	}
 
-	@ipcCommand(RowActionCommand)
-	@debug()
-	private async onRowAction(params: IpcParams<typeof RowActionCommand>) {
+	private async executeRowAction(params: RowActionParams): Promise<void> {
 		const primaryRepoPath = this._data.session?.repoPath;
 		if (primaryRepoPath == null) return;
 
@@ -3116,17 +3166,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcCommand(TreemapFileActionCommand)
-	@debug()
-	private async onTreemapFileAction(params: IpcParams<typeof TreemapFileActionCommand>): Promise<void> {
+	private async openTreemapFile(action: 'open' | 'history', repoPath: string, path: string): Promise<void> {
 		// Rehydrate the file URI through the repo's own URI so the original scheme survives —
 		// `Uri.file()` would coerce virtual-workspace paths (vscode-vfs://, GitHub virtual provider)
 		// to a non-resolving file:// URI.
-		const repo = this.container.git.getRepository(params.repoPath);
+		const repo = this.container.git.getRepository(repoPath);
 		if (repo == null) return;
 
-		const uri = Uri.joinPath(repo.uri, params.path);
-		switch (params.action) {
+		const uri = Uri.joinPath(repo.uri, path);
+		switch (action) {
 			case 'open':
 				await commands.executeCommand('vscode.open', uri);
 				return;
@@ -3135,8 +3183,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcCommand(ChooseRepositoryCommand)
-	private async onChooseRepository() {
+	private async chooseRepository(): Promise<void> {
 		// // Ensure that the current repository is always last
 		// const repositories = this.container.git.openRepositories.sort(
 		// 	(a, b) =>
@@ -3169,8 +3216,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
-	@ipcCommand(ChooseAccountOrgCommand)
-	private async onChooseAccountOrg() {
+	private async chooseAccountOrg(): Promise<void> {
 		await executeCommand<Source>('gitlens.gk.switchOrganization', { source: 'graph' });
 	}
 
@@ -3420,24 +3466,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
-		undefined;
-
-	@ipcCommand(UpdateSelectionCommand)
-	private onSelectionChanged(params: IpcParams<typeof UpdateSelectionCommand>) {
+	/** `GraphSelectionService.updateSelection` — the app's report of what the user selected. Runs
+	 *  undebounced: the coalescing now lives on the APP side of the wire (see the wrapper's
+	 *  `sendSelectionDebounced`), so an arrow-key scrub arrives here already collapsed to its final row. */
+	private updateSelection(selection: GraphSelection[]): void {
 		// An empty selection echo must never clear the selection hint we already hold. The webview only
 		// sends a real (non-empty) selection on user intent; an empty report is transient (the GK can't
 		// resolve a synthetic WIP row yet) or a scope/visibility filter-out, both of which the webview
 		// handles by keeping its inspection anchor and deriving an empty highlight. The host's
 		// `_selectedId`/`_selection` are now only a getGraph paging hint + command-target fallback, so
 		// leave them intact on an empty echo.
-		if (!params.selection.length && this._selectedId != null) return;
+		if (!selection.length && this._selectedId != null) return;
 
-		const item = params.selection.find(r => r.active) ?? params.selection[0];
-		this.setSelectedRows(item?.id, params.selection, { selected: true, hidden: item?.hidden });
-
-		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
-		this._fireSelectionChangedDebounced(item?.id, item?.type);
+		const item = selection.find(r => r.active) ?? selection[0];
+		this.setSelectedRows(item?.id, selection, { selected: true, hidden: item?.hidden });
+		this.fireSelectionChanged(item?.id, item?.type);
 	}
 
 	private fireSelectionChanged(id: string | undefined, type: GitGraphRowKind | undefined) {
@@ -3624,16 +3667,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._accessChangedEvent.fire(await this.getAccessState(featurePreview));
 	}
 
+	/** Pushes the current selection map to the app. Only HOST-initiated reveals call this — a user's own
+	 *  click is never echoed back. The event is `save-last`, so a hidden webview replays the newest
+	 *  payload on show and needs no re-produce entry of its own. */
 	@trace()
-	private async notifyDidChangeSelection() {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeSelectionNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		return this.host.notify(DidChangeSelectionNotification, {
-			selection: convertSelectedRows(this._selectedRows) ?? {},
-		});
+	private notifyDidChangeSelection(): void {
+		this._selectionChangedEvent.fire(convertSelectedRows(this._selectedRows));
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -5518,8 +5557,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// even if the user never edits.
 				void this._wip.writeWipDraftToStorage(targetRepoPath, { message: message, messageDirty: true });
 				this.setSelectedRows(wipRowId);
-				void this.notifyDidChangeSelection();
-				void this.host.notify(DidRequestGraphActionNotification, {
+				this.notifyDidChangeSelection();
+				this._requestActionEvent.fire({
 					action: 'show-wip',
 					target: { sha: wipRowId, worktreePath: targetRepoPath },
 					commitMessage: message,
@@ -5631,7 +5670,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Pushes the request to the graph webview to switch into its embedded Visual History
 	 *  (timeline) display mode, scoped to the given file/folder. Fire-and-forget. */
 	private notifyOpenTimelineScope(params: DidRequestOpenTimelineScopeParams): void {
-		void this.host.notify(DidRequestOpenTimelineScopeNotification, params);
+		this._requestOpenTimelineScopeEvent.fire(params);
 	}
 
 	/** Pushes a search query to the graph webview without triggering a full state refresh — the

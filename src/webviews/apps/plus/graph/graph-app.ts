@@ -1771,7 +1771,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  `params.selectSha` is intentionally NOT forwarded to the header: the host-side
 	 *  `hasSearchQuery` handler already calls `setSelectedRows` and (when needed) `onGetMoreRows`
 	 *  synchronously before firing this notification. The selection update reaches the webview via
-	 *  the separate `DidChangeSelectionNotification` push, not via the search query.
+	 *  the separate `GraphSelectionService.onSelectionChanged` push, not via the search query.
 	 *
 	 *  Sets `_lastSearchRequest` so the cold-show path's `state.searchRequest` consumer (in
 	 *  `updated()`) treats this request as already handled if the same query also lands in state. */
@@ -2890,7 +2890,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		// Handle a cold-show compare request (e.g. a terminal-link range) — warm shows arrive via
-		// DidRequestOpenCompareModeNotification instead. Mirrors the pendingAction handling above.
+		// `GraphNavigationService.onRequestOpenCompareMode` instead. Mirrors the pendingAction handling above.
 		const pendingCompare = this.graphState.pendingCompare;
 		if (pendingCompare != null) {
 			this.graphState.pendingCompare = undefined;

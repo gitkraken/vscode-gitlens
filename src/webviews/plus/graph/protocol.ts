@@ -953,15 +953,6 @@ export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | I
 
 // COMMANDS
 
-export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
-
-export const ChooseAccountOrgCommand = new IpcCommand(scope, 'chooseAccountOrg');
-
-export type DoubleClickedParams =
-	| { type: 'ref'; ref: GraphRef; metadata?: GraphRefMetadataItem }
-	| { type: 'row'; row: { id: string; type: GitGraphRowKind }; preserveFocus?: boolean };
-export const DoubleClickedCommand = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
-
 export interface MergePullRequestParams {
 	/** The user-facing pull request number (not a provider-internal id). */
 	number: string;
@@ -1030,24 +1021,6 @@ export type RowActionParams =
 			/** Worktree path the action targets. Omit for the active worktree. */
 			worktreePath?: string;
 	  };
-export const RowActionCommand = new IpcCommand<RowActionParams>(scope, 'row/action');
-
-export interface TreemapFileActionParams {
-	action: 'open' | 'history';
-	/** Repo this click belongs to — the host rehydrates the file URI via
-	 *  `Uri.joinPath(repository.uri, path)` so the original scheme (file://, vscode-vfs://, etc.)
-	 *  is preserved for virtual workspaces. */
-	repoPath: string;
-	/** Forward-slash, repo-relative path of the clicked treemap leaf. Relative (not absolute) so
-	 *  the host can scheme-preserve the rehydration; `vscode.Uri` instances can't cross IPC. */
-	path: string;
-}
-export const TreemapFileActionCommand = new IpcCommand<TreemapFileActionParams>(scope, 'treemap/file/action');
-
-export interface UpdateSelectionParams {
-	selection: GraphSelection[];
-}
-export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
 // REQUESTS
 
@@ -1440,19 +1413,12 @@ export type GraphCoachMarkType = (typeof graphCoachMarkTypes)[number];
 export interface DidRequestActiveSidebarPanelParams {
 	panel: GraphSidebarPanel;
 }
-export const DidRequestActiveSidebarPanelNotification = new IpcNotification<DidRequestActiveSidebarPanelParams>(
-	scope,
-	'sidebar/activePanel/didRequest',
-);
 
+/** Carried by `GraphNavigationService.onRequestVisualization` when a command (e.g.
+ *  `gitlens.showGitHealth`) opens the graph on a specific visualization. */
 export interface DidRequestVisualizationParams {
 	visualization: VisualizationMode;
 }
-/** Pushed when a command (e.g. `gitlens.showGitHealth`) opens the graph on a specific visualization. */
-export const DidRequestVisualizationNotification = new IpcNotification<DidRequestVisualizationParams>(
-	scope,
-	'visualization/didRequest',
-);
 
 export interface DidRequestGraphActionParams {
 	action: GraphShowAction;
@@ -1478,10 +1444,6 @@ export interface DidRequestGraphActionParams {
 	 *  current selection is a WIP row; otherwise drop the delivery entirely. */
 	onlyIfWipSelected?: boolean;
 }
-export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
-	scope,
-	'action/didRequest',
-);
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
@@ -1547,24 +1509,15 @@ export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams
 	false,
 );
 
-export interface DidChangeSelectionParams {
-	selection: GraphSelectedRows;
-}
-export const DidChangeSelectionNotification = new IpcNotification<DidChangeSelectionParams>(
-	scope,
-	'selection/didChange',
-);
-
+/** Payload of `GraphSelectionService.onRevealFailed` — a host-initiated reveal/select (e.g. a deep
+ *  link, "Open in Commit Graph", a terminal-link jump) gave up without ever calling `setSelectedRows`.
+ *  Nothing else tells the webview the jump was a no-op, so surface it explicitly instead of leaving
+ *  the graph looking like it silently ignored the request. */
 export interface DidFailRevealParams {
 	/** The ref/sha the host was asked to reveal. */
 	id: string;
 	reason: 'invalidRef' | 'notFound';
 }
-/** A host-initiated reveal/select (e.g. a deep link, "Open in Commit Graph", a terminal-link jump)
- *  gave up without ever calling `setSelectedRows` — nothing else tells the webview the jump was a
- *  no-op, so surface it explicitly instead of leaving the graph looking like it silently ignored the
- *  request. */
-export const DidFailRevealNotification = new IpcNotification<DidFailRevealParams>(scope, 'reveal/didFail');
 
 export interface DidRequestOpenCompareModeParams {
 	repoPath: string;
@@ -1574,10 +1527,6 @@ export interface DidRequestOpenCompareModeParams {
 	rightRefType?: 'branch' | 'tag' | 'commit';
 	includeWorkingTree?: boolean;
 }
-export const DidRequestOpenCompareModeNotification = new IpcNotification<DidRequestOpenCompareModeParams>(
-	scope,
-	'compareMode/didRequestOpen',
-);
 
 /** The two-ref seed for opening the Graph's compare mode from a show request (e.g. a terminal-link
  *  range). Mirrors {@link DidRequestOpenCompareModeParams} without the repoPath (supplied on show). */
@@ -1588,23 +1537,11 @@ export interface DidRequestOpenTimelineScopeParams {
 	relativePath: string;
 	repoPath: string;
 }
-export const DidRequestOpenTimelineScopeNotification = new IpcNotification<DidRequestOpenTimelineScopeParams>(
-	scope,
-	'timeline/didRequestOpenScope',
-);
 
 export interface DidRequestSearchParams {
 	search: SearchQuery;
 	selectSha?: string;
 }
-
-export interface DidInvalidateGraphTreemapParams {
-	repoPath: string;
-}
-export const DidInvalidateGraphTreemapNotification = new IpcNotification<DidInvalidateGraphTreemapParams>(
-	scope,
-	'treemap/didInvalidate',
-);
 
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
 export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;

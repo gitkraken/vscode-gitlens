@@ -6,13 +6,12 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
-import { ChooseAccountOrgCommand, ChooseRepositoryCommand } from '../../../plus/graph/protocol.js';
+import { fireAndForget } from '../../shared/actions/rpc.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
-import { graphStateContext } from './context.js';
+import { graphServicesContext, graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
@@ -29,8 +28,8 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	graphState!: typeof graphStateContext.__context__;
 
-	@consume({ context: ipcContext })
-	private readonly _ipc!: typeof ipcContext.__context__;
+	@consume({ context: graphServicesContext, subscribe: true })
+	private readonly _services?: typeof graphServicesContext.__context__;
 
 	/** The task that brought the user here (parked by the app while gated) — selects the gate copy;
 	 *  actions without task copy fall back to the generic Commit Graph pitch. */
@@ -170,10 +169,16 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	}
 
 	private onSwitchRepos(): void {
-		this._ipc.sendCommand(ChooseRepositoryCommand);
+		const services = this._services;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.pickers).chooseRepository())(), 'pickers/chooseRepository');
 	}
 
 	private onSwitchOrgs(): void {
-		this._ipc.sendCommand(ChooseAccountOrgCommand);
+		const services = this._services;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.pickers).chooseAccountOrg())(), 'pickers/chooseAccountOrg');
 	}
 }

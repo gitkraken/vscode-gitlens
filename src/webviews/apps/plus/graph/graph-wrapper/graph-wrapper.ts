@@ -10,6 +10,7 @@ import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js'
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual } from '@gitlens/utils/array.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
@@ -37,7 +38,6 @@ import type {
 import {
 	CancelLoadRowCommand,
 	createWipRowId,
-	DoubleClickedCommand,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
@@ -45,8 +45,6 @@ import {
 	isWipRowId,
 	LoadRowRequest,
 	ProxyAvatarsCommand,
-	RowActionCommand,
-	UpdateSelectionCommand,
 } from '../../../../plus/graph/protocol.js';
 import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
@@ -537,6 +535,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		document.removeEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 		document.removeEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
 		this.cancelPendingSelection();
+		// Flush, not cancel: the RPC channel outlives this element (a mode switch detaches it), so the
+		// pending report is still deliverable — and dropping it would strand the host on a stale row.
+		this.sendSelectionDebounced.flush();
 		// Nothing will replay it, and a remount starts from whatever the host then pushes.
 		this._deferredMoreRows = undefined;
 		if (this._clearRowContextTimer != null) {
@@ -1456,7 +1457,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 
 		this._lastSentSelectionKey = selection.map(s => `${s.id}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`).join(',');
-		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
+		// Undebounced: search navigation is one-shot, so there is nothing to coalesce with — and the
+		// selection it just wrote must reach the host before any follow-up acts on it.
+		this.sendSelectionDebounced.cancel();
+		this.sendSelection(selection);
 
 		// Matched rows are loaded; report `hidden` from the displayed set (see getCommits) so the search-nav
 		// "result hidden" warning fires for a loaded-but-not-displayed match.
@@ -1969,6 +1973,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private onGraphRowAction({
 		detail: { action, sha, type, worktreePath },
 	}: CustomEvent<{ action: RowAction; sha: string; type: GitGraphRowKind; worktreePath?: string }>) {
+		const services = this.services;
+		if (services == null) return;
+
 		const rowRef = { id: sha, type: type };
 		// Narrow per-action so the discriminated `RowActionParams` only carries the fields its case
 		// allows — keeps stash/open-changes payloads from accidentally inheriting worktreePath.
@@ -1976,7 +1983,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			action === 'undo-commit'
 				? { action: action, row: rowRef, worktreePath: worktreePath }
 				: { action: action, row: rowRef };
-		this._ipc.sendCommand(RowActionCommand, params);
+		fireAndForget((async () => (await services.rowActions).executeRowAction(params))(), 'rowActions/execute');
 	}
 
 	/** Ref pill's pin zone → clear the edge pin. Goes through the filters service's own pinned-ref write
@@ -2237,6 +2244,29 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private _lastSentSelectionKey: string | undefined;
 
+	/** Ships one selection report to the host. Fire-and-forget: a click must never wait on the ack. */
+	private sendSelection(selection: GraphSelection[]): void {
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.selection).updateSelection(selection))(), 'selection/update');
+	}
+
+	/**
+	 * Coalescer for the user-intent path, on the APP side of the wire — an arrow-key scrub fires one
+	 * report per row and only the row the user lands on matters to the host. Trailing-edge only, so the
+	 * FINAL selection always wins; `maxWait` bounds how stale the host's paging hint and palette-command
+	 * fallback can get while a key is held. The search-navigation path deliberately bypasses this: it's
+	 * one-shot, so there is nothing to coalesce with.
+	 */
+	private readonly sendSelectionDebounced = debounce(
+		(selection: GraphSelection[]) => this.sendSelection(selection),
+		50,
+		{
+			maxWait: 250,
+		},
+	);
+
 	/**
 	 * SHAs we've already issued `GetMoreRowsCommand({ id: sha })` for via the unreachable-anchor
 	 * path, mapped to the loaded row count at the time the request was sent plus how many targeted
@@ -2436,11 +2466,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this._lastSentSelectionKey = selectionKey;
 
-		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
+		this.sendSelectionDebounced(selection);
 	}
 
 	private onGraphRowDoubleClick(event: CustomEvent<{ sha: string; type: GitGraphRow['kind'] }>) {
-		const { sha, type } = event.detail;
+		const { sha } = event.detail;
 		// Resolve against the decorated rows (Seam B) so synthetic WIP shas — injected in
 		// `getDecoratedRows` and absent from `graphState.rows` — still resolve to a row.
 		const row = this.rowBySha(sha);
@@ -2451,11 +2481,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				}),
 			);
 		}
-		this._ipc.sendCommand(DoubleClickedCommand, {
-			type: 'row',
-			row: { id: sha, type: type },
-			preserveFocus: false,
-		});
+		// The host's row-double-click branch was a dead `Promise.resolve()` — the local event above
+		// is the whole handling, so there's no RPC round trip to make here.
 	}
 
 	private onGraphMoreRows(e: CustomEvent<{ displayRows: number } | null>) {
@@ -2692,7 +2719,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			...(refType === 'head' ? { isCurrentHead: current } : {}),
 			...(remote != null ? { owner: remote } : {}),
 		} satisfies Partial<GraphRef> as GraphRef;
-		this._ipc.sendCommand(DoubleClickedCommand, { type: 'ref', ref: ref, metadata: metadata });
+
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget(
+			(async () => (await services.rowActions).handleRefDoubleClick(ref, metadata))(),
+			'rowActions/refDoubleClick',
+		);
 	}
 
 	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {

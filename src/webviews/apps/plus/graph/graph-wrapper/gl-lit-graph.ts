@@ -6242,7 +6242,7 @@ export class GlLitGraph extends LitElement {
 
 		// Row-action buttons (Open Changes / stash Apply-Drop / WIP Compose-Review) resolve
 		// BEFORE selection so a button click doesn't also select the row. They carry data-row-action
-		// (→ host RowActionCommand) or data-wip-open (→ the compose/review/agents workflow); the
+		// (→ the rowActions RPC service) or data-wip-open (→ the compose/review/agents workflow); the
 		// wrapper routes both. Alt on open-changes switches to the working-tree variant.
 		for (const el of event.composedPath()) {
 			if (!(el instanceof Element)) continue;

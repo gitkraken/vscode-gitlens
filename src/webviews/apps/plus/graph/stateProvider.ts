@@ -21,9 +21,11 @@ import type {
 	GraphColumnsService,
 	GraphConfigurationService,
 	GraphFiltersService,
+	GraphNavigationService,
 	GraphOverviewService,
 	GraphScopeService,
 	GraphSearchState,
+	GraphSelectionService,
 	GraphServices,
 	GraphWipService,
 	GraphWorktreeEnrichment,
@@ -46,13 +48,6 @@ import {
 	DidChangeNotification,
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
-	DidChangeSelectionNotification,
-	DidFailRevealNotification,
-	DidRequestActiveSidebarPanelNotification,
-	DidRequestGraphActionNotification,
-	DidRequestOpenCompareModeNotification,
-	DidRequestOpenTimelineScopeNotification,
-	DidRequestVisualizationNotification,
 	GraphSyncResyncCommand,
 	isWipRowId,
 } from '../../../plus/graph/protocol.js';
@@ -707,6 +702,33 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Unsubscribes the current `onWipRefetched` listener — reconnect-safe teardown, same pattern as
 	 *  {@link _unsubscribeOverviewChanged}. */
 	private _unsubscribeWipRefetched: (() => void) | undefined;
+	/** The navigation RPC sub-service — held only for its five `onRequest…` subscriptions (the warm
+	 *  host→app navigation pushes; see `GraphNavigationService`). Set by {@link initializeServices}. */
+	private _navigationService: GraphNavigationService | undefined;
+	/** Unsubscribes the current `onRequestAction` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRequestAction: (() => void) | undefined;
+	/** Unsubscribes the current `onRequestOpenCompareMode` listener — reconnect-safe teardown, same
+	 *  pattern as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRequestOpenCompareMode: (() => void) | undefined;
+	/** Unsubscribes the current `onRequestOpenTimelineScope` listener — reconnect-safe teardown, same
+	 *  pattern as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRequestOpenTimelineScope: (() => void) | undefined;
+	/** Unsubscribes the current `onRequestVisualization` listener — reconnect-safe teardown, same
+	 *  pattern as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRequestVisualization: (() => void) | undefined;
+	/** Unsubscribes the current `onRequestActiveSidebarPanel` listener — reconnect-safe teardown, same
+	 *  pattern as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRequestActiveSidebarPanel: (() => void) | undefined;
+	/** The selection RPC sub-service — held only for its two host→app pushes (host-initiated reveals and
+	 *  the reveals that failed; see `GraphSelectionService`). Set by {@link initializeServices}. */
+	private _selectionService: GraphSelectionService | undefined;
+	/** Unsubscribes the current `onSelectionChanged` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeSelectionChanged: (() => void) | undefined;
+	/** Unsubscribes the current `onRevealFailed` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRevealFailed: (() => void) | undefined;
 	/** Resolved once {@link initializeServices} has assigned {@link _overviewService} and
 	 *  {@link _scopeService} — callers that need either before the RPC handshake completes await this
 	 *  instead of racing it. Same resolve-once-per-lifetime semantics as `SearchActions`' `serviceReady`:
@@ -754,6 +776,20 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeWorktreeEnrichment = undefined;
 		this._unsubscribeWipRefetched?.();
 		this._unsubscribeWipRefetched = undefined;
+		this._unsubscribeRequestAction?.();
+		this._unsubscribeRequestAction = undefined;
+		this._unsubscribeRequestOpenCompareMode?.();
+		this._unsubscribeRequestOpenCompareMode = undefined;
+		this._unsubscribeRequestOpenTimelineScope?.();
+		this._unsubscribeRequestOpenTimelineScope = undefined;
+		this._unsubscribeRequestVisualization?.();
+		this._unsubscribeRequestVisualization = undefined;
+		this._unsubscribeRequestActiveSidebarPanel?.();
+		this._unsubscribeRequestActiveSidebarPanel = undefined;
+		this._unsubscribeSelectionChanged?.();
+		this._unsubscribeSelectionChanged = undefined;
+		this._unsubscribeRevealFailed?.();
+		this._unsubscribeRevealFailed = undefined;
 
 		const overview = await services.overview;
 		this._overviewService = overview;
@@ -767,6 +803,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._filtersService = filters;
 		const wip = await services.wip;
 		this._wipService = wip;
+		const navigation = await services.navigation;
+		this._navigationService = navigation;
+		const selection = await services.selection;
+		this._selectionService = selection;
 		this._servicesReady.fulfill();
 
 		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>` — must be awaited (see
@@ -842,6 +882,90 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		const refetchUnsub = (await wip.onWipRefetched(data => {
 			this.applyWipRefetch(data);
 		})) as unknown as (() => void) | undefined;
+		const requestActionUnsub = (await navigation.onRequestAction(data => {
+			// Pre-populate the WIP draft for the target worktree FIRST so `loadWipDraft` (which
+			// fires when the panel anchors on the new WIP row in this same render cycle) finds
+			// the seeded message on its first pass — avoids a one-frame empty box before the
+			// post-`updateComplete` `setCommitMessage` would override it.
+			if (data.action === 'show-wip' && data.commitMessage != null && data.target != null) {
+				this.setWipDraft(data.target.worktreePath, {
+					message: data.commitMessage,
+					messageDirty: true,
+				});
+			}
+			this.updateState({
+				pendingAction: {
+					action: data.action,
+					target: data.target,
+					commitMessage: data.commitMessage,
+					scopeBranch: data.scopeBranch,
+					scopeOrigin: data.scopeOrigin,
+					composeInstructions: data.composeInstructions,
+					composeScope: data.composeScope,
+					agentSessionId: data.agentSessionId,
+					revealOnly: data.revealOnly,
+					followed: data.followed,
+					onlyIfWipSelected: data.onlyIfWipSelected,
+				},
+				...(data.action !== 'scope-to-branch' && !data.revealOnly
+					? { details: { ...this.details, visible: true } }
+					: {}),
+			});
+		})) as unknown as (() => void) | undefined;
+		const requestOpenCompareModeUnsub = (await navigation.onRequestOpenCompareMode(data => {
+			this.host.dispatchEvent(
+				new CustomEvent('gl-graph-request-open-compare-mode', {
+					detail: data,
+					bubbles: true,
+				}),
+			);
+		})) as unknown as (() => void) | undefined;
+		const requestOpenTimelineScopeUnsub = (await navigation.onRequestOpenTimelineScope(data => {
+			this.host.dispatchEvent(
+				new CustomEvent('gl-graph-request-open-timeline-scope', {
+					detail: data,
+					bubbles: true,
+				}),
+			);
+		})) as unknown as (() => void) | undefined;
+		const requestVisualizationUnsub = (await navigation.onRequestVisualization(data => {
+			// Both axes are needed: `visualizationMode` picks WHICH visualization, while `displayMode`
+			// is what makes the visualizations pane render at all — setting only the former leaves the
+			// graph on screen. (`openTimelineScope` sets the pair for the same reason.)
+			this.displayMode = 'visualizations';
+			this.visualizationMode = data.visualization;
+		})) as unknown as (() => void) | undefined;
+		const requestActiveSidebarPanelUnsub = (await navigation.onRequestActiveSidebarPanel(data => {
+			this.updateState({
+				sidebar: { ...this.sidebar, visible: true, activePanel: data.panel },
+			});
+		})) as unknown as (() => void) | undefined;
+		const selectionChangedUnsub = (await selection.onSelectionChanged(data => {
+			this.updateState({ selectedRows: data });
+			// Host-initiated reveals (Show in Commit Graph, terminal links, deep links) push the
+			// selection here; user clicks aren't echoed back this way. Ask the app to scroll the
+			// revealed row into view — the graph doesn't auto-scroll on a plain selection.
+			const revealed = Object.keys(data ?? {})[0];
+			if (revealed != null) {
+				this.host.dispatchEvent(
+					new CustomEvent('gl-graph-request-ensure-row-visible', {
+						detail: revealed,
+						bubbles: true,
+					}),
+				);
+			}
+		})) as unknown as (() => void) | undefined;
+		const revealFailedUnsub = (await selection.onRevealFailed(data => {
+			// A host-initiated reveal that gave up before ever pushing a selection (an unresolved ref) —
+			// nothing else tells the webview the jump was a no-op, so surface it explicitly the same way
+			// `gl-graph-request-ensure-row-visible` surfaces a successful one, above.
+			this.host.dispatchEvent(
+				new CustomEvent('gl-graph-request-reveal-failed', {
+					detail: data,
+					bubbles: true,
+				}),
+			);
+		})) as unknown as (() => void) | undefined;
 
 		// A newer `connectServices` call may have reassigned either service while these subscribes were
 		// in flight (reconnect) — tear down whichever subscription this now-stale generation grabbed,
@@ -899,6 +1023,42 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this._unsubscribeWipRefetched = refetchUnsub;
 			}
 		}
+
+		if (this._navigationService !== navigation) {
+			requestActionUnsub?.();
+			requestOpenCompareModeUnsub?.();
+			requestOpenTimelineScopeUnsub?.();
+			requestVisualizationUnsub?.();
+			requestActiveSidebarPanelUnsub?.();
+		} else {
+			if (typeof requestActionUnsub === 'function') {
+				this._unsubscribeRequestAction = requestActionUnsub;
+			}
+			if (typeof requestOpenCompareModeUnsub === 'function') {
+				this._unsubscribeRequestOpenCompareMode = requestOpenCompareModeUnsub;
+			}
+			if (typeof requestOpenTimelineScopeUnsub === 'function') {
+				this._unsubscribeRequestOpenTimelineScope = requestOpenTimelineScopeUnsub;
+			}
+			if (typeof requestVisualizationUnsub === 'function') {
+				this._unsubscribeRequestVisualization = requestVisualizationUnsub;
+			}
+			if (typeof requestActiveSidebarPanelUnsub === 'function') {
+				this._unsubscribeRequestActiveSidebarPanel = requestActiveSidebarPanelUnsub;
+			}
+		}
+
+		if (this._selectionService !== selection) {
+			selectionChangedUnsub?.();
+			revealFailedUnsub?.();
+		} else {
+			if (typeof selectionChangedUnsub === 'function') {
+				this._unsubscribeSelectionChanged = selectionChangedUnsub;
+			}
+			if (typeof revealFailedUnsub === 'function') {
+				this._unsubscribeRevealFailed = revealFailedUnsub;
+			}
+		}
 	}
 
 	override dispose(): void {
@@ -924,6 +1084,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeWorkingTreeChanged?.();
 		this._unsubscribeWorktreeEnrichment?.();
 		this._unsubscribeWipRefetched?.();
+		this._unsubscribeRequestAction?.();
+		this._unsubscribeRequestOpenCompareMode?.();
+		this._unsubscribeRequestOpenTimelineScope?.();
+		this._unsubscribeRequestVisualization?.();
+		this._unsubscribeRequestActiveSidebarPanel?.();
+		this._unsubscribeSelectionChanged?.();
+		this._unsubscribeRevealFailed?.();
 		super.dispose();
 	}
 
@@ -1952,98 +2119,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				scope?.addExitInfo(`rows=${this._state.rows?.length ?? 0}`);
 				break;
 			}
-
-			case DidChangeSelectionNotification.is(msg):
-				this.updateState({ selectedRows: msg.params.selection });
-				// Host-initiated reveals (Show in Commit Graph, terminal links, deep links) push the
-				// selection here; user clicks aren't echoed back this way. Ask the app to scroll the
-				// revealed row into view — the graph doesn't auto-scroll on a plain selection.
-				{
-					const revealed = Object.keys(msg.params.selection ?? {})[0];
-					if (revealed != null) {
-						this.host.dispatchEvent(
-							new CustomEvent('gl-graph-request-ensure-row-visible', {
-								detail: revealed,
-								bubbles: true,
-							}),
-						);
-					}
-				}
-				break;
-			case DidFailRevealNotification.is(msg):
-				// A host-initiated reveal that gave up before ever pushing a selection (an unresolved ref) —
-				// nothing else tells the webview the jump was a no-op, so surface it explicitly the same way
-				// `gl-graph-request-ensure-row-visible` surfaces a successful one, above.
-				this.host.dispatchEvent(
-					new CustomEvent('gl-graph-request-reveal-failed', {
-						detail: msg.params,
-						bubbles: true,
-					}),
-				);
-				break;
-
-			case DidRequestOpenCompareModeNotification.is(msg):
-				this.host.dispatchEvent(
-					new CustomEvent('gl-graph-request-open-compare-mode', {
-						detail: msg.params,
-						bubbles: true,
-					}),
-				);
-				break;
-
-			case DidRequestOpenTimelineScopeNotification.is(msg):
-				this.host.dispatchEvent(
-					new CustomEvent('gl-graph-request-open-timeline-scope', {
-						detail: msg.params,
-						bubbles: true,
-					}),
-				);
-				break;
-
-			case DidRequestActiveSidebarPanelNotification.is(msg):
-				this.updateState({
-					sidebar: { ...this.sidebar, visible: true, activePanel: msg.params.panel },
-				});
-				break;
-
-			case DidRequestVisualizationNotification.is(msg):
-				// Both axes are needed: `visualizationMode` picks WHICH visualization, while `displayMode`
-				// is what makes the visualizations pane render at all — setting only the former leaves the
-				// graph on screen. (`openTimelineScope` sets the pair for the same reason.)
-				this.displayMode = 'visualizations';
-				this.visualizationMode = msg.params.visualization;
-				break;
-
-			case DidRequestGraphActionNotification.is(msg):
-				// Pre-populate the WIP draft for the target worktree FIRST so `loadWipDraft` (which
-				// fires when the panel anchors on the new WIP row in this same render cycle) finds
-				// the seeded message on its first pass — avoids a one-frame empty box before the
-				// post-`updateComplete` `setCommitMessage` would override it.
-				if (msg.params.action === 'show-wip' && msg.params.commitMessage != null && msg.params.target != null) {
-					this.setWipDraft(msg.params.target.worktreePath, {
-						message: msg.params.commitMessage,
-						messageDirty: true,
-					});
-				}
-				this.updateState({
-					pendingAction: {
-						action: msg.params.action,
-						target: msg.params.target,
-						commitMessage: msg.params.commitMessage,
-						scopeBranch: msg.params.scopeBranch,
-						scopeOrigin: msg.params.scopeOrigin,
-						composeInstructions: msg.params.composeInstructions,
-						composeScope: msg.params.composeScope,
-						agentSessionId: msg.params.agentSessionId,
-						revealOnly: msg.params.revealOnly,
-						followed: msg.params.followed,
-						onlyIfWipSelected: msg.params.onlyIfWipSelected,
-					},
-					...(msg.params.action !== 'scope-to-branch' && !msg.params.revealOnly
-						? { details: { ...this.details, visible: true } }
-						: {}),
-				});
-				break;
 
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
