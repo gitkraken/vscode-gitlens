@@ -25,7 +25,8 @@ import type {
 	GraphWipState,
 	State,
 } from '../../../plus/graph/protocol.js';
-import { ChooseRepositoryCommand, createWipRowId, UpdateRefsVisibilityCommand } from '../../../plus/graph/protocol.js';
+import { ChooseRepositoryCommand, createWipRowId } from '../../../plus/graph/protocol.js';
+import { fireAndForget } from '../../shared/actions/rpc.js';
 import type { GlPopover } from '../../shared/components/overlays/popover.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
 import type { GlSearchBox } from '../../shared/components/search/search-box.js';
@@ -47,7 +48,7 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
 import type { GlGraphScopePopover } from './components/gl-graph-scope-popover.js';
-import { graphStateContext } from './context.js';
+import { graphServicesContext, graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
 import { compareGraphRefOpts, getHiddenRefLabel } from './hiddenRefs.utils.js';
@@ -176,6 +177,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
 	private _telemetry!: TelemetryContext;
+
+	@consume({ context: graphServicesContext, subscribe: true })
+	private _services?: typeof graphServicesContext.__context__;
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -732,7 +736,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private handleOnToggleRefsVisibilityClick(_event: any, refs: GraphExcludedRef[], visible: boolean) {
-		this._ipc.sendCommand(UpdateRefsVisibilityCommand, { refs: refs, visible: visible });
+		const services = this._services;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.filters).setRefsVisibility(refs, visible))(), 'filters/refs');
 	}
 
 	private handleSearch() {

@@ -153,7 +153,7 @@ export interface AppState extends State {
 	ensureRowMarkerMergeTarget(): void;
 
 	/**
-	 * Defer clearing the current scope until the next `DidChangeRefsVisibilityNotification` lands —
+	 * Defer clearing the current scope until the next filters push lands —
 	 * coalesces the scope clear with the filter visibility update so a mode/filter change produces
 	 * a single coordinated re-render instead of a minimap reset followed by a separate filter update.
 	 */

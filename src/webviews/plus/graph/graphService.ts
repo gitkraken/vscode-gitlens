@@ -1,3 +1,4 @@
+import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
@@ -7,6 +8,7 @@ import type { GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
+import type { GraphBranchesVisibility } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { FeaturePreview } from '../../../features.js';
 import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
@@ -41,7 +43,18 @@ import type {
 	DidSearchRepairParams,
 	GetOverviewParams,
 	GetWipLineStatsResponse,
+	GraphColumnName,
+	GraphColumnsConfig,
+	GraphColumnsSettings,
+	GraphComponentConfig,
+	GraphDisplayMode,
+	GraphExcludedRef,
+	GraphExcludeRefs,
+	GraphExcludeTypes,
+	GraphIncludeOnlyRef,
+	GraphIncludeOnlyRefs,
 	GraphOverviewData,
+	GraphPinnedRef,
 	GraphScope,
 	GraphSearchMode,
 	GraphSearchRelaxation,
@@ -938,6 +951,114 @@ export interface GraphScopeService {
 }
 
 /**
+ * Config/display-mode plane: the graph's persisted settings (minimap, auto-fetch, details
+ * location, etc.) and the active Graph/Visualizations/Kanban display mode.
+ */
+export interface GraphConfigurationService {
+	/** The current component config, for seeding a freshly connected app. Pull-based, so no
+	 *  emission fired between subscribe and fetch is ever lost. */
+	getConfiguration(): Promise<GraphComponentConfig>;
+	/**
+	 * Persists `changes` to the underlying settings and resolves once every write has landed.
+	 * Resolving does NOT itself push the new config — that arrives separately via
+	 * {@link onDidChange} once the settings watcher observes the write, matching the value a
+	 * `configuration.get` would now return.
+	 */
+	update(changes: Partial<GraphComponentConfig>): Promise<void>;
+	setDisplayMode(mode: GraphDisplayMode): Promise<void>;
+	/** Fires with the complete component config snapshot whenever it changes — a settings write
+	 *  (including one made through {@link update}, once its watcher echo lands) or a relevant
+	 *  workspace/window setting changing out from under the webview. `save-last`: the payload is
+	 *  always a complete snapshot, so a hidden webview only ever needs the newest one. */
+	readonly onDidChange: RpcEventSubscription<GraphComponentConfig>;
+}
+
+/**
+ * Everything the columns + scroll-markers plane pushes: the resolved column settings plus the three
+ * `vscode-context` JSON strings its menus hang off. Always a COMPLETE snapshot, never a delta —
+ * `onDidChange` is `save-last` buffered, so a hidden webview keeps only the newest emission.
+ *
+ * The four travel together because `settingsContext` (the gear menu's context) is derived from the
+ * column settings AND from the scroll-marker settings: two writers, one field. Splitting them across
+ * events would let one writer's push stale the other's.
+ */
+export interface GraphColumnsState {
+	columns: GraphColumnsSettings;
+	/** Column-header right-click context (`gitlens:graph:columns`). */
+	headerContext?: string;
+	/** Gear-menu context (`gitlens:graph:settings`) — derived from columns AND scroll markers. */
+	settingsContext?: string;
+	/** Marker-rail right-click context (`gitlens:graph:scrollMarkers`). */
+	scrollMarkersContext?: string;
+}
+
+/**
+ * Columns + scroll-markers plane: column visibility/width/order/grouping, the Changes column's mode
+ * and stats consent, and the contexts backing the column, gear, and marker-rail menus.
+ */
+export interface GraphColumnsService {
+	/** The current columns snapshot, for seeding a freshly connected app. Pull-based, so no emission
+	 *  fired between subscribe and fetch is ever lost. */
+	getColumns(): Promise<GraphColumnsState>;
+	/**
+	 * Persists a webview-authored columns write (widths, order, hide/show, grouping), resolving AFTER
+	 * the storage write lands and {@link onDidChange} has fired. Callers use that happens-after edge to
+	 * know their own write is no longer outstanding. `mode` is host-owned and ignored here.
+	 */
+	setColumns(config: GraphColumnsConfig): Promise<void>;
+	/** The Changes header mode picker's pick — a real setting (`graph.changesColumn.mode`), so the write
+	 *  is effective-scoped and its echo arrives via the settings watcher. Other columns are ignored. */
+	setColumnMode(name: GraphColumnName, mode: ColumnMode | undefined): Promise<void>;
+	/** The dormant Changes column's one-time stats consent (`graph.changesColumn.enabled`). */
+	enableChangesColumn(): Promise<void>;
+	readonly onDidChange: RpcEventSubscription<GraphColumnsState>;
+}
+
+/**
+ * Everything the filters plane pushes: branch visibility, the hidden ref/type sets, the resolved
+ * include-only refs, and the pinned ref. Always a COMPLETE snapshot, never a delta — `onDidChange` is
+ * `save-last` buffered, so a hidden webview keeps only the newest emission.
+ *
+ * The pinned ref travels with the rest because all five are rebuilt wholesale from the same
+ * `graph:filtersByRepo` storage record — splitting them across events would let two paints disagree.
+ */
+export interface GraphFiltersState {
+	branchesVisibility: GraphBranchesVisibility;
+	excludeRefs?: GraphExcludeRefs;
+	excludeTypes?: GraphExcludeTypes;
+	includeOnlyRefs?: GraphIncludeOnlyRefs;
+	pinnedRef?: GraphPinnedRef;
+}
+
+/**
+ * Filters plane: which refs the graph shows (branch visibility, hidden refs, hidden types, include-only
+ * refs) plus the pinned ref.
+ *
+ * Every write resolves AFTER its storage write has landed and {@link onDidChange} has fired, so callers
+ * can treat resolution as a happens-after edge. The resulting STATE, however, arrives at the app one
+ * transport hop later on that event — a caller that must re-read settled state after a write still has
+ * to wait for the push.
+ */
+export interface GraphFiltersService {
+	/** The current filters snapshot, for seeding a freshly connected app. Pull-based, so no emission
+	 *  fired between subscribe and fetch is ever lost. */
+	getFilters(): Promise<GraphFiltersState>;
+	/** Hides (`visible: false`) or un-hides the given refs. Hiding a whole remote (`name: '*'`) replaces
+	 *  any existing wildcard for that owner; un-hiding a branch under an active wildcard excepts it. */
+	setRefsVisibility(refs: GraphExcludedRef[], visible: boolean): Promise<void>;
+	/** Pins a ref to the graph's edge, or clears the pin with `null`. */
+	setPinnedRef(ref: GraphPinnedRef | null): Promise<void>;
+	setExcludeType(key: keyof GraphExcludeTypes, value: boolean): Promise<void>;
+	/** `branchesVisibility: undefined` leaves the mode untouched; `refs: undefined`/empty clears the
+	 *  stored include-only set. */
+	setIncludedRefs(branchesVisibility?: GraphBranchesVisibility, refs?: GraphIncludeOnlyRef[]): Promise<void>;
+	/** Clears every stored filter for the active repo. Fires even when nothing changed — the snapshot is
+	 *  complete, so a redundant push is harmless, and the app's deferred scope clear runs off the push. */
+	reset(): Promise<void>;
+	readonly onDidChange: RpcEventSubscription<GraphFiltersState>;
+}
+
+/**
  * Overview panel data plane: the active/recent branch composition plus its WIP and PR/issue
  * enrichment. `getOverview` also accepts an updated `recentThreshold` and older-branches
  * `olderLimit`, mirroring the legacy request's dual role (read + persist the "Recent" timeframe
@@ -1040,6 +1161,9 @@ export interface GraphHealthService {
 
 export interface GraphServices extends SharedWebviewServices {
 	readonly access: GraphAccessService;
+	readonly columns: GraphColumnsService;
+	readonly configuration: GraphConfigurationService;
+	readonly filters: GraphFiltersService;
 	readonly graphInspect: GraphInspectService;
 	readonly graphHealth: GraphHealthService;
 	readonly launchpad: GraphLaunchpadService;

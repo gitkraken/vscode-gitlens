@@ -5,11 +5,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GraphActivityDecay } from '../../../../../config.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { TreemapFileActionParams } from '../../../../plus/graph/protocol.js';
-import {
-	DidInvalidateGraphTreemapNotification,
-	TreemapFileActionCommand,
-	UpdateGraphConfigurationCommand,
-} from '../../../../plus/graph/protocol.js';
+import { DidInvalidateGraphTreemapNotification, TreemapFileActionCommand } from '../../../../plus/graph/protocol.js';
 import type { TimelinePeriod } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
 import type {
@@ -19,6 +15,7 @@ import type {
 	TreemapMode,
 	TreemapNode,
 } from '../../../../plus/treemap/protocol.js';
+import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { filterAgentSessionsForFamily, isAgentSessionCurrentInFamily } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
@@ -1023,11 +1020,11 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		);
 	};
 
-	/** Dispatches the activity-decay setting change as an IPC `UpdateGraphConfigurationCommand`
-	 *  so the host persists it to `gitlens.graph.experimental.visualizations.activityDecay`. The
-	 *  resolved `activityDecayMs` flows back via the normal config push, so the chart sees the
-	 *  new window on its next render. No optimistic local state — we lean on the config-changed
-	 *  round-trip rather than maintaining a parallel signal. */
+	/** Dispatches the activity-decay setting change via RPC so the host persists it to
+	 *  `gitlens.graph.experimental.visualizations.activityDecay`. The resolved `activityDecayMs`
+	 *  flows back via the normal config push, so the chart sees the new window on its next render.
+	 *  No optimistic local state — we lean on the config-changed round-trip rather than maintaining
+	 *  a parallel signal. */
 	private readonly onDecayMenuSelect = (e: CustomEvent<{ value: string }>): void => {
 		const decay = e.detail.value as GraphActivityDecay;
 		// Default to '5m' to match the picker's own default (see render()), so `decay.old` reports
@@ -1040,7 +1037,14 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			name: 'graph/treemap/decayChanged',
 			data: { 'decay.old': previous, 'decay.new': decay },
 		});
-		this._ipc?.sendCommand(UpdateGraphConfigurationCommand, { changes: { activityDecay: decay } });
+
+		const services = this.services;
+		if (services != null) {
+			fireAndForget(
+				(async () => (await services.configuration).update({ activityDecay: decay }))(),
+				'configuration/update',
+			);
+		}
 	};
 
 	override render(): unknown {

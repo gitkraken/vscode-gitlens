@@ -566,8 +566,6 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 */
 	sync?: GraphRowsSyncStamp;
 	columns?: GraphColumnsSettings;
-	/** See {@link DidChangeColumnsParams.columnsRevision} — bootstrap carries it too. */
-	columnsRevision?: number;
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
@@ -1046,63 +1044,6 @@ export interface TreemapFileActionParams {
 }
 export const TreemapFileActionCommand = new IpcCommand<TreemapFileActionParams>(scope, 'treemap/file/action');
 
-export interface UpdateColumnsParams {
-	config: GraphColumnsConfig;
-	/** Monotonic per-webview-session write counter; echoed back as `columnsRevision` so the webview can
-	 * order pushes against its own writes (see `DidChangeColumnsParams.columnsRevision`). */
-	revision?: number;
-}
-export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, 'columns/update');
-
-export interface UpdateColumnModeParams {
-	name: GraphColumnName;
-	mode: ColumnMode | undefined;
-}
-// Dedicated column-mode write: kept separate from `UpdateColumnsCommand` (which ignores echoed `mode` —
-// it's host-authoritative) so the Changes mode picker's pick reaches the host's `setColumnMode` directly.
-export const UpdateColumnModeCommand = new IpcCommand<UpdateColumnModeParams>(scope, 'columns/mode/update');
-
-// One-time consent write for the Changes column's stats computation (`graph.changesColumn.enabled`).
-export const EnableChangesColumnCommand = new IpcCommand(scope, 'columns/changes/enable');
-
-export interface UpdateRefsVisibilityParams {
-	refs: GraphExcludedRef[];
-	visible: boolean;
-}
-export const UpdateRefsVisibilityCommand = new IpcCommand<UpdateRefsVisibilityParams>(scope, 'refs/update/visibility');
-
-export interface UpdatePinnedRefParams {
-	ref: GraphPinnedRef | null;
-}
-export const UpdatePinnedRefCommand = new IpcCommand<UpdatePinnedRefParams>(scope, 'refs/update/pinned');
-
-export interface UpdateExcludeTypesParams {
-	key: keyof GraphExcludeTypes;
-	value: boolean;
-}
-export const UpdateExcludeTypesCommand = new IpcCommand<UpdateExcludeTypesParams>(scope, 'filters/update/excludeTypes');
-
-export interface UpdateGraphConfigurationParams {
-	changes: { [key in keyof GraphComponentConfig]?: GraphComponentConfig[key] };
-}
-export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigurationParams>(
-	scope,
-	'configuration/update',
-);
-
-export interface UpdateGraphDisplayModeParams {
-	mode: GraphDisplayMode;
-}
-export const UpdateGraphDisplayModeCommand = new IpcCommand<UpdateGraphDisplayModeParams>(scope, 'displayMode/update');
-
-export interface UpdateIncludedRefsParams {
-	branchesVisibility?: GraphBranchesVisibility;
-	refs?: GraphIncludeOnlyRef[];
-}
-export const UpdateIncludedRefsCommand = new IpcCommand<UpdateIncludedRefsParams>(scope, 'filters/update/includedRefs');
-
-export const ResetGraphFiltersCommand = new IpcCommand(scope, 'filters/reset');
-
 export interface UpdateSelectionParams {
 	selection: GraphSelection[];
 }
@@ -1542,14 +1483,6 @@ export interface DidChangeParams {
 }
 export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
-export interface DidChangeGraphConfigurationParams {
-	config: GraphComponentConfig;
-}
-export const DidChangeGraphConfigurationNotification = new IpcNotification<DidChangeGraphConfigurationParams>(
-	scope,
-	'configuration/didChange',
-);
-
 /** Contextual per-feature coach marks (how-tos) shown in the Graph (#5516) */
 export const graphCoachMarkTypes = [
 	'details',
@@ -1621,45 +1554,6 @@ export interface DidChangeBranchStateParams {
 export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBranchStateParams>(
 	scope,
 	'branchState/didChange',
-);
-
-export interface DidChangeColumnsParams {
-	columns: GraphColumnsSettings | undefined;
-	/** The latest webview columns-write revision this push reflects (commands are processed serially).
-	 * The webview drops pushes whose revision trails its own write counter — they were generated before
-	 * an in-flight local change and would otherwise revert it (early-load grouping "reset/jump"). */
-	columnsRevision?: number;
-	context?: string;
-	settingsContext?: string;
-}
-export const DidChangeColumnsNotification = new IpcNotification<DidChangeColumnsParams>(scope, 'columns/didChange');
-
-export interface DidChangeScrollMarkersParams {
-	context?: string;
-	scrollMarkersContext?: string;
-}
-export const DidChangeScrollMarkersNotification = new IpcNotification<DidChangeScrollMarkersParams>(
-	scope,
-	'scrollMarkers/didChange',
-);
-
-export interface DidChangeRefsVisibilityParams {
-	branchesVisibility: GraphBranchesVisibility;
-	excludeRefs?: GraphExcludeRefs;
-	excludeTypes?: GraphExcludeTypes;
-	includeOnlyRefs?: GraphIncludeOnlyRefs;
-}
-export const DidChangeRefsVisibilityNotification = new IpcNotification<DidChangeRefsVisibilityParams>(
-	scope,
-	'refs/didChangeVisibility',
-);
-
-export interface DidChangePinnedRefParams {
-	pinnedRef?: GraphPinnedRef;
-}
-export const DidChangePinnedRefNotification = new IpcNotification<DidChangePinnedRefParams>(
-	scope,
-	'refs/didChangePinned',
 );
 
 export interface DidChangeRowsParams {

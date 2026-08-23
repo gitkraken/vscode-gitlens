@@ -715,8 +715,9 @@ export class GlLitGraph extends LitElement {
 	@property({ type: String }) searchMode?: GraphSearchMode;
 	@property({ type: Object }) config?: GraphComponentConfig;
 	@property({ type: Object }) columns?: GraphColumnsSettings;
-	// Host's ack of our latest columns write (see persistColumnsConfig / shouldApplyIncomingColumns).
-	@property({ type: Number }) columnsRevision = 0;
+	/** Persists a local columns write, resolving once the host's write has landed. The returned promise
+	 *  is what makes a write "outstanding" — see {@link persistColumnsConfig}. */
+	@property({ attribute: false }) persistColumns?: (config: GraphColumnsConfig) => Promise<void>;
 	// Selected repo path — needed to reconstruct lean commit rows' right-click context (the host now
 	// ships only `contexts.flags`, not a serialized `contexts.row`); see toGraphCommit.
 	@property({ type: String }) repoPath?: string;
@@ -1247,9 +1248,9 @@ export class GlLitGraph extends LitElement {
 	private lastRowsRef?: GitGraphRow[];
 	private lastIdLength = 7;
 	private lastColumnsRef?: GraphColumnsSettings;
-	// Monotonic counter stamped on every local columns write (rides UpdateColumnsCommand; the host acks
-	// it back as `columnsRevision` on every push). See `shouldApplyIncomingColumns`.
-	private columnsWriteRevision = 0;
+	// Local columns writes not yet acknowledged by the host. Non-zero means an incoming `columns` push may
+	// predate one of them, so it's dropped. See `persistColumnsConfig` / `shouldApplyIncomingColumns`.
+	private columnsWritesInFlight = 0;
 	// Cached split-pill ref indexes (refRowIndex/localByUpstreamId/processedIndexBySha). They depend
 	// ONLY on processedRows, so rebuild only when it changes — a filter-search or lane toggle re-runs
 	// recomputeDisplayRows without touching processedRows and reuses these instead of re-walking all rows.
@@ -11227,13 +11228,13 @@ export class GlLitGraph extends LitElement {
 		}
 	};
 
-	// Host-authoritative write: `updateColumns` ignores webview-echoed `mode`, so route the pick through a
-	// dedicated command (gl-lit-graph → graph-app → UpdateColumnModeCommand → host `setColumnMode`).
+	// Host-authoritative write: `setColumns` ignores webview-echoed `mode`, so route the pick through the
+	// dedicated path (gl-lit-graph → graph-app → `columns.setColumnMode`).
 	private pickChangesMode(mode: ChangesColumnMode): void {
 		this.closeChangesModeMenu('always');
-		// Optimistic: reflect the pick on the changes zone now so the column re-renders instantly. No persist
-		// / no write-revision bump — a pure local render; the IPC below drives the real, host-authoritative
-		// write, whose columns echo re-confirms. A dropped push is harmless (local state already matches).
+		// Optimistic: reflect the pick on the changes zone now so the column re-renders instantly. Not a
+		// persist — a pure local render; the event below drives the real, host-authoritative write, whose
+		// columns echo re-confirms. A dropped push is harmless (local state already matches).
 		this.zones = this.zones.map(z => (z.id === 'changes' ? { ...z, mode: mode } : z));
 		this.requestUpdate();
 		this.dispatchEvent(
@@ -11299,23 +11300,30 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private persistColumnsConfig(): void {
-		// Stamp the write with the next revision; the host acks it on every subsequent columns push so
-		// `shouldApplyIncomingColumns` can order pushes against our writes deterministically.
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-changecolumns', {
-				detail: { settings: this.buildColumnsConfig(), revision: ++this.columnsWriteRevision },
-			}),
-		);
+		const persist = this.persistColumns;
+		if (persist == null) return;
+
+		// The write is outstanding until the host's storage write lands; while it is, incoming pushes are
+		// dropped (see `shouldApplyIncomingColumns`).
+		this.columnsWritesInFlight++;
+		const settled = (): void => {
+			this.columnsWritesInFlight--;
+			// A push dropped mid-write left `lastColumnsRef` behind, so `updated` still sees `columns` as
+			// changed — schedule an update so it applies now that nothing is outstanding.
+			if (this.columnsWritesInFlight === 0) {
+				this.requestUpdate();
+			}
+		};
+		void persist(this.buildColumnsConfig()).then(settled, settled);
 	}
 
-	// True when an incoming `columns` push reflects ALL our local writes (the host processes commands
-	// serially and acks the latest write revision on every push). A push whose ack trails our counter was
-	// generated BEFORE an in-flight write — applying it would revert the just-made placement/width change
-	// ("grouping resets or jumps right after load") — so it's dropped; our own echo (ack == counter)
-	// arrives next and re-syncs. Host-initiated changes (cog menu, resets) carry the current ack, so with
-	// no write in flight they always apply.
+	// True when no local columns write is outstanding. A push arriving mid-write may have been generated
+	// BEFORE that write, and applying it would revert the just-made placement/width change ("grouping resets
+	// or jumps right after load") — so it's dropped, and `persistColumnsConfig`'s settle handler re-runs the
+	// apply against the newest `columns` prop. Host-initiated changes (cog menu, resets) apply immediately
+	// whenever nothing local is in flight.
 	private shouldApplyIncomingColumns(): boolean {
-		return this.columnsRevision >= this.columnsWriteRevision;
+		return this.columnsWritesInFlight === 0;
 	}
 
 	private applyZones(next: readonly ZoneSpec[]): void {
@@ -12459,7 +12467,6 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
-		'gl-graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig; revision?: number }>;
 		'gl-graph-copy-request': CustomEvent<{ context: string; selectionContexts?: string[] }>;
 		'gl-graph-lanetoggle': CustomEvent<{ tipSha: string }>;
 		'gl-graph-lanetoggleall': CustomEvent<{ collapsed: boolean }>;

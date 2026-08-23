@@ -156,7 +156,7 @@ export type GraphCommandsContext = {
 	toggleColumnGrouping: (name: 'graph' | 'ref', grouped: boolean) => Promise<void>;
 	toggleScrollMarker: (type: GraphScrollMarkersAdditionalTypes, enabled: boolean) => Promise<void>;
 	setColumnMode: <T extends GraphColumnName>(name: T, mode?: GraphColumnModeFor<T>) => Promise<void>;
-	updateColumns: (columnsCfg: GraphColumnsConfig) => void;
+	updateColumns: (columnsCfg: GraphColumnsConfig) => Promise<void>;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	notifyDidChangeSelection: () => Promise<boolean>;
 	writeWipDraftToStorage: (worktreePath: string, draft: StoredGraphWipDraft | null) => void;
@@ -200,12 +200,12 @@ export class GraphCommands {
 	// Reset columns wrappers
 	@command('gitlens.graph.resetColumnsDefault')
 	private resetColumnsDefault() {
-		this.context.updateColumns(defaultGraphColumnsSettings);
+		void this.context.updateColumns(defaultGraphColumnsSettings);
 	}
 
 	@command('gitlens.graph.resetColumnsCompact')
 	private resetColumnsCompact() {
-		this.context.updateColumns(compactGraphColumnsSettings);
+		void this.context.updateColumns(compactGraphColumnsSettings);
 	}
 
 	@command('gitlens.fetch:')

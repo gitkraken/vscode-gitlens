@@ -169,7 +169,13 @@ import type { GraphProducersServiceContext } from './graphProducersService.js';
 import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
-import type { GraphAccessState, GraphRepoStatus, GraphServices } from './graphService.js';
+import type {
+	GraphAccessState,
+	GraphColumnsState,
+	GraphFiltersState,
+	GraphRepoStatus,
+	GraphServices,
+} from './graphService.js';
 import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarActionTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
@@ -243,14 +249,9 @@ import {
 	ChooseRepositoryCommand,
 	createWipRowId,
 	DidChangeBranchStateNotification,
-	DidChangeColumnsNotification,
-	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
-	DidChangePinnedRefNotification,
-	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
-	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
@@ -263,7 +264,6 @@ import {
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
 	DoubleClickedCommand,
-	EnableChangesColumnCommand,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
@@ -273,18 +273,9 @@ import {
 	isWipRowId,
 	LoadRowRequest,
 	ProxyAvatarsCommand,
-	ResetGraphFiltersCommand,
 	RowActionCommand,
 	SyncWipWatchesCommand,
 	TreemapFileActionCommand,
-	UpdateColumnModeCommand,
-	UpdateColumnsCommand,
-	UpdateExcludeTypesCommand,
-	UpdateGraphConfigurationCommand,
-	UpdateGraphDisplayModeCommand,
-	UpdateIncludedRefsCommand,
-	UpdatePinnedRefCommand,
-	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
 	UpdateWipDraftCommand,
 } from './protocol.js';
@@ -448,20 +439,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// The consumer in `sendPendingIpcNotifications` `void`s the call so the boolean is unused.
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean | void>>([
 		[DidChangeBranchStateNotification, () => this._producers.notifyDidChangeBranchStateOnly()],
-		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
-		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, () => this._data.notifyDidChangeState()],
-		[DidChangePinnedRefNotification, this.notifyDidChangePinnedRef],
-		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
-		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
 		[DidChangeWipDraftsNotification, () => this._wip.notifyDidChangeWipDrafts()],
 		[DidChangeWorkingTreeNotification, () => this._wip.notifyDidChangeWorkingTree()],
 	]);
 	private _selectedId?: string;
-	// Latest columns-write revision received from the webview (see UpdateColumnsParams.revision);
-	// echoed on every columns push so the webview can order pushes against its in-flight writes.
-	private _columnsRevision = 0;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
@@ -982,6 +965,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: only the current repo's fetch matters to the app, so latest-wins is correct —
 	// see `GraphRepoStatusService.onDidFetch`.
 	private readonly _repoStatusEvent = createRpcEvent<GraphRepoStatus>('repoStatus', 'save-last');
+	// `save-last`: the payload is always the complete component config, so a hidden webview only
+	// ever needs the newest one — see `GraphConfigurationService.onDidChange`.
+	private readonly _configurationChangedEvent = createRpcEvent<GraphComponentConfig>(
+		'configurationChanged',
+		'save-last',
+	);
+	// `save-last`: the payload is always the complete columns + contexts snapshot, so a hidden webview
+	// only ever needs the newest one — see `GraphColumnsService.onDidChange`.
+	private readonly _columnsChangedEvent = createRpcEvent<GraphColumnsState>('columnsChanged', 'save-last');
+	// `save-last`: the payload is always the complete filters snapshot, so a hidden webview only ever
+	// needs the newest one — see `GraphFiltersService.onDidChange`.
+	private readonly _filtersChangedEvent = createRpcEvent<GraphFiltersState>('filtersChanged', 'save-last');
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -992,6 +987,30 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			access: {
 				getAccess: () => this.getAccessState(),
 				onAccessChanged: this._accessChangedEvent.subscribe(buffer, tracker),
+			},
+			columns: {
+				getColumns: () => Promise.resolve(this.getColumnsState()),
+				setColumns: config => this.setColumns(config),
+				setColumnMode: (name, mode) => this.updateColumnMode(name, mode),
+				enableChangesColumn: () => this.enableChangesColumn(),
+				onDidChange: this._columnsChangedEvent.subscribe(buffer, tracker),
+			},
+			configuration: {
+				getConfiguration: () => Promise.resolve(this.getComponentConfig()),
+				update: changes => this.updateGraphConfig(changes),
+				setDisplayMode: mode => this.setDisplayMode(mode),
+				onDidChange: this._configurationChangedEvent.subscribe(buffer, tracker),
+			},
+			filters: {
+				getFilters: () => this.getFiltersState(),
+				setRefsVisibility: (refs, visible) =>
+					this.updateExcludedRefs(this._data.session?.repoPath, refs, visible),
+				setPinnedRef: ref => this.updatePinnedRef(this._data.session?.repoPath, ref),
+				setExcludeType: (key, value) => this.updateExcludedTypes(this._data.session?.repoPath, key, value),
+				setIncludedRefs: (branchesVisibility, refs) =>
+					this.updateIncludeOnlyRefs(this._data.session?.repoPath, branchesVisibility, refs),
+				reset: () => this.resetFilters(this._data.session?.repoPath),
+				onDidChange: this._filtersChangedEvent.subscribe(buffer, tracker),
 			},
 			graphInspect: graphInspect,
 			search: this._searchService.createServices(buffer, tracker).search,
@@ -1765,10 +1784,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onAgentSessionsChanged(_sessions: AgentSessionState[]): void {
 		// Agent membership drives the `agents` branches-visibility ref set, so any change to
 		// the live session list needs to recompute the included refs and push a fresh
-		// visibility notification to the webview.
+		// filters snapshot to the webview.
 		const repoPath = this.repository?.path ?? this._data.session?.repoPath;
 		if (this.getBranchesVisibility(this.getFiltersByRepo(repoPath)) === 'agents') {
-			void this.notifyDidChangeRefsVisibility();
+			void this.fireFiltersChanged();
 		}
 	}
 
@@ -1978,27 +1997,32 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcCommand(UpdateGraphConfigurationCommand)
-	private onUpdateGraphConfig(params: IpcParams<typeof UpdateGraphConfigurationCommand>) {
+	/** Persists `changes` to the underlying settings and resolves once every write has landed —
+	 *  the RPC promise's completion signal. The new config itself arrives separately, via the
+	 *  config watcher (`onConfigurationChanged`) firing `notifyDidChangeConfiguration` once it
+	 *  observes the write. */
+	private async updateGraphConfig(changes: Partial<GraphComponentConfig>): Promise<void> {
 		const config = this.getComponentConfig();
 
-		let key: keyof IpcParams<typeof UpdateGraphConfigurationCommand>['changes'];
-		for (key in params.changes) {
-			if (config[key] !== params.changes[key]) {
+		const pending: Thenable<void>[] = [];
+
+		let key: keyof Partial<GraphComponentConfig>;
+		for (key in changes) {
+			if (config[key] !== changes[key]) {
 				switch (key) {
 					case 'autoFetchEnabled':
-						void configuration.updateEffective('graph.autoFetch.enabled', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.autoFetch.enabled', changes[key]));
 						break;
 					case 'minimapDataType':
-						void configuration.updateEffective('graph.minimap.dataType', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.minimap.dataType', changes[key]));
 						break;
 					case 'minimapReversed':
-						void configuration.updateEffective('graph.minimap.reversed', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.minimap.reversed', changes[key]));
 						break;
 					case 'minimapMarkerTypes': {
 						const additionalTypes: GraphMinimapMarkersAdditionalTypes[] = [];
 
-						const markers = params.changes[key] ?? [];
+						const markers = changes[key] ?? [];
 						for (const marker of markers) {
 							switch (marker) {
 								case 'localBranches':
@@ -2011,44 +2035,48 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									break;
 							}
 						}
-						void configuration.updateEffective('graph.minimap.additionalTypes', additionalTypes);
+						pending.push(configuration.updateEffective('graph.minimap.additionalTypes', additionalTypes));
 						break;
 					}
 					case 'dimMergeCommits':
-						void configuration.updateEffective('graph.dimMergeCommits', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.dimMergeCommits', changes[key]));
 						break;
 					case 'onlyFollowFirstParent':
-						void configuration.updateEffective('graph.onlyFollowFirstParent', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.onlyFollowFirstParent', changes[key]));
 						break;
 					case 'detailsLocation': {
 						// Persist 'auto' explicitly — `updateEffective` clears a value equal to the
 						// default, and an unset `graph.details.location` re-triggers the first-time
 						// (hidden details) experience. Window-scoped setting, so only user/workspace
 						// can hold a value.
-						const value = params.changes[key];
+						const value = changes[key];
 						if (value === 'auto') {
-							void configuration.update(
-								'graph.details.location',
-								value,
-								configuration.inspect('graph.details.location')?.workspaceValue !== undefined
-									? ConfigurationTarget.Workspace
-									: ConfigurationTarget.Global,
+							pending.push(
+								configuration.update(
+									'graph.details.location',
+									value,
+									configuration.inspect('graph.details.location')?.workspaceValue !== undefined
+										? ConfigurationTarget.Workspace
+										: ConfigurationTarget.Global,
+								),
 							);
 						} else {
-							void configuration.updateEffective('graph.details.location', value);
+							pending.push(configuration.updateEffective('graph.details.location', value));
 						}
 						break;
 					}
 					case 'sidebarPinned':
-						void configuration.updateEffective('graph.sidebar.pinned', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.sidebar.pinned', changes[key]));
 						break;
 					case 'style':
-						void configuration.updateEffective('graph.style', params.changes[key]);
+						pending.push(configuration.updateEffective('graph.style', changes[key]));
 						break;
 					case 'activityDecay':
-						void configuration.updateEffective(
-							'graph.experimental.visualizations.activityDecay',
-							params.changes[key],
+						pending.push(
+							configuration.updateEffective(
+								'graph.experimental.visualizations.activityDecay',
+								changes[key],
+							),
 						);
 						break;
 					default:
@@ -2057,6 +2085,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						break;
 				}
 			}
+		}
+
+		if (pending.length) {
+			await Promise.all(pending);
 		}
 	}
 
@@ -2080,22 +2112,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		// `graph.lanes.density` drives BOTH the lane spacing (via the config re-send in the `graph`
-		// catch-all below) AND the column-menu context (`lanes:density:*`, which the Expanded/Compact
-		// menu items toggle on). Refresh the column context too — otherwise the menu item is one-way: the
-		// spacing changes but the item's `when` clause never flips to offer the opposite.
-		// The Changes column mode is a real setting overlaid into column config (see `getColumnSettings`) —
-		// a settings.json edit isn't part of the component-config catch-all, so push a columns update so the
-		// column (and the picker's current-mode highlight) re-render live.
-		if (configuration.changed(e, ['graph.lanes.density', 'graph.changesColumn.mode'])) {
-			void this.notifyDidChangeColumns();
-		}
-
-		// Same one-way-menu problem as `graph.lanes.density` above: the marker-toggle context items are
-		// only emitted while `enabled` is on, so flipping it from the settings page (not via a toggle
-		// command, which refreshes on its own) would leave the gear submenu and the rail menu empty.
-		if (configuration.changed(e, 'graph.scrollMarkers.enabled')) {
-			void this.notifyDidChangeScrollMarkers();
+		// Settings that feed the columns plane's snapshot rather than (or as well as) the component config:
+		// - `graph.lanes.density` drives BOTH the lane spacing (via the config re-send in the `graph`
+		//   catch-all below) AND the column-menu context (`lanes:density:*`, which the Expanded/Compact menu
+		//   items toggle on). Without the columns push the menu item is one-way: the spacing changes but the
+		//   item's `when` clause never flips to offer the opposite.
+		// - The Changes column mode is a real setting overlaid into column config (see `getColumnSettings`) —
+		//   a settings.json edit isn't part of the component-config catch-all, so the column (and the picker's
+		//   current-mode highlight) would only re-render on the next reload.
+		// - `graph.scrollMarkers.enabled`: the marker-toggle context items are only emitted while it's on, so
+		//   flipping it from the settings page (not via a toggle command, which refreshes on its own) would
+		//   leave the gear submenu and the rail menu empty.
+		if (
+			configuration.changed(e, ['graph.lanes.density', 'graph.changesColumn.mode', 'graph.scrollMarkers.enabled'])
+		) {
+			this.fireColumnsChanged();
 		}
 
 		// The worktree clean/dirty probe only feeds the overview bar, so it's skipped while the bar is
@@ -2169,7 +2200,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			configuration.changed(e, 'gitOptimizations.enabled') ||
 			configuration.changed(e, 'graph')
 		) {
-			void this.notifyDidChangeConfiguration();
+			this.notifyDidChangeConfiguration();
 
 			if (
 				configuration.changed(e, 'defaultCurrentUserNameStyle') ||
@@ -2196,7 +2227,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (!e.affectsConfiguration('git.autofetch') && !e.affectsConfiguration('git.autofetchPeriod')) return;
 
-		void this.notifyDidChangeConfiguration();
+		this.notifyDidChangeConfiguration();
 		void this.ensureAutoFetch();
 	}
 
@@ -2216,6 +2247,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// (other graph instance, host-initiated undo from a different webview) lands here
 			// without waiting for the next full state push.
 			void this._wip.notifyDidChangeWipDrafts();
+		}
+
+		if (e.keys.includes('graph:filtersByRepo')) {
+			// Filters are per-repo but each provider only pushed its OWN writes — so a second graph (editor
+			// tab + sidebar view) never learned about the other's hide/pin/visibility change. Storage fires
+			// in-process for every provider, including the writer, whose own write also fires: the extra
+			// emission is a duplicate of the identical complete snapshot, so it's idempotent.
+			void this.fireFiltersChanged();
+		}
+
+		if (e.keys.includes('graph:columns')) {
+			// Columns are workspace-wide, but each provider only pushed its OWN writes — so a second graph
+			// (editor tab + sidebar view) never learned about the other's resize/hide/group. Storage fires
+			// in-process for every provider, including the writer, whose own `updateColumns` also fires:
+			// the extra emission is a duplicate of the identical complete snapshot, so it's idempotent.
+			this.fireColumnsChanged();
 		}
 	}
 
@@ -2481,16 +2528,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._data.updateState();
 	}
 
-	@ipcCommand(UpdateColumnsCommand)
-	private onColumnsChanged(params: IpcParams<typeof UpdateColumnsCommand>) {
-		// Ack the webview's write counter — every later columns push carries it so the webview can drop
-		// pushes generated before this write (see DidChangeColumnsParams.columnsRevision).
-		this._columnsRevision = params.revision ?? this._columnsRevision;
-		this.updateColumns(params.config, { keepStoredModes: true });
+	/** The webview's columns write. Resolves only once the storage write has landed and the columns
+	 *  event has fired, so the caller can treat resolution as "my write is no longer outstanding". */
+	private async setColumns(config: GraphColumnsConfig): Promise<void> {
+		await this.updateColumns(config, { keepStoredModes: true });
 
 		const eventData: WebviewTelemetryEvents['graph/columns/changed'] = {};
-		for (const [name, config] of Object.entries(params.config)) {
-			for (const [prop, value] of Object.entries(config)) {
+		for (const [name, cfg] of Object.entries(config)) {
+			for (const [prop, value] of Object.entries(cfg)) {
 				eventData[`column.${name}.${prop as keyof GraphColumnConfig}`] = value;
 			}
 		}
@@ -2500,51 +2545,41 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// The Changes mode picker's pick. Changes' mode is a real setting (single source of truth): write it
 	// effectively so a settings.json round-trip works both directions. Other columns' modes stay in storage
 	// (only the graph column's compact toggle uses that path). Mode is still never webview-authored via
-	// `updateColumns` — this dedicated command is the only mode write path from the webview.
-	@ipcCommand(UpdateColumnModeCommand)
-	private onColumnModeChanged(params: IpcParams<typeof UpdateColumnModeCommand>) {
-		if (params.name !== 'changes') return;
+	// `updateColumns` — this is the only mode write path from the webview. The new mode echoes back through
+	// the settings watcher (`onConfigurationChanged` → `fireColumnsChanged`), not from here.
+	private async updateColumnMode(name: GraphColumnName, mode: ColumnMode | undefined): Promise<void> {
+		if (name !== 'changes') return;
 
-		void configuration.updateEffective('graph.changesColumn.mode', changesModeOrDefault(params.mode));
+		await configuration.updateEffective('graph.changesColumn.mode', changesModeOrDefault(mode));
 	}
 
-	@ipcCommand(EnableChangesColumnCommand)
-	private onEnableChangesColumn(): void {
-		void configuration.updateEffective('graph.changesColumn.enabled', true);
+	/** The dormant Changes column's one-time stats consent. The echo is cross-plane: `graph.changesColumn.enabled`
+	 *  feeds the component config, so it arrives over `configuration.onDidChange`, not the columns event. */
+	private async enableChangesColumn(): Promise<void> {
+		await configuration.updateEffective('graph.changesColumn.enabled', true);
 	}
 
-	@ipcCommand(UpdateGraphDisplayModeCommand)
-	private onDisplayModeChanged(params: IpcParams<typeof UpdateGraphDisplayModeCommand>) {
-		if (this._displayMode === params.mode) return;
+	private async setDisplayMode(mode: GraphDisplayMode): Promise<void> {
+		if (this._displayMode === mode) return;
 
-		this._displayMode = params.mode;
+		this._displayMode = mode;
 
 		// Visualizations (Visual History) needs row stats — refetch if the current graph was loaded without them.
-		if (params.mode === 'visualizations' && !this._data.session?.current.includes?.stats) {
+		if (mode === 'visualizations' && !this._data.session?.current.includes?.stats) {
 			// Flip the loading flag eagerly so the timeline shows its overlay during the refetch (the
 			// stats-including rebuild hasn't landed, so `rowsStatsDeferred` can't report loading yet). Cleared
 			// in `setGraph` when the stats graph lands; shipped over the rowsStats channel (no dual writer).
 			this._data.rowsStatsLoadingOverride = true;
 			this._graphSync.mark('rowsStats');
-			void this._graphSync.flush();
+			await this._graphSync.flush();
 			this._data.updateState();
-		} else if (params.mode !== 'visualizations' && this._data.rowsStatsLoadingOverride) {
+		} else if (mode !== 'visualizations' && this._data.rowsStatsLoadingOverride) {
 			// Left Visualizations before the stats rebuild landed — clear the eager override (else the
 			// stats-loading spinner sticks forever) and ship the cleared flag over the rowsStats channel.
 			this._data.rowsStatsLoadingOverride = false;
 			this._graphSync.mark('rowsStats');
-			void this._graphSync.flush();
+			await this._graphSync.flush();
 		}
-	}
-
-	@ipcCommand(UpdateRefsVisibilityCommand)
-	private onRefsVisibilityChanged(params: IpcParams<typeof UpdateRefsVisibilityCommand>) {
-		this.updateExcludedRefs(this._data.session?.repoPath, params.refs, params.visible);
-	}
-
-	@ipcCommand(UpdatePinnedRefCommand)
-	private onPinnedRefChanged(params: IpcParams<typeof UpdatePinnedRefCommand>) {
-		this.updatePinnedRef(this._data.session?.repoPath, params.ref);
 	}
 
 	@ipcCommand(DoubleClickedCommand)
@@ -3400,99 +3435,88 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// multiple steps, the watcher sees each one) into a single downstream refresh.
 	private _lastFetchedHandlerDebounced: Deferrable<() => void> | undefined = undefined;
 
-	@trace()
-	private async notifyDidChangeColumns() {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeColumnsNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		const columns = this.getColumns();
-		const columnSettings = this.getColumnSettings(columns);
-		return this.host.notify(DidChangeColumnsNotification, {
+	/** The complete columns + contexts snapshot. Both planes build it: `settingsContext` (the gear menu)
+	 *  is derived from the column settings AND the scroll-marker settings, so neither can push alone. */
+	private getColumnsState(): GraphColumnsState {
+		const columnSettings = this.getColumnSettings(this.getColumns());
+		return {
 			columns: columnSettings,
-			columnsRevision: this._columnsRevision,
-			context: this.getColumnHeaderContext(columnSettings),
+			headerContext: this.getColumnHeaderContext(columnSettings),
 			settingsContext: this.getGraphSettingsIconContext(columnSettings),
-		});
-	}
-
-	@trace()
-	private async notifyDidChangeScrollMarkers() {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeScrollMarkersNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		const columns = this.getColumns();
-		const columnSettings = this.getColumnSettings(columns);
-		return this.host.notify(DidChangeScrollMarkersNotification, {
-			context: this.getGraphSettingsIconContext(columnSettings),
 			scrollMarkersContext: this.getScrollMarkersContext(),
-		});
+		};
+	}
+
+	private fireColumnsChanged(): void {
+		this._columnsChangedEvent.fire(this.getColumnsState());
+	}
+
+	/**
+	 * The complete filters snapshot — branch visibility, hidden refs/types, included refs, and the pinned
+	 * ref. All five are rebuilt from the same `graph:filtersByRepo` record, so one snapshot carries them all.
+	 *
+	 * `includeOnlyRefs` is two-phase: pass it in to build a snapshot around already-resolved refs; otherwise
+	 * this resolves them under a 100ms budget and, when the resolve is still pending, lets it continue in the
+	 * background — landing fires a SECOND complete snapshot rather than making the first paint wait.
+	 *
+	 * NOT safe to run concurrently with itself on the resolving path: `getIncludedRefs` supersedes through
+	 * one shared cancellation key, so the older build resolves to an empty ref set. Pushes go through
+	 * {@link fireFiltersChanged}, which coalesces for exactly that reason.
+	 */
+	@trace()
+	private async getFiltersState(includeOnlyRefs?: GraphIncludeOnlyRefs): Promise<GraphFiltersState> {
+		const graph = this._data.session?.current;
+		const filters = this.getFiltersByRepo(this._data.session?.repoPath);
+		const state: GraphFiltersState = {
+			branchesVisibility: this.getBranchesVisibility(filters),
+			excludeRefs: this.getExcludedRefs(filters, graph) ?? {},
+			excludeTypes: this.getExcludedTypes(filters) ?? {},
+			includeOnlyRefs: includeOnlyRefs,
+			pinnedRef: this.getPinnedRef(filters, graph),
+		};
+
+		if (includeOnlyRefs == null) {
+			const includedRefsResult = await this.getIncludedRefs(filters, graph, { timeout: 100 });
+			state.includeOnlyRefs = includedRefsResult.refs;
+			void includedRefsResult.continuation?.then(refs => {
+				if (refs == null) return;
+
+				void this.fireFiltersChanged(refs);
+			});
+		}
+
+		return state;
+	}
+
+	/**
+	 * Coalesces filters pushes into a single in-flight build with one trailing re-fire. Overlapping builds
+	 * would be worse than wasteful — see {@link getFiltersState} — and bursts are routine: every write fires
+	 * once through the `graph:filtersByRepo` storage echo and once from the writer's own await. The trailing
+	 * re-fire is an identical complete snapshot, so the duplicate push is idempotent.
+	 */
+	private readonly _filtersChangedNotify = new CoalescedRun<void>(
+		() => this.runFireFiltersChanged(),
+		() => void this.fireFiltersChanged(),
+	);
+
+	/** Fires the complete filters snapshot. Passing `includeOnlyRefs` skips the resolve (and the coalescer
+	 *  with it) — that's the two-phase continuation publishing refs it already has in hand. */
+	private async fireFiltersChanged(includeOnlyRefs?: GraphIncludeOnlyRefs): Promise<void> {
+		if (includeOnlyRefs != null) {
+			this._filtersChangedEvent.fire(await this.getFiltersState(includeOnlyRefs));
+			return;
+		}
+
+		await this._filtersChangedNotify.run();
+	}
+
+	private async runFireFiltersChanged(): Promise<void> {
+		this._filtersChangedEvent.fire(await this.getFiltersState());
 	}
 
 	@trace()
-	private async notifyDidChangePinnedRef(params?: IpcParams<typeof DidChangePinnedRefNotification>) {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangePinnedRefNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		if (params == null) {
-			const filters = this.getFiltersByRepo(this._data.session?.repoPath);
-			params = { pinnedRef: this.getPinnedRef(filters, this._data.session?.current) };
-		}
-
-		return this.host.notify(DidChangePinnedRefNotification, params);
-	}
-
-	@trace()
-	private async notifyDidChangeRefsVisibility(params?: IpcParams<typeof DidChangeRefsVisibilityNotification>) {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeRefsVisibilityNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		if (params == null) {
-			const filters = this.getFiltersByRepo(this._data.session?.repoPath);
-			params = {
-				branchesVisibility: this.getBranchesVisibility(filters),
-				excludeRefs: this.getExcludedRefs(filters, this._data.session?.current) ?? {},
-				excludeTypes: this.getExcludedTypes(filters) ?? {},
-				includeOnlyRefs: undefined,
-			};
-
-			if (params?.includeOnlyRefs == null) {
-				const includedRefsResult = await this.getIncludedRefs(filters, this._data.session?.current, {
-					timeout: 100,
-				});
-				params.includeOnlyRefs = includedRefsResult.refs;
-				void includedRefsResult.continuation?.then(refs => {
-					if (refs == null) return;
-
-					void this.notifyDidChangeRefsVisibility({ ...params!, includeOnlyRefs: refs });
-				});
-			}
-		}
-
-		return this.host.notify(DidChangeRefsVisibilityNotification, params);
-	}
-
-	@trace()
-	private async notifyDidChangeConfiguration() {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(
-				DidChangeGraphConfigurationNotification,
-				this._ipcNotificationMap,
-				this,
-			);
-			return false;
-		}
-
-		return this.host.notify(DidChangeGraphConfigurationNotification, {
-			config: this.getComponentConfig(),
-		});
+	private notifyDidChangeConfiguration(): void {
+		this._configurationChangedEvent.fire(this.getComponentConfig());
 	}
 
 	private notifyDidFetch(): Promise<boolean> {
@@ -4509,8 +4533,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 					if (cancellation.token.isCancellationRequested || this._data.loading !== dataPromise) return;
 
-					void this.notifyDidChangeRefsVisibility();
-					void this.notifyDidChangePinnedRef();
+					void this.fireFiltersChanged();
 					this._data.notifyDidChangeRows(selectionChanged);
 					// Commit so the next `notifyDidChangeState` doesn't double-fire for events covered
 					// by this rebuild's invalidation.
@@ -4659,7 +4682,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const filters = this.getFiltersByRepo(this.repository.path);
-		const refsVisibility: IpcParams<typeof DidChangeRefsVisibilityNotification> = {
+		// The bootstrap State's own copy of the filters — the first render reads these fields directly,
+		// before any RPC subscription exists.
+		const refsVisibility: Omit<GraphFiltersState, 'pinnedRef'> = {
 			branchesVisibility: this.getBranchesVisibility(filters),
 			excludeRefs: this.getExcludedRefs(filters, data) ?? {},
 			excludeTypes: this.getExcludedTypes(filters) ?? {},
@@ -4668,10 +4693,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (data != null) {
 			const includedRefsResult = await this.getIncludedRefs(filters, data, { timeout: 100 });
 			refsVisibility.includeOnlyRefs = includedRefsResult.refs;
+			// Two-phase: the bootstrap ships whatever resolved inside the budget; the slow merge-target
+			// resolve lands later and pushes a SECOND complete snapshot over the filters event.
 			void includedRefsResult.continuation?.then(refs => {
 				if (refs == null) return;
 
-				void this.notifyDidChangeRefsVisibility({ ...refsVisibility, includeOnlyRefs: refs });
+				void this.fireFiltersChanged(refs);
 			});
 		}
 
@@ -4792,7 +4819,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// by the onReady snapshot (the publisher's this-connection watermark) at no extra cost.
 			sync: { generation: this._graphSync.generation, seq: -1 },
 			columns: columnSettings,
-			columnsRevision: this._columnsRevision,
 			config: this.getComponentConfig(),
 			context: {
 				header: this.getColumnHeaderContext(columnSettings),
@@ -4887,7 +4913,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return result;
 	}
 
-	private updateColumns(columnsCfg: GraphColumnsConfig, options?: { keepStoredModes?: boolean }) {
+	/** Awaitable: callers (the webview's `setColumns`) use resolution as the happens-after edge for their
+	 *  own write, so the storage write must land before it settles. */
+	private async updateColumns(
+		columnsCfg: GraphColumnsConfig,
+		options?: { keepStoredModes?: boolean },
+	): Promise<void> {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		for (const [key, value] of Object.entries(columnsCfg)) {
 			// `mode` is host-owned — webviews only echo it, and a stale echo (second panel / pre-command
@@ -4895,10 +4926,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const mode = options?.keepStoredModes ? columns?.[key]?.mode : value.mode;
 			columns = updateRecordValue(columns, key, { ...value, mode: mode });
 		}
-		void this.container.storage
-			.storeWorkspace('graph:columns', columns)
-			.catch((ex: unknown) => Logger.error(ex, 'graph: failed to persist columns'));
-		void this.notifyDidChangeColumns();
+
+		try {
+			await this.container.storage.storeWorkspace('graph:columns', columns);
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to persist columns');
+		}
+
+		this.fireColumnsChanged();
 	}
 
 	@ipcCommand(UpdateWipDraftCommand)
@@ -4919,7 +4954,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return undefined;
 	}
 
-	private updateExcludedRefs(repoPath: string | undefined, refs: GraphExcludedRef[], visible: boolean) {
+	/** Hides/un-hides refs. Resolves only once the storage write has landed and the filters event has
+	 *  fired, so the caller can treat resolution as "my write is no longer outstanding". */
+	private async updateExcludedRefs(
+		repoPath: string | undefined,
+		refs: GraphExcludedRef[],
+		visible: boolean,
+	): Promise<void> {
 		if (repoPath == null || !refs?.length) return;
 
 		let storedExcludeRefs: StoredGraphFilters['excludeRefs'] = this.getFiltersByRepo(repoPath)?.excludeRefs ?? {};
@@ -4995,8 +5036,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		void this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });
-		void this.notifyDidChangeRefsVisibility();
+		await this.updateFiltersByRepo(repoPath, { excludeRefs: storedExcludeRefs });
+		await this.fireFiltersChanged();
 		// Hidden state is baked into the side bar's row contexts (`+hidden`/`+hiddenbyremote`), so a visibility
 		// change has to rebuild them the same way a pin change does (`updatePinnedRef` below).
 		this._panels.notifySidebarInvalidated();
@@ -5005,7 +5046,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Clears every stored exclusion owned by a remote — the wildcard entry hiding the whole remote plus any
 	 *  individually hidden branches under it — in one write. Reuses {@link updateExcludedRefs}'s removal path
 	 *  (visible=true removes by entry id) rather than duplicating the storage/notify/invalidate flow. */
-	private showRemoteRefs(repoPath: string | undefined, remoteName: string) {
+	private async showRemoteRefs(repoPath: string | undefined, remoteName: string): Promise<void> {
 		const storedExcludeRefs = this.getFiltersByRepo(repoPath)?.excludeRefs;
 		if (!hasKeys(storedExcludeRefs)) return;
 
@@ -5017,10 +5058,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		this.updateExcludedRefs(repoPath, refs, true);
+		await this.updateExcludedRefs(repoPath, refs, true);
 	}
 
-	private updatePinnedRef(repoPath: string | undefined, ref: GraphPinnedRef | null) {
+	/** Pins/unpins a ref. Resolves once the storage write has landed and the filters event has fired. */
+	private async updatePinnedRef(repoPath: string | undefined, ref: GraphPinnedRef | null): Promise<void> {
 		if (repoPath == null) return;
 
 		const storedPinnedRef =
@@ -5028,14 +5070,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				? { id: ref.id, type: ref.type as StoredGraphRefType, name: ref.name, owner: ref.owner }
 				: undefined;
 
-		void this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
-		// Passed the new pin directly rather than letting the notification re-read it. Not a race fix —
-		// `getWorkspace` is a synchronous `Memento.get` and sees the value `update()` sets before its
-		// promise settles, which is why the sibling filter writers here notify the same way without
-		// awaiting. This just avoids the round-trip when the value is already in hand.
-		void this.notifyDidChangePinnedRef({
-			pinnedRef: this.getPinnedRef({ pinnedRef: storedPinnedRef }, this._data.session?.current),
-		});
+		await this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
+		// Re-read rather than passing the new pin through: the snapshot is complete, and the write above is
+		// awaited, so storage is authoritative here.
+		await this.fireFiltersChanged();
 		this._panels.notifySidebarInvalidated();
 		// Every HOST-serialized context bakes `+pinned` in when it's built, so each one has to be rebuilt on a
 		// pin change: the side bar above, and the WIP header's branch kebab here (`wip.stats.branchContext`).
@@ -5198,15 +5236,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return refs;
 	}
 
-	@ipcCommand(UpdateIncludedRefsCommand)
-	private onUpdateIncludeOnlyRefs(params: IpcParams<typeof UpdateIncludedRefsCommand>) {
-		this.updateIncludeOnlyRefs(this._data.session?.repoPath, params);
-	}
-
-	private updateIncludeOnlyRefs(
+	/** Sets the branches-visibility mode and/or the include-only ref set. Resolves once the storage write
+	 *  has landed and the filters event has fired. */
+	private async updateIncludeOnlyRefs(
 		repoPath: string | undefined,
-		{ branchesVisibility, refs }: IpcParams<typeof UpdateIncludedRefsCommand>,
-	) {
+		branchesVisibility: GraphBranchesVisibility | undefined,
+		refs: GraphIncludeOnlyRef[] | undefined,
+	): Promise<void> {
 		if (repoPath == null) return;
 
 		let storedIncludeOnlyRefs: StoredGraphFilters['includeOnlyRefs'];
@@ -5234,22 +5270,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			});
 		}
 
-		void this.updateFiltersByRepo(repoPath, {
+		await this.updateFiltersByRepo(repoPath, {
 			branchesVisibility: branchesVisibility,
 			includeOnlyRefs: storedIncludeOnlyRefs,
 		});
-		void this.notifyDidChangeRefsVisibility();
+		await this.fireFiltersChanged();
 	}
 
-	@ipcCommand(UpdateExcludeTypesCommand)
-	private onUpdateExcludedTypes(params: IpcParams<typeof UpdateExcludeTypesCommand>) {
-		this.updateExcludedTypes(this._data.session?.repoPath, params);
-	}
-
-	private updateExcludedTypes(
+	/** Toggles a hidden ref TYPE (remotes/stashes/tags). Resolves once the storage write has landed and
+	 *  the filters event has fired. */
+	private async updateExcludedTypes(
 		repoPath: string | undefined,
-		{ key, value }: IpcParams<typeof UpdateExcludeTypesCommand>,
-	) {
+		key: keyof GraphExcludeTypes,
+		value: boolean,
+	): Promise<void> {
 		if (repoPath == null) return;
 
 		let excludeTypes = this.getFiltersByRepo(repoPath)?.excludeTypes;
@@ -5264,16 +5298,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			value: value,
 		});
 
-		void this.updateFiltersByRepo(repoPath, { excludeTypes: excludeTypes });
-		void this.notifyDidChangeRefsVisibility();
+		await this.updateFiltersByRepo(repoPath, { excludeTypes: excludeTypes });
+		await this.fireFiltersChanged();
 	}
 
-	@ipcCommand(ResetGraphFiltersCommand)
-	private onResetFilters() {
-		this.resetFilters(this._data.session?.repoPath);
-	}
-
-	private resetFilters(repoPath: string | undefined) {
+	/** Clears every stored filter for the repo. Resolves once the storage write (when there was anything
+	 *  to clear) has landed and the filters event has fired. */
+	private async resetFilters(repoPath: string | undefined): Promise<void> {
 		if (repoPath == null) return;
 
 		const filters = this.getFiltersByRepo(repoPath);
@@ -5293,14 +5324,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.sendTelemetryEvent('graph/filters/cleared', cleared);
 
 			const filtersByRepo = this.container.storage.getWorkspace('graph:filtersByRepo');
-			void this.container.storage.storeWorkspace(
+			await this.container.storage.storeWorkspace(
 				'graph:filtersByRepo',
 				updateRecordValue(filtersByRepo, repoPath, undefined),
 			);
 		}
 
-		// Always notify so the webview-side deferred scope clear (set by handleModeClear) runs.
-		void this.notifyDidChangeRefsVisibility();
+		// Always fire, even when nothing changed: the snapshot is complete so a redundant push is harmless,
+		// and the app consumes its deferred scope clear (set by `handleModeClear`) off this push.
+		await this.fireFiltersChanged();
 	}
 
 	private resetHoverCache() {
@@ -5476,7 +5508,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		columns = updateRecordValue(columns, name, column);
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
-		void this.notifyDidChangeColumns();
+		this.fireColumnsChanged();
 
 		if (
 			name === 'changes' &&
@@ -5500,7 +5532,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		columns = updateRecordValue(columns, name, column);
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
-		void this.notifyDidChangeColumns();
+		this.fireColumnsChanged();
 	}
 
 	@debug()
@@ -5517,7 +5549,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (updated) {
 			await configuration.updateEffective('graph.scrollMarkers.additionalTypes', scrollMarkers);
-			void this.notifyDidChangeScrollMarkers();
+			this.fireColumnsChanged();
 		}
 	}
 
@@ -5534,7 +5566,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		columns = updateRecordValue(columns, name, column);
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
-		void this.notifyDidChangeColumns();
+		this.fireColumnsChanged();
 	}
 
 	/** The user's current/active worktree path — anchors compare actions whose intent is "from

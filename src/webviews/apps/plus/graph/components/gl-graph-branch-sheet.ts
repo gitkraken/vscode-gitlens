@@ -4,15 +4,14 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
-import type { GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
-import { UpdateRefsVisibilityCommand } from '../../../../plus/graph/protocol.js';
+import type { GraphExcludedRef, GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, OrgSettings } from '../../../../rpc/services/types.js';
+import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { dispatchContextMenuAt } from '../../../shared/dom.js';
-import { graphStateContext } from '../context.js';
+import { graphServicesContext, graphStateContext } from '../context.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	branchSheetContextRef,
@@ -107,8 +106,8 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 	@consume({ context: graphStateContext, subscribe: true })
 	private _graphState?: typeof graphStateContext.__context__;
 
-	@consume({ context: ipcContext })
-	private _ipc?: typeof ipcContext.__context__;
+	@consume({ context: graphServicesContext, subscribe: true })
+	private _services?: typeof graphServicesContext.__context__;
 
 	/** The ref this sheet is scoped to (name/refType/remote/sha/context). */
 	@property({ attribute: false })
@@ -334,8 +333,15 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			icon=${hidden ? 'eye' : 'eye-closed'}
 			label=${label}
 			overlay="tooltip"
-			@click=${() => this._ipc?.sendCommand(UpdateRefsVisibilityCommand, { refs: [excluded], visible: hidden })}
+			@click=${() => this.toggleRefVisibility(excluded, hidden)}
 		></gl-action-chip>`;
+	}
+
+	private toggleRefVisibility(ref: GraphExcludedRef, visible: boolean): void {
+		const services = this._services;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.filters).setRefsVisibility([ref], visible))(), 'filters/refs');
 	}
 
 	/** The sheet's Open on Remote chip — only for a ref that actually exists on a remote. A remote ref

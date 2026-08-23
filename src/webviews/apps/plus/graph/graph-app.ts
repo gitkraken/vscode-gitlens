@@ -32,6 +32,7 @@ import type {
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
 	GraphCoachMarkType,
+	GraphComponentConfig,
 	GraphComposeScopeSeed,
 	GraphDisplayMode,
 	GraphItemContext,
@@ -48,18 +49,10 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import {
 	createWipRowId,
-	EnableChangesColumnCommand,
 	getWipRowWorktreePath,
 	GetWipStatsRequest,
 	isPrimaryWipRowId,
 	isWipSelectionSha,
-	ResetGraphFiltersCommand,
-	UpdateColumnModeCommand,
-	UpdateExcludeTypesCommand,
-	UpdateGraphConfigurationCommand,
-	UpdateGraphDisplayModeCommand,
-	UpdateIncludedRefsCommand,
-	UpdateRefsVisibilityCommand,
 } from '../../../plus/graph/protocol.js';
 import { ExecuteCommand } from '../../../protocol.js';
 import { fireAndForget, noop } from '../../shared/actions/rpc.js';
@@ -694,6 +687,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			services.telemetry.then(t => t.trackUsage(key)),
 			'track usage',
 		);
+	}
+
+	/** Persists a graph config change via RPC, resolving once the write lands (the new config
+	 *  itself arrives separately over `configuration.onDidChange`, wired in `stateProvider.ts`). */
+	private updateGraphConfig(changes: Partial<GraphComponentConfig>): Promise<void> {
+		const services = this.services;
+		if (services == null) return Promise.resolve();
+
+		return (async () => (await services.configuration).update(changes))();
+	}
+
+	/** Resolves the filters RPC sub-service, or `undefined` before the handshake completes. Its writes
+	 *  resolve once the host has written and fired; the resulting STATE arrives one transport hop later on
+	 *  the filters push — see {@link waitForState}. */
+	private async getFiltersService(): Promise<Awaited<NonNullable<typeof this.services>['filters']> | undefined> {
+		return this.services?.filters;
+	}
+
+	private setDisplayMode(mode: GraphDisplayMode): Promise<void> {
+		const services = this.services;
+		if (services == null) return Promise.resolve();
+
+		return (async () => (await services.configuration).setDisplayMode(mode))();
 	}
 
 	// Cross-pane shared signals: state owned by one pane (e.g. the details panel's
@@ -2185,13 +2201,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Drop the active scope when the clicked WIP isn't part of it, so the worktree's row
 		// materializes in the now-unscoped graph and `navigateToCommit` below can reveal it.
 		// Leave the scope untouched when the pill already matches it. Uses the canonical clear
-		// (`deferScopeClear` + `ResetGraphFilters`): the host's filter-reset reloads unscoped rows and
-		// fires the deferred clear in the same pass. (Pills hidden purely by `branchesVisibility` are
-		// out of this rule's scope — the product decision is scope-only.)
+		// (`deferScopeClear` + the filters reset): the host's filter-reset reloads unscoped rows and pushes
+		// the snapshot that fires the deferred clear. (Pills hidden purely by `branchesVisibility` are out
+		// of this rule's scope — the product decision is scope-only.)
 		const scopeCleared = gs.scope != null && !this.isWipPillInScope(id, gs.scope);
+		let resetFilters: Promise<void> | undefined;
 		if (scopeCleared) {
 			gs.deferScopeClear();
-			this._ipc.sendCommand(ResetGraphFiltersCommand, undefined);
+			resetFilters = (async () => (await this.getFiltersService())?.reset())();
 		}
 		// Anchor the selection synchronously, normalized to `uncommitted` — every WIP row (primary
 		// and secondary alike) collapses to that sha and is distinguished by `repoPath`, matching
@@ -2210,13 +2227,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Graph may be freshly mounted by the display-mode switch above — wait one update cycle so
 		// `this.graph` exists before navigating (what the `openWipDetails` await used to cover).
 		await this.updateComplete;
-		// When we cleared the scope above, the unscoped rows arrive via a host round-trip
-		// (`ResetGraphFilters` → `DidChangeRefsVisibilityNotification`), which can take longer than
-		// `navigateToCommit`'s deferred render path. Wait for the scope to actually clear first
-		// so that retry window starts against the settled (unscoped) state instead of expiring before
-		// the worktree's row materializes.
-		if (scopeCleared) {
-			await this.waitForScopeCleared();
+		// When we cleared the scope above, the unscoped rows arrive via a host round-trip. The reset
+		// resolves once the host wrote and fired; the cleared scope itself lands one hop later, on the
+		// filters push that consumes the deferred clear — so wait for the settled state too, or the
+		// retry window starts before the worktree's row can materialize. Both halves of the predicate
+		// matter: the state clears synchronously, but the graph's projection lifts on its next update —
+		// a jump re-run in between classifies its target against the STALE projection.
+		if (resetFilters != null) {
+			await resetFilters;
+			await this.waitForState(
+				() => this.graphState.scope == null && this.graph?.isScopeProjectionActive() !== true,
+			);
 		}
 		// Select + reveal the WIP row in the graph itself — the bar's stated intent, and the user's
 		// immediate feedback — BEFORE opening the details panel. The `id` is `uncommitted` for the
@@ -2240,21 +2261,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	/** Resolves once the active scope has cleared (or a safety timeout elapses). Used after a
-	 *  scope-clearing overview-bar click: the clear lands via a host round-trip, so this lets the
-	 *  subsequent `navigateToCommit` run against the settled unscoped state rather than racing
-	 *  the reload. Polls with `setTimeout` (not RAF) so it still resolves if the webview is hidden. */
-	private waitForScopeCleared(timeoutMs = 2000): Promise<void> {
-		// Both halves matter: the state clears synchronously, but the graph's projection lifts on
-		// its next update — a jump re-run in between classifies its target against the STALE
-		// projection and reports "outside the current scope" for a scope that no longer exists.
-		const cleared = (): boolean => this.graphState.scope == null && this.graph?.isScopeProjectionActive() !== true;
-		if (cleared()) return Promise.resolve();
+	/** Resolves once `predicate` holds (or a safety timeout elapses). An RPC write resolves when the HOST
+	 *  has written and fired — the resulting state push arrives a transport hop later, so a caller that must
+	 *  re-read settled state after its own write still has to wait for it. Polls with `setTimeout` (not RAF)
+	 *  so it still resolves while the webview is hidden. */
+	private waitForState(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+		if (predicate()) return Promise.resolve();
 
 		return new Promise<void>(resolve => {
 			const start = Date.now();
 			const check = (): void => {
-				if (cleared() || Date.now() - start >= timeoutMs) {
+				if (predicate() || Date.now() - start >= timeoutMs) {
 					resolve();
 					return;
 				}
@@ -2763,7 +2780,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// (hidden details) experience. Single chokepoint for every show path, including
 				// host-driven (pending action) shows.
 				if (this.graphState.config?.detailsLocation == null) {
-					this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: 'auto' } });
+					fireAndForget(this.updateGraphConfig({ detailsLocation: 'auto' }), 'configuration/update');
 				}
 				const pane = this.querySelector<HTMLElement>('.graph__details-pane');
 				if (pane) {
@@ -2821,7 +2838,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._wasDisplayMode = displayMode;
 			// Notify the host so it can fetch row stats when entering Visualizations mode (stats are
 			// otherwise only loaded when the minimap or changes column is visible).
-			this._ipc.sendCommand(UpdateGraphDisplayModeCommand, { mode: displayMode });
+			fireAndForget(this.setDisplayMode(displayMode), 'configuration/setDisplayMode');
 		}
 
 		// First-render auto-restore telemetry: panel was visible from persisted state, no explicit
@@ -3456,40 +3473,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		></gl-graph-jump-toast>`;
 	}
 
-	/** Polls `predicate` (32ms tick, matching {@link waitForScopeCleared}) so a remedy that round-trips
-	 *  through the host has a settled state to re-navigate against instead of racing the push. Resolves
-	 *  either way once `timeoutMs` elapses — the retry navigation still runs; it just might not land yet. */
-	private waitForJumpRemedy(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
-		if (predicate()) return Promise.resolve();
-
-		return new Promise<void>(resolve => {
-			const start = Date.now();
-			const check = (): void => {
-				if (predicate() || Date.now() - start >= timeoutMs) {
-					resolve();
-					return;
-				}
-
-				setTimeout(check, 32);
-			};
-			setTimeout(check, 32);
-		});
-	}
-
-	/** Applies a remedy, waits for its effect to settle (or times out), then re-runs the jump with the
-	 *  landing flash — the same sequence the WIP bar's scope-clear jump already relies on (see
-	 *  {@link selectOverviewBarItem}). */
+	/**
+	 * Applies a remedy, waits for its effect to reach the app's own state (or times out), then re-runs the
+	 * jump with the landing flash — the same sequence the WIP bar's scope-clear jump relies on (see
+	 * {@link selectOverviewBarItem}).
+	 *
+	 * `settled` is not redundant with awaiting `apply`: a write resolves once the host wrote and fired, but
+	 * the re-navigation reads `graphState`, which only catches up when the resulting push lands.
+	 */
 	private applyJumpRemedy(
 		sha: string,
 		ref: string | undefined,
 		source: GraphNavigationSource | undefined,
-		apply: () => void,
-		wait: () => Promise<void>,
+		apply: () => void | Promise<void>,
+		settled: () => boolean,
 	): void {
 		this.clearJumpToast();
 		void (async () => {
-			apply();
-			await wait();
+			await apply();
+			await this.waitForState(settled);
 			void this.graph?.navigateToCommit(sha, { source: source ?? 'jump', flash: true, ref: ref });
 		})();
 	}
@@ -3519,11 +3521,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							sha,
 							ref,
 							source,
-							() =>
-								this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
-									changes: { onlyFollowFirstParent: false },
-								}),
-							() => this.waitForJumpRemedy(() => this.graphState.config?.onlyFollowFirstParent !== true),
+							() => this.updateGraphConfig({ onlyFollowFirstParent: false }),
+							() => this.graphState.config?.onlyFollowFirstParent !== true,
 						),
 				};
 			case 'not-found':
@@ -3568,12 +3567,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								sha,
 								ref,
 								source,
-								() =>
-									this._ipc.sendCommand(UpdateRefsVisibilityCommand, {
-										refs: [entry],
-										visible: true,
-									}),
-								() => this.waitForJumpRemedy(() => !(entry.id in (this.graphState.excludeRefs ?? {}))),
+								async () => {
+									await (await this.getFiltersService())?.setRefsVisibility([entry], true);
+								},
+								() => !(entry.id in (this.graphState.excludeRefs ?? {})),
 							),
 					};
 				}
@@ -3592,12 +3589,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								sha,
 								ref,
 								source,
-								() =>
-									this._ipc.sendCommand(UpdateExcludeTypesCommand, {
-										key: 'stashes',
-										value: false,
-									}),
-								() => this.waitForJumpRemedy(() => this.graphState.excludeTypes?.stashes !== true),
+								async () => {
+									await (await this.getFiltersService())?.setExcludeType('stashes', false);
+								},
+								() => this.graphState.excludeTypes?.stashes !== true,
 							),
 					};
 				}
@@ -3618,12 +3613,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							sha,
 							ref,
 							source,
-							() =>
-								this._ipc.sendCommand(UpdateIncludedRefsCommand, {
-									branchesVisibility: 'all',
-									refs: undefined,
-								}),
-							() => this.waitForJumpRemedy(() => this.graphState.branchesVisibility === 'all'),
+							async () => {
+								await (await this.getFiltersService())?.setIncludedRefs('all', undefined);
+							},
+							() => this.graphState.branchesVisibility === 'all',
 						),
 				};
 			}
@@ -3639,7 +3632,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							ref,
 							source,
 							() => this.graphState.clearScope(),
-							() => this.waitForScopeCleared(),
+							() => this.graphState.scope == null,
 						),
 				};
 			case 'search-filter':
@@ -3663,7 +3656,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 										},
 									}),
 								),
-							() => this.waitForJumpRemedy(() => this.graphState.searchMode !== 'filter'),
+							() => this.graphState.searchMode !== 'filter',
 						),
 				};
 			case 'collapsed':
@@ -3701,8 +3694,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					sha,
 					ref,
 					source,
-					() => this._ipc.sendCommand(UpdateRefsVisibilityCommand, { refs: refs, visible: true }),
-					() => this.waitForJumpRemedy(() => Object.keys(this.graphState.excludeRefs ?? {}).length === 0),
+					async () => {
+						await (await this.getFiltersService())?.setRefsVisibility(refs, true);
+					},
+					() => Object.keys(this.graphState.excludeRefs ?? {}).length === 0,
 				),
 		};
 	}
@@ -4420,7 +4415,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.graphState.details = { maximized: false };
 		}
 
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: location } });
+		fireAndForget(this.updateGraphConfig({ detailsLocation: location }), 'configuration/update');
 
 		if (!this.graphState.details?.visible) {
 			this.setDetailsVisible(true, 'placement');
@@ -4790,7 +4785,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleSidebarTogglePinned = (): void => {
 		const next = !(this.graphState.config?.sidebarPinned ?? false);
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { sidebarPinned: next } });
+		fireAndForget(this.updateGraphConfig({ sidebarPinned: next }), 'configuration/update');
 	};
 
 	private handleDisplayModeChange = (e: CustomEvent<GraphSidebarDisplayModeChangeEventDetail>): void => {
@@ -5479,16 +5474,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const { minimapDataType, minimapReversed, markerType, checked } = e.detail;
 
 		if (minimapDataType != null) {
-			this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
-				changes: { minimapDataType: minimapDataType },
-			});
+			fireAndForget(this.updateGraphConfig({ minimapDataType: minimapDataType }), 'configuration/update');
 			return;
 		}
 
 		if (minimapReversed != null) {
-			this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
-				changes: { minimapReversed: minimapReversed },
-			});
+			fireAndForget(this.updateGraphConfig({ minimapReversed: minimapReversed }), 'configuration/update');
 			return;
 		}
 
@@ -5506,9 +5497,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				minimapMarkerTypes = [...currentTypes];
 				minimapMarkerTypes.splice(index, 1);
 			}
-			this._ipc.sendCommand(UpdateGraphConfigurationCommand, {
-				changes: { minimapMarkerTypes: minimapMarkerTypes },
-			});
+			fireAndForget(this.updateGraphConfig({ minimapMarkerTypes: minimapMarkerTypes }), 'configuration/update');
 		}
 	}
 
@@ -5701,14 +5690,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	// The Changes header mode picker's pick — a dedicated host write (not the columns persist, which drops
-	// echoed `mode`), keeping `setColumnMode` host-authoritative. Mirrors `gl-graph-filter-column`'s route.
-	private handleGraphChangeColumnMode(e: CustomEventType<'gl-graph-change-column-mode'>) {
-		this._ipc.sendCommand(UpdateColumnModeCommand, { name: e.detail.name, mode: e.detail.mode });
+	// echoed `mode`), keeping the mode host-authoritative. Mirrors `gl-graph-filter-column`'s route.
+	private handleGraphChangeColumnMode(e: CustomEventType<'gl-graph-change-column-mode'>): void {
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget(
+			services.columns.then(c => c.setColumnMode(e.detail.name, e.detail.mode)),
+			'set column mode',
+		);
 	}
 
 	// The dormant Changes column's one-time opt-in — a dedicated consent write (`graph.changesColumn.enabled`).
-	private handleGraphEnableChangesColumn(_e: CustomEventType<'gl-graph-enable-changes-column'>) {
-		this._ipc.sendCommand(EnableChangesColumnCommand, undefined);
+	private handleGraphEnableChangesColumn(_e: CustomEventType<'gl-graph-enable-changes-column'>): void {
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget(
+			services.columns.then(c => c.enableChangesColumn()),
+			'enable changes column',
+		);
 	}
 
 	private handleGraphFilterColumn(e: CustomEventType<'gl-graph-filter-column'>) {

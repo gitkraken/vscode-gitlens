@@ -12,11 +12,10 @@ import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { BranchState, GraphAutoFetchMode, GraphWipState, State } from '../../../../plus/graph/protocol.js';
-import { UpdateGraphConfigurationCommand } from '../../../../plus/graph/protocol.js';
 import type { PullConflictPreview } from '../../../../rpc/services/branches.js';
+import { fireAndForget } from '../../../shared/actions/rpc.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import {
@@ -359,8 +358,8 @@ export class GlFetchButton extends LitElement {
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
 
-	@consume({ context: ipcContext })
-	private _ipc!: typeof ipcContext.__context__;
+	@consume({ context: graphServicesContext, subscribe: true })
+	private _services?: Remote<GraphServices> | undefined;
 
 	@property({ type: Object })
 	state!: State;
@@ -490,7 +489,13 @@ export class GlFetchButton extends LitElement {
 		const $el = e.target as HTMLInputElement | null;
 		if ($el == null) return;
 
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { autoFetchEnabled: $el.checked } });
+		const services = this._services;
+		if (services == null) return;
+
+		fireAndForget(
+			(async () => (await services.configuration).update({ autoFetchEnabled: $el.checked }))(),
+			'configuration/update',
+		);
 	}
 }
 

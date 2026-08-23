@@ -18,6 +18,9 @@ import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	GraphAccessState,
+	GraphColumnsService,
+	GraphConfigurationService,
+	GraphFiltersService,
 	GraphOverviewService,
 	GraphScopeService,
 	GraphSearchState,
@@ -38,14 +41,9 @@ import type {
 import {
 	createWipRowId,
 	DidChangeBranchStateNotification,
-	DidChangeColumnsNotification,
-	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
-	DidChangePinnedRefNotification,
-	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
-	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
@@ -671,6 +669,27 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Unsubscribes the current `onScopeAnchorsInvalidated` listener — reconnect-safe teardown, same
 	 *  pattern as {@link _unsubscribeOverviewChanged}. */
 	private _unsubscribeScopeAnchorsInvalidated: (() => void) | undefined;
+	/** The config RPC sub-service — held only for its {@link GraphConfigurationService.onDidChange}
+	 *  subscription; reads/writes go through `graphServicesContext` at the call site instead. Set by
+	 *  {@link initializeServices}. */
+	private _configService: GraphConfigurationService | undefined;
+	/** Unsubscribes the current `onDidChange` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeConfigurationChanged: (() => void) | undefined;
+	/** The columns RPC sub-service — held only for its {@link GraphColumnsService.onDidChange}
+	 *  subscription; writes go through `graphServicesContext` at the call site instead. Set by
+	 *  {@link initializeServices}. */
+	private _columnsService: GraphColumnsService | undefined;
+	/** Unsubscribes the current `onDidChange` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeColumnsChanged: (() => void) | undefined;
+	/** The filters RPC sub-service — held only for its {@link GraphFiltersService.onDidChange}
+	 *  subscription; writes go through `graphServicesContext` at the call site instead. Set by
+	 *  {@link initializeServices}. */
+	private _filtersService: GraphFiltersService | undefined;
+	/** Unsubscribes the current `onDidChange` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeFiltersChanged: (() => void) | undefined;
 	/** Resolved once {@link initializeServices} has assigned {@link _overviewService} and
 	 *  {@link _scopeService} — callers that need either before the RPC handshake completes await this
 	 *  instead of racing it. Same resolve-once-per-lifetime semantics as `SearchActions`' `serviceReady`:
@@ -690,8 +709,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/**
 	 * Wires this provider against the connected RPC services — called from `graph.ts`'s
 	 * `_onRpcReady` right after the services context is set, and again on every reconnect with the
-	 * fresh remote. Reconnect-safe: tears down the prior `onOverviewChanged`/`onScopeAnchorsInvalidated`
-	 * subscriptions before resubscribing against the new remote.
+	 * fresh remote. Reconnect-safe: tears down the prior `onOverviewChanged`/`onScopeAnchorsInvalidated`/
+	 * `onDidChange` subscriptions before resubscribing against the new remote.
 	 */
 	initializeServices(services: Remote<GraphServices>): void {
 		void this.connectServices(services);
@@ -702,11 +721,23 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeOverviewChanged = undefined;
 		this._unsubscribeScopeAnchorsInvalidated?.();
 		this._unsubscribeScopeAnchorsInvalidated = undefined;
+		this._unsubscribeConfigurationChanged?.();
+		this._unsubscribeConfigurationChanged = undefined;
+		this._unsubscribeColumnsChanged?.();
+		this._unsubscribeColumnsChanged = undefined;
+		this._unsubscribeFiltersChanged?.();
+		this._unsubscribeFiltersChanged = undefined;
 
 		const overview = await services.overview;
 		this._overviewService = overview;
 		const scope = await services.scope;
 		this._scopeService = scope;
+		const configuration = await services.configuration;
+		this._configService = configuration;
+		const columns = await services.columns;
+		this._columnsService = columns;
+		const filters = await services.filters;
+		this._filtersService = filters;
 		this._servicesReady.fulfill();
 
 		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>` — must be awaited (see
@@ -716,6 +747,40 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		})) as unknown as (() => void) | undefined;
 		const scopeUnsub = (await scope.onScopeAnchorsInvalidated(data => {
 			this.handleScopeAnchorsInvalidated(data.repoPath);
+		})) as unknown as (() => void) | undefined;
+		const configurationUnsub = (await configuration.onDidChange(data => {
+			this.updateState({ config: data });
+		})) as unknown as (() => void) | undefined;
+		// One writer for all three context slots: `settings` is derived from BOTH the column settings and
+		// the scroll-marker settings, so the snapshot carries every one and this write replaces all three.
+		const columnsUnsub = (await columns.onDidChange(data => {
+			this.updateState({
+				columns: data.columns,
+				context: {
+					...this._state.context,
+					header: data.headerContext,
+					settings: data.settingsContext,
+					scrollMarkers: data.scrollMarkersContext,
+				},
+			});
+		})) as unknown as (() => void) | undefined;
+		// One writer for all five filter slots — branch visibility, the hidden ref/type sets, the included
+		// refs, and the pinned ref all come from the same storage record, so the snapshot replaces them
+		// together and two paints can never disagree.
+		const filtersUnsub = (await filters.onDidChange(data => {
+			// The deferred scope clear is consumed HERE, on the push — never on a write's resolution. A
+			// `setScope` landing between the write and this push must not be clobbered (see `setScope`).
+			if (this._scopeClearDeferred) {
+				this._scopeClearDeferred = false;
+				this.clearScope();
+			}
+			this.updateState({
+				branchesVisibility: data.branchesVisibility,
+				excludeRefs: data.excludeRefs,
+				excludeTypes: data.excludeTypes,
+				includeOnlyRefs: data.includeOnlyRefs,
+				pinnedRef: data.pinnedRef,
+			});
 		})) as unknown as (() => void) | undefined;
 
 		// A newer `connectServices` call may have reassigned either service while these subscribes were
@@ -731,6 +796,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			scopeUnsub?.();
 		} else if (typeof scopeUnsub === 'function') {
 			this._unsubscribeScopeAnchorsInvalidated = scopeUnsub;
+		}
+
+		if (this._configService !== configuration) {
+			configurationUnsub?.();
+		} else if (typeof configurationUnsub === 'function') {
+			this._unsubscribeConfigurationChanged = configurationUnsub;
+		}
+
+		if (this._columnsService !== columns) {
+			columnsUnsub?.();
+		} else if (typeof columnsUnsub === 'function') {
+			this._unsubscribeColumnsChanged = columnsUnsub;
+		}
+
+		if (this._filtersService !== filters) {
+			filtersUnsub?.();
+		} else if (typeof filtersUnsub === 'function') {
+			this._unsubscribeFiltersChanged = filtersUnsub;
 		}
 	}
 
@@ -749,6 +832,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.ensureLoading = false;
 		this._unsubscribeOverviewChanged?.();
 		this._unsubscribeScopeAnchorsInvalidated?.();
+		this._unsubscribeConfigurationChanged?.();
+		this._unsubscribeColumnsChanged?.();
+		this._unsubscribeFiltersChanged?.();
 		super.dispose();
 	}
 
@@ -991,9 +1077,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor pendingScopeToBranch: AppState['pendingScopeToBranch'] = false;
 
 	/**
-	 * Set by callers (e.g. the scope popover) right before sending a filter-changing IPC, so the
-	 * scope clear coalesces with the resulting `DidChangeRefsVisibilityNotification` rather than
-	 * causing an immediate minimap reset followed by a separate filter-update repaint.
+	 * Set by callers (e.g. the scope popover) right before a filter write, so the scope clear coalesces
+	 * with the resulting `GraphFiltersService.onDidChange` push rather than causing an immediate minimap
+	 * reset followed by a separate filter-update repaint.
 	 */
 	private _scopeClearDeferred = false;
 
@@ -1064,8 +1150,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.pendingScopeToBranch = false;
 		this._pendingScope = scope;
 		// A pending `deferScopeClear` was armed to retire the scope this call REPLACES; leaving it set
-		// means the next `DidChangeRefsVisibilityNotification` clears the scope we're installing right
-		// now instead — the user picks a branch and the focus silently evaporates a moment later.
+		// means the next filters push clears the scope we're installing right now instead — the user picks
+		// a branch and the focus silently evaporates a moment later.
 		this._scopeClearDeferred = false;
 
 		const repoPath = scope.branchRef.split('|', 2)[0];
@@ -1652,35 +1738,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				});
 				break;
 
-			case DidChangeColumnsNotification.is(msg):
-				this.updateState({
-					columns: msg.params.columns,
-					columnsRevision: msg.params.columnsRevision,
-					context: {
-						...this._state.context,
-						header: msg.params.context,
-						settings: msg.params.settingsContext,
-					},
-				});
-				break;
-
-			case DidChangeRefsVisibilityNotification.is(msg):
-				if (this._scopeClearDeferred) {
-					this._scopeClearDeferred = false;
-					this.clearScope();
-				}
-				this.updateState({
-					branchesVisibility: msg.params.branchesVisibility,
-					excludeRefs: msg.params.excludeRefs,
-					excludeTypes: msg.params.excludeTypes,
-					includeOnlyRefs: msg.params.includeOnlyRefs,
-				});
-				break;
-
-			case DidChangePinnedRefNotification.is(msg):
-				this.updateState({ pinnedRef: msg.params.pinnedRef });
-				break;
-
 			case DidChangeRowsNotification.is(msg): {
 				// Rows-plane sequencing (R1c). The publisher stamps every emission `{generation, seq, snapshot?}`.
 				// Snapshots are authoritative resets that rebase the baseline; deltas apply iff strictly
@@ -1806,15 +1863,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				scope?.addExitInfo(`rows=${this._state.rows?.length ?? 0}`);
 				break;
 			}
-			case DidChangeScrollMarkersNotification.is(msg):
-				this.updateState({
-					context: {
-						...this._state.context,
-						settings: msg.params.context,
-						scrollMarkers: msg.params.scrollMarkersContext,
-					},
-				});
-				break;
 
 			case DidChangeSelectionNotification.is(msg):
 				this.updateState({ selectedRows: msg.params.selection });
@@ -1906,10 +1954,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						? { details: { ...this.details, visible: true } }
 						: {}),
 				});
-				break;
-
-			case DidChangeGraphConfigurationNotification.is(msg):
-				this.updateState({ config: msg.params.config });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {

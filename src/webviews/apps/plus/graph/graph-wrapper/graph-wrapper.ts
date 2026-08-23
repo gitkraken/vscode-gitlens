@@ -17,6 +17,7 @@ import type {
 	DidLoadRowParams,
 	GraphAvatars,
 	GraphColumnName,
+	GraphColumnsConfig,
 	GraphMissingRefsMetadata,
 	GraphRef,
 	GraphRefMetadataItem,
@@ -47,12 +48,10 @@ import {
 	ProxyAvatarsCommand,
 	RowActionCommand,
 	SyncWipWatchesCommand,
-	UpdateColumnsCommand,
-	UpdatePinnedRefCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/graph/protocol.js';
+import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
-import type { CustomEventType } from '../../../shared/components/element.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../../shared/contexts/telemetry.js';
@@ -61,7 +60,7 @@ import type { AnchorKey } from '../components/anchorKey.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
-import { graphStateContext } from '../context.js';
+import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
@@ -442,6 +441,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
+
+	@consume({ context: graphServicesContext, subscribe: true })
+	private services?: typeof graphServicesContext.__context__;
 
 	@consume({ context: telemetryContext as any })
 	private readonly _telemetry!: TelemetryContext;
@@ -1212,7 +1214,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.config=${graphState.config}
 			.downstreams=${graphState.downstreams}
 			.columns=${graphState.columns}
-			.columnsRevision=${graphState.columnsRevision ?? 0}
+			.persistColumns=${this.persistColumns}
 			.activeFilterColumns=${graphState.activeFilterColumns}
 			.repoPath=${this.getRepoPath()}
 			.columnsContext=${graphState.context?.header}
@@ -1247,7 +1249,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@gl-graph-avatarloaderror=${this.onGraphAvatarLoadError}
 			@gl-graph-missingrefsmetadata=${this.onGraphMissingRefsMetadata}
 			@gl-graph-scopeanchorsunreachable=${this.onScopeAnchorsUnreachable}
-			@gl-graph-changecolumns=${this.onColumnsChanged}
 			@gl-graph-rowhoverstart=${this.onGraphRowHoverStart}
 			@gl-graph-rowhovertrack=${this.onGraphRowHoverTrack}
 			@gl-graph-rowhover=${this.onGraphRowHover}
@@ -1949,12 +1950,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		litGraph?.scrollToSha(sha, reveal);
 		return navigation;
 	}
-	private onColumnsChanged(event: CustomEventType<'gl-graph-changecolumns'>) {
-		this._ipc.sendCommand(UpdateColumnsCommand, {
-			config: event.detail.settings,
-			revision: event.detail.revision,
-		});
-	}
+	/**
+	 * Persists a columns write via RPC, resolving once the host's storage write has landed. The graph
+	 * component awaits this to know when its own write stops being outstanding — see
+	 * `shouldApplyIncomingColumns`. A bound field so the prop identity is stable across renders.
+	 */
+	private readonly persistColumns = async (config: GraphColumnsConfig): Promise<void> => {
+		const services = this.services;
+		if (services == null) return;
+
+		await (await services.columns).setColumns(config);
+	};
 
 	private onMouseLeave() {
 		this.dispatchEvent(new CustomEvent('gl-graph-mouse-leave'));
@@ -1975,12 +1981,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(RowActionCommand, params);
 	}
 
-	/** Ref pill's pin zone → clear the edge pin. Goes through `UpdatePinnedRefCommand` (the host's own
-	 *  pinned-ref channel) rather than executing `gitlens.graph.unpinBranchFromEdge`: the command takes no
-	 *  meaningful payload beyond the session it runs in, and the sidebar's generic action channel re-stamps
-	 *  telemetry origin as `sidebar-inline`, which would misattribute a graph-body click. */
+	/** Ref pill's pin zone → clear the edge pin. Goes through the filters service's own pinned-ref write
+	 *  rather than executing `gitlens.graph.unpinBranchFromEdge`: the command takes no meaningful payload
+	 *  beyond the session it runs in, and the sidebar's generic action channel re-stamps telemetry origin
+	 *  as `sidebar-inline`, which would misattribute a graph-body click. */
 	private onGraphUnpinRef() {
-		this._ipc.sendCommand(UpdatePinnedRefCommand, { ref: null });
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.filters).setPinnedRef(null))(), 'filters/pinnedRef');
 	}
 
 	// New-engine WIP row-open button (resolve/compose/review/agents) → look the full row up by sha and
