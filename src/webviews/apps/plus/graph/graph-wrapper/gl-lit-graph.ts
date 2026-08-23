@@ -1712,6 +1712,9 @@ export class GlLitGraph extends LitElement {
 		this._chainLaneOverlayEls = [];
 		this._chainLaneOverlayKey = undefined;
 		this._chainOverlayMountSafe = false;
+		// The scrollbar's DOM goes away with the disconnect — drop the cached element so a reconnect
+		// re-resolves it on first use instead of trusting the detached node.
+		this.hScrollEl = undefined;
 		if (this.tooltipShowTimer != null) {
 			clearTimeout(this.tooltipShowTimer);
 			this.tooltipShowTimer = undefined;
@@ -5132,6 +5135,11 @@ export class GlLitGraph extends LitElement {
 	// held (`pendingWindowRender`) and flushed on release.
 	private hScrollDragActive = false;
 	private pendingWindowRender = false;
+	// Cached `.gl-graph__hscroll` element — spares a `querySelector` on every h-scroll input frame.
+	// Re-resolved whenever the cached node has left the DOM (the scrollbar unmounts when lanes stop
+	// overflowing or placement leaves column mode) or the element disconnects; also dropped in
+	// `disconnectedCallback` like the class's other cached element refs.
+	private hScrollEl?: HTMLElement;
 
 	// Drive the pass-through raster layer's h-scroll translate + edge-fade mask gates (one owner, called from
 	// both the render path and the imperative h-scroll pass). `--graph-gutter-scroll` slides every row's raster
@@ -5167,10 +5175,12 @@ export class GlLitGraph extends LitElement {
 		const { travel } = this.graphHScrollTravel();
 		this.style.setProperty('--graph-hscroll-left', `${max > 0 ? (this.graphScrollX / max) * travel : 0}px`);
 		this.updateGutterScrollVars();
-		this.querySelector('.gl-graph__hscroll')?.setAttribute(
-			'aria-valuenow',
-			`${Math.round(Math.max(0, Math.min(this.graphScrollX, max)))}`,
-		);
+		let hscroll = this.hScrollEl;
+		if (hscroll == null || !hscroll.isConnected) {
+			hscroll = this.querySelector<HTMLElement>('.gl-graph__hscroll') ?? undefined;
+			this.hScrollEl = hscroll;
+		}
+		hscroll?.setAttribute('aria-valuenow', `${Math.round(Math.max(0, Math.min(this.graphScrollX, max)))}`);
 	}
 
 	// Date formatter honoring `gitlens.graph.dateStyle` / `gitlens.defaultDateFormat`, falling

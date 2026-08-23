@@ -6,6 +6,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
@@ -75,10 +76,12 @@ export class GlGraphHover extends GlElement {
 	@query('gl-popover')
 	popup!: GlPopover;
 
-	private hoverMarkdownCache = new Map<
+	// Bounded so a long session (paging across thousands of rows) can't grow it without limit; the
+	// 32-entry cap matches the graph's SHA-keyed commit-enrichment cache.
+	private readonly hoverMarkdownCache = new LruMap<
 		string,
 		Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string
-	>();
+	>(32);
 	private shaHovering: string | undefined;
 	private unhoverTimer: ReturnType<typeof setTimeout> | undefined;
 
