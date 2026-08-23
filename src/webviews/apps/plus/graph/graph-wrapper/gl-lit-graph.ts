@@ -105,8 +105,6 @@ import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
-import type { ChainLaneRun } from '../utils/chainLane.utils.js';
-import { computeChainLaneRuns } from '../utils/chainLane.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
 import { serializeWipContext } from '../utils/rowContext.utils.js';
@@ -122,16 +120,16 @@ import type { LaneCollapseChipContext } from './adornments/laneCollapseAdornment
 import type { ParsedRef, RefPillHooks } from './adornments/refAdornmentProvider.js';
 import {
 	createRefAdornmentProvider,
-	renderIssueTooltipCard,
-	renderPullRequestTooltipCard,
 	renderRefPill,
 	resolveAutoRefPillCap,
 	toParsedRefs,
 } from './adornments/refAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
 import type { WipStats } from './adornments/wipStatsAdornmentProvider.js';
+import { ChainLaneOverlayController } from './graph-chain-lane-overlay.js';
 import type { GraphCommitRef, GraphCommitView, RowRefOrder } from './graph-commit.js';
 import { columnsToZones, isRefHidden, pickGhostRef, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
+import { DelegatedTooltipController } from './graph-delegated-tooltip.js';
 import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
 import { GutterCache, gutterEpochSignature } from './graph-gutter-cache.js';
@@ -148,6 +146,8 @@ import {
 	computeScrollMarkers,
 	groupScrollMarkersByRow,
 } from './graph-scroll-markers.js';
+import type { StickyTimelineHost } from './graph-sticky-timeline.js';
+import { StickyTimelineController } from './graph-sticky-timeline.js';
 
 type LitVirtualizer = HTMLElement & {
 	items: readonly unknown[];
@@ -313,13 +313,6 @@ const rowHasLocalHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
 const rowHasRemoteHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
 	row.remotes?.some(r => `${r.owner}/${r.name}` === branchName) === true;
 
-/** Ref-pill segments that own a tooltip of their own, in the order `expandedTwinIfCovered` tests them. */
-const pillTooltipSegmentClasses = [
-	'gl-graph__ref-pill-upstream',
-	'gl-graph__ref-pill-pr',
-	'gl-graph__ref-pill-issue',
-] as const;
-
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
 // attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
 let textMeasureCanvas: HTMLCanvasElement | undefined;
@@ -332,7 +325,7 @@ function getTextMeasureContext(): CanvasRenderingContext2D | null {
 // off a visible-range edge would skew the reported day-range (minimap). Walks from `from` toward
 // `boundInclusive` for the nearest non-workdir row's date; if every row in between is workdir too,
 // there's nothing to normalize against, so it falls back to the edge row's own date (prior behavior).
-function nearestNonWorkdirDate(
+export function nearestNonWorkdirDate(
 	rows: readonly ProcessedGraphRow[],
 	from: number,
 	boundInclusive: number,
@@ -345,11 +338,12 @@ function nearestNonWorkdirDate(
 	return rows[from]?.date;
 }
 
-// Sticky-timeline bucket for the row scrolled to the top of the viewport (see `updateStickyTimelineBucket`).
-// Groups mirror the Date column's OWN `fromNow` relative-time families exactly (same unit/threshold
-// table, via `fromNowUnit`) — NOT calendar-midnight day buckets — so the pill never disagrees with what
-// a row's own date cell reads. `key` is dynamic (e.g. `week:3`) since the edge-gate just compares keys.
-type StickyTimelineGroup = {
+// Sticky-timeline bucket for the row scrolled to the top of the viewport (see the sticky-timeline
+// controller's `update`). Groups mirror the Date column's OWN `fromNow` relative-time families exactly
+// (same unit/threshold table, via `fromNowUnit`) — NOT calendar-midnight day buckets — so the pill never
+// disagrees with what a row's own date cell reads. `key` is dynamic (e.g. `week:3`) since the edge-gate
+// just compares keys.
+export type StickyTimelineGroup = {
 	key: string;
 	label: string;
 	/** Elapsed-ms window [lo, hi) this group covers, magnitude (days/weeks/… ago). `hi` undefined = an
@@ -366,7 +360,7 @@ type StickyTimelineGroup = {
 // so [lo,hi) exactly tiles what `fromNowUnit` actually produces — e.g. week:4's naive hi (35d) would
 // overshoot into where classification has already flipped to 'month' (~30.42d); year:1's naive lo (365d)
 // would undershoot into where it's still 'month' (year requires ~729d elapsed before it triggers at all).
-function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGroup {
+export function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGroup {
 	const day = unitDivisorMs('day');
 	// Future dates (clock skew, an intentionally future-dated commit) — no sensible "in N days" bucket;
 	// read as "now" like a Date cell showing a sub-day relative time would.
@@ -418,7 +412,8 @@ function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGr
 			// the threshold). `hi` deliberately stays undefined — stickyTimelineSpanFor reads that as
 			// "open-ended" and formats "before <date>" instead of a bounded range (a year group's window
 			// still gets a real reclassification bound, just computed separately — see
-			// updateStickyTimelineBucket, which can't reuse group.hi here without losing that formatting).
+			// the sticky-timeline controller's `update`, which can't reuse group.hi here without losing
+			// that formatting).
 			const lo = n <= 1 ? unitThresholdMs('year') : n * unitDivisorMs('year');
 			return { key: `year:${n}`, label: `${n} years ago`, lo: lo };
 		}
@@ -473,35 +468,6 @@ type ResolvedRefTarget = {
  *  column (tracks only — no card today, but the seam for a future lane/branch hover card). Threaded
  *  into the emitted `gl-graph-rowhover*` events' detail so the wrapper can forward it accurately. */
 type RowHoverZone = 'content' | 'graph';
-
-/**
- * Render-ready geometry for one chain-lane run (see `buildChainLaneBox`) — the pixel counterpart of a
- * `ChainLaneRun`, consumed by `syncChainLaneOverlay`.
- *
- * `top`/`height` are the CLIP CONTAINER's box (content px) — it always starts where the rule does and
- * spans down through the rule and, when present, the elbow. `ruleHeight` is the rule's OWN height within
- * that container (the rule always starts at the container's top, i.e. relative top 0, so no separate
- * offset is needed for it).
- */
-type ChainLaneBox = {
-	top: number;
-	height: number;
-	ruleHeight: number;
-	x: number;
-	color: string;
-	/** The reach into the run's fork point — present only for a `'fork'`-kind `ChainLaneExtension`; a
-	 *  `'clamp'` just makes the rule taller (`ruleHeight`/`height` above), with no elbow to draw. */
-	elbow?: {
-		height: number;
-		/** Absolute content-space px (NOT relative to the chain x) — see the CSS comment on
-		 *  `.gl-graph__chain-lane-elbow` for how these land the border precisely. */
-		left: number;
-		width: number;
-		/** Which side of the chain column the fork sits on — selects the `is-elbow-left`/`-right` CSS
-		 *  variant (which edge carries the vertical border + corner). */
-		direction: 'left' | 'right';
-	};
-};
 
 /** A keyboard peek request emitted as `gl-graph-rowpeek` — open/close the rich hover card on the FOCUSED
  *  row, or move an open one onto it. `open` is an out parameter: the wrapper (and the app behind it)
@@ -992,17 +958,27 @@ export class GlLitGraph extends LitElement {
 	// Direction to the pinned branch's row when it's scrolled OFF-screen (drives the floating "Jump to
 	// Pinned Branch" pill; the arrow points toward it). Undefined = no pinned ref, or it's in view.
 	@state() private pinnedPillDirection?: 'up' | 'down';
+	// One-time-bound closures over `this` feeding the sticky-timeline pill controller — built here
+	// (once) rather than per call so the scroll hot path stays allocation-free; see `StickyTimelineHost`.
+	private readonly _stickyTimelineHost: StickyTimelineHost = {
+		stickyTimelineEnabled: () => this.config?.stickyTimeline !== false,
+		nowMs: () => this.nowMs,
+		displayRows: () => this.displayRows,
+		rowHeight: () => this.rowHeight,
+		rowIndexAt: (scrollTop: number): number => this.rowIndexAt(scrollTop),
+		indexBySha: () => this.indexBySha,
+		liveScrollTop: () => this.virtualizerRef.value?.scrollTop,
+		lastScrollTop: () => this._lastScrollTop,
+		selectedShas: () => this.selectedShas,
+		focusIndex: () => this.focusIndex,
+		pointerRowSha: () => this.pointerRowSha,
+		hasPersistentActions: (row: ProcessedGraphRow): boolean => this.topRowHasPersistentActions(row),
+	};
 	// Sticky-timeline group for the row scrolled to the top (drives the seam pill) — updated from
 	// onScroll/onRangeChanged (same spot as the pill directions above), written ONLY on a group-key
 	// change so a scroll that stays within one group never re-renders. Undefined = not yet computed /
-	// feature off. `key` is dynamic (e.g. `week:3`) — see `StickyTimelineGroup`. One @state object (not
-	// three separate fields) since they're always read/written together.
-	@state() private stickyTimeline?: { key: string; label: string; span: string };
-	// The last classified group's elapsed WINDOW [lo, hi) (hi = +Infinity for year groups — see
-	// updateStickyTimelineBucket) — lets a call land back in the SAME window short-circuit before even
-	// building a new StickyTimelineGroup (skips the fromNowUnit walk entirely). Invalidated whenever
-	// `nowMs` is refreshed (the window is elapsed-relative, so it can go stale as real time passes).
-	private stickyTimelineWindow?: { key: string; lo: number; hi: number };
+	// feature off. Owned by the `StickyTimelineController`.
+	private readonly _stickyTimeline = new StickyTimelineController(this, this._stickyTimelineHost);
 	// User-set displayed width (px) of the graph column viewport, via the resize handle. Undefined =
 	// fit the lanes. Narrower than the lane content → the gutter scrolls horizontally (graphScrollX)
 	// instead of the lanes re-spacing. Session-scoped, matching `graphPlacement`.
@@ -1024,38 +1000,16 @@ export class GlLitGraph extends LitElement {
 	// (rare) bucket crossing that requires a re-render.
 	private renderedLaneWindow: LaneWindow | undefined;
 
-	// The chain-lane highlight overlay: one bright rule per contiguous same-column run of the active ref
-	// chain (`modifierChainShas` while Ctrl is held, else `refHoverChainShas`), painted OUTSIDE every row
-	// so `.is-dimmed`'s opacity can never dim it — see `syncChainLaneOverlay`. The runs are memoized on
-	// the identity of the active chain set + `displayRows` (same "for" pattern as `_scopeIdentityFor`
-	// above); the render-ready boxes are rebuilt every `updateRenderState` pass because they also bake in
-	// `rowHeight`/`columnWidth`, which can change without either identity changing.
-	private _chainLaneChainFor?: ReadonlySet<string>;
-	private _chainLaneRowsFor?: readonly ProcessedGraphRow[];
-	private _chainLaneRuns?: readonly ChainLaneRun[];
-	private _chainLaneOverlay?: readonly ChainLaneBox[];
-	// The DOM elements `syncChainLaneOverlay` currently owns (mirrors `_chainLaneOverlay` 1:1) + the key
-	// (`JSON.stringify` of the boxes, `undefined` = none) it last synced the DOM to — lets a no-op pass
-	// (idle renders, the overwhelming majority) skip touching the DOM entirely.
-	private _chainLaneOverlayEls: HTMLDivElement[] = [];
-	private _chainLaneOverlayKey: string | undefined;
+	// The chain-lane highlight overlay (see `ChainLaneOverlayController`): one bright rule per contiguous
+	// same-column run of the active ref chain (`modifierChainShas` while Ctrl is held, else
+	// `refHoverChainShas`), painted OUTSIDE every row so `.is-dimmed`'s opacity can never dim it — see
+	// `syncDom`. Its box set is recomputed in `updateRenderState`; its DOM is synced from `updated()`.
+
+	/** The chain-lane overlay's imperative owner (memoized runs + boxes + mounted DOM). */
+	private readonly _chainLaneOverlay = new ChainLaneOverlayController(this);
 
 	private virtualizerRef: Ref<LitVirtualizer> = createRef();
-	// Cached once true: whether the chain-lane overlay is safe to mount into the `<lit-virtualizer>`'s
-	// light DOM. It MUST carry `virtualizer-sizer` — Virtualizer 2.1.1's `_children` getter treats every
-	// child WITHOUT that attribute as a rendered item (node_modules/@lit-labs/virtualizer/Virtualizer.js:
-	// 443-453, SIZER_ATTRIBUTE :23) and `_positionChildren` indexes into that list by `index - this._first`
-	// (:516-523), so one un-excluded extra child shifts every row's position by one. `_getSizer()`
-	// (:220-245) lazily ADOPTS the first `[virtualizer-sizer]` child it finds in document order the first
-	// time it's called and overwrites its inline styles — if our overlay mounted before the virtualizer's
-	// own sizer exists, ours could be adopted instead. `disconnected()` never clears `_sizer` (:190-204),
-	// so this can only race on first layout, never on reconnect. The overlay is mounted IMPERATIVELY (see
-	// `syncChainLaneOverlay`), not as a declared template child: a declared `<lit-virtualizer>` child was
-	// tried first and verified LIVE to corrupt the virtualizer — its render part interleaves with the
-	// directive's own light-DOM part, and the child expression's flip from `nothing` to content cleared
-	// that part's committed rows (and the real sizer) along with it. Checked once per empty→non-empty
-	// transition via `querySelector`, not every pass.
-	private _chainOverlayMountSafe = false;
+
 	// The outer viewport — a plain layout/delegation container (header + rows tree + overlays). Not the
 	// focus/tree host: `role=tree`/`tabindex`/keyboard nav live on the inner `.gl-graph__tree` (treeRef)
 	// so the header, a preceding sibling, tabs FIRST. Kept for click/pointer delegation + overlay geometry.
@@ -1186,7 +1140,8 @@ export class GlLitGraph extends LitElement {
 		// visual: it says "this is uncommitted, everything below is history". `stickyTimelineGroupKeyFor`
 		// (the allocation-free sibling of `stickyTimelineGroupFor` — no object/label/lo/hi built) is pure
 		// arithmetic off the per-render-cached `nowMs`; the full group is built ONLY in
-		// `updateStickyTimelineBucket`, which runs far less often than once-per-visible-row-per-render.
+		// the sticky-timeline controller's `update`, which runs far less often than
+		// once-per-visible-row-per-render.
 		const prevRowDate = index > 0 ? this.displayRows[index - 1]?.date : undefined;
 		const isBucketBoundary =
 			this.config?.timelineSeparators !== false &&
@@ -1609,13 +1564,6 @@ export class GlLitGraph extends LitElement {
 	// allocation-free per row/scroll event while still tracking real time closely enough that a bucket
 	// crossing (e.g. a 6-day-old top row rolling into "Last week") shows up on an otherwise-idle graph.
 	private nowMs = Date.now();
-	private stickyTimelineRef: Ref<HTMLElement> = createRef();
-	// Toggles the sticky-timeline pill's expanded state for the ~900ms after the last scroll (idempotent
-	// add per scroll; a trailing debounce removes it once scrolling settles) — CSSOM only, so a scroll
-	// burst never re-renders. Mirrors `clearScrolling`'s idle-clear idiom.
-	private readonly clearStickyTimelineScrollActive = debounce((): void => {
-		this.stickyTimelineRef.value?.classList.remove('is-scroll-active');
-	}, 900);
 	// Teardown for an in-flight column-resize drag (window listeners + RAF live outside the
 	// element, so they must be cleaned up explicitly if the element disconnects mid-drag).
 	private resizeDragCleanup?: () => void;
@@ -1747,9 +1695,6 @@ export class GlLitGraph extends LitElement {
 		this.resizeObserver = undefined;
 		this.virtualizerRef.value?.removeEventListener('scroll', this.onScroll);
 		this.clearScrolling.cancel();
-		this.clearStickyTimelineScrollActive.cancel();
-		this.stickyTimeline = undefined;
-		this.stickyTimelineWindow = undefined;
 		this.scanVisibleRangeDebounced.cancel();
 		if (this.avatarErrorFlushTimer != null) {
 			clearTimeout(this.avatarErrorFlushTimer);
@@ -1782,23 +1727,9 @@ export class GlLitGraph extends LitElement {
 		this._pinnedRefSha = undefined;
 		this.hoveredPillRef = undefined;
 		this.modifierChainShas = undefined;
-		// The overlay's DOM goes away with the (detached) virtualizer — drop our references and the
-		// mount-safety latch so a reconnect re-checks the new virtualizer's sizer and remounts cleanly
-		// instead of trusting stale state from the old one.
-		this._chainLaneOverlayEls = [];
-		this._chainLaneOverlayKey = undefined;
-		this._chainOverlayMountSafe = false;
 		// The scrollbar's DOM goes away with the disconnect — drop the cached element so a reconnect
 		// re-resolves it on first use instead of trusting the detached node.
 		this.hScrollEl = undefined;
-		if (this.tooltipShowTimer != null) {
-			clearTimeout(this.tooltipShowTimer);
-			this.tooltipShowTimer = undefined;
-		}
-		if (this.tooltipHideTimer != null) {
-			clearTimeout(this.tooltipHideTimer);
-			this.tooltipHideTimer = undefined;
-		}
 		this.cancelPendingHoldEngage();
 		this.emitRowHover.cancel();
 		// Cancel any scheduled rAFs so their callbacks can't run against the detached instance.
@@ -2042,12 +1973,9 @@ export class GlLitGraph extends LitElement {
 			// `stickyTimeline` propagates live: OFF hides immediately; ON (first load or re-enabled)
 			// computes right away from the current scroll position instead of waiting for the next scroll.
 			if (this.config?.stickyTimeline === false) {
-				if (this.stickyTimeline != null) {
-					this.stickyTimeline = undefined;
-					this.stickyTimelineWindow = undefined;
-				}
-			} else if (this.stickyTimeline == null) {
-				this.recomputeStickyTimelineBucket();
+				this._stickyTimeline.clear();
+			} else if (!this._stickyTimeline.hasBucket) {
+				this._stickyTimeline.recompute();
 			}
 		}
 
@@ -2362,7 +2290,7 @@ export class GlLitGraph extends LitElement {
 		// (selection round-trip in this method above, ~8 onKeydown branches, onClick, jump-to-HEAD/
 		// -pinned, Tab-in focus...). Hover is the one input that does NOT flow through here (see
 		// handleRowHover/endRowHover) since hover never triggers a Lit render at all.
-		this.updateStickyTimelineYield();
+		this._stickyTimeline.updateYield();
 	}
 
 	// Visible content zones: refs only shows as a column when `refsPlacement === 'column'` (else it's
@@ -2693,27 +2621,22 @@ export class GlLitGraph extends LitElement {
 		// Chain-lane highlight overlay: one bright rule per contiguous same-column run of the active ref
 		// chain (the Ctrl-hold transient wins over the click-pin — same precedence as `inRefChainShas`
 		// above), painted OUTSIDE every row so `.is-dimmed`'s opacity can never dim it (see
-		// `syncChainLaneOverlay`, called from `updated()`). No overlay when nothing's chained, the graph
+		// `syncDom`, called from `updated()`). No overlay when nothing's chained, the graph
 		// column is hidden (no lanes to draw on), or the lanes are collapsed onto a single column (a
-		// run-spanning rule would then cross OTHER commits' dots sharing that x). The RUNS are memoized on
-		// the chain-set + displayRows identity (`_chainLane*For`, same pattern as `_scopeIdentityFor`) —
-		// the O(chain) walk reruns only when a chain is set/cleared or displayRows swaps (paging, lane
-		// collapse/expand, filter). The render-ready BOXES are rebuilt every pass (≤2 runs, trivial): they
-		// bake in `rowHeight` (zoom/DPR) and `columnWidth` (density), which can change without either memo
-		// identity changing — and the gate below must not poison the memo, or leaving single-column mode
-		// with the same chain would never restore the overlay.
+		// run-spanning rule would then cross OTHER commits' dots sharing that x). The controller memoizes
+		// the RUNS on the chain-set + displayRows identity — the O(chain) walk reruns only when a chain is
+		// set/cleared or displayRows swaps (paging, lane collapse/expand, filter) — and rebuilds the
+		// render-ready BOXES every pass (≤2 runs, trivial): they bake in `rowHeight` (zoom/DPR) and
+		// `columnWidth` (density), which can change without either memo identity changing. Clearing on the
+		// gate below must not poison the memo, or leaving single-column mode with the same chain would
+		// never restore the overlay.
 		const activeChain = this.modifierChainShas ?? this.refHoverChainShas;
-		if (activeChain == null || this.graphPlacement === 'hidden' || this.singleColumn) {
-			this._chainLaneOverlay = undefined;
-		} else {
-			if (this._chainLaneChainFor !== activeChain || this._chainLaneRowsFor !== rows) {
-				this._chainLaneChainFor = activeChain;
-				this._chainLaneRowsFor = rows;
-				this._chainLaneRuns = computeChainLaneRuns(activeChain, this.indexBySha, rows);
-			}
-
-			this._chainLaneOverlay = this._chainLaneRuns?.map(run => this.buildChainLaneBox(run));
-		}
+		this._chainLaneOverlay.update(
+			activeChain != null && this.graphPlacement !== 'hidden' && !this.singleColumn ? activeChain : undefined,
+			rows,
+			this.indexBySha,
+			{ rowHeight: this.rowHeight, columnWidth: this.columnWidth, nodeSizingMode: this.nodeSizingMode },
+		);
 		this.style.setProperty('--graph-hscroll-thumb', `${thumb}px`);
 		this.style.setProperty('--graph-hscroll-left', `${graphHScrollLeftPx(this.graphScrollX, max, travel)}px`);
 		// Pass-through raster layer's h-scroll translate + edge-fade mask gates — set on the render path too so
@@ -2733,60 +2656,6 @@ export class GlLitGraph extends LitElement {
 		// beside the dots). RIGHT trails by just the node clearance (radius + a hair).
 		this.style.setProperty('--gutter-pin-x', `${xForColumn(0, this.columnWidth)}px`);
 		this.style.setProperty('--gutter-inset', `${nodeRadiusFor(this.nodeSizingMode, this.rowHeight) + 2}px`);
-	}
-
-	// Converts one `ChainLaneRun` (display-row indices + an optional fork `extension`) into the
-	// render-ready pixel geometry `syncChainLaneOverlay` mounts. Kept OUT of `updateRenderState` (a thin
-	// per-run map) so the elbow's border-centering math has room to be commented properly.
-	private buildChainLaneBox(run: ChainLaneRun): ChainLaneBox {
-		const rowHeight = this.rowHeight;
-		const top = (run.startIndex + 0.5) * rowHeight; // the tip dot's center
-		const x = xForColumn(run.column, this.columnWidth);
-		const color = colorForColumn(run.column);
-		// Default: the rule ends at the last chained row's dot center (matches the pre-extension geometry).
-		let ruleHeight = (run.endIndex - run.startIndex) * rowHeight;
-
-		if (run.extension?.kind === 'clamp') {
-			// No elbow — the engine's own art doesn't lead anywhere further, so neither does the rule. Just
-			// a taller vertical stub, reaching the TOP of the row where continuity broke.
-			ruleHeight = run.extension.clampIndex * rowHeight - top;
-		}
-
-		if (run.extension?.kind !== 'fork') {
-			return { top: top, height: ruleHeight, ruleHeight: ruleHeight, x: x, color: color };
-		}
-
-		const { forkIndex, forkColumn } = run.extension;
-		const forkX = xForColumn(forkColumn, this.columnWidth);
-		const direction: 'left' | 'right' = forkX < x ? 'left' : 'right';
-		// Keep the horizontal segment off the fork row's own (possibly dimmed) dot — the same clearance
-		// the live gutter pin uses for `--gutter-inset` above.
-		const inset = nodeRadiusFor(this.nodeSizingMode, rowHeight) + 2;
-		// `border-box` sizing: a border paints INWARD from its box's outer edge by its own width, so its
-		// visual centerline sits half a width in from that edge (0.2rem / 2 = 0.1rem = 1px at 1rem=10px —
-		// the SAME half-width the rule's translate subtracts to center itself on `x`). Whichever edge
-		// carries the CHAIN-side vertical border is offset by that 1px so its centerline lands exactly on
-		// `x`; the FORK-side edge is inset off the fork's dot instead, not centered on anything.
-		const halfBorderPx = 1;
-		const left = direction === 'left' ? forkX + inset : x - halfBorderPx;
-		const right = direction === 'left' ? x + halfBorderPx : forkX - inset;
-		const elbowHeight = (forkIndex - run.endIndex) * rowHeight; // ends at the fork row's dot center
-
-		return {
-			top: top,
-			// The container spans the rule AND the elbow beneath it — `syncChainLaneOverlay` clips both to
-			// this one box.
-			height: ruleHeight + elbowHeight,
-			ruleHeight: ruleHeight,
-			x: x,
-			color: color,
-			elbow: {
-				height: elbowHeight,
-				left: left,
-				width: Math.max(0, right - left),
-				direction: direction,
-			},
-		};
 	}
 
 	// Lane BUILD window for the current scroll offset — active exactly when the clamp is (column-overflow
@@ -3762,30 +3631,16 @@ export class GlLitGraph extends LitElement {
 		}
 	}
 
-	// Shared delegated tooltip: ONE <gl-popover trigger="manual"> retargeted per hover instead of a
-	// tooltip per cell — rows carry a plain `data-tooltip` string and the host anchors + shows the
-	// single popover. Keeps the rich GitLens tooltip styling without adding a tooltip to every row.
-	private tooltipPopoverRef = createRef<GlPopover>();
-	@state() private tooltipAnchor?: HTMLElement;
-	// Open state is DECOUPLED from the anchor: on hide we flip `tooltipOpen` to false but KEEP the anchor
-	// until the close settles. Nulling the anchor while still open made the popover reposition to the
-	// webview's top-left corner (no reference) as it animated out — especially the jump tooltip, whose
-	// anchor (the expand overlay's copy) loses its layout box the instant the pill un-hovers.
-	@state() private tooltipOpen = false;
-	@state() private tooltipText = '';
-	@state() private tooltipIcon = '';
-	// Ordered icon+label list for multi-marker tooltips (a scroll-rail row band). Mutually exclusive
-	// with the scalar text/icon path: whichever a show* call sets, it clears the other.
-	@state() private tooltipEntries: readonly { icon: string; label: string }[] = [];
-	// Rich tooltip body (a template) — for tooltips that need an INLINE icon mid-text (e.g. the split
-	// pill's "Jump to ☁ origin/main"), which the scalar leading-icon path can't express. Mutually
-	// exclusive with the text/icon and entries paths.
-	@state() private tooltipContent?: TemplateResult;
-	@state() private tooltipPlacement: 'top' | 'left' = 'top';
+	// Shared delegated tooltip — see `DelegatedTooltipController`. Its state (anchor, open flag,
+	// content variants, show/hide timers) and its `<gl-popover>` render live there; the element keeps
+	// only the delegated pointer/focus routing that feeds it.
+	private readonly _tooltip = new DelegatedTooltipController(this, {
+		isDraggingColumn: (): boolean => this.draggingColumn,
+		scrollMarkerRows: (): readonly RowMarkers[] => this.scrollMarkerRows,
+		refsMetadata: (): GraphRefsMetadata | null | undefined => this.refsMetadata,
+	});
 	// Index of the scroll-marker row nearest the cursor (drives `.is-hovered` → primary expand).
 	@state() private hoveredMarkerIndex?: number;
-	private tooltipShowTimer?: ReturnType<typeof setTimeout>;
-	private tooltipHideTimer?: ReturnType<typeof setTimeout>;
 
 	// Full-row rich hover: the host detects row entry via delegated pointer events and emits
 	// decoupled `gl-graph-rowhover*` events; the wrapper translates them into the existing GraphHover
@@ -3796,7 +3651,7 @@ export class GlLitGraph extends LitElement {
 	// The row the pointer is physically over — its content OR its right-edge action buttons/affordances,
 	// which carry their own `data-tooltip` and so route through the affordance branch of
 	// `onPointerOverTooltip` that cancels the rich-hover card (clearing `hoveredRowSha`). Tracked
-	// separately so the sticky-timeline pill's yield (`updateStickyTimelineYield`) survives that cancel:
+	// separately so the sticky-timeline pill's yield (the controller's `updateYield`) survives that cancel:
 	// the pill rides exactly over the topmost row's action strip and must stay hidden while the pointer
 	// is on those buttons instead of flickering back on top of them.
 	private pointerRowSha?: string;
@@ -3908,7 +3763,7 @@ export class GlLitGraph extends LitElement {
 
 		if (pointerRowSha !== this.pointerRowSha) {
 			this.pointerRowSha = pointerRowSha;
-			this.updateStickyTimelineYield();
+			this._stickyTimeline.updateYield();
 		}
 
 		// Track which pill (if any) is under the pointer on EVERY move — feeds `togglePinnedRef` (a press
@@ -3945,147 +3800,36 @@ export class GlLitGraph extends LitElement {
 			event.target.closest('.gl-graph__row-marker-rail, .gl-graph__row-marker-hit') != null
 		) {
 			this.handleRowHover(event);
-			const railTarget = this.closestTooltipTarget(event.target);
+			const railTarget = this._tooltip.closestTarget(event.target);
 			if (railTarget != null) {
-				this.showTooltipForTarget(railTarget);
+				this._tooltip.showForTarget(railTarget);
 			} else {
-				this.scheduleHideTooltip();
+				this._tooltip.scheduleHide();
 			}
 			return;
 		}
 
-		const target = this.closestTooltipTarget(event.target);
+		const target = this._tooltip.closestTarget(event.target);
 		// Row entry → rich hover (only when NOT over a small affordance with its own tooltip, and
 		// not over a ref pill, which has its own popover). Keeps tooltip + rich hover exclusive.
 		if (target == null) {
 			this.handleRowHover(event);
-			this.scheduleHideTooltip();
+			this._tooltip.scheduleHide();
 			return;
 		}
 
 		// Over a tooltip affordance: cancel any pending/active row hover so the two never co-show.
 		this.cancelRowHover();
-		this.showTooltipForTarget(target);
+		this._tooltip.showForTarget(target);
 	};
-
-	// Resolve + show the delegated tooltip for a `data-tooltip`/`data-tooltip-row` element. Shared by the
-	// pointer (`onPointerOverTooltip`) and keyboard (`showTooltipForFocus`) paths.
-	private showTooltipForTarget(target: HTMLElement): void {
-		if (target === this.tooltipAnchor) {
-			// Re-entering the same anchor (still open, or just-closed within the keep window): cancel the
-			// pending hide/clear and re-open in place — content is still set, so no re-fetch/flash. Also
-			// dedupes a coincident hover+focus on one element (the host anchors one tooltip at a time).
-			if (this.tooltipHideTimer != null) {
-				clearTimeout(this.tooltipHideTimer);
-				this.tooltipHideTimer = undefined;
-			}
-			this.tooltipOpen = true;
-
-			return;
-		}
-
-		// Scroll-rail row band: show ONE tooltip listing all of the row's markers, in lane order.
-		const rowAttr = target.dataset.tooltipRow;
-		if (rowAttr != null) {
-			const row = this.scrollMarkerRows.find(r => r.index === Number(rowAttr));
-			const entries =
-				row?.entries.filter(e => e.label.length > 0).map(e => ({ icon: e.icon, label: e.label })) ?? [];
-			if (entries.length === 0) {
-				this.scheduleHideTooltip();
-				return;
-			}
-
-			this.showTooltipList(target, entries, 'left', 60);
-			return;
-		}
-
-		// PR/issue chips: the card is rendered from the ref's live metadata rather than duplicated into the
-		// DOM per chip, so it resolves here instead of coming in as a `data-tooltip` string.
-		//
-		// Matched on the two metadata types that HAVE a card — `data-ref-metadata-type` is older than this
-		// path and also marks the upstream and merge-target segments (for double-click routing), which carry
-		// ordinary `data-tooltip` strings. Claiming every element with the attribute swallowed their
-		// tooltips. A chip whose metadata has since been invalidated falls through too, and the generic
-		// path below hides it.
-		const metadataType = target.dataset.refMetadataType;
-		if (metadataType === 'pullRequest' || metadataType === 'issue') {
-			const content = this.resolveRefMetadataTooltip(metadataType, target.dataset.refId);
-			if (content != null) {
-				this.showTooltipContent(target, content, 'top', 280);
-				return;
-			}
-		}
-
-		const text = target.dataset.tooltip ?? '';
-		if (text.length === 0) {
-			this.scheduleHideTooltip();
-			return;
-		}
-
-		// Targets can opt into a side placement (e.g. the right-edge scroll markers anchor to the
-		// LEFT), a leading icon (codicon name), and a faster reveal — those show near-instantly;
-		// row-cell tooltips keep the longer dwell so they don't flash while scanning.
-		const placement = target.dataset.tooltipPlacement === 'left' ? 'left' : 'top';
-		const delay = placement === 'left' ? 60 : 280;
-		const icon = target.dataset.tooltipIcon ?? '';
-		// `data-tooltip-action` opts into an INLINE icon: "<action> <icon> <text>" (the glyph stands in
-		// for a word — e.g. the split pill's cloud=Upstream / vm=Local). The accessible name stays in
-		// the element's aria-label, which spells the word out for screen readers.
-		const action = target.dataset.tooltipAction;
-		if (action != null && action.length > 0 && icon.length > 0) {
-			this.showTooltipContent(
-				target,
-				html`${action}
-					<code-icon class="gl-graph__tooltip-icon" icon=${icon}></code-icon>
-					${text}`,
-				placement,
-				delay,
-			);
-			return;
-		}
-
-		this.showTooltip(target, text, icon, placement, delay);
-	}
-
-	// Keyboard focus → same delegated tooltip resolver. Cheap + delegated (rides the viewport `focusin`).
-	private showTooltipForFocus(event: FocusEvent): void {
-		if (this.draggingColumn) return;
-
-		const target = this.closestTooltipTarget(event.target);
-		if (target == null) return;
-		// The mode-picker strip labels itself (aria + is-current highlight) — a tooltip popping over the
-		// just-opened menu from its own programmatic focus is noise, not help.
-		if (target.closest('.gl-graph__changes-mode-strip') != null) return;
-
-		// A focused pill sub-chip is hidden behind the expand overlay; anchor to its visible twin instead.
-		this.showTooltipForTarget(this.expandedTwinIfCovered(target));
-	}
-
-	/** When `target` is a pill sub-chip covered by the (shown) expand overlay, return its visible twin inside
-	 *  `.gl-graph__ref-pill-expand` so a keyboard tooltip anchors to what's on screen, not the covered copy. */
-	private expandedTwinIfCovered(target: HTMLElement): HTMLElement {
-		const pill = target.closest<HTMLElement>('.gl-graph__ref-pill');
-		if (pill == null || target.closest('.gl-graph__ref-pill-expand') != null) return target;
-
-		const expand = pill.querySelector<HTMLElement>('.gl-graph__ref-pill-expand');
-		if (expand == null || getComputedStyle(expand).display === 'none') return target;
-
-		// The pill's tooltip-bearing segments: the upstream half (jump / status, a `data-tooltip` string) and
-		// the PR / issue chips (a card resolved from `refsMetadata`). Each has a twin inside -expand.
-		const segment = pillTooltipSegmentClasses.find(c => target.classList.contains(c));
-		const twin = segment != null ? expand.querySelector<HTMLElement>(`.${segment}`) : null;
-
-		return twin ?? target;
-	}
 
 	private readonly onPointerOutTooltip = (event: PointerEvent): void => {
 		// Only react when the pointer actually leaves the current anchor (not when moving to a child).
-		const related = event.relatedTarget;
-		if (this.tooltipAnchor != null && related instanceof Node && this.tooltipAnchor.contains(related)) {
-			return;
-		}
+		if (this._tooltip.isPointerOutWithinAnchor(event)) return;
 
-		this.scheduleHideTooltip();
+		this._tooltip.scheduleHide();
+
+		const related = event.relatedTarget;
 
 		// Leaving the viewport entirely → end the row hover. (The ref focus chain is click-pinned now,
 		// so it deliberately persists across hover-out.)
@@ -4098,7 +3842,7 @@ export class GlLitGraph extends LitElement {
 			this.hoveredPillRef = undefined;
 			if (this.pointerRowSha != null) {
 				this.pointerRowSha = undefined;
-				this.updateStickyTimelineYield();
+				this._stickyTimeline.updateYield();
 			}
 			this.endRowHover(related ?? null);
 			// With the pointer outside the viewport the modifier tracker sees no further pointer events, so a
@@ -4493,130 +4237,6 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
-	}
-
-	/** The hover card for a PR/issue chip, resolved from the same `refsMetadata` the chip was rendered from.
-	 *  Undefined when the metadata has since been invalidated — the chip outlives a refresh by a frame. */
-	private resolveRefMetadataTooltip(type: string, refId: string | undefined): TemplateResult | undefined {
-		if (refId == null) return undefined;
-
-		const metadata = this.refsMetadata?.[refId];
-		if (metadata == null) return undefined;
-
-		if (type === 'pullRequest') {
-			const pr = metadata.pullRequest?.[0];
-			return pr != null ? renderPullRequestTooltipCard(pr) : undefined;
-		}
-		if (type === 'issue') {
-			const issue = metadata.issue?.[0];
-			return issue != null ? renderIssueTooltipCard(issue) : undefined;
-		}
-		return undefined;
-	}
-
-	private closestTooltipTarget(node: EventTarget | null): HTMLElement | undefined {
-		if (!(node instanceof Element)) return undefined;
-
-		// Match scalar tooltips (`data-tooltip`) AND multi-marker rail bands (`data-tooltip-row`) — the
-		// band has no `data-tooltip` string, so without this it would resolve to null and the rail
-		// hover would spuriously fire the row-hover card instead of the marker tooltip.
-		// `data-ref-metadata-type` joins them: the PR/issue chips carry no tooltip STRING — their card is
-		// built from the ref's metadata at hover time — so without this they'd resolve to null and the row
-		// hover card would fire over the chip instead.
-		const el = node.closest<HTMLElement>('[data-tooltip], [data-tooltip-row], [data-ref-metadata-type]');
-		return el ?? undefined;
-	}
-
-	// Scalar tooltip (one icon + one text string) — used by row cells, lane-fold chips, WIP stats.
-	private showTooltip(
-		anchor: HTMLElement,
-		text: string,
-		icon: string,
-		placement: 'top' | 'left',
-		delay: number,
-	): void {
-		this.scheduleTooltip(anchor, placement, delay, () => {
-			this.tooltipIcon = icon;
-			this.tooltipText = text;
-			this.tooltipEntries = [];
-			this.tooltipContent = undefined;
-		});
-	}
-
-	// Rich tooltip (a template with an inline icon). Mutually exclusive with the scalar/list paths.
-	private showTooltipContent(
-		anchor: HTMLElement,
-		content: TemplateResult,
-		placement: 'top' | 'left',
-		delay: number,
-	): void {
-		this.scheduleTooltip(anchor, placement, delay, () => {
-			this.tooltipIcon = '';
-			this.tooltipText = '';
-			this.tooltipEntries = [];
-			this.tooltipContent = content;
-		});
-	}
-
-	// List tooltip (an ordered icon+label list) — used by the scroll-rail row band to show every
-	// marker on the row at once. Mutually exclusive with the scalar path (clears text/icon).
-	private showTooltipList(
-		anchor: HTMLElement,
-		entries: readonly { icon: string; label: string }[],
-		placement: 'top' | 'left',
-		delay: number,
-	): void {
-		this.scheduleTooltip(anchor, placement, delay, () => {
-			this.tooltipText = '';
-			this.tooltipIcon = '';
-			this.tooltipEntries = entries;
-			this.tooltipContent = undefined;
-		});
-	}
-
-	private scheduleTooltip(anchor: HTMLElement, placement: 'top' | 'left', delay: number, apply: () => void): void {
-		if (this.tooltipHideTimer != null) {
-			clearTimeout(this.tooltipHideTimer);
-			this.tooltipHideTimer = undefined;
-		}
-
-		// Re-anchoring an open popover doesn't always reposition cleanly, so close-then-open on a
-		// short delay — also debounces rapid passes over many cells so we don't flash per row.
-		const open = (): void => {
-			this.tooltipShowTimer = undefined;
-			this.tooltipPlacement = placement;
-			this.tooltipAnchor = anchor;
-			this.tooltipOpen = true;
-			apply();
-		};
-		// Close the current popover (keep its anchor for a clean in-place close) before reopening.
-		this.tooltipOpen = false;
-
-		if (this.tooltipShowTimer != null) {
-			clearTimeout(this.tooltipShowTimer);
-		}
-
-		this.tooltipShowTimer = setTimeout(open, delay);
-	}
-
-	private scheduleHideTooltip(): void {
-		if (this.tooltipShowTimer != null) {
-			clearTimeout(this.tooltipShowTimer);
-			this.tooltipShowTimer = undefined;
-		}
-		if (!this.tooltipOpen || this.tooltipHideTimer != null) return;
-
-		// Close IMMEDIATELY (so the popover stops tracking and animates out from its current spot — not from
-		// the corner once its anchor's box vanishes), but keep the anchor + content briefly so re-entering
-		// the same element reopens cleanly.
-		this.tooltipOpen = false;
-		this.tooltipHideTimer = setTimeout(() => {
-			this.tooltipHideTimer = undefined;
-			this.tooltipAnchor = undefined;
-			this.tooltipText = '';
-			this.tooltipEntries = [];
-			this.tooltipContent = undefined;
-		}, 120);
 	}
 
 	private rebuildWipStatsProvider(): void {
@@ -5308,10 +4928,10 @@ export class GlLitGraph extends LitElement {
 		// Sticky-timeline groups are purely elapsed-based (see stickyTimelineGroupFor) — an otherwise-idle
 		// graph's group can drift as real time passes (e.g. a 6-day-old top row rolling into "Last week"),
 		// so recompute it on every tick regardless of dateStyle. Refresh `nowMs` first so the recompute
-		// doesn't read a stale cached value. Still edge-gated inside `updateStickyTimelineBucket`/its
+		// doesn't read a stale cached value. Still edge-gated inside the pill controller's `update`/its
 		// window cache, so this is a no-op unless a boundary was actually crossed.
 		this.nowMs = Date.now();
-		this.recomputeStickyTimelineBucket();
+		this._stickyTimeline.recompute();
 	};
 
 	// Becoming visible again while the timer is active refreshes immediately instead of waiting up to
@@ -5324,87 +4944,8 @@ export class GlLitGraph extends LitElement {
 			this.requestUpdate();
 		}
 		this.nowMs = Date.now();
-		this.recomputeStickyTimelineBucket();
+		this._stickyTimeline.recompute();
 	};
-
-	// The chain-lane highlight overlay is mounted IMPERATIVELY (not as a declared `<lit-virtualizer>`
-	// template child) — verified live: a declared child interleaves with the virtualize directive's OWN
-	// light-DOM render part, and the child expression's re-render from `nothing` to content cleared that
-	// part's committed nodes too, wiping every row (and the virtualizer's real sizer) the moment the chain
-	// activated. Imperative DOM ownership (same strategy the virtualizer uses for its own sizer, see
-	// `_chainOverlayMountSafe` below) never touches Lit's parts, so it can't collide with them.
-	// Called from `updated()` every pass; short-circuits on an unchanged `_chainLaneOverlay` (via
-	// `_chainLaneOverlayKey`), so idle renders (the overwhelming majority — no active chain) do nothing.
-	private syncChainLaneOverlay(): void {
-		const boxes = this._chainLaneOverlay ?? [];
-		const key = boxes.length === 0 ? undefined : JSON.stringify(boxes);
-		if (key === this._chainLaneOverlayKey) return;
-
-		for (const el of this._chainLaneOverlayEls) {
-			el.remove();
-		}
-		this._chainLaneOverlayEls = [];
-
-		if (key == null) {
-			this._chainLaneOverlayKey = key;
-			return;
-		}
-
-		const v = this.virtualizerRef.value;
-		// No virtualizer yet — leave the key UNSET so the next `updated()` pass retries from scratch
-		// instead of silently giving up on this box set.
-		if (v == null) return;
-
-		if (!this._chainOverlayMountSafe) {
-			// The virtualizer hasn't adopted its own sizer yet (first layout pass) — mounting now risks OUR
-			// `[virtualizer-sizer]` element being adopted instead (`_getSizer()`, Virtualizer.js:220-245,
-			// lazily adopts the FIRST such child in document order). `:not(.gl-graph__chain-lane)` excludes
-			// our own elements from a PRIOR successful mount so a later re-check can't be fooled by them.
-			// Leave the key unset here too — this pass didn't mount anything, so it must retry.
-			if (v.querySelector(':scope > [virtualizer-sizer]:not(.gl-graph__chain-lane)') == null) {
-				void v.layoutComplete?.then(() => this.requestUpdate());
-				return;
-			}
-
-			this._chainOverlayMountSafe = true;
-		}
-
-		for (const box of boxes) {
-			const el = document.createElement('div');
-			el.className = 'gl-graph__chain-lane';
-			el.setAttribute('virtualizer-sizer', '');
-			el.setAttribute('aria-hidden', 'true');
-			el.style.top = `${box.top}px`;
-			el.style.height = `${box.height}px`;
-			// `--chain-lane-color` inherits down to the rule AND the elbow below — set once here, not per
-			// child.
-			el.style.setProperty('--chain-lane-x', `${box.x}px`);
-			el.style.setProperty('--chain-lane-color', box.color);
-
-			const rule = document.createElement('div');
-			rule.className = 'gl-graph__chain-lane-rule';
-			rule.style.height = `${box.ruleHeight}px`;
-			el.append(rule);
-
-			if (box.elbow != null) {
-				const elbow = document.createElement('div');
-				elbow.className = `gl-graph__chain-lane-elbow ${box.elbow.direction === 'left' ? 'is-elbow-left' : 'is-elbow-right'}`;
-				// The elbow starts where the rule ends.
-				elbow.style.top = `${box.ruleHeight}px`;
-				elbow.style.height = `${box.elbow.height}px`;
-				elbow.style.left = `${box.elbow.left}px`;
-				elbow.style.width = `${box.elbow.width}px`;
-				el.append(elbow);
-			}
-
-			// FIRST child, not appended — DOM order is paint order among these z-index:auto positioned
-			// siblings, and the rule/elbow must paint UNDER the rows (see the class comment in graph.scss).
-			v.insertBefore(el, v.firstChild);
-			this._chainLaneOverlayEls.push(el);
-		}
-
-		this._chainLaneOverlayKey = key;
-	}
 
 	// Loading / empty overlay shown over the (empty) lane area. State discrimination is deliberate to
 	// avoid the sticky "No commits" cold-load trap: while `loading` OR before the host's first row push
@@ -5649,7 +5190,7 @@ export class GlLitGraph extends LitElement {
 						}
 					></lit-virtualizer>
 				</div>
-				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}${this.renderRefFind()}
+				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this._stickyTimeline.render()}${this.renderHScrollbar()}${this.renderChangesModePopover()}${this.renderRefFind()}
 			</div>
 			${this.renderSearchFooter()}
 			<span
@@ -5659,47 +5200,7 @@ export class GlLitGraph extends LitElement {
 				aria-live="polite"
 				aria-atomic="true"
 			></span>
-			<gl-popover
-				${ref(this.tooltipPopoverRef)}
-				class="gl-graph__tooltip${this.tooltipEntries.length > 0 ? ' is-list' : ''}"
-				trigger="manual"
-				placement=${this.tooltipPlacement}
-				?arrow=${this.tooltipEntries.length === 0}
-				.distance=${this.tooltipEntries.length > 0 ? 4 : 6}
-				.anchor=${this.tooltipAnchor}
-				.open=${this.tooltipOpen}
-			>
-				<span slot="anchor"></span>
-				<span
-					slot="content"
-					class="gl-graph__tooltip-content${this.tooltipEntries.length > 0 ? ' is-list' : ''}"
-					>${
-						this.tooltipContent ??
-						(this.tooltipEntries.length > 0
-							? this.tooltipEntries.map(
-									e =>
-										html`<span class="gl-graph__tooltip-row"
-											>${
-												e.icon.length > 0
-													? html`<code-icon
-															class="gl-graph__tooltip-icon"
-															icon=${e.icon}
-														></code-icon>`
-													: nothing
-											}<span>${e.label}</span></span
-										>`,
-								)
-							: html`${
-									this.tooltipIcon.length > 0
-										? html`<code-icon
-												class="gl-graph__tooltip-icon"
-												icon=${this.tooltipIcon}
-											></code-icon>`
-										: nothing
-								}${this.tooltipText}`)
-					}</span
-				>
-			</gl-popover>
+			${this._tooltip.render()}
 		`;
 	}
 
@@ -5799,22 +5300,6 @@ export class GlLitGraph extends LitElement {
 				><span class="gl-graph__pinned-pill-name">${name ?? 'Pinned'}</span></span
 			>
 		</button>`;
-	}
-
-	// Sticky-timeline pill: rides the header/first-row seam, showing which relative-time group (Today /
-	// Yesterday / This week / Last week / N weeks ago / …) — mirroring the Date column's OWN `fromNow`
-	// families — the topmost visible row falls in (see `updateStickyTimelineBucket`). AT REST it's just
-	// the label; scrolling or hovering widens the SAME pill in place (native `:hover` + the JS-toggled
-	// `is-scroll-active` class in `onScroll` — CSS alone drives the reveal, see graph.scss). Not a
-	// button — purely informational, so no click handler/tabstop.
-	private renderStickyTimeline(): TemplateResult | typeof nothing {
-		if (this.config?.stickyTimeline === false || this.stickyTimeline == null) return nothing;
-
-		return html`<div ${ref(this.stickyTimelineRef)} class="gl-graph__sticky-timeline" aria-hidden="true">
-			<code-icon class="gl-graph__sticky-timeline-icon" icon="calendar"></code-icon>
-			<span class="gl-graph__sticky-timeline-label">${this.stickyTimeline.label}</span>
-			<span class="gl-graph__sticky-timeline-span">${this.stickyTimeline.span}</span>
-		</div>`;
 	}
 
 	// The rail's row scale, from its per-row fraction `rowPx`. Drawing (`renderScrollMarkers`) and
@@ -6045,7 +5530,7 @@ export class GlLitGraph extends LitElement {
 				if (this.hoveredMarkerIndex != null) {
 					this.hoveredMarkerIndex = undefined;
 				}
-				this.scheduleHideTooltip();
+				this._tooltip.scheduleHide();
 
 				const scroller = this.virtualizerRef.value;
 				if (scroller == null) return;
@@ -6063,7 +5548,7 @@ export class GlLitGraph extends LitElement {
 			if (this.hoveredMarkerIndex != null) {
 				this.hoveredMarkerIndex = undefined;
 			}
-			this.scheduleHideTooltip();
+			this._tooltip.scheduleHide();
 			return;
 		}
 
@@ -6073,9 +5558,9 @@ export class GlLitGraph extends LitElement {
 		const band = container.querySelector<HTMLElement>(`[data-marker-index="${nearest.index}"]`);
 		const entries = nearest.entries.filter(e => e.label.length > 0).map(e => ({ icon: e.icon, label: e.label }));
 		if (band != null && entries.length > 0) {
-			this.showTooltipList(band, entries, 'left', 60);
+			this._tooltip.showList(band, entries, 'left', 60);
 		} else {
-			this.scheduleHideTooltip();
+			this._tooltip.scheduleHide();
 		}
 	};
 
@@ -6083,7 +5568,7 @@ export class GlLitGraph extends LitElement {
 		if (this.hoveredMarkerIndex != null) {
 			this.hoveredMarkerIndex = undefined;
 		}
-		this.scheduleHideTooltip();
+		this._tooltip.scheduleHide();
 	};
 
 	// Right-click on the rail opens VS Code's native menu from `data-vscode-context` — deliberately NOT
@@ -6093,7 +5578,7 @@ export class GlLitGraph extends LitElement {
 		if (this.hoveredMarkerIndex != null) {
 			this.hoveredMarkerIndex = undefined;
 		}
-		this.scheduleHideTooltip();
+		this._tooltip.scheduleHide();
 	};
 
 	// Swallow the rail's `pointerover` so the row-hover/tooltip delegate (a bubbling pointerover
@@ -7021,7 +6506,7 @@ export class GlLitGraph extends LitElement {
 
 		// Keyboard tooltip parity: the aria-activedescendant cursor fires no focusin (DOM focus stays on the
 		// pill), so surface the cursored item's delegated tooltip (e.g. the jump's "Jump to …") explicitly.
-		this.showTooltipForTarget(item);
+		this._tooltip.showForTarget(item);
 
 		// Manual scrollTop, NOT `scrollIntoView`: the latter walks EVERY scroll ancestor and would nudge the
 		// graph viewport / outer panels (the nested-scroll-webview pitfall). Scroll only the popover list.
@@ -7046,7 +6531,7 @@ export class GlLitGraph extends LitElement {
 		}
 
 		pill.removeAttribute('aria-activedescendant');
-		this.scheduleHideTooltip();
+		this._tooltip.scheduleHide();
 	}
 
 	/** The managed row control (pill / action button) that currently holds focus, or null. Tracked by
@@ -8385,7 +7870,7 @@ export class GlLitGraph extends LitElement {
 		// Keyboard parity for the pointer tooltip path — a focused `data-tooltip` element (incl. the mode
 		// picker's glyph buttons) shows the same delegated tooltip. Runs for focus ANYWHERE in the
 		// viewport (header controls, row controls) — this handler is bound on the outer viewport.
-		this.showTooltipForFocus(event);
+		this._tooltip.showForFocus(event);
 
 		// Track WHICH managed row control (pill / action button) holds focus, so the recycle corral
 		// (recaptureFocusIfStranded) can tell a row-unmount focus drop apart from a deliberate move.
@@ -8573,9 +8058,9 @@ export class GlLitGraph extends LitElement {
 		}
 
 		// Sticky-timeline bucket — same topmost-row date (already workdir-normalized above), O(1) bucket
-		// classify, @state write only on a bucket-key change (see updateStickyTimelineBucket).
+		// classify, state write only on a bucket-key change (see the sticky-timeline controller's update).
 		if (!Number.isNaN(topMs)) {
-			this.updateStickyTimelineBucket(topMs);
+			this._stickyTimeline.update(topMs);
 		}
 
 		// Defer the WIP scan + missing-avatar collection behind the trailing debounce so continuous arrow/scroll
@@ -8754,10 +8239,10 @@ export class GlLitGraph extends LitElement {
 		// the flush above has already consumed itself against an earlier one.
 		this.retryRefFindReveal();
 		// Imperative DOM sync for the chain-lane overlay — the virtualizer element exists by now (unlike in
-		// `render()`), and every path that can change `_chainLaneOverlay` (updateRenderState, called from
+		// `render()`), and every path that can change its box set (updateRenderState, called from
 		// willUpdate) funnels through an update, so this catches all of them. Short-circuits internally on
 		// an unchanged box set.
-		this.syncChainLaneOverlay();
+		this._chainLaneOverlay.syncDom(this.virtualizerRef.value);
 		// Re-position the dormant Changes opt-in overlay — self-gated on the column layout having moved, so
 		// it measures on a header change rather than on every update. The virtualizer's pixel snap is the
 		// other geometry reader; it rides the ResizeObserver, whose callbacks land after layout. Keep both
@@ -9529,20 +9014,19 @@ export class GlLitGraph extends LitElement {
 		this.markScrolling();
 
 		if (this.config?.stickyTimeline !== false) {
-			// CSSOM-only expand-while-scrolling — classList + a debounced idle-clear, no @state, so a
-			// scroll burst never triggers a render on its own.
-			this.stickyTimelineRef.value?.classList.add('is-scroll-active');
-			this.clearStickyTimelineScrollActive();
+			// CSSOM-only expand-while-scrolling — classList + a debounced idle-clear, no reactive state,
+			// so a scroll burst never triggers a render on its own.
+			this._stickyTimeline.markScrolling();
 			// Bucket must ALSO be re-derived here, not just from onRangeChanged: the virtualizer's
 			// materialized range (and its rangeChanged event) stops advancing once the render buffer
 			// already covers the destination, so an incremental scroll within an already-buffered range
 			// would otherwise leave the bucket frozen. O(1) index math + one array access — no DOM read
 			// beyond the `scrollTop` this handler already has; the @state write inside stays edge-gated
 			// (bucket-key changes only), so this doesn't turn scrolling into a render-per-frame path.
-			this.updateStickyTimelineBucketFromScrollTop(scrollTop);
+			this._stickyTimeline.updateFromScrollTop(scrollTop);
 			// The topmost row (same index) can change independently of the bucket (an adjacent row within
 			// the same bucket) — re-check the yield every scroll too, reusing the same `scrollTop`.
-			this.updateStickyTimelineYield(scrollTop);
+			this._stickyTimeline.updateYield(scrollTop);
 		}
 
 		const scrolled = scrollTop > 4;
@@ -9633,7 +9117,7 @@ export class GlLitGraph extends LitElement {
 		// burst-start only tears down what was armed/open BEFORE the scroll began.
 		if (!this.clearScrolling.pending()) {
 			this.endRowHover(null);
-			this.scheduleHideTooltip();
+			this._tooltip.scheduleHide();
 		}
 
 		el.classList.add('is-scrolling');
@@ -9936,117 +9420,10 @@ export class GlLitGraph extends LitElement {
 		);
 	}
 
-	// `gitlens.graph.stickyTimeline` OFF → clear (hides the pill/hairlines). Otherwise reclassifies
-	// `topMs` (the topmost visible row's workdir-normalized date) and writes @state ONLY when the
-	// group's KEY actually changes — mirrors `updateHeadPillDirection`'s edge-crossing gate. The window
-	// cache (`stickyTimelineWindow`) short-circuits BEFORE that: while `topMs` (any row's date) stays
-	// within the last classified group's elapsed bounds, there's nothing to reclassify — pure numeric
-	// check, no `stickyTimelineGroupFor`/`fromNowUnit` call (and hence no allocation) at all.
-	private updateStickyTimelineBucket(topMs: number): void {
-		if (this.config?.stickyTimeline === false) {
-			if (this.stickyTimeline != null) {
-				this.stickyTimeline = undefined;
-				this.stickyTimelineWindow = undefined;
-			}
-			return;
-		}
-
-		const win = this.stickyTimelineWindow;
-		const elapsed = this.nowMs - topMs;
-		if (win != null && elapsed >= win.lo && elapsed < win.hi) return;
-
-		const group = stickyTimelineGroupFor(topMs, this.nowMs);
-		// A year group's `hi` is deliberately undefined on the GROUP (stickyTimelineSpanFor reads that as
-		// "open-ended" for the "before <date>" display) — but the WINDOW still needs a real reclassification
-		// bound, or it'd cache as valid forever and never notice elapsed crossing into year:(n+1). Derive it
-		// the same way fromNowUnit would classify the NEXT year boundary: elapsed is >=0 here (a year group
-		// only classifies past dates — the future-date guard in stickyTimelineGroupFor redirects anything
-		// newer to 'today' first), so this can't disagree with what re-running fromNowUnit would say.
-		const year = unitDivisorMs('year');
-		const hi = group.hi ?? (Math.trunc(elapsed / year) + 1) * year;
-		this.stickyTimelineWindow = { key: group.key, lo: group.lo, hi: hi };
-		if (group.key === this.stickyTimeline?.key) return;
-
-		this.stickyTimeline = { key: group.key, label: group.label, span: this.stickyTimelineSpanFor(group) };
-	}
-
-	// Derives the topmost-row index (via the shared `rowIndexAt`, the same helper onRangeChanged's minimap-day
-	// read uses), then updates the bucket through the shared, edge-gated
-	// `updateStickyTimelineBucket`. Shared by `onScroll` (the scroll hot
-	// path — `updateHeadPillDirection`-style: cheap index math + one array access, no DOM read beyond
-	// the `scrollTop` the caller already has) and `recomputeStickyTimelineBucket` (a live `scrollTop`
-	// read, fine there — not the hot path).
-	private updateStickyTimelineBucketFromScrollTop(scrollTop: number): void {
-		const rows = this.displayRows;
-		const rh = this.rowHeight;
-		if (rows.length === 0 || rh <= 0) return;
-
-		const idx = this.rowIndexAt(scrollTop);
-		const row = rows[idx];
-		// A workdir (WIP) row's OWN date is a synthetic stamp — resolve through its EXACT anchor
-		// (parents[0], mirroring the wrapper's dateForMinimapRow) when it's loaded; the positional
-		// nearestNonWorkdirDate walk is only a fallback for the rare case the anchor hasn't paged in yet.
-		const anchorSha = row?.kind === 'workdir' ? row.parents[0] : undefined;
-		const anchorIdx = anchorSha != null ? this.indexBySha.get(anchorSha) : undefined;
-		const anchorDate = anchorIdx != null ? rows[anchorIdx]?.date : undefined;
-		const dateMs = anchorDate ?? nearestNonWorkdirDate(rows, idx, rows.length - 1) ?? NaN;
-		if (!Number.isNaN(dateMs)) {
-			this.updateStickyTimelineBucket(dateMs);
-		}
-	}
-
-	// Re-derives the bucket from the CURRENT scroll position outside a range-change/scroll event — used
-	// when `stickyTimeline` flips on live (see willUpdate) so the pill appears immediately instead of
-	// waiting for the next scroll. A live scrollTop read is fine here (a deliberate, infrequent
-	// config-driven call, not the scroll hot path) — same allowance already used by the reveal helpers.
-	private recomputeStickyTimelineBucket(): void {
-		const scroller = this.virtualizerRef.value;
-		if (scroller == null) return;
-
-		this.updateStickyTimelineBucketFromScrollTop(scroller.scrollTop);
-	}
-
-	// Yields the pill to the row it's covering: fades it out AND makes it pointer-transparent (CSS
-	// `.is-yielding`, wins over the expand states — see graph.scss) whenever the TOPMOST visible row —
-	// the same index the bucket uses — needs its own top-right corner: it's selected, keyboard-focused,
-	// hovered, or renders PERSISTENT action buttons (the WIP-row case — at scroll-top the pill stays
-	// hidden entirely; it reappears once scrolling puts a normal, non-persistent-actions row on top).
-	// Hover reads `pointerRowSha` (NOT `hoveredRowSha`, which the rich-hover card clears when the pointer
-	// moves onto a row's `data-tooltip` action buttons — the pill rides right over those, so it must keep
-	// yielding while they're hovered). Both are plain fields (hover never triggers a Lit render), which is
-	// exactly why this is CSSOM — an @state-driven equivalent would re-render rows on every hover in/out.
-	// No flicker loop: once yielded via hover, the pointer sits over the (now pointer-transparent) pill's
-	// old spot, which hits the row/buttons underneath — the row stays hovered, so it stays yielded until
-	// the pointer actually leaves the row. O(1): index math + a few Set/Map lookups + one classList.toggle;
-	// `scrollTop` defaults to the last scroll position `onScroll` recorded (`_lastScrollTop`) — a plain
-	// field read, no DOM access — for the rare caller outside the scroll hot path; `onScroll` itself
-	// passes the value it already has.
-	private updateStickyTimelineYield(scrollTop: number = this._lastScrollTop): void {
-		const el = this.stickyTimelineRef.value;
-		if (el == null) return;
-
-		const rows = this.displayRows;
-		const rh = this.rowHeight;
-		if (rows.length === 0 || rh <= 0) {
-			el.classList.remove('is-yielding');
-			return;
-		}
-
-		const idx = this.rowIndexAt(scrollTop);
-		const row = rows[idx];
-		const yielding =
-			row != null &&
-			(this.selectedShas.has(row.sha) ||
-				idx === this.focusIndex ||
-				row.sha === this.pointerRowSha ||
-				this.topRowHasPersistentActions(row));
-		el.classList.toggle('is-yielding', yielding);
-	}
-
 	// The same `--has-persistent` decision `renderRowActions` makes (see `hasPersistentRowActions`),
 	// re-derived for an arbitrary row OUTSIDE the render loop — a WIP row's agent/operation status and a
 	// commit row's unpushed/unpulled state live in plain fields/the payload plane, not just the per-render
-	// RenderCtx.
+	// RenderCtx. Feeds the sticky-timeline pill's yield check (via `StickyTimelineHost`).
 	private topRowHasPersistentActions(row: ProcessedGraphRow): boolean {
 		const wipAgent = row.kind === 'workdir' ? this.agentStatusByRowSha?.get(row.sha) : undefined;
 		const wipOperation = row.kind === 'workdir' ? this.runningOperationByRowSha?.get(row.sha) : undefined;
@@ -10068,30 +9445,6 @@ export class GlLitGraph extends LitElement {
 			isUnpulled: commit?.isUnpulled,
 			hasRowMarker: hasRowMarkerDecorator,
 		});
-	}
-
-	// Exact date span for a group's elapsed window [lo, hi) — short month + day, en dash between; the
-	// second date drops its month when it's the same as the first's (a same-month range like
-	// "Jul 13 – 19" reads more naturally than repeating "Jul"). `hi` undefined (year groups) → a single
-	// "before <date>" (no upper bound to show). `hi` exclusive → +1 day so the boundary date itself
-	// isn't double-counted; a exactly-1-day-wide window (today/yesterday) collapses to a single date.
-	private stickyTimelineSpanFor(group: StickyTimelineGroup): string {
-		if (group.hi == null) {
-			return `before ${formatGitLensDate(this.nowMs - group.lo, 'MMM D')}`;
-		}
-
-		const endMs = this.nowMs - group.lo;
-		const startMs = this.nowMs - group.hi + unitDivisorMs('day');
-		if (startMs >= endMs) return formatGitLensDate(endMs, 'MMM D');
-
-		return this.formatDaySpan(startMs, endMs);
-	}
-
-	private formatDaySpan(fromMs: number, toMs: number): string {
-		const from = new Date(fromMs);
-		const to = new Date(toMs);
-		const sameMonth = from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth();
-		return `${formatGitLensDate(from, 'MMM D')} – ${formatGitLensDate(to, sameMonth ? 'D' : 'MMM D')}`;
 	}
 
 	private onHeadPillClick = (e: MouseEvent): void => {
@@ -11503,7 +10856,7 @@ export class GlLitGraph extends LitElement {
 		});
 		// Suppress + dismiss any row hover/tooltip for the duration of the drag.
 		this.draggingColumn = true;
-		this.scheduleHideTooltip();
+		this._tooltip.scheduleHide();
 		this.cancelRowHover();
 	}
 
@@ -11772,7 +11125,7 @@ export class GlLitGraph extends LitElement {
 			},
 		});
 		this.draggingColumn = true;
-		this.scheduleHideTooltip();
+		this._tooltip.scheduleHide();
 		this.cancelRowHover();
 	};
 
@@ -12040,7 +11393,7 @@ export class GlLitGraph extends LitElement {
 			drag.started = true;
 			this.dragColId = drag.colId;
 			this.draggingColumn = true;
-			this.scheduleHideTooltip();
+			this._tooltip.scheduleHide();
 			this.cancelRowHover();
 			// A reorder beats the open picker (the anchored label is about to move) — close it, no focus return.
 			this.closeChangesModeMenu('none');
