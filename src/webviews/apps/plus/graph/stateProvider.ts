@@ -1,3 +1,4 @@
+import type { Remote } from '@eamodio/supertalk';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
@@ -12,9 +13,16 @@ import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
+import { defer } from '@gitlens/utils/promise.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
-import type { GraphAccessState, GraphSearchState } from '../../../plus/graph/graphService.js';
+import type {
+	GraphAccessState,
+	GraphOverviewService,
+	GraphScopeService,
+	GraphSearchState,
+	GraphServices,
+} from '../../../plus/graph/graphService.js';
 import type {
 	GraphRowsSplice,
 	GraphScope,
@@ -33,7 +41,6 @@ import {
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
-	DidChangeOverviewNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -44,17 +51,14 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidCloseWipWatchesNotification,
 	DidFailRevealNotification,
-	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
-	GetOverviewEnrichmentRequest,
 	GraphSyncResyncCommand,
 	isWipRowId,
-	ResolveGraphScopeRequest,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
@@ -100,7 +104,7 @@ export function shouldRestoreSearchQuery(
 	return (localQuery ?? '') === '' && (restored?.query ?? '') !== '' && (hasResults || isSearching);
 }
 
-/** Lightweight scope anchor returned by `ResolveGraphScopeRequest` and cached webview-side. */
+/** Lightweight scope anchor returned by `GraphScopeService.resolveScope` and cached webview-side. */
 export type ResolvedScopeAnchor = {
 	mergeBase: { sha: string; date: number } | undefined;
 	mergeTargetTipSha: string | undefined;
@@ -655,6 +659,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	graphWalkthroughStarted?: boolean | undefined;
 	layoutPromptNeeded?: boolean | undefined;
 
+	/** The overview RPC sub-service, held for {@link ensureOverviewEnrichmentFetched} and
+	 *  {@link ensureEnrichmentFetchedForBranches} — set by {@link initializeServices}. */
+	private _overviewService: GraphOverviewService | undefined;
+	/** Unsubscribes the current `onOverviewChanged` listener — reconnect-safe teardown, same pattern
+	 *  as `SearchActions`' `unsubscribe`. */
+	private _unsubscribeOverviewChanged: (() => void) | undefined;
+	/** The scope-anchor RPC sub-service, held for {@link fetchScopeAnchor} — set by
+	 *  {@link initializeServices}. */
+	private _scopeService: GraphScopeService | undefined;
+	/** Unsubscribes the current `onScopeAnchorsInvalidated` listener — reconnect-safe teardown, same
+	 *  pattern as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeScopeAnchorsInvalidated: (() => void) | undefined;
+	/** Resolved once {@link initializeServices} has assigned {@link _overviewService} and
+	 *  {@link _scopeService} — callers that need either before the RPC handshake completes await this
+	 *  instead of racing it. Same resolve-once-per-lifetime semantics as `SearchActions`' `serviceReady`:
+	 *  re-initializing on reconnect reassigns both services but never re-settles this promise. */
+	private readonly _servicesReady = defer<void>();
+
 	constructor(
 		host: ReactiveElementHost,
 		bootstrap: string,
@@ -663,6 +685,53 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
 	) {
 		super(host, bootstrap, ipc, logger);
+	}
+
+	/**
+	 * Wires this provider against the connected RPC services — called from `graph.ts`'s
+	 * `_onRpcReady` right after the services context is set, and again on every reconnect with the
+	 * fresh remote. Reconnect-safe: tears down the prior `onOverviewChanged`/`onScopeAnchorsInvalidated`
+	 * subscriptions before resubscribing against the new remote.
+	 */
+	initializeServices(services: Remote<GraphServices>): void {
+		void this.connectServices(services);
+	}
+
+	private async connectServices(services: Remote<GraphServices>): Promise<void> {
+		this._unsubscribeOverviewChanged?.();
+		this._unsubscribeOverviewChanged = undefined;
+		this._unsubscribeScopeAnchorsInvalidated?.();
+		this._unsubscribeScopeAnchorsInvalidated = undefined;
+
+		const overview = await services.overview;
+		this._overviewService = overview;
+		const scope = await services.scope;
+		this._scopeService = scope;
+		this._servicesReady.fulfill();
+
+		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>` — must be awaited (see
+		// `SearchActions.initialize`).
+		const overviewUnsub = (await overview.onOverviewChanged(data => {
+			this.updateState({ overview: data });
+		})) as unknown as (() => void) | undefined;
+		const scopeUnsub = (await scope.onScopeAnchorsInvalidated(data => {
+			this.handleScopeAnchorsInvalidated(data.repoPath);
+		})) as unknown as (() => void) | undefined;
+
+		// A newer `connectServices` call may have reassigned either service while these subscribes were
+		// in flight (reconnect) — tear down whichever subscription this now-stale generation grabbed,
+		// independently per service.
+		if (this._overviewService !== overview) {
+			overviewUnsub?.();
+		} else if (typeof overviewUnsub === 'function') {
+			this._unsubscribeOverviewChanged = overviewUnsub;
+		}
+
+		if (this._scopeService !== scope) {
+			scopeUnsub?.();
+		} else if (typeof scopeUnsub === 'function') {
+			this._unsubscribeScopeAnchorsInvalidated = scopeUnsub;
+		}
 	}
 
 	override dispose(): void {
@@ -678,6 +747,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 		this._ensureLoadingCount = 0;
 		this.ensureLoading = false;
+		this._unsubscribeOverviewChanged?.();
+		this._unsubscribeScopeAnchorsInvalidated?.();
 		super.dispose();
 	}
 
@@ -777,13 +848,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		this._enrichmentFingerprint = fingerprint;
 
-		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: branchIds }).then(result => {
-			// Only publish when the overview fingerprint hasn't moved on — a newer overview
-			// in flight will trigger its own fetch whose result is authoritative.
-			if (this._enrichmentFingerprint === fingerprint) {
-				this.publishOverviewEnrichment(result);
-			}
-		});
+		void this._servicesReady.promise
+			.then(() => this._overviewService!.getEnrichment(branchIds))
+			.then(result => {
+				// Only publish when the overview fingerprint hasn't moved on — a newer overview
+				// in flight will trigger its own fetch whose result is authoritative.
+				if (this._enrichmentFingerprint === fingerprint) {
+					this.publishOverviewEnrichment(result);
+				}
+			});
 	}
 
 	/**
@@ -855,36 +928,38 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			this._extraEnrichmentInFlight.add(id);
 		}
 
-		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: missing }).then(
-			result => {
-				for (const id of missing) {
-					this._extraEnrichmentInFlight.delete(id);
-					this._extraEnrichmentBranchIds.add(id);
-				}
-				if (result == null) return;
+		void this._servicesReady.promise
+			.then(() => this._overviewService!.getEnrichment(missing))
+			.then(
+				result => {
+					for (const id of missing) {
+						this._extraEnrichmentInFlight.delete(id);
+						this._extraEnrichmentBranchIds.add(id);
+					}
+					if (result == null) return;
 
-				// Preserve any locally-merged `mergeTarget` per id: this fetch opts out of merge-target
-				// resolution (`skipMergeTarget`), so a raw spread would erase a target that
-				// `ensureMergeTargetFetched` may have published for the same branch moments earlier (both
-				// fire from one hover's settle timer). Same preservation as `publishOverviewEnrichment`.
-				const previous = this.overviewEnrichment;
-				const next: NonNullable<typeof previous> = { ...previous };
-				for (const branchId in result) {
-					const incoming = result[branchId];
-					const localMergeTarget = previous?.[branchId]?.mergeTarget;
-					next[branchId] =
-						localMergeTarget != null && incoming?.mergeTarget == null
-							? { ...incoming, mergeTarget: localMergeTarget }
-							: incoming;
-				}
-				this.overviewEnrichment = next;
-			},
-			() => {
-				for (const id of missing) {
-					this._extraEnrichmentInFlight.delete(id);
-				}
-			},
-		);
+					// Preserve any locally-merged `mergeTarget` per id: this fetch opts out of merge-target
+					// resolution (`skipMergeTarget`), so a raw spread would erase a target that
+					// `ensureMergeTargetFetched` may have published for the same branch moments earlier (both
+					// fire from one hover's settle timer). Same preservation as `publishOverviewEnrichment`.
+					const previous = this.overviewEnrichment;
+					const next: NonNullable<typeof previous> = { ...previous };
+					for (const branchId in result) {
+						const incoming = result[branchId];
+						const localMergeTarget = previous?.[branchId]?.mergeTarget;
+						next[branchId] =
+							localMergeTarget != null && incoming?.mergeTarget == null
+								? { ...incoming, mergeTarget: localMergeTarget }
+								: incoming;
+					}
+					this.overviewEnrichment = next;
+				},
+				() => {
+					for (const id of missing) {
+						this._extraEnrichmentInFlight.delete(id);
+					}
+				},
+			);
 	}
 
 	/** Session cache of resolved scope anchors (mergeBase + mergeTargetTipSha), keyed by `repoPath|branchRef`. */
@@ -892,9 +967,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** In-flight scope-anchor resolves, deduped per cache key. */
 	private _mergeBasePromises = new Map<string, Promise<ResolvedScopeAnchor | undefined>>();
 	/**
-	 * Per-repo generation, bumped on `DidInvalidateScopeAnchorsNotification`. In-flight resolves
-	 * capture this before awaiting and skip writing back if it has advanced — otherwise the
-	 * post-await cache write would repopulate `_mergeBaseCache` with the pre-invalidation anchor.
+	 * Per-repo generation, bumped by {@link handleScopeAnchorsInvalidated} (the
+	 * `GraphScopeService.onScopeAnchorsInvalidated` RPC event). In-flight resolves capture this before
+	 * awaiting and skip writing back if it has advanced — otherwise the post-await cache write would
+	 * repopulate `_mergeBaseCache` with the pre-invalidation anchor.
 	 */
 	private _anchorGenerations = new Map<string, number>();
 
@@ -1240,8 +1316,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	/**
-	 * Shared anchor IPC + cache write used by both the initial `setScope` flow and the re-resolve
-	 * flow (`resolveScopeMergeBase`, invoked from `DidInvalidateScopeAnchorsNotification`). Dedupes
+	 * Shared anchor RPC + cache write used by both the initial `setScope` flow and the re-resolve
+	 * flow (`resolveScopeMergeBase`, invoked from {@link handleScopeAnchorsInvalidated}). Dedupes
 	 * concurrent requests for the same `(repoPath, branchRef)` and skips the cache write when a
 	 * mid-flight invalidation has bumped the per-repo generation.
 	 */
@@ -1256,11 +1332,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		let promise = this._mergeBasePromises.get(cacheKey);
 		if (promise == null) {
-			promise = this.ipc
-				.sendRequest(ResolveGraphScopeRequest, {
-					repoPath: repoPath,
-					scope: scope,
-				})
+			promise = this._servicesReady.promise
+				.then(() => this._scopeService!.resolveScope(repoPath, scope))
 				.then((r): ResolvedScopeAnchor | undefined =>
 					r == null
 						? undefined
@@ -1287,6 +1360,58 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		this._mergeBaseCache.set(cacheKey, anchor);
 		return anchor;
+	}
+
+	/**
+	 * `GraphScopeService.onScopeAnchorsInvalidated` handler — the host fired because refs/config moved
+	 * somewhere. `repoPath` names the repo the host detected the change in, but the event is buffered as
+	 * a coalescing `signal` (see the service doc): a hidden webview only ever replays the LAST
+	 * invalidation, so a burst touching two different repos while hidden can lose one's `repoPath`
+	 * entirely. Sweep every repo's cache unconditionally rather than scoping to `repoPath` — an
+	 * over-invalidated repo just re-resolves once for nothing; an under-invalidated one rides a stale
+	 * anchor indefinitely.
+	 */
+	private handleScopeAnchorsInvalidated(repoPath: string): void {
+		// Bump every repo we've ever tracked a generation for, plus the repo this event named (which may
+		// be its first-ever invalidation and so absent from the map) — so any resolve in flight for any
+		// of them loses the post-await generation check below and skips its stale writeback.
+		const repoPaths = new Set(this._anchorGenerations.keys());
+		if (repoPath) {
+			repoPaths.add(repoPath);
+		}
+		for (const path of repoPaths) {
+			this._anchorGenerations.set(path, (this._anchorGenerations.get(path) ?? 0) + 1);
+		}
+		this._mergeBaseCache.clear();
+		this._mergeBasePromises.clear();
+
+		// Also reset enrichment so a stale `mergeTargetTipSha` doesn't survive — the next popover open
+		// or sidebar render will re-fetch and `reconcileScopeMergeTarget` will re-anchor the live scope
+		// when it lands.
+		this.resetOverviewEnrichment();
+
+		// Proactively re-resolve the live scope. The cache clear above only ensures the *next*
+		// `resolveScopeMergeBase` call won't hand back a stale anchor — it doesn't touch the live
+		// `scope.mergeBase`/`scope.mergeTargetTipSha` themselves, which were set on the prior resolve and
+		// would otherwise keep anchoring the minimap to a pre-rebase SHA until the user re-scopes. The
+		// bumped generations above ensure any concurrently-running stale resolve can't beat this fresh
+		// one to the writeback.
+		const liveScope = this.scope;
+		if (liveScope != null) {
+			void this.resolveScopeMergeBase(liveScope);
+		}
+		// The scope still awaiting its FIRST resolution needs the same treatment. Its in-flight resolve
+		// is about to lose the generation check bumped above and return no anchors, and it is not yet
+		// `this.scope`, so the retry above can't reach it — without this it publishes bare and nothing
+		// ever re-drives it, leaving the minimap unanchored until the user re-scopes.
+		const pendingScope = this._pendingScope;
+		if (pendingScope != null && pendingScope !== liveScope) {
+			void this.resolveScopeMergeBase(pendingScope);
+		}
+
+		// Re-arm row marker's merge-target resolve for the current branch — the tip may have moved.
+		this._rowMarkerBranchId = undefined;
+		this.ensureRowMarkerMergeTarget();
 	}
 
 	/** On-demand decode cache for `getRowReachability`, keyed by the host table's stable set index.
@@ -1514,65 +1639,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					);
 				}
 				this.updateState(next);
-				break;
-			}
-
-			case DidInvalidateScopeAnchorsNotification.is(msg): {
-				// Drop the mirrored merge-base cache when the host signals that refs/config moved —
-				// otherwise the next scope-resolve would hand back the cached pre-rebase anchor.
-				const { repoPath, branchRefs } = msg.params;
-				// Bump generation so any in-flight resolve for this repo skips its post-await
-				// writeback (per-repo is sufficient; in-flight resolves whose `branchRefs` weren't
-				// targeted simply re-issue on the next consumer call).
-				this._anchorGenerations.set(repoPath, (this._anchorGenerations.get(repoPath) ?? 0) + 1);
-				// Cache keys are `branchRef`s (which already include `${repoPath}|` via `getBranchId`),
-				// so targeted invalidation uses the ref directly; the bulk path matches by prefix.
-				const prefix = `${repoPath}|`;
-				if (branchRefs?.length) {
-					for (const ref of branchRefs) {
-						this._mergeBaseCache.delete(ref);
-						this._mergeBasePromises.delete(ref);
-					}
-				} else {
-					for (const key of [...this._mergeBaseCache.keys()]) {
-						if (key.startsWith(prefix)) {
-							this._mergeBaseCache.delete(key);
-						}
-					}
-					for (const key of [...this._mergeBasePromises.keys()]) {
-						if (key.startsWith(prefix)) {
-							this._mergeBasePromises.delete(key);
-						}
-					}
-				}
-
-				// Also reset enrichment so a stale `mergeTargetTipSha` doesn't survive — the next
-				// popover open or sidebar render will re-fetch and `reconcileScopeMergeTarget` will
-				// re-anchor the live scope when it lands.
-				this.resetOverviewEnrichment();
-
-				// Proactively re-resolve the live scope. The cache clear above only ensures the
-				// *next* `resolveScopeMergeBase` call won't hand back the stale anchor — it doesn't
-				// touch the live `scope.mergeBase`/`scope.mergeTargetTipSha` themselves, which were
-				// set on the prior resolve and would otherwise keep anchoring the minimap to the
-				// pre-rebase SHA until the user re-scopes. The bumped generation just above ensures
-				// any concurrently-running stale resolve can't beat this fresh one to the writeback.
-				const liveScope = this.scope;
-				if (liveScope?.branchRef.startsWith(prefix)) {
-					void this.resolveScopeMergeBase(liveScope);
-				}
-				// The scope still awaiting its FIRST resolution needs the same treatment. Its in-flight
-				// resolve is about to lose the generation check bumped above and return no anchors, and it is
-				// not yet `this.scope`, so the retry above can't reach it — without this it publishes bare and
-				// nothing ever re-drives it, leaving the minimap unanchored until the user re-scopes.
-				const pendingScope = this._pendingScope;
-				if (pendingScope != null && pendingScope !== liveScope && pendingScope.branchRef.startsWith(prefix)) {
-					void this.resolveScopeMergeBase(pendingScope);
-				}
-
-				// Re-arm row marker's merge-target resolve for the current branch — the tip may have moved.
-				this._rowMarkerBranchId = undefined;
-				this.ensureRowMarkerMergeTarget();
 				break;
 			}
 
@@ -1844,10 +1910,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeGraphConfigurationNotification.is(msg):
 				this.updateState({ config: msg.params.config });
-				break;
-
-			case DidChangeOverviewNotification.is(msg):
-				this.updateState({ overview: msg.params.overview });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {

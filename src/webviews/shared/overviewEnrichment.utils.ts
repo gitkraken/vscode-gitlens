@@ -251,7 +251,7 @@ export async function getOverviewWip(
 		 * Cheap mode for Recent worktree-backed branches: probes `status.hasWorkingChanges()`
 		 * (`git diff --quiet` + `git ls-files`) per worktree instead of running a full status. Result
 		 * carries `hasChanges` only — `workingTreeState`, conflicts, and pausedOp are all undefined
-		 * and get filled in lazily on hover via `GetOverviewWipDetailedRequest`. The probe is
+		 * and get filled in lazily on hover via `GraphOverviewService.getWipDetailed`. The probe is
 		 * `@gate`d at the sub-provider so concurrent identical calls dedup.
 		 */
 		cheap?: boolean;
@@ -274,7 +274,7 @@ export async function getOverviewWip(
 	if (cheap) {
 		// Cheap path: dirty-bit only, no paused-op, no breakdown. Used for Recent worktree-backed
 		// cards so they can show a clean/dirty indicator without paying for a full `git status` per
-		// branch. The full breakdown is fetched on hover via `GetOverviewWipDetailedRequest`.
+		// branch. The full breakdown is fetched on hover via `GraphOverviewService.getWipDetailed`.
 		await Promise.allSettled(
 			branchIds.map(async branchId => {
 				if (!branchesById.has(branchId)) return;

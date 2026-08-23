@@ -16,18 +16,10 @@ import type {
 	GraphOverviewData,
 	OverviewRecentThreshold,
 } from '../../../../plus/graph/protocol.js';
-import {
-	GetOverviewEnrichmentRequest,
-	GetOverviewRequest,
-	GetOverviewWipDetailedRequest,
-	GetOverviewWipRequest,
-} from '../../../../plus/graph/protocol.js';
 import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
-import type { HostIpc } from '../../../shared/ipc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -273,9 +265,6 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	private readonly _state!: AppState;
 
-	@consume({ context: ipcContext })
-	private _ipc!: HostIpc;
-
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
 
@@ -312,19 +301,19 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	 *  (e.g. switching away from the overview panel and back) emits a fresh shown event. */
 	private _shownEmitted = false;
 
-	/** Whether the initial `GetOverviewRequest` has been issued this mount (once the panel is
+	/** Whether the initial `getOverview` call has been issued this mount (once the panel is
 	 *  visible). Guards `updated()` from re-firing it every render while `overview` is still null. */
 	private _overviewRequested = false;
 	/** Last-seen sidebar visibility, for detecting the hidden→visible transition in `updated()`. */
 	private _wasVisible = false;
 
-	/** Count of in-flight `GetOverviewRequest`s, tracked as a counter rather than a boolean — the
+	/** Count of in-flight `getOverview` calls, tracked as a counter rather than a boolean — the
 	 *  mount fetch and a visibility-restore refetch (`connectedCallback`/`updated`) can overlap, and the
 	 *  header's progress bar should stay lit until every one of them settles, not just the first. */
 	private _overviewLoadingCount = 0;
 
 	/** How many older-than-threshold branches are currently requested via "Load More" paging — sent as
-	 *  `olderLimit` on every `GetOverviewRequest`. Reset to 0 on threshold change and on `refresh()`
+	 *  `olderLimit` on every `getOverview` call. Reset to 0 on threshold change and on `refresh()`
 	 *  (both start the Recent list over), and never restored from persisted state — paging is
 	 *  session-local. */
 	private _olderLimit = 0;
@@ -361,22 +350,27 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		// transition (connectedCallback won't refire when the sidebar reopens).
 		this._wasVisible = this._state.sidebar?.visible === true;
 		if (this._wasVisible) {
+			// Also gated on `services` — if RPC hasn't connected yet, leave `_overviewRequested`
+			// unlatched so the `updated()` pass that fires when the services context arrives issues
+			// the fetch instead of dropping it.
 			if (this._state.overview == null) {
-				this._overviewRequested = true;
-				// Apply the reply directly — a failed first load must land `error` in state, or the
-				// skeleton renders forever (the host push only follows successful graph reloads).
-				void this.requestOverview({
-					recentThreshold: this._state.overviewRecentThreshold,
-					olderLimit: this._olderLimit,
-				}).then(overview => {
-					this._state.overview = overview;
-				});
+				if (this.services != null) {
+					this._overviewRequested = true;
+					// Apply the reply directly — a failed first load must land `error` in state, or the
+					// skeleton renders forever (the host push only follows successful graph reloads).
+					void this.requestOverview({
+						recentThreshold: this._state.overviewRecentThreshold,
+						olderLimit: this._olderLimit,
+					}).then(overview => {
+						this._state.overview = overview;
+					});
+				}
 			} else {
 				// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
 				// drift accumulated while the overview panel was hidden (e.g. file edits in opened
 				// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
-				// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
-				// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
+				// dedup so `maybeRefetchOverviewData` actually fires. The host's `getWip` handler is
+				// cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
 				// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
 				this._lastOverviewFingerprint = undefined;
 				this.maybeRefetchOverviewData(this._state.overview);
@@ -410,9 +404,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		});
 	}
 
-	/** Adjusts the in-flight `GetOverviewRequest` counter and, on a 0↔1 crossing, bubbles the loading
+	/** Adjusts the in-flight `getOverview` counter and, on a 0↔1 crossing, bubbles the loading
 	 *  edge up to the sidebar panel so it can mirror it into the header's `progress-indicator` — this
-	 *  panel fetches its own data outside the sidebar's resource/IPC fetch loop, so nothing else surfaces
+	 *  panel fetches its own data outside the sidebar's resource fetch loop, so nothing else surfaces
 	 *  the in-flight state for it. */
 	private adjustOverviewLoading(delta: 1 | -1): void {
 		const wasLoading = this._overviewLoadingCount > 0;
@@ -429,10 +423,13 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		);
 	}
 
+	/** Every caller gates on `this.services` (mount/visibility fetches skip until RPC connects;
+	 *  the rest are user-triggered post-render), so the non-null assertion here is safe. */
 	private async requestOverview(params: GetOverviewParams): Promise<GraphOverviewData> {
 		this.adjustOverviewLoading(1);
 		try {
-			return await this._ipc.sendRequest(GetOverviewRequest, params);
+			const overviewService = await this.services!.overview;
+			return await overviewService.getOverview(params);
 		} finally {
 			this.adjustOverviewLoading(-1);
 		}
@@ -449,7 +446,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private async fetchWipDetailsForBranch(branchId: string): Promise<void> {
 		this._pendingWipDetails.add(branchId);
 		try {
-			const result = await this._ipc.sendRequest(GetOverviewWipDetailedRequest, { branchIds: [branchId] });
+			const services = this.services;
+			if (services == null) return;
+
+			const overviewService = await services.overview;
+			const result = await overviewService.getWipDetailed([branchId]);
 			const detailed = result?.[branchId];
 			if (detailed == null) return;
 
@@ -489,7 +490,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			if (overview == null) {
 				// Deferred initial fetch: the panel became visible before any data arrived. Fire once
 				// (guarded) so repeated `updated()` passes don't spam the request while `overview` is null.
-				if (!this._overviewRequested) {
+				if (!this._overviewRequested && this.services != null) {
 					this._overviewRequested = true;
 					// Apply directly for the same reason as `connectedCallback` — a failed load must
 					// surface `error` rather than leaving the skeleton up.
@@ -680,6 +681,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const allBranches = [...overview.active, ...overview.recent, ...older];
 		if (allBranches.length === 0) return;
 
+		const services = this.services;
+		if (services == null) return;
+
+		const overviewService = await services.overview;
+
 		const allIds = allBranches.map(b => b.id);
 		const wipIds = overview.active.map(b => b.id);
 		// Recent (and paged-in older) worktree-backed branches get a cheap clean/dirty probe so their
@@ -697,15 +703,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		// allSettled so a single transient IPC failure doesn't tank the other two — wip-only,
 		// cheap-only, or enrichment-only outages still update the rest of the overview.
 		const [wipSettled, recentWipSettled, enrichmentSettled] = await Promise.allSettled([
-			wipIds.length > 0
-				? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: wipIds })
-				: Promise.resolve(undefined),
-			recentWipIds.length > 0
-				? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: recentWipIds, cheap: true })
-				: Promise.resolve(undefined),
-			sharedCoversAll
-				? Promise.resolve(sharedEnrichment)
-				: this._ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: allIds }),
+			wipIds.length > 0 ? overviewService.getWip(wipIds) : Promise.resolve(undefined),
+			recentWipIds.length > 0 ? overviewService.getWip(recentWipIds, true) : Promise.resolve(undefined),
+			sharedCoversAll ? Promise.resolve(sharedEnrichment) : overviewService.getEnrichment(allIds),
 		]);
 		if (this._lastOverviewFingerprint !== fingerprint) return;
 
@@ -936,9 +936,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		// A new threshold restarts the Recent list — any older branches paged in under the old
 		// threshold no longer apply.
 		this._olderLimit = 0;
-		// Apply the re-partitioned response — unlike the host-pushed `DidChangeOverviewNotification`
-		// path (graph load, branch changes), a `GetOverviewRequest` reply isn't routed into state
-		// for us, so a threshold change would otherwise never re-render the Recent list.
+		// Apply the re-partitioned response — unlike the host-pushed `onOverviewChanged` RPC event
+		// (graph load, branch changes), a `getOverview` reply isn't routed into state for us, so a
+		// threshold change would otherwise never re-render the Recent list.
 		void this.requestOverview({ recentThreshold: threshold, olderLimit: this._olderLimit }).then(overview => {
 			this._state.overview = overview;
 		});

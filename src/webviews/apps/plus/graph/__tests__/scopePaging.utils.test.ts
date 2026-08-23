@@ -36,7 +36,7 @@ suite('pickScopePageTarget', () => {
 	});
 
 	test('returns undefined when no anchors are missing and mergeBase is undefined', () => {
-		// Pre-mergeBase-resolution state: scope just got set, ResolveGraphScopeRequest hasn't
+		// Pre-mergeBase-resolution state: scope just got set, GraphScopeService.resolveScope hasn't
 		// returned yet. Library can't have flagged anchors unreachable for the mergeBase path
 		// since u is undefined; nothing useful for us to page.
 		const anchors = new Set(['branchTip']);

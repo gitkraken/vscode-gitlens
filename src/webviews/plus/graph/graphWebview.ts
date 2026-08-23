@@ -113,6 +113,7 @@ import {
 } from '../../../plus/integrations/utils/-webview/pullRequest.merge.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
+import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
 import { cancelAndDispose, toAbortSignal } from '../../../system/-webview/cancellation.js';
@@ -150,7 +151,6 @@ import { LaunchpadService } from '../../rpc/launchpadService.js';
 import { createSharedServices } from '../../rpc/services/common.js';
 import { proxyServices } from '../../rpc/services/proxy.js';
 import { WalkthroughService } from '../../rpc/walkthroughService.js';
-import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
@@ -186,10 +186,16 @@ import type { GraphWipServiceContext } from './graphWipService.js';
 import { GraphWipService } from './graphWipService.js';
 import type {
 	BranchState,
+	DidChooseAuthorParams,
+	DidChooseComparisonParams,
+	DidChooseFileParams,
+	DidChooseRefParams,
+	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	DidResolveGraphScopeParams,
 	emptySetMarker,
 	GetWipLineStatsResponse,
 	GetWipStatsResponse,
@@ -212,11 +218,11 @@ import type {
 	GraphIncludeOnlyRefs,
 	GraphItemContext,
 	GraphMinimapMarkerTypes,
-	GraphOverviewData,
 	GraphPinnedRef,
 	GraphRefOptData,
 	GraphRefType,
 	GraphRepository,
+	GraphScope,
 	GraphScopeBranch,
 	GraphScopeOrigin,
 	GraphScrollMarkerTypes,
@@ -226,6 +232,7 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	MergePullRequestParams,
+	MergePullRequestResult,
 	SidebarWorktreeChange,
 	State,
 	VisualizationMode,
@@ -233,17 +240,12 @@ import type {
 import {
 	CancelLoadRowCommand,
 	ChooseAccountOrgCommand,
-	ChooseAuthorRequest,
-	ChooseComparisonRequest,
-	ChooseFileRequest,
-	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	createWipRowId,
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeNotification,
-	DidChangeOverviewNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
@@ -254,7 +256,6 @@ import {
 	DidChangeWorkingTreeNotification,
 	DidFailRevealNotification,
 	DidInvalidateGraphTreemapNotification,
-	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
@@ -266,21 +267,13 @@ import {
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
-	GetOverviewEnrichmentRequest,
-	GetOverviewRequest,
-	GetOverviewWipDetailedRequest,
-	GetOverviewWipRequest,
-	GetRowHoverRequest,
-	GetWipLineStatsRequest,
 	getWipRowWorktreePath,
 	GetWipStatsRequest,
 	GraphSyncResyncCommand,
 	isWipRowId,
 	LoadRowRequest,
-	MergePullRequestRequest,
 	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
-	ResolveGraphScopeRequest,
 	RowActionCommand,
 	SyncWipWatchesCommand,
 	TreemapFileActionCommand,
@@ -379,8 +372,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		// `resetRepositoryState` runs after `_repository` is reassigned, so its `invalidateScopeAnchors`
-		// call notifies for the new repoPath — leaving the webview's `_mergeBaseCache` entries keyed by
-		// the previous path stranded. Notify for the previous path explicitly to drop them.
+		// call fires for the new repoPath. The app sweeps every cached anchor on any invalidation
+		// regardless of `repoPath` (see `GraphScopeService.onScopeAnchorsInvalidated`), so this is
+		// belt-and-suspenders against a future consumer that scopes its sweep — fire for the previous
+		// path too so the webview's cache can't strand entries keyed to it.
 		const previousPath = this._repository?.path;
 		this._repository = value;
 		// Clear per-repo state that survived `resetRepositoryState` historically — `_selection` (last
@@ -401,7 +396,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._sidebarEventCounter.next();
 
 		if (previousPath != null && previousPath !== value?.path) {
-			void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: previousPath });
+			this._scopeAnchorsInvalidatedEvent.fire({ repoPath: previousPath });
 		}
 
 		if (this.host.ready) {
@@ -456,7 +451,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, () => this._data.notifyDidChangeState()],
-		[DidChangeOverviewNotification, () => this._panels.notifyDidChangeOverview()],
 		[DidChangePinnedRefNotification, this.notifyDidChangePinnedRef],
 		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
@@ -791,7 +785,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			continueSearchInBackground: query => this._searchService.continueInBackground(query),
 			notifySearchError: (query, results) => this._searchService.notifySearchError(query, results),
 			publishSearchState: () => this._searchService.publishState(),
-			notifyDidChangeOverview: () => void this._panels.notifyDidChangeOverview(),
+			notifyDidChangeOverview: () => this._panels.notifyDidChangeOverview(),
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
 			resetWipSendState: () => this._wip.resetSendState(),
 			clearWipStatusCache: () => this._wip.clearStatusCache(),
@@ -1044,6 +1038,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repoStatus: {
 				getLastFetched: () => this.getRepoStatus(),
 				onDidFetch: this._repoStatusEvent.subscribe(buffer, tracker),
+			},
+			scope: {
+				resolveScope: (repoPath, scope, signal) => this.resolveGraphScope(repoPath, scope, signal),
+				onScopeAnchorsInvalidated: this._scopeAnchorsInvalidatedEvent.subscribe(buffer, tracker),
+			},
+			...this._panels.createServices(buffer, tracker),
+			wip: {
+				getLineStats: (repoPath, signal) => this.onGetWipLineStats(repoPath, signal),
+			},
+			hover: {
+				getRowHover: (type, id, signal) => this.getRowHover(type, id, signal),
+			},
+			pickers: {
+				chooseRef: (title, placeholder, options) => this.chooseRef(title, placeholder, options),
+				chooseComparison: title => this.chooseComparison(title),
+				chooseAuthor: (title, placeholder, picked) => this.chooseAuthor(title, placeholder, picked),
+				chooseFile: (title, type, options) => this.chooseFile(title, type, options),
+			},
+			pullRequest: {
+				merge: (number, options) => this.mergePullRequest(number, options),
 			},
 		} satisfies GraphServices);
 	}
@@ -1748,30 +1762,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._data.onGetCounts();
 	}
 
-	@ipcRequest(GetOverviewRequest)
-	private onGetOverview(params: IpcParams<typeof GetOverviewRequest>): GraphOverviewData {
-		return this._panels.onGetOverview(params);
-	}
-
-	@ipcRequest(GetOverviewWipRequest)
-	private onGetOverviewWip(params: IpcParams<typeof GetOverviewWipRequest>): Promise<GetOverviewWipResponse> {
-		return this._panels.onGetOverviewWip(params);
-	}
-
-	@ipcRequest(GetOverviewWipDetailedRequest)
-	private onGetOverviewWipDetailed(
-		params: IpcParams<typeof GetOverviewWipDetailedRequest>,
-	): Promise<GetOverviewWipResponse> {
-		return this._panels.onGetOverviewWipDetailed(params);
-	}
-
-	@ipcRequest(GetOverviewEnrichmentRequest)
-	private onGetOverviewEnrichment(
-		params: IpcParams<typeof GetOverviewEnrichmentRequest>,
-	): Promise<GetOverviewEnrichmentResponse> {
-		return this._panels.onGetOverviewEnrichment(params);
-	}
-
 	private onAgentSessionsChanged(_sessions: AgentSessionState[]): void {
 		// Agent membership drives the `agents` branches-visibility ref set, so any change to
 		// the live session list needs to recompute the included refs and push a fresh
@@ -1864,9 +1854,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcRequest(GetWipLineStatsRequest)
 	private async onGetWipLineStats(
-		params: IpcParams<typeof GetWipLineStatsRequest>,
+		repoPath: string,
+		signal?: AbortSignal,
 	): Promise<GetWipLineStatsResponse | undefined> {
 		// Per-file line stats aren't carried by the every-tick `wip` push (`git status` can't emit
 		// them); the webview requests them lazily only while the WIP file list is visible, so one
@@ -1875,9 +1865,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// by status content, pure line edits (same status) don't refresh these until a status change /
 		// re-select / refresh — see `updateWipFileStats`. Per-save freshness would need host-driven
 		// pushes on each working-tree tick while the panel is open.
+		signal?.throwIfAborted();
 		try {
-			const svc = this.container.git.getRepositoryService(params.repoPath);
+			const svc = this.container.git.getRepositoryService(repoPath);
 			const files = await svc.diff.getDiffStatus('HEAD', undefined, { includeUntracked: true });
+			signal?.throwIfAborted();
 			if (files == null) return undefined;
 
 			// Key by normalized repo-relative path so the webview can match its `wip.changes.files`
@@ -1894,6 +1886,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 			return response;
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetWipLineStats');
 			return undefined;
 		}
@@ -2594,22 +2588,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return Promise.resolve();
 	}
 
-	@ipcRequest(MergePullRequestRequest)
-	private async onMergePullRequest(
-		params: IpcParams<typeof MergePullRequestRequest>,
-	): Promise<IpcResponse<typeof MergePullRequestRequest>> {
-		const resolved = await this._panels.resolvePullRequestForMerge(params.number);
+	private async mergePullRequest(
+		number: string,
+		options?: { confirmed?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
+	): Promise<MergePullRequestResult> {
+		const resolved = await this._panels.resolvePullRequestForMerge(number);
 		if (resolved == null) {
-			void window.showErrorMessage(`Unable to resolve pull request #${params.number}`);
+			void window.showErrorMessage(`Unable to resolve pull request #${number}`);
 			return { merged: false };
 		}
 
 		const { integration, pr } = resolved;
 		// A sheet-side confirmation already named the blast radius in place; only unconfirmed callers
 		// (e.g. the branch sheet's chip) get the quick pick.
-		if (!params.confirmed && !(await confirmPullRequestMerge(pr))) return { merged: false };
+		if (!options?.confirmed && !(await confirmPullRequestMerge(pr))) return { merged: false };
 
-		const mergeMethod = params.mergeMethod != null ? mergeMethodsByName[params.mergeMethod] : undefined;
+		const mergeMethod = options?.mergeMethod != null ? mergeMethodsByName[options.mergeMethod] : undefined;
 
 		const result = await mergePullRequestWithProgress(
 			integration,
@@ -2645,7 +2639,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._producers.resetRefsMetadata();
 		this._graphSync.markRefsMetadataReset();
 		this._panels.notifySidebarInvalidated();
-		void this._panels.notifyDidChangeOverview();
+		this._panels.notifyDidChangeOverview();
 		this._data.updateState(true);
 	}
 
@@ -2662,32 +2656,46 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return Promise.resolve();
 	}
 
-	@ipcRequest(GetRowHoverRequest)
-	private async onHoverRowRequest(params: IpcParams<typeof GetRowHoverRequest>) {
-		const hover: IpcResponse<typeof GetRowHoverRequest> = {
-			id: params.id,
+	/**
+	 * Row hover markdown. Single-flight via `cancelOperation('hover')`/`createCancellation('hover')` —
+	 * a newer call always supersedes an outstanding one. `signal` bridges a superseded/torn-down RPC
+	 * call into the same per-call cancellation token; `cancelOperation('hover')` above is the fallback
+	 * for two concurrent hovers that arrive without a signal. Never rejects — a rejected RPC promise
+	 * would leave the hover card waiting instead of falling back (see the outer catch).
+	 */
+	private async getRowHover(type: GitGraphRowKind, id: string, signal?: AbortSignal): Promise<DidGetRowHoverParams> {
+		const hover: DidGetRowHoverParams = {
+			id: id,
 			markdown: undefined!,
 		};
 
 		this.cancelOperation('hover');
 
+		let onAbort: (() => void) | undefined;
+
 		try {
 			if (this._data.session != null) {
-				const id = params.id;
-
 				let markdown = this._hoverCache.get(id);
 				if (markdown == null) {
 					const cancellation = this.createCancellation('hover');
+					onAbort = () => cancellation.cancel();
+					if (signal?.aborted) {
+						// Already aborted (e.g. a signal born aborted from wire deserialization) never fires
+						// its own `abort` event — `addEventListener` alone would miss it.
+						onAbort();
+					} else {
+						signal?.addEventListener('abort', onAbort, { once: true });
+					}
 
 					let cache = true;
 					let commit;
 					try {
-						const wipWorktreePath = params.type === 'workdir' ? getWipRowWorktreePath(id) : undefined;
+						const wipWorktreePath = type === 'workdir' ? getWipRowWorktreePath(id) : undefined;
 						const isSecondaryWip =
 							wipWorktreePath != null && wipWorktreePath !== this._data.session.repoPath;
 						const hoverRepoPath = isSecondaryWip ? wipWorktreePath : this._data.session.repoPath;
 						const svc = this.container.git.getRepositoryService(hoverRepoPath);
-						switch (params.type) {
+						switch (type) {
 							case 'workdir':
 								cache = false;
 								// The uncommitted pseudo-commit's `repoPath` carries the worktree path the
@@ -2696,11 +2704,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								break;
 							case 'stash': {
 								const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
-								commit = stash?.stashes.get(params.id);
+								commit = stash?.stashes.get(id);
 								break;
 							}
 							default: {
-								commit = await svc.commits.getCommit(params.id, toAbortSignal(cancellation.token));
+								commit = await svc.commits.getCommit(id, toAbortSignal(cancellation.token));
 								break;
 							}
 						}
@@ -2748,14 +2756,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			hover.markdown ??= { status: 'rejected' as const, reason: new CancellationError() };
 			return hover;
 		} catch (ex) {
-			Logger.error(ex, 'GraphWebviewProvider', 'onHoverRowRequest');
-			// Return a structurally-valid response so the webview's `getResponsePromise` resolves
-			// in milliseconds (not the 5-min timeout) and the hover render can show a fallback.
+			Logger.error(ex, 'GraphWebviewProvider', 'getRowHover');
+			// Return a structurally-valid response so the app's `getResponsePromise`/RPC call resolves
+			// quickly (not a 5-min timeout) and the hover render can show a fallback.
 			return {
-				id: params.id,
+				id: id,
 				markdown: { status: 'rejected' as const, reason: ex },
 				error: ex instanceof Error ? ex.message : String(ex),
 			};
+		} finally {
+			if (onAbort != null) {
+				signal?.removeEventListener('abort', onAbort);
+			}
 		}
 	}
 
@@ -3071,15 +3083,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await executeCommand<Source>('gitlens.gk.switchOrganization', { source: 'graph' });
 	}
 
-	@ipcRequest(ChooseRefRequest)
-	private async onChooseRef(params: IpcParams<typeof ChooseRefRequest>) {
+	private async chooseRef(
+		title: string,
+		placeholder: string,
+		options?: {
+			allowedAdditionalInput?: ReferencesQuickPickOptions2['allowedAdditionalInput'];
+			include?: ReferencesQuickPickOptions2['include'];
+			picked?: string;
+		},
+	): Promise<DidChooseRefParams> {
 		if (this.repository == null) return undefined;
 
 		try {
-			const result = await showReferencePicker2(this.repository.path, params.title, params.placeholder, {
-				allowedAdditionalInput: params.allowedAdditionalInput,
-				include: params.include ?? ['branches', 'tags'],
-				picked: params.picked,
+			const result = await showReferencePicker2(this.repository.path, title, placeholder, {
+				allowedAdditionalInput: options?.allowedAdditionalInput,
+				include: options?.include ?? ['branches', 'tags'],
+				picked: options?.picked,
 			});
 			const pick = result?.value;
 
@@ -3093,15 +3112,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				: undefined;
 		} catch (ex) {
-			Logger.error(ex, 'GraphWebviewProvider', 'onChooseRef');
+			Logger.error(ex, 'GraphWebviewProvider', 'chooseRef');
 			// The response type is `DidChooseRefParams | undefined`; `undefined` is the existing
 			// no-pick semantics so the frontend treats it as "user cancelled" rather than crashing.
 			return undefined;
 		}
 	}
 
-	@ipcRequest(ChooseComparisonRequest)
-	private async onChooseComparison(params: IpcParams<typeof ChooseComparisonRequest>) {
+	// `placeholder` isn't part of the signature — `showComparisonPicker` supplies its own per-step
+	// placeholder text; only `title` carries through from the caller (matches the pre-RPC behavior).
+	private async chooseComparison(title: string): Promise<DidChooseComparisonParams> {
 		if (this.repository == null) return { range: undefined };
 
 		const result = await showComparisonPicker(this.container, this.repository.path, {
@@ -3109,12 +3129,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				switch (step) {
 					case 1:
 						return {
-							title: params.title,
+							title: title,
 							placeholder: 'Choose a branch or tag to show commits from',
 						};
 					case 2:
 						return {
-							title: params.title,
+							title: title,
 							placeholder: 'Choose a base to compare against (e.g., main)',
 						};
 				}
@@ -3124,41 +3144,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { range: result != null ? `${result.base.ref}..${result.head.ref}` : undefined };
 	}
 
-	@ipcRequest(ChooseAuthorRequest)
-	private async onChooseAuthor(params: IpcParams<typeof ChooseAuthorRequest>) {
+	private async chooseAuthor(title: string, placeholder: string, picked?: string[]): Promise<DidChooseAuthorParams> {
 		if (this.repository == null) return { authors: undefined };
 
-		const authors = params.picked != null ? new Set(params.picked) : undefined;
-		const contributors = await showContributorsPicker(
-			this.container,
-			this.repository,
-			params.title,
-			params.placeholder,
-			{
-				appendReposToTitle: true,
-				clearButton: true,
-				multiselect: true,
-				picked: c =>
-					authors != null &&
-					((c.email != null && authors.has(c.email)) ||
-						(c.name != null && authors.has(c.name)) ||
-						(c.username != null && authors.has(c.username))),
-			},
-		);
+		const authorsPicked = picked != null ? new Set(picked) : undefined;
+		const contributors = await showContributorsPicker(this.container, this.repository, title, placeholder, {
+			appendReposToTitle: true,
+			clearButton: true,
+			multiselect: true,
+			picked: c =>
+				authorsPicked != null &&
+				((c.email != null && authorsPicked.has(c.email)) ||
+					(c.name != null && authorsPicked.has(c.name)) ||
+					(c.username != null && authorsPicked.has(c.username))),
+		});
 
 		return { authors: contributors != null ? filterMap(contributors, c => c.email) : undefined };
 	}
 
-	@ipcRequest(ChooseFileRequest)
-	private async onChooseFile(params: IpcParams<typeof ChooseFileRequest>) {
+	private async chooseFile(
+		title: string,
+		type: 'file' | 'folder',
+		options?: { openLabel?: string; picked?: string[] },
+	): Promise<DidChooseFileParams> {
 		if (this.repository == null) return { files: undefined };
 
 		const uris = await window.showOpenDialog({
-			canSelectFiles: params.type === 'file',
-			canSelectFolders: params.type === 'folder',
-			canSelectMany: params.type === 'file',
-			title: params.title,
-			openLabel: params.openLabel,
+			canSelectFiles: type === 'file',
+			canSelectFolders: type === 'folder',
+			canSelectMany: type === 'file',
+			title: title,
+			openLabel: options?.openLabel,
 			defaultUri: this.repository.folder?.uri,
 		});
 
@@ -3169,15 +3185,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { files: files };
 	}
 
-	@ipcRequest(ResolveGraphScopeRequest)
-	private async onResolveGraphScope(
-		params: IpcParams<typeof ResolveGraphScopeRequest>,
-	): Promise<IpcResponse<typeof ResolveGraphScopeRequest>> {
+	private async resolveGraphScope(
+		repoPath: string,
+		scope: GraphScope,
+		signal?: AbortSignal,
+	): Promise<DidResolveGraphScopeParams> {
 		try {
-			const anchor = await this.resolveScopeAnchor(params.repoPath, params.scope.branchName);
+			const anchor = await this.resolveScopeAnchor(repoPath, scope.branchName, signal);
 			return {
 				scope: {
-					...params.scope,
+					...scope,
 					mergeBase: anchor?.mergeBase,
 					resolvedMergeTargetTipSha: anchor?.mergeTargetTipSha,
 					resolvedMergeTargetName: anchor?.mergeTargetName,
@@ -3185,12 +3202,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 			};
 		} catch (ex) {
-			Logger.error(ex, 'GraphWebviewProvider', 'onResolveGraphScope');
+			if (!isCancellationError(ex)) {
+				Logger.error(ex, 'GraphWebviewProvider', 'resolveGraphScope');
+			}
 			// Return the caller-supplied scope as a fallback so consumers reading `scope.mergeBase`,
 			// `scope.resolvedMergeTargetTipSha`, etc. don't crash on undefined property access.
-			return { scope: params.scope, error: ex instanceof Error ? ex.message : String(ex) };
+			return { scope: scope, error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
+
+	// `signal` (not `save-last`): consumers sweep every cached anchor on receipt regardless of
+	// `repoPath` (see `GraphScopeService.onScopeAnchorsInvalidated`) — over-invalidating is cheap, and a
+	// hidden webview only needs to know that SOMETHING invalidated, not which repo, most recently.
+	private readonly _scopeAnchorsInvalidatedEvent = createRpcEvent<{ repoPath: string }>(
+		'scopeAnchorsInvalidated',
+		'signal',
+		{ repoPath: '' },
+	);
 
 	private invalidateScopeAnchors(): void {
 		this._scopeAnchorCache.clear();
@@ -3198,7 +3226,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const repoPath = this.repository?.path ?? this._data.session?.repoPath;
 		if (repoPath == null) return;
 
-		void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: repoPath });
+		this._scopeAnchorsInvalidatedEvent.fire({ repoPath: repoPath });
 	}
 
 	/**
@@ -3219,13 +3247,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 * enrichment — this just stops scope from triggering it on cold branches that aren't already
 	 * covered by the package-level `branchOverviews` cache.
 	 */
-	private async resolveScopeAnchor(repoPath: string, branchName: string): Promise<ResolvedScopeAnchor | undefined> {
+	private async resolveScopeAnchor(
+		repoPath: string,
+		branchName: string,
+		signal?: AbortSignal,
+	): Promise<ResolvedScopeAnchor | undefined> {
+		signal?.throwIfAborted();
+
 		// Prefer the already-loaded branch from the in-memory graph snapshot — `session.current.branches`
 		// is the same data `getBranches()` would return (same underlying cache), so this is a
 		// synchronous shortcut on the hot path, not a different source of truth.
 		const branch =
 			this._data.session?.current.branches.get(branchName) ??
 			(await this.container.git.getRepositoryService(repoPath).branches.getBranch(branchName));
+		signal?.throwIfAborted();
 		if (branch == null) return undefined;
 
 		const cacheKey = branch.id;

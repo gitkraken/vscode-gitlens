@@ -3,6 +3,7 @@ import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@git
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
@@ -11,10 +12,12 @@ import type { FeaturePreview } from '../../../features.js';
 import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
+import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
 import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js';
+import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
 import type {
 	ChoosePathParams,
 	DidChoosePathParams,
@@ -25,17 +28,28 @@ import type {
 import type { TreemapConfig, TreemapData, TreemapMode } from '../treemap/protocol.js';
 import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detailsProtocol.js';
 import type {
+	DidChooseAuthorParams,
+	DidChooseComparisonParams,
+	DidChooseFileParams,
+	DidChooseRefParams,
 	DidGetCountParams,
+	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
 	DidRequestSearchParams,
+	DidResolveGraphScopeParams,
 	DidSearchHistoryGetParams,
 	DidSearchRepairParams,
+	GetOverviewParams,
+	GetWipLineStatsResponse,
+	GraphOverviewData,
+	GraphScope,
 	GraphSearchMode,
 	GraphSearchRelaxation,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
+	MergePullRequestResult,
 	SearchParams,
 	SidebarWorktreeChange,
 } from './protocol.js';
@@ -905,6 +919,97 @@ export interface GraphRepoStatusService {
 }
 
 /**
+ * Scope-anchor resolution plane: the merge-base/merge-target lookup behind Focus on Branch and the
+ * row marker. `error` is set (not thrown) when the resolver fails — callers depend on always getting
+ * back a usable `scope`, falling back to the caller-supplied one.
+ */
+export interface GraphScopeService {
+	resolveScope(repoPath: string, scope: GraphScope, signal?: AbortSignal): Promise<DidResolveGraphScopeParams>;
+	/**
+	 * Fires whenever refs/config move in a way that may stale a resolved anchor (heads/remotes change,
+	 * repo swap, force-refresh). Carries the repo the change was detected in, but consumers should treat
+	 * an invalidation as repo-agnostic and sweep every cached anchor: like `_sidebarInvalidatedEvent`,
+	 * this is buffered as a coalescing `signal` while the webview is hidden — a hidden webview only ever
+	 * replays ONE pending wake-up per event key, so a second repo's invalidation arriving while hidden
+	 * would otherwise be lost if a consumer scoped its sweep to a single `repoPath`. Over-invalidating is
+	 * cheap; losing an invalidation isn't.
+	 */
+	readonly onScopeAnchorsInvalidated: RpcEventSubscription<{ repoPath: string }>;
+}
+
+/**
+ * Overview panel data plane: the active/recent branch composition plus its WIP and PR/issue
+ * enrichment. `getOverview` also accepts an updated `recentThreshold` and older-branches
+ * `olderLimit`, mirroring the legacy request's dual role (read + persist the "Recent" timeframe
+ * and "Load More" paging).
+ */
+export interface GraphOverviewService {
+	getOverview(params?: GetOverviewParams, signal?: AbortSignal): Promise<GraphOverviewData>;
+	/**
+	 * Cheap (dirty/clean only) or full WIP breakdown for the given branches, depending on `cheap`.
+	 * Cache-backed on the host, so repeat calls for branches with a warm entry cost no extra `git status`.
+	 */
+	getWip(branchIds: string[], cheap?: boolean, signal?: AbortSignal): Promise<GetOverviewWipResponse>;
+	/** On-demand fetch of the full WIP breakdown (add/changed/deleted), driven by the rich hover so the
+	 *  eager overview load can stay on the cheap clean/dirty path of {@link getWip}. */
+	getWipDetailed(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewWipResponse>;
+	getEnrichment(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewEnrichmentResponse>;
+	/** Pushed whenever the host recomputes the overview (graph reload, repo/visibility/filter change) —
+	 *  deep-equal deduped on the host, so a hidden webview replays only the latest genuine change. */
+	readonly onOverviewChanged: RpcEventSubscription<GraphOverviewData>;
+}
+
+export interface GraphWipService {
+	/** Per-file working-tree line stats for `repoPath`, keyed by repo-relative (normalized) path.
+	 *  Fetched lazily via a single `git diff HEAD --numstat` (incl. untracked) only while the WIP file
+	 *  list is shown — the every-tick `wip` push carries file status only, never line counts. */
+	getLineStats(repoPath: string, signal?: AbortSignal): Promise<GetWipLineStatsResponse | undefined>;
+}
+
+/**
+ * Row hover markdown for the graph's tooltip/peek card. Single-flight on the host — a newer call
+ * (or `signal` aborting) always supersedes an outstanding one; two overlapping calls collapse to the
+ * newer one's result. Never rejects: a rejected RPC promise would leave the hover card waiting
+ * instead of falling back — see the host implementation's outer catch.
+ */
+export interface GraphHoverService {
+	getRowHover(type: GitGraphRowKind, id: string, signal?: AbortSignal): Promise<DidGetRowHoverParams>;
+}
+
+/**
+ * Native quick-pick pickers for the search box's `author:`/`ref:`/`compare:`/`file:`/`folder:`
+ * operators. No `signal` — VS Code's quick-pick APIs don't take a cancellation token, and a picker
+ * is closed by the user, not superseded by another call.
+ */
+export interface GraphPickersService {
+	chooseRef(
+		title: string,
+		placeholder: string,
+		options?: {
+			allowedAdditionalInput?: ReferencesQuickPickOptions2['allowedAdditionalInput'];
+			include?: ReferencesQuickPickOptions2['include'];
+			picked?: string;
+		},
+	): Promise<DidChooseRefParams>;
+	chooseComparison(title: string): Promise<DidChooseComparisonParams>;
+	chooseAuthor(title: string, placeholder: string, picked?: string[]): Promise<DidChooseAuthorParams>;
+	chooseFile(
+		title: string,
+		type: 'file' | 'folder',
+		options?: { openLabel?: string; picked?: string[] },
+	): Promise<DidChooseFileParams>;
+}
+
+export interface GraphPullRequestService {
+	/** `number` is the user-facing PR number (not a provider-internal id). `confirmed` skips the
+	 *  host's own merge-blast-radius quickpick — set when the caller already confirmed in place. */
+	merge(
+		number: string,
+		options?: { confirmed?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
+	): Promise<MergePullRequestResult>;
+}
+
+/**
  * Repository Health data plane for the Health visualization. Every method delegates to the
  * container's `GitHealthService`, which the auto tier already drives — this contract is what finally
  * gives those APIs a consumer.
@@ -945,6 +1050,12 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
 	readonly repoStatus: GraphRepoStatusService;
+	readonly scope: GraphScopeService;
+	readonly overview: GraphOverviewService;
+	readonly wip: GraphWipService;
+	readonly hover: GraphHoverService;
+	readonly pickers: GraphPickersService;
+	readonly pullRequest: GraphPullRequestService;
 }
 
 export interface GraphLaunchpadService {

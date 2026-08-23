@@ -131,6 +131,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	private async _onRpcReady(services: Remote<GraphServices>): Promise<void> {
 		this._servicesProvider.setValue(services);
+		this._stateProvider.initializeServices(services);
 
 		this._onboardingDismissals.connect(services.onboarding);
 		this._coachMarkSeen.connect(services.onboarding);
@@ -146,8 +147,8 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
 
-		const search = await services.search;
-		this._searchActions.initialize(search, this._stateProvider);
+		const [search, pickers] = await Promise.all([services.search, services.pickers]);
+		this._searchActions.initialize(search, this._stateProvider, pickers);
 
 		// Tear down the previous listener first — reconnect-safe, same pattern as `_sidebarActions.initialize()`.
 		this._unsubscribeRequestSearch?.();

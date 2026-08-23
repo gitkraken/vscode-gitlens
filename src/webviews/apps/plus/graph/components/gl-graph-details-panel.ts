@@ -30,12 +30,7 @@ import type {
 	GraphSidebarPullRequest,
 	State,
 } from '../../../../plus/graph/protocol.js';
-import {
-	GetWipLineStatsRequest,
-	getWipRowWorktreePath,
-	isWipSelectionSha,
-	UpdateWipDraftCommand,
-} from '../../../../plus/graph/protocol.js';
+import { getWipRowWorktreePath, isWipSelectionSha, UpdateWipDraftCommand } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
@@ -398,7 +393,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _agentStatusSplitPosition?: number;
 
 	/** Per-file working-tree line stats (keyed by normalized path) for the WIP file rows. Fetched
-	 *  lazily via {@link GetWipLineStatsRequest} — only while the WIP file list is shown — since the
+	 *  lazily via `services.wip.getLineStats` — only while the WIP file list is shown — since the
 	 *  every-tick `wip` push carries file status only, never line counts. */
 	@state()
 	private _wipFileStats?: GetWipLineStatsResponse;
@@ -693,6 +688,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		if (this._wipFileStatsFetchedFor === wip) return;
 
+		// Bail before marking `wip` as fetched — a not-yet-connected remote must retry once
+		// `_remoteServices` (a `@state()`) resolves and re-triggers `updated()`.
+		const services = this._remoteServices;
+		if (services == null) return;
+
 		// On a repo/worktree switch, drop the prior repo's numbers immediately so we never show them
 		// against the new tree; same-repo working-tree ticks update in place (no row flicker).
 		if (this._wipFileStatsFetchedFor?.repo?.path !== repoPath) {
@@ -700,12 +700,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 		this._wipFileStatsFetchedFor = wip;
 
-		void this._ipc?.sendRequest(GetWipLineStatsRequest, { repoPath: repoPath }).then(stats => {
+		void (async () => {
+			const wipService = await services.wip;
+			const stats = await wipService.getLineStats(repoPath);
 			// Ignore a response a newer snapshot (or a view change) has already superseded.
 			if (this._wipFileStatsFetchedFor === wip) {
 				this._wipFileStats = stats ?? undefined;
 			}
-		});
+		})();
 	}
 
 	/** Lazily fetch the worktree's past (resumable) agent sessions while a WIP row is selected,

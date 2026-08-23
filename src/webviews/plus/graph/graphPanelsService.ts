@@ -54,8 +54,8 @@ import {
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { IpcParams } from '../../ipc/handlerRegistry.js';
-import type { IpcNotification } from '../../ipc/models/ipc.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
+import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import type {
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -64,13 +64,11 @@ import type {
 import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
 import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
+import type { GraphServices } from './graphService.js';
 import { markSidebarInlineInvocation } from './graphSidebarActionTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
-	GetOverviewEnrichmentRequest,
-	GetOverviewRequest,
-	GetOverviewWipDetailedRequest,
-	GetOverviewWipRequest,
+	GetOverviewParams,
 	GraphBranchContextValue,
 	GraphItemRefContext,
 	GraphItemTypedContext,
@@ -86,14 +84,13 @@ import type {
 	GraphStashContextValue,
 	GraphTagContextValue,
 } from './protocol.js';
-import { createWipRowId, DidChangeOverviewNotification, sidebarItemOrigin } from './protocol.js';
+import { createWipRowId, sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
  *  live provider state; `getPinnedRefId`/`getExcludedRefsByRepo`/`fetchWipStatus`/`computeWorktreeChanges`
  *  forward into provider-owned filter storage and the WIP service's caches (kept there); `fireSidebarInvalidated`
- *  fires the provider's `sidebarInvalidated` RPC event (that transport stays wired in `getRpcServices`); the
- *  pending-notification callback routes through the provider's shared `_ipcNotificationMap`, which stays there. */
+ *  fires the provider's `sidebarInvalidated` RPC event (that transport stays wired in `getRpcServices`). */
 export type GraphPanelsServiceContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
@@ -105,7 +102,6 @@ export type GraphPanelsServiceContext = {
 	fetchWipStatus: (path: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
 	computeWorktreeChanges: (worktrees: GitWorktree[]) => void;
 	fireSidebarInvalidated: () => void;
-	addPendingNotification: (notification: IpcNotification<any>) => void;
 };
 
 /** Page size for the Overview panel's "Load More" older-branches paging — how many additional
@@ -234,6 +230,10 @@ export class GraphPanelsService {
 	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
 	// graph identity change.
 	private _lastSentOverview: GraphOverviewData | undefined;
+	// `save-last`: the payload is a complete overview snapshot, so a hidden webview only ever needs the
+	// newest one — the `EventVisibilityBuffer` replays it on show, superseding the old pending-notification
+	// requeue path.
+	private readonly _overviewChangedEvent = createRpcEvent<GraphOverviewData>('overviewChanged', 'save-last');
 	// Open PRs (and their categorization) for the pull-requests panel, keyed by repo + integration +
 	// remote. Holds the promise (not the value) so concurrent opens share one request; dropped on
 	// rejection so a failure doesn't stick for the full TTL.
@@ -255,11 +255,12 @@ export class GraphPanelsService {
 		this._lastSentOverview = undefined;
 	}
 
-	onGetOverview(params: IpcParams<typeof GetOverviewRequest>): GraphOverviewData {
-		if (params.recentThreshold != null) {
+	onGetOverview(params?: GetOverviewParams): GraphOverviewData {
+		if (params?.recentThreshold != null) {
 			this._overviewRecentThreshold = params.recentThreshold;
 		}
-		if (params.olderLimit != null) {
+
+		if (params?.olderLimit != null) {
 			this._overviewOlderLimit = Math.max(0, Math.min(params.olderLimit, overviewOlderBranchesMaxLimit));
 		}
 		try {
@@ -271,8 +272,13 @@ export class GraphPanelsService {
 		}
 	}
 
-	async onGetOverviewWip(params: IpcParams<typeof GetOverviewWipRequest>): Promise<GetOverviewWipResponse> {
-		if (params.branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
+	async onGetOverviewWip(
+		branchIds: string[],
+		cheap?: boolean,
+		signal?: AbortSignal,
+	): Promise<GetOverviewWipResponse> {
+		signal?.throwIfAborted();
+		if (branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
 
 		// Visibility-refresh path: webview asks for current overview WIP on panel mount / focus.
 		// Default mode routes through the shared `_wipStatusCache`, so when the per-event push has
@@ -284,22 +290,25 @@ export class GraphPanelsService {
 		// the status cache entirely; the breakdown arrives later via the hover-triggered detailed
 		// fetch which goes through the cache.
 		try {
-			return await this.computeOverviewWipFromCache(params.branchIds, params.cheap);
+			return await this.computeOverviewWipFromCache(branchIds, cheap);
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewWip');
 			// Record-shaped response — empty map is safe; frontend reads `response[sha]` and gets `undefined`.
 			return {};
 		}
 	}
 
-	async onGetOverviewWipDetailed(
-		params: IpcParams<typeof GetOverviewWipDetailedRequest>,
-	): Promise<GetOverviewWipResponse> {
-		if (params.branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
+	async onGetOverviewWipDetailed(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewWipResponse> {
+		signal?.throwIfAborted();
+		if (branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
 
 		try {
-			return await this.computeOverviewWipFromCache(params.branchIds);
+			return await this.computeOverviewWipFromCache(branchIds);
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewWipDetailed');
 			return {};
 		}
@@ -324,19 +333,19 @@ export class GraphPanelsService {
 		);
 	}
 
-	async onGetOverviewEnrichment(
-		params: IpcParams<typeof GetOverviewEnrichmentRequest>,
-	): Promise<GetOverviewEnrichmentResponse> {
-		if (params.branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
+	async onGetOverviewEnrichment(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewEnrichmentResponse> {
+		signal?.throwIfAborted();
+		if (branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
 
 		try {
 			const subscription = await this.container.subscription.getSubscription();
+			signal?.throwIfAborted();
 			const isPro = isSubscriptionTrialOrPaidFromState(subscription.state);
 
 			return await getOverviewEnrichment(
 				this.container,
 				this._graphSession.current.branches.values(),
-				params.branchIds,
+				branchIds,
 				{
 					isPro: isPro,
 					resolveLaunchpad: true,
@@ -419,26 +428,31 @@ export class GraphPanelsService {
 	}
 
 	@trace()
-	async notifyDidChangeOverview(): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) {
-			this.context.addPendingNotification(DidChangeOverviewNotification);
-			return false;
-		}
-
-		// Skip identical pushes — most graph reloads reproduce the prior overview verbatim. Advance
-		// the last-sent snapshot only on confirmed delivery: a failed `notify` is requeued by type
-		// and REPLACED by a later one, so a speculative advance could let the gate suppress the
-		// replacement and leave the webview never receiving the overview.
+	notifyDidChangeOverview(): void {
+		// Skip identical pushes — most graph reloads reproduce the prior overview verbatim. The
+		// `EventVisibilityBuffer` (save-last) replays the latest emission to a hidden/not-yet-ready
+		// webview, so there's no requeue-by-type bookkeeping to do here anymore.
 		const overview = this.getOverviewData();
 		if (this._lastSentOverview != null && areEqual(overview, this._lastSentOverview)) {
-			return false;
+			return;
 		}
 
-		const success = await this.host.notify(DidChangeOverviewNotification, { overview: overview });
-		if (success) {
-			this._lastSentOverview = overview;
-		}
-		return success;
+		this._lastSentOverview = overview;
+		this._overviewChangedEvent.fire(overview);
+	}
+
+	/** Mirrors {@link GraphSearchService.createServices} — the Overview panel's RPC service surface,
+	 *  wired against the shared `EventVisibilityBuffer`/`SubscriptionTracker` from `getRpcServices`. */
+	createServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): Pick<GraphServices, 'overview'> {
+		return {
+			overview: {
+				getOverview: params => Promise.resolve(this.onGetOverview(params)),
+				getWip: (branchIds, cheap, signal) => this.onGetOverviewWip(branchIds, cheap, signal),
+				getWipDetailed: (branchIds, signal) => this.onGetOverviewWipDetailed(branchIds, signal),
+				getEnrichment: (branchIds, signal) => this.onGetOverviewEnrichment(branchIds, signal),
+				onOverviewChanged: this._overviewChangedEvent.subscribe(buffer, tracker),
+			},
+		};
 	}
 
 	async onGetSidebarData(

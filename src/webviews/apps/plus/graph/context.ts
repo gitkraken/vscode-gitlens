@@ -135,7 +135,7 @@ export interface AppState extends State {
 
 	/**
 	 * Re-resolve the authoritative `mergeBase` for an already-published scope. Called from the
-	 * `DidInvalidateScopeAnchorsNotification` handler after refs/config move so the live scope
+	 * `GraphScopeService.onScopeAnchorsInvalidated` handler after refs/config move so the live scope
 	 * picks up the fresh anchor without the user re-picking. Initial picks go through `setScope`.
 	 */
 	resolveScopeMergeBase(scope: GraphScope): Promise<void>;

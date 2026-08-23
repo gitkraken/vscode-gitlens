@@ -45,17 +45,11 @@ import type { FeaturePreview } from '../../../features.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
-import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
 import type { IpcScope } from '../../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
-import type {
-	GetOverviewEnrichmentResponse,
-	GetOverviewWipResponse,
-	OverviewBranch,
-	OverviewRecentThreshold,
-} from '../../shared/overviewBranches.js';
+import type { OverviewBranch, OverviewRecentThreshold } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
 import type { TreemapMode } from '../treemap/protocol.js';
 import type { Wip, WipStats } from './detailsProtocol.js';
@@ -981,10 +975,6 @@ export interface MergePullRequestParams {
 export interface MergePullRequestResult {
 	merged: boolean;
 }
-export const MergePullRequestRequest = new IpcRequest<MergePullRequestParams, MergePullRequestResult>(
-	scope,
-	'pullRequest/merge',
-);
 
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
@@ -1133,47 +1123,17 @@ export type DidChooseRefParams =
 	| { id?: string; name: string; sha: string; refType: GitReference['refType']; graphRefType?: GraphRefType }
 	| undefined;
 
-export interface ChooseRefParams {
-	title: string;
-	placeholder: string;
-	allowedAdditionalInput?: ReferencesQuickPickOptions2['allowedAdditionalInput'];
-	include?: ReferencesQuickPickOptions2['include'];
-	picked?: string;
-}
-export const ChooseRefRequest = new IpcRequest<ChooseRefParams, DidChooseRefParams>(scope, 'chooseRef');
-
-export interface ChooseComparisonParams {
-	title: string;
-	placeholder: string;
-}
 export interface DidChooseComparisonParams {
 	range: string | undefined;
 }
-export const ChooseComparisonRequest = new IpcRequest<ChooseComparisonParams, DidChooseComparisonParams>(
-	scope,
-	'chooseComparison',
-);
 
-export interface ChooseAuthorParams {
-	title: string;
-	placeholder: string;
-	picked?: string[];
-}
 export interface DidChooseAuthorParams {
 	authors: string[] | undefined;
 }
-export const ChooseAuthorRequest = new IpcRequest<ChooseAuthorParams, DidChooseAuthorParams>(scope, 'chooseAuthor');
 
-export interface ChooseFileParams {
-	title: string;
-	type: 'file' | 'folder';
-	openLabel?: string;
-	picked?: string[];
-}
 export interface DidChooseFileParams {
 	files: string[] | undefined;
 }
-export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileParams>(scope, 'chooseFile');
 
 export interface ResolvedGraphScope extends GraphScope {
 	mergeBase?: { sha: string; date: number };
@@ -1192,20 +1152,12 @@ export interface ResolvedGraphScope extends GraphScope {
 	 *  "resolver had no answer" (`undefined`) from "value already on the scope". */
 	resolvedFocalBranchTipSha?: string;
 }
-export interface ResolveGraphScopeParams {
-	repoPath: string;
-	scope: GraphScope;
-}
 export interface DidResolveGraphScopeParams {
 	scope: ResolvedGraphScope;
 	/** Set when the scope-anchor resolver threw. `scope` is the unresolved caller-supplied scope
 	 *  as a fallback so consumers reading `scope.mergeBase` etc. don't crash. */
 	error?: string;
 }
-export const ResolveGraphScopeRequest = new IpcRequest<ResolveGraphScopeParams, DidResolveGraphScopeParams>(
-	scope,
-	'scope/resolve',
-);
 
 export interface LoadRowParams {
 	id: string;
@@ -1246,6 +1198,7 @@ export type DidGetCountParams =
 			worktrees?: number;
 	  }
 	| undefined;
+/** Parameters for the overview RPC service's `getOverview`. */
 export interface GetOverviewParams {
 	/** When set, updates the host's stored "Recent" timeframe before computing the overview. */
 	recentThreshold?: OverviewRecentThreshold;
@@ -1253,43 +1206,6 @@ export interface GetOverviewParams {
 	 *  overview — 0 or absent means no older branches are included. */
 	olderLimit?: number;
 }
-export const GetOverviewRequest = new IpcRequest<GetOverviewParams, GraphOverviewData>(scope, 'overview/get');
-
-export interface GetOverviewWipParams {
-	branchIds: string[];
-	/**
-	 * When true, the host probes `status.hasWorkingChanges()` (cheap `git diff --quiet` + untracked
-	 * probe) instead of running a full `git status` per branch. Result entries carry `hasChanges`
-	 * only — `workingTreeState`, conflicts, and pausedOp are filled in on hover via
-	 * {@link GetOverviewWipDetailedRequest}.
-	 */
-	cheap?: boolean;
-}
-export const GetOverviewWipRequest = new IpcRequest<GetOverviewWipParams, GetOverviewWipResponse>(
-	scope,
-	'overview/wip/get',
-);
-
-export interface GetOverviewWipDetailedParams {
-	branchIds: string[];
-}
-/**
- * On-demand fetch of the full wip breakdown (add/changed/deleted) for the given branches. Driven
- * by the rich hover so the eager overview load can stay on the cheap clean/dirty path
- * ({@link GetOverviewWipRequest}).
- */
-export const GetOverviewWipDetailedRequest = new IpcRequest<GetOverviewWipDetailedParams, GetOverviewWipResponse>(
-	scope,
-	'overview/wip/detailed/get',
-);
-
-export interface GetOverviewEnrichmentParams {
-	branchIds: string[];
-}
-export const GetOverviewEnrichmentRequest = new IpcRequest<GetOverviewEnrichmentParams, GetOverviewEnrichmentResponse>(
-	scope,
-	'overview/enrichment/get',
-);
 
 export interface GetWipStatsParams {
 	shas: string[];
@@ -1310,17 +1226,10 @@ export interface WipRowStats {
 export type GetWipStatsResponse = Record<string, WipRowStats | undefined>;
 export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');
 
-export interface GetWipLineStatsParams {
-	repoPath: string;
-}
 /** Per-file working-tree line stats keyed by repo-relative (normalized) path. Fetched lazily via a
  *  single `git diff HEAD --numstat` (incl. untracked) only while the WIP file list is shown — the
  *  every-tick `wip` push carries file status only, never line counts (`git status` can't emit them). */
 export type GetWipLineStatsResponse = Record<string, { additions: number; deletions: number }>;
-export const GetWipLineStatsRequest = new IpcRequest<GetWipLineStatsParams, GetWipLineStatsResponse | undefined>(
-	scope,
-	'wip/lineStats/get',
-);
 
 export interface SyncWipWatchesParams {
 	/** Full set of currently-visible secondary WIP shas. Host diffs against its subscription set. */
@@ -1570,11 +1479,6 @@ export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: bool
 	| { panel: 'overview'; items: never[] }
 	| { panel: 'agents'; items: AgentSessionState[] }
 );
-export type GetRowHoverParams = {
-	type: GitGraphRowKind;
-	id: string;
-};
-
 export interface DidGetRowHoverParams {
 	id: string;
 	markdown: PromiseSettledResult<string>;
@@ -1582,8 +1486,6 @@ export interface DidGetRowHoverParams {
 	 *  `markdown` is still present as a structurally-valid rejected `PromiseSettledResult`. */
 	error?: string;
 }
-
-export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
 
 export interface SearchParams {
 	search: SearchQuery;
@@ -1615,11 +1517,6 @@ export interface DidSearchRepairParams {
 }
 
 // NOTIFICATIONS
-
-export interface DidChangeOverviewParams {
-	overview: GraphOverviewData;
-}
-export const DidChangeOverviewNotification = new IpcNotification<DidChangeOverviewParams>(scope, 'overview/didChange');
 
 export interface DidChangeRepoConnectionParams {
 	repositories?: GraphRepository[];
@@ -1898,16 +1795,6 @@ export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWor
 	undefined,
 	undefined,
 	true,
-);
-
-export interface DidInvalidateScopeAnchorsParams {
-	repoPath: string;
-	/** When undefined, invalidate all scope anchors for the repo. */
-	branchRefs?: string[];
-}
-export const DidInvalidateScopeAnchorsNotification = new IpcNotification<DidInvalidateScopeAnchorsParams>(
-	scope,
-	'scope/anchors/didInvalidate',
 );
 
 export interface DidInvalidateGraphTreemapParams {

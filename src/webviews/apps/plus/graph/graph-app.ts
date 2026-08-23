@@ -26,6 +26,7 @@ import type { GraphDetailsMode, TrackedUsageKeys } from '../../../../constants.t
 import { mergeWebviewItems } from '../../../../system/webview.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
+	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
@@ -48,12 +49,10 @@ import type {
 import {
 	createWipRowId,
 	EnableChangesColumnCommand,
-	GetRowHoverRequest,
 	getWipRowWorktreePath,
 	GetWipStatsRequest,
 	isPrimaryWipRowId,
 	isWipSelectionSha,
-	MergePullRequestRequest,
 	ResetGraphFiltersCommand,
 	UpdateColumnModeCommand,
 	UpdateExcludeTypesCommand,
@@ -335,6 +334,8 @@ type DetailsVisibleTrigger =
 @customElement('gl-graph-app')
 export class GraphApp extends SignalWatcher(LitElement) {
 	private _hoverTrackingCounter = getScopedCounter();
+	/** Aborts a superseded hover fetch — a newer row's hover always supersedes an outstanding one. */
+	private _hoverAbort?: AbortController;
 	private _selectionTrackingCounter = getScopedCounter();
 	private _lastSearchRequest: SearchQuery | undefined;
 	private _wasDetailsVisible = false;
@@ -3912,8 +3913,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			confirmed?: boolean;
 		}>,
 	): Promise<void> => {
-		const response = await this._ipc.sendRequest(MergePullRequestRequest, {
-			number: e.detail.number,
+		const pullRequest = await this.services?.pullRequest;
+		if (pullRequest == null) return;
+
+		const response = await pullRequest.merge(e.detail.number, {
 			mergeMethod: e.detail.mergeMethod,
 			confirmed: e.detail.confirmed,
 		});
@@ -4980,7 +4983,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		if (gs.overviewRecentThreshold === e.detail.threshold) return;
 
-		// The overview panel sends the `GetOverviewRequest` itself — graph-app only owns the
+		// The overview panel sends the `getOverview` RPC call itself — graph-app only owns the
 		// persisted signal + `graph:state` memento write (mirrors `handleTimelineConfigChange`).
 		gs.overviewRecentThreshold = e.detail.threshold;
 		this.persistState();
@@ -5905,12 +5908,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover.resetUnhoverTimer();
 	}
 
-	private async getRowHoverPromise(row: GitGraphRow) {
+	private async getRowHoverPromise(row: GitGraphRow): Promise<DidGetRowHoverParams> {
 		try {
-			const request = await this._ipc.sendRequest(GetRowHoverRequest, {
-				type: row.kind,
-				id: row.sha,
-			});
+			this._hoverAbort?.abort();
+			const abort = new AbortController();
+			this._hoverAbort = abort;
+
+			const hover = await this.services?.hover;
+			if (hover == null) throw new Error('Graph hover service unavailable');
+
+			const request = await hover.getRowHover(row.kind, row.sha, abort.signal);
 
 			const count = this._hoverTrackingCounter.next();
 			if (count === 1 || count % 100 === 0) {

@@ -14,14 +14,7 @@ import { filterMap } from '@gitlens/utils/array.js';
 import { fuzzyFilter } from '@gitlens/utils/fuzzy.js';
 import { whitespaceRegex } from '../../../../../constants.js';
 import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
-import {
-	ChooseAuthorRequest,
-	ChooseComparisonRequest,
-	ChooseFileRequest,
-	ChooseRefRequest,
-} from '../../../../plus/graph/protocol.js';
 import { searchActionsContext } from '../../../plus/graph/search/searchContext.js';
-import { ipcContext } from '../../contexts/ipc.js';
 import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete.js';
 import { GlElement } from '../element.js';
 import type {
@@ -334,9 +327,6 @@ background-color: var(--vscode-menu-background);
 			--copy-padding: 0 0.1rem;
 		}
 	`;
-
-	@consume({ context: ipcContext })
-	private readonly _ipc!: typeof ipcContext.__context__;
 
 	@consume({ context: searchActionsContext, subscribe: true })
 	private readonly _searchActions!: typeof searchActionsContext.__context__;
@@ -833,11 +823,11 @@ background-color: var(--vscode-menu-background);
 		try {
 			switch (command.command) {
 				case 'pick-author': {
-					const result = await this._ipc.sendRequest(ChooseAuthorRequest, {
-						title: 'Search by Author',
-						placeholder: 'Choose contributors to include commits from',
-						picked: currentValue ? [currentValue] : undefined,
-					});
+					const result = await this._searchActions.chooseAuthor(
+						'Search by Author',
+						'Choose contributors to include commits from',
+						currentValue ? [currentValue] : undefined,
+					);
 
 					if (result.authors?.length) {
 						this.insertPickerValues(result.authors, operator, command.multi ?? false);
@@ -847,13 +837,15 @@ background-color: var(--vscode-menu-background);
 				}
 
 				case 'pick-ref': {
-					const result = await this._ipc.sendRequest(ChooseRefRequest, {
-						title: 'Search by Branch or Tag',
-						placeholder: 'Choose a branch or tag to filter by',
-						allowedAdditionalInput: { range: false, rev: false },
-						include: ['branches', 'tags', 'HEAD'],
-						picked: currentValue || undefined,
-					});
+					const result = await this._searchActions.chooseRef(
+						'Search by Branch or Tag',
+						'Choose a branch or tag to filter by',
+						{
+							allowedAdditionalInput: { range: false, rev: false },
+							include: ['branches', 'tags', 'HEAD'],
+							picked: currentValue || undefined,
+						},
+					);
 
 					if (result?.name) {
 						this.insertPickerValues([result.name], operator, command.multi ?? false);
@@ -863,10 +855,7 @@ background-color: var(--vscode-menu-background);
 				}
 
 				case 'pick-comparison': {
-					const result = await this._ipc.sendRequest(ChooseComparisonRequest, {
-						title: 'Search by Comparison Range',
-						placeholder: 'Choose two refs to compare',
-					});
+					const result = await this._searchActions.chooseComparison('Search by Comparison Range');
 
 					if (result?.range) {
 						this.insertPickerValues([result.range], operator, false);
@@ -877,12 +866,14 @@ background-color: var(--vscode-menu-background);
 
 				case 'pick-file':
 				case 'pick-folder': {
-					const result = await this._ipc.sendRequest(ChooseFileRequest, {
-						title: command.command === 'pick-file' ? 'Search by File' : 'Search by Folder',
-						type: command.command === 'pick-file' ? 'file' : 'folder',
-						openLabel: 'Add to Search',
-						picked: currentValue ? [currentValue] : undefined,
-					});
+					const result = await this._searchActions.chooseFile(
+						command.command === 'pick-file' ? 'Search by File' : 'Search by Folder',
+						command.command === 'pick-file' ? 'file' : 'folder',
+						{
+							openLabel: 'Add to Search',
+							picked: currentValue ? [currentValue] : undefined,
+						},
+					);
 
 					if (result.files?.length) {
 						this.insertPickerValues(result.files, operator, command.multi ?? false);
@@ -988,10 +979,10 @@ background-color: var(--vscode-menu-background);
 	/** Opens the author picker and appends `author:<email>` terms to the query. */
 	async pickAuthors(): Promise<void> {
 		try {
-			const result = await this._ipc.sendRequest(ChooseAuthorRequest, {
-				title: 'Search by Author',
-				placeholder: 'Choose contributors to include commits from',
-			});
+			const result = await this._searchActions.chooseAuthor(
+				'Search by Author',
+				'Choose contributors to include commits from',
+			);
 			this.appendOperatorValues('author:', result.authors ?? []);
 		} catch {
 			this.input.focus();
@@ -1001,12 +992,14 @@ background-color: var(--vscode-menu-background);
 	/** Opens the ref picker and appends a `ref:<name>` term to the query. */
 	async pickRefs(): Promise<void> {
 		try {
-			const result = await this._ipc.sendRequest(ChooseRefRequest, {
-				title: 'Search by Branch or Tag',
-				placeholder: 'Choose a branch or tag to filter by',
-				allowedAdditionalInput: { range: false, rev: false },
-				include: ['branches', 'tags', 'HEAD'],
-			});
+			const result = await this._searchActions.chooseRef(
+				'Search by Branch or Tag',
+				'Choose a branch or tag to filter by',
+				{
+					allowedAdditionalInput: { range: false, rev: false },
+					include: ['branches', 'tags', 'HEAD'],
+				},
+			);
 			this.appendOperatorValues('ref:', result?.name ? [result.name] : []);
 		} catch {
 			this.input.focus();
@@ -1016,9 +1009,7 @@ background-color: var(--vscode-menu-background);
 	/** Opens the file picker and appends `file:<path>` terms to the query. */
 	async pickFiles(): Promise<void> {
 		try {
-			const result = await this._ipc.sendRequest(ChooseFileRequest, {
-				title: 'Search by File',
-				type: 'file',
+			const result = await this._searchActions.chooseFile('Search by File', 'file', {
 				openLabel: 'Add to Search',
 			});
 			this.appendOperatorValues('file:', result.files ?? []);

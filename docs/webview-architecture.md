@@ -13,17 +13,17 @@ surface uses: an `RpcHost` (`src/webviews/webviewController.ts:225`) and the leg
 `notify()` / pending-notification queue (`src/webviews/webviewController.ts:976` onward). A
 surface's layer is determined by what its provider and app code call.
 
-| Surface         | Layer      | Evidence                                                                                                                                                                |
-| --------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Settings        | RPC only   | `apps/settings/settings.ts:66`; `settings/protocol.ts` is 7 lines, 0 IPC types                                                                                          |
-| Commit Details  | RPC only   | `apps/commitDetails/commitDetails.ts:59`; `commitDetails/protocol.ts` has 0 IPC types                                                                                   |
-| Home            | RPC only   | `apps/home/home.ts:103`; the `PromosContext` bridge is gone — promos invalidate via `PromosContext.connect(subscription)`                                               |
-| Timeline        | RPC only   | `apps/plus/timeline/timeline.ts:70`; its `PromosContext` bridge is gone too                                                                                             |
-| Commit Graph    | **Hybrid** | RPC for auxiliary services, search, agent sessions, gating/access, and one-shot pushes; legacy IPC carries the rows data plane (61 IPC types, `plus/graph/protocol.ts`) |
-| Patch Details   | Legacy IPC | no `RpcController`; 30 IPC types                                                                                                                                        |
-| Rebase          | Legacy IPC | no `RpcController`; 29 IPC types                                                                                                                                        |
-| Welcome         | Legacy IPC | no `RpcController`; 6 IPC types                                                                                                                                         |
-| Allowed Signers | Legacy IPC | no `RpcController`; 5 IPC types                                                                                                                                         |
+| Surface         | Layer      | Evidence                                                                                                                                                                                                                                         |
+| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Settings        | RPC only   | `apps/settings/settings.ts:66`; `settings/protocol.ts` is 7 lines, 0 IPC types                                                                                                                                                                   |
+| Commit Details  | RPC only   | `apps/commitDetails/commitDetails.ts:59`; `commitDetails/protocol.ts` has 0 IPC types                                                                                                                                                            |
+| Home            | RPC only   | `apps/home/home.ts:103`; the `PromosContext` bridge is gone — promos invalidate via `PromosContext.connect(subscription)`                                                                                                                        |
+| Timeline        | RPC only   | `apps/plus/timeline/timeline.ts:70`; its `PromosContext` bridge is gone too                                                                                                                                                                      |
+| Commit Graph    | **Hybrid** | RPC for auxiliary services, search, agent sessions, gating/access, one-shot pushes, and all request/response planes (overview, scope, hover, pickers, PR merge); legacy IPC carries the rows data plane (47 IPC types, `plus/graph/protocol.ts`) |
+| Patch Details   | Legacy IPC | no `RpcController`; 30 IPC types                                                                                                                                                                                                                 |
+| Rebase          | Legacy IPC | no `RpcController`; 29 IPC types                                                                                                                                                                                                                 |
+| Welcome         | Legacy IPC | no `RpcController`; 6 IPC types                                                                                                                                                                                                                  |
+| Allowed Signers | Legacy IPC | no `RpcController`; 5 IPC types                                                                                                                                                                                                                  |
 
 `src/webviews/protocol.ts` is **not** legacy-only — it defines the core-scope handshake every
 surface uses (`WebviewReadyRequest`, focus/visibility/configuration notifications,

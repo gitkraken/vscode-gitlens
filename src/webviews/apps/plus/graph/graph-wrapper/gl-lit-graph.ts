@@ -3715,7 +3715,7 @@ export class GlLitGraph extends LitElement {
 
 	// Full-row rich hover: the host detects row entry via delegated pointer events and emits
 	// decoupled `gl-graph-rowhover*` events; the wrapper translates them into the existing GraphHover
-	// pipeline (GetRowHoverRequest → markdown card). Debounced to match the legacy 250ms open delay.
+	// pipeline (`services.hover.getRowHover` → markdown card). Debounced to match the legacy 250ms open delay.
 	private hoveredRowSha?: string;
 	// Zone of the CURRENT `hoveredRowSha` hover (always set together with it) — see `RowHoverZone`.
 	private hoveredRowZone?: RowHoverZone;

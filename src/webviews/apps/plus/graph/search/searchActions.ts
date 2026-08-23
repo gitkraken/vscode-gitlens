@@ -1,7 +1,15 @@
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { defer } from '@gitlens/utils/promise.js';
-import type { GraphSearchResponse, GraphSearchService } from '../../../../plus/graph/graphService.js';
 import type {
+	GraphPickersService,
+	GraphSearchResponse,
+	GraphSearchService,
+} from '../../../../plus/graph/graphService.js';
+import type {
+	DidChooseAuthorParams,
+	DidChooseComparisonParams,
+	DidChooseFileParams,
+	DidChooseRefParams,
 	DidSearchHistoryGetParams,
 	DidSearchRepairParams,
 	GraphSearchMode,
@@ -11,7 +19,7 @@ import { CancellableRequest } from '../../../shared/cancellableRequest.js';
 import type { GraphStateProvider } from '../stateProvider.js';
 
 export interface SearchActions {
-	initialize(service: GraphSearchService, state: GraphStateProvider): void;
+	initialize(service: GraphSearchService, state: GraphStateProvider, pickers: GraphPickersService): void;
 	search(params: SearchParams): Promise<GraphSearchResponse | undefined>;
 	/** Cancels the in-flight request only — a pause, not a clear. The host still owns the accumulated
 	 *  results, so a later `search({ ..., more: true })` resumes from where this left off. */
@@ -25,12 +33,26 @@ export interface SearchActions {
 	getHistory(): Promise<DidSearchHistoryGetParams>;
 	storeHistory(search: SearchQuery): Promise<DidSearchHistoryGetParams>;
 	deleteHistory(query: string): Promise<DidSearchHistoryGetParams>;
+	/** Opens the branch/tag picker — waits for `initialize()` if called before the RPC handshake lands. */
+	chooseRef(
+		title: string,
+		placeholder: string,
+		options?: Parameters<GraphPickersService['chooseRef']>[2],
+	): Promise<DidChooseRefParams>;
+	chooseComparison(title: string): Promise<DidChooseComparisonParams>;
+	chooseAuthor(title: string, placeholder: string, picked?: string[]): Promise<DidChooseAuthorParams>;
+	chooseFile(
+		title: string,
+		type: 'file' | 'folder',
+		options?: Parameters<GraphPickersService['chooseFile']>[2],
+	): Promise<DidChooseFileParams>;
 	dispose(): void;
 }
 
 export function createSearchActions(): SearchActions {
 	let service: GraphSearchService | undefined;
 	let state: GraphStateProvider | undefined;
+	let pickers: GraphPickersService | undefined;
 	let unsubscribe: (() => void) | undefined;
 	// Bumped by `search()` and read by `initialize()`'s seed — a search the user started while the seed
 	// was still resolving must win; re-applying a stale seed on top of it would revert the box/results.
@@ -51,13 +73,14 @@ export function createSearchActions(): SearchActions {
 	const serviceReady = defer<void>();
 
 	const actions: SearchActions = {
-		initialize: function (svc: GraphSearchService, st: GraphStateProvider) {
+		initialize: function (svc: GraphSearchService, st: GraphStateProvider, pks: GraphPickersService) {
 			// Tear down any prior subscription first — reconnect-safe (e.g. RPC reconnection).
 			unsubscribe?.();
 			unsubscribe = undefined;
 
 			service = svc;
 			state = st;
+			pickers = pks;
 			searchIssuedSinceInit = false;
 			serviceReady.fulfill();
 
@@ -155,6 +178,30 @@ export function createSearchActions(): SearchActions {
 
 		deleteHistory: function (query: string) {
 			return service?.deleteHistory(query) ?? Promise.resolve({ history: [] });
+		},
+
+		chooseRef: async function (title, placeholder, options) {
+			await serviceReady.promise;
+
+			return pickers!.chooseRef(title, placeholder, options);
+		},
+
+		chooseComparison: async function (title) {
+			await serviceReady.promise;
+
+			return pickers!.chooseComparison(title);
+		},
+
+		chooseAuthor: async function (title, placeholder, picked) {
+			await serviceReady.promise;
+
+			return pickers!.chooseAuthor(title, placeholder, picked);
+		},
+
+		chooseFile: async function (title, type, options) {
+			await serviceReady.promise;
+
+			return pickers!.chooseFile(title, type, options);
 		},
 
 		dispose: function () {
