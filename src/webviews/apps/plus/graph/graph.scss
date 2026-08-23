@@ -3171,6 +3171,11 @@ gl-lit-graph {
 		// can no longer collapse past its icon, so the segments can never overlap it. position:relative
 		// anchors the hover-expand overlay (`-expand`), which reveals the full name ON TOP of the message.
 		position: relative;
+		// Anchor for the overlay's anchored-fixed path (see the `@supports` block by the expand overlay);
+		// `anchor-scope` confines the name to this pill's subtree so every overlay resolves to its OWN
+		// pill. Inert where unsupported — the overlay then falls back to abspos on the position:relative.
+		anchor-name: --gl-ref-pill;
+		anchor-scope: --gl-ref-pill;
 		display: inline-flex;
 		max-width: 100%;
 		flex-shrink: 1;
@@ -4027,8 +4032,10 @@ gl-lit-graph {
 		background: color-mix(in srgb, currentColor 18%, transparent);
 		font-variant-numeric: tabular-nums;
 	}
-	// Hover-expand overlay: a full-name copy of the pill, absolutely positioned over the in-flow
-	// (shrunk) pill, extending right over the message — no reflow because the flow box is untouched.
+	// Hover-expand overlay: a full-name copy of the pill, positioned over the in-flow (shrunk) pill and
+	// extending right over the message — no reflow because the flow box is untouched. The abspos here is
+	// the base/fallback path; the `@supports` block below upgrades it to anchored `position: fixed` so it
+	// can escape the clipping ancestors without un-clipping them.
 	// ZERO insets and NO border of its own, on purpose: the pill is borderless (its ring is an inset
 	// box-shadow), so the abspos containing block — the pill's padding box — IS the pill's visual box,
 	// and `0` pins the overlay's edges to it with no ±1px arithmetic. Any `-1px` inset + own-border
@@ -4043,8 +4050,9 @@ gl-lit-graph {
 		// available width, which here is the pill's own SHRUNKEN box — so the overlay floored at its
 		// MIN-content and the segments that yield (the upstream label's 0-min grid track) collapsed to an
 		// ellipsis inside the very overlay whose job is to reveal them. Sizing to content makes the overlay
-		// independent of how far the in-flow pill was squeezed; it's already `nowrap` and the ancestors
-		// un-clip on hover, so it just extends further over the message.
+		// independent of how far the in-flow pill was squeezed; it's already `nowrap` and the overlay
+		// escapes its clipping ancestors (anchored-fixed, or the fallback un-clip — see the `@supports`
+		// blocks below), so it just extends further over the message.
 		width: max-content;
 		display: none;
 		align-items: center;
@@ -4128,18 +4136,42 @@ gl-lit-graph {
 	.gl-graph__ref-pill#{$pill-filled}:not(.gl-graph__ref-pill--icons-only) .gl-graph__ref-pill-main {
 		visibility: hidden;
 	}
-	// The expand overlay is absolutely positioned and extends right over the message — but its
-	// ancestors clip with overflow:hidden (needed for truncation). While a ref pill is filled
-	// ($pill-filled — hover, click-pinned, context-pinned, or a find hit), un-clip just that ancestor
-	// chain so the overlay can escape and paint on top. Context-pinned is a native context menu open
-	// over the pill (host adds `.is-context-pinned`; hover is lost when the menu steals focus);
-	// click-pinned is the focus toggle (`.is-pinned`); the find hit (`--find-hit`) is held for as long
-	// as the finder is open so the pill stays revealed instead of flickering with the pointer.
-	.gl-graph__refs:has(.gl-graph__ref-pill#{$pill-filled}),
-	.gl-graph__zone:has(.gl-graph__ref-pill#{$pill-filled}),
-	.gl-graph__list-content:has(.gl-graph__ref-pill#{$pill-filled}),
-	.gl-graph__list-line1:has(.gl-graph__ref-pill#{$pill-filled}) {
-		overflow: visible;
+	// The expand overlay must escape the overflow:hidden ancestors that truncate the in-flow pills.
+	// Where anchor positioning is supported, the overlay switches to `position: fixed` anchored to its
+	// pill: the row's `contain: layout` makes the ROW its containing block, so the STATIC
+	// overflow:hidden ancestors in between (zone / refs / refs-line / list-content) never clip it — the
+	// expansion is bounded only by the view, not the column, and the ancestors stay clipped, so sibling
+	// pills overflowing the refs box are NOT revealed alongside it (they were under the un-clip
+	// fallback, painting half-cut over the message). anchor() reads the pill's border box, which — the
+	// pill being borderless (inset-shadow ring) — is the same zero-inset box the abspos base pins to,
+	// so the pixel-snap guarantees above carry over unchanged.
+	@supports (anchor-scope: --a) and (left: anchor(left)) {
+		.gl-graph__ref-pill-expand {
+			position: fixed;
+			position-anchor: --gl-ref-pill;
+			left: anchor(left);
+			top: anchor(top);
+			bottom: anchor(bottom);
+		}
+		// Re-declared so it outranks the abspos `--expand-right` variant above (whose specificity beats
+		// the base rule here): grow LEFTWARD from the pill's right edge for the WIP row's far-right slot.
+		.gl-graph__ref-pill--expand-right .gl-graph__ref-pill-expand {
+			left: auto;
+			right: anchor(right);
+		}
+	}
+	// Fallback (no anchor positioning — VS Code for Web on older browsers): the overlay is abspos inside
+	// the pill, so while a ref pill is filled ($pill-filled — hover, click-pinned, context-pinned, or a
+	// find hit), un-clip just that ancestor chain so the overlay can escape and paint on top. Known
+	// wart, accepted here only: un-clipping also reveals sibling pills overflowing the refs box.
+	@supports not ((anchor-scope: --a) and (left: anchor(left))) {
+		.gl-graph__refs:has(.gl-graph__ref-pill#{$pill-filled}),
+		.gl-graph__zone:has(.gl-graph__ref-pill#{$pill-filled}),
+		.gl-graph__refs-line:has(.gl-graph__ref-pill#{$pill-filled}),
+		.gl-graph__list-content:has(.gl-graph__ref-pill#{$pill-filled}),
+		.gl-graph__list-line1:has(.gl-graph__ref-pill#{$pill-filled}) {
+			overflow: visible;
+		}
 	}
 
 	// Ghost ref pill (`showGhostRefsOnRowHover`): a faint placeholder for ref-less rows naming the
