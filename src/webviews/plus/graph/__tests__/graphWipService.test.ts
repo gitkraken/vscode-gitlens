@@ -2,11 +2,12 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { GraphWipService } from '../graphWipService.js';
 
-// `probeSecondaryWipInBackground` reaches only `this.repository`, `this.getWipRows`, `this.host.notify`,
-// `this._disposed`, its own probe fields, and the module-level `configuration` (for the overview bar's
-// visibility gate — read off the workspace, not `this`), so we exercise it against a minimal fake `this`
-// rather than constructing the service (which would need a real Container). That couples these tests to
-// private field NAMES — a rename breaks them noisily, which is the intended trade.
+// `probeSecondaryWipInBackground` reaches only `this.repository`, `this.getWipRows`, `this.host.visible`,
+// `this.context.fireWorktreeEnrichment`, `this._disposed`, its own probe fields, and the module-level
+// `configuration` (for the overview bar's visibility gate — read off the workspace, not `this`), so we
+// exercise it against a minimal fake `this` rather than constructing the service (which would need a real
+// Container). That couples these tests to private field NAMES — a rename breaks them noisily, which is the
+// intended trade.
 //
 // Under test: the probe fans a `git diff`/`ls-files` walk across EVERY worktree, and its only caller is the
 // graph state build, which fires 2-3 times per logical change (the notify freshness gate defers rather than
@@ -18,7 +19,8 @@ type ProbeRun = { repoPath: string; startedAt: number; running: boolean } | unde
 type FakeThis = {
 	repository: { path: string } | undefined;
 	getWipRows: sinon.SinonStub;
-	host: { notify: sinon.SinonStub };
+	host: { visible: boolean };
+	context: { fireWorktreeEnrichment: sinon.SinonStub };
 	_disposed: boolean;
 	_wipProbeGeneration: number;
 	_wipProbeCancellation: { cancel: () => void; dispose: () => void } | undefined;
@@ -31,7 +33,7 @@ function invoke(fakeThis: FakeThis): void {
 	fn.call(fakeThis);
 }
 
-/** Rows carrying a PEER, so the probe gets past its "nothing to report without a peer" guard and notifies. */
+/** Rows carrying a PEER, so the probe gets past its "nothing to report without a peer" guard and fires. */
 function rowsWithPeer(repoPath: string) {
 	return { rows: { [`wip:${repoPath}`]: {}, 'wip:/other/worktree': {} }, state: {} };
 }
@@ -40,7 +42,8 @@ function createFakeThis(repoPath = '/repo'): FakeThis {
 	return {
 		repository: { path: repoPath },
 		getWipRows: sinon.stub().resolves(rowsWithPeer(repoPath)),
-		host: { notify: sinon.stub().resolves(true) },
+		host: { visible: true },
+		context: { fireWorktreeEnrichment: sinon.stub() },
 		_disposed: false,
 		_wipProbeGeneration: 0,
 		_wipProbeCancellation: undefined,
@@ -67,7 +70,21 @@ suite('GraphWipService.probeSecondaryWipInBackground Test Suite', () => {
 
 		release(rowsWithPeer('/repo'));
 		await settle();
-		assert.strictEqual(fakeThis.host.notify.callCount, 1);
+		assert.strictEqual(fakeThis.context.fireWorktreeEnrichment.callCount, 1);
+	});
+
+	// The enrichment event is `save-last` buffered, but a probe result landing while the panel is hidden is
+	// DROPPED rather than buffered: the payload is enrichment-only, the client's `mergeWipState` keeps the
+	// last probe's fields, and the next visible state build past the cooldown re-probes. (The working-tree
+	// TICK can't drop like this — it's the only source of the primary's `wip` — so it defers instead.)
+	test('drops the fan-out result while the graph is hidden', async () => {
+		const fakeThis = createFakeThis();
+		fakeThis.host.visible = false;
+
+		invoke(fakeThis);
+		await settle();
+
+		assert.strictEqual(fakeThis.context.fireWorktreeEnrichment.callCount, 0, 'nothing published to a hidden panel');
 	});
 
 	test('drops a repeat landing inside the cooldown window', async () => {
@@ -108,7 +125,11 @@ suite('GraphWipService.probeSecondaryWipInBackground Test Suite', () => {
 		// /repo-a's walk resolving after the swap must not publish over /repo-b.
 		release(rowsWithPeer('/repo-a'));
 		await settle();
-		assert.strictEqual(fakeThis.host.notify.callCount, 0, 'a superseded repo must never publish');
+		assert.strictEqual(
+			fakeThis.context.fireWorktreeEnrichment.callCount,
+			0,
+			'a superseded repo must never publish',
+		);
 	});
 
 	test('a repo swap back re-probes rather than reusing the original window', async () => {
@@ -137,14 +158,15 @@ suite('GraphWipService.probeSecondaryWipInBackground Test Suite', () => {
 });
 
 // Same minimal-fake approach for `runWipRefetch`, which reaches only its own maps, the host's
-// ready/visible flags, and the fetch+notify pair.
+// ready/visible flags, and the fetch + `wipRefetched` fire pair.
 type RefetchEntry = { repo: { path: string }; dirty: boolean; deferred?: boolean; inFlight?: Promise<void> };
 
 type FakeRefetchThis = {
 	_wipRefetches: Map<string, RefetchEntry>;
 	_wipWatches: Map<string, unknown>;
 	_disposed: boolean;
-	host: { ready: boolean; visible: boolean; notify: sinon.SinonStub };
+	host: { ready: boolean; visible: boolean };
+	context: { fireWipRefetched: sinon.SinonStub };
 	getWipForRepoAndStats: sinon.SinonStub;
 	onWipServedOutOfBand: sinon.SinonStub;
 };
@@ -160,7 +182,8 @@ function createFakeRefetchThis(sha = 'wip::/peer'): FakeRefetchThis {
 		_wipRefetches: new Map([[sha, { repo: { path: '/peer' }, dirty: false }]]),
 		_wipWatches: new Map([[sha, {}]]),
 		_disposed: false,
-		host: { ready: true, visible: true, notify: sinon.stub().resolves(true) },
+		host: { ready: true, visible: true },
+		context: { fireWipRefetched: sinon.stub() },
 		getWipForRepoAndStats: sinon.stub().resolves({ wip: { revision: 1 } }),
 		onWipServedOutOfBand: sinon.stub(),
 	};
@@ -203,12 +226,15 @@ suite('GraphWipService.runWipRefetch Test Suite', () => {
 		assert.strictEqual(fakeThis._wipRefetches.has(sha), false);
 	});
 
-	test('fetches and notifies when ready and visible', async () => {
+	test('fetches and fires when ready and visible', async () => {
 		const fakeThis = createFakeRefetchThis();
 
 		await runRefetch(fakeThis, sha);
 
 		assert.strictEqual(fakeThis.getWipForRepoAndStats.callCount, 1);
-		assert.strictEqual(fakeThis.host.notify.callCount, 1);
+		assert.strictEqual(fakeThis.context.fireWipRefetched.callCount, 1);
+		// Every channel that serves the client directly must invalidate the tick's content dedup, or a later
+		// push carrying this same content is suppressed as "identical".
+		assert.strictEqual(fakeThis.onWipServedOutOfBand.callCount, 1);
 	});
 });

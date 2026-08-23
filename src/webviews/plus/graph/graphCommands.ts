@@ -159,7 +159,7 @@ export type GraphCommandsContext = {
 	updateColumns: (columnsCfg: GraphColumnsConfig) => Promise<void>;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	notifyDidChangeSelection: () => Promise<boolean>;
-	writeWipDraftToStorage: (worktreePath: string, draft: StoredGraphWipDraft | null) => void;
+	writeWipDraftToStorage: (worktreePath: string, draft: StoredGraphWipDraft | null) => Promise<void>;
 	pushUpToCommit: (repoPath: string, sha: string) => Promise<void>;
 	getOpenEditorShowOptions: () => (TextDocumentShowOptions & { sourceViewColumn?: ViewColumn }) | undefined;
 	runStageConflictResolution: (
@@ -837,7 +837,7 @@ export class GraphCommands {
 		const wipRowId = createWipRowId(repoPath);
 		const message = `fixup! ${subject}`;
 
-		this.context.writeWipDraftToStorage(repoPath, { message: message, messageDirty: true });
+		void this.context.writeWipDraftToStorage(repoPath, { message: message, messageDirty: true });
 		this.context.setSelectedRows(wipRowId);
 		void this.context.notifyDidChangeSelection();
 		void this.host.notify(DidRequestGraphActionNotification, {
@@ -3070,7 +3070,7 @@ export class GraphCommands {
 		const existing = this.container.storage.getWorkspace('graph:wipDrafts')?.[repoPath];
 		const message = appendCoauthorsToMessage(existing?.message ?? '', [coauthor]);
 
-		this.context.writeWipDraftToStorage(repoPath, { ...existing, message: message, messageDirty: true });
+		void this.context.writeWipDraftToStorage(repoPath, { ...existing, message: message, messageDirty: true });
 		this.context.setSelectedRows(wipRowId);
 		void this.context.notifyDidChangeSelection();
 		void this.host.notify(DidRequestGraphActionNotification, {

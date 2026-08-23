@@ -25,6 +25,8 @@ import type {
 	GraphScopeService,
 	GraphSearchState,
 	GraphServices,
+	GraphWipService,
+	GraphWorktreeEnrichment,
 } from '../../../plus/graph/graphService.js';
 import type {
 	GraphRowsSplice,
@@ -45,16 +47,12 @@ import {
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
 	DidChangeSelectionNotification,
-	DidChangeWipDraftsNotification,
-	DidChangeWorkingTreeNotification,
-	DidCloseWipWatchesNotification,
 	DidFailRevealNotification,
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestVisualizationNotification,
-	DidRequestWipRefetchNotification,
 	GraphSyncResyncCommand,
 	isWipRowId,
 } from '../../../plus/graph/protocol.js';
@@ -690,6 +688,25 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Unsubscribes the current `onDidChange` listener — reconnect-safe teardown, same pattern as
 	 *  {@link _unsubscribeOverviewChanged}. */
 	private _unsubscribeFiltersChanged: (() => void) | undefined;
+	/** The WIP RPC sub-service — held only for its {@link GraphWipService.onDraftsChanged}
+	 *  subscription; the details panel's draft writes go through its own remote instead. Set by
+	 *  {@link initializeServices}. */
+	private _wipService: GraphWipService | undefined;
+	/** Unsubscribes the current `onDraftsChanged` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeDraftsChanged: (() => void) | undefined;
+	/** Unsubscribes the current `onWatchesClosed` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeWatchesClosed: (() => void) | undefined;
+	/** Unsubscribes the current `onWorkingTreeChanged` listener — reconnect-safe teardown, same pattern
+	 *  as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeWorkingTreeChanged: (() => void) | undefined;
+	/** Unsubscribes the current `onWorktreeEnrichment` listener — reconnect-safe teardown, same pattern
+	 *  as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeWorktreeEnrichment: (() => void) | undefined;
+	/** Unsubscribes the current `onWipRefetched` listener — reconnect-safe teardown, same pattern as
+	 *  {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeWipRefetched: (() => void) | undefined;
 	/** Resolved once {@link initializeServices} has assigned {@link _overviewService} and
 	 *  {@link _scopeService} — callers that need either before the RPC handshake completes await this
 	 *  instead of racing it. Same resolve-once-per-lifetime semantics as `SearchActions`' `serviceReady`:
@@ -727,6 +744,16 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeColumnsChanged = undefined;
 		this._unsubscribeFiltersChanged?.();
 		this._unsubscribeFiltersChanged = undefined;
+		this._unsubscribeDraftsChanged?.();
+		this._unsubscribeDraftsChanged = undefined;
+		this._unsubscribeWatchesClosed?.();
+		this._unsubscribeWatchesClosed = undefined;
+		this._unsubscribeWorkingTreeChanged?.();
+		this._unsubscribeWorkingTreeChanged = undefined;
+		this._unsubscribeWorktreeEnrichment?.();
+		this._unsubscribeWorktreeEnrichment = undefined;
+		this._unsubscribeWipRefetched?.();
+		this._unsubscribeWipRefetched = undefined;
 
 		const overview = await services.overview;
 		this._overviewService = overview;
@@ -738,6 +765,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._columnsService = columns;
 		const filters = await services.filters;
 		this._filtersService = filters;
+		const wip = await services.wip;
+		this._wipService = wip;
 		this._servicesReady.fulfill();
 
 		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>` — must be awaited (see
@@ -782,6 +811,37 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				pinnedRef: data.pinnedRef,
 			});
 		})) as unknown as (() => void) | undefined;
+		const draftsUnsub = (await wip.onDraftsChanged(data => {
+			// Skip when the incoming map is structurally identical to ours — most commonly the
+			// self-fire after our own flush (our own write triggers the storage watcher, which
+			// fans the event back to us). Avoids a redundant render cycle on every flush.
+			if (!areEqual(this.wipDrafts, data)) {
+				this.updateState({ wipDrafts: data });
+			}
+		})) as unknown as (() => void) | undefined;
+		// Payload is CUMULATIVE (every sha closed since our last `syncWatches` call), not a full-state
+		// snapshot — see `GraphWipService.onWatchesClosed`. `markWipWatchesClosed` is idempotent for
+		// shas it's already marked closed, so replaying old ones alongside new ones is harmless.
+		const watchesClosedUnsub = (await wip.onWatchesClosed(data => {
+			// Coverage for these worktrees just ended (or ended earlier and is being replayed). Flag
+			// what we hold for them as unverified so the visible-range scan re-reads their counts and
+			// the details panel stops treating its cached payload as live — anything that happens to
+			// them from now until they're watched again reaches nobody.
+			this.markWipWatchesClosed(data.shas);
+		})) as unknown as (() => void) | undefined;
+		// TWO subscriptions, one handler: the tick and the background peer probe produce disjoint slices
+		// of the same planes and ride separate `save-last` events so neither can swallow the other (see
+		// `GraphWipService.onWorkingTreeChanged`). Routing both through `applyWorkingTreeChange` keeps
+		// their merge semantics byte-identical.
+		const workingTreeUnsub = (await wip.onWorkingTreeChanged(data => {
+			this.applyWorkingTreeChange(data);
+		})) as unknown as (() => void) | undefined;
+		const enrichmentUnsub = (await wip.onWorktreeEnrichment(data => {
+			this.applyWorkingTreeChange(data);
+		})) as unknown as (() => void) | undefined;
+		const refetchUnsub = (await wip.onWipRefetched(data => {
+			this.applyWipRefetch(data);
+		})) as unknown as (() => void) | undefined;
 
 		// A newer `connectServices` call may have reassigned either service while these subscribes were
 		// in flight (reconnect) — tear down whichever subscription this now-stale generation grabbed,
@@ -815,6 +875,30 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		} else if (typeof filtersUnsub === 'function') {
 			this._unsubscribeFiltersChanged = filtersUnsub;
 		}
+
+		if (this._wipService !== wip) {
+			draftsUnsub?.();
+			watchesClosedUnsub?.();
+			workingTreeUnsub?.();
+			enrichmentUnsub?.();
+			refetchUnsub?.();
+		} else {
+			if (typeof draftsUnsub === 'function') {
+				this._unsubscribeDraftsChanged = draftsUnsub;
+			}
+			if (typeof watchesClosedUnsub === 'function') {
+				this._unsubscribeWatchesClosed = watchesClosedUnsub;
+			}
+			if (typeof workingTreeUnsub === 'function') {
+				this._unsubscribeWorkingTreeChanged = workingTreeUnsub;
+			}
+			if (typeof enrichmentUnsub === 'function') {
+				this._unsubscribeWorktreeEnrichment = enrichmentUnsub;
+			}
+			if (typeof refetchUnsub === 'function') {
+				this._unsubscribeWipRefetched = refetchUnsub;
+			}
+		}
 	}
 
 	override dispose(): void {
@@ -835,6 +919,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeConfigurationChanged?.();
 		this._unsubscribeColumnsChanged?.();
 		this._unsubscribeFiltersChanged?.();
+		this._unsubscribeDraftsChanged?.();
+		this._unsubscribeWatchesClosed?.();
+		this._unsubscribeWorkingTreeChanged?.();
+		this._unsubscribeWorktreeEnrichment?.();
+		this._unsubscribeWipRefetched?.();
 		super.dispose();
 	}
 
@@ -1652,7 +1741,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				const incoming = msg.params.state;
 				const next: Partial<State> = { ...incoming };
 				// Both WIP planes merge rather than replace — the host only sends topology plus whatever
-				// status it produced, so client-fetched peer stats (via `GetWipStatsRequest`) have to
+				// status it produced, so client-fetched peer stats (via `wip.getStats`) have to
 				// survive a full-state push. Read from the accessors (`this.wipRowsById` /
 				// `this.wipStateById`) rather than `_state`: writebacks from `graph-wrapper.ts` and
 				// `graph-app.ts` assign through the accessor and don't update `_state`, so reading `_state`
@@ -1696,7 +1785,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					}
 				}
 				// The graph's own worktree's status group has a second, revision-ordered writer — the wip channel
-				// (`DidChangeWorkingTree`/refetch, guarded by `isStaleWip`). This full-state copy is unstamped and
+				// (`workingTreeChanged`/`wipRefetched`, guarded by `isStaleWip`). This full-state copy is unstamped and
 				// snapshotted early in the host rebuild, so drop it whenever the wip channel has already written
 				// status for the row THIS push is for (`_wipStatsRowId === <incoming primary row id>`): the live
 				// value wins, including one a B working-tree tick delivered early during an A→B swap (which is why
@@ -1956,132 +2045,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				});
 				break;
 
-			case DidChangeWorkingTreeNotification.is(msg): {
-				// Host always sends `wipRowsById` as an object (possibly `{}`) so the merge
-				// can correctly clear stale anchors. If a future host change ever omits the field
-				// (or it's undefined for "unchanged"), don't destructively clear — leave existing
-				// webview anchors in place. Read from the accessor (`this.wipRowsById` /
-				// `this.wipStateById`) rather than `this._state`: writebacks from `graph-wrapper.ts`
-				// and `graph-app.ts` assign through the accessor and don't update `_state`, so
-				// reading `_state` here sees a stale anchor-only map and the merge drops
-				// freshly-fetched `workDirStats` from every peer row (the visible pill flash).
-				// Drop a push reflecting an older working tree than what's already applied (see `isStaleWip`) —
-				// otherwise a delayed push regresses the cache/badge/overview. The topology plane carries no
-				// working-tree content, so it applies regardless; only the pushed row's STATUS is ordered.
-				const staleWip = this.isStaleWip(msg.params.repoPath, msg.params.wip);
-				const pushedRowId = createWipRowId(msg.params.repoPath);
-
-				const updates: Partial<State> = {};
-				const nextRows =
-					msg.params.wipRowsById != null
-						? mergeWipRows(this.wipRowsById, msg.params.wipRowsById)
-						: this.wipRowsById;
-				if (msg.params.wipRowsById != null) {
-					updates.wipRowsById = nextRows;
-				}
-				if (msg.params.wipStateById != null) {
-					// This channel is host-authoritative for the PUSHED repo's status group, so stamp ownership by
-					// the PUSH's repo rather than the client's current `selectedRepository` (which lags the host
-					// during a swap): an early B tick during an A→B switch is genuinely B's, and attributing it to B
-					// lets its fresh status supersede B's full-state seed once the switch lands.
-					// A stale push still carries the free enumeration fields for every worktree; only its
-					// snapshotted STATUS for the pushed row must not regress what's applied.
-					if (!staleWip && msg.params.wipStateById[pushedRowId]?.workDirStats != null) {
-						this._wipStatsRowId = pushedRowId;
-					}
-					updates.wipStateById = mergeWipState(
-						this.wipStateById,
-						staleWip ? stripWipStatus(msg.params.wipStateById, pushedRowId) : msg.params.wipStateById,
-						nextRows,
-						this.primaryWipRowId,
-						lastKnownWorkDirStatsBySha,
-					);
-				}
-				// The host packs the full WIP into every working-tree notification (same
-				// `git status` it already ran for the stats). The panel observes this and
-				// applies it directly — no `getWip` round-trip needed.
-				if (!staleWip && msg.params.wip != null) {
-					updates.wip = msg.params.wip;
-					// Seed the cache so re-opening the WIP panel paints from memory while a fresh
-					// host push lands. The active-watcher set covers `isLive` derivation at read
-					// time — we don't stamp it on the entry.
-					this.cacheWip(msg.params.repoPath, msg.params.wip);
-				}
-				this.updateState(updates);
-				// Merge the overview entry for the primary's current branch from the same fetch,
-				// so the overview card's dirty/clean indicator AND inline breakdown counts stay
-				// live without the bulk probe. Skip on detached HEAD (no branch to key by).
-				if (!staleWip) {
-					this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.wip?.stats);
-				}
-				break;
-			}
-
-			case DidCloseWipWatchesNotification.is(msg): {
-				// Coverage for these worktrees just ended. Flag what we hold for them as unverified so the
-				// visible-range scan re-reads their counts and the details panel stops treating its cached
-				// payload as live — anything that happens to them from now until they're watched again
-				// reaches nobody.
-				this.markWipWatchesClosed(msg.params.shas);
-				break;
-			}
-			case DidRequestWipRefetchNotification.is(msg): {
-				// Host pre-fetched the WIP for a non-active worktree (the active-repo watcher
-				// wouldn't fire for it). Push it through the same channel as the regular
-				// working-tree notification — the panel's `applyPushedWip` observer handles it.
-				// Same ordering rule as the working-tree notification above — a refetch reflecting an older working
-				// tree than what's applied must not regress the cache/badge/row metadata (see `isStaleWip`).
-				if (msg.params.wip != null && !this.isStaleWip(msg.params.repoPath, msg.params.wip)) {
-					const updates: Partial<State> = { wip: msg.params.wip };
-					const { repoPath } = msg.params;
-					// Stats travel embedded as `wip.stats` (host-computed from the same `git status`).
-					const stats = msg.params.wip.stats;
-					this.cacheWip(repoPath, msg.params.wip);
-
-					// Host shipped its already-computed stats — use them directly rather than
-					// deriving locally (would lose `pausedOpStatus` / `renamed`, and the per-file
-					// classifier doesn't match `git diff --shortstat` semantics). One write for ANY
-					// worktree: the graph's own and its peers share one row-keyed plane, so there is no
-					// fork on which repo the refetch is for. Same accessor-read rationale as the
-					// `DidChangeWorkingTreeNotification` branch above.
-					// Tracked-row gate: a refetch for a worktree the client does not render is dropped.
-					// The graph's own row is exempt — its badges are shown
-					// whether or not the worktree enumeration has landed.
-					const rowId = createWipRowId(repoPath);
-					const tracked = rowId === this.primaryWipRowId || this.wipRowsById?.[rowId] != null;
-					if (stats != null && tracked) {
-						updates.wipStateById = mergeWipState(
-							this.wipStateById,
-							{ [rowId]: toWipStatePatch(stats) },
-							this.wipRowsById,
-							this.primaryWipRowId,
-						);
-						if (rowId === this.primaryWipRowId) {
-							this._wipStatsRowId = rowId;
-						}
-					}
-					this.updateState(updates);
-					// Merge the overview entry from the same fetch. For peers the branchId
-					// lives on `wipRowsById[rowId].branchRef` (pre-computed host-side
-					// with the MAIN repo path); fall back to deriving from the wip payload's
-					// branch name if absent. `stats` carries the breakdown for the inline counts.
-					this.mergeOverviewWipForRepo(repoPath, msg.params.wip, stats);
-				}
-				break;
-			}
-
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
-				break;
-
-			case DidChangeWipDraftsNotification.is(msg):
-				// Skip when the incoming map is structurally identical to ours — most commonly the
-				// self-fire after our own flush (our own write triggers the storage onDidChange,
-				// which fans the notification back to us). Avoids a redundant render cycle on
-				// every flush.
-				if (!areEqual(this.wipDrafts, msg.params.wipDrafts)) {
-					this.updateState({ wipDrafts: msg.params.wipDrafts });
-				}
 				break;
 		}
 	}
@@ -2196,7 +2161,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * push soon (true) or needs explicit revalidation (false).
 	 *
 	 * Membership = the primary `selectedRepository` plus any secondary worktrees in the latest
-	 * `SyncWipWatchesCommand` set (computed from visible-secondary-WIP-shas).
+	 * `wip.syncWatches` set (computed from visible-secondary-WIP-shas).
 	 */
 	private _activeWipWatchers = new Set<string>();
 
@@ -2215,6 +2180,113 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * list and never revalidates.
 	 */
 	private _gappedWipPaths = new Set<string>();
+
+	/**
+	 * Applies one working-tree payload from the host. Shared VERBATIM by both producers — the tick
+	 * (`onWorkingTreeChanged`, which carries `wip`) and the background peer probe
+	 * (`onWorktreeEnrichment`, which doesn't) — so the two can never diverge in merge semantics. They
+	 * ride separate RPC events precisely because their payloads are disjoint: one `save-last` slot
+	 * between them would let a probe overwrite an undelivered tick and lose its `wip` for good.
+	 *
+	 * Read from the accessors (`this.wipRowsById` / `this.wipStateById`) rather than `this._state`:
+	 * writebacks from `graph-wrapper.ts` and `graph-app.ts` assign through the accessor and don't
+	 * update `_state`, so reading `_state` here sees a stale anchor-only map and the merge drops
+	 * freshly-fetched `workDirStats` from every peer row (the visible pill flash).
+	 *
+	 * Drop a payload reflecting an older working tree than what's already applied (see `isStaleWip`) —
+	 * otherwise a delayed one regresses the cache/badge/overview. The topology plane carries no
+	 * working-tree content, so it applies regardless; only the pushed row's STATUS is ordered.
+	 */
+	private applyWorkingTreeChange(data: GraphWorktreeEnrichment & { wip?: Wip }): void {
+		const staleWip = this.isStaleWip(data.repoPath, data.wip);
+		const pushedRowId = createWipRowId(data.repoPath);
+
+		// Both producers always send the full topology (possibly `{}`) so the merge can clear stale
+		// anchors; `mergeWipRows` returns the SAME object when nothing changed, which is what keeps the
+		// decorated-rows memo from re-running.
+		const nextRows = mergeWipRows(this.wipRowsById, data.wipRowsById);
+		const updates: Partial<State> = { wipRowsById: nextRows };
+
+		// This channel is host-authoritative for the PUSHED repo's status group, so stamp ownership by
+		// the PUSH's repo rather than the client's current `selectedRepository` (which lags the host
+		// during a swap): an early B tick during an A→B switch is genuinely B's, and attributing it to B
+		// lets its fresh status supersede B's full-state seed once the switch lands.
+		// A stale push still carries the free enumeration fields for every worktree; only its
+		// snapshotted STATUS for the pushed row must not regress what's applied.
+		if (!staleWip && data.wipStateById[pushedRowId]?.workDirStats != null) {
+			this._wipStatsRowId = pushedRowId;
+		}
+		updates.wipStateById = mergeWipState(
+			this.wipStateById,
+			staleWip ? stripWipStatus(data.wipStateById, pushedRowId) : data.wipStateById,
+			nextRows,
+			this.primaryWipRowId,
+			lastKnownWorkDirStatsBySha,
+		);
+
+		// The tick packs the full WIP into every fire (same `git status` it already ran for the stats).
+		// The panel observes this and applies it directly — no `getWip` round-trip needed. The probe has
+		// no `git status` to pack, so this is where the two producers part.
+		if (!staleWip && data.wip != null) {
+			updates.wip = data.wip;
+			// Seed the cache so re-opening the WIP panel paints from memory while a fresh
+			// host push lands. The active-watcher set covers `isLive` derivation at read
+			// time — we don't stamp it on the entry.
+			this.cacheWip(data.repoPath, data.wip);
+		}
+		this.updateState(updates);
+		// Merge the overview entry for the primary's current branch from the same fetch,
+		// so the overview card's dirty/clean indicator AND inline breakdown counts stay
+		// live without the bulk probe. Skip on detached HEAD (no branch to key by).
+		if (!staleWip) {
+			this.mergeOverviewWipForRepo(data.repoPath, data.wip, data.wip?.stats);
+		}
+	}
+
+	/**
+	 * Applies a `wipRefetched` payload: WIP the host pre-fetched for a worktree the graph's own
+	 * working-tree watcher can't see (a peer's watcher tick, or a conflict-resolution run against a
+	 * peer's WIP row). Same ordering rule as {@link applyWorkingTreeChange} — a refetch reflecting an
+	 * older working tree than what's applied must not regress the cache/badge/row metadata.
+	 */
+	private applyWipRefetch(data: { repoPath: string; wip?: Wip }): void {
+		if (data.wip == null || this.isStaleWip(data.repoPath, data.wip)) return;
+
+		const updates: Partial<State> = { wip: data.wip };
+		const { repoPath } = data;
+		// Stats travel embedded as `wip.stats` (host-computed from the same `git status`).
+		const stats = data.wip.stats;
+		this.cacheWip(repoPath, data.wip);
+
+		// Host shipped its already-computed stats — use them directly rather than
+		// deriving locally (would lose `pausedOpStatus` / `renamed`, and the per-file
+		// classifier doesn't match `git diff --shortstat` semantics). One write for ANY
+		// worktree: the graph's own and its peers share one row-keyed plane, so there is no
+		// fork on which repo the refetch is for. Same accessor-read rationale as
+		// {@link applyWorkingTreeChange}.
+		// Tracked-row gate: a refetch for a worktree the client does not render is dropped.
+		// The graph's own row is exempt — its badges are shown
+		// whether or not the worktree enumeration has landed.
+		const rowId = createWipRowId(repoPath);
+		const tracked = rowId === this.primaryWipRowId || this.wipRowsById?.[rowId] != null;
+		if (stats != null && tracked) {
+			updates.wipStateById = mergeWipState(
+				this.wipStateById,
+				{ [rowId]: toWipStatePatch(stats) },
+				this.wipRowsById,
+				this.primaryWipRowId,
+			);
+			if (rowId === this.primaryWipRowId) {
+				this._wipStatsRowId = rowId;
+			}
+		}
+		this.updateState(updates);
+		// Merge the overview entry from the same fetch. For peers the branchId
+		// lives on `wipRowsById[rowId].branchRef` (pre-computed host-side
+		// with the MAIN repo path); fall back to deriving from the wip payload's
+		// branch name if absent. `stats` carries the breakdown for the inline counts.
+		this.mergeOverviewWipForRepo(repoPath, data.wip, stats);
+	}
 
 	/**
 	 * Whether `wip` reflects an OLDER working tree than the one already cached for `repoPath`, per the host's
@@ -2381,7 +2453,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * Return the cached wip for `repoPath` along with metadata the caller needs to decide
 	 * whether to revalidate. `isLive` is computed at read time from the host's active-watcher
 	 * set — never stored on the entry — so a worktree that scrolls out of the viewport (no
-	 * longer in `SyncWipWatchesCommand`) flips to non-live without anyone having to mutate state.
+	 * longer in the `wip.syncWatches` set) flips to non-live without anyone having to mutate state.
 	 * Local optimistic edits also suppress `isLive` until the host reconciles.
 	 */
 	getWipState(repoPath: string): { wip: Wip; isLive: boolean; ageMs: number } | undefined {
@@ -2397,7 +2469,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	private _wipStatsRequestSeq = 0;
-	/** Row id → ticket of the most recent `GetWipStatsRequest` that asked about it. */
+	/** Row id → ticket of the most recent `wip.getStats` call that asked about it. */
 	private readonly _wipStatsRequestBySha = new Map<string, number>();
 
 	/**
@@ -2449,7 +2521,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	/**
 	 * Update the set of repos with active host-side watchers. Called by `graph-wrapper.ts` when
-	 * the SyncWipWatchesCommand visibility set changes, plus when `selectedRepository` changes —
+	 * the `wip.syncWatches` visibility set changes, plus when `selectedRepository` changes —
 	 * the primary repo is always considered watched as long as it's selected (the active-repo
 	 * working-tree watcher is unconditionally on for it).
 	 *

@@ -31,28 +31,18 @@ import { getWorktreeHasWorkingChanges } from '../../../git/utils/-webview/worktr
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
-import type { IpcParams } from '../../ipc/handlerRegistry.js';
-import type { IpcNotification } from '../../ipc/models/ipc.js';
 import { toOverviewBranch } from '../../shared/overviewBranches.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GitBranchShape, Wip, WipStats } from './detailsProtocol.js';
+import type { GraphWorkingTreeChange, GraphWorktreeEnrichment } from './graphService.js';
 import type {
-	DidChangeWorkingTreeParams,
 	GraphItemContext,
 	GraphWipRowsById,
 	GraphWipState,
 	GraphWipStateById,
 	SidebarWorktreeChange,
-	SyncWipWatchesCommand,
 } from './protocol.js';
-import {
-	createWipRowId,
-	DidChangeWipDraftsNotification,
-	DidChangeWorkingTreeNotification,
-	DidCloseWipWatchesNotification,
-	DidRequestWipRefetchNotification,
-	getWipRowWorktreePath,
-} from './protocol.js';
+import { createWipRowId, getWipRowWorktreePath } from './protocol.js';
 
 /**
  * Grace period before a secondary-WIP filesystem watcher is disposed after its row leaves the
@@ -71,7 +61,7 @@ const wipProbeCooldownMs = 3000;
 /** Collaborators the WIP/working-tree cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphWipContext()`. `getRepository`/`getSession` read live provider
  *  state; the rest forward to provider methods/state that stay there — revision refs, pinned-ref
- *  lookup, the sidebar-worktree RPC event, and the pending-notification queue. */
+ *  lookup, and the cluster's RPC events. */
 export type GraphWipServiceContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
@@ -84,7 +74,22 @@ export type GraphWipServiceContext = {
 	) => GitStashReference | GitRevisionReference | undefined;
 	getPinnedRefId: (repoPath: string | undefined) => string | undefined;
 	fireSidebarWorktreeChanges: (changes: Record<string, SidebarWorktreeChange | undefined>) => void;
-	addPendingNotification: (notification: IpcNotification<any>) => void;
+	/** Fires the `wipDraftsChanged` RPC event with the complete per-panel slice — see
+	 *  {@link GraphWipService.notifyDidChangeWipDrafts}. */
+	fireDraftsChanged: (drafts: Record<string, StoredGraphWipDraft> | undefined) => void;
+	/** Fires the `wipWatchesClosed` RPC event with the CUMULATIVE set of shas closed since the panel's
+	 *  last `syncWatches` call — see {@link GraphWipService.syncWipWatches}. */
+	fireWatchesClosed: (shas: string[]) => void;
+	/** Fires the `workingTreeChanged` RPC event — the working-tree TICK's payload, see
+	 *  {@link GraphWipService.runNotifyDidChangeWorkingTree}. */
+	fireWorkingTreeChanged: (change: GraphWorkingTreeChange) => void;
+	/** Fires the `worktreeEnrichment` RPC event — the background PROBE's payload, see
+	 *  {@link GraphWipService.probeSecondaryWipInBackground}. Deliberately a separate event from the
+	 *  tick's: one save-last slot shared between the two would let a probe swallow a tick's `wip`. */
+	fireWorktreeEnrichment: (enrichment: GraphWorktreeEnrichment) => void;
+	/** Fires the `wipRefetched` RPC event — fresh WIP for a repo the graph's own working-tree watcher
+	 *  can't see, see {@link GraphWipService.runWipRefetch}. */
+	fireWipRefetched: (refetch: { repoPath: string; wip?: Wip }) => void;
 };
 
 /** Host-side WIP/working-tree cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns
@@ -123,6 +128,12 @@ export class GraphWipService {
 	/** Pending watcher-disposal timers; entries here mean "watcher is lingering past viewport exit". */
 	private readonly _wipWatchRemoveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+	/** Shas closed (grace-period watcher disposal) since the panel's last `syncWatches` call — the
+	 *  CUMULATIVE payload fired on `onWatchesClosed` (see the interface doc). Reset at the top of
+	 *  every `syncWipWatches`: a sync proves the panel's watch set is current, so anything it still
+	 *  wants was excepted from disposal below and anything it dropped no longer needs reporting. */
+	private readonly _pendingClosedWipShas = new Set<string>();
+
 	/** Per-secondary-WIP refetch coordination (timer + in-flight Promise), keyed by secondary WIP sha. */
 	private readonly _wipRefetches = new Map<
 		string,
@@ -143,11 +154,11 @@ export class GraphWipService {
 
 	/**
 	 * Per-secondary-worktree cache of `getStatus()` results, keyed by worktree path. Consulted on
-	 * cold load (`GetWipStatsRequest`) for newly-visible rows that don't yet have stats; the FS
+	 * cold load (`wip.getStats`) for newly-visible rows that don't yet have stats; the FS
 	 * watcher hard-`delete`s entries on real changes — a soft `invalidate` would leave the pre-change
 	 * read joinable here and re-serve the stale file list, which the generation fence one layer down
-	 * can't undo. The live-update path pushes WIP+stats directly via `DidRequestWipRefetchNotification`
-	 * and bypasses this cache entirely.
+	 * can't undo. The live-update path pushes WIP+stats directly via the `wipRefetched` RPC event and
+	 * bypasses this cache entirely.
 	 */
 	private readonly _wipStatusCache = new PromiseCache<string, GitStatus | undefined>({
 		createTTL: 1000 * 10, // 10 seconds
@@ -179,10 +190,10 @@ export class GraphWipService {
 	 *  event in the repo (file saves, branch metadata writes, lock-file twiddles), so most ticks
 	 *  produce an unchanged status. Without this gate the webview re-renders the WIP details
 	 *  panel on every tick even though nothing visible changed. Same intent as `_lastSentBranchState`
-	 *  / `_lastSentWipDrafts`, but stamped AFTER notify resolves (with a repo-identity re-check)
-	 *  to avoid poisoning the cache on transport failure or repo swap mid-await. Reset alongside
-	 *  `_lastSentWipDrafts` in `setGraph(undefined)`. */
-	private _lastSentWipNotificationParams: DidChangeWorkingTreeParams | undefined;
+	 *  / `_lastSentWipDrafts`. Stamped inline with the fire: an RPC event has no delivery ack to wait
+	 *  on, and none is needed — the visibility buffer replays the newest fire on show, so a fire is
+	 *  eventual delivery. Reset alongside `_lastSentWipDrafts` in `setGraph(undefined)`. */
+	private _lastSentWipNotificationParams: GraphWorkingTreeChange | undefined;
 	/** Highest {@link Wip.revision} handed to the client out-of-band (see `onWipServedOutOfBand`). A push carrying an
 	 *  OLDER revision than this is one the client will drop on arrival, so it must not stamp
 	 *  `_lastSentWipNotificationParams` — recording content the client never applied dedups away the later push that
@@ -195,6 +206,17 @@ export class GraphWipService {
 	 *  recovery `git status` on the next focus transition (see `recoverWorkingTreeStatsIfStuck`). */
 	private _wipEverServed = false;
 
+	/** A working-tree tick reached the producer while the panel was hidden or not yet ready, so it was
+	 *  dropped rather than run. Flushed by {@link flushDeferredWorkingTree} on the next
+	 *  visibility/focus/ready regain, which RE-RUNS the producer against the live working tree.
+	 *
+	 *  Deliberately not the RPC event's `save-last` buffer: that would replay whatever the panel's last
+	 *  pre-hide read produced, and a hide can outlive any number of edits. Re-producing costs one
+	 *  `git status` at the moment the user is actually looking, and the content dedup below still
+	 *  suppresses it when the tree came back unchanged. Mirrors the secondary worktrees' `deferred`
+	 *  flag (see `runWipRefetch`), which has always worked this way. */
+	private _workingTreeDeferred = false;
+
 	/** Last working-tree count pushed to the view badge — skips redundant `host.badge` writes.
 	 *  Reset to -1 (force re-set) on repo swap (`setGraph(undefined)`) and on setting toggle. */
 	private _lastBadgeCount = -1;
@@ -202,8 +224,15 @@ export class GraphWipService {
 	private _lastSentWipDrafts: Record<string, StoredGraphWipDraft> | undefined;
 	private _lastSentWipDraftsInitialized = false;
 
-	async syncWipWatches(params: IpcParams<typeof SyncWipWatchesCommand>): Promise<void> {
-		const wanted = new Set(params.shas);
+	async syncWipWatches(shas: string[]): Promise<void> {
+		const wanted = new Set(shas);
+
+		// A sync proves the panel's watch set is current: anything it still wants gets its disposal
+		// cancelled below (so it was never really closed), and anything it dropped no longer needs
+		// reporting. Safe even against a timer racing this call — the timer's add and its
+		// `fireWatchesClosed` run atomically (no `await` in between), so a firing that lost the race
+		// against this clear already delivered its (smaller) accumulated payload before the clear ran.
+		this._pendingClosedWipShas.clear();
 
 		// Schedule lazy disposal for watchers whose row left the viewport, or cancel a pending
 		// disposal if the row is back in view. Rapid scroll-past-then-back reuses the same watcher.
@@ -214,6 +243,9 @@ export class GraphWipService {
 					clearTimeout(pending);
 					this._wipWatchRemoveTimers.delete(sha);
 				}
+				// Belt-and-suspenders against the blanket clear above: a still-wanted row was never
+				// actually closed, so a stale closure for it must never survive to the next firing.
+				this._pendingClosedWipShas.delete(sha);
 				continue;
 			}
 
@@ -241,8 +273,11 @@ export class GraphWipService {
 				}
 				// Coverage for this worktree ends HERE, not when its row left the viewport — tell the panel
 				// so it can mark what it holds unverified. Without this the client has to guess from scroll
-				// position, which invalidates rows this grace period was keeping covered.
-				void this.host.notify(DidCloseWipWatchesNotification, { shas: [sha] });
+				// position, which invalidates rows this grace period was keeping covered. Accumulate rather
+				// than replace: `onWatchesClosed` is `save-last` buffered, so a per-sha payload would lose a
+				// closure to a later one overwriting it before delivery — see the interface doc.
+				this._pendingClosedWipShas.add(sha);
+				this.context.fireWatchesClosed([...this._pendingClosedWipShas]);
 			}, wipWatchGracePeriodMs);
 			this._wipWatchRemoveTimers.set(sha, timer);
 		}
@@ -312,6 +347,10 @@ export class GraphWipService {
 					watcher,
 				),
 			);
+			// A closure for this sha may already be sitting in the accumulated set (fired before this
+			// re-open, delivery still outstanding) — drop it so a future firing doesn't replay a
+			// closure against a watch that's live again.
+			this._pendingClosedWipShas.delete(sha);
 
 			// Read once on RE-open. A watcher only reports changes made while it exists, so everything that
 			// happened to this worktree between the last watcher closing and this one opening reached
@@ -363,11 +402,11 @@ export class GraphWipService {
 		}
 		// Graph hidden or still coming up — defer rather than drop. Running `git status` for an unseen
 		// panel is wasted work, but silently discarding the tick would leave the secondary's WIP/paused-op
-		// stale with no recovery (unlike the primary, which queues a pending notification and replays on
-		// show). A tick landing inside a reveal/rebuild window is the same story: `!host.ready` is a
-		// moment, not a verdict — the delivery side below already refuses to gate on it. Keep the entry
-		// and mark it deferred; `recoverDeferredSecondaryWip` flushes it on the next visibility/focus
-		// regain.
+		// stale with no recovery (the primary's tick defers for the same reason — see
+		// `_workingTreeDeferred`). A tick landing inside a reveal/rebuild window is the same story:
+		// `!host.ready` is a moment, not a verdict — the delivery side below already refuses to gate on
+		// it. Keep the entry and mark it deferred; `recoverDeferredSecondaryWip` flushes it on the next
+		// visibility/focus regain.
 		if (!this.host.ready || !this.host.visible) {
 			entry.deferred = true;
 			return;
@@ -384,9 +423,9 @@ export class GraphWipService {
 				// while this fetch is in flight, but the worktree is still tracked in
 				// `wipRowsById`, so delivering the fresh stats keeps the row correct when it
 				// scrolls back into view (otherwise the update is silently dropped and the row stays
-				// stale). The stateProvider ignores notifications for rows it no longer tracks (its
-				// `prevSecondary != null` gate). Don't gate on `host.ready` either — `host.notify`
-				// queues when not ready and replays on reconnect.
+				// stale). The stateProvider ignores fires for rows it no longer tracks (its
+				// `prevSecondary != null` gate). Don't gate on `host.ready` either — the event's
+				// `save-last` buffer holds the newest fire until the panel can take it.
 				if (this._disposed) return;
 
 				// Another direct-to-client serve. No-ops for a secondary (the guard inside only tracks the primary),
@@ -394,10 +433,7 @@ export class GraphWipService {
 				// re-deriving which repos can reach which path.
 				this.onWipServedOutOfBand(entry.repo, result.wip.revision);
 
-				void this.host.notify(DidRequestWipRefetchNotification, {
-					repoPath: entry.repo.path,
-					wip: result.wip,
-				});
+				this.context.fireWipRefetched({ repoPath: entry.repo.path, wip: result.wip });
 			} finally {
 				entry.inFlight = undefined;
 				if (entry.dirty) {
@@ -433,6 +469,21 @@ export class GraphWipService {
 			entry.deferred = false;
 			this.queueWipRefetch(sha, entry.repo);
 		}
+	}
+
+	/**
+	 * Flush a working-tree tick the producer dropped while the panel was hidden or not yet ready (see
+	 * {@link _workingTreeDeferred}). RE-RUNS the producer rather than replaying a payload: what the
+	 * panel needs on show is the working tree as it is NOW, and a hide can span any number of edits.
+	 * The content dedup makes a hide with no net change cost one `git status` and no push; the
+	 * `_wipNotify` coalescer collapses this with any concurrent tick.
+	 */
+	flushDeferredWorkingTree(): void {
+		if (this._disposed || !this._workingTreeDeferred) return;
+		if (!this.host.ready || !this.host.visible) return;
+
+		this._workingTreeDeferred = false;
+		void this.notifyDidChangeWorkingTree();
 	}
 
 	/** Lazy escalation for the rare case where both the initial-state stats fetch AND the
@@ -552,7 +603,10 @@ export class GraphWipService {
 	@trace()
 	private async runNotifyDidChangeWorkingTree(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
-			this.context.addPendingNotification(DidChangeWorkingTreeNotification);
+			// Don't read a working tree nobody is looking at. Record that a tick was owed and RE-PRODUCE it
+			// on the next visibility/focus/ready regain (`flushDeferredWorkingTree`) — never buffer the
+			// event, which would replay a pre-hide read the user has since edited past.
+			this._workingTreeDeferred = true;
 
 			// The webview can't update while hidden, but the panel-tab badge should stay live (matches
 			// SCM). Recompute the count off a lightweight status — only when a badge actually exists
@@ -614,7 +668,7 @@ export class GraphWipService {
 		// fanout that re-probed every visible branch on every primary FS event is gone — non-live
 		// entries (opened worktrees whose graph WIP row is off-screen) refresh lazily when the
 		// overview panel becomes visible, served from `_wipStatusCache` when warm.
-		const params: DidChangeWorkingTreeParams = {
+		const params: GraphWorkingTreeChange = {
 			wipRowsById: wipRows.rows,
 			// The graph's own worktree is an ordinary entry in the hot plane — its status group comes
 			// from the `git status` we just ran, alongside the enumeration state for its peers.
@@ -635,58 +689,52 @@ export class GraphWipService {
 			return false;
 		}
 
-		// Stamp the cache only AFTER the notify resolves successfully (avoids cache poisoning on
-		// transport failure — a stamped-then-failed pattern would skip the corrective next-tick
-		// push when params haven't changed). Also re-check `this.repository === repo` inside the
-		// `.then`: between the await starting and resolving, the user may have switched repos and
-		// `setGraph(undefined)` may have cleared the cache. Without the re-check, the resolved-
-		// successfully notify (for the OLD repo's payload) would re-pin stale params into the
-		// just-cleared cache, blocking the NEW repo's first push.
+		// Fire and stamp in one synchronous step. The legacy channel had to defer the stamp to the send's
+		// resolution because a `postMessage` to a hidden webview silently failed; an RPC event has no send
+		// to fail — the fire lands in the visibility buffer, whose newest entry replays on show. Nothing
+		// awaits between the repo-identity guard above and here, so the old post-await re-check is moot too.
+		// (The legacy notification's `silent` flag evaporates with it: `silent` only suppressed the view's
+		// postMessage progress indicator, and the RPC layer has no progress coupling at all.)
 		//
-		// `success` means DELIVERED, not APPLIED: the client orders by `Wip.revision` and drops anything older
-		// than an out-of-band `getWip` already gave it. Stamping a dropped payload would record content the
-		// client doesn't hold and suppress the later push that carries it for real. The read above is the slow
-		// part (seconds on a cold repo), and an out-of-band serve most often lands DURING it — so compare
-		// revisions, which covers the whole read+notify window, rather than a counter captured at some point
-		// inside it. An unstamped payload has no ordering to lose: the client always applies it.
+		// Delivered still isn't APPLIED: the client orders by `Wip.revision` and drops anything older than an
+		// out-of-band `getWip` already gave it. Stamping a dropped payload would record content the client
+		// doesn't hold and suppress the later push that carries it for real. The read above is the slow part
+		// (seconds on a cold repo), and an out-of-band serve most often lands DURING it — so compare
+		// revisions, which covers the whole read window, rather than a counter captured at some point inside
+		// it. An unstamped payload has no ordering to lose: the client always applies it.
 		const revision = params.wip?.revision;
-		return this.host.notify(DidChangeWorkingTreeNotification, params).then(success => {
-			if (success && this.repository === repo) {
-				this._wipEverServed = true;
-				if (
-					revision == null ||
-					this._lastOutOfBandWipRevision == null ||
-					revision > this._lastOutOfBandWipRevision
-				) {
-					this._lastSentWipNotificationParams = comparable;
-				}
-			}
-			return success;
-		});
+		this.context.fireWorkingTreeChanged(params);
+		this._wipEverServed = true;
+		if (revision == null || this._lastOutOfBandWipRevision == null || revision > this._lastOutOfBandWipRevision) {
+			this._lastSentWipNotificationParams = comparable;
+		}
+		return true;
 	}
 
+	/**
+	 * Fires the `wipDraftsChanged` RPC event with the complete per-panel slice. The event's
+	 * `save-last` buffer replaces the old hidden-webview pending-notification queue — a hidden
+	 * webview just replays the newest fire on show, and the deep-equal dedup below still collapses
+	 * the storage watcher's self-echo of this panel's own write.
+	 */
 	@trace()
-	async notifyDidChangeWipDrafts(): Promise<boolean> {
-		if (this.repository == null) return false;
-		if (!this.host.ready || !this.host.visible) {
-			this.context.addPendingNotification(DidChangeWipDraftsNotification);
-			return false;
-		}
+	notifyDidChangeWipDrafts(): void {
+		if (this.repository == null) return;
 
 		// Slice the storage record to entries this panel's repo can display so an unrelated
 		// repo's keystroke doesn't fan a full cross-repo map to every open graph instance.
 		// Self-echo from this panel's own write short-circuits via the `areEqual` check below.
 		// Use a separate `_initialized` flag rather than a `!== undefined` sentinel so the
 		// short-circuit also covers the "storage is empty, slice is undefined" case after the
-		// first send — otherwise every storage event would re-send `{ wipDrafts: undefined }`.
+		// first send — otherwise every storage event would re-fire `undefined`.
 		const slice = this.sliceWipDraftsForPanel();
 		if (this._lastSentWipDraftsInitialized && areEqual(this._lastSentWipDrafts, slice)) {
-			return false;
+			return;
 		}
 
 		this._lastSentWipDrafts = slice;
 		this._lastSentWipDraftsInitialized = true;
-		return this.host.notify(DidChangeWipDraftsNotification, { wipDrafts: slice });
+		this.context.fireDraftsChanged(slice);
 	}
 
 	sliceWipDraftsForPanel(): Record<string, StoredGraphWipDraft> | undefined {
@@ -782,7 +830,14 @@ export class GraphWipService {
 				const primaryWipRowId = createWipRowId(repo.path);
 				if (!Object.keys(wipRows.rows).some(id => id !== primaryWipRowId)) return;
 
-				await this.host.notify(DidChangeWorkingTreeNotification, {
+				// Hidden panel — DROP, don't defer. Same reasoning the cooldown drop above already rests on:
+				// the payload is enrichment-only and `mergeWipState` keeps the last probe's fields, so the bar
+				// holds its previous answer rather than blanking. The next visible state build past the
+				// cooldown re-probes, so there's nothing to recover. (The tick can't drop like this — it's the
+				// only source of the primary's `wip`, hence its deferred flag.)
+				if (!this.host.visible) return;
+
+				this.context.fireWorktreeEnrichment({
 					repoPath: repo.path,
 					wipRowsById: wipRows.rows,
 					wipStateById: wipRows.state,
@@ -902,7 +957,7 @@ export class GraphWipService {
 		const worktreesByBranch = new Map(worktrees.filter(wt => wt.branch != null).map(wt => [wt.branch!.id, wt]));
 
 		// Every known worktree, the graph's own included. Emit row-anchor topology only; workDirStats
-		// are fetched on-demand via GetWipStatsRequest when the GK component fires onWipShasMissingStats
+		// are fetched on-demand via wip.getStats when the GK component fires onWipShasMissingStats
 		// for visible rows (peers), or ride the working-tree push (the graph's own).
 		// Always return an object (empty when there are no worktrees) — undefined would be dropped by
 		// JSON.stringify, and the webview's `DidChangeNotification` handler only refreshes
@@ -1276,16 +1331,19 @@ export class GraphWipService {
 	}
 
 	/** Read-merge-write of `graph:wipDrafts` for one worktree's slot. Pass `draft: null` to
-	 *  delete the slot. Used by the webview's `UpdateWipDraftCommand` handler AND by
-	 *  host-initiated writes (Undo Commit) that need to persist a draft without waiting for the
-	 *  webview to round-trip a flush. Key is the worktree's own fsPath — invariant across
-	 *  whether the user opens the main repo or the worktree directly. */
-	writeWipDraftToStorage(worktreePath: string, draft: StoredGraphWipDraft | null): void {
+	 *  delete the slot. Used by the RPC `updateDraft` service method AND by host-initiated writes
+	 *  (Undo Commit, fixup/co-author draft seeding) that need to persist a draft without waiting
+	 *  for the webview to round-trip a flush. Key is the worktree's own fsPath — invariant across
+	 *  whether the user opens the main repo or the worktree directly. Resolves AFTER the storage
+	 *  write lands so RPC callers can treat resolution as a happens-after edge. */
+	async writeWipDraftToStorage(worktreePath: string, draft: StoredGraphWipDraft | null): Promise<void> {
 		const current = this.container.storage.getWorkspace('graph:wipDrafts');
 		const next = updateRecordValue(current, worktreePath, draft ?? undefined);
-		void this.container.storage
-			.storeWorkspace('graph:wipDrafts', next)
-			.catch((ex: unknown) => Logger.error(ex, 'graph: failed to persist WIP draft'));
+		try {
+			await this.container.storage.storeWorkspace('graph:wipDrafts', next);
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to persist WIP draft');
+		}
 	}
 
 	pruneWipDraftsForRemovedRepos(removedPaths: string[]): void {
@@ -1370,6 +1428,7 @@ export class GraphWipService {
 		}
 		this._wipWatches.clear();
 		this._wipEverWatched.clear();
+		this._pendingClosedWipShas.clear();
 		for (const entry of this._wipRefetches.values()) {
 			if (entry.timer != null) {
 				clearTimeout(entry.timer);
@@ -1384,7 +1443,7 @@ export class GraphWipService {
  * `params` minus `wip.revision` — the marker identifies which read produced the payload (see {@link Wip.revision})
  * and changes on every producer run, so it must not participate in an identical-CONTENT comparison.
  */
-function stripWipRevision(params: DidChangeWorkingTreeParams): DidChangeWorkingTreeParams {
+function stripWipRevision(params: GraphWorkingTreeChange): GraphWorkingTreeChange {
 	return params.wip?.revision == null ? params : { ...params, wip: { ...params.wip, revision: undefined } };
 }
 

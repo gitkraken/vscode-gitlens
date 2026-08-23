@@ -572,7 +572,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	wipRowsById?: GraphWipRowsById;
 	wipStateById?: GraphWipStateById;
 	/**
-	 * Most-recently pushed primary-repo WIP. Set on every `DidChangeWorkingTreeNotification` so
+	 * Most-recently pushed primary-repo WIP. Set on every `workingTreeChanged` RPC event so
 	 * the details panel can apply changes without an extra `getWip` round-trip. Initial state
 	 * leaves this undefined — first selection of a WIP row triggers the panel's resource fetch
 	 * for the cold-load path; subsequent working-tree ticks flow through this push channel.
@@ -643,7 +643,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	pendingCompare?: DidRequestOpenCompareModeParams;
 	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
 	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
-	 *  Restored on WIP row selection; mutated via {@link UpdateWipDraftCommand}. */
+	 *  Restored on WIP row selection; mutated via the `wip` RPC service's `updateDraft`. */
 	wipDrafts?: Record<string, StoredGraphWipDraft>;
 	// Persisted Visualizations-mode chart options (when `displayMode === 'visualizations'`).
 	// Field name stays `timeline` since it persists the embedded Timeline component's settings;
@@ -731,7 +731,7 @@ export interface GraphWipRow {
  * - The STATUS group (`workDirStats`, `workDirStatsStale`, `hasConflicts`, `conflictsCount`,
  *   `pausedOpStatus`) always derives from ONE `git status` and therefore travels as a unit. The host
  *   pushes it for the graph's own worktree on every tick; peer worktrees get theirs on demand
- *   (`GetWipStatsRequest`) or from a watcher refetch. A push carrying `workDirStats` replaces the
+ *   (`wip.getStats`) or from a watcher refetch. A push carrying `workDirStats` replaces the
  *   whole group; one without it leaves the group alone.
  * - The ENUMERATION group (`ahead`, `hasUnpushed`, `hasChanges`) rides the worktree walk.
  */
@@ -1049,15 +1049,6 @@ export interface UpdateSelectionParams {
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
-export interface UpdateWipDraftParams {
-	/** Worktree fsPath this draft belongs to — the storage key. Equals the main repo path for
-	 *  the primary worktree; the worktree's own fsPath for secondary worktrees. */
-	worktreePath: string;
-	/** `null` ⇒ delete the entry. */
-	draft: StoredGraphWipDraft | null;
-}
-export const UpdateWipDraftCommand = new IpcCommand<UpdateWipDraftParams>(scope, 'wipDraft/update');
-
 // REQUESTS
 
 export type DidChooseRefParams =
@@ -1148,15 +1139,6 @@ export interface GetOverviewParams {
 	olderLimit?: number;
 }
 
-export interface GetWipStatsParams {
-	shas: string[];
-	/**
-	 * When true, bypass the `graph.showWorktreeWipStats` gate and always compute stats for the
-	 * requested shas. Used by the selection-driven fetch path so clicking a worktree WIP row still
-	 * populates its stats when the setting is disabled.
-	 */
-	force?: boolean;
-}
 /** Per-row WIP stats. Carries `workDirStats` (consumed by the GK component) plus host-only
  *  fields like `pausedOpStatus` so the secondary WIP row can surface a paused-op indicator. */
 export interface WipRowStats {
@@ -1165,47 +1147,11 @@ export interface WipRowStats {
 	hasConflicts?: boolean;
 }
 export type GetWipStatsResponse = Record<string, WipRowStats | undefined>;
-export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');
 
 /** Per-file working-tree line stats keyed by repo-relative (normalized) path. Fetched lazily via a
  *  single `git diff HEAD --numstat` (incl. untracked) only while the WIP file list is shown — the
  *  every-tick `wip` push carries file status only, never line counts (`git status` can't emit them). */
 export type GetWipLineStatsResponse = Record<string, { additions: number; deletions: number }>;
-
-export interface SyncWipWatchesParams {
-	/** Full set of currently-visible secondary WIP shas. Host diffs against its subscription set. */
-	shas: string[];
-}
-export const SyncWipWatchesCommand = new IpcCommand<SyncWipWatchesParams>(scope, 'wip/watches/sync');
-
-export interface DidRequestWipRefetchParams {
-	/** Repo path of the WIP that should be re-fetched. */
-	repoPath: string;
-	/** Pre-fetched WIP payload — same shape as `DidChangeWorkingTreeNotification`'s `wip`. The
-	 *  panel applies this directly so the round-trip `getWip` RPC is avoided. The working-tree
-	 *  stats travel embedded as `wip.stats`, so no sibling `stats` field is needed. */
-	wip?: Wip;
-}
-/** Host → panel: push fresh WIP after host-side mutating actions whose effects don't reach the
- *  panel via the active-repo working-tree watcher (e.g. context-menu conflict-resolution
- *  commands on a non-active worktree's WIP row). */
-export const DidRequestWipRefetchNotification = new IpcNotification<DidRequestWipRefetchParams>(
-	scope,
-	'wip/refetch/request',
-);
-
-export interface DidCloseWipWatchesParams {
-	/** WIP row ids whose worktree watchers the host has just torn down. */
-	shas: string[];
-}
-/** Host → panel: watchers for these secondary WIP rows are gone, so nothing will report changes to those
- *  worktrees until they're watched again. Sent when the watcher is ACTUALLY disposed — the host holds it
- *  for a grace period after a row leaves the viewport, so the panel can't infer this from scroll position
- *  without invalidating rows whose coverage never lapsed. */
-export const DidCloseWipWatchesNotification = new IpcNotification<DidCloseWipWatchesParams>(
-	scope,
-	'wip/watches/closed',
-);
 
 export interface GraphSidebarBranch {
 	name: string;
@@ -1467,17 +1413,6 @@ export const DidChangeRepoConnectionNotification = new IpcNotification<DidChange
 	'repositories/integration/didChange',
 );
 
-export interface DidChangeWipDraftsParams {
-	wipDrafts: Record<string, StoredGraphWipDraft> | undefined;
-}
-/** Fired when `graph:wipDrafts` changes in workspace storage. Lets a concurrent webview
- *  instance (e.g. sidebar + editor view open simultaneously, or two editor instances) refresh
- *  its in-memory `wipDrafts` from storage without waiting for a full state push. */
-export const DidChangeWipDraftsNotification = new IpcNotification<DidChangeWipDraftsParams>(
-	scope,
-	'wipDrafts/didChange',
-);
-
 export interface DidChangeParams {
 	state: State;
 }
@@ -1662,34 +1597,6 @@ export interface DidRequestSearchParams {
 	search: SearchQuery;
 	selectSha?: string;
 }
-
-export interface DidChangeWorkingTreeParams {
-	/** Full worktree topology for the repo (every worktree, primary included) — authoritative, so the
-	 *  client prunes rows this omits. Absent means "unchanged". */
-	wipRowsById?: GraphWipRowsById;
-	/** Sparse hot-state patch, merged per row id (see {@link GraphWipState}). */
-	wipStateById?: GraphWipStateById;
-	/**
-	 * Primary-repo WIP, captured from a single `git status`. Lets the details panel render fresh
-	 * file lists without an extra `getWip` RPC. The working-tree stats travel embedded as
-	 * `wip.stats`. Omitted only when the underlying status fetch fails — callers should fall back
-	 * to their existing path (resource fetch on selection) in that case.
-	 */
-	wip?: Wip;
-	/** Path of the repo whose working tree changed. Used by the webview's WIP cache to key the
-	 *  freshest `wip` payload by repo. Always set by the host. */
-	repoPath: string;
-}
-// `silent` — background enrichment the user isn't waiting on: FS-tick pushes, and the secondary-WIP
-// probe's progressive pushes, which arrive in a queue over the life of the fan-out. Without this each
-// slow send re-opens the view's progress indicator, so that queue strobes it.
-export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
-	scope,
-	'workingTree/didChange',
-	undefined,
-	undefined,
-	true,
-);
 
 export interface DidInvalidateGraphTreemapParams {
 	repoPath: string;

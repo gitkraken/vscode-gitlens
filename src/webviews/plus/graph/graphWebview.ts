@@ -71,6 +71,7 @@ import type {
 	StoredGraphFilters,
 	StoredGraphRefType,
 	StoredGraphState,
+	StoredGraphWipDraft,
 } from '../../../constants.storage.js';
 import type {
 	GraphShownTelemetryContext,
@@ -156,7 +157,7 @@ import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webv
 import { isSerializedState } from '../../webviewsController.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
 import { checkForAbandonedComposeStashes } from './compose/utils.js';
-import type { DetailsItemContext, DetailsItemTypedContext } from './detailsProtocol.js';
+import type { DetailsItemContext, DetailsItemTypedContext, Wip } from './detailsProtocol.js';
 import type { GraphCommandsContext } from './graphCommands.js';
 import { getGraphCommands, GraphCommands } from './graphCommands.js';
 import type { GraphDataControllerContext } from './graphDataController.js';
@@ -175,6 +176,8 @@ import type {
 	GraphFiltersState,
 	GraphRepoStatus,
 	GraphServices,
+	GraphWorkingTreeChange,
+	GraphWorktreeEnrichment,
 } from './graphService.js';
 import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarActionTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
@@ -253,8 +256,6 @@ import {
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
 	DidChangeSelectionNotification,
-	DidChangeWipDraftsNotification,
-	DidChangeWorkingTreeNotification,
 	DidFailRevealNotification,
 	DidInvalidateGraphTreemapNotification,
 	DidRequestActiveSidebarPanelNotification,
@@ -262,22 +263,18 @@ import {
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestVisualizationNotification,
-	DidRequestWipRefetchNotification,
 	DoubleClickedCommand,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
 	getWipRowWorktreePath,
-	GetWipStatsRequest,
 	GraphSyncResyncCommand,
 	isWipRowId,
 	LoadRowRequest,
 	ProxyAvatarsCommand,
 	RowActionCommand,
-	SyncWipWatchesCommand,
 	TreemapFileActionCommand,
 	UpdateSelectionCommand,
-	UpdateWipDraftCommand,
 } from './protocol.js';
 import type { GraphWebviewShowingArgs } from './registration.js';
 
@@ -401,7 +398,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private _cancellations = new Map<CancellableOperations, CancellationTokenSource>();
-	/** In-flight `GetWipStatsRequest` batches. Unkeyed (see `onGetWipStats`) — batches must not cancel each
+	/** In-flight `wip.getStats` batches. Unkeyed (see `onGetWipStats`) — batches must not cancel each
 	 *  other, including when they overlap on a sha: ordering for those is settled per-sha on the client
 	 *  (`claimWipStatsRequest`), not by killing a sibling. This exists only so dispose can cancel them all. */
 	private readonly _wipStatsCancellations = new Set<CancellationTokenSource>();
@@ -441,8 +438,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeBranchStateNotification, () => this._producers.notifyDidChangeBranchStateOnly()],
 		[DidChangeNotification, () => this._data.notifyDidChangeState()],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
-		[DidChangeWipDraftsNotification, () => this._wip.notifyDidChangeWipDrafts()],
-		[DidChangeWorkingTreeNotification, () => this._wip.notifyDidChangeWorkingTree()],
 	]);
 	private _selectedId?: string;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
@@ -712,13 +707,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	/** Collaborator surface {@link GraphWipService} reaches for. `getRepository`/`getSession` read
 	 *  live provider state; the rest forward to provider state/methods that stay here — revision
-	 *  refs, pinned-ref lookup, the sidebar-worktree RPC event, and the pending-notification queue. */
+	 *  refs, pinned-ref lookup, the sidebar-worktree, WIP-drafts, and watches-closed RPC events, and
+	 *  the pending-notification queue. */
 	private createGraphWipContext(): GraphWipServiceContext {
 		return {
 			...this.createBaseServiceContext(),
 			getRevisionReference: (repoPath, id, type) => this.getRevisionReference(repoPath, id, type),
 			getPinnedRefId: repoPath => this.getFiltersByRepo(repoPath)?.pinnedRef?.id,
 			fireSidebarWorktreeChanges: changes => this._sidebarWorktreeEvent.fire({ changes: changes }),
+			fireDraftsChanged: drafts => this._wipDraftsChangedEvent.fire(drafts),
+			fireWatchesClosed: shas => this._wipWatchesClosedEvent.fire({ shas: shas }),
+			fireWorkingTreeChanged: change => this._workingTreeChangedEvent.fire(change),
+			fireWorktreeEnrichment: enrichment => this._worktreeEnrichmentEvent.fire(enrichment),
+			fireWipRefetched: refetch => this._wipRefetchedEvent.fire(refetch),
 		};
 	}
 
@@ -894,8 +895,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	onReady(): void {
 		this._graphSync.onConnectionReady();
 		void this._graphSync.flush();
-		// Ready is the other edge a secondary-WIP tick can defer on (`runWipRefetch`), and unlike hidden
-		// it resolves without any visibility or focus transition — so nothing else would ever flush it.
+		// Ready is the other edge a WIP tick can defer on (`runWipRefetch` / `runNotifyDidChangeWorkingTree`),
+		// and unlike hidden it resolves without any visibility or focus transition — so nothing else would
+		// ever flush it.
+		this._wip.flushDeferredWorkingTree();
 		this._wip.recoverDeferredSecondaryWip();
 	}
 
@@ -909,6 +912,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._graphSync.onConnectionReady();
 		void this._graphSync.flush();
 		// See onReady — a reconnect crosses the same not-ready window.
+		this._wip.flushDeferredWorkingTree();
 		this._wip.recoverDeferredSecondaryWip();
 	}
 
@@ -977,6 +981,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: the payload is always the complete filters snapshot, so a hidden webview only ever
 	// needs the newest one — see `GraphFiltersService.onDidChange`.
 	private readonly _filtersChangedEvent = createRpcEvent<GraphFiltersState>('filtersChanged', 'save-last');
+	// `save-last`: the payload is always the complete per-panel WIP-drafts slice, so a hidden webview
+	// only ever needs the newest one — see `GraphWipService.onDraftsChanged`.
+	private readonly _wipDraftsChangedEvent = createRpcEvent<Record<string, StoredGraphWipDraft> | undefined>(
+		'wipDraftsChanged',
+		'save-last',
+	);
+	// `save-last`, but the payload is CUMULATIVE (every sha closed since the last `syncWatches`), not a
+	// full-state snapshot — see `GraphWipService.onWatchesClosed` for why.
+	private readonly _wipWatchesClosedEvent = createRpcEvent<{ shas: string[] }>('wipWatchesClosed', 'save-last');
+	// The working-tree plane is split across TWO events keyed separately on purpose — the tick and the
+	// background probe produce DISJOINT payloads, so one shared `save-last` slot would let a probe
+	// swallow a tick's `wip` for good. See `GraphWipService.onWorkingTreeChanged` / `onWorktreeEnrichment`.
+	private readonly _workingTreeChangedEvent = createRpcEvent<GraphWorkingTreeChange>(
+		'workingTreeChanged',
+		'save-last',
+	);
+	private readonly _worktreeEnrichmentEvent = createRpcEvent<GraphWorktreeEnrichment>(
+		'worktreeEnrichment',
+		'save-last',
+	);
+	// `save-last`: a superseded refetch is an older read of the same worktree, and the client orders by
+	// `Wip.revision` regardless — see `GraphWipService.onWipRefetched`.
+	private readonly _wipRefetchedEvent = createRpcEvent<{ repoPath: string; wip?: Wip }>('wipRefetched', 'save-last');
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -1019,7 +1046,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					this.onGetSidebarData({ panel: panel, displayed: options?.displayed }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
 				// Straight to the shared 10s status cache — see `getWorktreeWipStats` on the interface for why
-				// this deliberately does NOT reuse `GetWipStatsRequest`.
+				// this deliberately does NOT reuse `wip.getStats`.
 				// `normalizePath` because the client sends `Uri.fsPath`: on Windows that would key the cache
 				// with backslashes, which neither the graph's readers nor the FS-watcher evictor ever match.
 				getWorktreeWipStats: async (path, signal) =>
@@ -1065,6 +1092,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			...this._panels.createServices(buffer, tracker),
 			wip: {
 				getLineStats: (repoPath, signal) => this.onGetWipLineStats(repoPath, signal),
+				getStats: (shas, options, signal) => this.onGetWipStats(shas, options, signal),
+				updateDraft: (worktreePath, draft) => this._wip.writeWipDraftToStorage(worktreePath, draft),
+				onDraftsChanged: this._wipDraftsChangedEvent.subscribe(buffer, tracker),
+				syncWatches: shas => this._wip.syncWipWatches(shas),
+				onWatchesClosed: this._wipWatchesClosedEvent.subscribe(buffer, tracker),
+				onWorkingTreeChanged: this._workingTreeChangedEvent.subscribe(buffer, tracker),
+				onWorktreeEnrichment: this._worktreeEnrichmentEvent.subscribe(buffer, tracker),
+				onWipRefetched: this._wipRefetchedEvent.subscribe(buffer, tracker),
 			},
 			hover: {
 				getRowHover: (type, id, signal) => this.getRowHover(type, id, signal),
@@ -1735,6 +1770,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.ensureAutoFetch();
 		if (focused) {
 			this._wip.recoverWorkingTreeStatsIfStuck();
+			// Regaining window focus is one of the edges a working-tree tick can have been deferred on —
+			// see `flushDeferredWorkingTree`. Nothing touches the RPC event buffer here (it tracks webview
+			// visibility, not window focus), so this re-produce is the only thing that lands.
+			this._wip.flushDeferredWorkingTree();
 			this._wip.recoverDeferredSecondaryWip();
 		}
 	}
@@ -1747,8 +1786,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// Re-push fresh WIP through the dedicated channel, which has the freshness (cache-invalidate),
 				// dedup, and commit/optimistic-edit guards `getState` lacks. Gated on `repositoryChanged`
 				// (working-tree edits bump the repo etag); the dedup gate no-ops this when nothing changed.
-				// (`updateState` no longer wipes the pending queue, but this fresher WIP still supersedes any
-				// stale queued push on success.)
+				// (`flushDeferredWorkingTree` below re-produces for the same reason when a tick was owed;
+				// the `_wipNotify` coalescer collapses the two into one read.)
 				if (repositoryChanged) {
 					void this._wip.notifyDidChangeWorkingTree();
 				}
@@ -1773,6 +1812,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.ensureAutoFetch();
 		if (visible) {
 			this._wip.recoverWorkingTreeStatsIfStuck();
+			// Re-run the working-tree producer if a tick was owed while hidden. Deliberately a re-produce,
+			// not a replay: the `workingTreeChanged` event's buffer only holds the last PRE-hide read, which
+			// the user may have edited well past. Ordering is safe by construction — the controller flushes
+			// the event buffer BEFORE calling this hook (`onParentVisibilityChanged`), and this re-produce
+			// is a `git status` behind, so the fresh payload always lands last.
+			this._wip.flushDeferredWorkingTree();
 			this._wip.recoverDeferredSecondaryWip();
 		}
 	}
@@ -1791,18 +1836,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcRequest(GetWipStatsRequest)
-	private async onGetWipStats(params: IpcParams<typeof GetWipStatsRequest>): Promise<GetWipStatsResponse> {
+	private async onGetWipStats(
+		shas: string[],
+		options?: { force?: boolean },
+		signal?: AbortSignal,
+	): Promise<GetWipStatsResponse> {
 		const response: GetWipStatsResponse = {};
-		if (params.shas.length === 0) return response;
+		if (shas.length === 0) return response;
 
 		let cancellation: CancellationTokenSource | undefined;
+		let onAbort: (() => void) | undefined;
 		try {
 			// When the user has disabled per-worktree WIP stats, short-circuit the graph-triggered
 			// missing-stats calls. The graph's visible-scan dedup never re-asks for an unchanged
 			// missing set, so leaving `workDirStats` undefined keeps the stats pill hidden.
 			// Selection-driven fetches pass `force: true` to bypass the gate.
-			if (!params.force && !configuration.get('graph.showWorktreeWipStats')) {
+			if (!options?.force && !configuration.get('graph.showWorktreeWipStats')) {
 				return response;
 			}
 
@@ -1814,11 +1863,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// answers (`claimWipStatsRequest`) rather than either killing the other. Dispose cancels all.
 			const source = (cancellation = new CancellationTokenSource());
 			this._wipStatsCancellations.add(source);
-			const signal = toAbortSignal(source.token);
+
+			onAbort = () => source.cancel();
+			if (signal?.aborted) {
+				// Already aborted (e.g. a signal born aborted from wire deserialization) never fires
+				// its own `abort` event — `addEventListener` alone would miss it.
+				onAbort();
+			} else {
+				signal?.addEventListener('abort', onAbort, { once: true });
+			}
+
+			const batchSignal = toAbortSignal(source.token);
 			const primaryRepoPath = this.repository?.path ?? this._data.session?.repoPath;
 
 			await Promise.allSettled(
-				params.shas.map(async sha => {
+				shas.map(async sha => {
 					// Peer worktrees only — the graph's own worktree's status group rides the working-tree
 					// push channel, which is authoritative and would be clobbered by an on-demand read.
 					const path = getWipRowWorktreePath(sha);
@@ -1831,10 +1890,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// cherry-pick) the primary's action bar does. `pausedOps` is optional on the
 					// service surface; older providers may not implement it.
 					const [statusResult, pausedOpResult] = await Promise.allSettled([
-						this._wip.getStatusFromCache(path, signal),
+						this._wip.getStatusFromCache(path, batchSignal),
 						// `force` so a missed `'pausedOp'` FS-watcher tick on this secondary worktree
 						// can't leave the WIP row stuck on a stale in-progress indicator.
-						svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
+						svc.pausedOps?.getPausedOperationStatus?.({ force: true }, batchSignal),
 					]);
 					if (source.token.isCancellationRequested) return;
 
@@ -1869,6 +1928,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (cancellation != null) {
 				this._wipStatsCancellations.delete(cancellation);
 				cancellation.dispose();
+			}
+			if (onAbort != null) {
+				signal?.removeEventListener('abort', onAbort);
 			}
 		}
 	}
@@ -2246,7 +2308,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Push the latest scoped draft map to this webview so a concurrent provider's write
 			// (other graph instance, host-initiated undo from a different webview) lands here
 			// without waiting for the next full state push.
-			void this._wip.notifyDidChangeWipDrafts();
+			this._wip.notifyDidChangeWipDrafts();
 		}
 
 		if (e.keys.includes('graph:filtersByRepo')) {
@@ -2950,12 +3012,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(GetMissingRefsMetadataCommand)
 	private onGetMissingRefMetadata(params: IpcParams<typeof GetMissingRefsMetadataCommand>): Promise<void> {
 		return this._producers.onGetMissingRefMetadata(params);
-	}
-
-	@ipcCommand(SyncWipWatchesCommand)
-	@debug()
-	private onSyncWipWatches(params: IpcParams<typeof SyncWipWatchesCommand>): Promise<void> {
-		return this._wip.syncWipWatches(params);
 	}
 
 	@ipcCommand(GetMoreRowsCommand)
@@ -4936,11 +4992,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.fireColumnsChanged();
 	}
 
-	@ipcCommand(UpdateWipDraftCommand)
-	private onWipDraftUpdate(params: IpcParams<typeof UpdateWipDraftCommand>) {
-		this._wip.writeWipDraftToStorage(params.worktreePath, params.draft);
-	}
-
 	/** The id of the whole-remote "Hide Remote" wildcard entry (`type: 'remote'`, `name: '*'`) covering
 	 *  `owner`, if one is currently stored. */
 	private findWildcardExcludeId(
@@ -5421,10 +5472,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			resolution,
 		);
 
-		// For non-active worktrees, the active-repo working-tree watcher won't fire, so the
-		// host's regular `DidChangeWorkingTreeNotification` won't reach the panel. Fetch the
-		// updated WIP for this specific repo and push it directly — one `git status`, no
-		// round-trip from the panel.
+		// For non-active worktrees, the active-repo working-tree watcher won't fire, so the host's
+		// regular `workingTreeChanged` event won't reach the panel. Fetch the updated WIP for this
+		// specific repo and push it directly — one `git status`, no round-trip from the panel.
 		const repo = await this.container.git.getOrAddRepository(Uri.file(value.repoPath), {
 			opened: false,
 			detectNested: true,
@@ -5439,10 +5489,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// them — the host just did the work, the webview's classifier wouldn't match
 		// `git diff --shortstat` semantics for renames/conflicts, and the derived value would drop
 		// `pausedOpStatus` / `context` (real visible regressions during a paused op).
-		void this.host.notify(DidRequestWipRefetchNotification, {
-			repoPath: value.repoPath,
-			wip: result?.wip,
-		});
+		this._wipRefetchedEvent.fire({ repoPath: value.repoPath, wip: result?.wip });
 	}
 
 	/** Solo the WIP row's worktree onto its current branch. The WIP context carries only an
@@ -5469,7 +5516,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// prop, which the webview echoes into its anchor. `writeWipDraftToStorage` is the
 				// durable mirror of the webview-side flush so the message persists across sessions
 				// even if the user never edits.
-				this._wip.writeWipDraftToStorage(targetRepoPath, { message: message, messageDirty: true });
+				void this._wip.writeWipDraftToStorage(targetRepoPath, { message: message, messageDirty: true });
 				this.setSelectedRows(wipRowId);
 				void this.notifyDidChangeSelection();
 				void this.host.notify(DidRequestGraphActionNotification, {

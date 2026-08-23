@@ -3288,7 +3288,7 @@ export class DetailsActions {
 	/**
 	 * Awaits the stage/unstage RPC and logs failures so they don't become unhandled rejections.
 	 * No explicit refetch — the host's `git add` triggers its working-tree watcher, which
-	 * pushes the updated WIP via `DidChangeWorkingTreeNotification`. The panel applies that
+	 * pushes the updated WIP via the `workingTreeChanged` RPC event. The panel applies that
 	 * push directly. The optimistic update (already fired by the caller) covers the brief
 	 * window between RPC dispatch and the push arriving.
 	 */
@@ -3312,7 +3312,7 @@ export class DetailsActions {
 	 * etc.). Used by explicit user refresh (mode header refresh button) — anywhere we WANT a
 	 * fresh round-trip rather than waiting for the host's working-tree push. For host-driven
 	 * working-tree updates, prefer `applyPushedWip` which consumes the pre-fetched WIP that
-	 * `DidChangeWorkingTreeNotification` already carries.
+	 * the `workingTreeChanged` RPC event already carries.
 	 */
 	async refetchWipQuiet(repoPath: string, force?: boolean): Promise<void> {
 		// Bypass the fetch dedup so we always re-query.
@@ -3355,7 +3355,7 @@ export class DetailsActions {
 	}
 
 	/**
-	 * Adopt a WIP payload pushed by the host (via `DidChangeWorkingTreeNotification`). Same
+	 * Adopt a WIP payload pushed by the host (via the `workingTreeChanged` RPC event). Same
 	 * semantics as the tail of `refetchWipQuiet` — replace local WIP in-place, mark stale when
 	 * a mode is active, re-fire branch enrichment on branch identity changes — but without the
 	 * round-trip fetch. Saves one `git status` per working-tree tick.

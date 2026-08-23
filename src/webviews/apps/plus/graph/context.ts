@@ -176,8 +176,8 @@ export interface AppState extends State {
 	/**
 	 * Seed the per-repo WIP cache with an optimistically-edited `Wip` (e.g. after a local stage/
 	 * unstage). The entry is flagged so subsequent `getWipState` calls report `isLive: false`
-	 * until the host's watcher reconciles. The host-driven push paths (`DidChangeWorkingTree` /
-	 * `DidRequestWipRefetch`) seed the cache through an internal path that clears that flag.
+	 * until the host's watcher reconciles. The host-driven push paths (the `workingTreeChanged` and
+	 * `wipRefetched` RPC events) seed the cache through an internal path that clears that flag.
 	 */
 	setWip(repoPath: string, wip: Wip): void;
 
@@ -204,7 +204,7 @@ export interface AppState extends State {
 	 * Return the cached WIP for `repoPath` plus liveness metadata. `isLive` reflects whether the
 	 * host currently has an active working-tree watcher for that repo — `true` for the primary
 	 * repo while it's selected, `true` for any secondary whose row is in the latest
-	 * `SyncWipWatchesCommand` set, `false` otherwise (and after a local optimistic edit until
+	 * `wip.syncWatches` set, `false` otherwise (and after a local optimistic edit until
 	 * the host reconciles). `ageMs` is the time since the entry was last written. Consumers use
 	 * `isLive` to decide whether to background-revalidate on cache hit.
 	 */
@@ -212,14 +212,14 @@ export interface AppState extends State {
 
 	/**
 	 * Update the set of repos the host currently has working-tree watchers for. Called by
-	 * `graph-wrapper.ts` whenever it sends `SyncWipWatchesCommand` (visible secondaries) and on
+	 * `graph-wrapper.ts` whenever it calls `wip.syncWatches` (visible secondaries) and on
 	 * `selectedRepository` change. The primary `selectedRepository` is always included by the
 	 * implementation — callers only need to pass the secondary set.
 	 */
 	updateActiveWipWatchers(repoPaths: Iterable<string>): void;
 
 	/**
-	 * Stake a claim on `shas` for an outgoing `GetWipStatsRequest` and return its ticket; pair with
+	 * Stake a claim on `shas` for an outgoing `wip.getStats` call and return its ticket; pair with
 	 * {@link isCurrentWipStatsRequest} before applying the response. Concurrent batches don't cancel each
 	 * other, and the responses carry no revision, so this is what keeps an older read that lands late from
 	 * rolling a row back over a newer one.

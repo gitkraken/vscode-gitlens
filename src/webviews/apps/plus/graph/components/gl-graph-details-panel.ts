@@ -30,7 +30,7 @@ import type {
 	GraphSidebarPullRequest,
 	State,
 } from '../../../../plus/graph/protocol.js';
-import { getWipRowWorktreePath, isWipSelectionSha, UpdateWipDraftCommand } from '../../../../plus/graph/protocol.js';
+import { getWipRowWorktreePath, isWipSelectionSha } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
@@ -38,6 +38,7 @@ import type {
 	CopyWipPatchEventDetail,
 	OpenMultipleChangesArgs,
 } from '../../../shared/actions/file.js';
+import { fireAndForget } from '../../../shared/actions/rpc.js';
 import type { AgentSessionCategory, PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
@@ -46,7 +47,6 @@ import {
 	matchAgentSessionsForWorktree,
 } from '../../../shared/agentUtils.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
@@ -225,9 +225,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	// `detailsState` (its other consumers — compare/multi-commit panels — still need it).
 	@consume({ context: graphLaunchpadContext, subscribe: true })
 	private _launchpadState?: GraphLaunchpadState;
-
-	@consume({ context: ipcContext })
-	private _ipc?: typeof ipcContext.__context__;
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
@@ -1356,7 +1353,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  host, the source of truth for cross-session restore. Pass `draft: null` to clear the slot. */
 	private persistWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void {
 		this._graphState?.setWipDraft(worktreePath, draft);
-		this._ipc?.sendCommand(UpdateWipDraftCommand, { worktreePath: worktreePath, draft: draft });
+
+		const services = this._remoteServices;
+		if (services == null) return;
+
+		fireAndForget((async () => (await services.wip).updateDraft(worktreePath, draft))(), 'wip/updateDraft');
 	}
 
 	/** Snapshot the commit-form signals and schedule a debounced flush to the host. Re-runs on

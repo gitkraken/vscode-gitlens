@@ -10,6 +10,7 @@ import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@g
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GraphBranchesVisibility } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
+import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { FeaturePreview } from '../../../features.js';
 import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
@@ -43,6 +44,7 @@ import type {
 	DidSearchRepairParams,
 	GetOverviewParams,
 	GetWipLineStatsResponse,
+	GetWipStatsResponse,
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
@@ -62,6 +64,8 @@ import type {
 	GraphSearchResultsError,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
+	GraphWipRowsById,
+	GraphWipStateById,
 	MergePullRequestResult,
 	SearchParams,
 	SidebarWorktreeChange,
@@ -757,7 +761,7 @@ export interface GraphSidebarService {
 	 * "settled, no data" (no status available) — distinct from a rejection, so the tooltip can land on a
 	 * terminal state instead of spinning.
 	 *
-	 * Deliberately NOT `GetWipStatsRequest`: that handler skips the primary repo path and collapses
+	 * Deliberately NOT `wip.getStats`: that handler skips the primary repo path and collapses
 	 * config-off into an empty response, neither of which suits a tooltip the user explicitly opened. This
 	 * goes straight to the shared 10s status cache instead, so it still joins any concurrent read for the
 	 * same worktree. (Those batches no longer cross-cancel — each owns its token — but they still answer a
@@ -1080,11 +1084,102 @@ export interface GraphOverviewService {
 	readonly onOverviewChanged: RpcEventSubscription<GraphOverviewData>;
 }
 
+/**
+ * One working-tree tick for the graph's repo: the full worktree topology, the enumeration state for
+ * every worktree, and the graph's own worktree's status group plus its complete {@link Wip} — every
+ * field projected from the single `git status` the tick ran.
+ */
+export type GraphWorkingTreeChange = {
+	repoPath: string;
+	/** Full worktree topology for the repo (every worktree, primary included) — authoritative, so the
+	 *  client prunes rows this omits. */
+	wipRowsById: GraphWipRowsById;
+	/** Hot-state patch, merged per row id — carries the primary's status group plus the free
+	 *  enumeration fields (`ahead`) for its peers. */
+	wipStateById: GraphWipStateById;
+	/** The graph's own worktree's WIP, so the details panel renders a fresh file list with no extra
+	 *  round-trip. Undefined only when the underlying status read failed. */
+	wip: Wip | undefined;
+};
+
+/**
+ * One background peer-worktree probe result: the same topology, plus the probed `hasChanges`/
+ * `hasUnpushed` bits for peers. Carries NO status group and NO {@link Wip} — the probe deliberately
+ * runs no `git status`.
+ */
+export type GraphWorktreeEnrichment = {
+	repoPath: string;
+	wipRowsById: GraphWipRowsById;
+	wipStateById: GraphWipStateById;
+};
+
 export interface GraphWipService {
 	/** Per-file working-tree line stats for `repoPath`, keyed by repo-relative (normalized) path.
 	 *  Fetched lazily via a single `git diff HEAD --numstat` (incl. untracked) only while the WIP file
 	 *  list is shown — the every-tick `wip` push carries file status only, never line counts. */
 	getLineStats(repoPath: string, signal?: AbortSignal): Promise<GetWipLineStatsResponse | undefined>;
+	/** Per-sha WIP stats (working-tree add/change/delete counts, paused-op status, conflicts) for
+	 *  peer-worktree WIP rows. `force` bypasses the `graph.showWorktreeWipStats` gate — used by the
+	 *  selection-driven fetch so clicking a worktree row still populates stats when the setting is
+	 *  disabled. A missing key in the response means the read failed (or the gate wasn't bypassed);
+	 *  callers must treat that as "keep prior counts", never as zero. */
+	getStats(shas: string[], options?: { force?: boolean }, signal?: AbortSignal): Promise<GetWipStatsResponse>;
+	/** Persists a WIP commit-box draft for `worktreePath` (keyed by the worktree's own fsPath).
+	 *  `draft: null` deletes the slot. Resolves AFTER the storage write lands — callers use that
+	 *  happens-after edge to know their own write is no longer outstanding. */
+	updateDraft(worktreePath: string, draft: StoredGraphWipDraft | null): Promise<void>;
+	/** The complete `graph:wipDrafts` slice for this panel's repo (its worktree plus every peer),
+	 *  pushed whenever the storage record changes — another provider's write, a host-initiated draft
+	 *  (Undo Commit), or this panel's own echo. `save-last` buffered: the payload is always the complete
+	 *  slice, so a hidden webview only ever needs the newest one. */
+	readonly onDraftsChanged: RpcEventSubscription<Record<string, StoredGraphWipDraft> | undefined>;
+	/** Full set of currently-visible secondary WIP shas (plus the selected peer row, if any). The host
+	 *  diffs against its subscription set: opens watchers for newcomers, arms a grace-period disposal
+	 *  timer for departures, cancels a pending disposal for a row back in view. Resolves after the diff
+	 *  has been applied. */
+	syncWatches(shas: string[]): Promise<void>;
+	/**
+	 * Secondary-WIP row ids whose watcher the host has just torn down (grace period elapsed). `save-last`
+	 * buffered, but unlike other `save-last` events the payload is CUMULATIVE rather than a full-state
+	 * snapshot: it's every sha closed since the panel's last {@link syncWatches} call, not just the one
+	 * that triggered this firing. A per-sha payload would lose closures to `save-last`'s buffering — a
+	 * second sha closing before the first firing is delivered would overwrite it. Accumulating means any
+	 * delivered (or replayed) payload is a superset of everything closed since the last sync, so nothing
+	 * is lost. The host resets the accumulated set on every {@link syncWatches} call — a sync proves the
+	 * panel's watch set is current, so shas it still wants were never actually closed and shas it dropped
+	 * it no longer needs to hear about.
+	 */
+	readonly onWatchesClosed: RpcEventSubscription<{ shas: string[] }>;
+	/**
+	 * The graph repo's working tree changed — one fire per filesystem tick that survives the host's
+	 * content dedup (working-tree watchers fire on any write in the repo, so most ticks reproduce the
+	 * prior status verbatim and are suppressed).
+	 *
+	 * Split from {@link onWorktreeEnrichment} by PRODUCER rather than by repo, and that split is what
+	 * makes `save-last` safe here: the two producers carry DISJOINT payloads, so under one shared slot
+	 * an enrichment fire landing behind a tick would drop the tick's `wip` — the details panel's file
+	 * list — with nothing to restore it. Every fire of THIS event is a complete snapshot of what the
+	 * tick knows, so collapsing two of them loses nothing.
+	 *
+	 * Not buffered on the host side: a tick produced while the panel is hidden is dropped and
+	 * RE-PRODUCED on the next visibility/focus regain, so what arrives is a fresh read rather than a
+	 * replay of pre-hide state.
+	 */
+	readonly onWorkingTreeChanged: RpcEventSubscription<GraphWorkingTreeChange>;
+	/**
+	 * Peer-worktree enrichment from the background clean/dirty + unpushed probe. `save-last`, and
+	 * likewise complete for its kind — the client's `mergeWipState` folds these fields into whatever
+	 * anchors it holds and preserves the groups this payload omits. Dropped outright while the panel
+	 * is hidden; the next visible state build past the probe's cooldown re-runs it.
+	 */
+	readonly onWorktreeEnrichment: RpcEventSubscription<GraphWorktreeEnrichment>;
+	/**
+	 * Fresh WIP for a repo whose change the graph's own working-tree watcher can't see: a peer
+	 * worktree's debounced watcher tick, or a host-side conflict-resolution run against a peer's WIP
+	 * row. `save-last` — a superseded payload is by definition an older read of the same worktree, and
+	 * the client orders by `Wip.revision` anyway.
+	 */
+	readonly onWipRefetched: RpcEventSubscription<{ repoPath: string; wip?: Wip }>;
 }
 
 /**

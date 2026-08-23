@@ -42,12 +42,10 @@ import {
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
 	getWipRowWorktreePath,
-	GetWipStatsRequest,
 	isWipRowId,
 	LoadRowRequest,
 	ProxyAvatarsCommand,
 	RowActionCommand,
-	SyncWipWatchesCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/graph/protocol.js';
 import { fireAndForget } from '../../../shared/actions/rpc.js';
@@ -2867,7 +2865,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}
 
 		this._lastSyncedWipShas = new Set(shas);
-		this._ipc.sendCommand(SyncWipWatchesCommand, { shas: shas });
+
+		const services = this.services;
+		if (services != null) {
+			fireAndForget((async () => (await services.wip).syncWatches(shas))(), 'wip/watches/sync');
+		}
 
 		// Mirror the host's watcher set into graphState so `getWipState().isLive` reflects which
 		// repos are currently being watched. The state provider unions in the primary repo path
@@ -2913,11 +2915,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// selection-driven `force: true` fetch that is the only thing allowed to answer for them in that mode.
 		if (this.graphState.config?.showWorktreeWipStats === false) return;
 
+		const services = this.services;
+		if (services == null) return;
+
 		const ticket = this.graphState.claimWipStatsRequest(shas);
 		// A null response is the host answering nothing at all — same standing as a response missing every
 		// sha, so it must go through the miss/retry bookkeeping below rather than returning early. It's the
 		// failure most likely during startup/reconnect, and the visible-scan dedup never re-asks on its own.
-		const response = (await this._ipc.sendRequest(GetWipStatsRequest, { shas: shas })) ?? {};
+		const response = (await (await services.wip).getStats(shas)) ?? {};
 
 		// Merge fetched stats into the hot plane. Skipping no-op entries preserves the prior reference so
 		// downstream reactive consumers don't churn.

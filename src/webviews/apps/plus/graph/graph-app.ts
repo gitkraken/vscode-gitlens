@@ -50,7 +50,6 @@ import type {
 import {
 	createWipRowId,
 	getWipRowWorktreePath,
-	GetWipStatsRequest,
 	isPrimaryWipRowId,
 	isWipSelectionSha,
 } from '../../../plus/graph/protocol.js';
@@ -2284,7 +2283,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/** Waits for the scope's projection to actually apply to the rendered rows (or `timeoutMs`, for
 	 *  scopes that resolve dim-only and never project) — positioning before the restructure lands
-	 *  scrolls the old layout and then yanks to the new one. Poll cadence matches waitForScopeCleared. */
+	 *  scrolls the old layout and then yanks to the new one. Poll cadence matches waitForState. */
 	private waitForScopeProjection(timeoutMs = 800): Promise<void> {
 		const applied = (): boolean => this.graph?.isScopeProjectionActive() === true;
 		if (applied()) return Promise.resolve();
@@ -5652,9 +5651,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Already have stats for this row (user re-selected it) — nothing to do.
 		if (current.workDirStats != null && !current.workDirStatsStale) return;
 
+		const services = this.services;
+		if (services == null) return;
+
 		const ticket = this.graphState.claimWipStatsRequest([sha]);
-		const response = await this._ipc.sendRequest(GetWipStatsRequest, { shas: [sha], force: true });
-		if (response == null) return;
+		const response = (await (await services.wip).getStats([sha], { force: true })) ?? {};
 
 		// A newer request for this row supersedes ours regardless of which response lands first — batches
 		// no longer cancel each other, and the responses carry no revision to order by.
