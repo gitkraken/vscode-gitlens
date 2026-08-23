@@ -145,7 +145,6 @@ import {
 	getDetailsFolderCommands,
 	sharedDetailsFolderCommandRoutes,
 } from '../../commitDetails/detailsFolderCommands.js';
-import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../../rpc/launchpadService.js';
@@ -195,6 +194,9 @@ import type { GraphWipServiceContext } from './graphWipService.js';
 import { GraphWipService } from './graphWipService.js';
 import type {
 	BranchState,
+	DidChangeBranchStateParams,
+	DidChangeParams,
+	DidChangeRepoConnectionParams,
 	DidChooseAuthorParams,
 	DidChooseComparisonParams,
 	DidChooseFileParams,
@@ -256,14 +258,7 @@ import type {
 	State,
 	VisualizationMode,
 } from './protocol.js';
-import {
-	createWipRowId,
-	DidChangeBranchStateNotification,
-	DidChangeNotification,
-	DidChangeRepoConnectionNotification,
-	getWipRowWorktreePath,
-	isWipRowId,
-} from './protocol.js';
+import { createWipRowId, getWipRowWorktreePath, isWipRowId } from './protocol.js';
 import type { GraphWebviewShowingArgs } from './registration.js';
 
 export interface SelectedRowState {
@@ -419,13 +414,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// account becomes usable — see `onSubscriptionChanged`.
 	private _accountAccessRequired = false;
 
-	// Map value type is `() => Promise<boolean | void>` so we can include notify methods that don't
-	// return whether they sent (e.g. `notifyDidChangeBranchStateOnly`, `notifyDidChangeOverview`).
-	// The consumer in `sendPendingIpcNotifications` `void`s the call so the boolean is unused.
-	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean | void>>([
-		[DidChangeBranchStateNotification, () => this._producers.notifyDidChangeBranchStateOnly()],
-		[DidChangeNotification, () => this._data.notifyDidChangeState()],
-	]);
+	// Set instead of building the (expensive) full-state / branch-state-only payload while hidden or not
+	// ready — building it would cost real work for a webview that can't receive it. Consumed on the next
+	// visibility-restore (`onVisibilityChanged`), which RE-PRODUCES fresh data rather than replaying
+	// anything: the RPC events' visibility buffer only replays what was actually produced, so an expensive
+	// plane defers production itself instead of relying on that buffer.
+	private _pendingStateRefresh = false;
+	private _pendingBranchStateRefresh = false;
 	private _selectedId?: string;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _theme: ColorTheme | undefined;
@@ -669,8 +664,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			host: this.host,
 			getRepository: () => this.repository,
 			getSession: () => this._data.session,
-			addPendingNotification: (notification: IpcNotification<any>) =>
-				this.host.addPendingIpcNotification(notification, this._ipcNotificationMap, this),
+			fireBranchStateChanged: (params: DidChangeBranchStateParams) => this._branchStateChangedEvent.fire(params),
+			deferBranchStateRefresh: () => (this._pendingBranchStateRefresh = true),
 		};
 	}
 
@@ -706,8 +701,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	/** Collaborator surface {@link GraphWipService} reaches for. `getRepository`/`getSession` read
 	 *  live provider state; the rest forward to provider state/methods that stay here — revision
-	 *  refs, pinned-ref lookup, the sidebar-worktree, WIP-drafts, and watches-closed RPC events, and
-	 *  the pending-notification queue. */
+	 *  refs, pinned-ref lookup, the sidebar-worktree, WIP-drafts, and watches-closed RPC events. */
 	private createGraphWipContext(): GraphWipServiceContext {
 		return {
 			...this.createBaseServiceContext(),
@@ -723,8 +717,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** Collaborator surface {@link GraphProducersService} reaches for. `getRepository`/`getSession` read
-	 *  live provider state; `updateState` forwards to the data controller; cancellation and the
-	 *  pending-notification queue route through the provider's shared maps, which stay here. */
+	 *  live provider state; `updateState` forwards to the data controller; the cancellation map, the
+	 *  branch-state RPC event, and the deferred-refresh flag route through the provider, which stays here. */
 	private createGraphProducersContext(): GraphProducersServiceContext {
 		return {
 			...this.createBaseServiceContext(),
@@ -778,16 +772,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
 			resetWipSendState: () => this._wip.resetSendState(),
 			clearWipStatusCache: () => this._wip.clearStatusCache(),
-			addPendingNotification: notification =>
-				this.host.addPendingIpcNotification(notification, this._ipcNotificationMap, this),
+			fireStateChanged: params => this._stateChangedEvent.fire(params),
+			deferStateRefresh: () => (this._pendingStateRefresh = true),
 		};
 	}
 
 	/** Collaborator surface {@link GraphPanelsService} reaches for. `getRepository`/`getSession`/
 	 *  `getLoading` read live provider state; `getPinnedRefId`/`getExcludedRefsByRepo`/`fetchWipStatus`/
 	 *  `computeWorktreeChanges` forward into the provider's stored filters and the WIP service's caches;
-	 *  `fireSidebarInvalidated` fires the provider's RPC event (subscribed in `getRpcServices`); the
-	 *  pending-notification queue routes through the provider's shared `_ipcNotificationMap`, which stays here. */
+	 *  `fireSidebarInvalidated` fires the provider's RPC event (subscribed in `getRpcServices`). */
 	private createGraphPanelsContext(): GraphPanelsServiceContext {
 		return {
 			...this.createBaseServiceContext(),
@@ -968,6 +961,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: only the current repo's fetch matters to the app, so latest-wins is correct —
 	// see `GraphRepoStatusService.onDidFetch`.
 	private readonly _repoStatusEvent = createRpcEvent<GraphRepoStatus>('repoStatus', 'save-last');
+	// `save-last`: the payload is always the complete `State` rebuild, so a hidden webview only ever
+	// needs the newest one — see `GraphStateService.onStateChanged`.
+	private readonly _stateChangedEvent = createRpcEvent<DidChangeParams>('stateChanged', 'save-last');
+	// `save-last`: each payload is a complete replacement and only the newest matters to a hidden
+	// webview — see `GraphRepoStatusService.onBranchStateChanged`.
+	private readonly _branchStateChangedEvent = createRpcEvent<DidChangeBranchStateParams>(
+		'branchStateChanged',
+		'save-last',
+	);
+	// `save-last`: the payload is always a complete repositories snapshot — see
+	// `GraphRepoStatusService.onRepoConnectionChanged`.
+	private readonly _repoConnectionChangedEvent = createRpcEvent<DidChangeRepoConnectionParams>(
+		'repoConnectionChanged',
+		'save-last',
+	);
 	// `save-last`: the payload is always the complete component config, so a hidden webview only
 	// ever needs the newest one — see `GraphConfigurationService.onDidChange`.
 	private readonly _configurationChangedEvent = createRpcEvent<GraphComponentConfig>(
@@ -1144,6 +1152,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repoStatus: {
 				getLastFetched: () => this.getRepoStatus(),
 				onDidFetch: this._repoStatusEvent.subscribe(buffer, tracker),
+				onBranchStateChanged: this._branchStateChangedEvent.subscribe(buffer, tracker),
+				onRepoConnectionChanged: this._repoConnectionChangedEvent.subscribe(buffer, tracker),
+			},
+			state: {
+				onStateChanged: this._stateChangedEvent.subscribe(buffer, tracker),
 			},
 			rows: {
 				getMoreRows: (id, limit) => this._data.onGetMoreRows(id, limit),
@@ -1383,15 +1396,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				}
 				// Three cases routed through the state-bootstrap path (`_searchRequest` → `getState`):
-				//   1. Cold show (`loading`): webview isn't ready, a standalone notification would
-				//      queue in `_pendingIpcNotifications` and get wiped by the bootstrap
-				//      `clearPendingIpcNotifications()`.
+				//   1. Cold show (`loading`): the webview hasn't subscribed to the RPC services yet, so
+				//      firing `onDidRequestSearch` now would reach no subscriber and be lost — the state
+				//      bootstrap the client fetches on connect is the only channel guaranteed to reach it.
 				//   2. Repo swap (`repoChanged`): the repository setter triggers a full `updateState`
 				//      refetch anyway; pipe the search through it so it lands with the new repo's rows
 				//      instead of racing against the just-cleared graph session.
-				//   3. Force-refresh in flight (`!host.ready`): same wipe risk as #1 — the reconnect
-				//      handler clears pending notifications before flushing them.
-				// Otherwise (warm + same-repo + ready) use the lightweight notification — bypasses
+				//   3. Force-refresh in flight (`!host.ready`): same no-subscriber risk as #1 — the
+				//      reconnect hasn't re-subscribed the RPC services yet.
+				// Otherwise (warm + same-repo + ready) use the lightweight RPC event — bypasses
 				// the ~750ms `updateState` → `getState` pipeline since the only delta is the search.
 				// Mirrors the `DidRequestOpenCompareMode` / `DidRequestOpenTimelineScope` pattern.
 				if (loading || repoChanged || !this.host.ready) {
@@ -1863,16 +1876,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (repositoryChanged) {
 					void this._wip.notifyDidChangeWorkingTree();
 				}
-				// Flush the rest of the queue rather than letting the rebuild's `reset` drop it. The queue
-				// isn't limited to `_ipcNotificationMap` types that `getState` carries — `notify` re-queues
-				// every notification whose send failed, and some of those have no state representation at
-				// all (scope-anchor invalidation only clears the webview's merge-base cache from its own
-				// handler). Drop the queued full-state push, since the rebuild above supersedes it and
-				// replaying it would join the in-flight state notify and cost a second rebuild.
-				this.host.sendPendingIpcNotifications(DidChangeNotification);
+				// The rebuild above supersedes a deferred full-state refresh — drop it rather than also
+				// firing a now-redundant notify that would join the in-flight state notify and cost a
+				// second rebuild.
+				this._pendingStateRefresh = false;
+				// A deferred branch-state-only refresh is NOT superseded by the rebuild: the rebuild's own
+				// branchState can go stale between its build and its send (see `runStateNotify`'s
+				// revision-ordering strip), so the fast path still needs to run to land it.
+				if (this._pendingBranchStateRefresh) {
+					this._pendingBranchStateRefresh = false;
+					void this._producers.notifyDidChangeBranchStateOnly();
+				}
 			}
 		} else if (visible) {
-			this.host.sendPendingIpcNotifications();
+			if (this._pendingStateRefresh) {
+				this._pendingStateRefresh = false;
+				void this._data.notifyDidChangeState();
+			}
+			if (this._pendingBranchStateRefresh) {
+				this._pendingBranchStateRefresh = false;
+				void this._producers.notifyDidChangeBranchStateOnly();
+			}
 		}
 
 		// Flush any rows-plane state the publisher accumulated while hidden/not-ready. Nothing was ever
@@ -2519,8 +2543,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Fast-path: refresh branchState immediately so push/pull/fetch ahead/behind land in the
 		// header without waiting for the full graph rebuild. The full state pipeline re-sends
-		// branchState; the webview dedups equal values (see `DidChangeNotification` in
-		// stateProvider.ts), so the worst case is a redundant IPC discarded on receipt.
+		// branchState; the webview dedups equal values (see the `branchState` guard in
+		// stateProvider.ts's `state.onStateChanged` handler), so the worst case is a redundant push
+		// discarded on receipt.
 		if (e.changed('head', 'heads', 'remotes')) {
 			void this._producers.notifyDidChangeBranchStateOnly();
 		}
@@ -3731,9 +3756,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async notifyDidChangeRepoConnection() {
-		void this.host.notify(DidChangeRepoConnectionNotification, {
-			repositories: await this.getRepositoriesState(),
-		});
+		this._repoConnectionChangedEvent.fire({ repositories: await this.getRepositoriesState() });
 	}
 
 	private async getRepositoriesState(): Promise<GraphRepository[]> {

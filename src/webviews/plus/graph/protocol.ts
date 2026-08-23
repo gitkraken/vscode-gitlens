@@ -46,8 +46,7 @@ import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
-import type { IpcScope } from '../../ipc/models/ipc.js';
-import { IpcNotification } from '../../ipc/models/ipc.js';
+import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
 import type { OverviewBranch, OverviewRecentThreshold } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
@@ -286,8 +285,6 @@ export type {
 	OverviewBranchWip,
 	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
-
-export const scope: IpcScope = 'graph';
 
 /** Column settings, discriminated by column: the gutter takes a lane-density mode and Changes takes a
  *  visualization mode; the rest take none. A flat `ColumnMode` would let either column hold the
@@ -1329,15 +1326,10 @@ export interface DidSearchRepairParams {
 export interface DidChangeRepoConnectionParams {
 	repositories?: GraphRepository[];
 }
-export const DidChangeRepoConnectionNotification = new IpcNotification<DidChangeRepoConnectionParams>(
-	scope,
-	'repositories/integration/didChange',
-);
 
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
 
 /** Contextual per-feature coach marks (how-tos) shown in the Graph (#5516) */
 export const graphCoachMarkTypes = [
@@ -1396,10 +1388,6 @@ export interface DidRequestGraphActionParams {
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
 }
-export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBranchStateParams>(
-	scope,
-	'branchState/didChange',
-);
 
 /**
  * One emission on the `graph:rows` {@link SequencedChannel} — the rows plane's only host→webview

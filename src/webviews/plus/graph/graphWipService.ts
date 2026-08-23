@@ -960,7 +960,7 @@ export class GraphWipService {
 		// are fetched on-demand via wip.getStats when the GK component fires onWipShasMissingStats
 		// for visible rows (peers), or ride the working-tree push (the graph's own).
 		// Always return an object (empty when there are no worktrees) — undefined would be dropped by
-		// JSON.stringify, and the webview's `DidChangeNotification` handler only refreshes
+		// JSON.stringify, and the webview's full-state push handler only refreshes
 		// `wipRowsById` when the field is present, so removing the last peer worktree
 		// would leave a phantom anchor in the webview state until another full push arrived.
 		for (const wt of worktrees) {

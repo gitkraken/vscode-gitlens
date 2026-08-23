@@ -29,7 +29,6 @@ import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext } from '../../../system/-webview/context.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
-import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import {
 	isRepoHostingIntegrationConnected,
@@ -39,6 +38,7 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	BranchState,
+	DidChangeBranchStateParams,
 	GraphItemContext,
 	GraphMissingRefsMetadata,
 	GraphMissingRefsMetadataType,
@@ -46,13 +46,14 @@ import type {
 	GraphRefMetadataType,
 	GraphRefsMetadata,
 } from './protocol.js';
-import { DidChangeBranchStateNotification, supportedRefMetadataTypes } from './protocol.js';
+import { supportedRefMetadataTypes } from './protocol.js';
 
 /** Collaborators the producers cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphProducersContext()`. `getRepository`/`getSession` read
  *  live provider state; `updateState` forwards to the data controller's coalescer; the cancellation
- *  and pending-notification callbacks route through the provider's shared `_cancellations` map and
- *  `_ipcNotificationMap`, which stay there. */
+ *  callback routes through the provider's shared `_cancellations` map, and the branch-state RPC event
+ *  and deferred-refresh flag route through the provider's `_branchStateChangedEvent` /
+ *  `_pendingBranchStateRefresh`, which stay there. */
 export type GraphProducersServiceContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
@@ -62,7 +63,11 @@ export type GraphProducersServiceContext = {
 	/** Fires the `refsMetadata` reset-class RPC event with a COMPLETE snapshot (`null` = feature off). */
 	fireRefsMetadataChanged: (metadata: GraphRefsMetadata | null) => void;
 	createBranchStateOnlyCancellation: () => CancellationTokenSource;
-	addPendingNotification: (notification: IpcNotification<any>) => void;
+	/** Fires the `repoStatus` branch-state RPC event. */
+	fireBranchStateChanged: (params: DidChangeBranchStateParams) => void;
+	/** Defers the branch-state-only refresh instead of building it while hidden/not-ready — see
+	 *  `_pendingBranchStateRefresh` on the provider. */
+	deferBranchStateRefresh: () => void;
 };
 
 /** How many refs one `getMissingRefsMetadata` request enriches at once. Sized to keep a provider's connection pool
@@ -804,7 +809,7 @@ export class GraphProducersService {
 	}
 
 	@trace()
-	async notifyDidChangeBranchState(branchState: BranchState, revision: number): Promise<boolean> {
+	notifyDidChangeBranchState(branchState: BranchState, revision: number): boolean {
 		// Read older than one already accepted — a slower producer finishing after a fresher one. Sending it
 		// would put the pre-operation counts back (pull → button correctly clears → stale payload restores it).
 		if (revision <= this._lastSentBranchStateRevision) return false;
@@ -819,17 +824,13 @@ export class GraphProducersService {
 			return false;
 		}
 
-		const success = await this.host.notify(DidChangeBranchStateNotification, {
-			branchState: branchState,
-		});
-		// Advance the gate only on confirmed delivery. Committing it up front lets a dropped send leave
-		// the gate claiming a value the webview never received — and because dedup then suppresses every
-		// resend of that value, the header stays blank until the counts happen to change again.
-		if (success) {
-			this._lastSentBranchState = branchState;
-			this._lastSentBranchStateRevision = revision;
-		}
-		return success;
+		this.context.fireBranchStateChanged({ branchState: branchState });
+		// The fire always "succeeds": a hidden webview's visibility buffer holds the newest push and
+		// replays it on reveal, so commit unconditionally. The legacy check here guarded against a
+		// silent drop while hidden, which no longer exists.
+		this._lastSentBranchState = branchState;
+		this._lastSentBranchStateRevision = revision;
+		return true;
 	}
 
 	/**
@@ -848,11 +849,11 @@ export class GraphProducersService {
 	async notifyDidChangeBranchStateOnly(): Promise<void> {
 		if (this.repository == null) return;
 		if (!this.host.ready || !this.host.visible) {
-			// Queue so the header refreshes immediately on panel reveal, instead of silently
+			// Defer so the header refreshes immediately on panel reveal, instead of silently
 			// dropping the notify (current behavior) and waiting for the full graph rebuild.
 			// `_lastSentBranchState` dedupe inside `notifyDidChangeBranchState` correctly skips
 			// no-change replays.
-			this.context.addPendingNotification(DidChangeBranchStateNotification);
+			this.context.deferBranchStateRefresh();
 			return;
 		}
 

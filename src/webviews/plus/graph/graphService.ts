@@ -31,6 +31,9 @@ import type {
 import type { TreemapConfig, TreemapData, TreemapMode } from '../treemap/protocol.js';
 import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detailsProtocol.js';
 import type {
+	DidChangeBranchStateParams,
+	DidChangeParams,
+	DidChangeRepoConnectionParams,
 	DidChooseAuthorParams,
 	DidChooseComparisonParams,
 	DidChooseFileParams,
@@ -940,6 +943,11 @@ export interface GraphRepoStatus {
 	lastFetched: number;
 }
 
+/**
+ * Repo/branch status plane: the active repo's last-fetched time, the header's fast-path branch state
+ * (ahead/behind/upstream/provider/worktree), and the repositories list refresh on integration
+ * connect/disconnect.
+ */
 export interface GraphRepoStatusService {
 	/** The active repo's last-fetched snapshot, for seeding a freshly connected app. Pull-based, so no
 	 *  emission fired between subscribe and fetch is ever lost. `undefined` when there's no active repo. */
@@ -952,6 +960,13 @@ export interface GraphRepoStatusService {
 	 * `save-last`: latest-wins is correct since only the current repo's fetch matters to the app.
 	 */
 	readonly onDidFetch: RpcEventSubscription<GraphRepoStatus>;
+	/** Fast-path header branch state (ahead/behind/upstream/provider/worktree), refreshed independently
+	 *  of the full-state rebuild so push/pull/fetch land in the header immediately. `save-last` is correct
+	 *  because each payload is a complete replacement and only the newest matters to a hidden webview. */
+	readonly onBranchStateChanged: RpcEventSubscription<DidChangeBranchStateParams>;
+	/** Complete repositories list refresh on integration connect/disconnect. `save-last`, complete
+	 *  snapshot: each payload replaces the whole list. */
+	readonly onRepoConnectionChanged: RpcEventSubscription<DidChangeRepoConnectionParams>;
 }
 
 /**
@@ -1397,6 +1412,13 @@ export interface GraphRefsMetadataService {
 	readonly onRefsMetadataChanged: RpcEventSubscription<{ metadata: GraphRefsMetadata | null; reset: true }>;
 }
 
+/** The full-state push plane: the host's complete `State` rebuild after graph reloads, repo swaps,
+ *  and config-driven changes. Rows-plane fields travel on the `graph:rows` channel and arrive
+ *  absent here; `save-last` is correct because each push is a complete snapshot. */
+export interface GraphStateService {
+	readonly onStateChanged: RpcEventSubscription<DidChangeParams>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly access: GraphAccessService;
 	readonly avatars: GraphAvatarsService;
@@ -1416,6 +1438,7 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
 	readonly repoStatus: GraphRepoStatusService;
+	readonly state: GraphStateService;
 	readonly rows: GraphRowsService;
 	readonly scope: GraphScopeService;
 	readonly overview: GraphOverviewService;

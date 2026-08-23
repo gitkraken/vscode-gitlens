@@ -17,13 +17,19 @@ import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import { toGraphSearchResultsError } from './graphSearchService.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
-import { DidChangeNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
-import type { BranchState, DidLoadRowParams, GraphSearchResultsError, GraphSelectedRows, State } from './protocol.js';
+import { isWipRowId, isWipSelectionSha } from './protocol.js';
+import type {
+	BranchState,
+	DidChangeParams,
+	DidLoadRowParams,
+	GraphSearchResultsError,
+	GraphSelectedRows,
+	State,
+} from './protocol.js';
 
 /** Collaborator surface {@link GraphDataController} reaches for, assembled by
  *  `GraphWebviewProvider.createGraphDataContext()`. The controller now OWNS the data-plane state (graph
@@ -71,7 +77,11 @@ export type GraphDataControllerContext = {
 	notifySidebarInvalidated: () => void;
 	resetWipSendState: () => void;
 	clearWipStatusCache: () => void;
-	addPendingNotification: (notification: IpcNotification<any>) => void;
+	/** Fires the `state` full-state-push RPC event. */
+	fireStateChanged: (params: DidChangeParams) => void;
+	/** Defers the full-state push instead of building it while hidden/not-ready — see `_pendingStateRefresh`
+	 *  on the provider. */
+	deferStateRefresh: () => void;
 };
 
 /** Shape of the in-flight page-in dedup entry (owned by the controller). */
@@ -244,7 +254,7 @@ export class GraphDataController {
 	@trace()
 	async notifyDidChangeState(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
-			this.context.addPendingNotification(DidChangeNotification);
+			this.context.deferStateRefresh();
 			return false;
 		}
 
@@ -313,17 +323,18 @@ export class GraphDataController {
 			// `getState` already produced the rows-plane fields in the "skipRows" shape (all undefined —
 			// `refsMetadata` included, it's bootstrap-only now). Rows always ship via the publisher's
 			// channel now, so this is a plain full-state push — no per-field fingerprint, splice, or reachability delta here.
-			const result = await this.host.notify(DidChangeNotification, { state: state });
+			this.context.fireStateChanged({ state: state });
 
 			this._lastStateSentAt = performance.now();
-			// Commit only on confirmed delivery, and only value+ordering together: committing a value the
-			// webview never received lets the fast path's dedup suppress every resend of it, leaving the
-			// header blank until the counts change.
-			if (result && state.branchState != null && branchStateRevision != null) {
+			// The fire always "succeeds": a hidden webview's visibility buffer holds the newest push and
+			// replays it on reveal, so delivery is guaranteed-or-superseded rather than silently dropped.
+			// Commit unconditionally — the legacy silent-drop-when-hidden failure mode this guarded
+			// against no longer exists.
+			if (state.branchState != null && branchStateRevision != null) {
 				this.context.commitSentBranchState(state.branchState, branchStateRevision);
 			}
 
-			return result;
+			return true;
 		} finally {
 			this._pendingStateOp = undefined;
 		}

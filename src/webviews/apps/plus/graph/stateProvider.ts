@@ -24,11 +24,13 @@ import type {
 	GraphNavigationService,
 	GraphOverviewService,
 	GraphRefsMetadataService,
+	GraphRepoStatusService,
 	GraphRowsService,
 	GraphScopeService,
 	GraphSearchState,
 	GraphSelectionService,
 	GraphServices,
+	GraphStateService,
 	GraphWipService,
 	GraphWorktreeEnrichment,
 } from '../../../plus/graph/graphService.js';
@@ -46,13 +48,7 @@ import type {
 	WipStats,
 	WorkDirStats,
 } from '../../../plus/graph/protocol.js';
-import {
-	createWipRowId,
-	DidChangeBranchStateNotification,
-	DidChangeNotification,
-	DidChangeRepoConnectionNotification,
-	isWipRowId,
-} from '../../../plus/graph/protocol.js';
+import { createWipRowId, isWipRowId } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
@@ -677,6 +673,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** The refs-metadata RPC sub-service — held only for its reset-class push (see
 	 *  `GraphRefsMetadataService`). Set by {@link initializeServices}. */
 	private _refsMetadataService: GraphRefsMetadataService | undefined;
+	/** The full-state-push RPC sub-service — held only for its {@link GraphStateService.onStateChanged}
+	 *  subscription. Set by {@link initializeServices}. */
+	private _stateService: GraphStateService | undefined;
+	/** The repo/branch-status RPC sub-service — held only for its `onBranchStateChanged` /
+	 *  `onRepoConnectionChanged` subscriptions (see `GraphRepoStatusService`). Set by
+	 *  {@link initializeServices}. */
+	private _repoStatusService: GraphRepoStatusService | undefined;
 	/** Resolved once {@link initializeServices} has assigned {@link _overviewService} and
 	 *  {@link _scopeService} — callers that need either before the RPC handshake completes await this
 	 *  instead of racing it. Same resolve-once-per-lifetime semantics as `SearchActions`' `serviceReady`:
@@ -748,6 +751,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._selectionService = selection;
 		const refsMetadata = await services.refsMetadata;
 		this._refsMetadataService = refsMetadata;
+		const state = await services.state;
+		this._stateService = state;
+		const repoStatus = await services.repoStatus;
+		this._repoStatusService = repoStatus;
 		this._rowsService = await services.rows;
 		this._servicesReady.fulfill();
 
@@ -930,6 +937,94 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 							bubbles: true,
 						}),
 					);
+				}),
+			() =>
+				state.onStateChanged(data => {
+					const incoming = data.state;
+					const next: Partial<State> = { ...incoming };
+					// Both WIP planes merge rather than replace — the host only sends topology plus whatever
+					// status it produced, so client-fetched peer stats (via `wip.getStats`) have to
+					// survive a full-state push. Read from the accessors (`this.wipRowsById` /
+					// `this.wipStateById`) rather than `_state`: writebacks from `graph-wrapper.ts` and
+					// `graph-app.ts` assign through the accessor and don't update `_state`, so reading `_state`
+					// would see a stale map and drop those stats (the visible pill flash).
+					if (incoming.wipRowsById != null) {
+						next.wipRowsById = mergeWipRows(this.wipRowsById, incoming.wipRowsById);
+					}
+					// Rows-plane fields (rows/downstreams/paging/reachabilityTable/rowsStats*) travel on the
+					// publisher's `DidChangeRows` channel and arrive ABSENT here; `avatars`/`refsMetadata` are
+					// owned by their request/response services and are bootstrap-only on this push. The one
+					// exception that rides it live: `sync` (bootstrap-only baseline stamp — consumed by
+					// `initializeState`, must not move the live baseline).
+					// Drop `branchState` and `lastFetched` when the full-state push carries values
+					// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
+					// `GraphRepoStatusService.onDidFetch`) land these ~20-30ms before the heavier full-state
+					// rebuild; without this guard the bulk push re-assigns the same values and Lit's
+					// identity-based reactivity forces a redundant header re-render for every pull/push/fetch.
+					if (areEqual(next.branchState, this._state.branchState)) {
+						delete next.branchState;
+					}
+					// `lastFetched` has the same build-start-read / late-ship race as `branchState`, but needs no
+					// stamp: it's a timestamp that only moves FORWARD within a repo, so the value carries its own
+					// ordering. `getState` reads it in the build-start `allSettled` and ships it after the rows
+					// walk, so a fetch completing mid-walk lands via `onDidFetch` first and this older snapshot
+					// would otherwise rewind the header's "Last fetched" until the next fetch. Rejecting `<=` also
+					// subsumes the equality case this replaces (same timestamp = a pointless header re-render).
+					// Scoped to the SAME repo: a swap legitimately carries an earlier timestamp, and nothing clears
+					// `lastFetched` on selection change, so a repo-blind guard would pin the previous repo's value.
+					// Compared against the INCOMING push's repo (as the wip guard below does), not the client's
+					// possibly-lagging selection.
+					// The repo-id gap this used to leave open — a fetch for repo B landing before B's full push
+					// writes B's timestamp while `selectedRepository` still reads A — is now closed upstream:
+					// `onDidFetch` carries `repoPath`, and `applyLastFetched` (below) ignores an event whose
+					// repo isn't the one currently selected, so `this._state.lastFetched` can no longer be
+					// wrongly stamped with another repo's time in the first place.
+					if (next.lastFetched != null && this._state.lastFetched != null) {
+						const sameRepo =
+							(incoming.selectedRepository ?? this._state.selectedRepository) ===
+							this._state.selectedRepository;
+						if (sameRepo && next.lastFetched <= this._state.lastFetched) {
+							delete next.lastFetched;
+						}
+					}
+					// The graph's own worktree's status group has a second, revision-ordered writer — the wip channel
+					// (`workingTreeChanged`/`wipRefetched`, guarded by `isStaleWip`). This full-state copy is unstamped and
+					// snapshotted early in the host rebuild, so drop it whenever the wip channel has already written
+					// status for the row THIS push is for (`_wipStatsRowId === <incoming primary row id>`): the live
+					// value wins, including one a B working-tree tick delivered early during an A→B swap (which is why
+					// the compare is against the incoming repo, not the client's lagging current selection). Otherwise
+					// seed (first delivery). Peer rows are unaffected — the client owns their status group.
+					if (incoming.wipStateById != null) {
+						// The incoming push's own primary, resolved from the repositories/selection it carries (both
+						// travel on a full state) with a fallback to what's already applied.
+						const incomingPrimaryRowId = getPrimaryWipRowId({
+							repositories: next.repositories ?? this._state.repositories,
+							selectedRepository: incoming.selectedRepository ?? this._state.selectedRepository,
+						});
+						const { seed, wipStatsRowId } = resolveFullStateWorkingTreeStats(
+							incomingPrimaryRowId,
+							this._wipStatsRowId,
+						);
+						// Seeding hands ownership back to the full-state (clears the marker) so a stale marker from a
+						// prior visit can't drop a later seed after a B→A→B swap-back; a drop keeps the wip owner.
+						this._wipStatsRowId = wipStatsRowId;
+						next.wipStateById = mergeWipState(
+							this.wipStateById,
+							seed ? incoming.wipStateById : stripWipStatus(incoming.wipStateById, incomingPrimaryRowId),
+							next.wipRowsById ?? this.wipRowsById,
+							incomingPrimaryRowId,
+							lastKnownWorkDirStatsBySha,
+						);
+					}
+					this.updateState(next);
+				}),
+			() =>
+				repoStatus.onBranchStateChanged(data => {
+					this.updateState({ branchState: data.branchState });
+				}),
+			() =>
+				repoStatus.onRepoConnectionChanged(data => {
+					this.updateState({ repositories: data.repositories });
 				}),
 		]);
 	}
@@ -1761,99 +1856,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	protected onMessageReceived(msg: IpcMessage): void {
 		switch (true) {
-			case DidChangeNotification.is(msg): {
-				const incoming = msg.params.state;
-				const next: Partial<State> = { ...incoming };
-				// Both WIP planes merge rather than replace — the host only sends topology plus whatever
-				// status it produced, so client-fetched peer stats (via `wip.getStats`) have to
-				// survive a full-state push. Read from the accessors (`this.wipRowsById` /
-				// `this.wipStateById`) rather than `_state`: writebacks from `graph-wrapper.ts` and
-				// `graph-app.ts` assign through the accessor and don't update `_state`, so reading `_state`
-				// would see a stale map and drop those stats (the visible pill flash).
-				if (incoming.wipRowsById != null) {
-					next.wipRowsById = mergeWipRows(this.wipRowsById, incoming.wipRowsById);
-				}
-				// Rows-plane fields (rows/downstreams/paging/reachabilityTable/rowsStats*) travel on the
-				// publisher's `DidChangeRows` channel and arrive ABSENT here; `avatars`/`refsMetadata` are
-				// owned by their request/response services and are bootstrap-only on this push. The one
-				// exception that rides it live: `sync` (bootstrap-only baseline stamp — consumed by
-				// `initializeState`, must not move the live baseline).
-				// Drop `branchState` and `lastFetched` when the full-state push carries values
-				// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
-				// `GraphRepoStatusService.onDidFetch`) land these ~20-30ms before the heavier full-state
-				// rebuild; without this guard the bulk push re-assigns the same values and Lit's
-				// identity-based reactivity forces a redundant header re-render for every pull/push/fetch.
-				if (areEqual(next.branchState, this._state.branchState)) {
-					delete next.branchState;
-				}
-				// `lastFetched` has the same build-start-read / late-ship race as `branchState`, but needs no
-				// stamp: it's a timestamp that only moves FORWARD within a repo, so the value carries its own
-				// ordering. `getState` reads it in the build-start `allSettled` and ships it after the rows
-				// walk, so a fetch completing mid-walk lands via `onDidFetch` first and this older snapshot
-				// would otherwise rewind the header's "Last fetched" until the next fetch. Rejecting `<=` also
-				// subsumes the equality case this replaces (same timestamp = a pointless header re-render).
-				// Scoped to the SAME repo: a swap legitimately carries an earlier timestamp, and nothing clears
-				// `lastFetched` on selection change, so a repo-blind guard would pin the previous repo's value.
-				// Compared against the INCOMING push's repo (as the wip guard below does), not the client's
-				// possibly-lagging selection.
-				// The repo-id gap this used to leave open — a fetch for repo B landing before B's full push
-				// writes B's timestamp while `selectedRepository` still reads A — is now closed upstream:
-				// `onDidFetch` carries `repoPath`, and `applyLastFetched` (below) ignores an event whose
-				// repo isn't the one currently selected, so `this._state.lastFetched` can no longer be
-				// wrongly stamped with another repo's time in the first place.
-				if (next.lastFetched != null && this._state.lastFetched != null) {
-					const sameRepo =
-						(incoming.selectedRepository ?? this._state.selectedRepository) ===
-						this._state.selectedRepository;
-					if (sameRepo && next.lastFetched <= this._state.lastFetched) {
-						delete next.lastFetched;
-					}
-				}
-				// The graph's own worktree's status group has a second, revision-ordered writer — the wip channel
-				// (`workingTreeChanged`/`wipRefetched`, guarded by `isStaleWip`). This full-state copy is unstamped and
-				// snapshotted early in the host rebuild, so drop it whenever the wip channel has already written
-				// status for the row THIS push is for (`_wipStatsRowId === <incoming primary row id>`): the live
-				// value wins, including one a B working-tree tick delivered early during an A→B swap (which is why
-				// the compare is against the incoming repo, not the client's lagging current selection). Otherwise
-				// seed (first delivery). Peer rows are unaffected — the client owns their status group.
-				if (incoming.wipStateById != null) {
-					// The incoming push's own primary, resolved from the repositories/selection it carries (both
-					// travel on a full state) with a fallback to what's already applied.
-					const incomingPrimaryRowId = getPrimaryWipRowId({
-						repositories: next.repositories ?? this._state.repositories,
-						selectedRepository: incoming.selectedRepository ?? this._state.selectedRepository,
-					});
-					const { seed, wipStatsRowId } = resolveFullStateWorkingTreeStats(
-						incomingPrimaryRowId,
-						this._wipStatsRowId,
-					);
-					// Seeding hands ownership back to the full-state (clears the marker) so a stale marker from a
-					// prior visit can't drop a later seed after a B→A→B swap-back; a drop keeps the wip owner.
-					this._wipStatsRowId = wipStatsRowId;
-					next.wipStateById = mergeWipState(
-						this.wipStateById,
-						seed ? incoming.wipStateById : stripWipStatus(incoming.wipStateById, incomingPrimaryRowId),
-						next.wipRowsById ?? this.wipRowsById,
-						incomingPrimaryRowId,
-						lastKnownWorkDirStatsBySha,
-					);
-				}
-				this.updateState(next);
-				break;
-			}
-
-			case DidChangeBranchStateNotification.is(msg):
-				this.updateState({ branchState: msg.params.branchState });
-				break;
-
 			case DidChangeHostWindowFocusNotification.is(msg):
 				this.updateState({
 					windowFocused: msg.params.focused,
 				});
-				break;
-
-			case DidChangeRepoConnectionNotification.is(msg):
-				this.updateState({ repositories: msg.params.repositories });
 				break;
 		}
 	}

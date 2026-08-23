@@ -39,12 +39,12 @@ services, `search`, agent sessions, gating/access, overview, scope, hover, picke
 the write planes (`filters`, `columns`, `configuration`), and the WIP plane (`wip` — stats,
 drafts, watch lifecycle, and the tick/probe working-tree events), selection, the five
 host→webview navigation pushes, row actions, and the pickers — all in
-`plus/graph/graphService.ts`. Only the rows plane (paging, splices, sync) still travels
-over legacy IPC. The ledger-diffed splice channel in
-`docs/graph-update-pipeline.md` is an `IpcNotification`: published at
-`plus/graph/graphWebview.ts:882`, declared at `plus/graph/protocol.ts:1870`, consumed through
-`onMessageReceived` at `apps/plus/graph/stateProvider.ts:1679`. Do not assume Graph work happens
-over RPC.
+`plus/graph/graphService.ts`. The rows plane (paging, splices, sync) rides a Supertalk
+`SequencedChannel` named `graph:rows` — see `docs/graph-update-pipeline.md`. Only three legacy
+notifications remain: the full-state `DidChangeNotification`, `DidChangeBranchStateNotification`,
+and `DidChangeRepoConnectionNotification` (all in `plus/graph/protocol.ts`), plus the shared base
+webview protocol (`WebviewReadyRequest`, `ExecuteCommand`). Check which transport a Graph message
+uses before assuming either.
 
 ### Cross-transport ordering has no guarantee
 
