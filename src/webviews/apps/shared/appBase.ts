@@ -169,6 +169,18 @@ export abstract class GlWebviewApp extends GlElement {
 		}
 	}
 
+	/** Backing cache for {@link consumeOneShotAttribute}. */
+	private _oneShotAttributeRaw?: string;
+
+	/** Cache-then-clear for a one-shot bootstrap/context attribute: VS Code can unmount/remount the
+	 *  root element during startup (see RpcController's lifecycle contract), and the attribute is
+	 *  only stamped once — a remount must re-read the cached copy, not parse `undefined`. Call with
+	 *  the attribute's current value from `connectedCallback`, then clear the property. */
+	protected consumeOneShotAttribute(value: string): string {
+		this._oneShotAttributeRaw ??= value;
+		return this._oneShotAttributeRaw;
+	}
+
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 
@@ -181,6 +193,8 @@ export abstract class GlWebviewApp extends GlElement {
 		}
 
 		this.disposables.forEach(d => d.dispose());
+		// Clear so a startup-churn remount doesn't retain (and later double-dispose) dead entries.
+		this.disposables.length = 0;
 	}
 
 	override render(): unknown {

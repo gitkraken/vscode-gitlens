@@ -733,29 +733,50 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	private async connectServices(services: Remote<GraphServices>): Promise<Unsubscribe> {
-		const overview = await services.overview;
+		// One round-trip for the whole set. A rejection here (a torn-down connection is the only
+		// realistic cause) propagates to the library, which logs it and re-issues this subscriber on
+		// the next successful handshake — `_servicesReady` deliberately stays pending until a
+		// handshake actually delivers the services, so its awaiters resolve against a live set
+		// rather than a dead one.
+		const [
+			overview,
+			scope,
+			configuration,
+			columns,
+			filters,
+			wip,
+			navigation,
+			selection,
+			refsMetadata,
+			state,
+			repoStatus,
+			rows,
+		] = await Promise.all([
+			services.overview,
+			services.scope,
+			services.configuration,
+			services.columns,
+			services.filters,
+			services.wip,
+			services.navigation,
+			services.selection,
+			services.refsMetadata,
+			services.state,
+			services.repoStatus,
+			services.rows,
+		]);
 		this._overviewService = overview;
-		const scope = await services.scope;
 		this._scopeService = scope;
-		const configuration = await services.configuration;
 		this._configService = configuration;
-		const columns = await services.columns;
 		this._columnsService = columns;
-		const filters = await services.filters;
 		this._filtersService = filters;
-		const wip = await services.wip;
 		this._wipService = wip;
-		const navigation = await services.navigation;
 		this._navigationService = navigation;
-		const selection = await services.selection;
 		this._selectionService = selection;
-		const refsMetadata = await services.refsMetadata;
 		this._refsMetadataService = refsMetadata;
-		const state = await services.state;
 		this._stateService = state;
-		const repoStatus = await services.repoStatus;
 		this._repoStatusService = repoStatus;
-		this._rowsService = await services.rows;
+		this._rowsService = rows;
 		this._servicesReady.fulfill();
 
 		return subscribeAll([
@@ -1029,7 +1050,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		]);
 	}
 
+	/** Set by {@link dispose} — fences async continuations (a rejected resync's retry arm) that can
+	 *  land after teardown and would otherwise re-arm timers against a disposed provider. */
+	private _providerDisposed = false;
+
 	override dispose(): void {
+		this._providerDisposed = true;
 		// Cancel any pending debounced provider update to prevent post-dispose updates
 		this.fireProviderUpdate.cancel?.();
 		if (this._resyncRetryTimer != null) {
@@ -1083,6 +1109,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	private _resyncRetryTimer: ReturnType<typeof setTimeout> | undefined;
+	/** Guards against overlapping `resyncRows` RPC calls — a channel gap and a splice-guard failure can
+	 *  both fire in the same tick, and a retry can still be in flight when a fresh gap arrives. Every
+	 *  resync re-snapshots the full row set from the host, so dropping a duplicate request loses nothing. */
+	private _resyncInFlight = false;
 	/** Count of unhealable rows-channel gaps this session. MUST stay 0 in steady state — a non-zero value
 	 *  means messages are being lost between the host and this webview, which storms/soaks assert on. */
 	private _rowsGapCount = 0;
@@ -1106,24 +1136,41 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * looping against a connection that is gone (a reconnect re-snapshots anyway).
 	 */
 	private resyncRows(retry: boolean = true): void {
+		if (this._resyncInFlight || this._providerDisposed) return;
+
 		const service = this._rowsService;
 		if (service == null) {
 			this.logger.info(undefined, 'rows resync requested before the rows service connected');
 			return;
 		}
 
-		void service.resyncRows().catch((ex: unknown) => {
-			this.logger.info(undefined, `rows resync failed: ${String(ex)}`);
-			if (!retry) return;
+		this._resyncInFlight = true;
 
-			if (this._resyncRetryTimer != null) {
-				clearTimeout(this._resyncRetryTimer);
-			}
-			this._resyncRetryTimer = setTimeout(() => {
-				this._resyncRetryTimer = undefined;
-				this.resyncRows(false);
-			}, 2000);
-		});
+		void service.resyncRows().then(
+			() => {
+				this._resyncInFlight = false;
+				if (this._resyncRetryTimer != null) {
+					clearTimeout(this._resyncRetryTimer);
+					this._resyncRetryTimer = undefined;
+				}
+			},
+			(ex: unknown) => {
+				this._resyncInFlight = false;
+				// Teardown rejects the in-flight RPC — don't arm a retry against a disposed provider.
+				if (this._providerDisposed) return;
+
+				this.logger.info(undefined, `rows resync failed: ${String(ex)}`);
+				if (!retry) return;
+
+				if (this._resyncRetryTimer != null) {
+					clearTimeout(this._resyncRetryTimer);
+				}
+				this._resyncRetryTimer = setTimeout(() => {
+					this._resyncRetryTimer = undefined;
+					this.resyncRows(false);
+				}, 2000);
+			},
+		);
 	}
 
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void {
@@ -1135,7 +1182,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		const fingerprint = branchIds.toSorted().join(',');
 		if (fingerprint === this._enrichmentFingerprint) return;
 
-		// Skip the IPC entirely when overviewEnrichment (possibly populated by the sidebar's
+		// Skip the RPC call entirely when overviewEnrichment (possibly populated by the sidebar's
 		// parallel fetch path) already covers every id in this composition.
 		const enrichment = this.overviewEnrichment;
 		if (enrichment != null && branchIds.every(id => id in enrichment)) {
@@ -1147,13 +1194,22 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		void this._servicesReady.promise
 			.then(() => this._overviewService!.getEnrichment(branchIds))
-			.then(result => {
-				// Only publish when the overview fingerprint hasn't moved on — a newer overview
-				// in flight will trigger its own fetch whose result is authoritative.
-				if (this._enrichmentFingerprint === fingerprint) {
-					this.publishOverviewEnrichment(result);
-				}
-			});
+			.then(
+				result => {
+					// Only publish when the overview fingerprint hasn't moved on — a newer overview
+					// in flight will trigger its own fetch whose result is authoritative.
+					if (this._enrichmentFingerprint === fingerprint) {
+						this.publishOverviewEnrichment(result);
+					}
+				},
+				() => {
+					// Let a future call with this same composition retry — otherwise a rejected fetch
+					// (e.g. a connection reset while the panel was hidden) would permanently look "fetched".
+					if (this._enrichmentFingerprint === fingerprint) {
+						this._enrichmentFingerprint = undefined;
+					}
+				},
+			);
 	}
 
 	/**
@@ -1274,7 +1330,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/**
 	 * Latest scope the user has asked to navigate to. Tracked separately from the published
 	 * `scope` signal so a cache-miss anchor resolve only publishes when the user is still
-	 * waiting for that branch — re-scoping or clearing while the IPC is in flight cancels the
+	 * waiting for that branch — re-scoping or clearing while the RPC call is in flight cancels the
 	 * pending publish. Compared by `branchRef` (not reference) so a second `setScope` to the
 	 * same branch with a fresher upstream/target still allows the in-flight resolve to publish.
 	 */

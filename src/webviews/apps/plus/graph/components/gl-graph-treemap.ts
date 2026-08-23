@@ -354,6 +354,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	private graphState!: typeof graphStateContext.__context__;
 
 	@consume({ context: graphServicesContext, subscribe: true })
+	@state()
 	private services?: typeof graphServicesContext.__context__;
 
 	@state()
@@ -380,6 +381,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	private _chart?: GlTreemapChart;
 
 	private readonly _subscriptions: Disposable[] = [];
+
+	/** Guards {@link subscribeToInvalidations} from firing twice for the same connection. `services`
+	 *  is unresolved on a cold open (RPC not yet connected) — `updated()` re-attempts once the
+	 *  `@state()`-tracked context arrives, mirroring `_servicesResolved` in gl-graph-details-panel.
+	 *  Reset on disconnect so a remount re-arms the subscription attempt. */
+	private _servicesSubscribed = false;
 
 	/** Repo path the currently-held `_data` was fetched for. Gates render against `effectiveRepo.path`
 	 *  so a cross-repo remount (where `_data` survives but the active repo flipped) doesn't paint
@@ -442,7 +449,6 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
-		void this.subscribeToInvalidations();
 		void this.refreshIfNeeded();
 	}
 
@@ -515,6 +521,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		this._repoFamilySessionsCache = undefined;
 		// Re-arm the impression telemetry so the next mount records a fresh `shown`.
 		this._shownEmittedKey = undefined;
+		// Re-arm the subscription attempt for the next mount.
+		this._servicesSubscribed = false;
 	}
 
 	override willUpdate(): void {
@@ -541,6 +549,16 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	}
 
 	override updated(): void {
+		// Cold open races the RPC connection: `services` (a `@state()`-tracked `@consume`) is
+		// undefined on first render, so attempt the subscription here instead of only at connect —
+		// this re-fires once the context arrives. Flag-gated rather than `changedProperties`-gated:
+		// on a remount the context value is already set and never "changes", so the reset flag alone
+		// is what re-arms the subscription.
+		if (this.services != null && !this._servicesSubscribed) {
+			this._servicesSubscribed = true;
+			void this.subscribeToInvalidations();
+		}
+
 		void this.refreshIfNeeded();
 		// Dispatch lives in `updated()` (post-render) rather than `willUpdate()` — emitting an
 		// event mid-update can re-trigger Lit's render cycle and cause double renders or stale

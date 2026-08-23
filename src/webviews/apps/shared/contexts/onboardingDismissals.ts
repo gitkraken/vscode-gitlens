@@ -133,6 +133,10 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 				// Fence stale in-flight fetch replies from the previous session
 				fetchEpoch++;
 				const resolved = await services.onboarding;
+				// A dispose()/re-connect() while the resolution was in flight cleared this store's
+				// state — writing `remote` (or replaying) now would resurrect it for a dead session.
+				if (connection !== conn) return;
+
 				remote = resolved;
 				const unsub = await subscribeAll([
 					() =>
@@ -140,6 +144,9 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 							ensureSignal(e.key).set(e.dismissed),
 						),
 				]);
+				// Same fence after the second await — a dispose landing while the subscriptions were
+				// registering must not replay dismissals or refetch into a dead session.
+				if (connection !== conn) return unsub;
 
 				for (const key of pendingDismissals) {
 					persistDismiss(key);

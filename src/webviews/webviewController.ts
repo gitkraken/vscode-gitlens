@@ -355,6 +355,19 @@ export class WebviewController<
 		return removeFromContextDelimitedString('gitlens:plus:disabled:view:overrides', [this.descriptor.id]);
 	}
 
+	/** True while a `refreshCore` reload window is open (html reset → `exposeRpc` swap) — the RPC
+	 *  transports are muted for the window, and reactive visibility syncs must not un-mute them. */
+	private _reloadMuted = false;
+
+	/** Single writer for the reload-window mute and BOTH transports' visibility — the buffer and the
+	 *  RPC endpoint must never disagree, and every mute set/lift must restore both together. */
+	private setTransportsMuted(muted: boolean): void {
+		this._reloadMuted = muted;
+		const visible = muted ? false : this.visible;
+		this._eventBuffer?.setVisible(visible);
+		this._rpcHost?.setVisible(visible);
+	}
+
 	private _disposed: boolean = false;
 	dispose(): void {
 		this._disposed = true;
@@ -405,7 +418,14 @@ export class WebviewController<
 	}
 
 	private exposeRpc(clientId: string | undefined): void {
-		if (this._rpcExposed || this._rpcHost == null) return;
+		if (this._rpcExposed) return;
+
+		// A retain-context webview without RPC services still had its event buffer muted for the
+		// reload window (see `refreshCore`) — lift it here since no expose will.
+		if (this._rpcHost == null) {
+			this.setTransportsMuted(false);
+			return;
+		}
 
 		// Defense in depth: callers are expected to have already gated on the generation guard (see
 		// the WebviewReadyRequest handler), so this only fires if some other/future path invokes
@@ -424,8 +444,15 @@ export class WebviewController<
 			// webview created in the background), and setVisible is otherwise only called reactively.
 			this._rpcHost.setVisible(this.visible);
 			this._rpcHost.expose();
+			// Lift the reload-window mute (see `refreshCore`) AFTER expose: the tracker reset inside
+			// expose() has already dropped any stale save-last pendings, so this replays nothing from
+			// the dead session — it just re-opens the buffer for the fresh one.
+			this.setTransportsMuted(false);
 		} catch (ex) {
 			Logger.error(ex, `WebviewController(${this.id}): Failed to expose RPC services`);
+			// Never leave the reload-window mute latched on a failed expose — the transports would
+			// stay silenced until some later successful refresh.
+			this.setTransportsMuted(false);
 		}
 	}
 
@@ -662,10 +689,23 @@ export class WebviewController<
 		this._ready = false;
 		this._rpcExposed = false;
 
+		// Mute the RPC transports for the reload window: from here until the new iframe's ready
+		// triggers the expose() connection swap, host events would otherwise post through the OLD
+		// connection into a page that no longer holds their callback proxies — logged client-side as
+		// "Proxy target not found for notify" on every fire. Treat the window as hidden instead:
+		// save-last pendings captured here die with the tracker reset inside expose(), and the fresh
+		// handshake's subscribe-then-seed re-produces everything, so nothing is lost. `exposeRpc`
+		// restores visibility; the html-unchanged early return below restores it directly.
+		this.setTransportsMuted(true);
+
 		let html;
 		try {
 			html = await this.getHtml(this.webview);
 		} catch (ex) {
+			// No reload is going to happen — lift the reload-window mute so the still-live iframe keeps
+			// receiving events. On the cancellation path a superseding ready/refresh usually restores it
+			// too (via exposeRpc), but the cancel can also come from a caller that never follows up.
+			this.setTransportsMuted(false);
 			if (isCancellationError(ex)) {
 				this.cancellation.cancel();
 				return;
@@ -689,6 +729,8 @@ export class WebviewController<
 				this._ready = true;
 			}
 			this._rpcExposed = wasRpcExposed;
+			// No reload happened — lift the reload-window mute applied above.
+			this.setTransportsMuted(false);
 			return;
 		}
 
@@ -900,8 +942,13 @@ export class WebviewController<
 		}
 
 		void this.notify(DidChangeWebviewVisibilityNotification, { visible: visible });
-		this._eventBuffer?.setVisible(visible);
-		this._rpcHost?.setVisible(visible);
+		// During a reload window (html reset → expose() swap, see `refreshCore`) the transports are
+		// deliberately muted — a visibility event landing mid-window must not un-mute them and resume
+		// posting into the dead session; `exposeRpc` restores visibility when the swap completes.
+		if (!this._reloadMuted) {
+			this._eventBuffer?.setVisible(visible);
+			this._rpcHost?.setVisible(visible);
+		}
 		this.provider.onVisibilityChanged?.(visible);
 	}
 

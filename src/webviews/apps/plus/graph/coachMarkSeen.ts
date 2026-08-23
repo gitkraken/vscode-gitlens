@@ -126,7 +126,12 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 			storedConnection = conn;
 			subscription = subscribe<{ onboarding: OnboardingRpcService }>(conn, async services => {
 				const gen = ++generation;
-				remote = await services.onboarding;
+				const resolved = await services.onboarding;
+				// A dispose()/re-connect() while the resolution was in flight cleared this store's
+				// state — writing `remote` now would resurrect it for a dead session.
+				if (storedConnection !== conn) return;
+
+				remote = resolved;
 				fetch(gen);
 			});
 		},

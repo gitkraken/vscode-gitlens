@@ -895,6 +895,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// ever flush it.
 		this._wip.flushDeferredWorkingTree();
 		this._wip.recoverDeferredSecondaryWip();
+		// Same edge for the deferred state/branch-state refreshes: an event landing before ready sets
+		// the flag, and an already-visible webview never gets the visibility transition that would
+		// otherwise drain it (the legacy path drained its pending queue right here at ready).
+		// `includeBootstrap` clears the flags when a fresh bootstrap supersedes them, so anything
+		// still set here was deferred after that snapshot — re-produce it.
+		if (this._pendingStateRefresh) {
+			this._pendingStateRefresh = false;
+			void this._data.notifyDidChangeState();
+		}
+
+		if (this._pendingBranchStateRefresh) {
+			this._pendingBranchStateRefresh = false;
+			void this._producers.notifyDidChangeBranchStateOnly();
+		}
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap, which carries NO rows plane — and
@@ -1642,6 +1656,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	async includeBootstrap(_deferrable?: boolean): Promise<State> {
+		// The fresh bootstrap carries the complete state (branchState included), superseding any
+		// refresh deferred while hidden/not-ready — clear the flags so the next visibility restore
+		// doesn't fire a redundant rebuild (the legacy path's `clearPendingIpcNotifications` on
+		// reconnect did the equivalent).
+		this._pendingStateRefresh = false;
+		this._pendingBranchStateRefresh = false;
 		// Mark a state op as in-flight for the duration of the bootstrap so any `notifyDidChangeState`
 		// triggered by repo-change events during the bootstrap window waits on this op, then finds the
 		// state already fresh and skips the redundant getState/getGraph pipeline.

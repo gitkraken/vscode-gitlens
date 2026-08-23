@@ -2204,7 +2204,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		let resetFilters: Promise<void> | undefined;
 		if (scopeCleared) {
 			gs.deferScopeClear();
-			resetFilters = (async () => (await this.getFiltersService())?.reset())();
+			// Attach a rejection sink at creation — a failed reset already leaves the deferred scope
+			// clear untouched (it's consumed on the host's push; no push means the `waitForState`
+			// timeout below covers it), so there's nothing more to do here than keep it from surfacing
+			// as an unhandled rejection.
+			resetFilters = (async () => (await this.getFiltersService())?.reset())().catch(noop);
 		}
 		// Anchor the selection synchronously, normalized to `uncommitted` — every WIP row (primary
 		// and secondary alike) collapses to that sha and is distinguished by `repoPath`, matching
@@ -3484,9 +3488,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		apply: () => void | Promise<void>,
 		settled: () => boolean,
 	): void {
-		this.clearJumpToast();
 		void (async () => {
-			await apply();
+			try {
+				await apply();
+			} catch (ex) {
+				// A failed remedy leaves the toast up — no state changed, so there's nothing to wait
+				// for or re-navigate against, and the user keeps the retry action instead of losing
+				// the recovery UI to a silent failure.
+				noop(ex);
+				return;
+			}
+			// Dismiss only once the remedy write actually landed — clearing up front would leave the
+			// user with neither feedback nor the action on a failed write.
+			this.clearJumpToast();
 			await this.waitForState(settled);
 			void this.graph?.navigateToCommit(sha, { source: source ?? 'jump', flash: true, ref: ref });
 		})();

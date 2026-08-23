@@ -67,18 +67,6 @@ export class AgentsService {
 			'agentsChanged',
 			'save-last',
 			buffered => {
-				let hooksSubscription: Disposable | undefined;
-
-				// `container.agentStatus` is created/disposed asynchronously by the container; resubscribe
-				// on the container's healing signal instead of latching a one-shot reference.
-				const wireHooksSubscription = () => {
-					hooksSubscription?.dispose();
-					hooksSubscription = this.container.agentStatus?.onDidChangeHooksInstallState(() => {
-						void this.getAgents().then(buffered);
-					});
-				};
-				wireHooksSubscription();
-
 				return Disposable.from(
 					configuration.onDidChange(e => {
 						if (configuration.changed(e, 'ai.defaultAgent')) {
@@ -93,15 +81,13 @@ export class AgentsService {
 					this.container.agents.onDidChangeAgents(() => {
 						void this.getAgents().then(buffered);
 					}),
-					this.container.onDidChangeAgentStatus(() => {
-						wireHooksSubscription();
-						void this.getAgents().then(buffered);
-					}),
-					{
-						dispose: () => {
-							hooksSubscription?.dispose();
-						},
-					},
+					this.subscribeAcrossAgentStatusSwaps(
+						agentStatus =>
+							agentStatus.onDidChangeHooksInstallState(() => {
+								void this.getAgents().then(buffered);
+							}),
+						() => void this.getAgents().then(buffered),
+					),
 				);
 			},
 			undefined,
@@ -112,30 +98,43 @@ export class AgentsService {
 			buffer,
 			'agentSessionsChanged',
 			'save-last',
-			buffered => {
-				let serviceSubscription: Disposable | undefined;
-
-				const wire = () => {
-					serviceSubscription?.dispose();
-					serviceSubscription = this.container.agentStatus?.onDidChangeSessions(state => buffered(state));
-				};
-
-				wire();
-				const containerSubscription = this.container.onDidChangeAgentStatus(() => {
-					wire();
+			buffered =>
+				this.subscribeAcrossAgentStatusSwaps(
+					agentStatus => agentStatus.onDidChangeSessions(state => buffered(state)),
 					// Push a fresh snapshot so subscribers see the new (or empty) sessions
-					buffered(this.container.agentStatus?.getSerializedSessions() ?? []);
-				});
-
-				return Disposable.from(containerSubscription, {
-					dispose: () => {
-						serviceSubscription?.dispose();
-					},
-				});
-			},
+					() => buffered(this.container.agentStatus?.getSerializedSessions() ?? []),
+				),
 			undefined,
 			tracker,
 		);
+	}
+
+	/** Subscribes to a `container.agentStatus`-owned emitter, resubscribing whenever the container
+	 *  swaps the service (it's created/disposed asynchronously) — a latched one-shot reference would
+	 *  go deaf on the swap. `onSwap` runs after each rewire so the subscriber can re-seed. */
+	private subscribeAcrossAgentStatusSwaps(
+		subscribe: (agentStatus: NonNullable<Container['agentStatus']>) => Disposable,
+		onSwap: () => void,
+	): Disposable {
+		let subscription: Disposable | undefined;
+
+		const wire = () => {
+			subscription?.dispose();
+			const agentStatus = this.container.agentStatus;
+			subscription = agentStatus != null ? subscribe(agentStatus) : undefined;
+		};
+
+		wire();
+		const containerSubscription = this.container.onDidChangeAgentStatus(() => {
+			wire();
+			onSwap();
+		});
+
+		return Disposable.from(containerSubscription, {
+			dispose: () => {
+				subscription?.dispose();
+			},
+		});
 	}
 
 	/** Gets current live agent sessions. */

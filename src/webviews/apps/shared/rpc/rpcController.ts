@@ -62,6 +62,14 @@ export interface RpcControllerOptions<TServices extends object> {
  * - Ends the session — without closing the connection — in hostDisconnected
  * - Calls onReady when the session is established
  * - Calls onError if the session fails
+ *
+ * Lifecycle contract: the remount tolerance here covers VS Code's repeated mount/unmount churn
+ * during startup (before any session succeeds) and the reconnect handshakes that follow. Roots
+ * recreate their per-mount state in `connectedCallback` (state providers rebound to that mount's
+ * `HostIpc`, actions) from the cached one-shot bootstrap/context attribute
+ * (`consumeOneShotAttribute`), and their event subscriptions are released at disconnect and
+ * recreated per ready — nothing may close over a previous mount's objects across a remount. A
+ * genuinely new page (iframe reload) gets a fresh element, a fresh bootstrap, and a fresh session.
  */
 /** Reasons tagged on `.abort()` calls during the webview lifecycle so unhandled rejections that escape
  * to the iframe's global handler are diagnosable instead of opaque "signal is aborted without reason". */

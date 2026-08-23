@@ -112,6 +112,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	/**
 	 * Context providers for state consumed by child components.
 	 */
+	/** True once the Lit context providers below exist — they're created once per element lifetime. */
+	private _contextProvidersCreated = false;
+
 	private _subscriptionCtx?: ContextProvider<typeof subscriptionContext>;
 	private _homeStateCtx?: ContextProvider<typeof homeStateContext>;
 	private _activeOverviewCtxProvider?: ContextProvider<typeof activeOverviewStateContext>;
@@ -246,8 +249,8 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	/**
-	 * RPC event subscription — armed once in `_onRpcReady`; supertalk re-runs its subscriber
-	 * on every reconnect, so it is never re-created here.
+	 * RPC event subscription — released at disconnect (before the actions its subscriber captured
+	 * are disposed) and recreated per ready against the new session's actions.
 	 */
 	private _eventsSubscription?: Subscription;
 
@@ -279,11 +282,17 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.context;
+		const context = this.consumeOneShotAttribute(this.context);
 		this.context = undefined!;
 		this.initWebviewContext(context);
 
-		// Create context providers for child components
+		// Create context providers for child components — once per element lifetime: a provider
+		// attaches host listeners that nothing detaches, so re-creating them on a startup-churn
+		// remount would accumulate duplicate providers answering every context request. The
+		// backing state objects are element fields and survive the remount unchanged.
+		if (this._contextProvidersCreated) return;
+
+		this._contextProvidersCreated = true;
 		this._subscriptionCtx = new ContextProvider(this, {
 			context: subscriptionContext,
 			initialValue: createDefaultSubscriptionContextState(),
@@ -314,9 +323,12 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._readyAbort?.abort(new DOMException('home: disconnected', 'AbortError'));
 		this._readyAbort = undefined;
 
-		// The events subscription deliberately survives unmount: the controller resets the
-		// session on unmount (host-side subscription state dies with it), and the library
-		// re-issues the subscriber on the next handshake if this component reconnects.
+		// Unsubscribe BEFORE the actions/state below are disposed: the retained handle would
+		// otherwise re-issue its subscriber — which closes over those disposed objects — on the
+		// next handshake, ahead of `_onRpcReady`'s replacement. A fresh subscription is created
+		// per ready anyway, so nothing is lost by releasing this one here.
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = undefined;
 		this._wipWatchUnsubscribe?.();
 		this._wipWatchUnsubscribe = undefined;
 
@@ -703,7 +715,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				void this._fetchAgentCoalesced();
 			},
 		};
-		this._eventsSubscription ??= setupSubscriptions(this._rpc.connection!, root, actions);
+		// Recreated per ready (not `??=`): the subscriber closes over this session's state/actions —
+		// see the equivalent note in commitDetails.ts.
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = setupSubscriptions(this._rpc.connection!, root, actions);
 		await phaseTimeout('setupSubscriptions', 30_000, this._eventsSubscription.ready);
 
 		// Start FS-level WIP watcher for the initial overview repo

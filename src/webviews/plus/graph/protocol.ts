@@ -46,7 +46,6 @@ import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
-import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
 import type { OverviewBranch, OverviewRecentThreshold } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
@@ -939,10 +938,6 @@ export type GraphPinnedRef = GraphRefOptData & { sha?: string };
 
 export type GraphColumnName = GraphZoneType;
 export type GraphRowStats = GitGraphRowStats;
-
-export type InternalNotificationType = 'didChangeTheme';
-
-export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | InternalNotificationType) => void;
 
 // COMMANDS
 

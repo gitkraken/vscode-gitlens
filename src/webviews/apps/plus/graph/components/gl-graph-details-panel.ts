@@ -38,7 +38,7 @@ import type {
 	CopyWipPatchEventDetail,
 	OpenMultipleChangesArgs,
 } from '../../../shared/actions/file.js';
-import { notifyService } from '../../../shared/actions/rpc.js';
+import { noopUnlessReal, notifyService } from '../../../shared/actions/rpc.js';
 import type { AgentSessionCategory, PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
@@ -698,11 +698,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._wipFileStatsFetchedFor = wip;
 
 		void (async () => {
-			const wipService = await services.wip;
-			const stats = await wipService.getLineStats(repoPath);
-			// Ignore a response a newer snapshot (or a view change) has already superseded.
-			if (this._wipFileStatsFetchedFor === wip) {
-				this._wipFileStats = stats ?? undefined;
+			try {
+				const wipService = await services.wip;
+				const stats = await wipService.getLineStats(repoPath);
+				// Ignore a response a newer snapshot (or a view change) has already superseded.
+				if (this._wipFileStatsFetchedFor === wip) {
+					this._wipFileStats = stats ?? undefined;
+				}
+			} catch (ex) {
+				// Stats stay absent; the next working-tree tick refetches.
+				noopUnlessReal(ex);
 			}
 		})();
 	}

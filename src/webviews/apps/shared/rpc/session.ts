@@ -8,6 +8,7 @@
 import type { Connection, Remote } from '@eamodio/supertalk';
 import { ConnectionClosedError } from '@eamodio/supertalk';
 import { Logger } from '@gitlens/utils/logger.js';
+import { isAbortError } from '../actions/rpc.js';
 import { cacheRemoteServices } from './cachedRemote.js';
 
 /** Fixed (not timeout-relative) warn markers: at 20s suspect extension-host slowness, at 40s a stuck peer. */
@@ -136,6 +137,10 @@ export async function connectRpcSession<TServices extends object>(
 		clearSetup();
 		if (ex instanceof ConnectionClosedError) {
 			Logger.debug(`${logPrefix}: connect dropped by deliberate connection teardown`);
+		} else if (isAbortError(ex)) {
+			// A tagged abort from the controller's own lifecycle (unmount, superseding reconnect) —
+			// normal teardown, not a connection failure.
+			Logger.debug(`${logPrefix}: connect aborted (${ex.message})`);
 		} else {
 			Logger.error(ex, `${logPrefix}: Failed to connect to host`);
 		}

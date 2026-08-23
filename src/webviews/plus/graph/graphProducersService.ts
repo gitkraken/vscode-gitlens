@@ -157,6 +157,10 @@ export class GraphProducersService {
 		// left the requested id stuck in the webview's per-id dedup, so the pill's counts never came back.
 		// Buffer it (repoPath-tagged) and settle this promise LATE from the replay on the next setGraph(data).
 		if (this._graphSession == null) {
+			// Already aborted → the listener below would never fire (listeners added to an aborted
+			// signal don't run), leaving the deferred dangling — settle empty right away.
+			if (signal?.aborted) return {};
+
 			const repoPath = this.repository?.path;
 			if (repoPath == null) return {};
 
@@ -166,7 +170,26 @@ export class GraphProducersService {
 			}
 
 			const deferred = defer<GraphRefsMetadata>();
-			(this._pendingRefMetadataRequests ??= []).push({ metadata: metadata, deferred: deferred });
+			const entry = { metadata: metadata, deferred: deferred };
+			(this._pendingRefMetadataRequests ??= []).push(entry);
+			// A caller that aborts while buffered (row scrolled away, panel closed) must not dangle
+			// until an unrelated setGraph replay — settle empty (the webview re-requests if it still
+			// cares) and drop the entry so the replay doesn't do dead work for it.
+			signal?.addEventListener(
+				'abort',
+				() => {
+					const pending = this._pendingRefMetadataRequests;
+					const index = pending?.indexOf(entry) ?? -1;
+					if (index !== -1) {
+						pending!.splice(index, 1);
+					}
+
+					if (deferred.pending) {
+						deferred.fulfill({});
+					}
+				},
+				{ once: true },
+			);
 
 			return deferred.promise;
 		}
@@ -579,17 +602,23 @@ export class GraphProducersService {
 		// a change and re-anchor the webview on every commit/fetch — compare by value instead.
 		const before = new Map(Object.keys(metadata).map(id => [id, this._refsMetadata!.get(id)]));
 
-		void this.enrichRefsMetadata(metadata).then(() => {
-			const current = this._refsMetadata;
-			if (current == null) return;
+		void this.enrichRefsMetadata(metadata).then(
+			() => {
+				const current = this._refsMetadata;
+				if (current == null) return;
 
-			for (const [id, value] of before) {
-				if (!areEqual(current.get(id), value)) {
-					this.fireRefsMetadataChanged();
-					return;
+				for (const [id, value] of before) {
+					if (!areEqual(current.get(id), value)) {
+						this.fireRefsMetadataChanged();
+						return;
+					}
 				}
-			}
-		});
+			},
+			() => {
+				// Enrichment failed — leave the cached metadata as-is; the webview's own per-id
+				// request (or the next invalidation) retries.
+			},
+		);
 	}
 
 	/** Clear cached issue metadata and re-anchor the webview so the next render re-requests it. */

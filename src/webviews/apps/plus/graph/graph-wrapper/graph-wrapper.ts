@@ -1,6 +1,4 @@
 /*global document window*/
-import type { Notify } from '@eamodio/supertalk';
-import { notify } from '@eamodio/supertalk';
 import type { WipCandidate } from '@gitkraken/commit-graph/nearestWip.js';
 import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-graph/nearestWip.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
@@ -16,7 +14,6 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
-import type { GraphSelectionService } from '../../../../plus/graph/graphService.js';
 import type {
 	DidLoadRowParams,
 	GraphAvatars,
@@ -38,7 +35,7 @@ import type {
 	SelectCommitsOptions,
 } from '../../../../plus/graph/protocol.js';
 import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '../../../../plus/graph/protocol.js';
-import { fireAndForget, notifyService } from '../../../shared/actions/rpc.js';
+import { fireAndForget, noop, notifyService } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../../shared/contexts/telemetry.js';
@@ -2246,12 +2243,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private _lastSentSelectionKey: string | undefined;
 
-	/** Memoized one-way notifier for `selection.updateSelection`, keyed on the resolved sub-service
-	 *  proxy's identity — `notify()` only works on a RESOLVED nested proxy, not the cached `services`
-	 *  root (it throws there), and a proxy from a torn-down session silently no-ops, so this is rebuilt
-	 *  whenever the resolved proxy changes. */
-	private _selectionNotifier?: { svc: unknown; notifier: Notify<GraphSelectionService> };
-
 	/** Ships one selection report to the host as a one-way notify: a click must never wait on an ack.
 	 *  `updateSelection`'s return is never read host-side; errors on either side now surface via the
 	 *  connection's logger instead of an awaited/discarded promise. */
@@ -2259,17 +2250,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
-		fireAndForget(
-			(async () => {
-				const svc = await services.selection;
-				if (this._selectionNotifier?.svc !== svc) {
-					this._selectionNotifier = { svc: svc, notifier: notify(svc) };
-				}
-
-				this._selectionNotifier.notifier.updateSelection(selection);
-			})(),
-			'selection/update',
-		);
+		notifyService(services.selection, 'selection/update', svc => svc.updateSelection(selection));
 	}
 
 	/**
@@ -2583,6 +2564,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.graphState.loading = true;
 		try {
 			await (await services.rows).getMoreRows(id, limit);
+		} catch (ex) {
+			// A failed page leaves the current rows in place; the next scroll retries.
+			noop(ex);
 		} finally {
 			this.graphState.loading = false;
 		}

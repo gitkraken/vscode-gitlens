@@ -31,9 +31,16 @@ export abstract class GlAppHost<
 	override connectedCallback(): void {
 		super.connectedCallback();
 
-		const bootstrap = this.bootstrap;
+		const bootstrap = this.consumeOneShotAttribute(this.bootstrap);
 		this.bootstrap = undefined!;
 
+		// Recreated per mount: the provider permanently captures this mount's `HostIpc` (created
+		// fresh in `super.connectedCallback` and disposed per disconnect) and its constructor issues
+		// the `WebviewReadyRequest` that triggers the host's RPC expose — reusing a prior mount's
+		// provider would leave it bound to a dead transport and never re-signal ready. KNOWN
+		// TRADEOFF: each startup-churn remount registers another Lit context provider on this host
+		// (nothing detaches them); bounded to the few pre-session churn mounts, and each old
+		// provider itself is disposed below.
 		this._stateProvider = this.createStateProvider(bootstrap, this._ipc, this._logger);
 		this.initWebviewContext(bootstrap);
 

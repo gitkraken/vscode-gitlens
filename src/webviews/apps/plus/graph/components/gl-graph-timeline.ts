@@ -13,6 +13,7 @@ import type {
 	TimelineSliceBy,
 } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
+import { noop } from '../../../shared/actions/rpc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CommitEventDetail, LoadMoreEventDetail } from '../../timeline/components/chart.js';
 import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
@@ -322,6 +323,9 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		this.graphState.loading = true;
 		try {
 			await (await services.rows).getMoreRows(id, limit);
+		} catch (ex) {
+			// A failed page leaves the current rows in place; the next scroll retries.
+			noop(ex);
 		} finally {
 			this._pageInFlight = false;
 			this.graphState.loading = false;

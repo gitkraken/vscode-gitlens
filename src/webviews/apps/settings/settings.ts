@@ -63,8 +63,8 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 
 	private _actions?: SettingsActions;
 	/**
-	 * RPC event subscription — armed once in `_onRpcReady`; supertalk re-runs its subscriber
-	 * on every reconnect, so it is never re-created here.
+	 * RPC event subscription — released at disconnect (before the actions its subscriber captured
+	 * are disposed) and recreated per ready against the new session's actions.
 	 */
 	private _eventsSubscription?: Subscription;
 	private _stopAutoPersist?: () => void;
@@ -82,7 +82,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.context;
+		const context = this.consumeOneShotAttribute(this.context);
 		this.context = undefined!;
 		this.initWebviewContext(context);
 
@@ -92,9 +92,12 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 	override disconnectedCallback(): void {
 		window.removeEventListener('keydown', this.handleGlobalKeyDown);
 
-		// The events subscription deliberately survives unmount: the controller resets the
-		// session on unmount (host-side subscription state dies with it), and the library
-		// re-issues the subscriber on the next handshake if this component reconnects.
+		// Unsubscribe BEFORE the actions/state below are disposed: the retained handle would
+		// otherwise re-issue its subscriber — which closes over those disposed objects — on the
+		// next handshake, ahead of `_onRpcReady`'s replacement. A fresh subscription is created
+		// per ready anyway, so nothing is lost by releasing this one here.
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = undefined;
 
 		this._stopAutoPersist?.();
 		this._stopAutoPersist = undefined;
@@ -102,8 +105,10 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 		this._actions?.dispose();
 		this._actions = undefined;
 
+		// `resetAll()` only — `dispose()` is permanent teardown (it clears the signal
+		// registrations), and this element can reconnect during startup churn; a disposed state
+		// group would make the next session's `startAutoPersist()` watch nothing.
 		this._state.resetAll();
-		this._state.dispose();
 
 		super.disconnectedCallback?.();
 	}
@@ -156,7 +161,10 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 
 			// Subscribe to events FIRST so changes during the initial fetch aren't missed — synchronous:
 			// `subscribe()` buffers the wire subscribe until the connection's handshake completes.
-			this._eventsSubscription ??= subscribe<SettingsServices>(this._rpc.connection!, async remoteServices => {
+			// Recreated per ready (not `??=`): the subscriber closes over this session's state/actions —
+			// see the equivalent note in commitDetails.ts.
+			this._eventsSubscription?.unsubscribe();
+			this._eventsSubscription = subscribe<SettingsServices>(this._rpc.connection!, async remoteServices => {
 				const [settings, integrations, ai, agents, walkthrough] = await Promise.all([
 					remoteServices.settings,
 					remoteServices.integrations,
