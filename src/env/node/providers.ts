@@ -137,10 +137,10 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
 			getLiveAgentSessions: async () => {
-				// The CLI's durable session store never revives a resumed session, so an `ended`
-				// record isn't proof the session is over — check it against `claude agents --json`
-				// first. Dynamic import mirrors `agentStatusService`'s use of this module: keeps the
-				// spawn logic out of the main bundle.
+				// The CLI's durable session store never revives a resumed session, and its active
+				// record can freeze on a missed hook event. Reconcile both against Claude's current
+				// `agents --json` listing. Dynamic import mirrors `agentStatusService`'s use of this
+				// module and keeps the spawn logic out of the main bundle.
 				const { getLiveClaudeSessions } = await import(
 					/* webpackChunkName: "agents" */ '@env/agents/claudeSessionFile.js'
 				);

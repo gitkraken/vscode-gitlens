@@ -26,6 +26,14 @@ function createMockCallbacks(options?: {
 	port?: number;
 	agentDiscoveryDir?: string;
 	cliResponse?: string;
+	liveAgentSessions?: {
+		sessionId: string;
+		pid?: number;
+		kind?: string;
+		status?: string;
+		state?: string;
+		waitingFor?: string;
+	}[];
 }): MockCallbacks {
 	const handlers = new Map<string, IpcHandler<unknown, unknown>>();
 	const publishedPaths: string[][] = [];
@@ -60,6 +68,7 @@ function createMockCallbacks(options?: {
 			syncDiscrepancies.push(info);
 		},
 		getActivityDecayMs: options?.getActivityDecayMs,
+		getLiveAgentSessions: async () => new Map((options?.liveAgentSessions ?? []).map(e => [e.sessionId, e])),
 	};
 
 	return {
@@ -3520,6 +3529,232 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 			assert.strictEqual(s?.pendingPermission, undefined, 'the stale synthesized ask must be dropped');
 			assert.strictEqual(s?.status, 'tool_use', 'the row takes the record’s newer status');
 			assert.strictEqual(s?.statusDetail, 'Edit', 'the detail follows the record’s tool, not the answered ask’s');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test("a poll-discovered row seeds from Claude's live listing instead of the record's frozen last event", async () => {
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				{ ...sessionFileData('polled-frozen', REPO), event: 'PermissionRequest', toolName: 'Bash' },
+			]),
+			liveAgentSessions: [{ sessionId: 'polled-frozen', kind: 'interactive', status: 'idle' }],
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const sessions = provider.sessions.filter(x => x.id === 'polled-frozen');
+			assert.strictEqual(sessions.length, 1);
+			assert.strictEqual(sessions[0].status, 'idle', "the listing's now-status wins over the frozen record");
+			assert.strictEqual(sessions[0].phase, 'idle');
+			assert.strictEqual(sessions[0].pendingPermission, undefined, 'no ask when the listing reports none');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a genuine permission prompt in the listing still seeds needs input', async () => {
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				{ ...sessionFileData('polled-perm-live', REPO), event: 'Stop', toolName: 'Bash' },
+			]),
+			liveAgentSessions: [
+				{
+					sessionId: 'polled-perm-live',
+					kind: 'interactive',
+					status: 'waiting',
+					waitingFor: 'permission prompt',
+				},
+			],
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'polled-perm-live');
+			assert.strictEqual(s?.status, 'permission_requested');
+			assert.strictEqual(s?.pendingPermission?.resolvable, false);
+			assert.strictEqual(s?.pendingPermission?.kind, 'tool');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('an active record the listing reports finished is not seeded as live', async () => {
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([sessionFileData('polled-done', REPO)]),
+			liveAgentSessions: [{ sessionId: 'polled-done', kind: 'background', state: 'stopped' }],
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			assert.strictEqual(
+				provider.sessions.length,
+				0,
+				'a terminal background state is not aliveness — the row must not be seeded',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a session absent from the listing falls back to the record-derived status', async () => {
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				{ ...sessionFileData('polled-absent', REPO), event: 'PermissionRequest', toolName: 'Bash' },
+			]),
+			liveAgentSessions: [],
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'polled-absent');
+			assert.strictEqual(s?.status, 'permission_requested');
+			assert.strictEqual(s?.pendingPermission?.resolvable, false);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a later poll heals a row stuck on an unresolvable ask when the listing moves past it', async () => {
+		const options: {
+			cliResponse?: string;
+			liveAgentSessions?: { sessionId: string; kind?: string; status?: string; waitingFor?: string }[];
+		} = {
+			cliResponse: JSON.stringify([
+				{ ...sessionFileData('polled-stuck', REPO), event: 'PermissionRequest', toolName: 'Bash' },
+			]),
+			liveAgentSessions: [
+				{ sessionId: 'polled-stuck', kind: 'interactive', status: 'waiting', waitingFor: 'permission prompt' },
+			],
+		};
+		const { callbacks } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 'polled-stuck')?.pendingPermission?.resolvable,
+				false,
+				'the first poll synthesizes the ask',
+			);
+
+			// The user answered natively and the session moved on, but the record never advanced —
+			// only the listing's fresh sample can retire the stuck card.
+			options.liveAgentSessions = [{ sessionId: 'polled-stuck', kind: 'interactive', status: 'busy' }];
+			await provider.runGatedSync();
+
+			const s = provider.sessions.find(x => x.id === 'polled-stuck');
+			assert.strictEqual(s?.status, 'thinking', "the listing's moved-on status heals the row");
+			assert.strictEqual(s?.pendingPermission, undefined, 'the stale synthesized ask must be dropped');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a later poll removes a synthesized ask when the listing reports a terminal state', async () => {
+		const options: {
+			cliResponse?: string;
+			liveAgentSessions?: {
+				sessionId: string;
+				kind?: string;
+				status?: string;
+				state?: string;
+				waitingFor?: string;
+			}[];
+		} = {
+			cliResponse: JSON.stringify([
+				{ ...sessionFileData('polled-stopped', REPO), event: 'PermissionRequest', toolName: 'Bash' },
+			]),
+			liveAgentSessions: [
+				{
+					sessionId: 'polled-stopped',
+					kind: 'interactive',
+					status: 'waiting',
+					waitingFor: 'permission prompt',
+				},
+			],
+		};
+		const { callbacks, syncDiscrepancies } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 'polled-stopped')?.pendingPermission?.resolvable,
+				false,
+				'the first poll synthesizes the ask',
+			);
+
+			// The active record is frozen on the ask, while Claude's listing says the background
+			// session has stopped. Even if the durable record advanced in the meantime, the terminal
+			// listing wins: otherwise the Stop-derived idle status would leave a false live row.
+			options.cliResponse = JSON.stringify([
+				{
+					...sessionFileData('polled-stopped', REPO),
+					event: 'Stop',
+					updatedAt: '2024-01-02T00:00:00.000Z',
+				},
+			]);
+			options.liveAgentSessions = [{ sessionId: 'polled-stopped', kind: 'background', state: 'stopped' }];
+			await provider.runGatedSync();
+
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 'polled-stopped'),
+				undefined,
+				'the terminal listing must retire the stale needs-input row',
+			);
+			assert.deepStrictEqual(
+				syncDiscrepancies,
+				[{ provider: 'claudeCode', discovered: 0, missing: 1, polled: 0, tracked: 1 }],
+				'terminal listing entries must not count as polled-alive sessions',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a routable ask is never corrected by the listing', async () => {
+		const options: {
+			cliResponse?: string;
+			liveAgentSessions?: { sessionId: string; kind?: string; status?: string; state?: string }[];
+		} = { liveAgentSessions: [{ sessionId: 'routable-1', kind: 'background', state: 'stopped' }] };
+		const { callbacks, handlers } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const handler = handlers.get('agents/session')!;
+			const blocking = handler(
+				{
+					event: 'PermissionRequest',
+					sessionId: 'routable-1',
+					cwd: REPO,
+					toolName: 'Bash',
+					toolInput: { command: 'ls -la' },
+				},
+				new URLSearchParams('blocking=true'),
+			);
+			blocking.catch(() => {});
+
+			options.cliResponse = JSON.stringify([
+				{ ...sessionFileData('routable-1', REPO), event: 'PermissionRequest', toolName: 'Bash' },
+			]);
+			await provider.runGatedSync();
+
+			const s = provider.sessions.find(x => x.id === 'routable-1');
+			assert.notStrictEqual(s?.pendingPermission, undefined, 'a routable ask is bookkeeping-owned');
+			assert.notStrictEqual(s?.pendingPermission?.resolvable, false, 'the listing must not unresolvable it');
+			assert.strictEqual(s?.status, 'permission_requested', 'the listing must not preempt a routable ask');
 		} finally {
 			provider.dispose();
 		}

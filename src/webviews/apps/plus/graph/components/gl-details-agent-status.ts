@@ -705,21 +705,19 @@ export class GlDetailsAgentStatus extends LitElement {
 				justify-content: flex-end;
 			}
 
-			/* Unresolvable ask: the caption stacks under the lone Open/Resume Session button rather than
-	   sharing its row, so narrowing the panel can't squeeze the button. */
-			.card__actions--unresolvable {
-				flex-direction: column;
-				gap: var(--gl-space-4);
-				align-items: flex-end;
-			}
-
 			.card__actions-hint {
 				font-size: 0.85em;
 				color: var(--vscode-descriptionForeground);
 			}
 
+			/* Unresolvable ask: the caption shares the Open/Resume button's row and truncates under
+	   pressure so narrowing the panel squeezes the caption, never the button. */
 			.card__actions--unresolvable .card__actions-hint {
-				text-align: right;
+				flex: 1 1 0;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 		`,
 	];
@@ -1377,11 +1375,11 @@ export class GlDetailsAgentStatus extends LitElement {
 						? html`<div class="card__actions">${this.renderCardActions(session)}</div>`
 						: category === 'needs-input'
 							? html`<div class="card__actions card__actions--unresolvable">
+									<span class="card__actions-hint">Answer in the agent's session</span>
 									<gl-button appearance="secondary" density="compact" href=${openHref}>
 										<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
 										${openAction.label}
 									</gl-button>
-									<span class="card__actions-hint">Answer in the agent's session</span>
 								</div>`
 							: nothing
 				}

@@ -416,8 +416,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.card__permission-actions-hint {
-				/* 100% basis forces the caption onto its own line below the buttons. */
-				flex: 1 0 100%;
+				/* Shares the action row to the left of the buttons and absorbs the available
+		   space, truncating before the actions wrap. */
+				flex: 1 1 0;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
 				font-size: var(--gl-font-micro);
 				color: var(--color-foreground--65);
 			}
@@ -1062,6 +1067,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			const openAction = getAgentSessionOpenAction(session);
 			return html`<div class="card__actions">
 				<div class="card__permission-actions">
+					<span class="card__permission-actions-hint">Answer in the agent's session</span>
 					<gl-button
 						appearance="secondary"
 						density="compact"
@@ -1086,7 +1092,6 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 								</gl-button>`
 							: nothing
 					}
-					<span class="card__permission-actions-hint">Answer in the agent's session</span>
 				</div>
 			</div>`;
 		}

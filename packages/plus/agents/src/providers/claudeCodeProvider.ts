@@ -439,17 +439,16 @@ function fileActivityStructurallyEqual(
  * Returns `undefined` for a background session in a TERMINAL state. `--json` lists background
  * sessions "still working or blocked even when their process has exited", so a listing is not by
  * itself proof of life — without this, a genuinely finished session would be resurrected as `idle`,
- * which is the opposite of the bug this override exists to fix. Callers must leave such a session to
- * complete normally.
+ * which is the opposite of the bug this mapping exists to fix. Callers must not treat such an entry
+ * as live: ended-record paths trust the durable record, while active discovery/repair paths skip or
+ * remove the stale active row.
  *
  * Anything unrecognized degrades to `'idle'` rather than guessing a working/waiting phase.
  */
-/** Resolves whether Claude's live listing contradicts a store record that says `ended`, and with
- *  what status. `undefined` means "let the record stand": either the listing doesn't mention this
- *  session, or it lists it in a terminal background state, which is not aliveness (see
- *  {@link statusFromLiveSession}). Shared by both ended-record branches of the poll — the one
- *  updating a row already tracked and the one discovering a row for the first time — so the two
- *  can't drift apart on what counts as live. */
+/** Resolves a non-terminal listing override for an `ended` record. `undefined` means "let the ended
+ *  record stand": either the listing doesn't mention this session, or its background state is
+ *  terminal (see {@link statusFromLiveSession}). Active-record paths inspect the entry separately
+ *  because they must distinguish absence (unknown; keep record status) from terminal (skip/remove). */
 function liveOverrideFor(
 	liveSessions: ReadonlyMap<string, LiveAgentSession> | undefined,
 	sessionId: string,
@@ -2723,10 +2722,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		// The CLI's durable store never revives a resumed session — once it moves a record to its
 		// `ended` store, nothing moves it back, so a record reporting `ended` isn't proof the session
-		// is over. Fetched once per poll (not per row) and consulted below wherever the CLI's `ended`
-		// record would otherwise transition the row to our terminal `ended` status; the host caches the
-		// underlying `claude agents --json` invocation behind a short TTL, so this doesn't spawn a
-		// process per session.
+		// is over. The listing also repairs the two active-record cases that have no fresher hook state:
+		// first discovery and synthesized, unresolvable permission asks. Fetched once per poll (not per
+		// row); the host caches the underlying `claude agents --json` invocation behind a short TTL, so
+		// this doesn't spawn a process per session.
 		const liveSessions = await this.callbacks.getLiveAgentSessions?.();
 
 		let changed = false;
@@ -2981,6 +2980,22 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// (`PreToolUse` → tool_use, `UserPromptSubmit` → thinking), and hardcoding `idle` would
 					// mislabel active work and risk a concurrent-write resume.
 					const polledStatus = deriveStatusFromEvent(data.event);
+					const isSynthesizedAsk =
+						existing.status === 'permission_requested' && existing.pendingPermission?.resolvable === false;
+					const liveEntry = isSynthesizedAsk ? liveSessions?.get(data.sessionId) : undefined;
+					const liveStatus = liveEntry != null ? statusFromLiveSession(liveEntry) : undefined;
+					if (isSynthesizedAsk && liveEntry != null && liveStatus == null) {
+						// A terminal listing entry proves this active record is stale, even if its last event
+						// advanced after the ask. It carries no authoritative terminal timestamp/details, so
+						// remove the false live row and let the durable ended record restore it later. Run the
+						// standard terminal teardown first so no timers or caches survive the row.
+						this.endSession(existingIndex, new Date(pollStartedAt));
+						this._sessions.splice(existingIndex, 1);
+						polledAlive.delete(data.sessionId);
+						changed = true;
+						continue;
+					}
+
 					if (existing.status === 'ended') {
 						// We hold it as `ended` but the CLI now reports it as a live process (a
 						// resume the live SessionStart path missed) — revive it, the symmetric backstop
@@ -3080,6 +3095,24 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							lastActivity: new Date(data.updatedAt),
 						};
 						changed = true;
+					} else if (isSynthesizedAsk) {
+						// The record never moved past the ask it froze on — the ask was resolved while no
+						// window was listening, so nothing ever advanced it — but Claude's own listing
+						// says the session has moved on. Correct the row so it heals on the next poll
+						// instead of waiting for a reload or fresh hook events. Only synthesized asks
+						// are repairable here: a routable one is bookkeeping-owned and cleared by its
+						// own resolution paths, which the listing must never preempt.
+						if (liveStatus != null && liveStatus !== 'permission_requested') {
+							this._sessions[existingIndex] = {
+								...existing,
+								status: liveStatus,
+								phase: getPhaseForStatus(liveStatus),
+								phaseSince: new Date(pollStartedAt),
+								pendingPermission: undefined,
+								statusDetail: undefined,
+							};
+							changed = true;
+						}
 					} else if (existing.transcriptTitles?.ai == null && existing.transcriptTitles?.custom == null) {
 						// A live session we discovered via the poll (another worktree/window owns its
 						// hook flow) gets none of the local IPC re-resolves (SessionStart, idle). So one
@@ -3096,9 +3129,30 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			const workspacePath = this.resolveWorkspacePath(data.cwd);
 			const isInWorkspace = workspacePath != null;
-			const status = deriveStatusFromEvent(data.event);
-			const phase = getPhaseForStatus(status);
 			const activityDate = new Date(data.updatedAt);
+			let status = deriveStatusFromEvent(data.event);
+			let phaseSince = activityDate;
+			// The record's last event can be arbitrarily stale — an ask answered while no window
+			// was listening (e.g. mid-reload), or a session stopped right there, never advances it,
+			// so every window start would re-seed the frozen state. Claude's own listing is
+			// authoritative for what the session is doing right now — same contract as the
+			// ended-record revival above. Absence from the listing (including its fail-soft empty
+			// map on spawn failure) keeps record-derived status: absence must never mean dead.
+			const liveEntry = liveSessions?.get(data.sessionId);
+			if (liveEntry != null) {
+				const liveStatus = statusFromLiveSession(liveEntry);
+				if (liveStatus == null) {
+					polledAlive.delete(data.sessionId);
+					continue;
+				}
+
+				if (liveStatus !== status) {
+					status = liveStatus;
+					phaseSince = new Date(pollStartedAt);
+				}
+			}
+
+			const phase = getPhaseForStatus(status);
 			// Same rationale as the revived-session branch above: no blocking hook entry exists for a
 			// poll-discovered ask, so synthesize an unresolvable one for the card.
 			const pendingPermission =
@@ -3130,7 +3184,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				name: data.sessionName || undefined,
 				status: status,
 				phase: phase,
-				phaseSince: activityDate,
+				phaseSince: phaseSince,
 				pid: data.pid,
 				lastActivity: activityDate,
 				isSubagent: false,
@@ -3200,7 +3254,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		if (liveSessions != null) {
 			Logger.debug(
-				`ClaudeCodeProvider.syncSessions: Claude lists ${liveSessions.size} live session(s); kept ${keptAlive.length} alive against a stale ended record${
+				`ClaudeCodeProvider.syncSessions: Claude lists ${liveSessions.size} session(s); kept ${keptAlive.length} alive against a stale ended record${
 					keptAlive.length > 0 ? `: ${keptAlive.join(', ')}` : ''
 				}`,
 			);

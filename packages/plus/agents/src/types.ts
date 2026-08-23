@@ -339,9 +339,9 @@ export interface IpcRegistrar {
 	unpublishAgents(): Promise<void>;
 }
 
-/** One entry of the host's live-agent listing — what the agent tool itself reports as running right
- *  now, independent of the CLI's durable store. `kind: 'background'` entries carry `state` and no
- *  `pid`; interactive ones carry `pid` and `status`. */
+/** One entry of the host's current-agent listing, independent of the CLI's durable store.
+ *  `kind: 'background'` entries carry `state` and no `pid`, including terminal states the listing
+ *  retains; interactive entries carry `pid` and `status`. */
 export interface LiveAgentSession {
 	pid?: number;
 	cwd?: string;
@@ -419,15 +419,15 @@ export interface AgentProviderCallbacks {
 	openSessionInClaudeExtension?(sessionId: string): Promise<void>;
 
 	/**
-	 * Host-supplied lookup of Claude sessions that are ACTUALLY alive right now (interactive or
-	 * background), keyed by session id. Exists because the CLI's durable session store never
-	 * revives a resumed session: once it moves a record to its `ended` store, nothing moves it
-	 * back, so a resumed still-running agent is reported `ended` forever unless checked against
-	 * this. `status` is set for `kind: 'interactive'` entries (`'waiting'`, `'busy'`, …); `state` is
-	 * set for `kind: 'background'` entries instead (no `pid`). Declared structurally (not imported
-	 * from `@env/`) because this package cannot depend on the host's environment abstraction.
-	 * Optional — omitted in tests and on hosts with no such lookup, in which case an `ended` record
-	 * is trusted as-is.
+	 * Host-supplied lookup of Claude's current interactive/background session listing, keyed by
+	 * session id. It revives stale durable `ended` records and narrowly corrects active records
+	 * whose last event is stale: first discovery and synthesized, unresolvable permission asks.
+	 * Terminal background states (`done`, `failed`, `stopped`) are listed but are not live; absence
+	 * from the map is unknown and must preserve record-derived state. `status` is set for
+	 * `kind: 'interactive'` entries (`'waiting'`, `'busy'`, …); `state` is set for
+	 * `kind: 'background'` entries instead (no `pid`). Declared structurally (not imported from
+	 * `@env/`) because this package cannot depend on the host's environment abstraction. Optional
+	 * on hosts with no such lookup; without it, durable records are trusted as-is.
 	 */
 	getLiveAgentSessions?(): Promise<ReadonlyMap<string, LiveAgentSession>>;
 }

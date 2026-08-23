@@ -73,10 +73,9 @@ interface ClaudeAgentsListEntry {
 	waitingFor?: string;
 }
 
-/** A session `claude agents --json` reports as currently live — interactive or background. This
- *  is ground truth the CLI's durable session store doesn't have: the store never revives a
- *  resumed session, so its `ended` record for a session that's actually still running (or still
- *  blocked in the background) never gets corrected without checking it against this. */
+/** A session entry reported by `claude agents --json`, interactive or background. The listing is
+ *  current enough to reconcile stale durable records, but can retain terminal background entries;
+ *  consumers must interpret `state` before treating an entry as live. */
 export interface LiveClaudeSession {
 	sessionId: string;
 	pid?: number;
@@ -101,10 +100,11 @@ const liveSessionsCache = new PromiseCache<string, ReadonlyMap<string, LiveClaud
 });
 
 /**
- * Lists every Claude session currently live (interactive or background) by spawning
- * `claude agents --json`, keyed by `sessionId`. Deliberately omits `--cwd`: the provider needs a
+ * Lists Claude's current interactive/background session entries by spawning `claude agents
+ * --json`, keyed by `sessionId`. The result can include terminal background entries; consumers
+ * decide whether each entry proves liveness. Deliberately omits `--cwd`: the provider needs a
  * session-id-keyed map spanning every worktree, not just the current one. Also omits `--all`,
- * which would additionally include ended sessions we don't want here.
+ * which would additionally include durable ended-session history we don't want here.
  *
  * Fails soft, always: `claude` missing from PATH, a non-zero exit, a timed-out spawn, or
  * unparseable stdout all yield an empty map rather than throwing — a failure here must never
