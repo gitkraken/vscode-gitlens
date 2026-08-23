@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import { GraphSyncPublisher } from '../graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from '../graphSyncPublisher.js';
-import type { DidChangeRowsParams, GraphPaging, GraphRefMetadata, GraphRowStats } from '../protocol.js';
+import type { GraphPaging, GraphRowsPayload, GraphRowStats } from '../protocol.js';
 
 function row(sha: string, options?: Partial<GitGraphRow>): GitGraphRow {
 	return {
@@ -25,29 +25,23 @@ function reachRef(name: string): GraphReachabilityTable['dictionary'][number] {
 	return { refType: 'branch', name: name, remote: false };
 }
 
-/** Mutable stand-in for the host's `_graph`/`_refsMetadata` — tests mutate the fields directly. */
+/** Mutable stand-in for the host's `_graph` — tests mutate the fields directly. */
 class FakeData implements GraphSyncDataSource {
 	rows: GitGraphRow[] | undefined;
 	/** Accumulated-rows mirror; models the host's `_loadedRows`. Falls back to page rows when unset. */
 	loadedRows: GitGraphRow[] | undefined;
-	avatars = new Map<string, string>();
 	downstreams = new Map<string, string[]>();
 	rowsStats = new Map<string, GraphRowStats>();
 	rowsStatsLoading = false;
 	rowsStatsIncluded = false;
 	reachability: GraphReachabilityTable | undefined;
 	paging: GraphPaging | undefined;
-	refsMetadata: ReadonlyMap<string, GraphRefMetadata> | null | undefined = null;
-	refsMetadataEnabled = false;
 
 	getRows(): GitGraphRow[] | undefined {
 		return this.rows;
 	}
 	getSnapshotRows(): GitGraphRow[] | undefined {
 		return this.loadedRows ?? this.rows;
-	}
-	getAvatars(): ReadonlyMap<string, string> | undefined {
-		return this.avatars;
 	}
 	getDownstreams(): ReadonlyMap<string, string[]> | undefined {
 		return this.downstreams;
@@ -67,22 +61,17 @@ class FakeData implements GraphSyncDataSource {
 	getPaging(): GraphPaging | undefined {
 		return this.paging;
 	}
-	getRefsMetadata(): ReadonlyMap<string, GraphRefMetadata> | null | undefined {
-		return this.refsMetadata;
-	}
-	isRefsMetadataEnabled(): boolean {
-		return this.refsMetadataEnabled;
-	}
 }
 
-/** Controllable transport: records every emission, can fail or hold `notify` pending. */
+/** Controllable transport: records every emission plus the epoch bumps interleaved between them.
+ *  Mirrors the channel's contract — `send` is void, and a `newGeneration` is announced immediately. */
 class FakeHost implements GraphSyncHost {
 	ready = true;
 	visible = true;
-	ok = true;
-	gate = false;
-	readonly sent: DidChangeRowsParams[] = [];
-	private pending: ((ok: boolean) => void) | undefined;
+	readonly sent: GraphRowsPayload[] = [];
+	/** One entry per emission: the epoch it was sent under. Bumped by {@link newGeneration}. */
+	readonly generations: number[] = [];
+	private generation = 0;
 
 	isReady(): boolean {
 		return this.ready;
@@ -90,24 +79,20 @@ class FakeHost implements GraphSyncHost {
 	isVisible(): boolean {
 		return this.visible;
 	}
-	notify(params: DidChangeRowsParams): Promise<boolean> {
+	send(params: GraphRowsPayload): void {
 		this.sent.push(params);
-		if (this.gate) {
-			return new Promise<boolean>(resolve => {
-				this.pending = resolve;
-			});
-		}
-		return Promise.resolve(this.ok);
+		this.generations.push(this.generation);
+	}
+	newGeneration(): void {
+		this.generation++;
 	}
 
-	release(ok = true): void {
-		const resolve = this.pending;
-		this.pending = undefined;
-		resolve?.(ok);
-	}
-
-	get last(): DidChangeRowsParams {
+	get last(): GraphRowsPayload {
 		return this.sent.at(-1)!;
+	}
+
+	get lastGeneration(): number {
+		return this.generations.at(-1)!;
 	}
 }
 
@@ -133,43 +118,20 @@ suite('graphSyncPublisher', () => {
 		// Initial sync is always a snapshot.
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 1);
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 
 		host.visible = false;
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		publisher.mark('avatars'); // coalesces
+		data.downstreams.set('origin/main', ['origin/feature']);
+		publisher.mark('downstreams');
+		publisher.mark('downstreams'); // coalesces
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 1, 'no emission while hidden');
 
 		host.visible = true;
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 2, 'exactly one delta once visible');
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'delta, not a snapshot');
-		assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
-
-		publisher.dispose();
-	});
-
-	test('delivery failure marks broken so the next flush is a snapshot', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		await publisher.flush(); // snapshot
-		assert.strictEqual(host.sent.length, 1);
-
-		host.ok = false;
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		await publisher.flush();
-		assert.strictEqual(host.sent.length, 2);
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'the failed emission was a delta');
-		assert.strictEqual(publisher.snapshotRequired, true, 'a failed delivery requires a snapshot');
-
-		host.ok = true;
-		await publisher.flush();
-		assert.strictEqual(host.sent.length, 3);
-		assert.strictEqual(host.last.sync?.snapshot, true, 'recovery is a snapshot');
+		assert.strictEqual(host.last.snapshot ?? false, false, 'delta, not a snapshot');
+		assert.deepStrictEqual(host.last.downstreams, { 'origin/main': ['origin/feature'] });
 
 		publisher.dispose();
 	});
@@ -183,7 +145,7 @@ suite('graphSyncPublisher', () => {
 
 		await publisher.flush(); // snapshot seeds the ledger with the full rows
 		assert.strictEqual(host.sent.length, 1);
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 
 		// Nothing changed and nothing marked → no emission at all.
 		await publisher.flush();
@@ -214,7 +176,7 @@ suite('graphSyncPublisher', () => {
 		data.rows = initial;
 		data.loadedRows = initial;
 		await publisher.flush(); // snapshot #1
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 		assert.strictEqual(host.last.rows?.length, 800);
 
 		// Page in 800 more rows: `_graph.rows` (getRows) is now the PAGE only; the mirror holds the full
@@ -226,7 +188,7 @@ suite('graphSyncPublisher', () => {
 		data.paging = { startingCursor: 'sha799', hasMore: true };
 		publisher.mark('rows');
 		await publisher.flush(); // page-append delta ships only the page
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false);
+		assert.strictEqual(host.last.snapshot ?? false, false);
 		assert.strictEqual(host.last.rows?.length, 800, 'the page-append delta ships only the page');
 		assert.strictEqual(host.last.paging?.startingCursor, 'sha799');
 
@@ -234,7 +196,7 @@ suite('graphSyncPublisher', () => {
 		// carry the full 1600-row accumulated window, or the loaded window is silently truncated to the page.
 		publisher.requireSnapshot();
 		await publisher.flush();
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 		assert.strictEqual(host.last.rows?.length, 1600, 'the snapshot ships the FULL accumulated window');
 		assert.deepStrictEqual(
 			host.last.rows.map(r => r.sha),
@@ -270,46 +232,68 @@ suite('graphSyncPublisher', () => {
 		publisher.dispose();
 	});
 
-	test('a generation bump emits a snapshot with a rebased seq', async () => {
+	test('a graph identity change bumps the epoch BEFORE the snapshot it forces', async () => {
 		const { publisher, host, data } = createPublisher();
 		data.rows = rows(3);
 
-		await publisher.flush(); // snapshot: gen 0, seq 0
-		assert.deepStrictEqual({ ...host.last.sync }, { generation: 0, seq: 0, snapshot: true });
+		await publisher.flush(); // snapshot in the initial epoch
+		assert.strictEqual(host.last.snapshot, true);
+		assert.strictEqual(host.lastGeneration, 0);
 
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		await publisher.flush(); // delta: gen 0, seq 1
-		assert.strictEqual(host.last.sync?.generation, 0);
-		assert.strictEqual(host.last.sync?.seq, 1);
+		data.downstreams.set('origin/main', ['origin/feature']);
+		publisher.mark('downstreams');
+		await publisher.flush(); // delta, same epoch
+		assert.strictEqual(host.last.snapshot ?? false, false);
+		assert.strictEqual(host.lastGeneration, 0);
 
+		// The bump must land before the emission it forces, so the new epoch's first message is the
+		// snapshot (the channel's seq 0) and nothing from the old repo can be mistaken for it.
 		publisher.onGraphIdentityChanged();
-		assert.strictEqual(publisher.generation, 1);
 		await publisher.flush();
-		assert.deepStrictEqual({ ...host.last.sync }, { generation: 1, seq: 0, snapshot: true });
+		assert.strictEqual(host.last.snapshot, true);
+		assert.strictEqual(host.lastGeneration, 1, 'the snapshot went out under the NEW epoch');
 
 		publisher.dispose();
 	});
 
-	test('snapshot refsMetadata is authoritative: full / null / empty', () => {
-		const { publisher, data } = createPublisher();
+	test('resync bumps the epoch and re-ships a full snapshot', async () => {
+		const { publisher, host, data } = createPublisher();
+		data.rows = rows(5);
 
-		// Feature off → explicit null (webview resets, stops requesting).
-		data.refsMetadataEnabled = false;
-		data.refsMetadata = null;
-		assert.strictEqual(publisher.buildSnapshot().refsMetadata, null);
+		await publisher.flush(); // snapshot
+		data.downstreams.set('origin/main', ['origin/feature']);
+		publisher.mark('downstreams');
+		await publisher.flush(); // delta
+		assert.strictEqual(host.sent.length, 2);
+		assert.strictEqual(host.lastGeneration, 0);
 
-		// Enabled but uninitialized → empty object, never undefined.
-		data.refsMetadataEnabled = true;
-		data.refsMetadata = undefined;
-		assert.deepStrictEqual(publisher.buildSnapshot().refsMetadata, {});
+		// The webview reported a gap (or a failed splice guard) — the ONE recovery.
+		await publisher.resync();
+		assert.strictEqual(host.sent.length, 3);
+		assert.strictEqual(host.last.snapshot, true);
+		assert.strictEqual(host.lastGeneration, 1, 'the recovery snapshot opens a fresh epoch');
+		assert.strictEqual(host.last.rows?.length, 5, 'the snapshot re-ships the full window');
 
-		// Enabled + populated → the full map (never a delta).
-		data.refsMetadata = new Map<string, GraphRefMetadata>([
-			['branch-1', null],
-			['branch-2', null],
-		]);
-		assert.deepStrictEqual(publisher.buildSnapshot().refsMetadata, { 'branch-1': null, 'branch-2': null });
+		publisher.dispose();
+	});
+
+	test('a resync while hidden latches the snapshot for the next flush', async () => {
+		const { publisher, host, data } = createPublisher();
+		data.rows = rows(5);
+
+		await publisher.flush(); // snapshot
+		assert.strictEqual(host.sent.length, 1);
+
+		host.visible = false;
+		await publisher.resync();
+		assert.strictEqual(host.sent.length, 1, 'nothing ships while hidden');
+		assert.strictEqual(publisher.snapshotRequired, true, 'the requirement is latched');
+
+		host.visible = true;
+		await publisher.flush();
+		assert.strictEqual(host.sent.length, 2);
+		assert.strictEqual(host.last.snapshot, true);
+		assert.strictEqual(host.lastGeneration, 1, 'the epoch bumped when resync was called, not when it shipped');
 
 		publisher.dispose();
 	});
@@ -321,47 +305,39 @@ suite('graphSyncPublisher', () => {
 		await publisher.flush(); // snapshot
 		assert.strictEqual(host.sent.length, 1);
 
-		data.avatars.set('a@example.com', 'url-a');
+		data.downstreams.set('origin/main', ['origin/feature']);
 		data.rowsStats.set('sha0', { additions: 1, deletions: 0, files: 1 });
-		publisher.mark('avatars');
+		publisher.mark('downstreams');
 		publisher.mark('rowsStats');
-		publisher.mark('avatars');
+		publisher.mark('downstreams');
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 2, 'three marks produced a single delta');
-		assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
+		assert.deepStrictEqual(host.last.downstreams, { 'origin/main': ['origin/feature'] });
 		assert.ok(host.last.rowsStats?.sha0, 'the coalesced delta carries every dirty channel');
 
 		publisher.dispose();
 	});
 
-	test('riders ride the next emission and persist until a successful send', async () => {
+	test('riders ride the next emission and clear once it goes out', async () => {
 		const { publisher, host, data } = createPublisher();
 		data.rows = rows(5);
 
 		await publisher.flush(); // snapshot, no riders attached
 		assert.strictEqual(host.last.selectedRows, undefined);
 
-		// A failed delta carries the riders but must NOT clear them (the send failed).
-		host.ok = false;
-		data.avatars.set('a@example.com', 'url-a');
+		data.downstreams.set('origin/main', ['origin/feature']);
 		publisher.attachRiders({ selectedRows: { sha0: true } });
-		publisher.mark('avatars');
+		publisher.mark('downstreams');
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 2);
-		assert.deepStrictEqual(host.last.selectedRows, { sha0: true });
-		assert.strictEqual(publisher.snapshotRequired, true, 'the failed send marked broken');
+		assert.deepStrictEqual(host.last.selectedRows, { sha0: true }, 'the rider travels with the delta');
 
-		// The recovery snapshot re-carries the same riders...
-		host.ok = true;
+		// Cleared by that emission — the next one carries no stale envelope.
+		data.downstreams.set('origin/other', ['origin/topic']);
+		publisher.mark('downstreams');
 		await publisher.flush();
-		assert.strictEqual(host.last.sync?.snapshot, true);
-		assert.deepStrictEqual(host.last.selectedRows, { sha0: true }, 'riders re-ride the recovery snapshot');
-
-		// ...and are cleared after the successful emission.
-		data.avatars.set('b@example.com', 'url-b');
-		publisher.mark('avatars');
-		await publisher.flush();
-		assert.strictEqual(host.last.selectedRows, undefined, 'riders cleared after a successful send');
+		assert.strictEqual(host.sent.length, 3);
+		assert.strictEqual(host.last.selectedRows, undefined, 'riders cleared once carried');
 
 		publisher.dispose();
 	});
@@ -377,158 +353,24 @@ suite('graphSyncPublisher', () => {
 		publisher.attachRiders({ selectedRows: { sha1: true } });
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 2, 'a lone rider produces a carrier emission');
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'delta, not a snapshot');
+		assert.strictEqual(host.last.snapshot ?? false, false, 'delta, not a snapshot');
 		assert.deepStrictEqual(host.last.selectedRows, { sha1: true });
 
 		publisher.dispose();
 	});
 
-	test('markCarrier ships a bare carrier when nothing is dirty and no rider waits', async () => {
+	test('an empty flush ships nothing', async () => {
 		const { publisher, host, data } = createPublisher();
 		data.rows = rows(5);
 
 		await publisher.flush(); // snapshot
 		assert.strictEqual(host.sent.length, 1);
 
-		// Nothing marked, no riders — the suppression in `doFlush` would normally drop this entirely, which is
-		// what wedges a client waiting on a response it must have (a page that added no rows).
+		// Nothing marked, no riders — a page that added no rows leaves exactly this state, and it must
+		// stay silent: re-shipping the window as a REPLACE re-fires the virtualizer's `rangeChanged` and
+		// restarts the very prefetch the page was answering. Callers settle on the RPC promise instead.
 		await publisher.flush();
-		assert.strictEqual(host.sent.length, 1, 'an empty flush ships nothing without a carrier');
-
-		publisher.markCarrier();
-		await publisher.flush();
-		assert.strictEqual(host.sent.length, 2, 'markCarrier forces the emission through');
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'delta, not a snapshot');
-		assert.deepStrictEqual(host.last.rows, [], 'a carrier leaves rows untouched');
-		assert.notStrictEqual(host.last.paging, undefined, 'paging always rides, so `hasMore` stays truthful');
-
-		// Consumed by the emission that honored it.
-		await publisher.flush();
-		assert.strictEqual(host.sent.length, 2, 'the carrier is one-shot');
-
-		publisher.dispose();
-	});
-
-	test('a carrier survives a failed send, exactly as riders do', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		await publisher.flush(); // snapshot
 		assert.strictEqual(host.sent.length, 1);
-
-		host.ok = false;
-		publisher.markCarrier();
-		await publisher.flush();
-		assert.strictEqual(host.sent.length, 2, 'the carrier was attempted');
-
-		// The send failed, so the client it exists to settle is still waiting — dropping it here is what
-		// leaves the webview's paging lock set forever.
-		host.ok = true;
-		await publisher.flush();
-		assert.strictEqual(host.sent.length, 3, 'the failed carrier is retried');
-
-		publisher.dispose();
-	});
-
-	test('a carrier held across hold/release ships once on release', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		await publisher.flush(); // snapshot
-		assert.strictEqual(host.sent.length, 1);
-
-		publisher.hold();
-		publisher.markCarrier();
-		assert.strictEqual(host.sent.length, 1, 'held: nothing ships yet');
-
-		publisher.release();
-		await tick();
-		assert.strictEqual(host.sent.length, 2, 'release drives the pending carrier');
-
-		publisher.dispose();
-	});
-
-	test('onResyncRequest no-ops when the webview is already in sync, else snapshots', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		await publisher.flush(); // snapshot: gen 0, seq 0
-		assert.strictEqual(host.sent.length, 1);
-		assert.strictEqual(publisher.generation, 0);
-		assert.strictEqual(publisher.seq, 0);
-
-		// In-sync request (matching gen+seq, no snapshot pending) → no emission.
-		assert.strictEqual(publisher.onResyncRequest(0, 0), 'noop');
-		await tick();
-		assert.strictEqual(host.sent.length, 1, 'an in-sync resync request is a no-op');
-
-		// A stale seq (webview behind) with a stale-generation report is still answered when the
-		// reporting webview's baseline predates this generation's snapshot AND no this-connection
-		// snapshot covers it (no onConnectionReady was recorded after the emission here — but the
-		// snapshot at seq 0 was emitted with the default watermark (-1), so it DOES cover seq -1).
-		assert.strictEqual(publisher.onResyncRequest(0, -1), 'noop');
-		await tick();
-		assert.strictEqual(host.sent.length, 1, 'a hello satisfied by a this-connection snapshot is a no-op');
-
-		publisher.dispose();
-	});
-
-	test('a mark during an in-flight flush triggers a trailing flush', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		await publisher.flush(); // snapshot (gate off)
-		assert.strictEqual(host.sent.length, 1);
-
-		host.gate = true;
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		const inFlight = publisher.flush(); // builds + emits delta #1, notify held pending
-		assert.strictEqual(host.sent.length, 2);
-
-		// Land a new dirty mark while the flush is in flight.
-		data.rowsStats.set('sha0', { additions: 1, deletions: 0, files: 1 });
-		publisher.mark('rowsStats');
-
-		host.release(true); // resolve delta #1 → finally schedules the trailing flush
-		await inFlight;
-		await tick();
-		assert.strictEqual(host.sent.length, 3, 'the mid-flight mark produced a trailing delta');
-		assert.ok(host.last.rowsStats?.sha0);
-
-		host.release(true);
-		publisher.dispose();
-	});
-
-	test('a snapshot required mid-flight recovers once from the finally, without timer polling', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		await publisher.flush(); // initial snapshot (gate off)
-		assert.strictEqual(host.sent.length, 1);
-
-		// Delta #1 in flight, notify held pending.
-		host.gate = true;
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		const inFlight = publisher.flush();
-		assert.strictEqual(host.sent.length, 2);
-
-		// Mid-flight a snapshot becomes required, and a re-entrant flush lands while one is in flight. It must
-		// LATCH a single follow-up (not re-arm the debounce, which would poll while notify is slow/hung), so
-		// nothing emits until the in-flight run finishes.
-		publisher.requireSnapshot();
-		void publisher.flush(); // single-flight return → latches the follow-up
-		assert.strictEqual(host.sent.length, 2, 'the latched follow-up does not emit while one is in flight');
-		assert.strictEqual(publisher.snapshotRequired, true);
-
-		host.gate = false; // let the follow-up's notify complete
-		host.release(true); // delta #1 completes → the finally launches exactly one follow-up flush
-		await inFlight;
-		await tick();
-		assert.strictEqual(host.sent.length, 3, 'the recovery snapshot shipped exactly once, from the finally');
-		assert.strictEqual(host.last.sync?.snapshot, true);
-		assert.strictEqual(publisher.snapshotRequired, false, 'the snapshot requirement cleared');
 
 		publisher.dispose();
 	});
@@ -545,110 +387,8 @@ suite('graphSyncPublisher', () => {
 		publisher.mark('rows');
 		await publisher.flush();
 		assert.strictEqual(host.sent.length, 1, 'the snapshot ships once rows exist');
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 		assert.strictEqual(host.last.rows?.length, 5);
-
-		publisher.dispose();
-	});
-
-	test('the boot-time sync-hello no-ops after a this-connection snapshot (no double initial page)', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		publisher.onConnectionReady();
-		await publisher.flush(); // the onReady snapshot (seq 0)
-		assert.strictEqual(host.sent.length, 1);
-
-		// The webview's hello reports the bootstrap baseline (seq -1) — behind the snapshot, but the
-		// snapshot was emitted during THIS connection, so FIFO delivery satisfies it.
-		assert.strictEqual(publisher.onResyncRequest(publisher.generation, -1), 'noop');
-		await tick();
-		assert.strictEqual(host.sent.length, 1, 'no redundant second snapshot');
-
-		publisher.dispose();
-	});
-
-	test('an IDENTICAL repeated resync defeats the supersedes-the-baseline no-op (lost-snapshot recovery)', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		publisher.onConnectionReady();
-		await publisher.flush(); // the onReady snapshot (seq 0)
-		assert.strictEqual(host.sent.length, 1);
-
-		// First behind-baseline resync: the no-op trusts the seq-0 snapshot (FIFO says it arrives).
-		assert.strictEqual(publisher.onResyncRequest(publisher.generation, -1), 'noop');
-		await tick();
-		assert.strictEqual(host.sent.length, 1, 'first request no-ops');
-
-		// The receiver re-sends the SAME request after its retry threshold — the trusted snapshot
-		// evidently never landed, so the repeat must be answered with a real snapshot.
-		assert.strictEqual(publisher.onResyncRequest(publisher.generation, -1), 'diverged');
-		await tick();
-		assert.strictEqual(host.sent.length, 2, 'the repeat forces a fresh snapshot');
-		assert.strictEqual(host.last.sync?.snapshot, true);
-
-		publisher.dispose();
-	});
-
-	test('a prior-connection snapshot cannot satisfy a stale hello — resync snapshots and reports diverged', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		publisher.onConnectionReady();
-		await publisher.flush(); // snapshot seq 0
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		await publisher.flush(); // delta seq 1
-		assert.strictEqual(host.sent.length, 2);
-
-		// Reconnect: the new connection's watermark is the current seq — the old snapshot (seq 0) predates
-		// it and may have been pruned from replay, so a stale hello must force a fresh snapshot.
-		publisher.onConnectionReady();
-		assert.strictEqual(publisher.onResyncRequest(publisher.generation, -1), 'diverged');
-		await tick();
-		assert.strictEqual(host.sent.length, 3);
-		assert.strictEqual(host.last.sync?.snapshot, true, 'the stale hello was answered with a snapshot');
-
-		publisher.dispose();
-	});
-
-	test('a resync while a snapshot is already pending reports pending and coalesces', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(3);
-
-		// Fresh publisher: snapshotRequired is true and nothing has been emitted.
-		assert.strictEqual(publisher.onResyncRequest(publisher.generation, -1), 'pending');
-		await tick();
-		assert.strictEqual(host.sent.length, 1, 'one snapshot total — the resync coalesced into it');
-		assert.strictEqual(host.last.sync?.snapshot, true);
-
-		publisher.dispose();
-	});
-
-	test('a rider re-attached mid-flight survives the successful send and rides a trailing carrier', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-		await publisher.flush(); // snapshot
-
-		host.gate = true;
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.attachRiders({ selectedRows: { sha0: true } });
-		publisher.mark('avatars');
-		const inFlight = publisher.flush(); // ships delta #1 carrying the selection rider, notify held pending
-		assert.deepStrictEqual(host.last.selectedRows, { sha0: true });
-
-		// Re-attach a NEW selection rider while the send is in flight.
-		publisher.attachRiders({ selectedRows: { sha1: true } });
-
-		host.release(true); // delta #1 succeeds
-		await inFlight;
-		await tick();
-
-		// The successful send cleared the CAPTURED sha0 rider but not the re-attached sha1 one — a
-		// riders-only pending state, so the trailing re-run fires exactly one carrier for the survivor.
-		assert.strictEqual(host.sent.length, 3, 'the surviving rider forced a trailing carrier emission');
-		assert.deepStrictEqual(host.last.selectedRows, { sha1: true });
 
 		publisher.dispose();
 	});
@@ -663,32 +403,8 @@ suite('graphSyncPublisher', () => {
 		publisher.onGraphIdentityChanged();
 		await publisher.flush(); // gen-1 snapshot
 
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 		assert.strictEqual(host.last.selectedRows, undefined, 'stale riders do not ride the new-repo snapshot');
-
-		publisher.dispose();
-	});
-
-	test('a post-generation-bump snapshot satisfies a stale hello from the live connection (watermark reset)', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-
-		publisher.onConnectionReady();
-		await publisher.flush(); // gen 0 snapshot seq 0
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
-		await publisher.flush(); // gen 0 delta seq 1
-		publisher.onConnectionReady(); // watermark = 1
-
-		// Repo swap bumps the generation. The watermark resets to -1 so the gen-1 snapshot (FIFO-delivered
-		// to the live connection) can satisfy a stale hello instead of forcing a redundant second snapshot.
-		publisher.onGraphIdentityChanged();
-		await publisher.flush(); // gen 1 snapshot seq 0
-		assert.strictEqual(host.sent.length, 3);
-
-		assert.strictEqual(publisher.onResyncRequest(publisher.generation, -1), 'noop');
-		await tick();
-		assert.strictEqual(host.sent.length, 3, 'no redundant snapshot — the this-connection snapshot covers it');
 
 		publisher.dispose();
 	});
@@ -706,13 +422,13 @@ suite('graphSyncPublisher', () => {
 		publisher.release();
 		await tick();
 		assert.strictEqual(host.sent.length, 1, 'release ships the deferred snapshot exactly once');
-		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(host.last.snapshot, true);
 
 		// Now a held multi-step delta: marks + riders coalesce into one release-driven emission.
 		publisher.hold();
-		data.avatars.set('a@example.com', 'url-a');
+		data.downstreams.set('origin/main', ['origin/feature']);
 		data.rowsStats.set('sha0', { additions: 1, deletions: 0, files: 1 });
-		publisher.mark('avatars');
+		publisher.mark('downstreams');
 		publisher.mark('rowsStats');
 		publisher.attachRiders({ selectedRows: { sha0: true } });
 		await publisher.flush(); // no-op while held
@@ -721,7 +437,7 @@ suite('graphSyncPublisher', () => {
 		publisher.release();
 		await tick();
 		assert.strictEqual(host.sent.length, 2, 'release flushes exactly once');
-		assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
+		assert.deepStrictEqual(host.last.downstreams, { 'origin/main': ['origin/feature'] });
 		assert.ok(host.last.rowsStats?.sha0, 'the coalesced delta carries every held mark');
 		assert.deepStrictEqual(
 			host.last.selectedRows,
@@ -740,8 +456,8 @@ suite('graphSyncPublisher', () => {
 
 		publisher.hold();
 		publisher.hold();
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
+		data.downstreams.set('origin/main', ['origin/feature']);
+		publisher.mark('downstreams');
 
 		publisher.release(); // depth 1 — still held
 		await tick();
@@ -750,97 +466,24 @@ suite('graphSyncPublisher', () => {
 		publisher.release(); // depth 0 — flush
 		await tick();
 		assert.strictEqual(host.sent.length, 2, 'the outermost release flushes once');
-		assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
+		assert.deepStrictEqual(host.last.downstreams, { 'origin/main': ['origin/feature'] });
 
 		publisher.dispose();
 	});
 
-	test('markRefsMetadataReset ships the full map as an authoritative REPLACE; later deltas merge onto it', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-		data.refsMetadataEnabled = true;
-		data.refsMetadata = new Map<string, GraphRefMetadata>([['a', null]]);
-		await publisher.flush(); // snapshot
-
-		// A repo-level enable/disable: ship the FULL current map + `refsMetadataReset`, never a diff.
-		data.refsMetadata = new Map<string, GraphRefMetadata>([['b', null]]);
-		publisher.markRefsMetadataReset();
-		await publisher.flush();
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'the reset rides a delta, not a snapshot');
-		assert.strictEqual(host.last.refsMetadataReset, true);
-		assert.deepStrictEqual(host.last.refsMetadata, { b: null }, 'the full current map, not a reference-delta');
-
-		// A subsequent refsMetadata change ships only the changed entry with NO reset flag (merge onto the map).
-		data.refsMetadata = new Map<string, GraphRefMetadata>([
-			['b', null],
-			['c', null],
-		]);
-		publisher.mark('refsMetadata');
-		await publisher.flush();
-		assert.strictEqual(host.last.refsMetadataReset ?? false, false, 'a plain delta carries no reset flag');
-		assert.deepStrictEqual(host.last.refsMetadata, { c: null }, 'only the newly-changed entry');
-
-		publisher.dispose();
-	});
-
-	test('a strip REPLACE (integration flip) ships the upstream-preserving map, not an empty wipe', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-		data.refsMetadataEnabled = true;
-
-		const upstream = { name: 'main', owner: 'origin', ahead: 2, behind: 1 };
-		// Pre-strip: the pill carries BOTH integration-derived PR data and local-git upstream stats.
-		data.refsMetadata = new Map<string, GraphRefMetadata>([
-			['a', { upstream: upstream, pullRequest: [{ hostingServiceType: 'github', id: 7, title: 'PR' }] }],
-		]);
-		await publisher.flush(); // snapshot
-
-		// Integration disconnect strips PR (host-side) but PRESERVES upstream, then REPLACEs over the reset channel.
-		data.refsMetadata = new Map<string, GraphRefMetadata>([['a', { upstream: upstream }]]);
-		publisher.markRefsMetadataReset();
-		await publisher.flush();
-
-		assert.strictEqual(host.last.refsMetadataReset, true);
-		assert.deepStrictEqual(
-			host.last.refsMetadata,
-			{ a: { upstream: upstream } },
-			'ships the stripped map with upstream intact — never an empty wipe that would blank the counts',
-		);
-
-		publisher.dispose();
-	});
-
-	test('markRefsMetadataReset while off ships an authoritative null', async () => {
-		const { publisher, host, data } = createPublisher();
-		data.rows = rows(5);
-		data.refsMetadataEnabled = true;
-		data.refsMetadata = new Map<string, GraphRefMetadata>([['a', null]]);
-		await publisher.flush(); // snapshot
-
-		// Feature turned off → the reset ships explicit null (webview resets, stops requesting).
-		data.refsMetadataEnabled = false;
-		data.refsMetadata = null;
-		publisher.markRefsMetadataReset();
-		await publisher.flush();
-		assert.strictEqual(host.last.refsMetadata, null);
-		assert.strictEqual(host.last.refsMetadataReset, true);
-
-		publisher.dispose();
-	});
-
-	test('an avatars-only delta omits downstreams; rows-bearing ticks and snapshots ship it', async () => {
+	test('a rowsStats-only delta omits downstreams; rows-bearing ticks and snapshots ship it', async () => {
 		const { publisher, host, data } = createPublisher();
 		data.rows = rows(5);
 		data.downstreams.set('origin/main', ['origin/feature']);
 		await publisher.flush(); // snapshot always ships downstreams
 		assert.deepStrictEqual(host.last.downstreams, { 'origin/main': ['origin/feature'] });
 
-		// Enrichment-only tick (avatars marked) → downstreams omitted so the webview keeps its prior map.
-		data.avatars.set('a@example.com', 'url-a');
-		publisher.mark('avatars');
+		// Enrichment-only tick (rowsStats marked) → downstreams omitted so the webview keeps its prior map.
+		data.rowsStats.set('sha0', { additions: 1, deletions: 0, files: 1 });
+		publisher.mark('rowsStats');
 		await publisher.flush();
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false);
-		assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
+		assert.strictEqual(host.last.snapshot ?? false, false);
+		assert.ok(host.last.rowsStats?.sha0);
 		assert.strictEqual(host.last.downstreams, undefined, 'no downstreams on an enrichment-only tick');
 
 		// A rebuild that marks the downstreams channel (rows + downstreams) re-ships the full map.
@@ -865,7 +508,7 @@ suite('graphSyncPublisher', () => {
 		data.rows = [row('new0'), ...rows(5)];
 		publisher.mark('rows');
 		await publisher.flush();
-		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'a delta, not a snapshot');
+		assert.strictEqual(host.last.snapshot ?? false, false, 'a delta, not a snapshot');
 		assert.ok(
 			host.last.rowsSplice != null || (host.last.rows?.length ?? 0) > 0,
 			'the rows delta shipped rows (splice or full)',
@@ -921,7 +564,7 @@ suite('graphSyncPublisher', () => {
 			]);
 			publisher.mark('rowsStats');
 			await publisher.flush();
-			assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'a delta, not a snapshot');
+			assert.strictEqual(host.last.snapshot ?? false, false, 'a delta, not a snapshot');
 			assert.deepStrictEqual(host.last.rowsStats, { sha2: stat(3) }, 'exactly the swapped-in entry');
 
 			publisher.dispose();
@@ -933,13 +576,13 @@ suite('graphSyncPublisher', () => {
 			data.rowsStats = new Map<string, GraphRowStats>([['sha0', stat(1)]]);
 			await publisher.flush(); // snapshot seeds {sha0}
 
-			// Mark rowsStats (riding an avatars tick) but the map is unchanged → no rowsStats payload.
-			data.avatars.set('a@example.com', 'url-a');
-			publisher.mark('avatars');
+			// Mark rowsStats (riding a downstreams tick) but the map is unchanged → no rowsStats payload.
+			data.downstreams.set('origin/main', ['origin/feature']);
+			publisher.mark('downstreams');
 			publisher.mark('rowsStats');
 			await publisher.flush();
-			assert.strictEqual(host.last.sync?.snapshot ?? false, false);
-			assert.deepStrictEqual(host.last.avatars, { 'a@example.com': 'url-a' });
+			assert.strictEqual(host.last.snapshot ?? false, false);
+			assert.deepStrictEqual(host.last.downstreams, { 'origin/main': ['origin/feature'] });
 			assert.strictEqual(
 				host.last.rowsStats,
 				undefined,
@@ -966,7 +609,7 @@ suite('graphSyncPublisher', () => {
 			// A recovery snapshot ships the FULL map AND reseeds the set to its keys.
 			publisher.requireSnapshot();
 			await publisher.flush();
-			assert.strictEqual(host.last.sync?.snapshot, true);
+			assert.strictEqual(host.last.snapshot, true);
 			assert.deepStrictEqual(host.last.rowsStats, { sha0: stat(1), sha1: stat(2) });
 
 			// A follow-up no-op tick ships nothing (set reseeded to {sha0, sha1}).
@@ -989,7 +632,7 @@ suite('graphSyncPublisher', () => {
 			data.rowsStats = new Map<string, GraphRowStats>([['sha0', stat(99)]]);
 			publisher.mark('rowsStats');
 			await publisher.flush();
-			assert.strictEqual(host.last.sync?.snapshot ?? false, false);
+			assert.strictEqual(host.last.snapshot ?? false, false);
 			assert.strictEqual(host.last.rowsStats, undefined, 'documents the dedupe: sha0 not reshipped');
 
 			// invalidateRowsStats() clears the sent-set — the next delta reships sha0 with the new value.
@@ -1050,7 +693,7 @@ suite('graphSyncPublisher', () => {
 			// Mark reachability but nothing appended → payload undefined (cursor kept), even though the delta emits.
 			publisher.mark('reachability');
 			await publisher.flush();
-			assert.strictEqual(host.last.sync?.snapshot ?? false, false);
+			assert.strictEqual(host.last.snapshot ?? false, false);
 			assert.strictEqual(host.last.reachabilityTable, undefined, 'no reachability payload when nothing appended');
 
 			publisher.dispose();
@@ -1069,7 +712,7 @@ suite('graphSyncPublisher', () => {
 			// A recovery snapshot ships the FULL table AND reseeds the cursor to it.
 			publisher.requireSnapshot();
 			await publisher.flush();
-			assert.strictEqual(host.last.sync?.snapshot, true);
+			assert.strictEqual(host.last.snapshot, true);
 			assert.deepStrictEqual(host.last.reachabilityTable, {
 				id: 1,
 				dictionary: [reachRef('a'), reachRef('b'), reachRef('c')],

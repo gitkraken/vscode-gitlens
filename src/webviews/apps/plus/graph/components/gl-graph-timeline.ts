@@ -5,7 +5,6 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { RepositoryShape } from '../../../../../git/models/repositoryShape.js';
-import { GetMoreRowsCommand } from '../../../../plus/graph/protocol.js';
 import type {
 	TimelineDatum,
 	TimelinePeriod,
@@ -14,7 +13,6 @@ import type {
 	TimelineSliceBy,
 } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CommitEventDetail, LoadMoreEventDetail } from '../../timeline/components/chart.js';
 import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
@@ -124,9 +122,6 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
 
-	@consume({ context: ipcContext })
-	private _ipc?: typeof ipcContext.__context__;
-
 	@state()
 	private _resolvedScope?: TimelineScopeSerialized;
 
@@ -177,16 +172,11 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	@state()
 	private _hasShownData = false;
 
-	/** Reactive flag — true while a `GetMoreRowsCommand` request is in flight (we've sent it, the
-	 *  graph hasn't responded yet). The graph webview doesn't toggle `state.loading` during paging
-	 *  so this is the ONLY signal we have for "load-more is happening" — drives both the chart's
-	 *  edge indicator and our debounce so we don't queue duplicate requests. Cleared when
-	 *  `graphState.rows` reference changes (new data arrived). */
+	/** Reactive flag — true while a `rows.getMoreRows` call is outstanding. Drives both the chart's
+	 *  edge indicator and our debounce so we don't queue duplicate requests. Set and cleared around
+	 *  the host promise, which resolves once the page's rows emission has been posted. */
 	@state()
-	private _loadMoreInFlight = false;
-	/** Last-seen `graphState.rows` reference; used to detect when the graph has merged in new
-	 *  rows so we can clear `_loadMoreInFlight`. */
-	private _lastSeenRowsRef?: unknown;
+	private _pageInFlight = false;
 
 	/** Live visible-time-range span (ms) reported by the chart. Drives the header pill so it
 	 *  shows the actual span (zoomed, panned) instead of the static period setting. */
@@ -241,15 +231,6 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (localScopeKey !== this._lastLocalScopeKey) {
 			this._lastLocalScopeKey = localScopeKey;
 			this._resetLocalScopeState();
-		}
-
-		// Clear the load-more in-flight flag when the graph's rows reference changes (response to
-		// our `GetMoreRowsCommand` has landed). This is the only signal we get since the host
-		// doesn't toggle `state.loading` during paging.
-		const rows = this.graphState.rows;
-		if (this._loadMoreInFlight && rows != null && rows !== this._lastSeenRowsRef) {
-			this._loadMoreInFlight = false;
-			this._lastSeenRowsRef = rows;
 		}
 
 		// Dispatch dataset derivation by scope. Repo scope builds synchronously from
@@ -311,7 +292,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	}
 
 	private _maybeAutoPageForAllTime(): void {
-		if (this._loadMoreInFlight) return;
+		if (this._pageInFlight) return;
 		if (this.graphState.paging?.hasMore !== true) return;
 		if (this._allTimePageAttempts >= GlGraphTimeline.maxAllTimePageAttempts) return;
 
@@ -322,13 +303,29 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (!oldestSha) return;
 
 		this._allTimePageAttempts++;
-		this._loadMoreInFlight = true;
-		this._lastSeenRowsRef = rows;
+		void this._requestMoreRows(oldestSha, GlGraphTimeline.adaptivePageSize(rows.length, 'all'));
+	}
+
+	/**
+	 * Drives one graph page and holds both the local edge indicator and the graph's shared `loading`
+	 * affordance for exactly its duration. The host resolves the call only after posting the page's
+	 * rows emission, so the flags clear when the rows are in hand — no rows-reference heuristic.
+	 *
+	 * ACCEPTED EDGE: a visibility flip mid-page resolves with the emission still buffered, so the
+	 * indicator clears a moment before the deeper history appears (it lands on the restore flush).
+	 */
+	private async _requestMoreRows(id: string, limit: number): Promise<void> {
+		const services = this.services;
+		if (services == null) return;
+
+		this._pageInFlight = true;
 		this.graphState.loading = true;
-		this._ipc?.sendCommand(GetMoreRowsCommand, {
-			id: oldestSha,
-			limit: GlGraphTimeline.adaptivePageSize(rows.length, 'all'),
-		});
+		try {
+			await (await services.rows).getMoreRows(id, limit);
+		} finally {
+			this._pageInFlight = false;
+			this.graphState.loading = false;
+		}
 	}
 
 	private get effectiveRepo() {
@@ -497,11 +494,9 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 	/** Chart asks for more older history when the user pans into the left edge. In windowed mode we
 	 *  ask the graph host to load more rows — its existing paging path merges new rows into state,
-	 *  which bubbles back via SignalWatcher and triggers a fresh dataset derivation. We track the
-	 *  in-flight state ourselves because `state.loading` is NOT toggled by the graph webview during
-	 *  paging (verified in `graphWebview.ts:onGetMoreRows` — it just calls `notifyDidChangeRows`). */
+	 *  which bubbles back via SignalWatcher and triggers a fresh dataset derivation. */
 	private onChartLoadMoreFromGraph = (_e: CustomEvent<LoadMoreEventDetail>): void => {
-		if (this._loadMoreInFlight) return; // already requested; wait for response
+		if (this._pageInFlight) return; // already requested; wait for response
 		if (this.graphState.paging?.hasMore !== true) return;
 
 		const rows = this.graphState.rows;
@@ -510,17 +505,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const oldestSha = rows.at(-1)?.sha;
 		if (!oldestSha) return;
 
-		this._loadMoreInFlight = true;
-		this._lastSeenRowsRef = rows;
-		// Also flip the graph's global loading flag so the header's progress-indicator activates
-		// alongside the chart's edge scanner — matches the `onScopeAnchorsUnreachable` paging path
-		// in graph-wrapper.ts. The notification handler in stateProvider resets it to false on
-		// `DidChangeRowsNotification` arrival.
-		this.graphState.loading = true;
-		this._ipc?.sendCommand(GetMoreRowsCommand, {
-			id: oldestSha,
-			limit: GlGraphTimeline.adaptivePageSize(rows.length, 'pan'),
-		});
+		void this._requestMoreRows(oldestSha, GlGraphTimeline.adaptivePageSize(rows.length, 'pan'));
 	};
 
 	private onChartVisibleRangeChanged = (e: CustomEvent<{ oldest: number; newest: number }>): void => {
@@ -541,12 +526,11 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		return this.graphState.rowsStatsLoading === true;
 	}
 
-	/** True while a `GetMoreRowsCommand` is in flight OR stats are catching up for already-loaded
-	 *  rows. Drives the chart's edge-indicator affordance — the chart stays fully interactive
-	 *  while paging is in flight. */
+	/** True while a page is in flight OR stats are catching up for already-loaded rows. Drives the
+	 *  chart's edge-indicator affordance — the chart stays fully interactive while paging runs. */
 	private get graphIsLoadingMore(): boolean {
 		if (!this._hasShownData) return false; // initial load is handled by `graphIsInitialLoading`
-		if (this._loadMoreInFlight) return true;
+		if (this._pageInFlight) return true;
 		return this.graphState.rowsStatsLoading === true;
 	}
 
@@ -591,7 +575,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const path = localScope.relativePath;
 		// All-time SHAs touching the path — one cheap `git log --all --pretty=%H -- <path>`. The
 		// visible dataset is bounded by `graphState.rows` (paginated via the chart's
-		// `gl-load-more` → `GetMoreRowsCommand`), so a period-based filter here would prevent
+		// `gl-load-more` → `rows.getMoreRows`), so a period-based filter here would prevent
 		// older file history from surfacing as the user pans into the graph's older rows.
 		// Cache key includes `rows[0].sha` so an amend/rebase that swaps the head commit
 		// invalidates correctly; `rows.length` discriminates paging extensions; both are
@@ -679,9 +663,9 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		this._hasShownData = true;
 
 		// Sparse-file auto-page: if the graph rows we have yielded NO file-touching commits and
-		// the graph has more rows to load, kick off a `GetMoreRowsCommand` to surface deeper
-		// history. Fixes the case where a file last modified hundreds of commits ago appears as
-		// an empty chart until the user manually pans into the left edge.
+		// the graph has more rows to load, kick off a page to surface deeper history. Fixes the
+		// case where a file last modified hundreds of commits ago appears as an empty chart until
+		// the user manually pans into the left edge.
 		//
 		// Gated by:
 		//   - `data.length === 0` (was previously `< 20`, which kept firing for files with a
@@ -690,23 +674,17 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		//     we stop the moment ANY match appears; the user pans manually for more.
 		//   - `_autoPageAttempts < maxAutoPageAttempts` so files with NO matches anywhere don't
 		//     page through the entire repo. Cap is reset on scope/repo change.
-		//   - Shared `_loadMoreInFlight` debounce with the chart's `gl-load-more` path.
+		//   - Shared `_pageInFlight` debounce with the chart's `gl-load-more` path.
 		if (
 			data.length === 0 &&
 			this._autoPageAttempts < GlGraphTimeline.maxAutoPageAttempts &&
 			this.graphState.paging?.hasMore === true &&
-			!this._loadMoreInFlight
+			!this._pageInFlight
 		) {
 			const oldestSha = rows.at(-1)?.sha;
 			if (oldestSha) {
 				this._autoPageAttempts++;
-				this._loadMoreInFlight = true;
-				this._lastSeenRowsRef = rows;
-				this.graphState.loading = true;
-				this._ipc?.sendCommand(GetMoreRowsCommand, {
-					id: oldestSha,
-					limit: GlGraphTimeline.adaptivePageSize(rows.length, 'pan'),
-				});
+				void this._requestMoreRows(oldestSha, GlGraphTimeline.adaptivePageSize(rows.length, 'pan'));
 			}
 		}
 	}

@@ -10,11 +10,10 @@ import {
 	getRemoteNameFromBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
-import type { Deferrable } from '@gitlens/utils/debounce.js';
-import { debounce } from '@gitlens/utils/debounce.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { areEqual } from '@gitlens/utils/object.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
+import { defer, getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getAssociatedIssuesForBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
@@ -30,10 +29,8 @@ import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext } from '../../../system/-webview/context.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
-import type { IpcParams } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
-import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import {
 	isRepoHostingIntegrationConnected,
 	stripRefsMetadataTypes,
@@ -42,7 +39,6 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	BranchState,
-	GetMissingRefsMetadataCommand,
 	GraphItemContext,
 	GraphMissingRefsMetadata,
 	GraphMissingRefsMetadataType,
@@ -53,7 +49,7 @@ import type {
 import { DidChangeBranchStateNotification, supportedRefMetadataTypes } from './protocol.js';
 
 /** Collaborators the producers cluster reaches for on the host provider, assembled by
- *  `GraphWebviewProvider.createGraphProducersContext()`. `getRepository`/`getSession`/`getSync` read
+ *  `GraphWebviewProvider.createGraphProducersContext()`. `getRepository`/`getSession` read
  *  live provider state; `updateState` forwards to the data controller's coalescer; the cancellation
  *  and pending-notification callbacks route through the provider's shared `_cancellations` map and
  *  `_ipcNotificationMap`, which stay there. */
@@ -62,20 +58,21 @@ export type GraphProducersServiceContext = {
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
 	getRepository: () => GlRepository | undefined;
 	getSession: () => GitGraphSession | undefined;
-	getSync: () => GraphSyncPublisher;
 	updateState: (immediate?: boolean) => void;
+	/** Fires the `refsMetadata` reset-class RPC event with a COMPLETE snapshot (`null` = feature off). */
+	fireRefsMetadataChanged: (metadata: GraphRefsMetadata | null) => void;
 	createBranchStateOnlyCancellation: () => CancellationTokenSource;
 	addPendingNotification: (notification: IpcNotification<any>) => void;
 };
 
-/** How many refs `onGetMissingRefMetadata` enriches at once. Sized to keep a provider's connection pool
+/** How many refs one `getMissingRefsMetadata` request enriches at once. Sized to keep a provider's connection pool
  *  busy without opening a socket per ref: past a handful the provider queues them anyway, so the extra
  *  concurrency buys no throughput and only costs connection setup on the extension host's event loop. */
 const refMetadataConcurrency = 6;
 
 /** Host-side producers cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the
  *  refsMetadata enrichment pipeline (fetch/dedup-buffer/invalidations/integration-flip strips + the
- *  debounced publisher mark) and the branchState channel (full + fast-path pushes with the last-sent
+ *  reset-class RPC event) and the branchState channel (full + fast-path pushes with the last-sent
  *  dedup gate). The provider keeps the IPC forwarder and subscription wiring and injects the
  *  collaborators via {@link GraphProducersServiceContext}. */
 export class GraphProducersService {
@@ -93,9 +90,6 @@ export class GraphProducersService {
 	private get _graphSession(): GitGraphSession | undefined {
 		return this.context.getSession();
 	}
-	private get _graphSync(): GraphSyncPublisher {
-		return this.context.getSync();
-	}
 
 	private _issueIntegrationConnectionState: 'connected' | 'not-connected' | 'not-checked' = 'not-checked';
 	// Last observed membership of THIS repo in `gitlens:repos:withHostingIntegrationsConnected` — the
@@ -112,18 +106,18 @@ export class GraphProducersService {
 	 *  NOTE: this orders reads, it does NOT carry repo identity — it cannot stop a fast path started for a
 	 *  previous repo from resolving after a swap (`resetRepositoryState` doesn't cancel `branchStateOnly`). */
 	private _lastSentBranchStateRevision = 0;
-	// Metadata requests that arrived while the graph session isn't loaded (mid-rebuild) — onGetMissingRefMetadata can't
-	// fetch yet, so buffer them and replay on the next `setGraph(data)`. RepoPath-tagged so a request captured
-	// for the prior repo can never drain onto a freshly-swapped graph. Without this, a request lost in the
-	// rebuild window left its id stuck in the webview's per-id dedup → the pill's counts never returned.
-	private _pendingRefMetadataRequests: GraphMissingRefsMetadata | undefined;
+	// Metadata requests that arrived while the graph session isn't loaded (mid-rebuild) — `getMissingRefsMetadata`
+	// can't fetch yet, so buffer them (with their waiting promise) and replay on the next `setGraph(data)`.
+	// RepoPath-tagged so a request captured for the prior repo can never drain onto a freshly-swapped graph.
+	// Without this, a request lost in the rebuild window left its id stuck in the webview's per-id dedup → the
+	// pill's counts never returned.
+	private _pendingRefMetadataRequests:
+		| { metadata: GraphMissingRefsMetadata; deferred: Deferred<GraphRefsMetadata> }[]
+		| undefined;
 	private _pendingRefMetadataRepoPath: string | undefined;
-	private _notifyDidChangeRefsMetadataDebounced:
-		| Deferrable<GraphProducersService['notifyDidChangeRefsMetadata']>
-		| undefined = undefined;
 
 	dispose(): void {
-		this._notifyDidChangeRefsMetadataDebounced?.cancel();
+		this.drainPendingRefMetadata();
 	}
 
 	/** Read-only view for the publisher's data source and the provider's config-change gate. */
@@ -143,26 +137,73 @@ export class GraphProducersService {
 		this._lastSentBranchState = branchState;
 	}
 
-	async onGetMissingRefMetadata(params: IpcParams<typeof GetMissingRefsMetadataCommand>): Promise<void> {
-		// Feature off → nothing to fetch; ignore permanently (the webview won't request when null anyway).
-		if (this._refsMetadata === null) return;
+	/**
+	 * Resolve the asked refs' metadata and RETURN it — the webview's per-id request is a plain
+	 * request/response now, so enrichment never rides a push channel. The response carries only entries
+	 * this call actually resolved; an id left untouched (a bail) is omitted so the webview re-requests it.
+	 *
+	 * Resolves after the WHOLE batch drains (the worker pool below already awaited it before its final
+	 * publish), so badges land in one paint per request rather than per wave.
+	 */
+	async getMissingRefsMetadata(metadata: GraphMissingRefsMetadata, signal?: AbortSignal): Promise<GraphRefsMetadata> {
+		// Feature off → nothing to fetch; the webview won't request when its map is `null` anyway.
+		if (this._refsMetadata === null) return {};
 		// Mid-rebuild (graph not yet populated) → can't fetch now, but DON'T silently drop the request: that
 		// left the requested id stuck in the webview's per-id dedup, so the pill's counts never came back.
-		// Buffer it (repoPath-tagged) and replay on the next setGraph(data) once the graph exists.
+		// Buffer it (repoPath-tagged) and settle this promise LATE from the replay on the next setGraph(data).
 		if (this._graphSession == null) {
 			const repoPath = this.repository?.path;
-			if (repoPath == null) return;
+			if (repoPath == null) return {};
 
 			if (this._pendingRefMetadataRepoPath !== repoPath) {
-				this._pendingRefMetadataRequests = undefined;
+				this.drainPendingRefMetadata();
 				this._pendingRefMetadataRepoPath = repoPath;
 			}
-			const pending = (this._pendingRefMetadataRequests ??= {});
-			for (const [id, types] of Object.entries(params.metadata)) {
-				pending[id] = pending[id] != null ? [...new Set([...pending[id], ...types])] : types;
-			}
-			return;
+
+			const deferred = defer<GraphRefsMetadata>();
+			(this._pendingRefMetadataRequests ??= []).push({ metadata: metadata, deferred: deferred });
+
+			return deferred.promise;
 		}
+
+		await this.enrichRefsMetadata(metadata, signal);
+
+		return this.pickRefsMetadata(metadata);
+	}
+
+	/** Reads the resolved entries for exactly the asked ids out of the live map. Unresolved ids are
+	 *  omitted — an absent entry is what lets the webview ask again. */
+	private pickRefsMetadata(asked: GraphMissingRefsMetadata): GraphRefsMetadata {
+		const metadata = this._refsMetadata;
+		if (metadata == null) return {};
+
+		const result: GraphRefsMetadata = {};
+		for (const id of Object.keys(asked)) {
+			if (!metadata.has(id)) continue;
+
+			result[id] = metadata.get(id)!;
+		}
+
+		return result;
+	}
+
+	/** Settle every buffered waiter with nothing — the repo they were captured for is gone. */
+	private drainPendingRefMetadata(): void {
+		const pending = this._pendingRefMetadataRequests;
+		this._pendingRefMetadataRequests = undefined;
+		this._pendingRefMetadataRepoPath = undefined;
+		if (pending == null) return;
+
+		for (const { deferred } of pending) {
+			deferred.fulfill({});
+		}
+	}
+
+	/** Resolves the asked refs into `_refsMetadata` (copy-on-write per entry). Publishes nothing —
+	 *  callers either return the entries ({@link getMissingRefsMetadata}) or fire a reset snapshot. */
+	private async enrichRefsMetadata(metadata: GraphMissingRefsMetadata, signal?: AbortSignal): Promise<void> {
+		if (this._refsMetadata === null) return;
+		if (this._graphSession == null) return;
 
 		// PR/issue enrichment needs a connected integration; upstream (ahead/behind) is local-git data and
 		// doesn't. Resolve integration availability up front so we can still satisfy upstream requests when
@@ -483,14 +524,9 @@ export class GraphProducersService {
 		// fires one request per ref at once — a repo with many branches opens dozens of simultaneous
 		// connections, which the provider throttles anyway (so nothing lands sooner) while the socket/DNS
 		// churn stalls the extension host. Same worker-pool shape as the WIP probe in `graphWipService`.
-		const ids = Object.keys(params.metadata);
+		const ids = Object.keys(metadata);
 		if (ids.length) {
 			let next = 0;
-			// Publish as results land, not only when the pool drains. Bounding the fan-out means the request
-			// now completes in ceil(N/concurrency) waves instead of one — with a single publish at the end,
-			// a large ref set would show NO badges until the last wave, and a graph rebuild or scroll-away
-			// mid-flight would discard every resolved ref. `updateRefsMetadata` is already the debounced
-			// publisher, so calling it per ref coalesces rather than shipping N payloads.
 			await Promise.allSettled(
 				Array.from({ length: Math.min(refMetadataConcurrency, ids.length) }, async () => {
 					while (next < ids.length) {
@@ -500,27 +536,28 @@ export class GraphProducersService {
 						// `resetRepositoryState` clears `_refsMetadata`, and `getRefMetadata`'s `??=` would
 						// simply recreate it.
 						if (this.repository?.path !== repoPath) return;
+						// The caller gave up (superseded request / webview torn down) — stop claiming ids
+						// rather than paying provider round-trips nobody is waiting on.
+						if (signal?.aborted) return;
 
 						const id = ids[next++];
 						// Per-ref failures must not sink the pool — the outer `allSettled` only covers the
 						// workers, and one rejection here would strand every ref this worker hadn't reached.
 						try {
-							await getRefMetadata.call(this, id, params.metadata[id]);
-							this.updateRefsMetadata();
+							await getRefMetadata.call(this, id, metadata[id]);
 						} catch {}
 					}
 				}),
 			);
 		}
-		this.updateRefsMetadata();
 	}
 
 	// Re-fetch ahead/behind for already-tracked branches after their tips/upstreams move (commit → `heads`,
 	// fetch → `remotes`); the cached counts are now stale. Rather than wiping the map (which would blank every
-	// pill until re-fetched), re-request ONLY entries that already carry upstream metadata — onGetMissingRefMetadata
-	// overwrites their value references (copy-on-write) and the delta channel ships just those, so the pills
-	// update in place, the per-id dedup is untouched (no re-request storm for no-upstream branches), and
-	// unrelated state pushes do zero ref-metadata git work — the perf win over the old reset-on-every-push.
+	// pill until re-fetched), re-request ONLY entries that already carry upstream metadata — the enrichment
+	// overwrites their value references in place, so the pills update without a blank frame, and no-upstream
+	// branches do zero git work. Host-initiated, so the refreshed counts reach the webview on the reset event
+	// (the webview asked for nothing here); its per-id dedup re-arms, which is harmless for a populated map.
 	invalidateUpstreamRefsMetadata(): void {
 		if (this._refsMetadata == null) return;
 
@@ -532,25 +569,43 @@ export class GraphProducersService {
 		}
 		if (Object.keys(metadata).length === 0) return;
 
-		void this.onGetMissingRefMetadata({ metadata: metadata });
+		// Snapshot the asked entries so a refresh that resolves the SAME counts pushes nothing. Every
+		// resolution rewrites the value object (copy-on-write), so a reference compare would always report
+		// a change and re-anchor the webview on every commit/fetch — compare by value instead.
+		const before = new Map(Object.keys(metadata).map(id => [id, this._refsMetadata!.get(id)]));
+
+		void this.enrichRefsMetadata(metadata).then(() => {
+			const current = this._refsMetadata;
+			if (current == null) return;
+
+			for (const [id, value] of before) {
+				if (!areEqual(current.get(id), value)) {
+					this.fireRefsMetadataChanged();
+					return;
+				}
+			}
+		});
 	}
 
-	/** Clear cached issue metadata so the next render re-fetches. Returns true when there was
-	 *  metadata to clear (caller can use this to decide whether to fire a partial IPC refresh). */
-	clearRefsMetadataIssues(): boolean {
-		if (this._refsMetadata == null) return false;
+	/** Clear cached issue metadata and re-anchor the webview so the next render re-requests it. */
+	clearRefsMetadataIssues(): void {
+		if (this._refsMetadata == null) return;
 
+		let cleared = false;
 		for (const [id, value] of this._refsMetadata) {
-			// Skip entries with nothing cached to clear (already pending re-fetch) — avoids allocating and
-			// needlessly bumping their reference into the next delta.
+			// Skip entries with nothing cached to clear (already pending re-fetch) — avoids allocating.
 			if (value?.issue === undefined) continue;
 
-			// Replace the value reference (copy-on-write) rather than mutating in place: the publisher's
-			// refsMetadata delta detects changes by value-reference identity, so an in-place
-			// `value.issue = undefined` would be invisible to the delta and the stale issue would never ship.
+			// Replace the value reference (copy-on-write) rather than mutating in place — every other reader
+			// of an entry assumes its value object is immutable once written.
 			this._refsMetadata.set(id, { ...value, issue: undefined });
+			cleared = true;
 		}
-		return true;
+		if (!cleared) return;
+
+		// The cleared entries ship with `issue` absent, which re-arms the webview's per-id dedup for that
+		// type only — the pills keep their upstream/PR counts.
+		this.fireRefsMetadataChanged();
 	}
 
 	// Whether refsMetadata is populatable at all. Upstream (ahead/behind) is local-git data needing no
@@ -569,22 +624,27 @@ export class GraphProducersService {
 		);
 	}
 
+	/** Wipes the map. PURE — callers pair it with {@link fireRefsMetadataChanged} so the webview
+	 *  re-anchors on the wipe (`null` marks the feature off, which stops it requesting at all). */
 	resetRefsMetadata(): null | undefined {
-		// `null` marks the whole refsMetadata feature off (the webview won't request metadata). The
-		// publisher's refsMetadata cursor self-corrects: `onGetMissingRefMetadata` re-fetches with fresh
-		// value references (copy-on-write), so the next delta ships every re-fetched entry regardless of
-		// the stale cursor, and the accompanying `updateState(true)` REPLACES the webview's map.
 		this._refsMetadata = this.isRefsMetadataEnabled ? undefined : null;
 		return this._refsMetadata;
+	}
+
+	/** Push the CURRENT complete refsMetadata map as an authoritative REPLACE. RESET-CLASS ONLY — a repo
+	 *  swap, a feature toggle, an integration flip, a cache clear. Incremental enrichment never rides this:
+	 *  it returns from {@link getMissingRefsMetadata}. */
+	fireRefsMetadataChanged(): void {
+		this.context.fireRefsMetadataChanged(this.serializeRefsMetadata());
 	}
 
 	/**
 	 * Publish a hosting/issue integration connect/disconnect WITHOUT blanking upstream stats. A wholesale
 	 * `resetRefsMetadata()` wipe shipped an authoritative empty REPLACE that blanked every pill's ahead/behind
 	 * (local-git data the integration flip never touches) until it re-fetched. Instead STRIP only the
-	 * integration-owned `drop` types (copy-on-write, preserving `upstream`) and REPLACE the webview's map over
-	 * the sequenced channel with `refsMetadataReset` — pills keep their counts, and the reset re-arms the
-	 * webview's per-id request dedup so it re-requests just the dropped types for visible rows. Falls back to
+	 * integration-owned `drop` types (copy-on-write, preserving `upstream`) and REPLACE the webview's map with
+	 * a reset event — pills keep their counts, and the reset re-arms the webview's per-id request dedup so it
+	 * re-requests just the dropped types for visible rows. Falls back to
 	 * the full `resetRefsMetadata()` wipe only when the flip leaves the feature genuinely off, or when there's
 	 * nothing populated to preserve.
 	 */
@@ -596,64 +656,53 @@ export class GraphProducersService {
 			this.resetRefsMetadata();
 		}
 
-		// REPLACE the webview's refsMetadata map (the reset-anchor) over the sequenced channel — same authoritative
-		// path the old wipe used, but with an upstream-preserving payload the reducer REPLACEs (counts intact).
-		// The reset flag also bumps the webview's request-dedup token so the dropped types re-request.
-		this._graphSync.markRefsMetadataReset();
-		void this._graphSync.flush();
+		// REPLACE the webview's refsMetadata map — same authoritative path the old wipe used, but with an
+		// upstream-preserving payload (counts intact). The reset also bumps the webview's request-dedup
+		// token so the dropped types re-request.
+		this.fireRefsMetadataChanged();
 		this.context.updateState(true);
 	}
 
-	// Read-only FULL snapshot of refsMetadata for the full-state push. That push is a reset-anchor (prior
-	// dedicated deltas are pruned on replay), so it must carry the COMPLETE map, never a delta. Returns `null`
-	// when the feature is off, else a concrete Record (`{}` when empty — NEVER `undefined`) so the webview's
-	// full-state REPLACE is unambiguous: `{}` after a reset clears the map (e.g. repo swap), a populated map
-	// re-syncs wholesale, and there's no "absent field" that would silently preserve stale entries. Pure: it
-	// does NOT mutate `_refsMetadata` or the delta watermark (decoupling production from the push lifecycle —
-	// the root-cause fix; getState() used to reset on every push, blanking the webview's accumulated counts).
+	// Read-only FULL snapshot of refsMetadata — the reset event's payload and the bootstrap State's seed.
+	// Returns `null` when the feature is off, else a concrete Record (`{}` when empty — NEVER `undefined`)
+	// so the webview's REPLACE is unambiguous: `{}` clears the map (e.g. repo swap), a populated map
+	// re-syncs wholesale, and there's no "absent field" that would silently preserve stale entries. Pure:
+	// it does NOT mutate `_refsMetadata`.
 	serializeRefsMetadata(): GraphRefsMetadata | null {
 		if (!this.isRefsMetadataEnabled) return null;
 		return this._refsMetadata == null ? {} : Object.fromEntries(this._refsMetadata);
 	}
 
 	/** Replay ref-metadata requests buffered during a rebuild window, fired by the controller's `setGraph`
-	 *  once a graph lands. The graph exists now, so `onGetMissingRefMetadata` can fetch. RepoPath-gated so a
+	 *  once a graph lands. The graph exists now, so the enrichment can run — one merged fetch for the whole
+	 *  buffer, then each waiter's own promise settles with exactly the ids IT asked for. RepoPath-gated so a
 	 *  buffer captured for the prior repo can't satisfy against this graph. */
 	replayPendingRefMetadataForGraph(graph: GitGraph): void {
-		if (this._pendingRefMetadataRequests != null && this._pendingRefMetadataRepoPath === graph.repoPath) {
-			const pending = this._pendingRefMetadataRequests;
-			this._pendingRefMetadataRequests = undefined;
-			this._pendingRefMetadataRepoPath = undefined;
-			void this.onGetMissingRefMetadata({ metadata: pending });
-		}
-	}
+		const pending = this._pendingRefMetadataRequests;
+		if (pending == null || this._pendingRefMetadataRepoPath !== graph.repoPath) return;
 
-	@trace()
-	private updateRefsMetadata(immediate: boolean = false) {
-		if (immediate) {
-			this.notifyDidChangeRefsMetadata();
-			return;
+		this._pendingRefMetadataRequests = undefined;
+		this._pendingRefMetadataRepoPath = undefined;
+
+		const merged: GraphMissingRefsMetadata = {};
+		for (const { metadata } of pending) {
+			for (const [id, types] of Object.entries(metadata)) {
+				merged[id] = merged[id] != null ? [...new Set([...merged[id], ...types])] : types;
+			}
 		}
 
-		// `maxWait` matters because the caller invokes this once per resolved ref: with a bounded worker
-		// pool over many refs, resolutions arrive in a steady stream that keeps rescheduling a trailing-only
-		// debounce, so badges would stay empty for the whole burst and then appear at once. The ceiling
-		// turns that into periodic partial publishes, which is what the incremental delta channel is for.
-		this._notifyDidChangeRefsMetadataDebounced ??= debounce(this.notifyDidChangeRefsMetadata.bind(this), 100, {
-			maxWait: 500,
-		});
-		this._notifyDidChangeRefsMetadataDebounced();
-	}
-
-	@trace()
-	private notifyDidChangeRefsMetadata() {
-		// Incremental enrichment path: the publisher ships the value-reference delta of changed entries
-		// (copy-on-write in `onGetMissingRefMetadata` makes the compare exact), and `null` (feature off)
-		// as an authoritative reset the webview replaces on. The feature-toggle/integration RESET flows
-		// (enable/wipe) route through `updateState(true)` instead — the full-state push REPLACES
-		// refsMetadata, which the delta channel's spread-merge can't express for a same-enabled wipe.
-		this._graphSync.mark('refsMetadata');
-		void this._graphSync.flush();
+		void this.enrichRefsMetadata(merged).then(
+			() => {
+				for (const { metadata, deferred } of pending) {
+					deferred.fulfill(this.pickRefsMetadata(metadata));
+				}
+			},
+			() => {
+				for (const { deferred } of pending) {
+					deferred.fulfill({});
+				}
+			},
+		);
 	}
 
 	getEnabledRefMetadataTypes(): GraphRefMetadataType[] {

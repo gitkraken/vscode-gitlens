@@ -14,6 +14,13 @@
  * - All other types (`call`, `return`, `release`, `resolve`, `reject`, `throw`):
  *   FIFO queue — each is a unique logical operation.
  *
+ * Exception: `st:ch:*` wireTypes (Supertalk's SequencedChannel) are handler
+ * messages but ride the FIFO queue, not the handler map. A channel is an
+ * ordered, counted stream — including replay-request/response pairs used to
+ * heal gaps — so last-write-wins would silently collapse the sequence down to
+ * one message and desync the receiver's expected `seq`. Dedup is only valid
+ * for last-wins snapshot events (signals, abort), not sequenced streams.
+ *
  * On visibility restore, the FIFO queue flushes first (preserving order), then
  * the deduped handler map values. This ensures RPC responses arrive before the
  * signal/event catch-up burst.
@@ -44,6 +51,9 @@ export interface BufferedEndpoint extends Endpoint, Disposable {
 /** Depth at which the hidden-side FIFO is reported as suspicious (see {@link bufferMessage}). */
 const fifoWarnThreshold = 500;
 
+/** Wire-type prefix for Supertalk's SequencedChannel — see the dedup exception above. */
+const sequencedChannelWireTypePrefix = 'st:ch:';
+
 /**
  * Creates a Supertalk-compatible Endpoint from a VS Code Webview.
  *
@@ -72,10 +82,15 @@ export function createHostEndpoint(webview: Webview): BufferedEndpoint {
 
 	/**
 	 * Buffer a single Supertalk message (not a batch wrapper).
-	 * Handler messages are deduped by wireType; everything else is queued FIFO.
+	 * Handler messages are deduped by wireType, except `st:ch:*` (SequencedChannel)
+	 * messages, which need FIFO ordering to preserve the channel's sequence.
 	 */
 	function bufferMessage(msg: TypedMessage): void {
-		if (msg.type === 'handler' && msg.wireType != null) {
+		if (
+			msg.type === 'handler' &&
+			msg.wireType != null &&
+			!msg.wireType.startsWith(sequencedChannelWireTypePrefix)
+		) {
 			handlerMap.set(msg.wireType, msg);
 		} else {
 			// Deliberately uncapped: unlike the deduped handler map, every entry here is a distinct logical

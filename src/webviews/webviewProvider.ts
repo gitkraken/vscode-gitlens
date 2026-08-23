@@ -1,3 +1,4 @@
+import type { Handler } from '@eamodio/supertalk';
 import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
 import type { GlWebviewCommands } from '../constants.commands.js';
 import type {
@@ -90,6 +91,14 @@ export interface WebviewProvider<
 	 * ```
 	 */
 	getRpcServices?(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): object;
+
+	/**
+	 * Returns additional Supertalk handlers to register on the RPC connection, beyond
+	 * the defaults `RpcHost` always includes (Date/Map/Set/RegExp, SignalHandler,
+	 * GlAbortSignalHandler). Use this for provider-specific handlers such as a
+	 * `SequencedChannel` for a streamed surface (e.g. the Graph rows channel).
+	 */
+	getRpcHandlers?(): Handler[];
 }
 
 export interface WebviewStateProvier<

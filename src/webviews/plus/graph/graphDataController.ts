@@ -17,23 +17,13 @@ import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import { toGraphSearchResultsError } from './graphSearchService.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
 import { DidChangeNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
-import type {
-	BranchState,
-	CancelLoadRowCommand,
-	GetMoreRowsCommand,
-	GraphSearchResultsError,
-	GraphSelectedRows,
-	GraphSyncResyncCommand,
-	LoadRowRequest,
-	State,
-} from './protocol.js';
+import type { BranchState, DidLoadRowParams, GraphSearchResultsError, GraphSelectedRows, State } from './protocol.js';
 
 /** Collaborator surface {@link GraphDataController} reaches for, assembled by
  *  `GraphWebviewProvider.createGraphDataContext()`. The controller now OWNS the data-plane state (graph
@@ -93,7 +83,7 @@ export type GraphPendingRowsQuery = {
 };
 
 /** Host-side graph data plane, split out of `GraphWebviewProvider` (R3). Owns the session-lifecycle
- *  logic (setGraph / paging / rebuild anchor), the rows-plane publisher marks, the avatars channel, and
+ *  logic (setGraph / paging / rebuild anchor), the rows-plane publisher marks, and
  *  the concurrency-sensitive state-notify coalescer (refresh×paging serialization, session-identity
  *  guards, pending-query cancellation). It also OWNS the data-plane state (session/window, loading, session
  *  store, page-in, rows-stats override, coalescer) and injects the remaining collaborators via
@@ -118,7 +108,6 @@ export class GraphDataController {
 		() => void this.notifyDidChangeState(),
 	);
 	private _notifyDidChangeStateDebounced: Deferrable<GraphDataController['notifyDidChangeState']> | undefined;
-	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphDataController['notifyDidChangeAvatars']> | undefined;
 
 	constructor(private readonly context: GraphDataControllerContext) {}
 
@@ -179,10 +168,9 @@ export class GraphDataController {
 	 *  graph session. Called wherever new rows land (rebuild via `setGraph(data)`, page-append). The publisher
 	 *  decides REPLACE-vs-append per its `getPaging()` at flush time.
 	 *
-	 *  With `changed` (a refresh reporting exactly which channels it touched) only those channels are marked —
-	 *  `refsMetadata` is intentionally NOT among them: the session doesn't produce it, and its real changes are
-	 *  marked by the host's own enrichment path (`invalidateUpstreamRefsMetadata`/`onGetMissingRefMetadata` →
-	 *  `updateRefsMetadata`), so marking it here would only trigger a redundant reference-scan of the map.
+	 *  Avatars and refsMetadata are NOT rows-plane channels: both are request/response services the app drives
+	 *  (`GraphAvatarsService` / `GraphRefsMetadataService`), so a walk that resolves new avatars needs no mark —
+	 *  the component asks for the emails it lacks and gets them back.
 	 *  Without `changed` (page-append / initial walk / reuse) every channel is marked — the page/initial cases
 	 *  genuinely touch most channels, and reuse is a harmless over-approximation (unchanged channels ship
 	 *  nothing). */
@@ -191,9 +179,7 @@ export class GraphDataController {
 			this._graphSync.mark('rows');
 			this._graphSync.mark('reachability');
 			this._graphSync.mark('rowsStats');
-			this._graphSync.mark('avatars');
 			this._graphSync.mark('downstreams');
-			this._graphSync.mark('refsMetadata');
 			return;
 		}
 
@@ -208,9 +194,6 @@ export class GraphDataController {
 				this._graphSync.invalidateRowsStats();
 			}
 			this._graphSync.mark('rowsStats');
-		}
-		if (changed.avatars) {
-			this._graphSync.mark('avatars');
 		}
 		if (changed.downstreams) {
 			this._graphSync.mark('downstreams');
@@ -229,28 +212,6 @@ export class GraphDataController {
 
 		this._notifyDidChangeStateDebounced ??= debounce(this.notifyDidChangeState.bind(this), 250);
 		void this._notifyDidChangeStateDebounced();
-	}
-
-	@trace()
-	updateAvatars(immediate: boolean = false): void {
-		if (immediate) {
-			this.notifyDidChangeAvatars();
-			return;
-		}
-
-		this._notifyDidChangeAvatarsDebounced ??= debounce(this.notifyDidChangeAvatars.bind(this), 100);
-		this._notifyDidChangeAvatarsDebounced();
-	}
-
-	@trace()
-	private notifyDidChangeAvatars(): void {
-		if (this._graphSession == null) return;
-
-		// The publisher owns the avatars channel (size-watermark delta). New avatars grow the Map, so a
-		// mark ships them; the proxy replaces values without changing size, which `onProxyAvatars` handles
-		// via `invalidateAvatars()`.
-		this._graphSync.mark('avatars');
-		void this._graphSync.flush();
 	}
 
 	/**
@@ -349,10 +310,9 @@ export class GraphDataController {
 			// Host-internal — never goes over the wire (see `State.branchStateRevision`).
 			state.branchStateRevision = undefined;
 
-			// `getState` already produced the rows-plane fields in the "skipRows" shape (rows/
-			// reachability/avatars/downstreams/rowsStats/paging = undefined; refsMetadata = the
-			// authoritative full map). Rows always ship via the publisher's channel now, so this is a
-			// plain full-state push — no per-field fingerprint, splice, or reachability delta here.
+			// `getState` already produced the rows-plane fields in the "skipRows" shape (all undefined —
+			// `refsMetadata` included, it's bootstrap-only now). Rows always ship via the publisher's
+			// channel now, so this is a plain full-state push — no per-field fingerprint, splice, or reachability delta here.
 			const result = await this.host.notify(DidChangeNotification, { state: state });
 
 			this._lastStateSentAt = performance.now();
@@ -463,9 +423,9 @@ export class GraphDataController {
 			});
 			this.context.notifyDidChangeOverview();
 
-			// Replay metadata requests buffered during the rebuild window — the graph exists now, so
-			// onGetMissingRefMetadata can fetch. RepoPath-gated so a buffer captured for the prior repo can't
-			// satisfy against this graph.
+			// Replay metadata requests buffered during the rebuild window — the graph exists now, so the
+			// enrichment can run and settle each waiting request. RepoPath-gated so a buffer captured for
+			// the prior repo can't satisfy against this graph.
 			this.context.replayPendingRefMetadataForGraph(graph);
 		}
 	}
@@ -665,15 +625,20 @@ export class GraphDataController {
 		return this._graphSession?.current.ids.has(id) ?? false;
 	}
 
-	async onGetMoreRows(
-		params: IpcParams<typeof GetMoreRowsCommand>,
-		sendSelectedRows: boolean = false,
-	): Promise<void> {
-		// Nothing to page from — including no session at all, which a repo swap mid-flight leaves behind. The
-		// client sets its `loading` lock before sending and clears it only on a rows push, so returning
-		// silently here wedges the lock and with it EVERY later page request; refresh instead, whose
-		// full-state push carries `loading: false`. (A carrier can't serve this: the publisher builds one from
-		// the session, and there isn't one.)
+	/**
+	 * Pages more rows in and resolves only AFTER the rows emission has been posted to the webview.
+	 *
+	 * The resolution contract is what lets the client hold its `loading` lock in a `finally` instead of
+	 * waiting for a rows push that a no-op page never produces: the publisher's `notify` awaits the
+	 * `postMessage` round-trip, and the RPC return rides the SAME webview channel afterwards, so the rows
+	 * are already delivered by the time the caller's `await` resolves.
+	 */
+	@trace()
+	async onGetMoreRows(id?: string, limit?: number, sendSelectedRows: boolean = false): Promise<void> {
+		// Nothing to page from — including no session at all, which a repo swap mid-flight leaves behind.
+		// Refresh instead: an etag mismatch means the repo moved on since this graph was walked, so the
+		// re-walk `getState` runs is the answer to the page request, and its full-state push re-seeds the
+		// webview. Returning here still settles the caller (the promise resolves), so no lock is wedged.
 		if (
 			this._graphSession?.current.paging == null ||
 			this._graphSession.current.more == null ||
@@ -691,73 +656,78 @@ export class GraphDataController {
 		// separately over its own RPC event (`publishSearchState`/`notifySearchError`), not the sync flush.
 		this._graphSync.hold();
 		try {
-			await this.updateGraphWithMoreRows(params.id, this._search, params.limit);
+			await this.updateGraphWithMoreRows(id, this._search, limit);
 		} catch (ex) {
-			// A genuine page-in failure (e.g. a corrupt object) must still ship a rows notification below so
-			// the webview's `loading` flag (reset only by a rows push) doesn't wedge forever. Cancellation
-			// already resolves (the query's inner catch swallows it), so it never lands here.
+			// A genuine page-in failure (e.g. a corrupt object) is swallowed so the caller still settles;
+			// cancellation already resolves (the query's inner catch swallows it), so it never lands here.
 			Logger.error(ex, 'GraphDataController', 'onGetMoreRows');
 		} finally {
-			// Guarantee the push below actually ships: a page that adds nothing (superseded walk, or a failure
-			// above) marks no channel, and with no search rider `attachRiders` leaves nothing pending either, so
-			// `flush` early-returns on an empty dirty set — wedging the client's `loading` lock, which only a
-			// rows push clears, forever. A CARRIER, not `mark('rows')` — see `markCarrier` for why re-shipping
-			// rows here would restart the very prefetch this response is answering.
-			this._graphSync.markCarrier();
-			// Notify BEFORE release so a failed page still ships an (empty-delta) rows push that resets client loading.
+			// Attach the riders BEFORE release so they travel with the emission release drives.
 			this.notifyDidChangeRows(sendSelectedRows);
 			this._graphSync.release();
 		}
+
+		// Await the emission `release` just drove. Single-flight, so this joins the in-flight flush rather
+		// than adding one; it no-ops (resolving immediately) when the page added nothing, when the webview
+		// is hidden, or when an outer `hold` — a concurrent page that superseded this one — still stands.
+		await this._graphSync.flush();
 	}
 
-	onSyncResync(params: IpcParams<typeof GraphSyncResyncCommand>): void {
-		// The publisher's single recovery request: a seq gap, splice-guard mismatch, or the post-bootstrap
-		// sync-hello. No-ops when the reported baseline is already reconciled; else re-ships a snapshot.
-		// A genuine divergence (a previously-in-sync webview lost a message) is warn-worthy — storms/soaks
-		// assert zero of these in steady state.
-		const outcome = this._graphSync.onResyncRequest(params.generation, params.seq);
-		if (outcome === 'diverged') {
-			Logger.warn(
-				`GraphSyncPublisher: webview diverged (reported gen=${params.generation}, seq=${params.seq}; publisher gen=${this._graphSync.generation}, seq=${this._graphSync.seq}); re-shipping snapshot`,
-			);
-		}
+	/** `GraphRowsService.resyncRows` — the rows plane's ONE recovery path. The webview calls it when the
+	 *  channel reports a gap it could not heal, or when a splice guard failed; both mean its mirror
+	 *  diverged. Warn-worthy: storms/soaks assert zero of these in steady state. */
+	resyncRows(): Promise<void> {
+		Logger.warn('GraphSyncPublisher: webview requested a rows resync (gap or splice-guard mismatch)');
+		return this._graphSync.resync();
 	}
 
-	/** Cancels the walk started by {@link onLoadRowRequest} for `id`, if it is still the pending query.
-	 *  Deliberately does NOT clear `_pendingRowsQuery`: two walks share one paging closure, so the next
-	 *  caller still has to await this one's wind-down (see `updateGraphWithMoreRows`). */
-	onCancelLoadRow(params: IpcParams<typeof CancelLoadRowCommand>): void {
-		const pending = this._pendingRowsQuery;
-		if (pending == null || pending.id !== params.id) return;
-
-		pending.cancellable.cancel();
-	}
-
-	async onLoadRowRequest(params: IpcParams<typeof LoadRowRequest>): Promise<IpcResponse<typeof LoadRowRequest>> {
+	/**
+	 * Targeted, UNCAPPED row load. Never rejects for a domain reason — every miss comes back as a settled
+	 * {@link DidLoadRowParams} so the webview can name why the jump didn't land.
+	 *
+	 * `signal` withdraws the walk: the host's load is uncapped, so a navigation that is superseded, times
+	 * out, or is aborted has to say so or a repository-wide walk keeps running for a row nobody awaits.
+	 */
+	@trace()
+	async loadRow(id: string, signal?: AbortSignal): Promise<DidLoadRowParams> {
 		if (this._graphSession == null) return { id: undefined, reason: 'notFound' };
 		// WIP rows are synthesized client-side and have no commit behind them, so there is nothing to
 		// load and `updateGraphWithMoreRows` below runs UNCAPPED for the id. The webview guards its own
 		// callers, but this is the boundary that has to hold — search seeds WIP row ids into its results
 		// (`graphSearchService`), and the header's ensure-a-search-result path forwards any id it gets.
-		if (isWipRowId(params.id)) return { id: undefined, reason: 'notFound' };
+		if (isWipRowId(id)) return { id: undefined, reason: 'notFound' };
+		// Born aborted (the caller gave up before the call was dispatched, or the signal arrived aborted
+		// from wire deserialization) — an `abort` listener would never fire, so never start the walk.
+		if (signal?.aborted) return { id: undefined, reason: 'notFound' };
 
 		const repoPath = this._graphSession.repoPath;
 
+		// Cancels the walk this call started, but ONLY while it is still the pending query for this id —
+		// a superseding caller owns the entry by then, and cancelling that would abort someone else's page.
+		// Deliberately does NOT clear `_pendingRowsQuery`: two walks share one paging closure, so the next
+		// caller still has to await this one's wind-down (see `updateGraphWithMoreRows`).
+		const onAbort = (): void => {
+			const pending = this._pendingRowsQuery;
+			if (pending == null || pending.id !== id) return;
+
+			pending.cancellable.cancel();
+		};
+		signal?.addEventListener('abort', onAbort, { once: true });
+
 		try {
-			if (this._graphSession.current.ids.has(params.id)) {
+			if (this._graphSession.current.ids.has(id)) {
 				// The webview only asks for a row it cannot resolve locally. If the host already has it,
 				// the planes have diverged (for example after a lost rows notification); re-ship the
 				// authoritative snapshot so navigation can recover instead of waiting for a row that the
 				// host would otherwise consider already delivered.
 				this._graphSync.requireSnapshot();
 				await this._graphSync.flush();
-				return { id: params.id };
+				return { id: id };
 			}
 
 			// Not present — page it in. Hold the publisher across the page-in AND its notify (mirrors
-			// onGetMoreRows) so a reveal's flush can't silently no-op against a concurrent hold; a rows push
-			// always ships (finally) so a failed page still resets the client loading flag.
-			let id: string | undefined;
+			// onGetMoreRows) so a reveal's flush can't silently no-op against a concurrent hold.
+			let loadedId: string | undefined;
 			this._graphSync.hold();
 			try {
 				// Targeted, UNCAPPED load: `more(0, id)` walks until the SHA is found with no
@@ -768,32 +738,38 @@ export class GraphDataController {
 				// (`hasMore` goes false). That cap (added in 0ffbf5d for the scope-anchor pagination
 				// path) caught this select-a-row path collaterally — `limit=0` restores the pre-cap
 				// "find the SHA then select it" behavior for the explicit-target case.
-				await this.updateGraphWithMoreRows(params.id, this._search, 0);
-				if (this._graphSession?.current.ids.has(params.id)) {
-					id = params.id;
+				await this.updateGraphWithMoreRows(id, this._search, 0);
+				if (this._graphSession?.current.ids.has(id)) {
+					loadedId = id;
 				}
 			} catch (ex) {
-				// A genuine page-in failure must still ship the rows push below (finally) so client loading
-				// resets. Cancellation already resolves (the query's inner catch swallows it).
-				Logger.error(ex, 'GraphDataController', 'onLoadRowRequest');
+				// A genuine page-in failure still settles this call. Cancellation already resolves (the
+				// query's inner catch swallows it).
+				Logger.error(ex, 'GraphDataController', 'loadRow');
 			} finally {
-				// New rows were loaded (heavy: rows + avatars + downstreams + rowsStats + refsMetadata).
+				// New rows were loaded (heavy: rows + downstreams + rowsStats + reachability).
 				// Selection is deliberately client-owned and latest-wins; this request only makes the row
-				// available. Notify before release so an empty delta still settles client paging state.
+				// available. Notify before release so the riders travel with the emission release drives.
 				this.notifyDidChangeRows();
 				this._graphSync.release();
 			}
 
-			if (id != null) return { id: id };
+			// Same contract as `onGetMoreRows`: answer only once the rows emission has been posted, so the
+			// app's deferred select intent has the row in hand by the time this resolves.
+			await this._graphSync.flush();
 
-			return { id: undefined, reason: await this.classifyLoadRowFailure(repoPath, params.id) };
+			if (loadedId != null) return { id: loadedId };
+
+			return { id: undefined, reason: await this.classifyLoadRowFailure(repoPath, id) };
 		} catch (ex) {
-			Logger.error(ex, 'GraphDataController', 'onLoadRowRequest');
+			Logger.error(ex, 'GraphDataController', 'loadRow');
 			return { id: undefined, error: ex instanceof Error ? ex.message : String(ex) };
+		} finally {
+			signal?.removeEventListener('abort', onAbort);
 		}
 	}
 
-	/** Classifies why a targeted {@link onLoadRowRequest} walk failed to find `id`, so the webview can
+	/** Classifies why a targeted {@link loadRow} walk failed to find `id`, so the webview can
 	 *  tell the user why the jump didn't land instead of failing silently. Distinguishes a commit that
 	 *  genuinely doesn't exist from one that exists but is unreachable because the graph only walks
 	 *  first-parent history (`gitlens.graph.onlyFollowFirstParent`) — an unreachable-but-existing commit
@@ -861,9 +837,8 @@ export class GraphDataController {
 		}
 	}
 
-	/** Cancel the state/avatars debounced notifiers (dispose) so a trailing fire can't hit a torn-down host. */
+	/** Cancel the debounced state notifier (dispose) so a trailing fire can't hit a torn-down host. */
 	cancelDebouncedNotifiers(): void {
-		this._notifyDidChangeAvatarsDebounced?.cancel();
 		this._notifyDidChangeStateDebounced?.cancel();
 	}
 

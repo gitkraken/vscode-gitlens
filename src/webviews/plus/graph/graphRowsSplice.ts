@@ -79,7 +79,7 @@ export function buildRowsLedger(rows: readonly GitGraphRow[]): SentRowsLedger {
 }
 
 /**
- * Mirrors the webview reducer's paging concatenation (`DidChangeRowsNotification` with a
+ * Mirrors the webview reducer's paging concatenation (a `GraphRowsPayload` with a
  * `startingCursor`): keep the ledger up to and including the cursor row (trimming anything below it,
  * exactly like the reducer trims), then append the page. A cursor missing from the ledger appends
  * after the full ledger — the same fallthrough the reducer has. The cursor-trim rule here MUST stay in

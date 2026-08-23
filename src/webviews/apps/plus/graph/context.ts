@@ -8,6 +8,7 @@ import type { GraphSearchState } from '../../../plus/graph/graphService.js';
 import type {
 	GetOverviewWipResponse,
 	GraphColumnName,
+	GraphRefsMetadata,
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -77,17 +78,21 @@ export interface AppState extends State {
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
 	/**
-	 * Webview-only monotonic counter bumped whenever the host ships an authoritative refsMetadata REPLACE
-	 * (`refsMetadataReset`). An integration-flip STRIP preserves a non-empty upstream map, so the graph
-	 * component can't detect the reset by emptiness — it watches this token instead to re-arm its per-id
-	 * request dedup and re-request the dropped (PR/issue) types for visible rows. Not part of the host wire
-	 * contract (`State`); lives purely in the reducer→component signal path.
+	 * Webview-only monotonic counter bumped whenever the host pushes an authoritative refsMetadata REPLACE
+	 * (`GraphRefsMetadataService.onRefsMetadataChanged`). An integration-flip STRIP preserves a non-empty
+	 * upstream map, so the graph component can't detect the reset by emptiness — it watches this token
+	 * instead to re-arm its per-id request dedup and re-request the dropped (PR/issue) types for visible
+	 * rows. Not part of the host wire contract (`State`).
 	 */
 	refsMetadataResetToken: number;
 
 	/** Evidence-gated Git Health banner state for the selected repo (webview-owned; fetched by
 	 *  gl-graph-health-banner). */
 	gitHealthBanner?: GitHealthBannerState;
+	/** Merges a `GraphAvatarsService` response (resolved or proxied) into {@link avatars}. */
+	applyAvatars(avatars: Record<string, string>): void;
+	/** Merges a `GraphRefsMetadataService.getMissingRefsMetadata` response into {@link refsMetadata}. */
+	applyRefsMetadata(metadata: GraphRefsMetadata): void;
 
 	/**
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph

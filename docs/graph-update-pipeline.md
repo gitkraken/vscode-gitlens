@@ -1,7 +1,7 @@
 # Commit Graph Update Pipeline
 
-How the Commit Graph webview ships and applies incremental updates: what travels over IPC when
-the repository changes, and how the layout engine avoids re-deriving lanes it has already placed.
+How the Commit Graph webview ships and applies incremental updates: what travels over the rows
+channel when the repository changes, and how the layout engine avoids re-deriving lanes it has already placed.
 For the Graph's general architecture see `docs/architecture.md`, and for its keyboard and focus
 model `docs/graph-keyboard.md`. This doc covers the host→webview rows channel and the
 `@gitkraken/commit-graph` engine (`packages/plus/commit-graph/src/engine/`).
@@ -53,14 +53,37 @@ ships full rows instead.
 `lastReusedSha` as guards. On the webview, `GraphStateProvider.applyRowsSplice`
 (`src/webviews/apps/plus/graph/stateProvider.ts`) checks the currently-held row count and the sha
 at both ends of the reused span before applying. If any guard fails, it logs and calls
-`requestResync()`, which sends `GraphSyncResyncCommand` — the host responds by re-shipping a full
-snapshot and the webview's `GraphRowsSyncReceiver` (`src/webviews/apps/plus/graph/graphRowsSyncReceiver.ts`)
-rebases its generation/seq baseline. This should never fire in normal operation; it exists as a
-recovery path for a diverged mirror (e.g. a dropped message).
+`resyncRows()` — the host bumps the channel's generation and re-ships a full snapshot. This should
+never fire in normal operation; it exists as a recovery path for a diverged mirror.
 
-The rows channel itself is a sequenced `{generation, seq}` stream (`GraphSyncPublisher` on the
-host, `GraphRowsSyncReceiver` on the webview) layered under the splice: a seq gap or an
-unrecognized generation also triggers `requestResync()`, independent of the splice guards above.
+## The rows channel: transport owns ordering, the domain owns recovery
+
+Emissions ride a Supertalk `SequencedChannel` named `graph:rows` (`replay: 0`), registered on the
+same RPC connection every other graph service uses — `GraphWebviewProvider.getRpcHandlers()` on the
+host, `RpcController`'s `rpcOptions.handlers` in the app. Because it is the same wire, a rows
+emission and the RPC call or event that follows it are FIFO-ordered against each other; nothing has
+to reason about two independent transports racing.
+
+The channel owns the parts that used to be hand-rolled: it stamps every message `{generation, seq}`,
+delivers strictly in order, and reports a gap it cannot heal exactly once via `onGap`. `replay: 0` is
+deliberate — recovery here is a fresh authoritative snapshot, never a re-send of stale deltas, so
+every gap must surface rather than be papered over.
+
+What stays domain-side is what to send and when to bump the epoch:
+
+- `GraphSyncPublisher.onGraphIdentityChanged()` (repo swap / graph clear) calls `newGeneration()`
+  **before** forcing the snapshot, so the epoch announcement and the new repo's seq 0 travel in that
+  order and stale in-flight deltas from the old repo are invalidated.
+- `GraphRowsService.resyncRows()` is the single recovery entry point: `newGeneration()` +
+  `requireSnapshot()` + flush. The webview calls it from `onGap` and from a failed splice guard.
+- Every fresh iframe (boot, hard refresh, soft reconnect) gets a forced snapshot from
+  `onReady`/`onReconnect`. `RpcHost.expose()` has already cycled the connection by then, so the
+  channel's `disconnect()` bumped the epoch and that snapshot lands as the new session's seq 0 —
+  a fresh receiver adopts it with no gap.
+
+Delivery failure is not observable on the sending side (`send()` is void). That is the point: the
+only two recovery paths — the receiver's gap event and a reconnect — both end in a snapshot that
+reseeds every cursor from scratch, so no cursor skew can survive one.
 
 ## `reachabilitySeed`: why index stability makes the delta possible
 
@@ -215,15 +238,15 @@ visible window instead of the full loaded row count.
 
 ## Summary
 
-| Layer                        | Mechanism                            | File                                                                                                     |
-| ---------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Host → webview transport     | Ledger diff → splice payload         | `src/webviews/plus/graph/graphRowsSplice.ts`                                                             |
-| Host → webview sequencing    | `{generation, seq}` stream + resync  | `src/webviews/plus/graph/graphSyncPublisher.ts`, `src/webviews/apps/plus/graph/graphRowsSyncReceiver.ts` |
-| Webview splice application   | Guarded reconstruction + patch apply | `src/webviews/apps/plus/graph/stateProvider.ts` (`applyRowsSplice`)                                      |
-| Reachability index stability | Seeded, append-only interning        | `packages/git/src/utils/reachability.utils.ts`, `packages/git-cli/src/providers/graph.ts`                |
-| Change classification        | Topology-only comparison             | `packages/plus/commit-graph/src/engine/delta.ts`                                                         |
-| Session orchestration        | Skip / resume / reconcile            | `packages/plus/commit-graph/src/engine/session.ts`                                                       |
-| Layout                       | Deterministic forward scan           | `packages/plus/commit-graph/src/engine/layout.ts`                                                        |
-| Suffix alignment + splice    | Content-then-identity swap           | `packages/plus/commit-graph/src/engine/reconcile.ts`                                                     |
-| Edge carry convergence       | Splice adoption in the edge pass     | `packages/plus/commit-graph/src/engine/edges.ts`                                                         |
-| Adornments                   | Lazy per-visible-row resolution      | `packages/plus/commit-graph/src/engine/adornments.ts`                                                    |
+| Layer                        | Mechanism                            | File                                                                                                    |
+| ---------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Host → webview transport     | Ledger diff → splice payload         | `src/webviews/plus/graph/graphRowsSplice.ts`                                                            |
+| Host → webview sequencing    | `SequencedChannel` (`graph:rows`)    | `@eamodio/supertalk-core/handlers/channel.js`; producer `src/webviews/plus/graph/graphSyncPublisher.ts` |
+| Webview splice application   | Guarded reconstruction + patch apply | `src/webviews/apps/plus/graph/stateProvider.ts` (`applyRowsSplice`)                                     |
+| Reachability index stability | Seeded, append-only interning        | `packages/git/src/utils/reachability.utils.ts`, `packages/git-cli/src/providers/graph.ts`               |
+| Change classification        | Topology-only comparison             | `packages/plus/commit-graph/src/engine/delta.ts`                                                        |
+| Session orchestration        | Skip / resume / reconcile            | `packages/plus/commit-graph/src/engine/session.ts`                                                      |
+| Layout                       | Deterministic forward scan           | `packages/plus/commit-graph/src/engine/layout.ts`                                                       |
+| Suffix alignment + splice    | Content-then-identity swap           | `packages/plus/commit-graph/src/engine/reconcile.ts`                                                    |
+| Edge carry convergence       | Splice adoption in the edge pass     | `packages/plus/commit-graph/src/engine/edges.ts`                                                        |
+| Adornments                   | Lazy per-visible-row resolution      | `packages/plus/commit-graph/src/engine/adornments.ts`                                                   |

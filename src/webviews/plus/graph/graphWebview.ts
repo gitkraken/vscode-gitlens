@@ -1,3 +1,5 @@
+import type { Handler } from '@eamodio/supertalk';
+import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { changesModeOrDefault, isChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
@@ -143,8 +145,6 @@ import {
 	getDetailsFolderCommands,
 	sharedDetailsFolderCommandRoutes,
 } from '../../commitDetails/detailsFolderCommands.js';
-import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
-import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
@@ -214,6 +214,7 @@ import type {
 	GetWipStatsResponse,
 	GraphActionTarget,
 	GraphAutoFetchMode,
+	GraphAvatars,
 	GraphColumnConfig,
 	GraphColumnModeFor,
 	GraphColumnName,
@@ -235,8 +236,10 @@ import type {
 	GraphRef,
 	GraphRefMetadataItem,
 	GraphRefOptData,
+	GraphRefsMetadata,
 	GraphRefType,
 	GraphRepository,
+	GraphRowsPayload,
 	GraphScope,
 	GraphScopeBranch,
 	GraphScopeOrigin,
@@ -254,20 +257,12 @@ import type {
 	VisualizationMode,
 } from './protocol.js';
 import {
-	CancelLoadRowCommand,
 	createWipRowId,
 	DidChangeBranchStateNotification,
 	DidChangeNotification,
 	DidChangeRepoConnectionNotification,
-	DidChangeRowsNotification,
-	GetMissingAvatarsCommand,
-	GetMissingRefsMetadataCommand,
-	GetMoreRowsCommand,
 	getWipRowWorktreePath,
-	GraphSyncResyncCommand,
 	isWipRowId,
-	LoadRowRequest,
-	ProxyAvatarsCommand,
 } from './protocol.js';
 import type { GraphWebviewShowingArgs } from './registration.js';
 
@@ -452,10 +447,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Watermark: counter values up to here have already fired their post-rebuild invalidation. */
 	private _firedSidebarEventSeq = 0;
 
-	// Single writer for the rows-plane channels (rows/reachability/rowsStats/avatars/downstreams/
-	// refsMetadata). Owns the delivery cursors and `{generation, seq}` stamping; its sends go over the
-	// `queueable: false` `DidChangeRowsNotification` so a failed send is recovered ONLY by the publisher's
-	// own snapshot — never double-applied via a controller requeue.
+	// The rows plane's transport: a Supertalk SequencedChannel over the SAME RPC connection every other
+	// graph service uses, so a rows emission and the RPC call that follows it are FIFO-ordered against each
+	// other. `replay: 0` is deliberate — recovery here is the DOMAIN resync (a fresh snapshot), never a
+	// historical replay, so every gap must reach `onGap` instead of being papered over with stale deltas.
+	// Registered on both the initial and reconnect connections via `getRpcHandlers`; per-provider, so two
+	// graph webviews get two independent channels.
+	private readonly _rowsChannel = new SequencedChannel<GraphRowsPayload>('graph:rows', { replay: 0 });
+
+	// Single writer for the rows-plane channels (rows/reachability/rowsStats/downstreams). Owns the
+	// delivery cursors; ordering, gap detection, and generations belong to `_rowsChannel`.
 	private readonly _graphSync: GraphSyncPublisher;
 
 	// The eager Visualizations "stats loading" override now lives on `_data` (GraphDataController); the
@@ -721,14 +722,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	/** Collaborator surface {@link GraphProducersService} reaches for. `getRepository`/`getSession`/
-	 *  `getSync` read live provider state; `updateState` forwards to the data controller; cancellation
-	 *  and the pending-notification queue route through the provider's shared maps, which stay here. */
+	/** Collaborator surface {@link GraphProducersService} reaches for. `getRepository`/`getSession` read
+	 *  live provider state; `updateState` forwards to the data controller; cancellation and the
+	 *  pending-notification queue route through the provider's shared maps, which stay here. */
 	private createGraphProducersContext(): GraphProducersServiceContext {
 		return {
 			...this.createBaseServiceContext(),
-			getSync: () => this._graphSync,
 			updateState: immediate => this._data.updateState(immediate),
+			fireRefsMetadataChanged: metadata =>
+				this._refsMetadataChangedEvent.fire({ metadata: metadata, reset: true }),
 			createBranchStateOnlyCancellation: () => this.createCancellation('branchStateOnly'),
 		};
 	}
@@ -755,7 +757,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this._producers.commitSentBranchState(branchState, revision),
 			buildState: () => this.getState(),
 			clearSearch: () => this._searchService.clear(),
-			resetRefsMetadata: () => void this._producers.resetRefsMetadata(),
+			resetRefsMetadata: () => {
+				// Repo swap / clear: wipe AND re-anchor the webview — nothing else replaces the outgoing
+				// repo's map now that the full-state push no longer carries it.
+				this._producers.resetRefsMetadata();
+				this._producers.fireRefsMetadataChanged();
+			},
 			resetHoverCache: () => this.resetHoverCache(),
 			clearAvatarProxyCaches: () => {
 				this._avatarProxyCache.clear();
@@ -837,25 +844,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	/** Transport surface for the rows-plane publisher — `DidChangeRowsNotification` is `queueable: false`,
-	 *  so a failed send bypasses the controller's pending-notification queue and is recovered only by the
-	 *  publisher's own snapshot (no double-apply). */
+	/** Transport surface for the rows-plane publisher — the `graph:rows` SequencedChannel. `send` is void:
+	 *  the channel stamps `{generation, seq}` and the RECEIVER detects loss, so there is no delivery result
+	 *  to act on here (see `GraphSyncPublisher`'s module header). */
 	private createGraphSyncHost(): GraphSyncHost {
 		return {
 			isReady: () => this.host.ready,
 			isVisible: () => this.host.visible,
-			notify: async params => {
-				const ok = await this.host.notify(DidChangeRowsNotification, params, undefined);
-				if (!ok) {
-					// The publisher recovers with a snapshot on the next trigger; warn so storms/soaks can
-					// assert on delivery health from the persisted log.
-					Logger.warn(
-						`GraphSyncPublisher: rows-plane send failed (gen=${params.sync.generation}, seq=${params.sync.seq}, snapshot=${params.sync.snapshot === true}); will recover via snapshot`,
-					);
-				}
-				return ok;
+			send: params => this._rowsChannel.send(params),
+			newGeneration: () => {
+				this._rowsChannel.newGeneration();
 			},
 		};
+	}
+
+	/** The `graph:rows` channel rides the same RPC connection as every other graph service — registered
+	 *  here so `RpcHost` re-attaches it on reconnect too (its `disconnect()` bumps the epoch, which is what
+	 *  makes a fresh iframe's first emission a gen-fresh seq 0). */
+	getRpcHandlers(): Handler[] {
+		return [this._rowsChannel];
 	}
 
 	/** Read-only view onto the graph session/`_refsMetadata` for the publisher — mirrors exactly what the
@@ -867,7 +874,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// `current.rows` pagination leaves behind. The session's window is a mutable array under the hood
 			// (never frozen); the publisher only reads it.
 			getSnapshotRows: () => this._data.session?.window as GitGraphRow[] | undefined,
-			getAvatars: () => this._data.session?.current.avatars,
 			getDownstreams: () => this._data.session?.current.downstreams,
 			getRowsStats: () => this._data.session?.current.rowsStats,
 			isRowsStatsLoading: () =>
@@ -881,17 +887,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const paging = this._data.session?.current.paging;
 				return paging != null ? { startingCursor: paging.startingCursor, hasMore: paging.hasMore } : undefined;
 			},
-			getRefsMetadata: () => this._producers.refsMetadata,
-			isRefsMetadataEnabled: () => this._producers.isRefsMetadataEnabled,
 		};
 	}
 
-	/** Flush any pending rows-plane state to the webview (delivers marks accumulated while hidden/not-ready,
-	 *  or recovers a previously-broken send with a snapshot). Records the connection-ready seq watermark
-	 *  first so the webview's post-bootstrap sync-hello can be satisfied by this connection's emissions
-	 *  instead of forcing a redundant second snapshot of the initial page. */
+	/** A fresh iframe reached ready — first boot, or a hard refresh that replaced the HTML. Either way it
+	 *  holds NO rows plane (the bootstrap `State` carries none), so force a snapshot: `RpcHost.expose`
+	 *  already cycled the channel, so this ships as the new session's seq 0 and the fresh receiver adopts
+	 *  it with no gap. On a first boot the publisher is snapshot-required anyway, so this costs nothing. */
 	onReady(): void {
-		this._graphSync.onConnectionReady();
+		this._graphSync.requireSnapshot();
 		void this._graphSync.flush();
 		// Ready is the other edge a WIP tick can defer on (`runWipRefetch` / `runNotifyDidChangeWorkingTree`),
 		// and unlike hidden it resolves without any visibility or focus transition — so nothing else would
@@ -900,14 +904,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._wip.recoverDeferredSecondaryWip();
 	}
 
-	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap plus the replay buffer — anything
-	 *  the buffer no longer holds (pruned by a State reset, or an expired window) is invisible to it.
-	 *  Re-record the connection watermark so the reconnect's sync-hello can only be satisfied by
-	 *  emissions made from this point on: a hello reporting an older baseline forces a fresh snapshot
-	 *  instead of trusting a possibly-pruned replay. (Within-window reloads pay one redundant snapshot —
-	 *  rare path, correctness over bytes.) */
+	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap, which carries NO rows plane — and
+	 *  rows never rode the replay buffer, so the new iframe holds nothing. Force a snapshot: `RpcHost.expose`
+	 *  already cycled the channel (its `disconnect()` bumped the epoch), so this ships as the new session's
+	 *  seq 0 and the fresh receiver adopts it with no gap. (Within-window reloads pay one redundant
+	 *  snapshot — rare path, correctness over bytes.) */
 	onReconnect(): void {
-		this._graphSync.onConnectionReady();
+		this._graphSync.requireSnapshot();
 		void this._graphSync.flush();
 		// See onReady — a reconnect crosses the same not-ready window.
 		this._wip.flushDeferredWorkingTree();
@@ -1028,6 +1031,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: each payload names the one ref the host gave up on, and only the newest failed jump is
 	// worth surfacing on show. See `GraphSelectionService.onRevealFailed`.
 	private readonly _revealFailedEvent = createRpcEvent<DidFailRevealParams>('revealFailed', 'save-last');
+	// RESET-CLASS ONLY — every payload is a COMPLETE refsMetadata snapshot (`null` = feature off), so
+	// `save-last` is safe: a hidden webview replays the newest one on show and holds exactly what the host
+	// holds. Incremental enrichment never rides this; it returns from `getMissingRefsMetadata`.
+	private readonly _refsMetadataChangedEvent = createRpcEvent<{
+		metadata: GraphRefsMetadata | null;
+		reset: true;
+	}>('refsMetadataChanged', 'save-last');
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -1038,6 +1048,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			access: {
 				getAccess: () => this.getAccessState(),
 				onAccessChanged: this._accessChangedEvent.subscribe(buffer, tracker),
+			},
+			avatars: {
+				getMissingAvatars: emails => this.getMissingAvatars(emails),
+				proxyAvatars: avatars => this.proxyAvatars(avatars),
+			},
+			refsMetadata: {
+				getMissingRefsMetadata: (metadata, signal) => this._producers.getMissingRefsMetadata(metadata, signal),
+				onRefsMetadataChanged: this._refsMetadataChangedEvent.subscribe(buffer, tracker),
 			},
 			columns: {
 				getColumns: () => Promise.resolve(this.getColumnsState()),
@@ -1126,6 +1144,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repoStatus: {
 				getLastFetched: () => this.getRepoStatus(),
 				onDidFetch: this._repoStatusEvent.subscribe(buffer, tracker),
+			},
+			rows: {
+				getMoreRows: (id, limit) => this._data.onGetMoreRows(id, limit),
+				loadRow: (id, signal) => this._data.loadRow(id, signal),
+				resyncRows: () => this._data.resyncRows(),
 			},
 			scope: {
 				resolveScope: (repoPath, scope, signal) => this.resolveGraphScope(repoPath, scope, signal),
@@ -1842,7 +1865,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 				// Flush the rest of the queue rather than letting the rebuild's `reset` drop it. The queue
 				// isn't limited to `_ipcNotificationMap` types that `getState` carries — `notify` re-queues
-				// any `queueable` type whose send failed, and some of those have no state representation at
+				// every notification whose send failed, and some of those have no state representation at
 				// all (scope-anchor invalidation only clears the webview's merge-base cache from its own
 				// handler). Drop the queued full-state push, since the rebuild above supersedes it and
 				// replaying it would join the in-flight state notify and cost a second rebuild.
@@ -1852,8 +1875,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.sendPendingIpcNotifications();
 		}
 
-		// Flush any rows-plane state the publisher accumulated while hidden/not-ready (and recover a
-		// previously-broken send with a snapshot). Nothing is buffered, so nothing was lost.
+		// Flush any rows-plane state the publisher accumulated while hidden/not-ready. Nothing was ever
+		// buffered — the flush gate kept every send off the wire, so the channel consumed no seq and the
+		// receiver sees no gap; this ships one up-to-date delta (or snapshot) for the whole hidden window.
 		if (visible) {
 			void this._graphSync.flush();
 		}
@@ -2272,11 +2296,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// metadata don't needlessly re-fetch and flicker on the toggle.
 		if (configuration.changed(e, 'graph.showUpstreamStatus') && this._producers.refsMetadata == null) {
 			this._producers.resetRefsMetadata();
-			// REPLACE the webview's refsMetadata map (the reset-anchor) over the sequenced channel — a
-			// same-enabled wipe/enable the spread-merge delta can't express. Keep `updateState(true)` too:
-			// the State push carries the map as reset-anchor. Reuses the loaded graph (etag unchanged), no re-walk.
-			this._graphSync.markRefsMetadataReset();
-			void this._graphSync.flush();
+			// REPLACE the webview's refsMetadata map over the reset event — a same-enabled wipe/enable.
+			// Keep `updateState(true)` for the rest of the config-derived state; it reuses the loaded graph
+			// (etag unchanged), so no re-walk.
+			this._producers.fireRefsMetadataChanged();
 			this._data.updateState(true);
 		}
 
@@ -2786,7 +2809,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  panel, and branch overview chips all re-fetch in place. */
 	private refreshAfterPullRequestMerge(): void {
 		this._producers.resetRefsMetadata();
-		this._graphSync.markRefsMetadataReset();
+		this._producers.fireRefsMetadataChanged();
 		this._panels.notifySidebarInvalidated();
 		this._panels.notifyDidChangeOverview();
 		this._data.updateState(true);
@@ -2987,53 +3010,55 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
-	@ipcCommand(CancelLoadRowCommand)
-	private onCancelLoadRow(params: IpcParams<typeof CancelLoadRowCommand>): void {
-		this._data.onCancelLoadRow(params);
-	}
+	/** Resolves avatar URIs for the asked emails and RETURNS them — the session's map is the cache, so an
+	 *  email already in it costs nothing. Nothing is pushed: the app merges the response into its own map. */
+	private async getMissingAvatars(emails: GraphAvatars): Promise<Record<string, string>> {
+		const session = this._data.session;
+		if (session == null) return {};
 
-	@ipcRequest(LoadRowRequest)
-	@trace()
-	private onLoadRowRequest(params: IpcParams<typeof LoadRowRequest>): Promise<IpcResponse<typeof LoadRowRequest>> {
-		return this._data.onLoadRowRequest(params);
-	}
+		const repoPath = session.repoPath;
 
-	@ipcCommand(GetMissingAvatarsCommand)
-	private async onGetMissingAvatars(params: IpcParams<typeof GetMissingAvatarsCommand>) {
-		if (this._data.session == null) return;
-
-		const repoPath = this._data.session.repoPath;
-
-		async function getAvatar(this: GraphWebviewProvider, email: string, id: string) {
+		const getAvatar = async (email: string, id: string): Promise<void> => {
 			const uri = await getAvatarUri(email, { ref: id, repoPath: repoPath });
-			this._data.session!.current.avatars.set(email, uri.toString(true));
-		}
+			session.current.avatars.set(email, uri.toString(true));
+		};
 
 		const promises: Promise<void>[] = [];
 
-		for (const [email, id] of Object.entries(params.emails)) {
-			if (this._data.session.current.avatars.has(email)) continue;
+		for (const [email, id] of Object.entries(emails)) {
+			if (session.current.avatars.has(email)) continue;
 
-			promises.push(getAvatar.call(this, email, id));
+			promises.push(getAvatar(email, id));
 		}
 
 		if (promises.length) {
 			await Promise.allSettled(promises);
-			this._data.updateAvatars();
 		}
+
+		const resolved: Record<string, string> = {};
+		for (const email of Object.keys(emails)) {
+			const url = session.current.avatars.get(email);
+			if (url == null) continue;
+
+			resolved[email] = url;
+		}
+
+		return resolved;
 	}
 
 	private readonly _avatarProxyCache = new DedupedAsyncCache<string, Uri | undefined>();
 	private readonly _avatarProxyFailed = new Set<string>();
 
-	@ipcCommand(ProxyAvatarsCommand)
-	private async onProxyAvatars(params: IpcParams<typeof ProxyAvatarsCommand>) {
-		if (this._data.session == null) return;
+	/** Re-fetches avatars the webview couldn't load (CSP/CORS) as data URIs and RETURNS them. Only the
+	 *  entries that actually proxied come back — the rest keep whatever the app already holds. */
+	private async proxyAvatars(avatars: Record<string, string>): Promise<Record<string, string>> {
+		const session = this._data.session;
+		if (session == null) return {};
 
-		const entries = Object.entries(params.avatars);
-		if (entries.length === 0) return;
+		const entries = Object.entries(avatars);
+		if (entries.length === 0) return {};
 
-		let changed = false;
+		const proxied: Record<string, string> = {};
 		await Promise.allSettled(
 			entries.map(([email, url]) => {
 				if (url.startsWith('data:') || this._avatarProxyFailed.has(url)) return Promise.resolve();
@@ -3044,8 +3069,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (uri != null) {
 							if (this._data.session?.current.avatars.get(email) !== url) return;
 
-							this._data.session.current.avatars.set(email, uri.toString(true));
-							changed = true;
+							const dataUri = uri.toString(true);
+							this._data.session.current.avatars.set(email, dataUri);
+							proxied[email] = dataUri;
 						} else {
 							this._avatarProxyFailed.add(url);
 						}
@@ -3053,40 +3079,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}),
 		);
 
-		if (changed) {
-			// Proxy replaces values for existing keys (same email, new data URI), so the map size doesn't
-			// change. Force the publisher's next avatars emission to ship the full map anyway.
-			this._graphSync.invalidateAvatars();
-			this._data.updateAvatars();
-		}
-	}
-
-	@ipcCommand(GetMissingRefsMetadataCommand)
-	private onGetMissingRefMetadata(params: IpcParams<typeof GetMissingRefsMetadataCommand>): Promise<void> {
-		return this._producers.onGetMissingRefMetadata(params);
-	}
-
-	@ipcCommand(GetMoreRowsCommand)
-	@trace()
-	private onGetMoreRows(
-		params: IpcParams<typeof GetMoreRowsCommand>,
-		sendSelectedRows: boolean = false,
-	): Promise<void> {
-		return this._data.onGetMoreRows(params, sendSelectedRows);
-	}
-
-	@ipcCommand(GraphSyncResyncCommand)
-	@debug()
-	private onSyncResync(params: IpcParams<typeof GraphSyncResyncCommand>): void {
-		this._data.onSyncResync(params);
+		return proxied;
 	}
 
 	/** Pages rows in until a host-initiated reveal/select target `id` is loaded, then ships the selection.
 	 *  Uses `limit: 0` for an UNCAPPED targeted walk: the default page size caps the walk at
 	 *  `pageItemLimit*10` (~2000) and would never reach a commit deeper than that (e.g. "Open in Commit
-	 *  Graph" on an old commit). The IPC scroll/scope-anchor paging keeps the cap — see `onGetMoreRows`. */
+	 *  Graph" on an old commit). The scroll/scope-anchor paging keeps the cap — see `onGetMoreRows`. */
 	private async revealRow(id: string): Promise<void> {
-		await this.onGetMoreRows({ id: id, limit: 0 }, true);
+		await this._data.onGetMoreRows(id, 0, true);
 
 		// The rows push above only ever projects a HIGHLIGHT; the selection push is what drives
 		// `ensureRowVisible` → `navigateToCommit`, so the row also scrolls and adopts the anchor. Re-check
@@ -4892,13 +4893,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			allowed: allowed,
 			trusted: true,
 			allowRepoSwitch: allowRepoSwitch,
-			// Rows-plane fields are owned by the publisher's channel now — they never travel on this State.
-			// The webview keeps whatever the publisher last delivered (the current reducer sees exactly the
-			// old "skipRows" shape); `refsMetadata` stays here as the authoritative full-map reset-anchor
-			// (its wholesale REPLACE can't be expressed by the publisher's spread-merge delta). `sync`
-			// carries the publisher's baseline stamp so R1c can initialize the webview's `{generation, seq}`.
+			// Rows-plane fields are owned by the `graph:rows` channel now — they never travel on this State.
+			// The webview keeps whatever the channel last delivered (the current reducer sees exactly the
+			// old "skipRows" shape).
 			avatars: undefined,
-			refsMetadata: this._producers.serializeRefsMetadata(),
+			// BOOTSTRAP ONLY: a fresh webview needs the feature-off `null` (or the already-resolved map)
+			// before its first request. A live push must ship NOTHING here — `refsMetadata` is owned by
+			// `GraphRefsMetadataService` (request/response + the reset event), and a full-state REPLACE on
+			// every push is exactly the dual-writer clobber this migration removes.
+			refsMetadata: bootstrap ? this._producers.serializeRefsMetadata() : undefined,
 			loading: bootstrap === true,
 			rowsStatsLoading: undefined,
 			rowsStatsIncluded: undefined,
@@ -4906,13 +4909,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			reachabilityTable: undefined,
 			downstreams: undefined,
 			paging: undefined,
-			// The bootstrap delivers NO rows-plane state, so the webview's baseline must start "empty"
-			// (`seq: -1`), never the publisher's current seq — a hard reconnect (fresh HTML) stamping the
-			// live seq would tell an empty webview it already holds everything, and its sync-hello would
-			// no-op, leaving the graph blank until the next rows change tripped the splice guard. With -1
-			// the hello forces a fresh snapshot on hard reconnects, while a first boot's hello is satisfied
-			// by the onReady snapshot (the publisher's this-connection watermark) at no extra cost.
-			sync: { generation: this._graphSync.generation, seq: -1 },
 			columns: columnSettings,
 			config: this.getComponentConfig(),
 			context: {

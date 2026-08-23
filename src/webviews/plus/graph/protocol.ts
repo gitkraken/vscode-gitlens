@@ -47,7 +47,7 @@ import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
 import type { IpcScope } from '../../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
+import { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
 import type { OverviewBranch, OverviewRecentThreshold } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
@@ -542,8 +542,11 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	/** True when the workspace has both public and private repos, so a gated (private) repo can offer
 	 *  switching to a public one. Independent of `allowed` — the gate only surfaces it when shown. */
 	allowRepoSwitch?: boolean;
+	/** App-owned state slot; never travels on a push. Filled by `GraphAvatarsService` responses. */
 	avatars?: GraphAvatars;
 	loading?: boolean;
+	/** BOOTSTRAP-ONLY seed (`null` = feature off, so a fresh webview never requests). Live changes ride
+	 *  `GraphRefsMetadataService` — `getMissingRefsMetadata` responses and `onRefsMetadataChanged` resets. */
 	refsMetadata?: GraphRefsMetadata | null;
 	rows?: GitGraphRow[];
 	rowsStats?: Record<string, GraphRowStats>;
@@ -558,13 +561,6 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	reachabilityTable?: GraphReachabilityTable;
 	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
-	/**
-	 * Rows-plane sync baseline stamp from the publisher (R1). Carried on the bootstrap/full-state push
-	 * so the webview can initialize its `{generation, seq}` baseline for subsequent
-	 * {@link DidChangeRowsNotification} deltas. The rows themselves always travel via the publisher's
-	 * channel, not this `State`. Consumed by R1c; ignored by the current reducer.
-	 */
-	sync?: GraphRowsSyncStamp;
 	columns?: GraphColumnsSettings;
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
@@ -786,7 +782,7 @@ export interface GraphPaging {
 	hasMore: boolean;
 }
 
-/** Rows splice-delta for a rebuild push — see {@link DidChangeRowsParams.rowsSplice}. */
+/** Rows splice-delta for a rebuild push — see {@link GraphRowsPayload.rowsSplice}. */
 export interface GraphRowsSplice {
 	/** Rows above the reused span (the changed region; may be empty). */
 	head: GitGraphRow[];
@@ -965,43 +961,6 @@ export interface MergePullRequestResult {
 	merged: boolean;
 }
 
-export interface GetMissingAvatarsParams {
-	emails: GraphAvatars;
-}
-export const GetMissingAvatarsCommand = new IpcCommand<GetMissingAvatarsParams>(scope, 'avatars/get');
-
-export interface ProxyAvatarsParams {
-	avatars: Record</*email*/ string, /*url*/ string>;
-}
-export const ProxyAvatarsCommand = new IpcCommand<ProxyAvatarsParams>(scope, 'avatars/proxy');
-
-export interface GetMissingRefsMetadataParams {
-	metadata: GraphMissingRefsMetadata;
-}
-export const GetMissingRefsMetadataCommand = new IpcCommand<GetMissingRefsMetadataParams>(scope, 'refs/metadata/get');
-
-export interface GetMoreRowsParams {
-	id?: string;
-	/** Override the host's configured page size (`gitlens.graph.pageItemLimit`) for this single
-	 *  request. Used by the embedded Visual History when the user picks `All time` so we burn
-	 *  through the repo's history in fewer, larger chunks instead of paying per-RPC overhead
-	 *  on the default 200-row page size. Falls back to the host's configured limit when
-	 *  unspecified. */
-	limit?: number;
-}
-export const GetMoreRowsCommand = new IpcCommand<GetMoreRowsParams>(scope, 'rows/get');
-
-export interface GraphSyncResyncParams {
-	/** The generation the webview currently holds (for logging/diagnostics). */
-	generation: number;
-	/** The last seq the webview applied (for logging/diagnostics). */
-	seq: number;
-}
-/** The rows-plane publisher's single recovery request (R1): on a seq gap, guard mismatch, dropped
- *  message, or reconnect (sync-hello), the webview reports its held baseline and the host answers with
- *  a fresh snapshot when the webview is behind (no-ops when already in sync). */
-export const GraphSyncResyncCommand = new IpcCommand<GraphSyncResyncParams>(scope, 'sync/resync');
-
 export type RowAction = RowActionParams['action'];
 
 interface RowActionRowRef {
@@ -1064,9 +1023,8 @@ export interface DidResolveGraphScopeParams {
 	error?: string;
 }
 
-export interface LoadRowParams {
-	id: string;
-}
+/** The settled result of a targeted row load (`GraphRowsService.loadRow`) — it never rejects for a
+ *  domain reason, so every "the jump didn't land" case is expressed here. */
 export interface DidLoadRowParams {
 	id?: string; // `undefined` if the row was not found
 	/** Set when the host couldn't load the row. `id` is undefined alongside. */
@@ -1077,16 +1035,6 @@ export interface DidLoadRowParams {
 	 *  - `invalidRef`: the requested id couldn't resolve to a commit at all. */
 	reason?: 'notFound' | 'firstParent' | 'invalidRef';
 }
-export const LoadRowRequest = new IpcRequest<LoadRowParams, DidLoadRowParams>(scope, 'rows/load');
-
-export interface CancelLoadRowParams {
-	id: string;
-}
-/** Withdraws an in-flight {@link LoadRowRequest}. The host's targeted load runs UNCAPPED, so a
- *  navigation that is superseded, times out, or is aborted must say so — otherwise a repository-wide
- *  walk keeps running for a row nobody is waiting for. Only cancels a query still matching `id`. */
-export const CancelLoadRowCommand = new IpcCommand<CancelLoadRowParams>(scope, 'rows/load/cancel');
-
 export interface DidSearchHistoryGetParams {
 	history: SearchQuery[];
 	/** Set when the store/delete operation failed. `history` reflects the last-known state from
@@ -1453,32 +1401,28 @@ export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBra
 	'branchState/didChange',
 );
 
-export interface DidChangeRowsParams {
+/**
+ * One emission on the `graph:rows` {@link SequencedChannel} — the rows plane's only host→webview
+ * payload. Ordering, gap detection, and generations belong to the channel (`{generation, seq}` in its
+ * `ChannelMeta`); everything domain-shaped lives here.
+ */
+export interface GraphRowsPayload {
 	rows: GitGraphRow[];
 	/**
 	 * Splice-delta alternative for a cursor-less (wholesale REPLACE) push. When present, `rows` is empty
-	 * and the webview reconstructs from the rows it already holds (falling back to a
-	 * {@link GraphSyncResyncCommand} on a guard mismatch). See {@link GraphRowsSplice}.
+	 * and the webview reconstructs from the rows it already holds (falling back to
+	 * `GraphRowsService.resyncRows` on a guard mismatch). See {@link GraphRowsSplice}.
 	 */
 	rowsSplice?: GraphRowsSplice;
-	/** Undefined when the backing `avatars` Map's size hasn't changed since the last notification —
-	 *  the host skips the `Object.fromEntries` cost and the frontend reducer keeps its existing
-	 *  state. Present (full Map) when new avatar entries were added. */
-	avatars: Record<string, string> | undefined;
 	/** Shipped on rows-bearing pushes (rebuild / page-append) and snapshots; ABSENT on enrichment-only
 	 *  ticks (the provider mutates downstream arrays in place, so size-based dedupe would miss
 	 *  array-mutation cases — re-shipping the full map every tick is pure waste). Absent = keep prior;
 	 *  present = wholesale-replace. */
 	downstreams?: Record<string, string[]>;
 	paging?: GraphPaging;
-	refsMetadata?: GraphRefsMetadata | null;
-	/** When true, the payload's `refsMetadata` is an authoritative REPLACE (full map / `null` when off),
-	 *  not a spread-merge delta — a repo-level enable/disable the delta channel can't express. Set by
-	 *  {@link GraphSyncPublisher.markRefsMetadataReset}. */
-	refsMetadataReset?: boolean;
-	/** Delta of `rowsStats` entries added since the last notification. The frontend reducer
+	/** Delta of `rowsStats` entries added since the last emission. The frontend reducer
 	 *  spread-merges into its existing state, so shipping only new keys is sufficient and avoids
-	 *  the N² IPC payload on pagination of big repos. Undefined when no new entries. */
+	 *  the N² payload on pagination of big repos. Undefined when no new entries. */
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
 	rowsStatsIncluded?: boolean;
@@ -1486,28 +1430,12 @@ export interface DidChangeRowsParams {
 	reachabilityTable?: GraphReachabilityTable;
 	selectedRows?: GraphSelectedRows;
 	/**
-	 * Sequencing stamp from the rows-plane publisher (R1). Present once the publisher owns this channel:
-	 * the webview applies a delta iff `generation === current && seq === lastApplied + 1`, drops
-	 * stale-generation messages, and rebases both on a `snapshot`.
+	 * This payload is a full authoritative snapshot (rows-plane reset), not a delta. The channel's
+	 * `{generation, seq}` says WHERE a payload sits in the stream; this says WHAT it is —
+	 * `applyReachabilityTable` and the `rowsStats` REPLACE-vs-merge branch both switch on it.
 	 */
-	sync: GraphRowsSyncStamp;
-}
-export interface GraphRowsSyncStamp {
-	/** Bumps on graph identity change (repo swap / graph clear); stale-generation messages are dropped. */
-	generation: number;
-	/** Monotone per generation; a snapshot rebases the webview's baseline to this value. */
-	seq: number;
-	/** When true this payload is a full authoritative snapshot (rows-plane reset), not a delta. */
 	snapshot?: boolean;
 }
-// `queueable: false` — the rows-plane publisher owns its own recovery (a failed send forces its next
-// flush to a snapshot), so controller requeue would double-apply against that snapshot.
-export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(
-	scope,
-	'rows/didChange',
-	false,
-	false,
-);
 
 /** Payload of `GraphSelectionService.onRevealFailed` — a host-initiated reveal/select (e.g. a deep
  *  link, "Open in Commit Graph", a terminal-link jump) gave up without ever calling `setSelectedRows`.

@@ -1,5 +1,5 @@
 /**
- * Decides which sha to target with `GetMoreRowsCommand` in response to a `scopeanchorsunreachable`
+ * Decides which sha to target with `rows.getMoreRows` in response to a `scopeanchorsunreachable`
  * event from the GK graph component. Returns `undefined` to suppress paging.
  *
  * The library's anchors are typically branchRef/upstreamRef/additionalBranchRefs tips (resolved

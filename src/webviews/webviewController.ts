@@ -289,7 +289,11 @@ export class WebviewController<
 					this._rpcHost = new RpcHost(
 						this.webview,
 						rpcServices,
-						{ webviewId: this.id, webviewInstanceId: this.instanceId },
+						{
+							webviewId: this.id,
+							webviewInstanceId: this.instanceId,
+							handlers: this.provider.getRpcHandlers?.(),
+						},
 						tracker,
 					);
 					Logger.debug(`WebviewController(${this.id}): RPC host created, awaiting connect`);
@@ -1063,11 +1067,7 @@ export class WebviewController<
 			}
 		} else if (notificationType === IpcPromiseSettled) {
 			this._pendingIpcPromiseNotifications.add({ msg: msg, timestamp: Date.now() });
-		} else if (notificationType.queueable !== false) {
-			// `queueable: false` (e.g. the rows-plane channel): the sender owns its own recovery (a failed
-			// send forces its next flush to a snapshot). Type-keyed requeueing here would double-apply — the
-			// controller's replaced notification AND the publisher's snapshot both re-deliver — so skip the
-			// pending queue for these sends. They still enter the replay buffer above on success.
+		} else {
 			this.addPendingIpcNotificationCore(notificationType, msg);
 		}
 		return success;
@@ -1213,7 +1213,7 @@ export class WebviewController<
 	 * supersedes that type's data another way (the Graph's reveal-time full rebuild supersedes the queued
 	 * full-state push, and replaying it would join the in-flight state notify and cost a second rebuild).
 	 * Everything else still has to be sent: the queue also holds types no state push carries, both
-	 * failure-requeued ones (`notify` re-queues any `queueable` type) and provider-queued ones.
+	 * failure-requeued ones (`notify` re-queues every failed notification) and provider-queued ones.
 	 */
 	sendPendingIpcNotifications(except?: IpcNotification<any>): void {
 		// Bail before dropping `except` — discarding it on a call that then flushes nothing would lose it

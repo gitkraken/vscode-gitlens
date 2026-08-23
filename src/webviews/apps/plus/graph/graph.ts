@@ -1,5 +1,6 @@
 import './graph.scss';
 import type { Remote } from '@eamodio/supertalk';
+import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { ContextProvider } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
@@ -11,6 +12,7 @@ import type {
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	GraphRowsPayload,
 	State,
 } from '../../../plus/graph/protocol.js';
 import type { AgentInfo } from '../../../rpc/services/types.js';
@@ -125,8 +127,14 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		initialValue: undefined,
 	});
 
+	// The rows plane's inbound channel. Declared BEFORE `_rpc` so it exists when the controller connects,
+	// and reused across reconnects — the controller closes the old Connection (which disconnects the
+	// channel, clearing its inbound generation) and constructs a new one with this same instance.
+	private readonly _rowsChannel = new SequencedChannel<GraphRowsPayload>('graph:rows', { replay: 0 });
+
 	private _rpc = new RpcController<GraphServices>(this, {
 		onReady: services => this._onRpcReady(services),
+		rpcOptions: { handlers: [this._rowsChannel] },
 	});
 
 	private async _onRpcReady(services: Remote<GraphServices>): Promise<void> {
@@ -443,6 +451,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	protected override createStateProvider(bootstrap: string, ipc: HostIpc): GraphStateProvider {
 		return new GraphStateProvider(this, bootstrap, ipc, this._logger, {
+			rowsChannel: this._rowsChannel,
 			onStateUpdate: partial => {
 				if ('rows' in partial) {
 					this.appElement.resetHover();

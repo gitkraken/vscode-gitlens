@@ -1,4 +1,5 @@
 import type { Remote } from '@eamodio/supertalk';
+import type { ChannelGap, ChannelMeta, SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
@@ -9,8 +10,6 @@ import { appendRowsAtCursor } from '@gitlens/git/utils/graph.utils.js';
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { debounce } from '@gitlens/utils/debounce.js';
-import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import { defer } from '@gitlens/utils/promise.js';
@@ -23,6 +22,8 @@ import type {
 	GraphFiltersService,
 	GraphNavigationService,
 	GraphOverviewService,
+	GraphRefsMetadataService,
+	GraphRowsService,
 	GraphScopeService,
 	GraphSearchState,
 	GraphSelectionService,
@@ -31,6 +32,8 @@ import type {
 	GraphWorktreeEnrichment,
 } from '../../../plus/graph/graphService.js';
 import type {
+	GraphRefsMetadata,
+	GraphRowsPayload,
 	GraphRowsSplice,
 	GraphScope,
 	GraphSearchResults,
@@ -47,8 +50,6 @@ import {
 	DidChangeBranchStateNotification,
 	DidChangeNotification,
 	DidChangeRepoConnectionNotification,
-	DidChangeRowsNotification,
-	GraphSyncResyncCommand,
 	isWipRowId,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
@@ -63,7 +64,6 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
 import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
-import { GraphRowsSyncReceiver } from './graphRowsSyncReceiver.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { hasDirtyCounts } from './utils/wip.utils.js';
 
@@ -306,13 +306,6 @@ function captureLastKnownWorkDirStats(map: State['wipStateById']): void {
 }
 
 export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
-	// Rows-plane sync sequencer (R1c): holds the `{generation, seq}` baseline the webview mirrors from
-	// the publisher's `DidChangeRows` channel plus the resync dedup flag. Seeded ONCE from the bootstrap
-	// `State.sync` stamp in `initializeState`; thereafter advanced ONLY by contiguous deltas / rebased by
-	// snapshots. A mid-session full-State push also carries `sync`, but MUST NOT move the baseline — the
-	// rows channel is the single writer.
-	private readonly _rowsSync = new GraphRowsSyncReceiver();
-
 	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: AppState['activeDay'];
@@ -524,8 +517,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor refsMetadata: State['refsMetadata'];
 
-	// Bumped on every authoritative refsMetadata REPLACE (`refsMetadataReset`) so the graph component can
-	// re-arm its per-id request dedup even when the strip preserves a non-empty (upstream) map.
+	// Bumped on every authoritative refsMetadata REPLACE (`onRefsMetadataChanged`) so the graph component
+	// can re-arm its per-id request dedup even when the strip preserves a non-empty (upstream) map.
 	@signalState(0)
 	accessor refsMetadataResetToken: AppState['refsMetadataResetToken'] = 0;
 
@@ -729,20 +722,45 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Unsubscribes the current `onRevealFailed` listener — reconnect-safe teardown, same pattern as
 	 *  {@link _unsubscribeOverviewChanged}. */
 	private _unsubscribeRevealFailed: (() => void) | undefined;
+	/** The refs-metadata RPC sub-service — held only for its reset-class push (see
+	 *  `GraphRefsMetadataService`). Set by {@link initializeServices}. */
+	private _refsMetadataService: GraphRefsMetadataService | undefined;
+	/** Unsubscribes the current `onRefsMetadataChanged` listener — reconnect-safe teardown, same pattern
+	 *  as {@link _unsubscribeOverviewChanged}. */
+	private _unsubscribeRefsMetadataChanged: (() => void) | undefined;
 	/** Resolved once {@link initializeServices} has assigned {@link _overviewService} and
 	 *  {@link _scopeService} — callers that need either before the RPC handshake completes await this
 	 *  instead of racing it. Same resolve-once-per-lifetime semantics as `SearchActions`' `serviceReady`:
 	 *  re-initializing on reconnect reassigns both services but never re-settles this promise. */
 	private readonly _servicesReady = defer<void>();
+	/** The rows RPC sub-service — held for {@link resyncRows}, the rows plane's only recovery call. Set by
+	 *  {@link initializeServices}. */
+	private _rowsService: GraphRowsService | undefined;
+	/** Unsubscribes this provider's `graph:rows` channel listeners. */
+	private readonly _unsubscribeRowsChannel: (() => void)[] = [];
 
 	constructor(
 		host: ReactiveElementHost,
 		bootstrap: string,
 		ipc: HostIpc,
 		logger: LoggerContext,
-		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
+		private readonly options: {
+			onStateUpdate?: (partial: Partial<State>) => void;
+			/** The app host's `graph:rows` channel — the rows plane's sole inbound path. */
+			rowsChannel: SequencedChannel<GraphRowsPayload>;
+		},
 	) {
 		super(host, bootstrap, ipc, logger);
+
+		// Subscribed in the constructor, not in `initializeState`: the base constructor already fired
+		// `WebviewReadyRequest` (which is what unblocks the host's first emission), and `initializeState`
+		// only resolves a turn later. Both happen in THIS synchronous task, so no emission can interleave
+		// ahead of these listeners — but a subscribe deferred to an await would race the first snapshot,
+		// and a missed delivery still advances the channel's expected seq (silently, no gap event).
+		this._unsubscribeRowsChannel.push(
+			options.rowsChannel.subscribe((params, meta) => this.applyRowsPayload(params, meta)),
+			options.rowsChannel.onGap(gap => this.onRowsGap(gap)),
+		);
 	}
 
 	/**
@@ -790,6 +808,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeSelectionChanged = undefined;
 		this._unsubscribeRevealFailed?.();
 		this._unsubscribeRevealFailed = undefined;
+		this._unsubscribeRefsMetadataChanged?.();
+		this._unsubscribeRefsMetadataChanged = undefined;
 
 		const overview = await services.overview;
 		this._overviewService = overview;
@@ -807,6 +827,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._navigationService = navigation;
 		const selection = await services.selection;
 		this._selectionService = selection;
+		const refsMetadata = await services.refsMetadata;
+		this._refsMetadataService = refsMetadata;
+		this._rowsService = await services.rows;
 		this._servicesReady.fulfill();
 
 		// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>` — must be awaited (see
@@ -955,6 +978,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				);
 			}
 		})) as unknown as (() => void) | undefined;
+		// RESET-CLASS ONLY — the payload is always a COMPLETE snapshot (`null` = feature off), so this
+		// REPLACES rather than merges and bumps the component's request-dedup token. Incremental enrichment
+		// never arrives here; it returns from `getMissingRefsMetadata` (see `graph-wrapper`).
+		const refsMetadataUnsub = (await refsMetadata.onRefsMetadataChanged(data => {
+			this.applyRefsMetadataReset(data.metadata);
+		})) as unknown as (() => void) | undefined;
 		const revealFailedUnsub = (await selection.onRevealFailed(data => {
 			// A host-initiated reveal that gave up before ever pushing a selection (an unresolved ref) —
 			// nothing else tells the webview the jump was a no-op, so surface it explicitly the same way
@@ -1059,6 +1088,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this._unsubscribeRevealFailed = revealFailedUnsub;
 			}
 		}
+
+		if (this._refsMetadataService !== refsMetadata) {
+			refsMetadataUnsub?.();
+		} else if (typeof refsMetadataUnsub === 'function') {
+			this._unsubscribeRefsMetadataChanged = refsMetadataUnsub;
+		}
 	}
 
 	override dispose(): void {
@@ -1068,6 +1103,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			clearTimeout(this._resyncRetryTimer);
 			this._resyncRetryTimer = undefined;
 		}
+		for (const unsubscribe of this._unsubscribeRowsChannel) {
+			unsubscribe();
+		}
+		this._unsubscribeRowsChannel.length = 0;
 		if (this._ensureLoadingTimer != null) {
 			clearTimeout(this._ensureLoadingTimer);
 			this._ensureLoadingTimer = undefined;
@@ -1091,6 +1130,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._unsubscribeRequestActiveSidebarPanel?.();
 		this._unsubscribeSelectionChanged?.();
 		this._unsubscribeRevealFailed?.();
+		this._unsubscribeRefsMetadataChanged?.();
 		super.dispose();
 	}
 
@@ -1113,15 +1153,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// decoded on demand from `_state.reachabilityTable` via `getRowReachability`.
 		this.updateState(this._state, true);
 
-		// Seed the rows-plane sync baseline from the bootstrap stamp — ONLY here (single-writer:
-		// mid-session full-State pushes also carry `sync` but must not move the baseline).
-		this._rowsSync.initFromBootstrap(this._state.sync);
-		// Sync-hello: announce the held baseline so the host catches us up when we're behind (its
-		// `onResyncRequest` no-ops when in sync, snapshots when not). This closes the silent-staleness
-		// reconnect window where a mid-session State reset pruned rows-plane messages out of the
-		// replay buffer. `initializeState` runs once per fresh iframe — initial boot, soft-reconnect
-		// replay, and hard-refresh all re-run it — so this fires exactly once per (re)connect.
-		this.sendSyncHello();
+		// No rows-plane baseline to seed: the bootstrap `State` carries no rows plane at all, and the
+		// `graph:rows` channel starts with no inbound generation — it adopts whatever the host's first
+		// emission carries. The host forces that first emission to a snapshot (seq 0) on every
+		// (re)connect, so a fresh iframe adopts cleanly with no gap and no hello round-trip.
 
 		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting or
 		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
@@ -1131,44 +1166,48 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// (subscribe-before-fetch, so no bootstrap seed race here).
 	}
 
-	/** Announce the held rows-plane baseline to the host on (re)connect. Best-effort — deliberately
-	 *  NOT gated by the resync dedup: the host may legitimately no-op it (in sync), which would never
-	 *  clear an outstanding flag and would then wedge genuine mid-session gap recovery. */
-	private sendSyncHello(): void {
-		this.ipc.sendCommand(GraphSyncResyncCommand, {
-			generation: this._rowsSync.generation,
-			seq: this._rowsSync.lastApplied,
-		});
+	private _resyncRetryTimer: ReturnType<typeof setTimeout> | undefined;
+	/** Count of unhealable rows-channel gaps this session. MUST stay 0 in steady state — a non-zero value
+	 *  means messages are being lost between the host and this webview, which storms/soaks assert on. */
+	private _rowsGapCount = 0;
+
+	/** The channel reported a gap it could not heal. `replay: 0` means every gap lands here, and the
+	 *  channel fires exactly once per gap, so this is the one place recovery starts. */
+	private onRowsGap(gap: ChannelGap): void {
+		this._rowsGapCount++;
+		this.logger.info(
+			undefined,
+			`rows channel GAP #${this._rowsGapCount} (generation=${gap.generation} expected=${gap.expected} received=${gap.received}); resyncing`,
+		);
+		this.resyncRows();
 	}
 
-	private _resyncRetryTimer: ReturnType<typeof setTimeout> | undefined;
-
-	/** Request a rows-plane snapshot after a detected gap / splice-guard mismatch. Deduped by the
-	 *  receiver (a second gap while one request is in flight is dropped; the flag clears when a
-	 *  snapshot lands), with a LIVENESS timer for the loss cases: if the request itself — or the
-	 *  snapshot the host trusted in place of answering it — went missing, no further rows message may
-	 *  ever arrive on an idle repo to re-trigger this, so the timer re-sends past the receiver's retry
-	 *  threshold (where the host treats the identical repeat as proof of non-delivery and snapshots). */
-	private requestResync(): void {
-		if (!this._rowsSync.beginResync()) return;
-
-		this.ipc.sendCommand(GraphSyncResyncCommand, {
-			generation: this._rowsSync.generation,
-			seq: this._rowsSync.lastApplied,
-		});
-
-		// Slightly past the receiver's 10s re-arm threshold so the retry's beginResync() passes. Each
-		// retry arms the next check; the chain ends when a snapshot commit clears the outstanding flag
-		// (or on dispose). One live timer at most — a gap-storm re-entering here just re-schedules it.
-		if (this._resyncRetryTimer != null) {
-			clearTimeout(this._resyncRetryTimer);
+	/**
+	 * Ask the host for a fresh rows snapshot — the plane's only recovery, driven by a channel gap or a
+	 * failed splice guard. The host's `resyncRows` bumps the channel's generation, which is what re-arms
+	 * gap detection: until it lands the channel stays gapped and drops same-generation deltas. A failed
+	 * call would therefore wedge the plane, so retry ONCE after 2s and then give up loudly rather than
+	 * looping against a connection that is gone (a reconnect re-snapshots anyway).
+	 */
+	private resyncRows(retry: boolean = true): void {
+		const service = this._rowsService;
+		if (service == null) {
+			this.logger.info(undefined, 'rows resync requested before the rows service connected');
+			return;
 		}
-		this._resyncRetryTimer = setTimeout(() => {
-			this._resyncRetryTimer = undefined;
-			if (this._rowsSync.resyncOutstanding) {
-				this.requestResync();
+
+		void service.resyncRows().catch((ex: unknown) => {
+			this.logger.info(undefined, `rows resync failed: ${String(ex)}`);
+			if (!retry) return;
+
+			if (this._resyncRetryTimer != null) {
+				clearTimeout(this._resyncRetryTimer);
 			}
-		}, 11_000);
+			this._resyncRetryTimer = setTimeout(() => {
+				this._resyncRetryTimer = undefined;
+				this.resyncRows(false);
+			}, 2000);
+		});
 	}
 
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void {
@@ -1840,11 +1879,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * Reconstructs the full row set from a splice-delta (changed head + a reused span of the rows we
 	 * already hold + optional grown tail), applying the flags/reachabilityIndex patch in place —
 	 * reused rows keep their identity (consumers read both lazily), only the two patchable ints move
-	 * (`null` = unchanged, `-1` = now absent). The host only sends a splice against a
-	 * delivery-confirmed base, so a guard failure means the mirror diverged — returns undefined
-	 * (caller keeps its rows) after requesting a full resend.
+	 * (`null` = unchanged, `-1` = now absent). The host only sends a splice against the base its ledger
+	 * says we hold, so a guard failure means the mirror diverged — returns undefined (caller keeps its
+	 * rows) after driving the same {@link resyncRows} recovery a channel gap would.
 	 */
-	private applyRowsSplice(splice: GraphRowsSplice, scope: ScopedLogger | undefined): GitGraphRow[] | undefined {
+	private applyRowsSplice(splice: GraphRowsSplice): GitGraphRow[] | undefined {
 		const current = this._state.rows;
 		const spanEnd = splice.reusedStart + splice.reusedCount;
 		if (
@@ -1854,10 +1893,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			current[spanEnd - 1]?.sha !== splice.lastReusedSha
 		) {
 			this.logger.info(
-				scope,
+				undefined,
 				`rows splice guards FAILED (have ${current?.length ?? 0} rows, expected ${splice.expectedPriorRows}); requesting a resync snapshot`,
 			);
-			this.requestResync();
+			this.resyncRows();
 			return undefined;
 		}
 
@@ -1879,7 +1918,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			}
 		}
 		this.logger.debug(
-			scope,
+			undefined,
 			`spliced rows: head=${splice.head.length} reused=${splice.reusedCount} tail=${splice.tail?.length ?? 0} patched=${splice.patch != null}`,
 		);
 		return [...splice.head, ...span, ...(splice.tail ?? [])];
@@ -1900,9 +1939,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	protected onMessageReceived(msg: IpcMessage): void {
-		const scope = getScopedLogger();
-
-		const updates: Partial<State> = {};
 		switch (true) {
 			case DidChangeNotification.is(msg): {
 				const incoming = msg.params.state;
@@ -1916,10 +1952,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (incoming.wipRowsById != null) {
 					next.wipRowsById = mergeWipRows(this.wipRowsById, incoming.wipRowsById);
 				}
-				// Rows-plane fields (rows/avatars/downstreams/paging/reachabilityTable/rowsStats*) travel on
-				// the publisher's `DidChangeRows` channel and arrive ABSENT here. Two exceptions ride this
-				// push: `refsMetadata` (a full-map/`null` reset-anchor REPLACE, applied via `updateState`) and
-				// `sync` (bootstrap-only baseline stamp — consumed by `initializeState`, must not move the live baseline).
+				// Rows-plane fields (rows/downstreams/paging/reachabilityTable/rowsStats*) travel on the
+				// publisher's `DidChangeRows` channel and arrive ABSENT here; `avatars`/`refsMetadata` are
+				// owned by their request/response services and are bootstrap-only on this push. The one
+				// exception that rides it live: `sync` (bootstrap-only baseline stamp — consumed by
+				// `initializeState`, must not move the live baseline).
 				// Drop `branchState` and `lastFetched` when the full-state push carries values
 				// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
 				// `GraphRepoStatusService.onDidFetch`) land these ~20-30ms before the heavier full-state
@@ -1994,135 +2031,95 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				});
 				break;
 
-			case DidChangeRowsNotification.is(msg): {
-				// Rows-plane sequencing (R1c). The publisher stamps every emission `{generation, seq, snapshot?}`.
-				// Snapshots are authoritative resets that rebase the baseline; deltas apply iff strictly
-				// contiguous within the current generation. Anything else drops (stale replay) or triggers one
-				// deduped resync (gap / future generation). The baseline advances only AFTER a successful apply
-				// (`_rowsSync.commit` below), so a splice-guard failure leaves it behind and the resync snapshots.
-				const sync = msg.params.sync;
-				const outcome = this._rowsSync.classify(sync);
-				if (outcome.action === 'drop') break;
-
-				if (outcome.action === 'resync') {
-					this.requestResync();
-					break;
-				}
-
-				const snapshot = outcome.snapshot;
-
-				// Lean commit contexts are reconstructed on demand at right-click / selection time (see
-				// `graph-wrapper`); reachability is decoded on demand from the accumulated
-				// `reachabilityTable` (adopted into `updates` below). Nothing to rebuild per-row here.
-				let rows;
-				if (snapshot) {
-					// Authoritative full REPLACE — always adopt the snapshot's rows (even an empty set, which
-					// clears a stale prior graph on repo swap / recovery). Snapshots never ship a splice.
-					rows = msg.params.rows;
-				} else if (msg.params.rowsSplice != null) {
-					// Cursor-less replace shipped as a splice-delta — reconstruct from the rows we hold. A guard
-					// mismatch (`applyRowsSplice` returns undefined + requests a resync) means the mirror diverged:
-					// drop the whole message (rows AND enrichment) WITHOUT advancing the baseline — the resync
-					// snapshot re-seeds everything.
-					const spliced = this.applyRowsSplice(msg.params.rowsSplice, scope);
-					if (spliced == null) break;
-
-					rows = spliced;
-				} else if (
-					msg.params.rows.length &&
-					msg.params.paging?.startingCursor != null &&
-					this._state.rows != null
-				) {
-					const previousRows = this._state.rows;
-					const startingCursor = msg.params.paging.startingCursor;
-
-					this.logger.debug(
-						scope,
-						`paging in ${msg.params.rows.length} rows into existing ${previousRows.length} rows at ${startingCursor}`,
-					);
-
-					rows = appendRowsAtCursor(previousRows, startingCursor, msg.params.rows);
-				} else if (msg.params.rows.length === 0) {
-					// A carrier delta (avatars/riders/etc. with no rows change) — retain what we hold.
-					this.logger.debug(scope, 'rows unchanged (carrier delta)');
-					rows = this._state.rows;
-				} else {
-					this.logger.debug(scope, `setting to ${msg.params.rows.length} rows`);
-					rows = msg.params.rows;
-				}
-
-				// `avatars`/`downstreams` are sent ABSENT (undefined) when unchanged — the host dedupes avatars
-				// by Map size and ships `downstreams` only when its channel is marked (a refresh that changed the
-				// upstream→branches map, a page/initial walk, or a snapshot). Keep our existing state when absent
-				// instead of replacing with undefined and losing it.
-				if (msg.params.avatars != null) {
-					updates.avatars = msg.params.avatars;
-				}
-				if (msg.params.downstreams != null) {
-					updates.downstreams = msg.params.downstreams;
-				}
-				// `refsMetadata`: a snapshot OR an explicit `refsMetadataReset` carries the authoritative full
-				// map / `null` (reset-anchor REPLACE); a plain delta carries a value-reference delta (spread-merge
-				// an object, replace on an explicit `null` reset, keep our state on `undefined` = no change).
-				if (msg.params.refsMetadata === null) {
-					updates.refsMetadata = null;
-				} else if (msg.params.refsMetadata !== undefined) {
-					updates.refsMetadata =
-						snapshot || msg.params.refsMetadataReset
-							? { ...msg.params.refsMetadata }
-							: { ...this._state.refsMetadata, ...msg.params.refsMetadata };
-				}
-				// An explicit `refsMetadataReset` REPLACE (integration flip / feature toggle) may preserve a
-				// non-empty upstream map, so the component can't detect it by emptiness — bump a token it
-				// watches to re-arm its per-id request dedup (a snapshot re-seeds the component wholesale, so
-				// it needs no token). Assigned directly (webview-only signal, not routed through `updateState`).
-				if (msg.params.refsMetadataReset) {
-					this.refsMetadataResetToken = (this.refsMetadataResetToken ?? 0) + 1;
-				}
-				updates.rows = rows;
-				// Adopt the reachability table by generation id: a snapshot REPLACEs (reset-anchor), else append
-				// the delta on same-generation pagination (cache preserved) / replace + reset on a new generation.
-				this.applyReachabilityTable(msg.params.reachabilityTable, snapshot);
-				updates.paging = msg.params.paging;
-				// `rowsStats`: a snapshot REPLACEs wholesale (authoritative), a delta spread-merges the new keys.
-				if (msg.params.rowsStats != null) {
-					updates.rowsStats = snapshot
-						? { ...msg.params.rowsStats }
-						: { ...this._state.rowsStats, ...msg.params.rowsStats };
-				}
-				updates.rowsStatsLoading = msg.params.rowsStatsLoading;
-				if (msg.params.rowsStatsIncluded !== undefined) {
-					updates.rowsStatsIncluded = msg.params.rowsStatsIncluded;
-				}
-				if (msg.params.selectedRows != null) {
-					updates.selectedRows = msg.params.selectedRows;
-				}
-				updates.loading = false;
-
-				this.updateState(updates);
-				if (DEBUG) {
-					getGraphDebugDiagnostics().markRowsApplied(this._state.rows, {
-						generation: sync?.generation,
-						seq: sync?.seq,
-						snapshot: snapshot,
-						rows: this._state.rows?.length ?? 0,
-						receivedRows: msg.params.rows.length,
-						splice: msg.params.rowsSplice != null,
-						cursor: msg.params.paging?.startingCursor,
-					});
-				}
-
-				// Advance the baseline now that application succeeded. A snapshot rebases BOTH values (its
-				// generation may be new) and clears any outstanding resync; a contiguous delta advances the seq;
-				// a legacy (no-sync) push is a no-op (no baseline movement).
-				this._rowsSync.commit(sync);
-				scope?.addExitInfo(`rows=${this._state.rows?.length ?? 0}`);
-				break;
-			}
-
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
 				break;
+		}
+	}
+
+	/**
+	 * Applies one `graph:rows` emission — the rows plane's ONLY writer. The channel already guarantees
+	 * this runs in order within a generation and never for a message that skipped one (a gap goes to
+	 * {@link onRowsGap} instead), so there is no sequencing to redo here: `params.snapshot` is the only
+	 * discriminator, distinguishing an authoritative REPLACE from a delta.
+	 *
+	 * Application ORDER is load-bearing and must stay as written: downstreams → rows/splice →
+	 * reachability → paging → rowsStats → loading flags → selectedRows, then one `updateState`.
+	 */
+	private applyRowsPayload(params: GraphRowsPayload, meta: ChannelMeta): void {
+		const updates: Partial<State> = {};
+		const snapshot = params.snapshot === true;
+
+		// Lean commit contexts are reconstructed on demand at right-click / selection time (see
+		// `graph-wrapper`); reachability is decoded on demand from the accumulated
+		// `reachabilityTable` (adopted into `updates` below). Nothing to rebuild per-row here.
+		let rows;
+		if (snapshot) {
+			// Authoritative full REPLACE — always adopt the snapshot's rows (even an empty set, which
+			// clears a stale prior graph on repo swap / recovery). Snapshots never ship a splice.
+			rows = params.rows;
+		} else if (params.rowsSplice != null) {
+			// Cursor-less replace shipped as a splice-delta — reconstruct from the rows we hold. A guard
+			// mismatch (`applyRowsSplice` returns undefined + requests a resync) means the mirror diverged:
+			// drop the whole message (rows AND enrichment) — the resync snapshot re-seeds everything.
+			const spliced = this.applyRowsSplice(params.rowsSplice);
+			if (spliced == null) return;
+
+			rows = spliced;
+		} else if (params.rows.length && params.paging?.startingCursor != null && this._state.rows != null) {
+			const previousRows = this._state.rows;
+			const startingCursor = params.paging.startingCursor;
+
+			this.logger.debug(
+				undefined,
+				`paging in ${params.rows.length} rows into existing ${previousRows.length} rows at ${startingCursor}`,
+			);
+
+			rows = appendRowsAtCursor(previousRows, startingCursor, params.rows);
+		} else if (params.rows.length === 0) {
+			// A carrier delta (riders/enrichment with no rows change) — retain what we hold.
+			this.logger.debug(undefined, 'rows unchanged (carrier delta)');
+			rows = this._state.rows;
+		} else {
+			this.logger.debug(undefined, `setting to ${params.rows.length} rows`);
+			rows = params.rows;
+		}
+
+		// `downstreams` is sent ABSENT (undefined) when unchanged — the host ships it only when its
+		// channel is marked (a refresh that changed the upstream→branches map, a page/initial walk, or a
+		// snapshot). Keep our existing state when absent instead of replacing with undefined and losing it.
+		if (params.downstreams != null) {
+			updates.downstreams = params.downstreams;
+		}
+		updates.rows = rows;
+		// Adopt the reachability table by generation id: a snapshot REPLACEs (reset-anchor), else append
+		// the delta on same-generation pagination (cache preserved) / replace + reset on a new generation.
+		this.applyReachabilityTable(params.reachabilityTable, snapshot);
+		updates.paging = params.paging;
+		// `rowsStats`: a snapshot REPLACEs wholesale (authoritative), a delta spread-merges the new keys.
+		if (params.rowsStats != null) {
+			updates.rowsStats = snapshot ? { ...params.rowsStats } : { ...this._state.rowsStats, ...params.rowsStats };
+		}
+		updates.rowsStatsLoading = params.rowsStatsLoading;
+		if (params.rowsStatsIncluded !== undefined) {
+			updates.rowsStatsIncluded = params.rowsStatsIncluded;
+		}
+		if (params.selectedRows != null) {
+			updates.selectedRows = params.selectedRows;
+		}
+		updates.loading = false;
+
+		this.updateState(updates);
+		if (DEBUG) {
+			getGraphDebugDiagnostics().markRowsApplied(this._state.rows, {
+				generation: meta.generation,
+				seq: meta.seq,
+				snapshot: snapshot,
+				rows: this._state.rows?.length ?? 0,
+				receivedRows: params.rows.length,
+				splice: params.rowsSplice != null,
+				cursor: params.paging?.startingCursor,
+			});
 		}
 	}
 
@@ -2179,6 +2176,35 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		if (this._state.lastFetched != null && lastFetched <= this._state.lastFetched) return;
 
 		this.updateState({ lastFetched: lastFetched });
+	}
+
+	/** Merges a `GraphAvatarsService` response into the avatars map. Additive: the response carries only
+	 *  the emails that call asked for, and a proxied entry legitimately overwrites its own key. */
+	applyAvatars(avatars: Record<string, string>): void {
+		if (Object.keys(avatars).length === 0) return;
+
+		this.updateState({ avatars: { ...this._state.avatars, ...avatars } });
+	}
+
+	/** Merges a `getMissingRefsMetadata` response into the map. Additive (spread-merge): the response
+	 *  carries only the refs that call asked for, and only the ones the host actually resolved. */
+	applyRefsMetadata(metadata: GraphRefsMetadata): void {
+		if (Object.keys(metadata).length === 0) return;
+
+		// A `null` map means the feature is off — enrichment can't be arriving, and merging onto it would
+		// silently turn the feature back on for the component.
+		if (this._state.refsMetadata === null) return;
+
+		this.updateState({ refsMetadata: { ...this._state.refsMetadata, ...metadata } });
+	}
+
+	/** Applies an `onRefsMetadataChanged` reset: an authoritative REPLACE with a COMPLETE snapshot (`null`
+	 *  = feature off). Bumps the dedup token because a reset may preserve a non-empty (upstream) map, so
+	 *  the component can't detect it by emptiness — it watches the token to re-arm its per-id requests. */
+	private applyRefsMetadataReset(metadata: GraphRefsMetadata | null): void {
+		this.updateState({ refsMetadata: metadata == null ? null : { ...metadata } });
+		// Assigned directly (webview-only signal, not part of the host wire contract).
+		this.refsMetadataResetToken = (this.refsMetadataResetToken ?? 0) + 1;
 	}
 
 	/** Applies the hooks-install capability derived from `AgentsService.getAgents()`/`onAgentsChanged`. */

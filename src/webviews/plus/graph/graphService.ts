@@ -39,6 +39,7 @@ import type {
 	DidGetCountParams,
 	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
+	DidLoadRowParams,
 	DidRequestActiveSidebarPanelParams,
 	DidRequestGraphActionParams,
 	DidRequestOpenCompareModeParams,
@@ -51,6 +52,7 @@ import type {
 	GetOverviewParams,
 	GetWipLineStatsResponse,
 	GetWipStatsResponse,
+	GraphAvatars,
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
@@ -61,10 +63,12 @@ import type {
 	GraphExcludeTypes,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
+	GraphMissingRefsMetadata,
 	GraphOverviewData,
 	GraphPinnedRef,
 	GraphRef,
 	GraphRefMetadataItem,
+	GraphRefsMetadata,
 	GraphScope,
 	GraphSearchMode,
 	GraphSearchRelaxation,
@@ -1198,6 +1202,35 @@ export interface GraphWipService {
 }
 
 /**
+ * Rows paging + targeted row loading — the plane that answers "give me more history" and "make this
+ * row exist". Both are request/response; the rows themselves still travel on the rows-plane channel.
+ *
+ * {@link getMoreRows} resolves only AFTER the host has posted the rows emission its page produced, so
+ * a caller can hold its own loading affordance in a `finally` instead of watching for a rows push that
+ * a page adding nothing never sends. It resolves (rather than hanging) in every degenerate case: a
+ * superseded page, a repo swap mid-flight, a hidden webview.
+ *
+ * {@link loadRow} runs an UNCAPPED walk, so `signal` matters: a navigation that is superseded, times
+ * out, or is aborted must withdraw it or the walk keeps scanning the whole repository. It never
+ * rejects for a domain reason — a miss comes back as a settled result naming why.
+ */
+export interface GraphRowsService {
+	/** `limit` overrides the host's configured page size (`gitlens.graph.pageItemLimit`) for this one
+	 *  call — the embedded Visual History raises it on `All time` so the history burns through in
+	 *  fewer, larger chunks instead of paying per-call overhead on the default 200-row page. */
+	getMoreRows(id?: string, limit?: number): Promise<void>;
+	loadRow(id: string, signal?: AbortSignal): Promise<DidLoadRowParams>;
+	/**
+	 * The rows plane's ONLY recovery path: bumps the `graph:rows` channel's generation and re-ships a
+	 * full snapshot at seq 0. Called from the webview on a channel gap (`onGap`) or a splice-guard
+	 * mismatch — both mean the webview's mirror diverged and only an authoritative REPLACE fixes it.
+	 * Resolves once the snapshot has been posted (or immediately when the webview is hidden/not ready,
+	 * where the requirement is latched for the next flush instead).
+	 */
+	resyncRows(): Promise<void>;
+}
+
+/**
  * Row hover markdown for the graph's tooltip/peek card. Single-flight on the host — a newer call
  * (or `signal` aborting) always supersedes an outstanding one; two overlapping calls collapse to the
  * newer one's result. Never rejects: a rejected RPC promise would leave the hover card waiting
@@ -1330,8 +1363,44 @@ export interface GraphSelectionService {
 	readonly onRevealFailed: RpcEventSubscription<DidFailRevealParams>;
 }
 
+/**
+ * Avatar resolution, request/response only. The host's graph session doubles as the avatar cache, so a
+ * repeat ask for a known email costs nothing; the app merges each response into its own `avatars` map.
+ * Nothing is ever pushed — a scroll that reveals new authors asks, and the answer comes straight back.
+ */
+export interface GraphAvatarsService {
+	/** Resolves avatar URIs for the asked `email → ref` pairs. The response carries ONLY the asked
+	 *  emails that resolved; anything else the app holds is untouched. */
+	getMissingAvatars(emails: GraphAvatars): Promise<Record<string, string>>;
+	/** Re-fetches avatars the webview itself couldn't load (CSP/CORS) as data URIs. Returns only the
+	 *  entries that actually proxied — a permanent failure is remembered host-side and never retried. */
+	proxyAvatars(avatars: Record<string, string>): Promise<Record<string, string>>;
+}
+
+/**
+ * Ref-metadata (upstream ahead/behind, pull requests, issues) enrichment.
+ *
+ * {@link getMissingRefsMetadata} is the ONLY path incremental enrichment takes: the component asks for
+ * the types it's missing on visible rows and the response carries exactly those refs' resolved entries,
+ * which the app spread-merges. An id the host couldn't resolve is OMITTED, which is what re-arms the
+ * component to ask again. A request that arrives mid-rebuild is buffered host-side and its promise
+ * settles LATE (on the next graph), never dropped — a dropped one left the id stuck in the component's
+ * per-id dedup and the pill's counts never returned.
+ *
+ * {@link onRefsMetadataChanged} is RESET-CLASS ONLY — a repo swap, a feature toggle, an integration
+ * connect/disconnect, an issue-cache clear. Its payload is always a COMPLETE snapshot (`null` = feature
+ * off, so the component stops asking at all), which is what makes `save-last` safe: a hidden webview
+ * replays only the newest one and holds exactly what the host holds.
+ */
+export interface GraphRefsMetadataService {
+	getMissingRefsMetadata(metadata: GraphMissingRefsMetadata, signal?: AbortSignal): Promise<GraphRefsMetadata>;
+	readonly onRefsMetadataChanged: RpcEventSubscription<{ metadata: GraphRefsMetadata | null; reset: true }>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly access: GraphAccessService;
+	readonly avatars: GraphAvatarsService;
+	readonly refsMetadata: GraphRefsMetadataService;
 	readonly columns: GraphColumnsService;
 	readonly configuration: GraphConfigurationService;
 	readonly filters: GraphFiltersService;
@@ -1347,6 +1416,7 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
 	readonly repoStatus: GraphRepoStatusService;
+	readonly rows: GraphRowsService;
 	readonly scope: GraphScopeService;
 	readonly overview: GraphOverviewService;
 	readonly wip: GraphWipService;

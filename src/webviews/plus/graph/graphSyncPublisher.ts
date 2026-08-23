@@ -1,28 +1,32 @@
 /**
- * Sequenced rows-plane publisher — the single writer for the graph's rows-plane channels (rows,
- * reachability, rowsStats, avatars, downstreams, refsMetadata).
+ * Rows-plane publisher — the single writer for the graph's rows-plane channels (rows, reachability,
+ * rowsStats, downstreams).
  *
- * The recurring graph regression clusters (WIP staleness, refsMetadata clobber, fingerprint-advance-
+ * The recurring graph regression clusters (WIP staleness, enrichment clobber, fingerprint-advance-
  * before-delivery) all trace to the SAME structural flaw: every rows-plane field was written by BOTH
  * its delta channel AND the full-`State` push, so each needed a hand-written clobber guard and a
  * queued channel push could be wiped by a full-state reset. This module removes that dual-writer
- * hazard by construction: it owns the delivery cursors, stamps every emission with `{generation,
- * seq}`, and collapses every divergence (delivery failure, reset, reconnect, resync) to ONE recovery
- * — a full snapshot on the same channel that atomically reseeds all cursors.
+ * hazard by construction: it owns the delivery cursors and collapses every divergence (reset,
+ * reconnect, resync) to ONE recovery — a full snapshot that atomically reseeds all cursors.
+ *
+ * Ordering, gap detection, and generations belong to the transport: emissions go out over a
+ * Supertalk `SequencedChannel` (`graph:rows`), which stamps `{generation, seq}` and tells the
+ * receiver when it missed something. This module owns only the DOMAIN half — what a resync ships,
+ * and bumping the generation when it does ({@link resync}, {@link onGraphIdentityChanged}).
  *
  * There is NO message queuing while hidden: {@link mark} only flips a per-channel dirty flag, and
  * {@link flush} computes fresh deltas at flush time from the injected data accessor + the internal
  * cursors. Nothing can be dropped because nothing is buffered — a channel that changed twice before a
  * flush still ships exactly one up-to-date delta.
  *
- * Cursors advance AT EMISSION (optimistically), not on confirmed delivery: a failed `notify` forces
- * {@link markBroken}, so the next flush is a snapshot that reseeds everything from scratch — the one
- * recovery path. This is simpler than the confirmed-delivery model it replaces and is correct because
- * a snapshot rebases the webview's generation+seq regardless of any cursor skew a failure introduced.
+ * Cursors advance AT EMISSION. Delivery failure is no longer observable here ({@link GraphSyncHost.send}
+ * is void), which is deliberate: the two recovery paths that remain — the receiver's gap event driving
+ * {@link resync}, and a reconnect (the channel's `disconnect()` bumps the epoch) — both end in a
+ * snapshot that reseeds every cursor from scratch, so no cursor skew can survive one.
  *
  * The row splice/ledger encoders are reused verbatim from {@link ./graphRowsSplice.js}; the
- * reachability append, rowsStats/avatars size-watermark, and refsMetadata reference-delta patterns
- * are reproduced here so their cursors live in one place.
+ * reachability append and rowsStats sent-set patterns are reproduced here so their cursors live in
+ * one place.
  */
 
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
@@ -33,45 +37,38 @@ import {
 	diffRowsAgainstLedger,
 } from './graphRowsSplice.js';
 import type { SentRowsLedger } from './graphRowsSplice.js';
-import type {
-	DidChangeRowsParams,
-	GraphPaging,
-	GraphRefMetadata,
-	GraphRefsMetadata,
-	GraphRowStats,
-	GraphSelectedRows,
-} from './protocol.js';
+import type { GraphPaging, GraphRowsPayload, GraphRowStats, GraphSelectedRows } from './protocol.js';
 
 /** The rows-plane channels the publisher owns a delivery cursor for. */
-export type GraphSyncChannel = 'rows' | 'reachability' | 'rowsStats' | 'avatars' | 'downstreams' | 'refsMetadata';
+export type GraphSyncChannel = 'rows' | 'reachability' | 'rowsStats' | 'downstreams';
 
 /** Minimal transport surface — injectable so the publisher is unit-testable without a webview host. */
 export interface GraphSyncHost {
 	isReady(): boolean;
 	isVisible(): boolean;
-	notify(params: DidChangeRowsParams): Promise<boolean>;
+	/** Post one emission on the `graph:rows` channel. Void by design — see the module header: delivery
+	 *  failure is unobservable, and recovery is the receiver-driven {@link GraphSyncPublisher.resync}. */
+	send(params: GraphRowsPayload): void;
+	/** Bump the channel's epoch so the peer invalidates anything still in flight from the old one.
+	 *  Always paired with a forced snapshot — the new generation's first emission must be seq 0. */
+	newGeneration(): void;
 }
 
 /**
  * Read-only view of the host's current rows-plane data. Mirrors exactly what `notifyDidChangeRows`
- * and `getState` read off `_graph`/`_refsMetadata` today, kept narrow so R1b can wire it trivially.
+ * reads off `_graph`, kept narrow so R1b can wire it trivially.
  */
 export interface GraphSyncDataSource {
 	getRows(): GitGraphRow[] | undefined;
 	/** Accumulated rows for a snapshot: the FULL loaded window, not the page-scoped `_graph.rows` that
 	 *  pagination leaves behind. Falls back to page rows when no mirror exists (pre-paging / initial). */
 	getSnapshotRows(): GitGraphRow[] | undefined;
-	getAvatars(): ReadonlyMap<string, string> | undefined;
 	getDownstreams(): ReadonlyMap<string, string[]> | undefined;
 	getRowsStats(): ReadonlyMap<string, GraphRowStats> | undefined;
 	isRowsStatsLoading(): boolean;
 	isRowsStatsIncluded(): boolean;
 	getReachability(): GraphReachabilityTable | undefined;
 	getPaging(): GraphPaging | undefined;
-	/** Live refsMetadata map: `null` = feature off, `undefined` = enabled-but-uninitialized, else the map. */
-	getRefsMetadata(): ReadonlyMap<string, GraphRefMetadata> | null | undefined;
-	/** Whether refsMetadata is populatable at all (drives snapshot `null` vs `{}`; see `isRefsMetadataEnabled`). */
-	isRefsMetadataEnabled(): boolean;
 }
 
 type ReachabilityCursor = { id: number; dictLen: number; setsLen: number };
@@ -84,10 +81,7 @@ export interface GraphSyncPublisherOptions {
 export class GraphSyncPublisher {
 	private readonly debounceMs: number;
 
-	private _generation = 0;
-	/** Last emitted seq within the current generation; `-1` before the generation's first emission. */
-	private _seq = -1;
-	/** Forces the next emission to be a full snapshot (initial sync, reset/reconnect, resync, broken delivery). */
+	/** Forces the next emission to be a full snapshot (initial sync, reset/reconnect, resync). */
 	private _snapshotRequired = true;
 	private readonly _dirty = new Set<GraphSyncChannel>();
 
@@ -99,36 +93,17 @@ export class GraphSyncPublisher {
 	 *  ships the new shas a size watermark would miss. Reseeded to the map's keys on a snapshot; cleared on a
 	 *  generation bump. */
 	private readonly _rowsStatsSent = new Set<string>();
-	private _avatarsSizeCursor = 0;
-	private _refsMetadataCursor: Map<string, GraphRefMetadata> | undefined;
 
 	// The selection rider that must travel atomically WITH the next rows-plane emission. Attached until an
-	// emission SUCCEEDS, then cleared; a failed emission keeps it so the recovery snapshot re-carries it.
+	// emission carries it, then cleared.
 	private _riderSelectedRows: GraphSelectedRows | undefined;
 	private _ridersPending = false;
-	/** Set by {@link markCarrier}: emit once even with nothing dirty. Cleared by the emission that honors it. */
-	private _carrierRequired = false;
-
-	/** A refsMetadata reset REPLACE is queued (see {@link markRefsMetadataReset}): the next refsMetadata
-	 *  emission ships the FULL map + `refsMetadataReset`, not a spread-merge delta. Cleared on a successful
-	 *  reset/snapshot send. */
-	private _refsMetadataResetPending = false;
 
 	/** Re-entrant flush suspension depth (see {@link hold}). While > 0 nothing is built/sent. */
 	private _holdCount = 0;
 	private _disposed = false;
 
-	/** Seq of the last snapshot emitted in the current generation; `-1` when none has been. */
-	private _lastSnapshotSeq = -1;
-	/** The seq at the moment the current webview connection became ready — emissions after this point are
-	 *  FIFO-guaranteed to reach the live webview, so they can satisfy a stale-baseline hello. */
-	private _seqAtConnectionReady = -1;
-
-	private _flushing: Promise<void> | undefined;
 	private _flushTimer: ReturnType<typeof setTimeout> | undefined;
-	/** A snapshot became required while a flush was in flight — launch exactly one follow-up from the flush's
-	 *  `finally` (never re-arm the timer, which would poll every debounce interval while `notify` is slow). */
-	private _reflushAfterInflight = false;
 
 	constructor(
 		private readonly host: GraphSyncHost,
@@ -136,16 +111,6 @@ export class GraphSyncPublisher {
 		options?: GraphSyncPublisherOptions,
 	) {
 		this.debounceMs = options?.debounceMs ?? 16;
-	}
-
-	/** Current graph-identity generation stamped on emissions. */
-	get generation(): number {
-		return this._generation;
-	}
-
-	/** Last emitted seq within the current generation. */
-	get seq(): number {
-		return this._seq;
 	}
 
 	/** Whether the next flush will emit a full snapshot. */
@@ -158,32 +123,12 @@ export class GraphSyncPublisher {
 		this.cancelScheduledFlush();
 	}
 
-	/** Flag a channel dirty; schedules a debounced flush unless one is already in flight or held. */
+	/** Flag a channel dirty; schedules a debounced flush unless held. */
 	mark(channel: GraphSyncChannel): void {
 		this._dirty.add(channel);
 		if (this._holdCount > 0) return;
 
-		if (this._flushing == null) {
-			this.scheduleFlush();
-		}
-	}
-
-	/**
-	 * Require the next flush to emit even with nothing dirty and no rider — a bare carrier delta (`rows: []`
-	 * plus the always-fields) whose only job is to settle a client waiting on a response it must have.
-	 *
-	 * Deliberately NOT `mark('rows')`: a rows delta re-ships the window as a REPLACE, and the reducer rebuilds
-	 * the array either way, so the webview's row identity changes and the virtualizer re-fires `rangeChanged`
-	 * — which re-triggers the prefetch it just answered. A carrier keeps `rows` untouched (the reducer's
-	 * zero-row branch retains what it holds), so it settles the client without restarting the cycle.
-	 */
-	markCarrier(): void {
-		this._carrierRequired = true;
-		if (this._holdCount > 0) return;
-
-		if (this._flushing == null) {
-			this.scheduleFlush();
-		}
+		this.scheduleFlush();
 	}
 
 	/**
@@ -202,17 +147,16 @@ export class GraphSyncPublisher {
 		this._holdCount--;
 		if (this._holdCount > 0) return;
 
-		if (this._dirty.size > 0 || this._ridersPending || this._snapshotRequired || this._carrierRequired) {
+		if (this._dirty.size > 0 || this._ridersPending || this._snapshotRequired) {
 			void this.flush();
 		}
 	}
 
 	/**
 	 * Attach a selection rider to the NEXT emission (delta or snapshot), preserving the atomicity envelope
-	 * the old rows push had. Provided keys overwrite; omitted keys keep any pending rider. Riders persist
-	 * until an emission succeeds ({@link GraphSyncHost.notify} returns true), then clear — so a failed
-	 * send's recovery snapshot re-carries them. Does NOT schedule a flush on its own; the accompanying
-	 * {@link mark}/{@link flush} drives it.
+	 * the old rows push had. Provided keys overwrite; omitted keys keep any pending rider. Riders clear once
+	 * an emission carries them. Does NOT schedule a flush on its own; the accompanying {@link mark}/
+	 * {@link flush} drives it.
 	 */
 	attachRiders(riders: { selectedRows?: GraphSelectedRows }): void {
 		if ('selectedRows' in riders) {
@@ -223,50 +167,23 @@ export class GraphSyncPublisher {
 		this._ridersPending = this._riderSelectedRows !== undefined;
 	}
 
-	/** Force the next avatars emission to ship the full map even if the Map size is unchanged (the avatar
-	 *  proxy replaces values for existing keys — same size, new data URIs). */
-	invalidateAvatars(): void {
-		this._avatarsSizeCursor = -1;
-	}
-
 	/** Force the next rowsStats emission to resend every entry — a parent-rewriting refresh
 	 *  (unshallow / replace-ref change) recomputes stats for shas the webview already holds. */
 	invalidateRowsStats(): void {
 		this._rowsStatsSent.clear();
 	}
 
-	/** Graph identity changed (repo swap / graph clear): bump generation, rebase seq, force a snapshot. */
+	/** Graph identity changed (repo swap / graph clear): bump the channel's epoch, force a snapshot. The
+	 *  epoch announcement and the snapshot that follows it ride the same wire in that order, so the
+	 *  receiver invalidates the old repo's in-flight deltas before the new repo's seq 0 lands. */
 	onGraphIdentityChanged(): void {
-		this._generation++;
-		this._seq = -1;
-		this._lastSnapshotSeq = -1;
+		this.host.newGeneration();
 		// New graph identity — the webview holds no stats for it yet; the forced snapshot below reseeds the set.
 		this._rowsStatsSent.clear();
-		// The live connection predates this bump — every new-generation emission is FIFO-delivered to it, so
-		// no watermark can vouch for a pre-bump baseline; reset it fail-safe.
-		this._seqAtConnectionReady = -1;
 		// A stale repo-A rider envelope must not ride repo-B's snapshot.
 		this._riderSelectedRows = undefined;
 		this._ridersPending = false;
 		this.requireSnapshot();
-	}
-
-	/**
-	 * Queue an authoritative refsMetadata REPLACE over the sequenced channel (repo-level enable/disable
-	 * that the spread-merge delta can't express). The next flush ships the FULL current map (or explicit
-	 * `null` when off) with `refsMetadataReset: true` and reseeds the cursor to match; cleared on a
-	 * successful send. A failed send is covered by the snapshot recovery path (snapshots are already
-	 * authoritative REPLACEs).
-	 */
-	markRefsMetadataReset(): void {
-		this._refsMetadataResetPending = true;
-		this.mark('refsMetadata');
-	}
-
-	/** A webview connection became ready (boot / reconnect). Records the seq watermark separating "may
-	 *  have been lost with a previous connection" from "FIFO-guaranteed to reach this webview". */
-	onConnectionReady(): void {
-		this._seqAtConnectionReady = this._seq;
 	}
 
 	/** Force the next emission to a snapshot and schedule a flush (reset / reconnect / resync). */
@@ -275,55 +192,23 @@ export class GraphSyncPublisher {
 		this.scheduleFlush();
 	}
 
-	/** Delivery failed: force the next flush to a snapshot. Does NOT auto-reflush (avoids a hot loop on
-	 *  a persistently failing transport); the next external trigger recovers. */
-	markBroken(): void {
-		this._snapshotRequired = true;
-	}
-
-	/** The last resync request answered `'noop'` on the supersedes-the-baseline branch — a REPEAT of the
-	 *  same request means the snapshot that branch trusted never arrived (see onResyncRequest). */
-	private _lastSupersededResync: { generation: number; seq: number } | undefined;
-
 	/**
-	 * The webview asked to resync (a seq gap, a guard mismatch, or the post-bootstrap sync-hello). Returns
-	 * what happened so the caller can log genuine divergences:
-	 * - `'noop'` — already reconciled: exact baseline match, OR a snapshot emitted DURING this connection
-	 *   already supersedes the reported baseline (FIFO delivery guarantees it arrives — this is what makes
-	 *   the boot-time hello free instead of double-shipping the initial page).
-	 * - `'pending'` — a snapshot was already required (initial sync / broken delivery); the request
-	 *   coalesces into it.
-	 * - `'diverged'` — a previously-in-sync webview genuinely diverged; a fresh snapshot was forced.
-	 *
-	 * Durability: the supersedes-the-baseline no-op trusts a snapshot ALREADY SENT on this connection. If
-	 * that very snapshot is what went missing, the receiver re-sends the SAME request after its retry
-	 * threshold — so an identical repeat is treated as proof of non-delivery and answered with a real
-	 * snapshot instead of no-op'ing forever.
+	 * The rows plane's ONE domain recovery: the webview's mirror diverged (a channel gap, or a splice
+	 * guard that failed), so bump the epoch — invalidating anything still in flight — and re-ship a full
+	 * snapshot at seq 0. Resolves once that snapshot has been posted; when the webview is hidden or not
+	 * ready the requirement is simply latched for the next flush.
 	 */
-	onResyncRequest(generation: number, seq: number): 'noop' | 'pending' | 'diverged' {
-		if (generation === this._generation && !this._snapshotRequired) {
-			if (seq === this._seq) return 'noop';
-			if (this._lastSnapshotSeq > seq && this._lastSnapshotSeq > this._seqAtConnectionReady) {
-				const last = this._lastSupersededResync;
-				if (last == null || last.generation !== generation || last.seq !== seq) {
-					this._lastSupersededResync = { generation: generation, seq: seq };
-					return 'noop';
-				}
-				// Identical repeat — the trusted snapshot evidently never landed; fall through to snapshot.
-			}
-		}
-
-		this._lastSupersededResync = undefined;
-		const pending = this._snapshotRequired;
+	resync(): Promise<void> {
+		this.host.newGeneration();
 		this.requireSnapshot();
-		void this.flush();
-		return pending ? 'pending' : 'diverged';
+		return this.flush();
 	}
 
 	/**
-	 * Visibility/ready-gated, single-flight flush with a trailing re-run for marks that land mid-flight.
-	 * Builds one {@link DidChangeRowsParams} (snapshot when required, else the dirty-channel deltas) and
-	 * ships it. Advances cursors as it builds; a failed `notify` forces the next flush to a snapshot.
+	 * Visibility/ready-gated flush. Builds one {@link GraphRowsPayload} (snapshot when required, else the
+	 * dirty-channel deltas) and posts it, advancing cursors as it builds. Synchronous end to end — the
+	 * channel's `send` is void — so there is no in-flight window for a mark or a rider to land in; the
+	 * returned promise exists only so callers can `await` "the emission has been posted".
 	 */
 	flush(): Promise<void> {
 		if (this._disposed) return Promise.resolve();
@@ -337,41 +222,12 @@ export class GraphSyncPublisher {
 		// picks them up. Nothing is buffered, so nothing is lost.
 		if (!this.host.isReady() || !this.host.isVisible()) return Promise.resolve();
 
-		// Single-flight: coalesce concurrent callers onto the in-flight run. If a snapshot became required
-		// mid-flight (e.g. `requireSnapshot` from a resync/identity change), its `scheduleFlush` timer was just
-		// cancelled at the top of this call — latch a single follow-up for the in-flight run's `finally` rather
-		// than re-arming the timer (which would poll every debounce interval while `notify` is slow/hung). The
-		// trailing run below skips this under its `!_snapshotRequired` gate.
-		if (this._flushing != null) {
-			if (this._snapshotRequired) {
-				this._reflushAfterInflight = true;
-			}
-			return this._flushing;
-		}
-
-		const promise = this.doFlush().finally(() => {
-			this._flushing = undefined;
-			// A snapshot latched mid-flight (see the single-flight branch) launches exactly once here.
-			// `markBroken` sets the requirement from INSIDE doFlush — never via a re-entrant flush — so it
-			// never latches, preserving the no-hot-loop guarantee on a persistently failing transport.
-			const reflushForSnapshot = this._reflushAfterInflight && this._snapshotRequired;
-			this._reflushAfterInflight = false;
-			// Trailing run for marks/riders that arrived while the flush was in flight, gated on
-			// `!_snapshotRequired` for the same no-hot-loop reason.
-			if (
-				!this._disposed &&
-				(reflushForSnapshot ||
-					(!this._snapshotRequired && (this._dirty.size > 0 || this._ridersPending || this._carrierRequired)))
-			) {
-				void this.flush();
-			}
-		});
-		this._flushing = promise;
-		return promise;
+		this.doFlush();
+		return Promise.resolve();
 	}
 
-	private async doFlush(): Promise<void> {
-		let params: DidChangeRowsParams | undefined;
+	private doFlush(): void {
+		let params: GraphRowsPayload;
 		if (this._snapshotRequired) {
 			// No graph yet (a deferred bootstrap still building): an "empty" snapshot here would clear the
 			// webview's loading state and flash "No commits" before the real rows land. Keep the snapshot
@@ -381,61 +237,32 @@ export class GraphSyncPublisher {
 
 			params = this.buildSnapshot();
 		} else {
-			// Nothing dirty, no rider waiting for a carrier, and nothing demanding a bare one → nothing to ship.
-			if (this._dirty.size === 0 && !this._ridersPending && !this._carrierRequired) return;
+			// Nothing dirty and no rider waiting for an envelope → nothing to ship.
+			if (this._dirty.size === 0 && !this._ridersPending) return;
 
 			params = this.buildDelta(this._dirty);
 			this._dirty.clear();
 		}
-		// Captured, not consumed: a failed send must keep the requirement standing, exactly as riders do below
-		// — the client it exists to settle is still waiting.
-		const carrierSent = this._carrierRequired;
-		this._carrierRequired = false;
 
-		// Capture the rider value attached to THIS emission so a rider re-attached mid-flight (during the
-		// await) survives: on success we clear the field ONLY if it still holds the captured value.
-		const ridersSent = this._ridersPending;
-		const sentSelectedRows = this._riderSelectedRows;
-		if (ridersSent) {
-			params.selectedRows = sentSelectedRows;
+		if (this._ridersPending) {
+			params.selectedRows = this._riderSelectedRows;
+			this._riderSelectedRows = undefined;
+			this._ridersPending = false;
 		}
 
-		const ok = await this.host.notify(params);
-		if (ok) {
-			if (ridersSent) {
-				// A failed send keeps the rider so the next (snapshot) emission re-carries the envelope; a
-				// rider re-attached mid-flight (new captured value) survives here and rides the next emission.
-				if (this._riderSelectedRows === sentSelectedRows) {
-					this._riderSelectedRows = undefined;
-				}
-				this._ridersPending = this._riderSelectedRows !== undefined;
-			}
-			// A refsMetadata reset REPLACE landed — delta-flagged, or a snapshot's authoritative full map —
-			// so stop re-shipping it.
-			if (params.refsMetadataReset || params.sync?.snapshot) {
-				this._refsMetadataResetPending = false;
-			}
-		} else {
-			// Re-arm the carrier: `markBroken` requires a snapshot and deliberately schedules no reflush, so
-			// without this the emission a client is blocked on is simply lost.
-			this._carrierRequired ||= carrierSent;
-			this.markBroken();
-		}
+		this.host.send(params);
 	}
 
 	/**
 	 * Assemble the authoritative rows-plane snapshot: full rows, reachability, rowsStats (+loading/
-	 * included), avatars, downstreams, and refsMetadata (full map / explicit `null` when off / `{}` when
-	 * empty — never a delta). Stamps `{generation, seq, snapshot: true}` and atomically reseeds ALL
-	 * cursors so the ledger and watermarks exactly mirror what the webview will hold. Also used by
-	 * bootstrap (R1b) to seed the webview through the same path.
+	 * included), and downstreams. Flags itself `snapshot: true` and atomically reseeds ALL cursors so the
+	 * ledger exactly mirrors what the webview will hold.
 	 */
-	buildSnapshot(): DidChangeRowsParams {
+	buildSnapshot(): GraphRowsPayload {
 		// The accumulated window the webview holds — NOT `getRows()`, which is page-scoped after paging.
 		// A snapshot is an authoritative REPLACE, so shipping only the last page would truncate the webview.
 		const rows = this.data.getSnapshotRows() ?? [];
 		const table = this.data.getReachability();
-		const avatars = this.data.getAvatars();
 		const rowsStats = this.data.getRowsStats();
 		const downstreams = this.data.getDownstreams();
 
@@ -450,30 +277,21 @@ export class GraphSyncPublisher {
 				this._rowsStatsSent.add(sha);
 			}
 		}
-		this._avatarsSizeCursor = avatars?.size ?? 0;
-
-		const refsMetadata = this.serializeRefsMetadata();
-		this._refsMetadataCursor = refsMetadata.cursor;
-
 		this._dirty.clear();
 		this._snapshotRequired = false;
-		const seq = ++this._seq;
-		this._lastSnapshotSeq = seq;
 
 		return {
 			rows: rows,
 			rowsSplice: undefined,
 			reachabilityTable:
 				table != null ? { id: table.id, dictionary: table.dictionary, sets: table.sets } : undefined,
-			avatars: avatars != null ? Object.fromEntries(avatars) : {},
 			// A snapshot always ships the full downstreams (reset-anchor); deltas ship it only on rows-bearing ticks.
 			downstreams: downstreams != null ? Object.fromEntries(downstreams) : {},
 			rowsStats: rowsStats != null ? Object.fromEntries(rowsStats) : undefined,
-			refsMetadata: refsMetadata.payload,
 			// The always-fields carry a cursor-less `paging` — a snapshot wholesale-REPLACES rows regardless
 			// of the current page state.
 			...this.buildAlwaysFields(),
-			sync: { generation: this._generation, seq: seq, snapshot: true },
+			snapshot: true,
 		};
 	}
 
@@ -489,22 +307,19 @@ export class GraphSyncPublisher {
 	}
 
 	/** Build a delta carrying only the dirty channels; unmarked channels ship their "keep" sentinel. */
-	private buildDelta(dirty: ReadonlySet<GraphSyncChannel>): DidChangeRowsParams {
+	private buildDelta(dirty: ReadonlySet<GraphSyncChannel>): GraphRowsPayload {
 		// `paging` (always shipped) rides via `buildAlwaysFields`: the reducer unconditionally adopts
 		// `params.paging`, so omitting it would blank the webview's `hasMore`. Cursor-less by default; the
 		// page-append branch in `fillRowsDelta` overwrites it with the page's starting cursor.
-		const params: DidChangeRowsParams = {
+		const params: GraphRowsPayload = {
 			rows: [],
-			avatars: undefined,
 			...this.buildAlwaysFields(),
-			sync: { generation: this._generation, seq: ++this._seq },
 		};
 
 		// `downstreams` rides ONLY when its own channel is marked — the host now marks it precisely (a refresh
 		// marks it only when the upstream→branches map actually changed; a page/initial/reuse marks it along
 		// with everything else). It has no size-watermark (the provider rebuilds the map each walk), so it
-		// ships the full map when marked; absent = the webview keeps its prior map (mirrors avatars
-		// keep-if-absent). Decoupled from `rows` so a rows-only refresh no longer re-ships an unchanged map.
+		// ships the full map when marked; absent = the webview keeps its prior map. Decoupled from `rows` so a rows-only refresh no longer re-ships an unchanged map.
 		if (dirty.has('downstreams')) {
 			const downstreams = this.data.getDownstreams();
 			params.downstreams = downstreams != null ? Object.fromEntries(downstreams) : {};
@@ -538,34 +353,12 @@ export class GraphSyncPublisher {
 				}
 			}
 		}
-		if (dirty.has('avatars')) {
-			const avatars = this.data.getAvatars();
-			const size = avatars?.size ?? 0;
-			if (size !== this._avatarsSizeCursor) {
-				params.avatars = avatars != null ? Object.fromEntries(avatars) : {};
-				this._avatarsSizeCursor = size;
-			}
-		}
-		if (dirty.has('refsMetadata')) {
-			if (this._refsMetadataResetPending) {
-				// Authoritative REPLACE over the sequenced channel — the FULL current map (or explicit `null`
-				// when off), flagged so the reducer REPLACEs instead of spread-merging. Reseed the cursor to match.
-				const { payload, cursor } = this.serializeRefsMetadata();
-				params.refsMetadata = payload;
-				params.refsMetadataReset = true;
-				this._refsMetadataCursor = cursor;
-			} else {
-				const { payload, cursor } = this.buildRefsMetadataDelta(this.data.getRefsMetadata());
-				params.refsMetadata = payload;
-				this._refsMetadataCursor = cursor;
-			}
-		}
 
 		return params;
 	}
 
 	/** Rows channel: cursor-less pushes splice against the ledger; a page append ships the page rows. */
-	private fillRowsDelta(params: DidChangeRowsParams): void {
+	private fillRowsDelta(params: GraphRowsPayload): void {
 		const rows = this.data.getRows() ?? [];
 		const paging = this.data.getPaging();
 		const cursor = paging?.startingCursor;
@@ -624,48 +417,6 @@ export class GraphSyncPublisher {
 
 		// New generation (or first send) → full table.
 		return { payload: { id: table.id, dictionary: table.dictionary, sets: table.sets }, cursor: cursor };
-	}
-
-	/**
-	 * refsMetadata reference-delta: every update replaces the value with a fresh object (copy-on-write),
-	 * so a reference compare against the cursor is an exact delta the webview spread-merges. `null` =
-	 * feature off (webview resets); `undefined` = nothing changed (webview keeps).
-	 */
-	private buildRefsMetadataDelta(metadata: ReadonlyMap<string, GraphRefMetadata> | null | undefined): {
-		payload: GraphRefsMetadata | null | undefined;
-		cursor: Map<string, GraphRefMetadata> | undefined;
-	} {
-		if (metadata == null) return { payload: metadata, cursor: undefined };
-
-		const last = this._refsMetadataCursor;
-		let delta: GraphRefsMetadata | undefined;
-		for (const [id, value] of metadata) {
-			if (last?.get(id) !== value) {
-				(delta ??= {})[id] = value;
-			}
-		}
-		// Nothing changed since the cursor → ship nothing, keep the cursor.
-		if (delta == null) return { payload: undefined, cursor: last };
-
-		return { payload: delta, cursor: new Map(metadata) };
-	}
-
-	/**
-	 * Authoritative refsMetadata for a snapshot: full map, explicit `null` when the feature is off, or
-	 * `{}` when enabled-but-empty — never a delta (a snapshot is a reset-anchor). Also yields the cursor
-	 * to reseed alongside it.
-	 */
-	private serializeRefsMetadata(): {
-		payload: GraphRefsMetadata | null;
-		cursor: Map<string, GraphRefMetadata> | undefined;
-	} {
-		if (!this.data.isRefsMetadataEnabled()) return { payload: null, cursor: undefined };
-
-		const metadata = this.data.getRefsMetadata();
-		return {
-			payload: metadata == null ? {} : Object.fromEntries(metadata),
-			cursor: new Map(metadata ?? []),
-		};
 	}
 
 	private scheduleFlush(): void {

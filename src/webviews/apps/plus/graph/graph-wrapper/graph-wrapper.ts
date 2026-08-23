@@ -30,25 +30,13 @@ import type {
 	GraphWipRowsById,
 	GraphWipStateById,
 	GraphZoneType,
-	ProxyAvatarsParams,
 	ReadonlyGraphRow,
 	RowAction,
 	SelectCommitsOptions,
 } from '../../../../plus/graph/protocol.js';
-import {
-	CancelLoadRowCommand,
-	createWipRowId,
-	GetMissingAvatarsCommand,
-	GetMissingRefsMetadataCommand,
-	GetMoreRowsCommand,
-	getWipRowWorktreePath,
-	isWipRowId,
-	LoadRowRequest,
-	ProxyAvatarsCommand,
-} from '../../../../plus/graph/protocol.js';
+import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '../../../../plus/graph/protocol.js';
 import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
-import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../../shared/contexts/telemetry.js';
 import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
@@ -174,9 +162,11 @@ type GraphRevealIntent = { mode: GraphRevealMode; flash: boolean };
 
 type PendingGraphNavigation = {
 	abortCleanup?: () => void;
-	/** Set when this navigation issued a host `LoadRowRequest` — the host walk it started is UNCAPPED,
+	/** Set when this navigation issued a host `rows.loadRow` — the host walk it started is UNCAPPED,
 	 *  so settling without a hit has to withdraw it (see {@link settlePendingNavigation}). */
 	hostLoadSha?: string;
+	/** Withdraws the {@link hostLoadSha} walk. Paired with `hostLoadSha`, set at the same moment. */
+	hostLoadAbort?: AbortController;
 	debugMark?: string;
 	deferSynthetic: boolean;
 	/** Whether a failure here is reportable — see {@link GraphNavigationOptions.feedback}. */
@@ -215,7 +205,7 @@ const maxUnreachableAnchorPageAttempts = 3;
 const wipStatsMaxRetries = 2;
 const wipStatsRetryDelayMs = 2000;
 
-/** How the host explained a {@link LoadRowRequest} that came back without a row — an unloadable ref, a
+/** How the host explained a `rows.loadRow` that came back without a row — an unloadable ref, a
  *  commit only reachable off the first-parent walk, or a plain miss. */
 function toNavigationFailureReason(result: DidLoadRowParams | undefined): GraphNavigationFailureReason {
 	if (result?.error != null) return { kind: 'error', message: result.error };
@@ -434,9 +424,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphCrossPaneContext })
 	private readonly _crossPaneState!: GraphCrossPaneState;
-
-	@consume({ context: ipcContext })
-	private readonly _ipc!: typeof ipcContext.__context__;
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
@@ -1371,7 +1358,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	selectCommits(shas: string[], options?: SelectCommitsOptions): ReadonlyGraphRow[] {
 		// A direct selection is newer user/app intent than any queued targeted navigation. Without this,
-		// details/minimap selections can be overwritten when an older LoadRowRequest finally renders.
+		// details/minimap selections can be overwritten when an older `rows.loadRow` finally renders.
 		this.cancelPendingSelection();
 		const rows = this.selectCommitsCore(shas);
 		// `ensureVisible` is opt-in: scroll the (first) selected row into view ONLY when the caller asks
@@ -1514,7 +1501,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// nobody awaits — withdraw it. Harmless if the host already finished: it only cancels a query still
 		// matching this id.
 		if (pending.hostLoadSha != null && result.status !== 'selected') {
-			this._ipc.sendCommand(CancelLoadRowCommand, { id: pending.hostLoadSha });
+			pending.hostLoadAbort?.abort();
 		}
 		// A row that can't be found won't become renderable on its own, so drop a host highlight request
 		// naming it. Keyed to this sha, and never on 'cancelled' — there a newer owner has taken over and
@@ -1899,16 +1886,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			const anchorSha = this.graphState.wipRowsById?.[sha]?.parentSha;
 			if (anchorSha != null && rowBySha?.get(anchorSha) == null) {
 				this._endEnsureLoading = this.graphState.beginEnsureLoading();
+				const abort = new AbortController();
 				if (this._pendingNavigation?.generation === generation) {
 					this._pendingNavigation.hostLoadSha = anchorSha;
+					this._pendingNavigation.hostLoadAbort = abort;
 				}
 				this.dispatchEvent(
 					new CustomEvent('gl-graph-navigation-loading', {
 						detail: { sha: sha, ref: ref, feedback: feedback },
 					}),
 				);
-				void this._ipc
-					.sendRequest(LoadRowRequest, { id: anchorSha })
+				void this.loadRowFromHost(anchorSha, abort.signal)
 					.then(result => {
 						// The anchor never arrives ⇒ the WIP row cannot be synthesized; fail now rather
 						// than let the deferred intent sit until it times out.
@@ -1927,14 +1915,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}
 
 		this._endEnsureLoading = this.graphState.beginEnsureLoading();
+		const abort = new AbortController();
 		if (this._pendingNavigation?.generation === generation) {
 			this._pendingNavigation.hostLoadSha = sha;
+			this._pendingNavigation.hostLoadAbort = abort;
 		}
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-navigation-loading', { detail: { sha: sha, ref: ref, feedback: feedback } }),
 		);
-		void this._ipc
-			.sendRequest(LoadRowRequest, { id: sha })
+		void this.loadRowFromHost(sha, abort.signal)
 			.then(result => {
 				if (result?.id !== sha) {
 					this.rejectPendingNavigation(generation, toNavigationFailureReason(result));
@@ -1952,6 +1941,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		litGraph?.scrollToSha(sha, reveal);
 		return navigation;
 	}
+
+	/** Asks the host to page a row in, aborting the (uncapped) walk when `signal` fires. Returns
+	 *  `undefined` only when the services aren't wired yet, which the callers read as a plain miss. */
+	private async loadRowFromHost(id: string, signal: AbortSignal): Promise<DidLoadRowParams | undefined> {
+		const services = this.services;
+		if (services == null) return undefined;
+
+		return (await services.rows).loadRow(id, signal);
+	}
+
 	/**
 	 * Persists a columns write via RPC, resolving once the host's storage write has landed. The graph
 	 * component awaits this to know when its own write stops being outstanding — see
@@ -2268,7 +2267,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	);
 
 	/**
-	 * SHAs we've already issued `GetMoreRowsCommand({ id: sha })` for via the unreachable-anchor
+	 * SHAs we've already issued `rows.getMoreRows(sha)` for via the unreachable-anchor
 	 * path, mapped to the loaded row count at the time the request was sent plus how many targeted
 	 * walks that SHA has cost. If a targeted walk returns without surfacing the SHA, we park it here
 	 * so the next `scopeanchorsunreachable` event doesn't re-fire the same request immediately.
@@ -2543,8 +2542,29 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				displayRows: displayRows,
 			});
 		}
+		void this.requestMoreRowsFromHost(undefined);
+	}
+
+	/**
+	 * Drives one page and holds `graphState.loading` for exactly its duration.
+	 *
+	 * The host resolves only after it has posted the rows emission its page produced, so clearing the
+	 * flag here is equivalent to the old "wait for a rows push" — except it also settles the cases that
+	 * push never covered (a page that added nothing, a superseded walk, a repo swap mid-flight).
+	 *
+	 * ACCEPTED EDGE: a visibility flip mid-page resolves the call with the emission still buffered, so
+	 * `loading` clears a moment before the rows appear. They land on the restore flush.
+	 */
+	private async requestMoreRowsFromHost(id: string | undefined, limit?: number): Promise<void> {
+		const services = this.services;
+		if (services == null) return;
+
 		this.graphState.loading = true;
-		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });
+		try {
+			await (await services.rows).getMoreRows(id, limit);
+		} finally {
+			this.graphState.loading = false;
+		}
 	}
 
 	/** Re-run a page request deferred while a row load held the gate. Cheap enough for `updated()`: ONE plain
@@ -2654,20 +2674,47 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.writeVscodeContext(serializeSelectionContext(context));
 	}
 
-	private onGraphMissingAvatars(event: CustomEvent<Record<string, string>>) {
-		// Host resolves the URLs and pushes them back through the `avatars` prop.
-		this._ipc.sendCommand(GetMissingAvatarsCommand, { emails: event.detail });
+	/** Rows scrolled into view carrying authors we have no avatar for. Straight request/response — the
+	 *  answer merges into the `avatars` prop; nothing rides a rows push. */
+	private onGraphMissingAvatars(event: CustomEvent<GraphAvatars>) {
+		const services = this.services;
+		if (services == null) return;
+
+		const emails = event.detail;
+		fireAndForget(
+			(async () => this.graphState.applyAvatars(await (await services.avatars).getMissingAvatars(emails)))(),
+			'avatars/getMissing',
+		);
 	}
 
-	private onGraphAvatarLoadError(event: CustomEvent<ProxyAvatarsParams>) {
-		// Host re-serves the broken remote avatar URLs through its proxy.
-		this._ipc.sendCommand(ProxyAvatarsCommand, event.detail);
+	/** The webview itself couldn't load these avatar URLs (CSP/CORS) — ask the host to re-serve them as
+	 *  data URIs. Only the entries that proxied come back, and they overwrite their own keys. */
+	private onGraphAvatarLoadError(event: CustomEvent<Record<string, string>>) {
+		const services = this.services;
+		if (services == null) return;
+
+		const avatars = event.detail;
+		fireAndForget(
+			(async () => this.graphState.applyAvatars(await (await services.avatars).proxyAvatars(avatars)))(),
+			'avatars/proxy',
+		);
 	}
 
+	/** The component asks for the ref-metadata types it's missing on visible rows. The response carries
+	 *  exactly those refs' resolved entries and spread-merges into the `refsMetadata` prop; an id the host
+	 *  couldn't resolve is omitted, which is what lets the component ask again. */
 	private onGraphMissingRefsMetadata(event: CustomEvent<GraphMissingRefsMetadata>) {
-		// The graph requests upstream (ahead/behind) metadata for tracked refs lazily; host resolves
-		// it and pushes it back through the `refsMetadata` prop.
-		this._ipc.sendCommand(GetMissingRefsMetadataCommand, { metadata: event.detail });
+		const services = this.services;
+		if (services == null) return;
+
+		const metadata = event.detail;
+		fireAndForget(
+			(async () =>
+				this.graphState.applyRefsMetadata(
+					await (await services.refsMetadata).getMissingRefsMetadata(metadata),
+				))(),
+			'refsMetadata/getMissing',
+		);
 	}
 
 	private onGraphVisibleDaysChanged(event: CustomEvent<{ top: number; bottom: number }>) {
@@ -2844,13 +2891,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				rowCount: rowCount,
 				attempts: (this._unreachableAnchorRequests.get(target)?.attempts ?? 0) + 1,
 			});
-			this.graphState.loading = true;
-			this._ipc.sendCommand(GetMoreRowsCommand, { id: target });
+			void this.requestMoreRowsFromHost(target);
 			return;
 		}
 
-		this.graphState.loading = true;
-		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });
+		void this.requestMoreRowsFromHost(undefined);
 	}
 
 	private _lastSyncedWipShas: Set<string> | undefined;

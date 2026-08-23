@@ -27,7 +27,7 @@ suite('pickScopePageTarget', () => {
 	});
 
 	test('returns undefined when mergeBase is already in flight', () => {
-		// Dedupe guard — a previous unreachable event already issued GetMoreRowsCommand for the
+		// Dedupe guard — a previous unreachable event already issued a page request for the
 		// mergeBase. Don't re-fire while the response is still in flight.
 		const anchors = new Set(['branchTip']);
 		const loaded = new Set(['branchTip']);

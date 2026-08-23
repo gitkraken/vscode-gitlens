@@ -5210,7 +5210,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			currentBranch: this.graphState.branch,
 		});
 		if (sha != null && sha !== '') {
-			// If the helper returned the tip and tip isn't loaded, the IPC `LoadRowRequest`
+			// If the helper returned the tip and tip isn't loaded, the `rows.loadRow`
 			// fallback in `navigateToCommit` will fetch it; otherwise the fast path or
 			// synthetic-WIP retry handles it.
 			this.revealForScope(sha, branchName, branchRef, 'overview');
