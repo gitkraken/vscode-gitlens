@@ -25,36 +25,6 @@ export const reviewModePanelStyles = css`
 		}
 	}
 
-	/* Review idle state */
-
-	.review-idle {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		gap: var(--gl-space-10);
-		align-items: center;
-		justify-content: center;
-		min-height: 0;
-		padding: var(--gl-space-24) var(--gl-space-12);
-		text-align: center;
-	}
-
-	.review-idle__scope {
-		display: flex;
-		gap: var(--gl-space-4);
-		align-items: center;
-		font-size: var(--gl-font-base);
-		font-weight: 500;
-		color: var(--vscode-foreground);
-	}
-
-	.review-idle__desc {
-		max-width: 24rem;
-		font-size: var(--gl-font-base);
-		line-height: 1.5;
-		color: var(--vscode-descriptionForeground);
-	}
-
 	/* Review panel */
 
 	.review-panel {
