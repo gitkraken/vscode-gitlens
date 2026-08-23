@@ -4987,7 +4987,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// the host round-trip to settle, then re-reveal the branch so the user keeps their place.
 		if (this.graphState.scope?.branchRef === e.detail.branchId) {
 			this.graphState.clearScope();
-			await this.waitForScopeCleared();
+			// Same settled-state predicate as the overview bar's scope-clearing click.
+			await this.waitForState(
+				() => this.graphState.scope == null && this.graph?.isScopeProjectionActive() !== true,
+			);
 
 			const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
 			if (sha != null) {

@@ -1,4 +1,5 @@
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Remote, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import type { Signal } from '@lit-labs/signals';
 import { signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
@@ -18,8 +19,9 @@ export interface CoachMarkSeenStore {
 	/** Reactive read: `undefined` until the persisted set is known (callers must not force-open yet). */
 	has(mark: GraphCoachMarkType): boolean | undefined;
 	markSeen(mark: GraphCoachMarkType): void;
-	/** Wire, or re-wire after an RPC reconnect — refetches each time. */
-	connect(onboarding: OnboardingRemote | PromiseLike<OnboardingRemote>): void;
+	/** Wire the remote. One-time: the library re-runs the subscription on every reconnect, refetching
+	 *  each time. */
+	connect(connection: Connection): void;
 	dispose(): void;
 }
 
@@ -29,7 +31,9 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 	const pending = new Set<GraphCoachMarkType>();
 
 	let remote: OnboardingRemote | undefined;
-	// Bumped by connect()/dispose() so stale async resolutions no-op.
+	let storedConnection: Connection | undefined;
+	let subscription: Subscription | undefined;
+	// Bumped at subscriber start and in dispose() so a stale in-flight fetch() resolution no-ops.
 	let generation = 0;
 
 	function persist(): void {
@@ -115,28 +119,23 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 			persist();
 		},
 
-		connect: function (onboarding: OnboardingRemote | PromiseLike<OnboardingRemote>): void {
-			const gen = ++generation;
-			void Promise.resolve(onboarding).then(
-				resolved => {
-					if (gen !== generation) return;
+		connect: function (conn: Connection): void {
+			if (storedConnection === conn) return;
 
-					remote = resolved;
-					fetch(gen);
-				},
-				(ex: unknown) => {
-					if (isConnectionClosedError(ex)) {
-						Logger.debug('CoachMarkSeenStore: connect dropped by deliberate connection teardown');
-						return;
-					}
-
-					Logger.error(ex, 'CoachMarkSeenStore: failed to connect');
-				},
-			);
+			subscription?.unsubscribe();
+			storedConnection = conn;
+			subscription = subscribe<{ onboarding: OnboardingRpcService }>(conn, async services => {
+				const gen = ++generation;
+				remote = await services.onboarding;
+				fetch(gen);
+			});
 		},
 
 		dispose: function (): void {
 			generation++;
+			subscription?.unsubscribe();
+			subscription = undefined;
+			storedConnection = undefined;
 			remote = undefined;
 		},
 	};

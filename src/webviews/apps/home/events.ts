@@ -18,7 +18,8 @@
  * - Home-specific events (overview, walkthrough, banners, focus) from HomeViewService
  * - Launchpad events from standalone LaunchpadService
  */
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { WalkthroughProgress } from '../../../constants.walkthroughs.js';
 import type { HomeServices } from '../../home/homeService.js';
@@ -30,7 +31,6 @@ import type {
 	RepositoriesState,
 	RepositoryChange,
 	RepositoryChangeEventData,
-	Unsubscribe,
 } from '../../rpc/services/types.js';
 import { isConnectionClosedError } from '../shared/actions/rpc.js';
 import { sortAgentSessions } from '../shared/agentUtils.js';
@@ -80,21 +80,6 @@ const overviewChangeScope: Record<RepositoryChange, OverviewChangeScope> = {
 };
 
 /**
- * Resolved sub-services (after awaiting the sub-service properties from the Remote proxy).
- */
-interface ResolvedServices {
-	home: Awaited<Remote<HomeServices>['home']>;
-	launchpad: Awaited<Remote<HomeServices>['launchpad']>;
-	config: Awaited<Remote<HomeServices>['config']>;
-	subscription: Awaited<Remote<HomeServices>['subscription']>;
-	integrations: Awaited<Remote<HomeServices>['integrations']>;
-	repositories: Awaited<Remote<HomeServices>['repositories']>;
-	onboarding: Awaited<Remote<HomeServices>['onboarding']>;
-	ai: Awaited<Remote<HomeServices>['ai']>;
-	agents: Awaited<Remote<HomeServices>['agents']>;
-}
-
-/**
  * Callback interface for actions that the entry point needs to handle
  * (e.g., triggering overview refreshes, showing the header).
  */
@@ -124,193 +109,207 @@ export interface SubscriptionActions {
 
 /**
  * Set up all event subscriptions from the backend.
- * Accepts the root state aggregate, resolved sub-services, and action callbacks.
- * Returns a cleanup function that unsubscribes from all events.
+ * Accepts the RPC connection, the root state aggregate, and action callbacks.
+ * The library re-runs the subscriber on every successful handshake (including reconnects),
+ * so it re-resolves sub-services and re-subscribes each time.
  */
 export function setupSubscriptions(
+	connection: Connection,
 	state: HomeRootState,
-	services: ResolvedServices,
 	actions: SubscriptionActions,
-): Promise<Unsubscribe> {
-	return subscribeAll([
-		// ============================================================
-		// Generic events — from WebviewEventsService
-		// ============================================================
+): Subscription {
+	return subscribe<HomeServices>(connection, async services => {
+		const [home, launchpad, subscription, integrations, repositories, onboarding, ai, agents] = await Promise.all([
+			services.home,
+			services.launchpad,
+			services.subscription,
+			services.integrations,
+			services.repositories,
+			services.onboarding,
+			services.ai,
+			services.agents,
+		]);
 
-		// Subscription changed — state flows via the bridged signals, whose freshness is
-		// guaranteed by SubscriptionService's eager listeners (#5513); this subscription
-		// exists solely for its side effects and is safe to remove if they go away
-		() =>
-			services.subscription.onSubscriptionChanged(() => {
-				actions.onSubscriptionChanged();
-			}),
+		return subscribeAll([
+			// ============================================================
+			// Generic events — from WebviewEventsService
+			// ============================================================
 
-		// Integrations changed (includes full state data)
-		() =>
-			services.integrations.onIntegrationsChanged((data: IntegrationChangeEventData) => {
-				state.integrations.hasAnyIntegrationConnected.set(data.hasAnyConnected);
-				state.integrations.integrations.set(data.integrations);
-				actions.refreshOverview();
-			}),
+			// Subscription changed — state flows via the bridged signals, whose freshness is
+			// guaranteed by SubscriptionService's eager listeners (#5513); this subscription
+			// exists solely for its side effects and is safe to remove if they go away
+			() =>
+				subscription.onSubscriptionChanged(() => {
+					actions.onSubscriptionChanged();
+				}),
 
-		// Note: onOrgSettingsChanged removed — the bridged orgSettings signal is kept fresh
-		// by SubscriptionService's eager listeners (#5513)
+			// Integrations changed (includes full state data)
+			() =>
+				integrations.onIntegrationsChanged((data: IntegrationChangeEventData) => {
+					state.integrations.hasAnyIntegrationConnected.set(data.hasAnyConnected);
+					state.integrations.integrations.set(data.integrations);
+					actions.refreshOverview();
+				}),
 
-		// Repository discovery completed
-		() =>
-			services.repositories.onDiscoveryCompleted((repos: RepositoriesState) => {
-				state.home.repositories.set(repos);
-				state.home.discovering.set(false);
-				actions.refreshOverview();
-			}),
+			// Note: onOrgSettingsChanged removed — the bridged orgSettings signal is kept fresh
+			// by SubscriptionService's eager listeners (#5513)
 
-		// Repositories changed (add/remove)
-		() =>
-			services.repositories.onRepositoriesChanged(() => {
-				void services.repositories.getRepositoriesState().then(
-					repos => {
-						state.home.repositories.set(repos);
-					},
-					(ex: unknown) => {
-						if (isConnectionClosedError(ex)) {
-							Logger.debug('Home: repositories refetch dropped by deliberate connection teardown');
-							return;
+			// Repository discovery completed
+			() =>
+				repositories.onDiscoveryCompleted((repos: RepositoriesState) => {
+					state.home.repositories.set(repos);
+					state.home.discovering.set(false);
+					actions.refreshOverview();
+				}),
+
+			// Repositories changed (add/remove)
+			() =>
+				repositories.onRepositoriesChanged(() => {
+					void repositories.getRepositoriesState().then(
+						repos => {
+							state.home.repositories.set(repos);
+						},
+						(ex: unknown) => {
+							if (isConnectionClosedError(ex)) {
+								Logger.debug('Home: repositories refetch dropped by deliberate connection teardown');
+								return;
+							}
+
+							Logger.error(ex, 'Home: Failed to refetch repositories state');
+						},
+					);
+					actions.refreshOverview();
+				}),
+
+			// Per-repository git-level changes (index, head, etc.)
+			// Uses the all-repos event because the overview shows WIP across worktrees
+			// which may be in different repo paths.
+			// Dispatch by `event.changes` via the `overviewChangeScope` map below so that flags
+			// which can only shift the active branch's data (e.g. `index`/`pausedOp`) don't
+			// re-fetch the inactive list's skeleton + WIP + enrichment for every commit.
+			() =>
+				repositories.onRepositoryChanged((event: RepositoryChangeEventData) => {
+					const overviewRepo = state.home.overviewRepositoryPath.get();
+					if (overviewRepo == null || event.repoPath !== overviewRepo) return;
+
+					let needsActive = false;
+					let needsInactive = false;
+					for (const c of event.changes) {
+						const scope = overviewChangeScope[c];
+						if (scope === 'active') {
+							needsActive = true;
+						} else if (scope === 'both') {
+							needsActive = true;
+							needsInactive = true;
 						}
-
-						Logger.error(ex, 'Home: Failed to refetch repositories state');
-					},
-				);
-				actions.refreshOverview();
-			}),
-
-		// Per-repository git-level changes (index, head, etc.)
-		// Uses the all-repos event because the overview shows WIP across worktrees
-		// which may be in different repo paths.
-		// Dispatch by `event.changes` via the `overviewChangeScope` map below so that flags
-		// which can only shift the active branch's data (e.g. `index`/`pausedOp`) don't
-		// re-fetch the inactive list's skeleton + WIP + enrichment for every commit.
-		() =>
-			services.repositories.onRepositoryChanged((event: RepositoryChangeEventData) => {
-				const overviewRepo = state.home.overviewRepositoryPath.get();
-				if (overviewRepo == null || event.repoPath !== overviewRepo) return;
-
-				let needsActive = false;
-				let needsInactive = false;
-				for (const c of event.changes) {
-					const scope = overviewChangeScope[c];
-					if (scope === 'active') {
-						needsActive = true;
-					} else if (scope === 'both') {
-						needsActive = true;
-						needsInactive = true;
 					}
-				}
 
-				if (needsActive) {
-					actions.refreshActiveOverview();
-				}
-				if (needsInactive) {
+					if (needsActive) {
+						actions.refreshActiveOverview();
+					}
+					if (needsInactive) {
+						actions.refreshInactiveOverview();
+					}
+				}),
+
+			// ============================================================
+			// Home-specific events — from HomeViewService
+			// ============================================================
+
+			() =>
+				home.onWalkthroughProgressChanged((progress: WalkthroughProgress) => {
+					state.onboarding.walkthroughProgress.set(progress);
+				}),
+
+			// Both edges of a continue/skip need a fetch: the start so the bar goes busy even when the click
+			// came from another surface, and the settle because the repo change the command produces carries
+			// the paused op's OWN path — which the handler above drops when that's a worktree rather than the
+			// selected overview repo, leaving the bar stranded on its host-reported busy state.
+			() =>
+				home.onPausedOperationContinuingChanged(() => {
+					actions.refreshActiveOverviewNow();
+				}),
+
+			// ============================================================
+			// Onboarding events — from shared OnboardingRpcService
+			// ============================================================
+
+			() =>
+				onboarding.onDidChange((e: { key: string; dismissed: boolean }) => {
+					if (e.key === 'home:integrationBanner') {
+						state.onboarding.banners.integrationBanner = !e.dismissed;
+					} else if (e.key === 'agents:banner') {
+						state.onboarding.banners.agentsBanner = !e.dismissed;
+					}
+				}),
+
+			// ============================================================
+			// Generic AI events — from AIService
+			// ============================================================
+
+			() =>
+				ai.onModelChanged((model: AiModelInfo | undefined) => {
+					state.ai.model.set(model);
+				}),
+
+			() =>
+				ai.onStateChanged((aiState: AIState) => {
+					state.ai.state.set(aiState);
+				}),
+
+			// ============================================================
+			// Home-specific events (continued) — from HomeViewService
+			// ============================================================
+
+			() =>
+				home.onOverviewRepositoryChanged((data: { repoPath: string | undefined }) => {
+					state.home.overviewRepositoryPath.set(data.repoPath);
+					actions.replaceOverview();
+				}),
+
+			() =>
+				home.onOverviewFilterChanged((data: { filter: OverviewFilters }) => {
+					// Persistence is handled automatically by startAutoPersist()
+					actions.updateOverviewFilter(data.filter);
 					actions.refreshInactiveOverview();
-				}
-			}),
+				}),
 
-		// ============================================================
-		// Home-specific events — from HomeViewService
-		// ============================================================
+			() =>
+				home.onFocusAccount(() => {
+					actions.onFocusAccount();
+				}),
 
-		() =>
-			services.home.onWalkthroughProgressChanged((progress: WalkthroughProgress) => {
-				state.onboarding.walkthroughProgress.set(progress);
-			}),
+			// ============================================================
+			// Launchpad events — from standalone LaunchpadService
+			// ============================================================
 
-		// Both edges of a continue/skip need a fetch: the start so the bar goes busy even when the click
-		// came from another surface, and the settle because the repo change the command produces carries
-		// the paused op's OWN path — which the handler above drops when that's a worktree rather than the
-		// selected overview repo, leaving the bar stranded on its host-reported busy state.
-		() =>
-			services.home.onPausedOperationContinuingChanged(() => {
-				actions.refreshActiveOverviewNow();
-			}),
+			() =>
+				launchpad.onLaunchpadChanged(() => {
+					actions.refreshLaunchpad();
+				}),
 
-		// ============================================================
-		// Onboarding events — from shared OnboardingRpcService
-		// ============================================================
+			// ============================================================
+			// Agent sessions — from AgentsService
+			// ============================================================
 
-		() =>
-			services.onboarding.onDidChange((e: { key: string; dismissed: boolean }) => {
-				if (e.key === 'home:integrationBanner') {
-					state.onboarding.banners.integrationBanner = !e.dismissed;
-				} else if (e.key === 'agents:banner') {
-					state.onboarding.banners.agentsBanner = !e.dismissed;
-				}
-			}),
-
-		// ============================================================
-		// Generic AI events — from AIService
-		// ============================================================
-
-		() =>
-			services.ai.onModelChanged((model: AiModelInfo | undefined) => {
-				state.ai.model.set(model);
-			}),
-
-		() =>
-			services.ai.onStateChanged((ai: AIState) => {
-				state.ai.state.set(ai);
-			}),
-
-		// ============================================================
-		// Home-specific events (continued) — from HomeViewService
-		// ============================================================
-
-		() =>
-			services.home.onOverviewRepositoryChanged((data: { repoPath: string | undefined }) => {
-				state.home.overviewRepositoryPath.set(data.repoPath);
-				actions.replaceOverview();
-			}),
-
-		() =>
-			services.home.onOverviewFilterChanged((data: { filter: OverviewFilters }) => {
-				// Persistence is handled automatically by startAutoPersist()
-				actions.updateOverviewFilter(data.filter);
-				actions.refreshInactiveOverview();
-			}),
-
-		() =>
-			services.home.onFocusAccount(() => {
-				actions.onFocusAccount();
-			}),
-
-		// ============================================================
-		// Launchpad events — from standalone LaunchpadService
-		// ============================================================
-
-		() =>
-			services.launchpad.onLaunchpadChanged(() => {
-				actions.refreshLaunchpad();
-			}),
-
-		// ============================================================
-		// Agent sessions — from AgentsService
-		// ============================================================
-
-		// The agent status service emits bursts of `onSessionsChanged` as it scans state
-		// from disk (phase/status/timestamp churn on the same set of sessions). Refetching the
-		// agent overview on every event cascades through `createResource`'s cancelPrevious=true
-		// and starves the in-flight RPC. The branch list rendered by the agent overview is
-		// keyed on `worktreePath` (see `findOverviewBranchForSession`), so the overview only
-		// needs to refetch when that set changes — session churn is covered by the
-		// `agentSessions` signal write above.
-		() => {
-			let lastAgentBranchKey: string | undefined;
-			return services.agents.onSessionsChanged((sessions: AgentSessionState[]) => {
-				state.home.agentSessions.set(sortAgentSessions(sessions));
-				const key = [...new Set(sessions.map(s => s.worktreePath ?? ''))].sort().join('\n');
-				if (key !== lastAgentBranchKey) {
-					lastAgentBranchKey = key;
-					actions.refreshAgentOverview();
-				}
-			});
-		},
-	]);
+			// The agent status service emits bursts of `onSessionsChanged` as it scans state
+			// from disk (phase/status/timestamp churn on the same set of sessions). Refetching the
+			// agent overview on every event cascades through `createResource`'s cancelPrevious=true
+			// and starves the in-flight RPC. The branch list rendered by the agent overview is
+			// keyed on `worktreePath` (see `findOverviewBranchForSession`), so the overview only
+			// needs to refetch when that set changes — session churn is covered by the
+			// `agentSessions` signal write above.
+			() => {
+				let lastAgentBranchKey: string | undefined;
+				return agents.onSessionsChanged((sessions: AgentSessionState[]) => {
+					state.home.agentSessions.set(sortAgentSessions(sessions));
+					const key = [...new Set(sessions.map(s => s.worktreePath ?? ''))].sort().join('\n');
+					if (key !== lastAgentBranchKey) {
+						lastAgentBranchKey = key;
+						actions.refreshAgentOverview();
+					}
+				});
+			},
+		]);
+	});
 }

@@ -22,50 +22,48 @@
  * Note: subscription events (onSubscriptionChanged, onOrgSettingsChanged) are handled
  * via signal bridges — see commitDetails.ts _onRpcReady.
  */
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import type { CommitDetailsServices, CommitSelectionEvent } from '../../commitDetails/commitDetailsService.js';
-import type { RepositoryChangeEventData, Unsubscribe } from '../../rpc/services/types.js';
+import type { RepositoryChangeEventData } from '../../rpc/services/types.js';
 import { subscribeAll } from '../shared/events/subscriptions.js';
 import type { CommitDetailsActions } from './actions.js';
 import type { CommitDetailsState } from './state.js';
 
 /**
- * Resolved domain services needed for event subscriptions.
- */
-interface SubscriptionServices {
-	readonly inspect: Awaited<Remote<CommitDetailsServices>['inspect']>;
-	readonly repositories: Awaited<Remote<CommitDetailsServices>['repositories']>;
-	readonly config: Awaited<Remote<CommitDetailsServices>['config']>;
-	readonly integrations: Awaited<Remote<CommitDetailsServices>['integrations']>;
-	readonly ai: Awaited<Remote<CommitDetailsServices>['ai']>;
-}
-
-/**
  * Set up all event subscriptions from the backend.
- * Accepts state instance, resolved domain services, and actions.
- * Returns a cleanup function that unsubscribes from all events.
+ * Accepts the RPC connection, state instance, and actions.
+ * The library re-runs the subscriber on every successful handshake (including reconnects),
+ * so it re-resolves sub-services and re-subscribes each time.
  */
 export function setupSubscriptions(
+	connection: Connection,
 	state: CommitDetailsState,
-	services: SubscriptionServices,
 	actions: CommitDetailsActions,
-): Promise<Unsubscribe> {
-	return subscribeAll([
-		() =>
-			services.inspect.onCommitSelected((event: CommitSelectionEvent) =>
-				handleCommitSelected(state, event, actions),
-			),
-		() =>
-			services.repositories.onRepositoryChanged((event: RepositoryChangeEventData) =>
-				handleRepositoryChanged(state, event, actions),
-			),
-		() => services.config.onConfigChanged(() => handleConfigChanged(actions)),
-		// Note: onSubscriptionChanged/onOrgSettingsChanged removed — the bridged hasAccount and
-		// orgSettings signals are kept fresh by SubscriptionService's eager listeners (#5513)
-		() =>
-			services.integrations.onIntegrationsChanged(data => handleIntegrationsChanged(state, data.hasAnyConnected)),
-		() => services.ai.onModelChanged(model => state.aiModel.set(model)),
-	]);
+): Subscription {
+	return subscribe<CommitDetailsServices>(connection, async services => {
+		const [inspect, repositories, config, integrations, ai] = await Promise.all([
+			services.inspect,
+			services.repositories,
+			services.config,
+			services.integrations,
+			services.ai,
+		]);
+
+		return subscribeAll([
+			() =>
+				inspect.onCommitSelected((event: CommitSelectionEvent) => handleCommitSelected(state, event, actions)),
+			() =>
+				repositories.onRepositoryChanged((event: RepositoryChangeEventData) =>
+					handleRepositoryChanged(state, event, actions),
+				),
+			() => config.onConfigChanged(() => handleConfigChanged(actions)),
+			// Note: onSubscriptionChanged/onOrgSettingsChanged removed — the bridged hasAccount and
+			// orgSettings signals are kept fresh by SubscriptionService's eager listeners (#5513)
+			() => integrations.onIntegrationsChanged(data => handleIntegrationsChanged(state, data.hasAnyConnected)),
+			() => ai.onModelChanged(model => state.aiModel.set(model)),
+		]);
+	});
 }
 
 // ============================================================

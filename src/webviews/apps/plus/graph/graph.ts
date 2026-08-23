@@ -1,11 +1,11 @@
 import './graph.scss';
-import type { Remote } from '@eamodio/supertalk';
+import type { Remote, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { ContextProvider } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
-import { Logger } from '@gitlens/utils/logger.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type {
 	DidFailRevealParams,
@@ -16,10 +16,10 @@ import type {
 	State,
 } from '../../../plus/graph/protocol.js';
 import type { AgentInfo } from '../../../rpc/services/types.js';
-import { isConnectionClosedError } from '../../shared/actions/rpc.js';
 import { sortAgentSessions } from '../../shared/agentUtils.js';
 import { GlAppHost } from '../../shared/appHost.js';
 import { createOnboardingDismissals, onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
+import { subscribeAll } from '../../shared/events/subscriptions.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
@@ -71,40 +71,9 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		initialValue: this._searchActions,
 	});
 
-	/** Unsubscribes the current `onDidRequestSearch` listener — reconnect-safe teardown, same pattern as
-	 *  `_sidebarActions.initialize()`'s own subscriptions. */
-	private _unsubscribeRequestSearch: (() => void) | undefined;
-	/** The search remote `_unsubscribeRequestSearch` currently belongs to — lets a superseding
-	 *  `_onRpcReady` (reconnect) detect and discard a subscribe that resolves after it's moved on. */
-	private _activeSearchRemote: unknown;
-
-	/** Unsubscribes the current `onSessionsChanged`/`onAgentsChanged` listeners — reconnect-safe
-	 *  teardown, same pattern as `_unsubscribeRequestSearch`. */
-	private _unsubscribeAgentSessions: (() => void) | undefined;
-	private _unsubscribeAgentsInfo: (() => void) | undefined;
-	/** The `agents` remote the two unsubs above currently belong to — same staleness-guard pattern
-	 *  as `_activeSearchRemote`. */
-	private _activeAgentsRemote: unknown;
-
-	/** Unsubscribes the current onboarding `onDidChange` listener feeding the agents-banner state. */
-	private _unsubscribeAgentsBanner: (() => void) | undefined;
-	/** The onboarding remote `_unsubscribeAgentsBanner` currently belongs to. */
-	private _activeOnboardingRemote: unknown;
-
-	/** Unsubscribes the current telemetry `onUsageChanged` listener feeding the walkthrough-started state. */
-	private _unsubscribeWalkthroughStarted: (() => void) | undefined;
-	/** The telemetry remote `_unsubscribeWalkthroughStarted` currently belongs to. */
-	private _activeTelemetryRemote: unknown;
-
-	/** Unsubscribes the current access `onAccessChanged` listener feeding the gating state. */
-	private _unsubscribeAccess: (() => void) | undefined;
-	/** The access remote `_unsubscribeAccess` currently belongs to. */
-	private _activeAccessRemote: unknown;
-
-	/** Unsubscribes the current repoStatus `onDidFetch` listener feeding the header's "Last fetched" time. */
-	private _unsubscribeRepoStatus: (() => void) | undefined;
-	/** The repoStatus remote `_unsubscribeRepoStatus` currently belongs to. */
-	private _activeRepoStatusRemote: unknown;
+	/** The event subscriptions armed once (per app-element lifetime) by `armSubscriptions()` — the
+	 *  library re-runs each subscriber on every handshake, so nothing is re-wired in `_onRpcReady`. */
+	private _subscriptions: Subscription[] | undefined;
 
 	private readonly _onboardingDismissals = createOnboardingDismissals();
 
@@ -138,222 +107,158 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		rpcOptions: { handlers: [this._rowsChannel] },
 	});
 
+	/** Arms the RPC event subscriptions once. The library re-runs each subscriber on every
+	 *  successful handshake (including reconnects), so there's no per-mount re-wiring or staleness
+	 *  guard to maintain — a `reset()` just rejects any in-flight call in the subscriber with a
+	 *  swallowed `ConnectionClosedError`, and the next handshake replays subscribe-then-seed. */
+	private armSubscriptions(): void {
+		if (this._subscriptions != null) return;
+
+		const connection = this._rpc.connection!;
+
+		this._subscriptions = [
+			subscribe<GraphServices>(connection, async services => {
+				const search = await services.search;
+				return subscribeAll([
+					() =>
+						search.onDidRequestSearch(params => {
+							this.dispatchEvent(
+								new CustomEvent('gl-graph-request-search', { detail: params, bubbles: true }),
+							);
+						}),
+				]);
+			}),
+
+			subscribe<GraphServices>(connection, async services => {
+				const agents = await services.agents;
+
+				// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+				const unsub = await subscribeAll([
+					() =>
+						agents.onSessionsChanged(sessions => {
+							this._stateProvider.agentSessions = sortAgentSessions(sessions);
+						}),
+					() =>
+						agents.onAgentsChanged(infos => {
+							this.applyAgentsInfo(infos);
+						}),
+				]);
+
+				const sessions = await agents.getSessions();
+				this._stateProvider.agentSessions = sortAgentSessions(sessions);
+				const infos = await agents.getAgents();
+				this.applyAgentsInfo(infos);
+
+				return unsub;
+			}),
+
+			// Agents-banner: bridge the onboarding RPC service's per-key dismissal event into the
+			// stateProvider slot `sidebar-panel.ts` reads. `isWeb` forces collapsed (agents are fully
+			// disabled on web hosts) — mirrors the legacy host's `isAgentsBannerEnabled`.
+			subscribe<GraphServices>(connection, async services => {
+				const onboarding = await services.onboarding;
+
+				// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+				const unsub = await subscribeAll([
+					() =>
+						onboarding.onDidChange(e => {
+							if (e.key !== 'agents:banner') return;
+
+							this._stateProvider.applyAgentsBannerCollapsed(
+								this._stateProvider.isWeb === true || e.dismissed,
+							);
+						}),
+				]);
+
+				// oxlint-disable-next-line typescript/await-thenable -- Supertalk proxy method calls are thenable at runtime
+				const dismissed = await onboarding.isDismissed('agents:banner');
+				this._stateProvider.applyAgentsBannerCollapsed(this._stateProvider.isWeb === true || dismissed);
+
+				return unsub;
+			}),
+
+			// Walkthrough-started: bridge the telemetry RPC service's per-key usage-change event into the
+			// stateProvider slot `walkthroughBanner.ts` reads via `graphState.graphWalkthroughStarted`.
+			subscribe<GraphServices>(connection, async services => {
+				const telemetry = await services.telemetry;
+
+				// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+				const unsub = await subscribeAll([
+					() =>
+						telemetry.onUsageChanged(e => {
+							if (e.key !== 'action:gitlens.graph.walkthrough.started:happened') return;
+
+							this._stateProvider.applyGraphWalkthroughStarted(e.used);
+						}),
+				]);
+
+				const walkthroughStarted = await telemetry.isUsed('action:gitlens.graph.walkthrough.started:happened');
+				this._stateProvider.applyGraphWalkthroughStarted(walkthroughStarted);
+
+				return unsub;
+			}),
+
+			// Bridges the access plane (subscription + `allowed` + feature preview) into the state
+			// provider. Gating runs on its own track — armed here rather than in the long await chain
+			// in `_onRpcReady`, so it never delays (or, via one of that chain's early returns, skips)
+			// the access snapshot the walls are rendered from. A failed subscriber leaves the bootstrap
+			// state's first-render values in place; the connection logger reports the failure.
+			subscribe<GraphServices>(connection, async services => {
+				const access = await services.access;
+
+				// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+				const unsub = await subscribeAll([
+					() =>
+						access.onAccessChanged(state => {
+							this._stateProvider.applyAccess(state);
+						}),
+				]);
+
+				const state = await access.getAccess();
+				this._stateProvider.applyAccess(state);
+
+				return unsub;
+			}),
+
+			// Bridges the active repo's last-fetched time into the state provider. Same "own track"
+			// reasoning as the access plane above — the header's "Last fetched" label shouldn't wait on
+			// the long await chain in `_onRpcReady`.
+			subscribe<GraphServices>(connection, async services => {
+				const repoStatus = await services.repoStatus;
+
+				// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+				const unsub = await subscribeAll([
+					() =>
+						repoStatus.onDidFetch(status => {
+							this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
+						}),
+				]);
+
+				const status = await repoStatus.getLastFetched();
+				if (status != null) {
+					this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
+				}
+
+				return unsub;
+			}),
+		];
+	}
+
 	private async _onRpcReady(services: Remote<GraphServices>): Promise<void> {
+		this.armSubscriptions();
+
 		this._servicesProvider.setValue(services);
-		this._stateProvider.initializeServices(services);
+		this._stateProvider.initializeServices(this._rpc.connection!);
 
-		this._onboardingDismissals.connect(services.onboarding);
-		this._coachMarkSeen.connect(services.onboarding);
-		this._promos.connect(services.subscription);
-
-		// Gating runs on its own track — the long await chain below must never delay (or, via one of
-		// its early returns, skip) the access snapshot the walls are rendered from.
-		void this.connectAccess(services);
-		// Same reasoning as `connectAccess` — the header's "Last fetched" label shouldn't wait on the
-		// long await chain below.
-		void this.connectRepoStatus(services);
+		this._onboardingDismissals.connect(this._rpc.connection!);
+		this._coachMarkSeen.connect(this._rpc.connection!);
+		this._promos.connect(this._rpc.connection!);
 
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
 
 		const [search, pickers] = await Promise.all([services.search, services.pickers]);
 		this._searchActions.initialize(search, this._stateProvider, pickers);
-
-		// Tear down the previous listener first — reconnect-safe, same pattern as `_sidebarActions.initialize()`.
-		this._unsubscribeRequestSearch?.();
-		this._unsubscribeRequestSearch = undefined;
-		this._activeSearchRemote = search;
-
-		const unsub = (await search.onDidRequestSearch(params => {
-			this.dispatchEvent(new CustomEvent('gl-graph-request-search', { detail: params, bubbles: true }));
-		})) as unknown as (() => void) | undefined;
-		if (typeof unsub !== 'function') return;
-
-		if (this._activeSearchRemote !== search) {
-			unsub();
-			return;
-		}
-
-		this._unsubscribeRequestSearch = unsub;
-
-		// Tear down the previous agent-plane listeners first — reconnect-safe, same pattern as above.
-		this._unsubscribeAgentSessions?.();
-		this._unsubscribeAgentSessions = undefined;
-		this._unsubscribeAgentsInfo?.();
-		this._unsubscribeAgentsInfo = undefined;
-
-		const agents = await services.agents;
-		this._activeAgentsRemote = agents;
-
-		// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
-		const unsubSessions = (await agents.onSessionsChanged(sessions => {
-			this._stateProvider.agentSessions = sortAgentSessions(sessions);
-		})) as unknown as (() => void) | undefined;
-		if (typeof unsubSessions !== 'function') return;
-
-		if (this._activeAgentsRemote !== agents) {
-			unsubSessions();
-			return;
-		}
-
-		this._unsubscribeAgentSessions = unsubSessions;
-
-		const sessions = await agents.getSessions();
-		if (this._activeAgentsRemote !== agents) return;
-
-		this._stateProvider.agentSessions = sortAgentSessions(sessions);
-
-		const unsubAgentsInfo = (await agents.onAgentsChanged(infos => {
-			this.applyAgentsInfo(infos);
-		})) as unknown as (() => void) | undefined;
-		if (typeof unsubAgentsInfo !== 'function') return;
-
-		if (this._activeAgentsRemote !== agents) {
-			unsubAgentsInfo();
-			return;
-		}
-
-		this._unsubscribeAgentsInfo = unsubAgentsInfo;
-
-		const infos = await agents.getAgents();
-		if (this._activeAgentsRemote !== agents) return;
-
-		this.applyAgentsInfo(infos);
-
-		// Agents-banner: bridge the onboarding RPC service's per-key dismissal event into the
-		// stateProvider slot `sidebar-panel.ts` reads. `isWeb` forces collapsed (agents are fully
-		// disabled on web hosts) — mirrors the legacy host's `isAgentsBannerEnabled`.
-		this._unsubscribeAgentsBanner?.();
-		this._unsubscribeAgentsBanner = undefined;
-
-		const onboarding = await services.onboarding;
-		this._activeOnboardingRemote = onboarding;
-
-		const unsubBanner = (await onboarding.onDidChange(e => {
-			if (e.key !== 'agents:banner') return;
-
-			this._stateProvider.applyAgentsBannerCollapsed(this._stateProvider.isWeb === true || e.dismissed);
-		})) as unknown as (() => void) | undefined;
-		if (typeof unsubBanner !== 'function') return;
-
-		if (this._activeOnboardingRemote !== onboarding) {
-			unsubBanner();
-			return;
-		}
-
-		this._unsubscribeAgentsBanner = unsubBanner;
-
-		// oxlint-disable-next-line typescript/await-thenable -- Supertalk proxy method calls are thenable at runtime
-		const dismissed = await onboarding.isDismissed('agents:banner');
-		if (this._activeOnboardingRemote !== onboarding) return;
-
-		this._stateProvider.applyAgentsBannerCollapsed(this._stateProvider.isWeb === true || dismissed);
-
-		// Walkthrough-started: bridge the telemetry RPC service's per-key usage-change event into the
-		// stateProvider slot `walkthroughBanner.ts` reads via `graphState.graphWalkthroughStarted`.
-		this._unsubscribeWalkthroughStarted?.();
-		this._unsubscribeWalkthroughStarted = undefined;
-
-		const telemetry = await services.telemetry;
-		this._activeTelemetryRemote = telemetry;
-
-		// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
-		const unsubWalkthroughStarted = (await telemetry.onUsageChanged(e => {
-			if (e.key !== 'action:gitlens.graph.walkthrough.started:happened') return;
-
-			this._stateProvider.applyGraphWalkthroughStarted(e.used);
-		})) as unknown as (() => void) | undefined;
-		if (typeof unsubWalkthroughStarted !== 'function') return;
-
-		if (this._activeTelemetryRemote !== telemetry) {
-			unsubWalkthroughStarted();
-			return;
-		}
-
-		this._unsubscribeWalkthroughStarted = unsubWalkthroughStarted;
-
-		const walkthroughStarted = await telemetry.isUsed('action:gitlens.graph.walkthrough.started:happened');
-		if (this._activeTelemetryRemote !== telemetry) return;
-
-		this._stateProvider.applyGraphWalkthroughStarted(walkthroughStarted);
-	}
-
-	/** Bridges the access plane (subscription + `allowed` + feature preview) into the state provider.
-	 *  Reconnect-safe, same staleness-guard pattern as the agents/telemetry blocks above. */
-	private async connectAccess(services: Remote<GraphServices>): Promise<void> {
-		this._unsubscribeAccess?.();
-		this._unsubscribeAccess = undefined;
-
-		try {
-			const access = await services.access;
-			this._activeAccessRemote = access;
-
-			// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
-			const unsub = (await access.onAccessChanged(state => {
-				this._stateProvider.applyAccess(state);
-			})) as unknown as (() => void) | undefined;
-			if (typeof unsub !== 'function') return;
-
-			if (this._activeAccessRemote !== access) {
-				unsub();
-				return;
-			}
-
-			this._unsubscribeAccess = unsub;
-
-			const state = await access.getAccess();
-			if (this._activeAccessRemote !== access) return;
-
-			this._stateProvider.applyAccess(state);
-		} catch (ex) {
-			if (isConnectionClosedError(ex)) {
-				Logger.debug('GraphAppHost: access plane connect dropped by deliberate connection teardown');
-				return;
-			}
-
-			// The bootstrap state already seeded all three fields, so a failure here leaves the walls
-			// on their first-render verdict rather than an unknown one.
-			Logger.error(ex, 'GraphAppHost: failed to connect the access plane');
-		}
-	}
-
-	/** Bridges the active repo's last-fetched time into the state provider. Reconnect-safe, same
-	 *  staleness-guard pattern as `connectAccess`. */
-	private async connectRepoStatus(services: Remote<GraphServices>): Promise<void> {
-		this._unsubscribeRepoStatus?.();
-		this._unsubscribeRepoStatus = undefined;
-
-		try {
-			const repoStatus = await services.repoStatus;
-			this._activeRepoStatusRemote = repoStatus;
-
-			// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
-			const unsub = (await repoStatus.onDidFetch(status => {
-				this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
-			})) as unknown as (() => void) | undefined;
-			if (typeof unsub !== 'function') return;
-
-			if (this._activeRepoStatusRemote !== repoStatus) {
-				unsub();
-				return;
-			}
-
-			this._unsubscribeRepoStatus = unsub;
-
-			const status = await repoStatus.getLastFetched();
-			if (this._activeRepoStatusRemote !== repoStatus || status == null) return;
-
-			this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
-		} catch (ex) {
-			if (isConnectionClosedError(ex)) {
-				Logger.debug('GraphAppHost: repo-status plane connect dropped by deliberate connection teardown');
-				return;
-			}
-
-			// The bootstrap state already seeded `lastFetched`, so a failure here just leaves the header
-			// on its first-render value rather than an unknown one.
-			Logger.error(ex, 'GraphAppHost: failed to connect the repo-status plane');
-		}
 	}
 
 	private applyAgentsInfo(infos: readonly AgentInfo[]): void {
@@ -418,20 +323,9 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		this.removeEventListener('gl-graph-request-reveal-failed', this._handleRequestRevealFailed as EventListener);
 		this._sidebarActions.dispose();
 		this._searchActions.dispose();
-		this._unsubscribeRequestSearch?.();
-		this._unsubscribeRequestSearch = undefined;
-		this._unsubscribeAgentSessions?.();
-		this._unsubscribeAgentSessions = undefined;
-		this._unsubscribeAgentsInfo?.();
-		this._unsubscribeAgentsInfo = undefined;
-		this._unsubscribeAgentsBanner?.();
-		this._unsubscribeAgentsBanner = undefined;
-		this._unsubscribeAccess?.();
-		this._unsubscribeAccess = undefined;
-		this._unsubscribeRepoStatus?.();
-		this._unsubscribeRepoStatus = undefined;
-		this._unsubscribeWalkthroughStarted?.();
-		this._unsubscribeWalkthroughStarted = undefined;
+		// `_subscriptions` are intentionally left armed on unmount: the controller's `hostDisconnected`
+		// ends the RPC session (host-side subscription state dies with it), and the library re-issues
+		// each subscriber on the next handshake — there's nothing here to unsubscribe.
 		this._onboardingDismissals.dispose();
 		this._coachMarkSeen.dispose();
 	}

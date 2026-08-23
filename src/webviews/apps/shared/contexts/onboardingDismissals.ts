@@ -1,11 +1,11 @@
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Remote, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import type { Signal } from '@lit-labs/signals';
 import { signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { OnboardingKeys } from '../../../../constants.onboarding.js';
 import type { OnboardingRpcService } from '../../../rpc/services/onboarding.js';
-import type { Unsubscribe } from '../../../rpc/services/types.js';
 import { isConnectionClosedError } from '../actions/rpc.js';
 import { subscribeAll } from '../events/subscriptions.js';
 
@@ -16,8 +16,9 @@ export interface OnboardingDismissals {
 	get(key: OnboardingKeys): boolean | undefined;
 	/** Optimistic local set-dismissed + persist via the host service (queued until the remote resolves). */
 	dismiss(key: OnboardingKeys): void;
-	/** Wire (or re-wire after an RPC reconnect) the remote; re-fetches all known keys on each call. */
-	connect(onboarding: OnboardingRemote | PromiseLike<OnboardingRemote>): void;
+	/** Wire the remote. One-time: the library re-runs the subscription on every reconnect, replaying
+	 *  pending dismissals and re-fetching all known keys each time, same as before. */
+	connect(connection: Connection): void;
 	/** Re-fetch all known keys. Call on visibility restore: buffered change events collapse to the last one, so multi-key changes while hidden need a re-sync. */
 	refresh(): void;
 	/** Clear unacknowledged signals to unknown. Call on webview hide so a change made elsewhere while hidden can't paint from a stale value on restore — consumers treat undefined as "unknown, don't show", and the visibility-restore `refresh()` repopulates. */
@@ -31,12 +32,10 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 	const pendingDismissals = new Set<OnboardingKeys>();
 
 	let remote: OnboardingRemote | undefined;
-	// Connection era — bumped by connect()/dispose() so a superseded connection resolution no-ops.
-	// markStale() must NOT bump this: hiding before the connection resolves would silently discard it.
-	let generation = 0;
+	let connection: Connection | undefined;
+	let subscription: Subscription | undefined;
 	// Reply fence — bumped by markStale()/connect()/dispose() so stale in-flight fetch replies no-op.
 	let fetchEpoch = 0;
-	let unsubscribe: Promise<Unsubscribe> | undefined;
 
 	function ensureSignal(key: OnboardingKeys): Signal.State<boolean | undefined> {
 		let sig = signals.get(key);
@@ -45,15 +44,6 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 			signals.set(key, sig);
 		}
 		return sig;
-	}
-
-	function stopListening(): void {
-		void unsubscribe?.then(unsub => {
-			if (typeof unsub === 'function') {
-				unsub();
-			}
-		});
-		unsubscribe = undefined;
 	}
 
 	function fetchDismissed(key: OnboardingKeys, force?: boolean): void {
@@ -134,37 +124,30 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 			persistDismiss(key);
 		},
 
-		connect: function (onboarding: OnboardingRemote | PromiseLike<OnboardingRemote>): void {
-			const gen = ++generation;
-			fetchEpoch++;
-			void Promise.resolve(onboarding).then(
-				resolved => {
-					// Superseded by a newer connect() or dispose()
-					if (gen !== generation) return;
+		connect: function (conn: Connection): void {
+			if (connection === conn) return;
 
-					stopListening();
-					remote = resolved;
-					unsubscribe = subscribeAll([
-						() =>
-							resolved.onDidChange((e: { key: OnboardingKeys; dismissed: boolean }) =>
-								ensureSignal(e.key).set(e.dismissed),
-							),
-					]);
+			subscription?.unsubscribe();
+			connection = conn;
+			subscription = subscribe<{ onboarding: OnboardingRpcService }>(conn, async services => {
+				// Fence stale in-flight fetch replies from the previous session
+				fetchEpoch++;
+				const resolved = await services.onboarding;
+				remote = resolved;
+				const unsub = await subscribeAll([
+					() =>
+						resolved.onDidChange((e: { key: OnboardingKeys; dismissed: boolean }) =>
+							ensureSignal(e.key).set(e.dismissed),
+						),
+				]);
 
-					for (const key of pendingDismissals) {
-						persistDismiss(key);
-					}
-					refresh();
-				},
-				(ex: unknown) => {
-					if (isConnectionClosedError(ex)) {
-						Logger.debug('OnboardingDismissals: connect dropped by deliberate connection teardown');
-						return;
-					}
+				for (const key of pendingDismissals) {
+					persistDismiss(key);
+				}
+				refresh();
 
-					Logger.error(ex, 'OnboardingDismissals: failed to connect');
-				},
-			);
+				return unsub;
+			});
 		},
 
 		refresh: refresh,
@@ -182,9 +165,10 @@ export function createOnboardingDismissals(): OnboardingDismissals {
 		},
 
 		dispose: function (): void {
-			generation++;
+			subscription?.unsubscribe();
+			subscription = undefined;
+			connection = undefined;
 			fetchEpoch++;
-			stopListening();
 			remote = undefined;
 		},
 	};

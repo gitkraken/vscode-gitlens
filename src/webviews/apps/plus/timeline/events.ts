@@ -1,17 +1,8 @@
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import type { ScopeChangedEvent, TimelineServices } from '../../../plus/timeline/protocol.js';
-import type { RepositoryChangeEventData, Unsubscribe } from '../../../rpc/services/types.js';
+import type { RepositoryChangeEventData } from '../../../rpc/services/types.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
-
-/**
- * Resolved domain services needed for event subscriptions.
- */
-interface ResolvedServices {
-	readonly timeline: Awaited<Remote<TimelineServices>['timeline']>;
-	readonly repositories: Awaited<Remote<TimelineServices>['repositories']>;
-	readonly subscription: Awaited<Remote<TimelineServices>['subscription']>;
-	readonly config: Awaited<Remote<TimelineServices>['config']>;
-}
 
 /**
  * Callback interface for actions that subscriptions trigger.
@@ -31,29 +22,39 @@ export interface SubscriptionActions {
 
 /**
  * Set up all event subscriptions from the backend.
- * Accepts resolved domain services (including the timeline sub-service).
- * Returns a cleanup function that unsubscribes from all events.
+ * Accepts the RPC connection and actions. The library re-runs the subscriber on every
+ * successful handshake (including reconnects), so it re-resolves sub-services and
+ * re-subscribes each time.
  */
-export function setupSubscriptions(resolved: ResolvedServices, actions: SubscriptionActions): Promise<Unsubscribe> {
-	return subscribeAll([
-		// ============================================================
-		// View-specific events — from timeline sub-service
-		// ============================================================
+export function setupSubscriptions(connection: Connection, actions: SubscriptionActions): Subscription {
+	return subscribe<TimelineServices>(connection, async services => {
+		const [timeline, repositories, subscription, config] = await Promise.all([
+			services.timeline,
+			services.repositories,
+			services.subscription,
+			services.config,
+		]);
 
-		// Scope changed (active tab, file selection)
-		() => resolved.timeline.onScopeChanged((event: ScopeChangedEvent | undefined) => actions.onScopeChanged(event)),
+		return subscribeAll([
+			// ============================================================
+			// View-specific events — from timeline sub-service
+			// ============================================================
 
-		// ============================================================
-		// Domain events — from domain service classes
-		// ============================================================
+			// Scope changed (active tab, file selection)
+			() => timeline.onScopeChanged((event: ScopeChangedEvent | undefined) => actions.onScopeChanged(event)),
 
-		// Repository data changes — filter by current repo in handler
-		() => resolved.repositories.onRepositoryChanged((e: RepositoryChangeEventData) => actions.onRepoChanged(e)),
-		// Subscription changes — access might change
-		() => resolved.subscription.onSubscriptionChanged(() => actions.onDataChanged()),
-		// Config changes — date format etc.
-		() => resolved.config.onConfigChanged(() => actions.onConfigChanged()),
-		// Repositories added/removed
-		() => resolved.repositories.onRepositoriesChanged(() => actions.onRepoCountChanged()),
-	]);
+			// ============================================================
+			// Domain events — from domain service classes
+			// ============================================================
+
+			// Repository data changes — filter by current repo in handler
+			() => repositories.onRepositoryChanged((e: RepositoryChangeEventData) => actions.onRepoChanged(e)),
+			// Subscription changes — access might change
+			() => subscription.onSubscriptionChanged(() => actions.onDataChanged()),
+			// Config changes — date format etc.
+			() => config.onConfigChanged(() => actions.onConfigChanged()),
+			// Repositories added/removed
+			() => repositories.onRepositoriesChanged(() => actions.onRepoCountChanged()),
+		]);
+	});
 }

@@ -1,6 +1,6 @@
 /*global*/
 import './home.scss';
-import type { Remote } from '@eamodio/supertalk';
+import type { Remote, Subscription } from '@eamodio/supertalk';
 import { ContextProvider } from '@lit/context';
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -246,9 +246,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	/**
-	 * Unsubscribe function for RPC event subscriptions.
+	 * RPC event subscription — armed once in `_onRpcReady`; supertalk re-runs its subscriber
+	 * on every reconnect, so it is never re-created here.
 	 */
-	private _unsubscribeEvents?: () => void;
+	private _eventsSubscription?: Subscription;
 
 	/**
 	 * Dynamic FS-level WIP watcher — re-subscribed when the overview repo changes.
@@ -313,9 +314,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		this._readyAbort?.abort(new DOMException('home: disconnected', 'AbortError'));
 		this._readyAbort = undefined;
 
-		// Unsubscribe RPC event callbacks (before the RPC session ends)
-		this._unsubscribeEvents?.();
-		this._unsubscribeEvents = undefined;
+		// The events subscription deliberately survives unmount: the controller resets the
+		// session on unmount (host-side subscription state dies with it), and the library
+		// re-issues the subscriber on the next handshake if this component reconnects.
 		this._wipWatchUnsubscribe?.();
 		this._wipWatchUnsubscribe = undefined;
 
@@ -416,7 +417,6 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const [
 			home,
 			launchpad,
-			config,
 			subscription,
 			integrations,
 			repositories,
@@ -429,7 +429,6 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		] = await Promise.all([
 			services.home,
 			services.launchpad,
-			services.config,
 			services.subscription,
 			services.integrations,
 			services.repositories,
@@ -442,7 +441,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		]);
 
 		// Subscription changes invalidate the promo cache.
-		this._promos.connect(subscription);
+		this._promos.connect(this._rpc.connection!);
 
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
@@ -704,25 +703,8 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				void this._fetchAgentCoalesced();
 			},
 		};
-		this._unsubscribeEvents = await phaseTimeout(
-			'setupSubscriptions',
-			30_000,
-			setupSubscriptions(
-				root,
-				{
-					home: home,
-					launchpad: launchpad,
-					config: config,
-					subscription: subscription,
-					integrations: integrations,
-					repositories: repositories,
-					onboarding: onboarding,
-					ai: ai,
-					agents: agents,
-				},
-				actions,
-			),
-		);
+		this._eventsSubscription ??= setupSubscriptions(this._rpc.connection!, root, actions);
+		await phaseTimeout('setupSubscriptions', 30_000, this._eventsSubscription.ready);
 
 		// Start FS-level WIP watcher for the initial overview repo
 		watchWipForRepo(this._homeState.overviewRepositoryPath.get());

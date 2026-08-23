@@ -3,13 +3,12 @@ import * as sinon from 'sinon';
 import { GraphProducersService } from '../graphProducersService.js';
 import type { GraphMissingRefsMetadata, GraphRefMetadata } from '../protocol.js';
 
-// `onGetMissingRefMetadata`'s 'upstream' branch is the one piece of this class's enrichment pipeline pure
+// `getMissingRefsMetadata`'s 'upstream' branch is the one piece of this class's enrichment pipeline pure
 // enough to exercise directly: given a resolved branch, does it write `null` (no upstream at all), real
 // metadata (in sync), or real metadata WITH `missing: true` (upstream existed, gone on the remote) — and
 // never collapse the last two into the same `null`, which was the bug. Reached fields only:
 // `_refsMetadata`, `_graphSession`, `repository`, `_issueIntegrationConnectionState`, and
-// `container.git.getRepositoryService(...).branches`; `updateRefsMetadata` is stubbed out (its
-// debounced-publish machinery is exercised elsewhere). Same fake-`this` + call-through-the-prototype
+// `container.git.getRepositoryService(...).branches`. Same fake-`this` + call-through-the-prototype
 // approach as `graphWipService.test.ts`, for the same reason: a real instance needs a live `Container`.
 
 type FakeBranch = {
@@ -30,7 +29,6 @@ type FakeThis = {
 			};
 		};
 	};
-	updateRefsMetadata: sinon.SinonStub;
 };
 
 function createFakeThis(branches: FakeBranch[], repoPath = '/repo'): FakeThis {
@@ -51,21 +49,22 @@ function createFakeThis(branches: FakeBranch[], repoPath = '/repo'): FakeThis {
 				}),
 			},
 		},
-		updateRefsMetadata: sinon.stub(),
 	};
 }
 
-function invoke(fakeThis: FakeThis, metadata: GraphMissingRefsMetadata): Promise<void> {
+// Targets `enrichRefsMetadata` (the resolution core `getMissingRefsMetadata` awaits) directly — the
+// public entry point calls sibling private methods through `this`, which a fake `this` doesn't carry.
+async function invoke(fakeThis: FakeThis, metadata: GraphMissingRefsMetadata): Promise<void> {
 	const fn = (
 		GraphProducersService.prototype as unknown as {
-			onGetMissingRefMetadata: (params: { metadata: GraphMissingRefsMetadata }) => Promise<void>;
+			enrichRefsMetadata: (metadata: GraphMissingRefsMetadata) => Promise<void>;
 		}
-	).onGetMissingRefMetadata;
+	).enrichRefsMetadata;
 
-	return fn.call(fakeThis, { metadata: metadata });
+	await fn.call(fakeThis, metadata);
 }
 
-suite('GraphProducersService.onGetMissingRefMetadata — upstream metadata Test Suite', () => {
+suite('GraphProducersService.getMissingRefsMetadata — upstream metadata Test Suite', () => {
 	test('a branch with no upstream writes null', async () => {
 		const branch: FakeBranch = { id: 'b1', name: 'feature' };
 		const fakeThis = createFakeThis([branch]);

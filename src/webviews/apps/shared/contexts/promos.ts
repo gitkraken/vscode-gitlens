@@ -1,25 +1,20 @@
-import type { Remote } from '@eamodio/supertalk';
+import type { Connection, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import { signal as litSignal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
-import { Logger } from '@gitlens/utils/logger.js';
 import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/models/promo.js';
 import { ApplicablePromoRequest } from '../../../protocol.js';
 import type { SubscriptionService } from '../../../rpc/services/subscription.js';
-import type { Unsubscribe } from '../../../rpc/services/types.js';
-import { isConnectionClosedError } from '../actions/rpc.js';
 import type { Disposable } from '../events.js';
 import { subscribeAll } from '../events/subscriptions.js';
 import type { HostIpc } from '../ipc.js';
 import type { ReadableSignal } from '../state.js';
 
-type SubscriptionRemote = Awaited<Remote<{ subscription: SubscriptionService }>['subscription']>;
-
 export class PromosContext implements Disposable {
 	private readonly ipc: HostIpc;
 
-	/** Connection era — bumped by `connect()`/`disconnect()` so a superseded resolution no-ops. */
-	private _generation = 0;
-	private _unsubscribe: Promise<Unsubscribe> | undefined;
+	private _connection: Connection | undefined;
+	private _subscription: Subscription | undefined;
 
 	constructor(ipc: HostIpc) {
 		this.ipc = ipc;
@@ -40,43 +35,27 @@ export class PromosContext implements Disposable {
 	}
 
 	/**
-	 * Wire (or re-wire after an RPC reconnect) the subscription service whose changes invalidate the
-	 * promo cache. Surfaces without RPC never connect and simply never invalidate — the same as
-	 * before, since a webview only ever received its own surface's notifications.
+	 * Wire the subscription service whose changes invalidate the promo cache. One-time: the library
+	 * re-runs the subscription on every reconnect, so repeat calls from `_onRpcReady` no-op
+	 * (idempotent for the same connection). Surfaces without RPC never connect and simply never
+	 * invalidate — the same as before, since a webview only ever received its own surface's
+	 * notifications.
 	 */
-	connect(subscription: SubscriptionRemote | PromiseLike<SubscriptionRemote>): void {
-		const gen = ++this._generation;
-		void Promise.resolve(subscription).then(
-			resolved => {
-				// Superseded by a newer connect() or disconnect()
-				if (gen !== this._generation) return;
+	connect(connection: Connection): void {
+		if (this._connection === connection) return;
 
-				this.stopListening();
-				this._unsubscribe = subscribeAll([() => resolved.onSubscriptionChanged(() => this.invalidate())]);
-			},
-			(ex: unknown) => {
-				if (isConnectionClosedError(ex)) {
-					Logger.debug('PromosContext: connect dropped by deliberate connection teardown');
-					return;
-				}
-
-				Logger.error(ex, 'PromosContext: failed to connect');
-			},
-		);
+		this.disconnect();
+		this._connection = connection;
+		this._subscription = subscribe<{ subscription: SubscriptionService }>(connection, async remote => {
+			const subscription = await remote.subscription;
+			return subscribeAll([() => subscription.onSubscriptionChanged(() => this.invalidate())]);
+		});
 	}
 
 	disconnect(): void {
-		this._generation++;
-		this.stopListening();
-	}
-
-	private stopListening(): void {
-		void this._unsubscribe?.then(unsub => {
-			if (typeof unsub === 'function') {
-				unsub();
-			}
-		});
-		this._unsubscribe = undefined;
+		this._subscription?.unsubscribe();
+		this._subscription = undefined;
+		this._connection = undefined;
 	}
 
 	private invalidate(): void {

@@ -1,5 +1,5 @@
 import './timeline.scss';
-import type { Remote } from '@eamodio/supertalk';
+import type { Remote, Subscription } from '@eamodio/supertalk';
 import { html, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
@@ -62,7 +62,11 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 
 	private _actions?: TimelineActions;
 	private _datasetResource?: Resource<TimelineDatasetResult | undefined>;
-	private _unsubscribeEvents?: () => void;
+	/**
+	 * RPC event subscription — armed once in `_onRpcReady`; supertalk re-runs its subscriber
+	 * on every reconnect, so it is never re-created here.
+	 */
+	private _eventsSubscription?: Subscription;
 	private _stopAutoPersist?: () => void;
 	private _chartDataset?: TimelineDatasetResult['dataset'];
 	private _chartDataPromise?: Promise<TimelineDatasetResult['dataset']>;
@@ -86,8 +90,9 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
-		this._unsubscribeEvents?.();
-		this._unsubscribeEvents = undefined;
+		// The events subscription deliberately survives unmount: the controller resets the
+		// session on unmount (host-side subscription state dies with it), and the library
+		// re-issues the subscriber on the next handshake if this component reconnects.
 
 		this._stopAutoPersist?.();
 		this._stopAutoPersist = undefined;
@@ -110,16 +115,10 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		const s = this._state;
 
 		// Resolve the timeline sub-service and domain sub-services
-		const [timeline, repositories, repository, subscription, config] = await Promise.all([
-			services.timeline,
-			services.repositories,
-			services.repository,
-			services.subscription,
-			services.config,
-		]);
+		const [timeline, repository] = await Promise.all([services.timeline, services.repository]);
 
 		// Subscription changes invalidate the promo cache.
-		this._promos.connect(subscription);
+		this._promos.connect(this._rpc.connection!);
 
 		// Create dataset resource — fetcher reads current state signals via closure. `loadedSpanMs`
 		// is what powers progressive load-more: when the user zooms past the loaded oldest, the
@@ -157,10 +156,10 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 			onConfigChanged: () => void actions.fetchDisplayConfig(),
 			onRepoCountChanged: () => void actions.fetchRepoCount(),
 		};
-		this._unsubscribeEvents = await setupSubscriptions(
-			{ timeline: timeline, repositories: repositories, subscription: subscription, config: config },
-			subActions,
-		);
+		this._eventsSubscription ??= setupSubscriptions(this._rpc.connection!, subActions);
+		// Wait for the subscriptions to land before the initial fetch below, preserving the
+		// subscribe-before-fetch guarantee (`ready` settles once, so reconnects don't re-wait).
+		await this._eventsSubscription.ready;
 
 		// Cancel pending RPC requests on hide (responses would be silently dropped
 		// by VS Code); re-fetch data on visibility restore

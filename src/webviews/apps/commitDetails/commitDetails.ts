@@ -1,5 +1,5 @@
 import './commitDetails.scss';
-import type { Remote } from '@eamodio/supertalk';
+import type { Remote, Subscription } from '@eamodio/supertalk';
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -73,9 +73,10 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	private _resources?: CommitDetailsResources;
 
 	/**
-	 * Unsubscribe function for event subscriptions.
+	 * RPC event subscription — armed once in `_onRpcReady`; supertalk re-runs its subscriber
+	 * on every reconnect, so it is never re-created here.
 	 */
-	private _unsubscribeEvents?: () => void;
+	private _eventsSubscription?: Subscription;
 
 	/**
 	 * Stop auto-persistence — returned by startAutoPersist().
@@ -91,9 +92,9 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
-		// Unsubscribe RPC event callbacks (before the RPC session ends)
-		this._unsubscribeEvents?.();
-		this._unsubscribeEvents = undefined;
+		// The events subscription deliberately survives unmount: the controller resets the
+		// session on unmount (host-side subscription state dies with it), and the library
+		// re-issues the subscriber on the next handshake if this component reconnects.
 
 		// Stop auto-persistence
 		this._stopAutoPersist?.();
@@ -162,7 +163,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		]);
 
 		// Promo cache invalidation — the surface renders promos via `gl-feature-badge`.
-		this._promos.connect(subscription);
+		this._promos.connect(this._rpc.connection!);
 
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
@@ -229,12 +230,12 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		// Set up DOM event listeners (needs actions to be initialized)
 		this.setupDomListeners();
 
-		// Set up event subscriptions FIRST (so we don't miss events during fetch)
-		this._unsubscribeEvents = await setupSubscriptions(
-			s,
-			{ inspect: inspect, repositories: repositories, config: config, integrations: integrations, ai: ai },
-			this._actions,
-		);
+		// Set up event subscriptions FIRST (so we don't miss events during fetch) — synchronous:
+		// `subscribe()` buffers the wire subscribe until the connection's handshake completes.
+		this._eventsSubscription ??= setupSubscriptions(this._rpc.connection!, s, this._actions);
+		// Wait for the subscriptions to land before the initial fetch below, preserving the
+		// subscribe-before-fetch guarantee (`ready` settles once, so reconnects don't re-wait).
+		await this._eventsSubscription.ready;
 
 		// Fetch initial state via individual parallel calls (replaces legacy getState())
 		await this._actions.fetchInitialState();
