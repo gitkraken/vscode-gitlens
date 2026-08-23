@@ -255,8 +255,8 @@ suite('DetailsActions', () => {
 		const state = createDetailsState();
 		state.branchCompareLeftRef.set('main');
 		state.branchCompareRightRef.set('feature');
-		state.branchCompareAheadLoaded.set(true);
-		state.branchCompareBehindLoaded.set(true);
+		state.branchCompareLoadedBySide.ahead.set(true);
+		state.branchCompareLoadedBySide.behind.set(true);
 		state.branchCompareSelectedCommitShaByTab.set(new Map([['ahead', 'abc']]));
 		state.branchCompareAutolinksByScope.set(new Map([['ahead', []]]));
 		state.branchCompareEnrichmentRequested.set(true);
@@ -290,8 +290,8 @@ suite('DetailsActions', () => {
 
 		assert.deepStrictEqual(summaryFetches, [{ includeWorkingTree: true }]);
 		assert.strictEqual(state.branchCompareIncludeWorkingTree.get(), true);
-		assert.strictEqual(state.branchCompareAheadLoaded.get(), false);
-		assert.strictEqual(state.branchCompareBehindLoaded.get(), false);
+		assert.strictEqual(state.branchCompareLoadedBySide.ahead.get(), false);
+		assert.strictEqual(state.branchCompareLoadedBySide.behind.get(), false);
 		assert.strictEqual(state.branchCompareStale.get(), false);
 		assert.strictEqual(state.branchCompareSelectedCommitShaByTab.get().size, 0);
 		assert.strictEqual(state.branchCompareAutolinksByScope.get().size, 0);
@@ -396,8 +396,8 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.branchCompareStale.get(), false);
 
 		state.branchCompareIncludeWorkingTree.set(true);
-		state.branchCompareAheadLoaded.set(true);
-		state.branchCompareBehindLoaded.set(true);
+		state.branchCompareLoadedBySide.ahead.set(true);
+		state.branchCompareLoadedBySide.behind.set(true);
 		state.branchCompareSelectedCommitShaByTab.set(new Map([['behind', 'def']]));
 		actions.markBranchCompareStale();
 		assert.strictEqual(state.branchCompareStale.get(), true);
@@ -407,8 +407,8 @@ suite('DetailsActions', () => {
 
 		assert.deepStrictEqual(summaryFetches, [{ includeWorkingTree: true }]);
 		assert.strictEqual(state.branchCompareStale.get(), false);
-		assert.strictEqual(state.branchCompareAheadLoaded.get(), false);
-		assert.strictEqual(state.branchCompareBehindLoaded.get(), false);
+		assert.strictEqual(state.branchCompareLoadedBySide.ahead.get(), false);
+		assert.strictEqual(state.branchCompareLoadedBySide.behind.get(), false);
 		assert.strictEqual(state.branchCompareSelectedCommitShaByTab.get().size, 0);
 	});
 

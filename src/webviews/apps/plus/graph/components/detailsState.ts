@@ -53,6 +53,12 @@ import { createSignalGroup } from '../../../shared/state/signals.js';
 /** Selection-shape vocabulary. Identifies which kind of selection the details panel is showing. */
 export type DetailsContext = 'wip' | 'commit' | 'multicommit';
 
+/** The two sides of a branch comparison's progressive per-side load (Phase 2). */
+export type CompareSide = 'ahead' | 'behind';
+
+/** Iteration order for {@link CompareSide} resets and loops. */
+export const compareSides: readonly CompareSide[] = ['ahead', 'behind'];
+
 export interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
@@ -230,27 +236,32 @@ function createDurableState() {
 	// Phase 2 (Side): per-side commits, each carrying its `files` inline. Loaded lazily on
 	// first activation of Ahead or Behind. Per-commit selection scoping is then a pure
 	// client-side filter — no fetch.
-	const branchCompareAheadCommits = repoScoped<BranchComparisonCommit[]>([]);
-	const branchCompareBehindCommits = repoScoped<BranchComparisonCommit[]>([]);
-	const branchCompareAheadFiles = repoScoped<BranchComparisonFile[]>([]);
-	const branchCompareBehindFiles = repoScoped<BranchComparisonFile[]>([]);
+	//
+	// Per-side data is held as records of signals keyed by side rather than paired flat
+	// signals (`branchCompareAheadCommits`/`branchCompareBehindCommits`, …), so writers
+	// address one side directly (`branchCompareLoadedBySide[side]`) instead of remembering
+	// to mirror every write across two signals. Each side still gets its own signal (and
+	// its own reference-typed initial value) so a side's updates don't invalidate the other.
+	const perSide = <T>(createInitial: () => T): Record<CompareSide, Signal.State<T>> => ({
+		ahead: repoScoped(createInitial()),
+		behind: repoScoped(createInitial()),
+	});
+
+	const branchCompareCommitsBySide = perSide<BranchComparisonCommit[]>(() => []);
+	const branchCompareFilesBySide = perSide<BranchComparisonFile[]>(() => []);
 	// Per-side "loaded for the current refs/wip" flag. Drives the per-tab loading state in the
 	// panel. Cleared whenever the comparison identity changes.
-	const branchCompareAheadLoaded = repoScoped(false);
-	const branchCompareBehindLoaded = repoScoped(false);
+	const branchCompareLoadedBySide = perSide<boolean>(() => false);
 	// Per-side "has more commits beyond the current limit" — drives the "Load More" affordance
 	// at the bottom of each commit list. Cleared on identity changes alongside the loaded flags.
-	const branchCompareAheadHasMore = repoScoped(false);
-	const branchCompareBehindHasMore = repoScoped(false);
+	const branchCompareHasMoreBySide = perSide<boolean>(() => false);
 	// Per-side current commit-limit. Bumped by `loadMoreCompareCommits` (limit-replace pattern
 	// matching `loadMoreBranchCommits`): we re-fetch with a larger limit and the resource value
 	// idempotently supersedes the smaller one. Reset to the default page size on identity change.
-	const branchCompareAheadLimit = repoScoped(100);
-	const branchCompareBehindLimit = repoScoped(100);
+	const branchCompareLimitBySide = perSide<number>(() => 100);
 	// Per-side "load-more in flight" flag. Drives the spinner inside the load-more row so the
 	// button visually indicates the fetch is happening and is disabled to prevent double-fires.
-	const branchCompareAheadLoadingMore = repoScoped(false);
-	const branchCompareBehindLoadingMore = repoScoped(false);
+	const branchCompareLoadingMoreBySide = perSide<boolean>(() => false);
 
 	// Branch-comparison enrichment caches keyed by scope (active tab). Switching tabs
 	// reads from these maps; only newly-visited scopes trigger a fetch. Caches reset only
@@ -328,18 +339,12 @@ function createDurableState() {
 		branchCompareBehindCount: branchCompareBehindCount,
 		branchCompareAllFiles: branchCompareAllFiles,
 		branchCompareAllFilesCount: branchCompareAllFilesCount,
-		branchCompareAheadCommits: branchCompareAheadCommits,
-		branchCompareBehindCommits: branchCompareBehindCommits,
-		branchCompareAheadFiles: branchCompareAheadFiles,
-		branchCompareBehindFiles: branchCompareBehindFiles,
-		branchCompareAheadLoaded: branchCompareAheadLoaded,
-		branchCompareBehindLoaded: branchCompareBehindLoaded,
-		branchCompareAheadHasMore: branchCompareAheadHasMore,
-		branchCompareBehindHasMore: branchCompareBehindHasMore,
-		branchCompareAheadLimit: branchCompareAheadLimit,
-		branchCompareBehindLimit: branchCompareBehindLimit,
-		branchCompareAheadLoadingMore: branchCompareAheadLoadingMore,
-		branchCompareBehindLoadingMore: branchCompareBehindLoadingMore,
+		branchCompareCommitsBySide: branchCompareCommitsBySide,
+		branchCompareFilesBySide: branchCompareFilesBySide,
+		branchCompareLoadedBySide: branchCompareLoadedBySide,
+		branchCompareHasMoreBySide: branchCompareHasMoreBySide,
+		branchCompareLimitBySide: branchCompareLimitBySide,
+		branchCompareLoadingMoreBySide: branchCompareLoadingMoreBySide,
 
 		branchCompareAutolinksByScope: branchCompareAutolinksByScope,
 		branchCompareEnrichedAutolinksByScope: branchCompareEnrichedAutolinksByScope,
@@ -498,11 +503,11 @@ function createTransientState() {
 	// instead of the symmetric 2-dot diff. Cleared synchronously on identity changes.
 	const branchCompareMergeBase = signal<string | undefined>(undefined);
 	const branchCompareStale = signal(false);
-	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('ahead');
+	const branchCompareActiveTab = signal<'all' | CompareSide>('ahead');
 	// Per-tab "scope to this commit" selection. Persisted across tab switches so that returning
 	// to e.g. Ahead with a previously-selected commit X restores the scoped file view (alongside
 	// the cached scroll/expand state). The 'all' tab has no commit list so isn't keyed here.
-	const branchCompareSelectedCommitShaByTab = signal<Map<'ahead' | 'behind', string>>(new Map());
+	const branchCompareSelectedCommitShaByTab = signal<Map<CompareSide, string>>(new Map());
 	// Active-tab convenience: derived from the per-tab map and the active tab. Read-only — to
 	// mutate, write to `branchCompareSelectedCommitShaByTab` directly via `selectCompareCommit`.
 	const branchCompareSelectedCommitSha = new Signal.Computed<string | undefined>(() => {

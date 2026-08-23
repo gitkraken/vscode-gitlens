@@ -39,7 +39,16 @@ import {
 	panelStaleBannerStyles,
 	resumeBarStyles,
 } from './gl-details-compose-mode-panel.css.js';
-import { getScopeSplitPickerChrome, renderErrorState, renderLoadingState } from './shared-panel-templates.js';
+import {
+	checkAllExclusion,
+	fileCheckedExclusion,
+	liveRefineDraft,
+	liveRefineMode,
+	scopeSplitSnap,
+	syncRefinePosture,
+	wipScopeSelectionIds,
+} from './shared-panel-helpers.js';
+import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/checkbox/checkbox.js';
@@ -303,14 +312,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 	 *  meaningful in the ready state (the gate/refine input only exist there); other states report the
 	 *  default so a non-ready leave can't clobber a captured posture. */
 	get refineModeLive(): boolean {
-		return this.status === 'ready' ? this._refineMode : false;
+		return liveRefineMode(this.status, this._refineMode);
 	}
 
 	/** Live unsubmitted Refine text, read by the host on mode-leave. Empty unless the refine input is
 	 *  actually mounted (ready + refine posture). */
 	get refineDraftLive(): string {
-		if (this.status !== 'ready' || !this._refineMode) return '';
-		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.compose-plan__refine-input')?.currentValue ?? '';
+		return liveRefineDraft(
+			this.status,
+			this._refineMode,
+			() => this.renderRoot.querySelector<GlAiInput>('gl-ai-input.compose-plan__refine-input')?.currentValue,
+		);
 	}
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
@@ -343,27 +355,21 @@ export class GlDetailsComposeModePanel extends LitElement {
 			}
 		}
 
-		// After a recompose (AI refine) completes, drop back to the commit posture so the user lands
-		// on the refined plan ready to commit rather than staying in the recompose input. Guard on the
-		// loading -> ready transition (success only) so a failed recompose keeps the posture for a
-		// retry, and on `_refineMode` so the initial compose (posture already false) is a no-op.
-		if (
-			changedProperties.has('status') &&
-			changedProperties.get('status') === 'loading' &&
-			this.status === 'ready' &&
-			this._refineMode
-		) {
-			this._refineMode = false;
-		}
-
-		// Seed the live posture from the persisted `refineMode` on mount and on an anchor switch
-		// (the panel element is reused across WIP-row switches). Gated on the property actually
-		// changing — the entry only writes `refineMode` on mode-leave, so during a session (incl. a
-		// same-mount refine round-trip) the property is stable and this never fights the user's local
-		// toggle. Placed AFTER the loading→ready reset so a completed recompose still lands in Commit
-		// posture (that transition doesn't change `refineMode`, so this branch stays dormant there).
-		if (changedProperties.has('refineMode')) {
-			this._refineMode = this.refineMode;
+		// Shared Refine-posture lifecycle (see `syncRefinePosture`): after a completed recompose —
+		// the loading->ready transition ONLY, so a failed recompose keeps the posture for a retry —
+		// drop back to the commit posture, then reseed from the persisted `refineMode` on mount and
+		// on an anchor switch (the panel element is reused across WIP-row switches). The seed is
+		// gated on the property actually changing — the entry only writes `refineMode` on mode-leave,
+		// so during a session (incl. a same-mount refine round-trip) it's stable and never fights
+		// the user's local toggle.
+		const refinePosture = syncRefinePosture(changedProperties, {
+			status: this.status,
+			refineMode: this._refineMode,
+			persistedRefineMode: this.refineMode,
+			resetOnEveryReadyEntry: false,
+		});
+		if (refinePosture != null) {
+			this._refineMode = refinePosture;
 		}
 
 		// A file move can prune the selected commit (its last file moved away); drop the stale
@@ -719,58 +725,27 @@ export class GlDetailsComposeModePanel extends LitElement {
 	};
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
-		if (this.isInteriorScope) return;
-		if (!e.detail.context) return;
+		const next = fileCheckedExclusion(e, this._excludedFiles, () => !this.isInteriorScope);
+		if (next == null) return;
 
-		const [file] = e.detail.context as unknown as GitFileChangeShape[];
-		if (!file) return;
-
-		const next = new Set(this._excludedFiles);
-		if (e.detail.checked) {
-			next.delete(file.path);
-		} else {
-			next.add(file.path);
-		}
 		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
 	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
-		if (this.isInteriorScope) return;
+		const next = checkAllExclusion(e, this._excludedFiles, () => !this.isInteriorScope);
+		if (next == null) return;
 
-		const next = new Set(this._excludedFiles);
-		if (e.detail.checked) {
-			for (const path of e.detail.paths) {
-				next.delete(path);
-			}
-		} else {
-			for (const path of e.detail.paths) {
-				next.add(path);
-			}
-		}
 		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
 	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
-		const scopeEl = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
-		if (!scopeEl || size <= 0) return Math.max(15, Math.min(pos, 70));
-
-		// `contentHeight` measures only the inner scroll pane; the .scope-split__picker wrapper adds
-		// padding + a border-bottom. Include that chrome so the fit-content track isn't clamped
-		// short of the picker's true height (which would clip its content / desync the divider).
-		const maxPercent = Math.min(70, ((scopeEl.contentHeight + getScopeSplitPickerChrome(scopeEl)) / size) * 100);
-		return Math.max(15, Math.min(pos, maxPercent));
+		return scopeSplitSnap(this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane'), pos, size);
 	};
 
 	private scopeSelectionIds(): readonly string[] | undefined {
-		const scope = this.scope;
-		if (scope?.type !== 'wip') return undefined;
-		return [
-			...(scope.includeUnstaged ? ['unstaged'] : []),
-			...(scope.includeStaged ? ['staged'] : []),
-			...scope.includeShas,
-		];
+		return wipScopeSelectionIds(this.scope);
 	}
 
 	private renderStaleBanner() {

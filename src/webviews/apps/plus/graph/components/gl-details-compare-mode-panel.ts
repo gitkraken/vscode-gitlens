@@ -17,12 +17,7 @@ import type {
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
-import {
-	AutolinkMerger,
-	renderAutolinkChips,
-	renderAutolinksPopover,
-} from '../../../shared/components/chips/autolinks.js';
-import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
+import { AutolinkMerger } from '../../../shared/components/chips/autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
@@ -37,6 +32,7 @@ import { renderCopyChangesAction, renderOpenChangesAction } from '../../../share
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import type { GlCommitRowItem } from './gl-commit-row-item.js';
 import { compareModePanelStyles } from './gl-details-compare-mode-panel.css.js';
+import { renderAutolinksStrip } from './shared-panel-templates.js';
 import { panelActionInputStyles, panelAutolinkStripStyles } from './shared-panel.css.js';
 import './gl-commit-row-item.js';
 import './gl-compare-ai-actions.js';
@@ -44,8 +40,6 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
-import '../../../shared/components/chips/autolink-chip.js';
-import '../../../shared/components/chips/chip-overflow.js';
 import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
@@ -319,9 +313,13 @@ export class GlDetailsCompareModePanel extends LitElement {
 			${cache(
 				this.activeTab === 'all'
 					? this.renderAllFilesTab()
-					: this.activeTab === 'ahead'
-						? this.renderAheadTab()
-						: this.renderBehindTab(),
+					: // Ahead/Behind share one renderer (`renderSideTab`), but each branch still needs
+						// its own template identity or cache() would treat both tabs as one template and
+						// swap their content in place instead of preserving each tab's DOM separately.
+						// These anchor templates contribute no DOM of their own.
+						this.activeTab === 'ahead'
+						? html`${this.renderSideTab('ahead')}`
+						: html`${this.renderSideTab('behind')}`,
 			)}
 		</div>`;
 	}
@@ -378,48 +376,32 @@ export class GlDetailsCompareModePanel extends LitElement {
 		</div>`;
 	}
 
-	private renderAheadTab() {
-		if (!this.aheadLoaded) {
-			return html`<div class="compare-side-loading" data-tab="ahead" aria-busy="true">
-				<code-icon icon="loading" modifier="spin"></code-icon>
-				<span>Loading commits…</span>
-			</div>`;
-		}
-
-		const files = this.filesForSelection(this.aheadCommits, this.aheadFiles);
-		return html`<gl-split-panel
-			class="compare-split"
-			data-tab="ahead"
-			orientation="vertical"
-			primary="end"
-			position="25"
-			.snap=${this.splitSnap}
-		>
-			<div slot="start" class="compare-split__start">${this.renderCommitList(this.aheadCommits)}</div>
-			<div slot="end" class="compare-split__end">
-				${this.renderAutolinksRow()}${this.renderEmbeddedAIActions()}${this.renderRightPane(files)}
-			</div>
-		</gl-split-panel>`;
+	/** The commit-list side backing the active tab. The 'all' tab has no commit list, so every
+	 *  consumer of this getter only runs on Ahead/Behind. */
+	private get activeSide(): 'ahead' | 'behind' {
+		return this.activeTab === 'behind' ? 'behind' : 'ahead';
 	}
 
-	private renderBehindTab() {
-		if (!this.behindLoaded) {
-			return html`<div class="compare-side-loading" data-tab="behind" aria-busy="true">
+	private renderSideTab(side: 'ahead' | 'behind') {
+		const loaded = side === 'ahead' ? this.aheadLoaded : this.behindLoaded;
+		if (!loaded) {
+			return html`<div class="compare-side-loading" data-tab=${side} aria-busy="true">
 				<code-icon icon="loading" modifier="spin"></code-icon>
 				<span>Loading commits…</span>
 			</div>`;
 		}
 
-		const files = this.filesForSelection(this.behindCommits, this.behindFiles);
+		const commits = side === 'ahead' ? this.aheadCommits : this.behindCommits;
+		const files = this.filesForSelection(commits, side === 'ahead' ? this.aheadFiles : this.behindFiles);
 		return html`<gl-split-panel
 			class="compare-split"
-			data-tab="behind"
+			data-tab=${side}
 			orientation="vertical"
 			primary="end"
 			position="25"
 			.snap=${this.splitSnap}
 		>
-			<div slot="start" class="compare-split__start">${this.renderCommitList(this.behindCommits)}</div>
+			<div slot="start" class="compare-split__start">${this.renderCommitList(commits)}</div>
 			<div slot="end" class="compare-split__end">
 				${this.renderAutolinksRow()}${this.renderEmbeddedAIActions()}${this.renderRightPane(files)}
 			</div>
@@ -677,8 +659,8 @@ export class GlDetailsCompareModePanel extends LitElement {
 			</div>`;
 		}
 
-		const hasMore = this.activeTab === 'behind' ? this.behindHasMore : this.aheadHasMore;
-		const loadingMore = this.activeTab === 'behind' ? this.behindLoadingMore : this.aheadLoadingMore;
+		const hasMore = this.activeSide === 'behind' ? this.behindHasMore : this.aheadHasMore;
+		const loadingMore = this.activeSide === 'behind' ? this.behindLoadingMore : this.aheadLoadingMore;
 		// Load-more row sits inside the scrollable container as the last child — behaves like
 		// another row in the list, so scrolling reaches it naturally. `box-sizing: border-box`
 		// on the button (see CSS) keeps `width: 100%` honest so the button doesn't push past
@@ -1013,70 +995,19 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private renderAutolinksRow() {
 		if (!this.autolinksEnabled) return nothing;
 
-		const merged = this._autolinkMerger.merge(this.autolinks, this.enrichedItems);
-		const hasChips = merged.autolinks.length > 0 || merged.enriched.length > 0;
 		// Only show the loading state when the comparison itself is changing — for tab switches
 		// with cached data the chips render immediately, and for cache misses a brief "No autolinks
 		// found" flash is preferable to a spinner that flips back to a stale answer.
-		const isLoadingEmpty = this._comparisonChanging && !hasChips;
-
-		// Single-row layout — `gl-chip-overflow`'s default. Excess autolinks collapse into the
-		// component's "+N" overflow affordance instead of wrapping the strip onto multiple rows.
-		return html`<div class="compare-enrichment">
-			<gl-chip-overflow>
-				${
-					hasChips
-						? nothing
-						: isLoadingEmpty
-							? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
-									<code-icon icon="loading" modifier="spin"></code-icon>
-									<span>Loading autolinks…</span>
-								</span>`
-							: renderLearnAboutAutolinks({
-									hasIntegrationsConnected: this.hasIntegrationsConnected,
-									hasAccount: this.hasAccount,
-									showLabel: true,
-									slotName: 'prefix',
-								})
-				}
-				${renderAutolinkChips(merged, this.preferences, true)} ${renderAutolinksPopover(merged)}
-				${this.renderEnrichButton()}
-				${
-					hasChips
-						? renderLearnAboutAutolinks({
-								hasIntegrationsConnected: this.hasIntegrationsConnected,
-								hasAccount: this.hasAccount,
-								slotName: 'suffix',
-							})
-						: nothing
-				}
-			</gl-chip-overflow>
-		</div>`;
-	}
-
-	private renderEnrichButton() {
-		if (!this.hasIntegrationsConnected) return nothing;
-		// Once enrichment has been requested for this comparison we leave the chip strip alone —
-		// fresh enriched items appear inline as they resolve.
-		if (this.enrichmentRequested && !this.enrichmentLoading) return nothing;
-
-		if (this.enrichmentLoading) {
-			return html`<gl-action-chip
-				slot="suffix"
-				icon="loading"
-				label="Loading Issues and Pull Requests..."
-				overlay="tooltip"
-				disabled
-			></gl-action-chip>`;
-		}
-
-		return html`<gl-action-chip
-			slot="suffix"
-			icon="sync"
-			label="Load Associated Issues and Pull Requests"
-			overlay="tooltip"
-			@click=${this.dispatchRequestEnrichment}
-		></gl-action-chip>`;
+		return renderAutolinksStrip({
+			merged: this._autolinkMerger.merge(this.autolinks, this.enrichedItems),
+			isLoadingEmpty: this._comparisonChanging,
+			preferences: this.preferences,
+			hasAccount: this.hasAccount,
+			hasIntegrationsConnected: this.hasIntegrationsConnected,
+			enrichmentRequested: this.enrichmentRequested,
+			enrichmentLoading: this.enrichmentLoading,
+			onRequestEnrichment: () => this.dispatchRequestEnrichment(),
+		});
 	}
 
 	private renderViewSelector() {
@@ -1253,8 +1184,8 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private get activeFiles(): BranchComparisonFile[] {
 		if (this.activeTab === 'all') return this.allFiles;
 
-		const commits = this.activeTab === 'ahead' ? this.aheadCommits : this.behindCommits;
-		const files = this.activeTab === 'ahead' ? this.aheadFiles : this.behindFiles;
+		const commits = this.activeSide === 'ahead' ? this.aheadCommits : this.behindCommits;
+		const files = this.activeSide === 'ahead' ? this.aheadFiles : this.behindFiles;
 		return this.filesForSelection(commits, files);
 	}
 
@@ -1371,7 +1302,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	};
 
 	private dispatchLoadMore = () => {
-		const side = this.activeTab === 'behind' ? 'behind' : 'ahead';
+		const side = this.activeSide;
 		this.dispatchEvent(
 			new CustomEvent('load-more-compare-commits', {
 				detail: { side: side },

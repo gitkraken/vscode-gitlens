@@ -91,6 +91,7 @@ import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { AppState } from '../context.js';
+import { compareSides } from './detailsState.js';
 import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
@@ -362,20 +363,16 @@ export class DetailsActions {
 	private clearBranchCompareData(): void {
 		this.state.branchCompareAheadCount.set(0);
 		this.state.branchCompareBehindCount.set(0);
-		this.state.branchCompareAheadCommits.set([]);
-		this.state.branchCompareBehindCommits.set([]);
+		for (const side of compareSides) {
+			this.state.branchCompareCommitsBySide[side].set([]);
+			this.state.branchCompareFilesBySide[side].set([]);
+			this.state.branchCompareLoadedBySide[side].set(false);
+			this.state.branchCompareHasMoreBySide[side].set(false);
+			this.state.branchCompareLimitBySide[side].set(100);
+			this.state.branchCompareLoadingMoreBySide[side].set(false);
+		}
 		this.state.branchCompareAllFiles.set([]);
 		this.state.branchCompareAllFilesCount.set(0);
-		this.state.branchCompareAheadFiles.set([]);
-		this.state.branchCompareBehindFiles.set([]);
-		this.state.branchCompareAheadLoaded.set(false);
-		this.state.branchCompareBehindLoaded.set(false);
-		this.state.branchCompareAheadHasMore.set(false);
-		this.state.branchCompareBehindHasMore.set(false);
-		this.state.branchCompareAheadLimit.set(100);
-		this.state.branchCompareBehindLimit.set(100);
-		this.state.branchCompareAheadLoadingMore.set(false);
-		this.state.branchCompareBehindLoadingMore.set(false);
 		this.state.branchCompareRightRefWorktreePath.set(undefined);
 		this.state.branchCompareMergeBase.set(undefined);
 	}
@@ -1936,12 +1933,11 @@ export class DetailsActions {
 
 	refreshBranchCompare(repoPath: string | undefined): void {
 		this.state.branchCompareStale.set(false);
-		this.state.branchCompareAheadLoaded.set(false);
-		this.state.branchCompareBehindLoaded.set(false);
-		this.state.branchCompareAheadHasMore.set(false);
-		this.state.branchCompareBehindHasMore.set(false);
-		this.state.branchCompareAheadLimit.set(100);
-		this.state.branchCompareBehindLimit.set(100);
+		for (const side of compareSides) {
+			this.state.branchCompareLoadedBySide[side].set(false);
+			this.state.branchCompareHasMoreBySide[side].set(false);
+			this.state.branchCompareLimitBySide[side].set(100);
+		}
 		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
 		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
@@ -1992,16 +1988,16 @@ export class DetailsActions {
 		this.state.branchCompareRightRefWorktreePath.set(result.rightRefWorktreePath);
 		this.state.branchCompareMergeBase.set(result.mergeBase);
 
-		if (result.aheadCount !== prevAhead && this.state.branchCompareAheadLoaded.get()) {
-			this.state.branchCompareAheadLoaded.set(false);
+		if (result.aheadCount !== prevAhead && this.state.branchCompareLoadedBySide.ahead.get()) {
+			this.state.branchCompareLoadedBySide.ahead.set(false);
 			// Per-scope enrichment caches are keyed by the (now-stale) commit set; evict the
 			// 'ahead' entries so contributors and autolinks refetch from the new commits. Also
 			// evict 'all' because it's the symmetric union of both sides.
 			this.invalidateBranchCompareScopeCaches('ahead');
 			this.invalidateBranchCompareScopeCaches('all');
 		}
-		if (result.behindCount !== prevBehind && this.state.branchCompareBehindLoaded.get()) {
-			this.state.branchCompareBehindLoaded.set(false);
+		if (result.behindCount !== prevBehind && this.state.branchCompareLoadedBySide.behind.get()) {
+			this.state.branchCompareLoadedBySide.behind.set(false);
 			this.invalidateBranchCompareScopeCaches('behind');
 			this.invalidateBranchCompareScopeCaches('all');
 		}
@@ -2022,8 +2018,7 @@ export class DetailsActions {
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!repoPath || !leftRef || !rightRef) return;
 
-		const limit =
-			side === 'ahead' ? this.state.branchCompareAheadLimit.get() : this.state.branchCompareBehindLimit.get();
+		const limit = this.state.branchCompareLimitBySide[side].get();
 		const options: BranchComparisonOptions = {
 			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
 			limit: limit,
@@ -2044,17 +2039,10 @@ export class DetailsActions {
 		const result = this.resources.branchCompareSide.value.get();
 		if (!result) return;
 
-		if (side === 'ahead') {
-			this.state.branchCompareAheadCommits.set(result.commits);
-			this.state.branchCompareAheadFiles.set(result.files);
-			this.state.branchCompareAheadLoaded.set(true);
-			this.state.branchCompareAheadHasMore.set(result.hasMore);
-		} else {
-			this.state.branchCompareBehindCommits.set(result.commits);
-			this.state.branchCompareBehindFiles.set(result.files);
-			this.state.branchCompareBehindLoaded.set(true);
-			this.state.branchCompareBehindHasMore.set(result.hasMore);
-		}
+		this.state.branchCompareCommitsBySide[side].set(result.commits);
+		this.state.branchCompareFilesBySide[side].set(result.files);
+		this.state.branchCompareLoadedBySide[side].set(true);
+		this.state.branchCompareHasMoreBySide[side].set(result.hasMore);
 
 		// Side commits arrived → re-seed enrichment for the active scope (autolinks may pick up
 		// new shas, contributors view may need refresh).
@@ -2066,9 +2054,7 @@ export class DetailsActions {
 
 	/** Phase 2 only if not already loaded for the current refs/wip. Cheap to call defensively. */
 	async fetchCompareSideIfNeeded(repoPath: string | undefined, side: 'ahead' | 'behind'): Promise<void> {
-		const loaded =
-			side === 'ahead' ? this.state.branchCompareAheadLoaded.get() : this.state.branchCompareBehindLoaded.get();
-		if (loaded) return;
+		if (this.state.branchCompareLoadedBySide[side].get()) return;
 
 		await this.fetchCompareSide(repoPath, side);
 	}
@@ -2088,15 +2074,11 @@ export class DetailsActions {
 	async loadMoreCompareCommits(side: 'ahead' | 'behind', repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
-		const loadingMoreSignal =
-			side === 'ahead' ? this.state.branchCompareAheadLoadingMore : this.state.branchCompareBehindLoadingMore;
-		const hasMoreSignal =
-			side === 'ahead' ? this.state.branchCompareAheadHasMore : this.state.branchCompareBehindHasMore;
-		const limitSignal = side === 'ahead' ? this.state.branchCompareAheadLimit : this.state.branchCompareBehindLimit;
-		const loadedSignal =
-			side === 'ahead' ? this.state.branchCompareAheadLoaded : this.state.branchCompareBehindLoaded;
-		const commitsSignal =
-			side === 'ahead' ? this.state.branchCompareAheadCommits : this.state.branchCompareBehindCommits;
+		const loadingMoreSignal = this.state.branchCompareLoadingMoreBySide[side];
+		const hasMoreSignal = this.state.branchCompareHasMoreBySide[side];
+		const limitSignal = this.state.branchCompareLimitBySide[side];
+		const loadedSignal = this.state.branchCompareLoadedBySide[side];
+		const commitsSignal = this.state.branchCompareCommitsBySide[side];
 
 		if (loadingMoreSignal.get() || !hasMoreSignal.get() || !loadedSignal.get()) return;
 
@@ -2210,14 +2192,12 @@ export class DetailsActions {
 		this.state.branchCompareIncludeWorkingTree.set(false);
 		// Comparison identity changed — old commit selections no longer apply to the new range.
 		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
-		this.state.branchCompareAheadLoaded.set(false);
-		this.state.branchCompareBehindLoaded.set(false);
-		this.state.branchCompareAheadHasMore.set(false);
-		this.state.branchCompareBehindHasMore.set(false);
-		this.state.branchCompareAheadLimit.set(100);
-		this.state.branchCompareBehindLimit.set(100);
-		this.state.branchCompareAheadLoadingMore.set(false);
-		this.state.branchCompareBehindLoadingMore.set(false);
+		for (const side of compareSides) {
+			this.state.branchCompareLoadedBySide[side].set(false);
+			this.state.branchCompareHasMoreBySide[side].set(false);
+			this.state.branchCompareLimitBySide[side].set(100);
+			this.state.branchCompareLoadingMoreBySide[side].set(false);
+		}
 		// Clear synchronously so the IWT toggle doesn't briefly flash for the prior rightRef's
 		// worktree while the new summary fetch is in flight. `fetchCompareSummary` re-populates
 		// this from the new identity's result.
@@ -2230,12 +2210,11 @@ export class DetailsActions {
 	toggleCompareWorkingTree(repoPath: string | undefined): void {
 		this.state.branchCompareIncludeWorkingTree.set(!this.state.branchCompareIncludeWorkingTree.get());
 		this.state.branchCompareStale.set(false);
-		this.state.branchCompareAheadLoaded.set(false);
-		this.state.branchCompareBehindLoaded.set(false);
-		this.state.branchCompareAheadHasMore.set(false);
-		this.state.branchCompareBehindHasMore.set(false);
-		this.state.branchCompareAheadLimit.set(100);
-		this.state.branchCompareBehindLimit.set(100);
+		for (const side of compareSides) {
+			this.state.branchCompareLoadedBySide[side].set(false);
+			this.state.branchCompareHasMoreBySide[side].set(false);
+			this.state.branchCompareLimitBySide[side].set(100);
+		}
 		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
 		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
@@ -2308,8 +2287,7 @@ export class DetailsActions {
 		tab: 'ahead' | 'behind',
 		sha: string,
 	): Promise<void> {
-		const listState =
-			tab === 'ahead' ? this.state.branchCompareAheadCommits : this.state.branchCompareBehindCommits;
+		const listState = this.state.branchCompareCommitsBySide[tab];
 		const commits = listState.get();
 		if (!commits) return;
 
@@ -2448,8 +2426,8 @@ export class DetailsActions {
 	}
 
 	private getShasInScope(scope: BranchComparisonContributorsScope): string[] {
-		const ahead = this.state.branchCompareAheadCommits.get();
-		const behind = this.state.branchCompareBehindCommits.get();
+		const ahead = this.state.branchCompareCommitsBySide.ahead.get();
+		const behind = this.state.branchCompareCommitsBySide.behind.get();
 		if (scope === 'ahead') return ahead.map(c => c.sha);
 		if (scope === 'behind') return behind.map(c => c.sha);
 		return [...ahead.map(c => c.sha), ...behind.map(c => c.sha)];

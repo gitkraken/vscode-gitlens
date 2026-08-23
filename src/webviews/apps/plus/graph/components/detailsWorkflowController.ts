@@ -30,6 +30,7 @@ import type {
 	RunningOperationBucket,
 	RunningOperationExecState,
 } from './detailsState.js';
+import { compareSides } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
 /** Modes are panel lenses on the current selection — compose/review only. Compare is no
@@ -107,6 +108,39 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  the controller can persist them onto the engaged entry on mode-leave (see `hideMode`). Returns
 	 *  `undefined` when no refine-capable panel is mounted (e.g. review mode, or no active mode). */
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
+}
+
+/** The mode-specific pieces handed to {@link DetailsWorkflowController.createBackForwardMachine} —
+ *  everything the shared back/forward + error-recovery cluster touches that genuinely differs
+ *  between review and compose. `TValue` is the mode's full result union; `TSnapshot` is the subset
+ *  worth snapshotting for Back/Resume (the result-bearing shape). */
+interface BackForwardMachineHooks<TValue extends ReviewResult | ComposeResult, TSnapshot extends TValue> {
+	/** Post-status acceptance gate for `back()` and `backFromError()` — decides whether a live or
+	 *  stashed value is worth snapshotting. Review accepts any non-undefined value; compose
+	 *  additionally requires the result-bearing shape. */
+	readonly canBack: (value: TValue | undefined) => value is TSnapshot;
+	/** The mode's live resource value, read in `back()` after the status gate. */
+	readonly getResourceValue: () => TValue | undefined;
+	/** Capture a gated value as the new back-snapshot: stash it, raise `*ForwardAvailable`, publish
+	 *  the `*BackPreview` counts, reset the resource. Implemented by `enterReviewBacked` /
+	 *  `enterComposeBacked`, which own the per-mode preview payload shapes. */
+	readonly enterBacked: (snapshot: TSnapshot) => void;
+	/** The mode's back-snapshot slot, read by `forward()`. */
+	readonly getSnapshot: () => TValue | undefined;
+	/** Clears the mode's back-snapshot slot (`invalidateSnapshot`). */
+	readonly clearSnapshot: () => void;
+	/** Restores a snapshot into the mode's resource via `mutate` — the Resume path, no AI re-run. */
+	readonly restoreSnapshot: (snapshot: TValue) => void;
+	/** Reads the mode's stashed pre-error value at the top of `backFromError()`. */
+	readonly getPreErrorValue: () => TValue | undefined;
+	/** Repoints the engaged anchor's registry entry at `result` in `'backed'` so a later re-engage
+	 *  projects the right thing and `forward()` can transition it back without losing the payload.
+	 *  No-op when the anchor has no `(mode)` entry. */
+	readonly registerBackedEntry: (result: TSnapshot) => void;
+	/** Mode-specific teardown cleared alongside the pre-error value whenever error-recovery state
+	 *  is consumed (`backFromError`) or invalidated (`invalidateErrorRecovery`). Compose drops its
+	 *  failed-action tracking here; review has none. */
+	readonly extraTeardown?: () => void;
 }
 
 /**
@@ -569,18 +603,14 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareAheadCount.set(0);
 		state.branchCompareBehindCount.set(0);
 		state.branchCompareAllFilesCount.set(0);
-		state.branchCompareAheadCommits.set([]);
-		state.branchCompareBehindCommits.set([]);
-		state.branchCompareAheadFiles.set([]);
-		state.branchCompareBehindFiles.set([]);
-		state.branchCompareAheadLoaded.set(false);
-		state.branchCompareBehindLoaded.set(false);
-		state.branchCompareAheadHasMore.set(false);
-		state.branchCompareBehindHasMore.set(false);
-		state.branchCompareAheadLimit.set(100);
-		state.branchCompareBehindLimit.set(100);
-		state.branchCompareAheadLoadingMore.set(false);
-		state.branchCompareBehindLoadingMore.set(false);
+		for (const side of compareSides) {
+			state.branchCompareCommitsBySide[side].set([]);
+			state.branchCompareFilesBySide[side].set([]);
+			state.branchCompareLoadedBySide[side].set(false);
+			state.branchCompareHasMoreBySide[side].set(false);
+			state.branchCompareLimitBySide[side].set(100);
+			state.branchCompareLoadingMoreBySide[side].set(false);
+		}
 		state.branchCompareAllFiles.set([]);
 		state.branchCompareActiveTab.set('ahead');
 		state.branchCompareSelectedCommitShaByTab.set(new Map());
@@ -663,18 +693,14 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareAheadCount.set(0);
 		state.branchCompareBehindCount.set(0);
 		state.branchCompareAllFilesCount.set(0);
-		state.branchCompareAheadCommits.set([]);
-		state.branchCompareBehindCommits.set([]);
-		state.branchCompareAheadFiles.set([]);
-		state.branchCompareBehindFiles.set([]);
-		state.branchCompareAheadLoaded.set(false);
-		state.branchCompareBehindLoaded.set(false);
-		state.branchCompareAheadHasMore.set(false);
-		state.branchCompareBehindHasMore.set(false);
-		state.branchCompareAheadLimit.set(100);
-		state.branchCompareBehindLimit.set(100);
-		state.branchCompareAheadLoadingMore.set(false);
-		state.branchCompareBehindLoadingMore.set(false);
+		for (const side of compareSides) {
+			state.branchCompareCommitsBySide[side].set([]);
+			state.branchCompareFilesBySide[side].set([]);
+			state.branchCompareLoadedBySide[side].set(false);
+			state.branchCompareHasMoreBySide[side].set(false);
+			state.branchCompareLimitBySide[side].set(100);
+			state.branchCompareLoadingMoreBySide[side].set(false);
+		}
 		state.branchCompareAllFiles.set([]);
 		state.branchCompareActiveTab.set('ahead');
 		state.branchCompareSelectedCommitShaByTab.set(new Map());
@@ -948,77 +974,30 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Review workflow
 
-	/** Review workflow snapshot controls. Arrow-function object so `this` bindings are stable. */
+	/** Review workflow controls. Arrow-function object so `this` bindings are stable. The
+	 *  back/forward snapshot + error-recovery cluster comes from
+	 *  {@link DetailsWorkflowController.createBackForwardMachine}; the members below are the
+	 *  review-specific remainder. */
 	readonly review = {
-		back: (): void => {
-			// Snapshot a successfully-resolved value so forward() can restore it without re-running
-			// the AI. Also transition the engaged anchor's registry entry to `'backed'` — that's
-			// the state that makes Close destructive (the Back-then-close gate). The chip overlay
-			// stays as `pass` (a result still exists, just not currently displayed).
-			// The transition + resource reset MUST be gated on a successful snapshot capture:
-			// otherwise we land on a backed entry with `forwardAvailable === false`, the panel
-			// shows idle, the chip shows pass, and the only escape is destructive Close. The
-			// outer status check guards against a non-success state; the inner `value != null`
-			// guards against the (rare) success-without-value race where the resource was reset
-			// between the status read and the value read.
-			if (this.actions.resources.review.status.get() !== 'success') return;
-
-			const value = this.actions.resources.review.value.get();
-			if (value == null) return;
-
-			this.enterReviewBacked(value);
-			this.transitionEngagedEntryExecState('review', 'backed');
-		},
-		forward: (): boolean => {
-			const snapshot = this._reviewBackSnapshot;
-			if (snapshot == null) return false;
-
-			this.actions.resources.review.mutate(snapshot);
-			this.transitionEngagedEntryExecState('review', 'complete');
-			// Clear the back-preview so the header reverts to plain counts — the result is now
-			// visible in the panel, so the Resume affordance no longer applies. A subsequent
-			// `back()` will re-snapshot from the now-active value, so the cycle still works.
-			this.actions.state.reviewBackPreview.set(undefined);
-			this.actions.state.reviewForwardAvailable.set(false);
-			return true;
-		},
-		invalidateSnapshot: (): void => {
-			this._reviewBackSnapshot = undefined;
-			this.actions.state.reviewForwardAvailable.set(false);
-			this.actions.state.reviewBackPreview.set(undefined);
-		},
-		// "Go Back" from the error pane. Lands on the idle scope picker — same destination as
-		// Restart on a successful run — with the last-submitted prompt seeded for retyping. When
-		// a prior successful result existed (e.g. a refine failed from a ready plan), it's loaded
-		// into the back-snapshot so the Resume bar offers a one-click restore (no AI re-run).
-		// When the first attempt errored, no Resume — clean idle.
-		// The prompt is left intact so the panel's gl-ai-input pre-fills on re-render.
-		// Registry entry is updated alongside the resource — the panel mapping reads entry
-		// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
-		// first, then resource, so the panel's next render sees the consistent target state.
-		backFromError: (): void => {
-			const prev = this.actions.state.reviewPreErrorValue.get();
-			const anchor = this.currentAnchor();
-			const key = anchorKey(anchor);
-			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
-			if (prev != null && 'result' in prev) {
-				// Repoint the entry at the prior successful result in `'backed'` so a later
-				// re-engage projects the right thing, and forward() can transition this back
-				// to `'complete'` without losing the payload.
+		...this.createBackForwardMachine<ReviewResult, ReviewResult>('review', {
+			canBack: (value): value is ReviewResult => value != null,
+			getResourceValue: () => this.actions.resources.review.value.get(),
+			enterBacked: snapshot => this.enterReviewBacked(snapshot),
+			getSnapshot: () => this._reviewBackSnapshot,
+			clearSnapshot: () => {
+				this._reviewBackSnapshot = undefined;
+			},
+			restoreSnapshot: snapshot => this.actions.resources.review.mutate(snapshot),
+			getPreErrorValue: () => this.actions.state.reviewPreErrorValue.get(),
+			registerBackedEntry: result => {
+				const entry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(this.currentAnchor()))?.review;
 				if (entry != null) {
-					this.registerRunningOperation({ ...entry, execState: 'backed', result: prev });
+					this.registerRunningOperation({ ...entry, execState: 'backed', result: result });
 				}
-				this.enterReviewBacked(prev);
-			} else {
-				// No prior plan to surface via Resume. Keep the entry in `'backed'` with no
-				// result so the run's `prompt` survives and re-seeds the AI input on the idle
-				// re-render — same shape as the Cancel button + `{cancelled:true}` sentinel paths.
-				this.enterBackedNoResult('review');
-			}
-			// Pre-error value consumed. The prompt rides on the engaged entry's `prompt` field
-			// and survives through both branches via the spread / no-result re-register.
-			this.actions.state.reviewPreErrorValue.set(undefined);
-		},
+			},
+		}),
 		retryFromError: (
 			repoPath: string | undefined,
 			excludedFiles: string[] | undefined,
@@ -1030,9 +1009,6 @@ export class DetailsWorkflowController implements ReactiveController {
 			// `dispatchOperation`, so retry-after-error doesn't depend on a global signal.
 			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
 			this.runReview(repoPath, entry?.prompt, excludedFiles, effectiveFilesCount, selectedIds, scopeItems);
-		},
-		invalidateErrorRecovery: (): void => {
-			this.actions.state.reviewPreErrorValue.set(undefined);
 		},
 		// Two-pass detail enrichment lands here. The render projection at the panel reads
 		// `entry.result ?? resource.value` — entry first — so mutating only the resource leaves
@@ -1119,7 +1095,38 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Compose workflow
 
+	/** Compose workflow controls. The back/forward snapshot + error-recovery cluster comes from
+	 *  {@link DetailsWorkflowController.createBackForwardMachine}; the members below are the
+	 *  compose-specific remainder. */
 	readonly compose = {
+		...this.createBackForwardMachine<ComposeResult, Extract<ComposeResult, { result: unknown }>>('compose', {
+			canBack: (value): value is Extract<ComposeResult, { result: unknown }> =>
+				value != null && 'result' in value,
+			getResourceValue: () => this.actions.resources.compose.value.get(),
+			enterBacked: snapshot => this.enterComposeBacked(snapshot),
+			getSnapshot: () => this._composeBackSnapshot,
+			clearSnapshot: () => {
+				this._composeBackSnapshot = undefined;
+			},
+			restoreSnapshot: snapshot => this.actions.resources.compose.mutate(snapshot),
+			getPreErrorValue: () => this.actions.state.composePreErrorValue.get(),
+			registerBackedEntry: result => {
+				const entry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(this.currentAnchor()))?.compose;
+				if (entry != null) {
+					this.registerRunningOperation({ ...entry, execState: 'backed', result: result });
+				}
+			},
+			// Consuming error recovery also drops the failed-action tracking. Clearing
+			// `composeLastFailedAction` / `composeLastCommitAllIncludedIds` prevents a stale
+			// `'commit-all'` from steering a later `retryFromError` into the commit-all branch
+			// against a plan that's no longer in the resource.
+			extraTeardown: () => {
+				this.actions.state.composeLastFailedAction.set(undefined);
+				this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
+			},
+		}),
 		// Discard a ready plan and exit compose mode — full teardown back to plain WIP details.
 		// Working-tree changes are untouched; only the in-memory plan + mode state are dropped.
 		discard: (): void => {
@@ -1128,72 +1135,6 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (this.actions.state.composeRegeneratingCommitId.get() != null) return;
 
 			this.destroyEngagedOperation('compose');
-		},
-		back: (): void => {
-			// See `review.back` for rationale on the conditional transition. The original code
-			// transitioned the entry to `'backed'` unconditionally even when no snapshot was
-			// captured, leaving the user stuck with no forward path and a destructive close.
-			if (this.actions.resources.compose.status.get() !== 'success') return;
-
-			const value = this.actions.resources.compose.value.get();
-			if (value == null || !('result' in value)) return;
-
-			this.enterComposeBacked(value);
-			this.transitionEngagedEntryExecState('compose', 'backed');
-		},
-		forward: (): boolean => {
-			const snapshot = this._composeBackSnapshot;
-			if (snapshot == null) return false;
-
-			this.actions.resources.compose.mutate(snapshot);
-			this.transitionEngagedEntryExecState('compose', 'complete');
-			// Clear the back-preview so the header reverts to plain counts — the result is now
-			// visible in the panel, so the Resume affordance no longer applies. A subsequent
-			// `back()` will re-snapshot from the now-active value, so the cycle still works.
-			this.actions.state.composeBackPreview.set(undefined);
-			this.actions.state.composeForwardAvailable.set(false);
-			return true;
-		},
-		invalidateSnapshot: (): void => {
-			this._composeBackSnapshot = undefined;
-			this.actions.state.composeForwardAvailable.set(false);
-			this.actions.state.composeBackPreview.set(undefined);
-		},
-		// "Go Back" from the error pane. Lands on the idle scope picker — same destination as
-		// Restart on a successful run — with the last-submitted prompt seeded. When the failed
-		// action was Commit All or a refine from a ready plan, `composePreErrorValue` holds the
-		// prior plan; we load it into the back-snapshot so the Resume bar offers a one-click
-		// restore (no AI re-run). When the first attempt errored, clean idle, no Resume.
-		// Registry entry is updated alongside the resource — the panel mapping reads entry
-		// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
-		// first, then resource, so the panel's next render sees the consistent target state.
-		backFromError: (): void => {
-			const prev = this.actions.state.composePreErrorValue.get();
-			const anchor = this.currentAnchor();
-			const key = anchorKey(anchor);
-			const entry = this.host.crossPaneState.runningOperations.get().get(key)?.compose;
-			if (prev != null && 'result' in prev) {
-				// Repoint the entry at the prior successful result in `'backed'` so a later
-				// re-engage projects the right thing, and forward() can transition this back
-				// to `'complete'` without losing the payload.
-				if (entry != null) {
-					this.registerRunningOperation({ ...entry, execState: 'backed', result: prev });
-				}
-				this.enterComposeBacked(prev);
-			} else {
-				// No prior plan to surface via Resume. Keep the entry in `'backed'` with no
-				// result so the run's `prompt` survives and re-seeds the AI input on the idle
-				// re-render — same shape as the Cancel button + `{cancelled:true}` sentinel paths.
-				this.enterBackedNoResult('compose');
-			}
-			// Pre-error value + action tracking consumed. Clearing `composeLastFailedAction` /
-			// `composeLastCommitAllIncludedIds` prevents a stale `'commit-all'` from steering a
-			// later `retryFromError` into the commit-all branch against a plan that's no longer
-			// in the resource. The prompt rides on the engaged entry's `prompt` field and
-			// survives through both branches via the spread / no-result re-register.
-			this.actions.state.composePreErrorValue.set(undefined);
-			this.actions.state.composeLastFailedAction.set(undefined);
-			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		},
 		retryFromError: (
 			repoPath: string | undefined,
@@ -1237,11 +1178,6 @@ export class DetailsWorkflowController implements ReactiveController {
 					scopeItems,
 				);
 			}
-		},
-		invalidateErrorRecovery: (): void => {
-			this.actions.state.composePreErrorValue.set(undefined);
-			this.actions.state.composeLastFailedAction.set(undefined);
-			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		},
 		/** Drop the cross-call continuation state — the locked-commits set and any in-flight regen
 		 *  handle. Called from `exitMode` and from `toggleMode`'s different-selection branch, not from
@@ -2339,6 +2275,116 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.registerRunningOperation(
 			entry.kind === 'review' ? { ...entry, execState: execState } : { ...entry, execState: execState },
 		);
+	}
+
+	/**
+	 * Builds the back/forward + error-recovery controls shared by the review and compose
+	 * machines — `back`, `forward`, `invalidateSnapshot`, `backFromError`, and
+	 * `invalidateErrorRecovery` — parameterized by {@link BackForwardMachineHooks}. Resolve is
+	 * deliberately NOT built here: its error paths have no Resume semantics at all (apply is
+	 * terminal), so its `backFromError`/`retryFromError` share nothing beyond their names and
+	 * its `invalidateSnapshot`/`invalidateErrorRecovery` stay hand-written no-op stubs for the
+	 * uniform workflow surface.
+	 *
+	 * Everything around the hooks — status gating, entry exec-state transitions, signal clears,
+	 * and the entry-first-then-resource sequencing contract — is defined once here so the two
+	 * machines can't drift.
+	 *
+	 * Must only create closures: it runs during class-field initialization, so every access to
+	 * instance state is deferred until a returned method is invoked.
+	 */
+	private createBackForwardMachine<TValue extends ReviewResult | ComposeResult, TSnapshot extends TValue>(
+		kind: 'review' | 'compose',
+		hooks: BackForwardMachineHooks<TValue, TSnapshot>,
+	): {
+		back: () => void;
+		forward: () => boolean;
+		invalidateSnapshot: () => void;
+		backFromError: () => void;
+		invalidateErrorRecovery: () => void;
+	} {
+		const resource = () => (kind === 'review' ? this.actions.resources.review : this.actions.resources.compose);
+		const forwardAvailable = () =>
+			kind === 'review' ? this.actions.state.reviewForwardAvailable : this.actions.state.composeForwardAvailable;
+		const backPreview = () =>
+			kind === 'review' ? this.actions.state.reviewBackPreview : this.actions.state.composeBackPreview;
+		const preErrorValue = () =>
+			kind === 'review' ? this.actions.state.reviewPreErrorValue : this.actions.state.composePreErrorValue;
+
+		return {
+			back: (): void => {
+				// Snapshot a successfully-resolved value so forward() can restore it without re-running
+				// the AI. Also transition the engaged anchor's registry entry to `'backed'` — that's
+				// the state that makes Close destructive (the Back-then-close gate). The chip overlay
+				// stays as `pass` (a result still exists, just not currently displayed).
+				// The transition + resource reset MUST be gated on a successful snapshot capture:
+				// otherwise we land on a backed entry with `forwardAvailable === false`, the panel
+				// shows idle, the chip shows pass, and the only escape is destructive Close. The
+				// outer status check guards against a non-success state; the inner gate
+				// (`canBack`) guards against the (rare) success-without-value race where the
+				// resource was reset between the status read and the value read.
+				if (resource().status.get() !== 'success') return;
+
+				const value = hooks.getResourceValue();
+				if (!hooks.canBack(value)) return;
+
+				hooks.enterBacked(value);
+				this.transitionEngagedEntryExecState(kind, 'backed');
+			},
+			forward: (): boolean => {
+				const snapshot = hooks.getSnapshot();
+				if (snapshot == null) return false;
+
+				hooks.restoreSnapshot(snapshot);
+				this.transitionEngagedEntryExecState(kind, 'complete');
+				// Clear the back-preview so the header reverts to plain counts — the result is now
+				// visible in the panel, so the Resume affordance no longer applies. A subsequent
+				// `back()` will re-snapshot from the now-active value, so the cycle still works.
+				backPreview().set(undefined);
+				forwardAvailable().set(false);
+				return true;
+			},
+			invalidateSnapshot: (): void => {
+				hooks.clearSnapshot();
+				forwardAvailable().set(false);
+				backPreview().set(undefined);
+			},
+			// "Go Back" from the error pane. Lands on the idle scope picker — same destination as
+			// Restart on a successful run. When a prior successful result existed (e.g. a refine
+			// failed from a ready plan), it's loaded into the back-snapshot so the Resume bar
+			// offers a one-click restore (no AI re-run); when the first attempt errored, no
+			// Resume — clean idle. The prompt is left intact so the panel's gl-ai-input pre-fills
+			// on re-render.
+			// Registry entry is updated alongside the resource — the panel mapping reads entry
+			// first, so a stale 'error' entry would mask the restored state. Sequencing: entry
+			// first, then resource, so the panel's next render sees the consistent target state.
+			backFromError: (): void => {
+				const prev = hooks.getPreErrorValue();
+				// Same acceptance gate as `back()`: pre-error values are only ever stashed when
+				// result-bearing (see the stash sites in `runReview`/`runCompose`), so for review
+				// this reduces to the original `prev != null && 'result' in prev` check.
+				if (prev != null && hooks.canBack(prev)) {
+					// Repoint the entry at the prior successful result in `'backed'` so a later
+					// re-engage projects the right thing, and forward() can transition this back
+					// to `'complete'` without losing the payload.
+					hooks.registerBackedEntry(prev);
+					hooks.enterBacked(prev);
+				} else {
+					// No prior plan to surface via Resume. Keep the entry in `'backed'` with no
+					// result so the run's `prompt` survives and re-seeds the AI input on the idle
+					// re-render — same shape as the Cancel button + `{cancelled:true}` sentinel paths.
+					this.enterBackedNoResult(kind);
+				}
+				// Pre-error value consumed. The prompt rides on the engaged entry's `prompt` field
+				// and survives through both branches via the spread / no-result re-register.
+				preErrorValue().set(undefined);
+				hooks.extraTeardown?.();
+			},
+			invalidateErrorRecovery: (): void => {
+				preErrorValue().set(undefined);
+				hooks.extraTeardown?.();
+			},
+		};
 	}
 
 	/** Shared back-into-idle setup for review: wire the back-snapshot + Resume affordances and

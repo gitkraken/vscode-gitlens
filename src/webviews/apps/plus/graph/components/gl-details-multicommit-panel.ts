@@ -21,12 +21,7 @@ import type {
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
-import {
-	AutolinkMerger,
-	renderAutolinkChips,
-	renderAutolinksPopover,
-} from '../../../shared/components/chips/autolinks.js';
-import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
+import { AutolinkMerger } from '../../../shared/components/chips/autolinks.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { redispatch } from '../../../shared/components/element.js';
 import {
@@ -40,15 +35,13 @@ import { renderCopyChangesAction, renderOpenChangesAction } from '../../../share
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { multiCommitPanelStyles, panelActionInputStyles, panelHostStyles } from './gl-details-multicommit-panel.css.js';
+import { renderAutolinksStrip } from './shared-panel-templates.js';
 import { panelAutolinkStripStyles } from './shared-panel.css.js';
 import '../../../shared/components/code-icon.js';
 import './gl-compare-ai-actions.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/commit/commit-stats.js';
-import '../../../shared/components/chips/action-chip.js';
-import '../../../shared/components/chips/autolink-chip.js';
-import '../../../shared/components/chips/chip-overflow.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/menu/menu-item.js';
@@ -582,77 +575,21 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private renderAutolinksRow() {
 		if (!this.autolinksEnabled) return nothing;
 
-		const merged = this._autolinkMerger.merge(this.autolinks, this.enrichedItems);
-		const hasChips = merged.autolinks.length > 0 || merged.enriched.length > 0;
 		// Show the loading state until BOTH the comparison fetch AND the autolinks fetch settle —
 		// the autolinks request is fired after `compare` resolves, so there's a window where
 		// `_comparisonChanging` is false but chips haven't arrived yet. Without `autolinksLoading`
 		// the strip flashes "Learn about autolinks" before the chips populate.
-		const isLoadingEmpty = (this._comparisonChanging || this.autolinksLoading) && !hasChips;
-
-		return html`<div class="compare-enrichment">
-			<gl-chip-overflow max-rows="1">
-				${
-					hasChips
-						? nothing
-						: isLoadingEmpty
-							? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
-									<code-icon icon="loading" modifier="spin"></code-icon>
-									<span>Loading autolinks…</span>
-								</span>`
-							: renderLearnAboutAutolinks({
-									hasIntegrationsConnected: this.hasIntegrationsConnected,
-									hasAccount: this.hasAccount,
-									showLabel: true,
-									slotName: 'prefix',
-								})
-				}
-				${renderAutolinkChips(merged, this.preferences, true)} ${renderAutolinksPopover(merged)}
-				${this.renderEnrichButton()}
-				${
-					hasChips
-						? renderLearnAboutAutolinks({
-								hasIntegrationsConnected: this.hasIntegrationsConnected,
-								hasAccount: this.hasAccount,
-								slotName: 'suffix',
-							})
-						: nothing
-				}
-			</gl-chip-overflow>
-		</div>`;
-	}
-
-	private renderEnrichButton() {
-		if (!this.hasIntegrationsConnected) return nothing;
-
-		if (this._enrichmentNoneFound) {
-			return html`<gl-action-chip
-				slot="suffix"
-				icon="info"
-				label="No Additional Issues or Pull Requests Found"
-				overlay="tooltip"
-			></gl-action-chip>`;
-		}
-
-		if (this.enrichedItems != null) return nothing;
-
-		if (this.enrichmentLoading) {
-			return html`<gl-action-chip
-				slot="suffix"
-				icon="loading"
-				label="Loading Issues and Pull Requests..."
-				overlay="tooltip"
-				disabled
-			></gl-action-chip>`;
-		}
-
-		return html`<gl-action-chip
-			slot="suffix"
-			icon="sync"
-			label="Load Associated Issues and Pull Requests"
-			overlay="tooltip"
-			@click=${this.handleEnrichAutolinks}
-		></gl-action-chip>`;
+		return renderAutolinksStrip({
+			merged: this._autolinkMerger.merge(this.autolinks, this.enrichedItems),
+			isLoadingEmpty: this._comparisonChanging || this.autolinksLoading,
+			preferences: this.preferences,
+			hasAccount: this.hasAccount,
+			hasIntegrationsConnected: this.hasIntegrationsConnected,
+			enrichmentSettled: this.enrichedItems != null,
+			enrichmentNoneFound: this._enrichmentNoneFound,
+			enrichmentLoading: this.enrichmentLoading,
+			onRequestEnrichment: () => this.handleEnrichAutolinks(),
+		});
 	}
 
 	private handleEnrichAutolinks() {

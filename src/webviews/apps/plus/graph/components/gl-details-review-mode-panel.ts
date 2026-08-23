@@ -41,7 +41,13 @@ import {
 	reviewModePanelStyles,
 } from './gl-details-review-mode-panel.css.js';
 import { formatFindingAsMarkdown, formatFocusAreaAsMarkdown, formatReviewAsMarkdown } from './reviewFormat.js';
-import { getScopeSplitPickerChrome, renderErrorState, renderLoadingState } from './shared-panel-templates.js';
+import {
+	checkAllExclusion,
+	fileCheckedExclusion,
+	scopeSplitSnap,
+	wipScopeSelectionIds,
+} from './shared-panel-helpers.js';
+import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/ai-input.js';
@@ -846,32 +852,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
-		if (!e.detail.context) return;
+		const next = fileCheckedExclusion(e, this._excludedFiles);
+		if (next == null) return;
 
-		const [file] = e.detail.context as unknown as GitFileChangeShape[];
-		if (!file) return;
-
-		const next = new Set(this._excludedFiles);
-		if (e.detail.checked) {
-			next.delete(file.path);
-		} else {
-			next.add(file.path);
-		}
 		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
 	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
-		const next = new Set(this._excludedFiles);
-		if (e.detail.checked) {
-			for (const path of e.detail.paths) {
-				next.delete(path);
-			}
-		} else {
-			for (const path of e.detail.paths) {
-				next.add(path);
-			}
-		}
+		const next = checkAllExclusion(e, this._excludedFiles);
+		if (next == null) return;
+
 		this._excludedFiles = next;
 		this.invalidateForward();
 	}
@@ -896,24 +887,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 	};
 
 	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
-		const scopeEl = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
-		if (!scopeEl || size <= 0) return Math.max(15, Math.min(pos, 70));
-
-		// Cap at the scope picker's intrinsic height so it can't expand beyond its content.
-		// `contentHeight` is only the inner scroll pane; add the .scope-split__picker wrapper's
-		// padding + border-bottom or the fit-content track clamps short and clips / desyncs.
-		const maxPercent = Math.min(70, ((scopeEl.contentHeight + getScopeSplitPickerChrome(scopeEl)) / size) * 100);
-		return Math.max(15, Math.min(pos, maxPercent));
+		return scopeSplitSnap(this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane'), pos, size);
 	};
 
 	private scopeSelectionIds(): readonly string[] | undefined {
-		const scope = this.scope;
-		if (scope?.type !== 'wip') return undefined;
-		return [
-			...(scope.includeUnstaged ? ['unstaged'] : []),
-			...(scope.includeStaged ? ['staged'] : []),
-			...scope.includeShas,
-		];
+		return wipScopeSelectionIds(this.scope);
 	}
 
 	private renderOverview() {

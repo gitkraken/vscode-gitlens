@@ -3159,16 +3159,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.aheadCount=${this._state.branchCompareAheadCount.get()}
 			.behindCount=${this._state.branchCompareBehindCount.get()}
 			.allFilesCount=${this._state.branchCompareAllFilesCount.get()}
-			.aheadCommits=${this._state.branchCompareAheadCommits.get()}
-			.behindCommits=${this._state.branchCompareBehindCommits.get()}
-			.aheadFiles=${this._state.branchCompareAheadFiles.get()}
-			.behindFiles=${this._state.branchCompareBehindFiles.get()}
-			.aheadLoaded=${this._state.branchCompareAheadLoaded.get()}
-			.behindLoaded=${this._state.branchCompareBehindLoaded.get()}
-			.aheadHasMore=${this._state.branchCompareAheadHasMore.get()}
-			.behindHasMore=${this._state.branchCompareBehindHasMore.get()}
-			.aheadLoadingMore=${this._state.branchCompareAheadLoadingMore.get()}
-			.behindLoadingMore=${this._state.branchCompareBehindLoadingMore.get()}
+			.aheadCommits=${this._state.branchCompareCommitsBySide.ahead.get()}
+			.behindCommits=${this._state.branchCompareCommitsBySide.behind.get()}
+			.aheadFiles=${this._state.branchCompareFilesBySide.ahead.get()}
+			.behindFiles=${this._state.branchCompareFilesBySide.behind.get()}
+			.aheadLoaded=${this._state.branchCompareLoadedBySide.ahead.get()}
+			.behindLoaded=${this._state.branchCompareLoadedBySide.behind.get()}
+			.aheadHasMore=${this._state.branchCompareHasMoreBySide.ahead.get()}
+			.behindHasMore=${this._state.branchCompareHasMoreBySide.behind.get()}
+			.aheadLoadingMore=${this._state.branchCompareLoadingMoreBySide.ahead.get()}
+			.behindLoadingMore=${this._state.branchCompareLoadingMoreBySide.behind.get()}
 			.allFiles=${allFiles}
 			.loading=${
 				this._actions.resources.branchCompareSummary.loading.get() ||
@@ -3246,7 +3246,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		let fallback: string | undefined;
 		if (activeTab === 'behind') {
 			fallback = leftRef;
-		} else if (activeTab === 'ahead' && hasOnlyWip(this._state.branchCompareAheadCommits.get())) {
+		} else if (activeTab === 'ahead' && hasOnlyWip(this._state.branchCompareCommitsBySide.ahead.get())) {
 			fallback = uncommitted;
 		} else {
 			fallback = rightRef;

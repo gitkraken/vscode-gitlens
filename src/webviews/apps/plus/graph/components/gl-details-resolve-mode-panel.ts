@@ -43,6 +43,7 @@ import {
 	resolveDisplayStyles,
 	strategyDisplay,
 } from './resolveDisplay.js';
+import { liveRefineDraft, liveRefineMode, syncRefinePosture } from './shared-panel-helpers.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
@@ -645,14 +646,17 @@ export class GlDetailsResolveModePanel extends LitElement {
 	 *  meaningful in the ready state (the gate/refine input only exist there); other states report the
 	 *  default so a non-ready leave can't clobber a captured posture. */
 	get refineModeLive(): boolean {
-		return this.status === 'ready' ? this._refineMode : false;
+		return liveRefineMode(this.status, this._refineMode);
 	}
 
 	/** Live unsubmitted Refine text, read by the host on mode-leave. Empty unless the refine input is
 	 *  actually mounted (ready + refine posture). */
 	get refineDraftLive(): string {
-		if (this.status !== 'ready' || !this._refineMode) return '';
-		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.resolve-refine-input')?.currentValue ?? '';
+		return liveRefineDraft(
+			this.status,
+			this._refineMode,
+			() => this.renderRoot.querySelector<GlAiInput>('gl-ai-input.resolve-refine-input')?.currentValue,
+		);
 	}
 
 	/** Default-checked state for a conflict: resolve-all entry checks everything; a focused entry
@@ -669,11 +673,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
-		// Ready always opens in Apply posture. A refine (or per-row retry) re-run returns through
-		// loading→ready, so resetting here means the refreshed resolutions show Apply — not a still-ticked
-		// gate hiding it. Placed before the early-returning identity block so it can't be skipped.
+		// Ready always opens in Apply posture — the shared Refine-posture lifecycle below resets the
+		// gate on EVERY ready entry (deliberately unlike compose, which only resets on a successful
+		// run). A refine (or per-row retry) re-run returns through loading→ready, so resetting here
+		// means the refreshed resolutions show Apply — not a still-ticked gate hiding it. Placed
+		// before the early-returning identity block so it can't be skipped.
 		if (changedProperties.has('status') && this.status === 'ready') {
-			this._refineMode = false;
 			// Auto-expand the reasoning of low-confidence resolutions so the risky ones get scrutiny.
 			this._openReasons = new Set(
 				(this.resolutions ?? [])
@@ -682,13 +687,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 			);
 		}
 
-		// Seed the live posture from the persisted `refineMode` on mount and on an anchor switch (the
-		// element is reused across WIP-row switches). Gated on the property changing — the entry only
-		// writes it on mode-leave, so it's stable during a session and never fights the local toggle.
-		// Placed AFTER the status→ready reset so a completed refine still lands in Apply posture (that
-		// transition doesn't change `refineMode`) and BEFORE the early-returning identity block below.
-		if (changedProperties.has('refineMode')) {
-			this._refineMode = this.refineMode;
+		// Shared Refine-posture lifecycle (see `syncRefinePosture`): resets on every ready entry (see
+		// above), then reseeds the live posture from the persisted `refineMode` on mount and on an
+		// anchor switch (the element is reused across WIP-row switches). The seed is gated on the
+		// property changing — the entry only writes it on mode-leave, so it's stable during a session
+		// and never fights the local toggle. Placed BEFORE the early-returning identity block below.
+		const refinePosture = syncRefinePosture(changedProperties, {
+			status: this.status,
+			refineMode: this._refineMode,
+			persistedRefineMode: this.refineMode,
+			resetOnEveryReadyEntry: true,
+		});
+		if (refinePosture != null) {
+			this._refineMode = refinePosture;
 		}
 
 		// Automatic-rebase steps arrive collapsed: while the run is live the row worth watching is the

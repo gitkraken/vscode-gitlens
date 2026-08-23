@@ -484,10 +484,10 @@ top-of-sheet-stack render target changes.
 
 `branchCompareLeftRef`/`RightRef` (+ `RefType`), `branchCompareIncludeWorkingTree`,
 `branchCompareRightRefWorktreePath`, `branchCompareMergeBase`, `branchCompareStale`,
-`branchCompareAheadCount`/`BehindCount`/`AllFilesCount`, `branchCompareAheadCommits`/
-`BehindCommits`/`AllFiles`, `branchCompareAheadFiles`/`BehindFiles`, `branchCompareAheadLoaded`/
-`BehindLoaded`, `branchCompareAheadHasMore`/`BehindHasMore`, `branchCompareAheadLimit`/
-`BehindLimit`, `branchCompareAheadLoadingMore`/`BehindLoadingMore`, `branchCompareActiveTab`
+`branchCompareAheadCount`/`BehindCount`/`AllFilesCount`, `branchCompareAllFiles`, the per-side
+Phase-2 records `branchCompareCommitsBySide`/`FilesBySide`/`LoadedBySide`/`HasMoreBySide`/
+`LimitBySide`/`LoadingMoreBySide` (each a `{ ahead, behind }` record of signals),
+`branchCompareActiveTab`
 (`'all' | 'ahead' | 'behind'`), `branchCompareSelectedCommitShaByTab` (a `Map`, one selection per
 tab) + the derived `branchCompareSelectedCommitSha` computed signal, `branchCompareActiveView`
 (`'files' | 'contributors'`), `branchCompareAutolinksByScope`/`EnrichedAutolinksByScope`/
