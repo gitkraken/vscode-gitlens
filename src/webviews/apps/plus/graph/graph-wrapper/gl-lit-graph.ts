@@ -139,7 +139,7 @@ import type { WipNodeState } from './graph-gutter.js';
 import { laneSpacing, nodeRadiusFor, renderGutterSvg, renderWavyFilterDefs } from './graph-gutter.js';
 import { RowUnitsIndex } from './graph-row-units.js';
 import type { RowRenderContext } from './graph-row.js';
-import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './graph-row.js';
+import { hasPersistentRowActions, renderChangesCellContent, renderRow, zoneLeadOffset } from './graph-row.js';
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
 import {
 	buildMergeTargetScrollMarkers,
@@ -240,6 +240,19 @@ const foldLaneWidthPx = 14;
 // Minimum width (px) of the graph column's horizontal scrollbar thumb, so it stays grabbable even when
 // the lane content vastly overflows a narrow viewport.
 const graphHScrollMinThumbPx = 24;
+
+// Thumb WIDTH (px) of the graph column's horizontal scrollbar: proportional to how much of the lane
+// content fits the viewport, floored so it stays grabbable (`graphHScrollMinThumbPx`). Shared by the
+// render-state var pass and `graphHScrollTravel`'s drag/track math so the copies can't drift.
+function graphHScrollThumbPx(viewport: number, content: number): number {
+	return content > 0 ? Math.max(graphHScrollMinThumbPx, (viewport * viewport) / content) : viewport;
+}
+
+// Thumb LEFT offset (px) within its track: maps [0, max] scroll onto [0, travel] (0 when nothing is
+// hidden). The single owner of the `--graph-hscroll-left` value and the track-click hit test.
+function graphHScrollLeftPx(scrollX: number, max: number, travel: number): number {
+	return max > 0 ? (scrollX / max) * travel : 0;
+}
 // Fallbacks for the GROUPED inline lane cap when the `gitlens.graph.lanes.grouped.*` settings are absent:
 // at least `min` lanes always show (when the graph has that many); the cap grows dynamically up to `max`%
 // of the row width, so wider views show more lanes before collapsing the rest to the edge.
@@ -265,6 +278,23 @@ function headerLabelFits(label: string, areaPx: number): boolean {
 const headerActionPx = 24;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+// Coerce a ref-count setting's raw value to a usable cap. The declared type is `number | 'auto'`, but
+// the setting's schema admits ANY string — so the runtime value must be coerced, not trusted. Callers
+// resolve `'auto'` themselves before reaching here; this floors and clamps to the setting's [1, 10]
+// range, falling back to 1 (never NaN: it would zero out every pill and defeat the change tracking).
+function coerceRefCapSetting(value: number | string): number {
+	const n = Math.floor(Number(value));
+	return Number.isFinite(n) ? clamp(n, 1, 10) : 1;
+}
+
+// Which unit of a row-units-promoted row carries its commit DATA: consumers place data on unit 1 (the
+// bottom of the 2-unit span), ordinary rows on unit 0 — fixed by construction (see `computeRowUnits`).
+// A future multi-unit consumer with its own placement would need its own derivation; this one is shared
+// by the render context's `dataUnitOf` and the scroll-marker band placement so they can't disagree.
+function dataUnitForRow(units: number): number {
+	return units > 1 ? 1 : 0;
+}
 
 /** Injected into `computeScopeAnchors` so the engine can resolve the focal branch's tip without
  *  knowing about GitLens ref metadata — the scope math only asks "does this row carry that head?".
@@ -662,6 +692,52 @@ const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
 // The managed-focus controls inside a row. Sub-chips (upstream-jump / PR / issue) match THEMSELVES, not
 // the pill containing them, so each is its own stop.
 const rowControlSelector = '.gl-graph__row-action, [data-ref-metadata-type], .gl-graph__ref-pill';
+
+// Screen-reader announcement while more commits page in — one constant so the wording can't fork
+// between the prefetch, edge-nav, and debounce paths that trigger it.
+const loadingMoreAnnouncement = 'Loading more commits…';
+
+// First HTMLElement on the event's composed path (crossing any shadow roots) matching `match`, else
+// undefined. One walk for every dataset-based resolution; the predicates are hoisted module constants,
+// so repeated resolution on the per-pointermove hover path allocates nothing.
+function composedPathElement(event: Event, match: (el: HTMLElement) => boolean): HTMLElement | undefined {
+	for (const el of event.composedPath()) {
+		if (el instanceof HTMLElement && match(el)) return el;
+	}
+	return undefined;
+}
+
+const elWithSha = (el: HTMLElement): boolean => el.dataset.sha != null;
+const elWithRefName = (el: HTMLElement): boolean => el.dataset.refName != null;
+const elWithRefMetadataType = (el: HTMLElement): boolean =>
+	el.dataset.refMetadataType === 'upstream' ||
+	el.dataset.refMetadataType === 'pullRequest' ||
+	el.dataset.refMetadataType === 'issue';
+const elIsRefPill = (el: HTMLElement): boolean => el.classList.contains('gl-graph__ref-pill');
+
+// Shared scaffold for the pointer-driven drags (column-boundary resize, graph-column resize, h-scroll
+// thumb): captures the pointer (best-effort — capture can throw for a non-active pointer, and only the
+// leaves-the-webview case relies on it), accumulates the CUMULATIVE clientX delta from drag start
+// (per-frame deltas fed into a fixed snapshot oscillate → jitter), and coalesces frame work onto a
+// single pending rAF (`rafId ??=`). It owns the ENTIRE teardown — cancel any pending frame, drop the
+// window pointermove/up/cancel trio, release capture, restore the body cursor, run `onCleanup`, and
+// unregister `resizeDragCleanup`. Each hand-rolled copy of this scaffold leaked differently over time
+// (an orphaned rAF re-applying cleared preview state, listeners stranded on a detached instance, an
+// uncaptured pointer sticking the thumb); one teardown path means one fix. `onEnd` runs after the final
+// flush on pointerup/cancel and receives `cleanup`, which it must call exactly once — sites commit or
+// persist around it because some read pre-teardown drag state and some must write only after it.
+type PointerDragOptions = {
+	/** Element to capture the pointer on (null skips capture; the window listeners alone still drag). */
+	captureEl: HTMLElement | null;
+	/** Body cursor held for the gesture's duration (restored to '' by cleanup). */
+	cursor: string;
+	/** Frame body — invoked at most once per animation frame with the CUMULATIVE clientX delta. */
+	onFrame(deltaX: number): void;
+	/** Site-specific resets, run inside cleanup after the shared ones. */
+	onCleanup?(): void;
+	/** Pointerup/cancel body — receives `cleanup` and MUST call it exactly once. */
+	onEnd(cleanup: () => void): void;
+};
 
 /**
  * The commit graph renderer. Owns the `<lit-virtualizer>` row list, the engine pipeline
@@ -2543,10 +2619,7 @@ export class GlLitGraph extends LitElement {
 			refsPlacement: this.refsPlacement,
 			refsHostId: refsHostId,
 			unitsOf: index => this._rowUnits.unitsOf(index),
-			// This consumer's only promoted rows (units > 1) sit their commit data on unit 1 (the bottom of
-			// the 2-unit span) — see `computeRowUnits`. A future multi-unit consumer with its own placement
-			// would need its own dataUnit derivation; this one is fixed by construction.
-			dataUnitOf: index => (this._rowUnits.unitsOf(index) > 1 ? 1 : 0),
+			dataUnitOf: index => dataUnitForRow(this._rowUnits.unitsOf(index)),
 			nodeMode: nodeMode,
 			nodeAvatars: nodeAvatars,
 			selected: this.selectedShas,
@@ -2604,10 +2677,7 @@ export class GlLitGraph extends LitElement {
 					: graphHostVisIdx >= 0
 						? graphHostVisIdx
 						: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
-		let leadOffset = 0;
-		for (let i = 0; i < leadCount; i++) {
-			leadOffset += visibleZones[i].width;
-		}
+		const leadOffset = zoneLeadOffset(visibleZones, leadCount);
 		// The active placement's REAL lane-area width — the resizable column's lane area, grouped's uniform
 		// cap, 0 when hidden (no lanes; `graphColumnWidth` still resolves to a phantom "what it would be if
 		// shown" size there). `--graph-col-vw` (below) feeds the timeline-separator gradient (graph.scss),
@@ -2615,7 +2685,7 @@ export class GlLitGraph extends LitElement {
 		// `graphPlacement === 'column'`, where the two agree.
 		const viewport = this.graphLaneViewport;
 		const content = this.gutterWidth;
-		const thumb = content > 0 ? Math.max(graphHScrollMinThumbPx, (viewport * viewport) / content) : viewport;
+		const thumb = graphHScrollThumbPx(viewport, content);
 		const travel = Math.max(0, viewport - thumb);
 		const max = this.maxGraphScrollX;
 		this.style.setProperty('--graph-col-left', `${leadOffset + this.foldLaneWidth}px`);
@@ -2645,7 +2715,7 @@ export class GlLitGraph extends LitElement {
 			this._chainLaneOverlay = this._chainLaneRuns?.map(run => this.buildChainLaneBox(run));
 		}
 		this.style.setProperty('--graph-hscroll-thumb', `${thumb}px`);
-		this.style.setProperty('--graph-hscroll-left', `${max > 0 ? (this.graphScrollX / max) * travel : 0}px`);
+		this.style.setProperty('--graph-hscroll-left', `${graphHScrollLeftPx(this.graphScrollX, max, travel)}px`);
 		// Pass-through raster layer's h-scroll translate + edge-fade mask gates — set on the render path too so
 		// freshly rendered / recycled rows position + fade their raster before the first clamp overlay pass paints.
 		this.updateGutterScrollVars();
@@ -5014,14 +5084,11 @@ export class GlLitGraph extends LitElement {
 	// grouped inline (a share of the list style's content width — kept in step with the `.gl-graph__refs`
 	// SCSS cap of `min(40%, calc(100% - 9rem))`, see graph.scss).
 	private get effectiveMaxInlineRefs(): number {
-		// The declared type is `number | 'auto'`, but the setting's schema admits ANY string — so the
-		// runtime value can be an arbitrary string and must be coerced, not trusted.
+		// The declared type is `number | 'auto'`, but the setting's schema admits ANY string — see
+		// `coerceRefCapSetting` for the coercion discipline.
 		const raw: number | string = this.config?.maxInlineRefs ?? 1;
 		if (raw !== 'auto') {
-			// Coerce and clamp to the setting's [1, 10] range, falling back to 1 (never NaN: it would zero
-			// out every pill and defeat the change tracking).
-			const n = Math.floor(Number(raw));
-			return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 1;
+			return coerceRefCapSetting(raw);
 		}
 
 		// Not yet measured: the first render's containerWidth is 0 until the ResizeObserver reports.
@@ -5052,13 +5119,9 @@ export class GlLitGraph extends LitElement {
 	// inline-sharing-the-message case; there's no message text to protect a share of here).
 	// `_ownLineRefCapWidth` is resolved once per render in `updateRenderState`, not re-solved per pill.
 	private get effectiveOwnLineRefCap(): number {
-		// Same coercion discipline as `effectiveMaxInlineRefs`: the declared type is `number | 'auto'`,
-		// but the setting's schema admits ANY string, so the runtime value must be coerced, not trusted
-		// (NaN would zero out every pill and defeat the change tracking).
 		const raw: number | string = this.config?.maxStackedRefs ?? 'auto';
 		if (raw !== 'auto') {
-			const n = Math.floor(Number(raw));
-			return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 1;
+			return coerceRefCapSetting(raw);
 		}
 
 		return resolveAutoRefPillCap(this._ownLineRefCapWidth);
@@ -5173,7 +5236,7 @@ export class GlLitGraph extends LitElement {
 	private updateHScrollPosition(): void {
 		const max = this.maxGraphScrollX;
 		const { travel } = this.graphHScrollTravel();
-		this.style.setProperty('--graph-hscroll-left', `${max > 0 ? (this.graphScrollX / max) * travel : 0}px`);
+		this.style.setProperty('--graph-hscroll-left', `${graphHScrollLeftPx(this.graphScrollX, max, travel)}px`);
 		this.updateGutterScrollVars();
 		let hscroll = this.hScrollEl;
 		if (hscroll == null || !hscroll.isConnected) {
@@ -5774,11 +5837,11 @@ export class GlLitGraph extends LitElement {
 	// Top (px) of row `index`'s band on the rail. The index/total mapping is pure INDEX space and
 	// deliberately ignores row units; only the real-pixel-row branch has to respect them, and there a
 	// promoted row's band belongs on its DATA unit — the line the commit itself renders on — not the pill
-	// line above it (mirrors `dataUnitOf` in the render context, which is where that rule is defined).
+	// line above it (same `dataUnitForRow` rule as the render context's `dataUnitOf`).
 	private scrollMarkerBandTop(index: number, scale: ScrollMarkerScale): number {
 		if (!scale.realRowPositions) return index * scale.markerRowPx;
 
-		const dataUnit = this._rowUnits.unitsOf(index) > 1 ? 1 : 0;
+		const dataUnit = dataUnitForRow(this._rowUnits.unitsOf(index));
 		return (this._rowUnits.unitPosOf(index) + dataUnit) * scale.markerRowPx;
 	}
 
@@ -6079,43 +6142,35 @@ export class GlLitGraph extends LitElement {
 	// ─── Interaction (delegated; rows carry no per-row listeners) ──────────────
 
 	private resolveSha(event: Event): string | undefined {
-		for (const el of event.composedPath()) {
-			if (!(el instanceof HTMLElement)) continue;
-
-			const sha = el.dataset.sha;
-			if (sha != null) return sha;
-		}
-		return undefined;
+		return composedPathElement(event, elWithSha)?.dataset.sha;
 	}
 
 	// Resolve a ref pill from the event path (the chips carry data-ref-name/kind/remote). Used
 	// by dblclick + contextmenu so a ref interaction wins over the enclosing row.
 	private resolveRef(event: Event): ResolvedRefTarget | undefined {
-		for (const el of event.composedPath()) {
-			if (!(el instanceof HTMLElement)) continue;
+		const el = composedPathElement(event, elWithRefName);
+		if (el == null) return undefined;
 
-			const name = el.dataset.refName;
-			if (name != null) {
-				const kind = el.dataset.refKind ?? '';
-				const remote = el.dataset.refRemote ?? null;
-				// Prefer the rendered unique key; fall back to composing it (via the shared refPillKey, so
-				// the format can't drift) — a local branch and the remote it tracks share `name`, so the
-				// kind/owner-qualified key is what keeps them from colliding for pinning.
-				const key = el.dataset.refKey ?? refPillKey({ kind: kind, name: name, owner: remote });
-				// `context` is the host-serialized `data-vscode-context` for this SAME element (the pill
-				// root, a popover row, or a PR/issue chip anchor all carry both together) — the host's
-				// double-click handler gates on `ref.context` even for a metadata (PR/issue/upstream) click.
-				return {
-					name: name,
-					key: key,
-					kind: kind,
-					remote: remote,
-					context: el.dataset.vscodeContext,
-					current: el.dataset.refIsHead === 'true',
-				};
-			}
-		}
-		return undefined;
+		const name = el.dataset.refName;
+		if (name == null) return undefined;
+
+		const kind = el.dataset.refKind ?? '';
+		const remote = el.dataset.refRemote ?? null;
+		// Prefer the rendered unique key; fall back to composing it (via the shared refPillKey, so
+		// the format can't drift) — a local branch and the remote it tracks share `name`, so the
+		// kind/owner-qualified key is what keeps them from colliding for pinning.
+		const key = el.dataset.refKey ?? refPillKey({ kind: kind, name: name, owner: remote });
+		// `context` is the host-serialized `data-vscode-context` for this SAME element (the pill
+		// root, a popover row, or a PR/issue chip anchor all carry both together) — the host's
+		// double-click handler gates on `ref.context` even for a metadata (PR/issue/upstream) click.
+		return {
+			name: name,
+			key: key,
+			kind: kind,
+			remote: remote,
+			context: el.dataset.vscodeContext,
+			current: el.dataset.refIsHead === 'true',
+		};
 	}
 
 	// Resolve the `{ key, sha }` pair `togglePinnedRef`/`activateModifierChain` need from a pointer
@@ -6134,28 +6189,26 @@ export class GlLitGraph extends LitElement {
 	// undefined when the click didn't land on a metadata surface, or its data isn't loaded/resolved yet
 	// (falls through to a plain ref double-click in that case).
 	private resolveRefMetadata(event: Event): GraphRefMetadataItem | undefined {
-		for (const el of event.composedPath()) {
-			if (!(el instanceof HTMLElement)) continue;
+		const el = composedPathElement(event, elWithRefMetadataType);
+		if (el == null) return undefined;
 
-			const type = el.dataset.refMetadataType;
-			if (type !== 'upstream' && type !== 'pullRequest' && type !== 'issue') continue;
+		const type = el.dataset.refMetadataType;
+		if (type !== 'upstream' && type !== 'pullRequest' && type !== 'issue') return undefined;
 
-			const id = el.dataset.refId;
-			if (id == null) return undefined;
+		const id = el.dataset.refId;
+		if (id == null) return undefined;
 
-			const entry = this.refsMetadata?.[id];
-			if (type === 'upstream') {
-				return entry?.upstream != null ? { refId: id, type: 'upstream', data: entry.upstream } : undefined;
-			}
-			if (type === 'pullRequest') {
-				const pr = entry?.pullRequest?.[0];
-				return pr != null ? { refId: id, type: 'pullRequest', data: pr } : undefined;
-			}
-
-			const issue = entry?.issue?.[0];
-			return issue != null ? { refId: id, type: 'issue', data: issue } : undefined;
+		const entry = this.refsMetadata?.[id];
+		if (type === 'upstream') {
+			return entry?.upstream != null ? { refId: id, type: 'upstream', data: entry.upstream } : undefined;
 		}
-		return undefined;
+		if (type === 'pullRequest') {
+			const pr = entry?.pullRequest?.[0];
+			return pr != null ? { refId: id, type: 'pullRequest', data: pr } : undefined;
+		}
+
+		const issue = entry?.issue?.[0];
+		return issue != null ? { refId: id, type: 'issue', data: issue } : undefined;
 	}
 
 	private rowKindForSha(sha: string): GitGraphRow['kind'] {
@@ -6531,17 +6584,15 @@ export class GlLitGraph extends LitElement {
 		);
 	};
 
-	// The .gl-graph__ref-pill element under the event (light-DOM walk, parallels resolveRef). Ghost
-	// pills don't count: they're hoverable (name expand) but not a real ref surface — no `data-ref-key`
-	// to context-pin, and no pill-level `data-vscode-context`, so the native menu shows the ROW menu and
-	// the zone must say so.
+	// The .gl-graph__ref-pill element under the event (parallels resolveRef). Ghost pills don't count:
+	// they're hoverable (name expand) but not a real ref surface — no `data-ref-key` to context-pin,
+	// and no pill-level `data-vscode-context`, so the native menu shows the ROW menu and the zone must
+	// say so.
 	private resolveRefPill(event: Event): HTMLElement | undefined {
-		for (const el of event.composedPath()) {
-			if (el instanceof HTMLElement && el.classList.contains('gl-graph__ref-pill')) {
-				return el.classList.contains('gl-graph__ref-pill--ghost') ? undefined : el;
-			}
-		}
-		return undefined;
+		const pill = composedPathElement(event, elIsRefPill);
+		if (pill == null) return undefined;
+
+		return pill.classList.contains('gl-graph__ref-pill--ghost') ? undefined : pill;
 	}
 
 	// Keep a right-clicked ref pill "open" while the native context menu is up: force-expand it
@@ -8013,7 +8064,7 @@ export class GlLitGraph extends LitElement {
 		this._pendingEdgeNav = { kind: kind, fromSha: fromSha, backstop: this.armEdgeNavBackstop() };
 		this.emitMoreRows();
 		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: { kind: kind, status: 'started' } }));
-		this.announce('Loading more commits…');
+		this.announce(loadingMoreAnnouncement);
 	}
 
 	/** Settle the pending edge-nav search, if any, and report why. No-op when nothing is pending, so a
@@ -8203,7 +8254,7 @@ export class GlLitGraph extends LitElement {
 		// nothing to walk — the ask would just repeat on every press.
 		if (dir === 1 && !this.searchFiltering && this.needsMoreRows(last)) {
 			this.requestMoreRowsForNavigation(last);
-			this.announce('Loading more commits…');
+			this.announce(loadingMoreAnnouncement);
 		} else {
 			this.announce(miss);
 		}
@@ -8450,7 +8501,7 @@ export class GlLitGraph extends LitElement {
 
 	// A11y: announce "loading" at most once per burst (leading edge) so continuous prefetch doesn't spam
 	// the screen reader with a running commentary.
-	private announceLoadingMore = debounce((): void => this.announce('Loading more commits…'), 250, {
+	private announceLoadingMore = debounce((): void => this.announce(loadingMoreAnnouncement), 250, {
 		edges: 'leading',
 	});
 
@@ -9624,6 +9675,20 @@ export class GlLitGraph extends LitElement {
 		return computePrefetchDistance(this.scrollerClientHeight, this.rowHeight, velocity);
 	}
 
+	// Whether row `idx` sits entirely ABOVE ('up') or entirely BELOW ('down') the viewport; undefined
+	// when any part of it is visible. Shared viewport math behind the HEAD/pinned pills (see
+	// `updateHeadPillDirection`/`updatePinnedPillDirection`); uses scrollTop/clientHeight, not the
+	// virtualizer's rendered range, which includes off-screen buffer rows.
+	private offscreenRowDirection(scroller: LitVirtualizer, idx: number): 'up' | 'down' | undefined {
+		const top = this.rowTop(idx);
+		const bottom = top + this.rowHeightOf(idx);
+		const viewTop = scroller.scrollTop;
+		const viewBottom = viewTop + scroller.clientHeight;
+		if (bottom <= viewTop) return 'up';
+		if (top >= viewBottom) return 'down';
+		return undefined;
+	}
+
 	// Resolve whether the current HEAD commit is above/below the actual VIEWPORT (or visible → no pill).
 	// Uses scrollTop/clientHeight (not the virtualizer's rendered range, which includes off-screen
 	// buffer rows). Only writes the @state on a CHANGE so a scroll that doesn't cross HEAD never re-renders.
@@ -9633,17 +9698,8 @@ export class GlLitGraph extends LitElement {
 		let dir: 'up' | 'down' | undefined;
 		if (scroller != null && headSha != null) {
 			const idx = this.indexBySha.get(headSha);
-			if (idx != null) {
-				const top = this.rowTop(idx);
-				const bottom = top + this.rowHeightOf(idx);
-				const viewTop = scroller.scrollTop;
-				const viewBottom = viewTop + scroller.clientHeight;
-				if (bottom <= viewTop) {
-					dir = 'up';
-				} else if (top >= viewBottom) {
-					dir = 'down';
-				}
-			} else if (this.headSha == null) {
+			dir = idx != null ? this.offscreenRowDirection(scroller, idx) : undefined;
+			if (dir == null && idx == null && this.headSha == null) {
 				// HEAD's row isn't loaded at all (the fallback sha) — it's beyond the window's tail in the
 				// date-ordered walk, so point down; the click pages it in. A DECORATED head that's merely
 				// missing from the display set (ref-visibility filter) keeps the pill hidden as before.
@@ -9663,17 +9719,7 @@ export class GlLitGraph extends LitElement {
 		let dir: 'up' | 'down' | undefined;
 		if (scroller != null && pinnedSha != null) {
 			const idx = this.indexBySha.get(pinnedSha);
-			if (idx != null) {
-				const top = this.rowTop(idx);
-				const bottom = top + this.rowHeightOf(idx);
-				const viewTop = scroller.scrollTop;
-				const viewBottom = viewTop + scroller.clientHeight;
-				if (bottom <= viewTop) {
-					dir = 'up';
-				} else if (top >= viewBottom) {
-					dir = 'down';
-				}
-			}
+			dir = idx != null ? this.offscreenRowDirection(scroller, idx) : undefined;
 		}
 		if (dir !== this.pinnedPillDirection) {
 			this.pinnedPillDirection = dir;
@@ -11340,6 +11386,67 @@ export class GlLitGraph extends LitElement {
 		this.persistColumnsConfig();
 	}
 
+	// Starts a pointer drag driven by `event`'s current target. See `PointerDragOptions` for the
+	// contract. Registering cleanup into `resizeDragCleanup` lets `disconnectedCallback` tear down a
+	// drag interrupted by a disconnect — otherwise the window listeners leak onto the detached instance
+	// and keep firing its frame body on it.
+	private startPointerDrag(event: PointerEvent, options: PointerDragOptions): void {
+		const handle = options.captureEl;
+		const pointerId = event.pointerId;
+		event.preventDefault();
+		event.stopPropagation();
+		if (handle != null) {
+			try {
+				handle.setPointerCapture(pointerId);
+			} catch {
+				// no active pointer to capture — proceed without it
+			}
+		}
+		const startX = event.clientX;
+		let totalDx = 0;
+		let rafId: number | null = null;
+		const flush = (): void => {
+			// Cancel any still-pending rAF (harmless no-op when running AS that rAF): `onEnd` calls flush
+			// directly, and just nulling the id would orphan the scheduled frame — it would then re-run
+			// AFTER cleanup cleared the drag state, freezing it in until the next gesture.
+			if (rafId != null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
+			options.onFrame(totalDx);
+		};
+		const onMove = (e: PointerEvent): void => {
+			totalDx = e.clientX - startX;
+			rafId ??= requestAnimationFrame(flush);
+		};
+		// Forward-declared so `cleanup` can reference it; assigned below (avoids use-before-define).
+		let onUp: () => void;
+		const cleanup = (): void => {
+			if (rafId != null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+			window.removeEventListener('pointercancel', onUp);
+			if (handle?.hasPointerCapture(pointerId)) {
+				handle.releasePointerCapture(pointerId);
+			}
+			document.body.style.cursor = '';
+			options.onCleanup?.();
+			this.resizeDragCleanup = undefined;
+		};
+		onUp = (): void => {
+			flush();
+			options.onEnd(cleanup);
+		};
+		this.resizeDragCleanup = cleanup;
+		document.body.style.cursor = options.cursor;
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+		window.addEventListener('pointercancel', onUp);
+	}
+
 	private onResizeStart(event: PointerEvent, visibleZones: readonly ZoneSpec[], visibleIdx: number): void {
 		// Double-click = fit-to-content. The capture + preventDefault below suppress the native `dblclick`,
 		// so detect a rapid second press on the SAME boundary here and autosize instead of starting a drag.
@@ -11356,91 +11463,48 @@ export class GlLitGraph extends LitElement {
 		this.lastResizeDownAt = now;
 		this.lastResizeDownIdx = visibleIdx;
 
-		event.preventDefault();
-		event.stopPropagation();
 		// Cascade drag: against the SOLVED widths captured at drag start (`visibleZones`, which carry the
-		// rendered `currentWidth`) plus the CUMULATIVE pointer delta from `startX` (per-frame deltas fed
-		// into a fixed snapshot oscillated → jitter). Each frame, `dragResizeZone` resizes the boundary's
-		// column and cascades the inverse through the columns on the side it moves toward; the preview
-		// renders via `dragSolvedZones`. Pointer capture keeps the move/up events coming even when the
-		// cursor leaves the webview mid-drag (without it the drag got stuck — no pointerup arrived).
-		const handle = event.currentTarget as HTMLElement;
-		const pointerId = event.pointerId;
-		// Capture is best-effort: it can throw for a non-active pointer; the drag still works via the
-		// window listeners (only the leaves-the-webview case relies on capture).
-		try {
-			handle.setPointerCapture(pointerId);
-		} catch {
-			// no active pointer to capture — proceed without it
-		}
-		const startX = event.clientX;
-		let totalDx = 0;
-		let rafId: number | null = null;
-		const flush = (): void => {
-			// Cancel any still-pending rAF (harmless no-op when running AS that rAF): `onUp` calls flush
-			// directly, and just nulling the id would orphan the scheduled frame — it would then re-set the
-			// preview AFTER cleanup cleared it, freezing rendering on the stale snapshot until the next drag.
-			if (rafId != null) {
-				cancelAnimationFrame(rafId);
-				rafId = null;
-			}
-			const result = dragResizeZone(visibleZones, visibleIdx, totalDx);
-			if (result == null) return;
+		// rendered `currentWidth`) plus the CUMULATIVE pointer delta from drag start. Each frame,
+		// `dragResizeZone` resizes the boundary's column and cascades the inverse through the columns on
+		// the side it moves toward; the preview renders via `dragSolvedZones`.
+		this.startPointerDrag(event, {
+			captureEl: event.currentTarget as HTMLElement,
+			cursor: 'col-resize',
+			onFrame: dx => {
+				const result = dragResizeZone(visibleZones, visibleIdx, dx);
+				if (result == null) return;
 
-			this.dragSolvedZones = result.zones;
-			this.dragSavedIds = result.savedIds;
-			this.requestUpdate();
-		};
-		const onMove = (e: PointerEvent): void => {
-			totalDx = e.clientX - startX;
-			rafId ??= requestAnimationFrame(flush);
-		};
-		// Forward-declared so `cleanup` can reference it; assigned below (avoids use-before-define).
-		let onUp: () => void;
-		const cleanup = (): void => {
-			if (rafId != null) {
-				cancelAnimationFrame(rafId);
-				rafId = null;
-			}
-			window.removeEventListener('pointermove', onMove);
-			window.removeEventListener('pointerup', onUp);
-			window.removeEventListener('pointercancel', onUp);
-			if (handle.hasPointerCapture(pointerId)) {
-				handle.releasePointerCapture(pointerId);
-			}
-			document.body.style.cursor = '';
-			this.draggingColumn = false;
-			this.dragSolvedZones = undefined;
-			this.dragSavedIds = undefined;
-			this.resizeDragCleanup = undefined;
-		};
-		onUp = (): void => {
-			flush();
-			// Commit the FULL drag result (see zonesWithSolvedWidths — zero-sum, so the re-solve
-			// reproduces the drag-end state instead of jumping). Only when a drag actually moved a
-			// boundary (`savedIds` non-empty) — a zero-distance press (e.g. the first click of a
-			// double-click, which autosizes on the second press) must NOT persist, or its stale pre-fit
-			// echo races the autosize's fitted echo and the width visibly bounces pre-fit → fitted.
-			const solved = this.dragSolvedZones;
-			const ids = this.dragSavedIds;
-			const changed = solved != null && ids != null && ids.length > 0;
-			if (changed) {
-				this.zones = this.zonesWithSolvedWidths(solved);
-			}
-			cleanup();
-			if (changed) {
-				this.persistColumnsConfig();
-			}
-		};
-		this.resizeDragCleanup = cleanup;
-		document.body.style.cursor = 'col-resize';
+				this.dragSolvedZones = result.zones;
+				this.dragSavedIds = result.savedIds;
+				this.requestUpdate();
+			},
+			onCleanup: () => {
+				this.draggingColumn = false;
+				this.dragSolvedZones = undefined;
+				this.dragSavedIds = undefined;
+			},
+			onEnd: cleanup => {
+				// Commit the FULL drag result (see zonesWithSolvedWidths — zero-sum, so the re-solve
+				// reproduces the drag-end state instead of jumping). Only when a drag actually moved a
+				// boundary (`savedIds` non-empty) — a zero-distance press (e.g. the first click of a
+				// double-click, which autosizes on the second press) must NOT persist, or its stale pre-fit
+				// echo races the autosize's fitted echo and the width visibly bounces pre-fit → fitted.
+				const solved = this.dragSolvedZones;
+				const ids = this.dragSavedIds;
+				const changed = solved != null && ids != null && ids.length > 0;
+				if (changed) {
+					this.zones = this.zonesWithSolvedWidths(solved);
+				}
+				cleanup();
+				if (changed) {
+					this.persistColumnsConfig();
+				}
+			},
+		});
 		// Suppress + dismiss any row hover/tooltip for the duration of the drag.
 		this.draggingColumn = true;
 		this.scheduleHideTooltip();
 		this.cancelRowHover();
-		window.addEventListener('pointermove', onMove);
-		window.addEventListener('pointerup', onUp);
-		window.addEventListener('pointercancel', onUp);
 	}
 
 	// Double-click a column boundary to fit a column to its widest rendered content. The handle sits at the
@@ -11690,60 +11754,26 @@ export class GlLitGraph extends LitElement {
 	// fixed spacing; once the column is narrower than the lane content the gutter scrolls (the drag
 	// re-clamps the scroll offset). rAF-coalesced cumulative-delta, like `onResizeStart`.
 	private onGraphResizeStart = (event: PointerEvent): void => {
-		event.preventDefault();
-		event.stopPropagation();
-		// Pointer capture keeps the move/up events coming even when the cursor leaves the webview mid-drag.
-		const handle = event.currentTarget as HTMLElement;
-		const pointerId = event.pointerId;
-		try {
-			handle.setPointerCapture(pointerId);
-		} catch {
-			// no active pointer to capture — proceed without it
-		}
-		const startX = event.clientX;
 		const startWidth = this.graphColumnWidth;
-		let totalDx = 0;
-		let rafId: number | null = null;
-		const flush = (): void => {
-			rafId = null;
-			this.graphViewportWidth = startWidth + totalDx;
-			this.applyGraphScroll();
-			this.requestUpdate();
-		};
-		const onMove = (e: PointerEvent): void => {
-			totalDx = e.clientX - startX;
-			rafId ??= requestAnimationFrame(flush);
-		};
-		// Forward-declared so `cleanup` can reference it; assigned below (avoids use-before-define).
-		let onUp: () => void;
-		const cleanup = (): void => {
-			if (rafId != null) {
-				cancelAnimationFrame(rafId);
-				rafId = null;
-			}
-			window.removeEventListener('pointermove', onMove);
-			window.removeEventListener('pointerup', onUp);
-			window.removeEventListener('pointercancel', onUp);
-			if (handle.hasPointerCapture(pointerId)) {
-				handle.releasePointerCapture(pointerId);
-			}
-			document.body.style.cursor = '';
-			this.draggingColumn = false;
-			this.resizeDragCleanup = undefined;
-		};
-		onUp = (): void => {
-			flush();
-			cleanup();
-			this.persistColumnsConfig();
-		};
-		this.resizeDragCleanup = cleanup;
-		document.body.style.cursor = 'col-resize';
+		this.startPointerDrag(event, {
+			captureEl: event.currentTarget as HTMLElement,
+			cursor: 'col-resize',
+			onFrame: dx => {
+				this.graphViewportWidth = startWidth + dx;
+				this.applyGraphScroll();
+				this.requestUpdate();
+			},
+			onCleanup: () => {
+				this.draggingColumn = false;
+			},
+			onEnd: cleanup => {
+				cleanup();
+				this.persistColumnsConfig();
+			},
+		});
 		this.draggingColumn = true;
 		this.scheduleHideTooltip();
 		this.cancelRowHover();
-		window.addEventListener('pointermove', onMove);
-		window.addEventListener('pointerup', onUp);
-		window.addEventListener('pointercancel', onUp);
 	};
 
 	// Keyboard resize: Arrow Left/Right shrink/grow the viewport width (Shift = coarse). Persisted
@@ -11821,72 +11851,36 @@ export class GlLitGraph extends LitElement {
 	private graphHScrollTravel(): { travel: number; max: number } {
 		const max = this.maxGraphScrollX;
 		const viewport = Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
-		const content = this.gutterWidth;
-		const thumb = content > 0 ? Math.max(graphHScrollMinThumbPx, (viewport * viewport) / content) : viewport;
+		const thumb = graphHScrollThumbPx(viewport, this.gutterWidth);
 		return { travel: Math.max(1, viewport - thumb), max: max };
 	}
 
 	// Drag the scrollbar thumb. rAF-coalesced cumulative-delta (same shape as onGraphResizeStart).
 	private onHScrollStart = (event: PointerEvent): void => {
-		event.preventDefault();
-		event.stopPropagation();
-		// Capture the pointer on the thumb (like the other drag handles) so pointerup/cancel still fire —
-		// and the drag still ends — when the pointer leaves the webview iframe; otherwise the thumb sticks.
-		const thumb = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-		thumb?.setPointerCapture(event.pointerId);
 		// Window bucket re-renders are DEFERRED while the thumb drag is live (see applyGraphScroll) —
 		// released in cleanup, flushing any held rebuild.
 		this.hScrollDragActive = true;
-		const startX = event.clientX;
 		const startScroll = this.graphScrollX;
 		const { travel, max } = this.graphHScrollTravel();
-		let rafId: number | null = null;
-		let totalDx = 0;
-		const flush = (): void => {
-			rafId = null;
-			const next = Math.max(0, Math.min(max, startScroll + (totalDx / travel) * max));
-			if (next === this.graphScrollX) return;
+		this.startPointerDrag(event, {
+			captureEl: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+			cursor: 'grabbing',
+			onFrame: dx => {
+				const next = Math.max(0, Math.min(max, startScroll + (dx / travel) * max));
+				if (next === this.graphScrollX) return;
 
-			this.graphScrollX = next;
-			this.applyGraphScroll();
-		};
-		const onMove = (e: PointerEvent): void => {
-			totalDx = e.clientX - startX;
-			rafId ??= requestAnimationFrame(flush);
-		};
-		// Forward-declared so `cleanup` can reference it; assigned below (avoids use-before-define).
-		let onUp: () => void;
-		const cleanup = (): void => {
-			if (thumb?.hasPointerCapture(event.pointerId)) {
-				thumb.releasePointerCapture(event.pointerId);
-			}
-			if (rafId != null) {
-				cancelAnimationFrame(rafId);
-				rafId = null;
-			}
-			window.removeEventListener('pointermove', onMove);
-			window.removeEventListener('pointerup', onUp);
-			window.removeEventListener('pointercancel', onUp);
-			document.body.style.cursor = '';
-			this.resizeDragCleanup = undefined;
-			this.hScrollDragActive = false;
-			if (this.pendingWindowRender) {
-				this.pendingWindowRender = false;
-				this.requestUpdate();
-			}
-		};
-		onUp = (): void => {
-			flush();
-			cleanup();
-		};
-		// Register so `disconnectedCallback` can tear down a thumb-drag interrupted by a disconnect
-		// (mirrors onResizeStart/onGraphResizeStart) — otherwise the window listeners leak onto a
-		// detached instance and keep firing applyGraphScroll on it.
-		this.resizeDragCleanup = cleanup;
-		document.body.style.cursor = 'grabbing';
-		window.addEventListener('pointermove', onMove);
-		window.addEventListener('pointerup', onUp);
-		window.addEventListener('pointercancel', onUp);
+				this.graphScrollX = next;
+				this.applyGraphScroll();
+			},
+			onCleanup: () => {
+				this.hScrollDragActive = false;
+				if (this.pendingWindowRender) {
+					this.pendingWindowRender = false;
+					this.requestUpdate();
+				}
+			},
+			onEnd: cleanup => cleanup(),
+		});
 	};
 
 	// Click the track (not the thumb — it stops propagation): page the lanes one viewport toward the click.
@@ -11896,7 +11890,7 @@ export class GlLitGraph extends LitElement {
 
 		const rect = track.getBoundingClientRect();
 		const { travel, max } = this.graphHScrollTravel();
-		const thumbLeft = max > 0 ? (this.graphScrollX / max) * travel : 0;
+		const thumbLeft = graphHScrollLeftPx(this.graphScrollX, max, travel);
 		const viewport = Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
 		const dir = event.clientX - rect.left < thumbLeft ? -1 : 1;
 		const next = Math.max(0, Math.min(max, this.graphScrollX + dir * viewport * 0.9));

@@ -1137,6 +1137,18 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	</div>`;
 }
 
+// Total RENDERED width of the `count` zones preceding the lanes — the lead offset that must pin BOTH
+// the host's horizontal scrollbar (left edge) AND each row's band/dot geometry to the same x. Flex
+// zones count: their solved `width` IS the rendered width (skipping them mis-anchored the band when
+// the graph sat after the flex Message column). One function so the two sides can't drift apart.
+export function zoneLeadOffset(zones: readonly ZoneSpec[], count: number): number {
+	let offset = 0;
+	for (let i = 0; i < count; i++) {
+		offset += zones[i].width;
+	}
+	return offset;
+}
+
 export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
 	const { rowHeight, columnWidth } = ctx;
 	const isWorkdir = row.kind === 'workdir';
@@ -1397,10 +1409,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// for the inline host lookup) dropped the final column's width when the graph was the LAST column.
 	// List mode has no zone cells and always renders the lanes leftmost, so the lead is 0.
 	const graphLeadCount = isList ? 0 : isGraphColumn ? Math.min(ctx.graphColumnPos, ctx.zones.length) : laneZoneIdx;
-	let graphLeadOffset = 0;
-	for (let i = 0; i < graphLeadCount; i++) {
-		graphLeadOffset += ctx.zones[i].width;
-	}
+	const graphLeadOffset = zoneLeadOffset(ctx.zones, graphLeadCount);
 	// Band geometry. Column: confined to the graph viewport (left = graphLeadOffset, width =
 	// graphColumnWidth) so it never bleeds into adjacent columns; fades to a crisp line at the viewport's
 	// right edge. Inline: full-row overlay fading to the host Refs column's right edge (graph combined

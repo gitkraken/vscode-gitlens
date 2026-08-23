@@ -68,7 +68,7 @@ import {
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
-import type { GraphRowHiddenReason, GraphRowPeekRequest } from './gl-lit-graph.js';
+import type { GlLitGraph, GraphRowHiddenReason, GraphRowPeekRequest } from './gl-lit-graph.js';
 import './gl-lit-graph.js';
 
 /**
@@ -431,29 +431,44 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	@consume({ context: telemetryContext as any })
 	private readonly _telemetry!: TelemetryContext;
 
+	// Cached child graph element — spares a `querySelector` on every imperative hand-off. Re-resolved
+	// whenever the cached node has left the DOM or this element disconnects; also dropped in
+	// `disconnectedCallback`.
+	private _graph?: GlLitGraph;
+
+	/** The rendered `<gl-lit-graph>`, resolved on demand — `undefined` until the wrapper's first render. */
+	private get graph(): GlLitGraph | undefined {
+		let graph = this._graph;
+		if (graph == null || !graph.isConnected) {
+			graph = this.querySelector('gl-lit-graph') ?? undefined;
+			this._graph = graph;
+		}
+		return graph;
+	}
+
 	scrollGraphBy(deltaY: number): void {
 		// <gl-lit-graph>'s virtualizer (not the role="tree" container) owns the scroll, so go through
 		// its imperative scroll method.
-		this.querySelector('gl-lit-graph')?.scrollByDelta(deltaY);
+		this.graph?.scrollByDelta(deltaY);
 	}
 
 	/** Clears the graph's click-pinned ref focus, if any — called when the details panel's branch
 	 *  sheet closes via any path so the pin never outlives the sheet. */
 	clearRefFocus(): void {
-		this.querySelector('gl-lit-graph')?.clearRefFocus();
+		this.graph?.clearRefFocus();
 	}
 
 	/** Opens the graph's ref finder for graph-app's document-level `/` shortcut. `returnFocus` is the
 	 *  element the keystroke came from, which the finder hands the keyboard back to on dismissal. */
 	openRefFind(returnFocus?: HTMLElement): void {
-		this.querySelector('gl-lit-graph')?.openRefFind(returnFocus);
+		this.graph?.openRefFind(returnFocus);
 	}
 
 	/** Holds off the graph's Ctrl/Alt-hold lane dim until both are released — for graph-app's Ctrl- or
 	 *  Alt-carrying non-lane shortcuts (search focus, the shortcut sheet, the chrome toggles), whose press
 	 *  would otherwise dim the graph on the way to the action. */
 	suppressModifierChainUntilRelease(): void {
-		this.querySelector('gl-lit-graph')?.suppressModifierChainUntilRelease();
+		this.graph?.suppressModifierChainUntilRelease();
 	}
 
 	/** The GRAPH-ROW sha(s) of graph-app's inspection anchor (the single source of truth for what the
@@ -535,6 +550,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			clearTimeout(this._wipStatsRetryTimer);
 			this._wipStatsRetryTimer = undefined;
 		}
+		// The child graph's DOM goes away with the disconnect — drop the cached element so a reconnect
+		// re-resolves it on first use instead of trusting the detached node.
+		this._graph = undefined;
 		// The pending set and miss counts deliberately SURVIVE — `connectedCallback` re-arms the timer, so a
 		// remount resumes the retry instead of dropping rows nothing else would ever ask about again.
 	}
@@ -588,7 +606,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		// Pull the lane map straight from gl-lit-graph (it derives its own columns from `processedRows`).
 		// Undefined before it mounts, which keeps the BFS-ancestry fallback below as the safety net.
-		const columnsBySha = this.querySelector('gl-lit-graph')?.getColumnsBySha();
+		const columnsBySha = this.graph?.getColumnsBySha();
 
 		// Starting ON a WIP row (Shift+W from working changes): its sha is synthetic, so it's in neither
 		// `rows` nor the column map and every strategy below would miss it. Search from its anchor commit
@@ -640,7 +658,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			feedback: false,
 		});
 		if (result.status === 'not-found') {
-			this.querySelector('gl-lit-graph')?.announce('No working changes row to jump to.');
+			this.graph?.announce('No working changes row to jump to.');
 		}
 	}
 
@@ -1322,8 +1340,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	override focus(): void {
-		// Query the `<gl-lit-graph>` element (light DOM) and focus its keyboard-nav viewport directly.
-		this.querySelector<HTMLElement>('gl-lit-graph')?.focus();
+		// Focus the graph's keyboard-nav viewport directly.
+		this.graph?.focus();
 	}
 
 	getCommits(shas: string[]): ReadonlyGraphRow[] {
@@ -1353,7 +1371,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  isRowDisplayed) sees the up-to-date displayRows after newly-paged rows land. */
 	async ensureRendered(): Promise<void> {
 		await this.updateComplete;
-		await this.querySelector('gl-lit-graph')?.updateComplete;
+		await this.graph?.updateComplete;
 	}
 
 	selectCommits(shas: string[], options?: SelectCommitsOptions): ReadonlyGraphRow[] {
@@ -1364,7 +1382,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// `ensureVisible` is opt-in: scroll the (first) selected row into view ONLY when the caller asks
 		// (search-result nav, etc.) — a plain selection never auto-scrolls.
 		if (options?.ensureVisible && shas.length > 0) {
-			this.querySelector('gl-lit-graph')?.scrollToSha(shas[0], {
+			this.graph?.scrollToSha(shas[0], {
 				mode: options.reveal ?? 'always',
 				flash: options.flash === true,
 			});
@@ -1458,11 +1476,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  {@link GlLitGraph.isScopeProjectionActive}. Remedy flows poll this, not just the cleared
 	 *  scope state, before re-running a jump. */
 	isScopeProjectionActive(): boolean {
-		return this.querySelector('gl-lit-graph')?.isScopeProjectionActive() === true;
+		return this.graph?.isScopeProjectionActive() === true;
 	}
 
 	private withVisibility(row: GitGraphRow): ReadonlyGraphRow {
-		const lit = this.querySelector('gl-lit-graph');
+		const lit = this.graph;
 		return { ...row, hidden: lit != null ? !lit.isRowDisplayed(row.sha) : false };
 	}
 
@@ -1489,7 +1507,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._selectIntentRepositoryId = undefined;
 		this._selectIntentRepoPath = undefined;
 		this.settlePendingNavigation({ status: 'cancelled' });
-		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+		this.graph?.cancelPendingReveal();
 	}
 
 	private settlePendingNavigation(result: GraphNavigationResult): void {
@@ -1515,7 +1533,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// arriving above it do the same, which is the fetch-jumps-the-graph report this began with. The
 		// targeted walk is finished by `selected` (it pages until the sha is in, and the host load is
 		// cancelled on every other status), so nothing legitimate is left to re-arm for.
-		this.querySelector('gl-lit-graph')?.endRefFindLoad(pending.sha);
+		this.graph?.endRefFindLoad(pending.sha);
 		if (pending.timeout != null) {
 			clearTimeout(pending.timeout);
 		}
@@ -1584,7 +1602,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this._selectIntentRepositoryId = undefined;
 		this._selectIntentRepoPath = undefined;
-		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+		this.graph?.cancelPendingReveal();
 		if (this._pendingNavigation?.generation === generation) {
 			this.settlePendingNavigation({ status: 'cancelled' });
 		}
@@ -1595,7 +1613,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this._selectIntentRepositoryId = undefined;
 		this._selectIntentRepoPath = undefined;
-		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+		this.graph?.cancelPendingReveal();
 		if (this._pendingNavigation?.generation === generation) {
 			this.settlePendingNavigation({ status: 'not-found', reason: reason });
 		}
@@ -1636,7 +1654,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}
 
 		if (pending.focus) {
-			this.querySelector('gl-lit-graph')?.focusRow(pending.sha);
+			this.graph?.focusRow(pending.sha);
 		}
 		this._selectIntentRepositoryId = undefined;
 		this._selectIntentRepoPath = undefined;
@@ -1657,7 +1675,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private settleNavigationOnRow(row: GitGraphRow, feedback: boolean): void {
 		const selected = this.withVisibility(row);
 		if (selected.hidden === true && feedback) {
-			const lit = this.querySelector('gl-lit-graph');
+			const lit = this.graph;
 			const hidden = lit?.getRowHiddenReason(row.sha);
 			// A collapsed lane isn't a failure — expand it (same as a pill jump would have up front) and
 			// let the armed reveal land once the expanded row renders.
@@ -1679,7 +1697,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	/** Drop the reveal still armed for a reported failure's row, once that report has been dismissed.
 	 *  Keyed to the sha so it can't cancel a reveal a newer navigation armed in the meantime. */
 	cancelNavigationFeedback(sha: string): void {
-		this.querySelector('gl-lit-graph')?.cancelPendingRevealFor(sha);
+		this.graph?.cancelPendingRevealFor(sha);
 	}
 
 	/** Cancel the pending navigation targeting `sha`, exactly as a superseding {@link navigateToCommit}
@@ -1693,13 +1711,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._selectIntentRepositoryId = undefined;
 		this._selectIntentRepoPath = undefined;
 		this.settlePendingNavigation({ status: 'cancelled' });
-		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+		this.graph?.cancelPendingReveal();
 	}
 
 	/** Cancel the in-flight edge-nav search (Alt+`↑`/`↓`, `[`/`]` paging past the loaded end) — the
 	 *  edge-search toast's Cancel action. */
 	cancelEdgeSearch(): void {
-		this.querySelector('gl-lit-graph')?.cancelEdgeNavigation();
+		this.graph?.cancelEdgeNavigation();
 	}
 
 	/**
@@ -1712,7 +1730,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	async navigateToCommit(sha: string, options?: GraphNavigationOptions): Promise<GraphNavigationResult> {
 		if (options?.signal?.aborted === true) return { status: 'cancelled' };
 
-		const litGraph = this.querySelector('gl-lit-graph');
+		const litGraph = this.graph;
 		const { rows: decorated, showPrimary, primaryWipRowId } = this.getDecoratedRows();
 
 		// Callers referring to "the WIP" by git revision (sidebar panel, overview cards) hand us
@@ -2204,7 +2222,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	/** Relays an externally-driven peek close (Esc popping the hover's overlay entry) down to the graph. */
 	notifyPeekClosed(): void {
-		this.querySelector('gl-lit-graph')?.onPeekClosedExternally();
+		this.graph?.onPeekClosedExternally();
 	}
 
 	/** Resolves the graph's peek request onto a row and relays the app's answer back through the incoming
@@ -2592,7 +2610,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		const graph = this.querySelector('gl-lit-graph');
+		const graph = this.graph;
 		if (graph == null) {
 			this._deferredMoreRows = undefined;
 			return;
