@@ -79,7 +79,6 @@ export type GraphDataControllerContext = {
 	notifySearchError: (query: SearchQuery, results: GraphSearchResultsError) => void;
 	notifyDidChangeOverview: () => void;
 	notifySidebarInvalidated: () => void;
-	notifyDidChangeCanInstallHooks: () => void;
 	resetWipSendState: () => void;
 	clearWipStatusCache: () => void;
 	addPendingNotification: (notification: IpcNotification<any>) => void;
@@ -364,9 +363,6 @@ export class GraphDataController {
 				this.context.commitSentBranchState(state.branchState, branchStateRevision);
 			}
 
-			// Refresh canInstallHooks asynchronously so the bulk push doesn't block on `gk`.
-			// Dedups internally — only fires `DidChangeCanInstallHooks` when the value diverges.
-			this.context.notifyDidChangeCanInstallHooks();
 			return result;
 		} finally {
 			this._pendingStateOp = undefined;

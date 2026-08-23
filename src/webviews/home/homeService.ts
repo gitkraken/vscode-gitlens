@@ -11,7 +11,6 @@ import type { LaunchpadService } from '../rpc/launchpadService.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
 import type { OrgSettings, RepositoriesState, RpcEventSubscription } from '../rpc/services/types.js';
 import type {
-	AgentSessionState,
 	GetOverviewBranchesResponse,
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -117,14 +116,6 @@ export interface HomeViewService {
 
 	/** Fired when the extension requests account focus. */
 	onFocusAccount: RpcEventSubscription<undefined>;
-
-	// --- Agent Sessions ---
-
-	/** Get current agent sessions. */
-	getAgentSessions(): Promise<AgentSessionState[]>;
-
-	/** Fired when agent sessions change. */
-	onAgentSessionsChanged: RpcEventSubscription<AgentSessionState[]>;
 
 	// --- Initial Context ---
 

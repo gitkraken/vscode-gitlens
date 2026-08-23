@@ -57,7 +57,6 @@ import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import { satisfies } from '@gitlens/utils/version.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
-import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
@@ -102,17 +101,11 @@ import {
 	isCommitSigned,
 } from '../../../git/utils/-webview/commit.utils.js';
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
-import {
-	getBestRemoteWithIntegration,
-	getRemoteIntegration,
-	getRemoteProviderUrl,
-	remoteSupportsIntegration,
-} from '../../../git/utils/-webview/remote.utils.js';
+import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
-import { isAgentsBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import {
 	isAccountAccessRequired,
 	isSubscriptionTrialOrPaidFromState,
@@ -250,10 +243,7 @@ import {
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	createWipRowId,
-	DidChangeAgentsBanner,
-	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
-	DidChangeCanInstallHooks,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
@@ -285,8 +275,6 @@ import {
 	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
 	EnableChangesColumnCommand,
-	GetAgentSessionsRequest,
-	GetCountsRequest,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
@@ -302,7 +290,6 @@ import {
 	isWipRowId,
 	LoadRowRequest,
 	MergePullRequestRequest,
-	OpenPullRequestDetailsCommand,
 	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
 	ResolveGraphScopeRequest,
@@ -484,7 +471,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// return whether they sent (e.g. `notifyDidChangeBranchStateOnly`, `notifyDidChangeOverview`).
 	// The consumer in `sendPendingIpcNotifications` `void`s the call so the boolean is unused.
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean | void>>([
-		[DidChangeAgentSessionsNotification, () => this.notifyDidChangeAgentSessions()],
 		[DidChangeBranchStateNotification, () => this._producers.notifyDidChangeBranchStateOnly()],
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
@@ -709,17 +695,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._agentStatusSubscriptions = undefined;
 
 		if (this.container.agentStatus != null) {
+			// Sessions reach webviews via the shared AgentsService RPC events (which do their own
+			// healing resubscribe) — this host-side subscription exists ONLY for the agents-scope
+			// refs-visibility recompute.
 			this._agentStatusSubscriptions = [
 				this.container.agentStatus.onDidChangeSessions(this.onAgentSessionsChanged, this),
-				this.container.agentStatus.onDidChangeHooksInstallState(
-					() => void this.notifyDidChangeCanInstallHooks(),
-					this,
-				),
 			];
 		}
-
-		void this.notifyDidChangeAgentSessions();
-		void this.notifyDidChangeCanInstallHooks();
 	}
 
 	private subscribeToTreemapInvalidations(): void {
@@ -837,7 +819,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			publishSearchState: () => this._searchService.publishState(),
 			notifyDidChangeOverview: () => void this._panels.notifyDidChangeOverview(),
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
-			notifyDidChangeCanInstallHooks: () => void this.notifyDidChangeCanInstallHooks(),
 			resetWipSendState: () => this._wip.resetSendState(),
 			clearWipStatusCache: () => this._wip.clearStatusCache(),
 			addPendingNotification: notification =>
@@ -965,11 +946,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Ready is the other edge a secondary-WIP tick can defer on (`runWipRefetch`), and unlike hidden
 		// it resolves without any visibility or focus transition — so nothing else would ever flush it.
 		this._wip.recoverDeferredSecondaryWip();
-		// Bootstrap State doesn't carry agent sessions — the app seeds them with a request that can
-		// race the provider's cold-start import, and a pre-ready change sits in the pending map,
-		// which a reconnect clears. Push the current snapshot on every (re)connect so a booted
-		// iframe can never wedge empty.
-		void this.notifyDidChangeAgentSessions();
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap plus the replay buffer — anything
@@ -983,8 +959,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this._graphSync.flush();
 		// See onReady — a reconnect crosses the same not-ready window.
 		this._wip.recoverDeferredSecondaryWip();
-		// See onReady — the reconnect also cleared any pending agent-sessions notification.
-		void this.notifyDidChangeAgentSessions();
 	}
 
 	private _disposed = false;
@@ -1782,7 +1756,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcRequest(GetCountsRequest)
 	private onGetCounts() {
 		return this._data.onGetCounts();
 	}
@@ -1811,14 +1784,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._panels.onGetOverviewEnrichment(params);
 	}
 
-	@ipcRequest(GetAgentSessionsRequest)
-	private onGetAgentSessions(): AgentSessionState[] {
-		return this._panels.onGetAgentSessions();
-	}
-
-	private onAgentSessionsChanged(sessions: AgentSessionState[]): void {
-		void this.notifyDidChangeAgentSessions(sessions);
-
+	private onAgentSessionsChanged(_sessions: AgentSessionState[]): void {
 		// Agent membership drives the `agents` branches-visibility ref set, so any change to
 		// the live session list needs to recompute the included refs and push a fresh
 		// visibility notification to the webview.
@@ -1826,22 +1792,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.getBranchesVisibility(this.getFiltersByRepo(repoPath)) === 'agents') {
 			void this.notifyDidChangeRefsVisibility();
 		}
-	}
-
-	/** Re-reads the live sessions rather than taking a captured array, so a queued replay ships current
-	 *  state instead of whatever was live when the hook fired. */
-	private async notifyDidChangeAgentSessions(sessions?: AgentSessionState[]): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeAgentSessionsNotification, this._ipcNotificationMap, this);
-			Logger.debug(
-				`GraphWebviewProvider.notifyDidChangeAgentSessions: queued as pending (ready=${this.host.ready}, visible=${this.host.visible})`,
-			);
-			return false;
-		}
-
-		return this.host.notify(DidChangeAgentSessionsNotification, {
-			sessions: sessions ?? this.container.agentStatus?.getSerializedSessions() ?? [],
-		});
 	}
 
 	@ipcRequest(GetWipStatsRequest)
@@ -2273,9 +2223,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
 			this.notifyDidChangeOrgSettings();
 		}
-		if (key === 'gitlens:agents:enabled') {
-			void this.notifyDidChangeCanInstallHooks();
-		}
 	}
 
 	@trace({ args: false })
@@ -2490,23 +2437,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onOnboardingChanged(e: OnboardingChangeEvent) {
-		if (e.key === 'agents:banner') {
-			this.onAgentsBannerChanged();
-		} else if (e.key === 'graph-walkthrough:banner') {
+		if (e.key === 'graph-walkthrough:banner') {
 			this.onGraphWalkthroughBannerChanged();
 		} else if (e.key === 'graph:layoutPrompt') {
 			this.onLayoutPromptChanged();
 		}
-	}
-
-	private onAgentsBannerChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeAgentsBanner, this.getAgentsBannerCollapsed());
-	}
-
-	private getAgentsBannerCollapsed() {
-		return !isAgentsBannerEnabled(this.container);
 	}
 
 	@ipcCommand(TrackGraphOverviewShownCommand)
@@ -3120,37 +3055,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	@ipcCommand(OpenPullRequestDetailsCommand)
-	@debug()
-	private async onOpenPullRequestDetails(params: IpcParams<typeof OpenPullRequestDetailsCommand>) {
-		const repo = this.repository;
-		if (repo == null) return undefined;
-
-		// id+providerId path: resolve the PR by id via the matching integration so the chip's
-		// actual PR opens — regardless of which branch is currently checked out.
-		if (params.id && params.providerId) {
-			const remote = await getBestRemoteWithIntegration(repo.path, {
-				filter: r => r.provider.id === params.providerId,
-			});
-			if (remote != null) {
-				const integration = await getRemoteIntegration(remote);
-				const pr = await integration?.getPullRequest(remote.provider.repoDesc, params.id);
-				if (pr != null) {
-					return this.container.views.pullRequest.showPullRequest(pr, repo.path);
-				}
-			}
-		}
-
-		// Fallback: resolve via the repo's current branch (legacy callers without id/provider).
-		const branch = await repo.git.branches.getBranch();
-		if (branch == null) return undefined;
-
-		const pr = await getBranchAssociatedPullRequest(this.container, branch);
-		if (pr == null) return undefined;
-
-		return this.container.views.pullRequest.showPullRequest(pr, branch);
-	}
-
 	@ipcCommand(RowActionCommand)
 	@debug()
 	private async onRowAction(params: IpcParams<typeof RowActionCommand>) {
@@ -3746,37 +3650,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@trace()
 	private notifyDidChangeOrgSettings() {
 		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
-	}
-
-	/** Last values sent to the webview — seed bulk state pushes without awaiting `gk`, and
-	 *  double as dedup sentinels for `notifyDidChangeCanInstallHooks`. */
-	private _lastCanInstallHooks: boolean | undefined;
-	private _lastHooksAgents: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
-
-	@trace()
-	private async notifyDidChangeCanInstallHooks() {
-		if (!this.host.visible) return;
-
-		const all = getContext('gitlens:agents:enabled', false) ? await this.container.agents.getAll() : [];
-		const hooksAgents = all
-			.filter(a => a.detected && a.hooksSupported && areHooksAllowedForAgent(a.name))
-			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
-		const canInstall = hooksAgents.some(a => !a.installed);
-
-		if (
-			canInstall === this._lastCanInstallHooks &&
-			this._lastHooksAgents != null &&
-			hooksAgents.length === this._lastHooksAgents.length &&
-			hooksAgents.every(
-				(a, i) => a.id === this._lastHooksAgents![i].id && a.installed === this._lastHooksAgents![i].installed,
-			)
-		) {
-			return;
-		}
-
-		this._lastCanInstallHooks = canInstall;
-		this._lastHooksAgents = hooksAgents;
-		void this.host.notify(DidChangeCanInstallHooks, { canInstallHooks: canInstall, agents: hooksAgents });
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -5036,10 +4909,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			featurePreview: featurePreview,
 			orgSettings: this.getOrgSettings(),
 			overview: this._panels.getOverviewData(),
-			agentsBannerCollapsed: this.getAgentsBannerCollapsed(),
 			mcpCanAutoRegister: this.container.gkMcp?.isRegistrationAllowed ?? false,
-			canInstallHooks: this._lastCanInstallHooks ?? false,
-			hooksAgents: this._lastHooksAgents ?? [],
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),
@@ -5320,8 +5190,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			// `Math.max(0, …)` clamps clock-skew (future-dated timestamps) so a stale clock
 			// can't pin a session as permanently "recent".
-			const recent =
-				Math.max(0, now - s.lastActivity.getTime()) < GraphWebviewProvider.agentBranchesIdleThresholdMs;
+			const recent = Math.max(0, now - s.lastActivity) < GraphWebviewProvider.agentBranchesIdleThresholdMs;
 			if (!isActiveAgentPhase(s.phase) && !recent) continue;
 
 			const branch = graph.branches.get(s.worktree.branch.name);

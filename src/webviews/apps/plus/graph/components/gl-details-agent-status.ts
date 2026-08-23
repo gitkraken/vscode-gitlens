@@ -840,7 +840,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		const sessions = this.sessions ?? [];
 		for (const s of sessions) {
 			parts.push(
-				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince.getTime()}|${permissionFingerprint(s.pendingPermission)}|${fpField(s.worktreePath)}|${fpField(s.worktree?.name)}`,
+				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince}|${permissionFingerprint(s.pendingPermission)}|${fpField(s.worktreePath)}|${fpField(s.worktree?.name)}`,
 			);
 		}
 		const past = this.pastSessions;
@@ -1003,7 +1003,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	private renderPastRow(session: PastAgentSessionState): unknown {
-		const elapsed = formatAgentElapsed(new Date(session.lastActivity));
+		const elapsed = formatAgentElapsed(session.lastActivity);
 		const resumeHref = createCommandLink('gitlens.agents.resumeSession', {
 			sessionId: session.id,
 			cwd: session.cwd,

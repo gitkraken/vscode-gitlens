@@ -425,6 +425,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			commands,
 			onboarding,
 			branches,
+			agents,
 		] = await Promise.all([
 			services.home,
 			services.launchpad,
@@ -437,6 +438,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			services.commands,
 			services.onboarding,
 			services.branches,
+			services.agents,
 		]);
 
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
@@ -713,6 +715,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 					repositories: repositories,
 					onboarding: onboarding,
 					ai: ai,
+					agents: agents,
 				},
 				actions,
 			),
@@ -752,7 +755,16 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		await phaseTimeout(
 			'populateInitialState',
 			30_000,
-			populateInitialState(root, home, subscription, integrations, repositories, ai, syncInactiveOverviewFilter),
+			populateInitialState(
+				root,
+				home,
+				subscription,
+				integrations,
+				repositories,
+				ai,
+				agents,
+				syncInactiveOverviewFilter,
+			),
 		);
 	}
 

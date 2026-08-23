@@ -1493,10 +1493,10 @@ export class AgentStatusService implements Disposable {
  *  drift; real changes (phase/status/membership/permission/worktree) still differ in the key and
  *  push immediately. The timestamps stay full-precision in the payload itself.
  *
- *  Dates reach this already converted by `toJSON`, hence the `string` check. */
+ *  `lastActivity`/`phaseSince` on the DTO are epoch-ms numbers, hence the `number` check. */
 function coarsenVolatileTimestamps(key: string, value: unknown): unknown {
-	return (key === 'lastActivity' || key === 'phaseSince') && typeof value === 'string'
-		? `${Math.floor(Date.parse(value) / 60000)}`
+	return (key === 'lastActivity' || key === 'phaseSince') && typeof value === 'number'
+		? Math.floor(value / 60000)
 		: value;
 }
 

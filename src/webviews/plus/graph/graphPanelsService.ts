@@ -23,7 +23,6 @@ import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
-import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { StoredGraphExcludedRef } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
@@ -355,10 +354,6 @@ export class GraphPanelsService {
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewEnrichment');
 			throw ex;
 		}
-	}
-
-	onGetAgentSessions(): AgentSessionState[] {
-		return this.container.agentStatus?.getSerializedSessions() ?? [];
 	}
 
 	getOverviewData(): GraphOverviewData {

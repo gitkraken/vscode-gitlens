@@ -29,10 +29,10 @@ export interface AgentSessionWorktreeState {
 
 /**
  * Wire DTO for an {@link AgentSession}. Near-1:1 projection via {@link Shape} so webviews see the
- * rich session shape (provider, pendingPermission with suggestions, prompts, planFile, dates,
+ * rich session shape (provider, pendingPermission with suggestions, prompts, planFile,
  * isSubagent/parentId, etc.) without hand-projecting every field.
  *
- * Three deliberate divergences from `Shape<AgentSession>`:
+ * Four deliberate divergences from `Shape<AgentSession>`:
  *  - **`subagents` → `subagentCount`** — only the count badge consumes them today. Sending the
  *    recursive subagent tree (each with its own pendingPermission/lastPrompt) would bloat every
  *    snapshot push for a UI that doesn't walk them. `isSubagent` and `parentId` still flow
@@ -45,8 +45,15 @@ export interface AgentSessionWorktreeState {
  *    Computed once host-side so every consumer renders the same name without duplicating the
  *    cascade — the raw harness-supplied `name?: string` field still flows through for callers
  *    that want to distinguish "harness-named" from "fallback-named" sessions.
+ *  - **`lastActivity` / `phaseSince` are epoch ms**, not `Date` — same convention as
+ *    {@link PastAgentSessionState.lastActivity}. Keeps the DTO transport-independent: legacy IPC
+ *    structured-clones a `Date` fine, but the RPC channel JSON-stringifies it into an ISO string
+ *    wearing a `Date` type, which is a lie by the time it reaches the webview.
  */
-export type AgentSessionState = Omit<Shape<AgentSession>, 'subagents' | 'visitedWorktreePaths'> & {
+export type AgentSessionState = Omit<
+	Shape<AgentSession>,
+	'subagents' | 'visitedWorktreePaths' | 'lastActivity' | 'phaseSince'
+> & {
 	readonly displayName: string;
 	readonly subagentCount: number;
 	readonly worktree?: AgentSessionWorktreeState;
@@ -55,6 +62,10 @@ export type AgentSessionState = Omit<Shape<AgentSession>, 'subagents' | 'visited
 	 *  `Shape<AgentSession>`: `Shape<>` mangles a `readonly T[]` field into a method-stripped
 	 *  array-like object type (same reason {@link AgentSession.fileActivity} uses a mutable array). */
 	readonly visitedWorktreePaths?: readonly string[];
+	/** Epoch ms. */
+	readonly lastActivity: number;
+	/** Epoch ms. */
+	readonly phaseSince: number;
 };
 
 /**
@@ -179,6 +190,8 @@ export function serializeAgentSession(
 	const { subagents, ...rest } = session;
 	return {
 		...rest,
+		lastActivity: session.lastActivity.getTime(),
+		phaseSince: session.phaseSince.getTime(),
 		// Backfill repo identity from the host's worktree lookup when the provider never resolved it.
 		// Ended sessions read from the CLI's durable store carry a `worktreePath` but no
 		// `commonPath` (no git probe, by design — a 30-day history must not fan out). Consumers gate

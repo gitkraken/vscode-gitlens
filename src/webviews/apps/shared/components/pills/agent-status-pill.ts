@@ -38,11 +38,10 @@ interface AgentPillSummary {
  *  matters most for ended sessions since those accumulate into the hundreds. */
 const maxSummaryRows = 3;
 
-function formatElapsed(value: Date | number | undefined): string | undefined {
+function formatElapsed(value: number | undefined): string | undefined {
 	if (value == null) return undefined;
 
-	const timestamp = typeof value === 'number' ? value : value.getTime();
-	const seconds = Math.floor((Date.now() - timestamp) / 1000);
+	const seconds = Math.floor((Date.now() - value) / 1000);
 	if (seconds < 60) return `${seconds}s`;
 
 	const minutes = Math.floor(seconds / 60);

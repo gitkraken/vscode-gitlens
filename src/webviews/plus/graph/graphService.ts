@@ -841,7 +841,7 @@ export interface GraphTreemapService {
 	 * additional refs, window) so the treemap mirrors what the Graph is currently showing.
 	 *
 	 * Agent activity (used by the Activity mode) is not part of this service — the webview already
-	 * receives `AgentSessionState[]` via `DidChangeAgentSessionsNotification` and reads
+	 * receives `AgentSessionState[]` via `AgentsService.onSessionsChanged` and reads
 	 * `session.fileActivity` directly. No separate streaming RPC is needed.
 	 */
 	getData(repoPath: string, mode: TreemapMode, config: TreemapConfig, signal?: AbortSignal): Promise<TreemapData>;

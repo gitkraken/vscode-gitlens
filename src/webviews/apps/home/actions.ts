@@ -23,6 +23,7 @@ import type { HomeRootState } from './state.js';
  * Resolved sub-service types (after awaiting the sub-service property from the Remote proxy).
  */
 type ResolvedHome = Awaited<Remote<HomeServices>['home']>;
+type ResolvedAgents = Awaited<Remote<HomeServices>['agents']>;
 /**
  * Callback for setting the inactive overview filter after it's fetched.
  * Keeps the overview state object ownership in the Lit component.
@@ -72,6 +73,7 @@ export function populateInitialState(
 	integrations: Awaited<Remote<HomeServices>['integrations']>,
 	_repositories: Awaited<Remote<HomeServices>['repositories']>,
 	ai: Awaited<Remote<HomeServices>['ai']>,
+	agents: ResolvedAgents,
 	setOverviewFilter?: OverviewFilterSetter,
 ): Promise<void> {
 	// Layout-critical: set ready LAST since it's the render gate for main content.
@@ -112,7 +114,7 @@ export function populateInitialState(
 	// Secondary data: banners, filters, and content
 	// Note: repositories already set from getInitialContext() above; event-driven updates keep it fresh
 	void home.getWalkthroughProgress().then(w => state.onboarding.walkthroughProgress.set(w), noop);
-	void home.getAgentSessions().then(s => state.home.agentSessions.set(sortAgentSessions(s)), noop);
+	void agents.getSessions().then(s => state.home.agentSessions.set(sortAgentSessions(s)), noop);
 	void ai.getState().then(s => state.ai.state.set(s), noop);
 	// Launchpad summary is deferred — fetched when GlLaunchpad mounts (connectedCallback)
 

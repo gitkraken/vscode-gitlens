@@ -35,7 +35,6 @@ suite('setupSubscriptions Test Suite', () => {
 					return () => {};
 				},
 				onFocusAccount: () => () => {},
-				onAgentSessionsChanged: () => () => {},
 			},
 			launchpad: {
 				onLaunchpadChanged: () => () => {},
@@ -60,6 +59,9 @@ suite('setupSubscriptions Test Suite', () => {
 			ai: {
 				onModelChanged: () => () => {},
 				onStateChanged: () => () => {},
+			},
+			agents: {
+				onSessionsChanged: () => () => {},
 			},
 		} as unknown as Parameters<typeof setupSubscriptions>[1];
 
@@ -128,7 +130,6 @@ suite('setupSubscriptions Test Suite', () => {
 				},
 				onOverviewFilterChanged: () => () => {},
 				onFocusAccount: () => () => {},
-				onAgentSessionsChanged: () => () => {},
 			},
 			launchpad: {
 				onLaunchpadChanged: () => () => {},
@@ -153,6 +154,9 @@ suite('setupSubscriptions Test Suite', () => {
 			ai: {
 				onModelChanged: () => () => {},
 				onStateChanged: () => () => {},
+			},
+			agents: {
+				onSessionsChanged: () => () => {},
 			},
 		} as unknown as Parameters<typeof setupSubscriptions>[1];
 
@@ -207,7 +211,6 @@ suite('setupSubscriptions Test Suite', () => {
 				onOverviewRepositoryChanged: () => () => {},
 				onOverviewFilterChanged: () => () => {},
 				onFocusAccount: () => () => {},
-				onAgentSessionsChanged: () => () => {},
 			},
 			launchpad: {
 				onLaunchpadChanged: () => () => {},
@@ -232,6 +235,9 @@ suite('setupSubscriptions Test Suite', () => {
 			ai: {
 				onModelChanged: () => () => {},
 				onStateChanged: () => () => {},
+			},
+			agents: {
+				onSessionsChanged: () => () => {},
 			},
 		} as unknown as Parameters<typeof setupSubscriptions>[1];
 
@@ -311,7 +317,6 @@ suite('setupSubscriptions Test Suite', () => {
 					onOverviewRepositoryChanged: () => () => {},
 					onOverviewFilterChanged: () => () => {},
 					onFocusAccount: () => () => {},
-					onAgentSessionsChanged: () => () => {},
 				},
 				launchpad: { onLaunchpadChanged: () => () => {} },
 				config: {},
@@ -329,6 +334,7 @@ suite('setupSubscriptions Test Suite', () => {
 				},
 				onboarding: { onDidChange: () => () => {} },
 				ai: { onModelChanged: () => () => {}, onStateChanged: () => () => {} },
+				agents: { onSessionsChanged: () => () => {} },
 			} as unknown as Parameters<typeof setupSubscriptions>[1];
 
 			let activeCalls = 0;

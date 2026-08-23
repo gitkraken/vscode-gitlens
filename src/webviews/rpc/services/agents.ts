@@ -1,6 +1,6 @@
 import { Disposable, env } from 'vscode';
 import type { GkAgent } from '../../../agents/agentService.js';
-import type { PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
+import type { AgentSessionState, PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
 import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import type { AgentDescriptor } from '../../../plus/agents/agentDescriptor.js';
@@ -54,6 +54,9 @@ export class AgentsService {
 	/** Fired when the detected-agent list or the default agent changes. */
 	readonly onAgentsChanged: RpcEventSubscription<AgentInfo[]>;
 
+	/** Fired when live agent sessions change, including a full resync when `agentStatus` itself swaps. */
+	readonly onSessionsChanged: RpcEventSubscription<AgentSessionState[]>;
+
 	constructor(
 		private readonly container: Container,
 		buffer?: EventVisibilityBuffer,
@@ -104,13 +107,47 @@ export class AgentsService {
 			undefined,
 			tracker,
 		);
+
+		this.onSessionsChanged = createRpcEventSubscription<AgentSessionState[]>(
+			buffer,
+			'agentSessionsChanged',
+			'save-last',
+			buffered => {
+				let serviceSubscription: Disposable | undefined;
+
+				const wire = () => {
+					serviceSubscription?.dispose();
+					serviceSubscription = this.container.agentStatus?.onDidChangeSessions(state => buffered(state));
+				};
+
+				wire();
+				const containerSubscription = this.container.onDidChangeAgentStatus(() => {
+					wire();
+					// Push a fresh snapshot so subscribers see the new (or empty) sessions
+					buffered(this.container.agentStatus?.getSerializedSessions() ?? []);
+				});
+
+				return Disposable.from(containerSubscription, {
+					dispose: () => {
+						serviceSubscription?.dispose();
+					},
+				});
+			},
+			undefined,
+			tracker,
+		);
+	}
+
+	/** Gets current live agent sessions. */
+	getSessions(): Promise<AgentSessionState[]> {
+		return Promise.resolve(this.container.agentStatus?.getSerializedSessions() ?? []);
 	}
 
 	/**
 	 * Gets the past sessions a worktree can resume, most-recently-active first.
 	 *
-	 * Past sessions only — live ones already reach webviews on a push channel, and a snapshot taken
-	 * here would disagree with it within seconds.
+	 * Past sessions only — live sessions come from {@link getSessions}/{@link onSessionsChanged}
+	 * instead, and a snapshot taken here would disagree with that push channel within seconds.
 	 *
 	 * Returns `undefined` when agents are unavailable (the org gate is off, or we're in a browser
 	 * host, where no providers exist) as distinct from an empty result, which means the store simply

@@ -2371,7 +2371,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// reference — which churns that hover's settle timer every unrelated tick. `areEqual` is a deep
 		// compare, so it covers the nested `wip` and `row marker` payloads too. Content-compared, not
 		// identity-compared: nothing in an OverviewBarItem is derived from the clock, so equal content
-		// really means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` string that
+		// really means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` number that
 		// would have defeated this on every tick while an agent worked — precisely when the bar is
 		// busiest; the row-marker legs are shas + counts, so they hold that property).
 		const prevById = new Map(prev.map(item => [item.id, item]));

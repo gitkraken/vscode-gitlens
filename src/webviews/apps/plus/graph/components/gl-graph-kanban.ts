@@ -88,7 +88,7 @@ function columnIdForSession(session: AgentSessionState): KanbanColumnId {
 
 	if (session.phase === 'working') return 'working';
 
-	const last = session.lastActivity.getTime();
+	const last = session.lastActivity;
 	if (Number.isFinite(last) && Date.now() - last > inactiveThresholdMs) return 'inactive';
 
 	return 'idle';
@@ -566,7 +566,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 	/** Build a stable string capturing every field the kanban actually renders, plus the live-tick
 	 *  generation. Identical fingerprint between two reactive pushes → no visible change → skip
-	 *  the render entirely via {@link shouldUpdate}. The host fires `DidChangeAgentSessionsNotification`
+	 *  the render entirely via {@link shouldUpdate}. The host's `AgentsService.onSessionsChanged` fires
 	 *  on every Claude Code event (multiple per second during active work) with a fresh array
 	 *  reference; many of those carry no meaningful diff for the kanban — same phase, same tool
 	 *  call, same prompt — and we'd otherwise pay a full Lit render-and-diff for each one.
@@ -595,7 +595,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		for (const s of sessions) {
 			const subtitle = s.worktree?.branch?.name ?? s.worktree?.name ?? s.worktree?.path ?? '';
 			parts.push(
-				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${fpField(subtitle)}|${s.phaseSince.getTime()}|${Math.floor(s.lastActivity.getTime() / 60000)}|${permissionFingerprint(s.pendingPermission)}|${fpField(s.worktreePath)}|${fpField(s.commonPath)}`,
+				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${fpField(subtitle)}|${s.phaseSince}|${Math.floor(s.lastActivity / 60000)}|${permissionFingerprint(s.pendingPermission)}|${fpField(s.worktreePath)}|${fpField(s.commonPath)}`,
 			);
 		}
 		return parts.join('\n');

@@ -90,6 +90,7 @@ interface ResolvedServices {
 	repositories: Awaited<Remote<HomeServices>['repositories']>;
 	onboarding: Awaited<Remote<HomeServices>['onboarding']>;
 	ai: Awaited<Remote<HomeServices>['ai']>;
+	agents: Awaited<Remote<HomeServices>['agents']>;
 }
 
 /**
@@ -282,10 +283,10 @@ export function setupSubscriptions(
 			}),
 
 		// ============================================================
-		// Agent sessions — from HomeViewService
+		// Agent sessions — from AgentsService
 		// ============================================================
 
-		// The agent status service emits bursts of `onAgentSessionsChanged` as it scans state
+		// The agent status service emits bursts of `onSessionsChanged` as it scans state
 		// from disk (phase/status/timestamp churn on the same set of sessions). Refetching the
 		// agent overview on every event cascades through `createResource`'s cancelPrevious=true
 		// and starves the in-flight RPC. The branch list rendered by the agent overview is
@@ -294,7 +295,7 @@ export function setupSubscriptions(
 		// `agentSessions` signal write above.
 		() => {
 			let lastAgentBranchKey: string | undefined;
-			return services.home.onAgentSessionsChanged((sessions: AgentSessionState[]) => {
+			return services.agents.onSessionsChanged((sessions: AgentSessionState[]) => {
 				state.home.agentSessions.set(sortAgentSessions(sessions));
 				const key = [...new Set(sessions.map(s => s.worktreePath ?? ''))].sort().join('\n');
 				if (key !== lastAgentBranchKey) {

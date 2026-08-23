@@ -11,6 +11,8 @@ import type {
 	DidRequestSearchParams,
 	State,
 } from '../../../plus/graph/protocol.js';
+import type { AgentInfo } from '../../../rpc/services/types.js';
+import { sortAgentSessions } from '../../shared/agentUtils.js';
 import { GlAppHost } from '../../shared/appHost.js';
 import { createOnboardingDismissals, onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import type { HostIpc } from '../../shared/ipc.js';
@@ -26,6 +28,18 @@ import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import { createSidebarActions } from './sidebar/sidebarState.js';
 import { GraphStateProvider } from './stateProvider.js';
 import './graph-app.js';
+
+/** Derives the hooks-install capability from the shared agent list — CLI rows only, stripped of the
+ *  `cli:` id prefix the settings table dispatch expects but the graph consumers never carried. */
+function computeHooksAgents(infos: readonly AgentInfo[]): { id: string; displayName: string; installed: boolean }[] {
+	const result: { id: string; displayName: string; installed: boolean }[] = [];
+	for (const a of infos) {
+		if (a.kind !== 'cli' || a.detected !== true || a.hooks?.supported !== true) continue;
+
+		result.push({ id: a.id.replace(/^cli:/, ''), displayName: a.label, installed: a.hooks.installed });
+	}
+	return result;
+}
 
 @customElement('gl-graph-apphost')
 export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
@@ -58,6 +72,19 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	/** The search remote `_unsubscribeRequestSearch` currently belongs to — lets a superseding
 	 *  `_onRpcReady` (reconnect) detect and discard a subscribe that resolves after it's moved on. */
 	private _activeSearchRemote: unknown;
+
+	/** Unsubscribes the current `onSessionsChanged`/`onAgentsChanged` listeners — reconnect-safe
+	 *  teardown, same pattern as `_unsubscribeRequestSearch`. */
+	private _unsubscribeAgentSessions: (() => void) | undefined;
+	private _unsubscribeAgentsInfo: (() => void) | undefined;
+	/** The `agents` remote the two unsubs above currently belong to — same staleness-guard pattern
+	 *  as `_activeSearchRemote`. */
+	private _activeAgentsRemote: unknown;
+
+	/** Unsubscribes the current onboarding `onDidChange` listener feeding the agents-banner state. */
+	private _unsubscribeAgentsBanner: (() => void) | undefined;
+	/** The onboarding remote `_unsubscribeAgentsBanner` currently belongs to. */
+	private _activeOnboardingRemote: unknown;
 
 	private readonly _onboardingDismissals = createOnboardingDismissals();
 
@@ -113,6 +140,87 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		}
 
 		this._unsubscribeRequestSearch = unsub;
+
+		// Tear down the previous agent-plane listeners first — reconnect-safe, same pattern as above.
+		this._unsubscribeAgentSessions?.();
+		this._unsubscribeAgentSessions = undefined;
+		this._unsubscribeAgentsInfo?.();
+		this._unsubscribeAgentsInfo = undefined;
+
+		const agents = await services.agents;
+		this._activeAgentsRemote = agents;
+
+		// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+		const unsubSessions = (await agents.onSessionsChanged(sessions => {
+			this._stateProvider.agentSessions = sortAgentSessions(sessions);
+		})) as unknown as (() => void) | undefined;
+		if (typeof unsubSessions !== 'function') return;
+
+		if (this._activeAgentsRemote !== agents) {
+			unsubSessions();
+			return;
+		}
+
+		this._unsubscribeAgentSessions = unsubSessions;
+
+		const sessions = await agents.getSessions();
+		if (this._activeAgentsRemote !== agents) return;
+
+		this._stateProvider.agentSessions = sortAgentSessions(sessions);
+
+		const unsubAgentsInfo = (await agents.onAgentsChanged(infos => {
+			this.applyAgentsInfo(infos);
+		})) as unknown as (() => void) | undefined;
+		if (typeof unsubAgentsInfo !== 'function') return;
+
+		if (this._activeAgentsRemote !== agents) {
+			unsubAgentsInfo();
+			return;
+		}
+
+		this._unsubscribeAgentsInfo = unsubAgentsInfo;
+
+		const infos = await agents.getAgents();
+		if (this._activeAgentsRemote !== agents) return;
+
+		this.applyAgentsInfo(infos);
+
+		// Agents-banner: bridge the onboarding RPC service's per-key dismissal event into the
+		// stateProvider slot `sidebar-panel.ts` reads. `isWeb` forces collapsed (agents are fully
+		// disabled on web hosts) — mirrors the legacy host's `isAgentsBannerEnabled`.
+		this._unsubscribeAgentsBanner?.();
+		this._unsubscribeAgentsBanner = undefined;
+
+		const onboarding = await services.onboarding;
+		this._activeOnboardingRemote = onboarding;
+
+		const unsubBanner = (await onboarding.onDidChange(e => {
+			if (e.key !== 'agents:banner') return;
+
+			this._stateProvider.applyAgentsBannerCollapsed(this._stateProvider.isWeb === true || e.dismissed);
+		})) as unknown as (() => void) | undefined;
+		if (typeof unsubBanner !== 'function') return;
+
+		if (this._activeOnboardingRemote !== onboarding) {
+			unsubBanner();
+			return;
+		}
+
+		this._unsubscribeAgentsBanner = unsubBanner;
+
+		// oxlint-disable-next-line typescript/await-thenable -- Supertalk proxy method calls are thenable at runtime
+		const dismissed = await onboarding.isDismissed('agents:banner');
+		if (this._activeOnboardingRemote !== onboarding) return;
+
+		this._stateProvider.applyAgentsBannerCollapsed(this._stateProvider.isWeb === true || dismissed);
+	}
+
+	private applyAgentsInfo(infos: readonly AgentInfo[]): void {
+		const hooksAgents = computeHooksAgents(infos);
+		this._stateProvider.applyHooksCapability(
+			hooksAgents.some(a => !a.installed),
+			hooksAgents,
+		);
 	}
 
 	@query('gl-graph-app')
@@ -171,6 +279,12 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		this._searchActions.dispose();
 		this._unsubscribeRequestSearch?.();
 		this._unsubscribeRequestSearch = undefined;
+		this._unsubscribeAgentSessions?.();
+		this._unsubscribeAgentSessions = undefined;
+		this._unsubscribeAgentsInfo?.();
+		this._unsubscribeAgentsInfo = undefined;
+		this._unsubscribeAgentsBanner?.();
+		this._unsubscribeAgentsBanner = undefined;
 		this._onboardingDismissals.dispose();
 		this._coachMarkSeen.dispose();
 	}

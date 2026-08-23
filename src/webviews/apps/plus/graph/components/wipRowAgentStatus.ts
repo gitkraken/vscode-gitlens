@@ -43,7 +43,7 @@ export function pickWipRowAgentStatus(
 		if (session.phase === 'ended') continue;
 
 		if (session.phase === 'idle') {
-			const age = Math.max(0, now - session.lastActivity.getTime());
+			const age = Math.max(0, now - session.lastActivity);
 			if (age >= wipRowAgentIdleThresholdMs) continue;
 		}
 

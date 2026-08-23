@@ -20,7 +20,6 @@ import { filterMap } from '@gitlens/utils/iterable.js';
 import { hasKeys } from '@gitlens/utils/object.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { SubscriptionManager } from '@gitlens/utils/subscriptionManager.js';
-import type { AgentSessionState } from '../../agents/models/agentSessionState.js';
 import { ActionRunnerType } from '../../api/actionRunners.js';
 import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
 import { getAvatarUriFromGravatarEmail } from '../../avatars.js';
@@ -229,37 +228,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			// --- UI Actions ---
 			openInGraph: params => this.showInCommitGraph(params),
 			onFocusAccount: this._focusAccountEvent.subscribe(buffer, tracker),
-
-			// --- Agent Sessions ---
-			getAgentSessions: () => Promise.resolve(this.container.agentStatus?.getSerializedSessions() ?? []),
-			onAgentSessionsChanged: createRpcEventSubscription<AgentSessionState[]>(
-				buffer,
-				'agentSessions',
-				'save-last',
-				buffered => {
-					let serviceSubscription: Disposable | undefined;
-
-					const wire = () => {
-						serviceSubscription?.dispose();
-						serviceSubscription = this.container.agentStatus?.onDidChangeSessions(state => buffered(state));
-					};
-
-					wire();
-					const containerSubscription = this.container.onDidChangeAgentStatus(() => {
-						wire();
-						// Push a fresh snapshot so subscribers see the new (or empty) sessions
-						buffered(this.container.agentStatus?.getSerializedSessions() ?? []);
-					});
-
-					return Disposable.from(containerSubscription, {
-						dispose: () => {
-							serviceSubscription?.dispose();
-						},
-					});
-				},
-				undefined,
-				tracker,
-			),
 
 			// --- Initial Context ---
 			getInitialContext: () =>

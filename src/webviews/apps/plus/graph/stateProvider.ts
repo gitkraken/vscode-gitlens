@@ -29,10 +29,7 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import {
 	createWipRowId,
-	DidChangeAgentsBanner,
-	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
-	DidChangeCanInstallHooks,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
@@ -62,7 +59,6 @@ import {
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
 	DidStartFeaturePreviewNotification,
-	GetAgentSessionsRequest,
 	GetOverviewEnrichmentRequest,
 	GraphSyncResyncCommand,
 	isWipRowId,
@@ -71,7 +67,6 @@ import {
 import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
 import type { OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
-import { sortAgentSessions } from '../../shared/agentUtils.js';
 import type { ReactiveElementHost } from '../../shared/appHost.js';
 import { signalObjectState, signalState } from '../../shared/components/signal-utils.js';
 import type { LoggerContext } from '../../shared/contexts/logger.js';
@@ -635,9 +630,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState<AppState['agentSessions']>([])
 	accessor agentSessions: AppState['agentSessions'] = [];
 
-	/** Set once a host push has written `agentSessions` — the seed request must never overwrite a push. */
-	private _agentSessionsPushed = false;
-
 	@signalState()
 	accessor overviewWip: AppState['overviewWip'];
 
@@ -735,18 +727,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
 		// graph render itself.
 
-		// Fallback seed only — the host pushes a snapshot on ready (see `GraphWebviewProvider.onReady`),
-		// and a push always wins: this response can race the host's cold-start session import, and a
-		// stale (possibly empty) response landing after a push must not clobber it. Best-effort — on
-		// failure the ready push (and every subsequent change push) still populates the state.
-		void this.ipc.sendRequest(GetAgentSessionsRequest, undefined).then(
-			sessions => {
-				if (this._agentSessionsPushed) return;
-
-				this.agentSessions = sortAgentSessions(sessions);
-			},
-			() => {},
-		);
+		// Agent sessions come from the `agents` RPC service, wired in `GraphAppHost._onRpcReady`
+		// (subscribe-before-fetch, so no bootstrap seed race here).
 	}
 
 	/** Announce the held rows-plane baseline to the host on (re)connect. Best-effort — deliberately
@@ -1904,19 +1886,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ overview: msg.params.overview });
 				break;
 
-			case DidChangeAgentSessionsNotification.is(msg):
-				this._agentSessionsPushed = true;
-				this.agentSessions = sortAgentSessions(msg.params.sessions);
-				break;
-
-			case DidChangeAgentsBanner.is(msg):
-				this.updateState({ agentsBannerCollapsed: msg.params });
-				break;
-
-			case DidChangeCanInstallHooks.is(msg):
-				this.updateState({ canInstallHooks: msg.params.canInstallHooks, hooksAgents: msg.params.agents });
-				break;
-
 			case DidChangeGraphWalkthroughBanner.is(msg):
 				this.updateState({
 					graphWalkthroughBannerCollapsed: msg.params.dismissed,
@@ -2081,6 +2050,22 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		if (state?.query != null) {
 			this.searchMode = state.query.filter ? 'filter' : 'normal';
 		}
+	}
+
+	/** Applies the agents-banner dismissal state fed by the onboarding RPC service. */
+	applyAgentsBannerCollapsed(collapsed: boolean): void {
+		this.agentsBannerCollapsed = collapsed;
+		this.fireProviderUpdate();
+	}
+
+	/** Applies the hooks-install capability derived from `AgentsService.getAgents()`/`onAgentsChanged`. */
+	applyHooksCapability(
+		canInstallHooks: boolean,
+		hooksAgents: readonly { id: string; displayName: string; installed: boolean }[],
+	): void {
+		this.canInstallHooks = canInstallHooks;
+		this.hooksAgents = hooksAgents;
+		this.fireProviderUpdate();
 	}
 
 	/**

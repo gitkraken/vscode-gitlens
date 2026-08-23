@@ -596,10 +596,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	featurePreview?: FeaturePreview;
 	orgSettings?: { ai: boolean; drafts: boolean };
 	overview?: GraphOverviewData;
-	agentsBannerCollapsed?: boolean;
 	mcpCanAutoRegister?: boolean;
-	canInstallHooks?: boolean;
-	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[];
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
 	graphWalkthroughStarted?: boolean;
@@ -1028,17 +1025,6 @@ export interface GraphSyncResyncParams {
  *  a fresh snapshot when the webview is behind (no-ops when already in sync). */
 export const GraphSyncResyncCommand = new IpcCommand<GraphSyncResyncParams>(scope, 'sync/resync');
 
-export interface OpenPullRequestDetailsParams {
-	id?: string;
-	/** Provider id (e.g. 'github') — when supplied with `id`, the host resolves the PR via the
-	 *  matching integration instead of falling back to the current-branch lookup. */
-	providerId?: string;
-}
-export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetailsParams>(
-	scope,
-	'pullRequest/openDetails',
-);
-
 export type RowAction = RowActionParams['action'];
 
 interface RowActionRowRef {
@@ -1262,8 +1248,6 @@ export type DidGetCountParams =
 			worktrees?: number;
 	  }
 	| undefined;
-export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, 'counts');
-
 export interface GetOverviewParams {
 	/** When set, updates the host's stored "Recent" timeframe before computing the overview. */
 	recentThreshold?: OverviewRecentThreshold;
@@ -1308,8 +1292,6 @@ export const GetOverviewEnrichmentRequest = new IpcRequest<GetOverviewEnrichment
 	scope,
 	'overview/enrichment/get',
 );
-
-export const GetAgentSessionsRequest = new IpcRequest<void, AgentSessionState[]>(scope, 'agentSessions/get');
 
 export interface GetWipStatsParams {
 	shas: string[];
@@ -1641,14 +1623,6 @@ export interface DidChangeOverviewParams {
 }
 export const DidChangeOverviewNotification = new IpcNotification<DidChangeOverviewParams>(scope, 'overview/didChange');
 
-export interface DidChangeAgentSessionsParams {
-	sessions: AgentSessionState[];
-}
-export const DidChangeAgentSessionsNotification = new IpcNotification<DidChangeAgentSessionsParams>(
-	scope,
-	'agentSessions/didChange',
-);
-
 export interface DidChangeRepoConnectionParams {
 	repositories?: GraphRepository[];
 }
@@ -1694,13 +1668,6 @@ export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
-
-export const DidChangeAgentsBanner = new IpcNotification<boolean>(scope, 'agents/banner/didChange');
-
-export const DidChangeCanInstallHooks = new IpcNotification<{
-	canInstallHooks: boolean;
-	agents: readonly { id: string; displayName: string; installed: boolean }[];
-}>(scope, 'agents/canInstallHooks/didChange');
 
 export interface GraphWalkthroughBannerState {
 	dismissed: boolean;
