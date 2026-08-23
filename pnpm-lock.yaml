@@ -87,14 +87,14 @@ importers:
         specifier: 1.1.0
         version: 1.1.0
       '@eamodio/supertalk':
-        specifier: 0.0.7
-        version: 0.0.7
+        specifier: 0.1.1
+        version: 0.1.1
       '@eamodio/supertalk-core':
-        specifier: 0.0.6
-        version: 0.0.6
+        specifier: 0.1.1
+        version: 0.1.1
       '@eamodio/supertalk-signals':
-        specifier: 0.0.6
-        version: 0.0.6(signal-polyfill@0.2.2)
+        specifier: 0.0.7
+        version: 0.0.7(signal-polyfill@0.2.2)
       '@gitkraken/commit-graph':
         specifier: workspace:*
         version: link:packages/plus/commit-graph
@@ -877,16 +877,16 @@ packages:
       oxlint:
         optional: true
 
-  '@eamodio/supertalk-core@0.0.6':
-    resolution: {integrity: sha512-/oUUsQdPfzD10WGxAfp6rFAhkja1YD++inmraBTk3PJl9VQMdSYtOKr052NufhQDNiEPcQIlJqU+Of//WMa6EQ==}
+  '@eamodio/supertalk-core@0.1.1':
+    resolution: {integrity: sha512-zExrXcnVolUE8NIdD33Qevf4ZUPYpQc6Y670a3sSQrcNnU8RLBvq8AsuSBDzFo+FBNcmziKQ+4+w2p3yIcMUeg==}
 
-  '@eamodio/supertalk-signals@0.0.6':
-    resolution: {integrity: sha512-zRlYkEBpWzHekaFoBKOxbXzhVq56p10pPIHphfkzCMI8ZHdHCYWm4pYDSWPT9wh04H2W7L7yHzqBgJ/a8dUccA==}
+  '@eamodio/supertalk-signals@0.0.7':
+    resolution: {integrity: sha512-gan/PwlNviuSMBUQX1cF8E/KxdD0n6zWUg8HoV/x9r3e3mn/W4Jwmj2L21vAwvyTU3swuOWYf4JBUQ2s5/I6Pw==}
     peerDependencies:
       signal-polyfill: ^0.2.0
 
-  '@eamodio/supertalk@0.0.7':
-    resolution: {integrity: sha512-NNPb6XTYH+d97F+866ZPra1yGL1m1qMN85GCNhAMoFkPLRfZQopgKuUDXvs4LOvKJTwETUhovPE3DVK+0EeH3Q==}
+  '@eamodio/supertalk@0.1.1':
+    resolution: {integrity: sha512-g6sCYkGKaazhN9QOuYDuNydMibGGeZUyhEzfTuMYfm26CSHzNlChNiKB43dUu4tqiz6ruRZsPhReCqmuvRZ85A==}
 
   '@emnapi/core@1.11.2':
     resolution: {integrity: sha512-TC8MkTuZUtcTSiFeuC0ksCh9QIJ5+F21MvZ4Wn4ORfYaFJ/0dsiudv5tVkejgwZlwQ39jL9WWDe2lz8x0WglOA==}
@@ -7760,16 +7760,16 @@ snapshots:
       eslint: 10.5.0(jiti@2.4.0)(supports-color@10.2.2)
       oxlint: 1.79.0(oxlint-tsgolint@7.0.2001)
 
-  '@eamodio/supertalk-core@0.0.6': {}
+  '@eamodio/supertalk-core@0.1.1': {}
 
-  '@eamodio/supertalk-signals@0.0.6(signal-polyfill@0.2.2)':
+  '@eamodio/supertalk-signals@0.0.7(signal-polyfill@0.2.2)':
     dependencies:
-      '@eamodio/supertalk-core': 0.0.6
+      '@eamodio/supertalk-core': 0.1.1
       signal-polyfill: 0.2.2
 
-  '@eamodio/supertalk@0.0.7':
+  '@eamodio/supertalk@0.1.1':
     dependencies:
-      '@eamodio/supertalk-core': 0.0.6
+      '@eamodio/supertalk-core': 0.1.1
 
   '@emnapi/core@1.11.2':
     dependencies:
