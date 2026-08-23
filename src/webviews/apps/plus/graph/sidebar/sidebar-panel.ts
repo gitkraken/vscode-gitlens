@@ -960,7 +960,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (data?.panel !== 'worktrees') return;
 
 		this._shownEmitted.add('worktrees');
-		emitTelemetrySentEvent<'graph/worktrees/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/worktrees/shown',
 			data: {
 				layout: data.layout ?? 'list',
@@ -982,7 +982,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (data?.panel !== 'stashes') return;
 
 		this._shownEmitted.add('stashes');
-		emitTelemetrySentEvent<'graph/stashes/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/stashes/shown',
 			data: {
 				'stashes.count': data.items.length,
@@ -1004,7 +1004,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const pr = withSearchedPullRequest(data.items, this.prSearchResult).find(p => `pr:${p.number}` === path);
 		if (pr == null) return;
 
-		emitTelemetrySentEvent<'graph/pullRequests/pullRequestSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/pullRequests/pullRequestSelected',
 			data: { reachable: pr.focus != null, draft: pr.isDraft ?? false },
 		});
@@ -1022,7 +1022,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (data?.panel !== 'pullRequests') return;
 
 		this._shownEmitted.add('pullRequests');
-		emitTelemetrySentEvent<'graph/pullRequests/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/pullRequests/shown',
 			data: {
 				'pullRequests.count': data.items.length,
@@ -1046,7 +1046,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (data?.panel !== 'tags') return;
 
 		this._shownEmitted.add('tags');
-		emitTelemetrySentEvent<'graph/tags/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/tags/shown',
 			data: {
 				layout: data.layout ?? 'list',
@@ -1465,7 +1465,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 			if (result.kind === 'superseded') return;
 
-			emitTelemetrySentEvent<'graph/pullRequests/searched'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/pullRequests/searched',
 				data: { found: result.kind === 'found' },
 			});
@@ -2417,7 +2417,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			const hasFilter = e.detail.length > 0;
 			if (hasFilter !== this._agentsFilterActive) {
 				this._agentsFilterActive = hasFilter;
-				emitTelemetrySentEvent<'graph/agents/filtered'>(this, {
+				emitTelemetrySentEvent(this, {
 					name: 'graph/agents/filtered',
 					data: {
 						hasFilter: hasFilter,
@@ -2444,7 +2444,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleToggleShowPastAgentSessions = () => {
 		const enabled = !(this._state.sidebar?.showPastAgentSessions ?? false);
-		emitTelemetrySentEvent<'graph/agents/showEndedToggled'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/agents/showEndedToggled',
 			data: {
 				enabled: enabled,
@@ -2492,7 +2492,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions.toggleLayout(this.activePanel);
 
 		if (this.activePanel === 'agents') {
-			emitTelemetrySentEvent<'graph/agents/layoutToggled'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/agents/layoutToggled',
 				data: {
 					layout: this._actions.agentsLayout.get(),
@@ -2502,7 +2502,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (this.activePanel === 'worktrees') {
-			emitTelemetrySentEvent<'graph/worktrees/layoutToggled'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/worktrees/layoutToggled',
 				data: {
 					layout: worktreesNewLayout,
@@ -2514,7 +2514,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Only report the branches toggle when the current layout is known — predicting off
 		// undefined data would misreport 'tree'.
 		if (this.activePanel === 'branches' && branchesData?.layout != null) {
-			emitTelemetrySentEvent<'graph/branches/layoutToggled'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/branches/layoutToggled',
 				data: {
 					layout: branchesData.layout === 'tree' ? 'list' : 'tree',
@@ -2525,7 +2525,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		// Same reasoning for remotes — only report when the current layout is known.
 		if (this.activePanel === 'remotes' && remotesData?.layout != null) {
-			emitTelemetrySentEvent<'graph/remotes/layoutToggled'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/remotes/layoutToggled',
 				data: {
 					layout: remotesData.layout === 'tree' ? 'list' : 'tree',
@@ -2535,7 +2535,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (this.activePanel === 'tags') {
-			emitTelemetrySentEvent<'graph/tags/layoutToggled'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/tags/layoutToggled',
 				data: {
 					layout: tagsNewLayout,
@@ -2551,7 +2551,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Same reasoning as the layout toggle — the service update is async, so invert the current
 		// value to report the state we're moving to. Only report when it's known.
 		if (data?.panel === 'branches' && data.showRemoteBranches != null) {
-			emitTelemetrySentEvent<'graph/branches/showRemoteBranchesToggled'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/branches/showRemoteBranchesToggled',
 				data: {
 					enabled: !data.showRemoteBranches,
@@ -2798,7 +2798,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (data?.panel !== 'remotes') return;
 
 		this._shownEmitted.add('remotes');
-		emitTelemetrySentEvent<'graph/remotes/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/remotes/shown',
 			data: {
 				layout: data.layout ?? 'list',
@@ -2843,7 +2843,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 		}
 
-		emitTelemetrySentEvent<'graph/agents/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/agents/shown',
 			data: {
 				layout: this._actions.agentsLayout.get(),
@@ -2889,7 +2889,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const data = this._actions?.state.panels.branches?.value.get();
 		if (data?.panel !== 'branches') return;
 
-		emitTelemetrySentEvent<'graph/branches/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/branches/shown',
 			data: {
 				layout: data.layout ?? 'list',
@@ -2984,7 +2984,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const worktree = data.items.find(w => w.wipSha === wipSha);
 		if (worktree == null) return;
 
-		emitTelemetrySentEvent<'graph/worktrees/worktreeSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/worktrees/worktreeSelected',
 			data: {
 				isActive: worktree.opened,
@@ -3001,7 +3001,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const branch = name != null ? this.getBranchesData()?.find(b => b.name === name) : undefined;
 		if (branch == null) return;
 
-		emitTelemetrySentEvent<'graph/branches/branchSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/branches/branchSelected',
 			data: {
 				isCurrent: branch.current,
@@ -3022,7 +3022,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const graphAnchor = this.resolveGraphAnchorContext();
 		const sameRepo = graphAnchor != null && session.commonPath === graphAnchor.family;
 
-		emitTelemetrySentEvent<'graph/agents/sessionSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/agents/sessionSelected',
 			data: {
 				'session.phase': session.phase,
@@ -3046,7 +3046,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						)
 					: undefined;
 
-			emitTelemetrySentEvent<'graph/agents/permissionResolved'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/agents/permissionResolved',
 				data: {
 					decision: (arg?.decision as 'allow' | 'deny') ?? 'allow',
@@ -3069,7 +3069,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (action != null) {
-			emitTelemetrySentEvent<'graph/agents/sessionAction'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/agents/sessionAction',
 				data: { action: action },
 			});
@@ -3083,7 +3083,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const stash = data.items.find(s => s.sha === sha);
 		if (stash == null) return;
 
-		emitTelemetrySentEvent<'graph/stashes/stashSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/stashes/stashSelected',
 			data: {
 				hasStashOnRef: stash.stashOnRef != null,
@@ -3100,7 +3100,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const tag = resolveSelectedTag(data.items, sha, path);
 		if (tag == null) return;
 
-		emitTelemetrySentEvent<'graph/tags/tagSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/tags/tagSelected',
 			data: {
 				annotated: tag.annotated,

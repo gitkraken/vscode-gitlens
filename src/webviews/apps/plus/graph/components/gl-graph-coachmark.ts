@@ -564,7 +564,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			}
 		}, seenDwellMs);
 
-		emitTelemetrySentEvent<'graph/coachMark'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/coachMark',
 			data: { key: this.mark, action: 'shown', trigger: trigger },
 		});
@@ -599,7 +599,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		this._dismissals?.dismiss(this.onboardingKey);
 
-		emitTelemetrySentEvent<'graph/coachMark'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/coachMark',
 			data: { key: this.mark, action: action },
 		});

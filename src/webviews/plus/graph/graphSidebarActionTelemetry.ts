@@ -6,7 +6,9 @@ import type {
 	GraphSidebarStashesActionName,
 	GraphSidebarTagsActionName,
 	GraphSidebarWorktreesActionName,
+	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
+import type { GraphSidebarPanel } from './protocol.js';
 import { sidebarInlineItemOrigin, sidebarItemOrigin } from './protocol.js';
 
 /** Sidebar item types that carry `graph/{panel}/{item}Action` telemetry. */
@@ -105,6 +107,67 @@ export const sidebarItemActions: {
 		'gitlens.stashApply:graph': 'apply',
 		'gitlens.stashDelete:graph': 'delete',
 		'gitlens.stashRename:graph': 'rename',
+	},
+};
+
+/** The `action` names a panel's `graph/{panel}/headerAction` event accepts. Pulled through the
+ *  events map (via `infer`, which resolves per concrete panel) rather than redeclared, so the
+ *  table can't drift from the declared payloads. */
+type SidebarHeaderActionName<P extends Exclude<GraphSidebarPanel, 'overview'>> =
+	WebviewTelemetryEvents[`graph/${P}/headerAction`] extends { action: infer TAction } ? TAction : never;
+
+/**
+ * Single source of truth for the sidebar HEADER buttons' telemetry, per panel: each panel's
+ * header commands mapped to their `graph/{panel}/headerAction` action name, alongside the
+ * panel's literal event name (kept literal rather than derived so consumers emit with a typed
+ * event name and a per-panel-checked payload).
+ *
+ * Consumed by the webview's `handleAction` in `sidebar-panel.ts`; the Refresh button reports
+ * `action: 'refresh'` against the same per-panel events, which is why the event names live here —
+ * but `refresh` itself is deliberately NOT mapped as an action (it isn't command-driven).
+ */
+export const sidebarHeaderActions: {
+	[P in Exclude<GraphSidebarPanel, 'overview'>]: {
+		readonly event: `graph/${P}/headerAction`;
+		readonly actions: Partial<Record<GlCommands, SidebarHeaderActionName<P>>>;
+	};
+} = {
+	agents: {
+		event: 'graph/agents/headerAction',
+		actions: {
+			'gitlens.startWork': 'startWork',
+			'gitlens.startReview': 'startReview',
+		},
+	},
+	worktrees: {
+		event: 'graph/worktrees/headerAction',
+		actions: { 'gitlens.views.title.createWorktree': 'createWorktree' },
+	},
+	branches: {
+		event: 'graph/branches/headerAction',
+		actions: {
+			'gitlens.switchToAnotherBranch:views': 'switchToBranch',
+			'gitlens.views.title.createBranch': 'createBranch',
+		},
+	},
+	pullRequests: {
+		event: 'graph/pullRequests/headerAction',
+		actions: { 'gitlens.createPullRequest:graph': 'createPullRequest' },
+	},
+	remotes: {
+		event: 'graph/remotes/headerAction',
+		actions: { 'gitlens.views.addRemote': 'addRemote' },
+	},
+	stashes: {
+		event: 'graph/stashes/headerAction',
+		actions: {
+			'gitlens.stashSave:views': 'stashAll',
+			'gitlens.stashesApply:views': 'applyStash',
+		},
+	},
+	tags: {
+		event: 'graph/tags/headerAction',
+		actions: { 'gitlens.views.title.createTag': 'createTag' },
 	},
 };
 

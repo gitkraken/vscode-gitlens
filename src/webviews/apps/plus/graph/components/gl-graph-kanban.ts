@@ -6,6 +6,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
+import type { WebviewTelemetryEvents } from '../../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
@@ -80,6 +81,21 @@ const columns: readonly KanbanColumnDef[] = [
 	{ id: 'idle', label: 'Idle' },
 	{ id: 'inactive', label: 'Inactive' },
 ];
+
+/** The cards' `data-telemetry-action` attributes that report `graph/kanban/sessionAction`, mapped to
+ *  their telemetry names through the events map (same table style as the sidebar's
+ *  `graphSidebarActionTelemetry`) so the DOM attributes and the metric can't drift. Permission actions
+ *  are deliberately absent — their event carries a different payload. */
+type SessionActionTelemetryAttribute = 'open-session' | 'resume-session' | 'open-plan';
+
+const sessionActionTelemetryNames: Record<
+	SessionActionTelemetryAttribute,
+	WebviewTelemetryEvents['graph/kanban/sessionAction']['action']
+> = {
+	'open-session': 'openSession',
+	'resume-session': 'resumeSession',
+	'open-plan': 'openPlanFile',
+};
 
 function columnIdForSession(session: AgentSessionState): KanbanColumnId {
 	// Terminal sessions are done — group them with the abandoned/idle-too-long Inactive column
@@ -656,7 +672,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	protected override firstUpdated(): void {
 		const sessions = this.familyFilteredSessions(this.graphState.agentSessions ?? []);
 		const { buckets } = this.buildBuckets(sessions);
-		emitTelemetrySentEvent<'graph/kanban/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/kanban/shown',
 			data: {
 				'sessions.count': sessions.length,
@@ -746,7 +762,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		if (session == null) return;
 
 		const family = this.family;
-		emitTelemetrySentEvent<'graph/kanban/sessionSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/kanban/sessionSelected',
 			data: {
 				'session.phase': session.phase,
@@ -777,41 +793,29 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	/** Telemetry for the card's inner action buttons, identified by `data-telemetry-action` —
 	 *  static attributes instead of per-button click closures (see `onCardClick`'s perf note). */
 	private emitCardActionTelemetry(button: HTMLElement, sessionId: string): void {
-		switch (button.dataset.telemetryAction) {
-			case 'open-session':
-				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
-					name: 'graph/kanban/sessionAction',
-					data: { action: 'openSession' },
-				});
-				break;
-
-			case 'resume-session':
-				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
-					name: 'graph/kanban/sessionAction',
-					data: { action: 'resumeSession' },
-				});
-				break;
-
-			case 'open-plan':
-				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
-					name: 'graph/kanban/sessionAction',
-					data: { action: 'openPlanFile' },
-				});
-				break;
-
+		const action = button.dataset.telemetryAction;
+		switch (action) {
 			case 'permission-allow':
 			case 'permission-deny': {
 				const session = (this.graphState.agentSessions ?? []).find(s => s.id === sessionId);
-				emitTelemetrySentEvent<'graph/kanban/permissionResolved'>(this, {
+				emitTelemetrySentEvent(this, {
 					name: 'graph/kanban/permissionResolved',
 					data: {
-						decision: button.dataset.telemetryAction === 'permission-allow' ? 'allow' : 'deny',
+						decision: action === 'permission-allow' ? 'allow' : 'deny',
 						'permission.kind': session?.pendingPermission?.kind ?? 'unknown',
 					},
 				});
-				break;
+				return;
 			}
 		}
+
+		const sessionAction = sessionActionTelemetryNames[action as SessionActionTelemetryAttribute];
+		if (sessionAction == null) return;
+
+		emitTelemetrySentEvent(this, {
+			name: 'graph/kanban/sessionAction',
+			data: { action: sessionAction },
+		});
 	}
 
 	/** Resolves the graph's selected repo exactly as the open-session gate does

@@ -244,7 +244,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 
 		if (state?.banner === true && this._shownFor !== repoPath) {
 			this._shownFor = repoPath;
-			emitTelemetrySentEvent<'graph/gitHealth/banner/shown'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/gitHealth/banner/shown',
 				data: { reason: state.reason, 'findings.suggested': state.suggestedCount },
 			});
@@ -255,7 +255,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		const state = this._state;
 		if (state == null) return;
 
-		emitTelemetrySentEvent<'graph/gitHealth/banner/opened'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/gitHealth/banner/opened',
 			data: { reason: state.reason, 'findings.suggested': state.suggestedCount },
 		});
@@ -267,7 +267,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		const repoPath = this._loadedRepoPath;
 		if (state == null || repoPath == null) return;
 
-		emitTelemetrySentEvent<'graph/gitHealth/banner/dismissed'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/gitHealth/banner/dismissed',
 			data: { reason: state.reason, 'findings.suggested': state.suggestedCount },
 		});

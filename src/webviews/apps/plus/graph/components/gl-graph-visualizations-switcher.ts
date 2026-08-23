@@ -192,7 +192,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		// Emitted here (per click) rather than in graph-app's per-axis handlers — a single switch
 		// like timeline → Commits Treemap can dispatch BOTH events above, which would double-count
 		// the one user action.
-		emitTelemetrySentEvent<'graph/visualizations/modeChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/visualizations/modeChanged',
 			data: { 'mode.old': previous, 'mode.new': key, reason: 'user' },
 		});

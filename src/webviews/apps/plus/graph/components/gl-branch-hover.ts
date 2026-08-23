@@ -21,7 +21,6 @@ import type {
 	OverviewBranchWip,
 } from '../../../../shared/overviewBranches.js';
 import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
-import type { ActionItem } from '../../../shared/components/actions/action-item.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -30,9 +29,10 @@ import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import {
-	commandToOverviewActionName,
 	getLaunchpadItemGroup,
 	getLaunchpadItemGrouping,
+	getOverviewBranchContextData,
+	resolveOverviewActionItemClick,
 } from '../utils/overviewActions.utils.js';
 import { branchHoverStyles } from './gl-branch-hover.css.js';
 import '../../shared/components/merge-target-status.js';
@@ -295,16 +295,12 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	private emitHoverShown(): void {
 		const branch = this.branch;
 		const enrichment = this.enrichment;
-		emitTelemetrySentEvent<'graph/overview/hoverShown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/hoverShown',
 			data: {
 				surface: this.surface,
-				isActive: branch?.opened ?? false,
-				isWorktree: branch?.worktree != null,
-				hasPr: enrichment?.pr != null,
-				hasIssues: (enrichment?.issues?.length ?? 0) > 0 || (enrichment?.autolinks?.length ?? 0) > 0,
-				hasWip: this.hasWip,
 				hasAgents: (this.agentSessions?.length ?? 0) > 0,
+				...getOverviewBranchContextData(branch, enrichment, this.hasWip),
 			},
 		});
 	}
@@ -713,7 +709,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	private onLinkClick(e: Event, type: 'pullrequest' | 'issue' | 'autolink') {
 		e.stopPropagation();
 
-		emitTelemetrySentEvent<'graph/overview/linkClicked'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/linkClicked',
 			data: { surface: this.surface, type: type },
 		});
@@ -740,26 +736,16 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	private onActionItemClick(e: MouseEvent) {
 		// Never stopPropagation here: the actions are `command:` URI links and VS Code's webview
 		// intercepts them at the document level, so swallowing the click would break them.
-		let action: ActionItem | undefined;
-		for (const node of e.composedPath()) {
-			if ((node as Element)?.tagName === 'ACTION-ITEM') {
-				action = node as ActionItem;
-				break;
-			}
-		}
-		if (action == null) return;
+		const click = resolveOverviewActionItemClick(e);
+		if (click == null) return;
 
-		const altKeyPressed = e.altKey || e.shiftKey;
-		const href = altKeyPressed && action.altHref ? action.altHref : action.href;
-		if (href == null) return;
-
-		emitTelemetrySentEvent<'graph/overview/action'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/action',
 			data: {
-				name: commandToOverviewActionName(href),
+				name: click.name,
 				location: 'hover',
 				surface: this.surface,
-				alt: altKeyPressed,
+				alt: click.alt,
 			},
 		});
 	}

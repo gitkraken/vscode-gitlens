@@ -1460,7 +1460,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.cancelPendingScope();
 		this.scope = undefined;
 
-		emitTelemetrySentEvent<'graph/scope/cleared'>(this.host, {
+		emitTelemetrySentEvent(this.host, {
 			name: 'graph/scope/cleared',
 			data: {},
 		});

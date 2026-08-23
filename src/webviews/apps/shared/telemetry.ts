@@ -1,9 +1,9 @@
-import type { TelemetryEvents } from '../../../constants.telemetry.js';
+import type { WebviewTelemetryEvents } from '../../../constants.telemetry.js';
 import type { TelemetrySendEventParams } from '../../protocol.js';
 
 export const telemetryEventName = 'gl-telemetry-fired';
 
-export function emitTelemetrySentEvent<T extends keyof TelemetryEvents>(
+export function emitTelemetrySentEvent<T extends keyof WebviewTelemetryEvents>(
 	el: EventTarget,
 	params: TelemetrySendEventParams<T>,
 ): void {

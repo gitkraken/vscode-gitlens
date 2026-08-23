@@ -135,7 +135,7 @@ export class JumpToastController implements ReactiveController {
 		this.armJumpToastTimer(toast.actionLabel == null ? 6000 : 10000);
 		this._host.requestUpdate();
 
-		emitTelemetrySentEvent<'graph/jump/failed'>(this._host, {
+		emitTelemetrySentEvent(this._host, {
 			name: 'graph/jump/failed',
 			data: {
 				reason: reason?.kind === 'hidden' ? reason.hidden : (reason?.kind ?? 'not-found'),
@@ -191,7 +191,7 @@ export class JumpToastController implements ReactiveController {
 		this.armJumpToastTimer(6000);
 		this._host.requestUpdate();
 
-		emitTelemetrySentEvent<'graph/jump/failed'>(this._host, {
+		emitTelemetrySentEvent(this._host, {
 			name: 'graph/jump/failed',
 			data: { reason: 'invalid-ref', source: 'host' },
 		});

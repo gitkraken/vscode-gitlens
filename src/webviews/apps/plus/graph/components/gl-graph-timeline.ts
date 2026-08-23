@@ -711,7 +711,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	 *  or display-mode entry), so first-render is exactly one impression. The externally-pushed
 	 *  `scope` is adopted into `_localScope` in `willUpdate`, so `scoped` is accurate here. */
 	protected override firstUpdated(): void {
-		emitTelemetrySentEvent<'graph/timeline/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/timeline/shown',
 			data: {
 				period: this.period,
@@ -731,7 +731,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 		// First-paint auto-selections are forwarded to the details panel but are not user actions.
 		if (e.detail.auto !== true) {
-			emitTelemetrySentEvent<'graph/timeline/commitSelected'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/timeline/commitSelected',
 				data: { shift: e.detail.shift },
 			});
@@ -765,7 +765,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private onHeaderPeriodChange = (e: CustomEvent<{ period: TimelinePeriod }>): void => {
 		const previous = this.period;
 		if (e.detail.period !== previous) {
-			emitTelemetrySentEvent<'graph/timeline/periodChanged'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/timeline/periodChanged',
 				data: { 'period.old': previous, 'period.new': e.detail.period },
 			});
@@ -781,7 +781,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const previous = this.effectiveSliceBy;
 		const next = this.sliceBySupportedEffective && this.showAllBranchesEffective ? e.detail.sliceBy : 'author';
 		if (next !== previous) {
-			emitTelemetrySentEvent<'graph/timeline/sliceByChanged'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/timeline/sliceByChanged',
 				data: { 'sliceBy.old': previous, 'sliceBy.new': next },
 			});
@@ -814,7 +814,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
 
 		this._localScope = next;
-		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/timeline/scopeChanged',
 			data: { action: 'choose', 'scope.type': next.type, scoped: true },
 		});
@@ -824,7 +824,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._localScope == null) return;
 
 		this._localScope = undefined;
-		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/timeline/scopeChanged',
 			data: { action: 'clear', scoped: false },
 		});
@@ -841,7 +841,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (type === 'repo' || !value) {
 			if (this._localScope != null) {
 				this._localScope = undefined;
-				emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+				emitTelemetrySentEvent(this, {
 					name: 'graph/timeline/scopeChanged',
 					data: { action: 'breadcrumb', scoped: false },
 				});
@@ -853,7 +853,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
 
 		this._localScope = next;
-		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/timeline/scopeChanged',
 			data: { action: 'breadcrumb', 'scope.type': type, scoped: true },
 		});

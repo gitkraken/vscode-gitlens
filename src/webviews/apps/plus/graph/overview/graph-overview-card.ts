@@ -14,16 +14,16 @@ import type { BranchRef } from '../../../../home/protocol.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { GraphOverviewBranch } from '../../../../plus/graph/protocol.js';
 import type { OverviewBranchEnrichment, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
-import type { ActionItem } from '../../../shared/components/actions/action-item.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphServicesContext } from '../context.js';
 import {
-	commandToOverviewActionName,
 	getLaunchpadItemGroup,
 	getLaunchpadItemGrouping,
+	getOverviewBranchContextData,
+	resolveOverviewActionItemClick,
 } from '../utils/overviewActions.utils.js';
 import '../components/gl-branch-hover.js';
 import '../../../shared/components/branch-icon.js';
@@ -809,15 +809,9 @@ export class GlGraphOverviewCard extends LitElement {
 	}
 
 	private dispatchBranchSelected() {
-		emitTelemetrySentEvent<'graph/overview/branchSelected'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/branchSelected',
-			data: {
-				isActive: this.branch.opened,
-				isWorktree: this.isWorktree,
-				hasPr: this.enrichment?.pr != null,
-				hasIssues: (this.enrichment?.issues?.length ?? 0) > 0 || (this.enrichment?.autolinks?.length ?? 0) > 0,
-				hasWip: this.hasWip,
-			},
+			data: getOverviewBranchContextData(this.branch, this.enrichment, this.hasWip),
 		});
 
 		this.dispatchEvent(
@@ -841,31 +835,16 @@ export class GlGraphOverviewCard extends LitElement {
 		// Bound on the popover host, so clicks from the hover's action-nav reach here too — but
 		// <gl-branch-hover> emits its own `action` event (with the right surface), so bail on those or
 		// we'd double-count. What's left is the card's own inline action-nav.
-		let action: ActionItem | undefined;
-		for (const node of e.composedPath()) {
-			const el = node as Element;
-			if (el?.tagName === 'GL-BRANCH-HOVER') return;
+		const click = resolveOverviewActionItemClick(e, 'GL-BRANCH-HOVER');
+		if (click == null) return;
 
-			// Native click events compose through shadow boundaries, so composedPath surfaces the
-			// original `<action-item>` even though the event target has been retargeted upward.
-			if (action == null && el?.tagName === 'ACTION-ITEM') {
-				action = el as ActionItem;
-			}
-		}
-
-		if (action == null) return;
-
-		const altKeyPressed = e.altKey || e.shiftKey;
-		const href = altKeyPressed && action.altHref ? action.altHref : action.href;
-		if (href == null) return;
-
-		emitTelemetrySentEvent<'graph/overview/action'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/action',
 			data: {
-				name: commandToOverviewActionName(href),
+				name: click.name,
 				location: 'inline',
 				surface: 'overview',
-				alt: altKeyPressed,
+				alt: click.alt,
 			},
 		});
 	}

@@ -1512,7 +1512,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		if (this.shouldShowWelcome && !this._introShownReported) {
 			this._introShownReported = true;
-			emitTelemetrySentEvent<'graph/intro/shown'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/intro/shown',
 				data: { withLayoutOptions: this.layoutPromptNeeded },
 			});
@@ -1623,7 +1623,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// force-routes to the timeline regardless of a persisted `treemap*` choice, so reading
 				// the raw value here would emit `treemap-*` for a session where only the timeline was
 				// shown — an inconsistent `timeline shown → treemap closed` funnel.
-				emitTelemetrySentEvent<'graph/visualizations/closed'>(this, {
+				emitTelemetrySentEvent(this, {
 					name: 'graph/visualizations/closed',
 					data: {
 						mode: getEffectiveVisualizationKey(
@@ -1634,7 +1634,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					},
 				});
 			} else if (this._wasDisplayMode === 'kanban') {
-				emitTelemetrySentEvent<'graph/kanban/closed'>(this, { name: 'graph/kanban/closed', data: {} });
+				emitTelemetrySentEvent(this, { name: 'graph/kanban/closed', data: {} });
 			}
 			this._wasDisplayMode = displayMode;
 			// Notify the host so it can fetch row stats when entering Visualizations mode (stats are
@@ -3117,7 +3117,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const choice = e.detail?.layoutChoice ?? 'dismissed';
 		// Preserve layout analytics: fire only when the layout section was actually shown.
 		if (this.layoutPromptNeeded) {
-			emitTelemetrySentEvent<'graph/layoutPrompt/choice'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/layoutPrompt/choice',
 				data: { choice: choice },
 			});
@@ -3696,7 +3696,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		this.trackUsage('action:gitlens.graph.scope.changed:happened');
-		emitTelemetrySentEvent<'graph/scope/changed'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/scope/changed',
 			data: {
 				source: source,
@@ -3854,7 +3854,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (e.target != null) {
 			const { target } = e;
 			queueMicrotask(() =>
-				emitTelemetrySentEvent<'graph/minimap/day/selected'>(target, {
+				emitTelemetrySentEvent(target, {
 					name: 'graph/minimap/day/selected',
 					data: {},
 				}),

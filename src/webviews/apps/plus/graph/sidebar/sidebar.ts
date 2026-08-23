@@ -588,7 +588,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			}),
 		);
 
-		emitTelemetrySentEvent<'graph/action/sidebar'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/action/sidebar',
 			data: { action: `displayMode:${next}` },
 		});
@@ -931,7 +931,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			}),
 		);
 
-		emitTelemetrySentEvent<'graph/action/sidebar'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/action/sidebar',
 			data: { action: icon.type },
 		});

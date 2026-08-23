@@ -1064,7 +1064,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			case 'icon':
-				emitTelemetrySentEvent<'graph/action/openRepoOnRemote'>(e.target!, {
+				emitTelemetrySentEvent(e.target!, {
 					name: 'graph/action/openRepoOnRemote',
 					data: {},
 				});

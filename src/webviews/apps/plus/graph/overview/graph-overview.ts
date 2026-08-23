@@ -535,7 +535,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			notifyService(this.services.telemetry, 'track usage', svc =>
 				svc.trackUsage('action:gitlens.graph.overview.shown:happened'),
 			);
-			emitTelemetrySentEvent<'graph/overview/shown'>(this, {
+			emitTelemetrySentEvent(this, {
 				name: 'graph/overview/shown',
 				data: {
 					'branches.active.count': overview.active.length,
@@ -923,7 +923,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private onRecentThresholdSelected(threshold: OverviewRecentThreshold): void {
 		if ((this._state.overviewRecentThreshold ?? 'OneWeek') === threshold) return;
 
-		emitTelemetrySentEvent<'graph/overview/recentThresholdChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/recentThresholdChanged',
 			data: { threshold: threshold },
 		});

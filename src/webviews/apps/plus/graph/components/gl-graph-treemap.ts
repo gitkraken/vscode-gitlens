@@ -588,7 +588,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		);
 		// The switcher emits `reason: 'user'` for its clicks; this forced flip is the only
 		// programmatic writer, so label it distinctly to keep user-action counts honest.
-		emitTelemetrySentEvent<'graph/visualizations/modeChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/visualizations/modeChanged',
 			data: { 'mode.old': 'treemap-commits', 'mode.new': 'treemap-files', reason: 'fallback' },
 		});
@@ -751,7 +751,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		if (key === this._shownEmittedKey) return;
 
 		this._shownEmittedKey = key;
-		emitTelemetrySentEvent<'graph/treemap/shown'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/treemap/shown',
 			data: {
 				mode: this.mode,
@@ -1040,7 +1040,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const previous = this.graphState.timeline?.period ?? '1|Y';
 		if (previous === period) return;
 
-		emitTelemetrySentEvent<'graph/treemap/periodChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/treemap/periodChanged',
 			data: { 'period.old': previous, 'period.new': period },
 		});
@@ -1066,7 +1066,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const previous = this.graphState.config?.activityDecay ?? '5m';
 		if (previous === decay) return;
 
-		emitTelemetrySentEvent<'graph/treemap/decayChanged'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/treemap/decayChanged',
 			data: { 'decay.old': previous, 'decay.new': decay },
 		});
@@ -1245,7 +1245,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const zoom = classifyTreemapZoom(previous, next);
 		if (!zoom.changed) return;
 
-		emitTelemetrySentEvent<'graph/treemap/zoomed'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/treemap/zoomed',
 			data: { mode: this.mode, direction: zoom.direction, depth: zoom.depth },
 		});
@@ -1304,7 +1304,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	};
 
 	private emitFileClickTelemetry(mode: TreemapMode, action: 'open' | 'history', sessionFocused?: boolean): void {
-		emitTelemetrySentEvent<'graph/treemap/fileClicked'>(this, {
+		emitTelemetrySentEvent(this, {
 			name: 'graph/treemap/fileClicked',
 			data: { mode: mode, action: action, 'session.focused': sessionFocused },
 		});

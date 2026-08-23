@@ -3,6 +3,7 @@ import {
 	isSidebarOriginContext,
 	markSidebarInlineInvocation,
 	resolveSidebarContextMenuAction,
+	sidebarHeaderActions,
 } from '../graphSidebarActionTelemetry.js';
 
 suite('resolveSidebarContextMenuAction', () => {
@@ -156,6 +157,67 @@ suite('resolveSidebarContextMenuAction', () => {
 			resolveSidebarContextMenuAction('gitlens.focusPullRequest:graph', 'gitlens:pullrequest+refs'),
 			undefined,
 		);
+	});
+});
+
+suite('sidebarHeaderActions', () => {
+	test('maps each panel header command to its documented headerAction name', () => {
+		// Pins the full table contents: a mapping that drifts from what the header buttons
+		// dispatch (or from the declared `*headerAction` payloads) fails here rather than
+		// silently changing the action × panel metric.
+		assert.deepStrictEqual(sidebarHeaderActions.agents.actions, {
+			'gitlens.startWork': 'startWork',
+			'gitlens.startReview': 'startReview',
+		});
+		assert.deepStrictEqual(sidebarHeaderActions.worktrees.actions, {
+			'gitlens.views.title.createWorktree': 'createWorktree',
+		});
+		assert.deepStrictEqual(sidebarHeaderActions.branches.actions, {
+			'gitlens.switchToAnotherBranch:views': 'switchToBranch',
+			'gitlens.views.title.createBranch': 'createBranch',
+		});
+		assert.deepStrictEqual(sidebarHeaderActions.pullRequests.actions, {
+			'gitlens.createPullRequest:graph': 'createPullRequest',
+		});
+		assert.deepStrictEqual(sidebarHeaderActions.remotes.actions, {
+			'gitlens.views.addRemote': 'addRemote',
+		});
+		assert.deepStrictEqual(sidebarHeaderActions.stashes.actions, {
+			'gitlens.stashSave:views': 'stashAll',
+			'gitlens.stashesApply:views': 'applyStash',
+		});
+		assert.deepStrictEqual(sidebarHeaderActions.tags.actions, {
+			'gitlens.views.title.createTag': 'createTag',
+		});
+	});
+
+	test('covers exactly the panels with header actions — overview has none', () => {
+		assert.deepStrictEqual(Object.keys(sidebarHeaderActions).sort(), [
+			'agents',
+			'branches',
+			'pullRequests',
+			'remotes',
+			'stashes',
+			'tags',
+			'worktrees',
+		]);
+	});
+
+	test("names each panel's event `graph/{panel}/headerAction`", () => {
+		for (const [panel, header] of Object.entries(sidebarHeaderActions)) {
+			assert.strictEqual(header.event, `graph/${panel}/headerAction`);
+		}
+	});
+
+	test("excludes refresh — the Refresh button reports action:'refresh' against the same events", () => {
+		// Refresh isn't command-driven (no PanelAction carries it), so it must stay out of the
+		// command→action curation; handleRefresh emits it straight against the panel's event.
+		for (const header of Object.values(sidebarHeaderActions)) {
+			assert.ok(
+				!Object.values(header.actions).includes('refresh'),
+				'refresh is emitted by handleRefresh — keep it out of sidebarHeaderActions',
+			);
+		}
 	});
 });
 
