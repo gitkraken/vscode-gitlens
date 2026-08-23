@@ -178,6 +178,138 @@ const graphCommandDecorator = createCommandDecorator<GlWebviewCommandsOrCommands
 const command = graphCommandDecorator.command;
 export const getGraphCommands = graphCommandDecorator.getCommands;
 
+type GraphToggleCommandId = GlWebviewCommandsOrCommandsWithSuffix<'graph'>;
+
+/** One-shot toggle/setter commands for the graph's columns, grouping, scroll markers, and display
+ *  settings. VS Code menus need a distinct command id per menu item, but every handler funnels
+ *  through one of a handful of {@link GraphCommandsContext} methods or a config update, so instead
+ *  of 37 boilerplate methods they're table-driven here and registered imperatively below.
+ *
+ *  Like the `@command` decorators, registration runs once at module load; the webview binds each
+ *  stored handler to the live instance (`c.handler.bind(this._commands)`), so these plain functions
+ *  see the {@link GraphCommands} instance as `this`, exactly as prototype methods would. */
+type GraphToggleCommand =
+	| {
+			readonly action: 'column';
+			readonly id: GraphToggleCommandId;
+			readonly name: GraphColumnName;
+			readonly visible: boolean;
+	  }
+	| {
+			readonly action: 'grouping';
+			readonly id: GraphToggleCommandId;
+			readonly name: 'graph' | 'ref';
+			readonly grouped: boolean;
+	  }
+	| {
+			readonly action: 'scrollMarker';
+			readonly id: GraphToggleCommandId;
+			readonly marker: GraphScrollMarkersAdditionalTypes;
+			readonly enabled: boolean;
+	  }
+	| { readonly action: 'mode'; readonly id: GraphToggleCommandId; readonly mode?: 'compact' }
+	| {
+			readonly action: 'configuration';
+			readonly id: GraphToggleCommandId;
+			readonly section: 'graph.lanes.density';
+			readonly value: 'compact' | 'expanded';
+	  }
+	| {
+			readonly action: 'configuration';
+			readonly id: GraphToggleCommandId;
+			readonly section: 'graph.style';
+			readonly value: 'auto' | 'table' | 'list';
+	  };
+
+const toggleCommands: GraphToggleCommand[] = [
+	// Column visibility toggles
+	{ action: 'column', id: 'gitlens.graph.columnAuthorOn', name: 'author', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnAuthorOff', name: 'author', visible: false },
+	{ action: 'column', id: 'gitlens.graph.columnDateTimeOn', name: 'datetime', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnDateTimeOff', name: 'datetime', visible: false },
+	{ action: 'column', id: 'gitlens.graph.columnShaOn', name: 'sha', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnShaOff', name: 'sha', visible: false },
+	{ action: 'column', id: 'gitlens.graph.columnChangesOn', name: 'changes', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnChangesOff', name: 'changes', visible: false },
+	{ action: 'column', id: 'gitlens.graph.columnGraphOn', name: 'graph', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnGraphOff', name: 'graph', visible: false },
+	{ action: 'column', id: 'gitlens.graph.columnMessageOn', name: 'message', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnMessageOff', name: 'message', visible: false },
+	{ action: 'column', id: 'gitlens.graph.columnRefOn', name: 'ref', visible: true },
+	{ action: 'column', id: 'gitlens.graph.columnRefOff', name: 'ref', visible: false },
+
+	// Column grouping toggles
+	{ action: 'grouping', id: 'gitlens.graph.columnGraphGroup', name: 'graph', grouped: true },
+	{ action: 'grouping', id: 'gitlens.graph.columnGraphUngroup', name: 'graph', grouped: false },
+	{ action: 'grouping', id: 'gitlens.graph.columnRefGroup', name: 'ref', grouped: true },
+	{ action: 'grouping', id: 'gitlens.graph.columnRefUngroup', name: 'ref', grouped: false },
+
+	// Scroll marker toggles
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerLocalBranchOn', marker: 'localBranches', enabled: true },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerLocalBranchOff', marker: 'localBranches', enabled: false },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerRemoteBranchOn', marker: 'remoteBranches', enabled: true },
+	{
+		action: 'scrollMarker',
+		id: 'gitlens.graph.scrollMarkerRemoteBranchOff',
+		marker: 'remoteBranches',
+		enabled: false,
+	},
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerStashOn', marker: 'stashes', enabled: true },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerStashOff', marker: 'stashes', enabled: false },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerTagOn', marker: 'tags', enabled: true },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerTagOff', marker: 'tags', enabled: false },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerPullRequestOn', marker: 'pullRequests', enabled: true },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerPullRequestOff', marker: 'pullRequests', enabled: false },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerWipOn', marker: 'wip', enabled: true },
+	{ action: 'scrollMarker', id: 'gitlens.graph.scrollMarkerWipOff', marker: 'wip', enabled: false },
+
+	// Column mode toggles
+	{ action: 'mode', id: 'gitlens.graph.columnGraphCompact', mode: 'compact' },
+	{ action: 'mode', id: 'gitlens.graph.columnGraphDefault' },
+
+	// Lane density setters — toggle the `gitlens.graph.lanes.density` setting (not column state)
+	{
+		action: 'configuration',
+		id: 'gitlens.graph.setLaneDensityToCompact',
+		section: 'graph.lanes.density',
+		value: 'compact',
+	},
+	{
+		action: 'configuration',
+		id: 'gitlens.graph.setLaneDensityToExpanded',
+		section: 'graph.lanes.density',
+		value: 'expanded',
+	},
+
+	// Graph-style setters — toggle the `gitlens.graph.style` setting (whole-graph row layout, not column state)
+	{ action: 'configuration', id: 'gitlens.graph.setStyleAuto', section: 'graph.style', value: 'auto' },
+	{ action: 'configuration', id: 'gitlens.graph.setStyleTable', section: 'graph.style', value: 'table' },
+	{ action: 'configuration', id: 'gitlens.graph.setStyleList', section: 'graph.style', value: 'list' },
+];
+
+function executeGraphToggle(spec: GraphToggleCommand, context: GraphCommandsContext): Promise<void> | void {
+	switch (spec.action) {
+		case 'column':
+			return context.toggleColumn(spec.name, spec.visible);
+		case 'grouping':
+			return context.toggleColumnGrouping(spec.name, spec.grouped);
+		case 'scrollMarker':
+			return context.toggleScrollMarker(spec.marker, spec.enabled);
+		case 'mode':
+			return context.setColumnMode('graph', spec.mode);
+		default:
+			return void configuration.updateEffective(spec.section, spec.value);
+	}
+}
+
+for (const spec of toggleCommands) {
+	// Structural `this`: the webview binds each handler to the live GraphCommands instance before
+	// invocation, so `context` resolves here exactly as it does on the class's prototype methods.
+	graphCommandDecorator.register(spec.id, function (this: { context: GraphCommandsContext }) {
+		return executeGraphToggle(spec, this.context);
+	});
+}
+
 /** Host-side handlers for every `@command`-decorated graph action, split out of `GraphWebviewProvider`
  *  (R3). The provider owns state/IPC and injects the collaborators via {@link GraphCommandsContext}. */
 export class GraphCommands {
@@ -2305,104 +2437,33 @@ export class GraphCommands {
 
 	@command('gitlens.graph.compareAncestryWithWorking')
 	@debug()
-	private async compareAncestryWithWorking(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
-
-		// Anchor on the user's current worktree — both the merge-base computation and the WT-files
-		// fetch resolve relative to this. Avoids the multi-worktree degenerate case where
-		// `getBranch(ref.repoPath)` returns the same ref as `ref.ref`.
-		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
-		const svc = this.container.git.getRepositoryService(currentRepoPath);
-		const currentBranch = await svc.branches.getBranch();
-		if (currentBranch == null) return undefined;
-
-		const commonAncestor = await svc.refs.getMergeBase(currentBranch.ref, ref.ref);
-		if (commonAncestor == null) return undefined;
-
-		// Convention: leftRef = Base (older), rightRef = Compare (newer / has WT). The merge base
-		// is the older anchor; the current branch carries the working tree.
-		return this.notifyOpenCompareMode({
-			repoPath: currentRepoPath,
-			leftRef: commonAncestor,
-			leftRefType: 'commit',
-			rightRef: currentBranch.ref,
-			rightRefType: 'branch',
+	private compareAncestryWithWorking(item?: GraphItemContext) {
+		// Convention: leftRef = Base (older = merge base), rightRef = Compare (newer = the current
+		// branch, which carries the working tree).
+		return this.openCompareModeFor(item, {
+			baseOnMergeBase: true,
+			sideWithCurrentBranch: true,
 			includeWorkingTree: true,
 		});
 	}
 
 	@command('gitlens.graph.compareWithHead')
 	@debug()
-	private async compareHeadWith(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
-
-		// Resolve HEAD against the user's current worktree before ordering — `'HEAD'` as an opaque
-		// string would otherwise resolve against `ref.repoPath`, which may be a different worktree.
-		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
-		const currentBranch = await this.container.git.getRepositoryService(currentRepoPath).branches.getBranch();
-		const headRef = currentBranch?.ref ?? 'HEAD';
-
-		// `getOrderedComparisonRefs` returns `[newer, older]`. Convention is leftRef = Base (older),
-		// rightRef = Compare (newer), so the older ref lands on the left.
-		const [newer, older] = await getOrderedComparisonRefs(this.container, currentRepoPath, headRef, ref.ref);
-		const newerIsHead = newer === headRef;
-		return this.notifyOpenCompareMode({
-			repoPath: currentRepoPath,
-			leftRef: older,
-			leftRefType: newerIsHead ? this.graphCompareRefType(ref.refType) : 'branch',
-			rightRef: newer,
-			rightRefType: newerIsHead ? 'branch' : this.graphCompareRefType(ref.refType),
-		});
+	private compareHeadWith(item?: GraphItemContext) {
+		return this.openCompareModeFor(item, { orderNewestRight: true });
 	}
 
 	@command('gitlens.graph.compareBranchWithHead')
 	@debug()
-	private async compareBranchWithHead(item?: GraphItemContext | BranchRef) {
-		const ref = await this.resolveBranchRef(item);
-		if (ref == null) return;
-
-		// Resolve HEAD to the user's current worktree's branch — passing `'HEAD'` as a string would
-		// resolve against the IPC `repoPath` on the host, which may be a different worktree.
-		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
-		const currentBranch = await this.container.git.getRepositoryService(currentRepoPath).branches.getBranch();
-
-		await this.notifyOpenCompareMode({
-			repoPath: currentRepoPath,
-			leftRef: ref.ref,
-			leftRefType: 'branch',
-			rightRef: currentBranch?.ref ?? 'HEAD',
-			rightRefType: 'branch',
-		});
+	private compareBranchWithHead(item?: GraphItemContext | BranchRef) {
+		return this.openCompareModeFor(item, { resolveBranch: true, sideWithCurrentBranch: true });
 	}
 
 	@command('gitlens.graph.compareWithMergeBase')
 	@debug()
-	private async compareWithMergeBase(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
-
-		// "Compare with Common Base" is conceptually "where this branch diverged from where I'm
-		// working." Anchor the merge-base on the user's current worktree's branch, not the clicked
-		// ref's worktree's branch — otherwise in multi-worktree the merge-base degenerates to the
-		// ref itself when `getBranch(ref.repoPath)` returns `ref.ref`.
-		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
-		const svc = this.container.git.getRepositoryService(currentRepoPath);
-		const currentBranch = await svc.branches.getBranch();
-		if (currentBranch == null) return undefined;
-
-		const commonAncestor = await svc.refs.getMergeBase(currentBranch.ref, ref.ref);
-		if (commonAncestor == null) return undefined;
-
-		// Convention: leftRef = Base (older = merge base), rightRef = Compare (newer = clicked ref).
-		return this.notifyOpenCompareMode({
-			repoPath: currentRepoPath,
-			leftRef: commonAncestor,
-			leftRefType: 'commit',
-			rightRef: ref.ref,
-			rightRefType: this.graphCompareRefType(ref.refType),
-		});
+	private compareWithMergeBase(item?: GraphItemContext) {
+		// "Compare with Common Base" is conceptually "where this branch diverged from where I'm working".
+		return this.openCompareModeFor(item, { baseOnMergeBase: true });
 	}
 
 	@command('gitlens.graph.openChangedFileDiffsWithMergeBase')
@@ -2483,27 +2544,12 @@ export class GraphCommands {
 
 	@command('gitlens.graph.compareWithWorking')
 	@debug()
-	private async compareWorkingWith(item?: GraphItemContext | BranchRef) {
-		const ref = await this.resolveBranchRef(item);
-		if (ref == null) return;
-
-		// Anchor against the user's *current* worktree — `getBranch()` and the host's WT-files
-		// fetch (`getBranchComparisonWorkingTreeFiles`) both run against this repoPath, so passing
-		// the current worktree's path makes the WT and the resolved branch ref both belong to
-		// where the user is actually working — not to whichever worktree the clicked ref happens
-		// to live in.
-		//
-		// Convention: leftRef = Base (the clicked ref we're comparing against),
-		// rightRef = Compare (the current branch, which carries the working tree).
-		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
-		const currentBranch = await this.container.git.getRepositoryService(currentRepoPath).branches.getBranch();
-
-		await this.notifyOpenCompareMode({
-			repoPath: currentRepoPath,
-			leftRef: ref.ref,
-			leftRefType: 'branch',
-			rightRef: currentBranch?.ref ?? 'HEAD',
-			rightRefType: 'branch',
+	private compareWorkingWith(item?: GraphItemContext | BranchRef) {
+		// Convention: leftRef = Base (the clicked ref we're comparing against), rightRef = Compare
+		// (the current branch, which carries the working tree).
+		return this.openCompareModeFor(item, {
+			resolveBranch: true,
+			sideWithCurrentBranch: true,
 			includeWorkingTree: true,
 		});
 	}
@@ -2920,18 +2966,7 @@ export class GraphCommands {
 
 		// Webview action-link path (graph overview card): branch identity arrives as a BranchRef.
 		if (item != null && 'branchId' in item) {
-			const repoPath = item.repoPath;
-			let worktreesByBranch;
-			if (repoPath === this._graphSession?.repoPath) {
-				worktreesByBranch = this._graphSession?.current.worktreesByBranch;
-			} else {
-				const repo = this.container.git.getRepository(repoPath);
-				if (repo == null) return;
-
-				worktreesByBranch = await getWorktreesByBranch(repo);
-			}
-
-			const worktree = worktreesByBranch?.get(item.branchId);
+			const worktree = await this.getGraphItemBranchWorktree(item.repoPath, item.branchId);
 			if (worktree == null) return;
 
 			openWorkspace(worktree.uri, options);
@@ -2942,17 +2977,7 @@ export class GraphCommands {
 			const { ref } = item.webviewItemValue;
 			if (ref.id == null) return;
 
-			let worktreesByBranch;
-			if (ref.repoPath === this._graphSession?.repoPath) {
-				worktreesByBranch = this._graphSession?.current.worktreesByBranch;
-			} else {
-				const repo = this.container.git.getRepository(ref.repoPath);
-				if (repo == null) return;
-
-				worktreesByBranch = await getWorktreesByBranch(repo);
-			}
-
-			const worktree = worktreesByBranch?.get(ref.id);
+			const worktree = await this.getGraphItemBranchWorktree(ref.repoPath, ref.id);
 			if (worktree == null) return;
 
 			openWorkspace(worktree.uri, options);
@@ -3079,196 +3104,6 @@ export class GraphCommands {
 		});
 	}
 
-	// Column toggle wrappers
-	@command('gitlens.graph.columnAuthorOn')
-	private columnAuthorOn() {
-		return this.context.toggleColumn('author', true);
-	}
-
-	@command('gitlens.graph.columnAuthorOff')
-	private columnAuthorOff() {
-		return this.context.toggleColumn('author', false);
-	}
-
-	@command('gitlens.graph.columnDateTimeOn')
-	private columnDateTimeOn() {
-		return this.context.toggleColumn('datetime', true);
-	}
-
-	@command('gitlens.graph.columnDateTimeOff')
-	private columnDateTimeOff() {
-		return this.context.toggleColumn('datetime', false);
-	}
-
-	@command('gitlens.graph.columnShaOn')
-	private columnShaOn() {
-		return this.context.toggleColumn('sha', true);
-	}
-
-	@command('gitlens.graph.columnShaOff')
-	private columnShaOff() {
-		return this.context.toggleColumn('sha', false);
-	}
-
-	@command('gitlens.graph.columnChangesOn')
-	private columnChangesOn() {
-		return this.context.toggleColumn('changes', true);
-	}
-
-	@command('gitlens.graph.columnChangesOff')
-	private columnChangesOff() {
-		return this.context.toggleColumn('changes', false);
-	}
-
-	@command('gitlens.graph.columnGraphOn')
-	private columnGraphOn() {
-		return this.context.toggleColumn('graph', true);
-	}
-
-	@command('gitlens.graph.columnGraphOff')
-	private columnGraphOff() {
-		return this.context.toggleColumn('graph', false);
-	}
-
-	@command('gitlens.graph.columnGraphGroup')
-	private columnGraphGroup() {
-		return this.context.toggleColumnGrouping('graph', true);
-	}
-
-	@command('gitlens.graph.columnGraphUngroup')
-	private columnGraphUngroup() {
-		return this.context.toggleColumnGrouping('graph', false);
-	}
-
-	@command('gitlens.graph.columnMessageOn')
-	private columnMessageOn() {
-		return this.context.toggleColumn('message', true);
-	}
-
-	@command('gitlens.graph.columnMessageOff')
-	private columnMessageOff() {
-		return this.context.toggleColumn('message', false);
-	}
-
-	@command('gitlens.graph.columnRefOn')
-	private columnRefOn() {
-		return this.context.toggleColumn('ref', true);
-	}
-
-	@command('gitlens.graph.columnRefOff')
-	private columnRefOff() {
-		return this.context.toggleColumn('ref', false);
-	}
-
-	@command('gitlens.graph.columnRefGroup')
-	private columnRefGroup() {
-		return this.context.toggleColumnGrouping('ref', true);
-	}
-
-	@command('gitlens.graph.columnRefUngroup')
-	private columnRefUngroup() {
-		return this.context.toggleColumnGrouping('ref', false);
-	}
-
-	// Scroll marker toggle wrappers
-	@command('gitlens.graph.scrollMarkerLocalBranchOn')
-	private scrollMarkerLocalBranchOn() {
-		return this.context.toggleScrollMarker('localBranches', true);
-	}
-
-	@command('gitlens.graph.scrollMarkerLocalBranchOff')
-	private scrollMarkerLocalBranchOff() {
-		return this.context.toggleScrollMarker('localBranches', false);
-	}
-
-	@command('gitlens.graph.scrollMarkerRemoteBranchOn')
-	private scrollMarkerRemoteBranchOn() {
-		return this.context.toggleScrollMarker('remoteBranches', true);
-	}
-
-	@command('gitlens.graph.scrollMarkerRemoteBranchOff')
-	private scrollMarkerRemoteBranchOff() {
-		return this.context.toggleScrollMarker('remoteBranches', false);
-	}
-
-	@command('gitlens.graph.scrollMarkerStashOn')
-	private scrollMarkerStashOn() {
-		return this.context.toggleScrollMarker('stashes', true);
-	}
-
-	@command('gitlens.graph.scrollMarkerStashOff')
-	private scrollMarkerStashOff() {
-		return this.context.toggleScrollMarker('stashes', false);
-	}
-
-	@command('gitlens.graph.scrollMarkerTagOn')
-	private scrollMarkerTagOn() {
-		return this.context.toggleScrollMarker('tags', true);
-	}
-
-	@command('gitlens.graph.scrollMarkerTagOff')
-	private scrollMarkerTagOff() {
-		return this.context.toggleScrollMarker('tags', false);
-	}
-
-	@command('gitlens.graph.scrollMarkerPullRequestOn')
-	private scrollMarkerPullRequestOn() {
-		return this.context.toggleScrollMarker('pullRequests', true);
-	}
-
-	@command('gitlens.graph.scrollMarkerPullRequestOff')
-	private scrollMarkerPullRequestOff() {
-		return this.context.toggleScrollMarker('pullRequests', false);
-	}
-
-	@command('gitlens.graph.scrollMarkerWipOn')
-	private scrollMarkerWipOn() {
-		return this.context.toggleScrollMarker('wip', true);
-	}
-
-	@command('gitlens.graph.scrollMarkerWipOff')
-	private scrollMarkerWipOff() {
-		return this.context.toggleScrollMarker('wip', false);
-	}
-
-	// Column mode wrappers
-	@command('gitlens.graph.columnGraphCompact')
-	private columnGraphCompact() {
-		return this.context.setColumnMode('graph', 'compact');
-	}
-
-	@command('gitlens.graph.columnGraphDefault')
-	private columnGraphDefault() {
-		return this.context.setColumnMode('graph', undefined);
-	}
-
-	// Lane density wrappers — these toggle the `gitlens.graph.lanes.density` setting (not column state)
-	@command('gitlens.graph.setLaneDensityToCompact')
-	private setLaneDensityToCompact() {
-		void configuration.updateEffective('graph.lanes.density', 'compact');
-	}
-
-	@command('gitlens.graph.setLaneDensityToExpanded')
-	private setLaneDensityToExpanded() {
-		void configuration.updateEffective('graph.lanes.density', 'expanded');
-	}
-
-	// Graph-style wrappers — toggle the `gitlens.graph.style` setting (whole-graph row layout, not column state)
-	@command('gitlens.graph.setStyleAuto')
-	private setStyleAuto() {
-		void configuration.updateEffective('graph.style', 'auto');
-	}
-
-	@command('gitlens.graph.setStyleTable')
-	private setStyleTable() {
-		void configuration.updateEffective('graph.style', 'table');
-	}
-
-	@command('gitlens.graph.setStyleList')
-	private setStyleList() {
-		void configuration.updateEffective('graph.style', 'list');
-	}
-
 	@command('gitlens.ai.generateChangelogFrom:')
 	@debug()
 	private async generateChangelogFrom(item?: GraphItemContext) {
@@ -3349,6 +3184,82 @@ export class GraphCommands {
 		return Promise.resolve();
 	}
 
+	/** Shared scaffolding for the compare commands that open compare mode against the user's current
+	 *  worktree: resolves the target ref from the action's item, anchors on the current worktree —
+	 *  both `'HEAD'` and the WT-files fetch resolve where the user is actually working rather than
+	 *  wherever the clicked ref happens to live (avoids the multi-worktree degenerate case where
+	 *  `getBranch(ref.repoPath)` returns the clicked ref itself) — optionally computes the merge
+	 *  base against the current branch, then fires the open-compare-mode request. Convention
+	 *  throughout: leftRef = Base (older), rightRef = Compare (newer).
+	 *
+	 *  Distinct null/fallback policies are preserved per command: `baseOnMergeBase` bails silently
+	 *  when the current branch or merge base can't be resolved, while the ordered and
+	 *  current-branch paths fall back to `'HEAD'` when there's no current branch. */
+	private async openCompareModeFor(
+		item: GraphItemContext | BranchRef | undefined,
+		options: {
+			/** Resolve the target as a branch ref, accepting the webview action-link BranchRef payload */
+			resolveBranch?: boolean;
+			/** Base the comparison on the merge base of the target and the current worktree's branch */
+			baseOnMergeBase?: boolean;
+			/** Put the current branch ('HEAD' fallback) on the Compare side instead of the target ref */
+			sideWithCurrentBranch?: boolean;
+			/** Order the two refs newest-right before comparing */
+			orderNewestRight?: boolean;
+			includeWorkingTree?: boolean;
+		},
+	): Promise<void> {
+		const ref = options.resolveBranch === true ? await this.resolveBranchRef(item) : this.getGraphItemRef(item);
+		if (ref == null) return;
+
+		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
+
+		if (options.baseOnMergeBase === true) {
+			const svc = this.container.git.getRepositoryService(currentRepoPath);
+
+			const currentBranch = await svc.branches.getBranch();
+			if (currentBranch == null) return;
+
+			const commonAncestor = await svc.refs.getMergeBase(currentBranch.ref, ref.ref);
+			if (commonAncestor == null) return;
+
+			return void this.notifyOpenCompareMode({
+				repoPath: currentRepoPath,
+				leftRef: commonAncestor,
+				leftRefType: 'commit',
+				rightRef: options.sideWithCurrentBranch === true ? currentBranch.ref : ref.ref,
+				rightRefType: options.sideWithCurrentBranch === true ? 'branch' : this.graphCompareRefType(ref.refType),
+				...(options.includeWorkingTree ? { includeWorkingTree: true } : undefined),
+			});
+		}
+
+		const currentBranch = await this.container.git.getRepositoryService(currentRepoPath).branches.getBranch();
+		const headRef = currentBranch?.ref ?? 'HEAD';
+
+		if (options.orderNewestRight === true) {
+			// `getOrderedComparisonRefs` returns `[newer, older]`; the older ref lands on the left.
+			// The non-HEAD side carries the clicked ref's own type while the HEAD side stays 'branch'.
+			const [newer, older] = await getOrderedComparisonRefs(this.container, currentRepoPath, headRef, ref.ref);
+			const newerIsHead = newer === headRef;
+			return void this.notifyOpenCompareMode({
+				repoPath: currentRepoPath,
+				leftRef: older,
+				leftRefType: newerIsHead ? this.graphCompareRefType(ref.refType) : 'branch',
+				rightRef: newer,
+				rightRefType: newerIsHead ? 'branch' : this.graphCompareRefType(ref.refType),
+			});
+		}
+
+		await this.notifyOpenCompareMode({
+			repoPath: currentRepoPath,
+			leftRef: ref.ref,
+			leftRefType: 'branch',
+			rightRef: headRef,
+			rightRefType: 'branch',
+			...(options.includeWorkingTree ? { includeWorkingTree: true } : undefined),
+		});
+	}
+
 	private async resolveBranchRef(
 		item: GraphItemContext | BranchRef | undefined,
 	): Promise<GitBranchReference | undefined> {
@@ -3410,22 +3321,29 @@ export class GraphCommands {
 		return 'worktreePath' in value ? value.worktreePath : undefined;
 	}
 
+	/** Resolves the worktree that owns the given branch, preferring the live graph session's
+	 *  worktrees-by-branch cache when the branch belongs to the graph's repo and falling back to a
+	 *  fresh lookup against the branch's own repo otherwise. */
+	private async getGraphItemBranchWorktree(repoPath: string, branchId: string): Promise<GitWorktree | undefined> {
+		let worktreesByBranch;
+		if (repoPath === this._graphSession?.repoPath) {
+			worktreesByBranch = this._graphSession?.current.worktreesByBranch;
+		} else {
+			const repo = this.container.git.getRepository(repoPath);
+			if (repo == null) return undefined;
+
+			worktreesByBranch = await getWorktreesByBranch(repo);
+		}
+
+		return worktreesByBranch?.get(branchId);
+	}
+
 	private async getGraphItemWorktree(item?: GraphItemContext | unknown): Promise<GitWorktree | undefined> {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.id == null) return undefined;
 
-			let worktreesByBranch;
-			if (ref.repoPath === this._graphSession?.repoPath) {
-				worktreesByBranch = this._graphSession?.current.worktreesByBranch;
-			} else {
-				const repo = this.container.git.getRepository(ref.repoPath);
-				if (repo == null) return undefined;
-
-				worktreesByBranch = await getWorktreesByBranch(repo);
-			}
-
-			return worktreesByBranch?.get(ref.id);
+			return this.getGraphItemBranchWorktree(ref.repoPath, ref.id);
 		}
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref, worktreePath } = item.webviewItemValue;

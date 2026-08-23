@@ -25,8 +25,18 @@ export function createCommandDecorator<
 		descriptor?: PropertyDescriptor,
 	) => PropertyDescriptor | undefined;
 	getCommands: () => Iterable<Command<TCommand, THandler, TOptions>>;
+	register: (command: TCommand, handler: THandler, options?: TOptions) => void;
 } {
 	const commands = new Map<string, Command<TCommand, THandler, TOptions>>();
+
+	function register(command: TCommand, handler: THandler, options?: TOptions) {
+		if (commands.has(command)) {
+			debugger;
+			throw new Error(`A handler has already been registered for the command: ${command}`);
+		}
+
+		commands.set(command, { command: command, handler: handler, options: options });
+	}
 
 	function command(command: TCommand, options?: TOptions) {
 		return function (
@@ -67,6 +77,7 @@ export function createCommandDecorator<
 	return {
 		command: command,
 		getCommands: () => commands.values(),
+		register: register,
 	};
 }
 
