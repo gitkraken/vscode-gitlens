@@ -44,6 +44,7 @@ export interface AppState extends State {
 	mcpCanAutoRegister?: boolean | undefined;
 	canInstallHooks?: boolean | undefined;
 	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
+	graphWalkthroughStarted?: boolean | undefined;
 	navigating: 'next' | 'previous' | false;
 	overviewWip?: { branchIds: string[]; wip: GetOverviewWipResponse };
 	overviewEnrichment?: GetOverviewEnrichmentResponse;

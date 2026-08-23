@@ -21,8 +21,8 @@ import {
 	GetOverviewRequest,
 	GetOverviewWipDetailedRequest,
 	GetOverviewWipRequest,
-	TrackGraphOverviewShownCommand,
 } from '../../../../plus/graph/protocol.js';
+import { fireAndForget } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
@@ -30,7 +30,7 @@ import { RovingTabindexController } from '../../../shared/controllers/roving-tab
 import type { HostIpc } from '../../../shared/ipc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
-import { graphStateContext } from '../context.js';
+import { graphServicesContext, graphStateContext } from '../context.js';
 import './graph-overview-card.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -275,6 +275,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
+
+	@consume({ context: graphServicesContext, subscribe: true })
+	private services?: typeof graphServicesContext.__context__;
 
 	@state()
 	private _wipData: GetOverviewWipResponse = {};
@@ -524,9 +527,14 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 		// Fire the shown event once overview data is available AND the sidebar is visible so the
 		// walkthrough step only completes when the user actually sees the overview.
-		if (!this._shownEmitted && overview != null && this._state.sidebar?.visible) {
+		// Also gated on `services` so a render before RPC connects doesn't latch the guard and drop
+		// the walkthrough-step completion for the whole mount.
+		if (!this._shownEmitted && overview != null && this._state.sidebar?.visible && this.services != null) {
 			this._shownEmitted = true;
-			this._ipc.sendCommand(TrackGraphOverviewShownCommand, undefined);
+			fireAndForget(
+				this.services.telemetry.then(t => t.trackUsage('action:gitlens.graph.overview.shown:happened')),
+				'track usage',
+			);
 			emitTelemetrySentEvent<'graph/overview/shown'>(this, {
 				name: 'graph/overview/shown',
 				data: {

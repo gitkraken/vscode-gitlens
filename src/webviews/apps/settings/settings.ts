@@ -116,6 +116,9 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 				services.walkthrough,
 			]);
 
+			// Subscription changes invalidate the promo cache (`gl-feature-badge`).
+			this._promos.connect(subscription);
+
 			const actions = new SettingsActions(s, services, settings);
 			this._actions = actions;
 

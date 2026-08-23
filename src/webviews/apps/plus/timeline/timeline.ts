@@ -118,6 +118,9 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 			services.config,
 		]);
 
+		// Subscription changes invalidate the promo cache.
+		this._promos.connect(subscription);
+
 		// Create dataset resource — fetcher reads current state signals via closure. `loadedSpanMs`
 		// is what powers progressive load-more: when the user zooms past the loaded oldest, the
 		// chart fires `gl-load-more`, the action bumps `loadedSpanMs` by a chunk, and this fetcher

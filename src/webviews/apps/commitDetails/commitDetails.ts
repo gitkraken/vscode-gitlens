@@ -161,6 +161,9 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 			services.telemetry,
 		]);
 
+		// Promo cache invalidation — the surface renders promos via `gl-feature-badge`.
+		this._promos.connect(subscription);
+
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
 		// thenable; the disable is required — this is how Supertalk property access works.

@@ -102,8 +102,8 @@ export class GitActionsButtons extends LitElement {
 	@property({ type: String })
 	branchName?: string;
 
-	@property({ type: Object })
-	lastFetched?: Date;
+	@property({ type: Number })
+	lastFetched?: number;
 
 	/** The graph's own worktree's hot WIP state — its entry in the row-keyed `wipStateById` plane. */
 	@property({ type: Object })
@@ -118,23 +118,14 @@ export class GitActionsButtons extends LitElement {
 		return stats.added + stats.deleted + stats.modified + (stats.renamed ?? 0) > 0;
 	}
 
-	private get lastFetchedDate(): Date | undefined {
-		if (!this.lastFetched) return undefined;
-
-		const d = typeof this.lastFetched === 'string' ? new Date(this.lastFetched) : this.lastFetched;
-		return d.getTime() !== 0 ? d : undefined;
-	}
-
 	private get fetchedText(): string | undefined {
-		const d = this.lastFetchedDate;
-		return d != null ? fromNow(d) : undefined;
+		return this.lastFetched ? fromNow(this.lastFetched) : undefined;
 	}
 
 	private get fetchedTextShort(): string | undefined {
-		const d = this.lastFetchedDate;
-		if (d == null) return undefined;
-		if (Date.now() - d.getTime() < 1000) return 'now';
-		return `${fromNow(d, true)} ago`;
+		if (!this.lastFetched) return undefined;
+		if (Date.now() - this.lastFetched < 1000) return 'now';
+		return `${fromNow(this.lastFetched, true)} ago`;
 	}
 
 	private onJumpToWip() {

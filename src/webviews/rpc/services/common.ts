@@ -93,7 +93,7 @@ export function createSharedServices(
 		autolinks: new AutolinksService(container),
 		branches: new BranchesService(container),
 		commands: new CommandsService(container, host),
-		telemetry: new TelemetryService(host, updateTelemetryContext),
+		telemetry: new TelemetryService(host, updateTelemetryContext, container.usage, buffer, tracker),
 		files: new FilesService(container),
 		pullRequests: new PullRequestsService(container),
 		drafts: new DraftsService(container, host),

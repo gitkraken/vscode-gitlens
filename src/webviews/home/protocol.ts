@@ -16,7 +16,6 @@ import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../plus/l
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcNotification } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 import type { OverviewBranch, OverviewRecentThreshold, OverviewStaleThreshold } from '../shared/overviewBranches.js';
 
@@ -52,12 +51,6 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 }
 
 export type { AgentSessionState };
-
-export interface SubscriptionState {
-	subscription: Subscription;
-	avatar: string;
-	organizationsCount: number;
-}
 
 export interface IntegrationState extends IntegrationDescriptor {
 	connected: boolean;
@@ -290,14 +283,3 @@ export type {
 	CreatePullRequestCommandArgs,
 	OpenWorktreeCommandArgs,
 } from '../shared/branchRefs.js';
-
-// ============================================================
-// Legacy IPC (kept for shared contexts like promos.ts)
-// ============================================================
-
-export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-	avatar: string;
-	organizationsCount: number;
-}
-export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');

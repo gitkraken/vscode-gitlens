@@ -22,7 +22,7 @@ import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphBranchesVisibility } from '../../../../config.js';
 import type { GlExtensionCommands } from '../../../../constants.commands.js';
-import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
+import type { GraphDetailsMode, TrackedUsageKeys } from '../../../../constants.telemetry.js';
 import { mergeWebviewItems } from '../../../../system/webview.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
@@ -55,12 +55,6 @@ import {
 	isWipSelectionSha,
 	MergePullRequestRequest,
 	ResetGraphFiltersCommand,
-	TrackGraphDetailsCompareModeCommand,
-	TrackGraphDetailsComposeModeCommand,
-	TrackGraphDetailsResolveModeCommand,
-	TrackGraphDetailsReviewModeCommand,
-	TrackGraphDetailsWipShownCommand,
-	TrackGraphScopeChangedCommand,
 	UpdateColumnModeCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
@@ -522,7 +516,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.coachMarksAllowed &&
 			// The banner auto-opens for the same audience and `closeOthers()` can't reach it, so a tip
 			// would land on top. One session only: nothing expires the banner on its own.
-			(deferredBefore === true || !isGraphWalkthroughBannerHighlighted(this.graphState))
+			(deferredBefore === true ||
+				!isGraphWalkthroughBannerHighlighted({
+					bannerCollapsed: this._dismissals?.get('graph-walkthrough:banner'),
+					graphWalkthroughProgress: this._onboardingState.graphWalkthroughProgress.get(),
+					graphWalkthroughStarted: this.graphState.graphWalkthroughStarted,
+				}))
 		);
 	}
 
@@ -652,6 +651,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return gs.repositories?.find(r => r.id === gs.selectedRepository)?.virtual ?? false;
 	}
 
+	/** Whether the one-time layout-choice prompt should show. Bootstrap seeds the initial value (no
+	 *  async fetch on first render — flash risk); a live dismissal of `graph:layoutPrompt` (e.g. from
+	 *  another window) flips it false via the onboarding dismissals cache, which only ever transitions
+	 *  true → false, never back. */
+	private get layoutPromptNeeded(): boolean {
+		return (this.graphState.layoutPromptNeeded ?? false) && this._dismissals?.get('graph:layoutPrompt') !== true;
+	}
+
 	// use Light DOM
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;
@@ -676,6 +683,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
+
+	/** Fire-and-forget usage tracking (drives walkthrough state + `usage/track` telemetry). */
+	private trackUsage(key: TrackedUsageKeys): void {
+		const services = this.services;
+		if (services == null) return;
+
+		fireAndForget(
+			services.telemetry.then(t => t.trackUsage(key)),
+			'track usage',
+		);
+	}
 
 	// Cross-pane shared signals: state owned by one pane (e.g. the details panel's
 	// running-modes registry) but observed by another (e.g. row adornments in the graph
@@ -2651,7 +2669,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._bannerDeferredBefore ??= deferral;
 			// Only when the banner is what's actually holding marks back: the header doesn't render
 			// without a repo, so there may be no banner to defer to.
-			if (!deferral && this.coachMarksAllowed && isGraphWalkthroughBannerHighlighted(this.graphState)) {
+			if (
+				!deferral &&
+				this.coachMarksAllowed &&
+				isGraphWalkthroughBannerHighlighted({
+					bannerCollapsed: this._dismissals?.get('graph-walkthrough:banner'),
+					graphWalkthroughProgress: this._onboardingState.graphWalkthroughProgress.get(),
+					graphWalkthroughStarted: this.graphState.graphWalkthroughStarted,
+				})
+			) {
 				this._dismissals?.dismiss('graph:coachMarks:bannerDeferral');
 			}
 		}
@@ -2675,7 +2701,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._introShownReported = true;
 			emitTelemetrySentEvent<'graph/intro/shown'>(this, {
 				name: 'graph/intro/shown',
-				data: { withLayoutOptions: this.graphState.layoutPromptNeeded ?? false },
+				data: { withLayoutOptions: this.layoutPromptNeeded },
 			});
 		}
 
@@ -2904,7 +2930,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				.intentAction=${this._gatedPendingAction?.action}
 				.welcome=${this.shouldShowWelcome}
 				.liveSignIn=${this._postSignInPending}
-				.showLayoutOptions=${this.graphState.layoutPromptNeeded ?? false}
+				.showLayoutOptions=${this.layoutPromptNeeded}
 				.upgradedFromPreV19=${this.graphState.upgradedFromPreV19 ?? false}
 				@gl-continue=${this.onWelcomeContinue}
 			></gl-graph-access-account>`;
@@ -3084,7 +3110,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
+		this.trackUsage('action:gitlens.graph.details.wipShown:happened');
 	}
 
 	private renderGraphPaneContent() {
@@ -4471,7 +4497,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				isWipSelectionSha(selectedSha) || (single == null && multi == null && this.fallbackRepoPath != null);
 			if (effectivelyUncommitted && this._nextStepsShownWhileHidden) {
 				this._nextStepsShownWhileHidden = false;
-				this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
+				this.trackUsage('action:gitlens.graph.details.wipShown:happened');
 			}
 			const host = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'view';
 			const location = this.effectiveDetailsLocation;
@@ -4529,16 +4555,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		switch (e.detail.current) {
 			case 'review':
-				this._ipc.sendCommand(TrackGraphDetailsReviewModeCommand, undefined);
+				this.trackUsage('action:gitlens.graph.details.reviewMode:happened');
 				break;
 			case 'compose':
-				this._ipc.sendCommand(TrackGraphDetailsComposeModeCommand, undefined);
+				this.trackUsage('action:gitlens.graph.details.composeMode:happened');
 				break;
 			case 'resolve':
-				this._ipc.sendCommand(TrackGraphDetailsResolveModeCommand, undefined);
+				this.trackUsage('action:gitlens.graph.details.resolveMode:happened');
 				break;
 			case 'compare':
-				this._ipc.sendCommand(TrackGraphDetailsCompareModeCommand, undefined);
+				this.trackUsage('action:gitlens.graph.details.compareMode:happened');
 				break;
 		}
 
@@ -4702,7 +4728,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const choice = e.detail?.layoutChoice ?? 'dismissed';
 		// Preserve layout analytics: fire only when the layout section was actually shown.
-		if (this.graphState.layoutPromptNeeded ?? false) {
+		if (this.layoutPromptNeeded) {
 			emitTelemetrySentEvent<'graph/layoutPrompt/choice'>(this, {
 				name: 'graph/layoutPrompt/choice',
 				data: { choice: choice },
@@ -5279,7 +5305,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this._ipc.sendCommand(TrackGraphScopeChangedCommand, undefined);
+		this.trackUsage('action:gitlens.graph.scope.changed:happened');
 		emitTelemetrySentEvent<'graph/scope/changed'>(this, {
 			name: 'graph/scope/changed',
 			data: {

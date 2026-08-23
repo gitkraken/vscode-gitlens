@@ -441,6 +441,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			services.agents,
 		]);
 
+		// Subscription changes invalidate the promo cache.
+		this._promos.connect(subscription);
+
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
 		// thenable; the disable is required — this is how Supertalk property access works.

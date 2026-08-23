@@ -61,7 +61,6 @@ import type {
 	TimelineScopeSerialized,
 	TimelineServices,
 } from './protocol.js';
-import { DidChangeNotification } from './protocol.js';
 import type { TimelineWebviewShowingArgs } from './registration.js';
 import { buildTimelineDataset, buildWipDatums } from './timelineDataset.js';
 import {
@@ -102,9 +101,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		return getTabUri(window.tabGroups.activeTabGroup.activeTab);
 	}
 
-	/** Subscription listener — fires legacy IPC notification for PromosContext cache invalidation */
-	private readonly _subscriptionDisposable: Disposable;
-
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost<'gitlens.views.timeline' | 'gitlens.timeline'>,
@@ -112,21 +108,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		if (this.host.is('view')) {
 			this.host.description = proBadge;
 		}
-
-		// Bridge: fire legacy DidChangeNotification on subscription changes so
-		// PromosContext (which listens for IPC, not RPC) can clear its cache
-		this._subscriptionDisposable = this.container.subscription.onDidChange(() => {
-			const state: Partial<State> = {
-				webviewId: this.host.id,
-				webviewInstanceId: this.host.instanceId,
-				timestamp: Date.now(),
-			};
-			void this.host.notify(DidChangeNotification, { state: state as State });
-		});
 	}
 
 	dispose(): void {
-		this._subscriptionDisposable.dispose();
 		this._onScopeChanged.dispose();
 		this._disposable?.dispose();
 		this._repositorySubscription?.dispose();

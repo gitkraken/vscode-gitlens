@@ -35,6 +35,8 @@ import type {
 } from '../../shared/components/search/search-input.js';
 import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { WebviewContext } from '../../shared/contexts/webview.js';
@@ -178,6 +180,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
 
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _sidebarActions?: SidebarActions;
 
@@ -260,7 +265,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private _lastNavigationRepoPath: string | undefined;
 
 	override updated(changedProperties: PropertyValues): void {
-		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && (this.graphState.orgSettings?.ai ?? true);
+		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && this._subscription.orgSettings.get().ai;
 
 		const currentRepoPath = this.graphState.selectedRepository;
 		if (this._lastNavigationRepoPath !== currentRepoPath) {

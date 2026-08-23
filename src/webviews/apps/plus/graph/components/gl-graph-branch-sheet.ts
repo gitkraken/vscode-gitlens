@@ -4,9 +4,9 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
-import type { GraphItemContext, GraphScopeBranch, State } from '../../../../plus/graph/protocol.js';
+import type { GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
 import { UpdateRefsVisibilityCommand } from '../../../../plus/graph/protocol.js';
-import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { AiModelInfo, OrgSettings } from '../../../../rpc/services/types.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -145,7 +145,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 	aiModel?: AiModelInfo;
 
 	@property({ attribute: false })
-	orgSettings?: State['orgSettings'];
+	orgSettings?: OrgSettings;
 
 	@property({ type: Boolean, attribute: 'show-maximize' })
 	showMaximize = false;

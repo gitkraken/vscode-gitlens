@@ -169,8 +169,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	protected override updated(): void {
 		// Counts BOTH sources the Next-steps section renders. A section showing only
 		// Review/Recompose (uniqueWorkSteps populated, no cached steps) still has to fire
-		// `next-steps-shown` — it drives `TrackGraphDetailsWipShownCommand` and the
-		// deferred-walkthrough trigger.
+		// `next-steps-shown` — it drives the `action:gitlens.graph.details.wipShown:happened`
+		// usage track and the deferred-walkthrough trigger.
 		const hasNextSteps = this._cachedNextSteps.length + this._cachedUniqueWorkSteps.length > 0;
 		if (hasNextSteps && !this._hadNextSteps) {
 			this.emit('next-steps-shown');

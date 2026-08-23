@@ -1,8 +1,10 @@
 import './graph.scss';
+import type { Remote } from '@eamodio/supertalk';
 import { ContextProvider } from '@lit/context';
 import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type {
 	DidFailRevealParams,
@@ -86,6 +88,21 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	/** The onboarding remote `_unsubscribeAgentsBanner` currently belongs to. */
 	private _activeOnboardingRemote: unknown;
 
+	/** Unsubscribes the current telemetry `onUsageChanged` listener feeding the walkthrough-started state. */
+	private _unsubscribeWalkthroughStarted: (() => void) | undefined;
+	/** The telemetry remote `_unsubscribeWalkthroughStarted` currently belongs to. */
+	private _activeTelemetryRemote: unknown;
+
+	/** Unsubscribes the current access `onAccessChanged` listener feeding the gating state. */
+	private _unsubscribeAccess: (() => void) | undefined;
+	/** The access remote `_unsubscribeAccess` currently belongs to. */
+	private _activeAccessRemote: unknown;
+
+	/** Unsubscribes the current repoStatus `onDidFetch` listener feeding the header's "Last fetched" time. */
+	private _unsubscribeRepoStatus: (() => void) | undefined;
+	/** The repoStatus remote `_unsubscribeRepoStatus` currently belongs to. */
+	private _activeRepoStatusRemote: unknown;
+
 	private readonly _onboardingDismissals = createOnboardingDismissals();
 
 	// Eager provider (like _sidebarActionsProvider): consumers can read during connectedCallback;
@@ -112,11 +129,19 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		onReady: services => this._onRpcReady(services),
 	});
 
-	private async _onRpcReady(services: import('@eamodio/supertalk').Remote<GraphServices>): Promise<void> {
+	private async _onRpcReady(services: Remote<GraphServices>): Promise<void> {
 		this._servicesProvider.setValue(services);
 
 		this._onboardingDismissals.connect(services.onboarding);
 		this._coachMarkSeen.connect(services.onboarding);
+		this._promos.connect(services.subscription);
+
+		// Gating runs on its own track — the long await chain below must never delay (or, via one of
+		// its early returns, skip) the access snapshot the walls are rendered from.
+		void this.connectAccess(services);
+		// Same reasoning as `connectAccess` — the header's "Last fetched" label shouldn't wait on the
+		// long await chain below.
+		void this.connectRepoStatus(services);
 
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
@@ -213,6 +238,102 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		if (this._activeOnboardingRemote !== onboarding) return;
 
 		this._stateProvider.applyAgentsBannerCollapsed(this._stateProvider.isWeb === true || dismissed);
+
+		// Walkthrough-started: bridge the telemetry RPC service's per-key usage-change event into the
+		// stateProvider slot `walkthroughBanner.ts` reads via `graphState.graphWalkthroughStarted`.
+		this._unsubscribeWalkthroughStarted?.();
+		this._unsubscribeWalkthroughStarted = undefined;
+
+		const telemetry = await services.telemetry;
+		this._activeTelemetryRemote = telemetry;
+
+		// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+		const unsubWalkthroughStarted = (await telemetry.onUsageChanged(e => {
+			if (e.key !== 'action:gitlens.graph.walkthrough.started:happened') return;
+
+			this._stateProvider.applyGraphWalkthroughStarted(e.used);
+		})) as unknown as (() => void) | undefined;
+		if (typeof unsubWalkthroughStarted !== 'function') return;
+
+		if (this._activeTelemetryRemote !== telemetry) {
+			unsubWalkthroughStarted();
+			return;
+		}
+
+		this._unsubscribeWalkthroughStarted = unsubWalkthroughStarted;
+
+		const walkthroughStarted = await telemetry.isUsed('action:gitlens.graph.walkthrough.started:happened');
+		if (this._activeTelemetryRemote !== telemetry) return;
+
+		this._stateProvider.applyGraphWalkthroughStarted(walkthroughStarted);
+	}
+
+	/** Bridges the access plane (subscription + `allowed` + feature preview) into the state provider.
+	 *  Reconnect-safe, same staleness-guard pattern as the agents/telemetry blocks above. */
+	private async connectAccess(services: Remote<GraphServices>): Promise<void> {
+		this._unsubscribeAccess?.();
+		this._unsubscribeAccess = undefined;
+
+		try {
+			const access = await services.access;
+			this._activeAccessRemote = access;
+
+			// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+			const unsub = (await access.onAccessChanged(state => {
+				this._stateProvider.applyAccess(state);
+			})) as unknown as (() => void) | undefined;
+			if (typeof unsub !== 'function') return;
+
+			if (this._activeAccessRemote !== access) {
+				unsub();
+				return;
+			}
+
+			this._unsubscribeAccess = unsub;
+
+			const state = await access.getAccess();
+			if (this._activeAccessRemote !== access) return;
+
+			this._stateProvider.applyAccess(state);
+		} catch (ex) {
+			// The bootstrap state already seeded all three fields, so a failure here leaves the walls
+			// on their first-render verdict rather than an unknown one.
+			Logger.error(ex, 'GraphAppHost: failed to connect the access plane');
+		}
+	}
+
+	/** Bridges the active repo's last-fetched time into the state provider. Reconnect-safe, same
+	 *  staleness-guard pattern as `connectAccess`. */
+	private async connectRepoStatus(services: Remote<GraphServices>): Promise<void> {
+		this._unsubscribeRepoStatus?.();
+		this._unsubscribeRepoStatus = undefined;
+
+		try {
+			const repoStatus = await services.repoStatus;
+			this._activeRepoStatusRemote = repoStatus;
+
+			// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+			const unsub = (await repoStatus.onDidFetch(status => {
+				this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
+			})) as unknown as (() => void) | undefined;
+			if (typeof unsub !== 'function') return;
+
+			if (this._activeRepoStatusRemote !== repoStatus) {
+				unsub();
+				return;
+			}
+
+			this._unsubscribeRepoStatus = unsub;
+
+			const status = await repoStatus.getLastFetched();
+			if (this._activeRepoStatusRemote !== repoStatus || status == null) return;
+
+			this._stateProvider.applyLastFetched(status.repoPath, status.lastFetched);
+		} catch (ex) {
+			// The bootstrap state already seeded `lastFetched`, so a failure here just leaves the header
+			// on its first-render value rather than an unknown one.
+			Logger.error(ex, 'GraphAppHost: failed to connect the repo-status plane');
+		}
 	}
 
 	private applyAgentsInfo(infos: readonly AgentInfo[]): void {
@@ -285,6 +406,12 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		this._unsubscribeAgentsInfo = undefined;
 		this._unsubscribeAgentsBanner?.();
 		this._unsubscribeAgentsBanner = undefined;
+		this._unsubscribeAccess?.();
+		this._unsubscribeAccess = undefined;
+		this._unsubscribeRepoStatus?.();
+		this._unsubscribeRepoStatus = undefined;
+		this._unsubscribeWalkthroughStarted?.();
+		this._unsubscribeWalkthroughStarted = undefined;
 		this._onboardingDismissals.dispose();
 		this._coachMarkSeen.dispose();
 	}

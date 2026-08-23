@@ -7,7 +7,9 @@ import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/se
 import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GlCommands } from '../../../constants.commands.js';
+import type { FeaturePreview } from '../../../features.js';
 import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
+import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
@@ -847,11 +849,59 @@ export interface GraphTreemapService {
 	getData(repoPath: string, mode: TreemapMode, config: TreemapConfig, signal?: AbortSignal): Promise<TreemapData>;
 }
 
+/**
+ * Everything the Graph's gating reads: the current subscription, the repo-scoped `allowed` verdict,
+ * and the active graph feature preview. Always a COMPLETE snapshot, never a delta — `onAccessChanged`
+ * is `save-last` buffered, so a hidden webview keeps only the newest emission.
+ *
+ * The three travel together because the app derives two walls from them (`isAccountGated` from
+ * `subscription`, the plan gate from `allowed`) — splitting them across events would let the walls
+ * disagree between paints.
+ */
+export interface GraphAccessState {
+	subscription: Subscription;
+	allowed: boolean;
+	featurePreview: FeaturePreview | undefined;
+}
+
+export interface GraphAccessService {
+	/** The current access snapshot, for seeding a freshly connected app. Pull-based, so no emission
+	 *  can be lost to a subscribe/fetch race. */
+	getAccess(): Promise<GraphAccessState>;
+	/**
+	 * Fires on a subscription change that doesn't warrant a full state rebuild, and on a graph
+	 * feature-preview start. Deliberately silent on the account-access and Pro-access flips: those
+	 * push a full state instead, so un-gating can't land before `repositories` does.
+	 */
+	readonly onAccessChanged: RpcEventSubscription<GraphAccessState>;
+}
+
 export interface GraphWelcomeService {
 	/** One message for the whole welcome-continue interaction — persists the dismissals and
 	 *  performs the layout move in one causally-ordered handler, so nothing races the webview
 	 *  teardown the move triggers. */
 	continueToGraph(options: { layoutChoice: 'sidebar' | 'panel' | 'dismissed' }): Promise<void>;
+}
+
+/** The active repo's last-fetched snapshot. `lastFetched` is epoch-ms (0 means never fetched), matching
+ *  `Repository.getLastFetched()` — never a `Date`, which would arrive over RPC as an ISO string. */
+export interface GraphRepoStatus {
+	repoPath: string;
+	lastFetched: number;
+}
+
+export interface GraphRepoStatusService {
+	/** The active repo's last-fetched snapshot, for seeding a freshly connected app. Pull-based, so no
+	 *  emission fired between subscribe and fetch is ever lost. `undefined` when there's no active repo. */
+	getLastFetched(): Promise<GraphRepoStatus | undefined>;
+	/**
+	 * Fires whenever the active repo's last-fetched time changes, including the periodic re-fire that
+	 * only refreshes the relative-time label (`ensureLastFetchedSubscription` in the host). Carries
+	 * `repoPath` so the app can ignore an event for a repo other than the one currently selected —
+	 * without it a fetch completing for a background repo could stamp the display of a different one.
+	 * `save-last`: latest-wins is correct since only the current repo's fetch matters to the app.
+	 */
+	readonly onDidFetch: RpcEventSubscription<GraphRepoStatus>;
 }
 
 /**
@@ -884,6 +934,7 @@ export interface GraphHealthService {
 }
 
 export interface GraphServices extends SharedWebviewServices {
+	readonly access: GraphAccessService;
 	readonly graphInspect: GraphInspectService;
 	readonly graphHealth: GraphHealthService;
 	readonly launchpad: GraphLaunchpadService;
@@ -893,6 +944,7 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly welcome: GraphWelcomeService;
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
+	readonly repoStatus: GraphRepoStatusService;
 }
 
 export interface GraphLaunchpadService {

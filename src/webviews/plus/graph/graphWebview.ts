@@ -66,7 +66,6 @@ import type {
 	GraphScrollMarkersAdditionalTypes,
 } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
-import type { ContextKeys } from '../../../constants.context.js';
 import type {
 	StoredGraphExcludedRef,
 	StoredGraphFilters,
@@ -103,8 +102,6 @@ import {
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
-import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
-import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import {
 	isAccountAccessRequired,
@@ -121,7 +118,7 @@ import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '..
 import { cancelAndDispose, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
+import { onDidChangeContext } from '../../../system/-webview/context.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
 import { getWebviewCommand } from '../../../system/decorators/command.js';
@@ -172,7 +169,7 @@ import type { GraphProducersServiceContext } from './graphProducersService.js';
 import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
-import type { GraphServices } from './graphService.js';
+import type { GraphAccessState, GraphRepoStatus, GraphServices } from './graphService.js';
 import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarActionTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
@@ -228,7 +225,6 @@ import type {
 	GraphSelection,
 	GraphShowAction,
 	GraphSidebarPanel,
-	GraphWalkthroughBannerState,
 	MergePullRequestParams,
 	SidebarWorktreeChange,
 	State,
@@ -246,12 +242,7 @@ import {
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
-	DidChangeGraphWalkthroughBanner,
-	DidChangeGraphWalkthroughComplete,
-	DidChangeGraphWalkthroughStarted,
-	DidChangeLayoutPromptNotification,
 	DidChangeNotification,
-	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsVisibilityNotification,
@@ -259,11 +250,9 @@ import {
 	DidChangeRowsNotification,
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
-	DidChangeSubscriptionNotification,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFailRevealNotification,
-	DidFetchNotification,
 	DidInvalidateGraphTreemapNotification,
 	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
@@ -272,7 +261,6 @@ import {
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
-	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
 	EnableChangesColumnCommand,
 	GetMissingAvatarsCommand,
@@ -295,13 +283,6 @@ import {
 	ResolveGraphScopeRequest,
 	RowActionCommand,
 	SyncWipWatchesCommand,
-	TrackGraphDetailsCompareModeCommand,
-	TrackGraphDetailsComposeModeCommand,
-	TrackGraphDetailsResolveModeCommand,
-	TrackGraphDetailsReviewModeCommand,
-	TrackGraphDetailsWipShownCommand,
-	TrackGraphOverviewShownCommand,
-	TrackGraphScopeChangedCommand,
 	TreemapFileActionCommand,
 	UpdateColumnModeCommand,
 	UpdateColumnsCommand,
@@ -480,11 +461,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeRefsVisibilityNotification, this.notifyDidChangeRefsVisibility],
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
-		[DidChangeSubscriptionNotification, this.notifyDidChangeSubscription],
 		[DidChangeWipDraftsNotification, () => this._wip.notifyDidChangeWipDrafts()],
 		[DidChangeWorkingTreeNotification, () => this._wip.notifyDidChangeWorkingTree()],
-		[DidFetchNotification, this.notifyDidFetch],
-		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
 	private _selectedId?: string;
 	// Latest columns-write revision received from the webview (see UpdateColumnsParams.revision);
@@ -575,13 +553,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			workspace.onDidChangeConfiguration(this.onWorkspaceConfigurationChanged, this),
 			this.container.storage.onDidChange(this.onStorageChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
-			this.container.walkthrough.onDidChangeProgress(this.onGraphWalkthroughProgressChanged, this),
-			this.container.usage.onDidChange(this.onUsageChanged, this),
 			// Bridge the host-side health signal onto the RPC event, carrying the repo path so the
 			// view can filter to the one it's showing instead of re-fetching on every repo's change.
 			this.container.gitHealth.onDidChange(repoPath => this._gitHealthChangedEvent.fire({ repoPath: repoPath })),
-			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			// The bar's primary continue swaps between automatic/manual with the session
 			this.container.autoRebase.onDidChange(e => {
@@ -1008,6 +982,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
 		changes: Record<string, SidebarWorktreeChange | undefined>;
 	}>('sidebarWorktreeState', 'save-last');
+	// `save-last`: the payload is a complete gating snapshot, so a hidden webview only ever needs the
+	// newest one — and replaying it on show is exactly right.
+	private readonly _accessChangedEvent = createRpcEvent<GraphAccessState>('accessChanged', 'save-last');
+	// `save-last`: only the current repo's fetch matters to the app, so latest-wins is correct —
+	// see `GraphRepoStatusService.onDidFetch`.
+	private readonly _repoStatusEvent = createRpcEvent<GraphRepoStatus>('repoStatus', 'save-last');
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
 		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
@@ -1015,6 +995,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		return proxyServices({
 			...base,
+			access: {
+				getAccess: () => this.getAccessState(),
+				onAccessChanged: this._accessChangedEvent.subscribe(buffer, tracker),
+			},
 			graphInspect: graphInspect,
 			search: this._searchService.createServices(buffer, tracker).search,
 			sidebar: {
@@ -1057,6 +1041,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 			graphTimeline: graphTimeline,
 			graphTreemap: graphTreemap,
+			repoStatus: {
+				getLastFetched: () => this.getRepoStatus(),
+				onDidFetch: this._repoStatusEvent.subscribe(buffer, tracker),
+			},
 		} satisfies GraphServices);
 	}
 
@@ -2219,13 +2207,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace({ args: false })
-	private onContextChanged(key: keyof ContextKeys) {
-		if (['gitlens:gk:organization:ai:enabled', 'gitlens:gk:organization:drafts:enabled'].includes(key)) {
-			this.notifyDidChangeOrgSettings();
-		}
-	}
-
-	@trace({ args: false })
 	private onStorageChanged(e: StorageChangeEvent): void {
 		if (e.type !== 'workspace') return;
 
@@ -2261,18 +2242,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return configuration.get('graph.minimap.dataType') === 'lines' && this.isMinimapVisible();
 	}
 
-	private getOrgSettings(): State['orgSettings'] {
-		return {
-			ai: getContext('gitlens:gk:organization:ai:enabled', true),
-			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
-		};
-	}
-
 	@trace({ args: false })
 	private onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
 		if (e.feature !== 'graph') return;
 
-		void this.notifyDidStartFeaturePreview(e);
+		void this.fireAccessChanged(e);
 	}
 
 	private getFeaturePreview(): FeaturePreview {
@@ -2433,56 +2407,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		void this.notifyDidChangeSubscription();
-	}
-
-	private onOnboardingChanged(e: OnboardingChangeEvent) {
-		if (e.key === 'graph-walkthrough:banner') {
-			this.onGraphWalkthroughBannerChanged();
-		} else if (e.key === 'graph:layoutPrompt') {
-			this.onLayoutPromptChanged();
-		}
-	}
-
-	@ipcCommand(TrackGraphOverviewShownCommand)
-	private onTrackGraphOverviewShown() {
-		void this.container.usage.track('action:gitlens.graph.overview.shown:happened');
-	}
-
-	@ipcCommand(TrackGraphScopeChangedCommand)
-	private onTrackGraphScopeChanged() {
-		void this.container.usage.track('action:gitlens.graph.scope.changed:happened');
-	}
-
-	@ipcCommand(TrackGraphDetailsReviewModeCommand)
-	private onTrackGraphDetailsReviewMode() {
-		void this.container.usage.track('action:gitlens.graph.details.reviewMode:happened');
-	}
-
-	@ipcCommand(TrackGraphDetailsComposeModeCommand)
-	private onTrackGraphDetailsComposeMode() {
-		void this.container.usage.track('action:gitlens.graph.details.composeMode:happened');
-	}
-
-	@ipcCommand(TrackGraphDetailsResolveModeCommand)
-	private onTrackGraphDetailsResolveMode() {
-		void this.container.usage.track('action:gitlens.graph.details.resolveMode:happened');
-	}
-
-	@ipcCommand(TrackGraphDetailsCompareModeCommand)
-	private onTrackGraphDetailsCompareMode() {
-		void this.container.usage.track('action:gitlens.graph.details.compareMode:happened');
-	}
-
-	@ipcCommand(TrackGraphDetailsWipShownCommand)
-	private onTrackGraphDetailsWipShown() {
-		void this.container.usage.track('action:gitlens.graph.details.wipShown:happened');
-	}
-
-	private onGraphWalkthroughBannerChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeGraphWalkthroughBanner, this.getGraphWalkthroughBannerState());
+		void this.fireAccessChanged();
 	}
 
 	/** One-time nudge for the #5545 move of the Graph into the side bar — assumes the side bar stays
@@ -2490,12 +2415,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  bar/panel host) — the editor tab has no side-vs-bottom placement to choose. */
 	private getLayoutPromptNeeded(): boolean {
 		return this.host.is('view') && !this.container.onboarding.isDismissed('graph:layoutPrompt');
-	}
-
-	private onLayoutPromptChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeLayoutPromptNotification, this.getLayoutPromptNeeded());
 	}
 
 	/** RPC handler for the whole welcome-continue interaction — see docs/webview-architecture.md
@@ -2554,38 +2473,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Re-reveal — the move leaves the view collapsed/unfocused. The prompt only exists on the
 		// view host (see getLayoutPromptNeeded), so the view id is the right target here.
 		void executeCoreCommand('gitlens.views.graph.focus');
-	}
-
-	private onGraphWalkthroughProgressChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeGraphWalkthroughComplete, this.getGraphWalkthroughComplete());
-	}
-
-	private onUsageChanged(e: UsageChangeEvent | undefined) {
-		if (e?.key === 'action:gitlens.graph.walkthrough.started:happened') {
-			this.onGraphWalkthroughStartedChanged();
-		}
-	}
-
-	private onGraphWalkthroughStartedChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(DidChangeGraphWalkthroughStarted, this.getGraphWalkthroughStarted());
-	}
-
-	private getGraphWalkthroughBannerState(): GraphWalkthroughBannerState {
-		return {
-			dismissed: this.container.onboarding.isDismissed('graph-walkthrough:banner'),
-		};
-	}
-
-	private getGraphWalkthroughComplete() {
-		return this.container.walkthrough.graphDoneCount >= this.container.walkthrough.graphWalkthroughSize;
-	}
-
-	private getGraphWalkthroughStarted() {
-		return this.container.usage.isUsed('action:gitlens.graph.walkthrough.started:happened');
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -3461,13 +3348,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/**
-	 * Coalesces `DidFetch` pushes into a single in-flight notify with one trailing re-fire. The payload is
-	 * idempotent (just the latest fetch time), but `postMessage` is sequentialized by unique message id, so
-	 * an un-coalesced burst enqueues one post per trigger. When the queue drains slower than it fills — the
-	 * webview is throttled while the window is unfocused, or the host is busy — the backlog grows unbounded,
-	 * and since every slow post to a *view* is wrapped in `withProgress({ viewId })`, each drained post
-	 * re-shows the view's progress indicator, strobing it for the life of the drain. Bursts are routine:
-	 * `.git/FETCH_HEAD` force-fires `lastFetched` on any FS touch (see `Repository.onFetchHeadChanged`).
+	 * Coalesces `DidFetch` pushes into a single in-flight `getLastFetched()` read with one trailing
+	 * re-fire, rather than one read + `_repoStatusEvent.fire()` per trigger. Bursts are routine:
+	 * `.git/FETCH_HEAD` force-fires `lastFetched` on any FS touch (see `Repository.onFetchHeadChanged`),
+	 * and real-world startup logs showed 4 events in a 350ms window.
 	 */
 	private readonly _didFetchNotify = new CoalescedRun<boolean>(
 		() => this.runNotifyDidFetch(),
@@ -3582,43 +3466,47 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private async runNotifyDidFetch(): Promise<boolean> {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidFetchNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
 		const repo = this.repository;
 		if (repo == null) return false;
 
 		const lastFetched = await repo.getLastFetched();
-		// Re-validate after the await — a repo swap mid-read would push the old repo's fetch time.
+		// Re-validate after the await — a repo swap mid-read would fire the old repo's fetch time.
 		if (this._repository !== repo) return false;
 		// FETCH_HEAD force-fires `lastFetched` even when the time didn't advance, so most triggers
-		// carry nothing new; skip those rather than spend a post on an identical payload.
+		// carry nothing new; skip those rather than fire an identical event.
 		if (lastFetched === this._lastSentFetchedAt) return true;
 
-		const success = await this.host.notify(DidFetchNotification, { lastFetched: new Date(lastFetched) });
-		// Stamp only after a successful send, and only if the repo still matches, so a failed
-		// transport or a mid-await swap can't poison the dedupe.
-		if (success && this._repository === repo) {
-			this._lastSentFetchedAt = lastFetched;
-		}
-		return success;
+		this._repoStatusEvent.fire({ repoPath: repo.path, lastFetched: lastFetched });
+		this._lastSentFetchedAt = lastFetched;
+		return true;
+	}
+
+	/** Pull-based counterpart to `_repoStatusEvent` — seeds a freshly connected app. */
+	private async getRepoStatus(): Promise<GraphRepoStatus | undefined> {
+		const repo = this.repository;
+		if (repo == null) return undefined;
+
+		const lastFetched = await repo.getLastFetched();
+		if (this._repository !== repo) return undefined;
+
+		return { repoPath: repo.path, lastFetched: lastFetched };
+	}
+
+	/** Complete gating snapshot — `getGraphAccess()` restamps `_etagSubscription`, so the dedupe in
+	 *  `onSubscriptionChanged` stays keyed off the last snapshot the app was told about. */
+	private async getAccessState(featurePreview?: FeaturePreview): Promise<GraphAccessState> {
+		featurePreview ??= this.getFeaturePreview();
+		const [access] = await this.getGraphAccess();
+		return {
+			subscription: access.subscription.current,
+			allowed: this.isGraphAccessAllowed(access, featurePreview),
+			featurePreview: featurePreview,
+		};
 	}
 
 	@trace()
-	private async notifyDidStartFeaturePreview(featurePreview?: FeaturePreview) {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidStartFeaturePreviewNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		featurePreview ??= this.getFeaturePreview();
-		const [access] = await this.getGraphAccess();
-		return this.host.notify(DidStartFeaturePreviewNotification, {
-			featurePreview: featurePreview,
-			allowed: this.isGraphAccessAllowed(access, featurePreview),
-		});
+	private async fireAccessChanged(featurePreview?: FeaturePreview): Promise<void> {
+		this._accessChangedEvent.fire(await this.getAccessState(featurePreview));
 	}
 
 	@trace()
@@ -3631,25 +3519,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.host.notify(DidChangeSelectionNotification, {
 			selection: convertSelectedRows(this._selectedRows) ?? {},
 		});
-	}
-
-	@trace()
-	private async notifyDidChangeSubscription() {
-		if (!this.host.ready || !this.host.visible) {
-			this.host.addPendingIpcNotification(DidChangeSubscriptionNotification, this._ipcNotificationMap, this);
-			return false;
-		}
-
-		const [access] = await this.getGraphAccess();
-		return this.host.notify(DidChangeSubscriptionNotification, {
-			subscription: access.subscription.current,
-			allowed: this.isGraphAccessAllowed(access, this.getFeaturePreview()),
-		});
-	}
-
-	@trace()
-	private notifyDidChangeOrgSettings() {
-		void this.host.notify(DidChangeOrgSettings, { orgSettings: this.getOrgSettings() });
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
@@ -4830,8 +4699,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				? { ...wipRows?.state, [createWipRowId(this.repository.path)]: primaryWipState }
 				: wipRows?.state;
 
-		const graphWalkthroughBanner = this.getGraphWalkthroughBannerState();
-
 		// `mixed` means the workspace has both public and private repos — so a gated (private) repo can
 		// offer switching to a public one. Only computed when access is denied (the only time the gate, and
 		// thus the switch affordance, is shown) to avoid an aggregate visibility() scan on the common
@@ -4862,7 +4729,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			branchState: branchState,
 			branchStateRevision: branchStateRevision,
-			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
+			lastFetched: getSettledValue(lastFetchedResult)!,
 			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,
 			allowed: allowed,
@@ -4907,12 +4774,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
-			orgSettings: this.getOrgSettings(),
 			overview: this._panels.getOverviewData(),
 			mcpCanAutoRegister: this.container.gkMcp?.isRegistrationAllowed ?? false,
-			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
-			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
-			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),
 			layoutPromptNeeded: this.getLayoutPromptNeeded(),
 			upgradedFromPreV19: satisfies(this.container.previousVersion, '< 19'),
 			searchRequest: searchRequest,

@@ -26,7 +26,8 @@ export const subscriptionContext = createContext<SubscriptionContextState>('subs
 export function createDefaultSubscriptionContextState(): SubscriptionContextState {
 	return {
 		subscription: litSignal<Subscription | undefined>(undefined),
-		orgSettings: litSignal<OrgSettings>({ ai: false, drafts: false }),
+		// `ai` is fail-open by design — an unknown org setting must not hide AI affordances.
+		orgSettings: litSignal<OrgSettings>({ ai: true, drafts: false }),
 		avatar: litSignal<string | undefined>(undefined),
 		hasAccount: litSignal<boolean>(false),
 		organizationsCount: litSignal<number>(0),

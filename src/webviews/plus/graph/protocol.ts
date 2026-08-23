@@ -539,7 +539,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  self-repairing — every fast-path trigger also queues a trailing full build whose re-read corrects
 	 *  the client within one cycle. Closing it fully needs a wire-carried revision the client drops on. */
 	branchStateRevision?: number;
-	lastFetched?: Date;
+	/** Epoch-ms; `undefined`/`0` means never fetched. Bootstrap-seeded here, then kept fresh by
+	 *  `GraphRepoStatusService.onDidFetch` (see `applyLastFetched` in the app's `stateProvider.ts`). */
+	lastFetched?: number;
 	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;
 	allowed: boolean;
@@ -594,12 +596,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 	pinnedRef?: GraphPinnedRef;
 	featurePreview?: FeaturePreview;
-	orgSettings?: { ai: boolean; drafts: boolean };
 	overview?: GraphOverviewData;
 	mcpCanAutoRegister?: boolean;
-	graphWalkthroughBannerCollapsed?: boolean;
-	graphWalkthroughComplete?: boolean;
-	graphWalkthroughStarted?: boolean;
 	/** Show the one-time layout-choice prompt (view host only, until `graph:layoutPrompt` is dismissed) */
 	layoutPromptNeeded?: boolean;
 	/** Upgraded from a pre-19 version — surfaces the "new home for the Commit Graph" notice on the sign-in screen */
@@ -1655,42 +1653,6 @@ export const DidChangeGraphConfigurationNotification = new IpcNotification<DidCh
 	'configuration/didChange',
 );
 
-export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-	allowed: boolean;
-}
-export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSubscriptionParams>(
-	scope,
-	'subscription/didChange',
-);
-
-export interface DidChangeOrgSettingsParams {
-	orgSettings: State['orgSettings'];
-}
-export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
-
-export interface GraphWalkthroughBannerState {
-	dismissed: boolean;
-}
-
-export const DidChangeGraphWalkthroughBanner = new IpcNotification<GraphWalkthroughBannerState>(
-	scope,
-	'graphWalkthrough/banner/didChange',
-);
-
-export const DidChangeGraphWalkthroughComplete = new IpcNotification<boolean>(
-	scope,
-	'graphWalkthrough/complete/didChange',
-);
-
-export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
-	scope,
-	'graphWalkthrough/started/didChange',
-);
-
-/** Pushed when the `graph:layoutPrompt` onboarding state changes (e.g. dismissed in another window) */
-export const DidChangeLayoutPromptNotification = new IpcNotification<boolean>(scope, 'layoutPrompt/didChange');
-
 /** Contextual per-feature coach marks (how-tos) shown in the Graph (#5516) */
 export const graphCoachMarkTypes = [
 	'details',
@@ -1755,14 +1717,6 @@ export const DidRequestGraphActionNotification = new IpcNotification<DidRequestG
 	scope,
 	'action/didRequest',
 );
-
-export const TrackGraphOverviewShownCommand = new IpcCommand(scope, 'track/overview/shown');
-export const TrackGraphScopeChangedCommand = new IpcCommand(scope, 'track/scope/changed');
-export const TrackGraphDetailsReviewModeCommand = new IpcCommand(scope, 'track/details/reviewMode');
-export const TrackGraphDetailsComposeModeCommand = new IpcCommand(scope, 'track/details/composeMode');
-export const TrackGraphDetailsResolveModeCommand = new IpcCommand(scope, 'track/details/resolveMode');
-export const TrackGraphDetailsCompareModeCommand = new IpcCommand(scope, 'track/details/compareMode');
-export const TrackGraphDetailsWipShownCommand = new IpcCommand(scope, 'track/details/wipShown');
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
@@ -1937,8 +1891,7 @@ export interface DidChangeWorkingTreeParams {
 }
 // `silent` — background enrichment the user isn't waiting on: FS-tick pushes, and the secondary-WIP
 // probe's progressive pushes, which arrive in a queue over the life of the fan-out. Without this each
-// slow send re-opens the view's progress indicator, so that queue strobes it (same reasoning as
-// `DidFetchNotification` above).
+// slow send re-opens the view's progress indicator, so that queue strobes it.
 export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
 	scope,
 	'workingTree/didChange',
@@ -1946,13 +1899,6 @@ export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWor
 	undefined,
 	true,
 );
-
-export interface DidFetchParams {
-	lastFetched: Date;
-}
-// `silent` — this only carries the last-fetched time; the user isn't waiting on it, so it should never
-// spin the view's progress indicator.
-export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch', undefined, undefined, true);
 
 export interface DidInvalidateScopeAnchorsParams {
 	repoPath: string;
@@ -1970,15 +1916,6 @@ export interface DidInvalidateGraphTreemapParams {
 export const DidInvalidateGraphTreemapNotification = new IpcNotification<DidInvalidateGraphTreemapParams>(
 	scope,
 	'treemap/didInvalidate',
-);
-
-export interface DidStartFeaturePreviewParams {
-	featurePreview: FeaturePreview;
-	allowed: boolean;
-}
-export const DidStartFeaturePreviewNotification = new IpcNotification<DidStartFeaturePreviewParams>(
-	scope,
-	'featurePreview/didStart',
 );
 
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;

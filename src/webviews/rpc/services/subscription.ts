@@ -202,10 +202,12 @@ export class SubscriptionService implements Disposable {
 			});
 	}
 
-	/** Read current organization settings (AI enabled, drafts enabled) from extension context. */
+	/** Read current organization settings (AI enabled, drafts enabled) from extension context.
+	 *  `ai` is fail-open by design: an unset key (no org settings fetched yet, or signed out) must
+	 *  read as enabled, matching `AIProviderService` and the org service's own `?? true` default. */
 	#readOrgSettings(): OrgSettings {
 		return {
-			ai: getContext('gitlens:gk:organization:ai:enabled', false),
+			ai: getContext('gitlens:gk:organization:ai:enabled', true),
 			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
 		};
 	}

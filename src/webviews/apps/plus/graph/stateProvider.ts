@@ -14,7 +14,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
-import type { GraphSearchState } from '../../../plus/graph/graphService.js';
+import type { GraphAccessState, GraphSearchState } from '../../../plus/graph/graphService.js';
 import type {
 	GraphRowsSplice,
 	GraphScope,
@@ -32,12 +32,7 @@ import {
 	DidChangeBranchStateNotification,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
-	DidChangeGraphWalkthroughBanner,
-	DidChangeGraphWalkthroughComplete,
-	DidChangeGraphWalkthroughStarted,
-	DidChangeLayoutPromptNotification,
 	DidChangeNotification,
-	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsVisibilityNotification,
@@ -45,12 +40,10 @@ import {
 	DidChangeRowsNotification,
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
-	DidChangeSubscriptionNotification,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidCloseWipWatchesNotification,
 	DidFailRevealNotification,
-	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
@@ -58,7 +51,6 @@ import {
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestVisualizationNotification,
 	DidRequestWipRefetchNotification,
-	DidStartFeaturePreviewNotification,
 	GetOverviewEnrichmentRequest,
 	GraphSyncResyncCommand,
 	isWipRowId,
@@ -619,9 +611,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor featurePreview: State['featurePreview'];
 
 	@signalState()
-	accessor orgSettings: State['orgSettings'];
-
-	@signalState()
 	accessor overview: State['overview'];
 
 	@signalState()
@@ -663,8 +652,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	mcpCanAutoRegister?: boolean | undefined;
 	canInstallHooks?: boolean | undefined;
 	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
-	graphWalkthroughBannerCollapsed?: boolean | undefined;
-	graphWalkthroughComplete?: boolean | undefined;
 	graphWalkthroughStarted?: boolean | undefined;
 	layoutPromptNeeded?: boolean | undefined;
 
@@ -1468,31 +1455,32 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// `sync` (bootstrap-only baseline stamp — consumed by `initializeState`, must not move the live baseline).
 				// Drop `branchState` and `lastFetched` when the full-state push carries values
 				// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
-				// `DidFetch`) land these ~20-30ms before the heavier full-state rebuild; without this
-				// guard the bulk push re-assigns the same values and Lit's identity-based reactivity
-				// forces a redundant header re-render for every pull/push/fetch.
+				// `GraphRepoStatusService.onDidFetch`) land these ~20-30ms before the heavier full-state
+				// rebuild; without this guard the bulk push re-assigns the same values and Lit's
+				// identity-based reactivity forces a redundant header re-render for every pull/push/fetch.
 				if (areEqual(next.branchState, this._state.branchState)) {
 					delete next.branchState;
 				}
 				// `lastFetched` has the same build-start-read / late-ship race as `branchState`, but needs no
 				// stamp: it's a timestamp that only moves FORWARD within a repo, so the value carries its own
 				// ordering. `getState` reads it in the build-start `allSettled` and ships it after the rows
-				// walk, so a fetch completing mid-walk lands via `DidFetch` first and this older snapshot would
-				// otherwise rewind the header's "Last fetched" until the next fetch. Rejecting `<=` also
+				// walk, so a fetch completing mid-walk lands via `onDidFetch` first and this older snapshot
+				// would otherwise rewind the header's "Last fetched" until the next fetch. Rejecting `<=` also
 				// subsumes the equality case this replaces (same timestamp = a pointless header re-render).
 				// Scoped to the SAME repo: a swap legitimately carries an earlier timestamp, and nothing clears
 				// `lastFetched` on selection change, so a repo-blind guard would pin the previous repo's value.
 				// Compared against the INCOMING push's repo (as the wip guard below does), not the client's
 				// possibly-lagging selection.
-				// NOT closed by this: `DidFetch` carries no repo id, so a fetch for B landing before B's full
-				// push writes B's timestamp while `selectedRepository` still reads A — then B's push sees
-				// sameRepo=false and rewinds it. Same as the equality-only guard this replaces (no regression);
-				// closing it needs a repo id on `DidFetch`, or tracking which repo the applied value belongs to.
+				// The repo-id gap this used to leave open — a fetch for repo B landing before B's full push
+				// writes B's timestamp while `selectedRepository` still reads A — is now closed upstream:
+				// `onDidFetch` carries `repoPath`, and `applyLastFetched` (below) ignores an event whose
+				// repo isn't the one currently selected, so `this._state.lastFetched` can no longer be
+				// wrongly stamped with another repo's time in the first place.
 				if (next.lastFetched != null && this._state.lastFetched != null) {
 					const sameRepo =
 						(incoming.selectedRepository ?? this._state.selectedRepository) ===
 						this._state.selectedRepository;
-					if (sameRepo && next.lastFetched.getTime() <= this._state.lastFetched.getTime()) {
+					if (sameRepo && next.lastFetched <= this._state.lastFetched) {
 						delete next.lastFetched;
 					}
 				}
@@ -1528,11 +1516,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState(next);
 				break;
 			}
-
-			case DidFetchNotification.is(msg):
-				this._state.lastFetched = msg.params.lastFetched;
-				this.updateState({ lastFetched: msg.params.lastFetched });
-				break;
 
 			case DidInvalidateScopeAnchorsNotification.is(msg): {
 				// Drop the mirrored merge-base cache when the host signals that refs/config moved —
@@ -1593,14 +1576,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			}
 
-			case DidStartFeaturePreviewNotification.is(msg):
-				this._state.featurePreview = msg.params.featurePreview;
-				this._state.allowed = msg.params.allowed;
-				this.updateState({
-					featurePreview: msg.params.featurePreview,
-					allowed: msg.params.allowed,
-				});
-				break;
 			case DidChangeBranchStateNotification.is(msg):
 				this.updateState({ branchState: msg.params.branchState });
 				break;
@@ -1871,37 +1846,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ config: msg.params.config });
 				break;
 
-			case DidChangeSubscriptionNotification.is(msg):
-				this.updateState({
-					subscription: msg.params.subscription,
-					allowed: msg.params.allowed,
-				});
-				break;
-
-			case DidChangeOrgSettings.is(msg):
-				this.updateState({ orgSettings: msg.params.orgSettings });
-				break;
-
 			case DidChangeOverviewNotification.is(msg):
 				this.updateState({ overview: msg.params.overview });
-				break;
-
-			case DidChangeGraphWalkthroughBanner.is(msg):
-				this.updateState({
-					graphWalkthroughBannerCollapsed: msg.params.dismissed,
-				});
-				break;
-
-			case DidChangeGraphWalkthroughComplete.is(msg):
-				this.updateState({ graphWalkthroughComplete: msg.params });
-				break;
-
-			case DidChangeGraphWalkthroughStarted.is(msg):
-				this.updateState({ graphWalkthroughStarted: msg.params });
-				break;
-
-			case DidChangeLayoutPromptNotification.is(msg):
-				this.updateState({ layoutPromptNeeded: msg.params });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {
@@ -2056,6 +2002,37 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	applyAgentsBannerCollapsed(collapsed: boolean): void {
 		this.agentsBannerCollapsed = collapsed;
 		this.fireProviderUpdate();
+	}
+
+	/** Applies the walkthrough-started usage flag fed by the telemetry RPC service's `onUsageChanged`. */
+	applyGraphWalkthroughStarted(started: boolean): void {
+		this.graphWalkthroughStarted = started;
+		this.fireProviderUpdate();
+	}
+
+	/** Applies the gating snapshot from `GraphAccessService` — `subscription`, `allowed`, and
+	 *  `featurePreview` land in ONE `updateState` so the account wall and the plan gate can never
+	 *  disagree between paints. */
+	applyAccess(access: GraphAccessState): void {
+		this.updateState({
+			subscription: access.subscription,
+			allowed: access.allowed,
+			featurePreview: access.featurePreview,
+		});
+	}
+
+	/**
+	 * Applies the active repo's last-fetched time from `GraphRepoStatusService.onDidFetch` (also used to
+	 * apply the result of its pull-based `getLastFetched()`). Ignores an event for a repo other than the
+	 * one currently selected — this is what closes the repo-id gap the full-state-push guard above used
+	 * to leave open. Also enforces the same forward-only ordering as that guard, since a fast-path fetch
+	 * and a slower full-state push both write `lastFetched` and can arrive out of order.
+	 */
+	applyLastFetched(repoPath: string, lastFetched: number): void {
+		if (repoPath !== getSelectedRepoPath(this._state)) return;
+		if (this._state.lastFetched != null && lastFetched <= this._state.lastFetched) return;
+
+		this.updateState({ lastFetched: lastFetched });
 	}
 
 	/** Applies the hooks-install capability derived from `AgentsService.getAgents()`/`onAgentsChanged`. */
