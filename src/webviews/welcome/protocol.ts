@@ -1,7 +1,7 @@
 import type { SubscriptionState } from '../../constants.subscription.js';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../constants.walkthroughs.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification } from '../ipc/models/ipc.js';
+import { IpcNotification } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 
 export type { GraphWalkthroughProgress, WalkthroughProgress };
@@ -21,8 +21,6 @@ export interface State extends WebviewState<'gitlens.views.welcome'> {
 	mcpNeedsInstall: boolean;
 	mcpShowCleanupNotice: boolean;
 }
-
-export const DismissWelcomeCommand = new IpcCommand(scope, 'dismiss');
 
 export interface DidChangeSubscriptionParams {
 	plusState: SubscriptionState;

@@ -281,8 +281,7 @@ export class SettingsActions {
 
 	/**
 	 * Applies a set of changes at the current scope. Entries with an
-	 * `undefined` value are sent as removals (mirrors the legacy
-	 * `UpdateConfigurationCommand` semantics). Resolves `true` when the write
+	 * `undefined` value are sent as removals. Resolves `true` when the write
 	 * lands and `false` when it fails (rolled back) — so callers that promote
 	 * local state on a confirmed write can await the outcome.
 	 */

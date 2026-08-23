@@ -1,5 +1,4 @@
 import type { TimeInput } from '@opentelemetry/api';
-import type { Config } from '../config.js';
 import type { GlCommands } from '../constants.commands.js';
 import type { Source, WebviewTelemetryEvents } from '../constants.telemetry.js';
 import type { WebviewIds } from '../constants.views.js';
@@ -47,16 +46,6 @@ export const ApplicablePromoRequest = new IpcRequest<ApplicablePromoRequestParam
 	'promos/applicable',
 );
 
-export interface UpdateConfigurationParams {
-	changes: {
-		[key in ConfigPath | CustomConfigPath]?: ConfigPathValue<ConfigPath> | CustomConfigPathValue<CustomConfigPath>;
-	};
-	removes: (keyof { [key in ConfigPath | CustomConfigPath]?: ConfigPathValue<ConfigPath> })[];
-	scope?: 'user' | 'workspace';
-	uri?: string;
-}
-export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
-
 export interface TelemetrySendEventParams<T extends keyof WebviewTelemetryEvents = keyof WebviewTelemetryEvents> {
 	name: T;
 	data: WebviewTelemetryEvents[T];
@@ -92,15 +81,6 @@ export interface DidChangeWebviewVisibilityParams {
 export const DidChangeWebviewVisibilityNotification = new IpcNotification<DidChangeWebviewVisibilityParams>(
 	'core',
 	'webview/visibility/didChange',
-);
-
-export interface DidChangeConfigurationParams {
-	config: Config;
-	customSettings: Record<string, boolean>;
-}
-export const DidChangeConfigurationNotification = new IpcNotification<DidChangeConfigurationParams>(
-	'core',
-	'configuration/didChange',
 );
 
 interface CustomConfig {

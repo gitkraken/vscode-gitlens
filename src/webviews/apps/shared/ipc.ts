@@ -29,22 +29,9 @@ export interface HostIpcApi {
 declare function acquireVsCodeApi(): HostIpcApi;
 
 let _api: HostIpcApi | undefined;
-let _factory: (() => HostIpcApi) | undefined;
-
-/**
- * Sets a custom factory for the host IPC API.
- * Call this before any other RPC/IPC initialization when hosting
- * webviews outside of VS Code.
- *
- * @param factory - A function that returns a HostIpcApi implementation
- */
-export function setHostIpcFactory(factory: () => HostIpcApi): void {
-	_factory = factory;
-	_api = undefined; // Reset cached instance so next call uses the new factory
-}
 
 export function getHostIpcApi(): HostIpcApi {
-	return (_api ??= _factory != null ? _factory() : acquireVsCodeApi());
+	return (_api ??= acquireVsCodeApi());
 }
 
 const ipcSequencer = getScopedCounter();
