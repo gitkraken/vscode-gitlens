@@ -17,7 +17,7 @@ import type {
 	OverviewRecentThreshold,
 } from '../../../../plus/graph/protocol.js';
 import { isConnectionClosedError, notifyService } from '../../../shared/actions/rpc.js';
-import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -951,7 +951,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private renderCards(branches: GraphOverviewData['active'], group: 'active' | 'recent') {
 		if (!branches.length) return nothing;
 
-		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
+		// Memoized on `agentSessions` by the state provider — every rows splice re-renders this panel,
+		// and rebuilding the index here would pay for it each time.
+		const sessionsByRepoAndWorktree = this._state.agentSessionIndex;
 		const containsByRepo = this._selectionContainsByRepo;
 		const scopedBranchId = this._state.scope?.branchRef;
 		const roving = group === 'active' ? this._rovingActive : this._rovingRecent;

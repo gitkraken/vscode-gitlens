@@ -1,4 +1,5 @@
 import type { Remote } from '@eamodio/supertalk';
+import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
@@ -38,7 +39,7 @@ import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-git-actions-buttons')
-export class GitActionsButtons extends LitElement {
+export class GitActionsButtons extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkBase,
 		actionButton,
@@ -521,7 +522,7 @@ function samePullConflictPreview(a: PullConflictPreview | undefined, b: PullConf
 type FooterJumpLeg = { resolve: () => string | undefined; label?: string; tooltip?: string; icon: string };
 
 @customElement('gl-push-pull-button')
-export class PushPullButton extends LitElement {
+export class PushPullButton extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkBase,
 		inlineCode,

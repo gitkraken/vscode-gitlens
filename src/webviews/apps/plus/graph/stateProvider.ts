@@ -53,6 +53,8 @@ import type { WebviewState } from '../../../protocol.js';
 import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
 import type { OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
+import type { AgentSessionWorktreeIndex } from '../../shared/agentUtils.js';
+import { indexAgentSessionsByRepoAndWorktree } from '../../shared/agentUtils.js';
 import type { ReactiveElementHost } from '../../shared/appHost.js';
 import { signalObjectState, signalState } from '../../shared/components/signal-utils.js';
 import type { LoggerContext } from '../../shared/contexts/logger.js';
@@ -345,8 +347,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor treemapMode: AppState['treemapMode'];
 
+	/** Composes the three independent loading flags into one busy bit — memoized by the signal graph,
+	 *  so it only re-derives when one of them changes rather than on every read (the header binds it
+	 *  each render). */
+	private readonly _isBusy = new Signal.Computed<AppState['isBusy']>(
+		() => this.loading || this.ensureLoading || this.searching || /*this.rowsStatsLoading ||*/ false,
+	);
 	get isBusy(): AppState['isBusy'] {
-		return this.loading || this.ensureLoading || this.searching || /*this.rowsStatsLoading ||*/ false;
+		return this._isBusy.get();
 	}
 
 	@signalState(false)
@@ -405,17 +413,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor searchMode: AppState['searchMode'] = 'normal';
 
-	@signalState<GraphSearchResults | GraphSearchResultsError | undefined>(undefined, {
-		afterChange: (target, value) => {
-			const { results, resultsError } = getSearchResultModel(value);
-			target.searchResults = results;
-			target.searchResultsError = resultsError;
-		},
-	})
+	@signalState()
 	accessor searchResultsResponse: AppState['searchResultsResponse'];
 
-	@signalState()
-	accessor searchResults: AppState['searchResults'];
+	/** Splits `searchResultsResponse` into its results/error halves — derived lazily and memoized by
+	 *  the signal graph instead of being fanned out into stored signals via an `afterChange` write on
+	 *  every response set. Safe because `searchResults` has no independent writer: host patches route
+	 *  through `searchResultsResponse` (see {@link updateState}'s `searchResults` case), so the pair
+	 *  can never desynchronize from it. */
+	private readonly _searchResultModel = new Signal.Computed<{
+		results: AppState['searchResults'];
+		resultsError: AppState['searchResultsError'];
+	}>(() => getSearchResultModel(this.searchResultsResponse));
+	get searchResults(): AppState['searchResults'] {
+		return this._searchResultModel.get().results;
+	}
+	get searchResultsError(): AppState['searchResultsError'] {
+		return this._searchResultModel.get().resultsError;
+	}
 
 	/** The loaded rows' shas, held apart from the count below so paging pays for the set once and a
 	 *  progressive search's result batches re-count against it without rebuilding it. */
@@ -439,9 +454,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState<AppState['activeFilterColumns']>(new Set())
 	accessor activeFilterColumns: AppState['activeFilterColumns'] = new Set();
-
-	@signalState()
-	accessor searchResultsError: AppState['searchResultsError'];
 
 	@signalState()
 	accessor searchQuery: AppState['searchQuery'];
@@ -606,6 +618,16 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState<AppState['agentSessions']>([])
 	accessor agentSessions: AppState['agentSessions'] = [];
 
+	/** Worktree-keyed index over {@link agentSessions}, rebuilt only when the session list changes.
+	 *  Shared by every per-worktree batch lookup that used to re-index per render — the overview
+	 *  cards (graph-overview) and the WIP bar's pill build (graph-app). */
+	private readonly _agentSessionIndex = new Signal.Computed<AgentSessionWorktreeIndex | undefined>(() =>
+		indexAgentSessionsByRepoAndWorktree(this.agentSessions),
+	);
+	get agentSessionIndex(): AgentSessionWorktreeIndex | undefined {
+		return this._agentSessionIndex.get();
+	}
+
 	@signalState()
 	accessor overviewWip: AppState['overviewWip'];
 
@@ -635,12 +657,23 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** In-flight additive fetches, so re-hovering a pill doesn't re-issue the request. */
 	private readonly _extraEnrichmentInFlight = new Set<string>();
 
-	agentsBannerCollapsed?: boolean | undefined;
-	mcpCanAutoRegister?: boolean | undefined;
-	canInstallHooks?: boolean | undefined;
-	hooksAgents?: readonly { id: string; displayName: string; installed: boolean }[] | undefined;
-	graphWalkthroughStarted?: boolean | undefined;
-	layoutPromptNeeded?: boolean | undefined;
+	@signalState()
+	accessor agentsBannerCollapsed: AppState['agentsBannerCollapsed'];
+
+	@signalState()
+	accessor mcpCanAutoRegister: AppState['mcpCanAutoRegister'];
+
+	@signalState()
+	accessor canInstallHooks: AppState['canInstallHooks'];
+
+	@signalState()
+	accessor hooksAgents: AppState['hooksAgents'];
+
+	@signalState()
+	accessor graphWalkthroughStarted: AppState['graphWalkthroughStarted'];
+
+	@signalState()
+	accessor layoutPromptNeeded: AppState['layoutPromptNeeded'];
 
 	/** The overview RPC sub-service, held for {@link ensureOverviewEnrichmentFetched} and
 	 *  {@link ensureEnrichmentFetchedForBranches} — set by {@link initializeServices}. */
@@ -2027,13 +2060,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Applies the agents-banner dismissal state fed by the onboarding RPC service. */
 	applyAgentsBannerCollapsed(collapsed: boolean): void {
 		this.agentsBannerCollapsed = collapsed;
-		this.fireProviderUpdate();
 	}
 
 	/** Applies the walkthrough-started usage flag fed by the telemetry RPC service's `onUsageChanged`. */
 	applyGraphWalkthroughStarted(started: boolean): void {
 		this.graphWalkthroughStarted = started;
-		this.fireProviderUpdate();
 	}
 
 	/** Applies the gating snapshot from `GraphAccessService` — `subscription`, `allowed`, and
@@ -2097,7 +2128,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	): void {
 		this.canInstallHooks = canInstallHooks;
 		this.hooksAgents = hooksAgents;
-		this.fireProviderUpdate();
 	}
 
 	/**

@@ -18,6 +18,7 @@ import type {
 	WipStats,
 } from '../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse, OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
+import type { AgentSessionWorktreeIndex } from '../../shared/agentUtils.js';
 
 export interface AppState extends State {
 	state: State;
@@ -29,6 +30,9 @@ export interface AppState extends State {
 	 */
 	activeFilterColumns: ReadonlySet<GraphColumnName>;
 	agentSessions: AgentSessionState[];
+	/** Worktree-keyed index over `agentSessions` (see `indexAgentSessionsByRepoAndWorktree`),
+	 *  memoized on the session list so per-render consumers don't rebuild it. */
+	agentSessionIndex: AgentSessionWorktreeIndex | undefined;
 	isBusy: boolean;
 	loading: boolean;
 	/** True while one or more targeted row loads remain active past their soft display delay. */

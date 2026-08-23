@@ -19,8 +19,7 @@ import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js'
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
-import type { AppState } from '../context.js';
-import { graphServicesContext, graphStateContext } from '../context.js';
+import { graphServicesContext } from '../context.js';
 import {
 	commandToOverviewActionName,
 	getLaunchpadItemGroup,
@@ -353,9 +352,6 @@ export class GlGraphOverviewCard extends LitElement {
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private _services?: Remote<GraphServices> | undefined;
-
-	@consume({ context: graphStateContext, subscribe: true })
-	private _graphState?: AppState;
 
 	@property({ type: Object })
 	branch!: GraphOverviewBranch;

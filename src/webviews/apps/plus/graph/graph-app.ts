@@ -1,4 +1,4 @@
-import { SignalWatcher } from '@lit-labs/signals';
+import { computed, signal, SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
@@ -55,7 +55,7 @@ import {
 } from '../../../plus/graph/protocol.js';
 import { ExecuteCommand } from '../../../protocol.js';
 import { fireAndForget, noop, notifyService } from '../../shared/actions/rpc.js';
-import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
+import { matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
 import type { GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
@@ -298,6 +298,10 @@ const minimapMaxPct = 40;
 /** A typical OS double-click interval — how long sidebar interactions wait to see whether a second
  *  click lands. */
 const sidebarDblClickGraceMs = 300;
+
+/** How often the overview bar's coarse wall-clock tick fires — see `_overviewBarItemsSignal`. Matches
+ *  the 60s relative-time refresh `gl-lit-graph` already uses. */
+const overviewBarClockTickMs = 60_000;
 
 type GraphSelectedCommit = {
 	sha: string;
@@ -588,33 +592,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/** `wipRowsById` minus the graph's own worktree. The WIP bar pushes the graph's own pill explicitly
-	 *  (always first, always keyed by `uncommitted`), so the peer loop must not re-emit it. Memoized on
-	 *  the map identity so the bar's per-item identity preservation still sees a stable input. */
-	private _peerWipRowsCache?: {
-		wipRowsById: State['wipRowsById'];
-		primaryWipRowId: string | undefined;
-		peers: State['wipRowsById'];
-	};
-	private get peerWipRows(): State['wipRowsById'] {
+	 *  (always first, always keyed by `uncommitted`), so the peer loop must not re-emit it. Memoized by
+	 *  the signal graph on (wipRowsById, primaryWipRowId), so the bar's per-item identity preservation
+	 *  always sees a stable input. */
+	private _peerWipRowsSignal = computed(() => {
 		const wipRowsById = this.graphState.wipRowsById;
 		const primaryWipRowId = this.primaryWipRowId;
-
-		const cached = this._peerWipRowsCache;
-		if (cached != null && cached.wipRowsById === wipRowsById && cached.primaryWipRowId === primaryWipRowId) {
-			return cached.peers;
-		}
 
 		let peers = wipRowsById;
 		if (wipRowsById != null && primaryWipRowId != null && wipRowsById[primaryWipRowId] != null) {
 			const { [primaryWipRowId]: _primary, ...rest } = wipRowsById;
 			peers = rest;
 		}
-		this._peerWipRowsCache = {
-			wipRowsById: wipRowsById,
-			primaryWipRowId: primaryWipRowId,
-			peers: peers,
-		};
 		return peers;
+	});
+	private get peerWipRows(): State['wipRowsById'] {
+		return this._peerWipRowsSignal.get();
 	}
 
 	/** Graph's currently-selected repo "family" — `commonPath` when available, otherwise the
@@ -852,6 +845,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.addEventListener('dragstart', this._onDocDragStart);
 		document.addEventListener('dragend', this._onDocDragEnd);
 		document.addEventListener('drop', this._onDocDragEnd);
+
+		// Coarse wall-clock tick for the overview bar's agent-staleness buckets — see
+		// `_overviewBarItemsSignal` for why it exists.
+		this._overviewBarClockTimer ??= setInterval(
+			() => this._overviewBarClock.set(Date.now()),
+			overviewBarClockTickMs,
+		);
 
 		// The sidebar's tree filter input — a text entry, so it can't ride the `webview` scope (that one
 		// bails on text entry by design). Selector-matched against the input inside `gl-tree-view`'s shadow
@@ -1209,6 +1209,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (this._releaseSuspensionRafId != null) {
 			cancelAnimationFrame(this._releaseSuspensionRafId);
 			this._releaseSuspensionRafId = undefined;
+		}
+
+		if (this._overviewBarClockTimer != null) {
+			clearInterval(this._overviewBarClockTimer);
+			this._overviewBarClockTimer = undefined;
 		}
 
 		this._launchpadUnsubscribe?.();
@@ -2392,14 +2397,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		void this.fetchSelectedWorktreeWipStats(id).finally(() => this._wipStatsInFlight.delete(id));
 	};
 
-	/** Last array handed to the bar. `overviewBarItems` re-runs on every GraphApp render (selection,
-	 *  scroll, search, resize, agent ticks — none of which touch the bar), and a fresh array each time
-	 *  fails Lit's `Object.is` check, re-rendering every pill. Returning the previous array when the
-	 *  content is unchanged makes those renders free. */
+	/** Coarse wall-clock tick — the one clock dependency {@link _overviewBarItemsSignal} is allowed.
+	 *  The bar's agent-staleness buckets need `Date.now()`, which a signal graph would otherwise sample
+	 *  once and never revisit (an idle session crossing the 24h threshold would never expire). This
+	 *  invalidates the computed at least once a minute — matching the old rebuild-on-any-render
+	 *  freshness, and beating it while the app sits idle with no renders happening at all. */
+	private readonly _overviewBarClock = signal(0);
+	private _overviewBarClockTimer: ReturnType<typeof setInterval> | undefined;
+
+	/** Last array produced by {@link _overviewBarItemsSignal}, kept ONLY for per-item identity
+	 *  preservation — see the computed. */
 	private _overviewBarItemsCache: readonly OverviewBarItem[] = [];
 
-	private get overviewBarItems(): readonly OverviewBarItem[] {
-		const next = this.buildOverviewBarItems();
+	/** The overview/WIP bar's items, computed over the signals it actually reads (repo selection,
+	 *  config visibility, WIP topology/status, branch state, merge target, agent sessions) instead of
+	 *  rebuilt on every GraphApp render (selection, scroll, search, resize, agent ticks — none of which
+	 *  touch the bar). A stable result also fails Lit's `Object.is` check less often, so the bar skips
+	 *  re-rendering its pills on unrelated renders entirely. */
+	private _overviewBarItemsSignal = computed(() => {
+		// Subscribe to the minute tick so staleness-threshold crossings invalidate even when no input
+		// data moved; the value itself is unused (`Date.now()` is read fresh on each re-run).
+		void this._overviewBarClock.get();
+
+		const next = this.buildOverviewBarItems(Date.now());
 		const prev = this._overviewBarItemsCache;
 
 		// Preserve identity PER ITEM, not just for the whole array: reuse each prior item object whose
@@ -2407,21 +2427,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// reallocates the whole array, handing every OTHER pill's already-open hover a fresh `.wip`
 		// reference — which churns that hover's settle timer every unrelated tick. `areEqual` is a deep
 		// compare, so it covers the nested `wip` and `row marker` payloads too. Content-compared, not
-		// identity-compared: nothing in an OverviewBarItem is derived from the clock, so equal content
-		// really means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` number that
-		// would have defeated this on every tick while an agent worked — precisely when the bar is
-		// busiest; the row-marker legs are shas + counts, so they hold that property).
+		// identity-compared: nothing in an OverviewBarItem is derived from the clock between threshold
+		// crossings, so equal content really means "nothing changed" (an earlier cut carried a sub-minute
+		// `lastActivity` number that would have defeated this on every tick while an agent worked —
+		// precisely when the bar is busiest; the row-marker legs are shas + counts, so they hold that
+		// property).
 		const prevById = new Map(prev.map(item => [item.id, item]));
 		const merged = next.map(item => {
 			const prior = prevById.get(item.id);
 			return prior != null && areEqual(item, prior) ? prior : item;
 		});
 		// Everything reused in the same order → hand back the exact prior array so the bar itself skips
-		// re-rendering on unrelated GraphApp renders (selection, scroll, search, resize).
+		// re-rendering when a co-dependency changed but no item did.
 		if (merged.length === prev.length && merged.every((item, i) => item === prev[i])) return prev;
 
 		this._overviewBarItemsCache = merged;
 		return merged;
+	});
+
+	private get overviewBarItems(): readonly OverviewBarItem[] {
+		return this._overviewBarItemsSignal.get();
 	}
 
 	/** Computes the bar's entries, gated by `gitlens.graph.overviewBar.visibility` (`'never'` hides it
@@ -2431,8 +2456,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  jumps go away along with the bar in the hidden modes. Secondaries follow, most-recent first:
 	 *  `'always'`/`'worktrees'` include every peer, while `'dirtyWorktrees'` includes only peers with
 	 *  working changes or unpushed commits. Agent state is resolved per-worktree via the
-	 *  session-by-worktree index. */
-	private buildOverviewBarItems(): readonly OverviewBarItem[] {
+	 *  session-by-worktree index. `now` is passed in by the caller (the computed) so the wall-clock
+	 *  read stays next to the tick subscription that keeps it honest. */
+	private buildOverviewBarItems(now: number): readonly OverviewBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
@@ -2482,12 +2508,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		if (visibility === 'dirtyWorktrees' && secondaries.length === 0) return [];
 
-		const now = Date.now();
-
-		// Resolve agent state per worktree through a single index (O(sessions) to build, O(1) per
-		// lookup) instead of re-scanning every session per worktree — mirrors `getAgentStatusByRowSha`
-		// in graph-wrapper so the bar and the in-graph WIP rows surface the same indicator.
-		const sessionIndex = indexAgentSessionsByRepoAndWorktree(gs.agentSessions);
+		// Resolve agent state per worktree through a single index (O(1) per lookup; built once over the
+		// session list by the state provider's memoized `agentSessionIndex`) instead of re-scanning
+		// every session per worktree — mirrors `getAgentStatusByRowSha` in graph-wrapper so the bar and
+		// the in-graph WIP rows surface the same indicator.
+		const sessionIndex = gs.agentSessionIndex;
 		const pickAgent = (repoPath: string): Pick<OverviewBarItem, 'agent' | 'agentCount'> => {
 			const status = pickWipRowAgentStatus(
 				matchAgentSessionsForWorktree(sessionIndex, { repoPath: repoPath, worktreePath: repoPath }),
@@ -4113,9 +4138,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraphContent(slot?: 'end') {
-		// Compute once per render — getter allocates a fresh array, and we read it twice
-		// (visibility check + binding). Local var dedupes the work and gives the bar a stable
-		// reference identity within a single render cycle. Empty array is the bar's hide condition —
+		// Read once per render — the backing computed memoizes across renders, and the local var keeps
+		// the binding identity-stable for the two reads below. Empty array is the bar's hide condition —
 		// either there's no repo to anchor the primary pill to, or `overviewBar.visibility` hides it.
 		const overviewItems = this.overviewBarItems;
 		// `_selectedCommit.sha` is normalized to `uncommitted` for ALL WIP selections (the graph
