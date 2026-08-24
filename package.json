@@ -28928,33 +28928,28 @@
 					"group": "0_gitlens_worktree@2"
 				},
 				{
-					"command": "gitlens.graph.startAgentSession",
-					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
-					"group": "0_gitlens_worktree_1@1"
-				},
-				{
-					"command": "gitlens.graph.startAgentSessionWith",
-					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
-					"group": "0_gitlens_worktree_1@2"
-				},
-				{
-					"command": "gitlens.graph.resumeAgentSession",
-					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
-					"group": "0_gitlens_worktree_1@3"
-				},
-				{
 					"command": "gitlens.openInIntegratedTerminal:graph",
 					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-					"group": "0_gitlens_worktree_2@1"
+					"group": "0_gitlens_worktree_1@1"
 				},
 				{
 					"command": "gitlens.runTaskOnWorktree:graph",
 					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_1@2"
+				},
+				{
+					"command": "gitlens.graph.startAgentSession",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+					"group": "0_gitlens_worktree_2@1"
+				},
+				{
+					"command": "gitlens.graph.startAgentSessionWith",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 					"group": "0_gitlens_worktree_2@2"
 				},
 				{
-					"command": "gitlens.graph.revealWorktreeInExplorer",
-					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"command": "gitlens.graph.resumeAgentSession",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
 					"group": "0_gitlens_worktree_2@3"
 				},
 				{
@@ -29011,6 +29006,11 @@
 					"command": "gitlens.graph.copy",
 					"when": "webviewItem =~ /^gitlens:wip\\b/",
 					"group": "7_gitlens_cutcopypaste@1"
+				},
+				{
+					"command": "gitlens.graph.revealWorktreeInExplorer",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "8_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.focusWorktree:graph",

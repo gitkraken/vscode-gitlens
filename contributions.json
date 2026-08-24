@@ -4495,7 +4495,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 3
 					}
 				]
@@ -4507,8 +4507,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_2",
-						"order": 3
+						"group": "8_gitlens_actions",
+						"order": 6
 					},
 					{
 						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection",
@@ -5077,7 +5077,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 1
 					}
 				]
@@ -5090,7 +5090,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
-						"group": "0_gitlens_worktree_1",
+						"group": "0_gitlens_worktree_2",
 						"order": 2
 					}
 				]
@@ -5879,7 +5879,7 @@
 					},
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_2",
+						"group": "0_gitlens_worktree_1",
 						"order": 1
 					},
 					{
@@ -7136,7 +7136,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "0_gitlens_worktree_2",
+						"group": "0_gitlens_worktree_1",
 						"order": 2
 					}
 				]
