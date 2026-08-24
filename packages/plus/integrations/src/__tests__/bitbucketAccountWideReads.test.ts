@@ -401,7 +401,7 @@ suite('Bitbucket account-wide pull request reads (#5438)', () => {
 
 	test('Bitbucket reviewer slice preserves siblings and warns when one repo fails with auth (#5438)', async () => {
 		const runtime = createFakeRuntime();
-		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+		const { manager } = await bitbucketForReviewerSlice(runtime, {
 			getReposForBitbucketWorkspace: () =>
 				Promise.resolve({
 					values: [

@@ -151,13 +151,18 @@ function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['
  *
  * The try/catch is what makes the observer observation-only: called from the fan-out's success path, a throwing
  * callback would otherwise propagate out of the `mapBounded` task and reject the entire sweep — corrupting the
- * read, not just the metric. Swallowed silently; the consumer owns its own aggregation.
+ * read, not just the metric. Swallowed silently; the consumer owns its own aggregation. The `void`-typed
+ * callback also admits an `async` consumer, whose rejection is created only after `observe` returns — the
+ * `Promise.resolve(...).catch` swallows that too, so it cannot escape as an unhandled rejection.
  *
  * The domain is resolved here rather than carried out of {@link sweepTarget}, so every target reports it by the
  * same rule no matter how far it got. `resolveDomainForRead` needs no integration instance, which is what makes
  * that possible: a target rejected by the first guard resolves the same host a fully drained one does.
  */
-function startSweepReporting(ctx: ProviderReadContext, observe: (event: ProviderSweepTargetEvent) => void) {
+function startSweepReporting(
+	ctx: ProviderReadContext,
+	observe: (event: ProviderSweepTargetEvent) => void | PromiseLike<unknown>,
+) {
 	const fanOutStartedAt = performance.now();
 
 	return function beginTarget(target: ProviderSweepTarget) {
@@ -165,16 +170,18 @@ function startSweepReporting(ctx: ProviderReadContext, observe: (event: Provider
 
 		return function reportSettled(slice: SweepSlice | undefined) {
 			try {
-				observe({
-					providerId: target.providerId,
-					domain: ctx.resolveDomainForRead(target.providerId, target.connectionId, target.domain),
-					connectionId: target.connectionId,
-					count: slice?.items.length ?? 0,
-					durationMs: performance.now() - startedAt,
-					queueWaitMs: startedAt - fanOutStartedAt,
-					outcome: sliceOutcome(slice),
-					truncated: slice?.truncated ?? false,
-				});
+				void Promise.resolve(
+					observe({
+						providerId: target.providerId,
+						domain: ctx.resolveDomainForRead(target.providerId, target.connectionId, target.domain),
+						connectionId: target.connectionId,
+						count: slice?.items.length ?? 0,
+						durationMs: performance.now() - startedAt,
+						queueWaitMs: startedAt - fanOutStartedAt,
+						outcome: sliceOutcome(slice),
+						truncated: slice?.truncated ?? false,
+					}),
+				).catch(() => {});
 			} catch {}
 		};
 	};
