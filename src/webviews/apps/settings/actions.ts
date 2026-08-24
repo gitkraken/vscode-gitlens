@@ -413,9 +413,9 @@ export class SettingsActions {
 		return this.apply(changes);
 	}
 
-	/** Applies a select/segmented change with legacy boolean/null coercion. */
+	/** Applies a select/segmented change with scalar coercion (boolean/null/number). */
 	applyOption(key: SettingsKey, value: string): Promise<boolean> {
-		return this.apply({ [key]: ensureIfBooleanOrNull(value) });
+		return this.apply({ [key]: coerceOptionValue(value) });
 	}
 
 	/** Applies a text input commit; an empty value falls back to `defaultValue`, else `null`. */
@@ -537,11 +537,16 @@ export class SettingsActions {
 	}
 }
 
-/** Legacy select-value coercion: 'true'/'false' → boolean, 'null' → null, else the string. */
-export function ensureIfBooleanOrNull(value: string): string | boolean | null {
+/**
+ * Select/segmented option-value coercion: 'true'/'false' → boolean, 'null' → null (legacy
+ * `data-value` semantics), a numeric string → number (for `number | string` settings like the
+ * Commit Graph pill caps, whose enum mixes 1–10 with 'auto'), else the string.
+ */
+export function coerceOptionValue(value: string): string | number | boolean | null {
 	if (value === 'true') return true;
 	if (value === 'false') return false;
 	if (value === 'null') return null;
+	if (value !== '' && !Number.isNaN(Number(value))) return Number(value);
 	return value;
 }
 
