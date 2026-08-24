@@ -2500,7 +2500,9 @@ export class GraphInspectServices {
 		if (this._composeToolsForGraph == null) {
 			// Lazily import the node-only compose-tools library on demand, keeping it (and its eager zod
 			// schema/JIT setup that trips VS Code's `navigator` deprecation warning) off the graph init path.
-			const { createGraphComposeIntegration } = await import('@env/coretools/composer.js');
+			const { createGraphComposeIntegration } = await import(
+				/* webpackChunkName: "core-tools" */ '@env/coretools/composer.js'
+			);
 			this._composeToolsForGraph ??= createGraphComposeIntegration(this.container);
 		}
 		return this._composeToolsForGraph;
@@ -2585,7 +2587,9 @@ export class GraphInspectServices {
 		if (this._conflictToolsForGraph == null) {
 			// Lazily import the node-only conflict-tools integration on demand (browser resolves to a
 			// stub returning `undefined`, so callers gate the feature off in VS Code Web).
-			const { createConflictToolsIntegration } = await import('@env/coretools/conflict.js');
+			const { createConflictToolsIntegration } = await import(
+				/* webpackChunkName: "core-tools" */ '@env/coretools/conflict.js'
+			);
 			this._conflictToolsForGraph ??= createConflictToolsIntegration(this.container);
 		}
 		return this._conflictToolsForGraph;

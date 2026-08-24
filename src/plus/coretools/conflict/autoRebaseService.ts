@@ -1080,7 +1080,7 @@ export class AutoRebaseService implements Disposable {
 	private getIntegration(): Promise<ConflictToolsIntegration | undefined> {
 		// Lazily import the node-only conflict-tools integration on demand (browser resolves to a
 		// stub returning `undefined`, so the feature gates off in VS Code Web)
-		this._integration ??= import('@env/coretools/conflict.js').then(m =>
+		this._integration ??= import(/* webpackChunkName: "core-tools" */ '@env/coretools/conflict.js').then(m =>
 			m.createConflictToolsIntegration(this.container),
 		);
 		return this._integration;

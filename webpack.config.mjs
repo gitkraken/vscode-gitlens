@@ -369,20 +369,7 @@ function getExtensionConfig(target, mode, env) {
 								// `defaultVendors` (minChunks 1) extracts every async dep into numeric vendor chunks.
 								default: false,
 								defaultVendors: false,
-								// zod + compose-tools (+ all first-party compose code: the webview compose
-								// integrations, the coretools compose backend, and the env-node composer
-								// factory) are the AI/compose feature family, lazily imported by both the
-								// composer and graph controllers. Emit one shared chunk instead of duplicating
-								// it (and a per-controller wrapper) across them.
-								compose: {
-									test: /([\\/]node_modules[\\/](zod|@gitkraken[\\/](compose-tools|shared-tools))[\\/]|[\\/]src[\\/](webviews[\\/].*[\\/]compose[\\/]|plus[\\/]coretools[\\/]compose[\\/]|env[\\/]node[\\/]coretools[\\/]composer))/,
-									name: 'compose',
-									minChunks: 2,
-									priority: 20,
-									reuseExistingChunk: true,
-									enforce: true,
-								},
-								// The webview RPC service layer + shared webview infra are copied into every
+							// The webview RPC service layer + shared webview infra are copied into every
 								// webview controller (commitDetails, timeline, graph, home, …); emit them once.
 								webviewShared: {
 									test: /[\\/]src[\\/]webviews[\\/](rpc|shared)[\\/]/,
