@@ -30,6 +30,7 @@ import './gl-graph-coachmark.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/agents-banner.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -282,11 +283,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-6);
 				padding: 0.9rem 1rem;
 
-				/* Paint isolation: card hover (border-color + color-mix background change) repaints
-		   only this card's box, not its column or siblings. Without it, hover transitions
-		   thrashed visibly on scroll because the browser would re-evaluate paint regions
-		   across the column. */
-				contain: layout style paint;
+				/* Off-screen cards skip layout and paint entirely via content-visibility, keeping long
+		   columns (Inactive collects every ended session) cheap to lay out and scroll.
+		   contain-intrinsic-size reserves a placeholder box while skipped — its auto keyword
+		   keeps the last-rendered size once a card has been painted, so scrollbar jitter stays
+		   minimal as cards enter the viewport. */
+				content-visibility: auto;
+				contain-intrinsic-size: auto 10rem;
 				font: inherit;
 				color: inherit;
 				text-align: left;
@@ -504,6 +507,19 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  exceptions later abort the cycle. */
 	private _lastFingerprint?: string;
 
+	/** Progressive-reveal counter: how many columns (in {@link columns} priority order) render
+	 *  real cards. Starts at 0 so the first paint draws only the board chrome — header plus
+	 *  column shells with skeleton placeholders — and the rAF scheduler (`_revealFrameHandle`)
+	 *  reveals one more column per animation frame. Mixed into {@link computeFingerprint} (the
+	 *  `r` prefix) so each reveal step survives the no-op-render dedupe even when session data is
+	 *  unchanged. */
+	private _revealedColumns = 0;
+
+	/** rAF handle for the progressive reveal above — one frame per column, kicked off in
+	 *  `connectedCallback` and cancelled on disconnect alongside the live-tick interval so a fast
+	 *  toggle away neither leaks frames nor mutates a detached element. */
+	private _revealFrameHandle?: number;
+
 	/** Sticky "current tool call" resolver shared with the details panel — see
 	 *  {@link createStickyDetailResolver}. Hides the brief inter-tool-call flicker where
 	 *  `session.statusDetail` empties before the next tool latches, by holding the last live tool
@@ -569,8 +585,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		return { sorted: sorted, buckets: buckets };
 	}
 
-	/** Build a stable string capturing every field the kanban actually renders, plus the live-tick
-	 *  generation. Identical fingerprint between two reactive pushes → no visible change → skip
+	/** Build a stable string capturing every field the kanban actually renders, plus the
+	 *  progressive-reveal and live-tick generations (`r`/`t` prefixes). Identical fingerprint
+	 *  between two reactive pushes → no visible change → skip
 	 *  the render entirely via {@link shouldUpdate}. The host's `AgentsService.onSessionsChanged` fires
 	 *  on every Claude Code event (multiple per second during active work) with a fresh array
 	 *  reference; many of those carry no meaningful diff for the kanban — same phase, same tool
@@ -596,7 +613,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	 *  for permission-typed fields) or the kanban will silently fail to update when only that
 	 *  field changes. */
 	private computeFingerprint(sessions: readonly AgentSessionState[]): string {
-		const parts: string[] = [`t${this._tickGeneration}`];
+		const parts: string[] = [`r${this._revealedColumns}t${this._tickGeneration}`];
 		for (const s of sessions) {
 			const subtitle = s.worktree?.branch?.name ?? s.worktree?.name ?? s.worktree?.path ?? '';
 			parts.push(
@@ -660,6 +677,11 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			this._tickGeneration++;
 			this.requestUpdate();
 		}, liveTickIntervalMs);
+
+		// Start revealing columns one per frame — see `scheduleReveal`. A rAF callback runs before
+		// the next frame's paint, so render 0 (board chrome) paints in the mount frame and column 1
+		// lands in the following one; no double-rAF hop needed.
+		this.scheduleReveal();
 	}
 
 	override disconnectedCallback(): void {
@@ -668,6 +690,27 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			clearInterval(this._liveTickHandle);
 			this._liveTickHandle = undefined;
 		}
+		if (this._revealFrameHandle != null) {
+			cancelAnimationFrame(this._revealFrameHandle);
+			this._revealFrameHandle = undefined;
+		}
+	}
+
+	/** Progressive-reveal driver: one animation frame per column until all of {@link columns} are
+	 *  shown — the two-phase mount that keeps card-tree construction (the expensive part of
+	 *  switching into Kanban) off the first paint. Idempotent: a pending frame or an already-full
+	 *  `_revealedColumns` (e.g. reconnect of a long-lived instance) makes this a no-op. */
+	private scheduleReveal(): void {
+		if (this._revealFrameHandle != null || this._revealedColumns >= columns.length) return;
+
+		this._revealFrameHandle = requestAnimationFrame(() => {
+			this._revealFrameHandle = undefined;
+			if (this._revealedColumns >= columns.length) return;
+
+			this._revealedColumns++;
+			this.requestUpdate();
+			this.scheduleReveal();
+		});
 	}
 
 	private onClose = (): void => {
@@ -902,16 +945,22 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			${repeat(
 				columns,
 				c => c.id,
-				c => this.renderColumn(c, sessionsByColumn.get(c.id) ?? []),
+				(c, index) => this.renderColumn(c, sessionsByColumn.get(c.id) ?? [], index),
 			)}
 		</div>`;
 	}
 
-	private renderColumn(column: KanbanColumnDef, sessions: readonly AgentSessionState[]) {
+	private renderColumn(column: KanbanColumnDef, sessions: readonly AgentSessionState[], index: number) {
 		const headingId = `kanban-column-heading-${column.id}`;
 		// Same rationale as the header count — ghosts still render as cards below but don't count
 		// toward the column's own badge.
 		const currentCount = sessions.filter(s => !this.isGhost(s)).length;
+		// Progressive reveal (see `_revealedColumns`): columns at or beyond the reveal count show
+		// skeleton placeholders instead of cards, so mounting paints the board chrome first and
+		// card trees land one column per frame in priority order. Emptiness is known now — buckets
+		// are computed synchronously — so an unrevealed empty column renders its real "Nothing
+		// here" state immediately rather than skeletons.
+		const revealed = index < this._revealedColumns;
 		return html`<section class="column" aria-labelledby=${headingId}>
 			<header class="column__heading" data-column=${column.id} id=${headingId}>
 				<h3 class="column__heading-label">${column.label}</h3>
@@ -923,14 +972,27 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				${
 					sessions.length === 0
 						? html`<p class="column__empty">Nothing here</p>`
-						: repeat(
-								sessions,
-								s => s.id,
-								s => this.renderCard(s, column.id),
-							)
+						: revealed
+							? repeat(
+									sessions,
+									s => s.id,
+									s => this.renderCard(s, column.id),
+								)
+							: this.renderColumnSkeletons()
 				}
 			</div>
 		</section>`;
+	}
+
+	/** Placeholder stack for a not-yet-revealed column — three loaders sized like a card's detail
+	 *  block, spaced by the `.column__list` gap. Replaced by real cards when the reveal scheduler
+	 *  reaches this column. */
+	private renderColumnSkeletons() {
+		return html`
+			<skeleton-loader lines="3"></skeleton-loader>
+			<skeleton-loader lines="3"></skeleton-loader>
+			<skeleton-loader lines="3"></skeleton-loader>
+		`;
 	}
 
 	private renderCard(session: AgentSessionState, columnId: KanbanColumnId) {
