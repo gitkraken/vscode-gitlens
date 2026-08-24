@@ -1501,7 +1501,7 @@
 					},
 					"gitlens.graph.overviewBar.visibility": {
 						"type": "string",
-						"default": "worktrees",
+						"default": "dirtyWorktrees",
 						"enum": [
 							"always",
 							"worktrees",
@@ -1514,7 +1514,7 @@
 							"Shown when another worktree has working changes or unpushed commits",
 							"Never shown"
 						],
-						"markdownDescription": "Specifies when to show the overview bar above the _Commit Graph_ — the per-worktree _WIP_ pills and the HEAD, upstream, and merge target jumps",
+						"markdownDescription": "Specifies when to show the overview bar above the _Commit Graph_ — the per-worktree _WIP_ pills and the HEAD, upstream, and merge target jumps. When shown, the primary worktree is always included. `always` and `worktrees` include every secondary worktree; `dirtyWorktrees` includes secondary worktrees only when they have working changes or unpushed commits",
 						"scope": "window",
 						"order": 754
 					},

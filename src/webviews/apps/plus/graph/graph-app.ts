@@ -147,6 +147,7 @@ import {
 	filterSecondariesForScopeAndVisibility,
 	hasDirtyCounts,
 	isScopeFocalHead,
+	shouldIncludeOverviewBarSecondary,
 	shouldShowPrimaryWipRow,
 } from './utils/wip.utils.js';
 import { isGraphWalkthroughBannerHighlighted } from './walkthroughBanner.js';
@@ -2427,30 +2428,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  outright; `'worktrees'`/`'dirtyWorktrees'` additionally require a secondary worktree to exist /
 	 *  qualify). When the bar renders, the primary worktree is always the first entry — it carries the
 	 *  current branch's HEAD / upstream / merge-target jumps even when nothing else qualifies, but those
-	 *  jumps go away along with the bar in the hidden modes. Secondaries follow, one per worktree that has
-	 *  working changes or unpushed commits, most-recent first. Agent state is resolved per-worktree via the
+	 *  jumps go away along with the bar in the hidden modes. Secondaries follow, most-recent first:
+	 *  `'always'`/`'worktrees'` include every peer, while `'dirtyWorktrees'` includes only peers with
+	 *  working changes or unpushed commits. Agent state is resolved per-worktree via the
 	 *  session-by-worktree index. */
 	private buildOverviewBarItems(): readonly OverviewBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
 
-		const visibility = gs.config?.overviewBarVisibility ?? 'worktrees';
+		const visibility = gs.config?.overviewBarVisibility ?? 'dirtyWorktrees';
 		if (visibility === 'never') return [];
 
-		// The bar is a GLOBAL affordance: it surfaces every worktree that has working changes,
-		// independent of the graph's active scope / branchesVisibility. (The in-graph WIP rows ARE
-		// scope/visibility-filtered — see `getDecoratedRows` — so the bar can intentionally show
-		// worktrees the graph has filtered out.)
+		// The bar is a GLOBAL affordance: its peers are independent of the graph's active scope /
+		// branchesVisibility. (The in-graph WIP rows ARE scope/visibility-filtered — see `getDecoratedRows` —
+		// so the bar can intentionally show worktrees the graph has filtered out.)
 
-		// Secondary worktrees — one pill per worktree that has working changes OR unpushed commits, NOT
-		// scope/visibility filtered (unlike the graph's WIP rows). A worktree is "dirty" by its fetched
-		// `workDirStats` when present, else by the host's cheap `hasChanges` probe — so the pill appears
-		// before the full breakdown is fetched (lazily, on hover). Ordered by HEAD commit date, most-recent
-		// first (`parentDate`). Unlike the primary, a secondary earns its pill only by qualifying here.
+		// Secondary worktrees — NOT scope/visibility filtered (unlike the graph's WIP rows). A worktree is
+		// "dirty" by its fetched `workDirStats` when present, else by the host's cheap `hasChanges` probe —
+		// so `dirtyWorktrees` can show the pill before the full breakdown is fetched (lazily, on hover).
+		// `always`/`worktrees` include clean/pushed peers too. Ordered by HEAD commit date, most-recent first
+		// (`parentDate`).
 		const peerWipRows = this.peerWipRows;
-		// `worktrees` gates on a secondary EXISTING, not on it qualifying below — qualification tracks
-		// dirty/unpushed, which would pop the whole bar in and out as work comes and goes.
+		// `worktrees` gates on a secondary EXISTING; every existing secondary also gets a pill below.
 		if (visibility === 'worktrees' && (peerWipRows == null || Object.keys(peerWipRows).length === 0)) {
 			return [];
 		}
@@ -2465,16 +2465,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							const counted = stats != null ? hasDirtyCounts(stats) : undefined;
 							// Verified counts decide alone. STALE counts (carried across a watch gap, or
 							// contradicted by the probe) decide TOGETHER with the probe bit, either signal
-							// enough: whichever is out of date, the worktree earns a pill and hovering it
-							// buys the authoritative status that settles it. A missing pill has no hover, so
-							// erring quiet here is what strands the row.
+							// enough: whichever is out of date, the worktree qualifies for `dirtyWorktrees` and
+							// hovering it buys the authoritative status that settles it. A missing pill has no hover,
+							// so erring quiet here is what strands the row.
 							const dirty =
 								counted != null && state?.workDirStatsStale !== true
 									? counted
 									: counted === true || state?.hasChanges === true;
 							return { sha: sha, meta: meta, state: state, dirty: dirty };
 						})
-						.filter(({ state, dirty }) => dirty || state?.hasUnpushed === true)
+						.filter(({ state, dirty }) =>
+							shouldIncludeOverviewBarSecondary(visibility, dirty, state?.hasUnpushed === true),
+						)
 						.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0))
 				: [];
 

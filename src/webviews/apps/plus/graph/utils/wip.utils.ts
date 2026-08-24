@@ -1,5 +1,5 @@
 import { hasKeys } from '@gitlens/utils/object.js';
-import type { GraphBranchesVisibility } from '../../../../../config.js';
+import type { GraphBranchesVisibility, GraphOverviewBarVisibility } from '../../../../../config.js';
 import type {
 	GraphIncludeOnlyRefs,
 	GraphScope,
@@ -14,6 +14,22 @@ export function hasDirtyCounts(stats: Partial<WorkDirStats> | undefined): boolea
 	if (stats == null) return false;
 
 	return (stats.added ?? 0) + (stats.modified ?? 0) + (stats.deleted ?? 0) + (stats.renamed ?? 0) > 0;
+}
+
+/**
+ * Whether a peer worktree gets an overview-bar pill under the selected visibility policy:
+ * `always`/`worktrees` include every peer, `dirtyWorktrees` includes only dirty/unpushed peers,
+ * and `never` includes none.
+ */
+export function shouldIncludeOverviewBarSecondary(
+	visibility: GraphOverviewBarVisibility,
+	dirty: boolean,
+	hasUnpushed: boolean,
+): boolean {
+	if (visibility === 'never') return false;
+	if (visibility === 'always' || visibility === 'worktrees') return true;
+
+	return dirty || hasUnpushed;
 }
 
 /**
