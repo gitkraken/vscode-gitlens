@@ -105,6 +105,7 @@ function createServices(overrides?: {
 	reviewChanges?: (...args: unknown[]) => Promise<ReviewResult>;
 	composeChanges?: (...args: unknown[]) => Promise<ComposeResult>;
 	discardCompose?: (...args: unknown[]) => Promise<void>;
+	sendEvent?: (name: string, data: Record<string, unknown>) => Promise<void>;
 }): ResolvedServices {
 	const noopUnsubscribe = () => {};
 	return {
@@ -119,7 +120,7 @@ function createServices(overrides?: {
 			discardCompose: overrides?.discardCompose ?? (() => Promise.resolve()),
 		},
 		telemetry: {
-			sendEvent: () => Promise.resolve(),
+			sendEvent: overrides?.sendEvent ?? (() => Promise.resolve()),
 		},
 	} as unknown as ResolvedServices;
 }
@@ -2381,5 +2382,74 @@ suite('DetailsWorkflowController.runCompose — retrying a failed refine', () =>
 			const entry = m.host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
 			assert.strictEqual(entry?.cacheKey, 'K1', 'the failed run must not drop the plan handle');
 		});
+	});
+});
+
+suite('DetailsWorkflowController — failure telemetry classification', () => {
+	/** Harness for the compose/review failure payload: scripts the generate RPC and records every
+	 *  telemetry event the run emits. Only the per-kind classification is asserted below — that a
+	 *  message assigned into the payload arrives in the payload is a tautology, not a contract. */
+	function setupRunFailure(overrides: {
+		composeChanges?: (...args: unknown[]) => Promise<ComposeResult>;
+		reviewChanges?: (...args: unknown[]) => Promise<ReviewResult>;
+	}): { controller: DetailsWorkflowController; sent: SentEvent[] } {
+		const sent: SentEvent[] = [];
+		const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({
+				...overrides,
+				sendEvent: (name: string, data: Record<string, unknown>) => {
+					sent.push({ name: name, data: data });
+					return Promise.resolve();
+				},
+			}),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		enterMockMode(state, '/A', uncommitted);
+
+		return { controller: controller, sent: sent };
+	}
+
+	const failedEvents = (sent: SentEvent[], name: string) => sent.filter(e => e.name === name);
+
+	test('a compose failure over an unrewritable scope reports it as invalid-scope', async () => {
+		// The distinction that matters for the funnel: an identical retry can never succeed here, so
+		// these must not be pooled with transient host/AI errors.
+		const m = setupRunFailure({
+			composeChanges: async (): Promise<ComposeResult> => ({
+				error: { message: 'interior fork', kind: 'invalid-scope' },
+			}),
+		});
+
+		m.controller.runCompose('/A', undefined, undefined, undefined, 0);
+		await flush();
+
+		const events = failedEvents(m.sent, 'graphDetails/compose/generatePlan/failed');
+		assert.strictEqual(events.length, 1);
+		assert.strictEqual(events[0].data['failure.reason'], 'invalid-scope');
+		assert.strictEqual(events[0].data['failure.error.message'], 'interior fork');
+	});
+
+	test('a failed review reports the error message and no failure reason', async () => {
+		const m = setupRunFailure({
+			reviewChanges: async (): Promise<ReviewResult> => ({ error: { message: 'review blew up' } }),
+		});
+
+		m.controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+
+		const events = failedEvents(m.sent, 'graphDetails/review/generateReview/failed');
+		assert.strictEqual(events.length, 1);
+		assert.strictEqual(events[0].data['failure.error.message'], 'review blew up');
+		// Key ABSENT, not present-and-undefined: review's event never declares `failure.reason`, so the
+		// shared compose/review payload must not smuggle the key in. `strictEqual(…, undefined)` would
+		// pass either way and wouldn't catch that.
+		assert.ok(!('failure.reason' in events[0].data), 'review has no structured failure kind to report');
 	});
 });

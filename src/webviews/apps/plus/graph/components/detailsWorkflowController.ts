@@ -45,6 +45,16 @@ function composeSessionKey(anchor: AnchorSelection): ComposeSessionKey {
 	return anchorKey(anchor) as string as ComposeSessionKey;
 }
 
+/** The message a rejected run reports. One helper because it feeds both the panel's error pane
+ *  ({@link DetailsWorkflowController.onRunSettled}) and the `/failed` event's
+ *  `failure.error.message` ({@link DetailsWorkflowController.fireRunTelemetry}), so the two can't
+ *  drift in FORMAT. It does not make them agree on visibility: `fireRunTelemetry` runs
+ *  unconditionally while `onRunSettled` bails on a superseded entry / aborted signal / disconnect,
+ *  so a reported message may belong to a failure whose error pane was never rendered. */
+function runFailureMessage(ex: unknown): string {
+	return ex instanceof Error ? ex.message : typeof ex === 'string' ? ex : 'Run failed';
+}
+
 /** The shape of "who/what is currently selected" that every workflow transition needs. */
 export interface DetailsSelection {
 	sha: string | undefined;
@@ -1717,6 +1727,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					'applied.count': appliedCount,
 					'excluded.count': excludedCount,
 					duration: duration,
+					'failure.error.message': resourceValue.error.message,
 					...this.resolveSessionCounts(),
 				});
 				const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(engagedAnchor))?.resolve;
@@ -2080,8 +2091,15 @@ export class DetailsWorkflowController implements ReactiveController {
 	}
 
 	/** Emits the per-outcome `graphDetails/<mode>/<action>/{completed,cancelled,failed}` telemetry.
-	 *  Privacy-safe: payload is built from the controller's scope state + AI-model identifiers +
-	 *  result counts — no file paths, no code content, no repo paths. */
+	 *  Every field EXCEPT `failure.error.message` is privacy-safe by construction: scope state +
+	 *  AI-model identifiers + result counts — no file paths, no code content, no repo paths.
+	 *  `failure.error.message` is the deliberate exception, reported verbatim so failures are
+	 *  diagnosable (matching the other AI actions). Be aware of what that admits: the message is
+	 *  whatever the host caught, and it can BE a path — git stderr and Node `fs` errors quote the
+	 *  file they failed on, absolute (see `conflict/integration.ts`'s `resolvePath`), and
+	 *  `resolveConflicts` formats a repo-relative path into its own message. There is no scrubbing
+	 *  or length cap anywhere downstream. Widening this field to more events is a privacy decision,
+	 *  not a mechanical one. */
 	private fireRunTelemetry(
 		kind: DetailsMode,
 		prompt: string | undefined,
@@ -2111,6 +2129,16 @@ export class DetailsWorkflowController implements ReactiveController {
 			controller.signal.aborted || (result != null && 'cancelled' in result && result.cancelled === true);
 		const isError = ex != null || (result != null && 'error' in result);
 
+		// Failure detail for the `/failed` events — a thrown exception wins over the host's `{ error }`
+		// payload (a throw means the RPC never delivered one). Shares `runFailureMessage` with
+		// `onRunSettled`, so what's reported and what the user was shown are the same string.
+		let errorMessage: string | undefined;
+		if (ex != null) {
+			errorMessage = runFailureMessage(ex);
+		} else if (result != null && 'error' in result) {
+			errorMessage = result.error.message;
+		}
+
 		// Resolve curates a checked conflict-file set (not a commit scope), so it builds a
 		// focused-files + instructions + AI-model payload instead of compose/review's scope context.
 		if (kind === 'resolve') {
@@ -2133,7 +2161,10 @@ export class DetailsWorkflowController implements ReactiveController {
 				return;
 			}
 			if (isError) {
-				this.actions.sendTelemetryEvent('graphDetails/resolve/generateResolutions/failed', resolveBase);
+				this.actions.sendTelemetryEvent('graphDetails/resolve/generateResolutions/failed', {
+					...resolveBase,
+					'failure.error.message': errorMessage,
+				});
 				return;
 			}
 
@@ -2200,12 +2231,24 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 
 		// Error (thrown or `{ error }` payload).
-		if (ex != null || (result != null && 'error' in result)) {
+		if (isError) {
+			// Compose-only, routed like `composeOnly` above so review's payload never carries a key its
+			// event doesn't declare: the host tags an unrewritable scope so an identical retry can be
+			// told apart from a transient failure, which review has no analogue for.
+			const errorKind =
+				result != null && 'error' in result && 'kind' in result.error ? result.error.kind : undefined;
+			const composeOnlyFailure = kind === 'compose' ? { 'failure.reason': errorKind ?? 'error' } : {};
 			this.actions.sendTelemetryEvent(
 				kind === 'compose'
 					? 'graphDetails/compose/generatePlan/failed'
 					: 'graphDetails/review/generateReview/failed',
-				{ ...baseContext, ...composeOnly, duration: duration },
+				{
+					...baseContext,
+					...composeOnly,
+					...composeOnlyFailure,
+					duration: duration,
+					'failure.error.message': errorMessage,
+				},
 			);
 			return;
 		}
@@ -2633,8 +2676,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			| undefined;
 		if (ex != null) {
 			execState = 'error';
-			const message = ex instanceof Error ? ex.message : typeof ex === 'string' ? ex : 'Run failed';
-			value = { error: { message: message } };
+			value = { error: { message: runFailureMessage(ex) } };
 		} else if (result != null && 'error' in result) {
 			execState = 'error';
 		} else {

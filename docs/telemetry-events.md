@@ -4551,6 +4551,10 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'customInstructions.used': boolean,
   // Time from dispatch to settlement in milliseconds
   'duration': number,
+  // Error message text describing why the generation failed
+  'failure.error.message': string,
+  // Why the run failed. `invalid-scope` = the selected scope cannot be rewritten, so an identical retry fails too — distinguishing user-scope errors from host/AI errors. Cancellation has its own `/cancelled` event and never lands here.
+  'failure.reason': 'error' | 'invalid-scope',
   // True when this generation refined a prior plan; false on the initial compose
   'refine': boolean,
   // Number of commits included in the scope
@@ -4855,6 +4859,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'duration': number,
   // Number of resolutions excluded by the user before apply
   'excluded.count': number,
+  // Error message text describing why the apply failed
+  'failure.error.message': string,
   'refine.count': number,
   // Total resolutions in the pending set
   'resolutions.count': number,
@@ -5051,6 +5057,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'customInstructions.used': boolean,
   // Time from dispatch to settlement in milliseconds
   'duration': number,
+  // Error message text describing why the run failed. Cancellation has its own `/cancelled` event and never lands here.
+  'failure.error.message': string,
   // Number of conflicted files the run was focused on (0 when resolving all)
   'files.focused.count': number,
   // Whether the run was scoped to a focused subset of conflicted files rather than all
@@ -5394,6 +5402,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'customInstructions.used': boolean,
   // Time from dispatch to settlement in milliseconds
   'duration': number,
+  // Error message text describing why the generation failed. Unlike compose/resolve, `ReviewResult` has no `cancelled` sentinel, so only a user-clicked Cancel (aborted signal) reaches `/cancelled` — a host-side cancellation such as an escaped model picker arrives as an error and lands here reading `Review was cancelled.`, so treat that text as a cancel, not a failure.
+  'failure.error.message': string,
   // Number of commits included in the scope
   'scope.commits.count': number,
   // Effective number of files in the scope (post AI-ignore, pre user-exclusion)

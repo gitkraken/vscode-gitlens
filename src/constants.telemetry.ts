@@ -528,7 +528,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a compose plan generation is cancelled (user-clicked Cancel or host-side abort) */
 	'graphDetails/compose/generatePlan/cancelled': GraphDetailsComposeGeneratePlanLifecycleEvent;
 	/** Sent when a compose plan generation fails */
-	'graphDetails/compose/generatePlan/failed': GraphDetailsComposeGeneratePlanLifecycleEvent;
+	'graphDetails/compose/generatePlan/failed': GraphDetailsComposeGeneratePlanFailedEvent;
 	/** Sent when a compose plan is applied (commits created) successfully */
 	'graphDetails/compose/applyPlan/completed': GraphDetailsComposeApplyPlanEvent;
 	/** Sent when applying a compose plan fails */
@@ -561,7 +561,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a review generation is cancelled (user-clicked Cancel or host-side abort) */
 	'graphDetails/review/generateReview/cancelled': GraphDetailsReviewGenerateReviewLifecycleEvent;
 	/** Sent when a review generation fails */
-	'graphDetails/review/generateReview/failed': GraphDetailsReviewGenerateReviewLifecycleEvent;
+	'graphDetails/review/generateReview/failed': GraphDetailsReviewGenerateReviewFailedEvent;
 	/** Sent when a per-focus-area review (two-pass) generation completes successfully */
 	'graphDetails/review/generateFocusArea/completed': GraphDetailsReviewGenerateFocusAreaCompletedEvent;
 	/** Sent when a per-focus-area review (two-pass) generation fails */
@@ -582,11 +582,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when an AI conflict-resolution run is cancelled (user-clicked Cancel or host-side abort) */
 	'graphDetails/resolve/generateResolutions/cancelled': GraphDetailsResolveGenerateLifecycleEvent;
 	/** Sent when an AI conflict-resolution run fails */
-	'graphDetails/resolve/generateResolutions/failed': GraphDetailsResolveGenerateLifecycleEvent;
+	'graphDetails/resolve/generateResolutions/failed': GraphDetailsResolveGenerateFailedEvent;
 	/** Sent when AI conflict resolutions are applied to the working tree successfully */
 	'graphDetails/resolve/applyResolutions/completed': GraphDetailsResolveApplyEvent;
 	/** Sent when applying AI conflict resolutions fails */
-	'graphDetails/resolve/applyResolutions/failed': GraphDetailsResolveApplyEvent;
+	'graphDetails/resolve/applyResolutions/failed': GraphDetailsResolveApplyFailedEvent;
 	/** Sent when the user discards pending AI conflict resolutions without applying them */
 	'graphDetails/resolve/discarded': GraphDetailsResolveDiscardedEvent;
 	/** Sent when a per-file "retry with feedback" re-resolution succeeds */
@@ -1411,6 +1411,15 @@ interface GraphDetailsComposeGeneratePlanCompletedEvent extends GraphDetailsComp
 	'result.deletions.count': number;
 }
 
+interface GraphDetailsComposeGeneratePlanFailedEvent extends GraphDetailsComposeGeneratePlanLifecycleEvent {
+	/** Why the run failed. `invalid-scope` = the selected scope cannot be rewritten, so an identical
+	 *  retry fails too — distinguishing user-scope errors from host/AI errors. Cancellation has its
+	 *  own `/cancelled` event and never lands here. */
+	'failure.reason': 'error' | 'invalid-scope';
+	/** Error message text describing why the generation failed */
+	'failure.error.message'?: string;
+}
+
 interface GraphDetailsComposeApplyPlanEvent extends GraphContextEventData {
 	/** Total commits in the proposed plan */
 	'plan.commits.count': number;
@@ -1497,6 +1506,14 @@ interface GraphDetailsReviewGenerateReviewCompletedEvent extends GraphDetailsRev
 	'result.severity.suggestion.count': number;
 }
 
+interface GraphDetailsReviewGenerateReviewFailedEvent extends GraphDetailsReviewGenerateReviewLifecycleEvent {
+	/** Error message text describing why the generation failed. Unlike compose/resolve, `ReviewResult`
+	 *  has no `cancelled` sentinel, so only a user-clicked Cancel (aborted signal) reaches
+	 *  `/cancelled` — a host-side cancellation such as an escaped model picker arrives as an error and
+	 *  lands here reading `Review was cancelled.`, so treat that text as a cancel, not a failure. */
+	'failure.error.message'?: string;
+}
+
 interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
 	extends GraphContextEventData, GraphDetailsAIModelEventData {
 	duration: number;
@@ -1535,6 +1552,12 @@ interface GraphDetailsResolveGenerateLifecycleEvent
 	/** How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two
 	 *  non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve. */
 	'run.kind': 'start' | 'refine' | 'retry';
+}
+
+interface GraphDetailsResolveGenerateFailedEvent extends GraphDetailsResolveGenerateLifecycleEvent {
+	/** Error message text describing why the run failed. Cancellation has its own `/cancelled` event
+	 *  and never lands here. */
+	'failure.error.message'?: string;
 }
 
 /**
@@ -1585,6 +1608,11 @@ interface GraphDetailsResolveApplyEvent extends GraphContextEventData, GraphDeta
 	'excluded.count': number;
 	/** Time from apply click to settlement in milliseconds */
 	duration: number;
+}
+
+interface GraphDetailsResolveApplyFailedEvent extends GraphDetailsResolveApplyEvent {
+	/** Error message text describing why the apply failed */
+	'failure.error.message'?: string;
 }
 
 interface GraphDetailsResolveDiscardedEvent extends GraphContextEventData, GraphDetailsResolveSessionCountsEventData {
