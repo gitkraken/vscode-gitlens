@@ -369,7 +369,7 @@ function getExtensionConfig(target, mode, env) {
 								// `defaultVendors` (minChunks 1) extracts every async dep into numeric vendor chunks.
 								default: false,
 								defaultVendors: false,
-							// The webview RPC service layer + shared webview infra are copied into every
+								// The webview RPC service layer + shared webview infra are copied into every
 								// webview controller (commitDetails, timeline, graph, home, …); emit them once.
 								webviewShared: {
 									test: /[\\/]src[\\/]webviews[\\/](rpc|shared)[\\/]/,
@@ -696,7 +696,26 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 			splitChunks: {
 				// Disable all non-async code splitting
 				// chunks: () => false,
-				cacheGroups: { default: false, vendors: false },
+				cacheGroups: {
+					default: false,
+					vendors: false,
+					// Every app statically ships the same runtime floor (lit, supertalk RPC + signals,
+					// fflate IPC inflate, floating-ui, webawesome baseline, shared components/appBase).
+					// Extract whatever ≥2 apps share into one sibling chunk so it exists (and is cached)
+					// once instead of 9 copies. HtmlPlugin injects it as a plain <script> tag per surface,
+					// so this stays build-time-only code splitting — no runtime import() (unsupported for
+					// webviews on VS Code Web). Keep this a single fat chunk: each extra file is an extra
+					// service-worker round-trip, and high request fan-out trips Chromium's concurrent
+					// FetchEvent cap (microsoft/vscode#326500).
+					shared: {
+						test: /[\\/](node_modules|src|packages)[\\/]/,
+						chunks: 'initial',
+						name: 'shared',
+						minChunks: 2,
+						reuseExistingChunk: true,
+						enforce: true,
+					},
+				},
 			},
 		},
 		module: {
