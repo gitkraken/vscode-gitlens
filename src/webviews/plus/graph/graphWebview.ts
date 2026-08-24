@@ -4594,6 +4594,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// different repo (a repo swap should already have via reset).
 			this._data.session?.dispose();
 			this._data.session = undefined;
+			// The session is nulled here outside `setGraph(undefined)`, so the overview dedup gate must
+			// reset too — otherwise the post-walk push can be suppressed against a snapshot the webview
+			// never actually received (it may have been wiped by a bootstrap that raced this walk).
+			this._panels.clearLastSentOverview();
 			const repository = this.repository;
 			// Boxed so the walk can compare `_data.loading` against its OWN promise for the liveness guard below
 			// (a bare self-reference inside the IIFE trips TS's definite-assignment check).
@@ -4907,6 +4911,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const allowed = this.isGraphAccessAllowed(access, featurePreview);
 		const allowRepoSwitch = allowed === false ? (await this.container.git.visibility()) === 'mixed' : false;
 
+		const overviewData = this._panels.getOverviewData();
+
 		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
@@ -4969,7 +4975,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,
-			overview: this._panels.getOverviewData(),
+			...(overviewData != null ? { overview: overviewData } : undefined),
 			mcpCanAutoRegister: this.container.gkMcp?.isRegistrationAllowed ?? false,
 			layoutPromptNeeded: this.getLayoutPromptNeeded(),
 			upgradedFromPreV19: satisfies(this.container.previousVersion, '< 19'),

@@ -255,7 +255,7 @@ export class GraphPanelsService {
 		this._lastSentOverview = undefined;
 	}
 
-	onGetOverview(params?: GetOverviewParams): GraphOverviewData {
+	async onGetOverview(params?: GetOverviewParams): Promise<GraphOverviewData> {
 		if (params?.recentThreshold != null) {
 			this._overviewRecentThreshold = params.recentThreshold;
 		}
@@ -264,7 +264,11 @@ export class GraphPanelsService {
 			this._overviewOlderLimit = Math.max(0, Math.min(params.olderLimit, overviewOlderBranchesMaxLimit));
 		}
 		try {
-			return this.getOverviewData();
+			if (this._graphSession == null) {
+				await this.context.getLoading()?.catch(() => undefined);
+			}
+
+			return this.getOverviewData() ?? { active: [], recent: [] };
 		} catch (ex) {
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverview');
 			// Ship a structurally-valid shape so the frontend's `.length`/`.map` reads don't crash.
@@ -365,13 +369,13 @@ export class GraphPanelsService {
 		}
 	}
 
-	getOverviewData(): GraphOverviewData {
+	getOverviewData(): GraphOverviewData | undefined {
 		const active: GraphOverviewData['active'] = [];
 		const recent: GraphOverviewData['recent'] = [];
 		const older: GraphOverviewBranch[] = [];
 
 		if (this._graphSession == null || this.repository == null) {
-			return { active: active, recent: recent };
+			return undefined;
 		}
 
 		const data = this._graphSession.current;
@@ -429,10 +433,14 @@ export class GraphPanelsService {
 
 	@trace()
 	notifyDidChangeOverview(): void {
+		const overview = this.getOverviewData();
+		// No graph/repo yet — the data isn't ready. Pushing this would clobber a real overview the
+		// webview already has (or is about to receive) with a not-ready snapshot.
+		if (overview == null) return;
+
 		// Skip identical pushes — most graph reloads reproduce the prior overview verbatim. The
 		// `EventVisibilityBuffer` (save-last) replays the latest emission to a hidden/not-yet-ready
 		// webview, so there's no requeue-by-type bookkeeping to do here anymore.
-		const overview = this.getOverviewData();
 		if (this._lastSentOverview != null && areEqual(overview, this._lastSentOverview)) {
 			return;
 		}
@@ -446,7 +454,7 @@ export class GraphPanelsService {
 	createServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): Pick<GraphServices, 'overview'> {
 		return {
 			overview: {
-				getOverview: params => Promise.resolve(this.onGetOverview(params)),
+				getOverview: params => this.onGetOverview(params),
 				getWip: (branchIds, cheap, signal) => this.onGetOverviewWip(branchIds, cheap, signal),
 				getWipDetailed: (branchIds, signal) => this.onGetOverviewWipDetailed(branchIds, signal),
 				getEnrichment: (branchIds, signal) => this.onGetOverviewEnrichment(branchIds, signal),
