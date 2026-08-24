@@ -827,7 +827,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				source: 'search',
 				// Search can legitimately contain a WIP row excluded by the active view. Unlike a
 				// scope/overview jump, it must skip that result rather than wait for a synthesis that
-				// cannot occur until the user changes the view.
+				// cannot occur until the user changes the view. It does NOT skip a WIP row that is merely
+				// unanchored — that one pages its anchor in like any other result (see
+				// `canSynthesizeWipRow`), so the count beside the search box stays steppable.
 				deferSynthetic: false,
 				signal: abort.signal,
 				// A landing: stepping results is driven from the search box in the header, so each hit needs

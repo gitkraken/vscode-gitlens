@@ -1900,7 +1900,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// load one costs an unbounded walk for an id that can never resolve. The next `getDecoratedRows`
 		// synthesis surfaces the row instead, so hold the selection for it.
 		if (isWipRowId(sha)) {
-			if (!deferSynthetic) {
+			// `deferSynthetic: false` (search stepping) means "don't wait on a row that can never appear" —
+			// NOT "don't wait". Two different reasons put a WIP row off screen and only one of them is
+			// hopeless: a peer excluded by the active view stays excluded no matter how far we page, but a
+			// peer whose ANCHOR merely hasn't paged in yet is one bounded walk away, and the block below
+			// already knows how to run it and to report failure rather than hang. Skipping both is what made
+			// `type:wip` step through only the handful of worktrees whose anchors happened to be loaded while
+			// the search box counted every one of them.
+			if (!deferSynthetic && !this.canSynthesizeWipRow(sha)) {
 				this.rejectPendingNavigation(generation);
 				return navigation;
 			}
@@ -2170,6 +2177,36 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const index = { rows: rows, rowBySha: rowBySha, indexBySha: indexBySha };
 		this._decoratedRowsIndexCache = index;
 		return index;
+	}
+
+	/**
+	 * Whether a WIP row that isn't on screen could still be synthesized onto it — i.e. whether waiting for
+	 * it is waiting for something. False means the active view excludes it and no amount of paging helps.
+	 *
+	 * Answers with the SAME helpers `getDecoratedRows` places rows with, so the two can't drift: the
+	 * primary follows `shouldShowPrimaryWipRow`, a peer follows `filterSecondariesForScopeAndVisibility`
+	 * plus the anchor the interleave needs (no `parentSha` ⇒ nothing to page toward).
+	 *
+	 * Callers reach this only for a row that ISN'T currently rendered — a rendered one is answered by the
+	 * `row != null` path far above.
+	 */
+	private canSynthesizeWipRow(sha: string): boolean {
+		const wipRow = this.graphState.wipRowsById?.[sha];
+		if (wipRow == null) return false;
+
+		// The primary is pinned at [0] whenever it shows, so if it isn't rendered while rows are loaded,
+		// `shouldShowPrimaryWipRow` is what withheld it — and that's a view decision paging can't move.
+		if (sha === this.primaryWipRowId) return this.getDecoratedRows().showPrimary;
+
+		if (wipRow.parentSha == null) return false;
+
+		const surviving = filterSecondariesForScopeAndVisibility(
+			{ [sha]: wipRow },
+			this.graphState.scope,
+			this.graphState.branchesVisibility,
+			this.graphState.includeOnlyRefs,
+		);
+		return surviving?.[sha] != null;
 	}
 
 	/** {@link countRenderedSearchResults} against the decorated-rows sha index — the number the results
