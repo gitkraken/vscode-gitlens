@@ -20,6 +20,7 @@ import type { AppState } from '../context.js';
 import {
 	applyScopeAnchorPatch,
 	countLoadedSearchResults,
+	countRenderedSearchResults,
 	GraphStateProvider,
 	isScopeAnchorStale,
 	mergeWipRows,
@@ -1425,6 +1426,57 @@ suite('countLoadedSearchResults', () => {
 		const wip1 = createWipRowId('/repo');
 		const sr = results({ [wip1]: { i: 0, date: 0 }, a: { i: 1, date: 0 } });
 		assert.strictEqual(countLoadedSearchResults(sr, new Set()), 1);
+	});
+});
+
+suite('countRenderedSearchResults', () => {
+	function results(ids: Record<string, { i: number; date: number }>): GraphSearchResults {
+		return { ids: ids, count: Object.keys(ids).length, hasMore: false };
+	}
+
+	test('undefined results → 0', () => {
+		assert.strictEqual(countRenderedSearchResults(undefined, new Set(['a'])), 0);
+	});
+
+	test('an error envelope → 0', () => {
+		const error: GraphSearchResultsError = { error: 'Invalid search pattern' };
+		assert.strictEqual(countRenderedSearchResults(error, new Set(['a'])), 0);
+	});
+
+	test('empty ids → 0', () => {
+		assert.strictEqual(countRenderedSearchResults(results({}), new Set(['a'])), 0);
+	});
+
+	test('a mix of rendered and unrendered shas → only the rendered ones', () => {
+		const sr = results({ a: { i: 0, date: 0 }, b: { i: 1, date: 0 }, c: { i: 2, date: 0 } });
+		assert.strictEqual(countRenderedSearchResults(sr, new Set(['a'])), 1);
+	});
+
+	// The regression this function exists for: `countLoadedSearchResults` exempts every WIP id, so a
+	// `type:wip` search over a many-worktree repo reported all of them as loaded while only the few whose
+	// anchor commit had paged in were on screen.
+	test('a peer WIP id absent from the decorated rows does NOT count', () => {
+		const anchored = createWipRowId('/repo/wt-anchored');
+		const unanchored = createWipRowId('/repo/wt-unanchored');
+		const sr = results({ [anchored]: { i: 0, date: 0 }, [unanchored]: { i: 1, date: 0 } });
+		assert.strictEqual(countRenderedSearchResults(sr, new Set([anchored])), 1);
+	});
+
+	test('the primary WIP id follows the same rule as any other row', () => {
+		const primary = createWipRowId('/repo');
+		const sr = results({ [primary]: { i: 0, date: 0 }, a: { i: 1, date: 0 } });
+		assert.strictEqual(countRenderedSearchResults(sr, new Set([primary, 'a'])), 2);
+		assert.strictEqual(countRenderedSearchResults(sr, new Set(['a'])), 1);
+	});
+
+	test('accepts the decorated-rows index Map, not just a Set', () => {
+		const wip = createWipRowId('/repo');
+		const sr = results({ [wip]: { i: 0, date: 0 }, a: { i: 1, date: 0 }, b: { i: 2, date: 0 } });
+		const indexBySha = new Map<string, number>([
+			[wip, 0],
+			['a', 1],
+		]);
+		assert.strictEqual(countRenderedSearchResults(sr, indexBySha), 2);
 	});
 });
 

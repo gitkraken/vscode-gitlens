@@ -60,8 +60,9 @@ export interface AppState extends State {
 	searchMode: 'filter' | 'normal';
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;
-	/** How many of `searchResults`' matches are loaded as rows — derived from `searchResults` and `rows`,
-	 *  recomputed only when either changes. */
+	/** The PAGING BRAKE's count of `searchResults`' matches — derived from `searchResults` and the host
+	 *  `rows`, recomputed only when either changes. Not the number the results bar shows; that one counts
+	 *  against the decorated rows (see `countRenderedSearchResults`). */
 	searchResultsLoadedCount: number;
 	searchResultsError: GraphSearchResultsError | undefined;
 	/** The active search's query, carried from the host so a rebooted/reconnected app can restore its

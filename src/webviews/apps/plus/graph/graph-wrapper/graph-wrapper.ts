@@ -49,7 +49,7 @@ import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
-import { isGraphSearchResultsError } from '../stateProvider.js';
+import { countRenderedSearchResults, isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { GraphHostSelectionRequest } from '../utils/hostSelectionRequest.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
@@ -513,6 +513,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	// SHA indexes over the decorated set (including synthetic WIP rows), cached on the exact rows identity.
 	// Selection, navigation, topological ranges, and context menus share this one O(rows) build.
 	private _decoratedRowsIndexCache?: DecoratedRowsIndex;
+	// {@link countRenderedSearchResults} over the decorated-rows sha index, cached on both identities so
+	// an unrelated re-render (neither the rows nor the search changed) skips the walk over `results.ids`.
+	// A progressive search re-pushes `searchResults` many times against an unchanged graph, so the pair
+	// has to be in the key, not the rows alone.
+	private _searchResultsRenderedCountCache?: {
+		decoratedRows: GitGraphRow[] | undefined;
+		searchResults: typeof graphStateContext.__context__.searchResults;
+		result: number;
+	};
 
 	// Tracks the last observed `branchesVisibility` + repo so a genuine in-repo TOGGLE into `'current'`
 	// (not the initial paint, not a repo switch) can refocus a hidden anchor.
@@ -1193,6 +1202,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary, primaryWipRowId } = this.getDecoratedRows();
+		const searchResultsRenderedCount = this.getRenderedSearchResultsCount(decoratedRows);
 
 		// Gate the Changes-column stats props on the column being visible AND its stats consent enabled:
 		// a hidden OR dormant (opt-in pending) column must get zero stats-driven re-renders (the host
@@ -1212,7 +1222,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.refsMetadataResetToken=${graphState.refsMetadataResetToken}
 			.enabledRefMetadataTypes=${graphState.config?.enabledRefMetadataTypes}
 			.searchResults=${graphState.searchResults}
-			.searchResultsLoadedCount=${graphState.searchResultsLoadedCount}
+			.searchResultsRenderedCount=${searchResultsRenderedCount}
 			.searching=${graphState.searching}
 			.searchMode=${graphState.searchMode}
 			.config=${graphState.config}
@@ -2162,6 +2172,26 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return index;
 	}
 
+	/** {@link countRenderedSearchResults} against the decorated-rows sha index — the number the results
+	 *  bar shows. Reuses `getDecoratedRowsIndex`'s memoized index rather than building a second Set. */
+	private getRenderedSearchResultsCount(decoratedRows: GitGraphRow[] | undefined): number {
+		const searchResults = this.graphState.searchResults;
+
+		const cached = this._searchResultsRenderedCountCache;
+		if (cached != null && cached.decoratedRows === decoratedRows && cached.searchResults === searchResults) {
+			return cached.result;
+		}
+
+		const renderedShas = this.getDecoratedRowsIndex(decoratedRows)?.indexBySha ?? new Map<string, number>();
+		const result = countRenderedSearchResults(searchResults, renderedShas);
+		this._searchResultsRenderedCountCache = {
+			decoratedRows: decoratedRows,
+			searchResults: searchResults,
+			result: result,
+		};
+		return result;
+	}
+
 	private resolveHoverRow(sha: string): GitGraphRow | undefined {
 		const row = this.rowBySha(sha);
 		if (row != null) {
@@ -2517,7 +2547,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  replay, not a lost page. */
 	/** Filter mode with the whole result set already loaded — row paging has nothing left to surface, so don't
 	 *  keep walking history trying to "fill" the viewport with non-matches. Folded into the graph's `hasMore`
-	 *  so the element stops emitting asks (and announcing "loading more") for pages this would reject. */
+	 *  so the element stops emitting asks (and announcing "loading more") for pages this would reject.
+	 *
+	 *  Deliberately reads `searchResultsLoadedCount` (the host-rows + WIP-exemption paging-brake count),
+	 *  NOT the rendered/display count: releasing the brake on an unrendered peer WIP result would page
+	 *  through all of history hunting for its worktree anchor. The results bar's "Load More Results…"
+	 *  button is the user-driven path past this brake. */
 	private get filterResultsExhausted(): boolean {
 		const searchResults = this.graphState.searchResults;
 		return (

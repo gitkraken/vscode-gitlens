@@ -747,9 +747,9 @@ export class GlLitGraph extends LitElement {
 	// when other types are.
 	@property({ type: Array }) enabledRefMetadataTypes?: readonly GraphRefMetadataType[];
 	@property({ type: Object }) searchResults?: GraphSearchResults | GraphSearchResultsError | undefined;
-	// How many of `searchResults`' matches are currently loaded as rows — derived app-side (see
-	// `countLoadedSearchResults`) since the host no longer computes it.
-	@property({ type: Number }) searchResultsLoadedCount = 0;
+	// How many of `searchResults`' matches are actually rendered as rows — derived app-side (see
+	// `countRenderedSearchResults`) against the decorated rows, i.e. exactly what this element renders.
+	@property({ type: Number }) searchResultsRenderedCount = 0;
 	// True while a search is in flight: the host clears `searchResults` to undefined before results
 	// arrive, so this keeps lanes treated as "search active" across that gap (see searchActive below).
 	@property({ type: Boolean }) searching = false;
@@ -5070,7 +5070,7 @@ export class GlLitGraph extends LitElement {
 		}
 		if (this.loading) return nothing;
 
-		const allLoaded = !sr.hasMore && this.searchResultsLoadedCount === sr.count;
+		const allLoaded = !sr.hasMore && this.searchResultsRenderedCount === sr.count;
 		if (allLoaded) {
 			return html`<div class="gl-graph__search-footer">
 				<span class="gl-graph__search-footer-message">Showing all ${pluralize('result', sr.count)}</span>
@@ -5079,7 +5079,7 @@ export class GlLitGraph extends LitElement {
 
 		return html`<div class="gl-graph__search-footer">
 			<span class="gl-graph__search-footer-message"
-				>Showing ${pluralize('result', this.searchResultsLoadedCount)} of
+				>Showing ${pluralize('result', this.searchResultsRenderedCount)} of
 				${pluralize('result', sr.count)}${sr.hasMore ? '+' : ''}</span
 			><button type="button" class="gl-graph__search-footer-link" @click=${this.onLoadMoreResultsClick}>
 				Load More Results…
