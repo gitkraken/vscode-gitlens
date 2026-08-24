@@ -83,6 +83,10 @@
 			"types": "./dist/git/features.d.ts",
 			"default": "./dist/git/features.js"
 		},
+		"./git/gitHealth.js": {
+			"types": "./dist/git/gitHealth.d.ts",
+			"default": "./dist/git/gitHealth.js"
+		},
 		"./git/models/*.js": {
 			"types": "./dist/git/models/*.d.ts",
 			"default": "./dist/git/models/*.js"
