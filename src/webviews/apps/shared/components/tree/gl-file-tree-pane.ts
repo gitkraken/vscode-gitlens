@@ -935,6 +935,7 @@ export class GlFileTreePane extends LitElement {
 			filterText: file.path,
 			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,
 			tooltip: tooltip,
+			tooltipWrap: conflicted ? undefined : 'break-all',
 			priority: conflicted ? -1 : undefined,
 			context: [file],
 			actions: actions,

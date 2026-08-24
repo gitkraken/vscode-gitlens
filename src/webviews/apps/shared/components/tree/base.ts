@@ -171,6 +171,8 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	 *  is rendered directly, bypassing markdown — letting callers produce richer layouts with
 	 *  their own scoped styles when a markdown string would be too constrained. */
 	tooltip?: string | TemplateResult;
+	/** Overrides the tooltip's wrapping behavior under the tree's default placement. */
+	tooltipWrap?: 'break-all';
 	filterText?: string;
 	matched?: boolean;
 	/** Lower sorts first within its parent; treated as `0` when unset. */

@@ -151,6 +151,7 @@ export class GlTreeBase extends GlElement {
 			icon: 'folder',
 			label: name,
 			tooltip: relativePath,
+			tooltipWrap: 'break-all',
 			...options,
 		};
 	}
@@ -220,6 +221,7 @@ export class GlTreeBase extends GlElement {
 			label: fileName,
 			description: flat === true ? filePath : undefined,
 			tooltip: buildFileTooltip(file),
+			tooltipWrap: 'break-all',
 			context: [file],
 			actions: this.getFileActions(file, options),
 			decorations: [{ type: 'text', label: file.status }],

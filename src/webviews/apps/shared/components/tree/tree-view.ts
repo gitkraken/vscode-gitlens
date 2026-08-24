@@ -198,10 +198,11 @@ export class GlTreeView extends GlElement {
 			.hover-content {
 				font-size: var(--gl-font-md);
 				line-height: 1.5;
-
-				/* anywhere wraps at any character when forced — avoids the default behavior of
-		   breaking paths at hyphens (the worst possible split point). */
 				overflow-wrap: anywhere;
+			}
+
+			.hover-content--break-all {
+				word-break: break-all;
 			}
 
 			/* Sizes codicons to the text for markdown tooltips only, where an icon appears mid-sentence
@@ -514,9 +515,13 @@ export class GlTreeView extends GlElement {
 	// Hover tooltip state
 	private _hoverTimer?: ReturnType<typeof setTimeout>;
 	private _unhoverTimer?: ReturnType<typeof setTimeout>;
+	private _dismissedHoverBounds?: DOMRect;
 
 	@state()
 	private _hoveredTooltip?: string | TemplateResult;
+
+	@state()
+	private _hoveredTooltipWrap?: 'break-all';
 
 	@state()
 	private _hoveredAnchor?: HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> };
@@ -1034,6 +1039,7 @@ export class GlTreeView extends GlElement {
 			@gl-tree-item-toggle=${() => this.onTreeItemToggle(model)}
 			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
 			@mouseenter=${(e: MouseEvent) => this.onTreeItemHover(e, model)}
+			@mousemove=${(e: MouseEvent) => this.onTreeItemMove(e, model)}
 			@mouseleave=${() => this.onTreeItemUnhover()}
 			@gl-tree-item-suspend-tooltip=${() => this.onSuspendRowTooltip()}
 			@gl-tree-item-resume-tooltip=${() => this.onResumeRowTooltip()}
@@ -1137,14 +1143,23 @@ export class GlTreeView extends GlElement {
 							class="hover-popover"
 							?open=${this._hoverOpen}
 							.anchor=${this._hoveredAnchor}
-							placement="right-start"
-							flip-fallback-placements="bottom-start top-start"
+							placement=${this.tooltipAnchorRight ? 'right-start' : 'bottom-start'}
+							flip-fallback-placements=${this.tooltipAnchorRight ? 'bottom-start top-start' : 'top-start'}
 							trigger="manual"
 							.distance=${12}
-							@mouseenter=${this.onHoverPopoverEnter}
+							@mouseenter=${
+								this.tooltipAnchorRight ? this.onHoverPopoverEnter : this.onDefaultHoverPopoverEnter
+							}
 							@mouseleave=${() => this.onTreeItemUnhover()}
 						>
-							<div slot="content" class="hover-content">
+							<div
+								slot="content"
+								class=${
+									this._hoveredTooltipWrap === 'break-all' && !this.tooltipAnchorRight
+										? 'hover-content hover-content--break-all'
+										: 'hover-content'
+								}
+							>
 								${
 									typeof this._hoveredTooltip === 'string'
 										? html`<gl-markdown
@@ -1350,6 +1365,20 @@ export class GlTreeView extends GlElement {
 	};
 
 	private onTreeItemHover(event: MouseEvent, model: TreeModelFlat) {
+		const dismissedBounds = this._dismissedHoverBounds;
+		if (!this.tooltipAnchorRight && dismissedBounds != null) {
+			if (
+				event.clientX >= dismissedBounds.left &&
+				event.clientX <= dismissedBounds.right &&
+				event.clientY >= dismissedBounds.top &&
+				event.clientY <= dismissedBounds.bottom
+			) {
+				return;
+			}
+
+			this._dismissedHoverBounds = undefined;
+		}
+
 		if (!model.tooltip) {
 			this.onTreeItemUnhover();
 			return;
@@ -1360,10 +1389,10 @@ export class GlTreeView extends GlElement {
 		clearTimeout(this._unhoverTimer);
 
 		const itemRect = element.getBoundingClientRect();
-		// Anchor at the cursor's X (or the host's right edge in `tooltipAnchorRight` mode), aligned
-		// vertically with the row so the tooltip floats just to the side and never sits in the
-		// vertical path the cursor takes when moving between rows.
-		const x = this.tooltipAnchorRight ? this.getBoundingClientRect().right : event.clientX;
+		// Default tooltips open below the row with their body roughly 8px right of the cursor; the
+		// 24px anchor offset accounts for wa-popup's start-aligned arrow inset. Externally anchored
+		// trees keep the host's right edge so their tooltip stays outside the tree.
+		const x = this.tooltipAnchorRight ? this.getBoundingClientRect().right : event.clientX + 24;
 		const rect = this._virtualAnchorRect;
 		rect.x = rect.left = rect.right = x;
 		rect.y = rect.top = itemRect.top;
@@ -1372,6 +1401,7 @@ export class GlTreeView extends GlElement {
 		// width stays 0
 		this._hoveredAnchor = this._virtualAnchor;
 		this._hoveredTooltip = model.tooltip;
+		this._hoveredTooltipWrap = model.tooltipWrap;
 
 		if (this._hoverOpen) {
 			// Already showing — anchor identity is unchanged so Lit/wa-popup won't trigger a
@@ -1384,6 +1414,23 @@ export class GlTreeView extends GlElement {
 		this._hoverTimer = setTimeout(() => {
 			this._hoverOpen = true;
 		}, 500);
+	}
+
+	private onTreeItemMove(event: MouseEvent, model: TreeModelFlat): void {
+		const dismissedBounds = this._dismissedHoverBounds;
+		if (
+			this.tooltipAnchorRight ||
+			dismissedBounds == null ||
+			(event.clientX >= dismissedBounds.left &&
+				event.clientX <= dismissedBounds.right &&
+				event.clientY >= dismissedBounds.top &&
+				event.clientY <= dismissedBounds.bottom)
+		) {
+			return;
+		}
+
+		this._dismissedHoverBounds = undefined;
+		this.onTreeItemHover(event, model);
 	}
 
 	private async _repositionHoverPopover(): Promise<void> {
@@ -1404,6 +1451,7 @@ export class GlTreeView extends GlElement {
 		this._unhoverTimer = setTimeout(() => {
 			this._hoverOpen = false;
 			this._hoveredTooltip = undefined;
+			this._hoveredTooltipWrap = undefined;
 			this._hoveredAnchor = undefined;
 		}, 100);
 	}
@@ -1416,11 +1464,19 @@ export class GlTreeView extends GlElement {
 		clearTimeout(this._unhoverTimer);
 	};
 
+	private readonly onDefaultHoverPopoverEnter = (event: MouseEvent): void => {
+		const popover = event.currentTarget as HTMLElement;
+		this._dismissedHoverBounds = popover?.shadowRoot
+			?.querySelector<HTMLElement>('.popover__body')
+			?.getBoundingClientRect();
+		this.dismissRowTooltip();
+	};
+
 	private onSuspendRowTooltip() {
 		clearTimeout(this._hoverTimer);
 		clearTimeout(this._unhoverTimer);
 		this._hoverOpen = false;
-		// Keep _hoveredTooltip and _hoveredAnchor so we can resume
+		// Keep the hovered tooltip state and anchor so we can resume
 	}
 
 	private readonly dismissRowTooltip = (): void => {
@@ -1428,6 +1484,7 @@ export class GlTreeView extends GlElement {
 		clearTimeout(this._unhoverTimer);
 		this._hoverOpen = false;
 		this._hoveredTooltip = undefined;
+		this._hoveredTooltipWrap = undefined;
 		this._hoveredAnchor = undefined;
 	};
 

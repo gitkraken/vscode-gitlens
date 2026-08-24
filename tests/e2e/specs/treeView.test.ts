@@ -272,4 +272,24 @@ test.describe('Tree View - Model Updates', () => {
 		const greetingItem = graphWebview.locator('gl-tree-view gl-tree-item').filter({ hasText: 'greeting.ts' });
 		await expect(greetingItem.first()).toBeVisible({ timeout: MaxTimeout });
 	});
+
+	test('should break default file tooltips at any character without changing externally anchored tooltips', async () => {
+		await selectCommitByMessage(graphWebview, 'Add greeting module');
+		await waitForDetailsLoaded(graphWebview);
+		await waitForTreeItems(graphWebview);
+
+		const fileTree = graphWebview.locator('gl-details-commit-panel gl-file-tree-pane gl-tree-view').first();
+		const fileItem = fileTree.getByRole('treeitem').filter({ hasText: 'greeting.ts' }).first();
+		await fileItem.hover();
+
+		const tooltip = fileTree.locator('gl-popover.hover-popover .hover-content');
+		await expect(tooltip).toBeVisible({ timeout: DefaultTimeout });
+		await expect(tooltip).toHaveCSS('word-break', 'break-all');
+
+		await fileTree.evaluate(element => {
+			(element as HTMLElement & { tooltipAnchorRight: boolean }).tooltipAnchorRight = true;
+		});
+		await expect(tooltip).toHaveCSS('word-break', 'normal');
+		await expect(tooltip).toHaveCSS('overflow-wrap', 'anywhere');
+	});
 });

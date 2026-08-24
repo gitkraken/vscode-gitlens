@@ -282,6 +282,7 @@ export function folderToTreeModel(name: string, relativePath: string, options?: 
 		icon: 'folder',
 		label: name,
 		tooltip: relativePath,
+		tooltipWrap: 'break-all',
 		...options,
 		// Folders should never be checkable — only individual files
 		checkable: false,
