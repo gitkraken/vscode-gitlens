@@ -7,7 +7,7 @@ import { linkify } from '../../shared/components/linkify.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
-import type { CheckDescriptor, SettingDescriptor } from '../model.js';
+import type { CheckDescriptor, NumberDescriptor, SettingDescriptor } from '../model.js';
 import { evaluateStateExpression } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -281,18 +281,11 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 							// Buffer typing locally so a mid-edit config push doesn't reset `.value`
 							this._numberDraft = (e.target as HTMLInputElement).value;
 						}}
-						@blur=${(e: FocusEvent) => {
-							void this.actions?.applyNumber(d.key, (e.target as HTMLInputElement).value, d.defaultValue);
-							this._numberDraft = undefined;
-						}}
+						@blur=${() => this.commitNumber(d)}
 						@keydown=${(e: KeyboardEvent) => {
 							// Enter commits in place (focus stays put), matching the format inputs
 							if (e.key === 'Enter') {
-								void this.actions?.applyNumber(
-									d.key,
-									(e.target as HTMLInputElement).value,
-									d.defaultValue,
-								);
+								this.commitNumber(d);
 							} else if (e.key === 'Escape' && this._numberDraft !== undefined) {
 								// Revert to the committed config value
 								this._numberDraft = undefined;
@@ -411,6 +404,19 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 				}}
 				>${d.label}</gl-checkbox
 			>${this.renderHint(d.hint)}`;
+	}
+
+	/**
+	 * Commits the number draft on blur/Enter, mirroring `gl-format-input`: an untouched field
+	 * carries no draft, so a bare focus/blur never writes (previously an empty box committed
+	 * the default — or `null` — over a value the field couldn't display, e.g. `'auto'`).
+	 */
+	private commitNumber(d: NumberDescriptor): void {
+		if (this._numberDraft === undefined) return;
+
+		const value = this._numberDraft;
+		this._numberDraft = undefined;
+		void this.actions?.applyNumber(d.key, value, d.defaultValue);
 	}
 
 	private renderRowLabel(label: string, control: unknown) {
