@@ -2452,4 +2452,17 @@ suite('DetailsWorkflowController — failure telemetry classification', () => {
 		// pass either way and wouldn't catch that.
 		assert.ok(!('failure.reason' in events[0].data), 'review has no structured failure kind to report');
 	});
+
+	test('a cancelled per-file retry reports no error message', async () => {
+		const m = setupResolveCounts({ reresolveResults: [{ cancelled: true }] });
+
+		m.controller.runResolve('/A', undefined, undefined, 'start');
+		await flush();
+		await m.controller.resolve.retryFile('a.ts', 'try again');
+
+		const events = failedEvents(m.sent, 'graphDetails/resolve/retryFile/failed');
+		assert.strictEqual(events.length, 1);
+		assert.strictEqual(events[0].data['failed.reason'], 'cancelled');
+		assert.strictEqual(events[0].data['failure.error.message'], undefined);
+	});
 });

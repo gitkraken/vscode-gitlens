@@ -80,7 +80,7 @@ import type {
 } from './detailsState.js';
 import { createDetailsState, getActiveTaskAction, getOpenComparison } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
-import { DetailsWorkflowController } from './detailsWorkflowController.js';
+import { DetailsWorkflowController, runFailureMessage } from './detailsWorkflowController.js';
 import type { GlCommitBox } from './gl-commit-box.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
@@ -3887,6 +3887,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/failed', {
 					...aiContext,
 					duration: duration,
+					'failure.error.message': result.error.message,
 				});
 			} else if ('result' in result && result.result) {
 				this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
@@ -3901,11 +3902,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					'findings.severity.suggestion.count': counts.suggestion,
 				});
 			}
-		} catch {
+		} catch (ex) {
 			panel?.setFocusAreaError(focusAreaId);
 			this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/failed', {
 				...aiContext,
 				duration: performance.now() - startedAt,
+				'failure.error.message': runFailureMessage(ex),
 			});
 		}
 	}

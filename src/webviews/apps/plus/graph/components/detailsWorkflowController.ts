@@ -51,7 +51,7 @@ function composeSessionKey(anchor: AnchorSelection): ComposeSessionKey {
  *  drift in FORMAT. It does not make them agree on visibility: `fireRunTelemetry` runs
  *  unconditionally while `onRunSettled` bails on a superseded entry / aborted signal / disconnect,
  *  so a reported message may belong to a failure whose error pane was never rendered. */
-function runFailureMessage(ex: unknown): string {
+export function runFailureMessage(ex: unknown): string {
 	return ex instanceof Error ? ex.message : typeof ex === 'string' ? ex : 'Run failed';
 }
 
@@ -1253,6 +1253,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					'commits.excluded.count': excludedCount,
 					stale: stale,
 					duration: duration,
+					'failure.error.message': resourceValue.error.message,
 				});
 				// Failure path — sync the registry entry to the error state so the panel mapping
 				// surfaces it (resource error otherwise gets shadowed by the entry's prior result).
@@ -1803,6 +1804,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					this.actions.sendTelemetryEvent('graphDetails/resolve/retryFile/failed', {
 						...base,
 						'failed.reason': 'cancelled' in result ? 'cancelled' : 'error',
+						'failure.error.message': 'cancelled' in result ? undefined : result.error.message,
 					});
 				}
 			} finally {
@@ -2738,6 +2740,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				hasExistingMessage: context?.hasExistingMessage,
 				duration: duration,
 				reason: ex != null ? 'error' : 'empty',
+				'failure.error.message': ex == null ? undefined : runFailureMessage(ex),
 			});
 		}
 

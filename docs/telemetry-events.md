@@ -3768,6 +3768,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.type': string,
   // Milliseconds until failure; undefined if startedAt was missing
   'duration': number,
+  // Error message text describing why the generation failed; undefined for the 'empty' case
+  'failure.error.message': string,
   // Whether there was prior text
   'hasExistingMessage': boolean,
   // Why the generation failed: 'error' = RPC/AI threw, 'empty' = AI returned an empty message
@@ -4381,6 +4383,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.type': string,
   // Time from apply click to settlement in milliseconds
   'duration': number,
+  // Error message text describing why the apply failed
+  'failure.error.message': string,
   // Total commits in the proposed plan
   'plan.commits.count': number,
   // Whether the plan was stale (working changes diverged since it was generated) at apply time
@@ -5116,6 +5120,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'duration': number,
   // Only on `/failed` — `cancelled` is the host reporting the session went away mid-flight
   'failed.reason': 'cancelled' | 'error',
+  // Only on `/failed` when `failed.reason` is `'error'` — undefined when cancelled
+  'failure.error.message': string,
   'refine.count': number,
   'retryFile.count': number,
   'retryFromError.count': number
@@ -5147,6 +5153,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'duration': number,
   // Only on `/failed` — `cancelled` is the host reporting the session went away mid-flight
   'failed.reason': 'cancelled' | 'error',
+  // Only on `/failed` when `failed.reason` is `'error'` — undefined when cancelled
+  'failure.error.message': string,
   'refine.count': number,
   'retryFile.count': number,
   'retryFromError.count': number
@@ -5286,7 +5294,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'duration': number
+  'duration': number,
+  // Error message text describing why the focus-area generation failed
+  'failure.error.message': string
 }
 ```
 

@@ -532,7 +532,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a compose plan is applied (commits created) successfully */
 	'graphDetails/compose/applyPlan/completed': GraphDetailsComposeApplyPlanEvent;
 	/** Sent when applying a compose plan fails */
-	'graphDetails/compose/applyPlan/failed': GraphDetailsComposeApplyPlanEvent;
+	'graphDetails/compose/applyPlan/failed': GraphDetailsComposeApplyPlanFailedEvent;
 	/** Sent when a per-commit message regeneration completes successfully (icon button next to a draft commit) */
 	'graphDetails/compose/regenerateMessage/completed': GraphDetailsComposeRegenerateMessageEvent;
 	/** Sent when a per-commit message regeneration fails or is cancelled */
@@ -1433,6 +1433,11 @@ interface GraphDetailsComposeApplyPlanEvent extends GraphContextEventData {
 	duration: number;
 }
 
+interface GraphDetailsComposeApplyPlanFailedEvent extends GraphDetailsComposeApplyPlanEvent {
+	/** Error message text describing why the apply failed */
+	'failure.error.message'?: string;
+}
+
 interface GraphDetailsComposeRegenerateMessageEvent extends GraphContextEventData {
 	/** Time from icon click to settlement in milliseconds */
 	duration: number;
@@ -1526,6 +1531,8 @@ interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
 
 interface GraphDetailsReviewGenerateFocusAreaFailedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
 	duration: number;
+	/** Error message text describing why the focus-area generation failed */
+	'failure.error.message'?: string;
 }
 
 interface GraphDetailsReviewActionEvent extends GraphContextEventData {
@@ -1635,6 +1642,8 @@ interface GraphDetailsResolveRetryFileEvent
 	duration: number;
 	/** Only on `/failed` — `cancelled` is the host reporting the session went away mid-flight */
 	'failed.reason'?: 'error' | 'cancelled';
+	/** Only on `/failed` when `failed.reason` is `'error'` — undefined when cancelled */
+	'failure.error.message'?: string;
 }
 
 interface DetailsReachabilityLoadedEvent {
@@ -1899,6 +1908,8 @@ interface GraphWipGenerateMessageFailedEvent extends GraphContextEventData {
 	duration: number | undefined;
 	/** Why the generation failed: 'error' = RPC/AI threw, 'empty' = AI returned an empty message */
 	reason: 'error' | 'empty';
+	/** Error message text describing why the generation failed; undefined for the 'empty' case */
+	'failure.error.message'?: string;
 }
 
 interface GraphWipGenerateMessageCancelledEvent extends GraphContextEventData {
