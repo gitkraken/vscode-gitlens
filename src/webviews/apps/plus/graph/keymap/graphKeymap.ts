@@ -4,13 +4,11 @@ import { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
  *  focused row control is inside the rows scope, which is inside the webview scope). Scope
  *  registration (roots/selectors/guards) lives in `graph-app.ts` since it owns the elements. */
 export type GraphKeymapScope =
-	| 'window'
 	| 'webview'
 	| 'webviewGlobal'
 	| 'rows'
 	| 'rowControl'
 	| 'pillMenu'
-	| 'searchBox'
 	| 'sidebarFilter'
 	| 'tree';
 

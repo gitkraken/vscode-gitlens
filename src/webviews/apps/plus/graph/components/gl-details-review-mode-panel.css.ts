@@ -116,55 +116,6 @@ export const reviewModePanelStyles = css`
 		overflow-y: auto;
 	}
 
-	/* Framing header above the AI-generated review summary — provides a labeled gap from the
-	   embedded metadata bar and a back-to-files button to return to the file curation view. */
-
-	.review-header {
-		display: flex;
-		flex: none;
-		gap: var(--gl-space-4);
-		align-items: center;
-		padding: var(--gl-space-6) var(--gl-space-12);
-	}
-
-	.review-header__back {
-		flex-shrink: 0;
-	}
-
-	.review-header__title {
-		font-size: var(--gl-font-base);
-		font-weight: 500;
-		color: var(--vscode-foreground);
-	}
-
-	.review-header__count {
-		display: inline-flex;
-		gap: var(--gl-space-6);
-		align-items: center;
-		margin-left: auto;
-		font-size: var(--gl-font-sm);
-		color: var(--vscode-descriptionForeground);
-	}
-
-	.review-header__count-item {
-		display: inline-flex;
-		gap: 0.3rem;
-		align-items: center;
-	}
-
-	.review-header__count-item > code-icon {
-		font-size: var(--gl-font-md);
-		opacity: 0.85;
-	}
-
-	.review-header__actions {
-		display: inline-flex;
-		flex-shrink: 0;
-		gap: var(--gl-space-2);
-		align-items: center;
-		margin-left: var(--gl-space-4);
-	}
-
 	.review-area__header-row {
 		display: flex;
 		align-items: center;
@@ -264,20 +215,6 @@ export const reviewModePanelStyles = css`
 
 	.review-cancel {
 		margin-bottom: var(--gl-space-12);
-	}
-
-	/* Review scope toggle */
-
-	.review-scope__toggle {
-		display: flex;
-		gap: var(--gl-space-4);
-		align-items: center;
-		font-size: inherit;
-		cursor: pointer;
-	}
-
-	.review-scope__toggle input[type='checkbox'] {
-		cursor: pointer;
 	}
 
 	/* Review overview */
@@ -684,26 +621,6 @@ export const reviewModePanelStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: var(--gl-space-6);
-	}
-
-	.checkbox-header {
-		display: inline-flex;
-		padding-left: var(--gl-space-2);
-	}
-
-	.checkbox-header gl-checkbox {
-		--checkbox-foreground: var(--vscode-sideBarSectionHeader-foreground);
-		--checkbox-size: 1.6rem;
-		--checkbox-spacing: 0.6rem;
-		--code-icon-size: 14px;
-
-		margin-block: 0;
-	}
-
-	.checkbox-header gl-checkbox::part(label) {
-		display: inline-flex;
-		gap: var(--gl-space-4);
-		align-items: center;
 	}
 
 	webview-pane [slot='title'] {

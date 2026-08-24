@@ -276,7 +276,7 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 // `prevEntry == null` path — without this, the GK component renders no pill for the row across the
 // 350ms settle + IPC round trip, producing a visible flash. One GraphStateProvider per webview, so
 // module-level is effectively per-instance state.
-export const lastKnownWorkDirStatsBySha = new Map<string, WorkDirStats>();
+const lastKnownWorkDirStatsBySha = new Map<string, WorkDirStats>();
 
 /** Ceiling on {@link lastKnownWorkDirStatsBySha}, evicting oldest-first (`Map` iterates in insertion
  *  order). A cap rather than pruning against `wipRowsById`: a row vanishing from the topology is exactly

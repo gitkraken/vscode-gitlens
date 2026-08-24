@@ -37,7 +37,7 @@ export class RowUnitsIndex {
 
 	/** Appends every tall row in `[fromIndex, rowCount)` onto the three parallel arrays, returning the
 	 *  running extra-units total — seeded with `extra`, the total already accumulated before `fromIndex`.
-	 *  Shared by `build` (empty arrays, seed 0) and `extend` (the sliced prefix and its total). */
+	 *  Used by `build` (empty arrays, seed 0). */
 	private static _scan(
 		indices: number[],
 		units: number[],
@@ -64,26 +64,6 @@ export class RowUnitsIndex {
 		}
 
 		return extra;
-	}
-
-	/**
-	 * Returns a new index equivalent to rebuilding from scratch with a `unitsFor` that agrees with this
-	 * index for rows before `fromIndex` and defers to the given `unitsFor` from `fromIndex` on — without
-	 * re-scanning the untouched prefix. Any of this index's tall rows at or beyond `fromIndex` are
-	 * discarded; the caller is re-deriving that whole tail.
-	 */
-	extend(rowCount: number, fromIndex: number, unitsFor: RowUnitsSource): RowUnitsIndex {
-		const splitAt = RowUnitsIndex._lowerBound(this._indices, fromIndex);
-
-		const indices = this._indices.slice(0, splitAt);
-		const units = this._units.slice(0, splitAt);
-		const extraBefore = this._extraBefore.slice(0, splitAt);
-		const seed = splitAt > 0 ? this._extraBefore[splitAt - 1] + (this._units[splitAt - 1] - 1) : 0;
-
-		const extra = RowUnitsIndex._scan(indices, units, extraBefore, seed, fromIndex, rowCount, unitsFor);
-		if (indices.length === 0) return RowUnitsIndex.uniform;
-
-		return new RowUnitsIndex(indices, units, extraBefore, extra);
 	}
 
 	/**

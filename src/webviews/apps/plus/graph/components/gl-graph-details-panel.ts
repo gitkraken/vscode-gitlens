@@ -2891,7 +2891,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							: html`
 									<gl-details-wip-empty-pane
 										.wip=${wip}
-										.aiEnabled=${false}
 										.aiCreatePrEnabled=${aiCreatePrEnabled}
 										.pullRequest=${this._state.wipPullRequest.get()}
 										.pullRequestLoading=${this._state.wipPullRequestLoading.get()}

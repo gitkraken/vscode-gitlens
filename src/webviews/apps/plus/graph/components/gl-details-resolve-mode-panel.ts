@@ -62,14 +62,6 @@ export type ResolveModeStatus = 'idle' | 'loading' | 'ready' | 'error' | 'applyi
  *  status-driven content (an idle tree would read "No conflicted files" before the first pause). */
 const autoRebaseRunningPhases = new Set<AutoRebaseRunPhase>(['starting', 'resolving', 'applying', 'continuing']);
 
-export interface ResolveViewDiffDetail {
-	filePath: string;
-}
-
-export interface ResolveOpenFileDetail {
-	filePath: string;
-}
-
 /** Short badge label + a distinct icon per conflict kind for the "needs your input" rows. The badge
  *  stays terse — the one-line explanation is carried by the row's message
  *  (`getConflictKindLabel(...).description`, computed host-side). A per-kind icon replaces a uniform

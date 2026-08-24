@@ -1622,11 +1622,6 @@ export class GraphSearchService {
 	getState(): Promise<GraphSearchState | undefined> {
 		return Promise.resolve(this.buildSearchState(this._searching));
 	}
-
-	/** No-op: {@link _searchHistoryByRepo} keys instances per repo, so a repo switch already reads/writes
-	 *  the right instance without anything needing to be dropped here. Kept as a method (rather than
-	 *  removing the call site) since the provider's repo-reset path still calls it. */
-	resetHistory(): void {}
 }
 
 function updateSearchMode<T extends GitGraphSearch | undefined>(

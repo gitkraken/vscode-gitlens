@@ -1080,20 +1080,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onRefsMetadataChanged: this._refsMetadataChangedEvent.subscribe(buffer, tracker),
 			},
 			columns: {
-				getColumns: () => Promise.resolve(this.getColumnsState()),
 				setColumns: config => this.setColumns(config),
 				setColumnMode: (name, mode) => this.updateColumnMode(name, mode),
 				enableChangesColumn: () => this.enableChangesColumn(),
 				onDidChange: this._columnsChangedEvent.subscribe(buffer, tracker),
 			},
 			configuration: {
-				getConfiguration: () => Promise.resolve(this.getComponentConfig()),
 				update: changes => this.updateGraphConfig(changes),
 				setDisplayMode: mode => this.setDisplayMode(mode),
 				onDidChange: this._configurationChangedEvent.subscribe(buffer, tracker),
 			},
 			filters: {
-				getFilters: () => this.getFiltersState(),
 				setRefsVisibility: (refs, visible) =>
 					this.updateExcludedRefs(this._data.session?.repoPath, refs, visible),
 				setPinnedRef: ref => this.updatePinnedRef(this._data.session?.repoPath, ref),
@@ -5477,7 +5474,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private resetRepositoryState() {
 		this._getBranchesAndTagsTips = undefined;
-		this._searchService.resetHistory();
 		this._data.resetStateNotify();
 		this._producers.setLastSentBranchState(undefined);
 		// The publisher's cursors are reset by `setGraph(undefined)` → `onGraphIdentityChanged` below.

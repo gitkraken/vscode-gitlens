@@ -18,16 +18,6 @@ function buildUnitsVector(length: number): number[] {
 	return vector;
 }
 
-/** Asserts two indices agree on every observable query across `[0, rowCount)`. */
-function assertIndicesAgree(a: RowUnitsIndex, b: RowUnitsIndex, rowCount: number): void {
-	assert.strictEqual(a.totalUnits(rowCount), b.totalUnits(rowCount));
-
-	for (let i = 0; i < rowCount; i++) {
-		assert.strictEqual(a.unitsOf(i), b.unitsOf(i), `unitsOf(${i})`);
-		assert.strictEqual(a.unitPosOf(i), b.unitPosOf(i), `unitPosOf(${i})`);
-	}
-}
-
 suite('graph-row-units — RowUnitsIndex', () => {
 	test('build with all-1 units returns the uniform singleton', () => {
 		const result = RowUnitsIndex.build(50, () => 1);
@@ -166,48 +156,6 @@ suite('graph-row-units — RowUnitsIndex', () => {
 			assert.strictEqual(index.rowIndexAtUnit(start + 2, rowCount), 2);
 			assert.strictEqual(index.rowIndexAtUnit(start + 3, rowCount), 2);
 			assert.strictEqual(index.rowIndexAtUnit(start + 4, rowCount), 3);
-		});
-	});
-
-	suite('extend', () => {
-		const vector = buildUnitsVector(60);
-		const unitsFor: RowUnitsSource = i => vector[i];
-
-		test('extending an index matches a fresh build over the whole extended range', () => {
-			const rowCount = 25;
-			const fromIndex = 10;
-			const rowCount2 = 45;
-
-			const base = RowUnitsIndex.build(rowCount, unitsFor);
-			const extended = base.extend(rowCount2, fromIndex, unitsFor);
-			const expected = RowUnitsIndex.build(rowCount2, unitsFor);
-
-			assertIndicesAgree(extended, expected, rowCount2);
-		});
-
-		test('extending from 0 matches a fresh build (degenerate split)', () => {
-			const rowCount = 10;
-			const rowCount2 = 30;
-
-			const base = RowUnitsIndex.build(rowCount, unitsFor);
-			const extended = base.extend(rowCount2, 0, unitsFor);
-			const expected = RowUnitsIndex.build(rowCount2, unitsFor);
-
-			assertIndicesAgree(extended, expected, rowCount2);
-		});
-
-		test('extending with no tall rows anywhere returns the uniform singleton', () => {
-			const base = RowUnitsIndex.build(10, () => 1);
-			const extended = base.extend(30, 10, () => 1);
-			assert.strictEqual(extended, RowUnitsIndex.uniform);
-		});
-
-		test('extend discards tail tall rows at or beyond fromIndex from the original', () => {
-			// Tall row at index 8 exists in the base build but fromIndex re-derives everything from 5 on,
-			// this time with no tall rows at all past 5 — so it must not survive into the result.
-			const base = RowUnitsIndex.build(10, i => (i === 8 ? 3 : 1));
-			const extended = base.extend(10, 5, () => 1);
-			assert.strictEqual(extended, RowUnitsIndex.uniform);
 		});
 	});
 

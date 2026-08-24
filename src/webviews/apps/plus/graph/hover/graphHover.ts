@@ -146,7 +146,6 @@ export class GlGraphHover extends GlElement {
 			.skidding=${this.skidding}
 			.placement=${this.placement}
 			trigger="manual"
-			@sl-reposition=${this.onReposition}
 		>
 			<div slot="content">
 				<gl-markdown .markdown=${until(this.markdown ?? 'Loading...', 'Loading...')}></gl-markdown>
@@ -154,34 +153,7 @@ export class GlGraphHover extends GlElement {
 		</gl-popover>`;
 	}
 
-	private previousSkidding: number | undefined;
-	private recalculated = false;
-
-	private onReposition() {
-		if (this.skidding == null || (this.placement !== `bottom-start` && this.placement !== `top-start`)) {
-			return;
-		}
-
-		switch (this.popup?.currentPlacement) {
-			case 'bottom-end':
-			case 'top-end':
-				if (!this.recalculated && this.previousSkidding == null) {
-					this.previousSkidding = this.skidding;
-					this.skidding = -this.skidding * 5;
-					this.recalculated = true;
-				}
-				break;
-			default:
-				if (this.previousSkidding != null) {
-					this.skidding = this.previousSkidding;
-					this.previousSkidding = undefined;
-				}
-				break;
-		}
-	}
-
 	reset(): void {
-		this.recalculated = false;
 		this.hoverMarkdownCache.clear();
 	}
 
@@ -350,7 +322,6 @@ export class GlGraphHover extends GlElement {
 		// Pinned: there was never a pointer in the card to leave it.
 		if (this._peeked) return;
 
-		this.recalculated = false;
 		this.resetUnhoverTimer();
 		this._showCoreDebounced?.cancel();
 

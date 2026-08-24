@@ -136,7 +136,7 @@ export function resolveBranchSheetScope(
 }
 
 /** First remote head across the loaded rows matching `predicate` — see {@link findRowHead}. */
-export function findRowRemote(
+function findRowRemote(
 	rows: GitGraphRow[] | undefined,
 	predicate: (remote: GitGraphRowRemoteHead) => boolean,
 ): GitGraphRowRemoteHead | undefined {
@@ -148,7 +148,7 @@ export function findRowRemote(
 }
 
 /** First tag across the loaded rows matching `predicate` — see {@link findRowHead}. */
-export function findRowTag(
+function findRowTag(
 	rows: GitGraphRow[] | undefined,
 	predicate: (tag: GitGraphRowTag) => boolean,
 ): GitGraphRowTag | undefined {

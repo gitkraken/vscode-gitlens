@@ -1268,7 +1268,6 @@ export type GraphSidebarPullRequestsEmptyState =
 	 *  into a list. Distinct from `unavailable`, which is worth retrying. */
 	| { reason: 'unsupported'; providerName: string };
 
-export type GetSidebarDataParams = { panel: GraphSidebarPanel };
 export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: boolean } & (
 	| { panel: 'branches'; items: GraphSidebarBranch[]; showRemoteBranches?: boolean }
 	| { panel: 'pullRequests'; items: GraphSidebarPullRequest[]; emptyState?: GraphSidebarPullRequestsEmptyState }

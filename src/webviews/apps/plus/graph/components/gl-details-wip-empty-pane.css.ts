@@ -40,21 +40,6 @@ export const detailsWipEmptyPaneStyles = css`
 		--button-line-height: 1.2rem;
 	}
 
-	.ai-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-		gap: var(--gl-space-6);
-	}
-
-	.ai-button {
-		justify-content: flex-start;
-		text-align: left;
-	}
-
-	.ai-button code-icon {
-		margin-right: var(--gl-space-4);
-	}
-
 	.start-new {
 		display: flex;
 		flex-direction: column;

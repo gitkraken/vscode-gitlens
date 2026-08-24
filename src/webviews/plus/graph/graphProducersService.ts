@@ -647,7 +647,7 @@ export class GraphProducersService {
 	// fully OFF when upstream status is disabled AND no integration is connected. Derived from config/context
 	// (NOT from `_refsMetadata`'s value) so feature-off is detectable BEFORE the map is ever initialized — a
 	// `serializeRefsMetadata()` on the first/bootstrap push must ship `null` for off, not a spurious empty map.
-	get isRefsMetadataEnabled(): boolean {
+	private get isRefsMetadataEnabled(): boolean {
 		// Membership-scoped to THIS repo — the context is repo-agnostic (any connected repo would
 		// otherwise wrongly enable metadata here).
 		const repoPath = this._graphSession?.repoPath ?? this.repository?.path;

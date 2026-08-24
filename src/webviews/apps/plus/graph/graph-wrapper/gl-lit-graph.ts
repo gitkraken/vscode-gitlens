@@ -3292,7 +3292,7 @@ export class GlLitGraph extends LitElement {
 
 	// Rebuild the tall-row index over the current `displayRows`.
 	// TODO: a paging append re-scans every row. `recomputeDisplayRows` already computes a robust identity-
-	// verified `displayRowsAppended` signal (same prefix, same endpoints) that `RowUnitsIndex.extend` could
+	// verified `displayRowsAppended` signal (same prefix, same endpoints) that an append fast-path could
 	// consume to re-derive just the appended tail — but that signal alone doesn't prove the UNTOUCHED
 	// prefix's promotions are still current: a ref-visibility filter change (excludeTypes/excludeRefs/
 	// downstreams) can land in the very same recomputeDisplayRows call (this method has no visibility into
@@ -8475,7 +8475,6 @@ export class GlLitGraph extends LitElement {
 		// Track the rendered range (feeds the prefetch trigger + visible-range scans). Incoming rows carry
 		// final geometry from their build — the compositor translate + CSS pin position them, so there is
 		// nothing to re-apply here.
-		this.pendingRangeFirst = first;
 		this.pendingRangeLast = last;
 
 		// HEAD pill: show a "Jump to HEAD" affordance when the current HEAD commit is off-screen.
@@ -8519,12 +8518,11 @@ export class GlLitGraph extends LitElement {
 		}
 
 		// Defer the WIP scan + missing-avatar collection behind the trailing debounce so continuous arrow/scroll
-		// navigation doesn't fire (potentially expensive) IPC every frame. (`pendingRange*` were set above, before
+		// navigation doesn't fire (potentially expensive) IPC every frame. (`pendingRangeLast` was set above, before
 		// the synchronous clamp, so its range-change skip check sees this range; the scan reads the debounce args.)
 		this.scanVisibleRangeDebounced(first, last);
 	};
 
-	private pendingRangeFirst = 0;
 	private pendingRangeLast = 0;
 
 	private scanVisibleRange(first: number, last: number): void {

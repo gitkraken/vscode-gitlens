@@ -50,7 +50,6 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	 *  so consumers that don't wire Launchpad props (e.g., the commit-details `gl-details-wip-panel`)
 	 *  don't accidentally surface a Launchpad block they never opted into. */
 	@property({ type: Boolean, attribute: 'show-launchpad' }) showLaunchpad = false;
-	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Boolean }) aiCreatePrEnabled = false;
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
 
@@ -67,17 +66,13 @@ export class GlDetailsWipEmptyPane extends LitElement {
 
 	override render(): unknown {
 		// Stable bottom anchor — `Start New` always renders. Sections above it (`Next steps`,
-		// `AI workflows`, `Launchpad`) appear conditionally on data and order is fixed; their
+		// `Launchpad`) appear conditionally on data and order is fixed; their
 		// arrival pushes the start-new section down but never displaces it. Review/Recompose
 		// surface inside `Next steps` (via `uniqueWorkSteps`) when there's unique-work; the
 		// previous renderIdle's bottom-of-cluster Review/Recompose buttons are replaced by that
 		// path.
-		const branch = this.wip?.branch;
 		const allSteps = [...this._cachedNextSteps, ...this._cachedUniqueWorkSteps];
 		const hasSteps = allSteps.length > 0;
-		const ahead = branch?.tracking?.ahead ?? 0;
-		const hasDiverged =
-			branch != null && (ahead > 0 || branch.upstream?.missing === true || branch.upstream == null);
 
 		// Launchpad renders from initial mount (when `showLaunchpad`) — the summary content is
 		// branch-agnostic (PRs across the user's connected integrations) and the inner
@@ -94,7 +89,6 @@ export class GlDetailsWipEmptyPane extends LitElement {
 						</section>`
 					: nothing
 			}
-			${branch != null && this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
 			${this.showLaunchpad ? this.renderLaunchpadSection() : nothing} ${this.renderStartNewSection()}
 		</div>`;
 	}
@@ -176,34 +170,6 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			this.emit('next-steps-shown');
 		}
 		this._hadNextSteps = hasNextSteps;
-	}
-
-	private renderAiWorkflows(ahead: number) {
-		return html`<section class="section">
-			<h3 class="section__heading">AI workflows</h3>
-			<div class="ai-grid">
-				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-draft-pr')}>
-					<code-icon icon="sparkle"></code-icon>Draft PR Description
-				</gl-button>
-				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-summarize-branch')}>
-					<code-icon icon="sparkle"></code-icon>Summarize Branch
-				</gl-button>
-				${
-					ahead > 0
-						? html`<gl-button
-								class="ai-button"
-								appearance="secondary"
-								@click=${() => this.emit('ai-review-unpushed')}
-							>
-								<code-icon icon="sparkle"></code-icon>Review ${pluralize('Unpushed Commit', ahead)}
-							</gl-button>`
-						: nothing
-				}
-				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-changelog')}>
-					<code-icon icon="sparkle"></code-icon>Generate Changelog Entry
-				</gl-button>
-			</div>
-		</section>`;
 	}
 
 	private computeNextSteps(branch: GitBranchShape): NextStep[] {

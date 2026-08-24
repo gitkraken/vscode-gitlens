@@ -993,9 +993,6 @@ export interface GraphScopeService {
  * location, etc.) and the active Graph/Visualizations/Kanban display mode.
  */
 export interface GraphConfigurationService {
-	/** The current component config, for seeding a freshly connected app. Pull-based, so no
-	 *  emission fired between subscribe and fetch is ever lost. */
-	getConfiguration(): Promise<GraphComponentConfig>;
 	/**
 	 * Persists `changes` to the underlying settings and resolves once every write has landed.
 	 * Resolving does NOT itself push the new config — that arrives separately via
@@ -1035,9 +1032,6 @@ export interface GraphColumnsState {
  * and stats consent, and the contexts backing the column, gear, and marker-rail menus.
  */
 export interface GraphColumnsService {
-	/** The current columns snapshot, for seeding a freshly connected app. Pull-based, so no emission
-	 *  fired between subscribe and fetch is ever lost. */
-	getColumns(): Promise<GraphColumnsState>;
 	/**
 	 * Persists a webview-authored columns write (widths, order, hide/show, grouping), resolving AFTER
 	 * the storage write lands and {@link onDidChange} has fired. Callers use that happens-after edge to
@@ -1078,9 +1072,6 @@ export interface GraphFiltersState {
  * to wait for the push.
  */
 export interface GraphFiltersService {
-	/** The current filters snapshot, for seeding a freshly connected app. Pull-based, so no emission
-	 *  fired between subscribe and fetch is ever lost. */
-	getFilters(): Promise<GraphFiltersState>;
 	/** Hides (`visible: false`) or un-hides the given refs. Hiding a whole remote (`name: '*'`) replaces
 	 *  any existing wildcard for that owner; un-hiding a branch under an active wildcard excepts it. */
 	setRefsVisibility(refs: GraphExcludedRef[], visible: boolean): Promise<void>;
