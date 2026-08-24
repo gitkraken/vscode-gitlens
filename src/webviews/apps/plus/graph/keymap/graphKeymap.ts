@@ -2,7 +2,7 @@ import { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 
 /** Scopes recognized by the graph webview's key dispatcher, innermost-first when they nest (e.g. a
  *  focused row control is inside the rows scope, which is inside the webview scope). Scope
- *  registration (roots/selectors/guards) lives in `graph-app.ts` since it owns the elements. */
+ *  registration (roots/selectors/guards) lives in `keymap/registerKeymap.ts`. */
 export type GraphKeymapScope =
 	| 'webview'
 	| 'webviewGlobal'
