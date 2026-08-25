@@ -1249,6 +1249,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
 			?loading=${graphState.loading || graphState.ensureLoading || graphState.scopeLoading}
 			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}
+			.pagingHasMore=${graphState.paging?.hasMore ?? true}
 			?windowFocused=${graphState.windowFocused}
 			@gl-graph-changeselection=${this.onGraphSelectionChanged}
 			@gl-graph-edge-search=${this.onEdgeSearch}
@@ -2571,8 +2572,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// is the whole handling, so there's no RPC round trip to make here.
 	}
 
-	private onGraphMoreRows(e: CustomEvent<{ displayRows: number } | null>) {
-		this.requestMoreRows(e.detail?.displayRows ?? 0);
+	private onGraphMoreRows(e: CustomEvent<{ displayRows: number; explicit?: boolean } | null>) {
+		this.requestMoreRows(e.detail?.displayRows ?? 0, e.detail?.explicit === true);
 	}
 
 	/** Ask the host for the next row page. A request blocked by an in-flight load is PARKED, never dropped —
@@ -2601,13 +2602,20 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private requestMoreRows(displayRows: number): void {
+	/** @param explicit The user clicked "Load More Results…" on the results bar, rather than the viewport
+	 *  asking to fill itself. Only the automatic ask is subject to {@link filterResultsExhausted} — the
+	 *  whole point of that brake is to stop the graph walking history on its own, and applying it to a
+	 *  deliberate click made the button inert in exactly the case it exists for (`type:wip`, where every
+	 *  result is WIP-exempt so the brake reads "all loaded" while most rows are off screen). The host
+	 *  `paging.hasMore` gate still applies to both: when the walk is drained there is genuinely nothing
+	 *  left to ask for. */
+	private requestMoreRows(displayRows: number, explicit = false): void {
 		if (!this.graphState.paging?.hasMore) {
 			this._deferredMoreRows = undefined;
 			return;
 		}
 
-		if (this.filterResultsExhausted) {
+		if (!explicit && this.filterResultsExhausted) {
 			this._deferredMoreRows = undefined;
 			return;
 		}

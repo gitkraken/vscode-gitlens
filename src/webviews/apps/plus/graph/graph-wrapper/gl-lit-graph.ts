@@ -783,6 +783,11 @@ export class GlLitGraph extends LitElement {
 	// trigger keeps firing dead events at the end of history — including the screen-reader "loading more"
 	// announcement, which `dispatchMoreRows` makes before the wrapper's guards can reject the ask.
 	@property({ type: Boolean }) hasMore?: boolean;
+	// The host walk's OWN `paging.hasMore`, undiluted — `hasMore` above folds the wrapper's
+	// filter-exhausted brake into it, which is right for suppressing automatic asks but useless for
+	// deciding whether a "Load More" button can accomplish anything. Read only by the results bar: with
+	// the conflated flag it would hide the button in precisely the case the user needs it.
+	@property({ type: Boolean }) pagingHasMore?: boolean;
 	// VS Code host-window focus state — undefined/true = focused. Dims the selection accent to the
 	// inactive tone (see `gl-graph--window-unfocused` in graph.scss) when the window loses focus,
 	// matching VS Code's own list/tree views.
@@ -5155,16 +5160,30 @@ export class GlLitGraph extends LitElement {
 			>`;
 		}
 
+		// Disclose the shortfall either way, but only offer the action when a page could still arrive — a
+		// drained walk means the unrendered results are unreachable from it (a peer worktree whose HEAD is
+		// not in `--all`, say), and a button that provably fetches nothing is worse than no button.
 		return html`<span class="gl-graph__results-bar-message"
 				>Showing ${this.searchResultsRenderedCount} of
 				${pluralize('result', sr.count, { infix: sr.hasMore ? '+ ' : undefined })}</span
-			><button type="button" class="gl-graph__results-bar-action" @click=${this.onLoadMoreResultsClick}>
-				Load More Results…
-			</button>`;
+			>${
+				this.pagingHasMore !== false
+					? html`<button
+							type="button"
+							class="gl-graph__results-bar-action"
+							@click=${this.onLoadMoreResultsClick}
+						>
+							Load More Results…
+						</button>`
+					: nothing
+			}`;
 	}
 
+	// Dispatched DIRECTLY, not through `emitMoreRows`: that debounces by 250ms for scroll-driven asks,
+	// and a click should not wait on a scroll heuristic. `explicit` also exempts it from the wrapper's
+	// filter-exhausted brake, which otherwise swallowed this ask entirely.
 	private onLoadMoreResultsClick = (): void => {
-		this.emitMoreRows();
+		this.dispatchMoreRows(true);
 	};
 
 	// Branches-visibility message — discloses that `includeOnlyRefs` narrowed the graph to refs whose tips
@@ -5197,7 +5216,11 @@ export class GlLitGraph extends LitElement {
 		// search results instead.
 		const searchPending =
 			searchResults != null && 'count' in searchResults && this.searchResultsRenderedCount < searchResults.count;
-		const canLoadMore = this.hasMore !== false && !searchPending;
+		// `pagingHasMore`, not `hasMore`: the latter folds the wrapper's filter-exhausted brake in, and this
+		// message asks only whether the host walk itself has anything left. (They agree outside filter mode,
+		// which is the only place this message renders — but naming the one that's actually meant keeps it
+		// correct if that ever stops being true.)
+		const canLoadMore = this.pagingHasMore !== false && !searchPending;
 
 		return html`<span class="gl-graph__results-bar-message"
 				>Showing ${loaded} of ${pluralize('branch', total, { plural: 'branches' })}</span
@@ -5215,7 +5238,7 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private onLoadMoreIncludedRefsClick = (): void => {
-		this.emitMoreRows();
+		this.dispatchMoreRows(true);
 	};
 
 	override render(): TemplateResult {
@@ -8112,14 +8135,19 @@ export class GlLitGraph extends LitElement {
 	// Dispatch a "load the next page" request. The wrapper's `graphState.loading` guard (webview) and the
 	// host's `_pendingRowsQuery` dedup collapse repeated calls to a single in-flight request, so firing
 	// this per scroll frame or per applied page can't storm the host — at most one page loads at a time.
-	private dispatchMoreRows(): void {
+	/** @param explicit The ask came from the user clicking the results bar, not from the viewport wanting
+	 *  to fill itself. Carried on the event because the wrapper exempts a deliberate click from the
+	 *  filter-exhausted brake that (correctly) stops the automatic ask — see `requestMoreRows`. */
+	private dispatchMoreRows(explicit?: boolean): void {
 		// The diagnostic mark is taken by the WRAPPER once its acceptance guards pass — asking is not the
 		// same as paging, and marking here would attribute a rejected ask's start time to the next page
 		// that actually loads. The rendered count rides along because only this element knows it; gating
 		// it on DEBUG here leaves nothing behind in a production build, where an accessor would survive.
-		if (DEBUG) {
+		if (DEBUG || explicit === true) {
 			this.dispatchEvent(
-				new CustomEvent('gl-graph-morerows', { detail: { displayRows: this.displayRows.length } }),
+				new CustomEvent('gl-graph-morerows', {
+					detail: { displayRows: this.displayRows.length, explicit: explicit === true },
+				}),
 			);
 		} else {
 			// Written as two complete constructions rather than a conditional argument so the production
