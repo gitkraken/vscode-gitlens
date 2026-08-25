@@ -10,6 +10,7 @@ import type {
 	SidebarWorktreeChange,
 } from '../../../../plus/graph/protocol.js';
 import { isConnectionClosedError } from '../../../shared/actions/rpc.js';
+import { waitForFocusSettled } from '../../../shared/focus.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import { createResource } from '../../../shared/state/resource.js';
 
@@ -376,7 +377,13 @@ export function createSidebarActions(): SidebarActions {
 		},
 
 		executeAction: function (command: GlCommands, context?: string, args?: unknown[]) {
-			service?.executeAction(command, context, args);
+			// Wait for a pending click focus grant to land before the host opens a quick pick —
+			// opening one mid-grant races the webview regaining focus after it shows, which
+			// dismisses it (see `waitForFocusSettled`). Callers here are fire-and-forget.
+			void (async () => {
+				await waitForFocusSettled();
+				service?.executeAction(command, context, args);
+			})();
 		},
 
 		applyWorktreeChanges: function (changes: Record<string, SidebarWorktreeChange | undefined>) {

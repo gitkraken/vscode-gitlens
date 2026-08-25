@@ -58,6 +58,7 @@ import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
+import { waitForFocusSettled } from '../../../shared/focus.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
@@ -3422,10 +3423,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@load-reachability=${() => void this._actions.loadReachability()}
 			@refresh-reachability=${() => this._actions.refreshReachability()}
 			@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
-				this._actions.openOnRemote(commit.repoPath ?? this.repoPath, e.detail.sha)}
+				void this._actions.openOnRemote(commit.repoPath ?? this.repoPath, e.detail.sha)}
 			@refresh-commit=${this.handleRefreshCommit}
 			@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
-				void this._actions.services.commands.execute('gitlens.stashesApply', e.detail)}
+				void (async () => {
+					await waitForFocusSettled();
+					await this._actions.services.commands.execute('gitlens.stashesApply', e.detail);
+				})()}
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@toggle-mode=${this.handleToggleMode}
 			@mode-back=${this.handleModeBack}
@@ -4053,12 +4057,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleSwitchBranch = () => {
 		this.trackWipAction('switchBranch');
-		this._actions.switchBranch(this.effectiveRepoPath);
+		void this._actions.switchBranch(this.effectiveRepoPath);
 	};
 
 	private handleCreateBranch = () => {
 		this.trackWipAction('createBranch');
-		this._actions.createBranch(this.effectiveRepoPath);
+		void this._actions.createBranch(this.effectiveRepoPath);
 	};
 
 	private handlePublishBranch = () => {
@@ -4096,21 +4100,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.createPullRequest(this.effectiveRepoPath, { describeWithAI: true });
 	};
 
-	private handleShareWipAsCloudPatch = () => {
+	private handleShareWipAsCloudPatch = async (): Promise<void> => {
 		this.trackWipAction('shareAsCloudPatch');
-		void this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
+		await waitForFocusSettled();
+		await this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
 			repoPath: this.effectiveRepoPath,
 		});
 	};
 
 	private handleRebaseOntoMergeTarget = () => {
 		this.trackWipAction('rebaseOntoMergeTarget');
-		this._actions.rebaseOntoMergeTarget();
+		void this._actions.rebaseOntoMergeTarget();
 	};
 
 	private handleMergeMergeTargetIntoCurrent = () => {
 		this.trackWipAction('mergeMergeTarget');
-		this._actions.mergeMergeTargetIntoCurrent();
+		void this._actions.mergeMergeTargetIntoCurrent();
 	};
 
 	private handleReviewBranchChanges = () => this.enterBranchWorkMode('review');
@@ -4159,28 +4164,28 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._actions.stashFiles([...e.detail.files]);
 		} else {
 			this.trackWipAction(e.detail?.onlyStaged ? 'stashSaveStaged' : 'stashSave');
-			this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
+			void this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
 		}
 	};
 
 	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) => {
 		this.trackWipAction('startWork');
-		this._actions.startWork(e.detail?.showOpenInAgent);
+		void this._actions.startWork(e.detail?.showOpenInAgent);
 	};
 
 	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) => {
 		this.trackWipAction('startReview');
-		this._actions.startPRReview(e.detail?.showOpenInAgent);
+		void this._actions.startPRReview(e.detail?.showOpenInAgent);
 	};
 
 	private handleApplyStash = () => {
 		this.trackWipAction('applyStash');
-		this._actions.applyStash(this.effectiveRepoPath);
+		void this._actions.applyStash(this.effectiveRepoPath);
 	};
 
 	private handleNewWorktree = () => {
 		this.trackWipAction('createWorktree');
-		this._actions.createWorktree();
+		void this._actions.createWorktree();
 	};
 
 	private handleRefreshLaunchpad = (): void => {

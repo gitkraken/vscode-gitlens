@@ -42,7 +42,7 @@ import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
-import { blurActiveElement } from '../../shared/focus.js';
+import { waitForFocusSettled } from '../../shared/focus.js';
 import { providerIconName } from '../../shared/git-utils.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
@@ -1053,11 +1053,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				const services = this._services;
 				if (services == null) break;
 
-				// Release focus before opening the quick pick so the click's pending focus transfer
-				// can't steal it back and dismiss the picker (see `blurActiveElement`).
-				blurActiveElement();
-
-				notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
+				// Wait for a pending click focus grant to land before opening the quick pick —
+				// opening it mid-grant races the webview regaining focus after the picker shows,
+				// which dismisses it (see `waitForFocusSettled`).
+				void (async () => {
+					await waitForFocusSettled();
+					notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
+				})();
 				break;
 			}
 

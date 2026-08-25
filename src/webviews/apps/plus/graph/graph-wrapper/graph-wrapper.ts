@@ -39,6 +39,7 @@ import { fireAndForget, noop, notifyService } from '../../../shared/actions/rpc.
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../../shared/contexts/telemetry.js';
+import { waitForFocusSettled } from '../../../shared/focus.js';
 import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 import type { AnchorKey } from '../components/anchorKey.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
@@ -2007,9 +2008,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	// Row-action button → host command (the graph emits a flat {action, sha, type, worktreePath?}
 	// detail from its click delegation).
-	private onGraphRowAction({
+	private async onGraphRowAction({
 		detail: { action, sha, type, worktreePath },
-	}: CustomEvent<{ action: RowAction; sha: string; type: GitGraphRowKind; worktreePath?: string }>) {
+	}: CustomEvent<{ action: RowAction; sha: string; type: GitGraphRowKind; worktreePath?: string }>): Promise<void> {
 		const services = this.services;
 		if (services == null) return;
 
@@ -2020,6 +2021,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			action === 'undo-commit'
 				? { action: action, row: rowRef, worktreePath: worktreePath }
 				: { action: action, row: rowRef };
+		// Some row actions (e.g. stash apply/pop) open a host-side quick pick; wait for a pending
+		// click focus grant to land first — opening mid-grant races the webview regaining focus
+		// after the picker shows, which dismisses it (see `waitForFocusSettled`).
+		await waitForFocusSettled();
 		notifyService(services.rowActions, 'rowActions/execute', svc => svc.executeRowAction(params));
 	}
 
@@ -2859,7 +2864,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: event.detail }));
 	}
 
-	private onGraphRefDoubleClick(
+	private async onGraphRefDoubleClick(
 		event: CustomEvent<{
 			name: string;
 			kind: string;
@@ -2868,7 +2873,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			current: boolean;
 			metadata?: GraphRefMetadataItem;
 		}>,
-	) {
+	): Promise<void> {
 		const { name, kind, remote, context, current, metadata } = event.detail;
 
 		// `gl-graph-refdoubleclick` is a misnomer — it fires on a single click. A PR chip click opens the
@@ -2899,6 +2904,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
+		// The pull/switch flows this can open (e.g. a remote-tracking branch with no local branch)
+		// show a host-side quick pick; wait for a pending click focus grant to land first — opening
+		// mid-grant races the webview regaining focus after the picker shows, which dismisses it
+		// (see `waitForFocusSettled`).
+		await waitForFocusSettled();
 		notifyService(services.rowActions, 'rowActions/refDoubleClick', svc => svc.handleRefDoubleClick(ref, metadata));
 	}
 

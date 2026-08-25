@@ -5,11 +5,10 @@ import { getHostIpcApi } from './ipc.js';
 /**
  * Blurs the currently focused element, if any.
  *
- * Call this before requesting a host-side quick pick from a click handler. Opening a VS Code
- * quick pick races the click's focus delivery into the webview: if the webview (re)gains focus
- * after the quick pick shows, VS Code hides it — the picker flashes open then immediately closes.
- * Releasing focus up front removes the pending focus transfer so the quick pick keeps focus with
- * its normal dismiss-on-focus-out semantics intact.
+ * Used by the search input to intentionally drop focus and close its autocomplete dropdown;
+ * every exit path there refocuses afterwards. For opening a host-side quick pick, use
+ * {@link waitForFocusSettled} instead — blurring first costs a cancelled picker its focus
+ * return.
  */
 export function blurActiveElement(): void {
 	// No-op without a DOM — action-layer callers (e.g. `DetailsActions`) also run in headless
@@ -20,6 +19,46 @@ export function blurActiveElement(): void {
 	if (active instanceof HTMLElement && active !== document.body) {
 		active.blur();
 	}
+}
+
+/** Fallback wait for a focus grant that never lands, in milliseconds. */
+const focusSettleTimeoutMs = 250;
+
+/**
+ * Waits for a pending window focus grant to land before returning.
+ *
+ * Opening a VS Code quick pick from a click handler races the click's focus delivery into the
+ * webview: if the webview (re)gains focus after the quick pick shows, VS Code dismisses it — the
+ * picker flashes open then immediately closes. The race only exists when the webview did not
+ * already have focus at click time, since the grant is what's in flight; once it lands, opening
+ * the picker is safe. Waiting (rather than blurring first) keeps focus on the activated element
+ * throughout, so a cancelled picker returns the user exactly where they were — pointer and
+ * keyboard alike.
+ *
+ * No-ops (resolves immediately) without a DOM, or when the document already has focus — the
+ * common case, where there's no pending grant to wait for and callers in hot paths shouldn't pay
+ * more than the `await` itself. Otherwise resolves on the window's next `focus` event, with a
+ * timeout fallback so a grant that never arrives can't hang the caller.
+ */
+export function waitForFocusSettled(): Promise<void> {
+	if (typeof document === 'undefined' || document.hasFocus()) return Promise.resolve();
+
+	return new Promise<void>(resolve => {
+		let settled = false;
+		let timer: ReturnType<typeof setTimeout>;
+
+		const onFocus = () => {
+			if (settled) return;
+
+			settled = true;
+			clearTimeout(timer);
+			window.removeEventListener('focus', onFocus);
+			resolve();
+		};
+
+		timer = setTimeout(onFocus, focusSettleTimeoutMs);
+		window.addEventListener('focus', onFocus);
+	});
 }
 
 /**

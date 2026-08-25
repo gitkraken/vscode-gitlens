@@ -10,6 +10,7 @@ import { notifyService } from '../../shared/actions/rpc.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { waitForFocusSettled } from '../../shared/focus.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
@@ -168,17 +169,19 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 		</gl-feature-gate>`;
 	}
 
-	private onSwitchRepos(): void {
+	private async onSwitchRepos(): Promise<void> {
 		const services = this._services;
 		if (services == null) return;
 
+		await waitForFocusSettled();
 		notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
 	}
 
-	private onSwitchOrgs(): void {
+	private async onSwitchOrgs(): Promise<void> {
 		const services = this._services;
 		if (services == null) return;
 
+		await waitForFocusSettled();
 		notifyService(services.pickers, 'pickers/chooseAccountOrg', svc => svc.chooseAccountOrg());
 	}
 }

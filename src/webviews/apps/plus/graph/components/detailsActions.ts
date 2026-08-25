@@ -88,7 +88,7 @@ import {
 	notifyService,
 } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
-import { blurActiveElement } from '../../../shared/focus.js';
+import { waitForFocusSettled } from '../../../shared/focus.js';
 import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { AppState } from '../context.js';
@@ -2106,19 +2106,21 @@ export class DetailsActions {
 	async changeCompareRef(side: 'left' | 'right', repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
-		// Release focus before opening the quick pick so the click's pending focus transfer can't
-		// steal it back and dismiss the picker (see `blurActiveElement`).
-		blurActiveElement();
-
-		// Clear the rightRef's worktree path synchronously so the IWT toggle doesn't briefly flash
-		// for the old worktree while the user picks a new ref. `mergeBase` is intentionally NOT
-		// cleared here — keeping the prior value means a click during picker open still produces
-		// a coherent file context (against the OLD, unchanged comparison) instead of falling
-		// through to the 2-dot fallback and producing a diff that mismatches the visible file
-		// list. On picker confirm, `clearBranchCompareData()` below wipes mergeBase + everything.
+		// Clear the rightRef's worktree path synchronously (before the first await) so the IWT
+		// toggle doesn't briefly flash for the old worktree while the user picks a new ref.
+		// `mergeBase` is intentionally NOT cleared here — keeping the prior value means a click
+		// during picker open still produces a coherent file context (against the OLD, unchanged
+		// comparison) instead of falling through to the 2-dot fallback and producing a diff that
+		// mismatches the visible file list. On picker confirm, `clearBranchCompareData()` below
+		// wipes mergeBase + everything.
 		if (side === 'right') {
 			this.state.branchCompareRightRefWorktreePath.set(undefined);
 		}
+
+		// Wait for a pending click focus grant to land before opening the quick pick — opening it
+		// mid-grant races the webview regaining focus after the picker shows, which dismisses it
+		// (see `waitForFocusSettled`).
+		await waitForFocusSettled();
 
 		const currentRef =
 			side === 'left' ? this.state.branchCompareLeftRef.get() : this.state.branchCompareRightRef.get();
@@ -3655,9 +3657,10 @@ export class DetailsActions {
 	async addCoauthors(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
-		// Release focus before opening the quick pick so the click's pending focus transfer can't
-		// steal it back and dismiss the picker (see `blurActiveElement`).
-		blurActiveElement();
+		// Wait for a pending click focus grant to land before opening the quick pick — opening it
+		// mid-grant races the webview regaining focus after the picker shows, which dismisses it
+		// (see `waitForFocusSettled`).
+		await waitForFocusSettled();
 
 		// Host shows the same contributor picker as the SCM `Add Co-authors…` action, pre-picking
 		// anyone already in the message, and returns the selected `Name <email>` strings.
@@ -3694,41 +3697,47 @@ export class DetailsActions {
 		}
 	}
 
-	switchBranch(repoPath: string | undefined): void {
+	async switchBranch(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.repository, 'repository/switchBranch', svc => svc.switchBranch(repoPath));
 	}
 
-	createBranch(repoPath: string | undefined): void {
+	async createBranch(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.repository, 'repository/createBranch', svc => svc.createBranch(repoPath));
 	}
 
-	stashSave(repoPath: string | undefined, onlyStaged?: boolean): void {
+	async stashSave(repoPath: string | undefined, onlyStaged?: boolean): Promise<void> {
 		if (!repoPath) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.stashSave', svc =>
 			svc.execute('gitlens.stashSave', { repoPath: repoPath, onlyStaged: onlyStaged }),
 		);
 	}
 
-	applyStash(repoPath: string | undefined): void {
+	async applyStash(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.stashesApply', svc =>
 			svc.execute('gitlens.stashesApply', { repoPath: repoPath }),
 		);
 	}
 
-	createWorktree(): void {
+	async createWorktree(): Promise<void> {
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.views.createWorktree', svc =>
 			svc.execute('gitlens.views.createWorktree'),
 		);
 	}
 
-	startWork(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
+	async startWork(showOpenInAgent?: 'ask' | 'manual' | 'agent'): Promise<void> {
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.startWork', svc =>
 			svc.execute('gitlens.startWork', {
 				source: 'graph-details' as const,
@@ -3737,7 +3746,8 @@ export class DetailsActions {
 		);
 	}
 
-	startPRReview(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
+	async startPRReview(showOpenInAgent?: 'ask' | 'manual' | 'agent'): Promise<void> {
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.startReview', svc =>
 			svc.execute('gitlens.startReview', {
 				source: { source: 'graph-details' },
@@ -3764,19 +3774,21 @@ export class DetailsActions {
 		);
 	}
 
-	rebaseOntoMergeTarget(): void {
+	async rebaseOntoMergeTarget(): Promise<void> {
 		const ref = this.buildMergeTargetBranchRef();
 		if (ref == null) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.rebaseCurrentOnto:graph', svc =>
 			svc.executeScoped('gitlens.rebaseCurrentOnto:graph', ref),
 		);
 	}
 
-	mergeMergeTargetIntoCurrent(): void {
+	async mergeMergeTargetIntoCurrent(): Promise<void> {
 		const ref = this.buildMergeTargetBranchRef();
 		if (ref == null) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.mergeIntoCurrent:graph', svc =>
 			svc.executeScoped('gitlens.mergeIntoCurrent:graph', ref),
 		);
@@ -3791,9 +3803,10 @@ export class DetailsActions {
 		return { repoPath: repoPath, branchId: target.id, branchName: target.name };
 	}
 
-	openOnRemote(repoPath: string | undefined, sha: string): void {
+	async openOnRemote(repoPath: string | undefined, sha: string): Promise<void> {
 		if (!repoPath) return;
 
+		await waitForFocusSettled();
 		notifyService(this.services.commands, 'command: gitlens.openOnRemote', svc =>
 			svc.execute('gitlens.openOnRemote', {
 				repoPath: repoPath,
