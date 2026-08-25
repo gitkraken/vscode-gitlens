@@ -12,6 +12,10 @@ import { getHostIpcApi } from './ipc.js';
  * its normal dismiss-on-focus-out semantics intact.
  */
 export function blurActiveElement(): void {
+	// No-op without a DOM — action-layer callers (e.g. `DetailsActions`) also run in headless
+	// unit-test bundles, where a bare `document` dereference rejects the whole action.
+	if (typeof document === 'undefined') return;
+
 	const active = document.activeElement;
 	if (active instanceof HTMLElement && active !== document.body) {
 		active.blur();
