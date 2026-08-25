@@ -98,6 +98,14 @@ export class PromiseCache<K, V> {
 	}
 
 	/**
+	 * Returns the number of entries in the cache, including expired entries that haven't been evicted yet
+	 * (they are only evicted on access), so this reflects what's actually retained in memory.
+	 */
+	get size(): number {
+		return this.cache.size;
+	}
+
+	/**
 	 * Gets a promise from the cache without creating it and updates accessed time
 	 * @param key - The cache key
 	 * @returns The cached promise, or undefined if not cached or expired
