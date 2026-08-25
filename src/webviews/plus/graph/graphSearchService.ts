@@ -44,6 +44,7 @@ import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphSelection,
+	GraphWipRow,
 	GraphWipRowsById,
 	SearchParams,
 } from './protocol.js';
@@ -1361,14 +1362,75 @@ export class GraphSearchService {
 		// in `wipRowsById`, so skip it there rather than re-`set` it (which would move it to the end of
 		// the result ordering).
 		results.set(primaryWipRowId, { i: i++, date: now });
-		for (const [sha, wipRow] of Object.entries(wipRowsById)) {
-			if (sha === primaryWipRowId) continue;
 
+		// Ordered as the rows are DRAWN, NOT by the worktree enumeration `wipRowsById` arrives in. `i` is
+		// what the search box's next/previous arrows step through (`getSearchResultIdByIndex`), so a
+		// mismatch sends stepping jumping around the graph at random.
+		//
+		// Anchor date descending IS that order: `getDecoratedRows` interleaves each peer immediately above
+		// its own `parentSha`, and the row list is newest-first.
+		//
+		// `parentDate` is the worktree's BRANCH date, so a DETACHED worktree — one mid-rebase, say — has
+		// none, and every date-less peer collapses onto whatever the fallback picks. Resolve the anchor
+		// commit's own date for those instead of guessing. Do NOT order by the anchor's index in the
+		// loaded window: `i` is assigned once, here, while the window keeps growing, so anything anchored
+		// below the current bottom sorts wrong and stays wrong (seen live — `quick-wizard`'s anchor was
+		// row 4161 of an eventual 15,883, but only ~507 rows were loaded when the search ran).
+		const peerEntries = Object.entries(wipRowsById).filter(([sha]) => sha !== primaryWipRowId);
+
+		// Only the date-less ones cost a lookup, and only once per search — a detached worktree is the
+		// exception, not the rule. `allSettled` so one bad sha can't sink the whole ordering.
+		const svc = this.container.git.getRepositoryService(this.repository.path);
+		// The graph row's own `date` is author- or committer-date depending on this setting, and the walk
+		// is ordered by the same one — so read the matching field, or a resolved peer lands out of order
+		// on exactly the repos that changed it.
+		const authorOrdering =
+			(configuration.get('graph.commitOrdering') ?? configuration.get('advanced.commitOrdering')) ===
+			'author-date';
+		const resolvedDates = new Map<string, number>();
+		const missing = peerEntries.filter(([, w]) => w.parentDate == null && w.parentSha != null);
+		if (missing.length) {
+			const settled = await Promise.allSettled(
+				missing.map(async ([sha, w]) => {
+					const commit = await svc.commits.getCommit(w.parentSha!);
+					return [sha, authorOrdering ? commit?.authorDate : commit?.committedDate] as const;
+				}),
+			);
+			for (const r of settled) {
+				if (r.status !== 'fulfilled') continue;
+
+				const [sha, date] = r.value;
+				if (date != null) {
+					resolvedDates.set(sha, date.getTime());
+				}
+			}
+		}
+
+		if (signal.aborted) return { revealSha: undefined };
+
+		const anchorDateOf = ([sha, w]: readonly [string, GraphWipRow]): number | undefined =>
+			w.parentDate ?? resolvedDates.get(sha);
+
+		const peers = peerEntries.sort((a, b) => {
+			const ad = anchorDateOf(a);
+			const bd = anchorDateOf(b);
+			// Compared branch-wise rather than with a sentinel: `(b ?? -Infinity) - (a ?? -Infinity)`
+			// yields NaN when BOTH are missing, which makes the comparator inconsistent. Still-unknown
+			// sorts last — it can no longer be resolved, so anywhere is a guess; last at least keeps it
+			// out of the way of the rows that do have a place.
+			if (ad == null) return bd == null ? 0 : 1;
+			if (bd == null) return -1;
+
+			return bd - ad;
+		});
+		for (const entry of peers) {
+			const [sha] = entry;
 			// Secondary WIP rows ARE anchored to a commit (their worktree HEAD), so date them there —
 			// the minimap already places its worktree markers by `parentSha`, and dating these at "now"
-			// instead stacked every worktree onto today. `now` here is only a last resort for a worktree
-			// whose HEAD date didn't come through.
-			results.set(sha, { i: i++, date: wipRow.parentDate ?? now });
+			// instead stacked every worktree onto today. That includes the anchor date resolved above, so
+			// a detached worktree lands on its commit rather than on today; `now` is the last resort only
+			// when even that lookup came back empty.
+			results.set(sha, { i: i++, date: anchorDateOf(entry) ?? now });
 		}
 
 		const search: GitGraphSearch = {
