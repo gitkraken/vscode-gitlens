@@ -32,6 +32,7 @@
   // Cohort number between 1 and 100 to use for percentage-based rollouts
   'global.device.cohort': number,
   'global.enabled': boolean,
+  // JSON map of feature flags as fetched — except `glensGraphGateIntroVideo`, which reports the variant the last RENDERED sign-in gate actually showed (omitted until a gate has been shown)
   'global.featureFlags': string,
   'global.folders.count': number,
   'global.folders.schemes': string,
@@ -3076,6 +3077,44 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.type': string,
   'duration': number,
   'loading': boolean
+}
+```
+
+### graph/signin/introVideo/clicked
+
+> Sent when the user clicks the intro-video thumbnail on the sign-in gate (intro-video A/B variant)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/signin/shown
+
+> Sent when the sign-in gate is shown (once per Graph instance) — the base of the gate-seen → sign-up funnel for the intro-video A/B
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which sign-in gate variant rendered — `intro-video` replaces the Pro strip + Learn More with the video thumbnail
+  'variant': 'default' | 'intro-video'
 }
 ```
 

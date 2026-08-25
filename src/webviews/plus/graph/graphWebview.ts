@@ -54,6 +54,7 @@ import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
+	wait,
 } from '@gitlens/utils/promise.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import { satisfies } from '@gitlens/utils/version.js';
@@ -82,6 +83,7 @@ import type {
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { FeatureFlagKey, setFeatureFlagTelemetryGlobalAttributes } from '../../../featureFlags/featureFlagService.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
 import { openCommitChanges, openCommitChangesWithWorking, undoCommit } from '../../../git/actions/commit.js';
@@ -330,6 +332,12 @@ type CancellableOperations =
 	| 'computeIncludedRefs'
 	| 'state'
 	| 'workingTree';
+
+/** A/B (intro-video): latched on the first gated render so the variant can't flip mid-session.
+ *  Module-scope, NOT per-provider — the editor panel and the sidebar view each construct their own
+ *  provider, and flag values can change when the background fetch lands, so a per-instance latch
+ *  could show one user both arms (and count an impression on each) within a single window. */
+let signInGateIntroVideo: boolean | undefined;
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: GlRepository;
@@ -4493,13 +4501,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload
 			// is forced from `onSubscriptionChanged` once the account becomes usable.
 			this._wip.updateWorkingTreeBadge(undefined);
+
+			if (signInGateIntroVideo == null) {
+				// Resolve the sign-in gate A/B variant only when the gate will actually render. This
+				// await sits on the bootstrap path (`includeBootstrap` → `webview.html`), so any wait
+				// here holds the WHOLE panel blank — pay it (bounded) only on a genuine first run,
+				// where no fetch has ever cached a flag map; on later activations the flags cached by
+				// the previous session's fetch are the same cohort (ConfigCat targets the stable
+				// machineId) and are available synchronously. `hasCachedFlags` marks "a fetch has ever
+				// succeeded" — neither presence of this specific key (never cached when the deployed
+				// config doesn't define it) nor map emptiness (a config defining none of our keys
+				// caches `{}`) can tell that apart from a true first run, and both would re-arm this
+				// wait on every activation.
+				if (!this.container.featureFlags.hasCachedFlags) {
+					await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
+				}
+
+				signInGateIntroVideo = this.container.featureFlags.getFlag(FeatureFlagKey.GraphGateIntroVideo, false);
+
+				// The `featureFlags` telemetry attribute reports what the user actually SAW for this
+				// key (see `setFeatureFlagTelemetryGlobalAttributes`) — persist the rendered variant
+				// and re-stamp so this session's subsequent events carry it.
+				if (this.container.storage.get('graph:signInGate:introVideoShown') !== signInGateIntroVideo) {
+					await this.container.storage.store('graph:signInGate:introVideoShown', signInGateIntroVideo);
+					setFeatureFlagTelemetryGlobalAttributes(this.container);
+				}
+			}
+
 			return {
 				...this.host.baseWebviewState,
+				// The account-access screen loads the intro-video thumbnail from here
+				webroot: this.host.getWebRoot(),
 				allowed: false,
 				trusted: true,
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
+				signInGateIntroVideo: signInGateIntroVideo,
 				// Sent but NOT cleared (unlike the full build below): the app can't act on it while the
 				// account screen is up, but uses it to pick task-specific sign-in messaging (#5534); the
 				// un-gating full rebuild re-delivers it for actual consumption.

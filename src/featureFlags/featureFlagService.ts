@@ -11,13 +11,45 @@ type DeserializeFeatureFlagConfig = typeof deserializeConfig;
 
 export type FeatureFlagValue = boolean | string | number;
 export enum FeatureFlagKey {
+	GraphGateIntroVideo = 'glensGraphGateIntroVideo',
 	WelcomeTitleVariant = 'glensWelcomeTitleVariant',
 }
 export type FeatureFlagMap = Readonly<Partial<Record<FeatureFlagKey, FeatureFlagValue>>>;
 export interface FeatureFlagService {
 	dispose(): void;
+	/** Resolves once the initial background fetch and evaluation completes, whether it succeeded or not */
+	readonly whenReady: Promise<void>;
+	/** Whether any previous session's fetch has cached an evaluated flag map — even an empty one, so
+	 *  this stays a "has a fetch ever succeeded" marker when the deployed config defines no keys */
+	readonly hasCachedFlags: boolean;
 	getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): T;
 	getAllFlags(): FeatureFlagMap;
+}
+
+/** (Re-)stamps the `featureFlags` telemetry global attribute. Called at activation, when the
+ *  background fetch lands (see `extension.ts`), and when the Graph sign-in gate latches its A/B
+ *  variant (see `graphWebview.ts`) — so events carry the freshest attribution available. */
+export function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {
+	const flags = new Map<string, FeatureFlagValue>(Object.entries(container.featureFlags.getAllFlags()));
+
+	// `glensGraphGateIntroVideo` reports the variant the user actually SAW, not the fetched value:
+	// the Graph latches the rendered variant per window and persists it, so a fetch landing
+	// mid-session can't relabel events for a user who never saw the new variant — while a later
+	// render that DOES show it (e.g. after a window reload) updates the label. Until a gate has
+	// ever been shown the key is omitted: an unexposed user isn't in the experiment.
+	const shownIntroVideo = container.storage.get('graph:signInGate:introVideoShown');
+	if (shownIntroVideo != null) {
+		flags.set(FeatureFlagKey.GraphGateIntroVideo, shownIntroVideo);
+	} else {
+		flags.delete(FeatureFlagKey.GraphGateIntroVideo);
+	}
+
+	if (flags.size === 0) return;
+
+	container.telemetry.setGlobalAttribute(
+		'featureFlags',
+		JSON.stringify(Object.fromEntries([...flags].sort(([a], [b]) => a.localeCompare(b)))),
+	);
 }
 
 /**
@@ -45,13 +77,19 @@ class PrefetchedConfigCache implements IConfigCatCache {
 }
 
 export class ConfigCatFeatureFlagService implements FeatureFlagService {
-	private readonly _flags: FeatureFlagMap;
+	readonly whenReady: Promise<void>;
+	readonly hasCachedFlags: boolean;
+
+	private _flags: FeatureFlagMap;
 
 	constructor(private readonly container: Container) {
-		this._flags = Object.freeze(this.container.storage.get('featureFlags:flags') ?? {});
+		const cached = this.container.storage.get('featureFlags:flags');
+		this.hasCachedFlags = cached != null;
+		this._flags = Object.freeze(cached ?? {});
 
-		// Fire background fetch to evaluate flags and store them for the NEXT activation
-		void this.fetchAndCacheFlags();
+		// Fire background fetch to evaluate flags — results apply to this session once ready and are
+		// stored for the next activation
+		this.whenReady = this.fetchAndCacheFlags();
 	}
 
 	dispose(): void {}
@@ -70,8 +108,8 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 
 	/**
 	 * Fetches fresh config from the API, evaluates all flags via ConfigCat SDK,
-	 * and stores the resolved flag map in globalState for the next activation.
-	 * Fire-and-forget — errors are logged but never propagated.
+	 * applies the resolved flag map to this session, and stores it in globalState
+	 * for the next activation. Errors are logged but never propagated.
 	 */
 	private async fetchAndCacheFlags(): Promise<void> {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.fetchAndCacheFlags`);
@@ -97,6 +135,7 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 
 			const flags = await this.evaluateFlags(configJson);
 			if (flags != null) {
+				this._flags = Object.freeze(flags);
 				await this.container.storage.store('featureFlags:flags', flags);
 			}
 		} catch (ex) {

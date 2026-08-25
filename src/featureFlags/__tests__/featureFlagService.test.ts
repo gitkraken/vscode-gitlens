@@ -301,8 +301,9 @@ suite('FeatureFlagService Test Suite', () => {
 					'should store the evaluated flag value',
 				);
 
-				// s1 still serves the old flags — new ones are for the next activation
-				assert.strictEqual(s1.getFlag(FeatureFlagKey.WelcomeTitleVariant, 'default'), 'old-value');
+				// Once the fetch completes, s1 serves the freshly evaluated flags in this session
+				await s1.whenReady;
+				assert.strictEqual(s1.getFlag(FeatureFlagKey.WelcomeTitleVariant, 'default'), 'new-value');
 
 				// A new service instance reads the updated storage
 				sandbox.stub(ConfigCatFeatureFlagService.prototype as any, 'fetchAndCacheFlags').resolves();
@@ -316,7 +317,7 @@ suite('FeatureFlagService Test Suite', () => {
 			}
 		});
 
-		test('flags are frozen at construction and unaffected by later storage changes', () => {
+		test('flags are unaffected by direct storage changes (only fetchAndCacheFlags updates them)', () => {
 			const oldFlags: FeatureFlagMap = { [FeatureFlagKey.WelcomeTitleVariant]: 'old-value' };
 			const container = createMockContainer(oldFlags);
 			const s = new ConfigCatFeatureFlagService(container);
