@@ -334,8 +334,9 @@ type CancellableOperations =
 	| 'workingTree';
 
 /** A/B (intro-video): latched on the first gated render, at module scope — a per-provider latch
- *  could show one user both arms (the panel and the sidebar each construct a provider). */
-let signInGateIntroVideo: boolean | undefined;
+ *  could show one user both arms (the panel and the sidebar each construct a provider).
+ *  `unassigned` = no cohort: rendered as the default gate but kept out of both funnel arms. */
+let signInGateVariant: 'default' | 'intro-video' | 'unassigned' | undefined;
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: GlRepository;
@@ -4548,21 +4549,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// is forced from `onSubscriptionChanged` once the account becomes usable.
 			this._wip.updateWorkingTreeBadge(undefined);
 
-			if (signInGateIntroVideo == null) {
+			// Unverified accounts render the VERIFY screen, not the gate — don't label them with an arm
+			if (signInGateVariant == null && subscription.account == null) {
 				// The await sits on the bootstrap path and holds the whole panel blank, so pay it
 				// (bounded) only on a genuine first run — later activations resolve synchronously from
 				// the previous session's cache (ConfigCat targets the stable machineId, so the cohort
-				// is stable too).
-				if (!this.container.featureFlags.hasCachedFlags) {
+				// is stable too). A cache predating this key resolves that session as `unassigned`.
+				if (!this.container.featureFlags.hasEverFetched) {
 					await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
 				}
 
-				signInGateIntroVideo = this.container.featureFlags.getFlag(FeatureFlagKey.GraphGateIntroVideo, false);
+				// Key PRESENCE separates an assigned cohort from cohort-less — `getFlag`'s default would
+				// fold the cohort-less into the control arm and bias the experiment (they convert differently)
+				const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.GraphGateIntroVideo];
+				signInGateVariant = value == null ? 'unassigned' : value === true ? 'intro-video' : 'default';
 
-				// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute
-				if (this.container.storage.get('graph:signInGate:introVideoShown') !== signInGateIntroVideo) {
-					await this.container.storage.store('graph:signInGate:introVideoShown', signInGateIntroVideo);
-					setFeatureFlagTelemetryGlobalAttributes(this.container);
+				// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute; an
+				// unassigned render isn't in the experiment and never overwrites a previously seen arm
+				if (value != null) {
+					const introVideo = signInGateVariant === 'intro-video';
+					if (this.container.storage.get('graph:signInGate:introVideoShown') !== introVideo) {
+						await this.container.storage.store('graph:signInGate:introVideoShown', introVideo);
+						setFeatureFlagTelemetryGlobalAttributes(this.container);
+					}
 				}
 			}
 
@@ -4575,7 +4584,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
-				signInGateIntroVideo: signInGateIntroVideo,
+				signInGateVariant: signInGateVariant,
 				// Sent but NOT cleared (unlike the full build below): the app can't act on it while the
 				// account screen is up, but uses it to pick task-specific sign-in messaging (#5534); the
 				// un-gating full rebuild re-delivers it for actual consumption.

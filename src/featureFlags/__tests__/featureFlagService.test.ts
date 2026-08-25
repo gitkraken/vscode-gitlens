@@ -41,16 +41,20 @@ function makeConfigJson(flags: Record<string, Record<string, unknown>>): string 
 }
 
 function createMockContainer(flags?: FeatureFlagMap, onStore?: () => void): any {
-	let f = flags;
+	const stored = new Map<string, unknown>();
+	if (flags != null) {
+		stored.set('featureFlags:flags', flags);
+	}
+
 	return {
 		urls: { getGkApiUrl: (...segments: string[]) => `https://api.test.com/${segments.join('/')}` },
 		env: 'production',
 		debugging: false,
 		prereleaseOrDebugging: false,
 		storage: {
-			get: sinon.stub().callsFake(() => f),
-			store: sinon.stub().callsFake((_key: string, v: FeatureFlagMap) => {
-				f = v;
+			get: sinon.stub().callsFake((key: string) => stored.get(key)),
+			store: sinon.stub().callsFake((key: string, v: unknown) => {
+				stored.set(key, v);
 				onStore?.();
 			}),
 		},
@@ -292,9 +296,12 @@ suite('FeatureFlagService Test Suite', () => {
 				);
 				await Promise.race([stored, timeout]);
 
-				// Verify storage received the evaluated flags
-				assert.ok(container.storage.store.calledOnce, 'storage.store should have been called');
-				const storedFlags = container.storage.store.firstCall.args[1] as FeatureFlagMap;
+				// Verify storage received the evaluated flags (the fetch also records its completion
+				// under `featureFlags:fetched`, so look up the flags call by key)
+				assert.ok(container.storage.store.calledWith('featureFlags:flags'), 'should have stored the flags');
+				const storedFlags = container.storage.store
+					.getCalls()
+					.find((c: sinon.SinonSpyCall) => c.args[0] === 'featureFlags:flags')!.args[1] as FeatureFlagMap;
 				assert.strictEqual(
 					storedFlags[FeatureFlagKey.WelcomeTitleVariant],
 					'new-value',
@@ -333,6 +340,67 @@ suite('FeatureFlagService Test Suite', () => {
 			);
 			assert.deepStrictEqual(s.getAllFlags(), oldFlags);
 			s.dispose();
+		});
+	});
+
+	suite('hasEverFetched', () => {
+		test('false on a genuine first run (nothing stored)', () => {
+			const s = new ConfigCatFeatureFlagService(createMockContainer());
+			assert.strictEqual(s.hasEverFetched, false);
+			s.dispose();
+		});
+
+		test('true when a previous fetch cached a flag map — even an empty one', () => {
+			const s = new ConfigCatFeatureFlagService(createMockContainer({}));
+			assert.strictEqual(s.hasEverFetched, true);
+			s.dispose();
+		});
+
+		test('true after a fetch completes without caching (failed response)', async () => {
+			// A local server answering 500 exercises the `!response.ok` early return — a completed
+			// fetch that caches nothing — deterministically (an unroutable address could hang instead)
+			const server = http.createServer((_req, res) => {
+				res.writeHead(500);
+				res.end();
+			});
+			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+			const port = (server.address() as import('net').AddressInfo).port;
+
+			try {
+				const container = createMockContainer();
+				container.urls.getGkApiUrl = () => `http://127.0.0.1:${port}/feature-flags/config`;
+
+				// Let the real fetchAndCacheFlags run
+				(ConfigCatFeatureFlagService.prototype as any).fetchAndCacheFlags.restore();
+
+				const s1 = new ConfigCatFeatureFlagService(container);
+				assert.strictEqual(s1.hasEverFetched, false, 'first run should not be marked before the fetch');
+
+				// Bounded to avoid CI stalls
+				const timeout = new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('Timed out waiting for the fetch to complete')), 5000),
+				);
+				await Promise.race([s1.whenReady, timeout]);
+
+				assert.ok(
+					container.storage.store.calledWith('featureFlags:fetched', true),
+					'a completed (even failed) fetch should be recorded',
+				);
+				assert.ok(
+					!container.storage.store.calledWith('featureFlags:flags'),
+					'no flags should have been cached',
+				);
+
+				// The next "activation" sees the marker and skips the first-run wait
+				sandbox.stub(ConfigCatFeatureFlagService.prototype as any, 'fetchAndCacheFlags').resolves();
+				const s2 = new ConfigCatFeatureFlagService(container);
+				assert.strictEqual(s2.hasEverFetched, true);
+
+				s1.dispose();
+				s2.dispose();
+			} finally {
+				await new Promise<void>(resolve => server.close(() => resolve()));
+			}
 		});
 	});
 });

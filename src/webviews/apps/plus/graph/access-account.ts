@@ -1115,7 +1115,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 	/** A/B (intro-video): the sign-in screen shows the intro-video thumbnail instead of the Pro strip + Learn More */
 	private get introVideo(): boolean {
-		return this.graphState.signInGateIntroVideo === true;
+		return this.graphState.signInGateVariant === 'intro-video';
 	}
 
 	override disconnectedCallback(): void {
@@ -1155,19 +1155,25 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 		if (screen === 'signin' && !this.introVideo && this._stripInterval == null) {
 			this.startStripTimer();
+		} else if (this.introVideo && this._stripInterval != null) {
+			// The variant can flip in place (e.g. a trust grant) — stop the strip timer once the strip
+			// leaves the tree
+			this.clearStripTimer();
 		}
 	}
 
 	protected override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
-		// Require `subscription` so the impression only counts renders where the host assigned a
-		// cohort — Restricted-Mode renders would otherwise all pile onto the `default` arm
-		if (this.screen === 'signin' && this.graphState.subscription != null && !this._signInShownReported) {
+		// `signInGateVariant` is resolved exactly on gate-rendering paths (`unassigned` when
+		// cohort-less) — requiring it keeps Restricted-Mode renders out of the funnel and defers the
+		// impression to the push that carries the cohort; a `subscription` check can't do either
+		const variant = this.graphState.signInGateVariant;
+		if (this.screen === 'signin' && variant != null && !this._signInShownReported) {
 			this._signInShownReported = true;
 			emitTelemetrySentEvent<'graph/signin/shown'>(this, {
 				name: 'graph/signin/shown',
-				data: { variant: this.introVideo ? 'intro-video' : 'default' },
+				data: { variant: variant },
 			});
 		}
 
@@ -1333,7 +1339,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				<img
 					class="intro-video__thumbnail"
 					src="${this.graphState.webroot ?? ''}/media/get-started-video.webp"
-					alt="Watch the GitLens Getting Started video"
+					alt=""
 				/>
 			</a>
 		`;

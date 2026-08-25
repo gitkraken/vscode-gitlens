@@ -130,6 +130,8 @@ interface GlobalStorageCore {
 	/** Unified onboarding/dismissible UI state */
 	'onboarding:state': OnboardingStorage;
 	'featureFlags:flags': FeatureFlagMap;
+	/** Whether a feature-flag fetch has ever completed (even unsuccessfully) — see `hasEverFetched` */
+	'featureFlags:fetched': boolean;
 }
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &

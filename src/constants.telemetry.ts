@@ -2506,8 +2506,8 @@ interface GraphIntroShownEvent extends GraphContextEventData {
 }
 
 interface GraphSignInShownEvent extends GraphContextEventData {
-	/** Which sign-in gate variant rendered — `intro-video` replaces the Pro strip + Learn More with the video thumbnail */
-	variant: 'default' | 'intro-video';
+	/** Which sign-in gate variant rendered — `unassigned` = no cohort, rendered as the default gate but excluded from arm comparisons */
+	variant: 'default' | 'intro-video' | 'unassigned';
 }
 
 interface GraphLayoutPromptChoiceEvent extends GraphContextEventData {
