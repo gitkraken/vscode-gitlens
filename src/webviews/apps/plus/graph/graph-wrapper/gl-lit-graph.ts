@@ -4459,6 +4459,25 @@ export class GlLitGraph extends LitElement {
 		return this._rowUnits.unitsOf(index) * this.rowHeight;
 	}
 
+	/** Total pixel height of every row — the SAME product `GraphFixedLayout` uses for its scroll size
+	 *  (`Math.max(1, totalUnits * itemSize)`), plus a few px of slack. Read as the tree's `max-height`
+	 *  while the results bar is up: `<lit-virtualizer scroller>` positions an absolute sizer rather than
+	 *  growing, so it has no intrinsic height for the tree to shrink-wrap and the cap has to be a computed
+	 *  length.
+	 *
+	 *  The slack exists because the virtualizer's sizer overshoots that product — it is translated to the
+	 *  scroll size and then contributes its own (font-size/line-height rounded) box on top, so measured
+	 *  live `scrollHeight` came back one pixel ABOVE the content. Capping at the bare product made
+	 *  `clientHeight` exactly one short, and the scroller painted a thumb for content that was entirely
+	 *  visible. The overshoot is rounding, not a fixed 1px, so the slack is deliberately generous rather
+	 *  than exact: overshooting the cap costs a sub-pixel gap nobody can see, while undershooting it puts
+	 *  a phantom scrollbar back on screen. */
+	private get rowsContentHeight(): number {
+		// Enough to swallow the sizer's rounding at any device pixel ratio; still visually nothing.
+		const sizerSlack = 4;
+		return this._rowUnits.totalUnits(this.displayRows.length) * this.rowHeight + sizerSlack;
+	}
+
 	// Topmost-row index for a scrollTop — "which row is pinned at the viewport's top edge" — clamped into
 	// [0, rowCount - 1]. Shared by every reader that needs it (lane anchor capture, the sticky-timeline
 	// bucket/yield checks, onRangeChanged's minimap day-range) so the clamp can't drift between them.
@@ -5052,10 +5071,17 @@ export class GlLitGraph extends LitElement {
 		this.applyZones(this.zones.map(z => (z.id === 'changes' ? { ...z, hidden: true } : z)));
 	};
 
-	// Filter-search results footer — filter mode only, since normal/highlight mode leaves every row in
-	// place and has nothing to report. A sibling BELOW the viewport div (not inside the virtualizer's
-	// scroll content), so it never affects row virtualization.
-	private renderSearchFooter(): TemplateResult | typeof nothing {
+	// Results bar — filter mode only, since normal/highlight mode leaves every row in place and has
+	// nothing to report.
+	//
+	// Placed as a flex sibling AFTER `.gl-graph__tree`, inside the viewport: the tree is `flex: 0 1 auto`,
+	// so a result set shorter than the viewport shrinks it to its rows and the bar lands directly under
+	// the last one, while a longer set fills the viewport and the bar sits at its foot. That reads as the
+	// terminus of the list instead of a panel band stranded below a screen of empty space.
+	//
+	// NOT inside the tree (which is `role="tree"` — a status bar among its children is invalid ARIA) and
+	// NOT inside the virtualizer's scroll content, so it still never affects row virtualization.
+	private renderResultsBar(): TemplateResult | typeof nothing {
 		if (this.searchMode !== 'filter') return nothing;
 
 		const sr = this.searchResults;
@@ -5064,24 +5090,24 @@ export class GlLitGraph extends LitElement {
 		// "No results" reads even while a background page load is in flight — every other state needs the
 		// load settled first so the counts it reports are stable.
 		if (sr.count === 0) {
-			return html`<div class="gl-graph__search-footer">
-				<span class="gl-graph__search-footer-message">No results found</span>
+			return html`<div class="gl-graph__results-bar">
+				<span class="gl-graph__results-bar-message">No results found</span>
 			</div>`;
 		}
 		if (this.loading) return nothing;
 
 		const allLoaded = !sr.hasMore && this.searchResultsRenderedCount === sr.count;
 		if (allLoaded) {
-			return html`<div class="gl-graph__search-footer">
-				<span class="gl-graph__search-footer-message">Showing all ${pluralize('result', sr.count)}</span>
+			return html`<div class="gl-graph__results-bar">
+				<span class="gl-graph__results-bar-message">Showing all ${pluralize('result', sr.count)}</span>
 			</div>`;
 		}
 
-		return html`<div class="gl-graph__search-footer">
-			<span class="gl-graph__search-footer-message"
-				>Showing ${pluralize('result', this.searchResultsRenderedCount)} of
-				${pluralize('result', sr.count)}${sr.hasMore ? '+' : ''}</span
-			><button type="button" class="gl-graph__search-footer-link" @click=${this.onLoadMoreResultsClick}>
+		return html`<div class="gl-graph__results-bar">
+			<span class="gl-graph__results-bar-message"
+				>Showing ${this.searchResultsRenderedCount} of
+				${pluralize('result', sr.count, { infix: sr.hasMore ? '+ ' : undefined })}</span
+			><button type="button" class="gl-graph__results-bar-action" @click=${this.onLoadMoreResultsClick}>
 				Load More Results…
 			</button>
 		</div>`;
@@ -5139,6 +5165,8 @@ export class GlLitGraph extends LitElement {
 			c.style === 'table'
 				? this.renderHeader(c.zones, c.graphPlacement === 'column' ? c.gutterWidth : 0)
 				: this.renderListHeader();
+		// Rendered once, then tested below: its presence also decides the row tree's height cap.
+		const resultsBar = this.renderResultsBar();
 
 		return html`
 			${renderWavyFilterDefs()}
@@ -5161,6 +5189,23 @@ export class GlLitGraph extends LitElement {
 				<div
 					${ref(this.treeRef)}
 					class="gl-graph__tree"
+					style=${cspStyleMap({
+						// A CAP, never a flex basis. The tree keeps `flex: 1 1 auto` and fills as it always has;
+						// `max-height` only bites when the rows are SHORTER than the space, which is exactly the
+						// case the results bar needs (bar under the last row instead of stranded below a screen of
+						// empty space). Once the rows overflow, this is a number far larger than the viewport and
+						// therefore inert — layout is bit-for-bit what it was before the bar existed.
+						//
+						// It must NOT be a flex basis. `flex: 0 1 <contentHeight>px` put a ~276,000px basis in this
+						// column on a full history; flex shrink apportions overflow by `basis × shrink-factor`, so
+						// ~275,000px of overflow crushed shrinkable siblings and made the used height depend on the
+						// whole column's arithmetic — it broke details-panel resizing and left the scroller short.
+						//
+						// ALWAYS an explicit value, never `nothing`: swapping an attribute binding between a style
+						// directive and `nothing` does not reliably remove what the directive last wrote, and a
+						// stale cap left behind after the bar closes would keep the tree short.
+						maxHeight: resultsBar === nothing ? 'none' : `${this.rowsContentHeight}px`,
+					})}
 					role="tree"
 					aria-label="Commit graph"
 					aria-multiselectable="true"
@@ -5196,9 +5241,8 @@ export class GlLitGraph extends LitElement {
 						}
 					></lit-virtualizer>
 				</div>
-				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this._stickyTimeline.render()}${this.renderHScrollbar()}${this.renderChangesModePopover()}${this.renderRefFind()}
+				${resultsBar}${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this._stickyTimeline.render()}${this.renderHScrollbar()}${this.renderChangesModePopover()}${this.renderRefFind()}
 			</div>
-			${this.renderSearchFooter()}
 			<span
 				${ref(this.liveRef)}
 				class="gl-graph__sr-live"

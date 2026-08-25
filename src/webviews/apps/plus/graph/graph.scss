@@ -9,8 +9,8 @@
 
 // The commit graph (gl-lit-graph) renders into the light DOM, so these are plain descendant rules.
 gl-lit-graph {
-	// Column layout: the viewport takes all available space, the search-results footer (when shown) is
-	// a fixed-height row below it — added as a real flex sibling, not an overlay, so it never covers rows.
+	// Column layout: the viewport takes all available space. The results bar (when shown) lives INSIDE it,
+	// as a flex sibling after the row tree, so it trails the last row rather than docking to the panel foot.
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -47,26 +47,50 @@ gl-lit-graph {
 		}
 	}
 
-	// Filter-search results footer — a slim bar below the (scrollable) viewport. A flex sibling of the
-	// viewport (see the host rule above), NOT part of the virtualizer's light-DOM content, so it can
-	// never affect row virtualization/layout.
-	.gl-graph__search-footer {
+	// NOTE: while the results bar is up, the tree gets an INLINE `max-height` of its rows' total height
+	// (see `rowsContentHeight`) so the bar lands under the last row on a short result set. `flex` above is
+	// left alone deliberately — a computed `flex-basis` here reached ~276,000px on a full history, and
+	// since flex shrink apportions overflow by `basis × shrink-factor`, that crushed shrinkable siblings
+	// and made the tree's used height depend on the whole column's arithmetic. The cap is inert whenever
+	// the rows overflow, so the overflow case lays out exactly as it did before the bar existed.
+	//
+	// The cap must be a computed length, not `fit-content`/`auto`: `<lit-virtualizer scroller>` reports no
+	// intrinsic content height (it positions an absolute sizer inside itself), so anything that asks the
+	// browser to measure it resolves to 0 and collapses the whole row list — measured live at tree height
+	// 0, `scrollHeight: 3565` / `clientHeight: 0`, zero rows rendered.
+
+	// Filter-search results bar — the terminus of the row list. A flex sibling AFTER `.gl-graph__tree`
+	// (see the rule above), NOT part of the virtualizer's light-DOM content, so it can never affect row
+	// virtualization/layout, and not inside the `role="tree"` element either.
+	.gl-graph__results-bar {
+		position: relative;
 		display: flex;
 		flex: 0 0 auto;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.6rem 1.2rem;
-		background-color: var(--vscode-editorWidget-background);
-		border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+
+		// Hairline rule rather than a filled band with a border: the bar reads as where the list ENDS, not
+		// as separate panel chrome docked beneath it. Border + mask (never a background rect) so it stays a
+		// true hairline at fractional device pixel ratios.
+		&::before {
+			position: absolute;
+			top: 0;
+			right: 1.2rem;
+			left: 1.2rem;
+			border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+			opacity: 0.6;
+			content: '';
+		}
 	}
 
-	.gl-graph__search-footer-message {
+	.gl-graph__results-bar-message {
 		font-size: var(--gl-font-md);
 		font-style: italic;
 		color: var(--vscode-descriptionForeground);
 	}
 
-	.gl-graph__search-footer-link {
+	.gl-graph__results-bar-action {
 		padding: 0.2rem 0.5rem;
 		font-size: var(--gl-font-md);
 		color: var(--vscode-textLink-foreground);
