@@ -3137,7 +3137,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** Opens `panel` with the same semantics the rail icon click uses: from a non-graph display mode,
 	 *  switch to graph and open the panel; clicking/pressing the already-open active panel closes the
 	 *  sidebar; otherwise switches the sidebar to that panel. Shared by the rail click
-	 *  (`handleSidebarToggle`) and the Shift+digit shortcut, so the two can't drift. */
+	 *  (`handleSidebarToggle`) and the Alt+digit shortcut, so the two can't drift. */
 	private activateSidebarPanel(panel: GraphSidebarPanel, options?: { focusFilter?: boolean }): void {
 		const gs = this.graphState;
 

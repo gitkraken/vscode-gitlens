@@ -805,9 +805,10 @@ function renderZoneContent(
 	}
 }
 
-// Compact 2-line layout: the avatar spans BOTH lines (left, vertically centered); line 1 = inline
-// refs + adornments + message; line 2 = sha (monospace, left edge) · author, with the date pushed
-// to the right edge. Workdir rows have no author/date/sha, so line 2 is skipped.
+// Compact 2-line layout: the avatar spans BOTH lines (left, vertically centered); line 1 = adornments
+// + message; line 2 = inline refs, then sha (monospace, left edge) · author, with the date pushed to
+// the right edge. Workdir rows have no author/date/sha, so line 2 is their inline refs (WIP pills) or
+// omitted entirely if there are none.
 function renderListBody(
 	row: ProcessedGraphRow,
 	ctx: RowRenderContext,

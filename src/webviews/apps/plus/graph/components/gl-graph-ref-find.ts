@@ -35,7 +35,7 @@ export interface GraphRefFindJumpEventDetail {
 }
 
 /**
- * Type-ahead ref finder — the filtered counterpart to `Alt+PgUp`/`Alt+PgDn` ("previous / next ref").
+ * Type-ahead ref finder — the filtered counterpart to `[`/`]` ("previous / next branch or tag").
  *
  * TYPE-AHEAD, not a find box and not a picker. The input exists only so you can see and correct what
  * you typed; the graph does the answering, jumping to the best-matching ref on every keystroke the

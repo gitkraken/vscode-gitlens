@@ -320,7 +320,7 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 						<div class="row__body">The markers beneath jump to HEAD, upstream, or the merge target</div>
 					</div>
 				</div>
-				<p class="footnote">Digits 1–9 jump to recent worktrees.</p>`,
+				<p class="footnote">Digits 1–9 and 0 jump to recent worktrees.</p>`,
 	},
 	kanban: {
 		title: 'Your Agents, on a Board',

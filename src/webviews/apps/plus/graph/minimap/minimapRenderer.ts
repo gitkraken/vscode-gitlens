@@ -860,9 +860,9 @@ export function drawScopeEdgeTriangle(
 /**
  * Pad a scope window by `scopeZoomPaddingMs` on each side so the canvas is the scope plus a thin
  * frame for the edge triangles + highlight band to breathe. Inverted input (end < start) is sorted
- * before padding. Callers hand the result to `applyZoom`, which still enforces the brush-zoom floor
- * + clamps to the data domain — so very narrow scopes (or empty scopes at the merge-base) are
- * silently widened to the brush minimum without forcing a wider span here.
+ * before padding. Callers hand the result to `applyZoom` with `minRange: 0`, opting out of the
+ * brush-zoom floor, so very narrow (or empty) scopes stay their padded width instead of being
+ * widened — `applyZoom` still clamps the result to the data domain.
  */
 export function padScopeRange(window: { start: number; end: number }): { oldest: number; newest: number } {
 	const start = Math.min(window.start, window.end);
