@@ -3,6 +3,22 @@ import { WebviewFocusChangedCommand } from '../../protocol.js';
 import { getHostIpcApi } from './ipc.js';
 
 /**
+ * Blurs the currently focused element, if any.
+ *
+ * Call this before requesting a host-side quick pick from a click handler. Opening a VS Code
+ * quick pick races the click's focus delivery into the webview: if the webview (re)gains focus
+ * after the quick pick shows, VS Code hides it — the picker flashes open then immediately closes.
+ * Releasing focus up front removes the pending focus transfer so the quick pick keeps focus with
+ * its normal dismiss-on-focus-out semantics intact.
+ */
+export function blurActiveElement(): void {
+	const active = document.activeElement;
+	if (active instanceof HTMLElement && active !== document.body) {
+		active.blur();
+	}
+}
+
+/**
  * Creates a focus tracker that sends focus state to the host via IPC.
  * The host uses this to update VS Code context keys for menus/keybindings.
  *

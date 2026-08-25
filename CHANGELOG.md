@@ -69,6 +69,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes quick picks opened from the _Commit Graph_ (repository switcher, search filter pickers, compare-ref choosers, _Add Co-authors_) sometimes closing immediately &mdash; the webview could win back focus from the picker while the click's focus was still settling; the webview now releases focus before opening the picker
 - Fixes the _Commit Graph_'s minimap resizing with the graph when the details panel changes size &mdash; it now holds its pixel height until there isn't room for it, and can no longer shrink below its minimum or get stuck in a sliver where the divider couldn't restore it; the agents/WIP splitter in the details panel keeps its chosen size across resizes as well
 - Fixes the _Commit Graph_'s pill-count settings (`gitlens.graph.refs.maxInline` and `gitlens.graph.refs.maxStacked`) in _GitLens Settings_ being unable to show or set `"auto"` &mdash; rendered as number boxes, they appeared empty when `"auto"` was configured and discarded it on any interaction; both are now dropdowns offering 1&ndash;10 and `"auto"`, and number fields no longer commit a value when focused and left without editing ([#5763](https://github.com/gitkraken/vscode-gitlens/issues/5763))
 - Fixes the _Commit Graph_ side bar's _Overview_ panel rendering empty ("No recent branch activity") when opened while the graph is still loading &mdash; it now shows its loading state and fills in once the branches arrive

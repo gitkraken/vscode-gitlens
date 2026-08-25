@@ -15,6 +15,7 @@ import { fuzzyFilter } from '@gitlens/utils/fuzzy.js';
 import { whitespaceRegex } from '../../../../../constants.js';
 import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
 import { searchActionsContext } from '../../../plus/graph/search/searchContext.js';
+import { blurActiveElement } from '../../../shared/focus.js';
 import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete.js';
 import { GlElement } from '../element.js';
 import type {
@@ -813,6 +814,8 @@ background-color: var(--vscode-menu-background);
 	 * Handles picker commands (author, ref, file/folder)
 	 */
 	private async handlePickerCommand(command: SearchCompletionCommand) {
+		blurActiveElement();
+
 		const value = this.value;
 		const operator = this.cursorOperator?.operator;
 		if (!operator) return;
@@ -978,6 +981,8 @@ background-color: var(--vscode-menu-background);
 
 	/** Opens the author picker and appends `author:<email>` terms to the query. */
 	async pickAuthors(): Promise<void> {
+		blurActiveElement();
+
 		try {
 			const result = await this._searchActions.chooseAuthor(
 				'Search by Author',
@@ -991,6 +996,8 @@ background-color: var(--vscode-menu-background);
 
 	/** Opens the ref picker and appends a `ref:<name>` term to the query. */
 	async pickRefs(): Promise<void> {
+		blurActiveElement();
+
 		try {
 			const result = await this._searchActions.chooseRef(
 				'Search by Branch or Tag',
@@ -1008,6 +1015,8 @@ background-color: var(--vscode-menu-background);
 
 	/** Opens the file picker and appends `file:<path>` terms to the query. */
 	async pickFiles(): Promise<void> {
+		blurActiveElement();
+
 		try {
 			const result = await this._searchActions.chooseFile('Search by File', 'file', {
 				openLabel: 'Add to Search',

@@ -88,6 +88,7 @@ import {
 	notifyService,
 } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
+import { blurActiveElement } from '../../../shared/focus.js';
 import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { AppState } from '../context.js';
@@ -2104,6 +2105,10 @@ export class DetailsActions {
 	async changeCompareRef(side: 'left' | 'right', repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
+		// Release focus before opening the quick pick so the click's pending focus transfer can't
+		// steal it back and dismiss the picker (see `blurActiveElement`).
+		blurActiveElement();
+
 		// Clear the rightRef's worktree path synchronously so the IWT toggle doesn't briefly flash
 		// for the old worktree while the user picks a new ref. `mergeBase` is intentionally NOT
 		// cleared here — keeping the prior value means a click during picker open still produces
@@ -3648,6 +3653,10 @@ export class DetailsActions {
 
 	async addCoauthors(repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
+
+		// Release focus before opening the quick pick so the click's pending focus transfer can't
+		// steal it back and dismiss the picker (see `blurActiveElement`).
+		blurActiveElement();
 
 		// Host shows the same contributor picker as the SCM `Add Co-authors…` action, pre-picking
 		// anyone already in the message, and returns the selected `Name <email>` strings.

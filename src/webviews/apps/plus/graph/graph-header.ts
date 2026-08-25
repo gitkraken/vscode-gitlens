@@ -42,6 +42,7 @@ import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
+import { blurActiveElement } from '../../shared/focus.js';
 import { providerIconName } from '../../shared/git-utils.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
@@ -1051,6 +1052,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			case 'label': {
 				const services = this._services;
 				if (services == null) break;
+
+				// Release focus before opening the quick pick so the click's pending focus transfer
+				// can't steal it back and dismiss the picker (see `blurActiveElement`).
+				blurActiveElement();
 
 				notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
 				break;
