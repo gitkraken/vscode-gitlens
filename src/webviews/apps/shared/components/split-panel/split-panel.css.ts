@@ -174,4 +174,26 @@ export const splitPanelStyles = css`
 	:host([mode='overlay'][dragging]) .divider {
 		transition: none;
 	}
+
+	/*
+	 * Maximize — the end panel floats over the full container instead of redistributing space.
+	 * Unlike a grid-track collapse, the start panel keeps its exact pre-maximize layout underneath,
+	 * so content behind it (e.g. the commit graph) never reflows and restoring is instant. The
+	 * divider is hidden since consumers disable it alongside this state anyway.
+	 */
+	:host([maximized]) {
+		position: relative;
+	}
+
+	:host([maximized]) ::slotted([slot='end']) {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		width: 100%;
+		box-shadow: 0 0 0.5rem var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
+	}
+
+	:host([maximized]) .divider {
+		display: none;
+	}
 `;

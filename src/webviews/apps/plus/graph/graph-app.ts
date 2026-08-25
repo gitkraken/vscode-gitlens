@@ -1832,9 +1832,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const carried = otherSide != null && otherSide < 100 ? otherSide : undefined;
 		const persisted = sameSide ?? carried;
 		const position = detailsVisible ? (persisted ?? 100 - detailsDefaultPct) : 100;
-		// Maximize is bottom-only and a sticky split-panel STATE, not a position write — the pane keeps
-		// filling through container resizes, and `position`/`bottomPosition` stay untouched underneath so
-		// restore is exact. The divider is disabled while maximized. Gated on `detailsVisible` so a stray
+		// Maximize is bottom-only and a sticky split-panel STATE, not a position write — the pane
+		// overlays the whole container while the graph behind it keeps its exact size, and
+		// `position`/`bottomPosition` stay untouched underneath so restore is exact. The divider is
+		// gated on `detailsVisible` so a stray
 		// flag can't force a hidden panel open. Two independent sources feed it: `panelMaximized`
 		// (persisted panel state) and `sheetMaximized` (transient, derived from the open sheet — never
 		// persisted).

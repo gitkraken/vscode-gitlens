@@ -166,11 +166,11 @@ export class GlSplitPanel extends LitElement {
 	@property({ type: Boolean, attribute: 'animate', reflect: true })
 	animated = false;
 
-	/** The primary panel fills the container, as a sticky STATE rather than a position write — driving
-	 *  `position` to the edge instead would cache the fill as the primary's pixel size, which the
-	 *  resize-hold branch then preserves when the container grows, eroding the fill. While maximized,
-	 *  `position` (and the cached pixel size) are untouched underneath, so restoring is exact even
-	 *  after resizes. Consumers should disable the divider alongside this. */
+	/** The end panel overlays the entire container as a sticky STATE rather than a position write.
+	 *  Purely visual — the grid tracks are untouched, so the start panel (e.g. the graph behind the
+	 *  details pane) keeps its exact size and never reflows; `position` (and the cached pixel size)
+	 *  stay untouched too, so restoring is exact even after resizes. Consumers should disable the
+	 *  divider alongside this. */
 	@property({ type: Boolean, reflect: true })
 	maximized = false;
 
@@ -325,8 +325,10 @@ export class GlSplitPanel extends LitElement {
 	}
 
 	protected override willUpdate(): void {
-		const startSize = this.maximized ? (this.primary === 'start' ? '100%' : '0%') : `${this._position}%`;
-		this.style.setProperty('--_start-size', startSize);
+		// Maximize no longer touches the track sizes — the [maximized] CSS overlays the end panel
+		// across the container instead, leaving the start panel's layout (and anything rendering
+		// inside it) completely unaffected.
+		this.style.setProperty('--_start-size', `${this._position}%`);
 	}
 
 	protected override updated(): void {

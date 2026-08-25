@@ -5085,6 +5085,12 @@ gl-graph-app {
 		pointer-events: none;
 		cursor: default;
 	}
+
+	// While maximized, the pane overlays the whole container as a floating layer — its
+	// inner-edge border would draw along the viewport edge, so drop it.
+	&[maximized] .graph__details-pane {
+		border: none;
+	}
 }
 
 @keyframes gl-graph-marker-tooltip-in {
