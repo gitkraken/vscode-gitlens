@@ -58,6 +58,7 @@ export type GraphKeymapActions = {
 	selectOverviewBarItem(detail: OverviewBarSelectDetail, options?: { returnFocusToGraph?: boolean }): Promise<void>;
 	isVirtualRepo(): boolean;
 	activateSidebarPanel(panel: GraphSidebarPanel): void;
+	sidebarEnabled(): boolean;
 	kanbanEnabled(): boolean;
 	toggleDisplayMode(mode: Exclude<GraphDisplayMode, 'graph'>): void;
 	toggleMinimap(): void;
@@ -212,6 +213,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 		{
 			keys: sidebarAltDigitKeys,
 			scope: 'webviewGlobal',
+			when: [actions.sidebarEnabled],
 			sheet: {
 				group: 'panels',
 				label: 'Toggle a side bar panel',
@@ -277,7 +279,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 		{
 			keys: ['alt+KeyS'],
 			scope: 'webviewGlobal',
-			when: [actions.isGraphModeShortcut],
+			when: [actions.isGraphModeShortcut, actions.sidebarEnabled],
 			sheet: { group: 'panels', label: 'Toggle side bar', order: 5, keysOverride: ['alt+KeyS'] },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();

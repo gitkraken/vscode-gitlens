@@ -754,6 +754,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			selectOverviewBarItem: (detail, options) => this.overviewBar.selectItem(detail, options),
 			isVirtualRepo: () => this.isVirtualRepo,
 			activateSidebarPanel: panel => this.activateSidebarPanel(panel),
+			sidebarEnabled: () => this.graphState.config?.sidebar ?? false,
 			kanbanEnabled: () => this.graphState.config?.experimentalKanbanEnabled ?? false,
 			toggleDisplayMode: mode => this.toggleDisplayMode(mode),
 			toggleMinimap: () => this.handleToggleMinimap(),
