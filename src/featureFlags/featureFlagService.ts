@@ -19,18 +19,43 @@ export interface FeatureFlagService {
 	dispose(): void;
 	/** Resolves once the initial background fetch and evaluation completes, whether it succeeded or not */
 	readonly whenReady: Promise<void>;
-	/** Whether any previous session's fetch has cached an evaluated flag map — even an empty one, so
-	 *  this stays a "has a fetch ever succeeded" marker when the deployed config defines no keys */
-	readonly hasCachedFlags: boolean;
+	/** Whether a flag fetch has ever completed on this machine — a cached flag map from a past success
+	 *  (even an empty one, when the deployed config defines no keys) or a recorded attempt that finished
+	 *  without caching (failed response, offline). Distinguishes a genuine first run from a machine
+	 *  where fetching has already had its chance. */
+	readonly hasEverFetched: boolean;
 	getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): T;
 	getAllFlags(): FeatureFlagMap;
 }
 
+/** A/B (welcome title): the variant the most recently rendered Welcome view actually showed —
+ *  latched per window session, so neither a mid-session flag fetch nor the view's re-bootstrap on
+ *  every hide→show can flip the title on screen (or relabel events with an arm the user never saw) */
+let renderedWelcomeTitleVariant: boolean | undefined;
+
+export function latchWelcomeTitleVariant(container: Container): boolean {
+	if (renderedWelcomeTitleVariant == null) {
+		renderedWelcomeTitleVariant = container.featureFlags.getFlag(FeatureFlagKey.WelcomeTitleVariant, false);
+		setFeatureFlagTelemetryGlobalAttributes(container);
+	}
+
+	return renderedWelcomeTitleVariant;
+}
+
 /** (Re-)stamps the `featureFlags` telemetry global attribute. Called at activation, when the
- *  background fetch lands (see `extension.ts`), and when the Graph sign-in gate latches its A/B
- *  variant (see `graphWebview.ts`) — so events carry the freshest attribution available. */
+ *  background fetch lands (see `extension.ts`), and when either A/B latches its rendered variant
+ *  (see `graphWebview.ts` and `latchWelcomeTitleVariant`) — so events carry the freshest
+ *  attribution available. */
 export function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {
 	const flags = new Map<string, FeatureFlagValue>(Object.entries(container.featureFlags.getAllFlags()));
+
+	// `glensWelcomeTitleVariant` reports the variant a rendered Welcome view actually showed — but
+	// only when the key was actually fetched: a cohort-less render (the fetch failed or hasn't
+	// landed, or the experiment isn't deployed) must stay absent rather than synthesize a control
+	// label, and an unconditional write would also keep the empty-map clear below unreachable
+	if (renderedWelcomeTitleVariant != null && flags.has(FeatureFlagKey.WelcomeTitleVariant)) {
+		flags.set(FeatureFlagKey.WelcomeTitleVariant, renderedWelcomeTitleVariant);
+	}
 
 	// `glensGraphGateIntroVideo` reports the variant the user actually SAW, not the fetched value:
 	// the Graph latches the rendered variant per window and persists it, so a fetch landing
@@ -44,11 +69,13 @@ export function setFeatureFlagTelemetryGlobalAttributes(container: Container): v
 		flags.delete(FeatureFlagKey.GraphGateIntroVideo);
 	}
 
-	if (flags.size === 0) return;
-
+	// An empty map CLEARS the attribute — a fetch can retire every flag mid-session, and a stale
+	// value would relabel the rest of the session's events
 	container.telemetry.setGlobalAttribute(
 		'featureFlags',
-		JSON.stringify(Object.fromEntries([...flags].sort(([a], [b]) => a.localeCompare(b)))),
+		flags.size === 0
+			? undefined
+			: JSON.stringify(Object.fromEntries([...flags].sort(([a], [b]) => a.localeCompare(b)))),
 	);
 }
 
@@ -78,13 +105,13 @@ class PrefetchedConfigCache implements IConfigCatCache {
 
 export class ConfigCatFeatureFlagService implements FeatureFlagService {
 	readonly whenReady: Promise<void>;
-	readonly hasCachedFlags: boolean;
+	readonly hasEverFetched: boolean;
 
 	private _flags: FeatureFlagMap;
 
 	constructor(private readonly container: Container) {
 		const cached = this.container.storage.get('featureFlags:flags');
-		this.hasCachedFlags = cached != null;
+		this.hasEverFetched = cached != null || this.container.storage.get('featureFlags:fetched') === true;
 		this._flags = Object.freeze(cached ?? {});
 
 		// Fire background fetch to evaluate flags — results apply to this session once ready and are
@@ -120,6 +147,10 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 				// User-Agent explicitly — otherwise Node's built-in fetch defaults to `node` and the request is
 				// unattributable server-side.
 				headers: { Accept: 'application/json', 'User-Agent': this.container.userAgent },
+				// Bounded so `whenReady` always settles (and the `finally` below always runs) even on a
+				// network that blackholes the request — an unbounded hang would re-arm the graph
+				// bootstrap's first-run wait on every activation
+				signal: AbortSignal.timeout(10000),
 			});
 
 			if (!response.ok) {
@@ -140,6 +171,13 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 			}
 		} catch (ex) {
 			Logger.debug(ex, scope, 'Failed to fetch and cache feature flags');
+		} finally {
+			// Record that a fetch COMPLETED (even without caching) — `hasEverFetched` gates the graph
+			// bootstrap's bounded first-run wait, which would otherwise re-arm on every activation for a
+			// machine whose fetches hang or fail (e.g. a firewall silently dropping the API traffic)
+			if (!this.hasEverFetched) {
+				void this.container.storage.store('featureFlags:fetched', true);
+			}
 		}
 	}
 

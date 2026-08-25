@@ -3,7 +3,7 @@ import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
-import { FeatureFlagKey } from '../../featureFlags/featureFlagService.js';
+import { latchWelcomeTitleVariant } from '../../featureFlags/featureFlagService.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
 import { needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
@@ -143,8 +143,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	}
 
 	private getWelcomeTitleVariant(): string | undefined {
-		const showVariant = this.container.featureFlags.getFlag(FeatureFlagKey.WelcomeTitleVariant, false);
-		return showVariant ? 'Welcome' : undefined;
+		return latchWelcomeTitleVariant(this.container) ? 'Welcome' : undefined;
 	}
 
 	private async getState(): Promise<State> {

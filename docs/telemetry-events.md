@@ -3113,8 +3113,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  // Which sign-in gate variant rendered — `intro-video` replaces the Pro strip + Learn More with the video thumbnail
-  'variant': 'default' | 'intro-video'
+  // Which sign-in gate variant rendered — `intro-video` replaces the Pro strip + Learn More with the video thumbnail; `unassigned` = no cohort (flag fetch failed or the experiment isn't deployed), rendered as the default gate but excluded from arm comparisons
+  'variant': 'default' | 'intro-video' | 'unassigned'
 }
 ```
 

@@ -590,8 +590,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	layoutPromptNeeded?: boolean;
 	/** Upgraded from a pre-19 version — surfaces the "new home for the Commit Graph" notice on the sign-in screen */
 	upgradedFromPreV19?: boolean;
-	/** A/B (intro-video): the sign-in screen shows the intro-video thumbnail instead of the Pro strip + Learn More */
-	signInGateIntroVideo?: boolean;
+	/** A/B (intro-video): `intro-video` shows the thumbnail instead of the Pro strip + Learn More;
+	 *  `unassigned` renders the default gate but marks the impression as cohort-less */
+	signInGateVariant?: 'default' | 'intro-video' | 'unassigned';
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;

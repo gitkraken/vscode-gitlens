@@ -336,8 +336,10 @@ type CancellableOperations =
 /** A/B (intro-video): latched on the first gated render so the variant can't flip mid-session.
  *  Module-scope, NOT per-provider — the editor panel and the sidebar view each construct their own
  *  provider, and flag values can change when the background fetch lands, so a per-instance latch
- *  could show one user both arms (and count an impression on each) within a single window. */
-let signInGateIntroVideo: boolean | undefined;
+ *  could show one user both arms (and count an impression on each) within a single window.
+ *  `unassigned` = no cohort (the fetch failed or hasn't landed, or the experiment isn't in the
+ *  deployed config) — rendered as the default gate but kept out of both arms of the funnel. */
+let signInGateVariant: 'default' | 'intro-video' | 'unassigned' | undefined;
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: GlRepository;
@@ -4502,29 +4504,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// is forced from `onSubscriptionChanged` once the account becomes usable.
 			this._wip.updateWorkingTreeBadge(undefined);
 
-			if (signInGateIntroVideo == null) {
+			// `account == null` mirrors the app's screen choice: an unverified account renders the
+			// VERIFY screen, not the gate — resolving here would label a user with an arm they never saw
+			if (signInGateVariant == null && subscription.account == null) {
 				// Resolve the sign-in gate A/B variant only when the gate will actually render. This
 				// await sits on the bootstrap path (`includeBootstrap` → `webview.html`), so any wait
 				// here holds the WHOLE panel blank — pay it (bounded) only on a genuine first run,
-				// where no fetch has ever cached a flag map; on later activations the flags cached by
-				// the previous session's fetch are the same cohort (ConfigCat targets the stable
-				// machineId) and are available synchronously. `hasCachedFlags` marks "a fetch has ever
-				// succeeded" — neither presence of this specific key (never cached when the deployed
-				// config doesn't define it) nor map emptiness (a config defining none of our keys
-				// caches `{}`) can tell that apart from a true first run, and both would re-arm this
-				// wait on every activation.
-				if (!this.container.featureFlags.hasCachedFlags) {
+				// where no fetch has ever completed; later activations resolve synchronously from the
+				// previous session's cache (ConfigCat targets the stable machineId, so the cohort is
+				// stable too). A cache that predates this key — an upgrade, or the experiment switched
+				// on server-side later — still resolves that one session as `unassigned`; accepted, as
+				// the wait can't tell that apart from "not deployed", and blocking every gate render on
+				// the fetch isn't worth it. Neither presence of this specific key (never cached when
+				// the deployed config doesn't define it) nor map emptiness (a config defining none of
+				// our keys caches `{}`) can stand in for `hasEverFetched` — both would re-arm this wait
+				// on every activation.
+				if (!this.container.featureFlags.hasEverFetched) {
 					await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
 				}
 
-				signInGateIntroVideo = this.container.featureFlags.getFlag(FeatureFlagKey.GraphGateIntroVideo, false);
+				// Key PRESENCE distinguishes an assigned cohort from "no cohort" (fetch failed or never
+				// landed, or the experiment isn't in the deployed config) — `getFlag`'s default would
+				// fold the cohort-less into the control arm, and since they convert differently (e.g. a
+				// network that blocks the flag API blocks sign-up too), that would bias the experiment
+				// toward the treatment with no way to filter it out downstream.
+				const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.GraphGateIntroVideo];
+				signInGateVariant = value == null ? 'unassigned' : value === true ? 'intro-video' : 'default';
 
 				// The `featureFlags` telemetry attribute reports what the user actually SAW for this
 				// key (see `setFeatureFlagTelemetryGlobalAttributes`) — persist the rendered variant
-				// and re-stamp so this session's subsequent events carry it.
-				if (this.container.storage.get('graph:signInGate:introVideoShown') !== signInGateIntroVideo) {
-					await this.container.storage.store('graph:signInGate:introVideoShown', signInGateIntroVideo);
-					setFeatureFlagTelemetryGlobalAttributes(this.container);
+				// and re-stamp so this session's subsequent events carry it. An unassigned render isn't
+				// in the experiment, so it neither persists nor overwrites a previously seen arm.
+				if (value != null) {
+					const introVideo = signInGateVariant === 'intro-video';
+					if (this.container.storage.get('graph:signInGate:introVideoShown') !== introVideo) {
+						await this.container.storage.store('graph:signInGate:introVideoShown', introVideo);
+						setFeatureFlagTelemetryGlobalAttributes(this.container);
+					}
 				}
 			}
 
@@ -4537,7 +4553,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
-				signInGateIntroVideo: signInGateIntroVideo,
+				signInGateVariant: signInGateVariant,
 				// Sent but NOT cleared (unlike the full build below): the app can't act on it while the
 				// account screen is up, but uses it to pick task-specific sign-in messaging (#5534); the
 				// un-gating full rebuild re-delivers it for actual consumption.

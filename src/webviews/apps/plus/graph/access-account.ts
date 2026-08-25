@@ -1116,7 +1116,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 	/** A/B (intro-video): the sign-in screen shows the intro-video thumbnail instead of the Pro strip + Learn More */
 	private get introVideo(): boolean {
-		return this.graphState.signInGateIntroVideo === true;
+		return this.graphState.signInGateVariant === 'intro-video';
 	}
 
 	override disconnectedCallback(): void {
@@ -1156,21 +1156,29 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 		if (screen === 'signin' && !this.introVideo && this._stripInterval == null) {
 			this.startStripTimer();
+		} else if (this.introVideo && this._stripInterval != null) {
+			// The variant can flip in place without a screen change (e.g. a trust grant re-delivers the
+			// gated state to the same element) — a strip timer left running would re-render every tick
+			// for a strip that's no longer in the tree
+			this.clearStripTimer();
 		}
 	}
 
 	protected override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
-		// Require `subscription` so the impression only counts renders where the host actually assigned
-		// a cohort: in Restricted Mode (untrusted workspace) `getState` returns no subscription at all,
-		// yet this element still mounts via the welcome path and computes `screen === 'signin'` — those
-		// renders carry no cohort and would all pile onto the `default` arm of the A/B funnel.
-		if (this.screen === 'signin' && this.graphState.subscription != null && !this._signInShownReported) {
+		// The host resolves `signInGateVariant` exactly on the path that renders the gate (it's
+		// `unassigned` when cohort-less, never null there) — requiring it keeps Restricted-Mode renders
+		// (which never resolve a variant, yet still mount this element and compute `screen ===
+		// 'signin'`) out of the funnel, and defers the impression to the state push that actually
+		// carries the cohort (e.g. after a trust grant re-delivers the gated state). A `subscription`
+		// check can't do either: partial access pushes deliver a subscription without a variant.
+		const variant = this.graphState.signInGateVariant;
+		if (this.screen === 'signin' && variant != null && !this._signInShownReported) {
 			this._signInShownReported = true;
 			emitTelemetrySentEvent<'graph/signin/shown'>(this, {
 				name: 'graph/signin/shown',
-				data: { variant: this.introVideo ? 'intro-video' : 'default' },
+				data: { variant: variant },
 			});
 		}
 
@@ -1336,7 +1344,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				<img
 					class="intro-video__thumbnail"
 					src="${this.graphState.webroot ?? ''}/media/get-started-video.webp"
-					alt="Watch the GitLens Getting Started video"
+					alt=""
 				/>
 			</a>
 		`;
