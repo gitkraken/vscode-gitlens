@@ -10106,7 +10106,9 @@ export class GlLitGraph extends LitElement {
 		return this.processedIndexBySha.get(sha);
 	};
 
-	private onRefFindJump = (e: CustomEvent<{ sha: string; focus: boolean; refKey?: string }>): void => {
+	private onRefFindJump = (
+		e: CustomEvent<{ sha: string; focus: boolean; refKey?: string; handoff?: boolean }>,
+	): void => {
 		const sha = e.detail.sha;
 		this.markRefFindHit(e.detail.refKey);
 		// `focus` marks a COMMIT (Enter) rather than one of the per-keystroke preview jumps — the keyboard
@@ -10114,6 +10116,18 @@ export class GlLitGraph extends LitElement {
 		if (e.detail.focus) {
 			this._refFindReturnFocus = undefined;
 		}
+
+		if (e.detail.handoff) {
+			// The row already landed and was navigated to, selected, and revealed by the jump that started
+			// its page-in (the initial `focus: false` commit on an unloaded match) — only the keyboard
+			// still needs to move there. Re-running `jumpToRefRow` would re-navigate and re-flash a row
+			// that's already settled. `focusRow` needs the row actually rendered, not just indexed, so it
+			// waits for this pass's update to commit — the same wait the wrapper's own post-navigation
+			// focus takes.
+			void this.updateComplete.then(() => this.focusRow(sha));
+			return;
+		}
+
 		// A target that isn't paged in yet needs watching: `jumpToRefRow` starts the host walk, but the
 		// reveal it queues resolves an index the rest of the walk then moves (see `retryRefFindReveal`).
 		this._refFindLoadingSha = this.processedIndexBySha.has(sha) ? undefined : sha;

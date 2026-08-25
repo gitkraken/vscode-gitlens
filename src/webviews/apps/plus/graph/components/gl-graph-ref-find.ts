@@ -32,6 +32,9 @@ export interface GraphRefFindJumpEventDetail {
 	focus: boolean;
 	/** Which pill on the landed row answered the query, so the graph can emphasize that one. */
 	refKey: string;
+	/** The row already landed and was revealed by the jump that started its page-in — just take focus,
+	 *  don't re-navigate or re-flash. */
+	handoff?: boolean;
 }
 
 /**
@@ -96,6 +99,13 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 
 	/** Ref key of the match we last jumped the graph to. Not reactive — used to gate re-jumps, not to render. */
 	private _landedRefKey: string | undefined;
+
+	/**
+	 * Sha of the still-unloaded match an Enter last committed to. Set in `commit()`, cleared once its row
+	 * lands and the keyboard hands off (see `completePendingLoad`), or by any user action that supersedes
+	 * it — typing, stepping, or closing. `undefined` means no unloaded-ref Enter is waiting on a page-in.
+	 */
+	private _pendingLoadSha: string | undefined;
 
 	private get activeMatch(): RefFindMatch | undefined {
 		return this._index >= 0 ? this._matches[this._index] : undefined;
@@ -176,6 +186,8 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 				const index = refreshed.findIndex(m => m.sha === activeSha);
 				this._index = index === -1 ? this._index : index;
 			}
+
+			this.completePendingLoad();
 		}
 
 		if (changedProperties.has('open')) {
@@ -230,6 +242,26 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		this._matches = [];
 		this._index = -1;
 		this._landedRefKey = undefined;
+		this._pendingLoadSha = undefined;
+	}
+
+	/**
+	 * Finishes an unloaded-ref Enter once its row lands, provided the match is still the active one — a
+	 * later keystroke or step already cleared `_pendingLoadSha`, so a superseded target never yanks focus.
+	 * The row itself was already navigated to, selected, and revealed by the jump `commit()` fired while
+	 * waiting (`emitJump(match, false)`), so this only hands the keyboard to it and dismisses — a
+	 * `handoff` jump tells the graph to focus the row without re-navigating or re-flashing.
+	 */
+	private completePendingLoad(): void {
+		const sha = this._pendingLoadSha;
+		if (sha == null) return;
+
+		const match = this.activeMatch;
+		if (match?.sha !== sha || match.rowIndex == null) return;
+
+		this._pendingLoadSha = undefined;
+		this.emitJump(match, true, { handoff: true });
+		this.close();
 	}
 
 	private buildCandidates(): RefFindCandidate[] {
@@ -293,12 +325,12 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		this.emitJump(match, false);
 	}
 
-	private emitJump(match: RefFindMatch, focus: boolean): void {
+	private emitJump(match: RefFindMatch, focus: boolean, options?: { handoff?: boolean }): void {
 		const refKey = refPillKey(match);
 		this._landedRefKey = refKey;
 		this.dispatchEvent(
 			new CustomEvent<GraphRefFindJumpEventDetail>('gl-graph-ref-find-jump', {
-				detail: { sha: match.sha, focus: focus, refKey: refKey },
+				detail: { sha: match.sha, focus: focus, refKey: refKey, handoff: options?.handoff },
 				bubbles: true,
 				composed: true,
 			}),
@@ -349,6 +381,9 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	private step(direction: 1 | -1): void {
 		if (this._matches.length === 0) return;
 
+		// Stepping off the pending match cancels its auto-close — only the match still active when its
+		// row lands gets the handoff.
+		this._pendingLoadSha = undefined;
 		this._index = stepMatchIndex(this._index, this._matches.length, direction);
 		this.jumpToActive();
 	}
@@ -357,6 +392,8 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		this._query = (e.target as HTMLInputElement).value;
 		// A new query legitimately re-lands, so drop the old landed ref key before recomputing.
 		this._landedRefKey = undefined;
+		// Same reasoning as `step()` — a new query supersedes whatever the last Enter was waiting on.
+		this._pendingLoadSha = undefined;
 		this.recompute();
 	}
 
@@ -402,13 +439,19 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		const match = this.activeMatch;
 		if (match == null) return;
 
-		this.reportLanding(match);
-
 		if (match.rowIndex == null) {
+			// A repeat Enter on the same still-loading match is a no-op — the first one already reported
+			// and started the page-in, and `completePendingLoad` is what finishes it.
+			if (match.sha === this._pendingLoadSha) return;
+
+			this._pendingLoadSha = match.sha;
+			this.reportLanding(match);
 			this.emitJump(match, false);
 			return;
 		}
 
+		this._pendingLoadSha = undefined;
+		this.reportLanding(match);
 		this.emitJump(match, true);
 		this.close();
 	}
