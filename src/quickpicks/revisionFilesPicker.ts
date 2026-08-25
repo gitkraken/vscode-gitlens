@@ -83,6 +83,12 @@ export async function showRevisionFilesPicker(
 		quickpick.busy = true;
 		quickpick.show();
 
+		// Track hides while the revision tree is loading: `onDidHide` isn't subscribed until after
+		// the fetch completes, so a hide during the fetch (e.g. the quick-pick focus race when
+		// opened from a webview click) would otherwise leave the caller's await pending forever.
+		let hiddenWhileLoading = false;
+		disposables.push(quickpick.onDidHide(() => (hiddenWhileLoading = true)));
+
 		const allowFolders = options?.allowFolders ?? false;
 		const pickFolder: QuickInputButton = { iconPath: new ThemeIcon('folder-opened'), tooltip: 'Choose Folder' };
 		const supportsFileIcons = supportedInVSCodeVersion('quickpick-resourceuri');
@@ -116,6 +122,10 @@ export async function showRevisionFilesPicker(
 
 		quickpick.items = items;
 		quickpick.busy = false;
+
+		// Bail out if the picker was hidden during the fetch — the promise below subscribes to
+		// `onDidHide` too late and no user interaction can ever resolve it.
+		if (hiddenWhileLoading) return undefined;
 
 		const pick = await new Promise<RevisionQuickPickItem | undefined>(resolve => {
 			disposables.push(
