@@ -27,6 +27,7 @@ import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequ
 import { trackableSchemes } from './constants.js';
 import { SyncedStorageKeys } from './constants.storage.js';
 import { Container } from './container.js';
+import { setFeatureFlagTelemetryGlobalAttributes } from './featureFlags/featureFlagService.js';
 import { isGitUri } from './git/gitUri.js';
 import {
 	showCursorMcpCleanupMessage,
@@ -272,6 +273,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		upgradedFrom: previousVersion != null && gitlensVersion !== previousVersion ? previousVersion : undefined,
 	});
 	setFeatureFlagTelemetryGlobalAttributes(container);
+	// Re-set once the fetch lands so a first activation still carries flag attribution
+	void container.featureFlags.whenReady.then(() => setFeatureFlagTelemetryGlobalAttributes(container));
 
 	const api = new Api(container);
 	const mode = container.mode;
@@ -443,16 +446,6 @@ function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys |
 		SyncedStorageKeys.Version,
 		SyncedStorageKeys.PreReleaseVersion,
 	]);
-}
-
-function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {
-	const flags = container.featureFlags.getAllFlags();
-	if (Object.keys(flags).length === 0) return;
-
-	container.telemetry.setGlobalAttribute(
-		'featureFlags',
-		JSON.stringify(Object.fromEntries(Object.entries(flags).sort(([a], [b]) => a.localeCompare(b)))),
-	);
 }
 
 function registerBuiltInActionRunners(container: Container): void {

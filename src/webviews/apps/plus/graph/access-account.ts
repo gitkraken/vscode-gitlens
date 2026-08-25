@@ -7,7 +7,9 @@ import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
+import { focusOutlineButton } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
+import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
@@ -474,6 +476,26 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				margin-block-start: var(--gl-space-16);
 				font-size: var(--gl-font-sm);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 300ms both;
+			}
+
+			.intro-video {
+				display: block;
+				inline-size: 100%;
+				margin-block-start: var(--gl-space-40);
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 300ms both;
+			}
+
+			.intro-video:focus-visible {
+				${focusOutlineButton}
+				border-radius: var(--gl-radius-sm);
+			}
+
+			.intro-video__thumbnail {
+				display: block;
+				inline-size: 100%;
+				/* Reserve the box before the image decodes — otherwise the centered gate shifts on load */
+				aspect-ratio: 450 / 239;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.walkthrough {
@@ -1012,6 +1034,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				.waiting,
 				.sync-status,
 				.learn-more,
+				.intro-video,
 				.walkthrough,
 				.setup,
 				.layout,
@@ -1087,7 +1110,13 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	// behavior, so a plain field avoids an unnecessary re-render on every hover.
 	private _stripPaused = false;
 	private _lastScreen: 'signin' | 'verify' | 'welcome' | undefined;
+	private _signInShownReported = false;
 	private _lastFocusKey: string | undefined;
+
+	/** A/B (intro-video): the sign-in screen shows the intro-video thumbnail instead of the Pro strip + Learn More */
+	private get introVideo(): boolean {
+		return this.graphState.signInGateIntroVideo === true;
+	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
@@ -1124,13 +1153,23 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		}
 		this._lastScreen = screen;
 
-		if (screen === 'signin' && this._stripInterval == null) {
+		if (screen === 'signin' && !this.introVideo && this._stripInterval == null) {
 			this.startStripTimer();
 		}
 	}
 
 	protected override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+
+		// Require `subscription` so the impression only counts renders where the host assigned a
+		// cohort — Restricted-Mode renders would otherwise all pile onto the `default` arm
+		if (this.screen === 'signin' && this.graphState.subscription != null && !this._signInShownReported) {
+			this._signInShownReported = true;
+			emitTelemetrySentEvent<'graph/signin/shown'>(this, {
+				name: 'graph/signin/shown',
+				data: { variant: this.introVideo ? 'intro-video' : 'default' },
+			});
+		}
 
 		// Keep focus on the primary control whenever the visible view changes — the initial mount, the
 		// sign-in <-> verify switches, and the actions <-> "waiting" swap each remove the focused
@@ -1199,16 +1238,20 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						}
 					</p>
 					${this.waiting ? this.renderWaiting() : this.renderSignInActions()}
-					<gl-button
-						class="learn-more"
-						appearance="link"
-						href=${createCommandLink('gitlens.showWelcomeView', { mode: 'main' })}
-					>
-						<code-icon slot="prefix" icon="book"></code-icon>
-						Learn More
-					</gl-button>
+					${
+						this.introVideo
+							? this.renderIntroVideo()
+							: html`<gl-button
+									class="learn-more"
+									appearance="link"
+									href=${createCommandLink('gitlens.showWelcomeView', { mode: 'main' })}
+								>
+									<code-icon slot="prefix" icon="book"></code-icon>
+									Learn More
+								</gl-button>`
+					}
 				</div>
-				${this.renderProStrip()}
+				${this.introVideo ? nothing : this.renderProStrip()}
 			</div>
 		`;
 	}
@@ -1276,6 +1319,31 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				</div>
 			</div>
 		`;
+	}
+
+	/** A/B variant: the marketplace intro-video thumbnail in place of the Pro strip and Learn More link. */
+	private renderIntroVideo(): unknown {
+		return html`
+			<a
+				class="intro-video"
+				href="https://www.youtube.com/watch?v=7cy4_M0lH6k"
+				aria-label="Watch the GitLens Getting Started video"
+				@click=${this.onIntroVideoClicked}
+			>
+				<img
+					class="intro-video__thumbnail"
+					src="${this.graphState.webroot ?? ''}/media/get-started-video.webp"
+					alt="Watch the GitLens Getting Started video"
+				/>
+			</a>
+		`;
+	}
+
+	private onIntroVideoClicked(): void {
+		emitTelemetrySentEvent<'graph/signin/introVideo/clicked'>(this, {
+			name: 'graph/signin/introVideo/clicked',
+			data: {},
+		});
 	}
 
 	private renderSignInActions(): unknown {
