@@ -2965,6 +2965,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
 							orientation="vertical"
 							primary="start"
+							.anchoredPosition=${true}
 							.position=${agentStatusPosition}
 							?disabled=${!agentStatusIsExpanded}
 							.snap=${this._agentStatusSplitSnap}

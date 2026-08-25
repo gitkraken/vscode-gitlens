@@ -69,6 +69,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes the _Commit Graph_'s minimap resizing with the graph when the details panel changes size &mdash; it now holds its pixel height until there isn't room for it, and can no longer shrink below its minimum or get stuck in a sliver where the divider couldn't restore it; the agents/WIP splitter in the details panel keeps its chosen size across resizes as well
 - Fixes the _Commit Graph_'s pill-count settings (`gitlens.graph.refs.maxInline` and `gitlens.graph.refs.maxStacked`) in _GitLens Settings_ being unable to show or set `"auto"` &mdash; rendered as number boxes, they appeared empty when `"auto"` was configured and discarded it on any interaction; both are now dropdowns offering 1&ndash;10 and `"auto"`, and number fields no longer commit a value when focused and left without editing ([#5763](https://github.com/gitkraken/vscode-gitlens/issues/5763))
 - Fixes the _Commit Graph_ side bar's _Overview_ panel rendering empty ("No recent branch activity") when opened while the graph is still loading &mdash; it now shows its loading state and fills in once the branches arrive
 - Fixes cancelling the _Root Folder..._ or _Specific Folder..._ picker closing the _Create Worktree_ wizard instead of returning to its confirmation step ([#5752](https://github.com/gitkraken/vscode-gitlens/issues/5752))

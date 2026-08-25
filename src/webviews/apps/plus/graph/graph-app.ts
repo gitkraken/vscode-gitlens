@@ -233,13 +233,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return pos;
 	};
 
-	private _minimapSnap = ({ pos, size }: { pos: number; size: number }) => {
+	private _minimapSnap = ({ pos, size, source }: { pos: number; size: number; source: GlSplitPanelSnapSource }) => {
 		if (size <= 0) return pos;
 
-		// A hidden minimap sits at 0 deliberately, so never snap it open. Without this the split
-		// panel's first-measurement re-snap would open a minimap that the policy says stays hidden
-		// (`applySnap` runs against the seeded position before any stored one exists).
-		if (!this.minimapShown) return 0;
+		// A hidden minimap sits at 0 deliberately, so layout-driven snaps must never open it — without
+		// this the split panel's first-measurement re-snap would open a minimap that the policy says
+		// stays hidden (`applySnap` runs against the seeded position before any stored one exists).
+		// Gestures are exempt: pointer/keyboard drags are how the user opens it again.
+		if (!this.minimapShown && source === 'layout') return 0;
 
 		const defaultPct = (minimapDefaultPx / size) * 100;
 		// First render without a stored position: snap to the exact pixel default
@@ -2440,6 +2441,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				class="graph__minimap-split"
 				orientation="vertical"
 				primary="start"
+				.anchoredPosition=${true}
 				.position=${position}
 				.snap=${this._minimapSnap}
 				@gl-split-panel-change=${this.handleMinimapSplitChange}
@@ -2588,9 +2590,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (e.detail.position <= 0) return;
 
 		const gs = this.graphState;
-		if (gs.minimap?.position !== e.detail.position) {
-			gs.minimap = { position: e.detail.position };
+		// Spread the existing panel state — replacing it would drop `visible`, and a drag-open of a
+		// hidden minimap would then be re-collapsed by the next render's visibility binding.
+		const updates = { ...gs.minimap, position: e.detail.position };
+		// A gesture that opens a not-currently-shown minimap is deliberate (unlike the programmatic
+		// auto-show, which `minimapClosedStateAuthoritative` gates) — pin it so the visibility binding
+		// keeps it open instead of snapping it shut on the next render.
+		if (!this.minimapShown) {
+			updates.visible = true;
 		}
+		gs.minimap = updates;
 	}
 
 	/**

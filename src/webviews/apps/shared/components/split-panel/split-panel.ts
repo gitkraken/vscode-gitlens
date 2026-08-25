@@ -71,8 +71,8 @@ export class GlSplitPanel extends LitElement {
 	 * an anchored pixel width is worth preserving across container resizes — a mount-time or
 	 * programmatic position may be a transient mid-layout measurement, and preserving THAT would
 	 * fossilize an accidental size instead of an intended one. The `position` setter clears this
-	 * (a consumer-bound position makes the percentage authoritative again); the gesture paths set
-	 * it back to true after writing through the setter.
+	 * unless {@link anchoredPosition} is set (a consumer-bound position makes the percentage
+	 * authoritative again); the gesture paths set it back to true after writing through the setter.
 	 */
 	private _pxAnchored = false;
 	private _dragAc: AbortController | undefined;
@@ -94,9 +94,12 @@ export class GlSplitPanel extends LitElement {
 		// Only a value that actually MOVES the divider counts as a consumer override. Consumers
 		// re-bind `.position` from the state a gesture just wrote, and that echo arrives here as a
 		// fresh value (Lit's committed value is the pre-gesture one) — clearing the anchor on it
-		// would drop the pixel width the drag just established.
-		if (next !== this._position) {
+		// would drop the pixel width the drag just established. With `anchoredPosition`, bound values
+		// are deliberate sizes, so they anchor rather than clear.
+		if (next !== this._position && !this.anchoredPosition) {
 			this._pxAnchored = false;
+		} else if (next !== this._position && this._size > 0) {
+			this._pxAnchored = true;
 		}
 
 		this._position = next;
@@ -111,6 +114,17 @@ export class GlSplitPanel extends LitElement {
 		}
 		this.requestUpdate('position', old);
 	}
+
+	/**
+	 * Treats consumer-bound positions as deliberate sizes: each distinct bound value re-anchors the
+	 * primary panel's pixel width for preservation across container resizes, instead of clearing the
+	 * anchor like {@link _pxAnchored}'s default rule does. For consumers whose persisted position is
+	 * already an intentional size (e.g. a pixel-policy-driven pane), this keeps that pixel height
+	 * held across unrelated resizes without requiring a fresh gesture after every remount or
+	 * visibility toggle.
+	 */
+	@property({ type: Boolean, reflect: true })
+	anchoredPosition = false;
 
 	/** Layout orientation. `horizontal` splits left/right, `vertical` splits top/bottom. */
 	@property({ reflect: true })
@@ -304,6 +318,14 @@ export class GlSplitPanel extends LitElement {
 			// no closed edge; seed as `false` to unlock the gate while keeping the setter's
 			// `computeClosed` always returning `false` (no transitions will ever fire).
 			this._closedState = this.primary != null ? this.computeClosed(this._position) : false;
+			// Anchored-position consumers treat their bound value as deliberate — anchor it now that
+			// the size is known, so the very first container resize preserves pixels. Without this the
+			// anchor only engages on a later distinct bound value (the setter skips anchoring while
+			// `_size` is still 0 during initial property setup), leaving the mount-time position riding
+			// resizes as a percentage.
+			if (this.anchoredPosition) {
+				this._pxAnchored = true;
+			}
 			// Re-apply snap now that container size is known so pixel-aware snap
 			// functions can clamp initial position (from restored/default percentage).
 			const snapped = this.applySnap(this._position, 'layout');
