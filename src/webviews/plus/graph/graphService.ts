@@ -1234,6 +1234,19 @@ export interface GraphRowsService {
 	 * where the requirement is latched for the next flush instead).
 	 */
 	resyncRows(): Promise<void>;
+	/**
+	 * Re-runs the load after a failed walk left the graph with no rows at all — a resync can't help
+	 * there, since the host has nothing to snapshot. Runs the same full refresh as the `refresh`
+	 * command, re-mounting the iframe and bootstrapping from scratch. Driven by the Retry affordance
+	 * the status overlay shows for {@link onRowsFailed}.
+	 */
+	retryRows(): Promise<void>;
+	/**
+	 * The rows walk failed before shipping anything (`error: true`), or a fresh load started and the
+	 * failure no longer stands (`error: false`). `save-last`: the flag is a complete statement of
+	 * whether the graph is currently wedged, so a hidden webview only ever needs the newest one.
+	 */
+	readonly onRowsFailed: RpcEventSubscription<{ error: boolean }>;
 }
 
 /**

@@ -779,6 +779,9 @@ export class GlLitGraph extends LitElement {
 	@property({ attribute: false }) runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	@property({ attribute: false }) agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
 	@property({ type: Boolean }) loading?: boolean;
+	// The host's rows walk failed before shipping anything. Swaps the status overlay's spinner for an
+	// error message + Retry; the app clears it when a load starts or rows land.
+	@property({ type: Boolean }) rowsError?: boolean;
 	// Whether the host has more rows to page in. The element can't infer it, and without it every paging
 	// trigger keeps firing dead events at the end of history — including the screen-reader "loading more"
 	// announcement, which `dispatchMoreRows` makes before the wrapper's guards can reject the ask.
@@ -5021,13 +5024,23 @@ export class GlLitGraph extends LitElement {
 		this._stickyTimeline.recompute();
 	};
 
-	// Loading / empty overlay shown over the (empty) lane area. State discrimination is deliberate to
-	// avoid the sticky "No commits" cold-load trap: while `loading` OR before the host's first row push
+	// Loading / error / empty overlay shown over the (empty) lane area. State discrimination is deliberate
+	// to avoid the sticky "No commits" cold-load trap: while `loading` OR before the host's first row push
 	// (`rows === undefined`) we show a spinner, NEVER "No commits". "No commits" appears only when the
 	// host has authoritatively shipped an empty array; a non-empty `rows` that filters/searches down to
-	// nothing reads as "No matching commits".
+	// nothing reads as "No matching commits". `rowsError` outranks the spinner: it's the one state where
+	// no push is ever coming, so the overlay has to offer a retry rather than spin.
 	private renderStatusOverlay(): unknown {
 		if (this.displayRows.length > 0) return nothing;
+
+		// A walk that died before shipping anything leaves `rows` undefined forever, so the spinner branch
+		// below would spin with no recovery — offer the failure and a way out instead.
+		if (this.rowsError && this.rows == null) {
+			return html`<div class="gl-graph__status gl-graph__status--error" role="status">
+				<span>Unable to load commits</span>
+				<button type="button" class="gl-graph__status-action" @click=${this.onRetryLoadClick}>Retry</button>
+			</div>`;
+		}
 
 		if (this.loading || this.rows == null) {
 			return html`<div class="gl-graph__status" role="status">
@@ -5108,6 +5121,11 @@ export class GlLitGraph extends LitElement {
 			}
 		</div>`;
 	}
+
+	/** Retry a failed rows walk — the app owns the refresh; this only asks for it. */
+	private onRetryLoadClick = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-graph-retry-load', { bubbles: true, composed: true }));
+	};
 
 	private onChangesOptInClick = (): void => {
 		this._changesEnableRequested = true;

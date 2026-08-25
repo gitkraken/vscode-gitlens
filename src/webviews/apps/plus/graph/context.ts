@@ -35,6 +35,8 @@ export interface AppState extends State {
 	agentSessionIndex: AgentSessionWorktreeIndex | undefined;
 	isBusy: boolean;
 	loading: boolean;
+	/** The rows walk failed before shipping anything — the status overlay offers Retry. */
+	rowsError: boolean;
 	/** True while one or more targeted row loads remain active past their soft display delay. */
 	ensureLoading: boolean;
 	/**

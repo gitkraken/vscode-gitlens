@@ -388,6 +388,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState(false)
 	accessor loading: AppState['loading'] = false;
 
+	/** The host's rows walk failed before shipping anything — the status overlay swaps its spinner for a
+	 *  Retry affordance. Cleared by a load starting (the host's own reset, or the Retry click) and by any
+	 *  rows emission landing. */
+	@signalState(false)
+	accessor rowsError: AppState['rowsError'] = false;
+
 	/**
 	 * Delayed loading state for targeted row loads. It is independent from paging's `loading` flag,
 	 * and reference-counted because search navigation and an external reveal can overlap.
@@ -1027,6 +1033,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 							bubbles: true,
 						}),
 					);
+				}),
+			() =>
+				rows.onRowsFailed(data => {
+					// A failed walk ships nothing, so nothing else will ever clear `loading` — drop it here
+					// and let the status overlay offer Retry instead of spinning forever. The clear leaves
+					// `loading` alone: it means a fresh load started, which owns that flag.
+					this.updateState(data.error ? { loading: false, rowsError: true } : { rowsError: false });
 				}),
 			() =>
 				state.onStateChanged(data => {
@@ -2072,6 +2085,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			updates.selectedRows = params.selectedRows;
 		}
 		updates.loading = false;
+		// Rows landed, so whatever wedged the previous walk is over — drop the Retry overlay.
+		updates.rowsError = false;
 
 		this.updateState(updates);
 		if (DEBUG) {
@@ -2668,6 +2683,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					break;
 				case 'loading':
 					this.loading = partial.loading ?? false;
+					// A load starting supersedes the previous one's failure, so the Retry overlay can't
+					// stick across it.
+					if (this.loading) {
+						this.rowsError = false;
+					}
 					break;
 				case 'searchResults':
 					// searchResults is managed via searchResultsResponse, so update it specially

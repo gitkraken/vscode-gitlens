@@ -126,6 +126,36 @@ gl-lit-graph {
 		pointer-events: none;
 	}
 
+	// Failed-walk variant: stacks the message over its Retry button and takes pointer events, since it's
+	// the only status state the user can act on.
+	.gl-graph__status--error {
+		flex-direction: column;
+		gap: 0.8rem;
+		pointer-events: auto;
+	}
+
+	.gl-graph__status-action {
+		padding: 0.2rem 0.8rem;
+		font-size: var(--gl-font-md);
+		color: var(--vscode-textLink-foreground);
+		background: none;
+		border: var(--gl-border-width) solid transparent;
+		border-radius: var(--gl-radius-sm);
+		cursor: pointer;
+		transition: color var(--gl-duration-medium) ease;
+
+		&:hover {
+			color: var(--vscode-textLink-activeForeground);
+			border-color: var(--vscode-textLink-activeForeground);
+		}
+
+		&:focus-visible {
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline-offset: 0;
+			border-color: var(--vscode-focusBorder);
+		}
+	}
+
 	// Horizontal scrollbar for the graph column — a bottom overlay spanning the lane viewport (left/width
 	// from the host's --graph-col-left/--graph-col-vw). Shown only when the lanes overflow it; the thumb's
 	// size/offset come from --graph-hscroll-thumb/--graph-hscroll-left (rewritten on every scroll with no

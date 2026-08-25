@@ -541,6 +541,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	/** App-owned state slot; never travels on a push. Filled by `GraphAvatarsService` responses. */
 	avatars?: GraphAvatars;
 	loading?: boolean;
+	/** True when the rows walk failed before shipping anything — the webview swaps its loading spinner
+	 *  for an error message and a Retry affordance. Cleared by the next load starting or by rows
+	 *  arriving; the copy lives in the webview, so this stays a bare flag. */
+	rowsError?: boolean;
 	/** BOOTSTRAP-ONLY seed (`null` = feature off, so a fresh webview never requests). Live changes ride
 	 *  `GraphRefsMetadataService` — `getMissingRefsMetadata` responses and `onRefsMetadataChanged` resets. */
 	refsMetadata?: GraphRefsMetadata | null;

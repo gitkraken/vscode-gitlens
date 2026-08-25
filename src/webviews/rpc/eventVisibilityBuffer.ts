@@ -177,7 +177,11 @@ export function bufferEventHandler<T>(
  * and a fire function backed by the same internal handler map.
  */
 export interface RpcEvent<T> {
-	readonly subscribe: (buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker) => RpcEventSubscription<T>;
+	readonly subscribe: (
+		buffer?: EventVisibilityBuffer,
+		tracker?: SubscriptionTracker,
+		replay?: () => T | undefined,
+	) => RpcEventSubscription<T>;
 	readonly fire: (data: T) => void;
 }
 
@@ -188,6 +192,12 @@ export interface RpcEvent<T> {
  * inside `getRpcServices` to produce an `RpcEventSubscription<T>`, and `.fire(data)` anywhere
  * to invoke all registered handlers.
  *
+ * `fire` reaches only handlers registered at fire time — an event fired before the webview app
+ * subscribes is lost ('save-last' covers hidden-visibility buffering, not late subscribers). For
+ * events that represent standing state (a failure flag, a latched condition), pass `replay` to
+ * `.subscribe`: each new handler is immediately invoked with the current truth (when defined),
+ * through the same visibility-buffered path a live fire takes.
+ *
  * @param key - Logical event key for visibility buffering pending entries
  * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
  * @param signalValue - Value to replay in `'signal'` mode (typically `undefined`)
@@ -195,12 +205,21 @@ export interface RpcEvent<T> {
 export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', signalValue?: T): RpcEvent<T> {
 	const handlers = new Map<symbol, (data: T) => void>();
 	return {
-		subscribe: function (buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): RpcEventSubscription<T> {
+		subscribe: function (
+			buffer?: EventVisibilityBuffer,
+			tracker?: SubscriptionTracker,
+			replay?: () => T | undefined,
+		): RpcEventSubscription<T> {
 			return function (handler: (data: T) => void): Unsubscribe {
 				const pendingKey = Symbol(key);
 				const buffered = bufferEventHandler(buffer, pendingKey, handler, mode, signalValue);
 				const sym = Symbol();
 				handlers.set(sym, buffered);
+
+				const current = replay?.();
+				if (current !== undefined) {
+					buffered(current);
+				}
 				const unsubscribe = function () {
 					buffer?.removePending(pendingKey);
 					handlers.delete(sym);

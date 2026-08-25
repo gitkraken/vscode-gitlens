@@ -419,6 +419,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// state `getState` skips the entire graph data pipeline, so the graph must be reloaded once the
 	// account becomes usable — see `onSubscriptionChanged`.
 	private _accountAccessRequired = false;
+	/** True while the last rows walk's failure still stands — mirrors what the webview holds, so the
+	 *  `save-last` slot can never replay a stale wedge over a graph that has since loaded. */
+	private _rowsFailed = false;
 
 	// Set instead of building the (expensive) full-state / branch-state-only payload while hidden or not
 	// ready — building it would cost real work for a webview that can't receive it. Consumed on the next
@@ -985,6 +988,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: the payload is always the complete `State` rebuild, so a hidden webview only ever
 	// needs the newest one — see `GraphStateService.onStateChanged`.
 	private readonly _stateChangedEvent = createRpcEvent<DidChangeParams>('stateChanged', 'save-last');
+	// `save-last`: the flag is a complete statement of whether the graph is wedged on a failed walk —
+	// see `GraphRowsService.onRowsFailed`.
+	private readonly _rowsFailedEvent = createRpcEvent<{ error: boolean }>('rowsFailed', 'save-last');
 	// `save-last`: each payload is a complete replacement and only the newest matters to a hidden
 	// webview — see `GraphRepoStatusService.onBranchStateChanged`.
 	private readonly _branchStateChangedEvent = createRpcEvent<DidChangeBranchStateParams>(
@@ -1180,6 +1186,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getMoreRows: (id, limit) => this._data.onGetMoreRows(id, limit),
 				loadRow: (id, signal) => this._data.loadRow(id, signal),
 				resyncRows: () => this._data.resyncRows(),
+				retryRows: () => this.host.refresh(true),
+				// Replayed on subscribe: a fast-failing walk fires before the app has subscribed (the
+				// event lands in an empty handler map), so a standing failure is handed to each new
+				// subscriber — without it, a cold-load failure leaves the spinner wedged forever.
+				onRowsFailed: this._rowsFailedEvent.subscribe(buffer, tracker, () =>
+					this._rowsFailed ? { error: true } : undefined,
+				),
 			},
 			scope: {
 				resolveScope: (repoPath, scope, signal) => this.resolveGraphScope(repoPath, scope, signal),
@@ -4444,6 +4457,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return item;
 	}
 
+	/** Ships the rows-plane failure flag. Fires only on a change, so a load that succeeds after another
+	 *  load already cleared the flag costs nothing. */
+	private setRowsFailed(failed: boolean): void {
+		if (this._rowsFailed === failed) return;
+
+		this._rowsFailed = failed;
+		this._rowsFailedEvent.fire({ error: failed });
+	}
+
 	/** `bootstrap` marks the initial state build for a (re)loading webview: rows are deferred, `loading`
 	 *  is reported, and the app-owned persisted UI state is seeded (see the side bar slice below). */
 	private async getState(bootstrap?: boolean): Promise<State> {
@@ -4679,6 +4701,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dataPromise = ref.promise;
 		}
 		this._data.loading = dataPromise;
+		// A load is underway, so any previous failure no longer stands — clear it before the walk so the
+		// webview's Retry overlay can't outlive the load it belongs to.
+		this.setRowsFailed(false);
 
 		// Check for access and working tree stats
 		const promises = Promise.allSettled([
@@ -4738,11 +4763,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					this._panels.notifySidebarInvalidated();
 				} catch (ex) {
 					// Cancellation/session-swap aborts are routine; anything else means the deferred bootstrap
-					// died BEFORE setGraph — nothing ships and the webview's `loading` spinner never resolves,
-					// so at minimum leave a trace (this was previously a fully silent wedge).
-					if (!isCancellationError(ex)) {
-						Logger.error(ex, `GraphWebviewProvider(${this.host.id}): deferred rows bootstrap failed`);
-					}
+					// died BEFORE setGraph — nothing ships, so tell the webview to swap its spinner for a
+					// Retry affordance. Same liveness guards as the try block: a superseded load's failure
+					// says nothing about the one that replaced it.
+					if (isCancellationError(ex)) return;
+
+					Logger.error(ex, `GraphWebviewProvider(${this.host.id}): deferred rows bootstrap failed`);
+					if (cancellation.token.isCancellationRequested || this._data.loading !== dataPromise) return;
+
+					this.setRowsFailed(true);
 				} finally {
 					this._graphSync.release();
 				}

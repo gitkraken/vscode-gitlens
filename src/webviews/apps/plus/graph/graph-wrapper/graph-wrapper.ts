@@ -1248,6 +1248,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
 			?loading=${graphState.loading || graphState.ensureLoading || graphState.scopeLoading}
+			?rowsError=${graphState.rowsError ?? false}
 			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}
 			.pagingHasMore=${graphState.paging?.hasMore ?? true}
 			?windowFocused=${graphState.windowFocused}
@@ -1257,6 +1258,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@gl-graph-refdoubleclick=${this.onGraphRefDoubleClick}
 			@gl-graph-contextmenu=${this.onGraphContextMenu}
 			@gl-graph-morerows=${this.onGraphMoreRows}
+			@gl-graph-retry-load=${this.onGraphRetryLoad}
 			@gl-graph-changevisibledays=${this.onGraphVisibleDaysChanged}
 			@gl-graph-visiblewipshaschanged=${this.onVisibleWipShasChanged}
 			@gl-graph-wipshasmissingstats=${this.onWipShasMissingStats}
@@ -2574,6 +2576,30 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private onGraphMoreRows(e: CustomEvent<{ displayRows: number; explicit?: boolean } | null>) {
 		this.requestMoreRows(e.detail?.displayRows ?? 0, e.detail?.explicit === true);
+	}
+
+	/** Retry after a failed rows walk left the graph empty. The host runs a full refresh, which re-mounts
+	 *  the iframe — so this returns the overlay to its spinner optimistically and only restores the error
+	 *  affordance if the call itself never got that far. */
+	private onGraphRetryLoad(): void {
+		const services = this.services;
+		if (services == null) return;
+
+		this.graphState.rowsError = false;
+		this.graphState.loading = true;
+		fireAndForget(
+			(async () => {
+				try {
+					await (await services.rows).retryRows();
+				} catch (ex) {
+					// The refresh never started — restore the affordance so Retry stays available.
+					this.graphState.loading = false;
+					this.graphState.rowsError = true;
+					throw ex;
+				}
+			})(),
+			'rows/retry',
+		);
 	}
 
 	/** Ask the host for the next row page. A request blocked by an in-flight load is PARKED, never dropped —
