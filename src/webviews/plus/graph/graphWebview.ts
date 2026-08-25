@@ -54,6 +54,7 @@ import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
 	pauseOnCancelOrTimeoutMapTuplePromise,
+	wait,
 } from '@gitlens/utils/promise.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import { satisfies } from '@gitlens/utils/version.js';
@@ -82,6 +83,7 @@ import type {
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { FeatureFlagKey, setFeatureFlagTelemetryGlobalAttributes } from '../../../featureFlags/featureFlagService.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
 import { openCommitChanges, openCommitChangesWithWorking, undoCommit } from '../../../git/actions/commit.js';
@@ -330,6 +332,10 @@ type CancellableOperations =
 	| 'computeIncludedRefs'
 	| 'state'
 	| 'workingTree';
+
+/** A/B (intro-video): latched on the first gated render, at module scope — a per-provider latch
+ *  could show one user both arms (the panel and the sidebar each construct a provider). */
+let signInGateIntroVideo: boolean | undefined;
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: GlRepository;
@@ -4541,13 +4547,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload
 			// is forced from `onSubscriptionChanged` once the account becomes usable.
 			this._wip.updateWorkingTreeBadge(undefined);
+
+			if (signInGateIntroVideo == null) {
+				// The await sits on the bootstrap path and holds the whole panel blank, so pay it
+				// (bounded) only on a genuine first run — later activations resolve synchronously from
+				// the previous session's cache (ConfigCat targets the stable machineId, so the cohort
+				// is stable too).
+				if (!this.container.featureFlags.hasCachedFlags) {
+					await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
+				}
+
+				signInGateIntroVideo = this.container.featureFlags.getFlag(FeatureFlagKey.GraphGateIntroVideo, false);
+
+				// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute
+				if (this.container.storage.get('graph:signInGate:introVideoShown') !== signInGateIntroVideo) {
+					await this.container.storage.store('graph:signInGate:introVideoShown', signInGateIntroVideo);
+					setFeatureFlagTelemetryGlobalAttributes(this.container);
+				}
+			}
+
 			return {
 				...this.host.baseWebviewState,
+				// The account-access screen loads the intro-video thumbnail from here
+				webroot: this.host.getWebRoot(),
 				allowed: false,
 				trusted: true,
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
+				signInGateIntroVideo: signInGateIntroVideo,
 				// Sent but NOT cleared (unlike the full build below): the app can't act on it while the
 				// account screen is up, but uses it to pick task-specific sign-in messaging (#5534); the
 				// un-gating full rebuild re-delivers it for actual consumption.

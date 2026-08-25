@@ -42,6 +42,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	/** Cohort number between 1 and 100 to use for percentage-based rollouts */
 	'device.cohort': number;
 	enabled: boolean;
+	/** JSON map of feature flags as fetched — except `glensGraphGateIntroVideo`, which reports the variant the last RENDERED sign-in gate showed */
 	featureFlags: string;
 	prerelease: boolean;
 	install: boolean;
@@ -439,6 +440,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the one-time Graph intro (welcome + optional layout prompt) is shown on first entry */
 	'graph/intro/shown': GraphIntroShownEvent;
+	/** Sent when the sign-in gate is shown (once per Graph instance) — base of the intro-video A/B funnel */
+	'graph/signin/shown': GraphSignInShownEvent;
+	/** Sent when the user clicks the intro-video thumbnail on the sign-in gate (intro-video A/B variant) */
+	'graph/signin/introVideo/clicked': GraphContextEventData;
 	/** Sent when the user answers (or closes) the one-time layout-choice prompt */
 	'graph/layoutPrompt/choice': GraphLayoutPromptChoiceEvent;
 
@@ -2498,6 +2503,11 @@ export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-comm
 interface GraphIntroShownEvent extends GraphContextEventData {
 	/** True when the layout sub-section (Side Bar vs. Bottom Panel) was shown alongside the welcome */
 	withLayoutOptions: boolean;
+}
+
+interface GraphSignInShownEvent extends GraphContextEventData {
+	/** Which sign-in gate variant rendered — `intro-video` replaces the Pro strip + Learn More with the video thumbnail */
+	variant: 'default' | 'intro-video';
 }
 
 interface GraphLayoutPromptChoiceEvent extends GraphContextEventData {

@@ -122,6 +122,8 @@ interface GlobalStorageCore {
 	'launchpad:indicator:hasInteracted': string;
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
+	/** A/B (intro-video): the variant the most recently RENDERED sign-in gate actually showed */
+	'graph:signInGate:introVideoShown': boolean;
 	'graph:useNaturalLanguageSearch': boolean;
 	'views:pendingLegacyHide': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
