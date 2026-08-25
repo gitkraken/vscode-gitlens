@@ -1548,6 +1548,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._nav.reset();
 				this._navExpectedSha = undefined;
 			}
+			// The minimap's brush/scope zoom window is timeline-relative, not repo-relative — carrying
+			// it across a switch re-clamps the old repo's window against the new repo's bounds instead
+			// of showing the full new timeline. `resetZoom()` no-ops when already unzoomed.
+			if (isRepoSwitch) {
+				this.minimapEl?.resetZoom();
+			}
 			this._wasSelectedRepository = selectedRepository;
 		}
 
