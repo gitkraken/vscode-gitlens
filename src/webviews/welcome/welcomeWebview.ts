@@ -1,43 +1,35 @@
-import { Disposable, env } from 'vscode';
-import { SubscriptionState } from '../../constants.subscription.js';
+import type { Disposable } from 'vscode';
+import { env } from 'vscode';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
-import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import { FeatureFlagKey } from '../../featureFlags/featureFlagService.js';
-import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
 import { needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import { getContext } from '../../system/-webview/context.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
+import { createSharedServices } from '../rpc/services/common.js';
+import { proxyServices } from '../rpc/services/proxy.js';
+import { WalkthroughService } from '../rpc/walkthroughService.js';
+import { WelcomeService } from '../rpc/welcomeService.js';
+import type { WelcomeServices } from '../rpc/welcomeService.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
-import type { GraphWalkthroughProgress, State, WalkthroughMode, WalkthroughProgress } from './protocol.js';
-import {
-	DidChangeGraphWalkthroughProgress,
-	DidChangeSubscription,
-	DidChangeWalkthroughProgress,
-	DidFocusWalkthrough,
-	DidSwitchWalkthroughMode,
-} from './protocol.js';
+import type { State, WalkthroughMode } from './protocol.js';
 import type { WelcomeWebviewShowingArgs } from './registration.js';
 
 export class WelcomeWebviewProvider implements WebviewProvider<State, State, WelcomeWebviewShowingArgs> {
-	private readonly _disposable: Disposable;
-	private _etagSubscription?: number;
 	private _mode: WalkthroughMode = 'main';
+	private _telemetryContext: Record<`context.${string}`, string | number | boolean | undefined> | undefined;
+
+	/** Created with (and cached by) `getRpcServices` so `onShowing` can fire its events. */
+	private _welcome: WelcomeService | undefined;
 
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost<'gitlens.views.welcome'>,
-	) {
-		this._disposable = Disposable.from(
-			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.walkthrough.onDidChangeProgress(this.onWalkthroughProgressChanged, this),
-		);
-	}
+	) {}
 
-	dispose(): void {
-		this._disposable.dispose();
-	}
+	dispose(): void {}
 
 	getTelemetryContext(): WebviewTelemetryContext {
 		return {
@@ -58,16 +50,25 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 			void this.container.usage.track('action:gitlens.graph.walkthrough.started:happened');
 		}
 
-		if (!loading) {
-			// If already loaded, notify the webview to switch mode and focus
-			void this.host.notify(DidSwitchWalkthroughMode, { mode: mode });
-			void this.host.notify(DidFocusWalkthrough, undefined);
+		if (!loading && this._welcome != null) {
+			// If already loaded, switch the webview's mode and focus the walkthrough
+			this._welcome.fireDidSwitchWalkthroughMode(mode);
+			this._welcome.fireDidFocusWalkthrough();
 		}
 		return [true, undefined];
 	}
 
-	includeBootstrap(): Promise<State> {
-		return this.getState();
+	includeBootstrap(): State {
+		// The webview fetches all live data via RPC — bootstrap only provides static metadata
+		// (`mode` is per-show, set above before this runs on first load)
+		return {
+			...this.host.baseWebviewState,
+			hostAppName: env.appName,
+			welcomeTitle: this.getWelcomeTitleVariant() ?? 'Get Started with GitLens',
+			mode: this._mode,
+			mcpNeedsInstall: this.getMcpNeedsInstall(),
+			mcpShowCleanupNotice: this.getMcpShowCleanupNotice(),
+		};
 	}
 
 	registerCommands(): Disposable[] {
@@ -77,53 +78,26 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return [];
 	}
 
-	private onSubscriptionChanged(e: SubscriptionChangeEvent): void {
-		if (e.etag === this._etagSubscription) return;
+	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): WelcomeServices {
+		const shared = createSharedServices(
+			this.container,
+			this.host,
+			context => {
+				this._telemetryContext = context;
+			},
+			buffer,
+			tracker,
+		);
 
-		this._etagSubscription = e.etag;
-		this.notifyDidChangeSubscription(e.current.state);
-	}
+		this._welcome ??= new WelcomeService(buffer, tracker);
 
-	private notifyDidChangeSubscription(plusState: SubscriptionState): void {
-		void this.host.notify(DidChangeSubscription, { plusState: plusState });
-	}
+		return proxyServices({
+			...shared,
 
-	private onWalkthroughProgressChanged(): void {
-		const walkthroughProgress = this.getWalkthroughProgress();
-		if (walkthroughProgress != null) {
-			void this.host.notify(DidChangeWalkthroughProgress, { walkthroughProgress: walkthroughProgress });
-		}
+			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 
-		const graphWalkthroughProgress = this.getGraphWalkthroughProgress();
-		if (graphWalkthroughProgress != null) {
-			void this.host.notify(DidChangeGraphWalkthroughProgress, {
-				graphWalkthroughProgress: graphWalkthroughProgress,
-			});
-		}
-	}
-
-	private getWalkthroughProgress(): WalkthroughProgress | undefined {
-		const walkthroughState = this.container.walkthrough.getState();
-		const state = Object.fromEntries(walkthroughState) as Record<WalkthroughContextKeys, boolean>;
-
-		return {
-			allCount: this.container.walkthrough.walkthroughSize,
-			doneCount: this.container.walkthrough.doneCount,
-			progress: this.container.walkthrough.progress,
-			state: state,
-		};
-	}
-
-	private getGraphWalkthroughProgress(): GraphWalkthroughProgress | undefined {
-		const graphState = this.container.walkthrough.getGraphState();
-		const state = Object.fromEntries(graphState) as Record<GraphWalkthroughContextKeys, boolean>;
-
-		return {
-			allCount: this.container.walkthrough.graphWalkthroughSize,
-			doneCount: this.container.walkthrough.graphDoneCount,
-			progress: this.container.walkthrough.graphProgress,
-			state: state,
-		};
+			welcome: this._welcome,
+		} satisfies WelcomeServices);
 	}
 
 	private getMcpCanAutoRegister(): boolean {
@@ -145,24 +119,5 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	private getWelcomeTitleVariant(): string | undefined {
 		const showVariant = this.container.featureFlags.getFlag(FeatureFlagKey.WelcomeTitleVariant, false);
 		return showVariant ? 'Welcome' : undefined;
-	}
-
-	private async getState(): Promise<State> {
-		const subscription = await this.container.subscription.getSubscription();
-		const welcomeTitle = this.getWelcomeTitleVariant() || 'Get Started with GitLens';
-		const plusState = subscription?.state ?? SubscriptionState.Community;
-
-		return {
-			...this.host.baseWebviewState,
-			webroot: this.host.getWebRoot(),
-			hostAppName: env.appName,
-			welcomeTitle: welcomeTitle,
-			plusState: plusState,
-			walkthroughProgress: this.getWalkthroughProgress(),
-			graphWalkthroughProgress: this.getGraphWalkthroughProgress(),
-			mode: this._mode,
-			mcpNeedsInstall: this.getMcpNeedsInstall(),
-			mcpShowCleanupNotice: this.getMcpShowCleanupNotice(),
-		};
 	}
 }

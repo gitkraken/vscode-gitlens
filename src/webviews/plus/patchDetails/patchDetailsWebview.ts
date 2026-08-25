@@ -12,7 +12,7 @@ import { CancellationError, isCancellationError } from '@gitlens/utils/cancellat
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
-import { find, some } from '@gitlens/utils/iterable.js';
+import { find } from '@gitlens/utils/iterable.js';
 import { basename } from '@gitlens/utils/path.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import { getAvatarUri } from '../../../avatars.js';
@@ -47,51 +47,43 @@ import { ensureAccount } from '../../../plus/gk/utils/-webview/acount.utils.js';
 import { showNewOrSelectBranchPicker } from '../../../quickpicks/branchPicker.js';
 import { showOrganizationMembersPicker } from '../../../quickpicks/organizationMembersPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
+import { fromAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand, registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
 import { gate } from '../../../system/decorators/gate.js';
 import type { Serialized } from '../../../system/serialize.js';
 import { serialize } from '../../../system/serialize.js';
-import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
-import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
+import type { PatchDetailsServices } from '../../rpc/patchDetailsService.js';
+import { PatchDetailsService } from '../../rpc/patchDetailsService.js';
+import { createSharedServices } from '../../rpc/services/common.js';
+import { proxyServices } from '../../rpc/services/proxy.js';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
 import type { WebviewShowOptions } from '../../webviewsController.js';
 import type { ShowInCommitGraphCommandArgs } from '../graph/registration.js';
+import { isDraftMissingContent, isRepoLocated, toPatchDetails } from './patchDetails.utils.js';
 import type {
+	ApplyPatchParams,
+	ArchiveDraftParams,
 	Change,
 	CreateDraft,
+	CreatePatchParams,
+	DidExplainParams,
+	DidGenerateParams,
+	DraftPatchCheckedParams,
 	DraftUserSelection,
 	ExecuteFileActionParams,
 	Mode,
+	OpenInCommitGraphParams,
 	Preferences,
 	State,
-} from './protocol.js';
-import {
-	ApplyPatchCommand,
-	ArchiveDraftCommand,
-	CopyCloudLinkCommand,
-	CreatePatchCommand,
-	DidChangeCreateNotification,
-	DidChangeDraftNotification,
-	DidChangeNotification,
-	DidChangePatchRepositoryNotification,
-	DidChangePreferencesNotification,
-	DraftPatchCheckedCommand,
-	ExplainRequest,
-	GenerateRequest,
-	OpenFileCommand,
-	OpenFileComparePreviousCommand,
-	OpenFileCompareWorkingCommand,
-	OpenInCommitGraphCommand,
-	SwitchModeCommand,
-	UpdateCreatePatchMetadataCommand,
-	UpdateCreatePatchRepositoryCheckedStateCommand,
-	UpdatePatchDetailsMetadataCommand,
-	UpdatePatchDetailsPermissionsCommand,
-	UpdatePatchUsersCommand,
-	UpdatePatchUserSelectionCommand,
-	UpdatePreferencesCommand,
+	SwitchModeParams,
+	UpdateCreatePatchMetadataParams,
+	UpdateCreatePatchRepositoryCheckedStateParams,
+	UpdatePatchDetailsMetadataParams,
+	UpdatePatchUserSelection,
+	UpdatePreferenceParams,
 } from './protocol.js';
 import type { PatchDetailsWebviewShowingArgs } from './registration.js';
 import type { RepositoryChangeset } from './repositoryChangeset.js';
@@ -128,6 +120,10 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 > {
 	private _context: Context;
 	private readonly _disposable: Disposable;
+
+	/** Created with (and cached by) `getRpcServices` so state pushes and AI requests can ride it. */
+	private _service: PatchDetailsService | undefined;
+	private _telemetryContext: Record<`context.${string}`, string | number | boolean | undefined> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -182,6 +178,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 	getTelemetryContext(): WebviewTelemetryContext {
 		return {
 			...this.host.getTelemetryContext(),
+			...this._telemetryContext,
 		};
 	}
 
@@ -225,8 +222,55 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		return commands;
 	}
 
-	@ipcCommand(OpenInCommitGraphCommand)
-	private onOpenInCommitGraph(params: IpcParams<typeof OpenInCommitGraphCommand>) {
+	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): PatchDetailsServices {
+		const shared = createSharedServices(
+			this.container,
+			this.host,
+			context => {
+				this._telemetryContext = context;
+			},
+			buffer,
+			tracker,
+		);
+
+		// Per-instance by construction: each webview instance gets its own provider (both
+		// registrations construct one per instance, including multi-instance panels), so this cache
+		// never crosses instances even when two panels are open side by side.
+		this._service ??= new PatchDetailsService(
+			{
+				applyPatch: params => this.onApplyPatch(params),
+				archiveDraft: params => this.onArchiveDraft(params),
+				createDraft: params => this.onCreateDraft(params),
+				openInCommitGraph: params => this.onOpenInCommitGraph(params),
+				patchChecked: params => this.onPatchChecked(params),
+				openFile: params => this.onOpenFile(params),
+				openFileComparisonWithWorking: params => this.onOpenFileComparisonWithWorking(params),
+				openFileComparisonWithPrevious: params => this.onOpenFileComparisonWithPrevious(params),
+				switchMode: params => this.onSwitchMode(params),
+				copyCloudLink: () => this.onCopyCloudLink(),
+				updateCreateCheckedState: params => this.onUpdateCreateCheckedState(params),
+				updateCreateMetadata: params => this.onUpdateCreateMetadata(params),
+				updateDraftMetadata: params => this.onUpdateDraftMetadata(params),
+				updateDraftPermissions: () => this.onUpdateDraftPermissions(),
+				inviteUsers: () => this.onInviteUsers(),
+				updateUserSelection: params => this.onUpdatePatchUserSelection(params),
+				updatePreferences: params => this.onUpdatePreferences(params),
+				getState: () => this.getState(this._context),
+				explain: signal => this.onExplain(signal),
+				generate: signal => this.onGenerateDetails(signal),
+			},
+			buffer,
+			tracker,
+		);
+
+		return proxyServices({
+			...shared,
+
+			patchDetails: this._service,
+		} satisfies PatchDetailsServices);
+	}
+
+	private onOpenInCommitGraph(params: OpenInCommitGraphParams): void {
 		void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 			ref: createReference(params.ref, params.repoPath, { refType: 'revision' }),
 			source: { source: 'patchDetails' },
@@ -237,6 +281,13 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		this.updateState(true);
 	}
 
+	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap, and this surface has no
+	 *  per-session fetch — pushes emitted before the remount died with the previous element
+	 *  generation. Re-push the full current state or the panel sits on a stale loading shell. */
+	onReconnect(): void {
+		this.updateState();
+	}
+
 	onReloaded(): void {
 		this.updateState(true);
 	}
@@ -244,10 +295,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 	onVisibilityChanged(visible: boolean): void {
 		// TODO@eamodio ugly -- clean this up later
 		this._context.create?.changes.forEach(c => (visible ? c.resume() : c.suspend()));
-
-		if (visible) {
-			this.host.sendPendingIpcNotifications();
-		}
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -346,8 +393,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 	}
 
-	@ipcCommand(ApplyPatchCommand)
-	private async onApplyPatch(params: IpcParams<typeof ApplyPatchCommand>) {
+	private async onApplyPatch(params: ApplyPatchParams): Promise<void> {
 		// if (params.details.repoPath == null || params.details.commit == null) return;
 		// void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, {
 		// 	branchName: params.targetRef,
@@ -448,19 +494,17 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 	}
 
-	@ipcCommand(CopyCloudLinkCommand)
-	private onCopyCloudLink() {
+	private onCopyCloudLink(): void {
 		if (this._context.draft?.draftType !== 'cloud') return;
 
 		void env.clipboard.writeText(this._context.draft.deepLinkUrl);
 	}
 
-	private async getOrganizationMembers() {
+	private async getOrganizationMembers(): Promise<OrganizationMember[]> {
 		return this.container.organizations.getMembers();
 	}
 
-	@ipcCommand(UpdatePatchUsersCommand)
-	private async onInviteUsers() {
+	private async onInviteUsers(): Promise<void> {
 		let owner;
 		let ownerSelection;
 		let pickedMemberIds: string[] | undefined;
@@ -529,8 +573,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 	}
 
-	@ipcCommand(UpdatePatchUserSelectionCommand)
-	private onUpdatePatchUserSelection(params: IpcParams<typeof UpdatePatchUserSelectionCommand>) {
+	private onUpdatePatchUserSelection(params: UpdatePatchUserSelection): void {
 		if (this.mode === 'create') {
 			const userSelections = this._context.create?.userSelections;
 			if (userSelections == null) return;
@@ -565,14 +608,13 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		void this.notifyDidChangeViewDraftState();
 	}
 
-	@ipcCommand(CreatePatchCommand)
 	private async onCreateDraft({
 		title,
 		changesets,
 		description,
 		visibility,
 		userSelections,
-	}: IpcParams<typeof CreatePatchCommand>): Promise<void> {
+	}: CreatePatchParams): Promise<void> {
 		if (
 			!(await ensureAccount(this.container, 'Cloud Patches are a Preview feature and require an account.', {
 				source: 'cloud-patches',
@@ -661,8 +703,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 	}
 
-	@ipcCommand(ArchiveDraftCommand)
-	private async onArchiveDraft({ reason }: IpcParams<typeof ArchiveDraftCommand>) {
+	private async onArchiveDraft({ reason }: ArchiveDraftParams): Promise<void> {
 		if (this._context.draft?.draftType !== 'cloud') return;
 
 		const isCodeSuggestion = this._context.draft.type === 'suggested_pr_change';
@@ -737,45 +778,54 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		);
 	}
 
-	@ipcRequest(ExplainRequest)
-	private async onExplain(): Promise<IpcResponse<typeof ExplainRequest>> {
+	private async onExplain(signal?: AbortSignal): Promise<DidExplainParams> {
 		if (this._context.draft?.draftType !== 'cloud') {
 			return { error: { message: 'Unable to find patch' } };
 		}
 
+		// Bridge the webview's marshaled abort signal onto the AI action's cancellation token, and poll it at await
+		// boundaries the AI call itself can't interrupt (draft fetching, commit creation prompts).
+		const { token: cancellation, dispose } = fromAbortSignal(signal);
 		try {
 			// TODO@eamodio HACK -- only works for the first patch
 			const patch = await this.getDraftPatch(this._context.draft);
+			if (signal?.aborted) throw new CancellationError();
 			if (patch == null) throw new Error('Unable to find patch');
 
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
+			if (signal?.aborted) throw new CancellationError();
 			if (commit == null) throw new Error('Unable to find commit');
 
 			const deferredResult = await this.container.ai.actions.explainCommit(
 				commit,
 				{ source: 'patchDetails', context: { type: `draft-${this._context.draft.type}` } },
-				{ progress: { location: { viewId: this.host.id } } },
+				{ progress: { location: { viewId: this.host.id } }, cancellation: cancellation },
 			);
-			if (deferredResult === 'cancelled') throw new Error('Operation was canceled');
+			if (deferredResult === 'cancelled' || signal?.aborted) throw new CancellationError();
 
 			if (deferredResult == null) throw new Error('Error retrieving content');
 
 			const { promise } = deferredResult;
 
 			const result = await promise;
-			if (result === 'cancelled') throw new Error('Operation was canceled');
+			if (result === 'cancelled' || signal?.aborted) throw new CancellationError();
 
 			if (result == null) throw new Error('Error retrieving content');
 
 			return { result: result.result };
 		} catch (ex) {
 			debugger;
+			if (isCancellationError(ex)) {
+				return { error: { message: 'Operation was canceled' } };
+			}
+
 			return { error: { message: ex.message } };
+		} finally {
+			dispose();
 		}
 	}
 
-	@ipcRequest(GenerateRequest)
-	private async onGenerateDetails(): Promise<IpcResponse<typeof GenerateRequest>> {
+	private async onGenerateDetails(signal?: AbortSignal): Promise<DidGenerateParams> {
 		let repo: GlRepository | undefined;
 		if (this._context.create?.changes != null) {
 			for (const change of this._context.create.changes.values()) {
@@ -790,6 +840,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			return { error: { message: 'Unable to find changes' } };
 		}
 
+		const { token: cancellation, dispose } = fromAbortSignal(signal);
 		try {
 			// TODO@eamodio HACK -- only works for the first patch
 			// const patch = await this.getDraftPatch(this._context.draft);
@@ -801,9 +852,9 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			const result = await this.container.ai.actions.generateCreateDraft(
 				repo,
 				{ source: 'patchDetails', context: { type: 'patch' } },
-				{ progress: { location: { viewId: this.host.id } } },
+				{ progress: { location: { viewId: this.host.id } }, cancellation: cancellation },
 			);
-			if (result === 'cancelled') throw new Error('Operation was canceled');
+			if (result === 'cancelled' || signal?.aborted) throw new CancellationError();
 
 			if (result == null) throw new Error('Error retrieving content');
 
@@ -813,16 +864,17 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			};
 		} catch (ex) {
 			debugger;
+			if (isCancellationError(ex)) {
+				return { error: { message: 'Operation was canceled' } };
+			}
+
 			return { error: { message: ex.message } };
+		} finally {
+			dispose();
 		}
 	}
 
-	private async openPatchContents(_params: ExecuteFileActionParams) {
-		// TODO@eamodio Open the patch contents for the selected repo in an untitled editor
-	}
-
-	@ipcCommand(DraftPatchCheckedCommand)
-	private onPatchChecked(params: IpcParams<typeof DraftPatchCheckedCommand>) {
+	private onPatchChecked(params: DraftPatchCheckedParams): void {
 		if (params.patch.repository.located || params.checked === false) return;
 
 		const patch = (this._context.draft as Draft)?.changesets?.[0].patches?.find(
@@ -833,23 +885,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		void this.getOrLocatePatchRepository(patch, { prompt: true, notifyOnLocation: true });
 	}
 
-	private notifyPatchRepositoryUpdated(patch: DraftPatch) {
-		return this.host.notify(DidChangePatchRepositoryNotification, {
-			patch: serialize({
-				...patch,
-				contents: undefined,
-				commit: undefined,
-				repository: {
-					id: patch.gkRepositoryId,
-					name: patch.repository?.name ?? '',
-					located: isRepoLocated(patch.repository),
-				},
-			}),
-		});
+	private notifyPatchRepositoryUpdated(patch: DraftPatch): void {
+		this._service?.firePatchRepositoryChanged({ patch: toPatchDetails(patch) });
 	}
 
-	@ipcCommand(UpdateCreatePatchRepositoryCheckedStateCommand)
-	private onUpdateCreateCheckedState(params: IpcParams<typeof UpdateCreatePatchRepositoryCheckedStateCommand>) {
+	private onUpdateCreateCheckedState(params: UpdateCreatePatchRepositoryCheckedStateParams): void {
 		const changeset = this._context.create?.changes.get(params.repoUri);
 		if (changeset == null) return;
 
@@ -857,8 +897,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		void this.notifyDidChangeCreateDraftState();
 	}
 
-	@ipcCommand(UpdateCreatePatchMetadataCommand)
-	private onUpdateCreateMetadata(params: IpcParams<typeof UpdateCreatePatchMetadataCommand>) {
+	private onUpdateCreateMetadata(params: UpdateCreatePatchMetadataParams): void {
 		if (this._context.create == null) return;
 
 		this._context.create.title = params.title;
@@ -867,16 +906,14 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		void this.notifyDidChangeCreateDraftState();
 	}
 
-	@ipcCommand(UpdatePatchDetailsMetadataCommand)
-	private onUpdateDraftMetadata(params: IpcParams<typeof UpdatePatchDetailsMetadataCommand>) {
+	private onUpdateDraftMetadata(params: UpdatePatchDetailsMetadataParams): void {
 		if (this._context.draft == null) return;
 
 		this._context.draftVisibiltyState = params.visibility;
 		void this.notifyDidChangeViewDraftState();
 	}
 
-	@ipcCommand(UpdatePatchDetailsPermissionsCommand)
-	private async onUpdateDraftPermissions() {
+	private async onUpdateDraftPermissions(): Promise<void> {
 		const draft = this._context.draft as Draft;
 		const draftId = draft.id;
 		const changes = [];
@@ -923,22 +960,13 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		void this.notifyDidChangeViewDraftState();
 	}
 
-	// private shareLocalPatch() {
-	// 	if (this._context.open?.draftType !== 'local') return;
-
-	// 	this.updateCreateFromLocalPatch(this._context.open);
-	// }
-
-	@ipcCommand(SwitchModeCommand)
-	private onSwitchMode(params: IpcParams<typeof SwitchModeCommand>) {
+	private onSwitchMode(params: SwitchModeParams): void {
 		this.setMode(params.mode);
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
 	private updateState(immediate: boolean = false) {
-		this.host.clearPendingIpcNotifications();
-
 		if (immediate) {
 			void this.notifyDidChangeState();
 			return;
@@ -972,9 +1000,9 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		return state;
 	}
 
-	private async notifyDidChangeState() {
+	private async notifyDidChangeState(): Promise<void> {
 		this._notifyDidChangeStateDebounced?.cancel();
-		return this.host.notify(DidChangeNotification, { state: await this.getState(this._context) });
+		this._service?.fireStateChanged(await this.getState(this._context));
 	}
 
 	private updateCreateDraftState(create: CreateDraft) {
@@ -1077,8 +1105,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		};
 	}
 
-	private async notifyDidChangeCreateDraftState() {
-		return this.host.notify(DidChangeCreateNotification, {
+	private async notifyDidChangeCreateDraftState(): Promise<void> {
+		this._service?.fireCreateChanged({
 			mode: this._context.mode,
 			create: await this.getCreateDraftState(this._context),
 		});
@@ -1178,18 +1206,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				visibility: draft.visibility,
 				gkDevLink: this._context.draftGkDevUrl,
 				patches: draft.changesets?.length
-					? serialize(
-							draft.changesets[0].patches.map(p => ({
-								...p,
-								contents: undefined,
-								commit: undefined,
-								repository: {
-									id: p.gkRepositoryId,
-									name: p.repository?.name ?? '',
-									located: isRepoLocated(p.repository),
-								},
-							})),
-						)
+					? serialize(draft.changesets[0].patches.map(toPatchDetails))
 					: undefined,
 				users: draftUserState.users,
 				userSelections: draftUserState.selections,
@@ -1232,15 +1249,14 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 	}
 
-	private async notifyDidChangeViewDraftState(deferredPatchLoading = true) {
-		return this.host.notify(DidChangeDraftNotification, {
+	private async notifyDidChangeViewDraftState(deferredPatchLoading = true): Promise<void> {
+		this._service?.fireDraftChanged({
 			mode: this._context.mode,
 			draft: serialize(await this.getViewDraftState(this._context, deferredPatchLoading)),
 		});
 	}
 
-	@ipcCommand(UpdatePreferencesCommand)
-	private onUpdatePreferences(params: IpcParams<typeof UpdatePreferencesCommand>) {
+	private onUpdatePreferences(params: UpdatePreferenceParams): void {
 		if (
 			this._context.preferences?.files?.compact === params.files?.compact &&
 			this._context.preferences?.files?.icon === params.files?.icon &&
@@ -1267,11 +1283,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			this._context.preferences.files = params.files;
 		}
 
-		void this.notifyDidChangePreferences();
+		this.notifyDidChangePreferences();
 	}
 
-	private async notifyDidChangePreferences() {
-		return this.host.notify(DidChangePreferencesNotification, { preferences: this._context.preferences });
+	private notifyDidChangePreferences(): void {
+		this._service?.firePreferencesChanged({ preferences: this._context.preferences });
 	}
 
 	private async getDraftPatch(draft: Draft, gkRepositoryId?: GkRepositoryId): Promise<DraftPatch | undefined> {
@@ -1446,8 +1462,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		return patch?.commit;
 	}
 
-	@ipcCommand(OpenFileCommand)
-	private async onOpenFile(params: IpcParams<typeof OpenFileCommand>) {
+	private async onOpenFile(params: ExecuteFileActionParams): Promise<void> {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1472,8 +1487,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		return 'Patch';
 	}
 
-	@ipcCommand(OpenFileComparePreviousCommand)
-	private async onOpenFileComparisonWithPrevious(params: IpcParams<typeof OpenFileComparePreviousCommand>) {
+	private async onOpenFileComparisonWithPrevious(params: ExecuteFileActionParams): Promise<void> {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1496,8 +1510,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
 	}
 
-	@ipcCommand(OpenFileCompareWorkingCommand)
-	private async onOpenFileComparisonWithWorking(params: IpcParams<typeof OpenFileCompareWorkingCommand>) {
+	private async onOpenFileComparisonWithWorking(params: ExecuteFileActionParams): Promise<void> {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
@@ -1531,7 +1544,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			patch.repository = repo;
 
 			if (options?.notifyOnLocation) {
-				void this.notifyPatchRepositoryUpdated(patch);
+				this.notifyPatchRepositoryUpdated(patch);
 			}
 		}
 
@@ -1576,18 +1589,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 
 		return draft;
 	}
-}
-
-function isDraftMissingContent(draft: Draft): boolean {
-	if (draft.changesets == null) return true;
-
-	return some(draft.changesets, cs =>
-		cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
-	);
-}
-
-function isRepoLocated(repo: DraftPatch['repository']): boolean {
-	return repo != null && GlRepository.is(repo);
 }
 
 function toDraftUserSelection(

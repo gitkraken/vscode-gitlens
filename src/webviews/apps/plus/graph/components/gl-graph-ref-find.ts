@@ -3,8 +3,7 @@ import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
-import { telemetryContext } from '../../../shared/contexts/telemetry.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
@@ -62,9 +61,6 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _sidebarActions?: SidebarActions;
-
-	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
-	private _telemetry!: TelemetryContext;
 
 	/** How this session of the finder was opened, for telemetry. Set by the graph when it opens us. */
 	@property({ attribute: false })
@@ -459,7 +455,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	/** One event per landed reference — on commit, not per keystroke, which would be mostly noise. */
 	private reportLanding(match: RefFindMatch): void {
 		const terms = parseFilterTerms(this._query);
-		this._telemetry?.sendEvent({
+		emitTelemetrySentEvent(this, {
 			name: 'graph/action/refFind',
 			data: {
 				source: this.openedBy,

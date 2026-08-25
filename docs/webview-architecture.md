@@ -1,81 +1,193 @@
 # Webview Architecture
 
-How webview apps hold state and talk to the extension host. GitLens runs **two communication
-layers side by side** — a legacy IPC message protocol and a Supertalk RPC + signals stack — and
-which one a surface uses is a property of that surface, not of the infrastructure. For the
-webview IPC protocol itself see `docs/architecture.md`; for styling see `docs/webview-styling.md`;
-for the Commit Graph's rows channel see `docs/graph-update-pipeline.md`.
+How webview apps hold state and talk to the extension host. Every surface runs the **same single
+stack**: Supertalk RPC over VS Code's postMessage pipe, with frames traveling as binary payloads
+wrapped in a `__supertalk_rpc__` namespace (`rpc/constants.ts`). Around that core, each concern
+has one mechanism: readiness rides the RPC session announcement, visibility/focus pushes ride
+buffered RPC events re-emitted as window CustomEvents, bootstrap arrives once through a serialized
+HTML attribute with tagged-value revival, and persistence uses the VS Code webview state API. For
+styling see `docs/webview-styling.md`; for the Commit Graph's rows channel see
+`docs/graph-update-pipeline.md`.
 
-## The two layers
+## One stack
 
-`WebviewController` instantiates **both** channels for every surface regardless of which one that
-surface uses: an `RpcHost` (`src/webviews/webviewController.ts:225`) and the legacy
-`notify()` / pending-notification queue (`src/webviews/webviewController.ts:976` onward). A
-surface's layer is determined by what its provider and app code call.
+Every webview gets an `RpcHost` (`src/webviews/webviewController.ts`) exposing typed services
+(`rpc/services/`, aggregated by `createSharedServices`) over a single Supertalk connection; the
+app side connects through its `RpcController`. There is no second message protocol and no
+per-surface transport choice.
 
-| Surface         | Layer      | Evidence                                                                                                                                                                                                                                                                        |
-| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Settings        | RPC only   | `apps/settings/settings.ts:66`; `settings/protocol.ts` is 7 lines, 0 IPC types                                                                                                                                                                                                  |
-| Commit Details  | RPC only   | `apps/commitDetails/commitDetails.ts:59`; `commitDetails/protocol.ts` has 0 IPC types                                                                                                                                                                                           |
-| Home            | RPC only   | `apps/home/home.ts:103`; the `PromosContext` bridge is gone — promos invalidate via `PromosContext.connect(subscription)`                                                                                                                                                       |
-| Timeline        | RPC only   | `apps/plus/timeline/timeline.ts:70`; its `PromosContext` bridge is gone too                                                                                                                                                                                                     |
-| Commit Graph    | RPC only   | RPC for everything, including the rows data plane — which rides a Supertalk `SequencedChannel` (`graph:rows`) on the same connection, so rows and the calls/events around them are FIFO-ordered (see `docs/graph-update-pipeline.md`). `plus/graph/protocol.ts` has 0 IPC types |
-| Patch Details   | Legacy IPC | no `RpcController`; 30 IPC types                                                                                                                                                                                                                                                |
-| Rebase          | Legacy IPC | no `RpcController`; 29 IPC types                                                                                                                                                                                                                                                |
-| Welcome         | Legacy IPC | no `RpcController`; 6 IPC types                                                                                                                                                                                                                                                 |
-| Allowed Signers | Legacy IPC | no `RpcController`; 5 IPC types                                                                                                                                                                                                                                                 |
+| Surface         | App entry                                | Service planes                                          |
+| --------------- | ---------------------------------------- | ------------------------------------------------------- |
+| Settings        | `apps/settings/settings.ts`              | shared services                                         |
+| Commit Details  | `apps/commitDetails/commitDetails.ts`    | shared services                                         |
+| Home            | `apps/home/home.ts`                      | shared services + promos                                |
+| Timeline        | `apps/plus/timeline/timeline.ts`         | shared services + promos                                |
+| Commit Graph    | `apps/plus/graph/graph.ts`               | `plus/graph/graphService.ts` + the `graph:rows` channel |
+| Patch Details   | `apps/plus/patchDetails/patchDetails.ts` | `rpc/patchDetailsService.ts` + shared services          |
+| Rebase          | `apps/rebase/rebase.ts`                  | `rpc/rebaseService.ts`                                  |
+| Welcome         | `apps/welcome/welcome.ts`                | `rpc/welcomeService.ts` + shared services               |
+| Allowed Signers | `apps/allowedSigners/allowedSigners.ts`  | `rpc/allowedSignersService.ts`                          |
 
-`src/webviews/protocol.ts` is **not** legacy-only — it defines the core-scope handshake every
-surface uses (`WebviewReadyRequest`, focus/visibility/configuration notifications,
-`ApplicablePromoRequest`) at `src/webviews/protocol.ts:23-104`, consumed by RPC and legacy
-surfaces alike.
+`src/webviews/protocol.ts` is a pure types module (custom config keys and `WebviewState`) —
+it declares no messages at all. Readiness is part of the RPC session itself: each client session
+announces itself (see "The RPC handshake" below), and focus/visibility pushes all ride RPC.
 
-### The Graph is hybrid, and the split matters
+### The RPC handshake
 
-The Graph has an `RpcController` (`apps/plus/graph/graph.ts:66`) and is fully RPC: every service
-plane lives in `plus/graph/graphService.ts` (including the full-state push, branch state, and
-repo connection — `GraphStateService.onStateChanged` and the `repoStatus` events), and the rows
-plane (paging, splices, sync) rides a Supertalk `SequencedChannel` named `graph:rows` — see
-`docs/graph-update-pipeline.md`. `plus/graph/protocol.ts` is a pure types module with zero IPC
-declarations. The only legacy IPC a Graph webview still exchanges is the shared base webview
-protocol (`WebviewReadyRequest`, `ExecuteCommand`, the visibility/focus notifications).
+There is no separate readiness message. Supertalk's `expose()` sends its ready signal exactly
+once and `waitForReady()` sends nothing, so a host that exposed before the webview's scripts were
+listening would strand the client forever. Instead the announcing side is the client: each mount's
+session runs `reset()` + `expose()` (`apps/shared/rpc/session.ts`), which posts a handshake frame
+the moment the client is listening, and the host watches for exactly that frame
+(`RpcHost`'s announcement tap in `rpc/rpcHost.ts`).
 
-### Cross-transport ordering has no guarantee
+Serving an announcement is destructive — it swaps to a fresh exposed Connection and resets the
+tracked subscriptions — so whether to serve is gated by the controller's session state
+(`_sessionState`): serve only when no generation is currently validated (`none`). A second
+announcement while one is already served-but-unvalidated (a straggler from a dying iframe) or
+while the session is healthy (an element remount joining the live connection) is answered with a
+re-announce on the existing connection instead — inert to sessions whose handshake slot is
+consumed, and sufficient to unblock any genuine waiter. The latch self-heals after
+`sessionLatchTimeout` if the served generation dies before validating, so a crash can't wedge
+the gate shut permanently.
 
-A surface that mixes both layers cannot assume send order survives to the host. Legacy IPC posts
-synchronously (`webview.postMessage` inline in the same tick); Supertalk defers sends to a
-microtask flush. Two messages fired back-to-back from the same click handler — one on each
-transport — race, and the one on Supertalk can simply never arrive if something tears down or
-navigates the webview before its microtask runs.
+After the handshake resolves, the client reports its generation identity over the shared
+`webview` group's `connect()` method (`clientId`/`clientLoadedAt` from
+`getWebviewClientInfo()`), which is what flips the controller `_ready`, classifies reconnects via
+the same-vs-different generation comparison, and drives `provider.onReady`/`onReconnect`. Every RPC
+registration is attributed to the caller session dispatching it — `Connection.callerSession`, read
+synchronously (before any `await`) via `SubscriptionTracker.callerSession`, which `RpcHost` binds
+once in its constructor to a resolver closed over its own (possibly swapped) `Connection`. A
+counter-based generation can't express this safely: bumping a counter on every announcement — served
+or not — means an ignored announcement's straggler (a duplicate/late handshake that still gets a
+resolved `waitForReady()` off the re-posted frame; see the latch above) registers at a NEWER counter
+value than the legitimately-served client, so validating-by-counter releases the wrong side. Session
+identity doesn't have that ordering problem: each registration simply belongs to the connection that
+made it.
 
-This isn't hypothetical: it happened. The Graph's welcome-continue button used to fire a legacy
-IPC command (open the welcome view) and, from a parent handler, a Supertalk RPC call (persist
-onboarding dismissals, then `vscode.moveViews` the Graph into the side bar or panel). The move
-tears down and re-creates the webview; the RPC's microtask-deferred send lost the race against
-that teardown often enough to silently drop the dismissal, so the welcome prompt re-appeared on
-next open. The fix (`plus/graph/graphService.ts` `GraphWelcomeService.continueToGraph`,
+`connect()` is itself dispatched over RPC, so its own caller session identifies the validating
+client. While `_sessionState` is `none`, EVERY `connect()` is rejected unconditionally — nothing has
+been served since the last invalidation (dispose, html reload, non-retain hide; each also clears
+`RpcHost.pendingServedSession` via `invalidatePendingSession()`), so no caller has anything
+legitimate to validate against, even one whose session happens to still equal a now-stale
+`pendingServedSession`. While `served-awaiting-validation`, the caller session is checked against
+`RpcHost.pendingServedSession` — the session `RpcHost` captured off the handshake frame's own
+`session` field when it decided to SERVE that announcement (as opposed to answering with an inert
+re-announce); a mismatch means this `connect()` didn't come from the session actually served, so
+it's rejected as a straggler and only ITS OWN registrations are released
+(`SubscriptionTracker.releaseSession`). Once healthy, an element remount's `connect()` skips this
+gate entirely (its announcement is deliberately left unserved, so its session never becomes the
+pending one) and instead passes the existing `clientId`/`clientLoadedAt` comparison. Either way, once
+a `connect()` call validates, `SubscriptionTracker.releaseAllExcept(session)` disposes every
+registration NOT owned by the validating session, across every event (`rpc/eventVisibilityBuffer.ts`)
+— a same-connection remount's predecessor mount, or any straggler's debris. This runs BEFORE
+`provider.onReconnect`/`onReady` (`WebviewController.connect()`), so a provider that reseeds
+synchronously from one of those callbacks can't push that reseed to a not-yet-released interloper's
+still-live registration. A genuinely served reconnect (a swapped Connection, not a remount)
+additionally calls the tracker's wholesale `reset()` from `RpcHost`, disposing everything
+unconditionally. Because release waits for validation, there's a brief window — between a remount's
+replay and its `connect()` — where both the old and new session's registrations are live and a fired
+event reaches both; a straggler that never reaches `connect()` at all never triggers a release, so
+its debris registrations are only ever disposed by the next legitimate validation or a served
+reconnect's `reset()`.
+
+`releaseAllExcept(session)` tombstones (see `SubscriptionTracker.isSessionReleased`) every session
+this call ACTUALLY released a registration for, every `SubscriptionTracker.reserveSession`'d session
+not superseded, and the previously validated keeper (remembered from the last `releaseAllExcept`, so
+a keeper that happens to be idle — nothing tracked, nothing reserved — when it's superseded is still
+released) — deliberately NEVER a session merely for not being the new keeper. A session that has
+never validated and has neither a tracked registration nor a reservation at release time has had no
+chance to be superseded (e.g. a remount's brand-new post-reset session, registering before its own
+`connect()` runs) and must stay live, or its retained subscription would be torn down before it ever
+gets to validate. This is also what stops a released interloper from immediately re-registering: its
+earlier registration was tombstoned right here, so a synchronous re-registration is caught by
+`isSessionReleased` in `trackRpcRegistration`.
+
+An async subscription method that awaits resource acquisition before registering (e.g.
+`RepositoryService.onRepositoryOrWorktreeChanged`) must capture its caller session before that await
+— `Connection.callerSession` is unreliable once the caller resumes from an `await` (see its doc
+comment) — call `SubscriptionTracker.reserveSession(session)` synchronously right there (before the
+await) so a validation landing while it's mid-acquisition can still tombstone it despite having
+nothing tracked yet, and pass the captured session explicitly to `trackRpcRegistration`'s optional
+session parameter, which re-checks `SubscriptionTracker.isSessionReleased(session)` immediately
+before attaching (running `attach()` regardless, so any resource it wraps still gets a teardown call
+instead of leaking, then tearing that down immediately instead of installing it). `reserveSession`
+returns a one-shot release handle backed by a refcount — each concurrent acquisition holds its own,
+so same-session overlaps don't collapse — and the method must release it on EVERY exit path,
+including a rejected acquisition: wrap the whole thing in `try/finally`, releasing in the `finally`
+so it runs after `trackRpcRegistration`'s check. The method itself should still check `epoch` after
+the await, which `isSessionReleased` doesn't cover — a different failure mode (reset/disposal, not
+session invalidation).
+
+Any event implementation that doesn't go through `createRpcEvent`/`createRpcEventSubscription`
+must register through the exported `trackRpcRegistration` helper in the same file, never call
+`tracker.track()` directly. A bare `track()` skips session attribution and stacks a duplicate
+listener on every remount.
+
+### Shared-core pushes ride RPC
+
+Focus reporting, telemetry, and host focus/visibility pushes are wired centrally, not per surface:
+
+- The host exposes a shared `webview` service group (`rpc/webviewViewService.ts`, aggregated by
+  `createSharedServices`) with `connect()` (the session handshake), `focusChanged()` and three
+  save-last events (`onVisibilityChanged`, `onWebviewFocusChanged`, `onHostWindowFocusChanged`);
+  its controller-side emitters are their only source.
+- `RpcController` resolves that group after each handshake, subscribes its events once (re-armed
+  automatically per handshake), dispatches the `webview-focus`/`webview-blur` and
+  `webview-visible`/`webview-hidden` window CustomEvents from that single place (shared overlays
+  like popovers listen for them), and invokes its
+  `onWebviewFocusChanged`/`onWebviewVisibilityChanged`/`onHostWindowFocusChanged` option callbacks
+  so app-level overrides keep working. It also exposes `sendTelemetry()` (buffered, in-order flush
+  on ready) and `sendFocusChanged()`.
+- App bases (`apps/shared/appBase.ts`) route the focus tracker's debounced reports and the
+  `emitTelemetrySentEvent` DOM-event bridge through those controller methods.
+
+### The Graph
+
+The Graph is fully RPC: every service plane lives in
+`plus/graph/graphService.ts` (including the full-state push, branch state, and repo connection —
+`GraphStateService.onStateChanged` and the `repoStatus` events), and the rows plane (paging,
+splices, sync) rides a Supertalk `SequencedChannel` named `graph:rows` — see
+`docs/graph-update-pipeline.md`. `plus/graph/protocol.ts` is a pure types module, and its command
+executions ride the shared `commands` RPC service.
+
+The Graph keeps one bootstrap-era trait the other surfaces don't: its `GraphStateProvider` seeds
+its whole signal-state mirror from the `context=` attribute (the serialized `State` payload built
+by `includeBootstrap`) instead of fetching over RPC. The host serializes that attribute with the
+tagged-value serializer (`serializeIpcData`, `system/ipcSerialize.js`), so the provider revives it
+through `deserializeIpcData` directly — plain `JSON.parse` would silently deliver raw
+`{ __ipc: 'date' }` tags for values like `branchState.pr`'s dates.
+
+### Sequencing across teardown
+
+Supertalk defers sends to a microtask flush, so a message fired from a click handler can simply
+never arrive if something tears down or navigates the webview before its microtask runs.
+
+This isn't hypothetical: it happened. The Graph's welcome-continue button used to fire a command
+(open the welcome view) and, from a parent handler, an RPC call (persist onboarding dismissals,
+then `vscode.moveViews` the Graph into the side bar or panel). The move tears down and re-creates
+the webview; the deferred persist lost the race against that teardown often enough to silently
+drop the dismissal, so the welcome prompt re-appeared on next open. The fix
+(`plus/graph/graphService.ts` `GraphWelcomeService.continueToGraph`,
 `plus/graph/graphWebview.ts` `onWelcomeContinueToGraph`) folded both effects into one RPC method,
-so the persist-then-move sequencing lives inside a single causally-ordered handler instead of
-depending on two transports racing correctly.
+so the persist-then-move sequencing lives inside a single causally-ordered handler.
 
-**Rule**: for any interaction where one message's handler tears down, moves, or navigates the
-webview, that message must be sent _last_, and any durable side effect (persistence, telemetry)
-must ride inside that same message's handler — not a separate message on the other transport,
-regardless of send order. If a durable effect genuinely must precede the teardown-triggering
-message on a different transport, it must be ack-sequenced (await the write's response before
-sending the second message), not fire-and-forget.
+**Rule**: any durable side effect (persistence, telemetry) must ride inside the same handler that
+tears down, moves, or navigates the webview — not in a separate fire-and-forget message. If a
+durable effect genuinely must precede the teardown-triggering message, ack-sequence it (await the
+write's response before sending it), not fire-and-forget.
 
-The search plane shows the other way out: move a whole plane rather than living with the split.
-Search once ran two channels for one operation — a request/response plus a notification stream —
-and arbitrated between them with a monotonic `searchId` stamped on every payload, because legacy
-IPC offers no per-operation cancellation and no causal ordering between a response and the
-notifications its own handler emitted. On RPC that counter is unnecessary: the caller's
-`AbortSignal` crosses the wire, so a superseded search simply resolves with nothing. The migration
-deleted the counter outright rather than porting it, along with the rows-plane rider that
-re-shipped search results on every rows emission. Two constraints came out of it and generalize:
-a plane moves **whole** (a half-migrated plane is the hazard above, by construction), and any
-payload on a `save-last` buffered event must be a **complete snapshot**, never a delta — a hidden
-webview keeps only the newest emission, so deltas silently lose everything in between.
+The search plane shows the other way out: move a whole plane rather than living with a split one.
+Search once ran as a request/response plus a notification stream for one operation, arbitrated by
+a monotonic `searchId` stamped on every payload because the split offered no per-operation
+cancellation and no causal ordering between a response and the notifications its own handler
+emitted. On RPC that counter is unnecessary: the caller's `AbortSignal` crosses the wire, so a
+superseded search simply resolves with nothing. The migration deleted the counter outright rather
+than porting it, along with the rows-plane rider that re-shipped search results on every rows
+emission. Two constraints came out of it and generalize: a plane moves **whole** (a half-migrated
+plane is the hazard above, by construction), and any payload on a `save-last` buffered event must
+be a **complete snapshot**, never a delta — a hidden webview keeps only the newest emission, so
+deltas silently lose everything in between.
 
 ## State ownership
 
@@ -115,9 +227,9 @@ export interface HostContext {
 tests or non-VS Code hosts. `HostStorage` (`host/storage.ts:3`) is a two-method
 `get()`/`set()` interface with four implementations in that file: `VsCodeStorage` (wraps
 `getState`/`setState`), `BrowserStorage` (`localStorage`), `InMemoryStorage`, and `noopStorage`.
-
-`setHostIpcFactory()` (`apps/shared/ipc.ts:41`) is the lower-level seam — call it before any
-RPC/IPC initialization to supply a non-VS Code `postMessage`/`getState`/`setState`.
+The raw VS Code webview API surface itself is wrapped by `getHostIpcApi()`
+(`apps/shared/ipc.ts`) — `postMessage` for the RPC transport's outbound path plus
+`getState`/`setState` for persistence — so no app code touches `acquireVsCodeApi()` directly.
 
 ## State groups and persistence
 
@@ -208,9 +320,9 @@ Keep queries **resource-shaped, not screen-shaped**. `getCommit(id)` composes an
 `getCommitDetailsState()` couples the host to a layout and blocks progressive rendering.
 
 Shared services are aggregated by `SharedWebviewServices` (`rpc/services/common.ts:41`) and live
-in `src/webviews/rpc/services/` — repositories, repository, config, storage, subscription,
-integrations, onboarding, agents, ai, autolinks, branches, commands, telemetry, files,
-pullRequests, drafts.
+in `src/webviews/rpc/` — repositories, repository, config, storage, subscription, integrations,
+onboarding, agents, ai, autolinks, branches, commands, telemetry, files, pullRequests, drafts
+(under `rpc/services/`), and the shared `webview` group (`rpc/webviewViewService.ts`).
 
 Fire-and-forget helpers: `fireRpc()` (`apps/shared/actions/rpc.ts:203`) logs and surfaces the
 error into an error signal; `optimisticFireAndForget()` (`actions/rpc.ts:86`) applies a value
@@ -222,8 +334,9 @@ immediately and rolls back on rejection, version-guarded so overlapping writes d
 
 `RpcController` (`apps/shared/rpc/rpcController.ts:69`) is a Lit `ReactiveController`. It aborts
 any prior in-flight connection on `hostConnected()` — VS Code mounts and unmounts sidebar views
-repeatedly — then calls `wrapServices()` (`apps/shared/rpcClient.ts:139`). Reconnect is a full
-teardown and fresh `wrapServices()`, never an incremental resubscribe.
+repeatedly — then starts a session: announce, await the host's expose, and report the generation
+via the `webview` group's `connect()`. Reconnect is a full teardown and fresh session on the same
+long-lived connection, never an incremental resubscribe.
 
 Timeline is the clearest reference implementation
 (`apps/plus/timeline/timeline.ts`):

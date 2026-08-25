@@ -19,15 +19,7 @@ import type {
 } from '../../../plus/drafts/models/drafts.js';
 import type { OrganizationMember } from '../../../plus/gk/models/organization.js';
 import type { Serialized } from '../../../system/serialize.js';
-import type { IpcScope } from '../../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
-
-export const scope: IpcScope = 'patchDetails';
-
-export const messageHeadlineSplitterToken = '\x00\n\x00';
-
-export type FileShowOptions = TextDocumentShowOptions;
 
 export type PatchDetails = Serialized<
 	Omit<DraftPatch, 'commit' | 'contents' | 'repository'> & {
@@ -165,9 +157,7 @@ export interface State extends WebviewState<'gitlens.patchDetails' | 'gitlens.vi
 	create?: CreatePatchState;
 }
 
-export type ShowCommitDetailsViewCommandArgs = string[];
-
-// COMMANDS
+// COMMAND PARAMS
 
 export interface ApplyPatchParams {
 	details: DraftDetails;
@@ -175,12 +165,10 @@ export interface ApplyPatchParams {
 	target: 'current' | 'branch' | 'worktree';
 	selected: PatchDetails['id'][];
 }
-export const ApplyPatchCommand = new IpcCommand<ApplyPatchParams>(scope, 'apply');
 
 export interface ArchiveDraftParams {
 	reason?: Exclude<DraftArchiveReason, 'committed'>;
 }
-export const ArchiveDraftCommand = new IpcCommand<ArchiveDraftParams>(scope, 'archive');
 
 export interface CreatePatchParams {
 	title: string;
@@ -189,85 +177,49 @@ export interface CreatePatchParams {
 	visibility: DraftVisibility;
 	userSelections?: DraftUserSelection[];
 }
-export const CreatePatchCommand = new IpcCommand<CreatePatchParams>(scope, 'create');
 
 export interface OpenInCommitGraphParams {
 	repoPath: string;
 	ref: string;
 }
-export const OpenInCommitGraphCommand = new IpcCommand<OpenInCommitGraphParams>(scope, 'openInGraph');
 
 export interface DraftPatchCheckedParams {
 	patch: PatchDetails;
 	checked: boolean;
 }
-export const DraftPatchCheckedCommand = new IpcCommand<DraftPatchCheckedParams>(scope, 'checked');
-
-export interface SelectPatchRepoParams {
-	repoPath: string;
-}
-export const SelectPatchRepoCommand = new IpcCommand(scope, 'selectRepo');
-
-export const SelectPatchBaseCommand = new IpcCommand(scope, 'selectBase');
 
 export interface ExecuteFileActionParams extends DraftPatchFileChange {
 	showOptions?: TextDocumentShowOptions;
 }
-export const ExecuteFileActionCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/actions/execute');
-export const OpenFileCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/open');
-export const OpenFileOnRemoteCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/openOnRemote');
-export const OpenFileCompareWorkingCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/compareWorking');
-export const OpenFileComparePreviousCommand = new IpcCommand<ExecuteFileActionParams>(scope, 'file/comparePrevious');
 
 export type UpdatePreferenceParams = UpdateablePreferences;
-export const UpdatePreferencesCommand = new IpcCommand<UpdatePreferenceParams>(scope, 'preferences/update');
 
 export interface SwitchModeParams {
 	repoPath?: string;
 	mode: Mode;
 }
-export const SwitchModeCommand = new IpcCommand<SwitchModeParams>(scope, 'switchMode');
-
-export const CopyCloudLinkCommand = new IpcCommand(scope, 'cloud/copyLink');
-
-export const CreateFromLocalPatchCommand = new IpcCommand(scope, 'local/createPatch');
 
 export interface UpdateCreatePatchRepositoryCheckedStateParams {
 	repoUri: string;
 	checked: boolean | 'staged';
 }
-export const UpdateCreatePatchRepositoryCheckedStateCommand =
-	new IpcCommand<UpdateCreatePatchRepositoryCheckedStateParams>(scope, 'create/repository/check');
 
 export interface UpdateCreatePatchMetadataParams {
 	title: string;
 	description: string | undefined;
 	visibility: DraftVisibility;
 }
-export const UpdateCreatePatchMetadataCommand = new IpcCommand<UpdateCreatePatchMetadataParams>(
-	scope,
-	'update/create/metadata',
-);
 
 export interface UpdatePatchDetailsMetadataParams {
 	visibility: DraftVisibility;
 }
-export const UpdatePatchDetailsMetadataCommand = new IpcCommand<UpdatePatchDetailsMetadataParams>(
-	scope,
-	'update/draft/metadata',
-);
-
-export const UpdatePatchDetailsPermissionsCommand = new IpcCommand(scope, 'update/draft/permissions');
-
-export const UpdatePatchUsersCommand = new IpcCommand(scope, 'update/users');
 
 export interface UpdatePatchUserSelection {
 	selection: DraftUserSelection;
 	role: Exclude<DraftRole, 'owner'> | 'remove';
 }
-export const UpdatePatchUserSelectionCommand = new IpcCommand<UpdatePatchUserSelection>(scope, 'update/userSelection');
 
-// REQUESTS
+// REQUEST RESULTS
 
 export type DidExplainParams =
 	| {
@@ -275,7 +227,6 @@ export type DidExplainParams =
 			error?: never;
 	  }
 	| { error: { message: string } };
-export const ExplainRequest = new IpcRequest<void, DidExplainParams>(scope, 'explain');
 
 export type DidGenerateParams =
 	| {
@@ -284,37 +235,3 @@ export type DidGenerateParams =
 			error?: undefined;
 	  }
 	| { error: { message: string } };
-export const GenerateRequest = new IpcRequest<void, DidGenerateParams>(scope, 'generate');
-
-// NOTIFICATIONS
-
-export interface DidChangeParams {
-	state: Serialized<State>;
-}
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange', true);
-
-export type DidChangeCreateParams = Pick<Serialized<State>, 'create' | 'mode'>;
-export const DidChangeCreateNotification = new IpcNotification<DidChangeCreateParams>(scope, 'create/didChange');
-
-export type DidChangeDraftParams = Pick<Serialized<State>, 'draft' | 'mode'>;
-export const DidChangeDraftNotification = new IpcNotification<DidChangeDraftParams>(scope, 'draft/didChange');
-
-export type DidChangePreferencesParams = Pick<Serialized<State>, 'preferences'>;
-export const DidChangePreferencesNotification = new IpcNotification<DidChangePreferencesParams>(
-	scope,
-	'preferences/didChange',
-);
-
-export interface DidChangePatchRepositoryParams {
-	patch: PatchDetails;
-}
-export const DidChangePatchRepositoryNotification = new IpcNotification<DidChangePatchRepositoryParams>(
-	scope,
-	'draft/didChangeRepository',
-);
-
-export type DidChangeOrgSettings = Pick<Serialized<State>, 'orgSettings'>;
-export const DidChangeOrgSettingsNotification = new IpcNotification<DidChangeOrgSettings>(
-	scope,
-	'org/settings/didChange',
-);

@@ -1,6 +1,6 @@
 ---
 name: add-webview
-description: Create new webviews with IPC protocol, Lit app, and registration
+description: Create new webviews with RPC services, Lit app, and registration
 ---
 
 # /add-webview - Create New Webview
@@ -20,169 +20,275 @@ Scaffold a new webview with all required boilerplate.
 3. **Type** — `view` (sidebar) or `panel` (editor panel)
 4. **Pro feature** — Yes/No (affects file location)
 
+Webviews talk to the host over a single stack: Supertalk RPC (`src/webviews/rpc/`) over the
+namespaced binary postMessage pipe. There is no legacy message protocol. Read `docs/webview-architecture.md`
+first; use `src/webviews/allowedSigners/` + `src/webviews/apps/allowedSigners/` as the smallest
+end-to-end reference, and Timeline for the signals/persistence patterns.
+
 ## Files to Create
 
-### 1. Protocol: `src/webviews/{name}/protocol.ts`
+### 1. Protocol: `src/webviews/{name}/protocol.ts` — pure types
 
 ```typescript
-import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 
-export const scope: IpcScope = '{name}';
-
-export interface State extends WebviewState<'gitlens.views.{name}'> {
+export interface State extends WebviewState<'gitlens.{name}'> {
 	loading: boolean;
 }
 
-// Commands (fire-and-forget)
+// Params/result types for your service methods live here too
 export interface DoSomethingParams {
 	id: string;
 }
-export const DoSomethingCommand = new IpcCommand<DoSomethingParams>(scope, 'doSomething');
-
-// Requests (with response)
-export interface GetDataParams {
-	filter?: string;
+export interface DoSomethingResult {
+	ok: boolean;
 }
-export interface GetDataResponse {
-	items: unknown[];
-}
-export const GetDataRequest = new IpcRequest<GetDataParams, GetDataResponse>(scope, 'getData');
-
-// Notifications (host → webview)
-export interface DidChangeDataParams {
-	items: unknown[];
-}
-export const DidChangeDataNotification = new IpcNotification<DidChangeDataParams>(scope, 'data/didChange');
 ```
 
-### 2. Provider: `src/webviews/{name}/{name}Webview.ts`
+No message declarations and no `scope` const — methods/events are declared on the RPC service.
+
+### 2. RPC service: `src/webviews/rpc/{name}Service.ts`
 
 ```typescript
-import type { Disposable } from 'vscode';
+import type { Container } from '../../container.js';
+import type { DoSomethingParams, DoSomethingResult } from '../{name}/protocol.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
+import { createRpcEvent } from './eventVisibilityBuffer.js';
+import type { RpcEventSubscription } from './services/types.js';
+import type { SharedWebviewServices } from './services/common.js';
+
+/** Fired when host-owned data changes — payload must be a complete snapshot (save-last buffered). */
+export interface DidChangeDataEvent {
+	items: string[];
+}
+
+/** The RPC-facing surface of {@link {Name}Service}. */
+export interface {Name}ViewService {
+	readonly onDataChange: RpcEventSubscription<DidChangeDataEvent>;
+
+	doSomething(params: DoSomethingParams): Promise<DoSomethingResult>;
+}
+
+/** RPC services for the {Name} webview. */
+export interface {Name}Services extends SharedWebviewServices {
+	readonly {name}: {Name}ViewService;
+}
+
+export class {Name}Service implements {Name}ViewService {
+	readonly onDataChanged: RpcEventSubscription<DidChangeDataEvent>;
+
+	readonly #didDataChange = createRpcEvent<DidChangeDataEvent>('dataChanged', 'save-last');
+
+	constructor(container: Container, buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
+		this.onDataChanged = this.#didDataChange.subscribe(buffer, tracker);
+	}
+
+	fireDataChanged(event: DidChangeDataEvent): void {
+		this.#didDataChange.fire(event);
+	}
+
+	async doSomething(params: DoSomethingParams): Promise<DoSomethingResult> {
+		return { ok: true };
+	}
+}
+```
+
+Queries take an optional trailing `AbortSignal`; events are `save-last` so a hidden webview gets
+the latest snapshot on show.
+
+### 3. Provider: `src/webviews/{name}/{name}Webview.ts`
+
+```typescript
 import type { Container } from '../../container.js';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider.js';
-import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
-import type { IpcParams, IpcResponse } from '../ipc/models/ipc.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
+import { createSharedServices } from '../rpc/services/common.js';
+import { proxyServices } from '../rpc/services/proxy.js';
 import type { State } from './protocol.js';
-import { DoSomethingCommand, GetDataRequest, DidChangeDataNotification } from './protocol.js';
+import type { {Name}Services } from '../rpc/{name}Service.js';
+import { {Name}Service } from '../rpc/{name}Service.js';
 
-export class {Name}WebviewProvider implements WebviewProvider<State, State>, Disposable {
-    constructor(
-        private readonly container: Container,
-        private readonly host: WebviewHost<'gitlens.views.{name}'>,
-    ) {}
+export class {Name}WebviewProvider implements WebviewProvider<State, State> {
+	constructor(
+		private readonly container: Container,
+		private readonly host: WebviewHost<'gitlens.{name}'>,
+	) {}
 
-    dispose(): void {}
+	dispose(): void {}
 
-    async includeBootstrap(): Promise<State> {
-        return {
-            webviewId: this.host.id,
-            webviewInstanceId: this.host.instanceId,
-            loading: false,
-        };
-    }
+	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): {Name}Services {
+		const shared = createSharedServices(
+			this.container,
+			this.host,
+			context => {
+				this._telemetryContext = context;
+			},
+			buffer,
+			tracker,
+		);
 
-    @ipcCommand(DoSomethingCommand)
-    private async onDoSomething(params: IpcParams<typeof DoSomethingCommand>): Promise<void> {
-        // Handle command
-    }
+		this._service ??= new {Name}Service(this.container, buffer, tracker);
 
-    @ipcRequest(GetDataRequest)
-    private async onGetData(params: IpcParams<typeof GetDataRequest>): Promise<IpcResponse<typeof GetDataRequest>> {
-        return { items: [] };
-    }
+		return proxyServices({
+			...shared,
+
+			{name}: this._service,
+		} satisfies {Name}Services);
+	}
+
+	includeBootstrap(): State {
+		return {
+			webviewId: this.host.id,
+			webviewInstanceId: this.host.instanceId,
+			timestamp: Date.now(),
+			loading: false,
+		};
+	}
 }
 ```
 
-### 3. Registration: `src/webviews/{name}/registration.ts`
+Prefer resource-shaped queries over a monolithic bootstrap; keep `includeBootstrap()` minimal.
+
+### 4. Registration: `src/webviews/{name}/registration.ts`
 
 ```typescript
-import type { WebviewsController } from '../webviewsController.js';
-import type { WebviewViewProxy } from '../webviewProxy.js';
+import { ViewColumn } from 'vscode';
+import { loadChunk } from '../../system/-webview/loadChunk.js';
+import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController.js';
 import type { State } from './protocol.js';
 
 export type {Name}WebviewShowingArgs = [];
 
-export function register{Name}WebviewView(
-    controller: WebviewsController,
-): WebviewViewProxy<'gitlens.views.{name}', {Name}WebviewShowingArgs, State> {
-    return controller.registerWebviewView<'gitlens.views.{name}', State, State, {Name}WebviewShowingArgs>(
-        {
-            id: 'gitlens.views.{name}',
-            fileName: '{name}.html',
-            title: '{Title}',
-            contextKeyPrefix: 'gitlens:webviewView:{name}',
-            trackingFeature: '{name}View',
-            type: '{name}',
-            plusFeature: false,
-            webviewHostOptions: { retainContextWhenHidden: true },
-        },
-        async (container, host) => {
-            const { {Name}WebviewProvider } = await import(
-                /* webpackChunkName: "webview-{name}" */ './{name}Webview.js'
-            );
-            return new {Name}WebviewProvider(container, host);
-        },
-    );
+export function register{Name}WebviewPanel(
+	controller: WebviewsController,
+): WebviewPanelsProxy<'gitlens.{name}', {Name}WebviewShowingArgs, State> {
+	return controller.registerWebviewPanel<'gitlens.{name}', State, State, {Name}WebviewShowingArgs>(
+		{ id: 'gitlens.{name}' },
+		{
+			id: 'gitlens.{name}',
+			fileName: '{name}.html',
+			title: '{Title}',
+			contextKeyPrefix: 'gitlens:webview:{name}',
+			trackingFeature: '{name}Webview',
+			type: '{name}',
+			plusFeature: false,
+			column: ViewColumn.Active,
+			webviewHostOptions: { retainContextWhenHidden: false },
+		},
+		async (container, host) => {
+			const { {Name}WebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-{name}" */ './{name}Webview.js'),
+			);
+			return new {Name}WebviewProvider(container, host);
+		},
+	);
 }
 ```
 
-### 4. App: `src/webviews/apps/{name}/{name}.ts`
+For a sidebar view use `registerWebviewView` / `WebviewViewsProxy` instead (see any view's
+`registration.ts`), then register it in `src/container.ts`.
+
+### 5. App: `src/webviews/apps/{name}/{name}.ts`
 
 ```typescript
+import type { Remote, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import { html } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { GlAppHost } from '../shared/appHost.js';
-import type { HostIpc } from '../shared/ipc.js';
-import type { LoggerContext } from '../shared/contexts/logger.js';
+import { customElement, property } from 'lit/decorators.js';
+import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import type { State } from '../../{name}/protocol.js';
-import { {Name}StateProvider } from './stateProvider.js';
+import type { {Name}Services } from '../../rpc/{name}Service.js';
+import { SignalWatcherWebviewApp } from '../shared/appBase.js';
+import { getHost } from '../shared/host/context.js';
+import { RpcController } from '../shared/rpc/rpcController.js';
+import { create{Name}State } from './state.js';
 import { styles } from './{name}.css.js';
 
 @customElement('gl-{name}-app')
-export class Gl{Name}App extends GlAppHost<State, {Name}StateProvider> {
-    static override styles = styles;
+export class Gl{Name}App extends SignalWatcherWebviewApp {
+	static override styles = styles;
 
-    protected override createStateProvider(
-        bootstrap: string, ipc: HostIpc, logger: LoggerContext,
-    ): {Name}StateProvider {
-        return new {Name}StateProvider(this, bootstrap, ipc, logger);
-    }
+	@property({ type: String, noAccessor: true })
+	private context!: string;
 
-    override render() {
-        return html`<div class="{name}"><h1>{Title}</h1></div>`;
-    }
+	private _host = getHost();
+	private _state = create{Name}State();
+
+	private _eventsSubscription?: Subscription;
+	private _service?: Awaited<Remote<{Name}Services>['{name}']>;
+
+	protected override readonly _rpc = new RpcController<{Name}Services>(this, {
+		rpcOptions: {
+			webviewId: () => this._webview?.webviewId,
+			webviewInstanceId: () => this._webview?.webviewInstanceId,
+			endpoint: () => this._host.createEndpoint(),
+		},
+		onReady: services => this._onRpcReady(services),
+	});
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+
+		// One-shot bootstrap attribute: cache-then-clear, safe across startup remounts
+		const context = this.consumeOneShotAttribute(this.context);
+		this.context = undefined!;
+		this.initWebviewContext(context);
+
+		const metadata = JSON.parse(fromBase64ToString(context)) as State;
+		this._state.loading.set(metadata.loading);
+	}
+
+	override disconnectedCallback(): void {
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = undefined;
+		this._service = undefined;
+
+		this._state.resetAll();
+
+		super.disconnectedCallback?.();
+	}
+
+	private async _onRpcReady(services: Remote<{Name}Services>): Promise<void> {
+		const service = await services.{name};
+		this._service = service;
+
+		// Subscribe FIRST, before fetching — subscriptions are re-armed per handshake and
+		// save-last events re-emit the latest snapshot on connect.
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = subscribe<{Name}Services>(this._rpc.connection!, async remoteServices => {
+			(await remoteServices.{name}).onDataChanged(() => {
+				/* update signals */
+			});
+		});
+	}
 }
 ```
 
-### 5. State Provider: `src/webviews/apps/{name}/stateProvider.ts`
+Readiness needs no message — each mount's session announces itself over RPC and `_onRpcReady`
+runs against the fresh connection. Focus/visibility arrive via window CustomEvents dispatched by
+`RpcController`; override `onWebviewFocusChanged`/`onWebviewVisibilityChanged` if needed.
+
+### 6. State: `src/webviews/apps/{name}/state.ts`
 
 ```typescript
-import type { Disposable } from 'vscode';
-import type { StateProvider } from '../shared/stateProviderBase.js';
-import type { HostIpc } from '../shared/ipc.js';
-import type { LoggerContext } from '../shared/contexts/logger.js';
-import type { State } from '../../{name}/protocol.js';
+import { createSignalGroup } from '../shared/state/signals.js';
 
-export class {Name}StateProvider implements StateProvider<State>, Disposable {
-    readonly state: State;
+export function create{Name}State() {
+	const { signal, resetAll } = createSignalGroup();
 
-    constructor(
-        private readonly host: Gl{Name}App,
-        bootstrap: string,
-        private readonly ipc: HostIpc,
-        private readonly logger: LoggerContext,
-    ) {
-        this.state = JSON.parse(bootstrap);
-    }
+	const loading = signal(false);
 
-    dispose(): void {}
+	return {
+		loading: loading,
+		resetAll: resetAll,
+	};
 }
 ```
 
-### 6. Styles: `src/webviews/apps/{name}/{name}.css.ts`
+Use `createStateGroup()` + `persisted()` instead of plain signals for navigation/UI state that
+must survive hide/show (see `docs/webview-architecture.md`, "State groups and persistence").
+
+### 7. Styles: `src/webviews/apps/{name}/{name}.css.ts`
 
 ```typescript
 import { css } from 'lit';
@@ -199,14 +305,15 @@ For accessibility requirements when creating or modifying webview components, se
 
 ## Additional Steps
 
-7. **Webpack entry** — Add to `getWebviewsConfigs()` in `webpack.config.mjs`
-8. **Register** in `src/webviews/webviewsController.ts`
-9. **View ID** — Add to `src/constants.views.ts`
-10. **Build** — `pnpm run build:webviews`
+8. **Webpack entry** — Add to `getWebviewsConfigs()` in `webpack.config.mjs`
+9. **Register** in `src/container.ts` (call your `register{Name}Webview*` function)
+10. **View ID** — Add to `src/constants.views.ts`
+11. **Build** — `pnpm run build:webviews`
 
 ## File Locations
 
 | Component         | Community                   | Pro                              |
 | ----------------- | --------------------------- | -------------------------------- |
 | Protocol/Provider | `src/webviews/{name}/`      | `src/webviews/plus/{name}/`      |
+| RPC service       | `src/webviews/rpc/`         |                                  |
 | App               | `src/webviews/apps/{name}/` | `src/webviews/apps/plus/{name}/` |

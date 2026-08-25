@@ -56,7 +56,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	/**
 	 * RPC controller — manages connection lifecycle via Lit's ReactiveController pattern.
 	 */
-	private _rpc = new RpcController<CommitDetailsServices>(this, {
+	protected override readonly _rpc = new RpcController<CommitDetailsServices>(this, {
 		rpcOptions: { endpoint: () => this._host.createEndpoint() },
 		onReady: services => this._onRpcReady(services),
 		onError: error => this._state.error.set(error.message),

@@ -37,8 +37,6 @@ import type {
 import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
-import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
-import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
@@ -171,9 +169,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 		`,
 	];
-
-	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
-	private _telemetry!: TelemetryContext;
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private _services?: typeof graphServicesContext.__context__;
@@ -378,7 +373,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private handleJumpToRef(e: MouseEvent) {
 		// Alt: open the scope menu into the Focus Branch pane so the user can pick a branch to focus.
 		if (e.altKey) {
-			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: true } });
+			emitTelemetrySentEvent(this, { name: 'graph/action/jumpTo', data: { alt: true } });
 			void this.scopePopoverEl?.openToFocusBranch();
 			return;
 		}
@@ -395,7 +390,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 
 		if (this.scopeToCurrentBranch()) {
-			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: false } });
+			emitTelemetrySentEvent(this, { name: 'graph/action/jumpTo', data: { alt: false } });
 		}
 	}
 

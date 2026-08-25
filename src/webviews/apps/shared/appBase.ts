@@ -1,59 +1,42 @@
 /*global window document*/
 import { SignalWatcher } from '@lit-labs/signals';
-import { ContextProvider, provide } from '@lit/context';
+import { provide } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
-import { debounce } from '@gitlens/utils/debounce.js';
-import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { GlWebviewCommands } from '../../../constants.commands.js';
-import type { CustomEditorIds, WebviewIds, WebviewTypes } from '../../../constants.views.js';
+import type { WebviewIds, WebviewTypes } from '../../../constants.views.js';
 import { createWebviewCommandLink } from '../../../system/webview.js';
-import type {
-	IpcCallParamsType,
-	IpcCallResponseParamsType,
-	IpcCommand,
-	IpcMessage,
-	IpcRequest,
-} from '../../ipc/models/ipc.js';
-import type { WebviewFocusChangedParams, WebviewState } from '../../protocol.js';
-import {
-	DidChangeWebviewFocusNotification,
-	DidChangeWebviewVisibilityNotification,
-	WebviewFocusChangedCommand,
-	WebviewReadyRequest,
-} from '../../protocol.js';
+import type { WebviewState } from '../../protocol.js';
 import { GlElement } from './components/element.js';
-import { ipcContext } from './contexts/ipc.js';
 import { loggerContext, LoggerContext } from './contexts/logger.js';
 import { PromosContext, promosContext } from './contexts/promos.js';
-import { telemetryContext, TelemetryContext } from './contexts/telemetry.js';
 import type { WebviewContext } from './contexts/webview.js';
 import { webviewContext } from './contexts/webview.js';
 import { DOM } from './dom.js';
 import type { Disposable } from './events.js';
 import { createFocusTracker } from './focus.js';
-import type { HostIpcApi } from './ipc.js';
-import { getHostIpcApi, getWebviewClientInfo, HostIpc } from './ipc.js';
+import type { WebviewRpc } from './rpc/rpcController.js';
 import { telemetryEventName } from './telemetry.js';
 import type { ThemeChangeEvent } from './theme.js';
 import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme.js';
 
 /**
- * Base class for webview applications (both legacy and RPC-based).
+ * Base class for webview applications.
  *
  * Provides all shared infrastructure that webview apps need:
- * - 5 Lit context providers (ipc, logger, promos, telemetry, webview)
- * - Focus tracking (debounced notifications to host)
+ * - 3 Lit context providers (logger, promos, webview)
+ * - Focus tracking (debounced notifications to host, via the app's `_rpc` controller)
+ * - Telemetry bridging (`emitTelemetrySentEvent` DOM events → RPC)
  * - Theme color computation and change handling
- * - Host→webview focus/visibility notification dispatch
  * - Preload class removal
+ *
+ * Host→webview focus/visibility pushes are dispatched by `RpcController`'s core subscription —
+ * window CustomEvents plus the controller's `onWebviewFocusChanged`/`onWebviewVisibilityChanged`
+ * option callbacks, which app-level overrides hook into.
  *
  * Subclasses initialize `this._webview` by calling `initWebviewContext()`
  * in their own `connectedCallback()` after `super.connectedCallback()`.
- *
- * Legacy webviews extend {@link GlAppHost} which extends this class.
- * New RPC webviews extend this class directly.
  */
 export abstract class GlWebviewApp extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
@@ -64,20 +47,18 @@ export abstract class GlWebviewApp extends GlElement {
 	@property({ type: String }) name!: string;
 	@property({ type: String }) placement: 'editor' | 'view' | 'panel' = 'editor';
 
-	@provide({ context: ipcContext })
-	protected _ipc!: HostIpc;
-
 	@provide({ context: loggerContext })
 	protected _logger!: LoggerContext;
 
 	@provide({ context: promosContext })
 	protected _promos!: PromosContext;
 
-	@provide({ context: telemetryContext })
-	protected _telemetry!: TelemetryContext;
-
 	@provide({ context: webviewContext })
 	protected _webview!: WebviewContext;
+
+	/** The app's RPC controller — subclasses override with their own instance so the shared bridges
+	 *  (telemetry DOM events, focus tracking) route through RPC. */
+	protected _rpc?: WebviewRpc | undefined;
 
 	protected onThemeUpdated?(e: ThemeChangeEvent): void;
 	protected onWebviewFocusChanged?(focused: boolean): void;
@@ -90,8 +71,6 @@ export abstract class GlWebviewApp extends GlElement {
 	/**
 	 * Initializes `_webview` from a base64-encoded context string (the `#{state}` token value).
 	 * Centralizes the `createCommandLink` logic used by all webviews.
-	 *
-	 * RPC webviews pass their `context` attribute; `GlAppHost` passes its `bootstrap` attribute.
 	 */
 	protected initWebviewContext(encodedContext: string): void {
 		const parsed = JSON.parse(fromBase64ToString(encodedContext)) as WebviewState<WebviewIds>;
@@ -115,8 +94,6 @@ export abstract class GlWebviewApp extends GlElement {
 		this._logger = new LoggerContext(this.name);
 		this._logger.debug('connected');
 
-		this._ipc = new HostIpc(this.name);
-
 		this.disposables.push(watchThemeColors());
 		if (this.onThemeUpdated != null) {
 			this.onThemeUpdated(computeThemeColors());
@@ -124,33 +101,16 @@ export abstract class GlWebviewApp extends GlElement {
 		}
 
 		this.disposables.push(
-			this._ipc.onReceiveMessage(msg => {
-				switch (true) {
-					case DidChangeWebviewFocusNotification.is(msg):
-						this.onWebviewFocusChanged?.(msg.params.focused);
-						window.dispatchEvent(new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'));
-						break;
-					case DidChangeWebviewVisibilityNotification.is(msg):
-						this.onWebviewVisibilityChanged?.(msg.params.visible);
-						window.dispatchEvent(
-							new CustomEvent(msg.params.visible ? 'webview-visible' : 'webview-hidden'),
-						);
-						break;
-				}
-			}),
-			this._ipc,
-			(this._promos = new PromosContext(this._ipc)),
-			(this._telemetry = new TelemetryContext(this._ipc)),
-			// Forward `emitTelemetrySentEvent` DOM events to the host over IPC. Without this bridge
-			// (present in the legacy `App` base below, but previously missing here) every
-			// `gl-telemetry-fired` event from a `GlWebviewApp`-based webview was silently dropped.
+			(this._promos = new PromosContext()),
+			// Forward `emitTelemetrySentEvent` DOM events to the host over RPC. Without this bridge
+			// every `gl-telemetry-fired` event from a `GlWebviewApp`-based webview is silently dropped.
 			DOM.on(window, telemetryEventName, e => {
-				this._telemetry.sendEvent(e.detail);
+				this._rpc?.sendTelemetry(e.detail);
 			}),
 		);
 
 		// Focus tracking (sends debounced focus state to host for context keys)
-		this._focusTracker = createFocusTracker();
+		this._focusTracker = createFocusTracker(params => this._rpc?.sendFocusChanged(params));
 		document.addEventListener('focusin', this._focusTracker.onFocusIn);
 		document.addEventListener('focusout', this._focusTracker.onFocusOut);
 
@@ -211,217 +171,8 @@ const _SignalWatcherBase = SignalWatcher(
 
 /**
  * Base class for RPC-only webviews that use Lit Signals for state management.
- * Sends `WebviewReadyRequest` at the end of `connectedCallback()` — this is
- * the unified readiness signal that triggers IPC notification flush and RPC expose().
+ * Readiness is announced over RPC: each mount's session (`RpcController` →
+ * `connectRpcSession`) announces itself to the host, which exposes its services
+ * in response — no separate readiness message is sent.
  */
-export abstract class SignalWatcherWebviewApp extends _SignalWatcherBase {
-	override connectedCallback(): void {
-		super.connectedCallback?.();
-
-		// Signal readiness to the host — triggers IPC flush and RPC expose()
-		void this._ipc.sendRequest(WebviewReadyRequest, { bootstrap: false, ...getWebviewClientInfo() });
-	}
-}
-
-/** @deprecated Use GlAppHost or GlWebviewApp instead */
-export abstract class App<
-	State extends WebviewState<CustomEditorIds | WebviewIds> = WebviewState<CustomEditorIds | WebviewIds>,
-> {
-	private readonly _api: HostIpcApi;
-	private readonly _hostIpc: HostIpc;
-	private readonly _logger: LoggerContext;
-	private readonly _promos: PromosContext;
-	protected readonly _telemetry: TelemetryContext;
-	private readonly _webview: WebviewContext;
-
-	protected state: State;
-	protected readonly placement: 'editor' | 'view' | 'panel';
-
-	constructor(protected readonly appName: string) {
-		const disposables: Disposable[] = [];
-
-		const themeEvent = computeThemeColors();
-		if (this.onThemeUpdated != null) {
-			this.onThemeUpdated(themeEvent);
-			disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
-		}
-
-		this.state = (window as any).bootstrap;
-		(window as any).bootstrap = undefined;
-
-		this.placement = (document.body.getAttribute('data-placement') ?? 'editor') as 'editor' | 'view' | 'panel';
-
-		this._logger = new LoggerContext(appName);
-		this.log('opening...');
-
-		this._api = getHostIpcApi();
-		this._hostIpc = new HostIpc(this.appName);
-		disposables.push(this._hostIpc);
-
-		this._promos = new PromosContext(this._hostIpc);
-		disposables.push(this._promos);
-
-		this._telemetry = new TelemetryContext(this._hostIpc);
-		disposables.push(this._telemetry);
-
-		const { webviewId, webviewInstanceId } = this.state;
-		this._webview = {
-			webviewId: webviewId,
-			webviewInstanceId: webviewInstanceId,
-			createCommandLink: (command, args) => {
-				if (command.endsWith(':')) {
-					command = `${command}${webviewId.split('.').at(-1) as WebviewTypes}` as GlWebviewCommands;
-				}
-
-				return createWebviewCommandLink(command as GlWebviewCommands, webviewId, webviewInstanceId, args);
-			},
-		};
-
-		new ContextProvider(document.body, { context: ipcContext, initialValue: this._hostIpc });
-		new ContextProvider(document.body, { context: loggerContext, initialValue: this._logger });
-		new ContextProvider(document.body, { context: promosContext, initialValue: this._promos });
-		new ContextProvider(document.body, { context: telemetryContext, initialValue: this._telemetry });
-		new ContextProvider(document.body, { context: webviewContext, initialValue: this._webview });
-
-		if (this.state != null) {
-			const state = this.getState();
-			if (this.state.timestamp >= (state?.timestamp ?? 0)) {
-				this._api.setState(this.state);
-			} else {
-				this.state = state!;
-			}
-		}
-
-		disposables.push(watchThemeColors());
-
-		requestAnimationFrame(() => {
-			this.log('initializing...');
-
-			try {
-				this.onInitialize?.();
-				this.bind();
-
-				if (this.onMessageReceived != null) {
-					disposables.push(
-						this._hostIpc.onReceiveMessage(msg => {
-							switch (true) {
-								case DidChangeWebviewFocusNotification.is(msg):
-									window.dispatchEvent(
-										new CustomEvent(msg.params.focused ? 'webview-focus' : 'webview-blur'),
-									);
-									break;
-
-								case DidChangeWebviewVisibilityNotification.is(msg):
-									window.dispatchEvent(
-										new CustomEvent(msg.params.visible ? 'webview-visible' : 'webview-hidden'),
-									);
-									break;
-
-								default:
-									this.onMessageReceived!(msg);
-							}
-						}),
-					);
-				}
-
-				void this.sendRequest(WebviewReadyRequest, { bootstrap: false, ...getWebviewClientInfo() });
-
-				this.onInitialized?.();
-			} finally {
-				this.log('initialized');
-				if (document.body.classList.contains('preload')) {
-					setTimeout(() => {
-						document.body.classList.remove('preload');
-					}, 500);
-				}
-			}
-		});
-
-		disposables.push(
-			DOM.on(window, 'pagehide', () => {
-				disposables?.forEach(d => d.dispose());
-				this.bindDisposables?.forEach(d => d.dispose());
-				this.bindDisposables = undefined;
-			}),
-		);
-
-		disposables.push(
-			DOM.on(window, telemetryEventName, e => {
-				this._telemetry.sendEvent(e.detail);
-			}),
-		);
-
-		this.log('opened');
-	}
-
-	protected onInitialize?(): void;
-	protected onBind?(): Disposable[];
-	protected onInitialized?(): void;
-	protected onMessageReceived?(msg: IpcMessage): void;
-	protected onThemeUpdated?(e: ThemeChangeEvent): void;
-
-	private bindDisposables: Disposable[] | undefined;
-	protected bind(): void {
-		document.querySelectorAll('a').forEach(a => {
-			if (a.href === a.title) {
-				a.removeAttribute('title');
-			}
-		});
-
-		this.bindDisposables?.forEach(d => d.dispose());
-		this.bindDisposables = this.onBind?.();
-		this.bindDisposables ??= [];
-
-		// Reduces event jankiness when only moving focus
-		const sendWebviewFocusChangedCommand = debounce((params: WebviewFocusChangedParams) => {
-			// Re-verify the actual focus state when the debouncer fires.
-			// This prevents false "blurs" when clicking non-focusable internal elements,
-			// where focusout fires but the document retains focus.
-			const actualFocused = document.hasFocus();
-			params.focused = actualFocused;
-			if (!actualFocused) {
-				params.inputFocused = false;
-			}
-
-			this.sendCommand(WebviewFocusChangedCommand, params);
-		}, 150);
-
-		this.bindDisposables.push(
-			DOM.on(document, 'focusin', e => {
-				const inputFocused = e.composedPath().some(el => (el as HTMLElement).tagName === 'INPUT');
-				sendWebviewFocusChangedCommand({ focused: true, inputFocused: inputFocused });
-			}),
-			DOM.on(document, 'focusout', () => {
-				sendWebviewFocusChangedCommand({ focused: false, inputFocused: false });
-			}),
-		);
-	}
-
-	protected log(message: string, ...optionalParams: any[]): void;
-	protected log(scope: ScopedLogger | undefined, message: string, ...optionalParams: any[]): void;
-	protected log(scopeOrMessage: ScopedLogger | string | undefined, ...optionalParams: any[]): void {
-		this._logger.debug(scopeOrMessage, ...optionalParams);
-	}
-
-	protected getState(): State | undefined {
-		return this._api.getState() as State | undefined;
-	}
-
-	protected sendCommand<TCommand extends IpcCommand<any>>(
-		command: TCommand,
-		params: IpcCallParamsType<TCommand>,
-	): void {
-		this._hostIpc.sendCommand(command, params);
-	}
-
-	protected sendRequest<T extends IpcRequest<unknown, unknown>>(
-		requestType: T,
-		params: IpcCallParamsType<T>,
-	): Promise<IpcCallResponseParamsType<T>> {
-		return this._hostIpc.sendRequest(requestType, params);
-	}
-
-	protected setState(state: Partial<State>): void {
-		this._api.setState(state);
-	}
-}
+export abstract class SignalWatcherWebviewApp extends _SignalWatcherBase {}

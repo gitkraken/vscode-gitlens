@@ -2,7 +2,7 @@
  * Supertalk Endpoint adapter for VS Code webview side.
  *
  * Wraps the VS Code webview API to conform to Supertalk's Endpoint interface.
- * Uses a namespace wrapper to avoid collisions with existing IPC messages.
+ * Uses a namespace wrapper so the shared pipe can carry non-RPC frames (e.g. persistence) safely.
  */
 import type { Endpoint } from '@eamodio/supertalk';
 import type { RpcMessageWrapper } from '../../rpc/constants.js';

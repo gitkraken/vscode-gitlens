@@ -9,6 +9,10 @@
 
 import type { Container } from '../../../container.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
+import { PromosService } from '../promosService.js';
+import type { ApplicablePromoService } from '../promosService.js';
+import type { WebviewViewServiceHost } from '../webviewViewService.js';
+import { WebviewViewService } from '../webviewViewService.js';
 import { AgentsService } from './agents.js';
 import { AIService } from './ai.js';
 import { AutolinksService } from './autolinks.js';
@@ -44,6 +48,7 @@ export interface SharedWebviewServices {
 	readonly config: ConfigService;
 	readonly storage: StorageService;
 	readonly subscription: SubscriptionService;
+	readonly promos: ApplicablePromoService;
 	readonly integrations: IntegrationsService;
 	readonly onboarding: OnboardingRpcService;
 	readonly agents: AgentsService;
@@ -55,6 +60,7 @@ export interface SharedWebviewServices {
 	readonly files: FilesService;
 	readonly pullRequests: PullRequestsService;
 	readonly drafts: DraftsService;
+	readonly webview: WebviewViewService;
 }
 
 // ============================================================
@@ -75,7 +81,7 @@ export interface SharedWebviewServices {
  */
 export function createSharedServices(
 	container: Container,
-	host: RpcServiceHost,
+	host: RpcServiceHost & WebviewViewServiceHost,
 	updateTelemetryContext: (context: Record<string, string | number | boolean | undefined>) => void,
 	buffer?: EventVisibilityBuffer,
 	tracker?: SubscriptionTracker,
@@ -86,6 +92,7 @@ export function createSharedServices(
 		config: new ConfigService(buffer, tracker),
 		storage: new StorageService(container),
 		subscription: new SubscriptionService(container, buffer, tracker),
+		promos: new PromosService(container),
 		integrations: new IntegrationsService(container, buffer, tracker),
 		onboarding: new OnboardingRpcService(container, buffer, tracker),
 		agents: new AgentsService(container, buffer, tracker),
@@ -97,5 +104,6 @@ export function createSharedServices(
 		files: new FilesService(container),
 		pullRequests: new PullRequestsService(container),
 		drafts: new DraftsService(container, host),
+		webview: new WebviewViewService(host, buffer, tracker),
 	};
 }

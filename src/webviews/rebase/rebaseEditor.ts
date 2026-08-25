@@ -25,6 +25,7 @@ import {
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
 import { isChunkLoadError, loadChunk } from '../../system/-webview/loadChunk.js';
+import type { WebviewState } from '../protocol.js';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
 import { WebviewController } from '../webviewController.js';
 import type { CustomEditorDescriptor } from '../webviewDescriptors.js';
@@ -44,7 +45,10 @@ const descriptor: CustomEditorDescriptor = {
 };
 
 export class RebaseEditorProvider implements CustomTextEditorProvider, Disposable {
-	private readonly _controllers = new Map<string, WebviewController<'gitlens.rebase', State>>();
+	private readonly _controllers = new Map<
+		string,
+		WebviewController<'gitlens.rebase', State, WebviewState<'gitlens.rebase'>>
+	>();
 	private readonly _disposable: Disposable;
 
 	constructor(
@@ -252,7 +256,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				...descriptor.webviewOptions,
 			};
 
-			const controller = await WebviewController.create<'gitlens.rebase', State>(
+			const controller = await WebviewController.create<'gitlens.rebase', State, WebviewState<'gitlens.rebase'>>(
 				this.container,
 				this.commandRegistrar,
 				descriptor,

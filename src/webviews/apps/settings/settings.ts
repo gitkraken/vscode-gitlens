@@ -69,7 +69,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 	private _eventsSubscription?: Subscription;
 	private _stopAutoPersist?: () => void;
 
-	private _rpc = new RpcController<SettingsServices>(this, {
+	protected override readonly _rpc = new RpcController<SettingsServices>(this, {
 		rpcOptions: {
 			webviewId: () => this._webview?.webviewId,
 			webviewInstanceId: () => this._webview?.webviewInstanceId,

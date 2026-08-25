@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
 import type { RebaseEntry } from '../../../rebase/protocol.js';
-import { enforceOldestPickable, getEntriesSignature } from '../stateProvider.js';
+import { enforceOldestPickable, getEntriesSignature } from '../actions.js';
 
 function commitEntry(id: string, action: RebaseTodoCommitAction, line: number = 0): RebaseEntry {
 	return { id: id, type: 'commit', action: action, sha: id, message: `${id} subject`, line: line };
@@ -12,7 +12,7 @@ function commandEntry(id: string, action: 'break' | 'exec' | 'noop', line: numbe
 	return { id: id, type: 'command', action: action, line: line };
 }
 
-suite('rebase/stateProvider helpers', () => {
+suite('rebase/actions helpers', () => {
 	suite('getEntriesSignature', () => {
 		test('stable for the same entries', () => {
 			const a = [commitEntry('a', 'pick'), commitEntry('b', 'reword'), commitEntry('c', 'pick')];

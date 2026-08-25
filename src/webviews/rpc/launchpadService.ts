@@ -8,8 +8,8 @@
 import type { Container } from '../../container.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils.js';
-import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
-import { bufferEventHandler } from './eventVisibilityBuffer.js';
+import type { EventRegistration, EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
+import { bufferEventHandler, trackRpcRegistration } from './eventVisibilityBuffer.js';
 import type { RpcEventSubscription, Unsubscribe } from './services/types.js';
 
 export class LaunchpadService {
@@ -23,22 +23,25 @@ export class LaunchpadService {
 	constructor(container: Container, buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
 		this.#container = container;
 
+		const registrations = new Set<EventRegistration>();
+
 		this.onLaunchpadChanged = (callback): Unsubscribe => {
 			const pendingKey = Symbol('launchpadChanged');
 			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'signal', undefined);
 			// Subscribe to both: `onDidChange` covers item mutations (pin/snooze), while `onDidRefresh` is what a
 			// completed background poll fires -- the only thing that repairs a cached failure.
-			const disposables = [
-				container.launchpad.onDidChange(() => buffered(undefined)),
-				container.launchpad.onDidRefresh(() => buffered(undefined)),
-			];
-			const unsubscribe = () => {
-				buffer?.removePending(pendingKey);
-				for (const d of disposables) {
-					d.dispose();
-				}
-			};
-			return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
+			return trackRpcRegistration(registrations, tracker, () => {
+				const disposables = [
+					container.launchpad.onDidChange(() => buffered(undefined)),
+					container.launchpad.onDidRefresh(() => buffered(undefined)),
+				];
+				return () => {
+					buffer?.removePending(pendingKey);
+					for (const d of disposables) {
+						d.dispose();
+					}
+				};
+			});
 		};
 	}
 

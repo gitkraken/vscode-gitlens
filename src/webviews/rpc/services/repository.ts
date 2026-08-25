@@ -59,8 +59,8 @@ import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.ut
 import { getReachableWorktrees } from '../../../git/utils/-webview/worktree.utils.js';
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
-import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { bufferEventHandler, toEventNotifier } from '../eventVisibilityBuffer.js';
+import type { EventRegistration, EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
+import { bufferEventHandler, toEventNotifier, trackRpcRegistration } from '../eventVisibilityBuffer.js';
 import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
 import { classifyFilesForDiscard, discardOneWith } from './discard.utils.js';
@@ -80,6 +80,10 @@ import type {
 } from './types.js';
 
 export class RepositoryService {
+	readonly #workingChangedRegistrations = new Set<EventRegistration>();
+	readonly #repositoryChangedRegistrations = new Set<EventRegistration>();
+	readonly #orWorktreeChangedRegistrations = new Set<EventRegistration>();
+
 	constructor(
 		private readonly container: Container,
 		private readonly buffer: EventVisibilityBuffer | undefined,
@@ -104,15 +108,16 @@ export class RepositoryService {
 
 		const pendingKey = Symbol(`repositoryWorking:${repoPath}`);
 		const buffered = bufferEventHandler<undefined>(this.buffer, pendingKey, callback, 'signal', undefined);
-		const disposable = Disposable.from(
-			repo.watchWorkingTree(1000),
-			repo.onDidChangeWorkingTree(() => buffered(undefined)),
-		);
-		const unsubscribe = () => {
-			this.buffer?.removePending(pendingKey);
-			disposable.dispose();
-		};
-		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
+		return trackRpcRegistration(this.#workingChangedRegistrations, this.tracker, () => {
+			const disposable = Disposable.from(
+				repo.watchWorkingTree(1000),
+				repo.onDidChangeWorkingTree(() => buffered(undefined)),
+			);
+			return () => {
+				this.buffer?.removePending(pendingKey);
+				disposable.dispose();
+			};
+		});
 	}
 
 	/**
@@ -130,34 +135,35 @@ export class RepositoryService {
 		let pendingUri: string | undefined;
 		const notifier = toEventNotifier(callback);
 
-		const disposable = this.container.git.onDidChangeRepository(e => {
-			if (e.repository.path !== repoPath) return;
+		return trackRpcRegistration(this.#repositoryChangedRegistrations, this.tracker, () => {
+			const disposable = this.container.git.onDidChangeRepository(e => {
+				if (e.repository.path !== repoPath) return;
 
-			const data: RepositoryChangeEventData = {
-				repoPath: e.repository.path,
-				repoUri: e.repository.uri.toString(),
-				changes: extractRepositoryChanges(e),
-			};
-			if (!this.buffer || this.buffer.visible) {
-				notifier(data);
-			} else {
-				pendingUri = data.repoUri;
-				for (const c of data.changes) {
-					pendingChanges.add(c);
+				const data: RepositoryChangeEventData = {
+					repoPath: e.repository.path,
+					repoUri: e.repository.uri.toString(),
+					changes: extractRepositoryChanges(e),
+				};
+				if (!this.buffer || this.buffer.visible) {
+					notifier(data);
+				} else {
+					pendingUri = data.repoUri;
+					for (const c of data.changes) {
+						pendingChanges.add(c);
+					}
+					this.buffer.addPending(pendingKey, () => {
+						notifier({ repoPath: repoPath, repoUri: pendingUri!, changes: [...pendingChanges] });
+						pendingChanges.clear();
+						pendingUri = undefined;
+					});
 				}
-				this.buffer.addPending(pendingKey, () => {
-					notifier({ repoPath: repoPath, repoUri: pendingUri!, changes: [...pendingChanges] });
-					pendingChanges.clear();
-					pendingUri = undefined;
-				});
-			}
+			});
+			return () => {
+				this.buffer?.removePending(pendingKey);
+				pendingChanges.clear();
+				disposable.dispose();
+			};
 		});
-		const unsubscribe = () => {
-			this.buffer?.removePending(pendingKey);
-			pendingChanges.clear();
-			disposable.dispose();
-		};
-		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
 	}
 
 	/**
@@ -173,33 +179,56 @@ export class RepositoryService {
 	 */
 	async onRepositoryOrWorktreeChanged(repoPath: string, callback: () => void): Promise<Unsubscribe> {
 		const epoch = this.tracker?.epoch;
-		const watcher = await this.container.git.getRepositoryService(repoPath).watch();
-		if (watcher == null) return () => {};
+		// Read synchronously, before the await below — only reliable at the top of the dispatch.
+		// Carried through to `trackRpcRegistration` below, which re-checks it immediately before
+		// attaching (see that helper's doc comment) — this method must NOT re-read `callerSession`
+		// itself after the await, since by then it no longer reliably names this caller.
+		const session = this.tracker?.callerSession;
+		// Makes this acquisition visible to a validation landing before `trackRpcRegistration` below —
+		// without it, a validation superseding `session` while nothing is tracked yet for it would
+		// have no way to tombstone it. The one-shot handle is released in the `finally` so EVERY
+		// exit path — attach, abandon, or a `watch()` rejection — clears it, and only after
+		// `trackRpcRegistration` has run its released-session check.
+		const unreserve = this.tracker?.reserveSession(session);
+		try {
+			const watcher = await this.container.git.getRepositoryService(repoPath).watch();
+			if (watcher == null) return () => {};
 
-		// The tracker was reset (RPC reconnect) while the watch acquisition was in flight — this
-		// subscription belongs to the superseded generation. Tracking it now would leak the watcher until
-		// the NEXT reset and double-deliver alongside the new generation's re-subscription; dispose instead.
-		if (this.tracker != null && this.tracker.epoch !== epoch) {
-			watcher.dispose();
-			return () => {};
+			// The tracker was reset (RPC reconnect) while the watch acquisition was in flight — an
+			// epoch change. Tracking the watcher now would leak it until the NEXT reset and
+			// double-deliver alongside the current generation's re-subscription; dispose instead.
+			// Session invalidation (superseded at validation, or rejected as a straggler) while the
+			// watch was in flight is handled centrally by `trackRpcRegistration`, via `session` below.
+			if (this.tracker != null && this.tracker.epoch !== epoch) {
+				watcher.dispose();
+				return () => {};
+			}
+
+			const pendingKey = Symbol(`repositoryOrWorktreeChanged:${repoPath}`);
+			const buffered = bufferEventHandler<undefined>(this.buffer, pendingKey, callback, 'signal', undefined);
+			return await trackRpcRegistration(
+				this.#orWorktreeChangedRegistrations,
+				this.tracker,
+				() => {
+					const disposable = Disposable.from(
+						watcher,
+						watcher.onDidChange(e => {
+							if (e.changed('index', 'head', 'heads')) {
+								buffered(undefined);
+							}
+						}),
+						watcher.onDidChangeWorkingTree(() => buffered(undefined)),
+					);
+					return () => {
+						this.buffer?.removePending(pendingKey);
+						disposable.dispose();
+					};
+				},
+				session,
+			);
+		} finally {
+			unreserve?.();
 		}
-
-		const pendingKey = Symbol(`repositoryOrWorktreeChanged:${repoPath}`);
-		const buffered = bufferEventHandler<undefined>(this.buffer, pendingKey, callback, 'signal', undefined);
-		const disposable = Disposable.from(
-			watcher,
-			watcher.onDidChange(e => {
-				if (e.changed('index', 'head', 'heads')) {
-					buffered(undefined);
-				}
-			}),
-			watcher.onDidChangeWorkingTree(() => buffered(undefined)),
-		);
-		const unsubscribe = () => {
-			this.buffer?.removePending(pendingKey);
-			disposable.dispose();
-		};
-		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
 	}
 
 	// ============================================================

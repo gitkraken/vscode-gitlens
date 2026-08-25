@@ -5,7 +5,7 @@
  * host and webview bundles.
  */
 
-/** Namespace for Supertalk RPC messages to distinguish from existing IPC */
+/** Namespace for Supertalk RPC messages on the shared postMessage pipe */
 export const RPC_NAMESPACE = '__supertalk_rpc__';
 
 /** Wrapper for Supertalk messages sent over VS Code webview channel */

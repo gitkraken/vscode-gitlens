@@ -40,7 +40,6 @@ import {
 	worktreeTooltip,
 	worktreeTooltipWithoutChangesLine,
 } from '../../../../plus/graph/sidebarTooltips.js';
-import type { TelemetrySendEventParams } from '../../../../protocol.js';
 import {
 	agentPhaseToCategory,
 	buildAgentSessionContext,
@@ -61,6 +60,7 @@ import type {
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import type { TelemetrySendEventParams } from '../../../shared/telemetry.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { panelErrorStyles } from '../components/shared-panel.css.js';
 import type { AppState } from '../context.js';

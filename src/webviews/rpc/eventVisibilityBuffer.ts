@@ -44,6 +44,38 @@ export class SubscriptionTracker implements Disposable {
 	private _unsubscribes = new Set<Unsubscribe>();
 	private _disposed = false;
 	private _epoch = 0;
+	/** Every event's own `Set<EventRegistration>`, watched so {@link releaseAllExcept}/{@link releaseSession}
+	 *  can scan across all of them — see {@link watchRegistrations}. */
+	private readonly _registrationSets = new Set<Set<EventRegistration>>();
+	/** Sessions an async subscription method has made visible via {@link reserveSession} while it has
+	 *  nothing tracked yet — see that method. Refcounted (session → outstanding acquisition count)
+	 *  rather than a plain set, so CONCURRENT acquisitions from the same session don't collapse into
+	 *  one entry: each holds its own one-shot release handle, and the session stays visible to
+	 *  validation until the LAST one resolves. */
+	private readonly _reservedSessions = new Map<number, number>();
+	/** The session {@link releaseAllExcept} last validated as keeper — remembered so the NEXT
+	 *  validation can tombstone it even when it's idle at that moment (nothing tracked, nothing
+	 *  reserved — e.g. it validated but never registered), leaving nothing for the release scans to
+	 *  find. Only ever set by a validation, never by a registration, so tombstoning it can never
+	 *  condemn a fresh remount session that hasn't validated yet. */
+	private _activeSession: number | undefined;
+	/** Every session known to be released: explicitly, via {@link releaseSession} (a rejected
+	 *  straggler); or because {@link releaseAllExcept} superseded it — it released a registration or
+	 *  a {@link reserveSession} reservation of its, or it was the previously validated keeper
+	 *  ({@link _activeSession}). Deliberately NOT "every session that isn't the
+	 *  current keeper" — a session that has never yet validated (e.g. a same-connection remount's
+	 *  brand-new post-reset session, registering before its OWN `connect()` runs) has had no
+	 *  registration or reservation for {@link releaseAllExcept} to find, so it has had no chance
+	 *  to be superseded and must NOT read as released, or its retained subscription would be torn
+	 *  down before it ever gets to validate. See {@link isSessionReleased}. Cleared on every
+	 *  {@link reset} — a pre-reset session id can never be legitimately referenced again, so nothing
+	 *  needs its tombstone past that generation; without this a long-lived webview that reconnects
+	 *  repeatedly would grow this set forever. */
+	private readonly _releasedSessions = new Set<number>();
+	/** Reads the RPC caller session currently being dispatched — bound once by `RpcHost`, closed
+	 *  over its own (possibly swapped) `Connection` so it always reflects whichever one is live.
+	 *  See {@link callerSession}. */
+	private _sessionResolver: (() => number | undefined) | undefined;
 
 	/**
 	 * Monotonic generation counter, bumped by every {@link reset}/{@link dispose}. An ASYNC subscription
@@ -56,8 +88,155 @@ export class SubscriptionTracker implements Disposable {
 		return this._epoch;
 	}
 
+	/** Number of tracked registrations — for diagnostics and tests. */
+	get size(): number {
+		return this._unsubscribes.size;
+	}
+
 	/**
-	 * Register an unsubscribe function for tracking.
+	 * Binds the resolver `RpcHost` uses to attribute a registration or a `connect()` call to the
+	 * peer session synchronously dispatching it right now. Called once, from `RpcHost`'s
+	 * constructor — see {@link callerSession}.
+	 */
+	bindCallerSession(resolver: () => number | undefined): void {
+		this._sessionResolver = resolver;
+	}
+
+	/**
+	 * The session id of the client whose RPC call is synchronously dispatching right now, or
+	 * `undefined` (no resolver bound yet, or called outside a dispatch). Mirrors
+	 * `Connection.callerSession`'s contract: reliable ONLY synchronously, before the caller's first
+	 * `await` — capture it into a local before then. Attribution, not authentication: a peer can
+	 * send any session it likes.
+	 */
+	get callerSession(): number | undefined {
+		return this._sessionResolver?.();
+	}
+
+	/**
+	 * Registers an event's own `Set<EventRegistration>` so {@link releaseAllExcept}/{@link releaseSession}
+	 * can scan it later. Called by {@link trackRpcRegistration} on every registration — idempotent
+	 * (`Set.add` of an already-present reference is a no-op), so no separate "first time" bookkeeping
+	 * is needed.
+	 */
+	watchRegistrations(registrations: Set<EventRegistration>): void {
+		this._registrationSets.add(registrations);
+	}
+
+	/**
+	 * True once `session` is known to be released — see {@link _releasedSessions} for exactly which
+	 * sessions that is (and, just as importantly, which it deliberately is NOT). An async
+	 * subscription method checks this AFTER its `await` (alongside the existing {@link epoch} check,
+	 * which covers reset/disposal instead) so a session invalidated while a resource was
+	 * mid-acquisition doesn't get its late registration reintroduced. `undefined` never counts as
+	 * released — there's no identity to track.
+	 */
+	isSessionReleased(session: number | undefined): boolean {
+		return session != null && this._releasedSessions.has(session);
+	}
+
+	/**
+	 * Marks `session` as reserved — an async subscription method calls this synchronously, BEFORE
+	 * its own first `await`, to make itself visible to {@link releaseAllExcept} even though it has
+	 * nothing tracked yet. Without this, a session that captures its identity, awaits a resource,
+	 * and only THEN registers is invisible to a validation landing in that gap: nothing in
+	 * {@link _registrationSets} names it yet, so {@link releaseAllExcept}'s loop can't tombstone it,
+	 * and its late registration lands as if it had never been superseded.
+	 *
+	 * Returns a ONE-SHOT release handle the caller MUST invoke on every exit path — attach, abandon,
+	 * or throw — so a `try/finally` around the whole acquisition is the expected shape. Each call
+	 * gets its own handle backed by a refcount, so two concurrent acquisitions from the same session
+	 * don't collapse: releasing one leaves the session visible to validation until the other
+	 * resolves, and releasing the same handle twice is a no-op. For `undefined` (no identity to
+	 * track) the handle does nothing.
+	 */
+	reserveSession(session: number | undefined): () => void {
+		if (session == null) return () => {};
+
+		this._reservedSessions.set(session, (this._reservedSessions.get(session) ?? 0) + 1);
+		let released = false;
+		return () => {
+			if (released) return;
+
+			released = true;
+			const count = this._reservedSessions.get(session);
+			if (count == null) return;
+
+			if (count > 1) {
+				this._reservedSessions.set(session, count - 1);
+			} else {
+				this._reservedSessions.delete(session);
+			}
+		};
+	}
+
+	/**
+	 * Releases every tracked registration NOT owned by `session`. Called by
+	 * `WebviewController.connect()` once `session`'s identity is VALIDATED — everything else
+	 * currently tracked is debris: a previous session this one supersedes, or a straggler that raced
+	 * the validated client to registration (supertalk replays a client's retained subscriptions on
+	 * every handshake and drops the superseded unsubscribe handle without calling it, so nothing
+	 * else would ever clean these up).
+	 *
+	 * Tombstones (see {@link _releasedSessions}/{@link isSessionReleased}) every session this call
+	 * ACTUALLY released a registration for, every {@link reserveSession}'d session not superseded,
+	 * and the PREVIOUSLY validated keeper (see {@link _activeSession} — it may be idle right now,
+	 * with nothing tracked or reserved for the scans below to find, yet must not be able to register
+	 * after being superseded) — never a session merely for not being the new keeper. This is what
+	 * stops a released interloper from re-registering: its earlier registration was tombstoned right
+	 * here, so a synchronous re-registration is caught by {@link isSessionReleased} in
+	 * {@link trackRpcRegistration}; an interloper caught mid-acquisition (nothing tracked yet) is
+	 * caught the same way via its reservation instead.
+	 */
+	releaseAllExcept(session: number | undefined): void {
+		const previous = this._activeSession;
+		this._activeSession = session;
+		if (previous != null && previous !== session) {
+			this._releasedSessions.add(previous);
+		}
+
+		for (const registrations of this._registrationSets) {
+			for (const registration of registrations) {
+				if (registration.session !== session) {
+					if (registration.session != null) {
+						this._releasedSessions.add(registration.session);
+					}
+					registration.release();
+				}
+			}
+		}
+
+		for (const reserved of this._reservedSessions.keys()) {
+			if (reserved !== session) {
+				this._releasedSessions.add(reserved);
+			}
+		}
+	}
+
+	/**
+	 * Releases every tracked registration owned by `session`, and records it as released. Used to
+	 * clean up a straggler that reached `connect()` and was rejected — without this its registrations
+	 * would survive until the next validation or a served reconnect's {@link reset}. No-op for
+	 * `undefined` (nothing to attribute it to).
+	 */
+	releaseSession(session: number | undefined): void {
+		if (session == null) return;
+
+		this._releasedSessions.add(session);
+		for (const registrations of this._registrationSets) {
+			for (const registration of registrations) {
+				if (registration.session === session) {
+					registration.release();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Register an unsubscribe function for tracking. Custom (non-factory) RPC event
+	 * implementations must go through {@link trackRpcRegistration} instead of calling this
+	 * directly — a bare `track()` skips session-attribution and stacks a duplicate listener
+	 * on every remount.
 	 * @returns A wrapped unsubscribe that also removes itself from the tracker.
 	 */
 	track(unsubscribe: Unsubscribe): () => void {
@@ -80,7 +259,7 @@ export class SubscriptionTracker implements Disposable {
 
 	/**
 	 * Disposes tracked subscriptions but stays usable — used on RPC reconnection so the next
-	 * generation's `track()` calls register normally instead of being torn down immediately by
+	 * session's `track()` calls register normally instead of being torn down immediately by
 	 * a permanently-disposed tracker.
 	 */
 	reset(): void {
@@ -91,6 +270,12 @@ export class SubscriptionTracker implements Disposable {
 			(unsub as () => void)();
 		}
 		this._unsubscribes.clear();
+		// A pre-reset session id can never be legitimately referenced again — the epoch bump above
+		// already rejects any cross-reset straggler that checks `epoch` itself (e.g. an async
+		// subscription method), and every OTHER caller of `isSessionReleased` only ever needs a
+		// tombstone to outlive the single generation it was recorded in. Without this, a long-lived
+		// webview that reconnects many times would grow this set forever.
+		this._releasedSessions.clear();
 	}
 
 	/** Disposes tracked subscriptions and permanently disables the tracker. Called on final teardown. */
@@ -173,6 +358,111 @@ export function bufferEventHandler<T>(
 }
 
 /**
+ * One live registration for an event source, tagged with the {@link SubscriptionTracker.callerSession}
+ * that made it.
+ */
+export interface EventRegistration {
+	readonly session: number | undefined;
+	readonly release: () => void;
+}
+
+/**
+ * Registers a teardown for tracker/session-scoped cleanup outside the two factory functions above.
+ * Gives custom RPC event implementations (ones that build their own VS Code Disposable / listener
+ * instead of going through {@link createRpcEvent} or {@link createRpcEventSubscription}) identical
+ * remount semantics: a new registration in `registrations` is tagged with the CALLER SESSION making
+ * it right now (see {@link SubscriptionTracker.callerSession}), and `registrations` itself is handed
+ * to the tracker (see {@link SubscriptionTracker.watchRegistrations}) so a later validated session
+ * can supersede every registration NOT its own there (see {@link SubscriptionTracker.releaseAllExcept}
+ * — NOT done here; see that method for why). The resulting unsubscribe is also tracker-registered so
+ * a reconnect's wholesale `reset()` still disposes it. Every custom RPC event MUST register through
+ * this helper instead of calling `tracker.track()` directly — a bare `track()` never attributes a
+ * session and stacks a duplicate listener on every remount.
+ *
+ * The helper owns the attach/track ordering: run `attach()` to build the source and get back its
+ * teardown, then hand that teardown to the tracker. `attach()` runs BEFORE `tracker.track()`
+ * because `track()` disposes SYNCHRONOUSLY when the tracker is already disposed (e.g. the webview
+ * tore down while an async subscription method was mid-flight) — the teardown it calls must
+ * already be fully formed, or it dereferences a not-yet-assigned source. If `attach()` throws,
+ * nothing was registered or tracked, so there's nothing to roll back.
+ *
+ * A SYNCHRONOUS subscription method (the common case: this call is itself the RPC dispatch target,
+ * with no `await` before it) omits `session` — the helper reads {@link SubscriptionTracker.callerSession}
+ * itself, since at this point it's still reliably the live caller's. An ASYNC subscription method
+ * (one that awaits resource acquisition before calling this — see
+ * `RepositoryService.onRepositoryOrWorktreeChanged`) MUST capture `callerSession` before its own
+ * first `await` and pass it explicitly: `tracker.callerSession` is unreliable by the time an async
+ * caller reaches this call (see that getter's doc comment), so re-reading it here would attribute
+ * the registration to whatever happens to be dispatching NOW instead of the caller that made it.
+ *
+ * Either way, the resolved session is checked immediately before attaching: if it's already
+ * released (superseded at validation, or rejected as a straggler — see
+ * {@link SubscriptionTracker.isSessionReleased}), `attach()` still runs — its resource needs a
+ * teardown to call, not to leak — but the result is torn down immediately instead of installed.
+ * This is what closes the gap an async caller's own pre-await guard can't: a session released
+ * WHILE the resource was mid-acquisition is caught here regardless — PROVIDED the async caller
+ * called {@link SubscriptionTracker.reserveSession} before its own first `await`, which is what
+ * makes it visible to a validation landing before this call is reached. The caller owns its
+ * reservation handle and releases it itself, on every exit path, AFTER this call returns (a
+ * `try/finally` around the whole acquisition) — this helper never touches reservations, since a
+ * synchronous same-session registration clearing an unrelated in-flight acquisition's reservation
+ * would reopen exactly the gap the reservation exists to close.
+ *
+ * ```ts
+ * const tracked = trackRpcRegistration(registrations, tracker, () => {
+ *   const disposable = someSource.onDidChange(...);
+ *   return () => disposable.dispose();
+ * });
+ * return tracked;
+ * ```
+ *
+ * @param registrations - The event's own registration set — must NOT be shared across events
+ * @param tracker - Optional subscription tracker: session source and reconnect-disposal target
+ * @param attach - Builds and attaches the caller's source, returning its teardown (called at most once)
+ * @param explicitSession - Omit for a synchronous caller; an async caller MUST pass the session it
+ * captured before its own first `await` (see above) — pass it even if that capture was `undefined`
+ * @returns Unsubscribe wired through the tracker (if present) so both paths release exactly once
+ */
+export function trackRpcRegistration(
+	registrations: Set<EventRegistration>,
+	tracker: SubscriptionTracker | undefined,
+	attach: () => () => void,
+	...explicitSession: [] | [number | undefined]
+): Unsubscribe {
+	const session = explicitSession.length > 0 ? explicitSession[0] : tracker?.callerSession;
+	tracker?.watchRegistrations(registrations);
+
+	// Re-checked here, immediately before attaching — see the doc comment above.
+	if (tracker?.isSessionReleased(session) === true) {
+		attach()();
+		return () => {};
+	}
+
+	const teardown = attach();
+
+	let disposed = false;
+	let registration!: EventRegistration;
+	const raw = function () {
+		if (disposed) return;
+
+		disposed = true;
+		// `registration` may still be unassigned here if the tracker was already disposed —
+		// `Set.delete(undefined)` is a harmless no-op in that case.
+		registrations.delete(registration);
+		teardown();
+	};
+	const tracked = tracker != null ? tracker.track(raw) : raw;
+	// An already-disposed tracker runs `raw` synchronously above; registering now would re-add
+	// something already released, so only register if it survived.
+	if (!disposed) {
+		registration = { session: session, release: tracked };
+		registrations.add(registration);
+	}
+
+	return tracked;
+}
+
+/**
  * Result of {@link createRpcEvent} — bundles a subscriber factory
  * and a fire function backed by the same internal handler map.
  */
@@ -198,12 +488,22 @@ export interface RpcEvent<T> {
  * `.subscribe`: each new handler is immediately invoked with the current truth (when defined),
  * through the same visibility-buffered path a live fire takes.
  *
+ * Registrations are session-scoped (see {@link SubscriptionTracker.callerSession}): once the
+ * tracker's owning client is VALIDATED, its session supersedes — disposes — every other session's
+ * registration for this event (see {@link SubscriptionTracker.releaseAllExcept}), but concurrent
+ * same-session registrations (e.g. two genuine subscribers) both stay live. The `registrations`
+ * set lives at this level rather than inside `subscribe`, so registrations made via different
+ * `.subscribe(buffer, tracker)` bags still supersede each other. Superseding is deferred past the
+ * new `subscribe(...)` call (see {@link SubscriptionTracker.releaseAllExcept} for why) — briefly,
+ * both the old and new session's handlers are live and a fired event reaches both.
+ *
  * @param key - Logical event key for visibility buffering pending entries
  * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
  * @param signalValue - Value to replay in `'signal'` mode (typically `undefined`)
  */
 export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', signalValue?: T): RpcEvent<T> {
 	const handlers = new Map<symbol, (data: T) => void>();
+	const registrations = new Set<EventRegistration>();
 	return {
 		subscribe: function (
 			buffer?: EventVisibilityBuffer,
@@ -214,17 +514,18 @@ export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', sig
 				const pendingKey = Symbol(key);
 				const buffered = bufferEventHandler(buffer, pendingKey, handler, mode, signalValue);
 				const sym = Symbol();
-				handlers.set(sym, buffered);
+				return trackRpcRegistration(registrations, tracker, () => {
+					handlers.set(sym, buffered);
 
-				const current = replay?.();
-				if (current !== undefined) {
-					buffered(current);
-				}
-				const unsubscribe = function () {
-					buffer?.removePending(pendingKey);
-					handlers.delete(sym);
-				};
-				return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
+					const current = replay?.();
+					if (current !== undefined) {
+						buffered(current);
+					}
+					return () => {
+						buffer?.removePending(pendingKey);
+						handlers.delete(sym);
+					};
+				});
 			};
 		},
 		fire: function (data: T): void {
@@ -248,6 +549,14 @@ export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', sig
  *
  * For custom patterns (aggregation, handler maps, replay-on-subscribe), use `bufferEventHandler` directly.
  *
+ * Registrations are session-scoped (see {@link SubscriptionTracker.callerSession}): once the
+ * tracker's owning client is VALIDATED, its session supersedes — disposes — every other session's
+ * registration for this event (see {@link SubscriptionTracker.releaseAllExcept}), but concurrent
+ * same-session registrations (e.g. two genuine subscribers) both stay live. Superseding is
+ * deferred past the new `subscribe(...)` call — briefly, a source that only supports one live
+ * listener sees two attached at once; see {@link SubscriptionTracker.releaseAllExcept} for why
+ * that's the safer trade.
+ *
  * @param buffer - Optional visibility buffer (undefined = no buffering)
  * @param key - Logical event key used to create a per-subscription pending entry
  * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
@@ -263,14 +572,17 @@ export function createRpcEventSubscription<T>(
 	signalValue?: T,
 	tracker?: SubscriptionTracker,
 ): RpcEventSubscription<T> {
+	const registrations = new Set<EventRegistration>();
+
 	return (handler: (data: T) => void): Unsubscribe => {
 		const pendingKey = Symbol(key);
 		const buffered = bufferEventHandler(buffer, pendingKey, handler, mode, signalValue);
-		const disposable = subscribe(buffered);
-		const unsubscribe = () => {
-			buffer?.removePending(pendingKey);
-			disposable.dispose();
-		};
-		return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
+		return trackRpcRegistration(registrations, tracker, () => {
+			const disposable = subscribe(buffered);
+			return () => {
+				buffer?.removePending(pendingKey);
+				disposable.dispose();
+			};
+		});
 	};
 }

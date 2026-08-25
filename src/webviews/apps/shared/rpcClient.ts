@@ -4,12 +4,11 @@
  * Owns the long-lived pieces of a webview's RPC link — the endpoint, the handlers, and the
  * supertalk `Connection` — and hands out one session per mount.
  *
- * The `Connection` is created ONCE and survives element remounts. Each mount re-arms it
- * (`reset()`) and waits for the host to call `expose()`, which the host does when it receives
- * `WebviewReadyRequest` — the unified readiness signal for all webviews. Reusing the instance is
- * what makes supertalk's `subscribe()` resubscription work: it fans out on `_onReady` per
- * successful handshake on the SAME connection, so a connection thrown away per mount would never
- * resubscribe.
+ * The `Connection` is created ONCE and survives element remounts. Each mount re-arms it,
+ * announces the session to the host (`reset()` + `expose()`), and waits for the host to expose
+ * its services in response. Reusing the instance is what makes supertalk's `subscribe()`
+ * resubscription work: it fans out on `_onReady` per successful handshake on the SAME connection,
+ * so a connection thrown away per mount would never resubscribe.
  */
 import type { Handler, Options, Remote } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';

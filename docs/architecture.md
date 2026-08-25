@@ -42,30 +42,29 @@ Git Execution (Node: child_process | Browser: APIs (GitHub))
 
 ### 4. Webview Communication
 
-Two layers run side by side. Which one a surface uses is a property of that surface, not of the
-infrastructure — `WebviewController` instantiates both for every webview.
+One stack for every surface: **Supertalk RPC** — typed services under `src/webviews/rpc/services/`
+exposed by an `RpcHost` per webview and consumed by the app through its `RpcController`. Frames
+travel through `webview.postMessage` as binary payloads wrapped in a `__supertalk_rpc__`
+namespace; there is no second message protocol.
 
-- **Legacy IPC** — typed message-passing with three message types:
-  - **Commands**: Fire-and-forget actions (no response)
-  - **Requests**: Request/response pairs with Promise-based handling
-  - **Notifications**: Extension → Webview state updates
-  - Carries the primary data plane for Commit Graph (rows, selection, search), Patch Details,
-    Rebase, Welcome, and Allowed Signers
-- **Supertalk RPC + signals** — typed services under `src/webviews/rpc/services/`, with signal
-  state, `createResource()` for host data, and `createStateGroup()` for persistence. Used by
-  Settings, Commit Details, Home, and Timeline, and by the Graph's auxiliary services
-- Core-scope IPC (`src/webviews/protocol.ts`) — the ready/focus/visibility/configuration
-  handshake — is shared by **both** layers
-- **Host-Guest Communication**: IPC between extension host and webviews
+- **Readiness**: part of the session itself — each client mount announces its RPC session, the
+  host swaps to a fresh connection in response, and the client reports its generation via the
+  shared `webview` service group's `connect()`
+- **Focus/visibility pushes**: host-side events over buffered (save-last) RPC events, re-emitted
+  client-side as window CustomEvents
+- **Bootstrap**: a one-shot serialized context attribute stamped into the HTML; Date/URI values
+  ride tagged-value envelopes revived by the app (`system/taggedValues.ts`, `system/ipcSerialize.ts`)
+- **Persistence**: the VS Code webview state API (`acquireVsCodeApi`) behind `HostStorage`
 - Webviews built with **Lit Elements only** for reactive UI components
-- **State Management**: Context providers with Lit reactive patterns and signals
+- **State Management**: signals (`createSignalGroup()`/`createStateGroup()`), resources, and Lit
+  context providers
 - **Major webviews**:
   - **Community**: Commit Details, Rebase, Settings
   - **Pro** (`apps/plus/`): Home (includes Launchpad), Commit Graph, Timeline, Patch Details
 - Webviews bundled separately from extension (separate webpack config)
 
-For state ownership, the RPC/signals primitives, the surface lifecycle, and the per-surface
-layer table, see `docs/webview-architecture.md`.
+For state ownership, the RPC primitives, the surface lifecycle, and per-surface service planes,
+see `docs/webview-architecture.md`.
 
 ### 5. Caching Strategy
 
@@ -177,7 +176,7 @@ Pro features integrate with GitKraken accounts and require authentication via Su
 - **Signal patterns** - For reactive state management
 - **CSS custom properties** - For VS Code theming support
 - Webview UI code in `src/webviews/apps/{webviewName}/`
-- Use IPC protocol for communication: `postMessage()` → `onIpc()`
+- Talk to the host over Supertalk RPC services (`RpcController` + `src/webviews/rpc/services/`)
 - Refresh webview without restarting extension during development
 - **Custom Elements Manifest** (`custom-elements.json`) - Powers Lit/Web Component language servers and MCP tools. Auto-regenerated during dev/watch webview builds.
 

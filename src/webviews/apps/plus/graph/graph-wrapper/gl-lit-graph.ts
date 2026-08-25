@@ -8841,8 +8841,8 @@ export class GlLitGraph extends LitElement {
 
 		// A push nobody asked for only acts when it names a DIFFERENT row than the last one revealed. Geometry
 		// alone can't carry this: a reader who scrolls away from the selected row and then gets that same
-		// selection re-pushed — a state sync, or the pending-notification replay that fires when the webview
-		// becomes visible again — would be dragged back to a row they had deliberately left. Comparing
+		// selection re-pushed — a state sync, or the save-last replay that fires when the webview becomes
+		// visible again — would be dragged back to a row they had deliberately left. Comparing
 		// identity instead makes the repeat a no-op no matter where they've scrolled to.
 		if (this._pendingRevealMode === 'if-changed' && sha === this._lastRevealedSha) {
 			this._pendingRevealSha = undefined;

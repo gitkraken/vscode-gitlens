@@ -1,8 +1,4 @@
-import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
-
-export const scope: IpcScope = 'allowedSigners';
 
 /** Where a candidate signer's key was discovered. */
 export type SignerProvenance = 'commits' | 'provider' | 'both';
@@ -35,7 +31,7 @@ export interface CandidateSigner {
 	alreadyPresent: boolean;
 }
 
-/** Progress reported by the host while discovering signers, so the loading page can show what's happening. */
+/** Progress reported while discovering signers, so the loading page can show what's happening. */
 export interface LoadingProgress {
 	message: string;
 	/** Items processed so far in the current phase (e.g. commits scanned), when known. */
@@ -85,53 +81,3 @@ export interface SaveEntry {
 	keyType: string;
 	keyData: string;
 }
-
-export interface SaveParams {
-	entries: SaveEntry[];
-	targetPath: string;
-	setConfig: boolean;
-	scope: 'global' | 'local';
-}
-export interface SaveResult {
-	written: boolean;
-	configSet: boolean;
-	/** Number of new entries actually added to the file (excludes ones already present). */
-	added: number;
-	error?: string;
-}
-export const SaveRequest = new IpcRequest<SaveParams, SaveResult>(scope, 'save');
-
-export interface BrowseTargetPathResult {
-	path?: string;
-}
-export const BrowseTargetPathRequest = new IpcRequest<void, BrowseTargetPathResult>(scope, 'targetPath/browse');
-
-export interface CheckPresenceParams {
-	/** The allowed_signers file path to check the discovered signers against. */
-	targetPath: string;
-}
-export interface CheckPresenceResult {
-	/** The dedupe keys (matching `CandidateSigner.id`) of every entry already present in the file at `targetPath`. */
-	keys: string[];
-}
-/** Re-derives which signers are already in the file when the user changes the target path. */
-export const CheckPresenceRequest = new IpcRequest<CheckPresenceParams, CheckPresenceResult>(scope, 'presence/check');
-
-// Notifications (host -> webview) streamed while discovering signers after the loading shell is shown.
-
-export interface DidChangeProgressParams {
-	progress: LoadingProgress;
-}
-export const DidChangeProgressNotification = new IpcNotification<DidChangeProgressParams>(scope, 'progress/didChange');
-
-export interface DidChangeResultsParams {
-	signers: CandidateSigner[];
-	integrationConnected: boolean;
-	/** The connected integration's provider, when one was available — used to render the provider indicator. */
-	provider?: SignerProvider;
-	/** Whether provider verification is still in progress (commit-derived signers are shown first). */
-	verifying: boolean;
-	/** Set when discovery failed; the webview leaves the loading/verifying state and surfaces this message. */
-	error?: string;
-}
-export const DidChangeResultsNotification = new IpcNotification<DidChangeResultsParams>(scope, 'results/didChange');

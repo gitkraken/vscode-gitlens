@@ -1,37 +1,35 @@
-import { ContextProvider } from '@lit/context';
-import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
-import type { Deferrable } from '@gitlens/utils/debounce.js';
-import { debounce } from '@gitlens/utils/debounce.js';
-import type { IpcSerialized } from '../../../system/ipcSerialize.js';
-import type { IpcMessage } from '../../ipc/models/ipc.js';
-import type { State as _State, Commit, RebaseEntry } from '../../rebase/protocol.js';
-import {
-	DidChangeAvatarsNotification,
-	DidChangeCommitsNotification,
-	DidChangeNotification,
-	DidChangeSubscriptionNotification,
-	GetMissingAvatarsCommand,
-	GetMissingCommitsCommand,
-	isCommitEntry,
-} from '../../rebase/protocol.js';
-import type { ReactiveElementHost } from '../shared/appHost.js';
-import type { LoggerContext } from '../shared/contexts/logger.js';
-import type { HostIpc } from '../shared/ipc.js';
-import { StateProviderBase } from '../shared/stateProviderBase.js';
-import { stateContext } from './context.js';
-
-type State = IpcSerialized<_State>;
-
 /**
- * State provider for the Rebase Editor.
+ * Actions/state domain logic for the Rebase Editor webview app.
  *
  * Architecture: Single Source of Truth with Optimistic Updates
  * - The extension host owns all state (the git-rebase-todo file)
- * - This webview is primarily a view layer - it renders state and sends commands
- * - State updates come from the extension host via DidChangeNotification
- * - Optimistic updates are applied locally for responsiveness, then reconciled with host state
+ * * The webview is primarily a view layer — it renders state and sends commands
+ * - Complete snapshots arrive via the host's `onStateChanged` save-last event
+ * - Optimistic updates are applied locally for responsiveness, then reconciled
+ *   against the next incoming snapshot
+ *
+ * Ported verbatim from the legacy `stateProvider.ts` during the RPC migration; the pure helpers
+ * (`getEntriesSignature`, `enforceOldestPickable`) stay exported for unit tests.
  */
-export class RebaseStateProvider extends StateProviderBase<State['webviewId'], State, typeof stateContext> {
+
+import type { ReactiveControllerHost } from 'lit';
+import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
+import type { Deferrable } from '@gitlens/utils/debounce.js';
+import { debounce } from '@gitlens/utils/debounce.js';
+import type { Author, Commit, RebaseEntry, State } from '../../rebase/protocol.js';
+import { isCommitEntry } from '../../rebase/protocol.js';
+import type {
+	RebaseAvatarsChangedEvent,
+	RebaseCommitsChangedEvent,
+	RebaseStateChangedEvent,
+	RebaseViewService,
+} from '../../rpc/rebaseService.js';
+import { fireAndForget } from '../shared/actions/rpc.js';
+
+/** The service isn't ready until the RPC session connects; callers go through this thunk. */
+type GetService = () => RebaseViewService | undefined;
+
+export class RebaseActions {
 	/** Pending avatar requests - collected from entry events, batched and sent (email → sha) */
 	private _pendingAvatarEmails = new Map<string, string>();
 	/** Emails we've already requested (to avoid duplicates during batching) */
@@ -58,25 +56,74 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 	 *  (covers cases where host applies validation rules that diverge from optimistic state). */
 	private static readonly optimisticPreservationMs = 1000;
 
-	constructor(host: ReactiveElementHost, bootstrap: string, ipc: HostIpc, logger: LoggerContext) {
-		super(host, bootstrap, ipc, logger);
+	private _state: RebaseStateChangedEvent | undefined;
 
-		// Listen for missing data events from entry components
-		this.host.addEventListener('missing-avatar', this.onMissingAvatar.bind(this) as EventListener);
-		this.host.addEventListener('missing-commit', this.onMissingCommit.bind(this) as EventListener);
+	get state(): RebaseStateChangedEvent | undefined {
+		return this._state;
 	}
 
-	protected override get deferBootstrap(): boolean {
-		return true;
+	constructor(
+		private readonly host: ReactiveControllerHost,
+		private readonly getService: GetService,
+	) {}
+
+	/** Drops all state and in-flight batching — called when the element unmounts. */
+	reset(): void {
+		this._state = undefined;
+		this.clearExpectedSignature();
+		this._pendingAvatarEmails.clear();
+		this._pendingCommitShas.clear();
+		// A response lost while disconnected must not permanently block re-requesting: the
+		// requested-sets are "in flight" markers, so a remount that will never see the old
+		// session's reply has to forget them (and cancel any in-flight debounced sends —
+		// their closures would otherwise merge stale pendings into the fresh mount).
+		this._requestedAvatarEmails.clear();
+		this._requestedCommitShas.clear();
+		this._sendPendingAvatarRequestsDebounced?.cancel();
+		this._sendPendingCommitRequestsDebounced?.cancel();
 	}
 
-	protected override createContextProvider(state: State): ContextProvider<typeof stateContext, ReactiveElementHost> {
-		return new ContextProvider(this.host, { context: stateContext, initialValue: state });
+	/** Applies an incoming complete snapshot from the host, reconciled against any optimistic change. */
+	applyIncomingState(incoming: RebaseStateChangedEvent): void {
+		this._state = this.reconcileIncomingState(incoming);
+		this.host.requestUpdate();
+	}
+
+	/** Handles an avatars-changed event from the host. */
+	onAvatarsChanged(event: RebaseAvatarsChangedEvent): void {
+		this.updateAvatars(event.avatars);
+		// Clear requested emails so they can be requested again if needed
+		for (const email of Object.keys(event.avatars)) {
+			this._requestedAvatarEmails.delete(email);
+		}
+	}
+
+	/** Handles a commits-changed event from the host. */
+	onCommitsChanged(event: RebaseCommitsChangedEvent): void {
+		this.updateCommits(event.commits, event.authors, event.isInPlace);
+		// Clear requested SHAs so they can be requested again if needed
+		for (const sha of Object.keys(event.commits)) {
+			this._requestedCommitShas.delete(sha);
+		}
+	}
+
+	/** Handles a subscription-changed event from the host. */
+	onSubscriptionChanged(subscription: NonNullable<State['subscription']>): void {
+		if (!this._state) return;
+
+		// Subscription change can unlock previously-failed avatar/commit lookups
+		// (e.g., Pro upgrade enables integration-backed avatars). Clear blocklists
+		// so the next render is allowed to re-ask.
+		this._requestedAvatarEmails.clear();
+		this._requestedCommitShas.clear();
+
+		this._state = { ...this._state, subscription: subscription, timestamp: Date.now() };
+		this.host.requestUpdate();
 	}
 
 	/** Handles missing-avatar events from entry components */
-	private onMissingAvatar(e: CustomEvent<{ email: string; sha?: string }>): void {
-		const { email, sha } = e.detail;
+	onMissingAvatar(detail: { email: string; sha?: string }): void {
+		const { email, sha } = detail;
 		if (!email || !sha) return;
 		if (this._requestedAvatarEmails.has(email)) return;
 
@@ -90,15 +137,19 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 	private sendPendingAvatarRequests(): void {
 		if (!this._pendingAvatarEmails.size) return;
 
+		const svc = this.getService();
+
 		const emails = Object.fromEntries(this._pendingAvatarEmails);
 		this._pendingAvatarEmails.clear();
 
-		this.ipc.sendCommand(GetMissingAvatarsCommand, { emails: emails });
+		if (svc == null) return;
+
+		fireAndForget(svc.getMissingAvatars({ emails: emails }), 'getMissingAvatars');
 	}
 
 	/** Handles missing-commit events from entry components */
-	private onMissingCommit(e: CustomEvent<{ sha: string }>): void {
-		const { sha } = e.detail;
+	onMissingCommit(detail: { sha: string }): void {
+		const { sha } = detail;
 		if (!sha) return;
 		if (this._requestedCommitShas.has(sha)) return;
 
@@ -112,49 +163,14 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 	private sendPendingCommitRequests(): void {
 		if (!this._pendingCommitShas.size) return;
 
+		const svc = this.getService();
+
 		const shas = [...this._pendingCommitShas];
 		this._pendingCommitShas.clear();
 
-		this.ipc.sendCommand(GetMissingCommitsCommand, { shas: shas });
-	}
+		if (svc == null) return;
 
-	protected override onMessageReceived(msg: IpcMessage): void {
-		switch (true) {
-			case DidChangeNotification.is(msg):
-				this._state = this.reconcileIncomingState(msg.params.state);
-				this.provider.setValue(this._state, true);
-				// Request update to re-render with new state
-				this.host.requestUpdate();
-				break;
-
-			case DidChangeAvatarsNotification.is(msg):
-				this.updateAvatars(msg.params.avatars);
-				// Clear requested emails so they can be requested again if needed
-				for (const email of Object.keys(msg.params.avatars)) {
-					this._requestedAvatarEmails.delete(email);
-				}
-				break;
-
-			case DidChangeCommitsNotification.is(msg):
-				this.updateCommits(msg.params.commits, msg.params.authors, msg.params.isInPlace);
-				// Clear requested SHAs so they can be requested again if needed
-				for (const sha of Object.keys(msg.params.commits)) {
-					this._requestedCommitShas.delete(sha);
-				}
-				break;
-
-			case DidChangeSubscriptionNotification.is(msg):
-				// Subscription change can unlock previously-failed avatar/commit lookups
-				// (e.g., Pro upgrade enables integration-backed avatars). Clear blocklists
-				// so the next render is allowed to re-ask.
-				this._requestedAvatarEmails.clear();
-				this._requestedCommitShas.clear();
-				this._state = { ...this._state, subscription: msg.params.subscription, timestamp: Date.now() };
-				this.provider.setValue(this._state, true);
-				// Request update to re-render with new subscription state
-				this.host.requestUpdate();
-				break;
-		}
+		fireAndForget(svc.getMissingCommits({ shas: shas }), 'getMissingCommits');
 	}
 
 	/**
@@ -162,7 +178,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 	 * optimistic moves/action-changes from being clobbered by a stale notification
 	 * that the host parsed before observing our write.
 	 */
-	private reconcileIncomingState(incoming: State): State {
+	private reconcileIncomingState(incoming: RebaseStateChangedEvent): RebaseStateChangedEvent {
 		const expected = this._expectedEntriesSignature;
 		if (expected == null || this._state?.entries == null) {
 			return { ...incoming, timestamp: Date.now() };
@@ -179,7 +195,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 		// it likely applied a validation rule (e.g., forcing oldest commit's action to pick) —
 		// accept the host's state as authoritative rather than locking the UI in a lie.
 		const elapsed = performance.now() - (this._expectedSignatureSetAt ?? 0);
-		if (elapsed > RebaseStateProvider.optimisticPreservationMs) {
+		if (elapsed > RebaseActions.optimisticPreservationMs) {
 			this.clearExpectedSignature();
 			return { ...incoming, timestamp: Date.now() };
 		}
@@ -235,18 +251,12 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 
 		if (hasChanges) {
 			this._state.timestamp = Date.now();
-			this.provider.setValue(this._state, true);
-
 			this.host.requestUpdate();
 		}
 	}
 
 	/** Updates commit data from enriched commit data received from the host */
-	private updateCommits(
-		commits: Record<string, IpcSerialized<Commit>>,
-		authors: Record<string, IpcSerialized<_State>['authors'][string]>,
-		isInPlace?: boolean,
-	): void {
+	private updateCommits(commits: Record<string, Commit>, authors: Record<string, Author>, isInPlace?: boolean): void {
 		if (!this._state) return;
 
 		let hasChanges = false;
@@ -305,8 +315,6 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 
 		if (hasChanges) {
 			this._state = { ...this._state, timestamp: Date.now() };
-			this.provider.setValue(this._state, true);
-
 			this.host.requestUpdate();
 		}
 	}
@@ -324,13 +332,12 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 		this._state = { ...this._state, entries: fixed, timestamp: Date.now() };
 		this._expectedEntriesSignature = getEntriesSignature(fixed);
 		this._expectedSignatureSetAt = performance.now();
-		this.provider.setValue(this._state, true);
 		this.host.requestUpdate();
 	}
 
 	/**
 	 * Apply an optimistic move operation locally for immediate UI feedback.
-	 * The host will send the authoritative state via DidChangeNotification.
+	 * The host will send the authoritative state via `onStateChanged`.
 	 *
 	 * This function expects toIndex to be the ACTUAL target position where
 	 * the item should end up in the result array. The caller is responsible
@@ -412,7 +419,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 
 	/**
 	 * Apply an optimistic action change locally for immediate UI feedback.
-	 * The host will send the authoritative state via DidChangeNotification.
+	 * The host will send the authoritative state via `onStateChanged`.
 	 */
 	changeEntryAction(sha: string, action: RebaseTodoCommitAction): void {
 		this.changeEntryActions([{ sha: sha, action: action }]);
@@ -420,7 +427,7 @@ export class RebaseStateProvider extends StateProviderBase<State['webviewId'], S
 
 	/**
 	 * Apply optimistic action changes to multiple entries in a single update.
-	 * The host will send the authoritative state via DidChangeNotification.
+	 * The host will send the authoritative state via `onStateChanged`.
 	 */
 	changeEntryActions(changes: { sha: string; action: RebaseTodoCommitAction }[]): void {
 		if (!this._state?.entries || changes.length === 0) return;

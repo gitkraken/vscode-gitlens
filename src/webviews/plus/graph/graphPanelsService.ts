@@ -232,8 +232,7 @@ export class GraphPanelsService {
 	// graph identity change.
 	private _lastSentOverview: GraphOverviewData | undefined;
 	// `save-last`: the payload is a complete overview snapshot, so a hidden webview only ever needs the
-	// newest one — the `EventVisibilityBuffer` replays it on show, superseding the old pending-notification
-	// requeue path.
+	// newest one — the `EventVisibilityBuffer` replays it on show.
 	private readonly _overviewChangedEvent = createRpcEvent<GraphOverviewData>('overviewChanged', 'save-last');
 	// Open PRs (and their categorization) for the pull-requests panel, keyed by repo + integration +
 	// remote. Holds the promise (not the value) so concurrent opens share one request; dropped on

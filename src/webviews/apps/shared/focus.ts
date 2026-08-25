@@ -1,6 +1,4 @@
 import { debounce } from '@gitlens/utils/debounce.js';
-import { WebviewFocusChangedCommand } from '../../protocol.js';
-import { getHostIpcApi } from './ipc.js';
 
 /**
  * Blurs the currently focused element, if any.
@@ -62,12 +60,12 @@ export function waitForFocusSettled(): Promise<void> {
 }
 
 /**
- * Creates a focus tracker that sends focus state to the host via IPC.
+ * Creates a focus tracker that sends focus state to the host via the injected sender.
  * The host uses this to update VS Code context keys for menus/keybindings.
  *
  * Usage:
  * ```typescript
- * const focus = createFocusTracker();
+ * const focus = createFocusTracker(params => this._rpc?.sendFocusChanged(params));
  * document.addEventListener('focusin', focus.onFocusIn);
  * document.addEventListener('focusout', focus.onFocusOut);
  * // On cleanup:
@@ -75,14 +73,14 @@ export function waitForFocusSettled(): Promise<void> {
  * document.removeEventListener('focusout', focus.onFocusOut);
  * ```
  */
-export function createFocusTracker(): { onFocusIn: (e: FocusEvent) => void; onFocusOut: (e: FocusEvent) => void } {
+export function createFocusTracker(sender: (params: { focused: boolean; inputFocused: boolean }) => void): {
+	onFocusIn: (e: FocusEvent) => void;
+	onFocusOut: (e: FocusEvent) => void;
+} {
 	let focused: boolean | undefined;
 	let inputFocused: boolean | undefined;
-	let ipcIdCounter = 0;
 
 	const sendFocusChanged = debounce((params: { focused: boolean; inputFocused: boolean }) => {
-		const id = `webview:${++ipcIdCounter}`;
-
 		// Re-verify the actual focus state when the debouncer fires.
 		// This prevents false "blurs" when clicking non-focusable internal elements,
 		// where focusout fires but the document retains focus.
@@ -92,14 +90,7 @@ export function createFocusTracker(): { onFocusIn: (e: FocusEvent) => void; onFo
 			params.inputFocused = false;
 		}
 
-		getHostIpcApi().postMessage({
-			id: id,
-			scope: WebviewFocusChangedCommand.scope,
-			method: WebviewFocusChangedCommand.method,
-			params: params,
-			compressed: false,
-			timestamp: Date.now(),
-		});
+		sender(params);
 	}, 150);
 
 	return {

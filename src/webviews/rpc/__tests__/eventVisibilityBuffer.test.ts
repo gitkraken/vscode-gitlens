@@ -1,12 +1,16 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { Emitter } from '../../apps/shared/events.js';
+import type { EventRegistration } from '../eventVisibilityBuffer.js';
 import {
 	bufferEventHandler,
 	createRpcEvent,
 	createRpcEventSubscription,
 	EventVisibilityBuffer,
 	SubscriptionTracker,
+	trackRpcRegistration,
 } from '../eventVisibilityBuffer.js';
+import type { Unsubscribe } from '../services/types.js';
 
 suite('EventVisibilityBuffer Test Suite', () => {
 	suite('EventVisibilityBuffer', () => {
@@ -279,6 +283,19 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(handler2.firstCall.args[0], 'second-2');
 		});
 
+		test('two concurrent subscribers both receive (same generation, no supersede)', () => {
+			const emitter = new Emitter<number>();
+			const onThing = createRpcEventSubscription<number>(undefined, 'thing', 'save-last', b => emitter.event(b));
+			const a: number[] = [];
+			const b: number[] = [];
+
+			onThing(n => a.push(n));
+			onThing(n => b.push(n));
+			emitter.fire(1);
+
+			assert.deepStrictEqual({ a: a, b: b }, { a: [1], b: [1] }, 'both concurrent subscribers must receive');
+		});
+
 		test('should remove pending and dispose on unsubscribe', () => {
 			const buffer = new EventVisibilityBuffer();
 			const disposeSpy = sinon.spy();
@@ -357,6 +374,329 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			const e = stable.epoch;
 			stable.track(sinon.spy());
 			assert.strictEqual(stable.epoch, e, 'track must not bump the epoch');
+		});
+
+		test('callerSession reads the bound resolver; undefined before one is bound', () => {
+			const tracker = new SubscriptionTracker();
+			assert.strictEqual(tracker.callerSession, undefined, 'no resolver bound yet');
+
+			tracker.bindCallerSession(() => 7);
+			assert.strictEqual(tracker.callerSession, 7);
+
+			tracker.bindCallerSession(() => undefined);
+			assert.strictEqual(tracker.callerSession, undefined, 'a bound resolver can still report undefined');
+		});
+
+		test('releaseAllExcept disposes every other session and keeps the given session live', () => {
+			const tracker = new SubscriptionTracker();
+			const registrations = new Set<EventRegistration>();
+			const disposeA = sinon.spy();
+			const disposeB1 = sinon.spy();
+			const disposeB2 = sinon.spy();
+
+			tracker.bindCallerSession(() => 1);
+			trackRpcRegistration(registrations, tracker, () => disposeA);
+			tracker.bindCallerSession(() => 2);
+			trackRpcRegistration(registrations, tracker, () => disposeB1);
+			// Two concurrent registrations from the SAME session — both must survive.
+			trackRpcRegistration(registrations, tracker, () => disposeB2);
+
+			tracker.releaseAllExcept(2);
+
+			assert.strictEqual(disposeA.callCount, 1, 'session 1 is released');
+			assert.strictEqual(disposeB1.callCount, 0, 'session 2 stays live');
+			assert.strictEqual(disposeB2.callCount, 0, 'a second same-session registration also stays live');
+			assert.strictEqual(tracker.size, 2, 'only the two session-2 registrations remain tracked');
+		});
+
+		test('releaseSession disposes only the given session, leaving every other session tracked', () => {
+			const tracker = new SubscriptionTracker();
+			const registrations = new Set<EventRegistration>();
+			const disposeLive = sinon.spy();
+			const disposeStraggler = sinon.spy();
+
+			tracker.bindCallerSession(() => 1);
+			trackRpcRegistration(registrations, tracker, () => disposeLive);
+			tracker.bindCallerSession(() => 2);
+			trackRpcRegistration(registrations, tracker, () => disposeStraggler);
+
+			tracker.releaseSession(2);
+
+			assert.strictEqual(disposeStraggler.callCount, 1, 'the straggler session is released');
+			assert.strictEqual(disposeLive.callCount, 0, 'the other session is untouched');
+			assert.strictEqual(tracker.size, 1, 'only the live session remains tracked');
+		});
+
+		test('releaseSession is a no-op for undefined — nothing to attribute it to', () => {
+			const tracker = new SubscriptionTracker();
+			const registrations = new Set<EventRegistration>();
+			const dispose = sinon.spy();
+			trackRpcRegistration(registrations, tracker, () => dispose); // unbound resolver → session undefined
+
+			tracker.releaseSession(undefined);
+
+			assert.strictEqual(dispose.callCount, 0);
+			assert.strictEqual(tracker.size, 1);
+		});
+
+		test("isSessionReleased is true for an explicitly released or actually-released session, never for one that has yet to validate or merely isn't the new keeper", () => {
+			const tracker = new SubscriptionTracker();
+			assert.strictEqual(tracker.isSessionReleased(undefined), false);
+			assert.strictEqual(tracker.isSessionReleased(1), false);
+
+			tracker.releaseSession(1);
+			assert.strictEqual(tracker.isSessionReleased(1), true);
+			assert.strictEqual(tracker.isSessionReleased(undefined), false, 'undefined is never "released"');
+
+			// The FIRST validation has nothing tracked or reserved for any other session — nobody was
+			// actually released, so nobody besides an explicit releaseSession() call reads as released.
+			tracker.releaseAllExcept(2);
+			assert.strictEqual(
+				tracker.isSessionReleased(3),
+				false,
+				'a session that never validated is not "released" merely for not being the kept one',
+			);
+
+			// Session 2 (the first keeper) registers something for real, then a SECOND validation
+			// supersedes it — now its ACTUALLY-released registration marks it tombstoned, but the new
+			// keeper (4) is not tombstoned merely for having just been superseded-from.
+			const registrations = new Set<EventRegistration>();
+			tracker.bindCallerSession(() => 2);
+			trackRpcRegistration(registrations, tracker, () => sinon.spy());
+			tracker.releaseAllExcept(4);
+			assert.strictEqual(
+				tracker.isSessionReleased(2),
+				true,
+				'a session whose registration was actually released by this call is tombstoned',
+			);
+			assert.strictEqual(tracker.isSessionReleased(4), false, 'the newly-kept session is not released');
+		});
+
+		test('reset() clears released-session tombstones — a pre-reset session id is not "released" in the next generation', () => {
+			const tracker = new SubscriptionTracker();
+
+			tracker.releaseSession(1);
+			assert.strictEqual(tracker.isSessionReleased(1), true, 'precondition: session 1 is tombstoned');
+
+			tracker.reset();
+			assert.strictEqual(
+				tracker.isSessionReleased(1),
+				false,
+				'a reset must clear tombstones — the id can never be legitimately referenced again, so nothing should grow unbounded across reconnects',
+			);
+		});
+
+		test('a released interloper cannot re-register on its already-resolved handshake', () => {
+			const tracker = new SubscriptionTracker();
+			const registrations = new Set<EventRegistration>();
+			const disposeA = sinon.spy();
+			const disposeB1 = sinon.spy();
+			const disposeB2 = sinon.spy();
+
+			// A registers, B registers (an interloper — never itself validated).
+			tracker.bindCallerSession(() => 1);
+			trackRpcRegistration(registrations, tracker, () => disposeA);
+			tracker.bindCallerSession(() => 2);
+			trackRpcRegistration(registrations, tracker, () => disposeB1);
+
+			// A validates — B's registration is released (and B is tombstoned for it).
+			tracker.bindCallerSession(() => 1);
+			tracker.releaseAllExcept(1);
+			assert.strictEqual(disposeB1.callCount, 1, 'B is released at validation');
+			assert.strictEqual(tracker.isSessionReleased(2), true, 'B is tombstoned for its released registration');
+
+			// B calls another subscribe method on its already-resolved handshake.
+			tracker.bindCallerSession(() => 2);
+			trackRpcRegistration(registrations, tracker, () => disposeB2);
+
+			assert.strictEqual(
+				disposeB2.callCount,
+				1,
+				'a released interloper must not be able to attach a new registration',
+			);
+			assert.strictEqual(tracker.size, 1, 'only A remains tracked');
+		});
+
+		test('remount regression guard: a fresh session registering before its own validation is not tombstoned, and delivery is exactly-once from the new mount', () => {
+			const tracker = new SubscriptionTracker();
+			const rpcEvent = createRpcEvent<number>('thing', 'save-last');
+
+			// Original mount: session 1 registers, then validates.
+			tracker.bindCallerSession(() => 1);
+			const receivedOld: number[] = [];
+			rpcEvent.subscribe(undefined, tracker)(data => receivedOld.push(data));
+			tracker.releaseAllExcept(1);
+
+			// A same-connection remount: a NEW post-reset session registers BEFORE its own connect()
+			// validates — this must NOT read as released merely for not being the currently-kept
+			// session (the near-miss this whole mechanism exists to avoid).
+			tracker.bindCallerSession(() => 7);
+			const receivedNew: number[] = [];
+			rpcEvent.subscribe(undefined, tracker)(data => receivedNew.push(data));
+			assert.strictEqual(
+				tracker.isSessionReleased(7),
+				false,
+				'a fresh remount session must not be tombstoned before its own validation',
+			);
+
+			// Its own connect() now validates, superseding the old mount.
+			tracker.releaseAllExcept(7);
+
+			rpcEvent.fire(42);
+			assert.deepStrictEqual(receivedOld, [], 'the superseded mount must not receive the event');
+			assert.deepStrictEqual(receivedNew, [42], 'delivery is exactly-once, from the new mount only');
+		});
+
+		test('an async subscription method disposes its late resource when its OWN (previously-kept) session is superseded mid-acquisition', async () => {
+			const tracker = new SubscriptionTracker();
+			const disposeLateSpy = sinon.spy();
+			let resolveAcquire!: () => void;
+
+			// Mirrors `RepositoryService.onRepositoryOrWorktreeChanged`'s guard shape exactly: capture
+			// epoch and caller session before the await, reserve the session so it's visible to a
+			// validation landing mid-acquisition, then re-check both after the resource resolves.
+			async function subscribeAsync(): Promise<Unsubscribe> {
+				const epoch = tracker.epoch;
+				const session = tracker.callerSession;
+				const unreserve = tracker.reserveSession(session);
+				try {
+					await new Promise<void>(resolve => {
+						resolveAcquire = resolve;
+					});
+					if (tracker.epoch !== epoch || tracker.isSessionReleased(session)) {
+						disposeLateSpy();
+						return () => {};
+					}
+
+					return tracker.track(() => {});
+				} finally {
+					unreserve();
+				}
+			}
+
+			// Session 1 is already the validated, active client — the realistic precondition for an
+			// app-level async subscription method ever being called (client-side, `connect()` always
+			// runs, and validates, before any app-level subscription).
+			tracker.bindCallerSession(() => 1);
+			tracker.releaseAllExcept(1);
+
+			const pending = subscribeAsync(); // captures and reserves session=1 before its own await
+
+			// A different session validates while the acquisition is in flight — session 1 has nothing
+			// tracked yet (only reserved), so this is the case the reservation exists to catch.
+			tracker.releaseAllExcept(2);
+
+			resolveAcquire();
+			await pending;
+
+			assert.strictEqual(disposeLateSpy.callCount, 1, 'the late resource must be disposed, not installed');
+			assert.strictEqual(tracker.size, 0, 'nothing should end up tracked for the released session');
+		});
+
+		test('an in-flight interloper that NEVER validated is superseded via its reservation, not by having been a previous keeper', async () => {
+			const tracker = new SubscriptionTracker();
+			const disposeLateSpy = sinon.spy();
+			let resolveAcquire!: () => void;
+
+			async function subscribeAsync(): Promise<Unsubscribe> {
+				const epoch = tracker.epoch;
+				const session = tracker.callerSession;
+				const unreserve = tracker.reserveSession(session);
+				try {
+					await new Promise<void>(resolve => {
+						resolveAcquire = resolve;
+					});
+					if (tracker.epoch !== epoch || tracker.isSessionReleased(session)) {
+						disposeLateSpy();
+						return () => {};
+					}
+
+					return tracker.track(() => {});
+				} finally {
+					unreserve();
+				}
+			}
+
+			// B (session 2) has NEVER validated — there is no previous keeper for `releaseAllExcept`
+			// to supersede, so only its reservation makes it visible.
+			tracker.bindCallerSession(() => 2);
+			const pending = subscribeAsync(); // captures and reserves session=2 before its own await
+
+			// A (session 1) validates for the FIRST TIME while B's acquisition is still in flight.
+			tracker.releaseAllExcept(1);
+
+			resolveAcquire();
+			await pending;
+
+			assert.strictEqual(disposeLateSpy.callCount, 1, "B's late resource must be disposed, not installed");
+			assert.strictEqual(tracker.size, 0, 'nothing should end up tracked for the interloper');
+		});
+
+		test('a keeper that validated while IDLE is still tombstoned when superseded, and cannot register afterward', () => {
+			const tracker = new SubscriptionTracker();
+			const rpcEvent = createRpcEvent<number>('thing', 'save-last');
+
+			// A (session 1) validates with NOTHING tracked and NOTHING reserved — the release scans
+			// find no trace of it, so only remembering it as the active keeper makes it releasable.
+			tracker.bindCallerSession(() => 1);
+			tracker.releaseAllExcept(1);
+
+			// B (session 2) validates, superseding A.
+			tracker.bindCallerSession(() => 2);
+			tracker.releaseAllExcept(2);
+			assert.strictEqual(tracker.isSessionReleased(1), true, 'the superseded idle keeper must be tombstoned');
+
+			// A now tries to register — it must be refused, not attached.
+			tracker.bindCallerSession(() => 1);
+			const received: number[] = [];
+			rpcEvent.subscribe(undefined, tracker)(data => received.push(data));
+			rpcEvent.fire(42);
+			assert.deepStrictEqual(received, [], 'the superseded keeper must not be able to attach a registration');
+			assert.strictEqual(tracker.size, 0, 'nothing should end up tracked for the superseded keeper');
+		});
+
+		test('concurrent same-session reservations are refcounted: releasing one keeps the session visible to validation', () => {
+			const tracker = new SubscriptionTracker();
+			tracker.bindCallerSession(() => 2);
+
+			// Two overlapping async acquisitions from the same session, each with its own handle.
+			const unreserveFirst = tracker.reserveSession(2);
+			tracker.reserveSession(2);
+
+			// The first resolves (and even releases its handle twice — a one-shot no-op) while the
+			// second is still in flight.
+			unreserveFirst();
+			unreserveFirst();
+
+			// A validation landing now must still see session 2 via the second reservation.
+			tracker.releaseAllExcept(1);
+			assert.strictEqual(
+				tracker.isSessionReleased(2),
+				true,
+				'the still-in-flight reservation must keep the session visible to validation',
+			);
+		});
+
+		test('a synchronous same-session registration does not clear an unrelated in-flight reservation', () => {
+			const tracker = new SubscriptionTracker();
+			const rpcEvent = createRpcEvent<number>('thing', 'save-last');
+			tracker.bindCallerSession(() => 2);
+
+			// An async acquisition from session 2 is in flight (reserved, nothing tracked yet)...
+			tracker.reserveSession(2);
+
+			// ...when a SYNCHRONOUS registration from the same session attaches and immediately
+			// unsubscribes, leaving nothing tracked for session 2 again.
+			const unsubscribe = rpcEvent.subscribe(undefined, tracker)(() => {}) as () => void;
+			unsubscribe();
+
+			// A validation landing now must still see session 2 via the untouched reservation.
+			tracker.releaseAllExcept(1);
+			assert.strictEqual(
+				tracker.isSessionReleased(2),
+				true,
+				'the reservation must survive an unrelated synchronous registration from the same session',
+			);
 		});
 
 		test('should call all tracked unsubscribes on dispose', () => {
@@ -521,6 +861,19 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(cb2.callCount, 1);
 		});
 
+		test('two concurrent subscribers both receive (same generation, no supersede)', () => {
+			const event = createRpcEvent<number>('thing', 'save-last');
+			const sub = event.subscribe(undefined, undefined);
+			const a: number[] = [];
+			const b: number[] = [];
+
+			sub(n => a.push(n));
+			sub(n => b.push(n));
+			event.fire(1);
+
+			assert.deepStrictEqual({ a: a, b: b }, { a: [1], b: [1] }, 'both concurrent subscribers must receive');
+		});
+
 		test('should replay signalValue in signal mode', () => {
 			const buffer = new EventVisibilityBuffer();
 			const event = createRpcEvent<undefined>('key', 'signal');
@@ -535,6 +888,104 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			buffer.setVisible(true);
 			assert.strictEqual(cb.callCount, 1);
 			assert.strictEqual(cb.firstCall.args[0], undefined);
+		});
+	});
+
+	suite('trackRpcRegistration teardown ordering', () => {
+		test('createRpcEvent: registering against an already-disposed tracker does not throw and leaves no live handler', () => {
+			const tracker = new SubscriptionTracker();
+			tracker.dispose();
+
+			const event = createRpcEvent<string>('key', 'save-last');
+			const subscriber = event.subscribe(undefined, tracker);
+			const cb = sinon.spy();
+
+			let unsub!: () => void;
+			assert.doesNotThrow(() => {
+				unsub = subscriber(cb) as () => void;
+			});
+
+			event.fire('data');
+			assert.strictEqual(cb.callCount, 0, 'handler must not be live after synchronous teardown');
+			assert.doesNotThrow(() => unsub());
+		});
+
+		test('createRpcEventSubscription: registering against an already-disposed tracker does not throw and leaves no live listener', () => {
+			const tracker = new SubscriptionTracker();
+			tracker.dispose();
+
+			const emitter = new Emitter<string>();
+			const disposeSpy = sinon.spy();
+			const subscriber = createRpcEventSubscription<string>(
+				undefined,
+				'key',
+				'save-last',
+				handler => {
+					const listener = emitter.event(handler);
+					return {
+						dispose: () => {
+							disposeSpy();
+							listener.dispose();
+						},
+					};
+				},
+				undefined,
+				tracker,
+			);
+			const cb = sinon.spy();
+
+			let unsub!: () => void;
+			assert.doesNotThrow(() => {
+				unsub = subscriber(cb) as () => void;
+			});
+
+			emitter.fire('data');
+			assert.strictEqual(cb.callCount, 0, 'listener must not be live after synchronous teardown');
+			assert.strictEqual(disposeSpy.callCount, 1, 'attach must be torn down synchronously, not left dangling');
+			assert.doesNotThrow(() => unsub());
+		});
+
+		test('attachment throwing propagates, leaves the tracker untouched, and a later reset() still completes', () => {
+			const tracker = new SubscriptionTracker();
+			const registrations = new Set<EventRegistration>();
+			const failure = new Error('attach failed');
+
+			assert.throws(() => {
+				trackRpcRegistration(registrations, tracker, () => {
+					throw failure;
+				});
+			}, failure);
+
+			assert.strictEqual(registrations.size, 0, 'nothing should be registered after a failed attach');
+			assert.strictEqual(tracker.size, 0, 'nothing should be tracked after a failed attach');
+			assert.doesNotThrow(() => tracker.reset(), 'reset must still complete cleanly');
+		});
+
+		test('reentrant disposal during attach does not double-teardown and leaves no live listener', () => {
+			const tracker = new SubscriptionTracker();
+			const registrations = new Set<EventRegistration>();
+			const emitter = new Emitter<string>();
+			const teardownSpy = sinon.spy();
+			const received: string[] = [];
+
+			const tracked = trackRpcRegistration(registrations, tracker, () => {
+				// Reentrant: something the attach step touches disposes the tracker before
+				// attach returns its teardown (e.g. a synchronous session-reset callback).
+				tracker.dispose();
+				const listener = emitter.event(v => received.push(v));
+				return () => {
+					teardownSpy();
+					listener.dispose();
+				};
+			});
+
+			emitter.fire('after-reentrant-dispose');
+			assert.deepStrictEqual(received, [], 'a listener attached during reentrant disposal must not stay live');
+			assert.strictEqual(teardownSpy.callCount, 1, 'teardown must run exactly once');
+			assert.strictEqual(registrations.size, 0, 'no registration should remain after reentrant disposal');
+
+			assert.doesNotThrow(() => (tracked as () => void)());
+			assert.strictEqual(teardownSpy.callCount, 1, 'calling the returned unsubscribe again must not re-teardown');
 		});
 	});
 });

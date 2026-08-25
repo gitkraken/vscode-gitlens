@@ -1,24 +1,35 @@
-import type { Connection, Subscription } from '@eamodio/supertalk';
+import type { Connection, Remote, Subscription } from '@eamodio/supertalk';
 import { subscribe } from '@eamodio/supertalk';
 import { signal as litSignal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
+import { defer } from '@gitlens/utils/promise.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/models/promo.js';
-import { ApplicablePromoRequest } from '../../../protocol.js';
+import type {
+	ApplicablePromoParams,
+	ApplicablePromoResponse,
+	ApplicablePromoService,
+} from '../../../rpc/promosService.js';
 import type { SubscriptionService } from '../../../rpc/services/subscription.js';
 import type { Disposable } from '../events.js';
 import { subscribeAll } from '../events/subscriptions.js';
-import type { HostIpc } from '../ipc.js';
 import type { ReadableSignal } from '../state.js';
 
-export class PromosContext implements Disposable {
-	private readonly ipc: HostIpc;
+/** The promos service as seen over the webview's RPC session (its methods proxied to promises). */
+type RemoteApplicablePromoService = Awaited<Remote<{ promos: ApplicablePromoService }>['promos']>;
 
+export class PromosContext implements Disposable {
 	private _connection: Connection | undefined;
 	private _subscription: Subscription | undefined;
 
-	constructor(ipc: HostIpc) {
-		this.ipc = ipc;
-	}
+	/** The current RPC session's promos service proxy — re-resolved by the subscription below on
+	 * every reconnect handshake, so a dead session's proxy never outlives its replacement. */
+	private _service: RemoteApplicablePromoService | undefined;
+	/** Fetches made before the first (or between) handshakes wait here; `connect()` wakes them,
+	 * mirroring how the legacy IPC request sat pending until the host answered. `disconnect()`
+	 * cancels them (consumers surface that as "no promo") and clears the deferred so a stale
+	 * one is never reused. */
+	private _waitingForService: Deferred<RemoteApplicablePromoService> | undefined;
 
 	private _promos = new Map<
 		`${PromoPlans | undefined}|${PromoLocation | undefined}|${boolean}`,
@@ -35,27 +46,42 @@ export class PromosContext implements Disposable {
 	}
 
 	/**
-	 * Wire the subscription service whose changes invalidate the promo cache. One-time: the library
-	 * re-runs the subscription on every reconnect, so repeat calls from `_onRpcReady` no-op
-	 * (idempotent for the same connection). Surfaces without RPC never connect and simply never
-	 * invalidate — the same as before, since a webview only ever received its own surface's
-	 * notifications.
+	 * Wire the RPC session whose promos service serves fetches and whose subscription changes
+	 * invalidate the promo cache. One-time: the library re-runs the subscription on every
+	 * reconnect, so repeat calls from `_onRpcReady` no-op (idempotent for the same connection),
+	 * and each handshake re-delivers a fresh session proxy. Surfaces without RPC never connect and
+	 * simply never invalidate — the same as before, since a webview only ever received its own
+	 * surface's notifications.
 	 */
 	connect(connection: Connection): void {
 		if (this._connection === connection) return;
 
 		this.disconnect();
 		this._connection = connection;
-		this._subscription = subscribe<{ subscription: SubscriptionService }>(connection, async remote => {
-			const subscription = await remote.subscription;
-			return subscribeAll([() => subscription.onSubscriptionChanged(() => this.invalidate())]);
-		});
+		this._subscription = subscribe<{ promos: ApplicablePromoService; subscription: SubscriptionService }>(
+			connection,
+			async remote => {
+				const [promos, subscription] = await Promise.all([remote.promos, remote.subscription]);
+
+				this._service = promos;
+				this._waitingForService?.fulfill(promos);
+				this._waitingForService = undefined;
+
+				return subscribeAll([() => subscription.onSubscriptionChanged(() => this.invalidate())]);
+			},
+		);
 	}
 
 	disconnect(): void {
 		this._subscription?.unsubscribe();
 		this._subscription = undefined;
 		this._connection = undefined;
+		this._service = undefined;
+		// Settle pre-connect waiters so a fetch issued on a dying mount can't hang forever, and
+		// don't cache the dead deferred — the next connect() creates a fresh one. Consumers treat
+		// a rejected fetch as "no promo", which is correct for a disconnected surface.
+		this._waitingForService?.cancel(new Error('PromosContext disconnected'));
+		this._waitingForService = undefined;
 	}
 
 	private invalidate(): void {
@@ -71,20 +97,31 @@ export class PromosContext implements Disposable {
 		const cacheKey = `${plan}|${location}|${expiringOnly}` as const;
 		let promise = this._promos.get(cacheKey);
 		if (promise == null) {
-			promise = this.ipc
-				.sendRequest(ApplicablePromoRequest, {
-					plan: plan,
-					location: location,
-					expiringOnly: expiringOnly,
-				})
-				.then(
-					rsp => rsp.promo,
-					() => undefined,
-				);
+			promise = this.fetch({
+				plan: plan,
+				location: location,
+				expiringOnly: expiringOnly,
+			}).then(
+				rsp => rsp.promo,
+				() => undefined,
+			);
 			this._promos.set(cacheKey, promise);
 		}
 		const promo = await promise;
 		return promo;
+	}
+
+	/** Resolves against the current session's promos service — or, before the first handshake,
+	 * waits for `connect()` rather than failing (a request issued during the not-yet-connected
+	 * window used to sit pending on the legacy IPC promise machinery until the host answered). */
+	private async fetch(params: ApplicablePromoParams): Promise<ApplicablePromoResponse> {
+		const service = this._service;
+		if (service != null) return service.getApplicablePromo(params);
+
+		this._waitingForService ??= defer<RemoteApplicablePromoService>();
+		const pending = this._waitingForService.promise;
+		const resolved = await pending;
+		return resolved.getApplicablePromo(params);
 	}
 
 	dispose(): void {

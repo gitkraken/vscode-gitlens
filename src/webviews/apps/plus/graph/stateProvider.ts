@@ -3,6 +3,7 @@ import { subscribe } from '@eamodio/supertalk';
 import type { ChannelGap, ChannelMeta, SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
+import type { ReactiveControllerHost } from 'lit';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -10,12 +11,13 @@ import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { appendRowsAtCursor } from '@gitlens/git/utils/graph.utils.js';
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
+import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
-import type { IpcMessage } from '../../../ipc/models/ipc.js';
+import { deserializeIpcData } from '../../../../system/ipcSerialize.js';
 import type {
 	GraphAccessState,
 	GraphColumnsService,
@@ -50,17 +52,14 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import { createWipRowId, isWipRowId } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
-import { DidChangeHostWindowFocusNotification } from '../../../protocol.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
 import type { OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
 import type { AgentSessionWorktreeIndex } from '../../shared/agentUtils.js';
 import { indexAgentSessionsByRepoAndWorktree } from '../../shared/agentUtils.js';
-import type { ReactiveElementHost } from '../../shared/appHost.js';
 import { signalObjectState, signalState } from '../../shared/components/signal-utils.js';
 import type { LoggerContext } from '../../shared/contexts/logger.js';
+import type { Disposable } from '../../shared/events.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
-import type { HostIpc } from '../../shared/ipc.js';
-import { StateProviderBase } from '../../shared/stateProviderBase.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
@@ -73,6 +72,9 @@ const BaseWebviewStateKeys = [
 	'webviewId',
 	'webviewInstanceId',
 ] as const satisfies readonly (keyof WebviewState<any>)[] as readonly string[];
+
+/** The app-host element a state provider attaches its Lit context provider to. */
+type ReactiveElementHost = ReactiveControllerHost & HTMLElement;
 
 export function isGraphSearchResultsError(
 	results: GraphSearchResults | GraphSearchResultsError,
@@ -334,7 +336,29 @@ function captureLastKnownWorkDirStats(map: State['wipStateById']): void {
 	}
 }
 
-export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
+export class GraphStateProvider implements Disposable {
+	/** The app state this provider mirrors — seeded from the bootstrap context, then updated by the
+	 *  RPC pushes and rows-channel deliveries below. */
+	private _state: State;
+	get state(): State {
+		return this._state;
+	}
+
+	get webviewId(): State['webviewId'] {
+		return this._state.webviewId;
+	}
+
+	get webviewInstanceId(): string | undefined {
+		return this._state.webviewInstanceId;
+	}
+
+	get timestamp(): number {
+		return this._state.timestamp;
+	}
+
+	/** Exposes this provider as the `graphStateContext` value — components read state through it. */
+	private readonly provider: ContextProvider<typeof graphStateContext, ReactiveElementHost>;
+
 	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: AppState['activeDay'];
@@ -772,27 +796,33 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _servicesSubscription: Subscription | undefined;
 
 	constructor(
-		host: ReactiveElementHost,
-		bootstrap: string,
-		ipc: HostIpc,
-		logger: LoggerContext,
+		private readonly host: ReactiveElementHost,
+		context: string,
+		private readonly logger: LoggerContext,
 		private readonly options: {
 			onStateUpdate?: (partial: Partial<State>) => void;
 			/** The app host's `graph:rows` channel — the rows plane's sole inbound path. */
 			rowsChannel: SequencedChannel<GraphRowsPayload>;
 		},
 	) {
-		super(host, bootstrap, ipc, logger);
+		// Deserialize the bootstrap context. The host stamps it with the same IPC serializer used
+		// for messages, so tagged values (e.g. `branchState.pr`'s dates, serialized as `__ipc` tags)
+		// must be revived — a plain JSON.parse would silently deliver raw tag objects.
+		this._state = deserializeIpcData<State>(fromBase64ToString(context));
+		this.logger?.debug(`bootstrap duration=${Date.now() - this._state.timestamp}ms`);
 
-		// Subscribed in the constructor, not in `initializeState`: the base constructor already fired
-		// `WebviewReadyRequest` (which is what unblocks the host's first emission), and `initializeState`
-		// only resolves a turn later. Both happen in THIS synchronous task, so no emission can interleave
-		// ahead of these listeners — but a subscribe deferred to an await would race the first snapshot,
-		// and a missed delivery still advances the channel's expected seq (silently, no gap event).
+		this.provider = new ContextProvider(this.host, { context: graphStateContext, initialValue: this });
+
+		// Subscribed before the bootstrap state is applied (and before any RPC handshake can deliver),
+		// so no rows emission can ever interleave ahead of these listeners — but a subscribe deferred
+		// to an await would race the first snapshot, and a missed delivery still advances the channel's
+		// expected seq (silently, no gap event).
 		this._unsubscribeRowsChannel.push(
 			options.rowsChannel.subscribe((params, meta) => this.applyRowsPayload(params, meta)),
 			options.rowsChannel.onGap(gap => this.onRowsGap(gap)),
 		);
+
+		this.applyBootstrapState();
 	}
 
 	/**
@@ -853,6 +883,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._repoStatusService = repoStatus;
 		this._rowsService = rows;
 		this._servicesReady.fulfill();
+
+		// A gap that fired before the rows service connected latched its recovery — run it now (see
+		// resyncRows's null-service branch). The channel is still gapped until this lands.
+		if (this._pendingResync) {
+			this._pendingResync = false;
+			this.resyncRows();
+		}
 
 		return subscribeAll([
 			() =>
@@ -1057,7 +1094,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// publisher's `DidChangeRows` channel and arrive ABSENT here; `avatars`/`refsMetadata` are
 					// owned by their request/response services and are bootstrap-only on this push. The one
 					// exception that rides it live: `sync` (bootstrap-only baseline stamp — consumed by
-					// `initializeState`, must not move the live baseline).
+					// `applyBootstrapState`, must not move the live baseline).
 					// Drop `branchState` and `lastFetched` when the full-state push carries values
 					// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
 					// `GraphRepoStatusService.onDidFetch`) land these ~20-30ms before the heavier full-state
@@ -1134,7 +1171,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 *  land after teardown and would otherwise re-arm timers against a disposed provider. */
 	private _providerDisposed = false;
 
-	override dispose(): void {
+	dispose(): void {
 		this._providerDisposed = true;
 		// Cancel any pending debounced provider update to prevent post-dispose updates
 		this.fireProviderUpdate.cancel?.();
@@ -1153,21 +1190,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._ensureLoadingCount = 0;
 		this.ensureLoading = false;
 		this._servicesSubscription?.unsubscribe();
-		super.dispose();
 	}
 
-	protected override createContextProvider(
-		_state: State,
-	): ContextProvider<typeof graphStateContext, ReactiveElementHost> {
-		return new ContextProvider(this.host, { context: graphStateContext, initialValue: this });
-	}
-
-	protected override async initializeState(): Promise<void> {
-		await super.initializeState();
-
+	/** Seeds the provider from the deserialized bootstrap context — called synchronously at the end
+	 *  of the constructor, after the rows-channel listeners are armed. */
+	private applyBootstrapState(): void {
 		// The deserialized bootstrap snapshot. `_state` is frozen after construction (the graph never
 		// defers bootstrap, so nothing replaces it) and `updateState` no longer mirrors writes into it —
-		// it serves only the base-class identity getters (`webviewId`, etc.) and this one-time seeding.
+		// it serves only the identity getters (`webviewId`, etc.) and this one-time seeding.
 		const bootstrap = this._state;
 
 		if (bootstrap.searchMode != null) {
@@ -1194,11 +1224,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// (subscribe-before-fetch, so no bootstrap seed race here).
 	}
 
+	/** Applies a host-window focus push (`services.webview.onHostWindowFocusChanged`, fed by the app
+	 *  host's RPC controller) — formerly a HostIpc notification.
+	 *  `undefined`/`true` both read as focused downstream, so only an explicit `false` ever dims. */
+	applyHostWindowFocus(focused: boolean): void {
+		this.updateState({ windowFocused: focused });
+	}
+
 	private _resyncRetryTimer: ReturnType<typeof setTimeout> | undefined;
 	/** Guards against overlapping `resyncRows` RPC calls — a channel gap and a splice-guard failure can
 	 *  both fire in the same tick, and a retry can still be in flight when a fresh gap arrives. Every
 	 *  resync re-snapshots the full row set from the host, so dropping a duplicate request loses nothing. */
 	private _resyncInFlight = false;
+	/** A resync requested before {@link _rowsService} connected — see {@link resyncRows}'s null-service
+	 *  branch. Drained by {@link connectServices} the moment the service lands. */
+	private _pendingResync = false;
 	/** Count of unhealable rows-channel gaps this session. MUST stay 0 in steady state — a non-zero value
 	 *  means messages are being lost between the host and this webview, which storms/soaks assert on. */
 	private _rowsGapCount = 0;
@@ -1226,7 +1266,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		const service = this._rowsService;
 		if (service == null) {
-			this.logger.info(undefined, 'rows resync requested before the rows service connected');
+			// A gap can race service connection — a reload's first (mid-generation) emission lands
+			// while `connectServices` is still resolving. Dropping the request would wedge the plane
+			// (the channel stays gapped and drops same-generation deltas, and a gap fires only once),
+			// so latch it; `connectServices` re-runs it as soon as the rows service lands.
+			this.logger.info(undefined, 'rows resync requested before the rows service connected; deferring');
+			this._pendingResync = true;
 			return;
 		}
 
@@ -2002,16 +2047,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		if (next == null) return;
 
 		this.scope = next;
-	}
-
-	protected onMessageReceived(msg: IpcMessage): void {
-		switch (true) {
-			case DidChangeHostWindowFocusNotification.is(msg):
-				this.updateState({
-					windowFocused: msg.params.focused,
-				});
-				break;
-		}
 	}
 
 	/**

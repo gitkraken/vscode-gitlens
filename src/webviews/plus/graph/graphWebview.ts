@@ -422,12 +422,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** True while the last rows walk's failure still stands — mirrors what the webview holds, so the
 	 *  `save-last` slot can never replay a stale wedge over a graph that has since loaded. */
 	private _rowsFailed = false;
-	/** Git etag as of the last `getState` build. A build that runs before repo discovery completes bakes
-	 *  a no-repository State into the webview's bootstrap HTML, and the `stateChanged` push discovery
-	 *  triggers can fire while the webview is still booting — into an empty handler map, lost. Compared
-	 *  against the live etag when the state service subscribes, so a just-connected webview whose world
-	 *  moved underneath it gets a fresh build instead of wedging on "No repository open". */
-	private _etagAtLastStateBuild: number | undefined;
+	/** Git etag as of the BOOTSTRAP `getState` build — the state baked into the webview's HTML. Every
+	 *  (re)booting client starts from that frozen snapshot: the first boot (where a build before repo
+	 *  discovery completes bakes a no-repository State, and the `stateChanged` push discovery triggers
+	 *  fires into a still-booting client's empty handler map, lost), an in-place iframe reload, and an
+	 *  element remount (the app re-reads its cached one-shot bootstrap) all regress to it. Compared
+	 *  against the live etag when the state service (re-)subscribes, so a client whose world moved past
+	 *  its bootstrap gets a fresh build instead of wedging on "No repository open". Deliberately NOT
+	 *  advanced by later push builds — those reached the PREVIOUS boot's handlers, not the one
+	 *  subscribing now. */
+	private _etagAtBootstrapBuild: number | undefined;
+	/** State builds since the bootstrap build — the other staleness signal the etag can't see: a
+	 *  bootstrap can be stale for non-git reasons (built account-gated before the subscription
+	 *  landed, mid-discovery, etc.) and converged by a later push a reloaded client then loses.
+	 *  Any build after the bootstrap means a (re-)subscribing client may hold older state than the
+	 *  host last shipped, so the subscribe wrapper catches it up. */
+	private _stateBuildsSinceBootstrap = 0;
 
 	// Set instead of building the (expensive) full-state / branch-state-only payload while hidden or not
 	// ready — building it would cost real work for a webview that can't receive it. Consumed on the next
@@ -900,9 +910,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** A fresh iframe reached ready — first boot, or a hard refresh that replaced the HTML. Either way it
-	 *  holds NO rows plane (the bootstrap `State` carries none), so force a snapshot: `RpcHost.expose`
-	 *  already cycled the channel, so this ships as the new session's seq 0 and the fresh receiver adopts
-	 *  it with no gap. On a first boot the publisher is snapshot-required anyway, so this costs nothing. */
+	 *  holds NO rows plane (the bootstrap `State` carries none), so force a snapshot: the RpcHost's
+	 *  announce-driven reconnect already cycled the channel, so this ships as the new session's seq 0 and
+	 *  the fresh receiver adopts it with no gap. On a first boot the publisher is snapshot-required
+	 *  anyway, so this costs nothing. */
 	onReady(): void {
 		this._graphSync.requireSnapshot();
 		void this._graphSync.flush();
@@ -928,13 +939,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap, which carries NO rows plane — and
-	 *  rows never rode the replay buffer, so the new iframe holds nothing. Force a snapshot: `RpcHost.expose`
-	 *  already cycled the channel (its `disconnect()` bumped the epoch), so this ships as the new session's
-	 *  seq 0 and the fresh receiver adopts it with no gap. (Within-window reloads pay one redundant
-	 *  snapshot — rare path, correctness over bytes.) */
+	 *  rows never rode the replay buffer, so the new iframe holds nothing. Re-seed via `resync` — a
+	 *  generation bump plus a forced snapshot — NOT a bare snapshot: only a SERVED reconnect's
+	 *  connection swap cycles the channel, while an IGNORED announcement (an element remount, or an
+	 *  in-place iframe reload of a healthy webview) keeps the Connection, so the channel's generation
+	 *  never moves there and a mid-generation snapshot is un-adoptable by the fresh receiver — a
+	 *  guaranteed gap that drops the snapshot itself. The bump makes the snapshot the new
+	 *  generation's seq 0 either way; on the served path it's one redundant generation, which the
+	 *  receiver adopts cleanly. */
 	onReconnect(): void {
-		this._graphSync.requireSnapshot();
-		void this._graphSync.flush();
+		void this._graphSync.resync();
 		// See onReady — a reconnect crosses the same not-ready window.
 		this._wip.flushDeferredWorkingTree();
 		this._wip.recoverDeferredSecondaryWip();
@@ -946,8 +960,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._disposed = true;
 		this.clearAutoFetchTimer();
 		this._data.clearStateFreshnessRetryTimer();
-		// Cancel + dispose every in-flight cancellation source, else the awaitee resolves and calls
-		// `host.notify` on a torn-down host and its listeners leak for the extension's lifetime.
+		// Cancel + dispose every in-flight cancellation source, else the awaitee resolves and its
+		// continuation runs against a torn-down host, leaking listeners for the extension's lifetime.
 		cancelAndDispose(this._cancellations.values());
 		this._cancellations.clear();
 		cancelAndDispose(this._wipStatsCancellations.values());
@@ -957,9 +971,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._data.cancelPendingRowsQuery();
 		// Cancels the pending refsMetadata debounced notify.
 		this._producers.dispose();
-		// Cancel the other debounced notifiers too — a trailing fire after dispose would call
-		// `host.notify()` on a torn-down host (the exact class of bug this dispose pass exists
-		// to fix).
+		// Cancel the other debounced notifiers too — a trailing fire after dispose would push
+		// events through a torn-down host (the exact class of bug this dispose pass exists to fix).
 		this._data.cancelDebouncedNotifiers();
 		this._data.disposeSession();
 		this._graphSync.dispose();
@@ -1186,14 +1199,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onRepoConnectionChanged: this._repoConnectionChangedEvent.subscribe(buffer, tracker),
 			},
 			state: {
-				// Catch-up on subscribe: a state push that fires while the webview is still booting lands
-				// in an empty handler map and is lost, and the bootstrap State embedded in the HTML is
-				// frozen — so a graph shown before repo discovery completes otherwise wedges on
-				// "No repository open" forever. If the git world moved since the last state build, ship
-				// the just-connected subscriber a fresh one.
+				// Catch-up on subscribe: every (re-)booting client starts from the frozen bootstrap State
+				// baked into the HTML — the first boot (a state push during discovery fires into a
+				// still-booting client's empty handler map, lost), an in-place iframe reload, and an
+				// element remount alike — so a graph whose git world moved past its bootstrap otherwise
+				// wedges on stale state ("No repository open" forever, in the shown-before-discovery
+				// case). Two staleness signals, either sufficient: the git world moved past the
+				// BOOTSTRAP-era etag (not the last push build's — later pushes reached the previous
+				// boot, and a reloaded client has regressed behind them), or any state build shipped
+				// since the bootstrap (staleness the etag can't see: subscription/discovery timing).
 				onStateChanged: handler => {
 					const unsubscribe = this._stateChangedEvent.subscribe(buffer, tracker)(handler);
-					if (this._etagAtLastStateBuild != null && this._etagAtLastStateBuild !== this.container.git.etag) {
+					if (
+						this._etagAtBootstrapBuild != null &&
+						(this._stateBuildsSinceBootstrap > 0 || this._etagAtBootstrapBuild !== this.container.git.etag)
+					) {
 						queueMicrotask(() => this._data.updateState());
 					}
 
@@ -1693,8 +1713,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	async includeBootstrap(_deferrable?: boolean): Promise<State> {
 		// The fresh bootstrap carries the complete state (branchState included), superseding any
 		// refresh deferred while hidden/not-ready — clear the flags so the next visibility restore
-		// doesn't fire a redundant rebuild (the legacy path's `clearPendingIpcNotifications` on
-		// reconnect did the equivalent).
+		// doesn't fire a redundant rebuild.
 		this._pendingStateRefresh = false;
 		this._pendingBranchStateRefresh = false;
 		// Mark a state op as in-flight for the duration of the bootstrap so any `notifyDidChangeState`
@@ -3009,8 +3028,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return hover;
 		} catch (ex) {
 			Logger.error(ex, 'GraphWebviewProvider', 'getRowHover');
-			// Return a structurally-valid response so the app's `getResponsePromise`/RPC call resolves
-			// quickly (not a 5-min timeout) and the hover render can show a fallback.
+			// Return a structurally-valid response so the app's RPC call resolves
+			// quickly (not a timeout) and the hover render can show a fallback.
 			return {
 				id: id,
 				markdown: { status: 'rejected' as const, reason: ex },
@@ -4491,8 +4510,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.cancelOperation('state');
 
 		// Stamp BEFORE the early returns below — the no-repository builds are exactly the ones a
-		// post-build discovery has to catch up (see the state service's subscribe wrapper).
-		this._etagAtLastStateBuild = this.container.git.etag;
+		// post-build discovery has to catch up (see the state service's subscribe wrapper). The
+		// bootstrap build resets the baseline every (re)booting client regresses to; every other
+		// build counts against it (early-return builds included — they ship as pushes too).
+		if (bootstrap === true) {
+			this._etagAtBootstrapBuild = this.container.git.etag;
+			this._stateBuildsSinceBootstrap = 0;
+		} else {
+			this._stateBuildsSinceBootstrap++;
+		}
 
 		if (!workspace.isTrusted) {
 			this._wip.updateWorkingTreeBadge(undefined);

@@ -2,12 +2,17 @@
  * RPC Host helper for webview providers.
  *
  * This module provides a helper class that webview providers can use to
- * expose services via Supertalk RPC alongside existing IPC.
+ * expose services over the webview's Supertalk RPC pipe.
  *
- * Uses a deferred handshake: the Connection is created immediately (starts
- * listening for messages), but expose() is NOT called until the webview
- * signals readiness via WebviewReadyRequest. This avoids the timing issue
- * where expose()'s ready signal is sent before the webview scripts load.
+ * Uses an announcement-driven handshake: the Connection is created immediately
+ * (starts listening for messages) but nothing is exposed until the webview's
+ * session announces itself over RPC — see {@link RpcHostOptions.onClientSession}.
+ * Supertalk's `expose()` sends its ready signal exactly once, so exposing before
+ * the webview's scripts are listening would strand the client's `waitForReady()`
+ * forever (the library has no retry/re-announce). Instead each client session
+ * announces itself (`reset()` + `expose()` from `connectRpcSession`), and this
+ * side detects that announcement frame and exposes immediately — the announcement
+ * can then never be missed.
  */
 import type { Handler, Options } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
@@ -42,6 +47,25 @@ export interface RpcHostOptions {
 	handlers?: Handler[];
 
 	/**
+	 * Called whenever a client session announces itself — first boot, iframe reload,
+	 * or element remount alike — just after this host has (re-)exposed its services to it.
+	 *
+	 * This is the readiness signal: it replaces the legacy `WebviewReadyRequest`
+	 * postMessage as the moment the host learns a live webview generation exists.
+	 */
+	onClientSession?: () => void;
+
+	/**
+	 * Consulted BEFORE serving an announcement (resetting tracked subscriptions and swapping the
+	 * exposed connection). When it returns `false` — i.e. a validated session is already live and
+	 * healthy — the announcement is treated as a duplicate or a stale generation's late arrival:
+	 * the swap is skipped so the live session's event subscriptions survive, and the host
+	 * re-posts its handshake announcement so any legitimately-waiting client still unblocks
+	 * (duplicate announcements are inert to clients whose handshake slot is already consumed).
+	 */
+	shouldServeSession?: () => boolean;
+
+	/**
 	 * Enable nested proxy mode for deep traversal of arguments and return values.
 	 *
 	 * Required for GitLens webviews: GetOverviewBranch has six Promise<> lazy
@@ -74,12 +98,42 @@ export interface RpcHostOptions {
 }
 
 /**
+ * Wire shape needed to recognize supertalk's handshake announcement. A session
+ * announcement is a `return` frame carrying the reserved handshake id (`0` —
+ * supertalk's `HANDSHAKE_ID`, which it does not export) and the announcing
+ * peer's own session id; with batching enabled it may ride inside a `batch`
+ * wrapper alongside other frames.
+ */
+interface AnnouncementFrame {
+	type?: unknown;
+	id?: unknown;
+	messages?: unknown[];
+	session?: unknown;
+}
+
+/** Returns the handshake announcement frame — unwrapping batches — or `undefined`. */
+function extractAnnounceMessage(data: unknown): AnnouncementFrame | undefined {
+	if (typeof data !== 'object' || data == null) return undefined;
+
+	const msg = data as AnnouncementFrame;
+	if (msg.type === 'batch' && Array.isArray(msg.messages)) {
+		for (const inner of msg.messages) {
+			const found = extractAnnounceMessage(inner);
+			if (found != null) return found;
+		}
+		return undefined;
+	}
+
+	return msg.type === 'return' && msg.id === 0 ? msg : undefined;
+}
+
+/**
  * Manages RPC services for a webview.
  *
- * Creates a Supertalk Connection and defers expose() until the webview
- * signals readiness. Supports reconnection on webview refresh — supertalk's
- * Connection doesn't support re-exposure, so a fresh Connection + endpoint
- * is created on each subsequent expose() call.
+ * Creates a Supertalk Connection up front and exposes its services as soon as a
+ * client session announces itself. Each announcement swaps in a fresh exposed
+ * Connection — supertalk's `Connection` doesn't support re-exposure, so a new
+ * one is created per client generation (first boot, reload, or remount).
  *
  * Usage in a webview provider:
  * ```typescript
@@ -89,11 +143,6 @@ export interface RpcHostOptions {
  *   constructor(host: WebviewHost) {
  *     const services = { echo: (msg: string) => `Echo: ${msg}` };
  *     this.rpcHost = new RpcHost(host.webview, services);
- *   }
- *
- *   // Called when WebviewReadyRequest is received:
- *   onWebviewReady() {
- *     this.rpcHost?.expose();
  *   }
  *
  *   dispose() {
@@ -108,11 +157,25 @@ export class RpcHost<TServices extends object> implements Disposable {
 	private readonly options: RpcHostOptions | undefined;
 	private readonly tracker: SubscriptionTracker | undefined;
 	private readonly logPrefix: string;
-	private _exposed = false;
+	/** Whether any client session has announced itself (and thus been served an expose()). */
+	private _clientSessionSeen = false;
 	/** Last visibility passed to {@link setVisible}; reseeded into fresh endpoints on reconnect. */
 	private _visible = true;
+	private _disposed = false;
 	private endpoint: ReturnType<typeof createHostEndpoint>;
+	/** The exact handshake frame this host last posted (extracted from any batch) — replayed,
+	 *  verbatim and side-effect-free, when an announcement is ignored so a waiting client's
+	 *  pending handshake still resolves without re-running expose() (which would double-register
+	 *  the services root and duplicate every subsequent dispatch). */
+	private _lastAnnounceMessage: unknown;
+	/** The caller session of the announcement most recently SERVED (exposed, awaiting its
+	 *  `connect()` to validate) — extracted from that announcement's own handshake frame (see
+	 *  {@link armAnnouncementTap}). `WebviewController.connect()` checks its own caller session
+	 *  against this to accept only the client this host actually served, not merely whichever
+	 *  caller's `connect()` lands first. */
+	private _pendingServedSession: number | undefined;
 	private connection: Connection;
+	private detachAnnouncementTap: (() => void) | undefined;
 
 	private _connectTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -122,58 +185,143 @@ export class RpcHost<TServices extends object> implements Disposable {
 		this.options = options;
 		this.tracker = tracker;
 		this.logPrefix = `RpcHost(${formatWebviewLogTag(options?.webviewId, options?.webviewInstanceId)})`;
-		this.endpoint = createHostEndpoint(webview);
+		this.endpoint = this.createEndpoint(webview);
 
-		// Create the Connection (sets up message listener) but DON'T expose yet.
-		// The host will call expose() when WebviewReadyRequest is received.
+		// Create the Connection (sets up message listener) but DON'T expose yet — the webview's
+		// session announcement (detected by the tap below) is what triggers the expose.
 		this.connection = new Connection(this.endpoint, this.buildConnectionOptions());
-		Logger.debug(`${this.logPrefix}: Connection created, awaiting WebviewReadyRequest`);
+		Logger.debug(`${this.logPrefix}: Connection created, awaiting client session announcement`);
+		// Bound once: the closure reads `this.connection` live, so it keeps resolving against
+		// whichever Connection is currently exposed across every reconnect swap below.
+		this.tracker?.bindCallerSession(() => this.connection.callerSession);
+		this.armAnnouncementTap();
 
-		// Diagnostic: warn if expose() is never called
+		// Diagnostic: warn if no client ever announces
 		this._connectTimer = setTimeout(() => {
 			this._connectTimer = undefined;
-			if (!this._exposed) {
-				Logger.warn(`${this.logPrefix}: expose() has not been called after 30s — may indicate a load failure`);
+			if (!this._clientSessionSeen) {
+				Logger.warn(
+					`${this.logPrefix}: no client session announcement after 30s — may indicate a load failure`,
+				);
 			}
 		}, 30_000);
 	}
 
 	/**
-	 * Expose services and send the ready signal to the webview.
-	 * Called by the WebviewController when WebviewReadyRequest is received,
-	 * indicating the webview's Connection listener is set up and ready.
-	 *
-	 * On reconnection (e.g. webview refresh), the old Connection is
-	 * closed and a fresh one is created — supertalk's Connection doesn't
-	 * support re-exposure.
+	 * Wraps the endpoint's outgoing post to capture the exact handshake frame this host sends,
+	 * so the ignore path can re-post it verbatim for waiting clients (see {@link armAnnouncementTap}).
 	 */
-	expose(): void {
+	private createEndpoint(webview: Webview): ReturnType<typeof createHostEndpoint> {
+		const endpoint = createHostEndpoint(webview);
+		const rawPost = endpoint.postMessage.bind(endpoint);
+		endpoint.postMessage = (message: unknown, transfer?: unknown[]): void => {
+			const announce = extractAnnounceMessage(message);
+			if (announce != null) {
+				this._lastAnnounceMessage = announce;
+			}
+			rawPost(message, transfer);
+		};
+		return endpoint;
+	}
+
+	/**
+	 * Arms a listener that watches inbound frames for client session announcements. Stays armed
+	 * across ignored announcements; re-armed on every connection swap, so exactly one
+	 * announcement per client generation triggers exactly one serve.
+	 */
+	private armAnnouncementTap(): void {
+		const onTap = (event: MessageEvent): void => {
+			const announce = extractAnnounceMessage(event.data);
+			if (announce == null) return;
+
+			// A validated session is already live: this announcement is an element remount (or,
+			// hypothetically, a stray duplicate — none has a production producer). The connection
+			// is long-lived by design, so this path swaps nothing and `_pendingServedSession` is
+			// left untouched — event sources supersede the replayed registration once the
+			// remount's OWN `connect()` validates it (attributed by its own caller session, not
+			// this announcement). Re-post the captured handshake frame so the announcer's pending
+			// wait resolves against the live services.
+			if (this.options?.shouldServeSession?.() === false) {
+				Logger.debug(`${this.logPrefix}: session announcement ignored — re-announcing on live connection`);
+				if (this._lastAnnounceMessage != null) {
+					this.endpoint.postMessage(this._lastAnnounceMessage);
+				}
+				return;
+			}
+
+			// Record the announcing peer's own session — carried on the handshake frame by every
+			// current-version peer (absent only for one that predates the `session` wire field).
+			// This is the identity `WebviewController.connect()` checks its own caller session
+			// against, so only the client this host actually served can validate.
+			this._pendingServedSession = typeof announce.session === 'number' ? announce.session : undefined;
+
+			// Detach before serving — the swap below replaces the endpoint this listener lives on.
+			this.detachAnnouncementTap?.();
+			this.detachAnnouncementTap = undefined;
+			this.onClientSession();
+		};
+		this.endpoint.addEventListener('message', onTap);
+		this.detachAnnouncementTap = () => this.endpoint.removeEventListener('message', onTap);
+	}
+
+	/**
+	 * Serves the announcing client generation: resets tracked subscriptions from any
+	 * previous session, tears down the current Connection, and exposes a fresh one —
+	 * the same work the ready-triggered reconnect path has always done.
+	 *
+	 * The fresh endpoint seeds the last known visibility so messages sent before the
+	 * next visibility event aren't dropped by VS Code while hidden; during a reload-mute
+	 * window they buffer until the controller lifts the mute.
+	 */
+	private onClientSession(): void {
+		if (this._disposed) return;
+
 		if (this._connectTimer != null) {
 			clearTimeout(this._connectTimer);
 			this._connectTimer = undefined;
 		}
 
-		if (this._exposed) {
-			// Reconnection: clean up outstanding event subscriptions from the
-			// previous webview session, then tear down the old connection.
-			Logger.debug(
-				`${this.logPrefix}: Reconnecting — resetting tracked subscriptions and creating fresh connection`,
-			);
-			// `reset()`, not `dispose()` — permanently disposing would poison the tracker so every
-			// later generation's `track()` calls get torn down immediately at registration.
-			this.tracker?.reset();
+		const reconnecting = this._clientSessionSeen;
+		this._clientSessionSeen = true;
+
+		try {
+			if (reconnecting) {
+				// Fresh start for the served generation: dispose every subscription tracked from
+				// the previous one. The new generation's subscriptions (registered once the
+				// swapped-in connection is exposed below) attach fresh VS Code listeners.
+				this.tracker?.reset();
+				Logger.debug(`${this.logPrefix}: Reconnecting — resetting tracked subscriptions`);
+			}
+
 			this.connection.close();
 			this.endpoint.dispose();
-			this.endpoint = createHostEndpoint(this.webview);
-			// Fresh endpoints default to visible=true; reseed with the last known visibility so
-			// messages sent before the next visibility event aren't dropped by VS Code while hidden.
+			this.endpoint = this.createEndpoint(this.webview);
 			this.endpoint.setVisible(this._visible);
 			this.connection = new Connection(this.endpoint, this.buildConnectionOptions());
-		}
-		this._exposed = true;
+			this.connection.expose(this.services);
+			this.armAnnouncementTap();
 
-		this.connection.expose(this.services);
-		Logger.debug(`${this.logPrefix}: Services exposed successfully`);
+			Logger.debug(`${this.logPrefix}: Client session ${reconnecting ? 're-' : ''}announced — services exposed`);
+		} finally {
+			// Fired after the expose so anything posted by the hook (e.g. lifting the controller's
+			// reload-window mute) reaches the wire ahead of buffered traffic.
+			this.options?.onClientSession?.();
+		}
+	}
+
+	/** See {@link _pendingServedSession}. */
+	get pendingServedSession(): number | undefined {
+		return this._pendingServedSession;
+	}
+
+	/**
+	 * Clears the pending served session. Called by `WebviewController` on every invalidation
+	 * (dispose, html reload, non-retain hide) — without this, a late `connect()` from the
+	 * previously served client would still match `pendingServedSession` and could validate against
+	 * an already-invalidated controller.
+	 */
+	invalidatePendingSession(): void {
+		this._pendingServedSession = undefined;
 	}
 
 	/**
@@ -188,6 +336,7 @@ export class RpcHost<TServices extends object> implements Disposable {
 	}
 
 	dispose(): void {
+		this._disposed = true;
 		if (this._connectTimer != null) {
 			clearTimeout(this._connectTimer);
 			this._connectTimer = undefined;
@@ -223,23 +372,4 @@ export class RpcHost<TServices extends object> implements Disposable {
 			),
 		};
 	}
-}
-
-/**
- * Creates an RPC host for a webview.
- *
- * This is a convenience function that creates an RpcHost instance.
- * Use this when you don't need to hold a reference to the host.
- *
- * @param webview - The VS Code Webview instance
- * @param services - The services to expose
- * @param options - Optional configuration
- * @returns A disposable that cleans up when disposed
- */
-export function createRpcHost<TServices extends object>(
-	webview: Webview,
-	services: TServices,
-	options?: RpcHostOptions,
-): RpcHost<TServices> {
-	return new RpcHost(webview, services, options);
 }

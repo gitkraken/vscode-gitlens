@@ -10,14 +10,14 @@ architecture see `docs/architecture.md`; for the row/layout pipeline see
 - **In (parent → panel)**: `gl-graph-app` (`src/webviews/apps/plus/graph/graph-app.ts`) pushes
   the selection down as Lit `@property`/attribute bindings on `<gl-graph-details-panel>`: `sha`,
   `repo-path`, `.shas`, `.graphReachability`, `.commitLite`/`.commitLites` (eager per-row shells
-  built from graph row data, so metadata can paint before the IPC round-trip resolves), plus
+  built from graph row data, so metadata can paint before the RPC round-trip resolves), plus
   layout/chrome flags (`show-maximize`, `maximized`, `sheet-maximized`, `graph-ready`,
   `.showSearchBox`, `.searchBoxFilter`) and `.navigation`/`.pushOverlay` controllers. The panel
   consumes several Lit contexts: `graphServicesContext` (the resolved `Remote<GraphServices>` RPC
   surface) and `graphStateContext` (`AppState` — the graph's own reactive state, e.g.
   `ingestWip`/`getWipState` for the WIP mirror shared with the row list) are the two that carry
   domain data; `graphCrossPaneContext` (the cross-pane running-operations registry, see below),
-  `graphLaunchpadContext`, `ipcContext`, and `webviewContext` carry narrower concerns. The panel
+  `graphLaunchpadContext`, and `webviewContext` carry narrower concerns. The panel
   then **provides** its own contexts downward to sub-panels and sheets —
   `detailsStateContext`/`detailsActionsContext`/`detailsWorkflowContext` (`detailsContext.ts`) —
   so a sheet or mode panel several levels down can reach `DetailsState`/`DetailsActions`/the
@@ -185,7 +185,7 @@ a paused operation); an empty working tree renders `gl-details-wip-empty-pane` i
 Launchpad-integrated empty state (next-step suggestions, associated issue/PR) rather than a bare
 "nothing here" message.
 
-### IPC out
+### RPC out
 
 - `graphInspect.getWip` (gating on cache miss; background-revalidated otherwise)
 - `repository.hasRemotes` (parallel, fire-and-forget)
@@ -374,7 +374,7 @@ flowchart LR
     cmtPanel -- "toggle-mode" --> panel
 ```
 
-### IPC out
+### RPC out
 
 - `graphInspect.getCommit` (gated on cache miss + settle window)
 - `repository.hasRemotes`, `graphInspect.getSearchContext` (parallel, conditional)
@@ -407,11 +407,11 @@ user). Sequence:
 5. Enriched autolinks (issues/PRs resolved from the raw autolinks) are lazy — fired only on an
    explicit `enrich-autolinks` event from the panel, not eagerly.
 
-### State read / IPC out
+### State read / RPC out
 
 `state.commitFrom`/`commitTo`, `compareFiles`, `compareStats`, `compareBetweenCount`,
 `signatureFrom`/`signatureTo`, `compareAutolinks` (+ `compareAutolinksLoading`),
-`compareEnrichedItems` (+ `compareEnrichmentLoading`), `swapped`. IPC: `getCompareDiff`,
+`compareEnrichedItems` (+ `compareEnrichmentLoading`), `swapped`. RPC: `getCompareDiff`,
 `getCommit` ×2 (parallel, cache-skippable), `getCommitSignature` ×2, `getAutolinksForCompareRange`
 (conditional), enriched-autolinks fetch (lazy, on demand).
 

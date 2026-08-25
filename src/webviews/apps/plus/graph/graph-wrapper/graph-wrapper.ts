@@ -37,8 +37,6 @@ import type {
 import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '../../../../plus/graph/protocol.js';
 import { fireAndForget, noop, notifyService } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
-import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
-import { telemetryContext } from '../../../shared/contexts/telemetry.js';
 import { waitForFocusSettled } from '../../../shared/focus.js';
 import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 import type { AnchorKey } from '../components/anchorKey.js';
@@ -428,9 +426,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
-
-	@consume({ context: telemetryContext as any })
-	private readonly _telemetry!: TelemetryContext;
 
 	// Cached child graph element — spares a `querySelector` on every imperative hand-off. Re-resolved
 	// whenever the cached node has left the DOM or this element disconnects; also dropped in

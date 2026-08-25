@@ -1,12 +1,9 @@
 import * as assert from 'assert';
 import { URI } from 'vscode-uri';
 import { deserializeIpcData } from '../../../../system/ipcSerialize.js';
-import type { IpcPromise } from '../../../ipc/models/dataTypes.js';
 
 suite('IPC Deserialization Test Suite', () => {
 	suite('deserializeIpcData (pure function)', () => {
-		const mockPromiseFactory = (_value: IpcPromise['value']): Promise<unknown> => Promise.resolve();
-
 		test('should be exported and callable', () => {
 			assert.strictEqual(typeof deserializeIpcData, 'function');
 		});
@@ -19,7 +16,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.ok(result.date instanceof Date);
 				assert.strictEqual(result.date.getTime(), timestamp);
@@ -42,7 +39,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.ok(result.commit.author.date instanceof Date);
 				assert.strictEqual(result.commit.author.date.getTime(), timestamp1);
@@ -61,7 +58,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.strictEqual(result.dates.length, 3);
 				result.dates.forEach((date: Date, index: number) => {
@@ -87,7 +84,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.ok(URI.isUri(result.uri));
 				assert.strictEqual(result.uri.scheme, 'file');
@@ -109,7 +106,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.ok(URI.isUri(result.uri));
 				assert.strictEqual(result.uri.scheme, 'https');
@@ -117,25 +114,6 @@ suite('IPC Deserialization Test Suite', () => {
 				assert.strictEqual(result.uri.path, '/path/to/file');
 				assert.strictEqual(result.uri.query, 'query=value');
 				assert.strictEqual(result.uri.fragment, 'fragment');
-			});
-		});
-
-		suite('IpcPromise deserialization', () => {
-			test('should deserialize IpcPromise to Promise', () => {
-				const input = {
-					promise: {
-						__ipc: 'promise',
-						value: {
-							id: 'test-id-1',
-							method: 'core/ipc/promise/settled',
-						},
-					},
-				};
-				const jsonString = JSON.stringify(input);
-
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
-
-				assert.ok(result.promise instanceof Promise);
 			});
 		});
 
@@ -154,24 +132,16 @@ suite('IPC Deserialization Test Suite', () => {
 							fragment: '',
 						},
 					},
-					promise: {
-						__ipc: 'promise',
-						value: {
-							id: 'test-id-1',
-							method: 'core/ipc/promise/settled',
-						},
-					},
 					normal: 'string',
 					number: 42,
 					boolean: true,
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.ok(result.date instanceof Date);
 				assert.ok(URI.isUri(result.uri));
-				assert.ok(result.promise instanceof Promise);
 				assert.strictEqual(result.normal, 'string');
 				assert.strictEqual(result.number, 42);
 				assert.strictEqual(result.boolean, true);
@@ -183,7 +153,7 @@ suite('IPC Deserialization Test Suite', () => {
 				const input = {};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.deepStrictEqual(result, {});
 			});
@@ -197,7 +167,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.strictEqual(result.string, 'test');
 				assert.strictEqual(result.number, 42);
@@ -212,7 +182,7 @@ suite('IPC Deserialization Test Suite', () => {
 					value: 'test',
 				});
 
-				const result: any = deserializeIpcData(jsonString, mockPromiseFactory);
+				const result: any = deserializeIpcData(jsonString);
 
 				assert.ok(result.date instanceof Date);
 				assert.strictEqual(result.date.getTime(), timestamp);

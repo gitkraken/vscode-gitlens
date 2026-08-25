@@ -4,7 +4,7 @@ import { subscribe } from '@eamodio/supertalk';
 import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { ContextProvider } from '@lit/context';
 import { html } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type {
@@ -17,10 +17,9 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import type { AgentInfo } from '../../../rpc/services/types.js';
 import { sortAgentSessions } from '../../shared/agentUtils.js';
-import { GlAppHost } from '../../shared/appHost.js';
+import { SignalWatcherWebviewApp } from '../../shared/appBase.js';
 import { createOnboardingDismissals, onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
-import type { HostIpc } from '../../shared/ipc.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
 import { coachMarkSeenContext, createCoachMarkSeenStore } from './coachMarkSeen.js';
@@ -47,7 +46,16 @@ function computeHooksAgents(infos: readonly AgentInfo[]): { id: string; displayN
 }
 
 @customElement('gl-graph-apphost')
-export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
+export class GraphAppHost extends SignalWatcherWebviewApp {
+	@property({ type: String, noAccessor: true })
+	private context!: string;
+
+	private _stateProvider!: GraphStateProvider;
+
+	get state(): State {
+		return this._stateProvider.state;
+	}
+
 	protected override createRenderRoot(): HTMLElement | DocumentFragment {
 		return this;
 	}
@@ -102,8 +110,12 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	// channel's disconnect/connect and clears its inbound generation before the next handshake.
 	private readonly _rowsChannel = new SequencedChannel<GraphRowsPayload>('graph:rows', { replay: 0 });
 
-	private _rpc = new RpcController<GraphServices>(this, {
+	protected override readonly _rpc = new RpcController<GraphServices>(this, {
 		onReady: services => this._onRpcReady(services),
+		// Host-window focus pushes arrive over RPC (the controller's core subscription) and feed
+		// the state provider's `windowFocused` signal — formerly a HostIpc notification.
+		onHostWindowFocusChanged: focused => this._stateProvider.applyHostWindowFocus(focused),
+		onWebviewVisibilityChanged: visible => this.onWebviewVisibilityChanged(visible),
 		rpcOptions: { handlers: [this._rowsChannel] },
 	});
 
@@ -286,9 +298,35 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
-		// StateProvider dispatches webview-directed notifications on this element (the apphost).
-		// We listen here — descendants can't catch parent-dispatched events — and route to the
-		// graph-app, which holds the @query reference to the details panel.
+
+		const context = this.consumeOneShotAttribute(this.context);
+		this.context = undefined!;
+		this.initWebviewContext(context);
+
+		// Recreated per mount: the provider permanently captures this mount's context (and its rows
+		// channel listeners), and its Lit context registration must die with the element it was
+		// created against. KNOWN TRADEOFF: each startup-churn remount registers another Lit context
+		// provider on this host (nothing detaches them); bounded to the few pre-session churn mounts,
+		// and each old provider itself is disposed below.
+		this._stateProvider = new GraphStateProvider(this, context, this._logger, {
+			rowsChannel: this._rowsChannel,
+			onStateUpdate: partial => {
+				if ('rows' in partial) {
+					this.appElement.resetHover();
+
+					// Focus the graph after initial rows are loaded
+					if (!this._initialRowsLoaded && partial.rows?.length) {
+						this._initialRowsLoaded = true;
+						requestAnimationFrame(() => this.appElement?.graph?.focus());
+					}
+				}
+			},
+		});
+		this.disposables.push(this._stateProvider);
+
+		// StateProvider dispatches webview-directed events on this element (the apphost). We listen
+		// here — descendants can't catch parent-dispatched events — and route to the graph-app, which
+		// holds the @query reference to the details panel.
 		this.addEventListener(
 			'gl-graph-request-open-compare-mode',
 			this._handleRequestOpenCompareMode as EventListener,
@@ -352,23 +390,6 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	override render() {
 		return html`<gl-graph-app></gl-graph-app>`;
-	}
-
-	protected override createStateProvider(bootstrap: string, ipc: HostIpc): GraphStateProvider {
-		return new GraphStateProvider(this, bootstrap, ipc, this._logger, {
-			rowsChannel: this._rowsChannel,
-			onStateUpdate: partial => {
-				if ('rows' in partial) {
-					this.appElement.resetHover();
-
-					// Focus the graph after initial rows are loaded
-					if (!this._initialRowsLoaded && partial.rows?.length) {
-						this._initialRowsLoaded = true;
-						requestAnimationFrame(() => this.appElement?.graph?.focus());
-					}
-				}
-			},
-		});
 	}
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {

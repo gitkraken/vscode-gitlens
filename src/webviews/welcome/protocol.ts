@@ -1,54 +1,11 @@
-import type { SubscriptionState } from '../../constants.subscription.js';
-import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../constants.walkthroughs.js';
-import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcNotification } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
-
-export type { GraphWalkthroughProgress, WalkthroughProgress };
-
-export const scope: IpcScope = 'welcome';
 
 export type WalkthroughMode = 'main' | 'graph';
 
 export interface State extends WebviewState<'gitlens.views.welcome'> {
-	webroot?: string;
 	hostAppName: string;
 	welcomeTitle: string;
-	plusState: SubscriptionState;
-	walkthroughProgress?: WalkthroughProgress;
-	graphWalkthroughProgress?: GraphWalkthroughProgress;
 	mode?: WalkthroughMode;
 	mcpNeedsInstall: boolean;
 	mcpShowCleanupNotice: boolean;
 }
-
-export interface DidChangeSubscriptionParams {
-	plusState: SubscriptionState;
-}
-export const DidChangeSubscription = new IpcNotification<DidChangeSubscriptionParams>(scope, 'subscription/didChange');
-
-export interface DidChangeWalkthroughProgressParams {
-	walkthroughProgress: WalkthroughProgress;
-}
-export const DidChangeWalkthroughProgress = new IpcNotification<DidChangeWalkthroughProgressParams>(
-	scope,
-	'walkthroughProgress/didChange',
-);
-
-export interface DidChangeGraphWalkthroughProgressParams {
-	graphWalkthroughProgress: GraphWalkthroughProgress;
-}
-export const DidChangeGraphWalkthroughProgress = new IpcNotification<DidChangeGraphWalkthroughProgressParams>(
-	scope,
-	'graphWalkthroughProgress/didChange',
-);
-
-export interface DidSwitchWalkthroughModeParams {
-	mode: WalkthroughMode;
-}
-export const DidSwitchWalkthroughMode = new IpcNotification<DidSwitchWalkthroughModeParams>(
-	scope,
-	'walkthroughMode/didSwitch',
-);
-
-export const DidFocusWalkthrough = new IpcNotification(scope, 'walkthrough/didFocus');

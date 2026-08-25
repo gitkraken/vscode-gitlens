@@ -1,7 +1,18 @@
-import type { WebviewTelemetryEvents } from '../../../constants.telemetry.js';
-import type { TelemetrySendEventParams } from '../../protocol.js';
+import type { TimeInput } from '@opentelemetry/api';
+import type { Source, WebviewTelemetryEvents } from '../../../constants.telemetry.js';
 
 export const telemetryEventName = 'gl-telemetry-fired';
+
+/** A webview-emitted telemetry event, bridged to the host's telemetry pipeline (via RPC) by the
+ *  listener in `appBase.ts`. Formerly the payload of the legacy IPC telemetry command; now it is
+ *  the detail of `emitTelemetrySentEvent` and the parameter of `RpcController.sendTelemetry`. */
+export interface TelemetrySendEventParams<T extends keyof WebviewTelemetryEvents = keyof WebviewTelemetryEvents> {
+	name: T;
+	data: WebviewTelemetryEvents[T];
+	source?: Source;
+	startTime?: TimeInput;
+	endTime?: TimeInput;
+}
 
 export function emitTelemetrySentEvent<T extends keyof WebviewTelemetryEvents>(
 	el: EventTarget,

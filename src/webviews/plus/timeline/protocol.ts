@@ -4,12 +4,9 @@ import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import type { FeatureAccess } from '../../../features.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Serialized } from '../../../system/serialize.js';
-import type { IpcScope } from '../../ipc/models/ipc.js';
 import type { WebviewState } from '../../protocol.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { Unsubscribe } from '../../rpc/services/types.js';
-
-export const scope: IpcScope = 'timeline';
 
 export interface State extends WebviewState<'gitlens.timeline' | 'gitlens.views.timeline'> {
 	dataset?: Promise<TimelineDatum[]>;

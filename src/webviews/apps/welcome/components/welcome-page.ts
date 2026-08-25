@@ -1,23 +1,21 @@
+import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
-import { html, LitElement, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { html, LitElement } from 'lit';
+import { customElement, property, query } from 'lit/decorators.js';
 import { urls } from '../../../../constants.js';
 import { SubscriptionState } from '../../../../constants.subscription.js';
 import type { GraphWalkthroughContextKeys } from '../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { State } from '../../../welcome/protocol.js';
 import { scrollableBase } from '../../shared/components/styles/lit/base.css.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
-import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
-import { telemetryContext } from '../../shared/contexts/telemetry.js';
-import { stateContext } from '../context.js';
+import { welcomeStateContext } from '../state.js';
+import type { WelcomeState } from '../state.js';
 import { welcomeStyles } from './welcome-page.css.js';
 import '../../shared/components/gitlens-logo-circle.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/icons/icon-cube.js';
 import './welcome-parts.js';
-import type { GlWalkthrough, WalkthroughStep } from './welcome-parts.js';
+import type { GlWalkthrough, WalkthroughStep, WalkthroughStepConditionState } from './welcome-parts.js';
 
 type GraphWalkthroughStep = {
 	id: string;
@@ -457,7 +455,7 @@ const graphWalkthroughSteps: GraphWalkthroughStep[] = [
 ];
 
 @customElement('gl-welcome-page')
-export class GlWelcomePage extends LitElement {
+export class GlWelcomePage extends SignalWatcher(LitElement) {
 	static override styles = [scrollableBase, ...welcomeStyles];
 
 	@property({ type: Boolean })
@@ -469,15 +467,8 @@ export class GlWelcomePage extends LitElement {
 	@property({ type: Boolean })
 	private isLightTheme = false;
 
-	@consume<State>({ context: stateContext, subscribe: true })
-	@state()
-	private _state!: State;
-
-	@consume({ context: ipcContext })
-	_ipc!: typeof ipcContext.__context__;
-
-	@consume({ context: telemetryContext as { __context__: TelemetryContext } })
-	_telemetry!: TelemetryContext;
+	@consume({ context: welcomeStateContext })
+	private _state!: WelcomeState;
 
 	@query('gl-walkthrough')
 	private walkthrough?: GlWalkthrough;
@@ -499,14 +490,6 @@ export class GlWelcomePage extends LitElement {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
-		this._telemetry.sendEvent({
-			name: 'welcome/action',
-			data: {
-				name: 'shown',
-			},
-			source: { source: 'welcome' },
-		});
-
 		window.addEventListener('gl-walkthrough-focus-command', this.handleWalkthroughFocusCommand);
 		this.addEventListener('click', this.handleClick);
 	}
@@ -518,19 +501,28 @@ export class GlWelcomePage extends LitElement {
 	}
 
 	private getWelcomeHeading(): string {
-		return this._state.welcomeTitle;
+		return this._state.welcomeTitle.get();
+	}
+
+	/** Snapshot of the condition inputs the step definitions evaluate — see `WalkthroughStepConditionState`. */
+	private getStepConditionState(): WalkthroughStepConditionState {
+		return {
+			plusState: this._state.plusState.get(),
+			mcpNeedsInstall: this._state.mcpNeedsInstall.get(),
+			mcpShowCleanupNotice: this._state.mcpShowCleanupNotice.get(),
+		};
 	}
 
 	override render(): unknown {
-		if (!this._state) return nothing;
-
-		if (this._state.mode === 'graph') {
+		if (this._state.mode.get() === 'graph') {
 			return this.renderGraphWalkthrough();
 		}
 		return this.renderMainWalkthrough();
 	}
 
 	private renderMainWalkthrough(): unknown {
+		const progress = this._state.walkthroughProgress.get();
+
 		return html`
 			<div part="page" class="welcome scrollable">
 				<div class="section header">
@@ -542,8 +534,8 @@ export class GlWelcomePage extends LitElement {
 				</div>
 				<gl-walkthrough-progress
 					class="section"
-					.doneCount=${this._state.walkthroughProgress?.doneCount ?? 0}
-					.allCount=${this._state.walkthroughProgress?.allCount ?? 0}
+					.doneCount=${progress?.main.doneCount ?? 0}
+					.allCount=${progress?.main.allCount ?? 0}
 				></gl-walkthrough-progress>
 				<div class="section section--centered">
 					<p>
@@ -554,7 +546,7 @@ export class GlWelcomePage extends LitElement {
 				</div>
 				<gl-walkthrough class="section">
 					${walkthroughSteps
-						.filter(step => !step.condition || step.condition(this._state))
+						.filter(step => !step.condition || step.condition(this.getStepConditionState()))
 						.map(
 							step => html`
 								<gl-walkthrough-step
@@ -562,7 +554,7 @@ export class GlWelcomePage extends LitElement {
 									stepId=${step.id}
 									.completed=${
 										step.walkthroughKey != null &&
-										this._state.walkthroughProgress?.state[step.walkthroughKey] === true
+										progress?.main.state[step.walkthroughKey] === true
 									}
 								>
 									<h1 slot="title">${step.title}</h1>
@@ -584,6 +576,8 @@ export class GlWelcomePage extends LitElement {
 	}
 
 	private renderGraphWalkthrough(): unknown {
+		const progress = this._state.walkthroughProgress.get();
+
 		return html`
 			<div part="page" class="welcome scrollable">
 				<div class="section section--back">
@@ -599,8 +593,8 @@ export class GlWelcomePage extends LitElement {
 				</div>
 				<gl-walkthrough-progress
 					class="section"
-					.doneCount=${this._state.graphWalkthroughProgress?.doneCount ?? 0}
-					.allCount=${this._state.graphWalkthroughProgress?.allCount ?? 0}
+					.doneCount=${progress?.graph.doneCount ?? 0}
+					.allCount=${progress?.graph.allCount ?? 0}
 				></gl-walkthrough-progress>
 				<gl-walkthrough class="section">
 					${graphWalkthroughSteps.map(
@@ -608,9 +602,7 @@ export class GlWelcomePage extends LitElement {
 							<gl-walkthrough-step
 								class="card"
 								stepId=${step.id}
-								.completed=${
-									this._state.graphWalkthroughProgress?.state[step.graphWalkthroughKey] === true
-								}
+								.completed=${progress?.graph.state[step.graphWalkthroughKey] === true}
 							>
 								<h1 slot="title">${step.title}</h1>
 								${step.body}

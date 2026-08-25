@@ -15,7 +15,8 @@ import {
 	processRebaseEntries,
 } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import type { MoveEntryParams } from './protocol.js';
-import { maxSmallIntegerV8 } from './rebaseWebviewProvider.js';
+
+const maxSmallIntegerV8 = 2 ** 30 - 1;
 
 /** Encapsulates all read/write operations on the rebase todo file */
 export class RebaseTodoDocument {

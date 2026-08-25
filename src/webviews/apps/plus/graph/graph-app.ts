@@ -48,19 +48,15 @@ import {
 	isPrimaryWipRowId,
 	isWipSelectionSha,
 } from '../../../plus/graph/protocol.js';
-import { ExecuteCommand } from '../../../protocol.js';
 import { fireAndForget, notifyService } from '../../shared/actions/rpc.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
-import { ipcContext } from '../../shared/contexts/ipc.js';
 import { createOnboardingState, onboardingContext } from '../../shared/contexts/onboarding.js';
 import type { OnboardingDismissals } from '../../shared/contexts/onboardingDismissals.js';
 import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
-import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
-import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import '../shared/components/account-bar.js';
@@ -667,12 +663,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		isConnected: () => this.isConnected,
 		services: () => this.services,
 	});
-
-	@consume({ context: ipcContext })
-	private readonly _ipc!: typeof ipcContext.__context__;
-
-	@consume({ context: telemetryContext as any })
-	private readonly _telemetry!: TelemetryContext;
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _sidebarActions?: SidebarActions;
@@ -2234,12 +2224,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	/** The pull request sheet's Review with Agent — Launchpad's Start Review flow, agent route, with
-	 *  the pull request pre-selected by url so no picker interrupts. */
-	private handlePrReview = (e: CustomEvent<{ url: string }>): void => {
-		this._ipc.sendCommand(ExecuteCommand, {
-			command: 'gitlens.startReview',
-			// The wizard only auto-selects the pull request when useDefaults rides along with prUrl
-			args: [{ prUrl: e.detail.url, useDefaults: true, source: { source: 'graph' }, showOpenInAgent: 'agent' }],
+	 *  the pull request pre-selected by url so no picker interrupts. Best-effort: bails if the RPC
+	 *  session is already gone (the legacy fire-and-forget command never surfaced errors either). */
+	private handlePrReview = async (e: CustomEvent<{ url: string }>): Promise<void> => {
+		const commands = await this.services?.commands;
+		// The wizard only auto-selects the pull request when useDefaults rides along with prUrl
+		void commands?.execute('gitlens.startReview', {
+			prUrl: e.detail.url,
+			useDefaults: true,
+			source: { source: 'graph' },
+			showOpenInAgent: 'agent',
 		});
 	};
 
@@ -2890,7 +2884,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 			const host = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'view';
 			const location = this.effectiveDetailsLocation;
-			this._telemetry.sendEvent({
+			emitTelemetrySentEvent(this, {
 				name: 'graphDetails/shown',
 				data: {
 					trigger: trigger,
@@ -2905,7 +2899,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		} else {
 			const duration = this._detailsShownAt != null ? performance.now() - this._detailsShownAt : 0;
 			this._detailsShownAt = undefined;
-			this._telemetry.sendEvent({
+			emitTelemetrySentEvent(this, {
 				name: 'graphDetails/closed',
 				data: { duration: duration, mode: this.detailsPanelEl?.currentMode ?? 'none' },
 			});
@@ -2957,7 +2951,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				break;
 		}
 
-		this._telemetry.sendEvent({
+		emitTelemetrySentEvent(this, {
 			name: 'graphDetails/mode/changed',
 			data: { 'mode.old': e.detail.previous, 'mode.new': e.detail.current },
 		});
@@ -2976,9 +2970,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		current: GraphDetailsMode,
 	): void {
 		if (current === mode && previous !== mode) {
-			this._telemetry.sendEvent({ name: `graphDetails/${mode}/opened`, data: {} });
+			emitTelemetrySentEvent(this, { name: `graphDetails/${mode}/opened`, data: {} });
 		} else if (previous === mode && current !== mode) {
-			this._telemetry.sendEvent({ name: `graphDetails/${mode}/closed`, data: {} });
+			emitTelemetrySentEvent(this, { name: `graphDetails/${mode}/closed`, data: {} });
 		}
 	}
 
@@ -3124,7 +3118,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		// One-and-done: dismisses `graph:layoutPrompt` host-side and moves the view for sidebar/panel;
-		// `dismissed` just dismisses with no move. Rides the `welcome` service, not `_ipc`, so the
+		// `dismissed` just dismisses with no move. Rides the `welcome` service, not the shared
+		// navigation plane, so the
 		// dismissal write and the view move ride the same causally-ordered RPC message (see
 		// docs/webview-architecture.md).
 		if (this.services != null) {
@@ -3972,7 +3967,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const count = this._selectionTrackingCounter.next();
 		if (count === 1 || count % 100 === 0) {
 			queueMicrotask(() =>
-				this._telemetry.sendEvent({
+				emitTelemetrySentEvent(this, {
 					name: 'graph/row/selected',
 					data: { rows: selection.length, count: count },
 				}),
@@ -4129,7 +4124,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  `data-vscode-context` string (same format the right-click menu uses) and we forward it to the
 	 *  existing `gitlens.graph.copy` command, which already prefers `worktreePath` and newline-joins a
 	 *  multi-selection — no new command needed. */
-	private handleGraphCopyRequest(e: CustomEventType<'gl-graph-copy-request'>) {
+	private async handleGraphCopyRequest(e: CustomEventType<'gl-graph-copy-request'>): Promise<void> {
 		const { context, selectionContexts } = e.detail;
 		let item: GraphItemContext | undefined;
 		try {
@@ -4167,7 +4162,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				item.listMultiSelection = true;
 			}
 		}
-		this._ipc.sendCommand(ExecuteCommand, { command: 'gitlens.graph.copy', args: item != null ? [item] : [] });
+		// Best-effort like the fire-and-forget command send it replaces — bails if the RPC session
+		// is already gone (e.g. copy during teardown)
+		const commands = await this.services?.commands;
+		void commands?.execute('gitlens.graph.copy' as GlExtensionCommands, ...(item != null ? [item] : []));
 	}
 
 	private handleGraphRowContextMenu(_e: CustomEventType<'gl-graph-row-context-menu'>) {
@@ -4310,7 +4308,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 			const count = this._hoverTrackingCounter.next();
 			if (count === 1 || count % 100 === 0) {
-				queueMicrotask(() => this._telemetry.sendEvent({ name: 'graph/row/hovered', data: { count: count } }));
+				queueMicrotask(() =>
+					emitTelemetrySentEvent(this, { name: 'graph/row/hovered', data: { count: count } }),
+				);
 			}
 
 			return request;

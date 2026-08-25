@@ -13,8 +13,8 @@ import { workspace } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
 import type { RepositoryChange } from '../../../git/models/repository.js';
-import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { bufferEventHandler, createRpcEventSubscription } from '../eventVisibilityBuffer.js';
+import type { EventRegistration, EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
+import { bufferEventHandler, createRpcEventSubscription, trackRpcRegistration } from '../eventVisibilityBuffer.js';
 import { extractRepositoryChanges } from './repository.js';
 import type {
 	CommitSelectedEventData,
@@ -81,56 +81,67 @@ export class RepositoriesService {
 			tracker,
 		);
 
+		const repositoryChangedRegistrations = new Set<EventRegistration>();
+		const discoveryCompletedRegistrations = new Set<EventRegistration>();
+
 		// Smart aggregation: accumulate per-repoPath change sets while hidden,
 		// fire one event per affected repo on visibility restore.
 		this.onRepositoryChanged = (callback): Unsubscribe => {
 			const pendingKey = Symbol('repositoryChanged');
 			const pendingRepoChanges = new Map<string, { uri: string; changes: Set<RepositoryChange> }>();
 
-			const disposable = container.git.onDidChangeRepository(e => {
-				const data: RepositoryChangeEventData = {
-					repoPath: e.repository.path,
-					repoUri: e.repository.uri.toString(),
-					changes: extractRepositoryChanges(e),
-				};
-				if (!buffer || buffer.visible) {
-					callback(data);
-				} else {
-					let existing = pendingRepoChanges.get(data.repoPath);
-					if (existing == null) {
-						existing = { uri: data.repoUri, changes: new Set() };
-						pendingRepoChanges.set(data.repoPath, existing);
-					}
-					for (const c of data.changes) {
-						existing.changes.add(c);
-					}
-					buffer.addPending(pendingKey, () => {
-						for (const [repoPath, entry] of pendingRepoChanges) {
-							callback({ repoPath: repoPath, repoUri: entry.uri, changes: [...entry.changes] });
+			return trackRpcRegistration(repositoryChangedRegistrations, tracker, () => {
+				const disposable = container.git.onDidChangeRepository(e => {
+					const data: RepositoryChangeEventData = {
+						repoPath: e.repository.path,
+						repoUri: e.repository.uri.toString(),
+						changes: extractRepositoryChanges(e),
+					};
+					if (!buffer || buffer.visible) {
+						callback(data);
+					} else {
+						let existing = pendingRepoChanges.get(data.repoPath);
+						if (existing == null) {
+							existing = { uri: data.repoUri, changes: new Set() };
+							pendingRepoChanges.set(data.repoPath, existing);
 						}
-						pendingRepoChanges.clear();
-					});
-				}
+						for (const c of data.changes) {
+							existing.changes.add(c);
+						}
+						buffer.addPending(pendingKey, () => {
+							for (const [repoPath, entry] of pendingRepoChanges) {
+								callback({ repoPath: repoPath, repoUri: entry.uri, changes: [...entry.changes] });
+							}
+							pendingRepoChanges.clear();
+						});
+					}
+				});
+				return () => {
+					buffer?.removePending(pendingKey);
+					pendingRepoChanges.clear();
+					disposable.dispose();
+				};
 			});
-			const unsubscribe = () => {
-				buffer?.removePending(pendingKey);
-				pendingRepoChanges.clear();
-				disposable.dispose();
-			};
-			return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
 		};
 
 		this.onDiscoveryCompleted = (callback): Unsubscribe => {
 			const pendingKey = Symbol('discoveryCompleted');
 			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'save-last');
+			const session = tracker?.callerSession;
 
 			// If discovery is already done, fire immediately
 			const discovering = container.git.isDiscoveringRepositories;
 			if (discovering == null) {
-				buffered(this.#getRepositoriesState());
-				return () => {
-					buffer?.removePending(pendingKey);
-				};
+				// Skip for an already-released straggler session — it must not receive this push.
+				if (tracker?.isSessionReleased(session) !== true) {
+					buffered(this.#getRepositoriesState());
+				}
+
+				return trackRpcRegistration(discoveryCompletedRegistrations, tracker, () => {
+					return () => {
+						buffer?.removePending(pendingKey);
+					};
+				});
 			}
 
 			// Wait for discovery to complete, then fire
@@ -140,11 +151,12 @@ export class RepositoriesService {
 					buffered(this.#getRepositoriesState());
 				}
 			});
-			const unsubscribe = () => {
-				cancelled = true;
-				buffer?.removePending(pendingKey);
-			};
-			return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
+			return trackRpcRegistration(discoveryCompletedRegistrations, tracker, () => {
+				return () => {
+					cancelled = true;
+					buffer?.removePending(pendingKey);
+				};
+			});
 		};
 	}
 

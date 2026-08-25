@@ -11,8 +11,8 @@
  * 3. An aborted handshake must not leave `waitForReady()`'s pending entry unsettled — the reset
  *    before each `waitForReady()` is what settles it.
  *
- * The host side is unchanged: it still closes its Connection and builds a fresh one per `expose()`,
- * which these tests mirror.
+ * The host side mirrors production: it closes its Connection and builds a fresh one per client
+ * session announcement (`RpcHost`'s announce-driven swap).
  */
 import * as assert from 'assert';
 import { MessageChannel } from 'node:worker_threads';
@@ -42,7 +42,7 @@ interface Peers {
 	readonly client: Connection;
 	/** The client's long-lived SignalHandler — the instance under test across resets. */
 	readonly clientSignals: SignalHandler;
-	/** Mirrors `RpcHost.expose()`: first call exposes, later calls close and rebuild first. */
+	/** Mirrors `RpcHost`'s announce-driven swap: first call exposes, later calls close and rebuild first. */
 	exposeHost(): void;
 	dispose(): void;
 }
@@ -82,8 +82,8 @@ function createPeers(services: object, options?: CreatePeersOptions): Peers {
 		client: client,
 		clientSignals: clientSignals,
 		exposeHost: function (): void {
-			// `RpcHost.expose()` on reconnect: close the old connection, then build a fresh one with a
-			// fresh SignalHandler but the caller's own handler instances.
+			// `RpcHost`'s announce-driven swap on reconnect: close the old connection, then build a
+			// fresh one with a fresh SignalHandler but the caller's own handler instances.
 			host?.close();
 			host = new Connection(
 				asEndpoint(port1),
@@ -106,13 +106,19 @@ function createPeers(services: object, options?: CreatePeersOptions): Peers {
 }
 
 /**
- * One mount: start the session, then let the host expose — the same order the webview produces,
- * since `connectRpcSession` registers the handshake synchronously before its first await and the
- * host only exposes once `WebviewReadyRequest` arrives.
+ * One mount: start the session, then let the host respond — the same order the webview produces,
+ * since `connectRpcSession` announces the session synchronously before its first await and the
+ * host only exposes once that announcement arrives.
  */
 function mount<TServices extends object>(peers: Peers, signal?: AbortSignal): Promise<Remote<TServices>> {
 	const session = connectRpcSession<TServices>(peers.client, { logPrefix: logPrefix, signal: signal });
-	peers.exposeHost();
+	// The session announcement rides MessagePort delivery (a macrotask), so a macrotask-deferred
+	// expose reproduces the production ordering: host reacts to the announcement, not vice versa.
+	const timer = setTimeout(() => peers.exposeHost(), 0);
+	void session.then(
+		() => clearTimeout(timer),
+		() => clearTimeout(timer),
+	);
 	return session;
 }
 

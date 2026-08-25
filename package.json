@@ -30693,8 +30693,8 @@
 	"dependencies": {
 		"@awesome.me/webawesome": "3.11.0",
 		"@configcat/sdk": "1.1.0",
-		"@eamodio/supertalk": "0.1.2",
-		"@eamodio/supertalk-core": "0.1.2",
+		"@eamodio/supertalk": "0.1.4",
+		"@eamodio/supertalk-core": "0.1.4",
 		"@eamodio/supertalk-signals": "0.0.7",
 		"@gitkraken/commit-graph": "workspace:*",
 		"@gitkraken/compose-tools": "0.8.1",

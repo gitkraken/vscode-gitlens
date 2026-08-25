@@ -1,9 +1,11 @@
 import './rebase.scss';
+import type { Remote, Subscription } from '@eamodio/supertalk';
+import { subscribe } from '@eamodio/supertalk';
 import type { LitVirtualizer } from '@lit-labs/virtualizer';
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
 import type { PropertyValues } from 'lit';
 import { html, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -14,42 +16,12 @@ import { makeHierarchical } from '@gitlens/utils/array.js';
 import { filterMap, some } from '@gitlens/utils/iterable.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
-import type {
-	ConflictFileInfo,
-	RebaseActiveStatus,
-	RebaseCommitEntry,
-	RebaseEntry,
-	State,
-} from '../../rebase/protocol.js';
-import {
-	AbortCommand,
-	ChangeEntriesCommand,
-	ChangeEntryCommand,
-	ContinueCommand,
-	ContinueWithAiCommand,
-	DismissCloseWarningCommand,
-	GetConflictsRequest,
-	isCommandEntry,
-	isCommitEntry,
-	MoveEntriesCommand,
-	MoveEntryCommand,
-	OpenConflictChangesCommand,
-	OpenConflictFileCommand,
-	RecomposeCommand,
-	ReorderCommand,
-	ResolveAllConflictsCommand,
-	ResolveConflictsInGraphCommand,
-	RevealRefCommand,
-	SearchCommand,
-	ShiftEntriesCommand,
-	SkipCommand,
-	StageConflictCommand,
-	StartCommand,
-	StartWithAiRequest,
-	SwitchCommand,
-	UpdateSelectionCommand,
-} from '../../rebase/protocol.js';
-import { GlAppHost } from '../shared/appHost.js';
+import type { ConflictFileInfo, RebaseActiveStatus, RebaseCommitEntry, RebaseEntry } from '../../rebase/protocol.js';
+import { isCommandEntry, isCommitEntry } from '../../rebase/protocol.js';
+import type { RebaseServices, RebaseStateChangedEvent } from '../../rpc/rebaseService.js';
+import { fireAndForget } from '../shared/actions/rpc.js';
+import { SeedBuffer } from '../shared/actions/seedBuffer.js';
+import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { GlPopoverConfirm } from '../shared/components/overlays/popover-confirm.js';
 import type { GlSelect } from '../shared/components/select/select.js';
 import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
@@ -64,9 +36,11 @@ import {
 	getConflictDecorations as getSharedConflictDecorations,
 	getConflictTooltip as getSharedConflictTooltip,
 } from '../shared/components/tree/conflictRendering.js';
-import type { LoggerContext } from '../shared/contexts/logger.js';
 import { ContextMenuProxyController } from '../shared/controllers/context-menu-proxy.js';
-import type { HostIpc } from '../shared/ipc.js';
+import { subscribeAll } from '../shared/events/subscriptions.js';
+import { getHost } from '../shared/host/context.js';
+import { RpcController } from '../shared/rpc/rpcController.js';
+import { RebaseActions } from './actions.js';
 import type { GlRebaseEntryElement } from './components/rebase-entry.js';
 import { getConflictFileActions, getConflictFileContextData } from './conflictStatus.utils.js';
 import { rebaseStyles } from './rebase.css.js';
@@ -76,7 +50,6 @@ import './components/conflict-indicator.js';
 import './components/rebase-entry.js';
 import '../shared/components/banner/banner.js';
 import '../shared/components/branch-name.js';
-import { RebaseStateProvider } from './stateProvider.js';
 import '../shared/components/button.js';
 import '../shared/components/menu/menu-popover.js';
 import '../shared/components/checkbox/checkbox.js';
@@ -109,8 +82,41 @@ const actionKeyMap: Record<string, RebaseTodoCommitAction> = {
 };
 
 @customElement('gl-rebase-editor')
-export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
+export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	static override styles = [scrollableBase, splitButtonStyles, rebaseStyles];
+
+	@property({ type: String, noAccessor: true })
+	private context!: string;
+
+	private _host = getHost();
+
+	/** The resolved view-specific service — set per ready; UI handlers are no-ops before then. */
+	private _rebase?: Awaited<Remote<RebaseServices>['rebase']>;
+
+	/**
+	 * RPC event subscription — released at disconnect (the subscriber closes over this mount's
+	 * state) and recreated per ready against the new session.
+	 */
+	private _eventsSubscription?: Subscription;
+
+	/** Buffers event applications while the subscribe-then-query seed is in flight — see {@link SeedBuffer}. */
+	private readonly _seedBuffer = new SeedBuffer();
+
+	/** Optimistic updates, enrichment batching, and reconciliation over the host-pushed state. */
+	private readonly _actions: RebaseActions = new RebaseActions(this, () => this._rebase);
+
+	protected override readonly _rpc = new RpcController<RebaseServices>(this, {
+		rpcOptions: {
+			webviewId: () => this._webview?.webviewId,
+			webviewInstanceId: () => this._webview?.webviewInstanceId,
+			endpoint: () => this._host.createEndpoint(),
+		},
+		onReady: services => this._onRpcReady(services),
+	});
+
+	private get state(): RebaseStateChangedEvent | undefined {
+		return this._actions.state;
+	}
 
 	@query('lit-virtualizer')
 	private readonly _virtualizer?: LitVirtualizer;
@@ -223,22 +229,106 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		);
 	}
 
-	protected override createStateProvider(
-		bootstrap: string,
-		ipc: HostIpc,
-		logger: LoggerContext,
-	): RebaseStateProvider {
-		return new RebaseStateProvider(this, bootstrap, ipc, logger);
-	}
-
 	override connectedCallback(): void {
 		super.connectedCallback?.();
+
+		const context = this.consumeOneShotAttribute(this.context);
+		this.context = undefined!;
+		this.initWebviewContext(context);
+
 		document.addEventListener('keydown', this.onDocumentKeyDown);
+		// Listen for missing data events from entry components
+		this.addEventListener('missing-avatar', this.onMissingAvatar);
+		this.addEventListener('missing-commit', this.onMissingCommit);
 	}
 
 	override disconnectedCallback(): void {
 		document.removeEventListener('keydown', this.onDocumentKeyDown);
+		this.removeEventListener('missing-avatar', this.onMissingAvatar);
+		this.removeEventListener('missing-commit', this.onMissingCommit);
+
+		// Unsubscribe before resetting state: the retained handle would otherwise re-issue its
+		// subscriber — which closes over the reset state — on the next handshake. A fresh
+		// subscription is created per ready anyway, so nothing is lost by releasing it here.
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = undefined;
+		this._rebase = undefined;
+		// Strand any seed still in flight from this mount — its deferred applications must not
+		// touch anything after teardown.
+		this._seedBuffer.reset();
+		this._actions.reset();
+
 		super.disconnectedCallback?.();
+	}
+
+	private async _onRpcReady(services: Remote<RebaseServices>): Promise<void> {
+		const rebase = await services.rebase;
+		this._rebase = rebase;
+
+		// The promos context fetches through the session's promos service; without this its
+		// pre-connect waiters never fulfill, so e.g. the conflict-detection Pro promo never shows.
+		this._promos.connect(this._rpc.connection!);
+
+		// Subscribe to events FIRST so an update pushed during the initial fetch isn't missed —
+		// synchronous: `subscribe()` buffers the wire subscribe until the connection's handshake
+		// completes. Recreated per ready (not `??=`): the subscriber closes over this session's state.
+		this._eventsSubscription?.unsubscribe();
+		this._eventsSubscription = subscribe<RebaseServices>(this._rpc.connection!, async remoteServices => {
+			const svc = await remoteServices.rebase;
+
+			return subscribeAll([
+				() =>
+					svc.onStateChanged(state => {
+						this._seedBuffer.during(() => this._actions.applyIncomingState(state));
+					}),
+				() =>
+					svc.onAvatarsChanged(event => {
+						this._seedBuffer.during(() => this._actions.onAvatarsChanged(event));
+					}),
+				() =>
+					svc.onCommitsChanged(event => {
+						this._seedBuffer.during(() => this._actions.onCommitsChanged(event));
+					}),
+				() =>
+					svc.onSubscriptionChanged(event => {
+						this._seedBuffer.during(() => this._actions.onSubscriptionChanged(event.subscription));
+					}),
+			]);
+		});
+
+		// Initial fetch — after the subscriptions above are armed, so a push racing the query
+		// can't be missed. This replaces the legacy deferred bootstrap: unlike the
+		// visibility-gated push pipeline, the query answers even while hidden, matching the old
+		// bootstrap semantics. The query parses the todo document host-side, so an event landing
+		// mid-parse could otherwise be regressed by the older snapshot — events are buffered
+		// (starting now) and replayed AFTER the snapshot, preserving event order without racing
+		// an unordered full-state response.
+		this._seedBuffer.start();
+		await this._eventsSubscription.ready;
+		const state = await rebase.getState();
+		// This mount may have torn down while the query was pending — a dead seed must not
+		// apply (or drain) anything into whatever replaced it.
+		if (this._rebase !== rebase) return;
+
+		this._actions.applyIncomingState(state);
+		this._seedBuffer.drain();
+	}
+
+	private readonly onMissingAvatar = (e: Event): void => {
+		this._actions.onMissingAvatar((e as CustomEvent<{ email: string; sha?: string }>).detail);
+	};
+
+	private readonly onMissingCommit = (e: Event): void => {
+		this._actions.onMissingCommit((e as CustomEvent<{ sha: string }>).detail);
+	};
+
+	/** Fire-and-forget a command to the host — no-ops until the RPC session is ready. Errors are
+	 *  logged (not surfaced), matching the legacy IPC command path where host-side failures never
+	 *  reached the webview. */
+	private sendCommand(command: Promise<void> | undefined): void {
+		if (command != null) {
+			fireAndForget(command);
+		}
 	}
 
 	private onListKeyDown = (e: KeyboardEvent) => {
@@ -291,7 +381,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				if (sortedIndex !== -1) {
 					const entry = this._sortedEntries[sortedIndex];
 					if (isCommitEntry(entry)) {
-						this._ipc.sendCommand(UpdateSelectionCommand, { sha: entry.sha });
+						this.sendCommand(this._rebase?.updateSelection({ sha: entry.sha }));
 					}
 				}
 				return;
@@ -527,9 +617,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				this.focusedEntryId && this.selectedIds.has(this.focusedEntryId) ? this.focusedEntryId : orderedIds[0];
 
 			// Move all selected entries to the start (index 0)
-			this._stateProvider.moveEntries(orderedIds, 0);
+			this._actions.moveEntries(orderedIds, 0);
 			this.refreshIndices();
-			this._ipc.sendCommand(MoveEntriesCommand, { ids: orderedIds, to: 0 });
+			this.sendCommand(this._rebase?.moveEntries({ ids: orderedIds, to: 0 }));
 
 			this.scheduleConflictCheck('todo');
 		} else {
@@ -709,12 +799,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const spliceIndex = isMovingToHigherIndex ? toIndex - 1 : toIndex;
 
 		// Apply optimistic update
-		this._stateProvider.moveEntry(fromIndex, spliceIndex);
+		this._actions.moveEntry(fromIndex, spliceIndex);
 		// Synchronously rebuild indices so subsequent operations use correct state
 		this.refreshIndices();
 
 		// Send absolute position to host
-		this._ipc.sendCommand(MoveEntryCommand, { id: entry.id, to: toIndex, relative: false });
+		this.sendCommand(this._rebase?.moveEntry({ id: entry.id, to: toIndex, relative: false }));
 
 		this.scheduleConflictCheck('todo');
 	}
@@ -781,12 +871,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		this.pendingFocusId = primaryId;
 
 		// Apply optimistic update
-		this._stateProvider.moveEntries(orderedIds, toIndex);
+		this._actions.moveEntries(orderedIds, toIndex);
 		// Synchronously rebuild indices so subsequent operations use correct state
 		this.refreshIndices();
 
 		// Send batch command to host
-		this._ipc.sendCommand(MoveEntriesCommand, { ids: orderedIds, to: toIndex });
+		this.sendCommand(this._rebase?.moveEntries({ ids: orderedIds, to: toIndex }));
 
 		this.scheduleConflictCheck('todo');
 	}
@@ -834,7 +924,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		// Notify host of primary selection (only for commit entries)
 		if (sha) {
-			this._ipc.sendCommand(UpdateSelectionCommand, { sha: sha });
+			this.sendCommand(this._rebase?.updateSelection({ sha: sha }));
 		}
 	};
 
@@ -879,11 +969,11 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		}
 
 		if (entries.length === 1) {
-			this._stateProvider.changeEntryAction(entries[0].sha, entries[0].action);
-			this._ipc.sendCommand(ChangeEntryCommand, { sha: entries[0].sha, action: entries[0].action });
+			this._actions.changeEntryAction(entries[0].sha, entries[0].action);
+			this.sendCommand(this._rebase?.changeEntry({ sha: entries[0].sha, action: entries[0].action }));
 		} else {
-			this._stateProvider.changeEntryActions(entries);
-			this._ipc.sendCommand(ChangeEntriesCommand, { entries: entries });
+			this._actions.changeEntryActions(entries);
+			this.sendCommand(this._rebase?.changeEntries({ entries: entries }));
 		}
 
 		// If dropping commits, schedule todo conflict check (since that affects what gets applied)
@@ -950,12 +1040,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			this.pendingFocusId = entry.id;
 
 			// Apply optimistic update
-			this._stateProvider.shiftEntries(ids, direction);
+			this._actions.shiftEntries(ids, direction);
 			// Synchronously rebuild indices so subsequent operations use correct state
 			this.refreshIndices();
 
 			// Send shift command to host
-			this._ipc.sendCommand(ShiftEntriesCommand, { ids: ids, direction: direction });
+			this.sendCommand(this._rebase?.shiftEntries({ ids: ids, direction: direction }));
 
 			this.scheduleConflictCheck('todo');
 		} else {
@@ -1054,22 +1144,25 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	// ============================================================================
 
 	private onOrderToggle() {
-		this._ipc.sendCommand(ReorderCommand, { ascending: !this.ascending });
+		this.sendCommand(this._rebase?.swapOrdering({ ascending: !this.ascending }));
 	}
 
 	private onStartClicked() {
-		this._ipc.sendCommand(StartCommand, undefined);
+		this.sendCommand(this._rebase?.start());
 	}
 
 	private async onStartWithAiClicked() {
 		if (this._startingWithAi) return;
 
+		const rebase = this._rebase;
+		if (rebase == null) return;
+
 		// Disabled while the host runs its pre-flight (plan gate, AI model prompt) — a refusal
-		// responds `started: false` and the editor stays open, so re-enable for another try
+		// responds `false` and the editor stays open, so re-enable for another try
 		this._startingWithAi = true;
 		try {
-			const response = await this._ipc.sendRequest(StartWithAiRequest, undefined);
-			if (response.started) return;
+			const started = await rebase.startWithAi();
+			if (started) return;
 		} catch {
 			// Treat a failed request like a refusal — the editor is still open
 		}
@@ -1077,31 +1170,31 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	}
 
 	private onAbortClicked() {
-		this._ipc.sendCommand(AbortCommand, undefined);
+		this.sendCommand(this._rebase?.abort());
 	}
 
 	private onContinueClicked() {
-		this._ipc.sendCommand(ContinueCommand, undefined);
+		this.sendCommand(this._rebase?.continue());
 	}
 
 	private onContinueWithAiClicked() {
-		this._ipc.sendCommand(ContinueWithAiCommand, undefined);
+		this.sendCommand(this._rebase?.continueWithAi());
 	}
 
 	private onSkipClicked() {
-		this._ipc.sendCommand(SkipCommand, undefined);
+		this.sendCommand(this._rebase?.skip());
 	}
 
 	private onSwitchClicked() {
-		this._ipc.sendCommand(SwitchCommand, undefined);
+		this.sendCommand(this._rebase?.switchToText());
 	}
 
 	private onSearch() {
-		this._ipc.sendCommand(SearchCommand, undefined);
+		this.sendCommand(this._rebase?.search());
 	}
 
 	private onRecomposeCommitsClicked() {
-		this._ipc.sendCommand(RecomposeCommand, undefined);
+		this.sendCommand(this._rebase?.recompose());
 	}
 
 	private onDocumentKeyDown = (e: KeyboardEvent) => {
@@ -1446,7 +1539,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private onDismissCloseWarning() {
 		this.closeWarningDismissedLocal = true;
-		this._ipc?.sendCommand(DismissCloseWarningCommand, undefined);
+		this.sendCommand(this._rebase?.dismissCloseWarning());
 	}
 
 	private renderConflictIndicator() {
@@ -1744,31 +1837,31 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 		switch (action) {
 			case 'current-changes':
-				this._ipc.sendCommand(OpenConflictChangesCommand, { path: path, side: 'current' });
+				this.sendCommand(this._rebase?.openConflictChanges({ path: path, side: 'current' }));
 				break;
 			case 'incoming-changes':
-				this._ipc.sendCommand(OpenConflictChangesCommand, { path: path, side: 'incoming' });
+				this.sendCommand(this._rebase?.openConflictChanges({ path: path, side: 'incoming' }));
 				break;
 			case 'stage':
-				this._ipc.sendCommand(StageConflictCommand, { path: path });
+				this.sendCommand(this._rebase?.stageConflict({ path: path }));
 				break;
 		}
 	}
 
 	private onResolveConflictsInGraph = () => {
-		this._ipc.sendCommand(ResolveConflictsInGraphCommand, undefined);
+		this.sendCommand(this._rebase?.resolveConflictsInGraph());
 	};
 
 	private onStageAllCurrent = () => {
-		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'current' });
+		this.sendCommand(this._rebase?.resolveAllConflicts({ resolution: 'current' }));
 	};
 
 	private onStageAllIncoming = () => {
-		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'incoming' });
+		this.sendCommand(this._rebase?.resolveAllConflicts({ resolution: 'incoming' }));
 	};
 
 	private onOpenConflictFile(path: string): void {
-		this._ipc.sendCommand(OpenConflictFileCommand, { path: path });
+		this.sendCommand(this._rebase?.openConflictFile({ path: path }));
 	}
 
 	private onToggleConflictFilesLayout = () => {
@@ -1787,7 +1880,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		const sha = this.rebaseStatus?.currentCommit;
 		if (!sha) return;
 
-		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: sha });
+		this.sendCommand(this._rebase?.revealRef({ type: 'commit', ref: sha }));
 	};
 
 	private onCurrentCommitKeydown = (e: KeyboardEvent) => {
@@ -1824,8 +1917,8 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		return html`<gl-rebase-entry
 			data-id=${entryId}
 			.entry=${entry}
-			.authors=${this.state.authors}
-			.revealLocation=${this.state.revealLocation}
+			.authors=${this.state?.authors}
+			.revealLocation=${this.state?.revealLocation ?? 'graph'}
 			?isBase=${entry.sha === this.state?.onto?.sha}
 			?isFirst=${isFirst}
 			?isLast=${isLast}
@@ -1916,7 +2009,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private onBranchClick = () => {
 		if (!this.state?.branch) return;
 
-		this._ipc.sendCommand(RevealRefCommand, { type: 'branch', ref: this.state.branch });
+		this.sendCommand(this._rebase?.revealRef({ type: 'branch', ref: this.state.branch }));
 	};
 
 	private onBranchKeydown = (e: KeyboardEvent) => {
@@ -1929,7 +2022,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private onOntoClick = () => {
 		if (!this.state?.onto?.sha) return;
 
-		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: this.state.onto.sha });
+		this.sendCommand(this._rebase?.revealRef({ type: 'commit', ref: this.state.onto.sha }));
 	};
 
 	private onOntoKeydown = (e: KeyboardEvent) => {
@@ -1940,7 +2033,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	};
 
 	private onRevealCommit = (e: CustomEvent<{ sha: string }>) => {
-		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: e.detail.sha });
+		this.sendCommand(this._rebase?.revealRef({ type: 'commit', ref: e.detail.sha }));
 	};
 
 	/** Computes a key that changes when the rebase advances externally (Continue/Skip/external edit).
@@ -2020,7 +2113,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			// During an active rebase, done entries have been applied, so check from HEAD
 			const base = this.isRebasing ? 'HEAD' : undefined;
 
-			const response = await this._ipc.sendRequest(GetConflictsRequest, {
+			const result = await this._rebase?.getConflicts({
 				trigger: trigger,
 				onto: state.onto.sha,
 				commits: commits,
@@ -2029,7 +2122,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 			if (generation !== this._conflictCheckGeneration) return;
 
-			this._conflictResult = response.conflicts;
+			this._conflictResult = result;
 			this._conflictingShas =
 				this._conflictResult?.status === 'conflicts' ? (this._conflictResult.conflict?.shas ?? []) : undefined;
 		} catch {

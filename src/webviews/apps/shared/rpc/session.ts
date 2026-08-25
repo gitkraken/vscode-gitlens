@@ -2,8 +2,9 @@
  * Per-session handshake for a webview app's long-lived RPC connection.
  *
  * The `Connection` outlives element remounts (see `createRpcClient`); each mount
- * re-arms it and waits for the host's fresh `expose()`. Kept free of DOM references
- * so the Node-hosted unit tests can drive it directly.
+ * re-arms it, announces the session to the host (which exposes in response), and
+ * waits for the host's ready signal. Kept free of DOM references so the
+ * Node-hosted unit tests can drive it directly.
  */
 import type { Connection, Remote } from '@eamodio/supertalk';
 import { ConnectionClosedError } from '@eamodio/supertalk';
@@ -34,7 +35,8 @@ export interface RpcSessionOptions {
 }
 
 /**
- * Re-arms `connection` and waits for the host's handshake, resolving this session's services proxy.
+ * Re-arms `connection`, announces the session to the host, and waits for the host's handshake,
+ * resolving this session's services proxy.
  *
  * Always resets before waiting: `waitForReady()` overwrites the connection's single handshake slot,
  * so an aborted prior attempt's promise would otherwise never settle. Reset also cycles the handlers
@@ -81,8 +83,25 @@ export async function connectRpcSession<TServices extends object>(
 		// Re-arm before every handshake — mandatory, see the doc comment above.
 		connection.reset();
 
-		// Wait for the host to call expose() (triggered by WebviewReadyRequest) and send the ready
-		// signal. The Connection listener is already set up, so we just wait for the signal to arrive.
+		// Register the handshake pending FIRST: `waitForReady()` resets this side's id allocation to
+		// odd, so the placeholder root exposed below is registered at local id 1 instead of 0.
+		// Supertalk resolves incoming proxy wires against the LOCAL registry before creating remote
+		// proxies — with expose-first our placeholder (like the host's real root) would sit at id 0,
+		// and the host's handshake wire (also id 0) would resolve to it locally, handing this session
+		// its own empty object instead of the host's services. Waiting first keeps the two sides'
+		// registries disjoint (client: odd ids incl. its root; host: even ids) and preserves the
+		// call-id parity that has always separated them.
+		const ready = connection.waitForReady();
+
+		// Announce this session to the host — the RPC-native successor of the legacy
+		// `WebviewReadyRequest` postMessage. The host watches for this announcement frame
+		// and exposes its services in response, so its ready signal can never be sent
+		// before we're listening. The empty root is a placeholder; all real services flow
+		// host → webview via the handshake above.
+		connection.expose({});
+
+		// Wait for the host's expose() (triggered by our announcement above) and its ready
+		// signal. The Connection listener is already set up, so we just wait for it to arrive.
 		if (firstWarnMs < timeoutMs) {
 			warnTimers.push(
 				setTimeout(
@@ -104,7 +123,7 @@ export async function connectRpcSession<TServices extends object>(
 		}
 
 		const services = (await Promise.race([
-			connection.waitForReady(),
+			ready,
 			new Promise<never>(
 				(_resolve, reject) =>
 					(timeoutTimer = setTimeout(

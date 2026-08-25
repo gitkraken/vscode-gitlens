@@ -1,7 +1,5 @@
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
-import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type {
-	ProcessedRebaseCommitEntry as _RebaseCommitEntry,
 	ProcessedRebaseCommandEntry,
 	ProcessedRebaseCommitEntry,
 	RebaseTodoCommitAction,
@@ -9,11 +7,7 @@ import type {
 import type { Config } from '../../config.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { WebviewItemContext } from '../../system/webview.js';
-import type { IpcScope } from '../ipc/models/ipc.js';
-import { IpcCommand, IpcNotification, IpcRequest } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
-
-export const scope: IpcScope = 'rebase';
 
 export interface State extends WebviewState<'gitlens.rebase'> {
 	branch: string;
@@ -131,32 +125,20 @@ export interface Commit {
 	readonly message: string;
 }
 
-// COMMANDS
-
-export const AbortCommand = new IpcCommand(scope, 'abort');
-export const ContinueCommand = new IpcCommand(scope, 'continue');
-/** Takes over the paused rebase with automatic (AI) conflict resolution */
-export const ContinueWithAiCommand = new IpcCommand(scope, 'continueWithAi');
-export const SearchCommand = new IpcCommand(scope, 'search');
-export const SkipCommand = new IpcCommand(scope, 'skip');
-export const StartCommand = new IpcCommand(scope, 'start');
-export const SwitchCommand = new IpcCommand(scope, 'switch');
+// PARAMS
 
 export interface ReorderParams {
 	ascending: boolean;
 }
-export const ReorderCommand = new IpcCommand<ReorderParams>(scope, 'reorder');
 
 export interface ChangeEntryParams {
 	sha: string;
 	action: RebaseTodoCommitAction;
 }
-export const ChangeEntryCommand = new IpcCommand<ChangeEntryParams>(scope, 'change/entry');
 
 export interface ChangeEntriesParams {
 	entries: { sha: string; action: RebaseTodoCommitAction }[];
 }
-export const ChangeEntriesCommand = new IpcCommand<ChangeEntriesParams>(scope, 'change/entries');
 
 export interface MoveEntryParams {
 	/** Entry identifier - sha for commits, line number for command entries */
@@ -164,80 +146,59 @@ export interface MoveEntryParams {
 	to: number;
 	relative: boolean;
 }
-export const MoveEntryCommand = new IpcCommand<MoveEntryParams>(scope, 'move/entry');
 
 export interface MoveEntriesParams {
 	/** Entry identifiers - sha for commits, line number for command entries */
 	ids: string[];
 	to: number;
 }
-export const MoveEntriesCommand = new IpcCommand<MoveEntriesParams>(scope, 'move/entries');
 
 export interface ShiftEntriesParams {
 	/** Entry identifiers - sha for commits, line number for command entries */
 	ids: string[];
 	direction: 'up' | 'down';
 }
-export const ShiftEntriesCommand = new IpcCommand<ShiftEntriesParams>(scope, 'shift/entries');
 
 export interface UpdateSelectionParams {
 	sha: string;
 }
-export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
 export interface RevealRefParams {
 	type: 'branch' | 'commit';
 	ref: string;
 }
-export const RevealRefCommand = new IpcCommand<RevealRefParams>(scope, 'revealRef');
 
-// Avatar commands - similar to Graph's missing avatars pattern
+/** Map of email → sha for commits that need avatar fetching */
 export interface GetMissingAvatarsParams {
-	/** Map of email → sha for commits that need avatar fetching */
 	emails: Record<string, string>;
 }
-export const GetMissingAvatarsCommand = new IpcCommand<GetMissingAvatarsParams>(scope, 'avatars/get');
 
-// Commit enrichment commands - on-demand loading pattern
+/** Array of commit SHAs that need enrichment */
 export interface GetMissingCommitsParams {
-	/** Array of commit SHAs that need enrichment */
 	shas: string[];
 }
-export const GetMissingCommitsCommand = new IpcCommand<GetMissingCommitsParams>(scope, 'commits/get');
-
-export const RecomposeCommand = new IpcCommand(scope, 'recompose/open');
-export const DismissCloseWarningCommand = new IpcCommand(scope, 'closeWarning/dismiss');
 
 export interface OpenConflictFileParams {
 	path: string;
 }
-export const OpenConflictFileCommand = new IpcCommand<OpenConflictFileParams>(scope, 'conflicts/openFile');
 
 export interface OpenConflictChangesParams {
 	path: string;
 	side: 'current' | 'incoming';
 }
-export const OpenConflictChangesCommand = new IpcCommand<OpenConflictChangesParams>(scope, 'conflicts/openChanges');
 
 export interface ResolveConflictParams {
 	path: string;
 	resolution: 'current' | 'incoming';
 }
-export const ResolveConflictCommand = new IpcCommand<ResolveConflictParams>(scope, 'conflicts/resolve');
 
 export interface StageConflictParams {
 	path: string;
 }
-export const StageConflictCommand = new IpcCommand<StageConflictParams>(scope, 'conflicts/stage');
 
 export interface ResolveAllConflictsParams {
 	resolution: 'current' | 'incoming';
 }
-export const ResolveAllConflictsCommand = new IpcCommand<ResolveAllConflictsParams>(scope, 'conflicts/resolveAll');
-
-export const ResolveConflictsInGraphCommand = new IpcCommand(scope, 'conflicts/resolveInGraph');
-
-// REQUESTS
 
 export interface GetConflictsParams {
 	/** Distinguishes initial (on-load / upgrade) checks from dynamic (plan-modification / rebase-advance) checks */
@@ -251,46 +212,3 @@ export interface GetConflictsParams {
 	/** Only honored when `trigger === 'initial'`. */
 	stopOnFirstConflict?: boolean;
 }
-export interface DidGetConflictsParams {
-	conflicts?: ConflictDetectionResult;
-}
-export const GetConflictsRequest = new IpcRequest<GetConflictsParams, DidGetConflictsParams>(scope, 'conflicts/get');
-
-export interface DidStartWithAiParams {
-	/** `true` once the handoff is underway (the tab is closing); `false` means it was refused
-	 *  (plan gate, no AI model, …) and the editor stays open */
-	started: boolean;
-}
-/** Hands the pending rebase off to automatic (AI) conflict resolution */
-export const StartWithAiRequest = new IpcRequest<void, DidStartWithAiParams>(scope, 'startWithAi');
-
-// NOTIFICATIONS
-
-export interface DidChangeParams {
-	state: State;
-}
-export const DidChangeNotification = new IpcNotification<DidChangeParams>(scope, 'didChange');
-
-export interface DidChangeAvatarsParams {
-	/** Map of author name → avatar URL */
-	avatars: Record<string, string>;
-}
-export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
-
-export interface DidChangeCommitsParams {
-	/** Map of commit SHA → enriched commit data */
-	commits: Record<string, Commit>;
-	/** Map of author name → author info (for new authors from fetched commits) */
-	authors: Record<string, Author>;
-	/** True if the commits are already on top of onto (recalculated when commits are enriched) */
-	isInPlace?: boolean;
-}
-export const DidChangeCommitsNotification = new IpcNotification<DidChangeCommitsParams>(scope, 'commits/didChange');
-
-export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-}
-export const DidChangeSubscriptionNotification = new IpcNotification<DidChangeSubscriptionParams>(
-	scope,
-	'subscription/didChange',
-);

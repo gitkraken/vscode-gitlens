@@ -2,7 +2,7 @@
  * Supertalk Endpoint adapter for VS Code extension host side.
  *
  * Wraps the VS Code Webview API to conform to Supertalk's Endpoint interface.
- * Uses a namespace wrapper to avoid collisions with existing IPC messages.
+ * Uses a namespace wrapper so the pipe can carry non-RPC frames (e.g. persistence pings) safely.
  *
  * Includes a visibility-aware message buffer for `retainContextWhenHidden` webviews.
  * When hidden, VS Code silently drops `webview.postMessage()` calls. The buffer
@@ -57,8 +57,8 @@ const sequencedChannelWireTypePrefix = 'st:ch:';
 /**
  * Creates a Supertalk-compatible Endpoint from a VS Code Webview.
  *
- * Messages are wrapped with a namespace to avoid collisions with existing
- * IPC messages. Only messages with the RPC namespace are processed.
+ * Messages are wrapped with a namespace; only frames carrying the RPC
+ * namespace are processed, anything else is ignored.
  *
  * @param webview - The VS Code Webview instance
  * @returns A BufferedEndpoint that can be used with Supertalk's expose() function
@@ -77,7 +77,23 @@ export function createHostEndpoint(webview: Webview): BufferedEndpoint {
 			[RPC_NAMESPACE]: true,
 			payload: encodeRpcPayload(message),
 		};
-		void webview.postMessage(wrapped);
+
+		// VS Code's `postMessage` can silently drop a message (known bug) or reject if the webview
+		// is gone. Neither requeues here — that's a bigger design change — but both are worth knowing
+		// about when a webview appears to hang waiting on a response that never arrives.
+		const msg = message as TypedMessage;
+		void webview.postMessage(wrapped).then(
+			ok => {
+				if (!ok) {
+					Logger.error(
+						undefined,
+						`RPC host endpoint: postMessage was not delivered (type=${msg.type}, wireType=${msg.wireType})`,
+					);
+				}
+			},
+			(ex: unknown) =>
+				Logger.error(ex, `RPC host endpoint: postMessage failed (type=${msg.type}, wireType=${msg.wireType})`),
+		);
 	}
 
 	/**

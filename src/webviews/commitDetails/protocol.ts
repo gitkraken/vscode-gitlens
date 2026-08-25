@@ -12,7 +12,6 @@ import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { Config, DateStyle } from '../../config.js';
 import type { WebviewItemContext } from '../../system/webview.js';
 import { serializeWebviewItemContext } from '../../system/webview.js';
-import type { IpcScope } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 import type { FileShowOptions, WipChange } from '../rpc/services/types.js';
 
@@ -20,7 +19,6 @@ export type { FileShowOptions } from '../rpc/services/types.js';
 // Re-export from shared types — canonical definition is in rpc/services/types.ts
 export type { CommitSignatureShape, WipChange, WipFileChange } from '../rpc/services/types.js';
 
-export const scope: IpcScope = 'commitDetails';
 export const messageHeadlineSplitterToken = '\x00\n\x00';
 
 export interface CommitSummary {

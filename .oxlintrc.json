@@ -468,7 +468,6 @@
 		},
 		{
 			"files": [
-				"src/webviews/ipc.ts",
 				"src/webviews/**/protocol.ts",
 				"src/**/models/**/*.ts",
 				"src/**/utils/**/*.ts",

@@ -2,6 +2,7 @@ import type { Disposable, TextDocument } from 'vscode';
 import { Uri, ViewColumn, window, workspace } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { ProcessedRebaseTodo, RebaseTodoAction } from '@gitlens/git/models/rebase.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
@@ -55,57 +56,43 @@ import { getContext, onDidChangeContext } from '../../system/-webview/context.js
 import { closeTab } from '../../system/-webview/vscode/tabs.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
-import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
-import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
+import type { Serialized } from '../../system/serialize.js';
+import { serialize } from '../../system/serialize.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
+import type { WebviewState } from '../protocol.js';
+import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
+import type { RebaseServices } from '../rpc/rebaseService.js';
+import { RebaseService } from '../rpc/rebaseService.js';
+import { createSharedServices } from '../rpc/services/common.js';
+import { proxyServices } from '../rpc/services/proxy.js';
 import type { WebviewHost } from '../webviewProvider.js';
 import type {
 	Author,
+	ChangeEntriesParams,
+	ChangeEntryParams,
 	Commit,
 	ConflictFileInfo,
 	ConflictFileWebviewContext,
+	GetConflictsParams,
+	GetMissingAvatarsParams,
+	GetMissingCommitsParams,
+	MoveEntriesParams,
+	MoveEntryParams,
+	OpenConflictChangesParams,
+	OpenConflictFileParams,
 	RebaseActiveStatus,
 	RebaseEntry,
 	RebasePauseReason,
+	ReorderParams,
+	ResolveAllConflictsParams,
+	ResolveConflictParams,
+	RevealRefParams,
+	ShiftEntriesParams,
+	StageConflictParams,
 	State,
 	UpdateSelectionParams,
 } from './protocol.js';
-import {
-	AbortCommand,
-	ChangeEntriesCommand,
-	ChangeEntryCommand,
-	ContinueCommand,
-	ContinueWithAiCommand,
-	DidChangeAvatarsNotification,
-	DidChangeCommitsNotification,
-	DidChangeNotification,
-	DidChangeSubscriptionNotification,
-	DismissCloseWarningCommand,
-	GetConflictsRequest,
-	GetMissingAvatarsCommand,
-	GetMissingCommitsCommand,
-	MoveEntriesCommand,
-	MoveEntryCommand,
-	OpenConflictChangesCommand,
-	OpenConflictFileCommand,
-	RecomposeCommand,
-	ReorderCommand,
-	ResolveAllConflictsCommand,
-	ResolveConflictCommand,
-	ResolveConflictsInGraphCommand,
-	RevealRefCommand,
-	SearchCommand,
-	ShiftEntriesCommand,
-	SkipCommand,
-	StageConflictCommand,
-	StartCommand,
-	StartWithAiRequest,
-	SwitchCommand,
-	UpdateSelectionCommand,
-} from './protocol.js';
 import { RebaseTodoDocument } from './rebaseTodoDocument.js';
-
-export const maxSmallIntegerV8 = 2 ** 30 - 1;
 
 const { command, getCommands } = createCommandDecorator<GlWebviewCommandsOrCommandsWithSuffix<'rebase'>>();
 
@@ -134,7 +121,10 @@ export class RebaseWebviewProvider implements Disposable {
 	private _etagRepository?: number;
 	private _lastSentState?: State;
 	private _pendingStateNotify: Promise<void> | undefined;
+	/** Created with (and cached by) `getRpcServices` so state pushes can ride it. */
+	private _service: RebaseService | undefined;
 	private _stateNotifyDirty = false;
+	private _telemetryContext: Record<`context.${string}`, string | number | boolean | undefined> | undefined;
 	private readonly _todoDocument: RebaseTodoDocument;
 
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
@@ -244,6 +234,7 @@ export class RebaseWebviewProvider implements Disposable {
 	getTelemetryContext(): RebaseEditorTelemetryContext {
 		return {
 			...this.host.getTelemetryContext(),
+			...this._telemetryContext,
 			'context.ascending': this.ascending,
 			'context.todo.count': this._context.todoCount,
 			'context.done.count': this._context.doneCount,
@@ -255,16 +246,13 @@ export class RebaseWebviewProvider implements Disposable {
 		};
 	}
 
-	async includeBootstrap(deferrable?: boolean): Promise<State> {
-		if (deferrable) {
-			return Promise.resolve({
-				webviewId: this.host.id,
-				webviewInstanceId: this.host.instanceId,
-				timestamp: Date.now(),
-			} as State);
-		}
-
-		return this.parseState();
+	/**
+	 * Metadata-only bootstrap — parsing the todo document here would block HTML generation for no
+	 * benefit. The webview seeds nothing from it and instead fetches live state over RPC once its
+	 * event subscriptions are live (`getState()` query, kept fresh by `onStateChanged`).
+	 */
+	includeBootstrap(): WebviewState<'gitlens.rebase'> {
+		return this.host.baseWebviewState;
 	}
 
 	registerCommands(): Disposable[] {
@@ -277,6 +265,61 @@ export class RebaseWebviewProvider implements Disposable {
 		return commands;
 	}
 
+	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): RebaseServices {
+		const shared = createSharedServices(
+			this.container,
+			this.host,
+			context => {
+				this._telemetryContext = context;
+			},
+			buffer,
+			tracker,
+		);
+
+		// Per-instance by construction: each custom-editor instance gets its own provider (see
+		// `RebaseEditorProvider.resolveCustomTextEditor`), so this cache never crosses instances.
+		this._service ??= new RebaseService(
+			{
+				abort: () => this.onAbort(),
+				continue: () => this.onContinue(),
+				continueWithAi: () => this.onContinueWithAi(),
+				search: () => this.onSearch(),
+				skip: () => this.onSkip(),
+				start: () => this.onStart(),
+				startWithAi: () => this.onStartWithAi(),
+				switchToText: () => this.onSwitchToText(),
+				swapOrdering: params => this.onSwapOrdering(params),
+				changeEntry: params => this.onEntryChanged(params),
+				changeEntries: params => this.onEntriesChanged(params),
+				moveEntry: params => this.onEntryMoved(params),
+				moveEntries: params => this.onEntriesMoved(params),
+				shiftEntries: params => this.onEntriesShifted(params),
+				updateSelection: params => this.onSelectionChanged(params),
+				revealRef: params => this.onRevealRef(params),
+				getMissingAvatars: params => this.onGetMissingAvatars(params),
+				getMissingCommits: params => this.onGetMissingCommits(params),
+				getConflicts: params => this.onGetConflicts(params),
+				getState: () => this.getState(),
+				recompose: () => this.onRecompose(),
+				dismissCloseWarning: () => this.onDismissCloseWarning(),
+				openConflictFile: params => this.onOpenConflictFile(params),
+				openConflictChanges: params => this.onOpenConflictChanges(params),
+				resolveConflict: params => this.onResolveConflict(params),
+				stageConflict: params => this.onStageConflict(params),
+				resolveAllConflicts: params => this.onResolveAllConflicts(params),
+				resolveConflictsInGraph: () => this.onResolveConflictsInGraph(),
+			},
+			buffer,
+			tracker,
+		);
+
+		return proxyServices({
+			...shared,
+
+			rebase: this._service,
+		} satisfies RebaseServices);
+	}
+
 	onRefresh(_force?: boolean): void {
 		this.updateState(true);
 	}
@@ -284,27 +327,27 @@ export class RebaseWebviewProvider implements Disposable {
 	onVisibilityChanged(visible: boolean): void {
 		if (!visible) return;
 
-		// Only refresh if the repo has changed while we were hidden; otherwise just flush any
-		// notifications that were queued while host.visible was false.
+		// Only refresh if the repo has changed while we were hidden
 		const repo = this.container.git.getRepository(this.repoPath);
 		if (repo != null && repo.etag !== this._etagRepository) {
 			this._etagRepository = repo.etag;
 			this.updateState();
-			return;
 		}
-
-		this.host.sendPendingIpcNotifications();
 	}
 
 	private onSubscriptionChanged(subscription: Subscription): void {
 		if (!this.host.visible) return;
 
-		void this.host.notify(DidChangeSubscriptionNotification, { subscription: subscription });
+		this._service?.fireSubscriptionChanged({ subscription: subscription });
 	}
 
-	@ipcCommand(OpenConflictFileCommand)
+	/** Serves the webview's initial-state query — the RPC replacement for the deferred bootstrap. */
+	private async getState(): Promise<Serialized<State>> {
+		return serialize(await this.parseState());
+	}
+
 	@debug()
-	private async onOpenConflictFile(params: IpcParams<typeof OpenConflictFileCommand>): Promise<void> {
+	private async onOpenConflictFile(params: OpenConflictFileParams): Promise<void> {
 		const normalizedPath = normalizePath(params.path);
 
 		this.host.sendTelemetryEvent('rebaseEditor/action/openConflictFile', {
@@ -315,9 +358,8 @@ export class RebaseWebviewProvider implements Disposable {
 		await executeCoreCommand('vscode.open', uri, { viewColumn: this.getConflictFileViewColumn() });
 	}
 
-	@ipcCommand(OpenConflictChangesCommand)
 	@debug()
-	private async onOpenConflictChanges(params: IpcParams<typeof OpenConflictChangesCommand>): Promise<void> {
+	private async onOpenConflictChanges(params: OpenConflictChangesParams): Promise<void> {
 		const normalizedPath = normalizePath(params.path);
 
 		this.host.sendTelemetryEvent('rebaseEditor/action/openConflictChanges', {
@@ -381,9 +423,8 @@ export class RebaseWebviewProvider implements Disposable {
 		return window.tabGroups.all.find(g => g.viewColumn !== rebaseColumn)?.viewColumn ?? ViewColumn.Beside;
 	}
 
-	@ipcCommand(ResolveConflictCommand)
 	@debug()
-	private async onResolveConflict(params: IpcParams<typeof ResolveConflictCommand>): Promise<void> {
+	private async onResolveConflict(params: ResolveConflictParams): Promise<void> {
 		await this.stageConflictResolution(params.path, params.resolution);
 	}
 
@@ -436,9 +477,8 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
-	@ipcCommand(StageConflictCommand)
 	@debug()
-	private async onStageConflict(params: IpcParams<typeof StageConflictCommand>): Promise<void> {
+	private async onStageConflict(params: StageConflictParams): Promise<void> {
 		const normalizedPath = normalizePath(params.path);
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
@@ -478,9 +518,8 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
-	@ipcCommand(ResolveAllConflictsCommand)
 	@debug()
-	private async onResolveAllConflicts(params: IpcParams<typeof ResolveAllConflictsCommand>): Promise<void> {
+	private async onResolveAllConflicts(params: ResolveAllConflictsParams): Promise<void> {
 		const svc = this.container.git.getRepositoryService(this.repoPath);
 		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
 		if (pausedStatus?.type !== 'rebase') {
@@ -589,7 +628,6 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
-	@ipcCommand(ResolveConflictsInGraphCommand)
 	@debug()
 	private async onResolveConflictsInGraph(): Promise<void> {
 		if (!this.container.ai.allowed) return;
@@ -629,7 +667,6 @@ export class RebaseWebviewProvider implements Disposable {
 		await svc.staging?.stageFile(path);
 	}
 
-	@ipcCommand(AbortCommand)
 	@debug()
 	private async onAbort(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/abort', {
@@ -647,7 +684,6 @@ export class RebaseWebviewProvider implements Disposable {
 		await closeTab(this._todoDocument.uri);
 	}
 
-	@ipcCommand(ContinueCommand)
 	@debug()
 	private async onContinue(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/continue');
@@ -659,7 +695,6 @@ export class RebaseWebviewProvider implements Disposable {
 		await continuePausedOperation(this.container, svc, { source: 'rebaseEditor' });
 	}
 
-	@ipcCommand(ContinueWithAiCommand)
 	@debug()
 	private async onContinueWithAi(): Promise<void> {
 		if (!this.container.ai.allowed) return;
@@ -676,7 +711,6 @@ export class RebaseWebviewProvider implements Disposable {
 		});
 	}
 
-	@ipcCommand(RecomposeCommand)
 	@debug()
 	private async onRecompose(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/recompose', {
@@ -745,12 +779,10 @@ export class RebaseWebviewProvider implements Disposable {
 		});
 	}
 
-	@ipcCommand(SearchCommand)
-	private onSearch() {
+	private onSearch(): void {
 		void executeCoreCommand('editor.action.webvieweditor.showFind');
 	}
 
-	@ipcCommand(SkipCommand)
 	@debug()
 	private async onSkip(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/skip');
@@ -758,7 +790,6 @@ export class RebaseWebviewProvider implements Disposable {
 		await skipPausedOperation(this.container, svc, { source: 'rebaseEditor' });
 	}
 
-	@ipcCommand(StartCommand)
 	@debug()
 	private async onStart(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/start', {
@@ -773,12 +804,11 @@ export class RebaseWebviewProvider implements Disposable {
 
 	private _handingOff = false;
 
-	@ipcRequest(StartWithAiRequest)
 	@debug()
-	private async onStartWithAi(): Promise<IpcResponse<typeof StartWithAiRequest>> {
+	private async onStartWithAi(): Promise<boolean> {
 		// `ensureAvailable`'s running-session check only protects once a session is tracked, so
 		// guard the whole pre-flight window against a double-click
-		if (this._handingOff) return { started: false };
+		if (this._handingOff) return false;
 
 		this._handingOff = true;
 
@@ -794,7 +824,7 @@ export class RebaseWebviewProvider implements Disposable {
 					source: 'rebaseEditor',
 				}))
 			) {
-				return { started: false };
+				return false;
 			}
 
 			// Save first — saving doesn't release git (only closing the tab does), so a failure here
@@ -830,24 +860,22 @@ export class RebaseWebviewProvider implements Disposable {
 			});
 
 			await Promise.race([run, releasedPromise]);
-			return { started: released };
+			return released;
 		} catch (ex) {
 			Logger.error(ex, 'onStartWithAi');
-			return { started: false };
+			return false;
 		} finally {
 			this._handingOff = false;
 		}
 	}
 
-	@ipcCommand(DismissCloseWarningCommand)
 	@debug()
 	private onDismissCloseWarning(): void {
 		void this.container.onboarding.dismiss('rebaseEditor:closeWarning');
 	}
 
-	@ipcCommand(ReorderCommand)
 	@debug()
-	private async onSwapOrdering(params: IpcParams<typeof ReorderCommand>): Promise<void> {
+	private async onSwapOrdering(params: ReorderParams): Promise<void> {
 		const oldOrdering = this.ascending ? 'asc' : 'desc';
 		const newOrdering = (params.ascending ?? false) ? 'asc' : 'desc';
 
@@ -860,7 +888,6 @@ export class RebaseWebviewProvider implements Disposable {
 		this.updateState(true);
 	}
 
-	@ipcCommand(SwitchCommand)
 	@debug()
 	private onSwitchToText(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/switchToText', {
@@ -870,8 +897,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	/** Fetches enhanced avatars (from GitHub/GitLab/etc.) for the requested emails */
-	@ipcCommand(GetMissingAvatarsCommand)
-	private async onGetMissingAvatars(params: IpcParams<typeof GetMissingAvatarsCommand>): Promise<void> {
+	private async onGetMissingAvatars(params: GetMissingAvatarsParams): Promise<void> {
 		if (!this._enrichment?.authors.size || !this.repoPath) return;
 
 		const { authors } = this._enrichment;
@@ -905,8 +931,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	/** Fetches commit data for the requested SHAs and sends enriched commit data to webview */
-	@ipcCommand(GetMissingCommitsCommand)
-	private async onGetMissingCommits(params: IpcParams<typeof GetMissingCommitsCommand>): Promise<void> {
+	private async onGetMissingCommits(params: GetMissingCommitsParams): Promise<void> {
 		if (!params.shas.length || !this.repoPath) return;
 
 		const { commits, authors } = await this.getAndUpdateCommits(params.shas);
@@ -982,17 +1007,14 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	/** Handles rebase conflict detection requests (Pro feature) — unified for initial and todo triggers */
-	@ipcRequest(GetConflictsRequest)
-	private async onGetConflicts(
-		params: IpcParams<typeof GetConflictsRequest>,
-	): Promise<IpcResponse<typeof GetConflictsRequest>> {
+	private async onGetConflicts(params: GetConflictsParams): Promise<ConflictDetectionResult | undefined> {
 		const { trigger, onto, commits, base, stopOnFirstConflict } = params;
 		const startTime = performance.now();
 		const detection = trigger === 'initial' ? 'potential' : 'todo';
 
 		const subscription = await this.container.subscription.getSubscription();
 		if (!isSubscriptionTrialOrPaidFromState(subscription?.state)) {
-			return { conflicts: undefined };
+			return undefined;
 		}
 
 		if (!commits?.length) {
@@ -1002,7 +1024,7 @@ export class RebaseWebviewProvider implements Disposable {
 				detection: detection,
 				'commits.count': 0,
 			});
-			return { conflicts: { status: 'clean' } };
+			return { status: 'clean' };
 		}
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
@@ -1030,7 +1052,7 @@ export class RebaseWebviewProvider implements Disposable {
 				});
 			}
 
-			return { conflicts: result };
+			return result;
 		} catch (ex) {
 			this.host.sendTelemetryEvent('rebaseEditor/conflicts/failed', {
 				duration: performance.now() - startTime,
@@ -1038,12 +1060,11 @@ export class RebaseWebviewProvider implements Disposable {
 				error: ex instanceof Error ? ex.message : String(ex),
 			});
 			Logger.error(ex, 'onGetConflicts');
-			return { conflicts: undefined };
+			return undefined;
 		}
 	}
 
-	@ipcCommand(RevealRefCommand)
-	private async onRevealRef(params: IpcParams<typeof RevealRefCommand>): Promise<void> {
+	private async onRevealRef(params: RevealRefParams): Promise<void> {
 		const revealIn = configuration.get('rebaseEditor.revealLocation');
 
 		// For branches, always use the graph since commit details doesn't support branches
@@ -1090,8 +1111,7 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	private fireSelectionChangedDebounced?: Deferrable<RebaseWebviewProvider['fireSelectionChanged']>;
-	@ipcCommand(UpdateSelectionCommand)
-	private onSelectionChanged(params: IpcParams<typeof UpdateSelectionCommand>): void {
+	private onSelectionChanged(params: UpdateSelectionParams): void {
 		this.fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 250);
 		void this.fireSelectionChangedDebounced(params);
 	}
@@ -1354,7 +1374,7 @@ export class RebaseWebviewProvider implements Disposable {
 			filterMap(this._enrichment.authors, ([k, v]) => (v.avatarUrl ? [k, v.avatarUrl] : undefined)),
 		);
 
-		void this.host.notify(DidChangeAvatarsNotification, { avatars: avatars });
+		this._service?.fireAvatarsChanged({ avatars: avatars });
 	}
 
 	private notifyDidChangeCommits(commits: Map<string, GitCommit>, authors: Map<string, Author>): void {
@@ -1362,7 +1382,7 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
 
-		void this.host.notify(DidChangeCommitsNotification, {
+		this._service?.fireCommitsChanged({
 			commits: Object.fromEntries(map(commits, ([k, v]) => [k, convertCommit(v, defaultDateFormat)])),
 			authors: Object.fromEntries(authors),
 			isInPlace: this.computeIsInPlace(),
@@ -1407,7 +1427,7 @@ export class RebaseWebviewProvider implements Disposable {
 					this._etagRepository = repo.etag;
 				}
 
-				await this.host.notify(DidChangeNotification, { state: state });
+				this._service?.fireStateChanged(serialize(state));
 			} finally {
 				this._pendingStateNotify = undefined;
 				// Trailing run: if a change arrived during the in-flight notify, kick off another pass
@@ -1435,15 +1455,13 @@ export class RebaseWebviewProvider implements Disposable {
 		void this.notifyDidChangeStateDebounced();
 	}
 
-	@ipcCommand(ChangeEntryCommand)
 	@debug()
-	private async onEntryChanged(params: IpcParams<typeof ChangeEntryCommand>): Promise<void> {
+	private async onEntryChanged(params: ChangeEntryParams): Promise<void> {
 		return this.onEntriesChanged({ entries: [params] });
 	}
 
-	@ipcCommand(ChangeEntriesCommand)
 	@debug()
-	private async onEntriesChanged(params: IpcParams<typeof ChangeEntriesCommand>): Promise<void> {
+	private async onEntriesChanged(params: ChangeEntriesParams): Promise<void> {
 		if (!params.entries.length) return;
 
 		// Track action changes - use the first entry's action as representative
@@ -1455,9 +1473,8 @@ export class RebaseWebviewProvider implements Disposable {
 		await this._todoDocument.changeActions(params.entries);
 	}
 
-	@ipcCommand(MoveEntryCommand)
 	@debug()
-	private async onEntryMoved(params: IpcParams<typeof MoveEntryCommand>): Promise<void> {
+	private async onEntryMoved(params: MoveEntryParams): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', { count: 1, method: 'drag' });
 
 		const { entries } = this._todoDocument.parsed.processed;
@@ -1492,9 +1509,8 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 	}
 
-	@ipcCommand(MoveEntriesCommand)
 	@debug()
-	private async onEntriesMoved(params: IpcParams<typeof MoveEntriesCommand>): Promise<void> {
+	private async onEntriesMoved(params: MoveEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 
 		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', {
@@ -1534,9 +1550,8 @@ export class RebaseWebviewProvider implements Disposable {
 	 * Shifts entries up or down independently, preserving gaps between non-contiguous selections
 	 * Each selected entry swaps with the adjacent non-selected entry in the shift direction
 	 */
-	@ipcCommand(ShiftEntriesCommand)
 	@debug()
-	private async onEntriesShifted(params: IpcParams<typeof ShiftEntriesCommand>): Promise<void> {
+	private async onEntriesShifted(params: ShiftEntriesParams): Promise<void> {
 		if (!params.ids.length) return;
 
 		this.host.sendTelemetryEvent('rebaseEditor/entries/moved', {

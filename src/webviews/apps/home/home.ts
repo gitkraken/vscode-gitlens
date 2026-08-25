@@ -99,7 +99,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	/**
 	 * RPC controller — manages connection lifecycle via Lit's ReactiveController pattern.
 	 */
-	private _rpc = new RpcController<HomeServices>(this, {
+	protected override readonly _rpc = new RpcController<HomeServices>(this, {
 		rpcOptions: {
 			webviewId: () => this._webview?.webviewId,
 			webviewInstanceId: () => this._webview?.webviewInstanceId,

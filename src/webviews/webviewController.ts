@@ -1,15 +1,11 @@
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
-import { deflateRaw } from '@env/compression.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { getNonce } from '@gitlens/utils/crypto.js';
 import { logName, trace } from '@gitlens/utils/decorators/log.js';
-import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
-import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
-import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { maybeStopWatch, Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { GlWebviewCommands } from '../constants.commands.js';
 import type {
@@ -29,7 +25,6 @@ import type {
 	WebviewViewTypes,
 } from '../constants.views.js';
 import type { Container } from '../container.js';
-import { getSubscriptionNextPaidPlanId } from '../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import {
 	includesContextDelimitedString,
@@ -39,38 +34,15 @@ import {
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
 import { serializeIpcData } from '../system/ipcSerialize.js';
 import type { WebviewContext } from '../system/webview.js';
-import { dispatchIpcMessage } from './ipc/handlerRegistry.js';
-import type { IpcPromise } from './ipc/models/dataTypes.js';
-import type {
-	IpcCallMessageType,
-	IpcCallParamsType,
-	IpcCallResponseParamsType,
-	IpcMessage,
-	IpcNotification,
-	IpcRequest,
-} from './ipc/models/ipc.js';
-import type { WebviewFocusChangedParams, WebviewState } from './protocol.js';
-import {
-	ApplicablePromoRequest,
-	DidChangeHostWindowFocusNotification,
-	DidChangeWebviewFocusNotification,
-	DidChangeWebviewVisibilityNotification,
-	ExecuteCommand,
-	IpcPromiseSettled,
-	TelemetrySendEventCommand,
-	WebviewFocusChangedCommand,
-	WebviewReadyRequest,
-} from './protocol.js';
-import { isRpcMessage } from './rpc/constants.js';
+import type { WebviewState } from './protocol.js';
 import { EventVisibilityBuffer, SubscriptionTracker } from './rpc/eventVisibilityBuffer.js';
 import { RpcHost } from './rpc/rpcHost.js';
 import { disposeServices } from './rpc/services/proxy.js';
+import type { WebviewClientConnectParams } from './rpc/webviewViewService.js';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar.js';
 import type { CustomEditorDescriptor, WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider.js';
 import type { WebviewShowOptions } from './webviewsController.js';
-
-const ipcSequencer = getScopedCounter();
 
 type GetWebviewDescriptor<T extends CustomEditorIds | WebviewIds> = T extends CustomEditorIds
 	? CustomEditorDescriptor<T>
@@ -82,7 +54,6 @@ type GetWebviewDescriptor<T extends CustomEditorIds | WebviewIds> = T extends Cu
 
 type GetWebviewParent<T extends CustomEditorIds | WebviewIds> = T extends WebviewViewIds ? WebviewView : WebviewPanel;
 
-const utf8Encoder = new TextEncoder();
 const utf8Decoder = new TextDecoder();
 
 @logName(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
@@ -176,6 +147,24 @@ export class WebviewController<
 		return this._onDidDispose.event;
 	}
 
+	/** Visibility pushes for the RPC `webview` service (`onVisibilityChanged`). */
+	private readonly _onDidChangeVisibility = new EventEmitter<boolean>();
+	get onDidChangeVisibility(): Event<boolean> {
+		return this._onDidChangeVisibility.event;
+	}
+
+	/** Webview focus pushes for the RPC `webview` service (`onWebviewFocusChanged`). */
+	private readonly _onDidChangeFocus = new EventEmitter<boolean>();
+	get onDidChangeFocus(): Event<boolean> {
+		return this._onDidChangeFocus.event;
+	}
+
+	/** Host-window focus pushes for the RPC `webview` service (`onHostWindowFocusChanged`). */
+	private readonly _onDidChangeWindowFocus = new EventEmitter<boolean>();
+	get onDidChangeWindowFocus(): Event<boolean> {
+		return this._onDidChangeWindowFocus.event;
+	}
+
 	readonly id: ID;
 
 	get type(): WebviewTypeFromId<ID> {
@@ -189,23 +178,6 @@ export class WebviewController<
 
 	private _readyCount = 0;
 	private _lastHtmlSetAt: number | undefined;
-
-	/**
-	 * Replay-buffer window for the post-bootstrap IPC log. We only need this around startup, since the iframe is only
-	 * re-mounted under a live controller during VS Code's window-startup / panel-restoration / layout-settle phase.
-	 *
-	 * Two anchors gate the buffer:
-	 *  1. Anchor 1 (per-controller, latched at construction): is this controller within the activation window?
-	 *  2. Anchor 2 (per-controller, latched on first ready): once enabled, buffer for {@link replayWindowMs} then stop.
-	 *
-	 * A reconnect inside the window replays the log; a reconnect outside falls back to a full {@link refresh}.
-	 */
-	private static readonly activationWindowMs = 60_000;
-	private static readonly replayWindowMs = 30_000;
-	private readonly _replayEligible: boolean;
-	private _replayEnabled = false;
-	private _replayBuffer: IpcMessage[] = [];
-	private _replayWindowTimer: ReturnType<typeof setTimeout> | undefined;
 
 	/**
 	 * Refresh coalescing: `refresh(force=true)` tears down the iframe and re-renders the HTML, which is
@@ -223,21 +195,57 @@ export class WebviewController<
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private _eventBuffer: EventVisibilityBuffer | undefined;
 	private _rpcHost: RpcHost<object> | undefined;
-	private _rpcExposed = false;
-
-	/**
-	 * Generation guard: identifies the iframe generation (a `WebviewReadyRequest`'s `clientId`) most
-	 * recently granted RPC exposure, and the `clientLoadedAt` it was stamped with. A ready is only
-	 * ever classified as a reconnect based on `_ready` (a boolean), which can't distinguish "the
-	 * current live iframe checking in again" from "a late-arriving/duplicate ready from an iframe
-	 * generation that's already been superseded by a later reload". Comparing `clientLoadedAt`
-	 * (not just `clientId` difference) lets a genuinely newer reconnect still supersede us normally,
-	 * while a straggler from an older generation gets dropped before it can re-run
-	 * `RpcHost.expose()` — which, once any generation has exposed once, always takes its
-	 * reconnecting branch and closes whatever connection is currently live.
+	/** Held so {@link connect} can attribute registrations to the validating client's caller
+	 *  session and release every other session's — see {@link SubscriptionTracker.releaseAllExcept}. */
+	private _tracker: SubscriptionTracker | undefined;
+	/** Generation guard: identifies the iframe generation (a client session's `clientId`, reported
+	 * via the RPC `webview.connect()` handshake) most recently granted RPC exposure, and the
+	 * `clientLoadedAt` it was stamped with. A connect is only ever classified as a reconnect based
+	 * on `_ready` (a boolean), which can't distinguish "the current live iframe checking in again"
+	 * from "a late-arriving/duplicate connect from an iframe generation that's already been
+	 * superseded by a later reload". Comparing `clientLoadedAt` (not just `clientId` difference)
+	 * lets a genuinely newer reconnect still supersede us normally, while a straggler from an older
+	 * generation gets dropped before it can re-run reconnect handling.
 	 */
 	private _activeClientId: string | undefined;
 	private _activeClientLoadedAt: number | undefined;
+
+	/** Session-validation state, gating connection swaps in {@link RpcHost}:
+	 *
+	 * - `none` — no session has been validated since the last invalidation (dispose, html apply,
+	 *   non-retain hide); an announcement is a fresh generation and must be served.
+	 * - `served-awaiting-validation` — an announcement was JUST served but its `connect()` hasn't
+	 *   completed yet. This gate itself doesn't inspect identity, so any further announcement in
+	 *   this window is ignored outright — swapping again would destroy the just-served session's
+	 *   transport. `connect()` is where identity is actually checked, against `RpcHost`'s recorded
+	 *   `pendingServedSession` (see there).
+	 * - `healthy` — a `connect()` completed with the active generation; announcements are
+	 *   duplicates or stale arrivals (e.g. the same iframe remounting its element), and the live
+	 *   session must not be disturbed — the re-announce fallback lets any genuine waiter join.
+	 *
+	 * Swapping resets tracked subscriptions and severs the swapped-out session's event delivery,
+	 * which is why every non-serving path re-announces instead. */
+	private _sessionState: 'none' | 'served-awaiting-validation' | 'healthy' = 'none';
+
+	/** When {@link _sessionState} entered `served-awaiting-validation`; lets the gate self-heal if
+	 *  the served generation dies before its `connect()` arrives (otherwise the latch would fold
+	 *  every later genuine generation into the non-serving path forever). */
+	private _sessionServedAt = 0;
+
+	/** How long a `served-awaiting-validation` latch waits for its `connect()` before the gate
+	 *  serves again. A real connect() lands within milliseconds; stragglers do too — this only
+	 *  bounds the crash-before-connect corner. */
+	private static readonly sessionLatchTimeout = 10_000;
+
+	/** Single writer for every `_sessionState` → `none` transition (dispose, html reload, non-retain
+	 *  hide). Also clears `RpcHost`'s `pendingServedSession` — otherwise a late `connect()` from the
+	 *  client served just before this invalidation would still match it and could validate against
+	 *  the now-invalidated controller (see `connect()`'s identity gate). */
+	private invalidateSession(): void {
+		this._sessionState = 'none';
+		this._rpcHost?.invalidatePendingSession();
+	}
+
 	private readonly webview: Webview;
 
 	private _viewColumn: ViewColumn | undefined;
@@ -259,9 +267,6 @@ export class WebviewController<
 		this.id = descriptor.id as ID;
 		this.webview = parent.webview;
 
-		const readyAt = container.readyAt;
-		this._replayEligible = readyAt == null || Date.now() - readyAt < WebviewController.activationWindowMs;
-
 		const isInEditor = 'onDidChangeViewState' in parent;
 		this._isInEditor = isInEditor;
 		this._viewColumn = isInEditor ? parent.viewColumn : undefined;
@@ -276,13 +281,14 @@ export class WebviewController<
 			}
 
 			// Set up RPC services if the provider exposes them.
-			// The RpcHost creates a Connection but defers expose() until the
-			// webview sends WebviewReadyRequest (handled in onMessageReceivedCore).
+			// The RpcHost creates a Connection and exposes it as soon as the webview's session
+			// announces itself over RPC (see `onClientSession` below).
 			const eventBuffer = this.descriptor.webviewHostOptions?.retainContextWhenHidden
 				? new EventVisibilityBuffer()
 				: undefined;
 			this._eventBuffer = eventBuffer;
 			const tracker = new SubscriptionTracker();
+			this._tracker = tracker;
 			const rpcServices = this.provider.getRpcServices?.(eventBuffer, tracker);
 			if (rpcServices != null) {
 				try {
@@ -293,6 +299,28 @@ export class WebviewController<
 							webviewId: this.id,
 							webviewInstanceId: this.instanceId,
 							handlers: this.provider.getRpcHandlers?.(),
+							shouldServeSession: () =>
+								this._sessionState === 'none' ||
+								(this._sessionState === 'served-awaiting-validation' &&
+									Date.now() - this._sessionServedAt > WebviewController.sessionLatchTimeout),
+							onClientSession: () => {
+								// The webview's RPC session announced itself — the successor of receiving
+								// `WebviewReadyRequest`. Sync transport visibility first (the webview may be
+								// booting while hidden — e.g. created in the background — and setVisible is
+								// otherwise only called reactively), then lift the reload-window mute so the
+								// announcing generation starts receiving frames.
+								if (this._reloadMuted) {
+									// Lifts the mute AND restores both transports' visibility in one step.
+									this.setTransportsMuted(false);
+								} else {
+									this._rpcHost?.setVisible(this.visible);
+								}
+								// The hook fires only for SERVED announcements — latch the state so any
+								// further announcement before this generation's `connect()` validates is
+								// treated as a stale straggler rather than triggering another swap.
+								this._sessionServedAt = Date.now();
+								this._sessionState = 'served-awaiting-validation';
+							},
 						},
 						tracker,
 					);
@@ -305,7 +333,6 @@ export class WebviewController<
 			this.disposable = Disposable.from(
 				this._onDidDispose,
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
-				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInEditor
 					? parent.onDidChangeViewState(({ webviewPanel }) => {
 							const { visible, active, viewColumn } = webviewPanel;
@@ -355,8 +382,9 @@ export class WebviewController<
 		return removeFromContextDelimitedString('gitlens:plus:disabled:view:overrides', [this.descriptor.id]);
 	}
 
-	/** True while a `refreshCore` reload window is open (html reset → `exposeRpc` swap) — the RPC
-	 *  transports are muted for the window, and reactive visibility syncs must not un-mute them. */
+	/** True while a `refreshCore` reload window is open (html reset → session announcement →
+	 *  expose() swap) — the RPC transports are muted for the window, and reactive visibility syncs
+	 *  must not un-mute them. */
 	private _reloadMuted = false;
 
 	/** Single writer for the reload-window mute and BOTH transports' visibility — the buffer and the
@@ -373,12 +401,6 @@ export class WebviewController<
 		this._disposed = true;
 		this.cancellation?.cancel();
 		this.cancellation?.dispose();
-		if (this._replayWindowTimer != null) {
-			clearTimeout(this._replayWindowTimer);
-			this._replayWindowTimer = undefined;
-		}
-		this._replayEnabled = false;
-		this._replayBuffer.length = 0;
 		resetContextKeys(this.descriptor.contextKeyPrefix);
 
 		void this.removePlusFeatureOverride();
@@ -389,6 +411,7 @@ export class WebviewController<
 		this.sendTelemetryEvent(`${this.descriptor.type}/closed`, {});
 
 		this._ready = false;
+		this.invalidateSession();
 
 		this._onDidDispose.fire();
 		this.disposable?.dispose();
@@ -417,43 +440,120 @@ export class WebviewController<
 		this._initializing = undefined;
 	}
 
-	private exposeRpc(clientId: string | undefined): void {
-		if (this._rpcExposed) return;
+	/**
+	 * Marks the announcing client generation as ready — the RPC-native successor of the legacy
+	 * `WebviewReadyRequest` handler. Invoked by the webview's `RpcController` over the shared
+	 * `webview` service group immediately after each successful handshake.
+	 *
+	 * RPC exposure itself no longer waits for this call: the {@link RpcHost} swaps to a fresh
+	 * exposed connection as soon as the session announces itself (see `onClientSession`), so
+	 * unlike the legacy ready case there is no expose step here.
+	 */
+	connect(params: WebviewClientConnectParams): Promise<void> {
+		// Attribution: this call is itself dispatched over RPC by the connecting client, so its
+		// caller session IS that client's session — but only synchronously, at the top, before any
+		// `await` (see `Connection.callerSession`'s doc comment). Capture it before anything else.
+		const callerSession = this._tracker?.callerSession;
 
-		// A retain-context webview without RPC services still had its event buffer muted for the
-		// reload window (see `refreshCore`) — lift it here since no expose will.
-		if (this._rpcHost == null) {
-			this.setTransportsMuted(false);
-			return;
-		}
+		this._readyCount++;
+		const sinceLastHtmlSet = this._lastHtmlSetAt != null ? Date.now() - this._lastHtmlSetAt : -1;
+		// A re-connect means the webview's iframe was reloaded under us (e.g., panel layout settle, window
+		// reload restoring a serialized panel). The new iframe re-boots from the ORIGINAL bootstrap, which
+		// is stale by then; convergence happens over RPC: the expose() swap in RpcHost cycles the connection
+		// and the fresh handshake's subscribe-then-seed re-produces everything, with provider.onReconnect
+		// covering anything outside that plane.
+		const isReconnect = this._ready;
+		Logger.info(
+			`WebviewController(${this.id}|${this.instanceId}): webview.connect #${this._readyCount} (clientId=${params.clientId ?? '?'}, clientLoadedAt=${params.clientLoadedAt ?? '?'}, sinceLastHtmlSet=${sinceLastHtmlSet}ms, wasAlreadyReady=${this._ready}, parentVisible=${this.parent.visible})`,
+		);
 
-		// Defense in depth: callers are expected to have already gated on the generation guard (see
-		// the WebviewReadyRequest handler), so this only fires if some other/future path invokes
-		// exposeRpc on behalf of a generation we've since moved on from — e.g. a stale async
-		// continuation. Normal call sites always pass the clientId just recorded as active.
-		if (clientId !== this._activeClientId) {
+		// Released-session gate: a session already superseded or rejected (see
+		// `SubscriptionTracker.isSessionReleased`) can still deliver a late `connect()` — e.g. the
+		// pre-remount session's call, sent before its successor validated, dispatching after (the
+		// host connection never reset, so nothing on the wire drops it). The gates below can't
+		// catch it: the controller is healthy again by then, and it carries the SAME client
+		// identity as its successor (same iframe), so the generation guard has nothing to compare.
+		// Accepting it would supersede the LIVE session while the caller itself stays tombstoned —
+		// releasing every usable registration and leaving the surface dead.
+		if (this._tracker?.isSessionReleased(callerSession) === true) {
 			Logger.debug(
-				`WebviewController(${this.id}|${this.instanceId}): exposeRpc no-op — invoked for a superseded generation (clientId=${clientId ?? '?'}, active=${this._activeClientId ?? '?'})`,
+				`WebviewController(${this.id}|${this.instanceId}): rejecting webview.connect #${this._readyCount} from a released session (session=${callerSession ?? '?'})`,
 			);
-			return;
+			return Promise.resolve();
 		}
 
-		this._rpcExposed = true;
-		try {
-			// Sync current visibility before exposing — the controller may expose while hidden (e.g.
-			// webview created in the background), and setVisible is otherwise only called reactively.
-			this._rpcHost.setVisible(this.visible);
-			this._rpcHost.expose();
-			// Lift the reload-window mute (see `refreshCore`) AFTER expose: the tracker reset inside
-			// expose() has already dropped any stale save-last pendings, so this replays nothing from
-			// the dead session — it just re-opens the buffer for the fresh one.
-			this.setTransportsMuted(false);
-		} catch (ex) {
-			Logger.error(ex, `WebviewController(${this.id}): Failed to expose RPC services`);
-			// Never leave the reload-window mute latched on a failed expose — the transports would
-			// stay silenced until some later successful refresh.
-			this.setTransportsMuted(false);
+		// Identity gate: while establishing or re-establishing the active client (not yet healthy),
+		// only the session RpcHost actually SERVED may validate. Without this, whichever caller's
+		// connect() call happens to land first would become "the" active client — including an
+		// interloper whose announcement was ignored (see `RpcHost.armAnnouncementTap`) but who still
+		// got a resolved handshake off the re-posted frame. A live-healthy client's own remount
+		// skips this: its announcement is deliberately left unserved (see the same tap), so its
+		// session never becomes the pending one — the clientId check below covers it instead.
+		//
+		// `none` rejects UNCONDITIONALLY, regardless of whether `callerSession` happens to match
+		// `pendingServedSession` — that value is only meaningful during `served-awaiting-validation`;
+		// once invalidated (`invalidateSession()` clears it too, belt-and-suspenders) nothing has
+		// been served since, so no caller has anything legitimate to validate against. Without this,
+		// a late call from the client served just before an html reload/dispose/hide could still
+		// match a stale `pendingServedSession` and validate against the now-invalidated controller.
+		const servedSessionValidated =
+			this._sessionState === 'served-awaiting-validation' &&
+			callerSession === this._rpcHost?.pendingServedSession;
+		if (this._sessionState !== 'healthy' && !servedSessionValidated) {
+			Logger.debug(
+				`WebviewController(${this.id}|${this.instanceId}): rejecting webview.connect #${this._readyCount} from an unvalidated session (session=${callerSession ?? '?'}, sessionState=${this._sessionState})`,
+			);
+			this._tracker?.releaseSession(callerSession);
+			return Promise.resolve();
 		}
+
+		// Generation guard: drop a connect from an iframe generation older than the one we've already
+		// granted RPC exposure to — e.g. a late-arriving/duplicate announcement from an iframe already
+		// superseded by a later reload. Without this, `isReconnect` above (driven solely by the `_ready`
+		// boolean) can't tell that straggler apart from a legitimate reconnect, and would process it as
+		// one. Compare by clientLoadedAt, not just clientId, so a genuinely newer reconnect (a later
+		// reload of the same webview) still proceeds normally below.
+		if (
+			this._activeClientId != null &&
+			params.clientId !== this._activeClientId &&
+			this._activeClientLoadedAt != null &&
+			params.clientLoadedAt != null &&
+			params.clientLoadedAt <= this._activeClientLoadedAt
+		) {
+			Logger.debug(
+				`WebviewController(${this.id}|${this.instanceId}): ignoring webview.connect #${this._readyCount} from a superseded generation (clientId=${params.clientId ?? '?'}, active=${this._activeClientId})`,
+			);
+			this._tracker?.releaseSession(callerSession);
+			return Promise.resolve();
+		}
+
+		if (isReconnect) {
+			this.cancellation?.cancel();
+			this.cancellation = new CancellationTokenSource();
+		}
+
+		this._ready = true;
+		this._activeClientId = params.clientId;
+		this._activeClientLoadedAt = params.clientLoadedAt;
+
+		this._sessionState = 'healthy';
+		// Identity accepted — safe to supersede: release every registration NOT owned by this
+		// session. Deferred to here (not to registration time) so a stale straggler's announcement
+		// — which also replays its retained subscriptions, but never reaches this line — can't tear
+		// down a still-live client's registrations. See `SubscriptionTracker.releaseAllExcept`.
+		//
+		// MUST run before the provider callbacks below: a provider that reseeds synchronously from
+		// onReady/onReconnect (e.g. AllowedSignersWebview firing a results-changed event) would
+		// otherwise push that reseed to a not-yet-released interloper's still-live registration.
+		this._tracker?.releaseAllExcept(callerSession);
+
+		if (isReconnect) {
+			void this.provider.onReconnect?.();
+		} else {
+			void this.provider.onReady?.();
+		}
+
+		return Promise.resolve();
 	}
 
 	getTelemetryContext(): WebviewTelemetryContext {
@@ -594,6 +694,7 @@ export class WebviewController<
 					`WebviewController(${this.id}|${this.instanceId}): webview.html set (reason=show:loading, length=${html.length})`,
 				);
 				this._lastHtmlSetAt = Date.now();
+				this.invalidateSession();
 				this.webview.html = html;
 			} catch (ex) {
 				if (isCancellationError(ex)) {
@@ -673,38 +774,33 @@ export class WebviewController<
 		this.cancellation?.cancel();
 		this.cancellation = new CancellationTokenSource();
 
-		if (force) {
-			this.clearPendingIpcNotifications();
-			// Iframe is about to be torn down and re-mounted with a fresh bootstrap; any buffered messages were
-			// addressed at the soon-to-be-dead iframe and would double-apply against the new iframe's fresh
-			// bootstrap on a subsequent reconnect. Anchor 2's timer keeps running so post-refresh notifications
-			// continue to be buffered.
-			this._replayBuffer.length = 0;
-		}
 		this.provider.onRefresh?.(force);
 
 		// Mark the webview as not ready, until we know if we are changing the html
 		const wasReady = this._ready;
-		const wasRpcExposed = this._rpcExposed;
 		this._ready = false;
-		this._rpcExposed = false;
 
-		// Mute the RPC transports for the reload window: from here until the new iframe's ready
-		// triggers the expose() connection swap, host events would otherwise post through the OLD
-		// connection into a page that no longer holds their callback proxies — logged client-side as
-		// "Proxy target not found for notify" on every fire. Treat the window as hidden instead:
-		// save-last pendings captured here die with the tracker reset inside expose(), and the fresh
-		// handshake's subscribe-then-seed re-produces everything, so nothing is lost. `exposeRpc`
-		// restores visibility; the html-unchanged early return below restores it directly.
-		this.setTransportsMuted(true);
+		// Mute the RPC transports for the reload window: from here until the reloaded iframe's session
+		// announces itself over RPC (triggering the expose() connection swap in RpcHost), host events
+		// would otherwise post through the OLD connection into a page that no longer holds their
+		// callback proxies — logged client-side as "Proxy target not found for notify" on every fire.
+		// Treat the window as hidden instead: save-last pendings captured here die with the tracker
+		// reset in the connection swap, and the fresh handshake's subscribe-then-seed re-produces
+		// everything, so nothing is lost. The `onClientSession` hook restores visibility; the
+		// html-unchanged early return below restores it directly. Without RPC services there is no
+		// session to announce, so no mute is latched (and nothing consumes the buffer).
+		if (this._rpcHost != null) {
+			this.setTransportsMuted(true);
+		}
 
 		let html;
 		try {
 			html = await this.getHtml(this.webview);
 		} catch (ex) {
 			// No reload is going to happen — lift the reload-window mute so the still-live iframe keeps
-			// receiving events. On the cancellation path a superseding ready/refresh usually restores it
-			// too (via exposeRpc), but the cancel can also come from a caller that never follows up.
+			// receiving events. On the cancellation path a superseding connect/refresh usually restores
+			// it too (via the onClientSession hook), but the cancel can also come from a caller that
+			// never follows up.
 			this.setTransportsMuted(false);
 			if (isCancellationError(ex)) {
 				this.cancellation.cancel();
@@ -728,7 +824,6 @@ export class WebviewController<
 			if (wasReady) {
 				this._ready = true;
 			}
-			this._rpcExposed = wasRpcExposed;
 			// No reload happened — lift the reload-window mute applied above.
 			this.setTransportsMuted(false);
 			return;
@@ -738,6 +833,7 @@ export class WebviewController<
 			`WebviewController(${this.id}|${this.instanceId}): webview.html set (reason=refresh:apply, length=${html.length})`,
 		);
 		this._lastHtmlSetAt = Date.now();
+		this.invalidateSession();
 		this.webview.html = html;
 	}
 
@@ -746,173 +842,26 @@ export class WebviewController<
 		this.dispose();
 	}
 
-	@trace({
-		args: e => ({ e: e != null ? `${e.id}, method=${e.method}` : '<undefined>' }),
-	})
-	private async onMessageReceivedCore(e: IpcMessage) {
-		if (e == null) return;
-		// Skip RPC transport messages — these are handled by the Supertalk endpoint
-		if (isRpcMessage(e)) return;
-
-		const scope = getScopedLogger();
-		scope?.addExitInfo(`ipc (webview -> host) duration=${Date.now() - e.timestamp}ms`);
-
-		switch (true) {
-			case WebviewReadyRequest.is(e): {
-				this._readyCount++;
-				const sinceLastHtmlSet = this._lastHtmlSetAt != null ? Date.now() - this._lastHtmlSetAt : -1;
-				// A re-ready means the webview's iframe was reloaded under us (e.g., panel layout settle, window
-				// reload restoring a serialized panel). The host's prior IPC pipe is severed; the new iframe loaded
-				// a stale bootstrap (frozen at HTML-generation time) and won't re-fetch state on its own. If we're
-				// still inside the replay window, replay the buffered post-bootstrap IPC log so the new iframe sees
-				// the same state the dead one had. Outside the window — where reconnects are anomalous — fall back
-				// to a full refresh, which is the honest answer at that point.
-				const isReconnect = this._ready;
-				const canSoftReconnect = isReconnect && this._replayEnabled;
-				Logger.info(
-					`WebviewController(${this.id}|${this.instanceId}): WebviewReadyRequest #${this._readyCount} (id=${e.id}, clientId=${e.params.clientId ?? '?'}, clientLoadedAt=${e.params.clientLoadedAt ?? '?'}, bootstrap=${e.params.bootstrap}, msgAge=${Date.now() - e.timestamp}ms, sinceLastHtmlSet=${sinceLastHtmlSet}ms, wasAlreadyReady=${this._ready}, replayEligible=${this._replayEligible}, replayEnabled=${this._replayEnabled}, replayBufferSize=${this._replayBuffer.length}, parentVisible=${this.parent.visible})`,
-				);
-
-				// Generation guard: drop a ready from an iframe generation older than the one we've already
-				// granted RPC exposure to — e.g. a late-arriving/duplicate message from an iframe already
-				// superseded by a later reload. Without this, `isReconnect`/`canSoftReconnect` above (driven
-				// solely by the `_ready` boolean) can't tell that straggler apart from a legitimate reconnect,
-				// and would process it as one — resetting `_rpcExposed` and re-running `exposeRpc()`, which
-				// (once any generation has exposed) always closes and replaces the CURRENT, live connection.
-				// Bail before any state mutation so every side effect below (cancellation reset, pending-
-				// notification clear, replay start/replay, response, provider onReady/onReconnect) is skipped
-				// too — not just exposeRpc. Compare by clientLoadedAt, not just clientId, so a genuinely newer
-				// reconnect (a later reload of the same webview) still proceeds normally below.
-				if (
-					this._activeClientId != null &&
-					e.params.clientId !== this._activeClientId &&
-					this._activeClientLoadedAt != null &&
-					e.params.clientLoadedAt != null &&
-					e.params.clientLoadedAt <= this._activeClientLoadedAt
-				) {
-					Logger.debug(
-						`WebviewController(${this.id}|${this.instanceId}): ignoring WebviewReadyRequest #${this._readyCount} from a superseded generation (clientId=${e.params.clientId ?? '?'}, active=${this._activeClientId})`,
-					);
-					break;
-				}
-
-				if (isReconnect && !canSoftReconnect) {
-					Logger.info(
-						`WebviewController(${this.id}|${this.instanceId}): reconnect outside replay window — forcing refresh`,
-					);
-					void this.refresh(true);
-					break;
-				}
-
-				if (isReconnect) {
-					this.cancellation?.cancel();
-					this.cancellation = new CancellationTokenSource();
-					this._rpcExposed = false;
-					this.clearPendingIpcNotifications();
-				}
-
-				if (isReconnect) {
-					Logger.info(
-						`WebviewController(${this.id}|${this.instanceId}): soft reconnect (replaying ${this._replayBuffer.length} buffered messages)`,
-					);
-				}
-
-				this._ready = true;
-				this._activeClientId = e.params.clientId;
-				this._activeClientLoadedAt = e.params.clientLoadedAt;
-				this.exposeRpc(e.params.clientId);
-				void this.respond(WebviewReadyRequest, e, {
-					// Honor the iframe's `bootstrap` flag literally — including on reconnect. The new iframe's
-					// HTML re-evaluates its `<script>window.bootstrap=…</script>` tag with the original T=0 payload,
-					// and replay below brings it forward by re-delivering the post-bootstrap delta log. Sending a
-					// fresh `includeBootstrap()` on reconnect would override the original starting point and let
-					// the replayed deltas double-apply on top of an already-current snapshot. The only iframes
-					// that ask for bootstrap on the re-ready are deferred-bootstrap providers — for those we do
-					// return the resolved bootstrap because they explicitly await it.
-					state: e.params.bootstrap ? this.provider.includeBootstrap?.(false) : undefined,
-				});
-				// Start the replay window BEFORE flushing pending so any pending IpcMessages flushed below land in
-				// the replay buffer. Deferred-bootstrap providers (e.g. Graph's deferRows path) push the initial
-				// rows notification BEFORE first-ready; without this ordering it would never make it into the buffer
-				// and a subsequent panel-layout-settle reconnect would replay state minus the rows — empty graph.
-				if (!isReconnect) {
-					this.startReplayWindow();
-				}
-				this.sendPendingIpcNotifications();
-				if (isReconnect) {
-					this.replayBufferedMessages();
-					void this.provider.onReconnect?.();
-				} else {
-					void this.provider.onReady?.();
-				}
-
-				break;
-			}
-
-			case WebviewFocusChangedCommand.is(e):
-				this.onViewFocusChanged(e.params);
-
-				break;
-
-			case ExecuteCommand.is(e):
-				if (e.params.args != null) {
-					void executeCommand(e.params.command, ...e.params.args);
-				} else {
-					void executeCommand(e.params.command);
-				}
-				break;
-
-			case ApplicablePromoRequest.is(e): {
-				const subscription = await this.container.subscription.getSubscription();
-				const promo = await this.container.productConfig.getApplicablePromo(
-					subscription.state,
-					e.params.plan ?? getSubscriptionNextPaidPlanId(subscription),
-					e.params.location,
-					e.params.expiringOnly,
-				);
-				void this.respond(ApplicablePromoRequest, e, { promo: promo });
-				break;
-			}
-			case TelemetrySendEventCommand.is(e):
-				this.sendTelemetryEvent(
-					e.params.name,
-					e.params.data != null ? { ...(e.params.data as any) } : undefined,
-					e.params.source,
-				);
-				break;
-
-			default:
-				// Try @ipc decorated handlers first, then fall back to onMessageReceived
-				if (!(await dispatchIpcMessage(this, this.provider, e))) {
-					this.provider.onMessageReceived?.(e);
-				}
-				break;
-		}
-	}
-
-	@trace({
-		args: e => ({ e: `focused=${e.focused}, inputFocused=${e.inputFocused}` }),
-	})
-	onViewFocusChanged(e: WebviewFocusChangedParams): void {
+	@trace()
+	focusChanged(focused: boolean, _inputFocused: boolean): void {
 		setContextKeys(this.descriptor.contextKeyPrefix);
-		this.handleFocusChanged(e.focused);
+		this.handleFocusChanged(focused);
 	}
 
 	@trace()
 	private onParentVisibilityChanged(visible: boolean, active?: boolean, forceReload?: boolean) {
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
-				if (this._ready) {
-					this.sendPendingIpcNotifications();
-				} else if (this.provider.onReloaded != null) {
-					this.clearPendingIpcNotifications();
-					this.provider.onReloaded();
-				} else {
-					void this.refresh();
+				if (!this._ready) {
+					if (this.provider.onReloaded != null) {
+						this.provider.onReloaded();
+					} else {
+						void this.refresh();
+					}
 				}
 			} else {
 				this._ready = false;
-				this._rpcExposed = false;
+				this.invalidateSession();
 			}
 		} else if (forceReload) {
 			void this.refresh();
@@ -941,10 +890,11 @@ export class WebviewController<
 			this.handleFocusChanged(false);
 		}
 
-		void this.notify(DidChangeWebviewVisibilityNotification, { visible: visible });
-		// During a reload window (html reset → expose() swap, see `refreshCore`) the transports are
-		// deliberately muted — a visibility event landing mid-window must not un-mute them and resume
-		// posting into the dead session; `exposeRpc` restores visibility when the swap completes.
+		this._onDidChangeVisibility.fire(visible);
+		// During a reload window (html reset → session announcement → expose() swap, see `refreshCore`)
+		// the transports are deliberately muted — a visibility event landing mid-window must not un-mute
+		// them and resume posting into the dead session; the `onClientSession` hook restores visibility
+		// when the announcing generation's swap completes.
 		if (!this._reloadMuted) {
 			this._eventBuffer?.setVisible(visible);
 			this._rpcHost?.setVisible(visible);
@@ -955,12 +905,12 @@ export class WebviewController<
 	private onWindowStateChanged(e: WindowState) {
 		if (!this.visible) return;
 
-		void this.notify(DidChangeHostWindowFocusNotification, { focused: e.focused });
+		this._onDidChangeWindowFocus.fire(e.focused);
 		this.provider.onWindowFocusChanged?.(e.focused);
 	}
 
 	private handleFocusChanged(focused: boolean) {
-		void this.notify(DidChangeWebviewFocusNotification, { focused: focused });
+		this._onDidChangeFocus.fire(focused);
 		this.provider.onFocusChanged?.(focused);
 	}
 
@@ -996,7 +946,7 @@ export class WebviewController<
 		]);
 
 		const sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-		const serialized = this.serializeIpcData(bootstrap);
+		const serialized = serializeIpcData(bootstrap);
 		sw?.stop({ message: `\u2022 serialized bootstrap; length=${serialized.length}` });
 
 		const html = replaceWebviewHtmlTokens(
@@ -1018,334 +968,6 @@ export class WebviewController<
 			endOfBody,
 		);
 		return html;
-	}
-
-	nextIpcId(): string {
-		return `host:${ipcSequencer.next()}`;
-	}
-
-	async notify<T extends IpcNotification<unknown>>(
-		notificationType: T,
-		params: IpcCallParamsType<T>,
-		completionId?: string,
-	): Promise<boolean> {
-		const id = this.nextIpcId();
-		const timestamp = Date.now();
-
-		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.notify(${id}|${notificationType.method})`);
-		const sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-
-		const serializedParams = params != null ? this.serializeIpcData(params) : undefined;
-
-		sw?.restart({ message: `\u2022 serialized params; length=${serializedParams?.length ?? 0}` });
-
-		let bytes: Uint8Array | undefined;
-		let compression: IpcMessage['compressed'] = false;
-		if (serializedParams != null && serializedParams.length > 1024) {
-			bytes = utf8Encoder.encode(serializedParams);
-			compression = 'utf8';
-
-			const originalSize = bytes.byteLength;
-
-			try {
-				bytes = deflateRaw(bytes);
-				compression = 'deflate';
-
-				sw?.stop({
-					message: `\u2022 compressed (${compression}) serialized params (${Math.round((1 - bytes.byteLength / originalSize) * 100)}% reduction) ${originalSize} → ${bytes.byteLength} bytes`,
-				});
-			} catch (ex) {
-				debugger;
-				// Compression failed, keep uncompressed data
-				scope?.error(ex, 'IPC deflate compression failed');
-				sw?.stop({
-					message: `\u2022 failed deflate compression, using uncompressed data`,
-					suffix: `failed`,
-				});
-			}
-		}
-
-		const msg: IpcMessage<IpcCallParamsType<T> | Uint8Array> = {
-			id: id,
-			scope: notificationType.scope,
-			method: notificationType.method,
-			params: bytes ?? serializedParams,
-			compressed: compression,
-			timestamp: timestamp,
-			completionId: completionId,
-		};
-
-		// Capture what the queue holds now so the post-send cleanup can tell "superseded by this send" from
-		// "queued while this send was in flight". The await below is a full postMessage round-trip (up to the
-		// 30s hang guard), and the Graph's reveal-time rebuild flushes the queue while its own reset send is
-		// still outstanding — so an enqueue landing inside that window is routine, not theoretical.
-		const supersededEntry = this._pendingIpcNotifications.get(notificationType as IpcNotification);
-		const supersededEntries = notificationType.reset ? [...this._pendingIpcNotifications] : undefined;
-
-		const success = await this.postMessage(msg, notificationType.silent);
-		if (success) {
-			// Honor reset semantics (same rule as the replay buffer below and `addPendingIpcNotificationCore`):
-			// a reset-type notification supersedes all prior state, so drop the whole queue. Anything else
-			// supersedes only its own type — clearing the map wholesale would discard unrelated queued
-			// notifications, which is how a send that happens while hidden (e.g. scope-anchor invalidation,
-			// org settings, agent sessions) silently drops a queued one. Either way, only drop entries that
-			// are still the ones this send superseded: anything enqueued or replaced during the await carries
-			// newer state than what just went out, so removing it would lose an update.
-			if (supersededEntries != null) {
-				for (const [type, entry] of supersededEntries) {
-					if (this._pendingIpcNotifications.get(type) === entry) {
-						this._pendingIpcNotifications.delete(type);
-					}
-				}
-			} else if (this._pendingIpcNotifications.get(notificationType as IpcNotification) === supersededEntry) {
-				this._pendingIpcNotifications.delete(notificationType as IpcNotification);
-			}
-			// While the replay window is open, append every successfully delivered message to the log in send order
-			// so that on reconnect we can replay the exact sequence the previous iframe saw — including
-			// IpcPromiseSettled and request responses, so embedded IpcPromise placeholders in earlier messages
-			// resolve correctly on the new iframe. WebviewReadyRequest's own response is regenerated per reconnect
-			// (with a fresh bootstrap) and would be ID-mismatched on replay, so skip it. Honor reset semantics:
-			// a reset-type notification supersedes all prior state, so prune the log before storing.
-			if (this._replayEnabled && notificationType !== WebviewReadyRequest.response) {
-				if (notificationType.reset) {
-					this._replayBuffer.length = 0;
-				}
-				this._replayBuffer.push(msg);
-			}
-		} else if (notificationType === IpcPromiseSettled) {
-			this._pendingIpcPromiseNotifications.add({ msg: msg, timestamp: Date.now() });
-		} else {
-			this.addPendingIpcNotificationCore(notificationType, msg);
-		}
-		return success;
-	}
-
-	respond<T extends IpcRequest<unknown, unknown>>(
-		requestType: T,
-		msg: IpcCallMessageType<T>,
-		params: IpcCallResponseParamsType<T>,
-	): Promise<boolean> {
-		return this.notify(requestType.response, params, msg.completionId);
-	}
-
-	private serializeIpcData(data: unknown): string {
-		const pendingPromises: IpcPromise[] = [];
-		const serialized = serializeIpcData(data, () => this.nextIpcId(), pendingPromises);
-
-		if (pendingPromises.length) {
-			const cancellation = this.cancellation?.token;
-			queueMicrotask(() => {
-				for (const ipcPromise of pendingPromises) {
-					ipcPromise.__promise.then(
-						r => {
-							if (cancellation?.isCancellationRequested) {
-								debugger;
-								return;
-							}
-							return this.notify(
-								IpcPromiseSettled,
-								{ status: 'fulfilled', value: r },
-								ipcPromise.value.id,
-							);
-						},
-						(ex: unknown) => {
-							if (cancellation?.isCancellationRequested) {
-								debugger;
-								return;
-							}
-							return this.notify(
-								IpcPromiseSettled,
-								{ status: 'rejected', reason: ex },
-								ipcPromise.value.id,
-							);
-						},
-					);
-				}
-			});
-		}
-
-		return serialized;
-	}
-
-	@sequentialize({ getDedupingKey: (message: IpcMessage) => message.id })
-	@trace({
-		args: message => ({
-			message: `${message.id}|${message.method}${message.completionId ? `+${message.completionId}` : ''}`,
-		}),
-	})
-	private async postMessage(message: IpcMessage, silent?: boolean): Promise<boolean> {
-		if (!this._ready) return Promise.resolve(false);
-
-		const scope = getScopedLogger();
-		let timeout: ReturnType<typeof setTimeout> | undefined;
-
-		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang forever
-		const promise = Promise.race<boolean>([
-			this.webview.postMessage(message).then(
-				s => {
-					clearTimeout(timeout);
-					return s;
-				},
-				(ex: unknown) => {
-					clearTimeout(timeout);
-					scope?.error(ex);
-					debugger;
-					return false;
-				},
-			),
-			new Promise<boolean>(resolve => {
-				timeout = setTimeout(() => {
-					debugger;
-					scope?.setFailed('TIMEDOUT');
-					resolve(false);
-				}, 30000);
-			}),
-		]);
-
-		let success;
-
-		if (this.is('view') && !silent) {
-			// If we are in a view, show progress if we are waiting too long
-			const result = await pauseOnCancelOrTimeout(promise, undefined, 100);
-			if (result.paused) {
-				success = await window.withProgress({ location: { viewId: this.id } }, () => result.value);
-			} else {
-				success = result.value;
-			}
-		} else {
-			success = await promise;
-		}
-
-		return success;
-	}
-
-	private _pendingIpcNotifications = new Map<
-		IpcNotification,
-		{ msg: IpcMessage | (() => Promise<boolean | void>); timestamp: number }
-	>();
-	private _pendingIpcPromiseNotifications = new Set<{ msg: IpcMessage; timestamp: number }>();
-
-	addPendingIpcNotification(
-		type: IpcNotification<any>,
-		mapping: Map<IpcNotification<any>, () => Promise<boolean | void>>,
-		thisArg: any,
-	): void {
-		this.addPendingIpcNotificationCore(type, mapping.get(type)?.bind(thisArg));
-	}
-
-	private addPendingIpcNotificationCore(
-		type: IpcNotification<any>,
-		msgOrFn: IpcMessage | (() => Promise<boolean | void>) | undefined,
-	) {
-		if (type.reset) {
-			this._pendingIpcNotifications.clear();
-		}
-
-		if (msgOrFn == null) {
-			debugger;
-			return;
-		}
-
-		this._pendingIpcNotifications.set(type, { msg: msgOrFn, timestamp: Date.now() });
-	}
-
-	clearPendingIpcNotifications(): boolean {
-		const hadPending = this._pendingIpcNotifications.size > 0;
-		this._pendingIpcNotifications.clear();
-		return hadPending;
-	}
-
-	/**
-	 * Flushes the pending queues. Pass `except` to drop one type instead of sending it — for a caller that
-	 * supersedes that type's data another way (the Graph's reveal-time full rebuild supersedes the queued
-	 * full-state push, and replaying it would join the in-flight state notify and cost a second rebuild).
-	 * Everything else still has to be sent: the queue also holds types no state push carries, both
-	 * failure-requeued ones (`notify` re-queues every failed notification) and provider-queued ones.
-	 */
-	sendPendingIpcNotifications(except?: IpcNotification<any>): void {
-		// Bail before dropping `except` — discarding it on a call that then flushes nothing would lose it
-		// with no replacement send, which is the one outcome this parameter must never produce.
-		if (!this._ready) return;
-
-		if (except != null) {
-			this._pendingIpcNotifications.delete(except as IpcNotification);
-		}
-
-		if (this._pendingIpcNotifications.size === 0 && this._pendingIpcPromiseNotifications.size === 0) {
-			return;
-		}
-
-		// Preserve the IpcNotification type alongside each pending entry so we can decide buffer eligibility
-		// below. Promise-settled entries carry no type — they're addressed at specific call ids and aren't
-		// independently replayable.
-		const typedEntries = Array.from(this._pendingIpcNotifications.entries(), ([type, value]) => ({
-			type: type,
-			...value,
-		}));
-		const untyped = Array.from(this._pendingIpcPromiseNotifications.values(), value => ({
-			type: undefined,
-			...value,
-		}));
-		const ipcs = [...typedEntries, ...untyped].sort((a, b) => a.timestamp - b.timestamp);
-		this._pendingIpcNotifications.clear();
-		this._pendingIpcPromiseNotifications.clear();
-
-		for (const { type, msg } of ipcs) {
-			if (typeof msg === 'function') {
-				void msg();
-				continue;
-			}
-
-			void this.postMessage(msg, type?.silent);
-			// Mirror notify()'s success-path buffer push for pending IpcMessages that just got flushed —
-			// otherwise pre-first-ready notifications (e.g. Graph's deferred-rows microtask firing during
-			// HTML generation) never enter the replay buffer and a panel-layout-settle reconnect would
-			// deliver bootstrap without them.
-			if (
-				this._replayEnabled &&
-				type != null &&
-				(type as IpcNotification<unknown>) !== WebviewReadyRequest.response
-			) {
-				if (type.reset) {
-					this._replayBuffer.length = 0;
-				}
-				this._replayBuffer.push(msg);
-			}
-		}
-	}
-
-	/**
-	 * Replays the buffered post-bootstrap IPC log to the webview, in original send order. Called on reconnect
-	 * inside the replay window so the freshly-mounted iframe converges to the same state the previous one had,
-	 * without requiring per-provider reconnect logic.
-	 */
-	private replayBufferedMessages(): void {
-		for (const msg of this._replayBuffer) {
-			void this.postMessage(msg);
-		}
-	}
-
-	/**
-	 * Starts the replay-buffer window on first ready (subject to anchor 1: `_replayEligible`). After
-	 * {@link replayWindowMs} elapses, buffering is disabled and the log is dropped — reconnects past this
-	 * point fall back to a full refresh in the WebviewReadyRequest handler.
-	 */
-	private startReplayWindow(): void {
-		if (!this._replayEligible || this._replayWindowTimer != null) return;
-
-		this._replayEnabled = true;
-		Logger.info(
-			`WebviewController(${this.id}|${this.instanceId}): replay window opened (${WebviewController.replayWindowMs}ms)`,
-		);
-		this._replayWindowTimer = setTimeout(() => {
-			const bufferedCount = this._replayBuffer.length;
-			this._replayEnabled = false;
-			this._replayBuffer.length = 0;
-			this._replayWindowTimer = undefined;
-			Logger.info(
-				`WebviewController(${this.id}|${this.instanceId}): replay window closed; discarded ${bufferedCount} buffered messages`,
-			);
-		}, WebviewController.replayWindowMs);
 	}
 }
 

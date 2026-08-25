@@ -15,12 +15,10 @@ import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
-import type { IpcScope } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 import type { OverviewBranch, OverviewRecentThreshold, OverviewStaleThreshold } from '../shared/overviewBranches.js';
 
 export type { OverviewRecentThreshold, OverviewStaleThreshold } from '../shared/overviewBranches.js';
-export const scope: IpcScope = 'home';
 
 // ============================================================
 // Bootstrap State (used by includeBootstrap / legacy getState)

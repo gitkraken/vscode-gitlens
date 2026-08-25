@@ -1,5 +1,5 @@
 import type { Handler } from '@eamodio/supertalk';
-import type { Disposable, Uri, ViewBadge, ViewColumn } from 'vscode';
+import type { Disposable, Event, Uri, ViewBadge, ViewColumn } from 'vscode';
 import type { GlWebviewCommands } from '../constants.commands.js';
 import type {
 	Source,
@@ -15,16 +15,9 @@ import type {
 	WebviewViewIds,
 } from '../constants.views.js';
 import type { WebviewContext } from '../system/webview.js';
-import type {
-	IpcCallMessageType,
-	IpcCallParamsType,
-	IpcCallResponseParamsType,
-	IpcMessage,
-	IpcNotification,
-	IpcRequest,
-} from './ipc/models/ipc.js';
 import type { WebviewState } from './protocol.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from './rpc/eventVisibilityBuffer.js';
+import type { WebviewClientConnectParams } from './rpc/webviewViewService.js';
 import type { WebviewCommandCallback } from './webviewCommandRegistrar.js';
 import type { WebviewShowOptions } from './webviewsController.js';
 
@@ -60,14 +53,12 @@ export interface WebviewProvider<
 	/**
 	 * Called when the webview iframe sends `core/webview/ready` while the host already considered the controller ready —
 	 * i.e., the iframe was reloaded under us (e.g., panel layout settle, editor-tab webview restored after a window reload).
-	 * The host replays the buffered post-bootstrap IPC log automatically, so providers usually do NOT need to re-push state.
-	 * Use this hook only for things outside the IPC log: re-establishing RPC subscriptions, re-deriving non-IPC state,
-	 * telemetry, or one-shot reconnect side effects.
+	 * The host re-exposes RPC (cycling the connection, so resubscription re-seeds state) and providers usually do NOT need to re-push state.
+	 * Use this hook only for things outside that plane: re-deriving non-RPC state, telemetry, or one-shot reconnect side effects.
 	 */
 	onReconnect?(): void | Promise<void>;
 	onRefresh?(force?: boolean): void;
 	onReloaded?(): void;
-	onMessageReceived?(e: IpcMessage): void;
 	onActiveChanged?(active: boolean): void;
 	onFocusChanged?(focused: boolean): void;
 	onVisibilityChanged?(visible: boolean): void;
@@ -101,14 +92,6 @@ export interface WebviewProvider<
 	getRpcHandlers?(): Handler[];
 }
 
-export interface WebviewStateProvier<
-	State,
-	SerializedState,
-	ShowingArgs extends unknown[] = unknown[],
-> extends WebviewProvider<State, SerializedState, ShowingArgs> {
-	canReceiveMessage?(e: IpcMessage): boolean;
-}
-
 export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 	readonly id: ID;
 	readonly instanceId: string;
@@ -125,17 +108,28 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 	readonly baseWebviewState: WebviewState<ID>;
 	readonly cspNonce: string;
 
+	/** Fired when the containing editor/view/tab's visibility changes. */
+	readonly onDidChangeVisibility: Event<boolean>;
+	/** Fired when the webview's focus state changes — including echoes of the webview's own reports. */
+	readonly onDidChangeFocus: Event<boolean>;
+	/** Fired when the host window's focus state changes (only while the webview is visible). */
+	readonly onDidChangeWindowFocus: Event<boolean>;
+
+	/**
+	 * Applies a webview-reported focus change: updates context keys, notifies the provider, and
+	 * fires {@link onDidChangeFocus} (the echo that lets the webview dispatch its focus events).
+	 */
+	focusChanged(focused: boolean, inputFocused: boolean): void;
+
+	/**
+	 * Marks the announcing client generation as ready — invoked by the webview's `RpcController`
+	 * over the RPC `webview` service group after each successful handshake. Successor of the
+	 * legacy `WebviewReadyRequest` handshake.
+	 */
+	connect(params: WebviewClientConnectParams): Promise<void>;
+
 	getWebRoot(): string;
 	asWebviewUri(uri: Uri): Uri;
-
-	addPendingIpcNotification(
-		type: IpcNotification<any>,
-		mapping: Map<IpcNotification<any>, () => Promise<boolean | void>>,
-		thisArg: any,
-	): void;
-	clearPendingIpcNotifications(): boolean;
-	/** Flushes the pending queues; `except` drops that one type instead of sending it. */
-	sendPendingIpcNotifications(except?: IpcNotification<any>): void;
 
 	getTelemetryContext(): WebviewTelemetryContext;
 	/**
@@ -152,17 +146,7 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 	is(type: 'editor'): this is WebviewHost<ID & (WebviewPanelIds | CustomEditorIds)>;
 	is(type: 'view'): this is WebviewHost<ID & WebviewViewIds>;
 
-	notify<T extends IpcNotification<unknown>>(
-		notificationType: T,
-		params: IpcCallParamsType<T>,
-		completionId?: string,
-	): Promise<boolean>;
 	refresh(force?: boolean): Promise<void>;
-	respond<T extends IpcRequest<unknown, unknown>>(
-		responseType: T,
-		msg: IpcCallMessageType<T>,
-		params: IpcCallResponseParamsType<T>,
-	): Promise<boolean>;
 	registerWebviewCommand<T extends Partial<WebviewContext>>(
 		command: GlWebviewCommands,
 		callback: WebviewCommandCallback<T>,

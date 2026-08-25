@@ -21,7 +21,11 @@
 		data-placement="#{placement}"
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}" }'
 	>
-		<gl-patch-details-app id="app"></gl-patch-details-app>
+		<gl-patch-details-root
+			name="PatchDetailsApp"
+			placement="#{placement}"
+			context="#{state}"
+		></gl-patch-details-root>
 		#{endOfBody}
 	</body>
 </html>

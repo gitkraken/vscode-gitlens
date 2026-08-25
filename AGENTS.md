@@ -62,7 +62,7 @@ Most of the layout is self-describing — browse `packages/`, `src/`, and `tests
 - **`src/vsls/`** — VS Live Share support. **`src/uris/`** — deep-link URI handling.
 - **`custom-elements.json`** — generated web component metadata; never hand-edit.
 
-> For detailed architecture (patterns, services, environment abstraction, webviews, IPC, caching, build config): see `docs/architecture.md`
+> For detailed architecture (patterns, services, environment abstraction, webviews, caching, build config): see `docs/architecture.md`
 
 ## Coding Standards & Style Rules
 
@@ -98,7 +98,7 @@ The repo enforces its own rules from `scripts/eslint-rules/`. Write conforming c
 >
 > For webview accessibility requirements: see `docs/accessibility.md`
 >
-> For webview architecture — the two communication layers (legacy IPC vs Supertalk RPC + signals), which surface uses which, state ownership, resources, persistence, and lifecycle: see `docs/webview-architecture.md`
+> For webview architecture — the single RPC stack (Supertalk services over the namespaced binary pipe), state ownership, resources, persistence, and lifecycle: see `docs/webview-architecture.md`
 >
 > For the Commit Graph keyboard architecture — focus scopes, the Esc overlay stack, the chord vocabulary, and how to add a binding: see `docs/graph-keyboard.md`
 
@@ -129,7 +129,7 @@ When implementing something new, look at these files first:
 | ------------------------------- | ----------------------------------------------- |
 | Simple command                  | `src/commands/copyCurrentBranch.ts`             |
 | Complex command (multi-command) | `src/commands/gitWizard.ts`                     |
-| IPC protocol                    | `src/webviews/rebase/protocol.ts`               |
+| RPC service                     | `src/webviews/rpc/rebaseService.ts`             |
 | Webview provider                | `src/webviews/rebase/rebaseWebviewProvider.ts`  |
 | Webview app (Lit)               | `src/webviews/apps/rebase/`                     |
 | Unit test                       | `packages/utils/src/__tests__/iterable.test.ts` |
@@ -144,4 +144,4 @@ When implementing something new, look at these files first:
 - Run `pnpm run generate:contributions` after editing (or let the watcher handle it)
 - Run `pnpm run generate:commandTypes` after adding commands (or let the watcher handle it)
 
-**Webview communication** — two layers coexist: legacy IPC (`IpcCommand` / `IpcRequest` / `IpcNotification`) and Supertalk RPC + signals. Check which one your surface uses before adding a channel — see `docs/webview-architecture.md`
+**Webview communication** — a single stack: Supertalk RPC services (`src/webviews/rpc/`) over the namespaced binary postMessage pipe. Readiness rides the session handshake; visibility/focus ride buffered RPC events re-emitted as window CustomEvents; persisted state uses the `acquireVsCodeApi` state API — see `docs/webview-architecture.md`
