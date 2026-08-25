@@ -19,8 +19,8 @@ export interface FeatureFlagService {
 	dispose(): void;
 	/** Resolves once the initial background fetch and evaluation completes, whether it succeeded or not */
 	readonly whenReady: Promise<void>;
-	/** Whether any previous session's fetch has cached an evaluated flag map (even an empty one) */
-	readonly hasCachedFlags: boolean;
+	/** Whether a flag fetch has ever completed on this machine (even without caching a map) — distinguishes a genuine first run */
+	readonly hasEverFetched: boolean;
 	getFlag<T extends FeatureFlagValue>(key: FeatureFlagKey, defaultValue: T): T;
 	getAllFlags(): FeatureFlagMap;
 }
@@ -39,11 +39,12 @@ export function setFeatureFlagTelemetryGlobalAttributes(container: Container): v
 		flags.delete(FeatureFlagKey.GraphGateIntroVideo);
 	}
 
-	if (flags.size === 0) return;
-
+	// An empty map CLEARS the attribute — a fetch can retire every flag mid-session
 	container.telemetry.setGlobalAttribute(
 		'featureFlags',
-		JSON.stringify(Object.fromEntries([...flags].sort(([a], [b]) => a.localeCompare(b)))),
+		flags.size === 0
+			? undefined
+			: JSON.stringify(Object.fromEntries([...flags].sort(([a], [b]) => a.localeCompare(b)))),
 	);
 }
 
@@ -73,13 +74,13 @@ class PrefetchedConfigCache implements IConfigCatCache {
 
 export class ConfigCatFeatureFlagService implements FeatureFlagService {
 	readonly whenReady: Promise<void>;
-	readonly hasCachedFlags: boolean;
+	readonly hasEverFetched: boolean;
 
 	private _flags: FeatureFlagMap;
 
 	constructor(private readonly container: Container) {
 		const cached = this.container.storage.get('featureFlags:flags');
-		this.hasCachedFlags = cached != null;
+		this.hasEverFetched = cached != null || this.container.storage.get('featureFlags:fetched') === true;
 		this._flags = Object.freeze(cached ?? {});
 
 		// Background fetch — applies to this session once ready, stored for the next activation
@@ -114,6 +115,8 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 				// User-Agent explicitly — otherwise Node's built-in fetch defaults to `node` and the request is
 				// unattributable server-side.
 				headers: { Accept: 'application/json', 'User-Agent': this.container.userAgent },
+				// Bounded so `whenReady` always settles even on a network that blackholes the request
+				signal: AbortSignal.timeout(10000),
 			});
 
 			if (!response.ok) {
@@ -134,6 +137,12 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 			}
 		} catch (ex) {
 			Logger.debug(ex, scope, 'Failed to fetch and cache feature flags');
+		} finally {
+			// Record that a fetch COMPLETED even without caching — otherwise `hasEverFetched` would
+			// re-arm the graph bootstrap's first-run wait on machines whose fetches hang or fail
+			if (!this.hasEverFetched) {
+				void this.container.storage.store('featureFlags:fetched', true);
+			}
 		}
 	}
 
