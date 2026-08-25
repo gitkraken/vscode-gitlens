@@ -11,6 +11,7 @@ import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared
 import {
 	agentPhaseToCategory,
 	canResolvePermission,
+	createAgentSessionArchiveHref,
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -579,7 +580,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		// because we already have `sorted` in hand; only runs on cache-miss (i.e., once per push
 		// where the array reference changes), so the prune frequency stays bounded.
 		if (this._stickyResolver.size > 0) {
-			this._stickyResolver.prune(sorted.map(s => s.id));
+			this._stickyResolver.prune(sorted);
 		}
 
 		return { sorted: sorted, buckets: buckets };
@@ -1008,6 +1009,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		const ghost = this.isGhost(session);
 		const detail = ghost ? this.ghostLocationHint(session) : this.resolveStickyDetail(session, category);
 		const openAction = getAgentSessionOpenAction(session);
+		const archiveHref = session.phase === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
 
 		// Use a `<div role="button" tabindex="0">` rather than a native `<button>` so we can host
 		// interactive descendants (gl-button for Open Session / Allow / Deny / View Plan) without
@@ -1039,13 +1041,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 						: html`<span class="card__subtitle"></span>`
 				}
 				${
-					session.phase === 'ended'
+					archiveHref != null
 						? html`<gl-button
 								class="card__archive"
 								appearance="toolbar"
 								tooltip="Archive Session"
 								aria-label="Archive Session"
-								href=${createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))}
+								href=${archiveHref}
 							>
 								<code-icon icon="archive"></code-icon>
 							</gl-button>`
@@ -1081,7 +1083,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			// explicit eviction a session that goes working+tool_use → needs-input → working
 			// (permission resolved) would briefly re-render the PRE-permission tool detail from
 			// the still-fresh sticky cache, even though the agent has moved on.
-			this._stickyResolver.evict(session.id);
+			this._stickyResolver.evict(session);
 			return (
 				describeAgentSession(session, category, {
 					awaitingPrefix: 'short',
@@ -1168,6 +1170,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					data-telemetry-action="permission-allow"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
+						providerId: session.providerId,
 						decision: 'allow' as const,
 					})}
 				>
@@ -1181,6 +1184,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					data-telemetry-action="permission-deny"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
+						providerId: session.providerId,
 						decision: 'deny' as const,
 					})}
 				>

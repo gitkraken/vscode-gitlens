@@ -2,7 +2,6 @@ import type { Disposable, QuickPickItem } from 'vscode';
 import { commands, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
@@ -17,13 +16,18 @@ import type {
 	PastAgentSessionsResult,
 	PastAgentSessionState,
 } from './models/agentSessionState.js';
-import { getSessionDisplayName, serializeAgentSession, serializePastAgentSession } from './models/agentSessionState.js';
+import {
+	getAgentSessionIdentityKey,
+	getSessionDisplayName,
+	serializeAgentSession,
+	serializePastAgentSession,
+} from './models/agentSessionState.js';
 import type {
 	AgentSession,
+	AgentSessionHistoryResult,
 	AgentSessionProvider,
 	PermissionDecision,
 	PermissionSuggestion,
-	ResumableSessionsResult,
 } from './provider.js';
 import { isActiveAgentPhase } from './provider.js';
 import {
@@ -44,6 +48,7 @@ import { areHooksAllowedForAgent, getHookClientId } from './utils/agentHooks.js'
  *  only needs to agree at the JSON boundary, not share a TS type. */
 interface AgentSessionContextArgValue {
 	sessionId?: string;
+	providerId?: string;
 	worktreePath?: string;
 	cwd?: string;
 	lastPrompt?: string;
@@ -68,6 +73,13 @@ function resolveAgentSessionArg(arg: unknown): AgentSessionContextArgValue | und
 	if (typeof arg === 'object' && 'sessionId' in arg) return arg as AgentSessionContextArgValue;
 
 	return undefined;
+}
+
+/** One predicate for "this provider's live session ids" — built both before a history query (the
+ *  provider-local exclusion) and again after it settles (the staleness recheck), so the two can
+ *  never drift apart. */
+function getLiveSessionIds(provider: AgentSessionProvider): Set<string> {
+	return new Set(provider.sessions.filter(session => session.status !== 'ended').map(session => session.id));
 }
 
 export class AgentStatusService implements Disposable {
@@ -109,7 +121,7 @@ export class AgentStatusService implements Disposable {
 		{ state: AgentSessionState; key: string; generation: number }
 	>();
 	private _worktreeMetadataGeneration = 0;
-	/** `sessionId -> change-detect key` from the last published snapshot. */
+	/** Provider-scoped session identity -> change-detect key from the last published snapshot. */
 	private _lastSessionKeys = new Map<string, string>();
 
 	/**
@@ -424,7 +436,10 @@ export class AgentStatusService implements Disposable {
 		const cached = this._sessionStateCache.get(session);
 		if (cached != null && cached.generation === this._worktreeMetadataGeneration) return cached;
 
-		const state = serializeAgentSession(session, this.getWorktreeMetadataForSession(session));
+		const provider = this._providers.find(candidate => candidate.id === session.providerId);
+		const actions =
+			session.status === 'ended' && provider?.archiveSession != null ? ({ archive: true } as const) : undefined;
+		const state = serializeAgentSession(session, this.getWorktreeMetadataForSession(session), actions);
 		const entry = {
 			state: state,
 			key: JSON.stringify(state, coarsenVolatileTimestamps),
@@ -457,110 +472,115 @@ export class AgentStatusService implements Disposable {
 	/**
 	 * Lists the past, resumable sessions for `worktreePath`, most-recently-active first.
 	 *
-	 * Excludes sessions that are still live (working/idle) — those already flow to consumers through
-	 * {@link onDidChangeSessions} and are opened, not resumed. Terminal `ended` sessions are kept
-	 * by default: they're themselves resumable-past sessions, so they fall through and pick up a
-	 * proper `displayName` from the transcript store below. Archived sessions ARE excluded — the
-	 * tracked row is gone, but the transcript on disk survives and would otherwise resurface. The
-	 * exclude set is passed down via `excludeSessionIds` so a provider excludes it before its own
-	 * `limit` applies, rather than this method dropping them from an already-limited slice.
-	 *
-	 * `excludeEnded` is for callers that already render tracked ended sessions themselves
-	 * (the webviews show them as cards). Without it those sessions occupy the `limit` slots here and
-	 * are then deduped away at render, so a worktree whose newest transcripts are all tracked can
-	 * show NO past rows — and no "N more" footer — while older ones exist. The resume picker leaves
-	 * it off: it drops ended from its live group precisely so they surface here instead.
+	 * Each provider owns reconciliation of its tracked terminal rows, durable history, archive state,
+	 * and supported actions. This service supplies only that provider's live ids, stamps provenance,
+	 * then merges the normalized results. Provider-local exclusion is load-bearing: session ids are
+	 * not globally unique across harnesses.
 	 */
 	async getPastSessions(
 		worktreePath: string,
-		options?: { limit?: number; excludeEnded?: boolean },
+		options?: { limit?: number; requireResume?: boolean },
 	): Promise<PastAgentSessionsResult> {
-		const excludeIds = new Set(
-			this.sessions
-				.filter(
-					s =>
-						s.status !== 'ended' ||
-						// Scoped to the ones the caller actually renders a card for HERE. An ended
-						// session whose worktree never resolved (an old CLI record with no worktree
-						// data) matches no worktree, so it has no card — excluding it would make it
-						// invisible rather than merely deduped, and this list is its only surface.
-						(options?.excludeEnded === true &&
-							s.worktreePath != null &&
-							arePathsEqual(s.worktreePath, worktreePath)),
-				)
-				.map(s => s.id),
-		);
+		const worktreeNamePromise = this.getWorktreeName(worktreePath);
 
-		// Archiving drops the tracked row, but the CLI's transcript survives on disk — without this,
-		// an archived session would resurface here on every subsequent listing. Run alongside the
-		// worktree-name lookup: the archived-id query spawns a CLI process, and serializing the two
-		// would put that latency in front of every panel open.
-		const [archivedSettled, worktreeNameResult] = await Promise.all([
-			Promise.allSettled(
-				this._providers.map(provider => provider.getArchivedSessionIds?.() ?? Promise.resolve([])),
-			),
-			this.getWorktreeName(worktreePath),
-		]);
-		for (const result of archivedSettled) {
-			const ids = getSettledValue(result);
-			if (ids == null) continue;
+		// Retries whenever a provider's `terminalGeneration` moved while its query was in flight — a
+		// session ended, was removed on end, or was pruned mid-query, however the provider represents
+		// that, so the answer may be missing it. A stale answer drops such a session from every
+		// surface — and the resume picker is one-shot, with no follow-up fetch to heal it. A session
+		// that went LIVE mid-query needs no retry: the post-settlement recheck below drops its row
+		// and the caller's live snapshot picks it up; the only residue is a transient over-count in
+		// `total`, which the next fetch corrects. Deliberately uncapped — each extra pass requires
+		// yet ANOTHER terminal transition during the pass before it, so the loop terminates on
+		// quiescence instead of returning an answer known to be missing a session.
+		for (let attempt = 0; ; attempt++) {
+			const sessions: PastAgentSessionState[] = [];
+			let total = 0;
 
-			for (const id of ids) {
-				excludeIds.add(id);
+			// Providers with no historical source omit `listSessionHistory` entirely.
+			const pending: Promise<{
+				provider: AgentSessionProvider;
+				generation: number;
+				result: AgentSessionHistoryResult;
+			}>[] = [];
+			for (const provider of this._providers) {
+				const generation = provider.terminalGeneration;
+				const listing = provider.listSessionHistory?.(worktreePath, {
+					limit: options?.limit,
+					excludeSessionIds: getLiveSessionIds(provider),
+					requireResume: options?.requireResume,
+				});
+				if (listing != null) {
+					pending.push(
+						listing.then(result => ({ provider: provider, generation: generation, result: result })),
+					);
+				}
 			}
-		}
 
-		const worktreeName = worktreeNameResult;
+			const [settled, worktreeName] = await Promise.all([Promise.allSettled(pending), worktreeNamePromise]);
+			let endedMidQuery = false;
+			for (const result of settled) {
+				if (result.status !== 'fulfilled') continue;
 
-		const sessions: PastAgentSessionState[] = [];
-		let total = 0;
+				const { provider, generation, result: listing } = result.value;
+				// Re-evaluated AFTER the query settles, deliberately not the exclusion snapshot: a
+				// session that went live mid-query must not come back as a past row — the picker would
+				// offer Resume against a transcript a live process is still writing. Also the safety
+				// net for a future provider that doesn't honor the provider-local exclusion.
+				const liveIds = getLiveSessionIds(provider);
+				endedMidQuery ||= provider.terminalGeneration !== generation;
+				total += listing.total;
+				for (const session of listing.sessions) {
+					if (liveIds.has(session.id) || session.disposition !== 'ended') continue;
 
-		// Providers with no durable per-directory store omit `listResumableSessions` entirely.
-		const pending: Promise<ResumableSessionsResult>[] = [];
-		for (const provider of this._providers) {
-			const listing = provider.listResumableSessions?.(worktreePath, {
-				limit: options?.limit,
-				excludeSessionIds: excludeIds,
-			});
-			if (listing != null) {
-				pending.push(listing);
+					const normalized = {
+						...session,
+						actions: {
+							...(session.actions.resume != null && provider.resumeSession != null
+								? { resume: session.actions.resume }
+								: {}),
+							...(session.actions.archive === true && provider.archiveSession != null
+								? { archive: true as const }
+								: {}),
+						},
+					};
+					sessions.push(serializePastAgentSession(provider.id, normalized, worktreePath, worktreeName));
+				}
 			}
-		}
 
-		const settled = await Promise.allSettled(pending);
-		for (const result of settled) {
-			if (result.status !== 'fulfilled') continue;
-
-			total += result.value.total;
-			for (const session of result.value.sessions) {
-				// Safety net: `listResumableSessions` is optional on the interface, and a future
-				// provider may not honor `excludeSessionIds` — re-check here regardless.
-				if (excludeIds.has(session.id)) continue;
-
-				sessions.push(serializePastAgentSession(session, worktreePath, worktreeName));
+			if (endedMidQuery) {
+				Logger.debug(
+					`AgentStatusService.getPastSessions: session(s) ended mid-query; retrying (attempt ${attempt + 1})`,
+				);
+				continue;
 			}
-		}
 
-		// Providers are ordered, so re-sort across them.
-		sessions.sort((a, b) => b.lastActivity - a.lastActivity);
-		// Re-apply the limit across the merged, sorted result — a no-op with a single provider, but
-		// honors the contract once 2+ providers each return up to `limit`.
-		const limited = options?.limit != null && options.limit > 0 ? sessions.slice(0, options.limit) : sessions;
-		return { sessions: limited, total: total };
+			// Providers are ordered, so re-sort across them.
+			sessions.sort((a, b) => b.lastActivity - a.lastActivity);
+			// Re-apply the limit across the merged, sorted result — a no-op with a single provider, but
+			// honors the contract once 2+ providers each return up to `limit`.
+			const limited = options?.limit != null && options.limit > 0 ? sessions.slice(0, options.limit) : sessions;
+			return { sessions: limited, total: total };
+		}
 	}
 
 	/** The worktree's sessions as the resume picker shows them: the live ones it can open, then the
 	 *  past ones it can resume. `ended` sessions are excluded from `live` — they're resumable-past,
-	 *  not open-able, so they're picked up by {@link getPastSessions} instead. */
+	 *  not open-able, so they're picked up by {@link getPastSessions} instead. `total` is the
+	 *  provider-reported resumable discovery count (not `past.length`), so the picker's overflow
+	 *  header can tell "N of M" apart from a `limit`-truncated window. */
 	async getResumableSessions(
 		worktreePath: string,
 		options?: { limit?: number },
 	): Promise<{ live: AgentSession[]; past: PastAgentSessionState[]; total: number }> {
+		const { sessions, total } = await this.getPastSessions(worktreePath, { ...options, requireResume: true });
+		// Snapshot `live` AFTER the history query so a session that went live while it was in flight
+		// shows up here (open-able) rather than falling between the two lists.
 		const live = this.sessions.filter(
 			s => !s.isSubagent && s.status !== 'ended' && s.worktreePath === worktreePath,
 		);
-		const { sessions, total } = await this.getPastSessions(worktreePath, options);
-		return { live: live, past: sessions, total: total };
+		// Safety net for a provider that doesn't honor `requireResume`.
+		const past = sessions.filter(session => session.actions.resume != null);
+		return { live: live, past: past, total: total };
 	}
 
 	/**
@@ -574,25 +594,23 @@ export class AgentStatusService implements Disposable {
 	 * is anchored at `cwd`, so it stays correct for any worktree.
 	 */
 	private async resumeSession(
+		providerId: string | undefined,
 		sessionId: string,
 		cwd: string,
 		target: 'default' | 'terminal',
 		source: 'webview' | 'quickpick',
 		name?: string,
 	): Promise<void> {
-		const useExtension =
-			target === 'default' &&
-			this.getWorkspacePaths().some(p => arePathsEqual(p, cwd)) &&
-			(await isClaudeExtensionAvailable());
-		const resumedInExtension = useExtension && (await tryOpenClaudeSession(sessionId));
-		if (!resumedInExtension) {
-			await resumeClaudeSessionInTerminal({ id: sessionId, cwd: cwd, name: name }, this.container);
-		}
+		const provider = this.getProviderForSession(providerId, sessionId);
+		if (provider?.resumeSession == null) return;
+
+		const outcome = await provider.resumeSession(sessionId, cwd, target, name);
+		if (outcome === false) return;
 
 		this.container.telemetry.sendEvent('agents/sessionResumed', {
-			'agent.provider': 'claudeCode',
+			'agent.provider': provider.id,
 			'agent.resume.source': source,
-			'agent.resume.target': resumedInExtension ? 'extension' : 'terminal',
+			'agent.resume.target': outcome,
 		});
 	}
 
@@ -608,7 +626,22 @@ export class AgentStatusService implements Disposable {
 
 		if (pick.live != null) {
 			if (pick.target === 'resume-terminal') {
-				await resumeClaudeSessionInTerminal(toResumableSessionRef(pick.live), this.container);
+				const resumable = toResumableSessionRef(pick.live);
+				// Falls back to the first workspace folder — same as `resumeClaudeSessionInTerminal`'s own
+				// fallback — so a cwd-less pick still opens a terminal instead of silently no-oping.
+				const cwd = resumable.cwd ?? workspace.workspaceFolders?.[0]?.uri.fsPath;
+				if (cwd != null) {
+					await this.resumeSession(
+						pick.live.providerId,
+						resumable.id,
+						cwd,
+						'terminal',
+						'quickpick',
+						resumable.name,
+					);
+				} else {
+					await resumeClaudeSessionInTerminal(resumable, this.container);
+				}
 				return;
 			}
 
@@ -618,9 +651,13 @@ export class AgentStatusService implements Disposable {
 
 		if (pick.past == null) return;
 
+		const resume = pick.past.actions.resume;
+		if (resume == null) return;
+
 		await this.resumeSession(
+			pick.past.providerId,
 			pick.past.id,
-			pick.past.cwd,
+			resume.cwd,
 			pick.target === 'resume-terminal' ? 'terminal' : 'default',
 			'quickpick',
 			pick.past.displayName,
@@ -640,8 +677,9 @@ export class AgentStatusService implements Disposable {
 		for (const session of this.sessions) {
 			const entry = this.getSessionStateEntry(session);
 			states.push(entry.state);
-			keys.set(session.id, entry.key);
-			if (!changed && this._lastSessionKeys.get(session.id) !== entry.key) {
+			const identityKey = getAgentSessionIdentityKey(session.providerId, session.id);
+			keys.set(identityKey, entry.key);
+			if (!changed && this._lastSessionKeys.get(identityKey) !== entry.key) {
 				changed = true;
 			}
 		}
@@ -883,41 +921,56 @@ export class AgentStatusService implements Disposable {
 		this.maybeFireSessionsChanged(true);
 	}
 
+	/** Resolves a provider-scoped session reference. `providerId` remains optional only for legacy
+	 *  command links; every current webview context supplies it. */
+	private getProviderForSession(providerId: string | undefined, sessionId: string): AgentSessionProvider | undefined {
+		if (providerId != null) return this._providers.find(provider => provider.id === providerId);
+
+		const provider = this._providers.find(provider => provider.sessions.some(session => session.id === sessionId));
+		if (provider == null) {
+			Logger.warn(
+				`AgentStatusService.getProviderForSession: no provider tracks session ${sessionId}; provider-scoped context required`,
+			);
+		}
+
+		return provider;
+	}
+
+	private getTrackedSession(providerId: string | undefined, sessionId: string): AgentSession | undefined {
+		return this.getProviderForSession(providerId, sessionId)?.sessions.find(session => session.id === sessionId);
+	}
+
 	resolvePermission(
 		sessionId: string,
 		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
+		providerId?: string,
 	): void {
-		for (const provider of this._providers) {
-			const session = provider.sessions.find(s => s.id === sessionId);
-			if (session == null) continue;
+		const provider = this.getProviderForSession(providerId, sessionId);
+		const session = provider?.sessions.find(candidate => candidate.id === sessionId);
+		if (provider == null || session == null) return;
 
-			// `false` means the local provider holds no `_pendingPermissions` entry to fulfil, for one
-			// of two reasons: another GitLens window owns the session, or the ask arrived on a
-			// non-blocking path (an elicitation, or one the reconciliation poll discovered) and can
-			// only be answered in the agent's own session. Point at the right place rather than
-			// leaving a silent no-op.
-			const resolved = provider.resolvePermission?.(sessionId, decision, updatedPermissions) ?? false;
-			if (!resolved) {
-				// The ask may have been answered in the agent's own session between the render and this
-				// click — a raced click, not an unroutable ask, so say nothing.
-				const refetched = provider.sessions.find(s => s.id === sessionId);
-				if (refetched?.pendingPermission == null) return;
+		// `false` means the local provider holds no pending entry to fulfil — another window may own
+		// it, or the provider discovered it on a non-blocking path. Point at the right place rather
+		// than leaving a silent no-op.
+		const resolved = provider.resolvePermission?.(sessionId, decision, updatedPermissions) ?? false;
+		if (!resolved) {
+			// The ask may have been answered between render and click — a raced click, not an error.
+			const refetched = provider.sessions.find(candidate => candidate.id === sessionId);
+			if (refetched?.pendingPermission == null) return;
 
-				if (session.isPeerOwned) {
-					const target = session.workspacePath
-						? `the GitLens window for ${session.workspacePath}`
-						: 'another GitLens window';
-					void window.showInformationMessage(
-						`This agent session is owned by ${target}. Resolve the request from there.`,
-					);
-				} else {
-					void window.showInformationMessage(
-						`This request can only be answered in the agent's session. Open the session to respond.`,
-					);
-				}
+			if (session.isPeerOwned) {
+				const target = session.workspacePath
+					? `the GitLens window for ${session.workspacePath}`
+					: 'another GitLens window';
+				void window.showInformationMessage(
+					`This agent session is owned by ${target}. Resolve the request from there.`,
+				);
+			} else {
+				void window.showInformationMessage(
+					`This request can only be answered in the agent's session. Open the session to respond.`,
+				);
 			}
-			return;
 		}
 	}
 
@@ -935,35 +988,41 @@ export class AgentStatusService implements Disposable {
 			registerCommand('gitlens.agents.uninstallHooksForAgent', (args?: { agentId?: string; source?: Sources }) =>
 				this.handleHooksOperationForAgentCommand('uninstall', args),
 			),
-			registerCommand('gitlens.agents.openSession', (arg?: unknown) =>
-				this.openSession(resolveAgentSessionArg(arg)?.sessionId),
-			),
+			registerCommand('gitlens.agents.openSession', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				return this.openSession(session?.sessionId, session?.providerId);
+			}),
 			registerCommand('gitlens.agents.resumeSession', (arg?: unknown) => {
 				const resolved = resolveAgentSessionArg(arg);
 				if (resolved?.sessionId == null || resolved.cwd == null) return Promise.resolve();
 
-				return this.resumeSession(resolved.sessionId, resolved.cwd, 'default', 'webview');
+				return this.resumeSession(resolved.providerId, resolved.sessionId, resolved.cwd, 'default', 'webview');
 			}),
 			registerCommand('gitlens.agents.showResumeSessionPicker', (args?: { worktreePath: string }) => {
 				if (args?.worktreePath == null) return Promise.resolve();
 
 				return this.showResumeSessionPicker(args.worktreePath);
 			}),
-			registerCommand('gitlens.agents.showSessionWorktreeInGraph', (arg?: unknown) =>
-				this.showSessionWorktreeInGraph(resolveAgentSessionArg(arg)?.sessionId),
-			),
-			registerCommand('gitlens.agents.focusSessionWorktreeInGraph', (arg?: unknown) =>
-				this.focusSessionWorktreeInGraph(resolveAgentSessionArg(arg)?.sessionId),
-			),
-			registerCommand('gitlens.agents.openSessionWorktreeInNewWindow', (arg?: unknown) =>
-				this.openSessionWorktree(resolveAgentSessionArg(arg)?.sessionId, 'newWindow'),
-			),
-			registerCommand('gitlens.agents.openWorktree', (arg?: unknown) =>
-				this.openSessionWorktree(resolveAgentSessionArg(arg)?.sessionId, 'currentWindow'),
-			),
-			registerCommand('gitlens.agents.openWorktreeInNewWindow', (arg?: unknown) =>
-				this.openSessionWorktree(resolveAgentSessionArg(arg)?.sessionId, 'newWindow'),
-			),
+			registerCommand('gitlens.agents.showSessionWorktreeInGraph', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				this.showSessionWorktreeInGraph(session?.sessionId, session?.providerId);
+			}),
+			registerCommand('gitlens.agents.focusSessionWorktreeInGraph', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				this.focusSessionWorktreeInGraph(session?.sessionId, session?.providerId);
+			}),
+			registerCommand('gitlens.agents.openSessionWorktreeInNewWindow', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				this.openSessionWorktree(session?.sessionId, 'newWindow', session?.providerId);
+			}),
+			registerCommand('gitlens.agents.openWorktree', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				this.openSessionWorktree(session?.sessionId, 'currentWindow', session?.providerId);
+			}),
+			registerCommand('gitlens.agents.openWorktreeInNewWindow', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				this.openSessionWorktree(session?.sessionId, 'newWindow', session?.providerId);
+			}),
 			registerCommand('gitlens.agents.switchDefaultAgent', async () => {
 				const { pickAndSetDefaultAgent } = await import(
 					/* webpackChunkName: "agents" */ '../plus/agents/agentPicker.js'
@@ -1013,9 +1072,10 @@ export class AgentStatusService implements Disposable {
 				this.resolvePermissionFromArg(arg, 'allow'),
 			),
 			registerCommand('gitlens.agents.rejectPlan', (arg?: unknown) => this.resolvePermissionFromArg(arg, 'deny')),
-			registerCommand('gitlens.agents.archiveSession', (arg?: unknown) =>
-				this.archiveSession(resolveAgentSessionArg(arg)?.sessionId),
-			),
+			registerCommand('gitlens.agents.archiveSession', (arg?: unknown) => {
+				const session = resolveAgentSessionArg(arg);
+				return this.archiveSession(session?.sessionId, session?.providerId);
+			}),
 			registerCommand('gitlens.agents.copySessionId', async (arg?: unknown) => {
 				const sessionId = resolveAgentSessionArg(arg)?.sessionId;
 				if (!sessionId) return;
@@ -1038,55 +1098,53 @@ export class AgentStatusService implements Disposable {
 	 *  context object), so those wrappers bake the decision into the command id instead and share this
 	 *  resolution + always-allow-suggestions logic. */
 	private resolvePermissionFromArg(arg: unknown, decision: PermissionDecision, alwaysAllow = false): void {
-		const sessionId = resolveAgentSessionArg(arg)?.sessionId;
+		const resolved = resolveAgentSessionArg(arg);
+		const sessionId = resolved?.sessionId;
 		if (sessionId == null) return;
 
 		let updatedPermissions: PermissionSuggestion[] | undefined;
 		if (alwaysAllow) {
-			const session = this.sessions.find(s => s.id === sessionId);
+			const session = this.getTrackedSession(resolved?.providerId, sessionId);
 			const suggestions = session?.pendingPermission?.suggestions;
 			if (suggestions != null && suggestions.length > 0) {
 				updatedPermissions = [...suggestions];
 			}
 		}
 
-		this.resolvePermission(sessionId, decision, updatedPermissions);
+		this.resolvePermission(sessionId, decision, updatedPermissions, resolved?.providerId);
 	}
 
-	private async archiveSession(sessionId?: string): Promise<void> {
-		if (!sessionId) return;
+	async archiveSession(sessionId?: string, providerId?: string): Promise<boolean> {
+		if (!sessionId) return false;
 
-		for (const provider of this._providers) {
-			if (provider.sessions.find(s => s.id === sessionId) == null) continue;
+		const provider = this.getProviderForSession(providerId, sessionId);
+		if (provider?.archiveSession == null) return false;
 
-			try {
-				// The CLI archive is keyed by session id and machine-global, so archiving succeeds
-				// regardless of which window discovered the (ended) session. Only record the
-				// telemetry when the provider actually archived — it returns `false` when it refused a
-				// row that resumed out of `ended` since the click.
-				const archived = await provider.archiveSession?.(sessionId);
-				if (archived) {
-					this.container.telemetry.sendEvent('agents/session/archived', { 'agent.provider': provider.id });
-				}
-			} catch (ex) {
-				Logger.error(ex, 'AgentStatusService.archiveSession');
-				void window.showErrorMessage(
-					`Failed to archive session: ${ex instanceof Error ? ex.message : String(ex)}`,
-				);
+		try {
+			// The CLI archive is keyed by session id and machine-global, so archiving succeeds
+			// regardless of which window discovered the (ended) session. Only record the
+			// telemetry when the provider actually archived — it returns `false` when it refused a
+			// row that resumed out of `ended` since the click.
+			const archived = await provider.archiveSession(sessionId);
+			if (archived) {
+				this.container.telemetry.sendEvent('agents/session/archived', { 'agent.provider': provider.id });
 			}
-
-			return;
+			return archived;
+		} catch (ex) {
+			Logger.error(ex, 'AgentStatusService.archiveSession');
+			void window.showErrorMessage(`Failed to archive session: ${ex instanceof Error ? ex.message : String(ex)}`);
+			return false;
 		}
 	}
 
-	private async openSession(sessionId?: string): Promise<void> {
+	private async openSession(sessionId?: string, providerId?: string): Promise<void> {
 		const sessions = [...this.sessions];
 		if (sessions.length === 0) return;
 
 		let session: AgentSession | undefined;
 
 		if (sessionId != null) {
-			session = sessions.find(s => s.id === sessionId);
+			session = this.getTrackedSession(providerId, sessionId);
 		} else if (sessions.length === 1) {
 			session = sessions[0];
 		} else {
@@ -1140,8 +1198,8 @@ export class AgentStatusService implements Disposable {
 	/** Opens the Commit Graph at a Claude session's worktree with its WIP row selected, highlighting
 	 *  the session's card in the details panel. Backs the editor-title button and tab context menu
 	 *  on Claude Code conversation tabs. Never prompts. */
-	private showSessionWorktreeInGraph(sessionId?: string): void {
-		const session = this.resolveSessionForCommand(sessionId);
+	private showSessionWorktreeInGraph(sessionId?: string, providerId?: string): void {
+		const session = this.resolveSessionForCommand(sessionId, providerId);
 		if (session?.worktreePath == null) return;
 
 		void showWorktreeInGraph(this.container, session.worktreePath, {
@@ -1152,8 +1210,8 @@ export class AgentStatusService implements Disposable {
 
 	/** Focus counterpart to {@link showSessionWorktreeInGraph}: also scopes the graph to the
 	 *  worktree's branch, keeping the details panel closed to match the in-graph Focus commands. */
-	private focusSessionWorktreeInGraph(sessionId?: string): void {
-		const session = this.resolveSessionForCommand(sessionId);
+	private focusSessionWorktreeInGraph(sessionId?: string, providerId?: string): void {
+		const session = this.resolveSessionForCommand(sessionId, providerId);
 		if (session?.worktreePath == null) return;
 
 		void showWorktreeInGraph(this.container, session.worktreePath, {
@@ -1163,8 +1221,12 @@ export class AgentStatusService implements Disposable {
 		});
 	}
 
-	private openSessionWorktree(sessionId: string | undefined, location: 'currentWindow' | 'newWindow'): void {
-		const session = this.resolveSessionForCommand(sessionId);
+	private openSessionWorktree(
+		sessionId: string | undefined,
+		location: 'currentWindow' | 'newWindow',
+		providerId?: string,
+	): void {
+		const session = this.resolveSessionForCommand(sessionId, providerId);
 		if (session?.worktreePath == null) return;
 
 		openWorkspace(Uri.file(session.worktreePath), { location: location });
@@ -1175,10 +1237,10 @@ export class AgentStatusService implements Disposable {
 	 *  Uri), which is ignored in favor of the active tab's label (the Claude extension renames each
 	 *  tab to the conversation summary — the only handle it exposes), falling back to the
 	 *  most-recently-active local session. Shows a message instead of prompting when nothing matches. */
-	private resolveSessionForCommand(sessionId?: string): AgentSession | undefined {
+	private resolveSessionForCommand(sessionId?: string, providerId?: string): AgentSession | undefined {
 		let session: AgentSession | undefined;
 		if (typeof sessionId === 'string') {
-			session = this.sessions.find(s => s.id === sessionId && s.worktreePath != null);
+			session = this.getTrackedSession(providerId, sessionId);
 		} else {
 			session = this.resolveSessionForActiveClaudeTab({ fallbackToMostRecent: true });
 		}

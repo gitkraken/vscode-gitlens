@@ -39,10 +39,17 @@ import type {
 	OpenMultipleChangesArgs,
 } from '../../../shared/actions/file.js';
 import { noopUnlessReal, notifyService } from '../../../shared/actions/rpc.js';
-import type { AgentSessionCategory, PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
+import type {
+	AgentSessionCategory,
+	PastAgentSessionsPager,
+	PastAgentSessionsResolver,
+} from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createPastAgentSessionsPager,
 	createPastAgentSessionsResolver,
+	filterLiveAgentSessions,
+	initialPastAgentSessionLimit,
 	isAgentSessionCurrentForWorktree,
 	matchAgentSessionsForWorktree,
 } from '../../../shared/agentUtils.js';
@@ -82,8 +89,13 @@ import { createDetailsState, getActiveTaskAction, getOpenComparison } from './de
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController, runFailureMessage } from './detailsWorkflowController.js';
 import type { GlCommitBox } from './gl-commit-box.js';
-import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
-import { expandVisibleCategories } from './gl-details-agent-status.js';
+import type {
+	ExpandState,
+	GlDetailsAgentStatus,
+	PastAgentSessionArchiveRequest,
+	PastAgentSessionsMoreRequest,
+} from './gl-details-agent-status.js';
+import { expandVisibleCategories, shouldShowPastSessions } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
 import { hasOnlyWip } from './gl-details-compare-mode-panel.js';
 import type { GlDetailsComposeModePanel } from './gl-details-compose-mode-panel.js';
@@ -399,9 +411,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  the same snapshot doesn't. */
 	private _wipFileStatsFetchedFor?: Wip;
 
-	/** Worktree path the past-agent-sessions resource was last fetched for — dedupes
-	 *  {@link updateWipPastSessions} so re-rendering the same WIP row doesn't refetch. */
-	private _lastPastSessionsPath?: string;
+	/** Identity the past-agent-sessions resource was last fetched for. The ended-session ids are
+	 *  part of the identity because live sessions are excluded from history at fetch time: when one
+	 *  ends, the cached result cannot represent it and must be refreshed. */
+	private _lastPastSessionsFetch?: { worktreePath: string; endedSessionIds: string; limit: number };
 
 	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
 	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
@@ -439,6 +452,41 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _cyclePastSessions: PastAgentSessionsResult | undefined;
 	private readonly _pastSessionsResolver: PastAgentSessionsResolver = createPastAgentSessionsResolver();
 
+	/** Shared "Show More" / "Archive then refetch" policy for the past-agent-sessions section — see
+	 *  {@link createPastAgentSessionsPager}. Host closures read `_lastPastSessionsFetch` and the
+	 *  `pastAgentSessions` resource live, so this can be constructed once. */
+	private readonly _pastSessionsPager: PastAgentSessionsPager = createPastAgentSessionsPager({
+		getLimit: () => this._lastPastSessionsFetch?.limit ?? 0,
+		isLoading: () => this._actions?.resources.pastAgentSessions.loading.get() ?? false,
+		isCurrent: () => {
+			const worktreePath = this._state.wip.get()?.repo?.path;
+			return (
+				this._actions?.resources.pastAgentSessions != null &&
+				this._lastPastSessionsFetch != null &&
+				this._lastPastSessionsFetch.worktreePath === worktreePath
+			);
+		},
+		fetch: async (limit: number): Promise<void> => {
+			const worktreePath = this._state.wip.get()?.repo?.path;
+			const lastFetch = this._lastPastSessionsFetch;
+			const resource = this._actions?.resources.pastAgentSessions;
+			if (worktreePath == null || lastFetch?.worktreePath !== worktreePath || resource == null) return;
+
+			await resource.fetch(worktreePath, limit);
+			if (resource.status.get() !== 'success' || this._lastPastSessionsFetch !== lastFetch) return;
+
+			this._lastPastSessionsFetch = { ...lastFetch, limit: limit };
+			this.requestUpdate();
+		},
+		archiveSession: async (sessionId: string, providerId: string): Promise<boolean> => {
+			const actions = this._actions;
+			if (actions == null) return false;
+
+			const agents = await actions.services.agents;
+			return agents.archiveSession(sessionId, providerId);
+		},
+	});
+
 	/** Clamps drag to the [10%, {@link agentStatusMaxPct}%] envelope. The visual "shrink to
 	 *  content when too small" behavior is handled by CSS `fit-content(<max>%)` — the snap
 	 *  function only enforces the absolute floor/ceiling on the user's intended size. */
@@ -463,6 +511,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (!wasCollapsed) {
 			this._selectedAgentSessionId = undefined;
 		}
+	};
+
+	private readonly _onAgentStatusPastSessionsMoreRequest = (e: CustomEvent<PastAgentSessionsMoreRequest>): void => {
+		void this._pastSessionsPager.more(e.detail.limit);
+	};
+
+	private readonly _onAgentStatusPastSessionArchiveRequest = (
+		e: CustomEvent<PastAgentSessionArchiveRequest>,
+	): void => {
+		this._pastSessionsPager.archive(e.detail.sessionId, e.detail.providerId).catch(noopUnlessReal);
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
@@ -713,17 +771,39 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** Lazily fetch the worktree's past (resumable) agent sessions while a WIP row is selected,
-	 *  mirroring {@link updateWipFileStats}. Dedupes on {@link _lastPastSessionsPath} so re-rendering
-	 *  the same worktree doesn't refetch; the `Resource` itself (a `SignalWatcher` dependency) drives
-	 *  the re-render once the fetch resolves. */
+	 *  mirroring {@link updateWipFileStats}. Dedupes on worktree + tracked-ended ids so ordinary live
+	 *  status churn doesn't refetch, while a live-to-ended transition refreshes the pull-only history.
+	 *  The `Resource` itself (a `SignalWatcher` dependency) drives the re-render once the fetch resolves. */
 	private updateWipPastSessions(): void {
 		if (!this.isWip) return;
 
-		const worktreePath = this._state.wip.get()?.repo?.path;
-		if (worktreePath == null || worktreePath === this._lastPastSessionsPath) return;
+		const wip = this._state.wip.get();
+		const worktreePath = wip?.repo?.path;
+		if (wip == null || worktreePath == null) return;
 
-		this._lastPastSessionsPath = worktreePath;
-		void this._actions?.resources.pastAgentSessions.fetch(worktreePath);
+		const endedSessionIds = JSON.stringify(
+			(this.getWorktreeAgentSessions(wip) ?? [])
+				.filter(s => s.phase === 'ended')
+				.map(s => s.id)
+				.sort(),
+		);
+		const lastFetch = this._lastPastSessionsFetch;
+		if (lastFetch?.worktreePath === worktreePath && lastFetch.endedSessionIds === endedSessionIds) return;
+
+		const resource = this._actions?.resources.pastAgentSessions;
+		if (resource == null) return;
+
+		const limit = lastFetch?.worktreePath === worktreePath ? lastFetch.limit : initialPastAgentSessionLimit;
+		resource.reset();
+		this._lastPastSessionsFetch = { worktreePath: worktreePath, endedSessionIds: endedSessionIds, limit: limit };
+		void resource.fetch(worktreePath, limit);
+	}
+
+	/** Explicit WIP refreshes restart history at its compact initial page and bypass the ordinary
+	 *  worktree/ended-session dedupe, so newly archived or otherwise changed rows are reflected. */
+	private refreshWipPastSessions(): void {
+		this._lastPastSessionsFetch = undefined;
+		this.updateWipPastSessions();
 	}
 
 	/** Attach the lazily-fetched per-file line stats to the WIP file rows so `gl-file-tree-pane`
@@ -1979,7 +2059,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// at the top of willUpdate so re-entering a WIP row re-evaluates current sessions fresh.
 		const wip = this.isWip ? this._state.wip.get() : undefined;
 		const sessions = wip != null ? this.getWorktreeAgentSessions(wip) : undefined;
-		this._cycleAgentSessions = sessions;
+		this._cycleAgentSessions = filterLiveAgentSessions(sessions);
 		if (sessions != null && sessions.length > 0) {
 			// Gate on the CURRENT-only subset, not the ghost-inclusive `sessions.length` check above
 			// — an all-ghost worktree must not call `applyAgentAutoSurface([])`, which would wipe the
@@ -1997,7 +2077,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// resource's value when it was fetched for THIS wip's worktree; otherwise a fetch for a
 		// just-left worktree is still in flight and its stale value must not paint here.
 		const pastForPath =
-			wip?.repo?.path != null && this._lastPastSessionsPath === wip.repo.path
+			wip?.repo?.path != null && this._lastPastSessionsFetch?.worktreePath === wip.repo.path
 				? this._actions?.resources.pastAgentSessions.value.get()
 				: undefined;
 		this._cyclePastSessions = this._pastSessionsResolver.resolve(pastForPath, this._graphState?.agentSessions);
@@ -2763,14 +2843,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Read the worktree-matched sessions from the cycle snapshot captured in `willUpdate` so
 		// the auto-partial trigger and the rendered card list agree on the same data within a
 		// single update. See `_cycleAgentSessions` for why this matters.
-		const worktreeAgentSessions = this._cycleAgentSessions;
-		// Likewise resolved in `willUpdate` (path-guarded + reconciled against the live set there),
-		// so this gate counts exactly the rows `gl-details-agent-status` will render.
+		const worktreeAgentSessions = this._cycleAgentSessions ?? [];
 		const pastAgentSessions = this._cyclePastSessions;
-		const hasPastSessions = (pastAgentSessions?.sessions.length ?? 0) > 0;
+		const pastAgentSessionsResource = this._actions?.resources.pastAgentSessions;
 		const wipWorktreePath = wip.repo?.path;
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
-		const showAgentStatus = (worktreeAgentSessions != null || hasPastSessions) && activeMode == null;
+		const showAgentStatus = activeMode == null;
+		const hasLiveAgentSessions = worktreeAgentSessions.length > 0;
+		const hasPastAgentSessions = (pastAgentSessions?.sessions.length ?? 0) > 0;
+		const hasAgentSessions = hasLiveAgentSessions || hasPastAgentSessions;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
 		//  - `collapsed` / `partial`: pane is content-sized via CSS `fit-content(<MAX>%)` (see
 		//                              `--auto-size` rule). Splitter inert. The `position`
@@ -2779,13 +2860,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		//  - `expanded`:              splitter position is authoritative — opens at
 		//                              {@link AGENT_STATUS_DEFAULT_PCT}% until the user drags,
 		//                              then the persisted user position. Snap clamps drag to
-		//                              [10, {@link AGENT_STATUS_MAX_PCT}]. One exception: when
-		//                              the worktree match returns an empty array (sessions
-		//                              present in the source but none for this worktree), the
-		//                              `--no-cards` class forces `max-content` so the heading
-		//                              collapses instead of floating in empty space — same as
-		//                              the collapsed/partial no-cards behavior.
-		const agentStatusExpand = this.agentStatusExpand;
+		//                              [10, {@link AGENT_STATUS_MAX_PCT}]. One exception: when no
+		//                              live cards or past-only rows are visible, the `--no-cards`
+		//                              class forces `max-content` so the heading collapses instead
+		//                              of floating in empty space — same as the collapsed/partial
+		//                              no-cards behavior.
+		const agentStatusExpand = hasAgentSessions ? this.agentStatusExpand : 'collapsed';
 		const agentStatusIsExpanded = agentStatusExpand === 'expanded';
 		const agentStatusPosition = this._agentStatusSplitPosition ?? agentStatusDefaultPct;
 		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — the
@@ -2794,14 +2874,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// splitter position directly.
 		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
-		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed. Past rows
-		// only ever render when expanded (see `gl-details-agent-status`), so they only count there.
+		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed. Past
+		// history participates in the same collapsed/expanded mode alongside or without live cards.
 		const agentStatusHasVisibleCards =
-			(worktreeAgentSessions?.some(s =>
+			shouldShowPastSessions(hasPastAgentSessions, agentStatusExpand) ||
+			worktreeAgentSessions.some(s =>
 				expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
-			) ??
-				false) ||
-			(agentStatusExpand === 'expanded' && hasPastSessions);
+			);
 
 		const restContent =
 			activeMode === 'review'
@@ -2975,12 +3054,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						>
 							<div slot="start" class="agent-status-split__top scrollable">
 								<gl-details-agent-status
+									wip
 									.sessions=${worktreeAgentSessions}
 									.pastSessions=${pastAgentSessions}
+									.pastSessionsLimit=${this._lastPastSessionsFetch?.limit ?? initialPastAgentSessionLimit}
+									.pastSessionsLoading=${pastAgentSessionsResource?.loading.get() ?? false}
 									.worktreePath=${wipWorktreePath}
 									.expand=${agentStatusExpand}
 									.selectedSessionId=${this._selectedAgentSessionId}
 									@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
+									@gl-agent-status-past-sessions-more-request=${
+										this._onAgentStatusPastSessionsMoreRequest
+									}
+									@gl-agent-status-past-session-archive-request=${
+										this._onAgentStatusPastSessionArchiveRequest
+									}
 								></gl-details-agent-status>
 							</div>
 							<div slot="end" class="agent-status-split__bottom scrollable">${restContent}</div>
@@ -3942,6 +4030,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// stale cached value — the button appeared to do nothing.
 		const repoPath = this.effectiveRepoPath;
 		if (this.isWip && repoPath != null) {
+			this.refreshWipPastSessions();
 			void this._actions.refetchWipQuiet(repoPath, true);
 		} else {
 			this._actions.refreshWip();

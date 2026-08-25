@@ -1,4 +1,4 @@
-import type { AgentSession, ResumableAgentSession } from '@gitlens/agents/types.js';
+import type { AgentSession, AgentSessionHistoryActions, AgentSessionHistoryItem } from '@gitlens/agents/types.js';
 import { basename, normalizePath } from '@gitlens/utils/path.js';
 import type { Shape } from '@gitlens/utils/types.js';
 import { deriveNameFromPrompt } from '../utils/deriveNameFromPrompt.js';
@@ -55,6 +55,9 @@ export type AgentSessionState = Omit<
 	'subagents' | 'visitedWorktreePaths' | 'lastActivity' | 'phaseSince'
 > & {
 	readonly displayName: string;
+	/** Host-validated management capabilities. Provider methods, not phase inference, decide which
+	 *  actions webview contexts and inline controls may expose. */
+	readonly actions?: Pick<AgentSessionHistoryActions, 'archive'>;
 	readonly subagentCount: number;
 	readonly worktree?: AgentSessionWorktreeState;
 	/** Distinct worktree roots this session has been observed in — see
@@ -76,8 +79,9 @@ export type AgentSessionState = Omit<
  */
 export interface PastAgentSessionState {
 	readonly id: string;
-	/** The directory it must be resumed from. */
-	readonly cwd: string;
+	readonly providerId: string;
+	readonly disposition: AgentSessionHistoryItem['disposition'];
+	readonly actions: AgentSessionHistoryActions;
 	readonly worktreePath: string;
 	readonly displayName: string;
 	/** Epoch ms — matches the RPC convention for dates crossing to a webview. */
@@ -92,27 +96,39 @@ export interface PastAgentSessionsResult {
 }
 
 export function serializePastAgentSession(
-	session: ResumableAgentSession,
+	providerId: string,
+	session: AgentSessionHistoryItem,
 	worktreePath: string,
 	worktreeName: string | undefined,
 ): PastAgentSessionState {
+	const cwd = session.actions.resume?.cwd;
 	return {
 		id: session.id,
-		cwd: session.cwd,
+		providerId: providerId,
+		disposition: session.disposition,
+		actions: session.actions,
 		worktreePath: worktreePath,
 		displayName: getSessionDisplayName(
 			{
-				providerName: session.providerId,
+				name: session.name,
+				providerName: providerId,
 				transcriptTitles: session.titles,
+				firstPrompt: session.firstPrompt,
 				lastPrompt: session.lastPrompt,
 				worktreePath: worktreePath,
-				cwd: session.cwd,
+				cwd: cwd,
 			},
 			worktreeName,
 		),
 		lastActivity: session.lastActivity.getTime(),
 		lastPrompt: session.lastPrompt,
 	};
+}
+
+/** Collision-safe identity shared by live and historical rows. Session ids are only unique inside
+ *  their provider; JSON tuple encoding avoids delimiter assumptions about third-party harness ids. */
+export function getAgentSessionIdentityKey(providerId: string, sessionId: string): string {
+	return JSON.stringify([providerId, sessionId]);
 }
 
 /** The fields {@link getSessionDisplayName} reads — the intersection of a live {@link AgentSession}
@@ -186,6 +202,7 @@ export interface AgentSessionWorktreeMetadata {
 export function serializeAgentSession(
 	session: AgentSession,
 	worktree: AgentSessionWorktreeMetadata | undefined,
+	actions?: Pick<AgentSessionHistoryActions, 'archive'>,
 ): AgentSessionState {
 	const { subagents, ...rest } = session;
 	return {
@@ -200,6 +217,7 @@ export function serializeAgentSession(
 		// `AgentSessionWorktreeMetadata.repoPath`).
 		commonPath: session.commonPath ?? worktree?.repoPath,
 		displayName: getSessionDisplayName(session, worktree?.name),
+		actions: actions,
 		subagentCount: subagents?.length ?? 0,
 		worktree:
 			session.worktreePath != null

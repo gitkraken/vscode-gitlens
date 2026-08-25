@@ -1,10 +1,14 @@
 import * as assert from 'assert';
-import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
+import type { AgentSessionState, PastAgentSessionsResult } from '../../../../agents/models/agentSessionState.js';
 import type { OverviewBranch } from '../../../shared/overviewBranches.js';
+import type { PastAgentSessionsPagerHost } from '../agentUtils.js';
 import {
+	buildPastAgentSessionContext,
 	canResolvePermission,
+	createPastAgentSessionsPager,
 	createPastAgentSessionsResolver,
 	filterAgentSessionsForFamily,
+	filterLiveAgentSessions,
 	findOverviewBranchForSession,
 	formatAgentElapsed,
 	indexAgentSessionsByRepoAndWorktree,
@@ -16,6 +20,21 @@ import {
 const repo = '/repo/main';
 const wtA = '/repo.worktrees/feature-a';
 const wtB = '/repo.worktrees/feature-b';
+
+function makePastResult(ids: string[], total?: number, providerId = 'claudeCode'): PastAgentSessionsResult {
+	return {
+		sessions: ids.map(id => ({
+			id: id,
+			providerId: providerId,
+			disposition: 'ended',
+			actions: { resume: { cwd: wtA }, archive: true },
+			worktreePath: wtA,
+			displayName: id,
+			lastActivity: 0,
+		})),
+		total: total ?? ids.length,
+	};
+}
 
 function makeSession(overrides: Partial<AgentSessionState> & { id: string }): AgentSessionState {
 	return {
@@ -48,6 +67,27 @@ function makeBranch(overrides: { repoPath: string; worktreePath?: string; name: 
 }
 
 suite('agentUtils', () => {
+	suite('filterLiveAgentSessions', () => {
+		test('keeps working, needs-input, and idle while excluding ended', () => {
+			const sessions = [
+				makeSession({ id: 'working', phase: 'working' }),
+				makeSession({ id: 'waiting', phase: 'waiting' }),
+				makeSession({ id: 'idle', phase: 'idle' }),
+				makeSession({ id: 'ended', phase: 'ended', status: 'ended' }),
+			];
+
+			assert.deepStrictEqual(
+				filterLiveAgentSessions(sessions).map(s => s.id),
+				['working', 'waiting', 'idle'],
+			);
+		});
+
+		test('returns an empty list before sessions load and for ended-only input', () => {
+			assert.deepStrictEqual(filterLiveAgentSessions(undefined), []);
+			assert.deepStrictEqual(filterLiveAgentSessions([makeSession({ id: 'ended', phase: 'ended' })]), []);
+		});
+	});
+
 	suite('matchAgentSessionsForWorktree', () => {
 		test('matches a session by worktreePath regardless of workspacePath', () => {
 			// Two sessions in the SAME worktree but with different workspacePaths — one launched
@@ -296,25 +336,36 @@ suite('agentUtils', () => {
 });
 
 suite('createPastAgentSessionsResolver', () => {
-	function pastResult(ids: string[], total?: number) {
-		return {
-			sessions: ids.map(id => ({
-				id: id,
-				cwd: wtA,
-				worktreePath: wtA,
-				displayName: id,
-				lastActivity: 0,
-			})),
-			total: total ?? ids.length,
-		};
-	}
-
 	test('drops rows for sessions that are currently tracked', () => {
 		const resolver = createPastAgentSessionsResolver();
-		const resolved = resolver.resolve(pastResult(['s1', 's2']), [makeSession({ id: 's1' })]);
+		const resolved = resolver.resolve(makePastResult(['s1', 's2']), [makeSession({ id: 's1' })]);
 		assert.deepStrictEqual(
 			resolved?.sessions.map(s => s.id),
 			['s2'],
+		);
+	});
+
+	test('keeps tracked ended rows in the normalized past collection', () => {
+		const resolver = createPastAgentSessionsResolver();
+		const resolved = resolver.resolve(makePastResult(['s1', 's2']), [
+			makeSession({ id: 's1', status: 'ended', phase: 'ended' }),
+		]);
+
+		assert.deepStrictEqual(
+			resolved?.sessions.map(s => s.id),
+			['s1', 's2'],
+		);
+	});
+
+	test('does not deduplicate equal ids owned by different providers', () => {
+		const resolver = createPastAgentSessionsResolver();
+		const resolved = resolver.resolve(makePastResult(['same'], undefined, 'beta'), [
+			makeSession({ id: 'same', providerId: 'alpha', providerName: 'Alpha' }),
+		]);
+
+		assert.deepStrictEqual(
+			resolved?.sessions.map(session => `${session.providerId}:${session.id}`),
+			['beta:same'],
 		);
 	});
 
@@ -322,7 +373,7 @@ suite('createPastAgentSessionsResolver', () => {
 		// The archive case: the row leaves the live list, so the tracked-id filter alone would stop
 		// masking it and the cached past list would paint it as "Past".
 		const resolver = createPastAgentSessionsResolver();
-		const past = pastResult(['s1', 's2']);
+		const past = makePastResult(['s1', 's2']);
 
 		resolver.resolve(past, [makeSession({ id: 's1' })]);
 		const resolved = resolver.resolve(past, []);
@@ -336,7 +387,7 @@ suite('createPastAgentSessionsResolver', () => {
 
 	test('reduces total by what it dropped so the footer stays honest', () => {
 		const resolver = createPastAgentSessionsResolver();
-		const past = pastResult(['s1', 's2'], 7);
+		const past = makePastResult(['s1', 's2'], 7);
 
 		resolver.resolve(past, [makeSession({ id: 's1' })]);
 		const resolved = resolver.resolve(past, []);
@@ -347,10 +398,10 @@ suite('createPastAgentSessionsResolver', () => {
 	test('a freshly delivered result retires the suppressions', () => {
 		// The host filters archived ids at fetch time, so a new result is authoritative.
 		const resolver = createPastAgentSessionsResolver();
-		resolver.resolve(pastResult(['s1']), [makeSession({ id: 's1' })]);
-		resolver.resolve(pastResult(['s1']), []);
+		resolver.resolve(makePastResult(['s1']), [makeSession({ id: 's1' })]);
+		resolver.resolve(makePastResult(['s1']), []);
 
-		const resolved = resolver.resolve(pastResult(['s1']), []);
+		const resolved = resolver.resolve(makePastResult(['s1']), []);
 		assert.deepStrictEqual(
 			resolved?.sessions.map(s => s.id),
 			['s1'],
@@ -362,7 +413,7 @@ suite('createPastAgentSessionsResolver', () => {
 		// reset). Reading that as "every session left" would suppress the matching Past rows for the
 		// component's lifetime, so the prior snapshot must be held instead.
 		const resolver = createPastAgentSessionsResolver();
-		const past = pastResult(['s1', 's2']);
+		const past = makePastResult(['s1', 's2']);
 
 		resolver.resolve(past, [makeSession({ id: 's1' })]);
 		resolver.resolve(past, undefined);
@@ -377,13 +428,26 @@ suite('createPastAgentSessionsResolver', () => {
 
 	test('preserves reference identity when nothing is dropped', () => {
 		const resolver = createPastAgentSessionsResolver();
-		const past = pastResult(['s1']);
+		const past = makePastResult(['s1']);
 		assert.strictEqual(resolver.resolve(past, []), past);
 	});
 
 	test('returns undefined when there is no past result', () => {
 		const resolver = createPastAgentSessionsResolver();
 		assert.strictEqual(resolver.resolve(undefined, [makeSession({ id: 's1' })]), undefined);
+	});
+});
+
+suite('buildPastAgentSessionContext', () => {
+	test('advertises only the actions supplied by the provider', () => {
+		const base = makePastResult(['s1']).sessions[0];
+		const manageable = buildPastAgentSessionContext(base);
+		assert.match(manageable.webviewItem, /\+resumable\b/);
+		assert.match(manageable.webviewItem, /\+archivable\b/);
+
+		const readOnly = buildPastAgentSessionContext({ ...base, actions: {} });
+		assert.doesNotMatch(readOnly.webviewItem, /\+resumable\b/);
+		assert.doesNotMatch(readOnly.webviewItem, /\+archivable\b/);
 	});
 });
 
@@ -587,5 +651,88 @@ suite('isAgentSessionCurrentInFamily', () => {
 		const s = makeSession({ id: 's', commonPath: family, worktreePath: wtA });
 		assert.strictEqual(isAgentSessionCurrentInFamily(s, undefined), false);
 		assert.strictEqual(isAgentSessionCurrentInFamily(s, undefined, new Set([wtA])), false);
+	});
+});
+
+suite('createPastAgentSessionsPager', () => {
+	function makeHost(overrides: Partial<PastAgentSessionsPagerHost> = {}): {
+		host: PastAgentSessionsPagerHost;
+		fetchCalls: number[];
+		archiveCalls: [string, string][];
+	} {
+		const fetchCalls: number[] = [];
+		const archiveCalls: [string, string][] = [];
+		const host: PastAgentSessionsPagerHost = {
+			getLimit: () => 3,
+			isLoading: () => false,
+			isCurrent: () => true,
+			fetch: (limit: number) => {
+				fetchCalls.push(limit);
+				return Promise.resolve();
+			},
+			archiveSession: (sessionId: string, providerId: string) => {
+				archiveCalls.push([sessionId, providerId]);
+				return Promise.resolve(true);
+			},
+			...overrides,
+		};
+		return { host: host, fetchCalls: fetchCalls, archiveCalls: archiveCalls };
+	}
+
+	test('more() fetches when the requested limit grows the page', async () => {
+		const { host, fetchCalls } = makeHost();
+		await createPastAgentSessionsPager(host).more(18);
+		assert.deepStrictEqual(fetchCalls, [18]);
+	});
+
+	test('more() no-ops when the requested limit does not exceed the current one', async () => {
+		const { host, fetchCalls } = makeHost();
+		await createPastAgentSessionsPager(host).more(3);
+		assert.deepStrictEqual(fetchCalls, []);
+	});
+
+	test('more() no-ops while a fetch is already in flight', async () => {
+		const { host, fetchCalls } = makeHost({ isLoading: () => true });
+		await createPastAgentSessionsPager(host).more(18);
+		assert.deepStrictEqual(fetchCalls, []);
+	});
+
+	test('more() no-ops once the surface has moved on', async () => {
+		const { host, fetchCalls } = makeHost({ isCurrent: () => false });
+		await createPastAgentSessionsPager(host).more(18);
+		assert.deepStrictEqual(fetchCalls, []);
+	});
+
+	test('archive() refetches the current page after a successful archive', async () => {
+		const { host, fetchCalls, archiveCalls } = makeHost();
+		await createPastAgentSessionsPager(host).archive('s1', 'claudeCode');
+		assert.deepStrictEqual(archiveCalls, [['s1', 'claudeCode']]);
+		assert.deepStrictEqual(fetchCalls, [3]);
+	});
+
+	test('archive() does not refetch when the archive call reports failure', async () => {
+		const { host, fetchCalls } = makeHost({ archiveSession: () => Promise.resolve(false) });
+		await createPastAgentSessionsPager(host).archive('s1', 'claudeCode');
+		assert.deepStrictEqual(fetchCalls, []);
+	});
+
+	test('archive() does not refetch when the surface moved on during the archive call', async () => {
+		let current = true;
+		const { host, fetchCalls } = makeHost({
+			isCurrent: () => current,
+			archiveSession: (_sessionId: string, _providerId: string) => {
+				current = false;
+				return Promise.resolve(true);
+			},
+		});
+		await createPastAgentSessionsPager(host).archive('s1', 'claudeCode');
+		assert.deepStrictEqual(fetchCalls, []);
+	});
+
+	test('archive() no-ops entirely once the surface has already moved on', async () => {
+		const { host, fetchCalls, archiveCalls } = makeHost({ isCurrent: () => false });
+		await createPastAgentSessionsPager(host).archive('s1', 'claudeCode');
+		assert.deepStrictEqual(archiveCalls, []);
+		assert.deepStrictEqual(fetchCalls, []);
 	});
 });

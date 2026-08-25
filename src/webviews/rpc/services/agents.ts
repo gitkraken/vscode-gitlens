@@ -142,6 +142,11 @@ export class AgentsService {
 		return Promise.resolve(this.container.agentStatus?.getSerializedSessions() ?? []);
 	}
 
+	/** Archives a tracked or transcript-backed terminal session through its owning provider. */
+	archiveSession(sessionId: string, providerId?: string): Promise<boolean> {
+		return this.container.agentStatus?.archiveSession(sessionId, providerId) ?? Promise.resolve(false);
+	}
+
 	/**
 	 * Gets the past sessions a worktree can resume, most-recently-active first.
 	 *
@@ -152,8 +157,8 @@ export class AgentsService {
 	 * host, where no providers exist) as distinct from an empty result, which means the store simply
 	 * holds nothing for this worktree. Callers cache the two differently.
 	 *
-	 * Tracked `ended` sessions are excluded: webviews already render those as cards, so leaving
-	 * them in would spend the `limit` slots on rows that get deduped away at render.
+	 * Tracked `ended` sessions are normalized into this same past-session result, so webview consumers
+	 * have one history model and render path regardless of whether a provider still tracks the row.
 	 */
 	async getPastSessionsForWorktree(
 		worktreePath: string,
@@ -165,7 +170,7 @@ export class AgentsService {
 		const agents = this.container.agentStatus;
 		if (agents == null) return undefined;
 
-		const result = await agents.getPastSessions(worktreePath, { ...options, excludeEnded: true });
+		const result = await agents.getPastSessions(worktreePath, { limit: options?.limit });
 		signal?.throwIfAborted();
 
 		return result;

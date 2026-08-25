@@ -34,7 +34,8 @@ function truncatePrompt(prompt: string): string {
  * cluster on the right, then folder + branch identity, then content sections ordered by urgency
  * (current tool / pending permission precede `lastPrompt`).
  *
- * Takes only the session id and looks the session up live from `graphStateContext.agentSessions`
+ * Takes the provider-scoped session identity and looks the session up live from
+ * `graphStateContext.agentSessions`
  * (a `@signalState` accessor) — so an open tooltip ticks as the session's phase/elapsed/permission
  * state advances host-side, instead of going stale until the user re-hovers. The tree-view's
  * popover snapshots the tooltip TemplateResult at hover time, so without this self-subscription
@@ -167,9 +168,13 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 
 	@property({ attribute: false })
 	sessionId!: string;
+	@property({ attribute: false })
+	providerId!: string;
 
 	override render(): unknown {
-		const session = this._state.agentSessions?.find(s => s.id === this.sessionId);
+		const session = this._state.agentSessions?.find(
+			s => s.id === this.sessionId && s.providerId === this.providerId,
+		);
 		if (session == null) return nothing;
 
 		const category = agentPhaseToCategory[session.phase];

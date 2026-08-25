@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { appendFile, mkdir, utimes, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -342,7 +342,7 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 
 		const reader = new RootedReader(join(tmpRoot, 'projects'));
 		const { sessions, total } = await reader.listSessions(cwd);
-		assert.strictEqual(total, 2, 'total counts every transcript, including dropped ones');
+		assert.strictEqual(total, 1, 'an exhausted scan reports the exact valid count, not the junk');
 		assert.deepStrictEqual(
 			sessions.map(s => s.titles.ai),
 			['Good'],
@@ -386,7 +386,7 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 
 		const reader = new RootedReader(join(tmpRoot, 'projects'));
 		const { sessions, total } = await reader.listSessions(cwd, { limit: 3 });
-		assert.strictEqual(total, 5);
+		assert.strictEqual(total, 3, 'the top-up exhausted the directory, proving the exact valid count');
 		assert.deepStrictEqual(
 			sessions.map(s => s.titles.ai),
 			['S0', 'S1', 'S2'],
@@ -417,10 +417,8 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 		assert.ok(!sessions.some(s => s.sessionId === 'live'), 'excluded id must not appear in sessions');
 	});
 
-	test('bounds the top-up scan to `limit + scan slack` when transcripts are all junk', async () => {
-		const limit = 2;
-		const scanSlack = 25; // mirrors listScanSlack in claudeCodeTranscript.ts
-		const junkCount = limit + scanSlack + 5; // comfortably past the ceiling
+	test('scans past an arbitrarily long junk run — older valid sessions are never hidden', async () => {
+		const junkCount = 40; // far past any batch size
 		const now = Date.now();
 		for (let i = 0; i < junkCount; i++) {
 			await seed(
@@ -429,15 +427,35 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 				now - i * 1000,
 			);
 		}
+		await seed('old.jsonl', jsonl(aiTitle('old', 'Oldest but real')), now - (junkCount + 1) * 1000);
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd, { limit: 2 });
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Oldest but real'],
+			'a junk run must not starve the valid session behind it',
+		);
+		assert.strictEqual(
+			total,
+			1,
+			'an exhausted scan reports the exact valid count — junk must not keep "Show More" alive',
+		);
+	});
+
+	test('skips zero-byte transcripts without reading them, and excludes them from `total`', async () => {
+		const now = Date.now();
+		await seed('empty.jsonl', '', now);
+		await seed('good.jsonl', jsonl(aiTitle('good', 'Good')), now - 1000);
 
 		const reader = new CountingSummaryReader(join(tmpRoot, 'projects'));
-		const { sessions, total } = await reader.listSessions(cwd, { limit: limit });
-		assert.strictEqual(sessions.length, 0);
-		assert.strictEqual(total, junkCount);
-		assert.ok(
-			reader.readCount <= limit + scanSlack,
-			`expected at most ${limit + scanSlack} reads, got ${reader.readCount}`,
+		const { sessions, total } = await reader.listSessions(cwd);
+		assert.strictEqual(total, 1, 'a zero-byte transcript can never yield a row, so it must not count');
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Good'],
 		);
+		assert.strictEqual(reader.readCount, 1, 'the zero-byte transcript must be skipped read-free');
 	});
 
 	test('does not over-read once `limit` valid summaries are found', async () => {
@@ -450,6 +468,55 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 		const { sessions } = await reader.listSessions(cwd, { limit: 2 });
 		assert.strictEqual(sessions.length, 2);
 		assert.strictEqual(reader.readCount, 2);
+	});
+
+	test('an invalidation during an in-flight listing is not overwritten by its stale result', async () => {
+		await seed('first.jsonl', jsonl(aiTitle('first', 'First')), Date.now() - 1000);
+
+		const reader = new HookedStatReader(join(tmpRoot, 'projects'));
+		// The session ends (invalidating) and its transcript lands WHILE a listing scan is between
+		// its readdir and its stat — the scan's result predates the file and must not re-seed the
+		// just-cleared caches.
+		reader.onStat = () => {
+			reader.invalidateListings();
+			writeFileSync(join(tmpRoot, 'projects', dirName, 'born.jsonl'), jsonl(aiTitle('born', 'Born')));
+		};
+		assert.deepStrictEqual(
+			(await reader.listSessions(cwd)).sessions.map(s => s.titles.ai),
+			['First'],
+			'precondition: the in-flight scan itself predates the new file',
+		);
+
+		const { sessions } = await reader.listSessions(cwd);
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Born', 'First'],
+			'the follow-up listing must re-read the store, not be served the stale write',
+		);
+	});
+
+	test('invalidateListings makes a transcript created inside the cache TTL visible', async () => {
+		const now = Date.now();
+		await seed('first.jsonl', jsonl(aiTitle('first', 'First')), now - 1000);
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		assert.strictEqual((await reader.listSessions(cwd)).sessions.length, 1);
+
+		// A session ends and leaves a new transcript while the listing cache is still warm.
+		await seed('born.jsonl', jsonl(aiTitle('born', 'Born mid-window')), now);
+		assert.strictEqual(
+			(await reader.listSessions(cwd)).sessions.length,
+			1,
+			'precondition: the warm cache hides the new file',
+		);
+
+		reader.invalidateListings();
+		const { sessions } = await reader.listSessions(cwd);
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Born mid-window', 'First'],
+			'after invalidation the next listing must see the new transcript',
+		);
 	});
 
 	test('recovers titles from a file far larger than the read windows', async () => {
@@ -465,6 +532,105 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 		const { sessions } = await reader.listSessions(cwd);
 		assert.strictEqual(sessions[0].titles.ai, 'Head Title', 'title must come from the head window');
 		assert.strictEqual(sessions[0].lastPrompt, 'tail prompt', 'prompt must come from the tail window');
+	});
+});
+
+suite('ClaudeCodeTranscriptReader.listSessionsByIds', () => {
+	let tmpRoot: string;
+	let projectsRoot: string;
+	const targetCwd = '/Users/me/repo.worktrees/feature/current';
+	const originCwd = '/Users/me/repo';
+
+	setup(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), 'gl-transcript-list-by-id-'));
+		projectsRoot = join(tmpRoot, 'projects');
+	});
+	teardown(() => {
+		rmSync(tmpRoot, { recursive: true, force: true });
+	});
+
+	async function seed(cwd: string, sessionId: string, body: string, mtime?: number): Promise<string> {
+		const dir = join(projectsRoot, encodeProjectDirName(cwd));
+		await mkdir(dir, { recursive: true });
+		const path = join(dir, `${sessionId}.jsonl`);
+		await writeFile(path, body);
+		if (mtime != null) {
+			await utimes(path, new Date(mtime), new Date(mtime));
+		}
+		return path;
+	}
+
+	async function seedIndex(cwd: string, sessionId: string): Promise<void> {
+		const dir = join(projectsRoot, encodeProjectDirName(cwd));
+		await mkdir(dir, { recursive: true });
+		await writeFile(
+			join(dir, 'sessions-index.json'),
+			JSON.stringify({ version: 1, entries: [{ sessionId: sessionId, projectPath: cwd }] }),
+		);
+	}
+
+	test('finds a requested session outside the queried cwd and returns its indexed resume cwd', async () => {
+		await seed(targetCwd, 'unrelated', jsonl(aiTitle('unrelated', 'Unrelated')));
+		await seed(originCwd, 'moved', jsonl(aiTitle('moved', 'Moved session')));
+		await seedIndex(originCwd, 'moved');
+
+		const reader = new RootedReader(projectsRoot);
+		const { sessions, total } = await reader.listSessionsByIds(new Set(['moved']), {
+			excludeCwd: targetCwd,
+		});
+
+		assert.strictEqual(total, 1);
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].sessionId, 'moved');
+		assert.strictEqual(sessions[0].cwd, originCwd, 'resume cwd comes from the transcript project dir');
+	});
+
+	test('falls back to a matching cwd recorded in the transcript when its index is absent', async () => {
+		await seed(
+			originCwd,
+			'moved',
+			jsonl(
+				JSON.stringify({ type: 'user', sessionId: 'moved', cwd: originCwd }),
+				aiTitle('moved', 'Moved session'),
+			),
+		);
+
+		const reader = new RootedReader(projectsRoot);
+		const { sessions } = await reader.listSessionsByIds(new Set(['moved']), { excludeCwd: targetCwd });
+
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].cwd, originCwd);
+	});
+
+	test('does not recover a stale duplicate when the requested id exists in the queried cwd', async () => {
+		await seed(targetCwd, 'same', jsonl(aiTitle('same', 'Current copy')));
+		await seed(originCwd, 'same', jsonl(aiTitle('same', 'Stale copy')));
+		await seedIndex(originCwd, 'same');
+
+		const reader = new RootedReader(projectsRoot);
+		const result = await reader.listSessionsByIds(new Set(['same']), { excludeCwd: targetCwd });
+
+		assert.deepStrictEqual(result, { sessions: [], total: 0 });
+	});
+
+	test('deduplicates copies outside the queried cwd and keeps the newest transcript', async () => {
+		const olderCwd = '/Users/me/old-repo';
+		const newerCwd = '/Users/me/new-repo';
+		const now = Date.now();
+		await seed(olderCwd, 'same', jsonl(aiTitle('same', 'Older copy')), now - 1000);
+		await seedIndex(olderCwd, 'same');
+		await seed(newerCwd, 'same', jsonl(aiTitle('same', 'Newer copy')), now);
+		await seedIndex(newerCwd, 'same');
+
+		const reader = new RootedReader(projectsRoot);
+		const { sessions, total } = await reader.listSessionsByIds(new Set(['same']), {
+			excludeCwd: targetCwd,
+		});
+
+		assert.strictEqual(total, 1);
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].titles.ai, 'Newer copy');
+		assert.strictEqual(sessions[0].cwd, newerCwd);
 	});
 });
 
@@ -604,6 +770,17 @@ class RootedReader extends ClaudeCodeTranscriptReader {
 	}
 	protected override getProjectsRoot(): string {
 		return this._root;
+	}
+}
+
+/** Fires `onStat` once, between a listing's readdir and its stat pass — the window where an
+ *  invalidation can race an in-flight scan's cache write. */
+class HookedStatReader extends RootedReader {
+	onStat?: () => void;
+	protected override statEntries(dir: string, names: string[]): Promise<TranscriptSessionEntry[]> {
+		this.onStat?.();
+		this.onStat = undefined;
+		return super.statEntries(dir, names);
 	}
 }
 

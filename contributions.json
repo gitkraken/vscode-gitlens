@@ -68,7 +68,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?!.*?\\b\\+peer\\b)(?!.*?\\b\\+past\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?=.*?\\b\\+archivable\\b)(?!.*?\\b\\+peer\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "9_manage",
 						"order": 1
 					}

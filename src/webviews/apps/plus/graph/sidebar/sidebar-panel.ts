@@ -47,6 +47,7 @@ import {
 	canResolvePermission,
 	describeAgentSession,
 	filterAgentSessionsForFamily,
+	getAgentSessionArchiveAction,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
@@ -2000,13 +2001,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				icon: 'check',
 				label: allowLabel,
 				action: 'gitlens.agents.resolvePermission',
-				arguments: [{ sessionId: session.id, decision: 'allow' as const }],
+				arguments: [{ sessionId: session.id, providerId: session.providerId, decision: 'allow' as const }],
 				...(showAlwaysAllow
 					? {
 							altIcon: 'check-all',
 							altLabel: 'Always Allow',
 							altAction: 'gitlens.agents.resolvePermission',
-							altArguments: [{ sessionId: session.id, decision: 'allow' as const, alwaysAllow: true }],
+							altArguments: [
+								{
+									sessionId: session.id,
+									providerId: session.providerId,
+									decision: 'allow' as const,
+									alwaysAllow: true,
+								},
+							],
 						}
 					: {}),
 			});
@@ -2014,7 +2022,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				icon: 'x',
 				label: denyLabel,
 				action: 'gitlens.agents.resolvePermission',
-				arguments: [{ sessionId: session.id, decision: 'deny' as const }],
+				arguments: [{ sessionId: session.id, providerId: session.providerId, decision: 'deny' as const }],
 			});
 		}
 		// Not gated on `canResolve` — opening the plan file is local, so it stays available even for
@@ -2038,12 +2046,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Archive is offered only on terminal (ended) sessions — a live one would have to be
 		// killed first, so it stays out of the action row for anything still running.
 		if (category === 'ended') {
-			actions.push({
-				icon: 'archive',
-				label: 'Archive Session',
-				action: 'gitlens.agents.archiveSession',
-				arguments: [session.id],
-			});
+			const archiveAction = getAgentSessionArchiveAction(session);
+			if (archiveAction != null) {
+				actions.push({
+					icon: 'archive',
+					label: archiveAction.label,
+					action: archiveAction.command,
+					arguments: archiveAction.args,
+				});
+			}
 		}
 
 		// Phase status is conveyed by the leaf's agent mark (shape + `--gl-agent-*` color) and the
@@ -2051,7 +2062,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// draw its logomark and overlay the phase mark on it.
 		return {
 			label: session.displayName,
-			tooltip: html`<gl-agent-tooltip .sessionId=${session.id}></gl-agent-tooltip>`,
+			tooltip: html`<gl-agent-tooltip
+				.sessionId=${session.id}
+				.providerId=${session.providerId}
+			></gl-agent-tooltip>`,
 			filterText: `${session.displayName} ${session.lastPrompt ?? ''}`.trim(),
 			icon: { type: 'agent', phase: session.phase, provider: session.providerId },
 			description: description,
@@ -3034,9 +3048,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private emitAgentsTreeItemActionTelemetry(command: string, args: unknown[] | undefined): void {
 		if (command === 'gitlens.agents.resolvePermission') {
-			const arg = args?.[0] as { sessionId?: string; decision?: string; alwaysAllow?: boolean } | undefined;
+			const arg = args?.[0] as
+				| { sessionId?: string; providerId?: string; decision?: string; alwaysAllow?: boolean }
+				| undefined;
 			const session =
-				arg?.sessionId != null ? this._state.agentSessions?.find(s => s.id === arg.sessionId) : undefined;
+				arg?.sessionId != null
+					? this._state.agentSessions?.find(
+							s => s.id === arg.sessionId && (arg.providerId == null || s.providerId === arg.providerId),
+						)
+					: undefined;
 
 			emitTelemetrySentEvent<'graph/agents/permissionResolved'>(this, {
 				name: 'graph/agents/permissionResolved',

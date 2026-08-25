@@ -1,6 +1,6 @@
 import * as assert from 'node:assert';
-import type { AgentSession } from '@gitlens/agents/types.js';
-import { getSessionDisplayName, serializeAgentSession } from '../agentSessionState.js';
+import type { AgentSession, AgentSessionHistoryItem } from '@gitlens/agents/types.js';
+import { getSessionDisplayName, serializeAgentSession, serializePastAgentSession } from '../agentSessionState.js';
 
 function makeSession(overrides: Partial<AgentSession>): AgentSession {
 	return {
@@ -203,5 +203,22 @@ suite('serializeAgentSession', () => {
 		// A worktree no open repo owns stays unresolved — the gate correctly refuses to act on it.
 		const session = makeSession({ worktreePath: '/elsewhere/repo' });
 		assert.strictEqual(serializeAgentSession(session, undefined).commonPath, undefined);
+	});
+});
+
+suite('serializePastAgentSession', () => {
+	test('keeps the provider identity needed to manage an untracked transcript', () => {
+		const session: AgentSessionHistoryItem = {
+			id: 'session-1',
+			disposition: 'ended',
+			actions: { resume: { cwd: '/repo/worktree' }, archive: true },
+			lastActivity: new Date(1234),
+			lastPrompt: 'please fix it',
+		};
+
+		const serialized = serializePastAgentSession('claudeCode', session, '/repo/worktree', 'feature');
+
+		assert.strictEqual(serialized.providerId, 'claudeCode');
+		assert.strictEqual(serialized.id, 'session-1');
 	});
 });

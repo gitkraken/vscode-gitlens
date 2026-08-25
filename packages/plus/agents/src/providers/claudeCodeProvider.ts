@@ -5,7 +5,7 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { normalizePath } from '@gitlens/utils/path.js';
+import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
 import { prepareStoredPrompt } from '../sanitizePrompt.js';
 import {
 	classifyPermissionKind,
@@ -21,8 +21,13 @@ import {
 import type {
 	AgentProviderCallbacks,
 	AgentSession,
+	AgentSessionHistoryItem,
+	AgentSessionHistoryOptions,
+	AgentSessionHistoryResult,
 	AgentSessionPhase,
 	AgentSessionProvider,
+	AgentSessionResumeOutcome,
+	AgentSessionResumeTarget,
 	AgentSessionStatus,
 	ClaudeCodeHookEvent,
 	LiveAgentSession,
@@ -30,9 +35,6 @@ import type {
 	PendingPermissionKind,
 	PermissionDecision,
 	PermissionSuggestion,
-	ResumableAgentSession,
-	ResumableSessionsOptions,
-	ResumableSessionsResult,
 } from '../types.js';
 import { getPhaseForStatus } from '../types.js';
 import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
@@ -135,6 +137,11 @@ interface SessionBookkeeping {
 	 *  reconcile-removed by an already-in-flight poll that legitimately missed it — only after a poll
 	 *  has confirmed the CLI still lists it. */
 	polledAtLeastOnce?: boolean;
+	/** The durable record's cwd that a live listing superseded when a resume moved the session
+	 *  elsewhere. While the record still reports this exact cwd, a poll that no longer finds the
+	 *  session in the live listing must not re-seat the row (or trust the record's `endedAt`) —
+	 *  the record predates the resume. Cleared when the record's cwd changes (the CLI caught up). */
+	supersededRecordCwd?: string;
 	/** Set once an ended session's transcript has been read on demand (via
 	 *  `resolveEndedSessionDetails`). Terminal transcripts don't change, so the read happens at
 	 *  most once regardless of how many times the row is opened. */
@@ -153,7 +160,7 @@ const idleReconcileIntervalMs = 60 * 60 * 1000; // 1 hour
  *  side, where the cost of being wrong is an ended row silently vanishing. */
 const endedRemovalGraceMs = 30 * 1000; // 30 seconds
 /** How long the machine-global archived-session id list (fetched via a separate `--status archived`
- *  CLI query) is cached. `getPastSessions` asks for it once per worktree on panel open, so without
+ *  CLI query) is cached. `listSessionHistory` asks for it once per worktree on panel open, so without
  *  this a multi-worktree graph spawns N identical CLI processes. `archiveSession` invalidates the
  *  cache, so a just-archived row never lingers under "Past". */
 const archivedSessionIdsCacheTtlMs = 10 * 1000; // 10 seconds
@@ -534,11 +541,26 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 *  reverts to removing the session and reconciliation drops any ended stragglers. */
 	private _statusFilterSupported = true;
 	protected _transcriptReader: ClaudeCodeTranscriptReader = new ClaudeCodeTranscriptReader();
+	private _terminalGeneration = 0;
 
 	constructor(private readonly callbacks: AgentProviderCallbacks) {}
 
 	get sessions(): readonly AgentSession[] {
 		return this._sessions;
+	}
+
+	get terminalGeneration(): number {
+		return this._terminalGeneration;
+	}
+
+	/** Single choke point for every terminal transition — a session ending, being removed on end
+	 *  (legacy path), being pruned, or a fresh ended record being discovered. Bumps the generation
+	 *  the host's history queries validate against (a transition mid-query means the answer may be
+	 *  missing a session) and drops the transcript listing caches, whose warm entries may predate
+	 *  the transcript the transition just left behind. */
+	private noteTerminalTransition(): void {
+		this._terminalGeneration++;
+		this._transcriptReader.invalidateListings();
 	}
 
 	start(workspacePaths: string[]): void {
@@ -615,26 +637,104 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 	}
 
-	/** Reads past sessions out of Claude's transcript store. Claude homes each transcript under the
-	 *  directory encoding the session's current cwd (migrating it if the session `cd`s), so the
-	 *  directory for `cwd` is exactly what `claude --resume <id>` can find when invoked from there —
-	 *  every session returned is resumable from `cwd`. */
-	async listResumableSessions(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult> {
-		const { sessions, total } = await this._transcriptReader.listSessions(cwd, {
-			limit: options?.limit,
-			excludeSessionIds: options?.excludeSessionIds,
-		});
+	/** Reads Claude history from its transcript store and tracked terminal records. The exact project
+	 *  directory preserves legacy sessions that predate the CLI's durable records. Recent ended
+	 *  records add an authoritative worktree-to-session association, so their ids are also recovered
+	 *  from other project directories when Claude left the transcript behind after a cwd/worktree
+	 *  move. A tracked record with no readable transcript remains visible and archivable, but does not
+	 *  advertise Resume. Archive filtering stays provider-local so ids from another harness cannot
+	 *  suppress Claude rows. `requireResume` drops the transcript-less tracked records, leaving only
+	 *  rows that carry a resume action — and a `total` counting only those. */
+	async listSessionHistory(cwd: string, options?: AgentSessionHistoryOptions): Promise<AgentSessionHistoryResult> {
+		const resumeOnly = options?.requireResume === true;
+		// No launcher means no row can carry resume, so a resume-only query has nothing to return.
+		if (resumeOnly && this.callbacks.resumeSession == null) return { sessions: [], total: 0 };
 
-		const resumable = sessions.map<ResumableAgentSession>(s => ({
-			id: s.sessionId,
-			providerId: this.id,
-			cwd: cwd,
-			lastActivity: new Date(s.lastActivityMs),
-			titles: s.titles,
-			lastPrompt: s.lastPrompt,
-		}));
+		const archivedSessionIds = new Set(await this.getArchivedSessionIds());
+		const excludeSessionIds = new Set(options?.excludeSessionIds);
+		for (const id of archivedSessionIds) {
+			excludeSessionIds.add(id);
+		}
 
-		return { sessions: resumable, total: total };
+		const trackedEndedSessions: AgentSession[] = [];
+		const endedSessionIds = new Set<string>();
+		for (const session of this._sessions) {
+			if (
+				session.status === 'ended' &&
+				session.worktreePath != null &&
+				arePathsEqual(session.worktreePath, cwd) &&
+				!excludeSessionIds.has(session.id)
+			) {
+				// A tracked record's own row carries archive but no resume; its id still drives transcript
+				// recovery below, which does produce a resumable row when the transcript moved with it.
+				if (!resumeOnly) {
+					trackedEndedSessions.push(session);
+				}
+				endedSessionIds.add(session.id);
+			}
+		}
+
+		const [direct, recovered] = await Promise.all([
+			this._transcriptReader.listSessions(cwd, {
+				limit: options?.limit,
+				excludeSessionIds: excludeSessionIds,
+			}),
+			this._transcriptReader.listSessionsByIds(endedSessionIds, {
+				limit: options?.limit,
+				excludeCwd: cwd,
+			}),
+		]);
+
+		const historyById = new Map<string, AgentSessionHistoryItem>();
+		const addTranscript = (session: (typeof direct.sessions)[number], resumeCwd: string): void => {
+			if (excludeSessionIds.has(session.sessionId)) return;
+
+			const disposition = archivedSessionIds.has(session.sessionId) ? 'archived' : 'ended';
+			const resumeActions = this.callbacks.resumeSession != null ? { resume: { cwd: resumeCwd } } : {};
+			historyById.set(session.sessionId, {
+				id: session.sessionId,
+				disposition: disposition,
+				actions: disposition === 'ended' ? { ...resumeActions, archive: true } : resumeActions,
+				lastActivity: new Date(session.lastActivityMs),
+				titles: session.titles,
+				lastPrompt: session.lastPrompt,
+			});
+		};
+		for (const session of direct.sessions) {
+			addTranscript(session, cwd);
+		}
+		for (const session of recovered.sessions) {
+			addTranscript(session, session.cwd);
+		}
+
+		for (const session of trackedEndedSessions) {
+			if (historyById.has(session.id)) continue;
+
+			historyById.set(session.id, {
+				id: session.id,
+				disposition: 'ended',
+				actions: { archive: true },
+				lastActivity: session.lastActivity,
+				name: session.name,
+				titles: session.transcriptTitles,
+				firstPrompt: session.firstPrompt,
+				lastPrompt: session.lastPrompt,
+			});
+		}
+
+		const history = [...historyById.values()].sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+		const limited = options?.limit != null && options.limit > 0 ? history.slice(0, options.limit) : history;
+
+		return { sessions: limited, total: Math.max(direct.total + recovered.total, history.length) };
+	}
+
+	resumeSession(
+		sessionId: string,
+		cwd: string,
+		target: AgentSessionResumeTarget,
+		name?: string,
+	): Promise<AgentSessionResumeOutcome | false> {
+		return this.callbacks.resumeSession?.(sessionId, cwd, target, name) ?? Promise.resolve(false);
 	}
 
 	dispose(): void {
@@ -873,6 +973,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						}
 						this._sessionBookkeeping.delete(event.sessionId);
 						this._transcriptReader.forget(event.sessionId);
+						this.noteTerminalTransition();
 					}
 					this._onDidChangeSessions.fire();
 				} else {
@@ -886,6 +987,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					}
 					this._sessionBookkeeping.delete(event.sessionId);
 					this._transcriptReader.forget(event.sessionId);
+					// Untracked or not, a session just reached a terminal state and finalized its
+					// transcript — an in-flight history query must not accept an answer that predates it.
+					this.noteTerminalTransition();
 				}
 				this.callbacks.onSessionEnded?.(this.id);
 				break;
@@ -2581,6 +2685,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 		this._sessionBookkeeping.delete(prev.id);
 		this._transcriptReader.forget(prev.id);
+		this.noteTerminalTransition();
 	}
 
 	private pruneDeadSessions(): boolean {
@@ -2625,6 +2730,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			this._sessionBookkeeping.delete(id);
 			this._transcriptReader.forget(id);
 		}
+		this.noteTerminalTransition();
 		Logger.debug(
 			`ClaudeCodeProvider.syncSessions: removed ${removedIds.length} stale session(s): ${removedIds.map(id => id.substring(0, 8)).join(', ')}`,
 		);
@@ -2751,10 +2857,31 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			if (effectiveStatus === 'ended') {
 				polledIds.add(data.sessionId);
 				const endedDate = new Date(data.endedAt ?? data.updatedAt);
+				const override = liveOverrideFor(liveSessions, data.sessionId);
+				const liveCwd = override?.live.cwd;
+				const currentCwd = liveCwd ?? data.cwd;
+				const liveCwdMoved = liveCwd != null && liveCwd !== data.cwd;
+				const recordWorktreeRoot = worktreeRootFromData(data);
+				const currentWorktreeRoot = liveCwdMoved ? undefined : recordWorktreeRoot;
 
 				const existingIndex = this._sessions.findIndex(s => s.id === data.sessionId);
 				if (existingIndex >= 0) {
-					const override = liveOverrideFor(liveSessions, data.sessionId);
+					const bookkeeping = this.getBookkeeping(data.sessionId);
+					if (liveCwdMoved) {
+						bookkeeping.supersededRecordCwd = data.cwd;
+					} else if (
+						bookkeeping.supersededRecordCwd != null &&
+						bookkeeping.supersededRecordCwd !== data.cwd
+					) {
+						// The CLI rewrote the record for the resumed run — it describes the session again.
+						bookkeeping.supersededRecordCwd = undefined;
+					}
+
+					// The record still names the cwd a resume superseded, and this poll no longer lists the
+					// session live: the resumed process exited (or died) before the CLI rewrote the record,
+					// so neither its cwd nor its `endedAt` describe where or when the session last ran.
+					const recordLocationStale = override == null && bookkeeping.supersededRecordCwd === data.cwd;
+
 					if (override != null) {
 						const { live: liveSession, status: liveStatus } = override;
 						// `claude agents --json` still lists this exact session id as live — the store's
@@ -2803,35 +2930,46 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// SessionEnd (e.g. `/clear` kept the PID alive under a new id), transition it to
 						// ended now — otherwise a live-status row would linger as a zombie, since
 						// pruneDeadSessions can't reap a live PID.
-						this.endSession(existingIndex, endedDate);
+						// The record's `endedAt` can predate activity this window already observed — a
+						// superseded record after a cwd move, or a same-cwd resume the CLI hasn't rewritten
+						// the record for yet — so never move the row's clock backward.
+						const { lastActivity } = this._sessions[existingIndex];
+						this.endSession(
+							existingIndex,
+							lastActivity.getTime() > endedDate.getTime() ? lastActivity : endedDate,
+						);
 						changed = true;
 					}
 
-					// Re-seat the row on the record's location. The durable record is authoritative for a
-					// terminal session, and a `CwdChanged` hook we never received would otherwise leave the
-					// card attached to the wrong worktree — and "Open Session" resuming from a stale
-					// directory. Deliberately limited to location: prompts/titles have their own on-demand
-					// transcript resolution, which holds richer values than the record does.
+					// Re-seat the row on its current location. The durable record is authoritative for a
+					// terminal session, but an independent Claude listing can prove that record stale and
+					// supply the resumed process's current cwd. Keep the prior worktree attribution until
+					// the live cwd's git probe confirms a replacement — a resumed session can legitimately
+					// sit in scratch space — but never let a later poll move it back to the ended record's
+					// directory. A record already known superseded stays ignored until the CLI rewrites it,
+					// so the row survives the resumed process exiting before that write lands. Deliberately
+					// limited to location: prompts/titles have their own on-demand transcript resolution,
+					// which holds richer values than the record does.
 					const existing = this._sessions[existingIndex];
-					const worktreeRoot = worktreeRootFromData(data);
-					const cwdChanged = Boolean(data.cwd) && data.cwd !== existing.cwd;
+					const cwdChanged = !recordLocationStale && currentCwd !== existing.cwd;
 					// Pre-`cwdTimeline` records carry no worktree data. If the cwd moved, whatever we hold
 					// is no longer trustworthy — it may point into a different repo entirely — so drop it
 					// rather than leave the card filed under the wrong branch, and re-resolve below. A cwd
-					// change is a discrete event, so that's one probe, not the cold-start fan-out the
-					// ended path exists to avoid.
-					const nextWorktreePath =
-						worktreeRoot != null
-							? normalizePath(worktreeRoot)
-							: cwdChanged
+					// supplied by the live listing is different: preserve the old attribution as a fallback
+					// until the current cwd's probe succeeds.
+					const nextWorktreePath = recordLocationStale
+						? existing.worktreePath
+						: currentWorktreeRoot != null
+							? normalizePath(currentWorktreeRoot)
+							: cwdChanged && !liveCwdMoved
 								? undefined
 								: existing.worktreePath;
 					const worktreeMoved = nextWorktreePath !== existing.worktreePath;
 					if (cwdChanged || worktreeMoved) {
-						const workspacePath = this.resolveWorkspacePath(data.cwd || existing.cwd);
+						const workspacePath = this.resolveWorkspacePath(currentCwd);
 						this._sessions[existingIndex] = {
 							...existing,
-							cwd: data.cwd || existing.cwd,
+							cwd: currentCwd,
 							initialCwd: existing.initialCwd ?? data.initialCwd ?? data.cwd,
 							worktreePath: nextWorktreePath,
 							workspacePath: workspacePath,
@@ -2855,25 +2993,31 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// the cwd once rather than leaving the row location-less until some later event
 						// happens to change `cwd`/`worktreePath` again (a same-worktree poll afterward
 						// skips this branch entirely, since `worktreeMoved` goes false).
-						if (data.cwd && (nextWorktreePath == null || worktreeMoved)) {
-							void this.resolveGitInfo(data.sessionId, data.cwd);
+						if (liveCwdMoved || nextWorktreePath == null || worktreeMoved) {
+							this.getBookkeeping(data.sessionId).cliSeatedWorktree = currentWorktreeRoot != null;
+							void this.resolveGitInfo(data.sessionId, currentCwd);
 						}
 					}
 
-					this.getBookkeeping(data.sessionId).polledAtLeastOnce = true;
+					const nextBookkeeping = this.getBookkeeping(data.sessionId);
+					nextBookkeeping.polledAtLeastOnce = true;
+					// `endSession` above drops the bookkeeping entry, but the latch has to outlive that
+					// transition — otherwise the next poll finds none and re-seats the row onto the very
+					// record this one already knew was superseded.
+					nextBookkeeping.supersededRecordCwd = bookkeeping.supersededRecordCwd;
 					continue;
 				}
 
 				known.add(data.sessionId);
-				const workspacePath = this.resolveWorkspacePath(data.cwd);
-				const worktreeRoot = worktreeRootFromData(data);
+				const workspacePath = this.resolveWorkspacePath(currentCwd);
 
-				const override = liveOverrideFor(liveSessions, data.sessionId);
 				if (override != null) {
 					const { live: liveSession, status: liveStatus } = override;
 					// This window is learning about the session for the first time via its `ended`
 					// record, but `claude agents --json` still lists it as live — same override as the
-					// tracked branch above, just pushing a fresh row instead of updating one in place.
+					// tracked branch above, just pushing a fresh row instead of updating one in place. The
+					// listing's cwd is current; the ended record's worktree remains only as a fallback until
+					// the live cwd's git probe resolves it.
 					this._sessions.push({
 						id: data.sessionId,
 						providerId: this.id,
@@ -2888,14 +3032,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						lastActivity: new Date(pollStartedAt),
 						isSubagent: false,
 						workspacePath: workspacePath,
-						worktreePath: worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
+						worktreePath: recordWorktreeRoot != null ? normalizePath(recordWorktreeRoot) : undefined,
 						visitedWorktreePaths: unionVisited(
 							undefined,
 							visitedFromTimeline(data.cwdTimeline),
 							data.worktrees,
-							worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
+							recordWorktreeRoot != null ? normalizePath(recordWorktreeRoot) : undefined,
 						),
-						cwd: data.cwd,
+						cwd: currentCwd,
 						initialCwd: data.initialCwd ?? data.cwd,
 						planFile: data.planFile ?? undefined,
 						isInWorkspace: workspacePath != null,
@@ -2904,15 +3048,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						model: data.model ?? undefined,
 					});
 					this.getBookkeeping(data.sessionId).polledAtLeastOnce = true;
-					this.getBookkeeping(data.sessionId).cliSeatedWorktree = worktreeRoot != null;
+					this.getBookkeeping(data.sessionId).cliSeatedWorktree = currentWorktreeRoot != null;
+					if (liveCwdMoved) {
+						// Latch the cwd this listing superseded, so a later poll that no longer finds the
+						// session live doesn't re-seat the row back onto the not-yet-rewritten record.
+						this.getBookkeeping(data.sessionId).supersededRecordCwd = data.cwd;
+					}
 					changed = true;
 					discovered++;
 					keptAlive.push(`${data.sessionId.substring(0, 8)}:${liveStatus}`);
 					polledAlive.add(data.sessionId);
-					if (worktreeRoot == null && data.cwd) {
-						void this.resolveGitInfo(data.sessionId, data.cwd);
+					if (liveCwdMoved || recordWorktreeRoot == null) {
+						void this.resolveGitInfo(data.sessionId, currentCwd);
 					}
-					void this.resolveTranscriptTitles(data.sessionId, data.cwd);
+					void this.resolveTranscriptTitles(data.sessionId, currentCwd);
 					continue;
 				}
 
@@ -2930,12 +3079,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					workspacePath: workspacePath,
 					// Read straight from the CLI's durable record so ended sessions attach to branch
 					// cards / WIP rows / the resume picker at any age, no git probe.
-					worktreePath: worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
+					worktreePath: recordWorktreeRoot != null ? normalizePath(recordWorktreeRoot) : undefined,
 					visitedWorktreePaths: unionVisited(
 						undefined,
 						visitedFromTimeline(data.cwdTimeline),
 						data.worktrees,
-						worktreeRoot != null ? normalizePath(worktreeRoot) : undefined,
+						recordWorktreeRoot != null ? normalizePath(recordWorktreeRoot) : undefined,
 					),
 					cwd: data.cwd,
 					initialCwd: data.initialCwd ?? data.cwd,
@@ -2951,12 +3100,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				});
 				this.getBookkeeping(data.sessionId).polledAtLeastOnce = true;
 				changed = true;
+				this.noteTerminalTransition();
 				// Titles/prompts still resolve lazily via resolveEndedSessionDetails (a 30-day
 				// cold-start must not fan out transcript reads). worktreePath comes from the record
 				// above; only fall back to an eager git probe when the record predates that CLI field,
 				// and only for the recent (WIP-window) tail so the fallback stays bounded.
 				if (
-					worktreeRoot == null &&
+					recordWorktreeRoot == null &&
 					data.cwd &&
 					Date.now() - endedDate.getTime() < recentEndedGitResolveThresholdMs
 				) {

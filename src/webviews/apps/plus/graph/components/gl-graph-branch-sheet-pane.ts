@@ -21,15 +21,25 @@ import type {
 	OverviewBranchRemote,
 } from '../../../../shared/overviewBranches.js';
 import { isAbortError, noopUnlessReal, notifyService } from '../../../shared/actions/rpc.js';
-import type { PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
-import { createPastAgentSessionsResolver, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import type { PastAgentSessionsPager, PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
+import {
+	createPastAgentSessionsPager,
+	createPastAgentSessionsResolver,
+	filterLiveAgentSessions,
+	initialPastAgentSessionLimit,
+	matchAgentSessionsForWorktree,
+} from '../../../shared/agentUtils.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { providerIconName } from '../../../shared/git-utils.js';
 import { graphStateContext } from '../context.js';
 import type { ResolvedServices } from './detailsActions.js';
-import type { ExpandState } from './gl-details-agent-status.js';
+import type {
+	ExpandState,
+	PastAgentSessionArchiveRequest,
+	PastAgentSessionsMoreRequest,
+} from './gl-details-agent-status.js';
 import { graphBranchSheetPaneStyles } from './gl-graph-branch-sheet-pane.css.js';
 import type { NextStep } from './nextStep.js';
 import { nextStepStyles, renderNextStep } from './nextStep.js';
@@ -84,6 +94,7 @@ interface BranchSheetCacheEntry {
 	hasPullRequest?: boolean;
 	pastSessions?: PastAgentSessionsResult;
 	hasPastSessions?: boolean;
+	pastSessionsLimit?: number;
 	remote?: OverviewBranchRemote;
 }
 
@@ -144,8 +155,10 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	@state() private _pullRequestLoading = false;
 	@state() private _remote?: OverviewBranchRemote;
 	@state() private _pastAgentSessions?: PastAgentSessionsResult;
+	@state() private _pastAgentSessionsLimit = initialPastAgentSessionLimit;
+	@state() private _pastAgentSessionsLoading = false;
 
-	/** Cycle-stable projection of {@link _pastAgentSessions} reconciled against the live set, so the
+	/** Cycle-stable projection of {@link _pastAgentSessions} reconciled against the tracked set, so the
 	 *  section's visibility gate and the rendered rows agree — see the resolver's doc. */
 	private _cyclePastSessions?: PastAgentSessionsResult;
 	private readonly _pastSessionsResolver: PastAgentSessionsResolver = createPastAgentSessionsResolver();
@@ -291,6 +304,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const controller = new AbortController();
 		this._controller = controller;
 		const signal = controller.signal;
+		this._pastAgentSessionsLoading = false;
 
 		if (!isRefresh) {
 			// Hydrate from cache synchronously (instant continuity) or reset to loading (first visit).
@@ -305,11 +319,15 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				this._pullRequestLoading = !cached.hasPullRequest;
 				this._remote = cached.remote;
 				this._pastAgentSessions = cached.hasPastSessions ? cached.pastSessions : undefined;
+				this._pastAgentSessionsLimit = cached.pastSessionsLimit ?? initialPastAgentSessionLimit;
 			} else {
 				this.resetEnrichmentState();
 				this._mergeTargetLoading = true;
 				this._pullRequestLoading = true;
 			}
+		}
+		if (this._pastAgentSessions != null) {
+			this._pastAgentSessionsLoading = true;
 		}
 		// On refresh, leave whatever is currently displayed alone — the fresh values land in place
 		// as each leg resolves, so the sheet never flashes back to a loading/skeleton state.
@@ -320,6 +338,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			if (enrichment == null) {
 				this._mergeTargetLoading = false;
 				this._pullRequestLoading = false;
+				this._pastAgentSessionsLoading = false;
 				// A refresh resolving null means the branch no longer exists (e.g. deleted from the
 				// sheet) — ask the panel to close. An initial null just leaves the identity fallback.
 				if (isRefresh) {
@@ -337,12 +356,15 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			// worktree has past sessions too.
 			const pastWorktreePath = enrichment.branch.worktree?.path;
 			if (pastWorktreePath != null) {
-				void services.agents.getPastSessionsForWorktree(pastWorktreePath, { limit: 3 }, signal).then(result => {
-					if (signal.aborted || this._loadedKey !== key) return;
-
-					this._pastAgentSessions = result;
-					this.updateCache(key, { pastSessions: result, hasPastSessions: true });
-				}, noopUnlessReal);
+				void this.fetchPastAgentSessions(
+					key,
+					pastWorktreePath,
+					services,
+					this._pastAgentSessionsLimit,
+					controller,
+				).catch(noopUnlessReal);
+			} else {
+				this._pastAgentSessionsLoading = false;
 			}
 
 			void enrichment.autolinks.then(autolinks => {
@@ -397,6 +419,34 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 			this._mergeTargetLoading = false;
 			this._pullRequestLoading = false;
+			this._pastAgentSessionsLoading = false;
+		}
+	}
+
+	private async fetchPastAgentSessions(
+		key: string,
+		worktreePath: string,
+		services: ResolvedServices,
+		limit: number,
+		controller: AbortController,
+	): Promise<void> {
+		this._pastAgentSessionsLoading = true;
+		try {
+			const agents = await services.agents;
+			const result = await agents.getPastSessionsForWorktree(worktreePath, { limit: limit }, controller.signal);
+			if (controller.signal.aborted || this._loadedKey !== key) return;
+
+			this._pastAgentSessions = result;
+			this._pastAgentSessionsLimit = limit;
+			this.updateCache(key, {
+				pastSessions: result,
+				hasPastSessions: true,
+				pastSessionsLimit: limit,
+			});
+		} finally {
+			if (this._controller === controller && this._loadedKey === key) {
+				this._pastAgentSessionsLoading = false;
+			}
 		}
 	}
 
@@ -419,6 +469,8 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		this._pullRequestLoading = false;
 		this._remote = undefined;
 		this._pastAgentSessions = undefined;
+		this._pastAgentSessionsLimit = initialPastAgentSessionLimit;
+		this._pastAgentSessionsLoading = false;
 	}
 
 	/** Fetch the tag's tip-commit summary (tip line) and its previous reachable tag (changelog
@@ -826,10 +878,12 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const worktreePath = branch.worktree?.path;
 		if (worktreePath == null) return nothing;
 
-		const sessions = matchAgentSessionsForWorktree(
-			this.graphState?.agentSessions,
-			{ repoPath: branch.repoPath, worktreePath: worktreePath },
-			{ includeVisited: true },
+		const sessions = filterLiveAgentSessions(
+			matchAgentSessionsForWorktree(
+				this.graphState?.agentSessions,
+				{ repoPath: branch.repoPath, worktreePath: worktreePath },
+				{ includeVisited: true },
+			),
 		);
 		// Gate on the resolved list, not the raw cache — see `_cyclePastSessions`.
 		if ((sessions?.length ?? 0) === 0 && (this._cyclePastSessions?.sessions.length ?? 0) === 0) return nothing;
@@ -839,15 +893,64 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				flat
 				.sessions=${sessions}
 				.pastSessions=${this._cyclePastSessions}
+				.pastSessionsLimit=${this._pastAgentSessionsLimit}
+				.pastSessionsLoading=${this._pastAgentSessionsLoading}
 				.worktreePath=${worktreePath}
 				.expand=${this._agentExpand}
 				@gl-agent-status-expand-request=${this._onAgentExpandRequest}
+				@gl-agent-status-past-sessions-more-request=${this._onAgentPastSessionsMoreRequest}
+				@gl-agent-status-past-session-archive-request=${this._onAgentPastSessionArchiveRequest}
 			></gl-details-agent-status>
 		</section>`;
 	}
 
 	private readonly _onAgentExpandRequest = (): void => {
 		this._agentExpand = this._agentExpand === 'expanded' ? 'collapsed' : 'expanded';
+	};
+
+	/** Builds a pager scoped to this event's captured `key`/`controller` — see
+	 *  {@link createPastAgentSessionsPager}. Cheap to construct per event; keeps the guard against a
+	 *  loaded-key change (branch switch mid-request) inline rather than threaded through instance state. */
+	private createPastSessionsPager(
+		key: string,
+		worktreePath: string,
+		services: ResolvedServices,
+		controller: AbortController,
+	): PastAgentSessionsPager {
+		return createPastAgentSessionsPager({
+			getLimit: () => this._pastAgentSessionsLimit,
+			isLoading: () => this._pastAgentSessionsLoading,
+			isCurrent: () => !controller.signal.aborted && this._loadedKey === key,
+			fetch: (limit: number) => this.fetchPastAgentSessions(key, worktreePath, services, limit, controller),
+			archiveSession: async (sessionId: string, providerId: string): Promise<boolean> => {
+				const agents = await services.agents;
+				return agents.archiveSession(sessionId, providerId);
+			},
+		});
+	}
+
+	private readonly _onAgentPastSessionsMoreRequest = (e: CustomEvent<PastAgentSessionsMoreRequest>): void => {
+		const key = this._loadedKey;
+		const worktreePath = this._branch?.worktree?.path;
+		const services = this.services;
+		const controller = this._controller;
+		if (key == null || worktreePath == null || services == null || controller == null) return;
+
+		void this.createPastSessionsPager(key, worktreePath, services, controller)
+			.more(e.detail.limit)
+			.catch(noopUnlessReal);
+	};
+
+	private readonly _onAgentPastSessionArchiveRequest = (e: CustomEvent<PastAgentSessionArchiveRequest>): void => {
+		const key = this._loadedKey;
+		const worktreePath = this._branch?.worktree?.path;
+		const services = this.services;
+		const controller = this._controller;
+		if (key == null || worktreePath == null || services == null || controller == null) return;
+
+		this.createPastSessionsPager(key, worktreePath, services, controller)
+			.archive(e.detail.sessionId, e.detail.providerId)
+			.catch(noopUnlessReal);
 	};
 
 	/** "Upstream" relationship card — the branch's own remote tracking counterpart, always rendered

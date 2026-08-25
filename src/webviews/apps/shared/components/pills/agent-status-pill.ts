@@ -8,6 +8,7 @@ import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtil
 import {
 	agentPhaseToCategory,
 	canResolvePermission,
+	createAgentSessionArchiveHref,
 	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -581,9 +582,9 @@ export class GlAgentStatusPill extends LitElement {
 		if (this._stickyResolver.size === 0) return;
 
 		if (this.summary != null) {
-			this._stickyResolver.prune(this.summary.sessions.map(s => s.id));
+			this._stickyResolver.prune(this.summary.sessions);
 		} else if (this.session != null) {
-			this._stickyResolver.prune([this.session.id]);
+			this._stickyResolver.prune([this.session]);
 		} else {
 			this._stickyResolver.prune([]);
 		}
@@ -726,11 +727,15 @@ export class GlAgentStatusPill extends LitElement {
 
 		const openAction = getAgentSessionOpenAction(session);
 		const openActionHref = createAgentSessionOpenHref(session);
-		const archiveHref = createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id));
+		const archiveHref = createAgentSessionArchiveHref(session);
 
 		return html`<action-nav class="hover-summary-row__actions" @mousedown=${this.onActionMouseDown}>
 			<action-item label=${openAction.label} icon=${openAction.icon} href=${openActionHref}></action-item>
-			<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>
+			${
+				archiveHref != null
+					? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
+					: nothing
+			}
 		</action-nav>`;
 	}
 
@@ -758,7 +763,7 @@ export class GlAgentStatusPill extends LitElement {
 		// input tool name from the still-fresh cache. Matches the eviction-on-needs-input pattern
 		// in gl-graph-kanban + gl-details-agent-status.
 		if (category !== 'working') {
-			this._stickyResolver.evict(session.id);
+			this._stickyResolver.evict(session);
 		}
 
 		switch (category) {
@@ -783,22 +788,28 @@ export class GlAgentStatusPill extends LitElement {
 	): unknown {
 		// Plain openSession link — feeds `renderMoreActionsMenu`, which is only reached from the
 		// needs-input path (never ended), so it never needs the resume variant.
-		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		const openHref = createCommandLink('gitlens.agents.openSession', {
+			sessionId: session.id,
+			providerId: session.providerId,
+		});
 
 		if (category === 'needs-input' && canResolve) {
 			const permission = session.pendingPermission!;
 			const allowHref = createCommandLink('gitlens.agents.resolvePermission', {
 				sessionId: session.id,
+				providerId: session.providerId,
 				decision: 'allow' as const,
 			});
 			const denyHref = createCommandLink('gitlens.agents.resolvePermission', {
 				sessionId: session.id,
+				providerId: session.providerId,
 				decision: 'deny' as const,
 			});
 			const alwaysAllowHref =
 				permission.kind === 'tool' && permission.suggestions != null && permission.suggestions.length > 0
 					? createCommandLink('gitlens.agents.resolvePermission', {
 							sessionId: session.id,
+							providerId: session.providerId,
 							decision: 'allow' as const,
 							alwaysAllow: true,
 						})
@@ -815,10 +826,7 @@ export class GlAgentStatusPill extends LitElement {
 			`;
 		}
 
-		const archiveHref =
-			category === 'ended'
-				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
-				: undefined;
+		const archiveHref = category === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
 		const openAction = getAgentSessionOpenAction(session);
 		const openActionHref = createAgentSessionOpenHref(session);
 
@@ -836,7 +844,10 @@ export class GlAgentStatusPill extends LitElement {
 
 	private renderWorkingHover(session: AgentSessionState, omitActions: boolean): unknown {
 		const elapsed = formatElapsed(session.phaseSince);
-		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		const openHref = createCommandLink('gitlens.agents.openSession', {
+			sessionId: session.id,
+			providerId: session.providerId,
+		});
 		// Route through the sticky resolver so the "Current Tool" section doesn't blink between
 		// tool calls — matches the kanban + details-panel running-tool surfaces. `resolveLiveTool`
 		// returns the live `statusDetail` when present and the cached one for ~3s after it drops
@@ -888,7 +899,10 @@ export class GlAgentStatusPill extends LitElement {
 	private renderNeedsInputHover(session: AgentSessionState, omitActions: boolean): unknown {
 		const elapsed = formatElapsed(session.phaseSince);
 		const permission = session.pendingPermission;
-		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		const openHref = createCommandLink('gitlens.agents.openSession', {
+			sessionId: session.id,
+			providerId: session.providerId,
+		});
 
 		// This hover only renders for needs-input, so the category is implied; an unresolvable ask
 		// still shows its detail but offers Open Session instead of buttons that can't route.
@@ -896,6 +910,7 @@ export class GlAgentStatusPill extends LitElement {
 		const allowHref = canResolve
 			? createCommandLink('gitlens.agents.resolvePermission', {
 					sessionId: session.id,
+					providerId: session.providerId,
 					decision: 'allow' as const,
 				})
 			: undefined;
@@ -906,6 +921,7 @@ export class GlAgentStatusPill extends LitElement {
 			permission.suggestions.length > 0
 				? createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
+						providerId: session.providerId,
 						decision: 'allow' as const,
 						alwaysAllow: true,
 					})
@@ -913,6 +929,7 @@ export class GlAgentStatusPill extends LitElement {
 		const denyHref = canResolve
 			? createCommandLink('gitlens.agents.resolvePermission', {
 					sessionId: session.id,
+					providerId: session.providerId,
 					decision: 'deny' as const,
 				})
 			: undefined;
@@ -1019,10 +1036,7 @@ export class GlAgentStatusPill extends LitElement {
 		const openHref = createAgentSessionOpenHref(session);
 		// Archive is offered only on terminal (ended) sessions — a live idle one would have to be
 		// killed first, so it's not surfaced here.
-		const archiveHref =
-			session.phase === 'ended'
-				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
-				: undefined;
+		const archiveHref = session.phase === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
 
 		const dotModifier = session.phase === 'ended' ? 'ended' : 'idle';
 

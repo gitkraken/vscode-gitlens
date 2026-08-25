@@ -1,4 +1,5 @@
 import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../agents/models/agentSessionState.js';
+import { getAgentSessionIdentityKey } from '../../../agents/models/agentSessionState.js';
 import type { AgentSessionPhase } from '../../../agents/provider.js';
 import { createCommandLink } from '../../../system/commands.js';
 import type { WebviewItemContext } from '../../../system/webview.js';
@@ -14,6 +15,12 @@ const phaseRank: Record<AgentSessionPhase, number> = {
 };
 
 export type AgentSessionCategory = 'working' | 'needs-input' | 'idle' | 'ended';
+
+/** Keep the initial history footprint small; explicit paging expands the inline management surface. */
+export const initialPastAgentSessionLimit = 3;
+
+/** Number of additional transcript-backed sessions requested by each inline paging action. */
+export const pastAgentSessionPageSize = 15;
 
 export const agentPhaseToCategory: Record<AgentSessionPhase, AgentSessionCategory> = {
 	working: 'working',
@@ -75,13 +82,13 @@ export type AgentSessionOpenAction =
 			command: 'gitlens.agents.openSession';
 			/** Args exactly as the command receives them — the sidebar passes this array straight
 			 *  through; the href surfaces feed `args[0]` to `createCommandLink`. */
-			args: [string];
+			args: [{ sessionId: string; providerId: string }];
 	  }
 	| {
 			label: 'Resume Session';
 			icon: 'debug-restart';
 			command: 'gitlens.agents.resumeSession';
-			args: [{ sessionId: string; cwd: string }];
+			args: [{ sessionId: string; providerId: string; cwd: string }];
 	  };
 
 /** Picks between `Open Session` (there's a live process to attach to) and `Resume Session`
@@ -100,24 +107,64 @@ export function getAgentSessionOpenAction(session: AgentSessionState): AgentSess
 				label: 'Resume Session',
 				icon: 'debug-restart',
 				command: 'gitlens.agents.resumeSession',
-				args: [{ sessionId: session.id, cwd: cwd }],
+				args: [{ sessionId: session.id, providerId: session.providerId, cwd: cwd }],
 			};
 		}
 	}
 
-	return { label: 'Open Session', icon: 'link-external', command: 'gitlens.agents.openSession', args: [session.id] };
+	return {
+		label: 'Open Session',
+		icon: 'link-external',
+		command: 'gitlens.agents.openSession',
+		args: [{ sessionId: session.id, providerId: session.providerId }],
+	};
 }
 
-/** `createCommandLink` form of {@link getAgentSessionOpenAction}, for `href=` surfaces. The two
- *  commands take asymmetric arg shapes: openSession's existing link form passes the session id as
- *  a bare JSON-stringified string, while resumeSession passes the `{ sessionId, cwd }` object
- *  directly (see `gl-details-agent-status.ts`'s past-row resume chip). */
+/** `createCommandLink` form of {@link getAgentSessionOpenAction}, for `href=` surfaces. Both command
+ *  shapes carry provider-scoped identity so another harness may reuse the same local session id. */
 export function createAgentSessionOpenHref(session: AgentSessionState): string {
 	const action = getAgentSessionOpenAction(session);
-	if (action.command === 'gitlens.agents.resumeSession') return createCommandLink(action.command, action.args[0]);
+	return createCommandLink(action.command, action.args[0]);
+}
 
-	// A bare string reaches the command link unquoted, which isn't valid JSON for the arg parser.
-	return createCommandLink(action.command, JSON.stringify(action.args[0]));
+export interface AgentSessionArchiveAction {
+	label: 'Archive Session';
+	icon: 'archive';
+	command: 'gitlens.agents.archiveSession';
+	args: [{ sessionId: string; providerId: string }];
+}
+
+/** The minimal shape {@link getAgentSessionArchiveAction} needs — structurally satisfied by both
+ *  {@link AgentSessionState} (where `actions` is optional) and {@link PastAgentSessionState} (where
+ *  `actions` is required but `archive` inside it is optional), so one gate serves both live and
+ *  past rows without either side needing a cast. */
+interface ArchivableAgentSession {
+	id: string;
+	providerId: string;
+	actions?: { readonly archive?: boolean };
+}
+
+/** Archive affordance for a session row, or `undefined` when the provider didn't advertise it.
+ *  Serves both live (`AgentSessionState`) and past rows — the gate and command shape live here so
+ *  the several rendering sites can't drift. Callers own the phase gate (archive is only offered on
+ *  terminal rows); this helper owns the capability gate. */
+export function getAgentSessionArchiveAction(session: ArchivableAgentSession): AgentSessionArchiveAction | undefined {
+	if (session.actions?.archive !== true) return undefined;
+
+	return {
+		label: 'Archive Session',
+		icon: 'archive',
+		command: 'gitlens.agents.archiveSession',
+		args: [{ sessionId: session.id, providerId: session.providerId }],
+	};
+}
+
+/** `createCommandLink` form of {@link getAgentSessionArchiveAction}, for `href=` surfaces. */
+export function createAgentSessionArchiveHref(session: ArchivableAgentSession): string | undefined {
+	const action = getAgentSessionArchiveAction(session);
+	if (action == null) return undefined;
+
+	return createCommandLink(action.command, action.args[0]);
 }
 
 /** Value carried by a `gitlens:agent-session…` webview-item context — see {@link buildAgentSessionContext}
@@ -127,6 +174,7 @@ export function createAgentSessionOpenHref(session: AgentSessionState): string {
  *  the clipboard commands read straight off the context to avoid a round trip). */
 export interface AgentSessionContextValue {
 	sessionId: string;
+	providerId?: string;
 	worktreePath?: string;
 	/** Resolved resume directory — present only when the context also carries `+resumable`. */
 	cwd?: string;
@@ -194,11 +242,15 @@ export function buildAgentSessionContext(
 	if (session.isPeerOwned) {
 		webviewItem += '+peer';
 	}
+	if (session.actions?.archive === true) {
+		webviewItem += '+archivable';
+	}
 
 	return {
 		webviewItem: webviewItem,
 		webviewItemValue: {
 			sessionId: session.id,
+			providerId: session.providerId,
 			worktreePath: session.worktreePath,
 			cwd: openAction.command === 'gitlens.agents.resumeSession' ? openAction.args[0].cwd : undefined,
 			lastPrompt: session.lastPrompt,
@@ -209,17 +261,18 @@ export function buildAgentSessionContext(
 
 /**
  * Reduced counterpart of {@link buildAgentSessionContext} for a {@link PastAgentSessionState} row — there's
- * no process, so none of the permission/phase-derived flags apply. Marks `+past` alongside `+ended` so
- * consumers can tell a recovered-transcript row from a tracked ended session apart: the Archive Session
- * menu item gates on `!+past` since archiving walks a live provider's tracked session list, which a past
- * row was never part of, and would silently no-op for one.
+ * no process, so none of the permission/phase-derived flags apply. `providerId` lets Archive Session route
+ * a recovered transcript directly to the provider even when it is no longer in the tracked session list.
  */
 export function buildPastAgentSessionContext(
 	session: PastAgentSessionState,
 ): WebviewItemContext<AgentSessionContextValue> {
 	let webviewItem = 'gitlens:agent-session+ended+past';
-	if (session.cwd) {
+	if (session.actions.resume != null) {
 		webviewItem += '+resumable';
+	}
+	if (session.actions.archive === true) {
+		webviewItem += '+archivable';
 	}
 	if (session.lastPrompt) {
 		webviewItem += '+prompt';
@@ -229,7 +282,8 @@ export function buildPastAgentSessionContext(
 		webviewItem: webviewItem,
 		webviewItemValue: {
 			sessionId: session.id,
-			cwd: session.cwd,
+			providerId: session.providerId,
+			cwd: session.actions.resume?.cwd,
 			lastPrompt: session.lastPrompt,
 		},
 	};
@@ -383,6 +437,11 @@ export function sortAgentSessions(sessions: readonly AgentSessionState[]): Agent
 
 		return a.displayName.localeCompare(b.displayName);
 	});
+}
+
+/** Sessions with a process the UI can open in place; ended sessions are resumable history. */
+export function filterLiveAgentSessions(sessions: readonly AgentSessionState[] | undefined): AgentSessionState[] {
+	return sessions?.filter(s => s.phase !== 'ended') ?? [];
 }
 
 /** Identifies the worktree the matcher should resolve sessions for. `repoPath` is the workspace's
@@ -702,11 +761,11 @@ export interface StickyDetailResolver {
 	 *  session through a code path that bypasses {@link resolveLiveTool} (e.g., the needs-input
 	 *  permission renderer) — otherwise the cached working-phase entry survives the permission
 	 *  round-trip and re-paints as soon as the session returns to `working` without a fresh tool. */
-	evict(sessionId: string): void;
+	evict(session: AgentSessionState): void;
 	/** Removes cache entries for sessions whose ids are NOT in {@link liveIds}. Call after each
 	 *  render pass so the cache stays bounded by the live session count instead of growing across
 	 *  session lifecycles (start/stop/restart). */
-	prune(liveIds: Iterable<string>): void;
+	prune(liveSessions: Iterable<AgentSessionState>): void;
 	/** Test/diagnostic accessor — current cache size. Not part of the production contract. */
 	readonly size: number;
 }
@@ -716,7 +775,7 @@ export function createStickyDetailResolver(options?: { holdMs?: number }): Stick
 	const cache = new Map<string, StickyToolEntry>();
 
 	const resolveLiveTool = (session: AgentSessionState): string | undefined => {
-		const cacheKey = session.id;
+		const cacheKey = getAgentSessionIdentityKey(session.providerId, session.id);
 		// `performance.now()` is monotonic — Date.now() drifts on NTP sync / DST / suspend-resume,
 		// any of which could pin a cache entry as "still fresh" past its real TTL or evict it
 		// prematurely after a backward clock jump. Monotonic time is the only correct choice
@@ -751,19 +810,21 @@ export function createStickyDetailResolver(options?: { holdMs?: number }): Stick
 		return undefined;
 	};
 
-	const prune = (liveIds: Iterable<string>): void => {
+	const prune = (liveSessions: Iterable<AgentSessionState>): void => {
 		if (cache.size === 0) return;
 
-		const live = liveIds instanceof Set ? liveIds : new Set(liveIds);
-		for (const id of cache.keys()) {
-			if (!live.has(id)) {
-				cache.delete(id);
+		const live = new Set(
+			Array.from(liveSessions, session => getAgentSessionIdentityKey(session.providerId, session.id)),
+		);
+		for (const key of cache.keys()) {
+			if (!live.has(key)) {
+				cache.delete(key);
 			}
 		}
 	};
 
-	const evict = (sessionId: string): void => {
-		cache.delete(sessionId);
+	const evict = (session: AgentSessionState): void => {
+		cache.delete(getAgentSessionIdentityKey(session.providerId, session.id));
 	};
 
 	return {
@@ -776,22 +837,23 @@ export function createStickyDetailResolver(options?: { holdMs?: number }): Stick
 	};
 }
 
-/** Reconciles a cached past-session list against the live session list — see
+/** Reconciles a cached past-session list against the tracked session list — see
  *  {@link createPastAgentSessionsResolver}. */
 export interface PastAgentSessionsResolver {
 	/** The past result to both gate visibility on and render, with rows dropped for sessions that
-	 *  are currently tracked and for those that have departed the tracked set. `total` is reduced by
-	 *  what was dropped so the "N more" footer stays honest. Side-effecting: records departures. */
+	 *  are currently rendered separately and for those that have departed the tracked set. `total`
+	 *  is reduced by what was dropped so the "N more" footer stays honest. Side-effecting: records
+	 *  departures. */
 	resolve(
 		past: PastAgentSessionsResult | undefined,
-		live: readonly AgentSessionState[] | undefined,
+		tracked: readonly AgentSessionState[] | undefined,
 	): PastAgentSessionsResult | undefined;
 }
 
 /**
  * Past sessions are a pull-only resource, fetched once per worktree — the host never re-pushes them
  * when the session list changes. So a session that leaves the tracked set (archived, or a pruned
- * record) is still in the cached list, and the live-id dedup that had been masking it stops the
+ * record) is still in the cached list, and the tracked-id dedup that had been masking it stops the
  * instant it departs — painting a just-archived session as a "Past" row, which reads as the archive
  * having failed.
  *
@@ -802,14 +864,17 @@ export interface PastAgentSessionsResolver {
  * Departures are tracked against the FULL tracked set rather than a worktree-matched subset, so
  * changing which worktree is displayed isn't mistaken for sessions disappearing. A freshly
  * delivered result (the host filters archived ids at fetch time) retires every suppression.
+ * Tracked ended ids remain in the full set used to recognize real archives, but are omitted from the
+ * live-id set because every terminal session is normalized into the past result and rendered there.
  */
 export function createPastAgentSessionsResolver(): PastAgentSessionsResolver {
 	let seenIds: Set<string> | undefined;
+	let visibleIds: Set<string> | undefined;
 	let lastPast: PastAgentSessionsResult | undefined;
 	const departed = new Set<string>();
 
 	return {
-		resolve: (past, live) => {
+		resolve: (past, tracked) => {
 			if (past !== lastPast) {
 				lastPast = past;
 				departed.clear();
@@ -819,8 +884,8 @@ export function createPastAgentSessionsResolver(): PastAgentSessionsResolver {
 			// which is NOT the same as "no sessions". Treating it as an empty set would retire every
 			// seen id as departed and permanently suppress the matching Past rows, so hold the prior
 			// snapshot and only diff against a real list.
-			if (live != null) {
-				const nextIds = new Set(live.map(s => s.id));
+			if (tracked != null) {
+				const nextIds = new Set(tracked.map(s => getAgentSessionIdentityKey(s.providerId, s.id)));
 				if (seenIds != null) {
 					for (const id of seenIds) {
 						if (!nextIds.has(id)) {
@@ -829,17 +894,74 @@ export function createPastAgentSessionsResolver(): PastAgentSessionsResolver {
 					}
 				}
 				seenIds = nextIds;
+				visibleIds = new Set(
+					tracked.filter(s => s.phase !== 'ended').map(s => getAgentSessionIdentityKey(s.providerId, s.id)),
+				);
 			}
-			const liveIds = seenIds;
 
 			if (past == null) return undefined;
 
-			const sessions = past.sessions.filter(p => !liveIds?.has(p.id) && !departed.has(p.id));
+			const sessions = past.sessions.filter(p => {
+				const key = getAgentSessionIdentityKey(p.providerId, p.id);
+				return !visibleIds?.has(key) && !departed.has(key);
+			});
 			const dropped = past.sessions.length - sessions.length;
 			// Preserve reference identity when nothing was dropped — the common case.
 			if (dropped === 0) return past;
 
 			return { sessions: sessions, total: Math.max(0, past.total - dropped) };
+		},
+	};
+}
+
+/** Host hooks {@link createPastAgentSessionsPager} reads/drives current committed state through —
+ *  each of the details panel and the branch sheet pane express their own paging/loading/staleness
+ *  bookkeeping as these closures rather than duplicating the pager's policy. */
+export interface PastAgentSessionsPagerHost {
+	/** Currently committed page limit. */
+	getLimit(): number;
+	/** True while a page fetch is in flight. */
+	isLoading(): boolean;
+	/** False once the surface moved on (different worktree/row) — stale completions are dropped. */
+	isCurrent(): boolean;
+	/** Fetches (and commits) a page at `limit`; owns its own staleness handling on completion. */
+	fetch(limit: number): Promise<void>;
+	archiveSession(sessionId: string, providerId: string): Promise<boolean>;
+}
+
+export interface PastAgentSessionsPager {
+	more(requestedLimit: number): Promise<void>;
+	archive(sessionId: string, providerId: string): Promise<void>;
+}
+
+/**
+ * Centralizes the "Show More" / "Archive then refetch" policy shared by the graph details panel and
+ * the branch sheet pane's past-agent-sessions sections — both re-implemented this with subtly
+ * divergent guards (the details panel widened a lower "more" request up to the current limit
+ * instead of no-opping it; see `gl-graph-details-panel.ts`). A single source of truth means a future
+ * paging/archive-race fix has to land once, not be ported by hand to both surfaces.
+ *
+ * `more` is a no-op unless the requested limit is strictly larger than the current one, no fetch is
+ * already in flight, and the surface is still current — otherwise it awaits `host.fetch(requestedLimit)`.
+ *
+ * `archive` no-ops once the surface has moved on. It awaits `host.archiveSession(...)`; only when that
+ * resolved `true` AND the surface is still current does it await `host.fetch(host.getLimit())` — a
+ * refetch at the SAME limit, so the archived row drops out of the page without changing its size.
+ */
+export function createPastAgentSessionsPager(host: PastAgentSessionsPagerHost): PastAgentSessionsPager {
+	return {
+		more: async (requestedLimit: number): Promise<void> => {
+			if (requestedLimit <= host.getLimit() || host.isLoading() || !host.isCurrent()) return;
+
+			await host.fetch(requestedLimit);
+		},
+		archive: async (sessionId: string, providerId: string): Promise<void> => {
+			if (!host.isCurrent()) return;
+
+			const archived = await host.archiveSession(sessionId, providerId);
+			if (!archived || !host.isCurrent()) return;
+
+			await host.fetch(host.getLimit());
 		},
 	};
 }

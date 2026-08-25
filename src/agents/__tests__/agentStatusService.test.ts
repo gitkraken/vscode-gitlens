@@ -7,7 +7,13 @@ import '../../container.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Container } from '../../container.js';
 import { AgentStatusService } from '../agentStatusService.js';
-import type { AgentSession, AgentSessionProvider } from '../provider.js';
+import type {
+	AgentSession,
+	AgentSessionHistoryItem,
+	AgentSessionHistoryOptions,
+	AgentSessionHistoryResult,
+	AgentSessionProvider,
+} from '../provider.js';
 
 /**
  * Minimal stand-in for the provider contract — only the members {@link AgentStatusService}
@@ -15,14 +21,21 @@ import type { AgentSession, AgentSessionProvider } from '../provider.js';
  * `onDidChangeSessions` path the real provider uses.
  */
 class TestProvider implements AgentSessionProvider {
-	readonly id = 'claudeCode';
-	readonly name = 'Claude Code';
+	readonly name: string;
 	readonly icon = 'robot';
 
 	private readonly _onDidChangeSessions = new Emitter<void>();
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	sessions: AgentSession[] = [];
+	terminalGeneration = 0;
+	history: AgentSessionHistoryResult = { sessions: [], total: 0 };
+	readonly historyExclusions: string[][] = [];
+	archivedSessionIds: string[] = [];
+
+	constructor(readonly id = 'claudeCode') {
+		this.name = id;
+	}
 
 	start(): void {}
 	stop(): void {}
@@ -35,6 +48,63 @@ class TestProvider implements AgentSessionProvider {
 
 	fire(): void {
 		this._onDidChangeSessions.fire();
+	}
+
+	archiveSession(sessionId: string): Promise<boolean> {
+		this.archivedSessionIds.push(sessionId);
+		return Promise.resolve(true);
+	}
+
+	listSessionHistory(_cwd: string, options?: AgentSessionHistoryOptions): Promise<AgentSessionHistoryResult> {
+		this.historyExclusions.push([...(options?.excludeSessionIds ?? [])]);
+		return Promise.resolve(this.history);
+	}
+}
+
+/** A provider whose `listSessionHistory` can mutate `sessions` mid-query (after the exclusion
+ *  snapshot is captured, before the listing resolves) and optionally honors `excludeSessionIds` —
+ *  used to drive the post-settlement live-recheck races in {@link AgentStatusService.getPastSessions}.
+ *  Terminal mutations in `onQuery` must bump {@link terminalGeneration}, per the provider contract. */
+class RaceTestProvider implements AgentSessionProvider {
+	readonly name: string;
+	readonly icon = 'robot';
+
+	private readonly _onDidChangeSessions = new Emitter<void>();
+	readonly onDidChangeSessions = this._onDidChangeSessions.event;
+
+	sessions: AgentSession[] = [];
+	terminalGeneration = 0;
+	history: AgentSessionHistoryItem[] = [];
+	readonly historyExclusions: string[][] = [];
+	/** When true, filters `excludeSessionIds` out of the returned rows like a real provider would.
+	 *  When false, returns every row regardless — exercises the host's own safety-net filter. */
+	excludeAware = false;
+	/** Invoked once per `listSessionHistory` call, after the exclusion set is recorded but before
+	 *  the listing resolves — the hook point for mutating `sessions` mid-query. */
+	onQuery?: () => void;
+
+	constructor(readonly id = 'claudeCode') {
+		this.name = id;
+	}
+
+	start(): void {}
+	stop(): void {}
+	dispose(): void {
+		this._onDidChangeSessions.dispose();
+	}
+	[Symbol.dispose](): void {
+		this.dispose();
+	}
+
+	async listSessionHistory(_cwd: string, options?: AgentSessionHistoryOptions): Promise<AgentSessionHistoryResult> {
+		this.historyExclusions.push([...(options?.excludeSessionIds ?? [])]);
+		await Promise.resolve();
+		this.onQuery?.();
+
+		const excluded = options?.excludeSessionIds;
+		const sessions =
+			this.excludeAware && excluded != null ? this.history.filter(item => !excluded.has(item.id)) : this.history;
+		return { sessions: sessions, total: this.history.length };
 	}
 }
 
@@ -216,6 +286,265 @@ suite('AgentStatusService session snapshot publishing', () => {
 				service.getSerializedSessions().map(s => s.id),
 				['s1', 's2'],
 			);
+		} finally {
+			dispose();
+		}
+	});
+
+	test('does not treat equal ids from different providers as the same snapshot entry', () => {
+		const alpha = new TestProvider('alpha');
+		const beta = new TestProvider('beta');
+		alpha.sessions = [makeSession({ id: 'same', providerId: 'alpha', providerName: 'Alpha' })];
+		beta.sessions = [makeSession({ id: 'same', providerId: 'beta', providerName: 'Beta' })];
+		const service = new AgentStatusService(makeContainer(), [alpha, beta], { registerCommands: false });
+		let publishes = 0;
+		const subscription = service.onDidChangeSessions(() => publishes++);
+		try {
+			alpha.fire();
+			alpha.fire();
+			assert.strictEqual(publishes, 1, 'an unchanged second provider-scoped snapshot stays quiet');
+		} finally {
+			subscription.dispose();
+			service.dispose();
+		}
+	});
+});
+
+suite('AgentStatusService history aggregation', () => {
+	test('scopes live exclusions and equal session ids to their provider', async () => {
+		const alpha = new TestProvider('alpha');
+		const beta = new TestProvider('beta');
+		alpha.sessions = [makeSession({ id: 'same', providerId: 'alpha', providerName: 'Alpha' })];
+		beta.history = {
+			sessions: [
+				{
+					id: 'same',
+					disposition: 'ended',
+					actions: { resume: { cwd: '/repo/worktree' }, archive: true },
+					lastActivity: new Date(1234),
+					lastPrompt: 'beta history',
+				},
+			],
+			total: 1,
+		};
+		const service = new AgentStatusService(makeContainer(), [alpha, beta], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.deepStrictEqual(alpha.historyExclusions, [['same']]);
+			assert.deepStrictEqual(beta.historyExclusions, [[]]);
+			assert.deepStrictEqual(
+				result.sessions.map(session => ({
+					providerId: session.providerId,
+					id: session.id,
+					actions: session.actions,
+				})),
+				[{ providerId: 'beta', id: 'same', actions: { archive: true } }],
+				'the host stamps provider identity and removes actions with no matching provider operation',
+			);
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('drops a session that went live mid-query without retrying', async () => {
+		const provider = new RaceTestProvider();
+		provider.sessions = [makeSession({ id: 'x', status: 'ended' })];
+		provider.history = [{ id: 'x', disposition: 'ended', actions: {}, lastActivity: new Date(1000) }];
+		// Went live while the listing was in flight — the record still describes it as ended.
+		provider.onQuery = () => {
+			provider.sessions = [{ ...provider.sessions[0], status: 'idle' }];
+		};
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				[],
+				'a session that went live mid-query must not surface as past',
+			);
+			assert.strictEqual(
+				provider.historyExclusions.length,
+				1,
+				'went-live is reconciled by the post-settlement drop — no retry needed',
+			);
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('recovers a session that ended mid-query on the retry', async () => {
+		const provider = new RaceTestProvider();
+		provider.excludeAware = true;
+		provider.sessions = [makeSession({ id: 'y', status: 'idle' })];
+		provider.history = [{ id: 'y', disposition: 'ended', actions: {}, lastActivity: new Date(2000) }];
+		// Live at query start (excluded from the first pass), ends while the listing is in flight.
+		provider.onQuery = () => {
+			if (provider.sessions[0].status !== 'ended') {
+				provider.sessions = [{ ...provider.sessions[0], status: 'ended' }];
+				provider.terminalGeneration++;
+			}
+		};
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				['y'],
+				"the retry's fresh exclusions must seat the now-ended session as past",
+			);
+			assert.strictEqual(provider.historyExclusions.length, 2, 'the changed live set triggers one retry');
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('retries until quiescent when sessions keep ending across attempts', async () => {
+		const provider = new RaceTestProvider();
+		provider.excludeAware = true;
+		provider.sessions = [makeSession({ id: 'a', status: 'idle' }), makeSession({ id: 'b', status: 'idle' })];
+		provider.history = [
+			{ id: 'a', disposition: 'ended', actions: {}, lastActivity: new Date(5000) },
+			{ id: 'b', disposition: 'ended', actions: {}, lastActivity: new Date(4000) },
+		];
+		// One session ends during each of the first two attempts — only the third sees quiescence.
+		let queries = 0;
+		provider.onQuery = () => {
+			queries++;
+			if (queries === 1) {
+				provider.sessions = provider.sessions.map(s => (s.id === 'a' ? { ...s, status: 'ended' } : s));
+				provider.terminalGeneration++;
+			} else if (queries === 2) {
+				provider.sessions = provider.sessions.map(s => (s.id === 'b' ? { ...s, status: 'ended' } : s));
+				provider.terminalGeneration++;
+			}
+		};
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.strictEqual(
+				provider.historyExclusions.length,
+				3,
+				'each mid-query ending earns another pass until an attempt sees none',
+			);
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				['a', 'b'],
+				'the quiescent attempt must seat every ended session as past',
+			);
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('recovers a session removed (not retained as ended) mid-query', async () => {
+		const provider = new RaceTestProvider();
+		provider.excludeAware = true;
+		// A legacy-path provider drops terminal rows instead of keeping an `ended` one — the only
+		// trace is the initially-live id vanishing from the live set.
+		provider.sessions = [makeSession({ id: 'r', status: 'idle' })];
+		provider.history = [{ id: 'r', disposition: 'ended', actions: {}, lastActivity: new Date(7000) }];
+		provider.onQuery = () => {
+			if (provider.sessions.length > 0) {
+				provider.sessions = [];
+				provider.terminalGeneration++;
+			}
+		};
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.strictEqual(provider.historyExclusions.length, 2, 'the terminal transition must trigger a retry');
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				['r'],
+				'the retry must surface the removed session as past',
+			);
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('recovers a session born and ended entirely inside the query window', async () => {
+		const provider = new RaceTestProvider();
+		provider.excludeAware = true;
+		// Not tracked at the snapshot — starts AND ends while the listing is in flight, so it is in
+		// neither the exclusion set nor the final live set; only the ended-set diff can see it.
+		provider.sessions = [];
+		provider.onQuery = () => {
+			if (provider.sessions.length === 0) {
+				provider.sessions = [makeSession({ id: 's', status: 'ended' })];
+				provider.history = [{ id: 's', disposition: 'ended', actions: {}, lastActivity: new Date(6000) }];
+				provider.terminalGeneration++;
+			}
+		};
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.strictEqual(provider.historyExclusions.length, 2, 'the new ended id must trigger a retry');
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				['s'],
+				'the retry must surface the born-and-ended session as past',
+			);
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('recovers a session born and removed entirely inside the query window', async () => {
+		const provider = new RaceTestProvider();
+		provider.excludeAware = true;
+		// A legacy-path session that started AND was removed mid-query leaves no row at either
+		// endpoint — only the generation bump (and the transcript it left behind) betray it.
+		provider.sessions = [];
+		provider.onQuery = () => {
+			if (provider.history.length === 0) {
+				provider.history = [{ id: 't', disposition: 'ended', actions: {}, lastActivity: new Date(8000) }];
+				provider.terminalGeneration++;
+			}
+		};
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			const result = await service.getPastSessions('/repo/worktree');
+
+			assert.strictEqual(provider.historyExclusions.length, 2, 'the generation bump must trigger a retry');
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				['t'],
+				'the retry must surface the transcript the removed session left behind',
+			);
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('does not retry when the live set is stable across the query', async () => {
+		const provider = new RaceTestProvider();
+		provider.excludeAware = true;
+		provider.sessions = [makeSession({ id: 'z', status: 'idle' })];
+		provider.history = [{ id: 'z', disposition: 'ended', actions: {}, lastActivity: new Date(3000) }];
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			await service.getPastSessions('/repo/worktree');
+
+			assert.strictEqual(provider.historyExclusions.length, 1, 'a stable live set must not trigger a retry');
+		} finally {
+			service.dispose();
+		}
+	});
+});
+
+suite('AgentStatusService archiveSession', () => {
+	test('routes an untracked past session by provider id', async () => {
+		const { provider, service, dispose } = setup();
+		try {
+			assert.strictEqual(await service.archiveSession('past-session', 'claudeCode'), true);
+			assert.deepStrictEqual(provider.archivedSessionIds, ['past-session']);
 		} finally {
 			dispose();
 		}

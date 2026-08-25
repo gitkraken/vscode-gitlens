@@ -164,9 +164,10 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
+type DeferredSubService<K extends keyof GraphServices> = Remote<GraphServices>[K];
 
 export interface ResolvedServices {
-	readonly agents: ResolvedSubService<'agents'>;
+	readonly agents: DeferredSubService<'agents'>;
 	readonly files: ResolvedSubService<'files'>;
 	readonly drafts: ResolvedSubService<'drafts'>;
 	readonly graphInspect: ResolvedSubService<'graphInspect'>;
@@ -186,8 +187,8 @@ export interface ResolvedServices {
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
 	readonly wip: Resource<{ wip: Wip } | undefined, [string, boolean?]>;
-	/** Past (resumable) agent sessions for a worktree — top-3, keyed on `worktreePath`. */
-	readonly pastAgentSessions: Resource<PastAgentSessionsResult | undefined, [string]>;
+	/** Past (resumable) agent sessions for a worktree, keyed on `worktreePath` + cumulative limit. */
+	readonly pastAgentSessions: Resource<PastAgentSessionsResult | undefined, [string, number?]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<

@@ -2,7 +2,11 @@ import * as assert from 'assert';
 import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { ClaudeCodeProvider } from '../providers/claudeCodeProvider.js';
-import type { TranscriptTitles } from '../providers/claudeCodeTranscript.js';
+import type {
+	ResumableTranscriptSessionListing,
+	TranscriptSessionListing,
+	TranscriptTitles,
+} from '../providers/claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from '../providers/claudeCodeTranscript.js';
 import type { AgentProviderCallbacks, AgentSession, IpcRegistrar } from '../types.js';
 
@@ -22,13 +26,16 @@ interface MockCallbacks {
 function createMockCallbacks(options?: {
 	resolveGitInfo?: AgentProviderCallbacks['resolveGitInfo'];
 	openSessionInClaudeExtension?: AgentProviderCallbacks['openSessionInClaudeExtension'];
+	resumeSession?: AgentProviderCallbacks['resumeSession'];
 	getActivityDecayMs?: AgentProviderCallbacks['getActivityDecayMs'];
 	port?: number;
 	agentDiscoveryDir?: string;
 	cliResponse?: string;
+	archivedCliResponse?: string;
 	liveAgentSessions?: {
 		sessionId: string;
 		pid?: number;
+		cwd?: string;
 		kind?: string;
 		status?: string;
 		state?: string;
@@ -60,10 +67,12 @@ function createMockCallbacks(options?: {
 		ipc: ipc,
 		runCLICommand: (args: string[]) => {
 			cliCalls.push([...args]);
+			if (args.includes('archived')) return Promise.resolve(options?.archivedCliResponse ?? '[]');
 			return Promise.resolve(options?.cliResponse ?? '[]');
 		},
 		resolveGitInfo: options?.resolveGitInfo,
 		openSessionInClaudeExtension: options?.openSessionInClaudeExtension,
+		resumeSession: options?.resumeSession,
 		onSyncDiscrepancy: info => {
 			syncDiscrepancies.push(info);
 		},
@@ -1647,6 +1656,36 @@ class StubTranscriptReader extends ClaudeCodeTranscriptReader {
 	}
 }
 
+/** Listing stub for exercising the provider's merge of exact-directory and CLI-attributed history. */
+class StubListingTranscriptReader extends ClaudeCodeTranscriptReader {
+	direct: TranscriptSessionListing = { sessions: [], total: 0 };
+	recovered: ResumableTranscriptSessionListing = { sessions: [], total: 0 };
+	readonly listCalls: {
+		cwd: string;
+		options?: { limit?: number; excludeSessionIds?: ReadonlySet<string> };
+	}[] = [];
+	readonly listByIdsCalls: {
+		sessionIds: Set<string>;
+		options?: { limit?: number; excludeCwd?: string };
+	}[] = [];
+
+	override listSessions(
+		cwd: string,
+		options?: { limit?: number; excludeSessionIds?: ReadonlySet<string> },
+	): Promise<TranscriptSessionListing> {
+		this.listCalls.push({ cwd: cwd, options: options });
+		return Promise.resolve(this.direct);
+	}
+
+	override listSessionsByIds(
+		sessionIds: ReadonlySet<string>,
+		options?: { limit?: number; excludeCwd?: string },
+	): Promise<ResumableTranscriptSessionListing> {
+		this.listByIdsCalls.push({ sessionIds: new Set(sessionIds), options: options });
+		return Promise.resolve(this.recovered);
+	}
+}
+
 /** Provider variant that lets tests swap the transcript reader and drive a gated poll tick. */
 class TestProvider extends ClaudeCodeProvider {
 	constructor(callbacks: AgentProviderCallbacks, reader: ClaudeCodeTranscriptReader) {
@@ -1991,6 +2030,24 @@ suite('ClaudeCodeProvider ended sessions', () => {
 		}
 	});
 
+	test('SessionEnd bumps terminalGeneration even for an untracked session', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			const before = provider.terminalGeneration;
+
+			// Never tracked (no SessionStart) — pruned/removed, or ended before this window saw it.
+			// The session still finalized a transcript, so an in-flight history query must retry.
+			await handler(sessionEnd('never-tracked'), new URLSearchParams());
+
+			assert.ok(provider.terminalGeneration > before, 'an untracked SessionEnd is still a terminal transition');
+		} finally {
+			provider.dispose();
+		}
+	});
+
 	test('an ended session takes worktreePath from the CLI record without a git probe', async () => {
 		let gitInfoCalls = 0;
 		const { callbacks } = createMockCallbacks({
@@ -2012,6 +2069,138 @@ suite('ClaudeCodeProvider ended sessions', () => {
 			const s = provider.sessions.find(x => x.id === 'wt');
 			assert.strictEqual(s?.worktreePath, REPO, 'worktreePath comes straight from the record');
 			assert.strictEqual(gitInfoCalls, 0, 'no git probe when the record already carries the worktree');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('merges CLI-attributed transcripts left in another project directory with the correct resume cwd', async () => {
+		const otherWorktree = '/home/user/projectA.worktrees/other';
+		const transcriptCwd = '/home/user/projectA.worktrees/origin';
+		const excludedIds = new Set(['hidden']);
+		const reader = new StubListingTranscriptReader();
+		reader.direct = {
+			sessions: [
+				{
+					sessionId: 'legacy',
+					path: '/transcripts/current/legacy.jsonl',
+					lastActivityMs: 1000,
+					size: 10,
+					titles: { ai: 'Legacy' },
+				},
+			],
+			total: 2,
+		};
+		reader.recovered = {
+			sessions: [
+				{
+					sessionId: 'moved',
+					path: '/transcripts/origin/moved.jsonl',
+					cwd: transcriptCwd,
+					lastActivityMs: 2000,
+					size: 10,
+					titles: { ai: 'Moved' },
+				},
+			],
+			total: 1,
+		};
+
+		const { callbacks } = createMockCallbacks({
+			resumeSession: () => Promise.resolve('terminal'),
+			cliResponse: JSON.stringify([
+				endedRecord('moved', {
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
+				}),
+				endedRecord('hidden', {
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
+				}),
+				endedRecord('other', {
+					cwd: otherWorktree,
+					cwdTimeline: [{ cwd: otherWorktree, worktree: otherWorktree, at: ENDED_AT }],
+				}),
+			]),
+		});
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const result = await provider.listSessionHistory(REPO, {
+				limit: 1,
+				excludeSessionIds: excludedIds,
+			});
+
+			assert.deepStrictEqual(
+				[...reader.listByIdsCalls[0].sessionIds],
+				['moved'],
+				'only non-excluded ended sessions attributed to this worktree are globally recovered',
+			);
+			assert.deepStrictEqual(reader.listByIdsCalls[0].options, { limit: 1, excludeCwd: REPO });
+			assert.strictEqual(result.total, 3, 'direct and recovered transcript totals are combined');
+			assert.deepStrictEqual(
+				result.sessions.map(session => ({ id: session.id, cwd: session.actions.resume?.cwd })),
+				[{ id: 'moved', cwd: transcriptCwd }],
+				'the merged limit is applied by recency and preserves the transcript project cwd',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('keeps a tracked ended record manageable when no transcript can be summarized', async () => {
+		const reader = new StubListingTranscriptReader();
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				endedRecord('missing-transcript', {
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
+				}),
+			]),
+		});
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const result = await provider.listSessionHistory(REPO);
+
+			assert.strictEqual(result.total, 1);
+			assert.deepStrictEqual(
+				result.sessions.map(session => session.id),
+				['missing-transcript'],
+			);
+			assert.deepStrictEqual(
+				result.sessions[0].actions,
+				{ archive: true },
+				'a missing transcript removes Resume without hiding the terminal record or Archive',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('owns archive filtering and capability discovery inside the provider', async () => {
+		const reader = new StubListingTranscriptReader();
+		reader.direct = {
+			sessions: [
+				{
+					sessionId: 'archived',
+					path: '/transcripts/current/archived.jsonl',
+					lastActivityMs: 1000,
+					size: 10,
+					titles: { ai: 'Archived' },
+				},
+			],
+			total: 1,
+		};
+		const { callbacks } = createMockCallbacks({
+			archivedCliResponse: JSON.stringify([endedRecord('archived')]),
+		});
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			const result = await provider.listSessionHistory(REPO);
+
+			assert.ok(reader.listCalls[0].options?.excludeSessionIds?.has('archived'));
+			assert.deepStrictEqual(result.sessions, [], 'archived history stays out of the ordinary Past list');
 		} finally {
 			provider.dispose();
 		}
@@ -2055,6 +2244,53 @@ suite('ClaudeCodeProvider ended sessions', () => {
 		}
 	});
 
+	test('a live listing cwd re-seats a stale ended record on discovery and later polls', async () => {
+		const oldWorktree = `${REPO}.worktrees/old`;
+		const liveWorktree = `${REPO}.worktrees/live`;
+		const resolvedCwds: string[] = [];
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				endedRecord('resumed', {
+					cwd: oldWorktree,
+					cwdTimeline: [{ cwd: oldWorktree, worktree: oldWorktree, at: ENDED_AT }],
+				}),
+			]),
+			liveAgentSessions: [
+				{
+					sessionId: 'resumed',
+					pid: process.pid,
+					cwd: liveWorktree,
+					kind: 'interactive',
+				},
+			],
+			resolveGitInfo: cwd => {
+				resolvedCwds.push(cwd);
+				return Promise.resolve({ repoRoot: REPO, worktreePath: liveWorktree, isWorktree: true });
+			},
+		});
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([liveWorktree]);
+			await flushMicrotasks();
+
+			let session = provider.sessions.find(s => s.id === 'resumed');
+			assert.notStrictEqual(session?.status, 'ended', "Claude's live listing revives the session");
+			assert.strictEqual(session?.cwd, liveWorktree, "the listing's current cwd wins over stale history");
+			assert.strictEqual(session?.worktreePath, liveWorktree, 'git resolves the current worktree');
+			assert.strictEqual(session?.workspacePath, liveWorktree);
+			assert.deepStrictEqual(resolvedCwds, [liveWorktree], 'only the live cwd is probed');
+
+			await provider.runGatedSync();
+			await flushMicrotasks();
+
+			session = provider.sessions.find(s => s.id === 'resumed');
+			assert.strictEqual(session?.cwd, liveWorktree, 'a later stale-record poll cannot move the row back');
+			assert.strictEqual(session?.worktreePath, liveWorktree);
+		} finally {
+			provider.dispose();
+		}
+	});
+
 	test('poll transitions a tracked live session to ended when the CLI reports it ended', async () => {
 		const options: { cliResponse?: string } = { cliResponse: '[]' };
 		const { callbacks, handlers } = createMockCallbacks(options);
@@ -2077,6 +2313,44 @@ suite('ClaudeCodeProvider ended sessions', () => {
 				'ended',
 				'the poll must reap a live-pid zombie the live path missed',
 			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll never moves lastActivity backward when ending off a stale durable record', async () => {
+		// The CLI's `ended` record can predate activity this window already observed — a same-cwd
+		// resume the CLI hasn't rewritten the record for yet. The transition must clock off whichever
+		// is later, not blindly trust the record's `endedAt`.
+		const options: { cliResponse?: string } = { cliResponse: '[]' };
+		const { callbacks, handlers } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('live', REPO), new URLSearchParams());
+
+			// Advance the tracked row's clock past the record's endedAt.
+			const laterActivity = new Date(new Date(ENDED_AT).getTime() + 60_000);
+			const tracked = provider.sessions.find(s => s.id === 'live')!;
+			(tracked as { lastActivity: Date }).lastActivity = laterActivity;
+
+			// The live path missed SessionEnd; the CLI now reports it ended off the stale (earlier) record.
+			options.cliResponse = JSON.stringify([
+				endedRecord('live', { pid: process.pid, event: 'UserPromptSubmit' }),
+			]);
+			await provider.runGatedSync();
+
+			const s = provider.sessions.find(x => x.id === 'live');
+			assert.ok(s != null, 'the session must survive the transition');
+			assert.strictEqual(s.status, 'ended');
+			assert.strictEqual(
+				s.lastActivity.getTime(),
+				laterActivity.getTime(),
+				"the record's endedAt must never move the row's clock backward",
+			);
+			assert.strictEqual(s.phaseSince.getTime(), laterActivity.getTime());
 		} finally {
 			provider.dispose();
 		}
@@ -2592,7 +2866,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('getArchivedSessionIds issues the archived status query and returns session ids', async () => {
 		const { callbacks, cliCalls } = createMockCallbacks({
-			cliResponse: JSON.stringify([endedRecord('archived-1'), endedRecord('archived-2')]),
+			archivedCliResponse: JSON.stringify([endedRecord('archived-1'), endedRecord('archived-2')]),
 		});
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {
@@ -2626,7 +2900,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('getArchivedSessionIds caches the archived query across concurrent and repeated calls', async () => {
 		const { callbacks, cliCalls } = createMockCallbacks({
-			cliResponse: JSON.stringify([endedRecord('archived-1')]),
+			archivedCliResponse: JSON.stringify([endedRecord('archived-1')]),
 		});
 		const provider = new ClaudeCodeProvider(callbacks);
 		try {

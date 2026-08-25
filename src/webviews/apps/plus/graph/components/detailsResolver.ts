@@ -5,16 +5,18 @@ import type {
 	GraphServices,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import { initialPastAgentSessionLimit } from '../../../shared/agentUtils.js';
 import { createResource } from '../../../shared/state/resource.js';
 import type { DetailsResources, ResolvedServices } from './detailsActions.js';
 import { DetailsActions } from './detailsActions.js';
 import type { DetailsState } from './detailsState.js';
 
 /**
- * Resolves all remote sub-services for the Graph Details panel, wraps them into the
- * `DetailsResources` bag of RPC-backed resources, and constructs the `DetailsActions`
- * orchestrator. The Lit element that mounts the panel should call this and then kick
- * off initial fetches — service resolution itself is not an element concern.
+ * Resolves the remote sub-services needed for the Graph Details panel's initial state,
+ * wraps them into the `DetailsResources` bag of RPC-backed resources, and constructs the
+ * `DetailsActions` orchestrator. The Agents service remains deferred until agent history
+ * is fetched. The Lit element that mounts the panel should call this and then kick off
+ * initial fetches — service resolution itself is not an element concern.
  *
  * Keeping this out of the element keeps the component focused on render routing and
  * lifecycle, and makes the resource wiring reviewable in isolation.
@@ -23,8 +25,8 @@ export async function resolveDetailsActions(
 	services: Remote<GraphServices>,
 	state: DetailsState,
 ): Promise<DetailsActions> {
+	const agents = services.agents;
 	const [
-		agents,
 		files,
 		drafts,
 		graphInspect,
@@ -40,7 +42,6 @@ export async function resolveDetailsActions(
 		ai,
 		telemetry,
 	] = await Promise.all([
-		services.agents,
 		services.files,
 		services.drafts,
 		services.graphInspect,
@@ -82,8 +83,11 @@ export async function resolveDetailsActions(
 		wip: createResource((signal, repoPath: string, force?: boolean) =>
 			graphInspect.getWip(repoPath, signal, force),
 		),
-		pastAgentSessions: createResource((signal, worktreePath: string) =>
-			agents.getPastSessionsForWorktree(worktreePath, { limit: 3 }, signal),
+		pastAgentSessions: createResource(
+			async (signal, worktreePath: string, limit = initialPastAgentSessionLimit) => {
+				const service = await agents;
+				return service.getPastSessionsForWorktree(worktreePath, { limit: limit }, signal);
+			},
 		),
 		compare: createResource((signal, repoPath: string, fromSha: string, toSha: string) =>
 			graphInspect.getCompareDiff(repoPath, fromSha, toSha, signal),

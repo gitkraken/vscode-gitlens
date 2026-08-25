@@ -7,9 +7,10 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
-import { normalizePath } from '@gitlens/utils/path.js';
+import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionProvider } from '../../agents/provider.js';
-import { tryOpenClaudeSession } from '../../agents/utils/-webview/claudeExtension.js';
+import { isClaudeExtensionAvailable, tryOpenClaudeSession } from '../../agents/utils/-webview/claudeExtension.js';
+import { resumeClaudeSessionInTerminal } from '../../agents/utils/-webview/claudeResume.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
@@ -154,6 +155,16 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				if (!(await tryOpenClaudeSession(sessionId))) {
 					throw new Error('Claude Code extension did not respond to any open command');
 				}
+			},
+			resumeSession: async (sessionId, cwd, target, name) => {
+				const useExtension =
+					target === 'default' &&
+					(workspace.workspaceFolders ?? []).some(folder => arePathsEqual(folder.uri.fsPath, cwd)) &&
+					(await isClaudeExtensionAvailable());
+				if (useExtension && (await tryOpenClaudeSession(sessionId))) return 'extension';
+
+				await resumeClaudeSessionInTerminal({ id: sessionId, cwd: cwd, name: name }, container);
+				return 'terminal';
 			},
 			resolveGitInfo: async cwd => {
 				// Fast path: cwd is in an already-loaded repo — fully synchronous, no shell calls.

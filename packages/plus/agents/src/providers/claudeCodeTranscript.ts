@@ -1,7 +1,7 @@
 import { createReadStream } from 'fs';
-import { open, readdir, stat } from 'fs/promises';
+import { open, readdir, readFile, stat } from 'fs/promises';
 import { homedir } from 'os';
-import { basename, join } from 'path';
+import { basename, dirname, join } from 'path';
 import { createInterface } from 'readline';
 
 export interface TranscriptTitles {
@@ -31,6 +31,17 @@ export interface TranscriptSessionListing {
 	readonly total: number;
 }
 
+/** A transcript found outside the queried cwd's project directory, plus the directory Claude
+ *  actually uses to resolve it for `--resume`. */
+export interface ResumableTranscriptSessionSummary extends TranscriptSessionSummary {
+	readonly cwd: string;
+}
+
+export interface ResumableTranscriptSessionListing {
+	readonly sessions: ResumableTranscriptSessionSummary[];
+	readonly total: number;
+}
+
 export interface EndedTranscriptDetails {
 	titles: TranscriptTitles;
 	firstPrompt?: string;
@@ -50,7 +61,13 @@ interface ListingCacheEntry {
 	resolvedAt: number;
 }
 
+interface NameCacheEntry {
+	names: string[];
+	resolvedAt: number;
+}
+
 interface SummaryCacheEntry {
+	path: string;
 	mtimeMs: number;
 	size: number;
 	summary: TranscriptSessionSummary;
@@ -72,12 +89,12 @@ const summaryWindowSize = 64 * 1024;
  *  Time-based rather than dir-mtime-based because appends move file mtimes without touching the dir. */
 const listingCacheTtlMs = 10 * 1000;
 /** Summaries are keyed by session, and a busy project has hundreds — unlike the per-live-session
- *  title cache, this needs a ceiling. */
-const summaryCacheLimit = 200;
+ *  title cache, this needs a ceiling. Sized to hold a whole junk-heavy store: the listing scan runs
+ *  to exhaustion, and each entry is tiny (a path plus a few short strings), so a cap below the
+ *  store's size would evict-and-re-read the junk tail on every listing instead of paying its
+ *  windowed reads once. */
+const summaryCacheLimit = 1000;
 const defaultListLimit = 50;
-/** How far past `limit` the top-up scan may read when transcripts turn out empty — a junk-filled
- *  store reads at most `limit + listScanSlack` summaries, staying well under {@link summaryCacheLimit}. */
-const listScanSlack = 25;
 
 /**
  * Reads Claude Code transcript JSONL files at `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`
@@ -95,9 +112,33 @@ export class ClaudeCodeTranscriptReader {
 	private readonly _cache = new Map<string, CacheEntry>();
 	private readonly _generations = new Map<string, number>();
 	private readonly _listings = new Map<string, ListingCacheEntry>();
+	/** Transcript file names per project directory — the readdir behind both the plain listing and
+	 *  the by-id scan, which sweeps every project directory. */
+	private readonly _names = new Map<string, NameCacheEntry>();
+	/** Project directories under {@link getProjectsRoot}, re-scanned by every by-id recovery. */
+	private _projectDirs: { dirs: string[]; resolvedAt: number } | undefined;
 	/** Insertion-ordered LRU — re-inserted on hit, oldest key evicted past {@link summaryCacheLimit}. */
 	private readonly _summaries = new Map<string, SummaryCacheEntry>();
+	/** Resolved project path per transcript path, bounded like {@link _summaries}. */
+	private readonly _transcriptCwds = new Map<string, string>();
 	private _nextGen = 0;
+	/** Bumped by {@link invalidateListings}; async listing scans capture it at entry and skip their
+	 *  cache write when it moved, so a stale in-flight result can't re-seed a just-cleared cache. */
+	private _listingGen = 0;
+
+	/** Drops the directory-listing caches (entries, names, project dirs) so the next listing re-reads
+	 *  the store. Called when a session ends or is removed: its transcript may have appeared inside
+	 *  the TTL window, and a cached listing would hide the new file from the very fetch meant to
+	 *  surface it. Summary and cwd caches are keyed by file identity and stay valid, so they're kept.
+	 *  The generation bump makes any in-flight listing skip its own cache write — otherwise a scan
+	 *  started before the invalidation would re-seed the caches with pre-end results, freshly
+	 *  timestamped (same discipline as `resolve`'s per-session generations). */
+	invalidateListings(): void {
+		this._listingGen++;
+		this._listings.clear();
+		this._names.clear();
+		this._projectDirs = undefined;
+	}
 
 	async resolve(sessionId: string, cwd: string | undefined): Promise<TranscriptTitles | undefined> {
 		const gen = ++this._nextGen;
@@ -210,16 +251,17 @@ export class ClaudeCodeTranscriptReader {
 
 	/**
 	 * Lists the transcripts of sessions whose working directory is `cwd`, most-recently-active first,
-	 * summarizing until `limit` summarizable transcripts are found (bounded by a small scan slack) —
-	 * not just the first `limit` on disk, since junk transcripts (dropped below) would otherwise starve
-	 * the result. `excludeSessionIds` is skipped before `limit` applies, and excluded entries are also
-	 * dropped from `total` — they're already shown elsewhere (e.g. as live sessions), so a caller's
-	 * "N of M" count must not double-count them.
+	 * summarizing until `limit` summarizable transcripts are found — not just the first `limit` on
+	 * disk, since junk transcripts (dropped below) would otherwise starve the result.
+	 * `excludeSessionIds` is skipped before `limit` applies, and excluded entries are also dropped
+	 * from `total` — they're already shown elsewhere (e.g. as live sessions), so a caller's "N of M"
+	 * count must not double-count them.
 	 *
-	 * Claude homes a transcript under the directory encoding the session's *current* cwd, migrating the
-	 * file if the session `cd`s — so this directory is exactly the set `claude --resume <id>` can find
-	 * when invoked from `cwd`, and every entry is resumable from there. The transcripts' own recorded
-	 * `cwd` is per-message and lags the move, so it must NOT be used to filter; the directory decides.
+	 * Claude homes a transcript under the directory encoding the cwd from which the session started.
+	 * That directory is authoritative for where `claude --resume <id>` can find the transcript, but
+	 * Claude does not reliably move it when the session later changes worktrees. Callers that have a
+	 * durable session-to-worktree association can recover those moved sessions with
+	 * {@link listSessionsByIds}; this method intentionally remains the cheap legacy directory listing.
 	 *
 	 * Discovery (readdir + stat) covers the whole directory and is cheap; summarizing is not, so it's
 	 * capped. Entries whose summary yields neither a title nor a prompt are dropped — those are aborted
@@ -237,37 +279,51 @@ export class ClaudeCodeTranscriptReader {
 
 		const limit = options?.limit ?? defaultListLimit;
 		const exclude = options?.excludeSessionIds;
-		const candidates = exclude?.size ? entries.filter(e => !exclude.has(e.sessionId)) : entries;
+		// Zero-byte transcripts can never summarize — skip the read entirely and keep them out of
+		// `total`, which otherwise counts sessions no `limit` could ever surface.
+		const candidates = entries.filter(e => e.size > 0 && exclude?.has(e.sessionId) !== true);
+		const { sessions, exhausted } = await this.collectSessions(candidates, limit, async entry => {
+			const summary = await this.resolveSummary(entry);
+			return summary != null && hasSummaryContent(summary) ? summary : undefined;
+		});
 
-		const sessions: TranscriptSessionSummary[] = [];
-		const pushSummaries = (settled: PromiseSettledResult<TranscriptSessionSummary | undefined>[]): void => {
-			for (const result of settled) {
-				if (result.status !== 'fulfilled') continue;
+		// An exhausted scan proved the exact valid count; otherwise unscanned candidates keep
+		// `total` an upper bound so paging knows more MAY exist.
+		return { sessions: sessions, total: exhausted ? sessions.length : candidates.length };
+	}
 
-				const summary = result.value;
-				if (summary == null || !hasSummaryContent(summary)) continue;
+	/**
+	 * Finds a known set of session ids across every Claude project directory except `excludeCwd`'s.
+	 * This is the recovery path for durable CLI records whose worktree changed after Claude chose the
+	 * transcript's project directory. The caller supplies the association; transcript contents alone
+	 * are deliberately not used to guess which current worktree owns an arbitrary old session.
+	 *
+	 * Each result carries the project path encoded by the directory that actually holds the transcript,
+	 * so resuming it does not repeat discovery from the wrong worktree. Duplicate ids are counted once,
+	 * with the newest transcript winning.
+	 */
+	async listSessionsByIds(
+		sessionIds: ReadonlySet<string>,
+		options?: { limit?: number; excludeCwd?: string },
+	): Promise<ResumableTranscriptSessionListing> {
+		if (sessionIds.size === 0) return { sessions: [], total: 0 };
 
-				sessions.push(summary);
-			}
-		};
+		const excludeDir = await this.resolveProjectDir(options?.excludeCwd);
+		// Same zero-byte drop as `listSessions` — see the rationale there.
+		const entries = (await this.listEntriesByIds(sessionIds, excludeDir)).filter(e => e.size > 0);
+		if (entries.length === 0) return { sessions: [], total: 0 };
 
-		// limit <= 0 means "no ceiling" — summarize every candidate.
-		if (limit <= 0) {
-			pushSummaries(await Promise.allSettled(candidates.map(e => this.resolveSummary(e))));
-			return { sessions: sessions, total: candidates.length };
-		}
+		const limit = options?.limit ?? defaultListLimit;
+		const { sessions, exhausted } = await this.collectSessions(entries, limit, async entry => {
+			const summary = await this.resolveSummary(entry);
+			if (summary == null || !hasSummaryContent(summary)) return undefined;
 
-		const ceiling = Math.min(candidates.length, limit + listScanSlack);
-		let cursor = 0;
-		while (sessions.length < limit && cursor < ceiling) {
-			// Clamped to the remaining ceiling budget too — a run of junk entries must not let a
-			// need-sized batch read past `limit + listScanSlack`.
-			const batch = candidates.slice(cursor, cursor + Math.min(limit - sessions.length, ceiling - cursor));
-			cursor += batch.length;
-			pushSummaries(await Promise.allSettled(batch.map(e => this.resolveSummary(e))));
-		}
+			const cwd = await this.resolveTranscriptCwd(entry);
+			return cwd != null ? { ...summary, cwd: cwd } : undefined;
+		});
 
-		return { sessions: sessions, total: candidates.length };
+		// Exhausted scans prove the exact count — see `listSessions`.
+		return { sessions: sessions, total: exhausted ? sessions.length : entries.length };
 	}
 
 	/** Discovers every transcript in `dir`, newest first. The directory also holds one sibling
@@ -277,14 +333,27 @@ export class ClaudeCodeTranscriptReader {
 		const cached = this._listings.get(dir);
 		if (cached != null && Date.now() - cached.resolvedAt < listingCacheTtlMs) return cached.entries;
 
+		const gen = this._listingGen;
 		let names: string[];
 		try {
-			const dirents = await readdir(dir, { withFileTypes: true });
-			names = dirents.filter(d => d.isFile() && d.name.endsWith('.jsonl')).map(d => d.name);
+			names = await this.listTranscriptNames(dir);
 		} catch {
 			return [];
 		}
 
+		const entries = (await this.statEntries(dir, names)).sort((a, b) => b.lastActivityMs - a.lastActivityMs);
+
+		if (gen === this._listingGen) {
+			this._listings.set(dir, { entries: entries, resolvedAt: Date.now() });
+		}
+
+		return entries;
+	}
+
+	/** Stats `names` in `dir`, dropping the ones that failed — a transcript can vanish (or be
+	 *  archived) between the readdir and the stat. Unsorted; callers order as they need.
+	 *  Protected (like {@link readSummary}) so tests can interleave against the listing flow. */
+	protected async statEntries(dir: string, names: string[]): Promise<TranscriptSessionEntry[]> {
 		const settled = await Promise.allSettled(
 			names.map(async (name): Promise<TranscriptSessionEntry> => {
 				const path = join(dir, name);
@@ -298,19 +367,145 @@ export class ClaudeCodeTranscriptReader {
 			}),
 		);
 
-		const entries = settled
-			.filter(r => r.status === 'fulfilled')
-			.map(r => r.value)
-			.sort((a, b) => b.lastActivityMs - a.lastActivityMs);
+		return settled.filter(r => r.status === 'fulfilled').map(r => r.value);
+	}
 
-		this._listings.set(dir, { entries: entries, resolvedAt: Date.now() });
-		return entries;
+	/** The `.jsonl` file names in `dir`, cached for {@link listingCacheTtlMs}. Failures propagate
+	 *  uncached: an unreadable directory means different things to different callers, and the next
+	 *  call must be free to get a real answer. */
+	private async listTranscriptNames(dir: string): Promise<string[]> {
+		const cached = this._names.get(dir);
+		if (cached != null && Date.now() - cached.resolvedAt < listingCacheTtlMs) return cached.names;
+
+		const gen = this._listingGen;
+		const dirents = await readdir(dir, { withFileTypes: true });
+		const names = dirents.filter(d => d.isFile() && d.name.endsWith('.jsonl')).map(d => d.name);
+		if (gen === this._listingGen) {
+			this._names.set(dir, { names: names, resolvedAt: Date.now() });
+		}
+
+		return names;
+	}
+
+	/** Every project directory under the projects root, cached for {@link listingCacheTtlMs} — a
+	 *  by-id recovery sweeps all of them, once per queried worktree. */
+	private async listProjectDirs(): Promise<string[]> {
+		const cached = this._projectDirs;
+		if (cached != null && Date.now() - cached.resolvedAt < listingCacheTtlMs) return cached.dirs;
+
+		const gen = this._listingGen;
+		const root = this.getProjectsRoot();
+		const dirents = await readdir(root, { withFileTypes: true });
+		const dirs = dirents.filter(d => d.isDirectory()).map(d => join(root, d.name));
+		if (gen === this._listingGen) {
+			this._projectDirs = { dirs: dirs, resolvedAt: Date.now() };
+		}
+
+		return dirs;
+	}
+
+	/** Scans project directory names once, then stats only requested transcript ids. */
+	private async listEntriesByIds(
+		sessionIds: ReadonlySet<string>,
+		excludeDir: string | undefined,
+	): Promise<TranscriptSessionEntry[]> {
+		let idsToFind = sessionIds;
+		if (excludeDir != null) {
+			try {
+				const names = await this.listTranscriptNames(excludeDir);
+				const idsInExcludedDir = new Set(names.map(name => basename(name, '.jsonl')));
+				idsToFind = new Set([...sessionIds].filter(id => !idsInExcludedDir.has(id)));
+				if (idsToFind.size === 0) return [];
+			} catch {
+				// If the exact directory can't be inspected, don't risk returning a duplicate from a
+				// stale transcript copy elsewhere. The ordinary listing still owns the exact path.
+				return [];
+			}
+		}
+
+		let dirs: string[];
+		try {
+			dirs = await this.listProjectDirs();
+		} catch (ex) {
+			if (!isMissingEntry(ex)) throw ex;
+
+			return [];
+		}
+
+		const settledDirs = await Promise.allSettled(
+			dirs.map(async dir => {
+				if (dir === excludeDir) return [];
+
+				const names = (await this.listTranscriptNames(dir)).filter(name =>
+					idsToFind.has(basename(name, '.jsonl')),
+				);
+				return this.statEntries(dir, names);
+			}),
+		);
+
+		const bySessionId = new Map<string, TranscriptSessionEntry>();
+		for (const settledDir of settledDirs) {
+			if (settledDir.status !== 'fulfilled') continue;
+
+			for (const entry of settledDir.value) {
+				const existing = bySessionId.get(entry.sessionId);
+				if (existing == null || entry.lastActivityMs > existing.lastActivityMs) {
+					bySessionId.set(entry.sessionId, entry);
+				}
+			}
+		}
+
+		return [...bySessionId.values()].sort((a, b) => b.lastActivityMs - a.lastActivityMs);
+	}
+
+	/** `exhausted` reports whether every candidate was scanned — an exhausted scan has proven the
+	 *  exact valid count, so callers can report it instead of an upper bound that would keep a
+	 *  "Show More" affordance alive with nothing left to show. */
+	private async collectSessions<T>(
+		candidates: readonly TranscriptSessionEntry[],
+		limit: number,
+		resolve: (entry: TranscriptSessionEntry) => Promise<T | undefined>,
+	): Promise<{ sessions: T[]; exhausted: boolean }> {
+		const sessions: T[] = [];
+		const pushResolved = (settled: PromiseSettledResult<T | undefined>[]): void => {
+			for (const result of settled) {
+				if (result.status !== 'fulfilled' || result.value == null) continue;
+
+				sessions.push(result.value);
+			}
+		};
+
+		// limit <= 0 means "no ceiling" — resolve every candidate.
+		if (limit <= 0) {
+			pushResolved(await Promise.allSettled(candidates.map(resolve)));
+			return { sessions: sessions, exhausted: true };
+		}
+
+		// Scans until `limit` results or the candidates run out — a fixed scan ceiling would let a run
+		// of junk transcripts hide every older real session behind it (and the picker then claims there
+		// are none at all). The cost stays bounded: callers pre-drop zero-byte candidates read-free, and
+		// a junk summary is windowed, tiny, and LRU-cached, so the sweep is paid in syscalls, once.
+		let cursor = 0;
+		while (sessions.length < limit && cursor < candidates.length) {
+			// Batched by remaining need so a hit-rich head stops the scan early instead of resolving
+			// every candidate up front.
+			const batch = candidates.slice(cursor, cursor + (limit - sessions.length));
+			cursor += batch.length;
+			pushResolved(await Promise.allSettled(batch.map(resolve)));
+		}
+
+		return { sessions: sessions, exhausted: cursor >= candidates.length };
 	}
 
 	/** Summarizes one transcript, reusing the cached result while its mtime and size are unchanged. */
 	private async resolveSummary(entry: TranscriptSessionEntry): Promise<TranscriptSessionSummary | undefined> {
 		const cached = this._summaries.get(entry.sessionId);
-		if (cached != null && cached.mtimeMs === entry.lastActivityMs && cached.size === entry.size) {
+		if (
+			cached != null &&
+			cached.path === entry.path &&
+			cached.mtimeMs === entry.lastActivityMs &&
+			cached.size === entry.size
+		) {
 			// Refresh recency for the LRU.
 			this._summaries.delete(entry.sessionId);
 			this._summaries.set(entry.sessionId, cached);
@@ -325,6 +520,7 @@ export class ClaudeCodeTranscriptReader {
 		}
 
 		this._summaries.set(entry.sessionId, {
+			path: entry.path,
 			mtimeMs: entry.lastActivityMs,
 			size: entry.size,
 			summary: summary,
@@ -336,6 +532,68 @@ export class ClaudeCodeTranscriptReader {
 			}
 		}
 		return summary;
+	}
+
+	/** Recovers the project path represented by the transcript's containing directory. A resolved
+	 *  answer is cached: it's a line-scan of the whole transcript, and the directory holding a given
+	 *  path never changes. A miss isn't cached — a `cwd` line can still land on append. */
+	private async resolveTranscriptCwd(entry: TranscriptSessionEntry): Promise<string | undefined> {
+		const cached = this._transcriptCwds.get(entry.path);
+		if (cached != null) return cached;
+
+		const projectDir = dirname(entry.path);
+		const projectDirName = basename(projectDir);
+		const matchesProjectDir = (cwd: string): boolean =>
+			encodeProjectDirName(cwd).toLowerCase() === projectDirName.toLowerCase();
+
+		try {
+			const index = JSON.parse(await readFile(join(projectDir, 'sessions-index.json'), 'utf8')) as {
+				entries?: { sessionId?: unknown; projectPath?: unknown }[];
+			};
+			if (Array.isArray(index.entries)) {
+				const indexed = index.entries.find(item => item?.sessionId === entry.sessionId);
+				if (typeof indexed?.projectPath === 'string' && matchesProjectDir(indexed.projectPath)) {
+					this.rememberTranscriptCwd(entry.path, indexed.projectPath);
+					return indexed.projectPath;
+				}
+			}
+		} catch {
+			// The index is optional and can lag or be malformed. The transcript is authoritative below.
+		}
+
+		const rl = createInterface({ input: createReadStream(entry.path, { encoding: 'utf8' }), crlfDelay: Infinity });
+		try {
+			for await (const line of rl) {
+				if (!line.includes('"cwd"')) continue;
+
+				let parsed: { cwd?: unknown; sessionId?: unknown };
+				try {
+					parsed = JSON.parse(line) as { cwd?: unknown; sessionId?: unknown };
+				} catch {
+					continue;
+				}
+				if (parsed.sessionId != null && parsed.sessionId !== entry.sessionId) continue;
+
+				if (typeof parsed.cwd === 'string' && matchesProjectDir(parsed.cwd)) {
+					this.rememberTranscriptCwd(entry.path, parsed.cwd);
+					return parsed.cwd;
+				}
+			}
+		} finally {
+			rl.close();
+		}
+
+		return undefined;
+	}
+
+	private rememberTranscriptCwd(path: string, cwd: string): void {
+		this._transcriptCwds.set(path, cwd);
+		if (this._transcriptCwds.size > summaryCacheLimit) {
+			const oldest = this._transcriptCwds.keys().next();
+			if (!oldest.done) {
+				this._transcriptCwds.delete(oldest.value);
+			}
+		}
 	}
 
 	/**

@@ -1,7 +1,8 @@
 import * as assert from 'node:assert';
 import type { GkAgent } from '../../../../agents/agentService.js';
+import type { Container } from '../../../../container.js';
 import type { AgentDescriptor } from '../../../../plus/agents/agentDescriptor.js';
-import { toAgentInfo, toHookOnlyAgentInfo } from '../agents.js';
+import { AgentsService, toAgentInfo, toHookOnlyAgentInfo } from '../agents.js';
 
 function cliAgent(overrides?: Partial<GkAgent>): GkAgent {
 	return {
@@ -16,6 +17,43 @@ function cliAgent(overrides?: Partial<GkAgent>): GkAgent {
 		...overrides,
 	};
 }
+
+suite('AgentsService.getPastSessionsForWorktree', () => {
+	test('requests the normalized past collection with the caller limit', async () => {
+		let requestedOptions: { limit?: number } | undefined;
+		const container = {
+			agentStatus: {
+				getPastSessions: (_worktreePath: string, options?: { limit?: number }) => {
+					requestedOptions = options;
+					return Promise.resolve({ sessions: [], total: 0 });
+				},
+			},
+		} as unknown as Container;
+		const service = new AgentsService(container);
+
+		await service.getPastSessionsForWorktree('/repo/worktree', { limit: 3 });
+
+		assert.deepStrictEqual(requestedOptions, { limit: 3 });
+	});
+});
+
+suite('AgentsService.archiveSession', () => {
+	test('routes the transcript-backed session to the host service', async () => {
+		let requested: { sessionId: string; providerId?: string } | undefined;
+		const container = {
+			agentStatus: {
+				archiveSession: (sessionId: string, providerId?: string) => {
+					requested = { sessionId: sessionId, providerId: providerId };
+					return Promise.resolve(true);
+				},
+			},
+		} as unknown as Container;
+		const service = new AgentsService(container);
+
+		assert.strictEqual(await service.archiveSession('session-1', 'claudeCode'), true);
+		assert.deepStrictEqual(requested, { sessionId: 'session-1', providerId: 'claudeCode' });
+	});
+});
 
 suite('toAgentInfo', () => {
 	test('maps an ide-chat descriptor with no mcp/hooks', () => {

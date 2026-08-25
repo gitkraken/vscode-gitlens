@@ -1,8 +1,15 @@
 export {
 	type AgentProviderCallbacks,
+	type AgentSessionHistoryActions,
+	type AgentSessionHistoryDisposition,
+	type AgentSessionHistoryItem,
+	type AgentSessionHistoryOptions,
+	type AgentSessionHistoryResult,
 	type AgentSession,
 	type AgentSessionPhase,
 	type AgentSessionProvider,
+	type AgentSessionResumeOutcome,
+	type AgentSessionResumeTarget,
 	type AgentSessionStatus,
 	getPhaseForStatus,
 	isActiveAgentPhase,
@@ -10,7 +17,4 @@ export {
 	type PendingPermissionKind,
 	type PermissionDecision,
 	type PermissionSuggestion,
-	type ResumableAgentSession,
-	type ResumableSessionsOptions,
-	type ResumableSessionsResult,
 } from '@gitlens/agents/types.js';
