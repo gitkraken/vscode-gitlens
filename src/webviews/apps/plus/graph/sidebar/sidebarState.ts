@@ -73,6 +73,10 @@ export interface SidebarActions {
 	requestWorktreeWipStats(path: string): Promise<void>;
 	invalidateAll(): void;
 	refresh(panel: GraphSidebarPanel): void;
+	/** Re-runs the panel's last fetch, keeping whatever it already holds — what a failed load's
+	 *  "Try Again" offers. Unlike {@link refresh}, it never blanks the panel, so a retry that fails
+	 *  again leaves the stale list on screen rather than replacing it with a skeleton. */
+	retry(panel: GraphSidebarPanel): void;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	toggleShowRemoteBranches(): void;
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
@@ -346,6 +350,13 @@ export function createSidebarActions(): SidebarActions {
 			// onSidebarRefresh → notifySidebarInvalidated → invalidateAll → fetchPanel.
 			panels[panel].reset();
 			service?.refresh(panel);
+		},
+
+		retry: function (panel: GraphSidebarPanel) {
+			// refetch(), not reset()+fetch — the resource keeps its value across a reload, so a retry
+			// that fails again leaves the last good list on screen. It replays the arguments of the
+			// fetch that failed, which the failure itself guarantees are recorded.
+			void panels[panel].refetch();
 		},
 
 		findPullRequest: async function (number: string) {

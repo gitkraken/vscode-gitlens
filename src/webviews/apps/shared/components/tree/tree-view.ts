@@ -374,6 +374,14 @@ export class GlTreeView extends GlElement {
 	@property({ type: String, attribute: 'empty-text' })
 	emptyText = 'No items';
 
+	/**
+	 * Set by consumers that slot their own `empty` content — a loading skeleton, an error with a retry.
+	 * Keeps the tree's chrome (filter bar, aria wiring, filter text) on screen around that content even
+	 * when {@link emptyText} is blank, so a panel's filter box doesn't come and go with its data.
+	 */
+	@property({ type: Boolean, attribute: 'has-empty-content' })
+	hasEmptyContent = false;
+
 	@property({ type: Boolean, attribute: 'tooltip-anchor-right' })
 	tooltipAnchorRight = false;
 
@@ -1100,7 +1108,9 @@ export class GlTreeView extends GlElement {
 		const showNoResults = !hasItems && this._filter.query && this._model?.length;
 		const showEmptyText = !hasItems && !showNoResults && Boolean(this.emptyText);
 
-		if (!hasItems && !showNoResults && !showEmptyText) return nothing;
+		// Slotted empty content stands in for `emptyText`, so it also stands in for the blank-`emptyText`
+		// escape hatch that renders nothing at all.
+		if (!hasItems && !showNoResults && !showEmptyText && !this.hasEmptyContent) return nothing;
 
 		// Container-focused approach: the scrollable div is the focusable element
 		// Use aria-activedescendant to indicate which tree item is active for screen readers.
@@ -1135,7 +1145,9 @@ export class GlTreeView extends GlElement {
 						</div>`
 					: showNoResults
 						? html`<div class="no-results">No results found</div>`
-						: html`<div class="no-results">${this.emptyText}</div>`
+						: // The no-data body only. A filter that matches nothing is the tree's own answer about
+							// the model it holds, so it stays out of the consumer's slot.
+							html`<slot name="empty"><div class="no-results">${this.emptyText}</div></slot>`
 			}
 			${
 				this._hoverOpen && this._hoveredTooltip

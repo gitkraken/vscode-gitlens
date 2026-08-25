@@ -61,6 +61,7 @@ import type {
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
+import { panelErrorStyles } from '../components/shared-panel.css.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
 import {
@@ -427,6 +428,11 @@ function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined 
 	return `\u21C6 ${w.upstream}`;
 }
 
+/** The model a panel shows before its first payload lands. Shared (not a fresh `[]` per render) so the
+ *  tree-view's model setter identity check short-circuits — otherwise every re-render while loading
+ *  re-flattens and re-renders the tree for the same nothing. */
+const emptyTreeModel: TreeModel<SidebarItemContext>[] = [];
+
 function leafToTreeModel(leaf: LeafProps, path: string, level: number): TreeModel<SidebarItemContext> {
 	return {
 		branch: false,
@@ -452,6 +458,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	static override styles = [
 		scrollableBase,
 		subPanelEnterStyles,
+		panelErrorStyles,
 		css`
 			@keyframes panel-enter {
 				from {
@@ -564,8 +571,42 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			gl-tree-view {
-				height: 100%;
+				flex: 1;
+				min-height: 0;
 				--gitlens-gutter-width: 0.8rem;
+			}
+
+			/* Stacks the refresh-failure strip above the tree. The tree takes the rest and keeps its own
+			   scroll clip (min-height: 0), so a strip appearing never spills the list past the panel. */
+			.tree-stack {
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+				overflow: hidden;
+			}
+
+			/* The list below is still the last good data, so this reports the failed refresh without
+			   taking the panel over — error accents, no fill that would out-weigh the rows. */
+			.error-strip {
+				display: flex;
+				flex: none;
+				gap: var(--gl-space-6);
+				align-items: center;
+				padding: var(--gl-space-4) var(--gl-space-6);
+				font-size: var(--gl-font-sm);
+				color: var(--vscode-descriptionForeground);
+				border-bottom: var(--gl-border-width) solid
+					var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+			}
+
+			.error-strip__icon {
+				flex: none;
+				color: var(--vscode-errorForeground);
+			}
+
+			.error-strip__message {
+				flex: 1;
+				min-width: 0;
 			}
 
 			.loading {
@@ -710,7 +751,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
-	private _pendingFocus = false;
+	/** The panel a `focusFilter()` call is still owed, when it arrived before that panel had rendered.
+	 *  Panel-scoped rather than a bare flag: a latch left over from a panel the user has since switched
+	 *  away from must never fire, or a much-later render steals focus into the wrong panel's filter. */
+	private _pendingFocusPanel: GraphSidebarPanel | undefined;
 	private _agentsFilterActive = false;
 
 	/** Panels whose `<panel>/shown` telemetry has fired for the current activation. Reset on
@@ -724,7 +768,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	focusFilter(): void {
 		if (this.activePanel == null || this.activePanel === 'overview') {
-			this._pendingFocus = false;
+			this._pendingFocusPanel = undefined;
 			return;
 		}
 
@@ -732,14 +776,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			'gl-tree-view',
 		);
 		if (treeView == null) {
-			// Tree-view isn't rendered yet (data still loading). Retry when it appears.
-			this._pendingFocus = true;
+			// The pull-requests empty states stand in for the tree, so there's no filter to land on and
+			// never will be while that state holds — focus the state's own action instead of latching a
+			// retry that would fire on some unrelated later render. Nothing focusable (the unsupported
+			// state offers no action) leaves focus where the user put it.
+			if (this.treelessEmptyState != null) {
+				this._pendingFocusPanel = undefined;
+				this.shadowRoot?.querySelector<HTMLElement>('.empty gl-button')?.focus();
+				return;
+			}
+
+			// Asked before this panel rendered at all. Retry once it does — see `updated`.
+			this._pendingFocusPanel = this.activePanel;
 			return;
 		}
 
-		this._pendingFocus = false;
+		this._pendingFocusPanel = undefined;
 		const ready = treeView.updateComplete ?? Promise.resolve();
 		void Promise.resolve(ready).then(() => treeView.focus());
+	}
+
+	/** The pull-requests empty state currently standing in for the tree, if any — the one render path
+	 *  with no `gl-tree-view` in it. */
+	private get treelessEmptyState(): GraphSidebarPullRequestsEmptyState | undefined {
+		if (this.activePanel !== 'pullRequests') return undefined;
+
+		const data = this._actions?.state.panels.pullRequests.value.get();
+		return data?.panel === 'pullRequests' && data.items.length === 0 ? data.emptyState : undefined;
 	}
 
 	override firstUpdated(_changedProperties: Map<PropertyKey, unknown>): void {
@@ -752,6 +815,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	override disconnectedCallback(): void {
 		this.emitFilteredTelemetryDebounced.cancel();
 		this._shownEmitted.clear();
+		// Drop any owed focus — a request made before this panel was torn down has no claim on the
+		// filter of whatever renders next.
+		this._pendingFocusPanel = undefined;
 		super.disconnectedCallback?.();
 	}
 
@@ -772,6 +838,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// next fetch); it cannot stale or blank the panel's data, which is never gated on it.
 		if (changedProperties.has('open') && this._actions != null) {
 			this._actions.sidebarShowing = this.open;
+			// Collapsing answers the focus request: the panel is off screen and inert, so an owed focus
+			// would only pull the caret into something the user can't see.
+			if (!this.open) {
+				this._pendingFocusPanel = undefined;
+			}
 		}
 
 		if (changedProperties.has('activePanel') && this._actions != null) {
@@ -851,8 +922,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this._actions.refreshOnReveal();
 		}
 
-		if (this._pendingFocus) {
-			this.focusFilter();
+		// Retry an owed focus, but only for the panel it was asked for — a switch since then retires it
+		// rather than handing the caret to a panel the user never asked to search.
+		if (this._pendingFocusPanel != null) {
+			if (this._pendingFocusPanel === this.activePanel) {
+				this.focusFilter();
+			} else {
+				this._pendingFocusPanel = undefined;
+			}
 		}
 
 		// Emit `shown` from the settled lifecycle (not render(), which Lit expects side-effect-free).
@@ -1022,33 +1099,32 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		const resource = this._actions?.state.panels[this.activePanel];
 		const data = resource?.value.get();
-		const hasError = resource?.error.get() != null;
+		const error = resource?.error.get();
 		const isLoading = resource?.loading.get() ?? false;
 
 		// The pull-requests panel is empty for reasons the host can name — nothing connected, nothing
 		// connectable, a lookup that couldn't answer, or a host that can't be asked. Those replace the
 		// (blank) tree entirely.
-		const emptyState = data?.panel === 'pullRequests' && data.items.length === 0 ? data.emptyState : undefined;
+		const emptyState = this.treelessEmptyState;
 		// ...which takes the filter box with it, so there's no way left to name a pull request to search for —
 		// and a search that did somehow succeed would render nothing, since the empty state stands in for the
 		// tree the result would have joined.
 		const suppressSearchFallback = emptyState != null;
 
+		// Everything else keeps the tree — loading and failures are reported inside it, so the filter box,
+		// the typed filter text and the panel's shape survive a reload that hasn't landed or has failed.
+		// A failure with data still in hand is a failed *refresh*: the list stays, the strip says so.
 		return html`<div class="panel">
 			${this.renderHeader(config, isLoading)}
 			<div class="content">
 				${
-					hasError
-						? html`<div class="empty">Failed to load data</div>`
-						: emptyState != null
-							? this.renderPullRequestsEmptyState(emptyState)
-							: data != null
-								? this.renderTreeContent(config, data)
-								: this.renderSkeleton()
+					emptyState != null
+						? this.renderPullRequestsEmptyState(emptyState)
+						: this.renderTreeContent(config, data, error)
 				}
 			</div>
 			${/* Sibling of `.content`, not inside it — `.content` clips at 100% height around the tree. */ ''}
-			${data != null && !hasError && !suppressSearchFallback ? this.renderPullRequestSearchFallback(data) : nothing}
+			${data != null && !suppressSearchFallback ? this.renderPullRequestSearchFallback(data) : nothing}
 		</div>`;
 	}
 
@@ -1193,99 +1269,159 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	private renderTreeContent(config: (typeof panelConfig)[GraphSidebarPanel], data: DidGetSidebarDataParams): unknown {
-		const cache = this._treeModelCache;
+	/** Renders the panel's tree, with `data` still absent while the first fetch is in flight or has
+	 *  failed — the chrome comes up with the panel and the loading/error body rides the tree's `empty`
+	 *  slot, so the filter box and the typed filter text never blink out from under the user. `error`
+	 *  alongside data is a failed *refresh*: the last good rows stay and a strip reports the failure. */
+	private renderTreeContent(
+		config: (typeof panelConfig)[GraphSidebarPanel],
+		data: DidGetSidebarDataParams | undefined,
+		error?: string,
+	): unknown {
 		let model: TreeModel<SidebarItemContext>[];
-		if (cache?.data === data && cache.dateFormat === this.dateFormat && cache.searchedPr === this.prSearchResult) {
-			model = cache.model;
+		if (data == null) {
+			model = emptyTreeModel;
 		} else {
-			model = this.buildTreeModel(data);
-			this._treeModelCache = {
-				data: data,
-				dateFormat: this.dateFormat,
-				searchedPr: this.prSearchResult,
-				model: model,
-			};
+			const cache = this._treeModelCache;
+			if (
+				cache?.data === data &&
+				cache.dateFormat === this.dateFormat &&
+				cache.searchedPr === this.prSearchResult
+			) {
+				model = cache.model;
+			} else {
+				model = this.buildTreeModel(data);
+				this._treeModelCache = {
+					data: data,
+					dateFormat: this.dateFormat,
+					searchedPr: this.prSearchResult,
+					model: model,
+				};
+			}
+
+			// Automatically track/restore tree expansion state per panel.
+			// On first build (set empty): seed the set from the model's natural defaults.
+			// On subsequent builds: override the model's expansion with the remembered set.
+			if (this.activePanel != null) {
+				const paths = this._actions.expandedPaths[this.activePanel];
+				applyOrSeedExpansion(model, paths);
+			}
 		}
 
-		// Automatically track/restore tree expansion state per panel.
-		// On first build (set empty): seed the set from the model's natural defaults.
-		// On subsequent builds: override the model's expansion with the remembered set.
-		if (this.activePanel != null) {
-			const paths = this._actions.expandedPaths[this.activePanel];
-			applyOrSeedExpansion(model, paths);
-		}
-
+		// Every filter action below reads a field off the payload, so each is held back until there's a
+		// payload to read — a toggle rendered against a guessed value would lie about the state it shows.
 		const hasLayout =
-			this.activePanel === 'worktrees' ||
-			this.activePanel === 'branches' ||
-			this.activePanel === 'remotes' ||
-			this.activePanel === 'tags' ||
-			this.activePanel === 'agents';
-		const currentLayout = data.layout;
-		const showRemoteBranches = data.panel === 'branches' ? (data.showRemoteBranches ?? false) : undefined;
+			data != null &&
+			(this.activePanel === 'worktrees' ||
+				this.activePanel === 'branches' ||
+				this.activePanel === 'remotes' ||
+				this.activePanel === 'tags' ||
+				this.activePanel === 'agents');
+		const currentLayout = data?.layout;
+		const showRemoteBranches = data?.panel === 'branches' ? (data.showRemoteBranches ?? false) : undefined;
 		const showPastAgentSessions =
-			data.panel === 'agents' ? (this._state.sidebar?.showPastAgentSessions ?? false) : undefined;
+			data?.panel === 'agents' ? (this._state.sidebar?.showPastAgentSessions ?? false) : undefined;
 
 		const isPullRequests = this.activePanel === 'pullRequests';
 
-		return html`<gl-tree-view
-			focused-path=${this._actions.selectedPath[this.activePanel!] ?? nothing}
-			.model=${model}
-			.filterTermsParser=${isPullRequests ? parsePullRequestFilterTerms : undefined}
-			filterable
-			tooltip-anchor-right
-			filter-text=${this._actions.filterText || nothing}
-			?search-box-filter=${this._state.sidebar?.searchBoxFilter ?? true}
-			filter-placeholder="Filter ${config.title.toLowerCase()}..."
-			aria-label="${config.title}"
-			@gl-tree-filter-changed=${this.handleFilterChanged}
-			@gl-tree-search-box-filter-changed=${this.handleSearchBoxFilterChanged}
-			@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
-			@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
-			@gl-tree-expansion-changed=${this.handleTreeExpansionChanged}
-			>${
-				showRemoteBranches != null
-					? html`<gl-button
-							slot="filter-actions"
-							appearance="toolbar"
-							density="compact"
-							role="checkbox"
-							aria-checked=${showRemoteBranches ? 'true' : 'false'}
-							tooltip="${showRemoteBranches ? 'Hide Remote Branches' : 'Show Remote Branches'}"
-							aria-label="Show Remote Branches"
-							@click=${this.handleToggleShowRemoteBranches}
-							><code-icon icon="${showRemoteBranches ? 'gl-remote-filled' : 'gl-remote'}"></code-icon
-						></gl-button>`
-					: nothing
-			}${
-				showPastAgentSessions != null
-					? html`<gl-button
-							slot="filter-actions"
-							appearance="toolbar"
-							density="compact"
-							role="checkbox"
-							aria-checked=${showPastAgentSessions ? 'true' : 'false'}
-							tooltip="${showPastAgentSessions ? 'Hide Past Sessions' : 'Show Past Sessions'}"
-							aria-label="Show Past Sessions"
-							@click=${this.handleToggleShowPastAgentSessions}
-							><code-icon icon="history"></code-icon
-						></gl-button>`
-					: nothing
-			}${
-				hasLayout
-					? html`<gl-button
-							slot="filter-actions"
-							appearance="toolbar"
-							density="compact"
-							tooltip="${currentLayout === 'tree' ? 'View as List' : 'View as Tree'}"
-							@click=${this.handleToggleLayout}
-							><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
-						></gl-button>`
-					: nothing
-			}</gl-tree-view
-		>`;
+		return html`<div class="tree-stack">
+			${data != null && error != null ? this.renderErrorStrip(config) : nothing}
+			<gl-tree-view
+				focused-path=${this._actions.selectedPath[this.activePanel!] ?? nothing}
+				.model=${model}
+				?has-empty-content=${data == null}
+				.filterTermsParser=${isPullRequests ? parsePullRequestFilterTerms : undefined}
+				filterable
+				tooltip-anchor-right
+				filter-text=${this._actions.filterText || nothing}
+				?search-box-filter=${this._state.sidebar?.searchBoxFilter ?? true}
+				filter-placeholder="Filter ${config.title.toLowerCase()}..."
+				aria-label="${config.title}"
+				@gl-tree-filter-changed=${this.handleFilterChanged}
+				@gl-tree-search-box-filter-changed=${this.handleSearchBoxFilterChanged}
+				@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
+				@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
+				@gl-tree-expansion-changed=${this.handleTreeExpansionChanged}
+				>${
+					showRemoteBranches != null
+						? html`<gl-button
+								slot="filter-actions"
+								appearance="toolbar"
+								density="compact"
+								role="checkbox"
+								aria-checked=${showRemoteBranches ? 'true' : 'false'}
+								tooltip="${showRemoteBranches ? 'Hide Remote Branches' : 'Show Remote Branches'}"
+								aria-label="Show Remote Branches"
+								@click=${this.handleToggleShowRemoteBranches}
+								><code-icon icon="${showRemoteBranches ? 'gl-remote-filled' : 'gl-remote'}"></code-icon
+							></gl-button>`
+						: nothing
+				}${
+					showPastAgentSessions != null
+						? html`<gl-button
+								slot="filter-actions"
+								appearance="toolbar"
+								density="compact"
+								role="checkbox"
+								aria-checked=${showPastAgentSessions ? 'true' : 'false'}
+								tooltip="${showPastAgentSessions ? 'Hide Past Sessions' : 'Show Past Sessions'}"
+								aria-label="Show Past Sessions"
+								@click=${this.handleToggleShowPastAgentSessions}
+								><code-icon icon="history"></code-icon
+							></gl-button>`
+						: nothing
+				}${
+					hasLayout
+						? html`<gl-button
+								slot="filter-actions"
+								appearance="toolbar"
+								density="compact"
+								tooltip="${currentLayout === 'tree' ? 'View as List' : 'View as Tree'}"
+								@click=${this.handleToggleLayout}
+								><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
+							></gl-button>`
+						: nothing
+				}${
+					// The tree's body while there's nothing to list yet — the chrome above stays put either way.
+					data == null ? (error != null ? this.renderTreeError(config) : this.renderSkeleton()) : nothing
+				}</gl-tree-view
+			>
+		</div>`;
 	}
+
+	/** Stands in for the rows on a first load that failed — nothing to fall back on, so the panel says
+	 *  what it couldn't do and offers the retry. */
+	private renderTreeError(config: (typeof panelConfig)[GraphSidebarPanel]): unknown {
+		return html`<div slot="empty" class="panel-error" role="alert">
+			<div class="panel-error__header">
+				<code-icon class="panel-error__icon" icon="error"></code-icon>
+				<span class="panel-error__title">Unable to load ${config.title.toLowerCase()}</span>
+			</div>
+			<div class="panel-error__actions">
+				<gl-button appearance="secondary" density="compact" @click=${this.handleRetry}
+					><code-icon icon="refresh" slot="prefix"></code-icon> Try Again</gl-button
+				>
+			</div>
+		</div>`;
+	}
+
+	/** A reload failed while the panel still holds its last good rows. Those rows stay listed — this only
+	 *  says they're no longer known to be current, and offers the retry. */
+	private renderErrorStrip(config: (typeof panelConfig)[GraphSidebarPanel]): unknown {
+		return html`<div class="error-strip" role="alert">
+			<code-icon class="error-strip__icon" icon="warning"></code-icon>
+			<span class="error-strip__message">Unable to refresh ${config.title.toLowerCase()}</span>
+			<gl-button appearance="secondary" density="compact" @click=${this.handleRetry}>Try Again</gl-button>
+		</div>`;
+	}
+
+	/** Re-runs the failed fetch without discarding what the panel holds — unlike the header's Refresh,
+	 *  which resets the panel to blank on its way to the host. */
+	private handleRetry = (): void => {
+		if (this.activePanel == null) return;
+
+		this._actions?.retry(this.activePanel);
+	};
 
 	/**
 	 * Offer to fetch a pull request the loaded list doesn't hold. This panel lists only *open* pull
@@ -1358,9 +1494,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 	};
 
+	/** Rides the tree's `empty` slot, so the rows shimmer in the tree's own body while its filter box and
+	 *  header stay put. 7 rows; per-row widths are positional (`:nth-child` in component CSS). */
 	private renderSkeleton(): unknown {
-		// 7 rows; per-row widths are positional (`:nth-child` in component CSS).
-		return html`<div class="loading">
+		return html`<div slot="empty" class="loading" aria-busy="true" aria-live="polite">
 			${Array.from(
 				{ length: 7 },
 				() => html`
