@@ -70,7 +70,7 @@ const fallbackConfig: Config = {
 		} satisfies Promo,
 	],
 	cli: {
-		minimumCoreVersion: '3.1.63',
+		minimumCoreVersion: '3.1.73',
 		minimumProxyVersion: '3.1.53',
 	},
 } as const;

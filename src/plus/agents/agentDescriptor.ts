@@ -7,8 +7,8 @@ import type { GkAgent } from '../../agents/agentService.js';
  * - `ide-chat`: the host IDE's built-in chat (Copilot Chat in VS Code, Cursor Chat in Cursor, etc.).
  *   Exactly one of these may exist per session, determined by `getHostAppName()`.
  * - `claude-extension`: Anthropic's `Anthropic.claude-code` VS Code extension. Optional, gated on install.
- * - `cli`: any detected CLI from `cliAgentIds` (`claude-cli`, `codex`, `gemini`, `copilot`, `opencode`).
- *   Filtered to entries with `detected: true` AND a non-empty `executable`.
+ * - `cli`: any detected agent whose CLI-provided `type` is `'cli'` (currently `claude-cli`, `codex`,
+ *   `gemini`, `copilot`, `opencode`). Filtered to entries with `detected: true` AND a non-empty `executable`.
  *
  * Descriptors are plain data: JSON-serializable for the deep-link cross-window dispatch bridge.
  * Do NOT add methods or closures here; they must round-trip through `storeSecret` / `JSON.parse`.

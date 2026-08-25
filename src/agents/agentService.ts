@@ -5,10 +5,6 @@ import { fetchAgents, isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
 
 export type { GkAgent };
 
-/** Known CLI agent IDs — used internally to filter the detected-CLI list. Privatized in the rearch
- * (Decision #16); previously exported from `cli/agents.ts`. */
-const cliAgentIds = new Set<string>(['claude-cli', 'codex', 'copilot', 'gemini', 'opencode']);
-
 const cacheTtlMs = 5 * 60_000;
 
 export class AgentService {
@@ -59,27 +55,30 @@ export class AgentService {
 		return agents.find(a => a.name === 'claude-cli');
 	}
 
-	/** Detected CLI-kind agents whose executable exists on disk. Centralizes the filter currently
-	 *  duplicated in `agentRegistry.getDetectedCliDescriptors` and `claudeResume`. */
+	/** Detected CLI-kind agents (per the CLI's `type` field) whose executable exists on disk.
+	 *  Centralizes the filter currently duplicated in `agentRegistry.getDetectedCliDescriptors` and
+	 *  `claudeResume`. */
 	async getDetectedCliAgents(): Promise<readonly GkAgent[]> {
 		const agents = await this.getAll();
-		return agents.filter(a => cliAgentIds.has(a.name) && a.detected && isCliExecutableAvailable(a.executable));
+		return agents.filter(a => a.type === 'cli' && a.detected && isCliExecutableAvailable(a.executable));
 	}
 
-	/** All known CLI agents, detected or not — the Settings Agents table lists every supported CLI and
-	 *  dims the undetected ones. `getDetectedCliAgents` stays the picker/install-all source. */
+	/** All known CLI agents (`type === 'cli'`), detected or not — the Settings Agents table lists
+	 *  every supported CLI and dims the undetected ones. `getDetectedCliAgents` stays the
+	 *  picker/install-all source. */
 	async getCliAgents(): Promise<readonly GkAgent[]> {
 		const agents = await this.getAll();
-		return agents.filter(a => cliAgentIds.has(a.name));
+		return agents.filter(a => a.type === 'cli');
 	}
 
-	/** Hook-capable agents outside the known CLI set (cursor, antigravity, ...) — feeds the Settings
-	 *  Agents table's "Editors" section. Excludes every `cliAgentIds` name regardless of detection
-	 *  state, so an undetected CLI (which never gets a row in the CLI section) doesn't leak in here
-	 *  as a duplicate. */
+	/** Hook-capable agents that aren't CLI-kind (cursor, antigravity, ...) — feeds the Settings
+	 *  Agents table's "Editors" section. Uses `type !== 'cli'` (rather than `type === 'gui'`) so an
+	 *  `'unknown'`-typed agent degrades to "not a CLI agent" here instead of vanishing from both
+	 *  sections. Excludes every CLI-kind agent regardless of detection state, so an undetected CLI
+	 *  (which never gets a row in the CLI section) doesn't leak in here as a duplicate. */
 	async getHookOnlyAgents(): Promise<readonly GkAgent[]> {
 		const agents = await this.getAll();
-		return agents.filter(a => a.hooksSupported && !cliAgentIds.has(a.name));
+		return agents.filter(a => a.hooksSupported && a.type !== 'cli');
 	}
 
 	/** Drops the cached list. Called after hook install/uninstall to surface fresh state. */

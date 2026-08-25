@@ -13,6 +13,7 @@ function cliAgent(overrides?: Partial<GkAgent>): GkAgent {
 		mcpInstalled: false,
 		hooksSupported: true,
 		hooksInstalled: false,
+		type: 'cli',
 		...overrides,
 	};
 }
@@ -61,6 +62,7 @@ suite('toHookOnlyAgentInfo', () => {
 			detected: true,
 			mcpInstalled: true,
 			hooksInstalled: true,
+			type: 'gui',
 		});
 		assert.deepStrictEqual(toHookOnlyAgentInfo(agent), {
 			id: 'cursor',
@@ -73,7 +75,7 @@ suite('toHookOnlyAgentInfo', () => {
 	});
 
 	test('carries detected: false through for the dimmed "Not detected" row treatment', () => {
-		const agent = cliAgent({ name: 'antigravity', displayName: 'Antigravity', detected: false });
+		const agent = cliAgent({ name: 'antigravity', displayName: 'Antigravity', detected: false, type: 'gui' });
 		assert.deepStrictEqual(toHookOnlyAgentInfo(agent), {
 			id: 'antigravity',
 			label: 'Antigravity',

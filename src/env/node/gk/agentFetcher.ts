@@ -2,6 +2,11 @@ import { existsSync } from 'node:fs';
 import { Logger } from '@gitlens/utils/logger.js';
 import { runCLICommand } from './cli/utils.js';
 
+/** The CLI's classification of an agent: `'cli'` (headless CLI tool) or `'gui'` (editor/IDE). The Go
+ * enum can also emit `'unknown'` (`ClientTypeUnknown`) for a hook-capable client absent from the CLI's
+ * MCP registry — not currently reachable, but a real value we must not drop agents for. */
+export type GkAgentType = 'cli' | 'gui' | 'unknown';
+
 export type GkAgent = {
 	readonly name: string;
 	readonly displayName: string;
@@ -11,6 +16,7 @@ export type GkAgent = {
 	readonly mcpInstalled: boolean;
 	readonly hooksSupported: boolean;
 	readonly hooksInstalled: boolean;
+	readonly type: GkAgentType;
 };
 
 /** Returns true if the given CLI executable path exists on disk. Node-side implementation. */
@@ -29,7 +35,8 @@ export async function fetchAgents(): Promise<GkAgent[]> {
 	}
 }
 
-function parseAgents(output: string): GkAgent[] {
+/** Exported for unit testing — not part of the public `@env/gk/agentFetcher` surface consumers use. */
+export function parseAgents(output: string): GkAgent[] {
 	let raw: unknown;
 	try {
 		raw = JSON.parse(output);
@@ -51,10 +58,16 @@ function parseAgents(output: string): GkAgent[] {
 			typeof a.mcpSupported !== 'boolean' ||
 			typeof a.mcpInstalled !== 'boolean' ||
 			typeof a.hooksSupported !== 'boolean' ||
-			typeof a.hooksInstalled !== 'boolean'
+			typeof a.hooksInstalled !== 'boolean' ||
+			typeof a.type !== 'string'
 		) {
 			continue;
 		}
+
+		// The CLI's `type` enum may grow (or emit a value this build predates); normalize any
+		// unrecognized string to 'unknown' rather than dropping the agent, so a forward-compat CLI
+		// release doesn't silently disappear agents from the UI.
+		const type: GkAgentType = a.type === 'cli' || a.type === 'gui' || a.type === 'unknown' ? a.type : 'unknown';
 
 		agents.push({
 			name: a.name,
@@ -65,6 +78,7 @@ function parseAgents(output: string): GkAgent[] {
 			mcpInstalled: a.mcpInstalled,
 			hooksSupported: a.hooksSupported,
 			hooksInstalled: a.hooksInstalled,
+			type: type,
 		});
 	}
 	return agents;
