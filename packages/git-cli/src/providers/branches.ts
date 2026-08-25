@@ -938,13 +938,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				});
 			}
 
-			throw new BranchError(
-				{
-					action: options?.force ? 'force delete' : 'delete',
-					branch: branches.join(', '),
-					gitCommand: { repoPath: repoPath, args: args },
-				},
+			// Classify the failure (e.g. not fully merged) so consumers like the delete wizard can offer a
+			// force retry — without this the reason would be undefined and every failure reads as 'other'.
+			throw getGitCommandError(
+				'branch',
 				ex,
+				reason =>
+					new BranchError(
+						{
+							reason: reason ?? 'other',
+							action: options?.force ? 'force delete' : 'delete',
+							branch: branches.join(', '),
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
 			);
 		}
 	}
@@ -1022,9 +1030,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				});
 			}
 
-			throw new BranchError(
-				{ action: 'delete', branch: branches.join(', '), gitCommand: { repoPath: repoPath, args: args } },
+			// Classify against the underlying `git push -d` failure modes; map the "remote ref does not
+			// exist" case onto BranchError's noRemoteReference so consumers get an actionable reason.
+			throw getGitCommandError(
+				'push',
 				ex,
+				reason =>
+					new BranchError(
+						{
+							reason: reason === 'rejectedRefDoesNotExist' ? 'noRemoteReference' : 'other',
+							action: 'delete',
+							branch: branches.join(', '),
+							gitCommand: { repoPath: repoPath, args: args },
+						},
+						ex,
+					),
 			);
 		}
 	}

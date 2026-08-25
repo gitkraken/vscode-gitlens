@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import * as sinon from 'sinon';
+import { BranchError } from '@gitlens/git/errors.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
+import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, cloneTestRepo, createBranch, createTestRepo } from './helpers.js';
 
@@ -367,5 +369,56 @@ suite('BranchesSubProvider — branch identity bookkeeping (end to end)', () => 
 		await repo.provider.branches.deleteLocalBranch(repo.path, 'doomed');
 
 		assert.strictEqual(await readBase('doomed'), undefined);
+	});
+
+	test('deleteLocalBranch classifies an unmerged branch as notFullyMerged', async () => {
+		// The delete wizard keys its force-delete offer off this reason — an unclassified error would
+		// surface as a generic failure instead of the "delete anyway?" prompt.
+		createBranch(repo.path, 'unmerged', { checkout: true });
+		addCommit(repo.path, 'u.txt', 'y', 'unmerged');
+		execFileSync('git', ['checkout', 'main'], { cwd: repo.path, stdio: 'pipe' });
+
+		// assert.rejects doesn't surface the rejection value, so catch it manually.
+		let ex: unknown;
+		try {
+			await repo.provider.branches.deleteLocalBranch(repo.path, 'unmerged');
+		} catch (err) {
+			ex = err;
+		}
+		assert.ok(BranchError.is(ex), 'expected a BranchError');
+		if (!BranchError.is(ex)) return;
+
+		assert.strictEqual(ex.details.reason, 'notFullyMerged');
+	});
+
+	test('deleteRemoteBranch classifies a missing remote ref as noRemoteReference', async () => {
+		// `git push -d` against a ref that doesn't exist on the remote fails with git's "unable to delete
+		// '<name>': remote ref does not exist" — that must map to an actionable reason, not 'other'.
+		const real = repo.provider.git.run.bind(repo.provider.git);
+		const stub = sinon
+			.stub(repo.provider.git, 'run')
+			.callsFake(async (options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+				if (!args.includes('-d')) return real(options, ...args);
+
+				throw new GitError(
+					new Error(
+						"error: unable to delete 'gone': remote ref does not exist\nerror: failed to push some refs to 'origin'",
+					),
+				);
+			});
+		try {
+			let ex: unknown;
+			try {
+				await repo.provider.branches.deleteRemoteBranch(repo.path, 'gone', 'origin');
+			} catch (err) {
+				ex = err;
+			}
+			assert.ok(BranchError.is(ex), 'expected a BranchError');
+			if (!BranchError.is(ex)) return;
+
+			assert.strictEqual(ex.details.reason, 'noRemoteReference');
+		} finally {
+			stub.restore();
+		}
 	});
 });

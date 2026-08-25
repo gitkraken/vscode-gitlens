@@ -325,8 +325,11 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 		[
 			[GitErrors.remoteAhead, 'remoteAhead'],
 			[GitWarnings.tipBehind, 'tipBehind'],
-			[GitErrors.pushRejected, 'rejected'],
+			// Kept BEFORE the generic push rejection: a failed `push -d` of a missing ref reports both
+			// "unable to delete '<ref>': remote ref does not exist" and "failed to push some refs to ...",
+			// and the specific reason is the actionable one.
 			[GitErrors.pushRejectedRefDoesNotExists, 'rejectedRefDoesNotExist'],
+			[GitErrors.pushRejected, 'rejected'],
 			[GitErrors.permissionDenied, 'permissionDenied'],
 			[GitErrors.remoteConnectionFailed, 'remoteConnectionFailed'],
 			[GitErrors.noUpstream, 'noUpstream'],
