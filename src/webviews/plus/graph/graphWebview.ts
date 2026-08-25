@@ -422,6 +422,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** True while the last rows walk's failure still stands — mirrors what the webview holds, so the
 	 *  `save-last` slot can never replay a stale wedge over a graph that has since loaded. */
 	private _rowsFailed = false;
+	/** Git etag as of the last `getState` build. A build that runs before repo discovery completes bakes
+	 *  a no-repository State into the webview's bootstrap HTML, and the `stateChanged` push discovery
+	 *  triggers can fire while the webview is still booting — into an empty handler map, lost. Compared
+	 *  against the live etag when the state service subscribes, so a just-connected webview whose world
+	 *  moved underneath it gets a fresh build instead of wedging on "No repository open". */
+	private _etagAtLastStateBuild: number | undefined;
 
 	// Set instead of building the (expensive) full-state / branch-state-only payload while hidden or not
 	// ready — building it would cost real work for a webview that can't receive it. Consumed on the next
@@ -1180,7 +1186,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onRepoConnectionChanged: this._repoConnectionChangedEvent.subscribe(buffer, tracker),
 			},
 			state: {
-				onStateChanged: this._stateChangedEvent.subscribe(buffer, tracker),
+				// Catch-up on subscribe: a state push that fires while the webview is still booting lands
+				// in an empty handler map and is lost, and the bootstrap State embedded in the HTML is
+				// frozen — so a graph shown before repo discovery completes otherwise wedges on
+				// "No repository open" forever. If the git world moved since the last state build, ship
+				// the just-connected subscriber a fresh one.
+				onStateChanged: handler => {
+					const unsubscribe = this._stateChangedEvent.subscribe(buffer, tracker)(handler);
+					if (this._etagAtLastStateBuild != null && this._etagAtLastStateBuild !== this.container.git.etag) {
+						queueMicrotask(() => this._data.updateState());
+					}
+
+					return unsubscribe;
+				},
 			},
 			rows: {
 				getMoreRows: (id, limit) => this._data.onGetMoreRows(id, limit),
@@ -4471,6 +4489,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getState(bootstrap?: boolean): Promise<State> {
 		this.cancelOperation('branchState');
 		this.cancelOperation('state');
+
+		// Stamp BEFORE the early returns below — the no-repository builds are exactly the ones a
+		// post-build discovery has to catch up (see the state service's subscribe wrapper).
+		this._etagAtLastStateBuild = this.container.git.etag;
 
 		if (!workspace.isTrusted) {
 			this._wip.updateWorkingTreeBadge(undefined);
