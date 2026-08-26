@@ -89,6 +89,15 @@ export interface PastAgentSessionState {
 	readonly lastPrompt?: string;
 }
 
+/** On-demand enrichment for a past-session sheet, resolved lazily when the sheet opens — see
+ *  {@link AgentSessionProvider.resolveSessionDetails}. Never part of the base past-session listing
+ *  (that stays cheap); this is the one extra read the user's click pays for. */
+export interface PastAgentSessionDetail {
+	readonly titles?: { readonly custom?: string; readonly ai?: string; readonly agent?: string };
+	readonly firstPrompt?: string;
+	readonly lastPrompt?: string;
+}
+
 export interface PastAgentSessionsResult {
 	readonly sessions: PastAgentSessionState[];
 	/** Every past session found for the worktree, not just the returned slice — drives "Showing N of M". */

@@ -376,7 +376,7 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
-		test('SessionEnd completes the session and hard-wipes its file activity', async () => {
+		test('SessionEnd completes the session and freezes its file activity instead of wiping it', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
 			const provider = new ClaudeCodeProvider(callbacks);
 			try {
@@ -388,10 +388,34 @@ suite('ClaudeCodeProvider', () => {
 				const session = provider.sessions.find(s => s.id === 'sess');
 				assert.ok(session != null, 'SessionEnd keeps the session as a terminal ended row');
 				assert.strictEqual(session.status, 'ended');
-				assert.strictEqual(
-					fileActivityOf(provider, 'sess').length,
-					0,
-					'SessionEnd should wipe the live file-activity heatmap',
+				assert.ok(
+					fileActivityOf(provider, 'sess').some(e => e.path === FILE),
+					'a finished session must keep its last file-activity snapshot, not wipe it',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a pending decay timer that fires after SessionEnd does not clear the frozen file activity', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 50 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(postToolUse('sess', 'Edit', FILE));
+				// The decay timer (50ms) is still pending when the session ends.
+				await send(sessionEnd('sess'));
+
+				// Let the decay window elapse — if the timer still fires and re-syncs, it would
+				// either wipe the entry or resurrect bookkeeping for an ended session.
+				await wait(200);
+
+				const session = provider.sessions.find(s => s.id === 'sess');
+				assert.strictEqual(session?.status, 'ended');
+				assert.ok(
+					fileActivityOf(provider, 'sess').some(e => e.path === FILE),
+					'a decay timer firing after SessionEnd must not mutate the frozen file activity',
 				);
 			} finally {
 				provider.dispose();
@@ -672,6 +696,49 @@ suite('ClaudeCodeProvider', () => {
 				assert.ok(
 					Object.is(afterFirst, afterSecond),
 					'visitedWorktreePaths reference is unchanged when nothing new was visited',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a revisit reorders visitedWorktreePaths to recency, and a repeat of the same timeline does not reallocate', async () => {
+			const a = '/repo';
+			const b = '/repo.worktrees/feature';
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: () => new Promise(() => {}),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([a]);
+				const handler = handlers.get('agents/session')!;
+				// A → B → A within a single timeline: A is revisited last, so it ends up most recent.
+				const timeline = [
+					{ cwd: a, worktree: a },
+					{ cwd: b, worktree: b },
+					{ cwd: a, worktree: a },
+				];
+				await handler(
+					{ event: 'SessionStart', sessionId: 's1', cwd: a, pid: process.pid, cwdTimeline: timeline },
+					new URLSearchParams(),
+				);
+
+				const afterFirst = provider.sessions.find(x => x.id === 's1')?.visitedWorktreePaths;
+				assert.deepStrictEqual(
+					afterFirst,
+					[b, a],
+					'the revisited worktree (A) sorts last as the most recently observed',
+				);
+
+				await handler(
+					{ event: 'PreToolUse', sessionId: 's1', cwd: a, toolName: 'Read', cwdTimeline: timeline },
+					new URLSearchParams(),
+				);
+				const afterSecond = provider.sessions.find(x => x.id === 's1')?.visitedWorktreePaths;
+
+				assert.ok(
+					Object.is(afterFirst, afterSecond),
+					'visitedWorktreePaths reference is unchanged when the repeated timeline reproduces the same order',
 				);
 			} finally {
 				provider.dispose();
@@ -2069,6 +2136,68 @@ suite('ClaudeCodeProvider ended sessions', () => {
 			const s = provider.sessions.find(x => x.id === 'wt');
 			assert.strictEqual(s?.worktreePath, REPO, 'worktreePath comes straight from the record');
 			assert.strictEqual(gitInfoCalls, 0, 'no git probe when the record already carries the worktree');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a poll backfills a missing lastPrompt from the ended record, but never overwrites a hook-set one', async () => {
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				endedRecord('backfill', {
+					prompt: 'record prompt',
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
+				}),
+			]),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'backfill');
+			assert.strictEqual(s?.status, 'ended');
+			assert.strictEqual(s?.lastPrompt, 'record prompt', 'a missing lastPrompt is backfilled from the record');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test("a poll never overwrites an existing lastPrompt with the ended record's prompt", async () => {
+		const options: { cliResponse?: string } = { cliResponse: '[]' };
+		const { callbacks, handlers } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('live', REPO), new URLSearchParams());
+			await handler(
+				{
+					event: 'UserPromptSubmit',
+					sessionId: 'live',
+					cwd: REPO,
+					pid: process.pid,
+					prompt: 'hook-set prompt',
+					firstPrompt: 'hook-set prompt',
+				},
+				new URLSearchParams(),
+			);
+			assert.strictEqual(provider.sessions.find(s => s.id === 'live')?.lastPrompt, 'hook-set prompt');
+
+			// The live path missed SessionEnd; the CLI now reports it ended with a DIFFERENT prompt.
+			options.cliResponse = JSON.stringify([
+				endedRecord('live', { pid: process.pid, event: 'UserPromptSubmit', prompt: 'record prompt' }),
+			]);
+			await provider.runGatedSync();
+
+			const s = provider.sessions.find(x => x.id === 'live');
+			assert.strictEqual(s?.status, 'ended');
+			assert.strictEqual(
+				s?.lastPrompt,
+				'hook-set prompt',
+				'a hook-set lastPrompt must survive the ended-record poll backfill',
+			);
 		} finally {
 			provider.dispose();
 		}
@@ -4483,6 +4612,71 @@ suite('ClaudeCodeProvider peer session merge', () => {
 				'a routable ask must not be dropped by the peer’s view',
 			);
 			assert.notStrictEqual(s?.pendingPermission?.resolvable, false);
+		});
+	});
+
+	test('a peer merge backfills lastPrompt/firstPrompt only when the local value is unset', async () => {
+		await withPeer(async (provider, handlers, published) => {
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+
+			published.sessions = [peerRow('s1', { lastPrompt: 'peer prompt', firstPrompt: 'peer first prompt' })];
+			await provider.runPeerQuery();
+
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.strictEqual(s?.lastPrompt, 'peer prompt', 'lastPrompt is backfilled from the peer');
+			assert.strictEqual(s?.firstPrompt, 'peer first prompt', 'firstPrompt is backfilled from the peer');
+		});
+	});
+
+	test("a peer merge does not clobber a set local lastPrompt/firstPrompt with the peer's", async () => {
+		await withPeer(async (provider, handlers, published) => {
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(
+				{
+					event: 'UserPromptSubmit',
+					sessionId: 's1',
+					cwd: REPO,
+					pid: process.pid,
+					prompt: 'local prompt',
+					firstPrompt: 'local prompt',
+				},
+				new URLSearchParams(),
+			);
+
+			published.sessions = [peerRow('s1', { lastPrompt: 'peer prompt', firstPrompt: 'peer first prompt' })];
+			await provider.runPeerQuery();
+
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.strictEqual(s?.lastPrompt, 'local prompt', 'a hook-set lastPrompt survives the peer merge');
+			assert.strictEqual(s?.firstPrompt, 'local prompt', 'a hook-set firstPrompt survives the peer merge');
+		});
+	});
+
+	test("a peer's ended row is skipped entirely — it never ends a live local session or touch its fileActivity", async () => {
+		await withPeer(async (provider, handlers, published) => {
+			const FILE = '/repo/src/foo.ts';
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(preToolUse('s1', 'Edit', FILE), new URLSearchParams());
+			await handler(postToolUse('s1', 'Edit', FILE), new URLSearchParams());
+			assert.ok(
+				fileActivityOf(provider, 's1').some(e => e.path === FILE),
+				'local fileActivity should be populated before the merge',
+			);
+
+			// The publish endpoint filters ended rows out, so this models a version-skewed peer.
+			// Terminal transitions are owned by the local hook/poll paths, never a peer claim.
+			published.sessions = [peerRow('s1', { status: 'ended', phase: 'ended', fileActivity: undefined })];
+			await provider.runPeerQuery();
+
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.notStrictEqual(s?.status, 'ended', "a peer's terminal claim must not end a live local session");
+			assert.ok(
+				fileActivityOf(provider, 's1').some(e => e.path === FILE),
+				'the local fileActivity must be untouched by a skipped peer row',
+			);
 		});
 	});
 });

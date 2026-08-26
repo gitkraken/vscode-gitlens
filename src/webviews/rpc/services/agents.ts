@@ -1,6 +1,10 @@
 import { Disposable, env } from 'vscode';
 import type { GkAgent } from '../../../agents/agentService.js';
-import type { AgentSessionState, PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
+import type {
+	AgentSessionState,
+	PastAgentSessionDetail,
+	PastAgentSessionsResult,
+} from '../../../agents/models/agentSessionState.js';
 import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import type { AgentDescriptor } from '../../../plus/agents/agentDescriptor.js';
@@ -171,6 +175,28 @@ export class AgentsService {
 		if (agents == null) return undefined;
 
 		const result = await agents.getPastSessions(worktreePath, { limit: options?.limit });
+		signal?.throwIfAborted();
+
+		return result;
+	}
+
+	/**
+	 * Gets the on-demand enrichment (titles + first/last prompt) for one past session, resolved
+	 * lazily when the past-session sheet opens. Returns `undefined` when agents are unavailable or
+	 * the provider has nothing to add — the sheet just renders un-enriched in that case.
+	 */
+	async getPastSessionDetail(
+		sessionId: string,
+		providerId: string | undefined,
+		cwd: string | undefined,
+		signal?: AbortSignal,
+	): Promise<PastAgentSessionDetail | undefined> {
+		signal?.throwIfAborted();
+
+		const agents = this.container.agentStatus;
+		if (agents == null) return undefined;
+
+		const result = await agents.getPastSessionDetail(sessionId, providerId, cwd);
 		signal?.throwIfAborted();
 
 		return result;

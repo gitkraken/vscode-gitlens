@@ -13,6 +13,7 @@ import type { GkAgent } from './agentService.js';
 import type {
 	AgentSessionState,
 	AgentSessionWorktreeMetadata,
+	PastAgentSessionDetail,
 	PastAgentSessionsResult,
 	PastAgentSessionState,
 } from './models/agentSessionState.js';
@@ -560,6 +561,28 @@ export class AgentStatusService implements Disposable {
 			// honors the contract once 2+ providers each return up to `limit`.
 			const limited = options?.limit != null && options.limit > 0 ? sessions.slice(0, options.limit) : sessions;
 			return { sessions: limited, total: total };
+		}
+	}
+
+	/** On-demand enrichment for a past-session sheet — resolves the transcript-backed titles and
+	 *  first/last prompt lazily, paying the read only when the sheet actually opens. Returns
+	 *  `undefined` when the provider is unresolvable or has nothing to add. */
+	async getPastSessionDetail(
+		sessionId: string,
+		providerId: string | undefined,
+		cwd?: string,
+	): Promise<PastAgentSessionDetail | undefined> {
+		const provider = this.getProviderForSession(providerId, sessionId);
+		if (provider?.resolveSessionDetails == null) return undefined;
+
+		try {
+			const details = await provider.resolveSessionDetails(sessionId, cwd);
+			if (details == null) return undefined;
+
+			return { titles: details.titles, firstPrompt: details.firstPrompt, lastPrompt: details.lastPrompt };
+		} catch (ex) {
+			Logger.error(ex, 'AgentStatusService.getPastSessionDetail');
+			return undefined;
 		}
 	}
 

@@ -11,6 +11,7 @@ export {
 	type AgentSessionResumeOutcome,
 	type AgentSessionResumeTarget,
 	type AgentSessionStatus,
+	type EndedTranscriptDetails,
 	getPhaseForStatus,
 	isActiveAgentPhase,
 	type PendingPermission,

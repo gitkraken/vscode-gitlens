@@ -1,6 +1,7 @@
 import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
+import type { EndedTranscriptDetails } from './providers/claudeCodeTranscript.js';
 
 export const claudeCodeNonBlockingHookEvents = [
 	'SessionStart',
@@ -127,9 +128,10 @@ export interface AgentSession {
 	readonly phase: AgentSessionPhase;
 	readonly statusDetail?: string;
 	readonly worktreePath?: string;
-	/** Distinct worktree roots this session has been observed in (normalized, insertion order,
-	 *  includes the current `worktreePath`). Accumulated from the CLI's `cwdTimeline` and the
-	 *  git probe; never pruned for the session's lifetime. */
+	/** Distinct worktree roots this session has been observed in (normalized), ordered by recency —
+	 *  most recently observed LAST (so the current `worktreePath` is normally the final entry).
+	 *  Accumulated from the CLI's `cwdTimeline` and the git probe; never pruned for the session's
+	 *  lifetime. */
 	readonly visitedWorktreePaths?: readonly string[];
 	/** Common (parent) repo path shared by every worktree in this session's repo. Set together
 	 *  with `worktreePath` by `resolveGitInfo` — equal to `worktreePath` for a default-worktree
@@ -305,7 +307,14 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	 *  cold-start doesn't fan out hundreds of git probes + transcript reads; the row shows its
 	 *  durable-store label until opened. No-op if the session isn't a tracked ended one. */
 	resolveEndedSessionDetails?(sessionId: string): void;
+
+	/** Resolves the transcript-backed detail (titles + first/last prompt) for a session lazily —
+	 *  called by the host when the user opens the past-session sheet, not on mere listing. No
+	 *  `_sessions` gate: works for a transcript-only id that was never tracked live this window. */
+	resolveSessionDetails?(sessionId: string, cwd?: string): Promise<EndedTranscriptDetails | undefined>;
 }
+
+export type { EndedTranscriptDetails } from './providers/claudeCodeTranscript.js';
 
 export type AgentSessionHistoryDisposition = 'ended' | 'archived';
 

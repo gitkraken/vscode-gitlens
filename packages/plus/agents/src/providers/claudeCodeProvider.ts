@@ -37,6 +37,7 @@ import type {
 	PermissionSuggestion,
 } from '../types.js';
 import { getPhaseForStatus } from '../types.js';
+import type { EndedTranscriptDetails } from './claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
 
 interface AgentSessionEvent {
@@ -248,33 +249,83 @@ function worktreeFromEvent(event: AgentSessionEvent): string | undefined {
 	return undefined;
 }
 
-/** Distinct, normalized, non-empty `worktree` values from a `cwdTimeline`, in the order they first
- *  appear. `undefined` when the timeline is absent or names no worktree — callers should NOT
- *  overwrite an existing `visitedWorktreePaths` with an empty array in that case. */
+/** Reorders `paths` so each distinct (already-normalized) value is positioned by its LAST
+ *  occurrence — an earlier occurrence of a value that recurs later is dropped, and the value's one
+ *  remaining slot sits where that last occurrence falls. Implemented via delete-then-reinsert into
+ *  a `Map`: re-inserting a key after deleting it moves it to the end of `Map` iteration order,
+ *  which is exactly "this value's position is its most recent occurrence". */
+function orderByLastOccurrence(paths: readonly string[]): string[] {
+	const seen = new Map<string, true>();
+	for (const path of paths) {
+		seen.delete(path);
+		seen.set(path, true);
+	}
+	return [...seen.keys()];
+}
+
+/** Distinct, normalized, non-empty `worktree` values from a `cwdTimeline`, ordered by recency —
+ *  positioned by each path's LAST occurrence in the (chronological) timeline, so a path the
+ *  session returns to later sorts after one it doesn't. `undefined` when the timeline is absent or
+ *  names no worktree — callers should NOT overwrite an existing `visitedWorktreePaths` with an
+ *  empty array in that case. */
 function visitedFromTimeline(
 	timeline: { cwd: string; worktree?: string; at?: string }[] | undefined,
 ): string[] | undefined {
 	if (timeline == null) return undefined;
 
-	const seen = new Set<string>();
-	const result: string[] = [];
+	const paths: string[] = [];
 	for (const entry of timeline) {
 		if (!entry.worktree) continue;
 
-		const normalized = normalizePath(entry.worktree);
-		if (seen.has(normalized)) continue;
-
-		seen.add(normalized);
-		result.push(normalized);
+		paths.push(normalizePath(entry.worktree));
 	}
-	return result.length > 0 ? result : undefined;
+	if (paths.length === 0) return undefined;
+
+	return orderByLastOccurrence(paths);
 }
 
 /** Unions `adds` (each an array or a single path, `undefined` skipped) into `existing`, normalizing
- *  every path. Returns `existing` BY REFERENCE, unchanged, when nothing new is added — callers rely
- *  on this to avoid firing spurious change events on every hook event / poll cycle when the visited
- *  set hasn't actually grown. */
+ *  every path, and reorders the result by recency: every add — including one that names a path
+ *  already in `existing` — moves that path to the end, same "last occurrence wins the slot" rule
+ *  {@link orderByLastOccurrence} applies to a single timeline. Adds arrive in chronological order at
+ *  every call site (timeline-derived paths first, the current `worktreePath` folded last), so the
+ *  current worktree normally ends up last.
+ *
+ *  **Reference-stability contract — load-bearing**: returns `existing` BY REFERENCE, unchanged,
+ *  when the resulting sequence is element-for-element identical to `existing`. Callers
+ *  (`ensureSession`'s identity gate) rely on this to avoid firing spurious change events on every
+ *  hook event / poll cycle when the visited set hasn't actually changed — re-processing an
+ *  unchanged timeline plus the same current worktree reproduces the identical sequence (each path
+ *  "moves" to the same slot it already occupies), so the comparison below still holds. */
 function unionVisited(
+	existing: readonly string[] | undefined,
+	...adds: (string | readonly string[] | undefined)[]
+): readonly string[] | undefined {
+	const combined = existing != null ? [...existing] : [];
+	for (const add of adds) {
+		if (add == null) continue;
+
+		const values = typeof add === 'string' ? [add] : add;
+		for (const value of values) {
+			if (!value) continue;
+
+			combined.push(normalizePath(value));
+		}
+	}
+
+	const next = orderByLastOccurrence(combined);
+	if (existing != null && next.length === existing.length && next.every((path, i) => path === existing[i])) {
+		return existing;
+	}
+	return next.length > 0 ? next : undefined;
+}
+
+/** Peer-merge variant of {@link unionVisited}: same normalize-and-dedupe, but APPEND-ONLY —
+ *  `existing`'s order is preserved and any path the peer names that we don't already have is
+ *  appended in the peer's own order. A peer's order can't be trusted as fresher than ours without
+ *  timestamps, so peer input never reorders what we already hold. Returns `existing` BY REFERENCE
+ *  when nothing new is added — same rationale as {@link unionVisited}. */
+function unionVisitedAppendOnly(
 	existing: readonly string[] | undefined,
 	...adds: (string | readonly string[] | undefined)[]
 ): readonly string[] | undefined {
@@ -542,6 +593,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private _statusFilterSupported = true;
 	protected _transcriptReader: ClaudeCodeTranscriptReader = new ClaudeCodeTranscriptReader();
 	private _terminalGeneration = 0;
+	/** Ended-transcript detail results, cached forever per window — an ended transcript is
+	 *  immutable, so once resolved it never needs a second read. Keyed by session id. */
+	private readonly _sessionDetailsCache = new Map<string, Promise<EndedTranscriptDetails | undefined>>();
 
 	constructor(private readonly callbacks: AgentProviderCallbacks) {}
 
@@ -1778,6 +1832,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (index < 0) return false;
 
 		const parent = this._sessions[index];
+		if (parent.status === 'ended') return false;
+
 		const parentBk = this._sessionBookkeeping.get(parentSessionId);
 
 		type Contrib = { editCount: number; readCount: number; editAt?: number; readAt?: number };
@@ -2113,6 +2169,28 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			void this.resolveGitInfo(sessionId, session.cwd);
 		}
 		void this.applyEndedTranscriptDetails(sessionId, session.cwd);
+	}
+
+	/** No `_sessions` gate, unlike {@link resolveEndedSessionDetails} — must work for a
+	 *  transcript-only id this window never tracked live (past-session-sheet callers). */
+	async resolveSessionDetails(sessionId: string, cwd?: string): Promise<EndedTranscriptDetails | undefined> {
+		let cached = this._sessionDetailsCache.get(sessionId);
+		if (cached == null) {
+			cached = this._transcriptReader.resolveEndedDetails(sessionId, cwd).catch((ex: unknown) => {
+				// A read error (transient I/O, permissions) is not terminal state — drop the cache
+				// entry so a later call retries. A resolved `undefined` IS terminal (no transcript on
+				// disk) and stays cached.
+				this._sessionDetailsCache.delete(sessionId);
+				throw ex;
+			});
+			this._sessionDetailsCache.set(sessionId, cached);
+		}
+
+		try {
+			return await cached;
+		} catch {
+			return undefined;
+		}
 	}
 
 	private async applyEndedTranscriptDetails(sessionId: string, cwd: string | undefined): Promise<void> {
@@ -2662,9 +2740,6 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			statusDetail: undefined,
 			pendingPermission: undefined,
 			subagents: undefined,
-			// A terminal row carries no live working state — drop the file-activity heatmap so
-			// consumers reading it directly don't render a frozen tail for a finished session.
-			fileActivity: undefined,
 		};
 		// Terminal teardown, owned here so every caller gets it — the live `SessionEnd` path does
 		// this before calling us, but the poll's missed-SessionEnd transition doesn't: reject any
@@ -2947,9 +3022,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// the live cwd's git probe confirms a replacement — a resumed session can legitimately
 					// sit in scratch space — but never let a later poll move it back to the ended record's
 					// directory. A record already known superseded stays ignored until the CLI rewrites it,
-					// so the row survives the resumed process exiting before that write lands. Deliberately
-					// limited to location: prompts/titles have their own on-demand transcript resolution,
-					// which holds richer values than the record does.
+					// so the row survives the resumed process exiting before that write lands. Prompts get a
+					// hole-fill from the record below when nothing has been set yet; titles keep their own
+					// on-demand transcript resolution, which holds richer values than the record does.
 					const existing = this._sessions[existingIndex];
 					const cwdChanged = !recordLocationStale && currentCwd !== existing.cwd;
 					// Pre-`cwdTimeline` records carry no worktree data. If the cwd moved, whatever we hold
@@ -2997,6 +3072,25 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							this.getBookkeeping(data.sessionId).cliSeatedWorktree = currentWorktreeRoot != null;
 							void this.resolveGitInfo(data.sessionId, currentCwd);
 						}
+					}
+
+					// Prompts backfill-only: the record's prompt/firstPrompt sanitized the same way the
+					// discovery path does. Never overwrites a value the hook path or a transcript resolve
+					// already set.
+					const currentSession = this._sessions[existingIndex];
+					const nextLastPrompt = currentSession.lastPrompt ?? prepareStoredPrompt(data.prompt ?? undefined);
+					const nextFirstPrompt =
+						currentSession.firstPrompt ?? prepareStoredPrompt(data.firstPrompt ?? undefined);
+					if (
+						nextLastPrompt !== currentSession.lastPrompt ||
+						nextFirstPrompt !== currentSession.firstPrompt
+					) {
+						this._sessions[existingIndex] = {
+							...currentSession,
+							lastPrompt: nextLastPrompt,
+							firstPrompt: nextFirstPrompt,
+						};
+						changed = true;
 					}
 
 					const nextBookkeeping = this.getBookkeeping(data.sessionId);
@@ -3477,13 +3571,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				// Skip terminal rows a peer published: ended sessions live in the machine-global CLI
 				// store, so our own poll surfaces them with proper reconciliation. Importing them from a
 				// peer would add a row with no `polledAtLeastOnce` that our poll can't confirm — a ghost
-				// pinned for this window's lifetime if the store later drops it.
+				// pinned for this window's lifetime if the store later drops it. (The publish endpoint
+				// filters ended rows out anyway; this also keeps a version-skewed peer's terminal claim
+				// from ending a row we still track live.)
 				if (peerSession.status === 'ended') continue;
 
+				const existing = this._sessions.find(s => s.id === peerSession.id);
 				const peerActivity = new Date(peerSession.lastActivity);
 				const peerPhaseSince = new Date(peerSession.phaseSince);
-
-				const existing = this._sessions.find(s => s.id === peerSession.id);
 
 				if (existing != null) {
 					// If the peer reports a different `cwd` than we last saw, the agent moved
@@ -3541,7 +3636,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							// but `worktreePath` changed) only reaches us if we carry BOTH. Carrying
 							// `commonPath` alone froze the displayed worktree at first-discovery.
 							worktreePath: peerSession.worktreePath ?? existing.worktreePath,
-							visitedWorktreePaths: unionVisited(
+							visitedWorktreePaths: unionVisitedAppendOnly(
 								existing.visitedWorktreePaths,
 								peerSession.visitedWorktreePaths,
 							),
@@ -3556,6 +3651,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							initialCwd: existing.initialCwd ?? peerSession.initialCwd,
 							initialWorktreePath: existing.initialWorktreePath ?? peerSession.initialWorktreePath,
 							initialCommonPath: existing.initialCommonPath ?? peerSession.initialCommonPath,
+							// The hook path, when present, carries richer un-truncated prompts than what a
+							// peer forwards — prefer our own value over the peer's.
+							lastPrompt: existing.lastPrompt ?? peerSession.lastPrompt,
+							firstPrompt: existing.firstPrompt ?? peerSession.firstPrompt,
 							// Forward peer-discovered transcript titles. Both windows can resolve them
 							// independently against the same on-disk transcript, but only the peer's
 							// hook flow drives its updates — without this, we'd freeze the snapshot
