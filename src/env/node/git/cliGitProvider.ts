@@ -1634,7 +1634,26 @@ export class GlCliGitProvider implements GlGitProvider {
 		const scope = getScopedLogger();
 		try {
 			const gitApi = await this.getScmGitApi();
-			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
+			const repo = gitApi?.getRepository(Uri.file(repoPath));
+			if (repo == null) return undefined;
+
+			// `getRepository` returns any opened repository that "contains" the path, so a worktree or
+			// nested repo living inside an opened repo resolves to that ancestor instead. Callers mean
+			// this exact repo: they build `git:` Uris for it (which carry no repo, so the Git extension
+			// re-resolves them by path against the ancestor, where the path isn't in the index) or they
+			// write to its SCM input box (landing the text in the ancestor's box). Both fail silently,
+			// so require the roots to match. `arePathsEqual` normalizes separators and drive casing,
+			// which a Uri/string comparison would trip over on Windows.
+			if (!arePathsEqual(repo.rootUri.fsPath, repoPath)) {
+				scope?.info(
+					`no SCM repository for '${repoPath}'; closest match is the containing repository '${repo.rootUri.toString(
+						true,
+					)}'`,
+				);
+				return undefined;
+			}
+
+			return repo;
 		} catch (ex) {
 			scope?.error(ex);
 			return undefined;
