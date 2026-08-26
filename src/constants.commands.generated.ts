@@ -1075,6 +1075,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.gk.switchOrganization'
 	| 'gitlens.graph.followTerminalOff'
 	| 'gitlens.graph.followTerminalOn'
+	| 'gitlens.graph.simulate.signInGateVariant'
 	| 'gitlens.graph.soloBranch'
 	| 'gitlens.graph.soloBranch:views'
 	| 'gitlens.graph.soloTag'

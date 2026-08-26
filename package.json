@@ -8662,6 +8662,11 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
+				"command": "gitlens.graph.simulate.signInGateVariant",
+				"title": "Simulate Commit Graph Sign-in Gate (Debugging)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.soloBranch",
 				"title": "Solo Branch",
 				"category": "GitLens"
@@ -14667,6 +14672,10 @@
 				{
 					"command": "gitlens.graph.showTerminalWorktree",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.simulate.signInGateVariant",
+					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
 					"command": "gitlens.graph.soloBranch",
