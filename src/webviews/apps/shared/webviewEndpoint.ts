@@ -10,6 +10,7 @@ import {
 	decodeRpcPayload,
 	encodeRpcPayload,
 	inflateRpcPayload,
+	isBinaryRpcPayload,
 	isRpcMessage,
 	RPC_NAMESPACE,
 } from '../../rpc/constants.js';
@@ -41,7 +42,7 @@ export interface OrderedDispatcher {
  * everything else passes through unchanged.
  */
 function decodeSync(payload: unknown): unknown {
-	return payload instanceof Uint8Array || payload instanceof ArrayBuffer ? decodeRpcPayload(payload) : payload;
+	return isBinaryRpcPayload(payload) ? decodeRpcPayload(payload) : payload;
 }
 
 /**
@@ -62,6 +63,8 @@ export function createOrderedDispatcher(deliver: (data: unknown, event: MessageE
 
 	return {
 		dispatch: function (message: RpcMessageWrapper, event: MessageEvent): void {
+			if (disposed) return;
+
 			if (message.compressed == null && queued === 0) {
 				deliver(decodeSync(message.payload), event);
 
@@ -74,14 +77,26 @@ export function createOrderedDispatcher(deliver: (data: unknown, event: MessageE
 					try {
 						if (disposed) return;
 
+						const { payload, compressed } = message;
 						let data: unknown;
 						try {
-							const { payload, compressed } = message;
-							data =
-								compressed === 'deflate-raw' &&
-								(payload instanceof Uint8Array || payload instanceof ArrayBuffer)
-									? await inflateRpcPayload(payload)
-									: decodeSync(payload);
+							if (compressed != null) {
+								// Only the host ever stamps `compressed`, always 'deflate-raw' with the binary
+								// payload it just deflated — an unknown scheme or a non-binary payload is a
+								// foreign/malformed frame, not a decode failure, so name it as such instead of
+								// letting it fall through to a misattributed "decompression failed" below.
+								if (compressed !== 'deflate-raw' || !isBinaryRpcPayload(payload)) {
+									console.error(
+										`RPC message with unsupported compression (${compressed}) or a non-binary payload; dropping message`,
+									);
+
+									return;
+								}
+
+								data = await inflateRpcPayload(payload);
+							} else {
+								data = decodeSync(payload);
+							}
 						} catch (ex) {
 							debugger;
 							// There is no degraded decode for a corrupt DEFLATE stream, so this message is lost — if it
@@ -91,6 +106,9 @@ export function createOrderedDispatcher(deliver: (data: unknown, event: MessageE
 
 							return;
 						}
+
+						// Re-check: dispose() can land while the inflate hop above is in flight
+						if (disposed) return;
 
 						deliver(data, event);
 					} finally {
@@ -163,6 +181,13 @@ export function createWebviewEndpoint(): DisposableEndpoint {
 
 				dispatcher.dispatch(message, event);
 			};
+
+			// Re-registering the same listener must not leak the previous wrapper/dispatcher
+			const existing = listeners.get(listener);
+			if (existing) {
+				window.removeEventListener('message', existing.wrapped);
+				existing.dispatcher.dispose();
+			}
 
 			listeners.set(listener, { wrapped: wrappedListener, dispatcher: dispatcher });
 			window.addEventListener('message', wrappedListener);

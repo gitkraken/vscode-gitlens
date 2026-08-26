@@ -68,6 +68,20 @@ suite('createOrderedDispatcher Test Suite', () => {
 		assert.strictEqual(deliveries.length, 0);
 	});
 
+	test('dispose() during an in-flight decompression suppresses delivery', async () => {
+		const deliveries: unknown[] = [];
+		const dispatcher = createOrderedDispatcher(data => deliveries.push(data));
+
+		dispatcher.dispatch(wrapCompressed({ id: 1 }), fakeEvent);
+		// One microtask hop: the chain link has started and is suspended inside the async inflate
+		await Promise.resolve();
+		dispatcher.dispose();
+
+		await drain();
+
+		assert.strictEqual(deliveries.length, 0);
+	});
+
 	test('drops a corrupt compressed message without stalling later messages', async () => {
 		const deliveries: unknown[] = [];
 		const dispatcher = createOrderedDispatcher(data => deliveries.push(data));

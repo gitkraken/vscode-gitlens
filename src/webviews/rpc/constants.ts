@@ -26,6 +26,11 @@ export function isRpcMessage(message: unknown): message is RpcMessageWrapper {
 	);
 }
 
+/** Type guard for a binary RPC payload as delivered by VS Code's message channel */
+export function isBinaryRpcPayload(payload: unknown): payload is Uint8Array | ArrayBuffer {
+	return payload instanceof Uint8Array || payload instanceof ArrayBuffer;
+}
+
 // Cached encoder/decoder instances for binary payload encoding
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();

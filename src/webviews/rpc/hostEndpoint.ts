@@ -34,6 +34,7 @@ import type { RpcMessageWrapper } from './constants.js';
 import {
 	decodeRpcPayload,
 	encodeRpcPayload,
+	isBinaryRpcPayload,
 	isRpcMessage,
 	RPC_NAMESPACE,
 	rpcCompressionMinBytes,
@@ -75,8 +76,10 @@ const sequencedChannelWireTypePrefix = 'st:ch:';
  */
 export function createHostEndpoint(webview: Webview, options?: { compress?: boolean }): BufferedEndpoint {
 	// Compression only pays for itself when webview messages cross a network — i.e. a remote extension
-	// host (SSH / WSL / container / Codespaces from desktop); locally it is pure CPU cost.
-	const compress = options?.compress ?? env.remoteName != null;
+	// host (SSH / WSL / container / Codespaces from desktop); locally it is pure CPU cost. The browser
+	// host cannot compress at all (its `deflateRaw` always returns `undefined`) — probe once here so a
+	// web + remote session (e.g. vscode.dev over a tunnel) doesn't pay a no-op deflate call per message.
+	const compress = (options?.compress ?? env.remoteName != null) && deflateRaw(new Uint8Array()) != null;
 
 	const listeners = new Map<(event: MessageEvent) => void, Disposable>();
 
@@ -220,12 +223,19 @@ export function createHostEndpoint(webview: Webview, options?: { compress?: bool
 				// Only process messages with our RPC namespace
 				if (!isRpcMessage(message)) return;
 
+				// Webview→host messages are never compressed (see webviewEndpoint's postMessage) — a
+				// `compressed` frame here would be binary garbage to decodeRpcPayload, so drop it loudly
+				// instead of throwing out of the receive callback
+				if (message.compressed != null) {
+					debugger;
+					Logger.error(undefined, 'RPC host endpoint received an unexpected compressed message; dropping it');
+
+					return;
+				}
+
 				// Decode binary payload if present, fall back to plain object
 				const { payload } = message;
-				const data =
-					payload instanceof Uint8Array || payload instanceof ArrayBuffer
-						? decodeRpcPayload(payload)
-						: payload;
+				const data = isBinaryRpcPayload(payload) ? decodeRpcPayload(payload) : payload;
 
 				// Create a MessageEvent-like object with the unwrapped payload
 				const event = {
