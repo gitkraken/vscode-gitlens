@@ -89,6 +89,12 @@ export async function resolveDetailsActions(
 				return service.getPastSessionsForWorktree(worktreePath, { limit: limit }, signal);
 			},
 		),
+		pastAgentSessionDetail: createResource(
+			async (signal, sessionId: string, providerId: string | undefined, cwd: string | undefined) => {
+				const service = await agents;
+				return service.getPastSessionDetail(sessionId, providerId, cwd, signal);
+			},
+		),
 		compare: createResource((signal, repoPath: string, fromSha: string, toSha: string) =>
 			graphInspect.getCompareDiff(repoPath, fromSha, toSha, signal),
 		),

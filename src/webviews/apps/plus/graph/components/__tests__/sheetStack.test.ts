@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import type { PastAgentSessionState } from '../../../../../../agents/models/agentSessionState.js';
 import type { FileChangeListItemDetail } from '../../../../commitDetails/components/gl-details-base.js';
 import type { BranchSheetRef } from '../gl-graph-branch-sheet-pane.js';
 import type { SheetDescriptor } from '../sheetStack.js';
@@ -38,6 +39,26 @@ function rebaseSummaryDescriptor(repoPath: string = '/repo'): SheetDescriptor {
 
 function compareDescriptor(): SheetDescriptor {
 	return { kind: 'compare' };
+}
+
+function agentSessionDescriptor(sessionId: string = 'session-1', providerId: string = 'claudeCode'): SheetDescriptor {
+	return { kind: 'agentSession', sessionId: sessionId, providerId: providerId };
+}
+
+function pastAgentSessionDescriptor(
+	sessionId: string = 'session-1',
+	providerId: string = 'claudeCode',
+): SheetDescriptor {
+	const session: PastAgentSessionState = {
+		id: sessionId,
+		providerId: providerId,
+		disposition: 'ended',
+		actions: {},
+		worktreePath: '/repo',
+		displayName: 'Past Session',
+		lastActivity: 0,
+	};
+	return { kind: 'pastAgentSession', session: session };
 }
 
 suite('pushSheet', () => {
@@ -324,5 +345,47 @@ suite('sheetKey', () => {
 		const b = conflictDescriptor({ repoPath: '/r', path: 'a|b' });
 
 		assert.notStrictEqual(sheetKey(a), sheetKey(b));
+	});
+
+	test('two agent session descriptors for the same provider and session id produce equal keys', () => {
+		assert.strictEqual(
+			sheetKey(agentSessionDescriptor('session-1', 'claudeCode')),
+			sheetKey(agentSessionDescriptor('session-1', 'claudeCode')),
+		);
+	});
+
+	test('keys differ for the same session id under different providers', () => {
+		assert.notStrictEqual(
+			sheetKey(agentSessionDescriptor('session-1', 'claudeCode')),
+			sheetKey(agentSessionDescriptor('session-1', 'copilot')),
+		);
+	});
+
+	test('keys differ for different session ids under the same provider', () => {
+		assert.notStrictEqual(
+			sheetKey(agentSessionDescriptor('session-1', 'claudeCode')),
+			sheetKey(agentSessionDescriptor('session-2', 'claudeCode')),
+		);
+	});
+
+	test('two past agent session descriptors for the same provider and session id produce equal keys', () => {
+		assert.strictEqual(
+			sheetKey(pastAgentSessionDescriptor('session-1', 'claudeCode')),
+			sheetKey(pastAgentSessionDescriptor('session-1', 'claudeCode')),
+		);
+	});
+
+	test('past agent session keys differ for the same session id under different providers', () => {
+		assert.notStrictEqual(
+			sheetKey(pastAgentSessionDescriptor('session-1', 'claudeCode')),
+			sheetKey(pastAgentSessionDescriptor('session-1', 'copilot')),
+		);
+	});
+
+	test('past agent session keys differ for different session ids under the same provider', () => {
+		assert.notStrictEqual(
+			sheetKey(pastAgentSessionDescriptor('session-1', 'claudeCode')),
+			sheetKey(pastAgentSessionDescriptor('session-2', 'claudeCode')),
+		);
 	});
 });

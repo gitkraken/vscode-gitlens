@@ -10,6 +10,7 @@ export const sheetWrapperTags = [
 	'gl-wip-conflict-sheet',
 	'gl-rebase-summary-sheet',
 	'gl-graph-pr-sheet',
+	'gl-graph-agent-sheet',
 ] as const;
 
 /** Selector for the sheet-stack router's mounted-sheet query — every converted wrapper tag, plus the

@@ -100,6 +100,14 @@ declare global {
 		'gl-agent-status-past-sessions-more-request': CustomEvent<PastAgentSessionsMoreRequest>;
 		/** Requests archival of a transcript-backed past session. */
 		'gl-agent-status-past-session-archive-request': CustomEvent<PastAgentSessionArchiveRequest>;
+		/** A live card was activated (click/Enter/Space) outside any of its interactive descendants —
+		 *  the panel opens the agent session sheet for it. Past-session cards fire the past-session
+		 *  variant below instead. */
+		'gl-agent-session-sheet-open': CustomEvent<{ sessionId: string; providerId: string }>;
+		/** A past-session card was activated (click/Enter/Space) outside any of its interactive
+		 *  descendants — the panel opens the past-session sheet for it, passing the full snapshot
+		 *  (no live-session lookup needed). */
+		'gl-agent-past-session-sheet-open': CustomEvent<{ session: PastAgentSessionState }>;
 	}
 }
 
@@ -595,6 +603,16 @@ export class GlDetailsAgentStatus extends LitElement {
 				opacity: 1;
 			}
 
+			/* Live cards open the agent session sheet on click/Enter/Space (see activateCard). */
+			.card--live {
+				cursor: pointer;
+			}
+
+			/* Past-session cards open the past-session sheet on click/Enter/Space (see activatePastRow). */
+			.card--ended {
+				cursor: pointer;
+			}
+
 			.card__rail {
 				display: flex;
 				grid-row: 1;
@@ -1020,6 +1038,8 @@ export class GlDetailsAgentStatus extends LitElement {
 				aria-label=${session.displayName}
 				data-session-id=${session.id}
 				data-vscode-context=${serializeWebviewItemContext(buildPastAgentSessionContext(session))}
+				@click=${(e: Event) => this.activatePastRow(session, e)}
+				@keydown=${(e: Event) => this.activatePastRow(session, e)}
 			>
 				<div class="card__rail">${this.renderCardRail('ended')}</div>
 				<div class="card__body">
@@ -1391,13 +1411,15 @@ export class GlDetailsAgentStatus extends LitElement {
 
 		return html`
 			<div
-				class=${`card card--${category}${isSelected ? ' card--selected' : ''}${isGhost ? ' card--ghost' : ''}`}
+				class=${`card card--live card--${category}${isSelected ? ' card--selected' : ''}${isGhost ? ' card--ghost' : ''}`}
 				tabindex="0"
 				role="group"
 				aria-label=${session.displayName}
 				data-session-id=${session.id}
 				data-vscode-context=${serializeWebviewItemContext(buildAgentSessionContext(session, category))}
 				aria-current=${isSelected ? 'true' : nothing}
+				@click=${(e: Event) => this.activateCard(session, e)}
+				@keydown=${(e: Event) => this.activateCard(session, e)}
 			>
 				<div class="card__rail">${this.renderCardRail(category)}</div>
 				<div class="card__body">
@@ -1455,6 +1477,78 @@ export class GlDetailsAgentStatus extends LitElement {
 				}
 			</div>
 		`;
+	}
+
+	/** Walks `e.composedPath()` outward from the actual event target looking for the enclosing card
+	 *  (marked by `data-session-id`) or an interactive descendant (link/button/action-chip/copy
+	 *  control) that should absorb the activation itself. Returns `true` when activation should be
+	 *  suppressed. Shared by `activateCard` and `activatePastRow`. */
+	private isCardActivationBlocked(e: Event): boolean {
+		for (const target of e.composedPath()) {
+			if (!(target instanceof HTMLElement)) continue;
+			if (target.dataset.sessionId != null) break;
+
+			const tag = target.tagName.toLowerCase();
+			if (
+				tag === 'a' ||
+				tag === 'button' ||
+				tag === 'gl-button' ||
+				tag === 'gl-action-chip' ||
+				tag === 'gl-copy-container' ||
+				target.hasAttribute('href')
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Opens the agent session sheet for a live card click/Enter/Space — but only when the
+	 *  activation didn't originate from one of the card's own interactive descendants (open/archive
+	 *  action chips, resolve buttons, the copy-plan-path control), which already handle themselves.
+	 *  Delegates the interactive-descendant walk to {@link isCardActivationBlocked}. Past-session
+	 *  cards (`renderPastRow`) call `activatePastRow` instead — they aren't in the live snapshot
+	 *  the sheet resolves against. */
+	private activateCard(session: AgentSessionState, e: Event): void {
+		if (e.type === 'keydown') {
+			const key = (e as KeyboardEvent).key;
+			if (key !== 'Enter' && key !== ' ') return;
+		}
+
+		if (this.isCardActivationBlocked(e)) return;
+
+		if (e.type === 'keydown') {
+			e.preventDefault();
+		}
+
+		this.dispatchEvent(
+			new CustomEvent('gl-agent-session-sheet-open', {
+				detail: { sessionId: session.id, providerId: session.providerId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private activatePastRow(session: PastAgentSessionState, e: Event): void {
+		if (e.type === 'keydown') {
+			const key = (e as KeyboardEvent).key;
+			if (key !== 'Enter' && key !== ' ') return;
+		}
+
+		if (this.isCardActivationBlocked(e)) return;
+
+		if (e.type === 'keydown') {
+			e.preventDefault();
+		}
+
+		this.dispatchEvent(
+			new CustomEvent('gl-agent-past-session-sheet-open', {
+				detail: { session: session },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	/** Detail block for the card body — three mutually exclusive shapes:

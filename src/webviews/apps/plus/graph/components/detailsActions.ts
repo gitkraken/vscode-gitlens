@@ -30,7 +30,10 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
+import type {
+	PastAgentSessionDetail,
+	PastAgentSessionsResult,
+} from '../../../../../agents/models/agentSessionState.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
@@ -189,6 +192,11 @@ export interface DetailsResources {
 	readonly wip: Resource<{ wip: Wip } | undefined, [string, boolean?]>;
 	/** Past (resumable) agent sessions for a worktree, keyed on `worktreePath` + cumulative limit. */
 	readonly pastAgentSessions: Resource<PastAgentSessionsResult | undefined, [string, number?]>;
+	/** On-demand past-session enrichment (titles + first/last prompt), keyed on `(sessionId, providerId, cwd)`. */
+	readonly pastAgentSessionDetail: Resource<
+		PastAgentSessionDetail | undefined,
+		[string, string | undefined, string | undefined]
+	>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -410,6 +418,7 @@ export class DetailsActions {
 		this.resources.commit.dispose();
 		this.resources.wip.dispose();
 		this.resources.pastAgentSessions.dispose();
+		this.resources.pastAgentSessionDetail.dispose();
 		this.resources.compare.dispose();
 		this.resources.branchCompareSummary.dispose();
 		this.resources.branchCompareSide.dispose();

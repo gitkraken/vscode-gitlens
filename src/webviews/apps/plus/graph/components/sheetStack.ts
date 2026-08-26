@@ -1,3 +1,4 @@
+import type { PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
@@ -14,7 +15,9 @@ export type SheetDescriptor =
 			/** Renders the stack's own summary (all layers, top layer's state) instead of one layer's —
 			 *  only ever set alongside a full `layers` load. */
 			stackRoot?: boolean;
-	  };
+	  }
+	| { kind: 'agentSession'; sessionId: string; providerId: string }
+	| { kind: 'pastAgentSession'; session: PastAgentSessionState };
 
 export type SheetKind = SheetDescriptor['kind'];
 
@@ -42,6 +45,13 @@ export function sheetKey(d: SheetDescriptor): string {
 			return d.kind;
 		case 'pullRequest':
 			return [d.kind, d.pr.number, d.stackRoot ? 'stack' : ''].join('|');
+		case 'agentSession':
+			// Ids are only unique per provider — include it so two providers' session id 'abc'
+			// (a plausible collision across harnesses) don't collapse to the same sheet.
+			return JSON.stringify([d.kind, d.providerId, d.sessionId]);
+		case 'pastAgentSession':
+			// Same collision-avoidance rationale as `agentSession`: ids are only unique per provider.
+			return JSON.stringify([d.kind, d.session.providerId, d.session.id]);
 		default: {
 			const _exhaustive: never = d;
 			return _exhaustive;
@@ -57,6 +67,15 @@ export function pushSheet(stack: readonly SheetDescriptor[], d: SheetDescriptor)
 	}
 
 	return [...stack, d];
+}
+
+/** Swaps the top sheet for `d` regardless of identity, preserving everything stacked beneath it —
+ *  in-place navigation (e.g. cycling agent sessions) where {@link pushSheet} would grow the stack
+ *  and {@link replaceStack} would drop a sheet the user expects to return to. */
+export function replaceTopSheet(stack: readonly SheetDescriptor[], d: SheetDescriptor): SheetDescriptor[] {
+	if (stack.length === 0) return [d];
+
+	return [...stack.slice(0, -1), d];
 }
 
 /** Discards whatever is stacked and starts a fresh single-sheet stack. */

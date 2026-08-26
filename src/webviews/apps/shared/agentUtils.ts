@@ -60,6 +60,24 @@ export function agentProviderIcon(providerName: string | undefined): string {
 	}
 }
 
+/** Text label for the coding harness. Used ONLY where the avatar's glyph alone can't carry
+ *  identity — most providers fall through to {@link agentProviderIcon}'s generic robot glyph, so
+ *  the harness must be named in TEXT somewhere on the surface. Falls back to the raw id (still
+ *  informative) or `''` when no id is known at all. */
+export function getAgentProviderLabel(providerId: string | undefined): string {
+	switch (providerId) {
+		case 'claudeCode':
+		case 'claude-code':
+			return 'Claude Code';
+		case 'copilot':
+			return 'GitHub Copilot';
+		case 'cursor':
+			return 'Cursor';
+		default:
+			return providerId ?? '';
+	}
+}
+
 export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	switch (category) {
 		case 'needs-input':

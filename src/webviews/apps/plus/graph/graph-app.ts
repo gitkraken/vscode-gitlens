@@ -1907,6 +1907,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+					@gl-graph-reveal-location=${this.handleGraphRevealLocation}
 					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
 					@gl-graph-pr-compare=${this.handlePrCompare}
@@ -2394,6 +2395,55 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.detailsPanelEl?.highlightAgentSession(sessionId);
 		} catch (ex) {
 			Logger.error(ex, 'GraphApp.dispatchKanbanOpenSession');
+		}
+	}
+
+	private handleGraphRevealLocation = (
+		e: CustomEvent<{ worktreePath?: string; branchName?: string; upstreamName?: string }>,
+	): void => {
+		void this.dispatchGraphRevealLocation(e.detail);
+	};
+
+	/** Jumps the graph to a "Working in" location row from the agent sheet — reveal-only, never
+	 *  scopes/focuses like `scopeToBranchByName`. Cross-repo worktrees (no wip row, no branch match)
+	 *  silently no-op, same policy as `dispatchKanbanOpenSession`. */
+	private async dispatchGraphRevealLocation(detail: {
+		worktreePath?: string;
+		branchName?: string;
+		upstreamName?: string;
+	}): Promise<void> {
+		try {
+			const { worktreePath, branchName } = detail;
+
+			if (worktreePath != null) {
+				const rowId = createWipRowId(worktreePath);
+				if (this.graphState.wipRowsById?.[rowId] != null) {
+					// No `reveal: 'if-changed'`: an explicit click must scroll the row back into view
+					// even when it's already the selection (just scrolled away).
+					await this.navigateToCommit(rowId, { source: 'jump', flash: true });
+					return;
+				}
+			}
+
+			if (branchName != null) {
+				const repoPath = this.fallbackRepoPath;
+				if (repoPath != null) {
+					const branchId = getBranchId(repoPath, false, branchName);
+					// Overview cascade first — it prefers the branch's WIP row and resolves a tip sha
+					// even when its row isn't loaded (`navigateToCommit` jump-loads); scrape loaded
+					// rows only as the fallback for a branch the overview doesn't carry.
+					const sha =
+						this.getOverviewBranchSelectionSha(branchId) ??
+						this.graphState.rows?.find(r => r.heads?.some(h => h.id === branchId))?.sha;
+					if (sha != null) {
+						await this.navigateToCommit(sha, { source: 'jump', flash: true });
+					}
+				}
+			}
+
+			// No matching row for either the worktree or the branch — silent no-op.
+		} catch (ex) {
+			Logger.error(ex, 'GraphApp.dispatchGraphRevealLocation');
 		}
 	}
 

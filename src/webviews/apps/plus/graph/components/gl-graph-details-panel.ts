@@ -10,7 +10,12 @@ import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import type { AgentSessionState, PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
+import type {
+	AgentSessionState,
+	PastAgentSessionDetail,
+	PastAgentSessionsResult,
+	PastAgentSessionState,
+} from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
@@ -118,6 +123,7 @@ import {
 	reduceOnSelectionChange,
 	removeKind,
 	replaceStack,
+	replaceTopSheet,
 	sheetKey,
 } from './sheetStack.js';
 import { sheetWrapperSelector } from './sheetWrapper.js';
@@ -135,6 +141,7 @@ import './gl-graph-compare-pinned.js';
 import './gl-graph-compare-sheet.js';
 import './gl-rebase-summary-sheet.js';
 import './gl-graph-pr-sheet.js';
+import './gl-graph-agent-sheet.js';
 import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
@@ -1119,6 +1126,113 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.removeSheetKind('pullRequest');
 	}
 
+	/** Opens the agent session sheet for a live agent card click. Data-only: `renderTopSheet`
+	 *  resolves the session from the full live snapshot on every render, so this costs no fetch.
+	 *  Pushed, not replaced: a card inside the branch sheet stacks the agent sheet on top so
+	 *  closing it returns there; on an empty stack push and replace are the same. */
+	openAgentSessionSheet(sessionId: string, providerId: string): void {
+		this.openSheet({ kind: 'agentSession', sessionId: sessionId, providerId: providerId }, { push: true });
+	}
+
+	private handleAgentSessionSheetOpen = (e: CustomEvent<{ sessionId: string; providerId: string }>): void => {
+		this.openAgentSessionSheet(e.detail.sessionId, e.detail.providerId);
+	};
+
+	/** Session id the `pastAgentSessionDetail` resource is currently fetching/has fetched for —
+	 *  guards `_pastSessionDetail` against a stale response landing after the user moved on to a
+	 *  different past-session sheet (or closed it) before the fetch resolved. */
+	private _pastSessionDetailFetchId?: string;
+
+	@state() private _pastSessionDetail?: PastAgentSessionDetail;
+
+	/** Opens the past-session sheet. Snapshot rides the descriptor (static — a past session never
+	 *  changes under the sheet); `pastDetail` is a lazy enrichment fetched here and applied only if
+	 *  this sheet is still the top of the stack when it resolves. */
+	openPastAgentSessionSheet(session: PastAgentSessionState): void {
+		this.openSheet({ kind: 'pastAgentSession', session: session }, { push: true });
+		this.fetchPastSessionDetail(session);
+	}
+
+	private fetchPastSessionDetail(session: PastAgentSessionState): void {
+		if (this._pastSessionDetailFetchId === session.id) return;
+
+		this._pastSessionDetailFetchId = session.id;
+		this._pastSessionDetail = undefined;
+		const resource = this._actions?.resources.pastAgentSessionDetail;
+		if (resource == null) return;
+
+		void resource.fetch(session.id, session.providerId, session.actions.resume?.cwd).then(() => {
+			// Bail if a later open (a different past session, or the sheet closing) superseded this fetch.
+			if (this._pastSessionDetailFetchId !== session.id) return;
+
+			this._pastSessionDetail = resource.value.get();
+		});
+	}
+
+	private handlePastAgentSessionSheetOpen = (e: CustomEvent<{ session: PastAgentSessionState }>): void => {
+		this.openPastAgentSessionSheet(e.detail.session);
+	};
+
+	private handleCloseAgentSheet = (): void => {
+		this.popSheet();
+	};
+
+	/** The combined list the sheet's chevrons walk — the agents section's live cards, then its past
+	 *  rows, exactly the vertical order the section renders. */
+	private getAgentSessionCycleEntries(): SheetDescriptor[] {
+		const entries: SheetDescriptor[] = [];
+		for (const s of this._cycleAgentSessions ?? []) {
+			entries.push({ kind: 'agentSession', sessionId: s.id, providerId: s.providerId });
+		}
+
+		for (const p of this._cyclePastSessions?.sessions ?? []) {
+			entries.push({ kind: 'pastAgentSession', session: p });
+		}
+
+		return entries;
+	}
+
+	private findAgentSessionCycleIndex(entries: readonly SheetDescriptor[], top: SheetDescriptor): number {
+		if (top.kind === 'agentSession') {
+			return entries.findIndex(
+				d => d.kind === 'agentSession' && d.sessionId === top.sessionId && d.providerId === top.providerId,
+			);
+		}
+
+		if (top.kind === 'pastAgentSession') {
+			return entries.findIndex(
+				d =>
+					d.kind === 'pastAgentSession' &&
+					d.session.id === top.session.id &&
+					d.session.providerId === top.session.providerId,
+			);
+		}
+
+		return -1;
+	}
+
+	/** Walks the agent-session sheet through the SAME ordered list the agents section renders (live
+	 *  cards first, then past rows), wrapping at the ends, swapping the top descriptor in place so
+	 *  anything stacked beneath (e.g. the branch sheet it was opened from) survives. The list is
+	 *  re-read at each press — order is whatever the section currently shows, never a stale
+	 *  snapshot. */
+	private handleAgentSessionCycle = (e: CustomEvent<{ direction: -1 | 1 }>): void => {
+		const top = this._sheetStack.at(-1);
+		if (top == null || (top.kind !== 'agentSession' && top.kind !== 'pastAgentSession')) return;
+
+		const entries = this.getAgentSessionCycleEntries();
+		if (entries.length < 2) return;
+
+		const index = this.findAgentSessionCycleIndex(entries, top);
+		if (index < 0) return;
+
+		const next = entries[(index + e.detail.direction + entries.length) % entries.length];
+		this._sheetStack = replaceTopSheet(this._sheetStack, next);
+		if (next.kind === 'pastAgentSession') {
+			this.fetchPastSessionDetail(next.session);
+		}
+	};
+
 	/** Reflects a completed merge on every open pull request sheet the merge affects — the sheet stays
 	 *  up, it just stops claiming the pull request is open. Optimistic by design: the host's pull request
 	 *  cache still holds the pre-merge object, so a refetch would read back the stale state; a merge of
@@ -1219,6 +1333,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					?maximized=${this.sheetMaximized}
 					@gl-detail-sheet-close=${this.handleCloseBranchSheet}
 					@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
+					@gl-agent-session-sheet-open=${this.handleAgentSessionSheetOpen}
+					@gl-agent-past-session-sheet-open=${this.handlePastAgentSessionSheetOpen}
 				></gl-graph-branch-sheet>`;
 			case 'conflict':
 				return html`<gl-wip-conflict-sheet
@@ -1251,6 +1367,31 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 					@gl-detail-sheet-close=${this.handleClosePrSheet}
 				></gl-graph-pr-sheet>`;
+			case 'agentSession': {
+				const entries = this.getAgentSessionCycleEntries();
+				const cycleIndex = this.findAgentSessionCycleIndex(entries, top);
+				return html`<gl-graph-agent-sheet
+					.session=${this._graphState?.agentSessions?.find(
+						s => s.id === top.sessionId && s.providerId === top.providerId,
+					)}
+					.cycleIndex=${cycleIndex}
+					.cycleCount=${cycleIndex >= 0 ? entries.length : 0}
+					@gl-agent-session-cycle=${this.handleAgentSessionCycle}
+					@gl-detail-sheet-close=${this.handleCloseAgentSheet}
+				></gl-graph-agent-sheet>`;
+			}
+			case 'pastAgentSession': {
+				const entries = this.getAgentSessionCycleEntries();
+				const cycleIndex = this.findAgentSessionCycleIndex(entries, top);
+				return html`<gl-graph-agent-sheet
+					.pastSession=${top.session}
+					.pastDetail=${this._pastSessionDetail}
+					.cycleIndex=${cycleIndex}
+					.cycleCount=${cycleIndex >= 0 ? entries.length : 0}
+					@gl-agent-session-cycle=${this.handleAgentSessionCycle}
+					@gl-detail-sheet-close=${this.handleCloseAgentSheet}
+				></gl-graph-agent-sheet>`;
+			}
 			case 'compare':
 				return html`<gl-graph-compare-sheet
 					.preferredOrientation=${this._preferredCompareOrientation}
@@ -3125,6 +3266,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.worktreePath=${wipWorktreePath}
 									.expand=${agentStatusExpand}
 									.selectedSessionId=${this._selectedAgentSessionId}
+									@gl-agent-session-sheet-open=${this.handleAgentSessionSheetOpen}
+									@gl-agent-past-session-sheet-open=${this.handlePastAgentSessionSheetOpen}
 									@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
 									@gl-agent-status-past-sessions-more-request=${
 										this._onAgentStatusPastSessionsMoreRequest
