@@ -27,9 +27,17 @@
  */
 import type { Endpoint } from '@eamodio/supertalk';
 import type { Disposable, Webview } from 'vscode';
+import { env } from 'vscode';
+import { deflateRaw } from '@env/compression.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { RpcMessageWrapper } from './constants.js';
-import { decodeRpcPayload, encodeRpcPayload, isRpcMessage, RPC_NAMESPACE } from './constants.js';
+import {
+	decodeRpcPayload,
+	encodeRpcPayload,
+	isRpcMessage,
+	RPC_NAMESPACE,
+	rpcCompressionMinBytes,
+} from './constants.js';
 
 // Re-export for convenience
 export type { RpcMessageWrapper } from './constants.js';
@@ -61,9 +69,15 @@ const sequencedChannelWireTypePrefix = 'st:ch:';
  * namespace are processed, anything else is ignored.
  *
  * @param webview - The VS Code Webview instance
+ * @param options.compress - Force compression on or off. Defaults to gating on `env.remoteName`.
+ *   The option exists for tests.
  * @returns A BufferedEndpoint that can be used with Supertalk's expose() function
  */
-export function createHostEndpoint(webview: Webview): BufferedEndpoint {
+export function createHostEndpoint(webview: Webview, options?: { compress?: boolean }): BufferedEndpoint {
+	// Compression only pays for itself when webview messages cross a network — i.e. a remote extension
+	// host (SSH / WSL / container / Codespaces from desktop); locally it is pure CPU cost.
+	const compress = options?.compress ?? env.remoteName != null;
+
 	const listeners = new Map<(event: MessageEvent) => void, Disposable>();
 
 	let visible = true;
@@ -73,27 +87,48 @@ export function createHostEndpoint(webview: Webview): BufferedEndpoint {
 	const handlerMap = new Map<string, TypedMessage>();
 
 	function doPost(message: unknown): void {
-		const wrapped: RpcMessageWrapper = {
-			[RPC_NAMESPACE]: true,
-			payload: encodeRpcPayload(message),
-		};
-
 		// VS Code's `postMessage` can silently drop a message (known bug) or reject if the webview
 		// is gone. Neither requeues here — that's a bigger design change — but both are worth knowing
 		// about when a webview appears to hang waiting on a response that never arrives.
 		const msg = message as TypedMessage;
-		void webview.postMessage(wrapped).then(
-			ok => {
-				if (!ok) {
+		const post = (wrapped: RpcMessageWrapper): void => {
+			void webview.postMessage(wrapped).then(
+				ok => {
+					if (!ok) {
+						Logger.error(
+							undefined,
+							`RPC host endpoint: postMessage was not delivered (type=${msg.type}, wireType=${msg.wireType})`,
+						);
+					}
+				},
+				(ex: unknown) =>
 					Logger.error(
-						undefined,
-						`RPC host endpoint: postMessage was not delivered (type=${msg.type}, wireType=${msg.wireType})`,
-					);
+						ex,
+						`RPC host endpoint: postMessage failed (type=${msg.type}, wireType=${msg.wireType})`,
+					),
+			);
+		};
+
+		const encoded = encodeRpcPayload(message);
+
+		if (compress && encoded.byteLength >= rpcCompressionMinBytes) {
+			try {
+				const deflated = deflateRaw(encoded);
+				// Skip compression when the host can't provide it or it didn't actually shrink the payload
+				if (deflated != null && deflated.byteLength < encoded.byteLength) {
+					post({ [RPC_NAMESPACE]: true, payload: deflated, compressed: 'deflate-raw' });
+
+					return;
 				}
-			},
-			(ex: unknown) =>
-				Logger.error(ex, `RPC host endpoint: postMessage failed (type=${msg.type}, wireType=${msg.wireType})`),
-		);
+			} catch (ex) {
+				debugger;
+				// Never let a compression failure escape into Supertalk's send path — dropping the message
+				// would strand the webview promise waiting on it; fall back to the uncompressed payload
+				Logger.error(ex, 'RPC deflate compression failed; sending uncompressed');
+			}
+		}
+
+		post({ [RPC_NAMESPACE]: true, payload: encoded });
 	}
 
 	/**

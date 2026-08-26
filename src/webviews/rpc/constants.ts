@@ -12,6 +12,8 @@ export const RPC_NAMESPACE = '__supertalk_rpc__';
 export interface RpcMessageWrapper {
 	[RPC_NAMESPACE]: true;
 	payload: unknown;
+	/** Compression applied to `payload`, if any. Absent means the payload is uncompressed. */
+	compressed?: 'deflate-raw';
 }
 
 /** Type guard to check if a message is a Supertalk RPC message */
@@ -47,4 +49,18 @@ export function encodeRpcPayload(message: unknown): Uint8Array {
  */
 export function decodeRpcPayload(data: Uint8Array | ArrayBuffer): unknown {
 	return JSON.parse(textDecoder.decode(data));
+}
+
+/** Minimum encoded payload size (bytes) worth compressing — carried over from the legacy IPC stack's threshold. */
+export const rpcCompressionMinBytes = 1024;
+
+/**
+ * Inflates a raw-DEFLATE compressed payload and parses it — the counterpart to the host's `deflateRaw`.
+ * Uses the native `DecompressionStream`, available in both Chromium webviews and Node >= 18, so it is
+ * bundle-safe on both sides.
+ */
+export async function inflateRpcPayload(data: Uint8Array | ArrayBuffer): Promise<unknown> {
+	// `body` is only null for a Response with no body (e.g. a 204/205); `data` always provides one.
+	const stream = new Response(data).body!.pipeThrough(new DecompressionStream('deflate-raw'));
+	return JSON.parse(await new Response(stream).text());
 }

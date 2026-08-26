@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import type { Disposable, Webview } from 'vscode';
-import { decodeRpcPayload, isRpcMessage } from '../constants.js';
+import type { RpcMessageWrapper } from '../constants.js';
+import { decodeRpcPayload, inflateRpcPayload, isRpcMessage } from '../constants.js';
 import { createHostEndpoint } from '../hostEndpoint.js';
 
 /** A single unbatched Supertalk message as buffered by {@link createHostEndpoint}. */
@@ -21,12 +22,19 @@ interface TestBatchMessage {
  * flat list of individual Supertalk messages it contains (unwrapping the RPC
  * namespace and, if present, the `type: 'batch'` envelope).
  */
-function createRecordingWebview(): { webview: Webview; flushes: TestMessage[][] } {
+function createRecordingWebview(): { webview: Webview; flushes: TestMessage[][]; posted: RpcMessageWrapper[] } {
 	const flushes: TestMessage[][] = [];
+	const posted: RpcMessageWrapper[] = [];
 
 	const webview: Pick<Webview, 'postMessage' | 'onDidReceiveMessage'> = {
 		postMessage: function (message: unknown): Thenable<boolean> {
 			if (!isRpcMessage(message)) return Promise.resolve(false);
+
+			posted.push(message);
+
+			// Compressed payloads need an async inflate the recording can't do synchronously here;
+			// compression tests decode from `posted` directly instead.
+			if (message.compressed != null) return Promise.resolve(true);
 
 			const payload = message.payload;
 			const data =
@@ -41,7 +49,7 @@ function createRecordingWebview(): { webview: Webview; flushes: TestMessage[][] 
 		},
 	};
 
-	return { webview: webview as Webview, flushes: flushes };
+	return { webview: webview as Webview, flushes: flushes, posted: posted };
 }
 
 function isBatchMessage(msg: TestMessage | TestBatchMessage): msg is TestBatchMessage {
@@ -106,6 +114,53 @@ suite('createHostEndpoint Test Suite', () => {
 			const messages = flushes[0];
 			assert.strictEqual(messages.length, 1);
 			assert.strictEqual(messages[0].payload, 'third');
+
+			endpoint.dispose();
+		});
+	});
+
+	suite('compression', () => {
+		test('compresses a large message when compress is forced on', async () => {
+			const { webview, posted } = createRecordingWebview();
+			const endpoint = createHostEndpoint(webview, { compress: true });
+
+			const message = { type: 'call', payload: 'x'.repeat(4096) };
+			endpoint.postMessage(message);
+
+			assert.strictEqual(posted.length, 1);
+			const wrapped = posted[0];
+			assert.strictEqual(wrapped.compressed, 'deflate-raw');
+			assert.ok(wrapped.payload instanceof Uint8Array);
+
+			const encoded = new TextEncoder().encode(JSON.stringify(message));
+			assert.ok(wrapped.payload.byteLength < encoded.byteLength);
+
+			const inflated = await inflateRpcPayload(wrapped.payload);
+			assert.deepStrictEqual(inflated, message);
+
+			endpoint.dispose();
+		});
+
+		test('does not compress a small message even when compress is forced on', () => {
+			const { webview, posted } = createRecordingWebview();
+			const endpoint = createHostEndpoint(webview, { compress: true });
+
+			endpoint.postMessage({ type: 'call', payload: 'tiny' });
+
+			assert.strictEqual(posted.length, 1);
+			assert.strictEqual(posted[0].compressed, undefined);
+
+			endpoint.dispose();
+		});
+
+		test('does not compress a large message with default options (no remote host)', () => {
+			const { webview, posted } = createRecordingWebview();
+			const endpoint = createHostEndpoint(webview);
+
+			endpoint.postMessage({ type: 'call', payload: 'x'.repeat(4096) });
+
+			assert.strictEqual(posted.length, 1);
+			assert.strictEqual(posted[0].compressed, undefined);
 
 			endpoint.dispose();
 		});

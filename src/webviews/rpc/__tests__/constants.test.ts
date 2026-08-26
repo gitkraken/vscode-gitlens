@@ -1,6 +1,7 @@
 import * as assert from 'assert';
+import { deflateRaw } from '@env/compression.js';
 import type { RpcMessageWrapper } from '../constants.js';
-import { isRpcMessage, RPC_NAMESPACE } from '../constants.js';
+import { inflateRpcPayload, isRpcMessage, RPC_NAMESPACE } from '../constants.js';
 
 suite('RPC Constants Test Suite', () => {
 	suite('isRpcMessage', () => {
@@ -65,6 +66,39 @@ suite('RPC Constants Test Suite', () => {
 				extra: 'ignored',
 			};
 			assert.strictEqual(isRpcMessage(msg), true);
+		});
+	});
+
+	suite('deflateRaw / inflateRpcPayload', () => {
+		test('round-trips a multi-KB JSON payload through Uint8Array', async () => {
+			const original = Array.from({ length: 300 }, (_, i) => ({
+				id: i,
+				name: `item-${i}`,
+				tags: ['a', 'b', 'c'],
+				active: i % 2 === 0,
+			}));
+
+			const encoded = new TextEncoder().encode(JSON.stringify(original));
+			const deflated = deflateRaw(encoded);
+			assert.ok(deflated != null);
+
+			const inflated = await inflateRpcPayload(deflated);
+			assert.deepStrictEqual(inflated, original);
+		});
+
+		test('round-trips through an ArrayBuffer', async () => {
+			const original = Array.from({ length: 300 }, (_, i) => ({ id: i, value: `value-${i}` }));
+
+			const encoded = new TextEncoder().encode(JSON.stringify(original));
+			const deflated = deflateRaw(encoded);
+			assert.ok(deflated != null);
+
+			const buffer = deflated.buffer.slice(
+				deflated.byteOffset,
+				deflated.byteOffset + deflated.byteLength,
+			) as ArrayBuffer;
+			const inflated = await inflateRpcPayload(buffer);
+			assert.deepStrictEqual(inflated, original);
 		});
 	});
 });
