@@ -764,11 +764,11 @@ export class GraphPanelsService {
 
 		const result = await this.fetchPullRequests(graph.repoPath, integration, remote);
 		signal?.throwIfAborted();
-		// No list at all means nothing answered — a failed lookup (which resolves rather than throwing), an
-		// unresolvable session, or a host with no query to ask. None of those is an empty repository, so
-		// none may render a bare empty list: that would claim there are no open pull requests.
+		// No list at all means nothing answered — a failed lookup (which resolves rather than throwing) or an
+		// unresolvable session. Reject so the panel's Resource owns the failure: the tree stays mounted and a
+		// failed refresh keeps its last good rows rather than replacing them with a successful empty payload.
 		if (result.prs == null) {
-			return { ...empty, emptyState: { reason: 'unavailable' as const } };
+			throw new Error('Unable to load pull requests');
 		}
 		if (!result.prs.length) return empty;
 
@@ -816,9 +816,12 @@ export class GraphPanelsService {
 		// only resolves `isConnected()` for the default or the only remote, so any repo with two remotes and
 		// no default lands here on a cold session — meaning a connected integration can still reach this. It
 		// gets neither a Connect pitch (it's already connected) nor a bare empty list (we never got to ask,
-		// which is not the same as there being none). It settles on the next invalidation.
+		// which is not the same as there being none). Reject so the panel's Resource reports the retryable
+		// failure inside the tree; the remote selection can settle on the next invalidation.
 		const integration = await getRemoteIntegration(remote);
-		if (integration?.maybeConnected ?? (await integration?.isConnected())) return { reason: 'unavailable' };
+		if (integration?.maybeConnected ?? (await integration?.isConnected())) {
+			throw new Error('Unable to load pull requests');
+		}
 
 		return {
 			reason: 'integration-disconnected',

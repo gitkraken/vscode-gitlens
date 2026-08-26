@@ -32,6 +32,18 @@ function fakeService(getWorktreeWipStats: GraphSidebarService['getWorktreeWipSta
 	return shape as unknown as GraphSidebarService;
 }
 
+function fakePanelService(getSidebarData: GraphSidebarService['getSidebarData']): GraphSidebarService {
+	const shape = {
+		onSidebarInvalidated: async () => () => {},
+		onConfigChanged: async () => () => {},
+		onWorktreeStateChanged: async () => () => {},
+		getSidebarCounts: async () => undefined,
+		getSidebarData: getSidebarData,
+		getWorktreeWipStats: async () => null,
+	};
+	return shape as unknown as GraphSidebarService;
+}
+
 /** Seeds the worktrees panel without a service — `applyWorktreeChanges` reads the resource, not the RPC. */
 function seedWorktrees(actions: SidebarActions, items: Array<{ uri: string; hasChanges?: boolean }>): void {
 	actions.state.panels.worktrees.mutate({ items: items } as unknown as DidGetSidebarDataParams);
@@ -43,6 +55,50 @@ function worktreesOf(actions: SidebarActions): Array<{ uri: string; hasChanges?:
 }
 
 suite('Sidebar State Test Suite', () => {
+	suite('panel resources', () => {
+		test('records an initial pull request failure without inventing successful empty data', async () => {
+			const actions = createSidebarActions();
+			actions.initialize(
+				fakePanelService(async () => {
+					throw new Error('Unable to load pull requests');
+				}),
+			);
+
+			const resource = actions.state.panels.pullRequests;
+			await resource.fetch();
+
+			assert.strictEqual(resource.value.get(), undefined);
+			assert.strictEqual(resource.error.get(), 'Unable to load pull requests');
+			assert.strictEqual(resource.status.get(), 'error');
+			actions.dispose();
+		});
+
+		test('preserves loaded pull requests when a refetch fails', async () => {
+			const loaded = { panel: 'pullRequests' as const, items: [] };
+			let fail = false;
+			const actions = createSidebarActions();
+			actions.initialize(
+				fakePanelService(async () => {
+					if (fail) {
+						throw new Error('Unable to load pull requests');
+					}
+
+					return loaded;
+				}),
+			);
+
+			const resource = actions.state.panels.pullRequests;
+			await resource.fetch();
+			fail = true;
+			await resource.refetch();
+
+			assert.strictEqual(resource.value.get(), loaded);
+			assert.strictEqual(resource.error.get(), 'Unable to load pull requests');
+			assert.strictEqual(resource.status.get(), 'error');
+			actions.dispose();
+		});
+	});
+
 	suite('applyWorktreeChanges', () => {
 		let actions: SidebarActions;
 

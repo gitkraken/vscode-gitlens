@@ -1265,11 +1265,8 @@ export type GraphSidebarPullRequestsEmptyState =
 	| { reason: 'no-remotes' }
 	| { reason: 'no-supported-remote' }
 	| { reason: 'integration-disconnected'; providerName: string; integrationId: SupportedCloudIntegrationIds }
-	/** The integration is connected but couldn't answer (expired token, offline, a remote whose connected
-	 *  state didn't settle). Distinct from an empty list, which would claim the repo has no open ones. */
-	| { reason: 'unavailable' }
 	/** The host has no repo-scoped pull request query GitLens can issue, so a retry can never turn this
-	 *  into a list. Distinct from `unavailable`, which is worth retrying. */
+	 *  into a list. */
 	| { reason: 'unsupported'; providerName: string };
 
 export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: boolean } & (

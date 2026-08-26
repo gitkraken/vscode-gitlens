@@ -1103,9 +1103,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const error = resource?.error.get();
 		const isLoading = resource?.loading.get() ?? false;
 
-		// The pull-requests panel is empty for reasons the host can name — nothing connected, nothing
-		// connectable, a lookup that couldn't answer, or a host that can't be asked. Those replace the
-		// (blank) tree entirely.
+		// The pull-requests panel is empty for settled reasons the host can name — nothing connected, nothing
+		// connectable, or a host that can't be asked. Those replace the (blank) tree entirely; retryable
+		// failures reject through the Resource and stay inside the tree like every other panel.
 		const emptyState = this.treelessEmptyState;
 		// ...which takes the filter box with it, so there's no way left to name a pull request to search for —
 		// and a search that did somehow succeed would render nothing, since the empty state stands in for the
@@ -1147,18 +1147,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				"Connect an integration — including self-managed hosts — to see this repository's pull requests and act on them without leaving the graph.",
 				'Connect an Integration...',
 			);
-		}
-
-		// Connected, but the lookup reported a failure — an expired token or a dropped connection. Say that,
-		// because an empty list here would claim the repository has no open pull requests. Retries go through
-		// the header's own handler so this refresh is counted like every other one.
-		if (emptyState.reason === 'unavailable') {
-			return html`<div class="empty empty--connect">
-				<span>Unable to load this repository's pull requests.</span>
-				<gl-button appearance="secondary" density="compact" @click=${this.handleRefresh}
-					><code-icon icon="refresh" slot="prefix"></code-icon> Try Again</gl-button
-				>
-			</div>`;
 		}
 
 		// Connected and reachable, but the host has no repo-scoped pull request query GitLens can issue —

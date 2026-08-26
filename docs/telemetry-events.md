@@ -2712,8 +2712,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  // Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, an unable-to-load notice (`unavailable`, a connected integration whose lookup failed), or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list
-  'emptyReason': 'unavailable' | 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unsupported',
+  // Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list
+  'emptyReason': 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unsupported',
   'pullRequests.count': number,
   // Number of drafts, which are listed but rarely the reason the panel was opened
   'pullRequests.draft.count': number,
