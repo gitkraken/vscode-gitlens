@@ -142,6 +142,12 @@ export function registerGraphWebviewCommands<T>(
 	container: Container,
 	panels: WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, T>,
 ): Disposable {
+	if (DEBUG) {
+		void import(/* webpackChunkName: "__debug__" */ './__debug__signInGateDebug.js').then(m => {
+			m.registerSignInGateDebug(container, panels);
+		});
+	}
+
 	/** Routes to the best graph surface: an existing/visible instance wins over the configured
 	 *  layout, so the request lands on the graph the user is looking at instead of opening a
 	 *  second one in the other surface. */

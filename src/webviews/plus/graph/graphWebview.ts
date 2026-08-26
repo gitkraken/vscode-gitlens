@@ -338,6 +338,13 @@ type CancellableOperations =
  *  `unassigned` = no cohort: rendered as the default gate but kept out of both funnel arms. */
 let signInGateVariant: 'default' | 'intro-video' | 'unassigned' | undefined;
 
+/** Debug-only (see `__debug__signInGateDebug.ts`): forces the latch so the gate renders the given
+ *  variant on the next (re)load; `undefined` re-resolves the real flag on the next bootstrap.
+ *  Never persists or re-stamps telemetry — that happens only when the real flag resolves. */
+export function setSignInGateVariantOverride(variant: 'default' | 'intro-video' | undefined): void {
+	signInGateVariant = variant;
+}
+
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: GlRepository;
 	private get repository(): GlRepository | undefined {

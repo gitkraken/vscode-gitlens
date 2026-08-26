@@ -4930,6 +4930,10 @@
 				]
 			}
 		},
+		"gitlens.graph.simulate.signInGateVariant": {
+			"label": "Simulate Commit Graph Sign-in Gate (Debugging)",
+			"commandPalette": "gitlens:enabled && gitlens:debugging"
+		},
 		"gitlens.graph.soloBranch": {
 			"label": "Solo Branch",
 			"commandPalette": "gitlens:enabled",
