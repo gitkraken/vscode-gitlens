@@ -281,6 +281,28 @@ export class GitDocumentTracker implements Disposable {
 	}
 
 	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {
+		// Sweep tracked documents whose underlying TextDocument has been closed without us having
+		// received an onDidCloseTextDocument event yet — VS Code defers document disposal (and thus
+		// that event) while anything holds a reference, and we hold one as our map key, so relying
+		// on the event alone lets tracked documents (and their blame snapshots, which pin whole
+		// file contents via sliced strings) accumulate for the life of the session.
+		// Sweep tracked documents that are no longer open in any visible editor. VS Code defers
+		// TextDocument disposal after an editor closes (isClosed stays false, and our map key holds
+		// a reference), so onDidCloseTextDocument alone lets tracked documents accumulate for the
+		// life of the session — each pinning its blame snapshot, which holds the file's full text.
+		if (this._documentMap.size > 0) {
+			const visibleUris = new Set<string>();
+			for (const editor of editors) {
+				visibleUris.add(editor.document.uri.toString());
+			}
+
+			for (const [document] of [...this._documentMap]) {
+				if (document.isClosed || !visibleUris.has(document.uri.toString())) {
+					void this.remove(document);
+				}
+			}
+		}
+
 		const docPromises = [];
 		for (const editor of editors) {
 			const document = editor.document;
@@ -342,6 +364,8 @@ export class GitDocumentTracker implements Disposable {
 
 	@trace()
 	private async addCore(document: TextDocument, visible?: boolean): Promise<TrackedGitDocument> {
+		// Note: no isClosed guard here — a stale re-add gets swept by onVisibleTextEditorsChanged,
+		// which disposes documents whose TextDocument.isClosed has flipped true.
 		const doc = createTrackedGitDocument(
 			this.container,
 			this,
