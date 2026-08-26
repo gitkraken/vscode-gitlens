@@ -61,7 +61,9 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 		}
 		if (repo == null) return;
 
-		const scmRepo = await repo.git.getScmRepository();
+		// Open the repo in the SCM if it isn't already, otherwise there's no input box to write the
+		// generated message into -- worktrees nested inside another repo are never registered on their own
+		const scmRepo = await repo.git.getOrOpenScmRepository({ source: args?.source ?? 'commandPalette' });
 		if (scmRepo == null) return;
 
 		try {
