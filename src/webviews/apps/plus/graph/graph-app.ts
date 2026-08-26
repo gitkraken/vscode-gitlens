@@ -50,7 +50,7 @@ import {
 } from '../../../plus/graph/protocol.js';
 import { fireAndForget, notifyService } from '../../shared/actions/rpc.js';
 import type { CustomEventType } from '../../shared/components/element.js';
-import type { GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
+import type { GlSplitPanel, GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
 import { createOnboardingState, onboardingContext } from '../../shared/contexts/onboarding.js';
@@ -220,13 +220,33 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return pos;
 	};
 
-	private _detailsSnap = ({ pos }: { pos: number }) => {
+	private _detailsSnap = ({ pos, size, source }: { pos: number; size: number; source: GlSplitPanelSnapSource }) => {
 		const endPct = 100 - pos;
 		if (endPct < detailsMinPct / 2) return 100;
-		if (endPct < detailsMinPct) return 100 - detailsMinPct;
-		if (endPct > detailsMaxPct) return 100 - detailsMaxPct;
-		if (Math.abs(endPct - detailsDefaultPct) <= 1.5) return 100 - detailsDefaultPct;
-		return pos;
+
+		let minPct = detailsMinPct;
+		// Bottom placement only: don't let the pane shrink below its rigid content (header + agents
+		// bar + commit box + file-list floor) — a shorter pane clips the commit box behind a
+		// scrollbar. Height-based, so it must not clamp the horizontal (right-docked) split.
+		if (size > 0 && this.effectiveDetailsLocation === 'bottom') {
+			const minPx = this.detailsPanelEl?.minContentHeight;
+			if (minPx != null) {
+				minPct = Math.min(Math.max(minPct, (minPx / size) * 100), detailsMaxPct);
+			}
+		}
+
+		let out = pos;
+		if (endPct > detailsMaxPct) {
+			out = 100 - detailsMaxPct;
+		} else if (source !== 'keyboard' && Math.abs(endPct - detailsDefaultPct) <= 1.5) {
+			// Keyboard steps by 1%, smaller than this magnet's ±1.5% window, so the magnet would
+			// capture every step and the position could never leave the default — skip it for keyboard.
+			out = 100 - detailsDefaultPct;
+		}
+		if (100 - out < minPct) {
+			out = 100 - minPct;
+		}
+		return out;
 	};
 
 	private _minimapSnap = ({ pos, size, source }: { pos: number; size: number; source: GlSplitPanelSnapSource }) => {
@@ -690,6 +710,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-details-panel')
 	private readonly detailsPanelEl: GlGraphDetailsPanel | undefined;
+
+	@query('.graph__details-split')
+	private readonly detailsSplitEl: GlSplitPanel | undefined;
 
 	/** Bumped on every {@link withDetailsPanel} call — lets a stale in-flight reveal (e.g. rapid
 	 *  clicks racing a repo switch) detect it's no longer the latest and skip its callback. */
@@ -1879,6 +1902,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
+					@gl-graph-details-min-height-changed=${this.handleDetailsMinHeightChanged}
 					@gl-show-search-box-change=${this.handleDetailsShowSearchBoxChange}
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
@@ -2905,6 +2929,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			});
 		}
 	}
+
+	/** The details panel re-measured its rigid minimum (fired from the panel's own `updated()`, so it
+	 *  can't race the panel's first render). Re-clamp the bottom-docked split so a persisted or
+	 *  default position below the minimum is corrected without a gesture; horizontal (right-docked)
+	 *  placement is width-driven and must not be height-clamped. */
+	private handleDetailsMinHeightChanged = () => {
+		if (this.effectiveDetailsLocation !== 'bottom') return;
+
+		this.detailsSplitEl?.refreshSnap();
+	};
 
 	private handleDetailsModeChanged = (e: CustomEvent<{ previous: GraphDetailsMode; current: GraphDetailsMode }>) => {
 		// compose/review opened/closed track real activeMode transitions and fire regardless of

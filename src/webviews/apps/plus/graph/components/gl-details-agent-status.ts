@@ -884,6 +884,14 @@ export class GlDetailsAgentStatus extends LitElement {
 		}
 	}
 
+	/** Height (px) of the section heading row — this section's incompressible minimum. The graph
+	 *  details panel sums it into the pane's rigid minimum instead of the live section height,
+	 *  which compresses (cards scroll under the sticky heading) as the pane shrinks and would let
+	 *  the minimum chase a drag downward. */
+	get headingHeight(): number {
+		return this.renderRoot?.querySelector<HTMLElement>('.section__heading')?.offsetHeight ?? 0;
+	}
+
 	override render(): unknown {
 		const sessions = this.sessions;
 

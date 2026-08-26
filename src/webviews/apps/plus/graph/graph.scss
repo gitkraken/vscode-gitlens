@@ -5018,7 +5018,9 @@ gl-graph-app {
 				display: flex;
 				flex: 1;
 				flex-direction: column;
-				min-height: 100px;
+				// Floor = the files region's own chrome (pane header bar + filter input, ~56px) + one
+				// file row, so a short pane still shows at least one row instead of collapsing to nothing.
+				min-height: 8rem;
 				overflow: visible;
 			}
 
@@ -5029,7 +5031,7 @@ gl-graph-app {
 				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: center;
-				min-height: 100px;
+				min-height: 8rem;
 				color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 			}
 		}
@@ -5038,14 +5040,20 @@ gl-graph-app {
 			flex: 1;
 			min-height: 0;
 
-			// Auto-size mode (collapsed / partial) caps the agents pane at a fixed 80% — content
-			// in these modes (heading bar or a handful of needs-input cards) almost always lands
-			// well below the cap, so `fit-content` resolves to the natural content height. The
-			// cap matters only in the edge case of many concurrent needs-input cards in partial
-			// mode, where it prevents the auto-peek from completely swallowing the WIP content.
-			// Kept in sync with `AGENT_STATUS_MAX_PCT` in gl-graph-details-panel.ts.
+			// Auto-size mode (collapsed / partial) caps the agents pane at 80%, and never past the
+			// end-reserve (the commit box + file-list floor, set inline by the panel) — content in
+			// these modes (heading bar or a handful of needs-input cards) almost always lands well
+			// below the caps, so `fit-content` resolves to the natural content height. Without the
+			// reserve term, a populated agents section takes its content height first and the grid
+			// lets the 1fr bottom slot overflow — crushing the commit box out of view entirely.
+			// The 80% is kept in sync with `AGENT_STATUS_MAX_PCT` in gl-graph-details-panel.ts.
 			&--auto-size:not([dragging]) {
-				--gl-split-panel-start-size: fit-content(80%);
+				--gl-split-panel-start-size: fit-content(
+					min(
+						80%,
+						calc(100% - var(--gl-split-panel-divider-width, 4px) - var(--gl-split-panel-end-reserve, 0px))
+					)
+				);
 			}
 
 			// When the agent-status section is showing no cards (collapsed — bar only — or
@@ -5054,9 +5062,12 @@ gl-graph-app {
 			// dragging the splitter while cards are visible and then collapsing back to no-cards
 			// leaves the heading floating in a large empty area the size of the user's drag.
 			// The split-panel still preserves `position` internally so the dragged height is
-			// restored when cards reappear.
+			// restored when cards reappear. `fit-content` (not `max-content`) so the end-reserve
+			// still caps the heading in pathologically short panes.
 			&--no-cards:not([dragging]) {
-				--gl-split-panel-start-size: max-content;
+				--gl-split-panel-start-size: fit-content(
+					calc(100% - var(--gl-split-panel-divider-width, 4px) - var(--gl-split-panel-end-reserve, 0px))
+				);
 			}
 
 			// Disabled splitter — drop the divider entirely so collapsed/partial states (where
@@ -5110,18 +5121,24 @@ gl-graph-app {
 			// `overflow-y: auto` here is the only thing keeping the empty hub reachable. Keep
 			// `overflow-x: hidden` — leaving it `visible` computes to `auto` and yields a phantom
 			// horizontal scrollbar.
+			// `min-height: min-content` (not 0) restores this slot's participation in the grid's
+			// track minimums — split-panel's `::slotted(*) { min-height: 0 }` jank fix would
+			// otherwise let the start track's size crush the file-list floor and commit box below
+			// their content minimum whenever the agents section has content.
 			&__bottom {
 				display: flex;
 				flex-direction: column;
-				min-height: 0;
+				min-height: min-content;
 				overflow: hidden auto;
 			}
 
+			// Do NOT set `min-height: 0` here — the base `.commit-panel__files` floor above must
+			// still apply inside the agent-status split, or the file list collapses to zero rows in
+			// short panes.
 			&__bottom .commit-panel__files {
 				display: flex;
 				flex: 1;
 				flex-direction: column;
-				min-height: 0;
 				overflow: hidden;
 			}
 		}

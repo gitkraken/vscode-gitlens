@@ -346,6 +346,23 @@ export class GlSplitPanel extends LitElement {
 		this._dragAc = undefined;
 	}
 
+	/** Re-applies the snap policy to the current position (source 'layout'), e.g. after slotted
+	 *  content changed the constraints a custom snap function derives. Non-persisting, like a resize
+	 *  — does NOT update the cached pixel width, and refuses an open→closed transition (mirrors the
+	 *  ResizeObserver's pixel-anchored branch in `connectedCallback`). */
+	refreshSnap(): void {
+		if (this._size <= 0) return;
+
+		const snapped = this.applySnap(this._position, 'layout');
+		if (snapped === this._position) return;
+
+		const wasClosed = this._closedState === true;
+		if (!wasClosed && this.computeClosed(snapped)) return;
+
+		this._position = snapped;
+		this.requestUpdate();
+	}
+
 	protected override willUpdate(): void {
 		// Maximize no longer touches the track sizes — the [maximized] CSS overlays the end panel
 		// across the container instead, leaving the start panel's layout (and anything rendering
@@ -471,7 +488,16 @@ export class GlSplitPanel extends LitElement {
 		}
 
 		this.toggleAttribute('dragging', true);
-		this.dividerEl.setPointerCapture(e.pointerId);
+
+		// A pointer can vanish between `pointerdown` and here (pen lift, touch cancel, synthetic
+		// events) making `setPointerCapture` throw — an unguarded throw here would leave the panel
+		// wedged in [dragging] with no listeners attached and no way to recover.
+		try {
+			this.dividerEl.setPointerCapture(e.pointerId);
+		} catch {
+			this.toggleAttribute('dragging', false);
+			return;
+		}
 
 		this._dragAc?.abort();
 		const ac = new AbortController();

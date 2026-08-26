@@ -218,6 +218,9 @@ declare global {
 		/** The sheet stack's kind composition changed — e.g. the app sizes the details pane for a
 		 *  rebase summary sheet opening or closing. */
 		'gl-graph-sheet-stack-change': CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>;
+		/** {@link GlGraphDetailsPanel.minContentHeight} changed — the app re-clamps the bottom-docked
+		 *  details split so the pane can't sit below what fits the commit box and file-list floor. */
+		'gl-graph-details-min-height-changed': CustomEvent<void>;
 	}
 }
 
@@ -845,9 +848,41 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this.isMultiCommit ? 'multicommit' : this.isWip ? 'wip' : 'commit';
 	}
 
+	/**
+	 * Rigid minimum height (px) of the current WIP layout: everything above the file list
+	 * (header, agents bar), the file list's CSS floor, and the commit box. Used by the graph's
+	 * details split to keep the pane from being sized below what fits without clipping the
+	 * commit box. `undefined` when the WIP layout isn't rendered (other modes).
+	 */
+	get minContentHeight(): number | undefined {
+		const files = this.renderRoot.querySelector<HTMLElement>('.commit-panel__files');
+		const box = this.renderRoot.querySelector<HTMLElement>('gl-commit-box');
+		if (files == null || box == null) return undefined;
+
+		const floor = parseFloat(getComputedStyle(files).minHeight) || 0;
+		const agentSplit = this.renderRoot.querySelector<HTMLElement>('.agent-status-split');
+		if (agentSplit != null) {
+			// Count the agents section at its heading height, NOT its live track height — the track
+			// compresses under a drag (its cards scroll beneath the sticky heading), so a live
+			// measurement would let the minimum chase the drag downward. `agentSplit.offsetTop` is
+			// relative to `.details-content` (nearest positioned ancestor) and covers the header
+			// block above the split; the slack absorbs the divider and gaps below the commit box.
+			const heading =
+				this.renderRoot.querySelector<GlDetailsAgentStatus>('gl-details-agent-status')?.headingHeight ?? 0;
+			return agentSplit.offsetTop + heading + floor + box.offsetHeight + 8;
+		}
+
+		// Direct (no agents) layout: `files.offsetTop` covers everything above the file list.
+		return files.offsetTop + floor + box.offsetHeight + 4;
+	}
+
 	/** Last value reported via `gl-graph-details-mode-changed` — guards the dispatch in `updated()`
 	 *  so the event fires only on real transitions, not on re-renders that don't change the mode. */
 	private _lastNotifiedMode: GraphDetailsMode = 'none';
+
+	/** Last value reported via `gl-graph-details-min-height-changed` — guards the dispatch in
+	 *  `updated()` so the event fires only when the measured minimum actually changes. */
+	private _lastNotifiedMinContentHeight: number | undefined;
 
 	/** One-shot: set before a programmatic (ambient) mode entry so `updated()` skips the AI-input
 	 *  focus — keeps focus-on-entry for deliberate toggles only. Consumed every `updated()`. */
@@ -2318,6 +2353,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// captures HEAD-move clears, manual amend toggles, AI generations, and user typing
 		// through a single debounced exit point.
 		this.maybeScheduleWipDraftFlush();
+
+		// Re-measured after every render of THIS panel (the app's own `updated()` can settle before
+		// this panel's WIP layout exists, so app-side polling races the first measurement). On change
+		// the app re-clamps the bottom-docked details split via `refreshSnap()`.
+		const minContentHeight = this.minContentHeight;
+		if (minContentHeight !== this._lastNotifiedMinContentHeight) {
+			this._lastNotifiedMinContentHeight = minContentHeight;
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-details-min-height-changed', { bubbles: true, composed: true }),
+			);
+		}
+
+		// Reserve the bottom slot's rigid minimum (file-list floor + commit box) in the agents
+		// split's track math — without it the start track takes its content size first and the grid
+		// lets the bottom slot overflow, pushing the commit box out of view. Written imperatively
+		// (an explicit value every pass, never removed via a directive) because it derives from
+		// post-layout measurement.
+		const agentSplit = this.renderRoot.querySelector<HTMLElement>('.agent-status-split');
+		if (agentSplit != null) {
+			const files = this.renderRoot.querySelector<HTMLElement>('.commit-panel__files');
+			const box = this.renderRoot.querySelector<HTMLElement>('gl-commit-box');
+			const reserve =
+				files != null && box != null
+					? Math.ceil((parseFloat(getComputedStyle(files).minHeight) || 0) + box.offsetHeight)
+					: 0;
+			agentSplit.style.setProperty('--gl-split-panel-end-reserve', `${reserve}px`);
+		}
 	}
 
 	/** Computes the right-side identity-row snippet shown while in compose/review. Pre-formats
