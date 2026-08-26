@@ -59,7 +59,6 @@ export class GlWelcomeApp extends SignalWatcherWebviewApp {
 		const metadata = JSON.parse(fromBase64ToString(context)) as State;
 		this._state.mode.set(metadata.mode ?? 'main');
 		this._state.hostAppName.set(metadata.hostAppName);
-		this._state.welcomeTitle.set(metadata.welcomeTitle);
 		this._state.mcpNeedsInstall.set(metadata.mcpNeedsInstall);
 		this._state.mcpShowCleanupNotice.set(metadata.mcpShowCleanupNotice);
 	}

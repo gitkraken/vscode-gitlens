@@ -12,7 +12,6 @@ type DeserializeFeatureFlagConfig = typeof deserializeConfig;
 export type FeatureFlagValue = boolean | string | number;
 export enum FeatureFlagKey {
 	GraphGateIntroVideo = 'glensGraphGateIntroVideo',
-	WelcomeTitleVariant = 'glensWelcomeTitleVariant',
 }
 export type FeatureFlagMap = Readonly<Partial<Record<FeatureFlagKey, FeatureFlagValue>>>;
 export interface FeatureFlagService {
