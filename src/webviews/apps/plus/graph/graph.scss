@@ -5158,8 +5158,12 @@ gl-graph-app {
 	}
 
 	// While maximized, the pane overlays the whole container as a floating layer — its
-	// inner-edge border would draw along the viewport edge, so drop it.
+	// inner-edge border would draw along the viewport edge, so drop it. The overlay must also
+	// out-stack the graph sidebar rail's pinned chrome (--gl-z-sticky), which otherwise paints
+	// over the pane's left edge and clips compose/review/compare content — the split panel's
+	// generic maximize z is a low in-context raise, not a region takeover.
 	&[maximized] .graph__details-pane {
+		z-index: var(--gl-z-cover);
 		border: none;
 	}
 }
