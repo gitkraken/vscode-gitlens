@@ -32,8 +32,8 @@ import {
 	setContext,
 } from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
-import { serializeIpcData } from '../system/ipcSerialize.js';
 import type { WebviewContext } from '../system/webview.js';
+import { serializeWireData } from '../system/wireSerialize.js';
 import type { WebviewState } from './protocol.js';
 import { EventVisibilityBuffer, SubscriptionTracker } from './rpc/eventVisibilityBuffer.js';
 import { RpcHost } from './rpc/rpcHost.js';
@@ -943,7 +943,7 @@ export class WebviewController<
 		]);
 
 		const sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
-		const serialized = serializeIpcData(bootstrap);
+		const serialized = serializeWireData(bootstrap);
 		sw?.stop({ message: `\u2022 serialized bootstrap; length=${serialized.length}` });
 
 		const html = replaceWebviewHtmlTokens(

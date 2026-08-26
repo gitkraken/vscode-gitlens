@@ -17,7 +17,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
-import { deserializeIpcData } from '../../../../system/ipcSerialize.js';
+import { deserializeWireData } from '../../../../system/wireSerialize.js';
 import type {
 	GraphAccessState,
 	GraphColumnsService,
@@ -805,10 +805,10 @@ export class GraphStateProvider implements Disposable {
 			rowsChannel: SequencedChannel<GraphRowsPayload>;
 		},
 	) {
-		// Deserialize the bootstrap context. The host stamps it with the same IPC serializer used
-		// for messages, so tagged values (e.g. `branchState.pr`'s dates, serialized as `__ipc` tags)
+		// Deserialize the bootstrap context. The host stamps it with the same wire serializer used
+		// for messages, so tagged values (e.g. `branchState.pr`'s dates, serialized as `__wire` tags)
 		// must be revived — a plain JSON.parse would silently deliver raw tag objects.
-		this._state = deserializeIpcData<State>(fromBase64ToString(context));
+		this._state = deserializeWireData<State>(fromBase64ToString(context));
 		this.logger?.debug(`bootstrap duration=${Date.now() - this._state.timestamp}ms`);
 
 		this.provider = new ContextProvider(this.host, { context: graphStateContext, initialValue: this });
@@ -1225,7 +1225,7 @@ export class GraphStateProvider implements Disposable {
 	}
 
 	/** Applies a host-window focus push (`services.webview.onHostWindowFocusChanged`, fed by the app
-	 *  host's RPC controller) — formerly a HostIpc notification.
+	 *  host's RPC controller) — formerly a legacy IPC notification.
 	 *  `undefined`/`true` both read as focused downstream, so only an explicit `false` ever dims. */
 	applyHostWindowFocus(focused: boolean): void {
 		this.updateState({ windowFocused: focused });

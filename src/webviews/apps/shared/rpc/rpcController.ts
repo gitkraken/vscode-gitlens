@@ -33,7 +33,7 @@ import type { TelemetryService } from '../../../rpc/services/telemetry.js';
 import type { WebviewViewService } from '../../../rpc/webviewViewService.js';
 import { isConnectionClosedError, noop } from '../actions/rpc.js';
 import { subscribeAll } from '../events/subscriptions.js';
-import { getWebviewClientInfo } from '../ipc.js';
+import { getWebviewClientInfo } from '../hostApi.js';
 import type { RpcClient, RpcClientOptions } from '../rpcClient.js';
 import { createRpcClient } from '../rpcClient.js';
 import type { TelemetrySendEventParams } from '../telemetry.js';

@@ -14,7 +14,7 @@ import {
 	isRpcMessage,
 	RPC_NAMESPACE,
 } from '../../rpc/constants.js';
-import { getHostIpcApi } from './ipc.js';
+import { getHostApi } from './hostApi.js';
 
 /**
  * Extended Endpoint interface with disposal support.
@@ -146,7 +146,7 @@ export function createOrderedDispatcher(deliver: (data: unknown, event: MessageE
  * @returns A DisposableEndpoint that can be used with Supertalk's wrap() function
  */
 export function createWebviewEndpoint(): DisposableEndpoint {
-	const api = getHostIpcApi();
+	const api = getHostApi();
 	const listeners = new Map<(event: MessageEvent) => void, ListenerEntry>();
 
 	return {

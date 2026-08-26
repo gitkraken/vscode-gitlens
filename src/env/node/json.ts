@@ -1,8 +1,8 @@
 import { Uri } from 'vscode';
 import { isLoggable } from '@gitlens/utils/loggable.js';
 import { isContainer } from '../../container.js';
-import type { IpcDate, IpcUri } from '../../system/taggedValues.js';
-import { getIpcTaggedType } from '../../system/taggedValues.js';
+import type { WireDate, WireUri } from '../../system/taggedValues.js';
+import { getWireTaggedType } from '../../system/taggedValues.js';
 
 export function loggingJsonReplacer(key: string, value: unknown): unknown {
 	if (key === '' || value == null || typeof value !== 'object') return value;
@@ -41,14 +41,14 @@ export function serializeJsonReplacer(this: any, key: string, value: unknown): u
 	return value;
 }
 
-export function serializeIpcJsonReplacer(this: any, key: string, value: unknown): unknown {
+export function serializeWireJsonReplacer(this: any, key: string, value: unknown): unknown {
 	if (typeof value === 'object' && value != null) {
 		// Dates and Uris are automatically converted by JSON.stringify, so we check the original below
 		// if (value instanceof Date) {
-		// 	return { __ipc: 'date', value: value.getTime() } satisfies IpcDate;
+		// 	return { __wire: 'date', value: value.getTime() } satisfies WireDate;
 		// }
 		// if (value instanceof Uri) {
-		// 	return { __ipc: 'uri', value: value.toJSON() } satisfies IpcUri;
+		// 	return { __wire: 'uri', value: value.toJSON() } satisfies WireUri;
 		// }
 		if (value instanceof RegExp) return value.toString();
 		if (value instanceof Map || value instanceof Set) return [...value.entries()];
@@ -62,20 +62,20 @@ export function serializeIpcJsonReplacer(this: any, key: string, value: unknown)
 	const original = this[key];
 	if (original !== value && typeof original === 'object' && original != null) {
 		if (original instanceof Date) {
-			return { __ipc: 'date', value: original.getTime() } satisfies IpcDate;
+			return { __wire: 'date', value: original.getTime() } satisfies WireDate;
 		}
 		if (original instanceof Uri) {
-			return { __ipc: 'uri', value: original.toJSON() } satisfies IpcUri;
+			return { __wire: 'uri', value: original.toJSON() } satisfies WireUri;
 		}
 	}
 	return value;
 }
 
-export function deserializeIpcJsonReviver(_key: string, value: unknown): unknown {
-	const tagged = getIpcTaggedType(value);
+export function deserializeWireJsonReviver(_key: string, value: unknown): unknown {
+	const tagged = getWireTaggedType(value);
 	if (tagged == null) return value;
 
-	switch (tagged.__ipc) {
+	switch (tagged.__wire) {
 		case 'date':
 			return new Date(tagged.value);
 		case 'uri':

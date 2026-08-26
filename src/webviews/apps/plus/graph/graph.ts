@@ -110,7 +110,7 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 	protected override readonly _rpc = new RpcController<GraphServices>(this, {
 		onReady: services => this._onRpcReady(services),
 		// Host-window focus pushes arrive over RPC (the controller's core subscription) and feed
-		// the state provider's `windowFocused` signal — formerly a HostIpc notification.
+		// the state provider's `windowFocused` signal — formerly a legacy IPC notification.
 		onHostWindowFocusChanged: focused => this._stateProvider.applyHostWindowFocus(focused),
 		onWebviewVisibilityChanged: visible => this.onWebviewVisibilityChanged(visible),
 		rpcOptions: { handlers: [this._rowsChannel] },

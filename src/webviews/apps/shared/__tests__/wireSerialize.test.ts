@@ -1,45 +1,45 @@
 import * as assert from 'assert';
 import { URI } from 'vscode-uri';
-import { deserializeIpcData } from '../../../../system/ipcSerialize.js';
+import { deserializeWireData } from '../../../../system/wireSerialize.js';
 
-suite('IPC Deserialization Test Suite', () => {
-	suite('deserializeIpcData (pure function)', () => {
+suite('Wire Deserialization Test Suite', () => {
+	suite('deserializeWireData (pure function)', () => {
 		test('should be exported and callable', () => {
-			assert.strictEqual(typeof deserializeIpcData, 'function');
+			assert.strictEqual(typeof deserializeWireData, 'function');
 		});
 
-		suite('IpcDate deserialization', () => {
-			test('should deserialize IpcDate to Date', () => {
+		suite('WireDate deserialization', () => {
+			test('should deserialize WireDate to Date', () => {
 				const timestamp = new Date('2024-01-15T10:30:00.000Z').getTime();
 				const input = {
-					date: { __ipc: 'date', value: timestamp },
+					date: { __wire: 'date', value: timestamp },
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.ok(result.date instanceof Date);
 				assert.strictEqual(result.date.getTime(), timestamp);
 			});
 
-			test('should deserialize nested IpcDate objects', () => {
+			test('should deserialize nested WireDate objects', () => {
 				const timestamp1 = new Date('2024-01-15T10:30:00.000Z').getTime();
 				const timestamp2 = new Date('2024-01-16T14:45:00.000Z').getTime();
 				const input = {
 					commit: {
 						author: {
 							name: 'John Doe',
-							date: { __ipc: 'date', value: timestamp1 },
+							date: { __wire: 'date', value: timestamp1 },
 						},
 						committer: {
 							name: 'Jane Doe',
-							date: { __ipc: 'date', value: timestamp2 },
+							date: { __wire: 'date', value: timestamp2 },
 						},
 					},
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.ok(result.commit.author.date instanceof Date);
 				assert.strictEqual(result.commit.author.date.getTime(), timestamp1);
@@ -47,18 +47,18 @@ suite('IPC Deserialization Test Suite', () => {
 				assert.strictEqual(result.commit.committer.date.getTime(), timestamp2);
 			});
 
-			test('should deserialize array of IpcDate objects', () => {
+			test('should deserialize array of WireDate objects', () => {
 				const timestamps = [
 					new Date('2024-01-15T10:30:00.000Z').getTime(),
 					new Date('2024-01-16T14:45:00.000Z').getTime(),
 					new Date('2024-01-17T08:15:00.000Z').getTime(),
 				];
 				const input = {
-					dates: timestamps.map(t => ({ __ipc: 'date', value: t })),
+					dates: timestamps.map(t => ({ __wire: 'date', value: t })),
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.strictEqual(result.dates.length, 3);
 				result.dates.forEach((date: Date, index: number) => {
@@ -68,11 +68,11 @@ suite('IPC Deserialization Test Suite', () => {
 			});
 		});
 
-		suite('IpcUri deserialization', () => {
-			test('should deserialize IpcUri to URI', () => {
+		suite('WireUri deserialization', () => {
+			test('should deserialize WireUri to URI', () => {
 				const input = {
 					uri: {
-						__ipc: 'uri',
+						__wire: 'uri',
 						value: {
 							scheme: 'file',
 							authority: '',
@@ -84,17 +84,17 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.ok(URI.isUri(result.uri));
 				assert.strictEqual(result.uri.scheme, 'file');
 				assert.strictEqual(result.uri.path, '/path/to/file.ts');
 			});
 
-			test('should deserialize IpcUri with all components', () => {
+			test('should deserialize WireUri with all components', () => {
 				const input = {
 					uri: {
-						__ipc: 'uri',
+						__wire: 'uri',
 						value: {
 							scheme: 'https',
 							authority: 'example.com:8080',
@@ -106,7 +106,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.ok(URI.isUri(result.uri));
 				assert.strictEqual(result.uri.scheme, 'https');
@@ -118,12 +118,12 @@ suite('IPC Deserialization Test Suite', () => {
 		});
 
 		suite('Mixed types deserialization', () => {
-			test('should deserialize object with multiple IPC types', () => {
+			test('should deserialize object with multiple wire types', () => {
 				const timestamp = new Date('2024-01-15T10:30:00.000Z').getTime();
 				const input = {
-					date: { __ipc: 'date', value: timestamp },
+					date: { __wire: 'date', value: timestamp },
 					uri: {
-						__ipc: 'uri',
+						__wire: 'uri',
 						value: {
 							scheme: 'file',
 							authority: '',
@@ -138,7 +138,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.ok(result.date instanceof Date);
 				assert.ok(URI.isUri(result.uri));
@@ -153,7 +153,7 @@ suite('IPC Deserialization Test Suite', () => {
 				const input = {};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.deepStrictEqual(result, {});
 			});
@@ -167,7 +167,7 @@ suite('IPC Deserialization Test Suite', () => {
 				};
 				const jsonString = JSON.stringify(input);
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.strictEqual(result.string, 'test');
 				assert.strictEqual(result.number, 42);
@@ -178,11 +178,11 @@ suite('IPC Deserialization Test Suite', () => {
 			test('should handle JSON string input', () => {
 				const timestamp = new Date('2024-01-15T10:30:00.000Z').getTime();
 				const jsonString = JSON.stringify({
-					date: { __ipc: 'date', value: timestamp },
+					date: { __wire: 'date', value: timestamp },
 					value: 'test',
 				});
 
-				const result: any = deserializeIpcData(jsonString);
+				const result: any = deserializeWireData(jsonString);
 
 				assert.ok(result.date instanceof Date);
 				assert.strictEqual(result.date.getTime(), timestamp);

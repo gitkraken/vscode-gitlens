@@ -1,4 +1,4 @@
-import { getHostIpcApi } from '../ipc.js';
+import { getHostApi } from '../hostApi.js';
 
 export interface HostStorage {
 	get(): Record<string, unknown> | undefined;
@@ -6,7 +6,7 @@ export interface HostStorage {
 }
 
 export class VsCodeStorage implements HostStorage {
-	private readonly _api = getHostIpcApi();
+	private readonly _api = getHostApi();
 
 	get(): Record<string, unknown> | undefined {
 		return this._api.getState() as Record<string, unknown> | undefined;

@@ -3,35 +3,35 @@ import type { UriComponents } from '@gitlens/utils/uri.js';
 // Tagged values allow transparent serialization/deserialization of special types across the webview boundary
 
 /** Tagged type for Dates that get serialized as timestamps */
-export interface IpcDate {
-	__ipc: 'date';
+export interface WireDate {
+	__wire: 'date';
 	value: number;
 }
 
 /** Tagged type for Uris that get serialized as UriComponents */
-export interface IpcUri {
-	__ipc: 'uri';
+export interface WireUri {
+	__wire: 'uri';
 	value: UriComponents;
 }
 
-export type IpcTaggedType = IpcDate | IpcUri;
+export type WireTaggedType = WireDate | WireUri;
 
 /**
  * @returns the tagged type if the value is one, otherwise undefined
- * More efficient than calling multiple isIpc* functions when you need to handle different types
+ * More efficient than calling multiple isWire* functions when you need to handle different types
  */
-export function getIpcTaggedType(value: unknown): IpcTaggedType | undefined {
+export function getWireTaggedType(value: unknown): WireTaggedType | undefined {
 	if (typeof value !== 'object' || value == null) return undefined;
 
-	const ipc = (value as any).__ipc;
-	if (ipc == null) return undefined;
+	const wire = (value as any).__wire;
+	if (wire == null) return undefined;
 
-	switch (ipc) {
+	switch (wire) {
 		case 'date':
-			return typeof (value as IpcDate).value === 'number' ? (value as IpcDate) : undefined;
+			return typeof (value as WireDate).value === 'number' ? (value as WireDate) : undefined;
 		case 'uri':
-			return typeof (value as IpcUri).value === 'object' && typeof (value as IpcUri).value?.scheme === 'string'
-				? (value as IpcUri)
+			return typeof (value as WireUri).value === 'object' && typeof (value as WireUri).value?.scheme === 'string'
+				? (value as WireUri)
 				: undefined;
 		default:
 			return undefined;

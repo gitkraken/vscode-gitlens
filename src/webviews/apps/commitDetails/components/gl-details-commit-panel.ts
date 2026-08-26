@@ -9,8 +9,8 @@ import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks.js';
-import type { IpcSerialized } from '../../../../system/ipcSerialize.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
+import type { WireSerialized } from '../../../../system/wireSerialize.js';
 import type {
 	State as _State,
 	CommitSignatureShape,
@@ -60,7 +60,7 @@ import '../../shared/components/progress.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/split-panel/split-panel.js';
 
-type State = IpcSerialized<_State>;
+type State = WireSerialized<_State>;
 interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };

@@ -9,7 +9,7 @@
  * - Resources: commit, reachability, explain resources handle
  *   fetch/cancel/staleness (replaces CancellableRequest + manual loading)
  * - Auto-persistence: persisted signals are auto-saved via `startAutoPersist()`
- *   (replaces manual `persistState()` / `getHostIpcApi().setState()`)
+ *   (replaces manual `persistState()` / `getHostApi().setState()`)
  * - State bridging: after resource fetch, actions writes results to state signals
  *   so derived signals (isUncommitted) and events can read them
  *
@@ -517,7 +517,7 @@ export class CommitDetailsActions {
 	/**
 	 * Fetch all initial state for the webview.
 	 * Persisted pinned/commitRef are already restored by `createStateGroup` —
-	 * no manual `getHostIpcApi().getState()` needed.
+	 * no manual `getHostApi().getState()` needed.
 	 */
 	async fetchInitialState(): Promise<void> {
 		this.state.loading.set(true);

@@ -6,17 +6,17 @@
  * `getState`/`setState` (persistence, see `host/storage.ts`).
  */
 
-export interface HostIpcApi {
+export interface HostApi {
 	postMessage(msg: unknown): void;
 	setState(state: unknown): void;
 	getState(): unknown;
 }
 
-declare function acquireVsCodeApi(): HostIpcApi;
+declare function acquireVsCodeApi(): HostApi;
 
-let _api: HostIpcApi | undefined;
+let _api: HostApi | undefined;
 
-export function getHostIpcApi(): HostIpcApi {
+export function getHostApi(): HostApi {
 	return (_api ??= acquireVsCodeApi());
 }
 
