@@ -539,6 +539,28 @@ export class GlDetailsAgentStatus extends LitElement {
 				);
 			}
 
+			/* Light hover lift, mirroring list rows: plain cards swap to the list hover background;
+		   the gradient variants keep their accent tint but re-base it on the same hover color. */
+			.card:hover {
+				background-color: var(--vscode-list-hoverBackground);
+			}
+
+			.card--needs-input:hover,
+			.card--working:hover {
+				background: linear-gradient(
+					to right,
+					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-list-hoverBackground)),
+					color-mix(in srgb, var(--card-accent) 4%, var(--vscode-list-hoverBackground))
+				);
+			}
+
+			/* Keyboard focus ring — same inset recipe as .card--selected so the two read as one
+		   system, and the ring stays inside the card's footprint. */
+			.card:focus-visible {
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
+
 			.card--idle {
 				--card-accent: var(--gl-agent-idle-color);
 
@@ -985,6 +1007,9 @@ export class GlDetailsAgentStatus extends LitElement {
 		return html`
 			<div
 				class="card card--ended"
+				tabindex="0"
+				role="group"
+				aria-label=${session.displayName}
 				data-session-id=${session.id}
 				data-vscode-context=${serializeWebviewItemContext(buildPastAgentSessionContext(session))}
 			>
@@ -1359,6 +1384,9 @@ export class GlDetailsAgentStatus extends LitElement {
 		return html`
 			<div
 				class=${`card card--${category}${isSelected ? ' card--selected' : ''}${isGhost ? ' card--ghost' : ''}`}
+				tabindex="0"
+				role="group"
+				aria-label=${session.displayName}
 				data-session-id=${session.id}
 				data-vscode-context=${serializeWebviewItemContext(buildAgentSessionContext(session, category))}
 				aria-current=${isSelected ? 'true' : nothing}
