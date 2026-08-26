@@ -307,7 +307,24 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return session;
 	}
 
-	@debug()
+	@debug({
+		// The seed params (`incrementalSeed`, `reachabilitySeed`, `rowsStatsSeed`) hold cached rows/stats
+		// for potentially thousands of commits — logging them via the default formatting would dump
+		// megabytes per call, so only log their presence (and key summary fields).
+		args: (repoPath, rev, options) => ({
+			repoPath: repoPath,
+			rev: rev,
+			limit: options?.limit,
+			stats: options?.include?.stats,
+			incrementalSeed: options?.incrementalSeed && {
+				rows: options.incrementalSeed.rows.length,
+				tips: options.incrementalSeed.tips.size,
+				ordering: options.incrementalSeed.ordering,
+			},
+			reachabilitySeed: options?.reachabilitySeed != null,
+			rowsStatsSeed: options?.rowsStatsSeed != null,
+		}),
+	})
 	async getGraph(
 		repoPath: string,
 		rev: string | undefined,
