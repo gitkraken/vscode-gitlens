@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { makeHierarchical } from '../array.js';
-import { normalizePath, trimTrailingSlash } from '../path.js';
+import { arePathsEqual, normalizePath, trimTrailingSlash } from '../path.js';
 
 // Git reports an untracked directory that is itself a repository as a single entry with a trailing
 // slash, since it can't recurse past the embedded repository boundary.
@@ -73,6 +73,38 @@ suite('path', () => {
 			assert.strictEqual(children.length, 1);
 			assert.strictEqual(children[0].name, 'weird\\name.ts');
 			assert.ok(children[0].value != null);
+		});
+	});
+
+	suite('arePathsEqual', () => {
+		// Comparing a repository root reported as a `Uri.fsPath` (backslashes, upper-case drive on
+		// Windows) against an internally normalized repo path (forward slashes) must still match, and a
+		// worktree or nested repo living under a root must not.
+		const root = 'C:/Repos/My-Repo';
+		const fsPath = 'C:\\Repos\\My-Repo';
+		const worktree = 'C:/Repos/My-Repo/.worktrees/feature';
+
+		test('matches across separator styles', () => {
+			assert.strictEqual(arePathsEqual(fsPath, root), true);
+			assert.strictEqual(arePathsEqual('a\\b\\c', 'a/b/c'), true);
+		});
+
+		test('matches across drive casing when ignoring case', () => {
+			assert.strictEqual(arePathsEqual(fsPath.toLowerCase(), root, true), true);
+			assert.strictEqual(arePathsEqual('c:/projects/x', 'C:/Projects/X', true), true);
+		});
+
+		test('respects case when not ignoring case', () => {
+			assert.strictEqual(arePathsEqual('a/b/C', 'a/b/c', false), false);
+		});
+
+		test('ignores a trailing slash', () => {
+			assert.strictEqual(arePathsEqual(`${root}/`, root), true);
+		});
+
+		test('does not match a descendant path', () => {
+			assert.strictEqual(arePathsEqual(worktree, root), false);
+			assert.strictEqual(arePathsEqual(root, worktree), false);
 		});
 	});
 });

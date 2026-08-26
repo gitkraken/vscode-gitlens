@@ -72,6 +72,11 @@ export interface GlGitProvider extends UnifiedDisposable {
 	visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]>;
 
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
+	/**
+	 * Gets the SCM repository whose root *is* `repoPath`, or `undefined` when the SCM doesn't have
+	 * that exact repo open. Never returns a containing/ancestor repository, so a worktree or nested
+	 * repo inside an opened repo yields `undefined` rather than the ancestor.
+	 */
 	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 	getOrOpenScmRepository(repoPath: string, source?: Source): Promise<ScmRepository | undefined>;
 
