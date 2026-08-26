@@ -7,6 +7,10 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
+		"./agentCapabilities.js": {
+			"types": "./dist/agentCapabilities.d.ts",
+			"default": "./dist/agentCapabilities.js"
+		},
 		"./sanitizePrompt.js": {
 			"types": "./dist/sanitizePrompt.d.ts",
 			"default": "./dist/sanitizePrompt.js"

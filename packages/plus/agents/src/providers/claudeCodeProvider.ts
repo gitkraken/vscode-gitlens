@@ -19,6 +19,7 @@ import {
 	rehydrateSubagents,
 } from '../stateMachine.js';
 import type {
+	AgentHookEvent,
 	AgentProviderCallbacks,
 	AgentSession,
 	AgentSessionHistoryItem,
@@ -29,7 +30,6 @@ import type {
 	AgentSessionResumeOutcome,
 	AgentSessionResumeTarget,
 	AgentSessionStatus,
-	ClaudeCodeHookEvent,
 	LiveAgentSession,
 	PendingPermission,
 	PendingPermissionKind,
@@ -41,7 +41,7 @@ import type { EndedTranscriptDetails } from './claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
 
 interface AgentSessionEvent {
-	event: ClaudeCodeHookEvent;
+	event: AgentHookEvent;
 	sessionId: string;
 	/** `gk ai hook` client id of the originating host (`claude-code`, `codex`, …) — NOT
 	 *  `AgentSession.providerId`. Absent on older CLIs. */

@@ -3,7 +3,10 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import type { EndedTranscriptDetails } from './providers/claudeCodeTranscript.js';
 
-export const claudeCodeNonBlockingHookEvents = [
+/** Claude Code's native non-blocking hook event vocabulary, adopted as the canonical set for all
+ *  agents because it is a superset of every other supported agent's. Other agents map their native
+ *  event names onto these via `AgentCapabilities.eventMap` / `resolveEvent`. */
+export const canonicalNonBlockingHookEvents = [
 	'SessionStart',
 	'SessionEnd',
 	'UserPromptSubmit',
@@ -29,11 +32,11 @@ export const claudeCodeNonBlockingHookEvents = [
 	'CwdChanged',
 ] as const;
 
-export const claudeCodeBlockingHookEvents = ['PermissionRequest'] as const;
+export const canonicalBlockingHookEvents = ['PermissionRequest'] as const;
 
-export type ClaudeCodeHookEvent =
-	| (typeof claudeCodeNonBlockingHookEvents)[number]
-	| (typeof claudeCodeBlockingHookEvents)[number];
+export type AgentHookEvent =
+	| (typeof canonicalNonBlockingHookEvents)[number]
+	| (typeof canonicalBlockingHookEvents)[number];
 
 export type PermissionDecision = 'allow' | 'deny';
 
