@@ -46,6 +46,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves remote branch pills on the _Commit Graph_ &mdash; the branch's remote name now follows the branch name as a subtle qualifier (in the pill, its hover expansion, and the +N list), yielding first when space is tight; the `gitlens.graph.showRemoteNames` setting still switches to the full `remote/branch` form
+- Changes focusing (clicking) a ref pill on the _Commit Graph_ to keep the row's pills in place &mdash; a ref already showing no longer jumps to the front, and one collapsed behind the +N counter swaps into just the last pill slot; screen readers hear the refs in the drawn order with the focused one called out
 - Changes maximizing the _Commit Graph_'s details panel (or a maximized sheet) to overlay the graph instead of resizing it &mdash; the graph behind keeps its exact layout and restoring is instant
 - Improves switching into the experimental _Agent Kanban_ mode to feel instant &mdash; the board renders its columns immediately and agent session cards fill in one column per frame right after, rather than building every card before anything appears; off-screen cards also skip layout until scrolled into view
 - Improves the _Commit Graph_'s WIP details Agents section with one consistent, collapsible view for live and past sessions, inline history paging, and Resume and Archive actions

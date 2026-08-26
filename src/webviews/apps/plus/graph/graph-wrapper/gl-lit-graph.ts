@@ -928,7 +928,8 @@ export class GlLitGraph extends LitElement {
 	@state() private refHoverChainShas?: ReadonlySet<string>;
 	// Name of the click-pinned ref pill: keeps it expanded (the `.is-pinned` class, read live off this
 	// field via `refPillHooks.getPinnedRefKey` — see `renderRefPill`) and drives the dim chain above +
-	// the click toggle. Undefined = nothing pinned. Same treatment for `_contextPinnedRefKey` below
+	// the click toggle. Does NOT reorder the row — see `updateRefOrder`. Undefined = nothing pinned. Same
+	// treatment for `_contextPinnedRefKey` below
 	// (the `.is-context-pinned` class, forced open while a native context menu sits over the pill —
 	// see `pinRefPill`/`unpinRefPill`). Both ride the adornment cache, NOT a DOM reconcile pass, so
 	// every writer of either field must also call `invalidateAdornments()` or the pill won't restyle —
@@ -1545,8 +1546,10 @@ export class GlLitGraph extends LitElement {
 	private lastRefsMetadataRef?: GraphRefsMetadata | null;
 	private lastRefsMetadataResetToken = 0;
 	private lastDownstreamsRef?: GraphDownstreams;
-	// Pinned-aware: the click-pinned ref is promoted to the inline pill (see createRefAdornmentProvider).
-	// Split-pill hooks read live state (metadata/row positions/row-marker tips), so they're getters, never
+	// Pinned-aware: the click-pinned ref re-renders in place with `.is-pinned` (or swaps into the LAST
+	// inline pill when it was folded in the +N overflow — see `partitionRowRefs`), never reordering the
+	// row (see createRefAdornmentProvider). Split-pill hooks read live state (metadata/row positions/
+	// row-marker tips), so they're getters, never
 	// cached. Held as a field so the WIP-row pill (`buildWipRowMarkerPill`) reuses the exact same hooks.
 	private readonly refPillHooks: RefPillHooks = {
 		getUpstream: ref => this.getUpstreamStats(ref),
@@ -2253,9 +2256,9 @@ export class GlLitGraph extends LitElement {
 
 		// Evict cached adornments when any of their inputs changed — an O(1) clear; the visible rows
 		// re-resolve as they render. Selection/avatar pushes don't affect adornment content, so they
-		// skip even that. (Pin changes evict directly in togglePinnedRef/clearPinnedRef so the ref
-		// provider can promote the pinned ref to the inline pill — `_pinnedRefKey` is a private
-		// @state, not a `changed.has` key.)
+		// skip even that. (Pin changes evict directly in togglePinnedRef/clearPinnedRef so the pinned
+		// ref re-renders in place with `.is-pinned` (or swaps into the LAST inline pill when it was
+		// folded in the +N overflow) — `_pinnedRefKey` is a private @state, not a `changed.has` key.)
 		// The merge-target pull lands async (after the initial paint), and it drives the HEAD pill's role +
 		// target segment — so evict cached adornments when it moves so the HEAD pill re-resolves with it.
 		// (HEAD + upstream tips derive from rows/refRowIndex/refsMetadata, already covered above — except
@@ -3979,9 +3982,9 @@ export class GlLitGraph extends LitElement {
 			};
 			document.addEventListener('pointerdown', this.pinnedRefDismiss, true);
 		}
-		// Re-render the ref pills so the newly-pinned ref is promoted to the inline pill AND takes
-		// `.is-pinned` (both read `_pinnedRefKey` live — see `renderRefPill`); the cached adornments
-		// don't track pin state on their own.
+		// Re-render the ref pills so the newly-pinned ref takes `.is-pinned` in place, or — when it was
+		// folded in the +N overflow — swaps into the LAST inline pill (both read `_pinnedRefKey` live —
+		// see `renderRefPill`/`partitionRowRefs`); the cached adornments don't track pin state on their own.
 		this.invalidateAdornments();
 		return true;
 	}
@@ -3995,7 +3998,8 @@ export class GlLitGraph extends LitElement {
 			document.removeEventListener('pointerdown', this.pinnedRefDismiss, true);
 			this.pinnedRefDismiss = undefined;
 		}
-		// Revert the promoted inline pill back to the priority primary and drop its `.is-pinned` class.
+		// Revert any overflow-substituted inline pill back to the natural partition and drop its
+		// `.is-pinned` class.
 		this.invalidateAdornments();
 	}
 
@@ -4028,8 +4032,8 @@ export class GlLitGraph extends LitElement {
 	// pin), layered on top of it via the `inRefChainShas` fallback in `updateRenderState`. Unlike the
 	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
 	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
-	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to promote/demote the
-	// inline pill).
+	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to apply/revert the
+	// pinned pill's `.is-pinned` state and its overflow substitution).
 	//
 	// `pickLaneSeed` chooses the seed: the focused row, falling back to HEAD when nothing is focused. The
 	// pointer plays no part — hovering never seeds or retargets this chain, so the highlight stays put
@@ -9447,19 +9451,20 @@ export class GlLitGraph extends LitElement {
 	// Written in `willUpdate` via `updateRefOrder`.
 	private _refOrder?: RowRefOrder;
 
-	// Rebuild the ref-ordering inputs (both pins + the current branch's upstream + the ref-find hit) ONLY
-	// when one of them actually moves — the object's IDENTITY is what `createRefAdornmentProvider` keys
-	// its projection cache on, so a fresh object per update would defeat it. Stays undefined while none is
-	// set (nothing pinned, no upstream, no find hit), which lets `sortRowRefs` skip the pin checks outright.
+	// Rebuild the ref-ordering inputs (the edge pin + the current branch's upstream + the ref-find hit)
+	// ONLY when one of them actually moves — the object's IDENTITY is what `createRefAdornmentProvider`
+	// keys its projection cache on, so a fresh object per update would defeat it. Stays undefined while
+	// none is set (nothing pinned, no upstream, no find hit), which lets `sortRowRefs` skip the tier
+	// checks outright. The CLICK pin (`_pinnedRefKey`) is NOT one of these inputs — it no longer reorders
+	// the row at all; it reaches the pills live via `refPillHooks.getPinnedRefKey` and only substitutes
+	// into the LAST inline slot at partition time (`partitionRowRefs`).
 	private updateRefOrder(): void {
-		const pinnedRefKey = this._pinnedRefKey;
 		const pinnedRefId = this.pinnedRef?.id;
 		const currentUpstreamName = this.currentUpstream;
 		const findHitRefKey = this._refFindHitKey;
 
 		const order = this._refOrder;
 		if (
-			order?.pinnedRefKey === pinnedRefKey &&
 			order?.pinnedRefId === pinnedRefId &&
 			order?.currentUpstreamName === currentUpstreamName &&
 			order?.findHitRefKey === findHitRefKey
@@ -9468,10 +9473,9 @@ export class GlLitGraph extends LitElement {
 		}
 
 		this._refOrder =
-			pinnedRefKey == null && pinnedRefId == null && currentUpstreamName == null && findHitRefKey == null
+			pinnedRefId == null && currentUpstreamName == null && findHitRefKey == null
 				? undefined
 				: {
-						pinnedRefKey: pinnedRefKey,
 						pinnedRefId: pinnedRefId,
 						currentUpstreamName: currentUpstreamName,
 						findHitRefKey: findHitRefKey,

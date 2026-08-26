@@ -36,8 +36,10 @@ function keys(refs: readonly GraphCommitRef[]): string[] {
 
 suite('graph ref ordering — sortRowRefs tiers', () => {
 	test('orders the full tier ladder regardless of input order', () => {
-		// One ref per tier 0-9, fed in deliberately scrambled order. Names are chosen so alphabetical
-		// order would NOT reproduce the expected result — only the tiers can.
+		// One ref per tier, fed in deliberately scrambled order. Names are chosen so alphabetical order
+		// would NOT reproduce the expected result — only the tiers can. The click pin is not an ordering
+		// input (see `RowRefOrder`), so it plays no part here — the top tier (0, the ref-find hit) is
+		// unoccupied and the ladder below starts at 1.
 		const refs = [
 			tag('v1'),
 			remote('origin', 'zremote'),
@@ -47,17 +49,14 @@ suite('graph ref ordering — sortRowRefs tiers', () => {
 			{ ...trackedHead('current', 'origin'), current: true },
 			remote('origin', 'current'),
 			{ ...trackedHead('wt', 'origin'), secondaryWorktreeId: 'wt1' },
-			head('clicked'),
 			head('edge'),
 		];
 		const order = {
-			pinnedRefKey: 'head:clicked',
 			pinnedRefId: headId('edge'),
 			currentUpstreamName: 'origin/current',
 		};
 
 		assert.deepStrictEqual(keys(sortRowRefs(refs, order)), [
-			'head:clicked', // 0 — the click-pinned ref
 			'head:current', // 1 — the current checkout
 			'head:edge', // 2 — the ref pinned to the edge
 			'remote:origin/current', // 3 — the current branch's upstream
@@ -157,16 +156,12 @@ suite('graph ref ordering — the current branch upstream, off its own row', () 
 	});
 });
 
+// The click pin used to have its own tests here (primary-slot promotion, winning over the edge pin, …).
+// `RowRefOrder` no longer carries a `pinnedRefKey` field at all — the click pin is not a `sortRowRefs`
+// input, so there's nothing left to assert here; its actual effect (a last-slot substitution at partition
+// time) is covered in `refAdornmentProvider.test.ts`'s partition suite instead.
 suite('graph ref ordering — pins', () => {
 	const refs = [{ ...trackedHead('main', 'origin'), current: true }, remote('origin', 'main'), tag('v1')];
-
-	test('the click pin takes the primary slot, ahead of the current checkout', () => {
-		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'tag:v1' })), [
-			'tag:v1',
-			'head:main',
-			'remote:origin/main',
-		]);
-	});
 
 	test('the edge pin ranks below the current checkout, matched by id', () => {
 		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefId: `${repo}|tags/v1` })), [
@@ -177,21 +172,10 @@ suite('graph ref ordering — pins', () => {
 	});
 
 	test('is a no-op when the pinned ref is absent from the row', () => {
-		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'head:nope' })), keys(sortRowRefs(refs)));
 		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefId: headId('nope') })), keys(sortRowRefs(refs)));
 	});
 
-	test('distinguishes a local from the remote it tracks (both are named `main`)', () => {
-		assert.strictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'remote:origin/main' }))[0], 'remote:origin/main');
-	});
-
-	test('the click pin wins over the edge pin when both are on the row', () => {
-		const both = { pinnedRefKey: 'remote:origin/main', pinnedRefId: `${repo}|tags/v1` };
-		assert.deepStrictEqual(keys(sortRowRefs(refs, both)), ['remote:origin/main', 'head:main', 'tag:v1']);
-	});
-
-	// The two pins live in different namespaces — an id must never fall through to key matching, or a key
-	// that happens to look like an id would promote.
+	// An id must never fall through to key matching, or a key that happens to look like an id would promote.
 	test('the edge pin matches on id only, never on key', () => {
 		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefId: 'tag:v1' })), keys(sortRowRefs(refs)));
 	});
@@ -222,15 +206,6 @@ suite('graph ref ordering — ref-find hit', () => {
 			'head:main',
 			'remote:origin/main',
 			'tag:v1',
-		]);
-	});
-
-	test('a click pin still outranks a find hit', () => {
-		const refs = [head('a'), head('b'), head('c')];
-		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'head:a', findHitRefKey: 'head:b' })), [
-			'head:a',
-			'head:b',
-			'head:c',
 		]);
 	});
 
@@ -317,20 +292,15 @@ suite('graph ref ordering — pickGhostRef', () => {
 	});
 
 	// The ghost and the pill must never name different branches for the same row — so the ghost has to see
-	// the same non-ref-data order inputs the pill does.
-	test('honors the pins and the current upstream, so it still matches the pill', () => {
+	// the same non-ref-data order inputs the pill does. The click pin intentionally sits this out: it no
+	// longer renames the lane's ghost, because it no longer changes the row's first pill either.
+	test('honors the edge pin and the current upstream, so it still matches the pill', () => {
 		const refs = [tag('v1'), remote('origin', 'zremote'), head('zlocal'), head('main', { isDefault: true })];
 
-		for (const order of [
-			{ pinnedRefKey: 'tag:v1' },
-			{ pinnedRefId: headId('zlocal') },
-			{ currentUpstreamName: 'origin/zremote' },
-		]) {
+		for (const order of [{ pinnedRefId: headId('zlocal') }, { currentUpstreamName: 'origin/zremote' }]) {
 			const ghost = pickGhostRef(refs, undefined, undefined, undefined, order);
 			assert.strictEqual(refPillKey(ghost!), refPillKey(sortRowRefs(refs, order)[0]));
 		}
-
-		assert.strictEqual(pickGhostRef(refs, undefined, undefined, undefined, { pinnedRefKey: 'tag:v1' })!.name, 'v1');
 	});
 });
 

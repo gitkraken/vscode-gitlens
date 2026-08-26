@@ -3587,6 +3587,16 @@ gl-lit-graph {
 		padding-block: 0.3rem;
 		margin-block: -0.3rem;
 	}
+	// A remote pill's trailing remote-name qualifier (see `chipLabel`, `showRemoteNames` off) — subtler
+	// than the branch name (lighter weight + reduced opacity, inheriting the surrounding text color so it
+	// stays readable on the resting pill, the filled expand overlay, and a popover row alike). Lives
+	// INSIDE the label's ellipsis run, so it's the first thing to truncate away when the pill is squeezed.
+	.gl-graph__ref-pill-label-remote {
+		margin-inline-start: 0.4rem;
+		font-size: 0.9rem;
+		font-weight: 400;
+		opacity: 0.6;
+	}
 	// Overflow badges (`+N`, tag-glyph `+N`) — plain text in the lane color, NO box (the group divider
 	// below separates them; a filled chip read as a competing pill-in-a-pill).
 	.gl-graph__ref-pill-more {

@@ -122,8 +122,9 @@ export interface RefPillHooks {
 // Ordering happens HERE rather than at render so it rides the per-commit projection cache (once per
 // commit, not once per render) and every consumer of the projection — pills, popover, the a11y
 // description, the lane-tip ghost ref — sees the same order for free. `order` carries the inputs that
-// AREN'T ref data (the two pins, HEAD's upstream); the caller must bust its cache when that object
-// changes, which `createRefAdornmentProvider` does by identity.
+// AREN'T ref data (the edge pin, the ref-find hit, HEAD's upstream — the CLICK pin is excluded on
+// purpose, see `RowRefOrder`); the caller must bust its cache when that object changes, which
+// `createRefAdornmentProvider` does by identity.
 //
 // Exported for the WIP row's row-marker pill (`buildWipRowMarkerPill`), which projects the HEAD row's refs.
 export function toParsedRefs(refs: readonly GraphCommitRef[], order?: RowRefOrder): ParsedRef[] {
@@ -158,12 +159,14 @@ function hasActiveRefFilter(state: RefExcludeState): boolean {
 }
 
 /**
- * @param getRefOrder Returns the live ordering inputs that aren't ref data — the click pin, the edge
- * pin, and the current branch's upstream name. Ordering is tiered (see `sortRowRefs`): the click pin
- * and the current checkout both outrank the edge pin, so the edge-pinned ref is NOT guaranteed the
- * inline pill. Its indicator renders wherever it lands — the primary pill's leading slot, a +N
- * popover row, or the combined pill's upstream segment when it's an in-sync upstream. The host
- * recomputes adornments on pin/unpin and on a branch change so this re-applies.
+ * @param getRefOrder Returns the live ordering inputs that aren't ref data — the edge pin, the ref-find
+ * hit, and the current branch's upstream name. Ordering is tiered (see `sortRowRefs`): the current
+ * checkout outranks the edge pin, so the edge-pinned ref is NOT guaranteed the inline pill. Its
+ * indicator renders wherever it lands — the primary pill's leading slot, a +N popover row, or the
+ * combined pill's upstream segment when it's an in-sync upstream. The CLICK pin is NOT an ordering
+ * input here at all: it never reorders the row, and instead substitutes into the last inline slot at
+ * partition time (`partitionRowRefs`). The host recomputes adornments on pin/unpin and on a branch
+ * change so this re-applies.
  * @param getExcludeState Returns the active ref-visibility filters, read fresh on each adornments
  * rebuild. Hidden refs (by type or by id; current HEAD always kept) are filtered out of each row's
  * pills. The host recomputes adornments when these change so the filter re-applies.
@@ -226,12 +229,43 @@ export function createRefAdornmentProvider(
 			return renderRefPill(parsed, colorForColumn(row.column), row.sha, hooks, undefined, cap);
 		},
 
-		describeForA11y: function (_row: ProcessedGraphRow, parsed?: ParsedRef[]): string | null {
+		describeForA11y: function (row: ProcessedGraphRow, parsed?: ParsedRef[]): string | null {
 			if (!parsed || parsed.length === 0) return null;
 
-			// Announce in the SAME order the pills render — `parsed` arrives fully display-sorted, pins
-			// included, so a screen reader hears the pinned ref first exactly as it's drawn.
-			return parsed.map(r => describeRef(r, hooks)).join(', ');
+			// Announce in the SAME order the pills render, not `parsed`'s natural sort order — a click-pinned
+			// overflow ref swaps into the LAST inline slot (see `partitionRowRefs`), so mirroring the sort
+			// order here would disagree with what's drawn. Same cap `resolveAdornment` uses, so the partition
+			// (and therefore the announced grouping) is identical. Every ref in `parsed` is still announced
+			// exactly once: each visible unit's ref is followed by its absorbed in-sync upstream (if any),
+			// then each overflow ref by ITS absorbed upstream — grouped the way the pills draw them, never a
+			// flat re-sort.
+			const cap = Math.max(1, hooks?.getMaxInlineRefs?.(row) ?? 1);
+			const findHitRefKey = hooks?.getFindHitRefKey?.();
+			const pinnedRefKey = hooks?.getPinnedRefKey?.();
+			const { visible, rest, upstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey, pinnedRefKey);
+
+			// The pinned ref's own description takes a "focused " prefix — prominence by wording, never by
+			// reordering (the pin doesn't move pills either; see `partitionRowRefs`).
+			const describe = (r: ParsedRef): string => {
+				const text = describeRef(r, hooks);
+				return pinnedRefKey != null && refPillKey(r) === pinnedRefKey ? `focused ${text}` : text;
+			};
+
+			const parts: string[] = [];
+			for (const unit of visible) {
+				parts.push(describe(unit.ref));
+				if (unit.upstreamOnRow != null) {
+					parts.push(describe(unit.upstreamOnRow));
+				}
+			}
+			for (const r of rest) {
+				parts.push(describe(r));
+				const absorbed = upstreamFor.get(r);
+				if (absorbed != null) {
+					parts.push(describe(absorbed));
+				}
+			}
+			return parts.join(', ');
 		},
 	};
 }
@@ -467,8 +501,11 @@ export interface RowRefUnit {
 
 /**
  * Split a row's ordered refs into the pills that render inline and the refs that collapse behind the +N
- * badge. `parsed` arrives fully ordered (see `toParsedRefs` → `sortRowRefs`), pins included — nothing is
- * reordered here; `cap` (`gitlens.graph.refs.maxInline`) only decides how many refs get their own pill.
+ * badge. `parsed` arrives ordered WITHOUT the click pin (see `toParsedRefs` → `sortRowRefs` — the click
+ * pin is deliberately not an ordering input); `cap` (`gitlens.graph.refs.maxInline`) only decides how many
+ * refs get their own pill. `pinnedRefKey`, when given, is applied AFTER that ordering: a pinned ref that's
+ * already inline is left exactly where it sits, and a pinned ref buried in the overflow takes over ONLY
+ * the last inline slot, so focusing a ref never reorders the rest of the row.
  *
  * In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), it's
  * absorbed into that head's upstream segment instead of being listed separately, so the pair reads as one
@@ -478,9 +515,9 @@ export interface RowRefUnit {
  * badge, each still carrying its absorbed remote (`upstreamFor`) so the expanded rows combine too.
  *
  * ⚠ The ref at index 0 is never absorbed. `sortRowRefs` already ranks an in-sync remote by its LOCAL (see
- * `carrierFor`), so a remote that still lands first is one the row is explicitly focused on — a
- * click-pinned remote, which is ranked by ITSELF. Folding it into a lower-ranked local would demote the
- * very ref the click asked for.
+ * `carrierFor`), so a remote that still lands first got there on a NATURAL ranking — e.g. a remote-only
+ * default branch outranking an untracked same-named local. Folding it into that lower-ranked local would
+ * demote the very ref the ordering chose to lead the row.
  *
  * An UNTRACKED head matches any co-located remote sharing its bare name (`isUpstreamRemoteOf`'s last
  * fallback), so several refs on this row can satisfy the predicate — a fork topology with both
@@ -495,6 +532,7 @@ export function partitionRowRefs(
 	parsed: ParsedRef[],
 	cap: number,
 	findHitRefKey: string | undefined,
+	pinnedRefKey?: string,
 ): { visible: RowRefUnit[]; rest: ParsedRef[]; upstreamFor: Map<ParsedRef, ParsedRef> } {
 	const upstreamFor = new Map<ParsedRef, ParsedRef>();
 	const absorbed = new Set<ParsedRef>();
@@ -529,10 +567,32 @@ export function partitionRowRefs(
 	}
 
 	const units = absorbed.size > 0 ? parsed.filter(r => !absorbed.has(r)) : parsed;
-	const rest = units.slice(cap);
+
+	// Click-pin substitution (the pin is deliberately NOT a `sortRowRefs` input): a pinned ref that is
+	// already inline stays exactly where it sits, and a pinned ref buried in the +N overflow takes over
+	// ONLY the last inline slot — the displaced unit becomes the first popover row. Anything more (the old
+	// promote-to-front) shuffled every pill on the row just to focus one. Matches through the absorbed
+	// upstream too, mirroring `carrierFor`: a pinned in-sync remote focuses the combined pill that carries
+	// it.
+	let ordered = units;
+	if (pinnedRefKey != null) {
+		const idx = units.findIndex(r => {
+			if (refPillKey(r) === pinnedRefKey) return true;
+
+			const absorbedUpstream = upstreamFor.get(r);
+			return absorbedUpstream != null && refPillKey(absorbedUpstream) === pinnedRefKey;
+		});
+		if (idx >= cap) {
+			ordered = units.slice();
+			const [pinned] = ordered.splice(idx, 1);
+			ordered.splice(cap - 1, 0, pinned);
+		}
+	}
+
+	const rest = ordered.slice(cap);
 
 	return {
-		visible: units.slice(0, cap).map(r => ({ ref: r, upstreamOnRow: upstreamFor.get(r) })),
+		visible: ordered.slice(0, cap).map(r => ({ ref: r, upstreamOnRow: upstreamFor.get(r) })),
 		rest: rest,
 		upstreamFor: upstreamFor,
 	};
@@ -569,7 +629,10 @@ export function renderRefPill(
 	cap = 1,
 ): TemplateResult {
 	const findHitRefKey = hooks?.getFindHitRefKey?.();
-	const { visible, rest, upstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey);
+	// Read once, so the pin used to decide the LAST-slot substitution below can't disagree with itself
+	// mid-render. `renderOnePill` re-reads the hook live for its own `.is-pinned` match, same as today.
+	const pinnedRefKey = hooks?.getPinnedRefKey?.();
+	const { visible, rest, upstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey, pinnedRefKey);
 	const restCount = rest.length;
 	const edgePinnedId = hooks?.getPinnedRefId?.();
 
@@ -611,11 +674,12 @@ export function renderRefPill(
 	const showRemoteNames = hooks?.getShowRemoteNames() === true;
 	const last = visible.length - 1;
 	// The head-role emphasis (and its merge-target segment) rides the CURRENT branch's pill when that pill
-	// is visible — a click pin can promote another ref to the first slot, and painting THAT pill as HEAD
-	// while the real HEAD pill sits beside it reads as the wrong branch being checked out. Falls back to
-	// the first pill when the current branch is folded or hidden. The upstream role stays on the first
-	// pill: on the upstream tip row `sortRowRefs` ranks the tracked remote near the top, so the first slot
-	// is that remote in every ordinary layout, and the tips carry no name to match a deeper pill by.
+	// is visible — a click-pin substitution can only place another ref in the first slot at a cap of 1 (and
+	// a find hit still promotes to the front), and painting THAT pill as HEAD while the real HEAD pill sits
+	// beside it reads as the wrong branch being checked out. Falls back to the first pill when the current
+	// branch is folded or hidden. The upstream role stays on the first pill: on the upstream tip row
+	// `sortRowRefs` ranks the tracked remote near the top, so the first slot is that remote in every
+	// ordinary layout, and the tips carry no name to match a deeper pill by.
 	const emphasisIndex =
 		role === 'head'
 			? Math.max(
@@ -704,13 +768,16 @@ function renderOnePill(
 		options.findHitRefKey != null &&
 		(options.findHitRefKey === refPillKey(ref) ||
 			(upstreamOnRow != null && options.findHitRefKey === refPillKey(upstreamOnRow)));
-	// The click-pinned ref only ever lands on the FIRST pill (unlike the find hit / edge pin, it has no
-	// carrier substitution — `sortRowRefs` ranks a pinned remote by itself, so it's promoted outright), but
-	// the key match is per-pill either way. The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded: it
-	// renders the HEAD row's refs under the SAME pill key, and its contract is jump-only — it never earned
-	// the pin.
+	// The click-pinned ref lands on whichever pill carries it: kept in place when it was already inline,
+	// substituted into the LAST slot when it was folded in the +N overflow (`partitionRowRefs`) — never
+	// promoted to the front. An in-sync absorbed remote's pin lands on its combined pill too, matched
+	// through `upstreamOnRow`, mirroring `isFindHit` above. The WIP-row proxy pill (`rowMarker.jumpSha` set)
+	// is excluded: it renders the HEAD row's refs under the SAME pill key, and its contract is jump-only —
+	// it never earned the pin.
+	const pinnedKey = rowMarker?.jumpSha == null ? hooks?.getPinnedRefKey?.() : undefined;
 	const isPinned =
-		rowMarker?.jumpSha == null && hooks?.getPinnedRefKey?.() != null && hooks.getPinnedRefKey() === refPillKey(ref);
+		pinnedKey != null &&
+		(pinnedKey === refPillKey(ref) || (upstreamOnRow != null && pinnedKey === refPillKey(upstreamOnRow)));
 	// Unlike the click pin, the WIP-row proxy pill is NOT excluded: it is right-clickable and must stay
 	// expanded for its own menu's lifetime. Matched through `refContextPinKey`, which qualifies the key by
 	// the jump sha, so the proxy and the real HEAD-row pill (identical `refPillKey`) can't be confused for
@@ -1263,13 +1330,18 @@ function renderRefIcon(ref: ParsedRef): TemplateResult {
 	return html`<code-icon icon=${icon}></code-icon>`;
 }
 
-// `gitlens.graph.showRemoteNames` (default off): a remote pill shows its bare branch name unless the
-// setting is on, in which case it's qualified with the remote (`origin/main`). `describeRef`'s a11y
-// description always keeps the full qualifier regardless — screen readers should keep it unambiguous.
-function chipLabel(ref: ParsedRef, showRemoteNames: boolean): string {
-	if (ref.kind === 'remote' && showRemoteNames) return `${ref.owner}/${ref.name}`;
+// `gitlens.graph.showRemoteNames` (default off): a remote pill is labeled with its bare branch name,
+// followed by the remote's name as a SUBTLE trailing qualifier (dimmed via
+// `.gl-graph__ref-pill-label-remote`). The suffix shares the label's single ellipsis run, so under
+// crowding it truncates away before the branch name does — it shows when there's room, yields when
+// there isn't. With the setting ON the label is the explicit `origin/main` qualified form instead (a
+// suffix there would repeat the owner). `describeRef`'s a11y description always keeps the full
+// qualifier regardless — screen readers should keep it unambiguous.
+function chipLabel(ref: ParsedRef, showRemoteNames: boolean): string | TemplateResult {
+	if (ref.kind !== 'remote' || ref.owner == null) return ref.name;
+	if (showRemoteNames) return `${ref.owner}/${ref.name}`;
 
-	return ref.name;
+	return html`${ref.name}<span class="gl-graph__ref-pill-label-remote">${ref.owner}</span>`;
 }
 
 function describeRef(ref: ParsedRef, hooks?: RefPillHooks): string {

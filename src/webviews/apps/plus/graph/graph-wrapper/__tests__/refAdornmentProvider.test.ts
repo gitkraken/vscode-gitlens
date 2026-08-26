@@ -1,6 +1,11 @@
 import * as assert from 'assert';
-import type { ParsedRef } from '../adornments/refAdornmentProvider.js';
-import { partitionRowRefs, resolveAutoRefPillCap } from '../adornments/refAdornmentProvider.js';
+import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
+import type { ParsedRef, RefPillHooks } from '../adornments/refAdornmentProvider.js';
+import {
+	createRefAdornmentProvider,
+	partitionRowRefs,
+	resolveAutoRefPillCap,
+} from '../adornments/refAdornmentProvider.js';
 
 function head(name: string, overrides?: Partial<ParsedRef>): ParsedRef {
 	return { kind: 'head', name: name, id: `repo|heads/${name}`, ...overrides };
@@ -184,6 +189,136 @@ suite('refAdornmentProvider — partitionRowRefs above the default cap', () => {
 		]);
 		assert.deepStrictEqual(rest, []);
 		assert.strictEqual(upstreamFor.get(main.local), main.upstream);
+	});
+});
+
+// The click pin is NOT a `sortRowRefs` ordering input (see `RowRefOrder`) — it substitutes into the
+// partition instead, so its whole behavior lives here. `head('a')…` are already display-ordered input,
+// exactly what `partitionRowRefs` expects to receive.
+suite('refAdornmentProvider — partitionRowRefs click-pin substitution', () => {
+	const [a, b, c, d, e] = ['a', 'b', 'c', 'd', 'e'].map(n => head(n));
+
+	test('a pinned ref that is already inline does not move', () => {
+		const { visible, rest } = partitionRowRefs([a, b, c, d, e], 3, undefined, 'head:b');
+
+		assert.deepStrictEqual(visible, partitionRowRefs([a, b, c, d, e], 3, undefined).visible);
+		assert.deepStrictEqual(rest, [d, e]);
+	});
+
+	test('pinning the last inline ref is a no-op', () => {
+		const { visible, rest } = partitionRowRefs([a, b, c, d, e], 3, undefined, 'head:c');
+
+		assert.deepStrictEqual(visible, [
+			{ ref: a, upstreamOnRow: undefined },
+			{ ref: b, upstreamOnRow: undefined },
+			{ ref: c, upstreamOnRow: undefined },
+		]);
+		assert.deepStrictEqual(rest, [d, e]);
+	});
+
+	test('a pinned overflow ref replaces only the last inline pill', () => {
+		const { visible, rest } = partitionRowRefs([a, b, c, d, e], 3, undefined, 'head:e');
+
+		assert.deepStrictEqual(visible, [
+			{ ref: a, upstreamOnRow: undefined },
+			{ ref: b, upstreamOnRow: undefined },
+			{ ref: e, upstreamOnRow: undefined },
+		]);
+		assert.deepStrictEqual(rest, [c, d], 'the displaced unit leads the overflow');
+	});
+
+	test('at a cap of 1 the only pill swaps to the pinned ref', () => {
+		const { visible, rest } = partitionRowRefs([a, b, c, d, e], 1, undefined, 'head:d');
+
+		assert.deepStrictEqual(visible, [{ ref: d, upstreamOnRow: undefined }]);
+		assert.deepStrictEqual(rest, [a, b, c, e]);
+	});
+
+	test('a pinned absorbed in-sync remote substitutes its combined pill', () => {
+		const feature = tracked('feature', 'origin');
+		const { visible, rest } = partitionRowRefs(
+			[a, b, feature.local, feature.upstream],
+			1,
+			undefined,
+			'remote:origin/feature',
+		);
+
+		assert.deepStrictEqual(visible, [{ ref: feature.local, upstreamOnRow: feature.upstream }]);
+		assert.deepStrictEqual(rest, [a, b]);
+	});
+
+	test('a pin absent from the row changes nothing', () => {
+		const { visible, rest } = partitionRowRefs([a, b, c], 2, undefined, 'head:nope');
+
+		assert.deepStrictEqual(visible, partitionRowRefs([a, b, c], 2, undefined).visible);
+		assert.deepStrictEqual(rest, partitionRowRefs([a, b, c], 2, undefined).rest);
+	});
+});
+
+function row(sha: string): ProcessedGraphRow {
+	return { sha: sha, parents: [], kind: 'commit', column: 0, edges: {}, edgeColumnMax: 0 };
+}
+
+/** The `RefPillHooks` REQUIRED members, stubbed to inert defaults — no upstream, no PRs/issues, the
+ *  `showRemoteNames` setting off. Tests override only the optional members they exercise
+ *  (`getMaxInlineRefs`, `getPinnedRefKey`). */
+function baseHooks(overrides?: Partial<RefPillHooks>): RefPillHooks {
+	return {
+		getUpstream: () => undefined,
+		resolveJump: () => undefined,
+		onJumpToRef: () => {},
+		getPullRequests: () => undefined,
+		getIssues: () => undefined,
+		getUpstreamMetadataId: () => undefined,
+		getShowRemoteNames: () => false,
+		...overrides,
+	};
+}
+
+// `describeForA11y` must announce refs in the RENDERED order (the click pin substitutes into the
+// partition rather than reordering `sortRowRefs`, so the natural sort order and the drawn order can
+// disagree — see `partitionRowRefs`). Exercises the real provider rather than re-deriving its output,
+// so a regression in the wiring (wrong cap, wrong hook, wrong grouping) fails here too.
+suite('refAdornmentProvider — describeForA11y', () => {
+	test('no pin: announces in display order, an in-sync tracked pair announcing local then its absorbed remote', () => {
+		const main = tracked('main', 'origin');
+		const feature = head('feature');
+		const parsed = [main.local, main.upstream, feature];
+		const provider = createRefAdornmentProvider(
+			undefined,
+			baseHooks({ getMaxInlineRefs: () => 3 }),
+			undefined,
+			() => undefined,
+		);
+
+		assert.strictEqual(
+			provider.describeForA11y?.(row('abc'), parsed),
+			'branch main, remote origin/main, branch feature',
+		);
+	});
+
+	test('a pinned overflow ref announces in the SUBSTITUTED render order, prefixed "focused"', () => {
+		const [a, b, c, d, e] = ['a', 'b', 'c', 'd', 'e'].map(n => head(n));
+		const hooks = baseHooks({ getMaxInlineRefs: () => 3, getPinnedRefKey: () => 'head:e' });
+		const provider = createRefAdornmentProvider(undefined, hooks, undefined, () => undefined);
+
+		assert.strictEqual(
+			provider.describeForA11y?.(row('abc'), [a, b, c, d, e]),
+			'branch a, branch b, focused branch e, branch c, branch d',
+		);
+	});
+
+	test('a pinned ref that is already inline keeps the display order, only adding the "focused" prefix', () => {
+		const main = tracked('main', 'origin');
+		const feature = head('feature');
+		const parsed = [main.local, main.upstream, feature];
+		const hooks = baseHooks({ getMaxInlineRefs: () => 3, getPinnedRefKey: () => 'head:main' });
+		const provider = createRefAdornmentProvider(undefined, hooks, undefined, () => undefined);
+
+		assert.strictEqual(
+			provider.describeForA11y?.(row('abc'), parsed),
+			'focused branch main, remote origin/main, branch feature',
+		);
 	});
 });
 
