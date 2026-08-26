@@ -99,15 +99,9 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): SettingsServices {
-		const shared = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context;
-			},
-			buffer,
-			tracker,
-		);
+		const shared = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context;
+		});
 
 		return proxyServices({
 			...shared,

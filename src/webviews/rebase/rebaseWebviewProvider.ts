@@ -47,7 +47,6 @@ import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js
 import { showGitErrorMessage } from '../../messages.js';
 import { resolveRecomposeScope } from '../../plus/coretools/compose/recomposeScope.js';
 import { handoffPendingRebaseRun } from '../../plus/coretools/conflict/autoRebaseProgress.js';
-import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
@@ -178,9 +177,6 @@ export class RebaseWebviewProvider implements Disposable {
 					void closeTab(document.uri);
 				}
 			}),
-			this.container.subscription.onDidChange(e => {
-				this.onSubscriptionChanged(e.current);
-			}),
 			this.container.onboarding.onDidChange(e => {
 				if (e.key === 'rebaseEditor:closeWarning') {
 					this.updateState();
@@ -266,15 +262,9 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): RebaseServices {
-		const shared = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context;
-			},
-			buffer,
-			tracker,
-		);
+		const shared = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context;
+		});
 
 		// Per-instance by construction: each custom-editor instance gets its own provider (see
 		// `RebaseEditorProvider.resolveCustomTextEditor`), so this cache never crosses instances.
@@ -333,12 +323,6 @@ export class RebaseWebviewProvider implements Disposable {
 			this._etagRepository = repo.etag;
 			this.updateState();
 		}
-	}
-
-	private onSubscriptionChanged(subscription: Subscription): void {
-		if (!this.host.visible) return;
-
-		this._service?.fireSubscriptionChanged({ subscription: subscription });
 	}
 
 	/** Serves the webview's initial-state query — the RPC replacement for the deferred bootstrap. */

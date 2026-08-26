@@ -75,16 +75,17 @@ export interface SharedWebviewServices {
  *
  * @param container - The GitLens Container
  * @param host - The webview host
- * @param updateTelemetryContext - Callback to update the provider's telemetry context
  * @param buffer - Optional event visibility buffer
+ * @param updateTelemetryContext - Callback to update the provider's telemetry context; defaults to a
+ * no-op for providers that don't track one
  * @returns SharedWebviewServices ready to be exposed via RPC
  */
 export function createSharedServices(
 	container: Container,
 	host: RpcServiceHost & WebviewViewServiceHost,
-	updateTelemetryContext: (context: Record<string, string | number | boolean | undefined>) => void,
 	buffer?: EventVisibilityBuffer,
 	tracker?: SubscriptionTracker,
+	updateTelemetryContext: (context: Record<string, string | number | boolean | undefined>) => void = () => {},
 ): SharedWebviewServices {
 	return {
 		repositories: new RepositoriesService(container, buffer, tracker),

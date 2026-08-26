@@ -262,15 +262,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 	}
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): TimelineServices {
-		const base = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context as TimelineWebviewTelemetryContext;
-			},
-			buffer,
-			tracker,
-		);
+		const base = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context as TimelineWebviewTelemetryContext;
+		});
 
 		return proxyServices({
 			...base,

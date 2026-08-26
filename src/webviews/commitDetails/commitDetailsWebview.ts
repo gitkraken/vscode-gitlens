@@ -608,15 +608,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	 * service-oriented interface for the webview to call.
 	 */
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): CommitDetailsServices {
-		const shared = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context as InspectWebviewTelemetryContext;
-			},
-			buffer,
-			tracker,
-		);
+		const shared = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context as InspectWebviewTelemetryContext;
+		});
 
 		return proxyServices({
 			...shared,

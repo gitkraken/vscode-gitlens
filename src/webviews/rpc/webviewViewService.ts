@@ -6,7 +6,7 @@
  * `WebviewReadyRequest` they rode alongside) were removed.
  */
 
-import type { Event } from 'vscode';
+import type { Disposable, Event } from 'vscode';
 import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from './eventVisibilityBuffer.js';
 import type { RpcEventSubscription } from './services/types.js';
@@ -54,33 +54,23 @@ export class WebviewViewService {
 		buffer?: EventVisibilityBuffer,
 		tracker?: SubscriptionTracker,
 	) {
-		this.onVisibilityChanged = createRpcEventSubscription<{ visible: boolean }>(
-			buffer,
-			'visibilityChanged',
-			'save-last',
-			buffered => host.onDidChangeVisibility(visible => buffered({ visible: visible })),
-			undefined,
-			tracker,
+		/** Fixes the `buffer`/mode/`tracker` that are identical for all three subscriptions below, leaving
+		 *  only what actually differs between them: the key, the host event, and the payload mapping. */
+		function subscribeSaveLast<T>(
+			key: string,
+			subscribe: (buffered: (data: T) => void) => Disposable,
+		): RpcEventSubscription<T> {
+			return createRpcEventSubscription<T>(buffer, key, 'save-last', subscribe, undefined, tracker);
+		}
+
+		this.onVisibilityChanged = subscribeSaveLast<{ visible: boolean }>('visibilityChanged', buffered =>
+			host.onDidChangeVisibility(visible => buffered({ visible: visible })),
 		);
-		this.onWebviewFocusChanged = createRpcEventSubscription<{
-			focused: boolean;
-		}>(
-			buffer,
-			'webviewFocusChanged',
-			'save-last',
-			buffered => host.onDidChangeFocus(focused => buffered({ focused: focused })),
-			undefined,
-			tracker,
+		this.onWebviewFocusChanged = subscribeSaveLast<{ focused: boolean }>('webviewFocusChanged', buffered =>
+			host.onDidChangeFocus(focused => buffered({ focused: focused })),
 		);
-		this.onHostWindowFocusChanged = createRpcEventSubscription<{
-			focused: boolean;
-		}>(
-			buffer,
-			'hostWindowFocusChanged',
-			'save-last',
-			buffered => host.onDidChangeWindowFocus(focused => buffered({ focused: focused })),
-			undefined,
-			tracker,
+		this.onHostWindowFocusChanged = subscribeSaveLast<{ focused: boolean }>('hostWindowFocusChanged', buffered =>
+			host.onDidChangeWindowFocus(focused => buffered({ focused: focused })),
 		);
 	}
 

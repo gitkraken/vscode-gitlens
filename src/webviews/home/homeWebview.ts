@@ -160,7 +160,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): HomeServices {
 		// Home has no webview-pushed telemetry context — all context is host-computed
-		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
+		const base = createSharedServices(this.container, this.host, buffer, tracker);
 
 		const home: HomeViewService = {
 			// --- Overview ---

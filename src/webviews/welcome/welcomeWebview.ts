@@ -79,15 +79,9 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	}
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): WelcomeServices {
-		const shared = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context;
-			},
-			buffer,
-			tracker,
-		);
+		const shared = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context;
+		});
 
 		this._welcome ??= new WelcomeService(buffer, tracker);
 

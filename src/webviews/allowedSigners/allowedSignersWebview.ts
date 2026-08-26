@@ -102,15 +102,9 @@ export class AllowedSignersWebviewProvider implements WebviewProvider<State, Sta
 	}
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): AllowedSignersServices {
-		const shared = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context;
-			},
-			buffer,
-			tracker,
-		);
+		const shared = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context;
+		});
 
 		this._service ??= new AllowedSignersService(this.container, () => this._repoPath, buffer, tracker);
 

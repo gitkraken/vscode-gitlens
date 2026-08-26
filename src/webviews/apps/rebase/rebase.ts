@@ -266,7 +266,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		await this._seed.run({
 			connection: this._rpc.connection!,
 			subscriber: async remoteServices => {
-				const svc = await remoteServices.rebase;
+				const [svc, subscription] = await Promise.all([remoteServices.rebase, remoteServices.subscription]);
 
 				return subscribeAll([
 					() =>
@@ -282,8 +282,8 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 							this._seed.during(() => this._actions.onCommitsChanged(event));
 						}),
 					() =>
-						svc.onSubscriptionChanged(event => {
-							this._seed.during(() => this._actions.onSubscriptionChanged(event.subscription));
+						subscription.onSubscriptionChanged(sub => {
+							this._seed.during(() => this._actions.onSubscriptionChanged(sub));
 						}),
 				]);
 			},

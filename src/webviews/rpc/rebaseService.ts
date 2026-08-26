@@ -4,13 +4,12 @@
  * Carries the host operations of the Interactive Rebase Editor — todo-plan mutations
  * (entry action changes, moves, shifts), rebase lifecycle (start/continue/skip/abort),
  * conflict resolution affordances, enrichment lookups, and the AI handoff requests — plus
- * the four save-last events that stream state to the webview. The methods delegate verbatim
+ * the three save-last events that stream state to the webview. The methods delegate verbatim
  * to the provider's handlers (the provider owns the todo document and all git context); this
  * class owns the transport: save-last buffering keyed off webview visibility.
  */
 
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
-import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { Serialized } from '../../system/serialize.js';
 import type {
 	Author,
@@ -53,10 +52,6 @@ export interface RebaseCommitsChangedEvent {
 	authors: Record<string, Author>;
 	/** True if the commits are already on top of onto (recalculated when commits are enriched) */
 	isInPlace?: boolean;
-}
-
-export interface RebaseSubscriptionChangedEvent {
-	subscription: Subscription;
 }
 
 /**
@@ -105,8 +100,6 @@ export interface RebaseViewService {
 	readonly onAvatarsChanged: RpcEventSubscription<RebaseAvatarsChangedEvent>;
 	/** Fired with enriched commit data for the requested SHAs. */
 	readonly onCommitsChanged: RpcEventSubscription<RebaseCommitsChangedEvent>;
-	/** Fired when the subscription changes (can unlock Pro-gated data like conflict detection). */
-	readonly onSubscriptionChanged: RpcEventSubscription<RebaseSubscriptionChangedEvent>;
 
 	/** Aborts the paused rebase and closes the editor. */
 	abort(): Promise<void>;
@@ -180,15 +173,9 @@ export class RebaseService implements RebaseViewService {
 
 	readonly onCommitsChanged: RpcEventSubscription<RebaseCommitsChangedEvent>;
 
-	readonly onSubscriptionChanged: RpcEventSubscription<RebaseSubscriptionChangedEvent>;
-
 	readonly #didStateChanged = createRpcEvent<RebaseStateChangedEvent>('stateChanged', 'save-last');
 	readonly #didAvatarsChanged = createRpcEvent<RebaseAvatarsChangedEvent>('avatarsChanged', 'save-last');
 	readonly #didCommitsChanged = createRpcEvent<RebaseCommitsChangedEvent>('commitsChanged', 'save-last');
-	readonly #didSubscriptionChanged = createRpcEvent<RebaseSubscriptionChangedEvent>(
-		'subscriptionChanged',
-		'save-last',
-	);
 
 	constructor(handlers: RebaseRpcHandlers, buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker) {
 		this.#handlers = handlers;
@@ -196,7 +183,6 @@ export class RebaseService implements RebaseViewService {
 		this.onStateChanged = this.#didStateChanged.subscribe(buffer, tracker);
 		this.onAvatarsChanged = this.#didAvatarsChanged.subscribe(buffer, tracker);
 		this.onCommitsChanged = this.#didCommitsChanged.subscribe(buffer, tracker);
-		this.onSubscriptionChanged = this.#didSubscriptionChanged.subscribe(buffer, tracker);
 	}
 
 	fireStateChanged(state: RebaseStateChangedEvent): void {
@@ -209,10 +195,6 @@ export class RebaseService implements RebaseViewService {
 
 	fireCommitsChanged(event: RebaseCommitsChangedEvent): void {
 		this.#didCommitsChanged.fire(event);
-	}
-
-	fireSubscriptionChanged(event: RebaseSubscriptionChangedEvent): void {
-		this.#didSubscriptionChanged.fire(event);
 	}
 
 	async abort(): Promise<void> {

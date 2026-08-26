@@ -223,15 +223,9 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 	}
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): PatchDetailsServices {
-		const shared = createSharedServices(
-			this.container,
-			this.host,
-			context => {
-				this._telemetryContext = context;
-			},
-			buffer,
-			tracker,
-		);
+		const shared = createSharedServices(this.container, this.host, buffer, tracker, context => {
+			this._telemetryContext = context;
+		});
 
 		// Per-instance by construction: each webview instance gets its own provider (both
 		// registrations construct one per instance, including multi-instance panels), so this cache

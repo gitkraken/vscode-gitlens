@@ -1094,7 +1094,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}>('refsMetadataChanged', 'save-last');
 
 	getRpcServices(buffer?: EventVisibilityBuffer, tracker?: SubscriptionTracker): GraphServices {
-		const base = createSharedServices(this.container, this.host, () => {}, buffer, tracker);
+		const base = createSharedServices(this.container, this.host, buffer, tracker);
 		const { graphInspect, graphTimeline, graphTreemap } = this._inspect.createServices(buffer, tracker);
 
 		return proxyServices({
