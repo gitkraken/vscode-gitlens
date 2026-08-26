@@ -10,6 +10,7 @@ import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostInt
 import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
+import type { ResourceUsage, ResourceUsageMetric } from '@gitlens/utils/resourceUsage.js';
 import type { Disposable } from './api/gitlens.d.js';
 import type { Container } from './container.js';
 
@@ -57,6 +58,18 @@ export class CacheProvider implements Disposable {
 
 	dispose(): void {
 		this._cache.clear();
+	}
+
+	/** Resource usage per cache type (plus total). Expired entries are included
+	 *  — they are only evicted on access, so they still count as retained memory. */
+	getResourceUsage(): ResourceUsage {
+		const usage: ResourceUsage = { 'entries.total.count': this._cache.size };
+		for (const key of this._cache.keys()) {
+			const cacheType = key.split(':', 1)[0];
+			const metric: ResourceUsageMetric = `entries.${cacheType}.count`;
+			usage[metric] = (usage[metric] ?? 0) + 1;
+		}
+		return usage;
 	}
 
 	delete<T extends Cache>(cache: T, key: CacheKey<T>): void {

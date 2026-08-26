@@ -5,6 +5,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { Container } from '../container.js';
 import { isTrackableTextEditor } from '../system/-webview/vscode/editors.js';
 import type {
@@ -167,6 +168,14 @@ export class LineTracker {
 	}
 
 	private _selections: LineSelection[] | undefined;
+	/** Resource usage retained by tracked lines and subscriptions. */
+	getResourceUsage(): ResourceUsage {
+		return {
+			'cache.entries.count': this._state.size,
+			'subscriptions.active.count': this._subscriptions.size,
+		};
+	}
+
 	get selections(): LineSelection[] | undefined {
 		return this._selections;
 	}

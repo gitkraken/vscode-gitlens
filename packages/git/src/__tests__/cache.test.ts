@@ -3,6 +3,17 @@ import * as sinon from 'sinon';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../cache.js';
 
+suite('Cache.getResourceUsage', () => {
+	test('reports retained entries rather than repository buckets for repo-scoped caches', () => {
+		using cache = new Cache();
+		cache.blame.set('/repo-a', 'one', Promise.resolve(undefined));
+		cache.blame.set('/repo-a', 'two', Promise.resolve(undefined));
+		cache.blame.set('/repo-b', 'three', Promise.resolve(undefined));
+
+		assert.strictEqual(cache.getResourceUsage()['cache.blame.entries.count'], 3);
+	});
+});
+
 suite('Cache.deleteGkConfig — branchOverviews invalidation', () => {
 	let cache: Cache;
 

@@ -1513,6 +1513,18 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### extension/resourceUsage
+
+> Hourly sampled resource usage, only while the window is focused
+
+```typescript
+{
+  [`${string}.bytes`]: number,
+  [`${string}.count`]: number,
+  'extensionHost.memory.heapUsed.bytes': number
+}
+```
+
 ### gitCommand/conflict
 
 > Sent when a conflict occurs while running a conflict-prone git command

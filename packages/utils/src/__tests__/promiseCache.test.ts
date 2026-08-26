@@ -789,6 +789,20 @@ suite('RepoPromiseMap Test Suite', () => {
 });
 
 suite('RepoPromiseCacheMap Test Suite', () => {
+	test('entryCount sums retained entries across repository caches without changing size semantics', () => {
+		const cache = new RepoPromiseCacheMap<string, number>();
+		cache.set('/repo-a', 'one', Promise.resolve(1));
+		cache.set('/repo-a', 'two', Promise.resolve(2));
+		cache.set('/repo-b', 'three', Promise.resolve(3));
+
+		assert.strictEqual(cache.size, 2);
+		assert.strictEqual(cache.entryCount, 3);
+
+		cache.delete('/repo-a', 'one');
+		assert.strictEqual(cache.size, 2);
+		assert.strictEqual(cache.entryCount, 2);
+	});
+
 	test('invalidate(repoPath, key) soft-invalidates specific entry', async () => {
 		const cache = new RepoPromiseCacheMap<string, number>();
 		const d = deferred<number>();

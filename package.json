@@ -9682,6 +9682,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showResourceUsage",
+				"title": "Show Resource Usage",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showSearchAndCompareView",
 				"title": "Show Search & Compare View",
 				"category": "GitLens"
@@ -15414,6 +15419,10 @@
 				{
 					"command": "gitlens.showRepositoriesView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.showResourceUsage",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showSearchAndCompareView",

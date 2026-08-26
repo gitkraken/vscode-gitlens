@@ -23,6 +23,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { StoredGitHealthBannerSuppression } from '../constants.storage.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
@@ -189,6 +190,16 @@ export class GitHealthService implements Disposable {
 			d.dispose();
 		}
 		this._disposables.length = 0;
+	}
+
+	/** Resource usage retained by git-health probes and observations. */
+	getResourceUsage(): ResourceUsage {
+		return {
+			'slowness.entries.count': this._slowness?.size ?? 0,
+			'bannerSuppressions.entries.count': this._bannerSuppression?.size ?? 0,
+			'probes.inflight.count': this._inflightProbes.size,
+			'telemetrySnapshots.entries.count': this._lastProbeTelemetry.size,
+		};
 	}
 
 	/**

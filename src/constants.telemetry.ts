@@ -5,6 +5,7 @@ import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
 import type { GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { Flatten } from '@gitlens/utils/object.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
 import type { WalkthroughSteps } from './constants.js';
@@ -74,6 +75,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a lazily-loaded webpack chunk fails to load — typically because VS Code
 	 * background-upgraded the extension while the host kept running the old build */
 	'extension/chunkLoad/failed': ExtensionChunkLoadFailedEvent;
+
+	/** Hourly sampled resource usage, only while the window is focused */
+	'extension/resourceUsage': ExtensionResourceUsageEvent;
 
 	/** Sent when explaining changes from wip, commits, stashes, patches, etc. */
 	'ai/explain': AIExplainEvent;
@@ -900,6 +904,11 @@ interface ExtensionChunkLoadFailedEvent {
 	'error.code': string | undefined;
 	'error.message': string;
 }
+
+/** Flat, unit-suffixed resource metrics produced by `collectResourceUsage` */
+export type ExtensionResourceUsageEvent = ResourceUsage & {
+	'extensionHost.memory.heapUsed.bytes': number | undefined;
+};
 
 interface AIEventDataBase {
 	id: string | undefined;

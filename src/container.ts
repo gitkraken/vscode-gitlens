@@ -68,6 +68,7 @@ import { configuration } from './system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from './system/-webview/context.js';
 import { Keyboard } from './system/-webview/keyboard.js';
 import type { Storage } from './system/-webview/storage.js';
+import { ResourceUsageRegistry } from './system/resourceUsage.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
 import { TelemetryService } from './telemetry/telemetry.js';
 import { GitTerminalLinkProvider } from './terminal/linkProvider.js';
@@ -245,6 +246,7 @@ export class Container {
 		this._disposables = [
 			configuration,
 			(this._storage = storage),
+			(this._resourceUsage = new ResourceUsageRegistry()),
 			(this._onboarding = new OnboardingService(storage, version)),
 			(this._telemetry = new TelemetryService(this)),
 			(this._usage = new UsageTracker(this, storage)),
@@ -265,7 +267,10 @@ export class Container {
 
 		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._ipc = new IpcService(this)));
-		this._disposables.push((this._git = new GitProviderService(this)));
+		this._disposables.push(
+			(this._git = new GitProviderService(this)),
+			this._resourceUsage.register('git', () => this._git.getResourceUsage()),
+		);
 		this._disposables.push(new GitFileSystemProvider(this));
 		this._disposables.push((this._virtualFs = new VirtualFileSystemService(this)));
 
@@ -273,8 +278,14 @@ export class Container {
 
 		this._disposables.push((this._actionRunners = new ActionRunners(this)));
 		this._disposables.push(registerPublishListener(this));
-		this._disposables.push((this._documentTracker = new GitDocumentTracker(this)));
-		this._disposables.push((this._lineTracker = new LineTracker(this, this._documentTracker)));
+		this._disposables.push(
+			(this._documentTracker = new GitDocumentTracker(this)),
+			this._resourceUsage.register('documentTracker', () => this._documentTracker.getResourceUsage()),
+		);
+		this._disposables.push(
+			(this._lineTracker = new LineTracker(this, this._documentTracker)),
+			this._resourceUsage.register('lineTracker', () => this._lineTracker.getResourceUsage()),
+		);
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._launchpadProvider = new LaunchpadProvider(this)));
@@ -480,7 +491,11 @@ export class Container {
 	private _autolinks: AutolinksProvider | undefined;
 	get autolinks(): AutolinksProvider {
 		if (this._autolinks == null) {
-			this._disposables.push((this._autolinks = new AutolinksProvider(this)));
+			const autolinks = (this._autolinks = new AutolinksProvider(this));
+			this._disposables.push(
+				autolinks,
+				this._resourceUsage.register('autolinks', () => autolinks.getResourceUsage()),
+			);
 		}
 
 		return this._autolinks;
@@ -489,7 +504,11 @@ export class Container {
 	private _cache: CacheProvider | undefined;
 	get cache(): CacheProvider {
 		if (this._cache == null) {
-			this._disposables.push((this._cache = new CacheProvider(this)));
+			const cache = (this._cache = new CacheProvider(this));
+			this._disposables.push(
+				cache,
+				this._resourceUsage.register('cache', () => cache.getResourceUsage()),
+			);
 		}
 
 		return this._cache;
@@ -656,6 +675,11 @@ export class Container {
 		return this._lineTracker;
 	}
 
+	private readonly _resourceUsage: ResourceUsageRegistry;
+	get resourceUsage(): ResourceUsageRegistry {
+		return this._resourceUsage;
+	}
+
 	private _mode: Mode | undefined;
 	get mode(): Mode | undefined {
 		this._mode ??= configuration.get('modes')?.[configuration.get('mode.active')];
@@ -745,7 +769,11 @@ export class Container {
 	private _gitHealth: GitHealthService | undefined;
 	get gitHealth(): GitHealthService {
 		if (this._gitHealth == null) {
-			this._disposables.push((this._gitHealth = new GitHealthService(this)));
+			const gitHealth = (this._gitHealth = new GitHealthService(this));
+			this._disposables.push(
+				gitHealth,
+				this._resourceUsage.register('gitHealth', () => gitHealth.getResourceUsage()),
+			);
 		}
 		return this._gitHealth;
 	}

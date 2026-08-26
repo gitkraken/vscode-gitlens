@@ -1159,6 +1159,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showQuickStashList'
 	| 'gitlens.showRemotesView'
 	| 'gitlens.showRepositoriesView'
+	| 'gitlens.showResourceUsage'
 	| 'gitlens.showSearchAndCompareView'
 	| 'gitlens.showSettingsPage'
 	| 'gitlens.showSettingsPage!autolinks'

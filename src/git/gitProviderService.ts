@@ -50,6 +50,7 @@ import { getScheme, isAbsolute, maybeUri, normalizePath } from '@gitlens/utils/p
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { asSettled, defer, getDeferredPromiseIfPending, getSettledValue } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import { VisitedPathsTrie } from '@gitlens/utils/trie.js';
 import { areUrisEqual, coerceUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import { resetAvatarCache } from '../avatars.js';
@@ -588,6 +589,16 @@ export class GitProviderService implements UnifiedDisposable {
 
 	get repositoryCount(): number {
 		return this._repositories.count;
+	}
+
+	/** Resource usage retained by the Git orchestration layer. */
+	getResourceUsage(): ResourceUsage {
+		return {
+			'repositories.total.count': this.repositoryCount,
+			'repositories.open.count': this.openRepositoryCount,
+			...this._cache.getResourceUsage(),
+			...this._watchService.getResourceUsage(),
+		};
 	}
 
 	get highlander(): GlRepository | undefined {

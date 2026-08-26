@@ -21,6 +21,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { escapeMarkdown, unescapeMarkdown } from '@gitlens/utils/markdown.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import { capitalize, encodeHtmlWeak, getSuperscript } from '@gitlens/utils/string.js';
 import type { OpenIssueActionContext } from '../api/gitlens.d.js';
 import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote.js';
@@ -89,6 +90,15 @@ export class AutolinksProvider implements Disposable {
 	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
 		this._refsetCache.clear();
 		this._enrichedAutolinksCache.clear();
+	}
+
+	/** Resource usage retained by autolink caches and configuration. */
+	getResourceUsage(): ResourceUsage {
+		return {
+			'refsets.entries.count': this._refsetCache.size,
+			'enriched.entries.count': this._enrichedAutolinksCache.size,
+			'configured.references.count': this._references.length,
+		};
 	}
 
 	private setAutolinksFromConfig() {

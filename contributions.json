@@ -7754,6 +7754,10 @@
 				]
 			}
 		},
+		"gitlens.showResourceUsage": {
+			"label": "Show Resource Usage",
+			"commandPalette": "gitlens:enabled"
+		},
 		"gitlens.showSearchAndCompareView": {
 			"label": "Show Search & Compare View",
 			"commandPalette": "gitlens:enabled"

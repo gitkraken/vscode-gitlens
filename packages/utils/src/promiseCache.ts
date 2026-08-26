@@ -764,6 +764,17 @@ export class RepoPromiseCacheMap<K, V> {
 	}
 
 	/**
+	 * Returns the total number of entries across all repository caches.
+	 */
+	get entryCount(): number {
+		let count = 0;
+		for (const repoCache of this.cache.values()) {
+			count += repoCache.size;
+		}
+		return count;
+	}
+
+	/**
 	 * Returns the number of repositories in the cache.
 	 */
 	get size(): number {

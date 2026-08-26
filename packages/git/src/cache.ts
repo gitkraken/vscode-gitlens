@@ -7,6 +7,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import type { PromiseOrValue } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { PromiseCache, PromiseMap, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { ProgressiveGitBlame } from './models/blame.js';
 import type { BranchMetadata, GitBranch } from './models/branch.js';
@@ -264,6 +265,23 @@ export class Cache implements Disposable {
 
 	dispose(): void {
 		this.reset();
+	}
+
+	/** Resource usage retained by instantiated sub-caches and their bookkeeping maps. */
+	getResourceUsage(): ResourceUsage {
+		const usage: ResourceUsage = {};
+		for (const [name, cache] of Object.entries(this._caches)) {
+			if (cache != null) {
+				usage[`cache.${name}.entries.count`] =
+					cache instanceof RepoPromiseCacheMap ? cache.entryCount : cache.size;
+			}
+		}
+		usage['cache.commonPathRegistry.entries.count'] = this._commonPathRegistry.size;
+		usage['cache.worktreesByCommonPath.entries.count'] = this._worktreesByCommonPath.size;
+		usage['cache.statusGenerations.entries.count'] = this._statusGenerations.size;
+		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
+		usage['cache.gkConfigMergeSnapshots.entries.count'] = this._gkConfigMergeSnapshots.size;
+		return usage;
 	}
 
 	get bestRemotes(): PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> {

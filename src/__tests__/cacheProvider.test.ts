@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import type { Account } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
 import { CacheProvider } from '../cache.js';
 
@@ -14,6 +15,21 @@ function createIntegration(domain: string): IntegrationBase {
 }
 
 suite('CacheProvider', () => {
+	test('getResourceUsage reports total and per-type retained entry counts', () => {
+		const cache = new CacheProvider({} as never);
+		const account = Object.create(null) as Account;
+		const defaultBranch = Object.create(null) as DefaultBranch;
+		cache.get('currentAccount', 'id:one', undefined, () => ({ value: account }));
+		cache.get('currentAccount', 'id:two', undefined, () => ({ value: account }));
+		cache.get('defaultBranch', 'repo:one', undefined, () => ({ value: defaultBranch }));
+
+		assert.deepStrictEqual(cache.getResourceUsage(), {
+			'entries.total.count': 3,
+			'entries.currentAccount.count': 2,
+			'entries.defaultBranch.count': 1,
+		});
+	});
+
 	test('getCurrentAccount keys self-managed integrations by domain', async () => {
 		const cache = new CacheProvider({} as never);
 		const lookups: string[] = [];

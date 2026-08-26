@@ -8,6 +8,7 @@ import { base64 } from '@gitlens/utils/base64.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { GravatarDefaultStyle } from './config.js';
 import type { StoredAvatar } from './constants.storage.js';
@@ -73,6 +74,14 @@ const retryDecay = [
 	millisecondsPerDay,
 	millisecondsPerDay * 7,
 ];
+
+/** Resource usage retained by the avatar cache and fetch queue. */
+export function getAvatarResourceUsage(): ResourceUsage {
+	return {
+		'cache.entries.count': avatarCache?.size ?? 0,
+		'fetchQueue.pending.count': avatarQueue.size,
+	};
+}
 
 export function getAvatarUri(
 	email: string | undefined,

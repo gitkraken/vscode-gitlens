@@ -2,6 +2,7 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { isDescendant, relative } from '@gitlens/utils/path.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
 import type { WatcherRepoChangeEvent } from './changeEvent.js';
 import type { GitIgnoreFilter } from './gitIgnoreFilter.js';
@@ -226,6 +227,15 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	/** Get an existing session by repo path */
 	getSession(repoPath: string): RepositoryWatchSession | undefined {
 		return this.sessionMap.get(repoPath)?.session;
+	}
+
+	/** Resource usage retained by repository watchers. */
+	getResourceUsage(): ResourceUsage {
+		return {
+			'watch.sessions.count': this.sessionMap.size,
+			'watch.groups.count': this.watchGroups.size,
+			'watch.workingTreeWatchers.count': this.wtWatchers.size,
+		};
 	}
 
 	/** Suspend all sessions and mark the service suspended so late-joining sessions start suspended */

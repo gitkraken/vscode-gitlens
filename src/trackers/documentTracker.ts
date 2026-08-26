@@ -14,6 +14,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { once } from '@gitlens/utils/event.js';
+import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { Container } from '../container.js';
 import type { RepositoriesChangeEvent } from '../git/gitProviderService.js';
 import type { GitUri } from '../git/gitUri.js';
@@ -68,6 +69,11 @@ export class GitDocumentTracker implements Disposable {
 	private _onDidTriggerDirtyIdle = new EventEmitter<DocumentDirtyIdleTriggerEvent>();
 	get onDidTriggerDirtyIdle(): Event<DocumentDirtyIdleTriggerEvent> {
 		return this._onDidTriggerDirtyIdle.event;
+	}
+
+	/** Resource usage retained by tracked documents. */
+	getResourceUsage(): ResourceUsage {
+		return { 'documents.tracked.count': this._documentMap.size };
 	}
 
 	private _dirtyIdleTriggerDelay: number;

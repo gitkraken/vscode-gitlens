@@ -37,6 +37,7 @@ import {
 } from './messages.js';
 import { registerPartnerActionRunners } from './partners.js';
 import { needsCursorMcpCleanupNotice } from './plus/gk/utils/-webview/mcp.utils.js';
+import { registerResourceUsage } from './resourceUsage.js';
 import { settingsMigrations } from './settingsMigrations.js';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/-webview/command.js';
 import { configuration, Configuration } from './system/-webview/configuration.js';
@@ -203,6 +204,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const container = Container.create(context, storage, prerelease, gitlensVersion, previousVersion);
 	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
+		context.subscriptions.push(...registerResourceUsage(container));
 		registerBuiltInActionRunners(container);
 		registerPartnerActionRunners(context);
 
