@@ -84,6 +84,24 @@ export type ConflictDetectionCacheKey =
 const baseBranchNameTTL = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Completed blame graphs retain several objects and substrings per line. Keep normal files hot, but let large
+ * documents be owned by their active tracked-document snapshot instead of retaining a second long-lived owner.
+ */
+const maxCachedBlameLines = 5000;
+
+export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlame | undefined): Promise<boolean> {
+	if (progressive == null) return false;
+
+	try {
+		const blame = await progressive.completed;
+		return blame.lines.length > maxCachedBlameLines;
+	} catch {
+		// The provider factory resolves as soon as streaming starts, so a later stream failure must also be retried.
+		return true;
+	}
+}
+
+/**
  * gkConfig keys that participate in the `branchOverviews` cache's mergeTarget/mergeBase lineage.
  * Capture group 1 is the ref name (which may itself contain `.`/`/`).
  */

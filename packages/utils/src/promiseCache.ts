@@ -148,6 +148,11 @@ export class PromiseCache<K, V> {
 			/** Whether to expire the entry if the promise fails */
 			expireOnError?: boolean;
 			/**
+			 * Called after the factory resolves. If the predicate resolves to true, the entry is evicted while
+			 * the current caller still receives the resolved value.
+			 */
+			evictWhen?: (value: V) => boolean | Promise<boolean>;
+			/**
 			 * TTL (time-to-live) in milliseconds for caching errors. When the factory rejects and `errorTTL` is set,
 			 * the cache entry is replaced with `Promise.resolve(undefined)` for subsequent callers, and the error
 			 * is re-thrown to the first caller. After `errorTTL` expires, the next call retries.
@@ -288,6 +293,20 @@ export class PromiseCache<K, V> {
 				const ourEntry = entry;
 				promise.catch(() => deleteIfOwned(this.cache, key, ourEntry));
 			}
+		}
+
+		const evictWhen = options?.evictWhen;
+		if (evictWhen != null) {
+			const candidate = entry;
+			void candidate.promise
+				.then(value => evictWhen(value))
+				.then(evict => {
+					if (evict) {
+						deleteIfOwned(this.cache, key, candidate);
+					}
+				})
+				// A retention policy must not surface a rejection independently of the caller-facing operation.
+				.catch(() => {});
 		}
 
 		// Clean up expired entries and enforce capacity limit in one pass
@@ -617,6 +636,11 @@ export class RepoPromiseCacheMap<K, V> {
 			accessTTL?: number;
 			/** Whether to expire the entry if the promise fails */
 			expireOnError?: boolean;
+			/**
+			 * Called after the factory resolves. If the predicate resolves to true, the entry is evicted while
+			 * the current caller still receives the resolved value.
+			 */
+			evictWhen?: (value: V) => boolean | Promise<boolean>;
 			/**
 			 * TTL (time-to-live) in milliseconds for caching errors. When the factory rejects and `errorTTL` is set,
 			 * the cache entry is replaced with `Promise.resolve(undefined)` for subsequent callers, and the error

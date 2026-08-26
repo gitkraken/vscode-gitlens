@@ -1,25 +1,19 @@
-import type { QuickPickItem } from 'vscode';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { Container } from '../../../container.js';
 import type { AnyQuickWizardCommandArgs, CrossCommandReference } from '../models/quickWizard.js';
-import type { StepGenerator, StepsContext, StepStartedFrom } from '../models/steps.js';
-import { QuickCommand } from '../quickCommand.js';
-import { QuickWizardRootStep } from '../quickWizardRootStep.js';
+import type { AsyncStepResultGenerator, StepsContext, StepStartedFrom } from '../models/steps.js';
 
-function* nullSteps(): StepGenerator {
-	/* noop */
-}
-
-export function getSteps(
+export async function* getSteps(
 	container: Container,
 	args: AnyQuickWizardCommandArgs,
 	context: StepsContext<any>,
 	startedFrom: StepStartedFrom,
-): StepGenerator {
+): AsyncStepResultGenerator<void | undefined> {
+	const { QuickWizardRootStep } = await import(/* webpackChunkName: "quick-wizard" */ '../quickWizardRootStep.js');
 	const rootStep = new QuickWizardRootStep(container, args);
 
 	const command = rootStep.find(args.command);
-	if (command == null) return nullSteps();
+	if (command == null) return;
 
 	rootStep.setCommand(command, startedFrom);
 
@@ -32,7 +26,7 @@ export function getSteps(
 	}
 
 	// Only include the StepsContext properties
-	return command.executeSteps({
+	return yield* command.executeSteps({
 		container: container,
 		steps: context.steps,
 		title: context.title,
@@ -45,8 +39,4 @@ export function createCrossCommandReference<T>(command: GlCommands, args: T): Cr
 
 export function isCrossCommandReference<T = unknown>(value: any): value is CrossCommandReference<T> {
 	return value.command != null;
-}
-
-export function isQuickCommand(item: QuickPickItem): item is QuickCommand {
-	return item instanceof QuickCommand;
 }

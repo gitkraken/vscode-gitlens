@@ -21,9 +21,8 @@ import {
 	WillConfirmForcedQuickInputButton,
 	WillConfirmToggleQuickInputButton,
 } from './quickButtons.js';
-import type { QuickCommand } from './quickCommand.js';
-import { QuickWizardRootStep } from './quickWizardRootStep.js';
-import { isQuickCommand } from './utils/quickWizard.utils.js';
+import { QuickCommand } from './quickCommand.js';
+import type { QuickWizardRootStep } from './quickWizardRootStep.js';
 import { isCustomStep, isQuickInputStep, isQuickPickStep } from './utils/steps.utils.js';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
@@ -41,6 +40,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 
 	@debug({ args: false, onlyExit: true, timing: false })
 	async execute(args?: QuickWizardCommandArgsWithCompletion, waitUntil?: Promise<unknown>): Promise<void> {
+		const { QuickWizardRootStep } = await import(/* webpackChunkName: "quick-wizard" */ './quickWizardRootStep.js');
 		const rootStep = new QuickWizardRootStep(this.container, args);
 
 		const command = args?.command != null ? rootStep.find(args.command) : undefined;
@@ -527,7 +527,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 							let activeCommand: QuickCommand | undefined;
 							if (rootStep.command == null && quickpick.activeItems.length !== 0) {
 								const active = quickpick.activeItems[0];
-								if (isQuickCommand(active)) {
+								if (active instanceof QuickCommand) {
 									activeCommand = active;
 								}
 							}
@@ -661,7 +661,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 						if (rootStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
-						if (!isQuickCommand(command)) return;
+						if (!(command instanceof QuickCommand)) return;
 
 						quickpick.buttons = this.getButtons(undefined, command);
 					}),
@@ -777,7 +777,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 
 						if (rootStep.command == null) {
 							const [command] = items;
-							if (!isQuickCommand(command)) return;
+							if (!(command instanceof QuickCommand)) return;
 
 							rootStep.setCommand(command, this.startedFrom);
 						}

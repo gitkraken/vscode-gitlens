@@ -1,5 +1,6 @@
 import { stat } from 'fs/promises';
 import type { Cache } from '@gitlens/git/cache.js';
+import { shouldEvictBlameCacheEntry } from '@gitlens/git/cache.js';
 import { BlameIgnoreRevsFileBadRevisionError, BlameIgnoreRevsFileError } from '@gitlens/git/errors.js';
 import type {
 	GitBlame,
@@ -75,8 +76,9 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 		return this.cache.blame.getOrCreate(
 			repoPath,
 			cacheKey,
-			() => this.getProgressiveBlameCore(repoPath, path, cacheKey, rev, contents, options),
+			() => this.getProgressiveBlameCore(repoPath, path, rev, contents, options),
 			{
+				evictWhen: shouldEvictBlameCacheEntry,
 				onError: ex => {
 					if (ex instanceof BlameIgnoreRevsFileError || ex instanceof BlameIgnoreRevsFileBadRevisionError) {
 						// Non-retriable — cache as undefined for 5 minutes
@@ -92,7 +94,6 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 	private async getProgressiveBlameCore(
 		repoPath: string,
 		path: string,
-		cacheKey: string,
 		rev?: string,
 		contents?: string,
 		options?: GitBlameOptions,
@@ -111,12 +112,6 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 
 		// Start streaming in the background
 		void this.streamBlame(writer, repoPath, path, blameOptions, user, mtime);
-
-		// If streaming fails, progressive.completed rejects. Evict the cache entry
-		// so the next call retries instead of serving the failed GitBlameProgressive.
-		void progressive.completed.catch(() => {
-			this.cache.blame.delete(repoPath, cacheKey);
-		});
 
 		return progressive;
 	}

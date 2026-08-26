@@ -1,4 +1,5 @@
 import type { Cache } from '@gitlens/git/cache.js';
+import { shouldEvictBlameCacheEntry } from '@gitlens/git/cache.js';
 import type { GitBlame, GitBlameAuthor, ProgressiveGitBlame } from '@gitlens/git/models/blame.js';
 import type { GitCommitLine } from '@gitlens/git/models/commit.js';
 import { GitCommit, GitCommitIdentity } from '@gitlens/git/models/commit.js';
@@ -48,7 +49,7 @@ export class BlameGitHubSubProvider implements GitBlameSubProvider {
 
 				return createCompletedBlame(blame);
 			},
-			{ errorTTL: 1000 * 60 },
+			{ errorTTL: 1000 * 60, evictWhen: shouldEvictBlameCacheEntry },
 		);
 		return progressive?.completed;
 	}

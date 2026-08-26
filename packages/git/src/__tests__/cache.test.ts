@@ -1,7 +1,44 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { createDisposable } from '@gitlens/utils/disposable.js';
 import { fileUri } from '@gitlens/utils/uri.js';
-import { Cache } from '../cache.js';
+import { Cache, shouldEvictBlameCacheEntry } from '../cache.js';
+import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
+import type { GitCommitLine } from '../models/commit.js';
+
+function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
+	const blame: GitBlame = {
+		repoPath: '/repo',
+		authors: new Map(),
+		commits: new Map(),
+		lines: new Array<GitCommitLine>(lineCount),
+	};
+	return {
+		current: blame,
+		isComplete: true,
+		completed: Promise.resolve(blame),
+		onDidProgress: () => createDisposable(() => {}),
+	};
+}
+
+suite('shouldEvictBlameCacheEntry', () => {
+	test('retains completed blame up to 5000 lines', async () => {
+		assert.strictEqual(await shouldEvictBlameCacheEntry(createCompletedBlame(5000)), false);
+	});
+
+	test('evicts completed blame over 5000 lines', async () => {
+		assert.strictEqual(await shouldEvictBlameCacheEntry(createCompletedBlame(5001)), true);
+	});
+
+	test('evicts a progressive blame whose stream fails', async () => {
+		const progressive = createCompletedBlame(0);
+		const failed: ProgressiveGitBlame = {
+			...progressive,
+			completed: Promise.reject(new Error('stream failed')),
+		};
+		assert.strictEqual(await shouldEvictBlameCacheEntry(failed), true);
+	});
+});
 
 suite('Cache.getResourceUsage', () => {
 	test('reports retained entries rather than repository buckets for repo-scoped caches', () => {
