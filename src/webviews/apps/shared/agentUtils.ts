@@ -53,9 +53,15 @@ export function agentProviderIcon(providerName: string | undefined): string {
 			return 'claude';
 		case 'copilot':
 			return 'copilot';
+		case 'codex':
+			// Codex ships no mark of its own in the codicon font; OpenAI's is the brand it carries.
+			return 'openai';
 		case 'cursor':
 			return 'cursor';
 		default:
+			// `opencode` lands here deliberately — neither the codicon font (generated from VS Code's,
+			// so not ours to extend) nor `glicons` (sourced from `resources/icons.fig`) has a mark for
+			// it, and a name with no glyph renders as tofu rather than falling back.
 			return 'robot';
 	}
 }

@@ -50,6 +50,17 @@ suite('agentCapabilities', () => {
 			const copilot = getCapabilities('copilot');
 			assert.strictEqual(copilot.displayName, 'GitHub Copilot CLI');
 			assert.strictEqual(copilot.icon, 'copilot');
+
+			// Codex carries OpenAI's mark; it has none of its own in the codicon font.
+			const codex = getCapabilities('codex');
+			assert.strictEqual(codex.displayName, 'Codex');
+			assert.strictEqual(codex.icon, 'openai');
+
+			// No OpenCode mark exists in either font. A glyph name that isn't in the font renders as
+			// tofu instead of falling back, so this must stay a real one.
+			const opencode = getCapabilities('opencode');
+			assert.strictEqual(opencode.displayName, 'OpenCode');
+			assert.strictEqual(opencode.icon, 'robot');
 		});
 	});
 

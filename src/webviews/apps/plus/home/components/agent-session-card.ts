@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
-import { agentPhaseToCategory } from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory, agentProviderIcon } from '../../../shared/agentUtils.js';
 import '../../../shared/components/card/card.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/pills/agent-status-pill.js';
@@ -183,7 +183,7 @@ export class GlAgentSessionCard extends LitElement {
 	private renderSession(session: AgentSessionState): unknown {
 		return html`
 			<div class="session">
-				<code-icon icon="robot" title="Agent"></code-icon>
+				<code-icon icon=${agentProviderIcon(session.providerId)} title=${session.providerName}></code-icon>
 				<gl-agent-status-pill .session=${session}></gl-agent-status-pill>
 				<span class="session__name">${session.displayName}</span>
 				${
