@@ -1057,7 +1057,10 @@ export async function undoCommit(
 
 	await svc.ops.reset('HEAD~1', { mode: 'soft' });
 
-	const scmRepo = await svc.getScmRepository();
+	// Open the repo in the SCM if it isn't already, so the undone commit's message is restored to this
+	// repo's input box rather than an ancestor's (which would overwrite whatever is typed there) --
+	// worktrees nested inside another repo are never registered on their own
+	const scmRepo = await svc.getOrOpenScmRepository();
 	if (scmRepo != null && message) {
 		scmRepo.inputBox.value = message;
 	}

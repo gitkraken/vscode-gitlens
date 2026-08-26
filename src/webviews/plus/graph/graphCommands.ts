@@ -1198,7 +1198,11 @@ export class GraphCommands {
 
 		await executeCoreCommand('workbench.view.scm');
 		if (ref != null) {
-			const scmRepo = await this.container.git.getRepositoryService(ref.repoPath).getScmRepository();
+			// Open the repo in the SCM if it isn't already, so the focus lands on this repo's input box
+			// rather than an ancestor's -- worktrees nested inside another repo are never registered on their own
+			const scmRepo = await this.container.git
+				.getRepositoryService(ref.repoPath)
+				.getOrOpenScmRepository({ source: 'graph', detail: 'commitViaSCM' });
 			if (scmRepo == null) return;
 
 			// Update the input box to trigger the focus event
