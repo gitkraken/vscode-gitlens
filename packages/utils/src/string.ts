@@ -431,11 +431,39 @@ export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
 }
 
 /**
+ * Above this size, a source string split via {@link iterateByDelimiter} has its yielded records
+ * flattened (see {@link flattenString}) — below it, the parent-pinning cost of sliced strings is
+ * bounded and not worth the copy.
+ */
+const maxDelimiterSourceLength = 128 * 1024;
+
+/**
+ * Forces V8 to create a flat copy of `s`, breaking any sliced-string reference to a parent string.
+ *
+ * V8 represents `substring()` results of 13+ characters as SlicedString views that retain their
+ * entire parent string. A single retained field parsed out of a large buffer (e.g. a git walk's
+ * full stdout) can therefore keep megabytes alive for as long as that field survives. Flattening
+ * copies only the view's own characters, releasing the parent.
+ *
+ * No-op for strings shorter than `minLength`, where pinning is bounded anyway and the copy isn't
+ * worth the allocation.
+ */
+export function flattenString(s: string, minLength = 1024): string {
+	if (s.length < minLength) return s;
+
+	// Concatenating a prefix then slicing it off forces V8 to materialize a flat copy of `s` —
+	// deliberately not a template literal, which V8 can represent as another cons/sliced view.
+	// oxlint-disable-next-line prefer-template
+	return (' ' + s).slice(1);
+}
+
+/**
  * Fast string delimiter iterator
  * Optimized for simple string splitting without generator overhead
  */
 class StringDelimiterIterator implements IterableIterator<string> {
 	private readonly delimiterLen: number;
+	private readonly flatten: boolean;
 	private index = 0;
 	private done = false;
 
@@ -444,6 +472,11 @@ class StringDelimiterIterator implements IterableIterator<string> {
 		private readonly delimiter: string,
 	) {
 		this.delimiterLen = delimiter.length;
+		// Yielded substrings are V8 SlicedStrings that retain their parent; when splitting a large
+		// buffer (e.g. a git walk's full stdout) that parent pinning keeps megabytes alive for as
+		// long as any single parsed field survives. Above this threshold, flatten each yielded
+		// record so it only holds its own characters.
+		this.flatten = data.length > maxDelimiterSourceLength;
 	}
 
 	next(): IteratorResult<string> {
@@ -455,7 +488,11 @@ class StringDelimiterIterator implements IterableIterator<string> {
 		const j = this.data.indexOf(this.delimiter, this.index);
 		const endIndex = j === -1 ? this.data.length : j;
 
-		const value = this.data.substring(this.index, endIndex);
+		// Always flatten here: even a small record pins the entire (potentially huge) parent buffer
+		// through its sliced string, so the minLength guard in flattenString must not apply.
+		const value = this.flatten
+			? flattenString(this.data.substring(this.index, endIndex), 1)
+			: this.data.substring(this.index, endIndex);
 		this.index = endIndex + this.delimiterLen;
 
 		return { done: false, value: value };

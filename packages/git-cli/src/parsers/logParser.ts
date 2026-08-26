@@ -2,7 +2,7 @@ import type { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import { diffHunkRegex, diffRegex } from '@gitlens/git/parsers/diffParser.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { iterateAsyncByDelimiter, iterateByDelimiter } from '@gitlens/utils/string.js';
+import { flattenString, iterateAsyncByDelimiter, iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { ExtractAll } from '@gitlens/utils/types.js';
 
 const commitsMapping = {
@@ -389,6 +389,9 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 	// semantics exactly: fields beyond the mapping are ignored, and every mapped field is
 	// terminated by a field separator (the format string appends one after each field).
 	function parseRecord(record: string): LogParsedEntry<T> {
+		// Fields sliced out of the record become long-lived (graph rows); flatten the record so they
+		// pin a record-sized copy rather than the full walk output the record was sliced from.
+		record = flattenString(record);
 		const entry = {} as unknown as LogParsedEntry<T>;
 		let start = 0;
 		for (const key of keys) {
