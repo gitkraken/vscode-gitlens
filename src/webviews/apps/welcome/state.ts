@@ -25,7 +25,6 @@ export function createWelcomeState() {
 
 	// Static bootstrap metadata — fixed for this iframe load, but signals so the page reads one source
 	const hostAppName = signal('');
-	const welcomeTitle = signal('');
 	const mcpNeedsInstall = signal(false);
 	const mcpShowCleanupNotice = signal(false);
 
@@ -35,7 +34,6 @@ export function createWelcomeState() {
 		mode: mode,
 
 		hostAppName: hostAppName,
-		welcomeTitle: welcomeTitle,
 		mcpNeedsInstall: mcpNeedsInstall,
 		mcpShowCleanupNotice: mcpShowCleanupNotice,
 

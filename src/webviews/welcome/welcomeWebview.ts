@@ -2,7 +2,6 @@ import type { Disposable } from 'vscode';
 import { env } from 'vscode';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { FeatureFlagKey } from '../../featureFlags/featureFlagService.js';
 import { needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import { getContext } from '../../system/-webview/context.js';
@@ -64,7 +63,6 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return {
 			...this.host.baseWebviewState,
 			hostAppName: env.appName,
-			welcomeTitle: this.getWelcomeTitleVariant() ?? 'Get Started with GitLens',
 			mode: this._mode,
 			mcpNeedsInstall: this.getMcpNeedsInstall(),
 			mcpShowCleanupNotice: this.getMcpShowCleanupNotice(),
@@ -108,10 +106,5 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 
 	private getMcpShowCleanupNotice(): boolean {
 		return needsCursorMcpCleanupNotice(this.container);
-	}
-
-	private getWelcomeTitleVariant(): string | undefined {
-		const showVariant = this.container.featureFlags.getFlag(FeatureFlagKey.WelcomeTitleVariant, false);
-		return showVariant ? 'Welcome' : undefined;
 	}
 }
