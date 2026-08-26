@@ -492,9 +492,20 @@ execute_command { command: "gitlens.plus.simulate.ai", args: [{ "op": "disable" 
 
 `{op: "enable"}` always clears the stash first, so re-enabling between tests is also safe.
 
-### Build requirement (both simulators)
+## Exercising the Commit Graph sign-in gate A/B
 
-Both simulators are DEBUG-only (`gitlens:debugging` context). Standard dev launch via `launch {}` and `pnpm run build:extension` includes them. Production bundles strip them.
+The **gate simulator** (`gitlens.graph.simulate.signInGateVariant`) forces the sign-in gate's A/B arm, which is otherwise cohort-assigned. The gate renders only while signed out:
+
+```
+set_account { plan: "community" }
+execute_command { command: "gitlens.graph.simulate.signInGateVariant", args: [{ "variant": "intro-video" }] }
+```
+
+`variant` is `"default"` or `"intro-video"`; `{}` ends the simulation; no args opens a QuickPick. The command resolves before the reloaded gate renders — wait on the DOM before screenshotting.
+
+### Build requirement (all simulators)
+
+All simulators above are DEBUG-only (`gitlens:debugging` context). Standard dev launch via `launch {}` and `pnpm run build:extension` includes them. Production bundles strip them. Their debug modules load asynchronously after extension activation — retry the command until it exists.
 
 ## Related skills
 
