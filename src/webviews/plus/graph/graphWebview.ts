@@ -4559,18 +4559,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
 				}
 
-				// Key PRESENCE separates an assigned cohort from cohort-less — `getFlag`'s default would
-				// fold the cohort-less into the control arm and bias the experiment (they convert differently)
-				const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.GraphGateIntroVideo];
-				signInGateVariant = value == null ? 'unassigned' : value === true ? 'intro-video' : 'default';
+				// Re-check after the await: a concurrent bootstrap (editor panel + sidebar view) may
+				// have latched meanwhile — reuse its value so one window stays on one arm
+				if (signInGateVariant == null) {
+					// Key PRESENCE separates an assigned cohort from cohort-less — `getFlag`'s default would
+					// fold the cohort-less into the control arm and bias the experiment (they convert differently)
+					const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.GraphGateIntroVideo];
+					signInGateVariant = value == null ? 'unassigned' : value === true ? 'intro-video' : 'default';
 
-				// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute; an
-				// unassigned render isn't in the experiment and never overwrites a previously seen arm
-				if (value != null) {
-					const introVideo = signInGateVariant === 'intro-video';
-					if (this.container.storage.get('graph:signInGate:introVideoShown') !== introVideo) {
-						await this.container.storage.store('graph:signInGate:introVideoShown', introVideo);
-						setFeatureFlagTelemetryGlobalAttributes(this.container);
+					// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute; an
+					// unassigned render isn't in the experiment and never overwrites a previously seen arm
+					if (value != null) {
+						const introVideo = signInGateVariant === 'intro-video';
+						if (this.container.storage.get('graph:signInGate:introVideoShown') !== introVideo) {
+							await this.container.storage.store('graph:signInGate:introVideoShown', introVideo);
+							setFeatureFlagTelemetryGlobalAttributes(this.container);
+						}
 					}
 				}
 			}
