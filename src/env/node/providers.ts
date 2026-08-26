@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'path';
 import { workspace } from 'vscode';
-import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
+import { GkAgentProvider } from '@gitlens/agents/providers/gkAgentProvider.js';
 import { Git } from '@gitlens/git-cli/exec/git.js';
 import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
 import type { Cache } from '@gitlens/git/cache.js';
@@ -108,7 +108,7 @@ export function getGkMcpService(container: Container, gkCli: GkCliService): GkMc
 
 export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {
 	return [
-		new ClaudeCodeProvider({
+		new GkAgentProvider({
 			ipc: container.ipc,
 			getActivityDecayMs: () =>
 				activityDecayToMs(configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m'),

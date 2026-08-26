@@ -319,6 +319,7 @@ suite('AgentStatusService history aggregation', () => {
 			sessions: [
 				{
 					id: 'same',
+					providerId: 'beta',
 					disposition: 'ended',
 					actions: { resume: { cwd: '/repo/worktree' }, archive: true },
 					lastActivity: new Date(1234),
@@ -340,7 +341,7 @@ suite('AgentStatusService history aggregation', () => {
 					actions: session.actions,
 				})),
 				[{ providerId: 'beta', id: 'same', actions: { archive: true } }],
-				'the host stamps provider identity and removes actions with no matching provider operation',
+				'the item carries its own agent identity, and the host removes actions with no matching provider operation',
 			);
 		} finally {
 			service.dispose();
@@ -350,7 +351,9 @@ suite('AgentStatusService history aggregation', () => {
 	test('drops a session that went live mid-query without retrying', async () => {
 		const provider = new RaceTestProvider();
 		provider.sessions = [makeSession({ id: 'x', status: 'ended' })];
-		provider.history = [{ id: 'x', disposition: 'ended', actions: {}, lastActivity: new Date(1000) }];
+		provider.history = [
+			{ id: 'x', providerId: 'claudeCode', disposition: 'ended', actions: {}, lastActivity: new Date(1000) },
+		];
 		// Went live while the listing was in flight — the record still describes it as ended.
 		provider.onQuery = () => {
 			provider.sessions = [{ ...provider.sessions[0], status: 'idle' }];
@@ -378,7 +381,9 @@ suite('AgentStatusService history aggregation', () => {
 		const provider = new RaceTestProvider();
 		provider.excludeAware = true;
 		provider.sessions = [makeSession({ id: 'y', status: 'idle' })];
-		provider.history = [{ id: 'y', disposition: 'ended', actions: {}, lastActivity: new Date(2000) }];
+		provider.history = [
+			{ id: 'y', providerId: 'claudeCode', disposition: 'ended', actions: {}, lastActivity: new Date(2000) },
+		];
 		// Live at query start (excluded from the first pass), ends while the listing is in flight.
 		provider.onQuery = () => {
 			if (provider.sessions[0].status !== 'ended') {
@@ -406,8 +411,8 @@ suite('AgentStatusService history aggregation', () => {
 		provider.excludeAware = true;
 		provider.sessions = [makeSession({ id: 'a', status: 'idle' }), makeSession({ id: 'b', status: 'idle' })];
 		provider.history = [
-			{ id: 'a', disposition: 'ended', actions: {}, lastActivity: new Date(5000) },
-			{ id: 'b', disposition: 'ended', actions: {}, lastActivity: new Date(4000) },
+			{ id: 'a', providerId: 'claudeCode', disposition: 'ended', actions: {}, lastActivity: new Date(5000) },
+			{ id: 'b', providerId: 'claudeCode', disposition: 'ended', actions: {}, lastActivity: new Date(4000) },
 		];
 		// One session ends during each of the first two attempts — only the third sees quiescence.
 		let queries = 0;
@@ -446,7 +451,9 @@ suite('AgentStatusService history aggregation', () => {
 		// A legacy-path provider drops terminal rows instead of keeping an `ended` one — the only
 		// trace is the initially-live id vanishing from the live set.
 		provider.sessions = [makeSession({ id: 'r', status: 'idle' })];
-		provider.history = [{ id: 'r', disposition: 'ended', actions: {}, lastActivity: new Date(7000) }];
+		provider.history = [
+			{ id: 'r', providerId: 'claudeCode', disposition: 'ended', actions: {}, lastActivity: new Date(7000) },
+		];
 		provider.onQuery = () => {
 			if (provider.sessions.length > 0) {
 				provider.sessions = [];
@@ -477,7 +484,15 @@ suite('AgentStatusService history aggregation', () => {
 		provider.onQuery = () => {
 			if (provider.sessions.length === 0) {
 				provider.sessions = [makeSession({ id: 's', status: 'ended' })];
-				provider.history = [{ id: 's', disposition: 'ended', actions: {}, lastActivity: new Date(6000) }];
+				provider.history = [
+					{
+						id: 's',
+						providerId: 'claudeCode',
+						disposition: 'ended',
+						actions: {},
+						lastActivity: new Date(6000),
+					},
+				];
 				provider.terminalGeneration++;
 			}
 		};
@@ -504,7 +519,15 @@ suite('AgentStatusService history aggregation', () => {
 		provider.sessions = [];
 		provider.onQuery = () => {
 			if (provider.history.length === 0) {
-				provider.history = [{ id: 't', disposition: 'ended', actions: {}, lastActivity: new Date(8000) }];
+				provider.history = [
+					{
+						id: 't',
+						providerId: 'claudeCode',
+						disposition: 'ended',
+						actions: {},
+						lastActivity: new Date(8000),
+					},
+				];
 				provider.terminalGeneration++;
 			}
 		};
@@ -527,7 +550,9 @@ suite('AgentStatusService history aggregation', () => {
 		const provider = new RaceTestProvider();
 		provider.excludeAware = true;
 		provider.sessions = [makeSession({ id: 'z', status: 'idle' })];
-		provider.history = [{ id: 'z', disposition: 'ended', actions: {}, lastActivity: new Date(3000) }];
+		provider.history = [
+			{ id: 'z', providerId: 'claudeCode', disposition: 'ended', actions: {}, lastActivity: new Date(3000) },
+		];
 		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
 		try {
 			await service.getPastSessions('/repo/worktree');

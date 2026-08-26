@@ -1,13 +1,13 @@
 import * as assert from 'assert';
 import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
-import { ClaudeCodeProvider } from '../providers/claudeCodeProvider.js';
 import type {
 	ResumableTranscriptSessionListing,
 	TranscriptSessionListing,
 	TranscriptTitles,
 } from '../providers/claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from '../providers/claudeCodeTranscript.js';
+import { GkAgentProvider } from '../providers/gkAgentProvider.js';
 import type { AgentProviderCallbacks, AgentSession, IpcRegistrar } from '../types.js';
 
 type SyncDiscrepancy = { provider: string; discovered: number; missing: number; polled: number; tracked: number };
@@ -154,15 +154,15 @@ function subagentStop(parentId: string, agentId: string): Record<string, unknown
 }
 
 /** Returns a session's `fileActivity` (or `[]` when the session/array is absent). */
-function fileActivityOf(provider: ClaudeCodeProvider, sessionId: string): NonNullable<AgentSession['fileActivity']> {
+function fileActivityOf(provider: GkAgentProvider, sessionId: string): NonNullable<AgentSession['fileActivity']> {
 	return provider.sessions.find(s => s.id === sessionId)?.fileActivity ?? [];
 }
 
-suite('ClaudeCodeProvider', () => {
+suite('GkAgentProvider', () => {
 	suite('initialCwd from the CLI', () => {
 		test('uses the CLI-provided initialCwd and keeps it stable across cwd drift', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				const handler = handlers.get('agents/session')!;
@@ -195,7 +195,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('falls back to the first-seen cwd when the CLI omits initialCwd (older CLI)', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				const handler = handlers.get('agents/session')!;
@@ -222,7 +222,7 @@ suite('ClaudeCodeProvider', () => {
 
 		/** Drives a started provider with the `agents/session` IPC handler bound. */
 		async function startSession(
-			provider: ClaudeCodeProvider,
+			provider: GkAgentProvider,
 			handlers: MockCallbacks['handlers'],
 			sessionId: string,
 		): Promise<(body: Record<string, unknown>) => Promise<void>> {
@@ -238,7 +238,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('PreToolUse on an edit tool marks the file editing with a fresh editedAt', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -258,7 +258,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('PostToolUse flips editing off but retains the file as a cooling tail', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -275,7 +275,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('a read+edit on the same file carries both kinds', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Read', FILE));
@@ -296,7 +296,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('Stop preserves the cooling decay tail rather than wiping it', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -313,7 +313,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('Stop force-finishes an in-flight file: drops the live flag, keeps the fading tail', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				// PreToolUse with no matching PostToolUse before Stop (turn ended mid-tool).
@@ -334,7 +334,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('a cooling file is evicted once the decay window elapses', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 50 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -353,7 +353,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('the tail survives Stop and still evicts after the window', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 50 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -378,7 +378,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('SessionEnd completes the session and freezes its file activity instead of wiping it', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -424,7 +424,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('SubagentStop removes the sub-agent without disturbing the parent decay tail', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'parent');
 				await send(preToolUse('parent', 'Edit', FILE));
@@ -456,7 +456,7 @@ suite('ClaudeCodeProvider', () => {
 	suite('workspace path normalization', () => {
 		test('start() forwards normalized paths to publishAgents', async () => {
 			const { callbacks, publishedPaths } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['d:\\PROJ\\GKGL\\vscode-gitlens']);
 				await flushMicrotasks();
@@ -469,7 +469,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('SessionStart with backslash cwd inside a backslash workspace yields a normalized session.workspacePath', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['d:\\PROJ\\GKGL\\vscode-gitlens']);
 
@@ -488,7 +488,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('SessionStart with backslash cwd matches a forward-slash workspace path', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['d:/PROJ/GKGL/vscode-gitlens']);
 
@@ -504,7 +504,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('SessionStart with cwd outside any workspace path yields isInWorkspace=false', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/home/user/projectA']);
 
@@ -534,7 +534,7 @@ suite('ClaudeCodeProvider', () => {
 							: { repoRoot: repo, worktreePath: repo, isWorktree: false },
 					),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([repo]);
 				const handler = handlers.get('agents/session')!;
@@ -564,7 +564,7 @@ suite('ClaudeCodeProvider', () => {
 				// Never resolves — proves the assertion below doesn't depend on the probe completing.
 				resolveGitInfo: () => new Promise(() => {}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([repo]);
 				const handler = handlers.get('agents/session')!;
@@ -597,7 +597,7 @@ suite('ClaudeCodeProvider', () => {
 				// Never resolves — proves the update below doesn't depend on the probe completing.
 				resolveGitInfo: () => new Promise(() => {}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([repo]);
 				const handler = handlers.get('agents/session')!;
@@ -637,7 +637,7 @@ suite('ClaudeCodeProvider', () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				resolveGitInfo: () => new Promise(() => {}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([repo]);
 				const handler = handlers.get('agents/session')!;
@@ -673,7 +673,7 @@ suite('ClaudeCodeProvider', () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				resolveGitInfo: () => new Promise(() => {}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([repo]);
 				const handler = handlers.get('agents/session')!;
@@ -751,7 +751,7 @@ suite('ClaudeCodeProvider', () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				resolveGitInfo: () => new Promise(() => {}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([repo]);
 				const handler = handlers.get('agents/session')!;
@@ -798,7 +798,7 @@ suite('ClaudeCodeProvider', () => {
 						settle.set(cwd, resolve);
 					}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([oldCwd]);
 				const handler = handlers.get('agents/session')!;
@@ -835,7 +835,7 @@ suite('ClaudeCodeProvider', () => {
 						isWorktree: false,
 					}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/home/user/projectA']);
 
@@ -868,7 +868,7 @@ suite('ClaudeCodeProvider', () => {
 							: undefined,
 					),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([worktree]);
 				const handler = handlers.get('agents/session')!;
@@ -905,7 +905,7 @@ suite('ClaudeCodeProvider', () => {
 					return Promise.resolve({ repoRoot: '/repo', worktreePath: '/repo', isWorktree: false });
 				},
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				const handler = handlers.get('agents/session')!;
@@ -940,7 +940,7 @@ suite('ClaudeCodeProvider', () => {
 					return Promise.resolve(undefined);
 				},
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				const handler = handlers.get('agents/session')!;
@@ -967,7 +967,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('updateWorkspacePaths normalizes and re-publishes', async () => {
 			const { callbacks, publishedPaths } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/home/user/projectA']);
 				await flushMicrotasks();
@@ -1083,7 +1083,7 @@ suite('ClaudeCodeProvider', () => {
 	suite('firstPrompt propagation', () => {
 		test('first non-empty UserPromptSubmit populates firstPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 
@@ -1110,7 +1110,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('IDE-prefixed prompts are stripped before storing as lastPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 
@@ -1151,7 +1151,7 @@ suite('ClaudeCodeProvider', () => {
 				},
 			];
 			const { callbacks } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider({
+			const provider = new GkAgentProvider({
 				...callbacks,
 				runCLICommand: () => Promise.resolve(JSON.stringify(sessionPayload)),
 			});
@@ -1179,7 +1179,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('background-bash task-notification prompts do not overwrite the previous lastPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 
@@ -1238,7 +1238,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('prompts that are nothing but IDE context do not overwrite the previous lastPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 
@@ -1279,7 +1279,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('subsequent UserPromptSubmit preserves firstPrompt and updates lastPrompt', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 
@@ -1329,7 +1329,7 @@ suite('ClaudeCodeProvider', () => {
 					return Promise.resolve();
 				},
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				await flushMicrotasks();
@@ -1353,7 +1353,7 @@ suite('ClaudeCodeProvider', () => {
 					return Promise.resolve();
 				},
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				await flushMicrotasks();
@@ -1369,7 +1369,7 @@ suite('ClaudeCodeProvider', () => {
 
 		test('returns { opened: false } when the host did not wire openSessionInClaudeExtension', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				await flushMicrotasks();
@@ -1386,7 +1386,7 @@ suite('ClaudeCodeProvider', () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				openSessionInClaudeExtension: () => Promise.reject(new Error('extension not installed')),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start(['/repo']);
 				await flushMicrotasks();
@@ -1428,7 +1428,7 @@ suite('ClaudeCodeProvider', () => {
 				);
 
 				const { callbacks } = createMockCallbacks({ port: port, agentDiscoveryDir: dir });
-				const provider = new ClaudeCodeProvider(callbacks);
+				const provider = new GkAgentProvider(callbacks);
 				try {
 					provider.start(['/repo']);
 					await flushMicrotasks();
@@ -1476,7 +1476,7 @@ suite('ClaudeCodeProvider', () => {
 				);
 
 				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new ClaudeCodeProvider(callbacks);
+				const provider = new GkAgentProvider(callbacks);
 				try {
 					provider.start(['/repo']);
 					await flushMicrotasks();
@@ -1533,7 +1533,7 @@ suite('ClaudeCodeProvider', () => {
 				);
 
 				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new ClaudeCodeProvider(callbacks);
+				const provider = new GkAgentProvider(callbacks);
 				try {
 					provider.start(['/somewhere/else']);
 					await flushMicrotasks();
@@ -1581,7 +1581,7 @@ suite('ClaudeCodeProvider', () => {
 				);
 
 				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new ClaudeCodeProvider(callbacks);
+				const provider = new GkAgentProvider(callbacks);
 				try {
 					provider.start(['/somewhere/else']);
 					await flushMicrotasks();
@@ -1635,7 +1635,7 @@ suite('ClaudeCodeProvider', () => {
 				);
 
 				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new ClaudeCodeProvider(callbacks);
+				const provider = new GkAgentProvider(callbacks);
 				try {
 					provider.start(['/somewhere/else']);
 					await flushMicrotasks();
@@ -1682,7 +1682,7 @@ suite('ClaudeCodeProvider', () => {
 				);
 
 				const { callbacks } = createMockCallbacks({ port: 50000, agentDiscoveryDir: dir });
-				const provider = new ClaudeCodeProvider(callbacks);
+				const provider = new GkAgentProvider(callbacks);
 				try {
 					provider.start(['/somewhere/else']);
 					await flushMicrotasks();
@@ -1754,7 +1754,7 @@ class StubListingTranscriptReader extends ClaudeCodeTranscriptReader {
 }
 
 /** Provider variant that lets tests swap the transcript reader and drive a gated poll tick. */
-class TestProvider extends ClaudeCodeProvider {
+class TestProvider extends GkAgentProvider {
 	constructor(callbacks: AgentProviderCallbacks, reader: ClaudeCodeTranscriptReader) {
 		super(callbacks);
 		this._transcriptReader = reader;
@@ -1766,13 +1766,13 @@ class TestProvider extends ClaudeCodeProvider {
 
 /** Provider variant that lets tests drive a gated reconciliation tick deterministically, instead
  *  of waiting for the real 15-minute `staleCheckTimer` interval. */
-class GateTestProvider extends ClaudeCodeProvider {
+class GateTestProvider extends GkAgentProvider {
 	runGatedSync(): Promise<void> {
 		return this.syncSessions({ gate: true });
 	}
 }
 
-suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
+suite('GkAgentProvider reconciliation poll gating (list-sessions)', () => {
 	const workspace = '/home/user/projectA';
 
 	test('skips the CLI on a gated tick when there are no sessions and hooks are not installed', async () => {
@@ -1781,7 +1781,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			provider.setClaudeHooksInstalled(false);
+			provider.setHooksInstalled(false);
 			cliCalls.length = 0; // ignore the ungated bootstrap call
 
 			await provider.runGatedSync();
@@ -1799,7 +1799,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			provider.setClaudeHooksInstalled(true);
+			provider.setHooksInstalled(true);
 			cliCalls.length = 0;
 
 			await provider.runGatedSync();
@@ -1816,7 +1816,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			provider.setClaudeHooksInstalled(false);
+			provider.setHooksInstalled(false);
 
 			const handler = handlers.get('agents/session')!;
 			await handler(sessionStart('sess-1', workspace), new URLSearchParams());
@@ -1856,7 +1856,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			provider.setClaudeHooksInstalled(false);
+			provider.setHooksInstalled(false);
 			assert.ok(
 				provider.sessions.some(s => s.status === 'ended'),
 				'bootstrap should have ingested the ended record',
@@ -1889,7 +1889,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			provider.setClaudeHooksInstalled(false);
+			provider.setHooksInstalled(false);
 			cliCalls.length = 0;
 
 			// Empty + hooks-off → skipped.
@@ -1914,7 +1914,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			cliCalls.length = 0; // never call setClaudeHooksInstalled — exercise the default
+			cliCalls.length = 0; // never call setHooksInstalled — exercise the default
 
 			await provider.runGatedSync();
 
@@ -1933,10 +1933,10 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
-			provider.setClaudeHooksInstalled(false);
+			provider.setHooksInstalled(false);
 			cliCalls.length = 0;
 
-			provider.setClaudeHooksInstalled(true); // eager resync fires an ungated syncSessions() (polls, reports no drift)
+			provider.setHooksInstalled(true); // eager resync fires an ungated syncSessions() (polls, reports no drift)
 			await flushMicrotasks();
 
 			assert.ok(listSessionsCalls(cliCalls) >= 1, 'installing hooks must trigger an immediate reconciliation');
@@ -1946,7 +1946,7 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 	});
 });
 
-suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
+suite('GkAgentProvider live/poll sync discrepancy telemetry', () => {
 	const workspace = '/home/user/projectA';
 
 	test('reports discovered drift when a gated poll finds a session the live path never tracked', async () => {
@@ -2018,7 +2018,7 @@ suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
 		const { callbacks, syncDiscrepancies } = createMockCallbacks({
 			cliResponse: JSON.stringify([sessionFileData('boot', workspace)]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([workspace]);
 			await flushMicrotasks();
@@ -2034,10 +2034,10 @@ suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
 		const { callbacks, syncDiscrepancies } = createMockCallbacks({
 			cliResponse: JSON.stringify([sessionFileData('preexisting', workspace)]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
-			provider.setClaudeHooksInstalled(false); // true(default)→false: no resync
-			provider.setClaudeHooksInstalled(true); // false→true: eager resync polls (ungated)
+			provider.setHooksInstalled(false); // true(default)→false: no resync
+			provider.setHooksInstalled(true); // false→true: eager resync polls (ungated)
 			await flushMicrotasks();
 
 			assert.strictEqual(provider.sessions.length, 1, 'eager resync should pick up the already-running session');
@@ -2052,7 +2052,7 @@ suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
 	});
 });
 
-suite('ClaudeCodeProvider ended sessions', () => {
+suite('GkAgentProvider ended sessions', () => {
 	const REPO = '/home/user/projectA';
 	const ENDED_AT = '2026-07-10T00:00:00.000Z';
 
@@ -2073,7 +2073,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('SessionEnd transitions the session to ended instead of removing it', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -2099,7 +2099,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('SessionEnd bumps terminalGeneration even for an untracked session', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -2128,7 +2128,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 				return Promise.resolve(undefined);
 			},
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -2337,7 +2337,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('poll surfaces an ended record as an ended session even with a dead pid', async () => {
 		const { callbacks } = createMockCallbacks({ cliResponse: JSON.stringify([endedRecord('gone')]) });
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -2358,7 +2358,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 		const { callbacks } = createMockCallbacks({
 			cliResponse: JSON.stringify([endedRecord('cleared', { pid: process.pid, event: 'UserPromptSubmit' })]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -2576,7 +2576,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 				return Promise.resolve(undefined);
 			},
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -2597,7 +2597,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 				return Promise.resolve(undefined);
 			},
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -2614,7 +2614,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('archiveSession calls the CLI and removes the session', async () => {
 		const { callbacks, cliCalls } = createMockCallbacks({ cliResponse: JSON.stringify([endedRecord('done')]) });
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -2640,7 +2640,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('SessionStart on an ended session revives it to a live idle row', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -2956,7 +2956,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 
 	test('archiveSession refuses to archive a non-ended (live) session', async () => {
 		const { callbacks, handlers, cliCalls } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -2997,7 +2997,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 		const { callbacks, cliCalls } = createMockCallbacks({
 			archivedCliResponse: JSON.stringify([endedRecord('archived-1'), endedRecord('archived-2')]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3018,7 +3018,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 	test('getArchivedSessionIds returns an empty array when the CLI call fails', async () => {
 		const { callbacks } = createMockCallbacks();
 		callbacks.runCLICommand = () => Promise.reject(new Error('gk not found'));
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			const ids = await provider.getArchivedSessionIds();
 			assert.deepStrictEqual(ids, []);
@@ -3031,7 +3031,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 		const { callbacks, cliCalls } = createMockCallbacks({
 			archivedCliResponse: JSON.stringify([endedRecord('archived-1')]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3064,7 +3064,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 			}
 			return Promise.resolve('[]');
 		};
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3113,7 +3113,7 @@ suite('ClaudeCodeProvider ended sessions', () => {
 			if (args.includes('--status')) return Promise.reject(new Error('unknown flag: --status'));
 			return Promise.resolve('[]');
 		};
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks(); // the bootstrap poll's fallback marks the CLI legacy
@@ -3178,10 +3178,10 @@ suite('ClaudeCodeProvider ended sessions', () => {
 	});
 });
 
-suite('ClaudeCodeProvider unresolvable permission asks', () => {
+suite('GkAgentProvider unresolvable permission asks', () => {
 	test('Notification(permission_prompt) synthesizes an unresolvable ask', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3208,7 +3208,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 
 	test('a non-blocking PermissionRequest synthesizes an unresolvable ask shaped like the blocking payload', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3239,7 +3239,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 		// Surfaces render `questionText` in place of the tool description — without it a question
 		// ask reads as a generic "awaiting" card.
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3267,7 +3267,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 
 	test('a routable blocking permission survives a subsequent Notification(permission_prompt)', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3312,7 +3312,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 
 	test('a second non-blocking PermissionRequest replaces the published ask', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3350,7 +3350,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 
 	test('Notification(elicitation_dialog) publishes an elicitation ask, not a tool ask', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3378,7 +3378,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 
 	test('a non-blocking plan ask carries the session planFile', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3421,7 +3421,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 	// catch a future regression in that clear.
 	test('Elicitation with no ElicitationResult does not pin the session at permission_requested after Stop', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3449,7 +3449,7 @@ suite('ClaudeCodeProvider unresolvable permission asks', () => {
 	});
 });
 
-suite('ClaudeCodeProvider permission ask identity gating', () => {
+suite('GkAgentProvider permission ask identity gating', () => {
 	// Guards the deny-storm bug: a pending blocking ask must only be settled by an event that
 	// refers to the SAME ask (matching `tool_use_id`, or matching toolName + canonical `tool_input`
 	// when neither side has one) — not by any `PostToolUse`/`PermissionDenied` sharing the session
@@ -3504,7 +3504,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('PostToolUse with the same toolName but different tool_input does not deny the pending ask', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3535,7 +3535,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('PostToolUse with the same toolName and canonically-equal tool_input denies the pending ask', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3562,7 +3562,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('a stray PermissionDenied naming an evicted ask does not deny the ask that replaced it', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3608,7 +3608,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test("a PermissionDenied matching the pending ask's name and input settles it", async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3635,7 +3635,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('consecutive identical asks are each settled by their own PermissionDenied, nothing is left stuck', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3664,7 +3664,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('a duplicate blocking delivery (same name+input, no ids) attaches instead of evicting the first', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3703,7 +3703,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('a second blocking request with the same name but different input evicts and denies every resolver on the first', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3740,7 +3740,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('a PostToolUse with a real tool name clears an empty-name pending ask (legacy degraded payload)', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3771,7 +3771,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 	// `Elicitation` is therefore the only live path that exercises the display-only branch.
 	test('the display-only branch (Elicitation ask) is gated by toolName alone', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3804,7 +3804,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 
 	test('UserPromptSubmit still clears a pending ask unconditionally', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start(['/repo']);
 			const handler = handlers.get('agents/session')!;
@@ -3829,7 +3829,7 @@ suite('ClaudeCodeProvider permission ask identity gating', () => {
 	});
 });
 
-suite('ClaudeCodeProvider poll-discovered live rows', () => {
+suite('GkAgentProvider poll-discovered live rows', () => {
 	const REPO = '/home/user/projectB';
 
 	test('a poll-discovered live row with a pending PermissionRequest gets a synthesized unresolvable ask', async () => {
@@ -3838,7 +3838,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 				{ ...sessionFileData('polled-perm', REPO), event: 'PermissionRequest', toolName: 'Bash' },
 			]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3862,7 +3862,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 			]),
 			resolveGitInfo: () => Promise.resolve(undefined),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3886,7 +3886,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 			// The probe answers for the parent repo, as it does for a nested worktree cwd.
 			resolveGitInfo: () => Promise.resolve({ repoRoot: REPO, worktreePath: REPO, isWorktree: false }),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3944,7 +3944,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 			]),
 			liveAgentSessions: [{ sessionId: 'polled-frozen', kind: 'interactive', status: 'idle' }],
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3973,7 +3973,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 				},
 			],
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -3992,7 +3992,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 			cliResponse: JSON.stringify([sessionFileData('polled-done', REPO)]),
 			liveAgentSessions: [{ sessionId: 'polled-done', kind: 'background', state: 'stopped' }],
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -4014,7 +4014,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 			]),
 			liveAgentSessions: [],
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -4164,7 +4164,7 @@ suite('ClaudeCodeProvider poll-discovered live rows', () => {
 	});
 });
 
-suite('ClaudeCodeProvider worktree attribution', () => {
+suite('GkAgentProvider worktree attribution', () => {
 	const REPO = '/repo';
 	const WORKTREE = '/repo.worktrees/feature';
 
@@ -4174,7 +4174,7 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 			// agent sits blocked on the ask.
 			resolveGitInfo: () => new Promise(() => {}),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -4209,7 +4209,7 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 		const { callbacks, handlers } = createMockCallbacks({
 			resolveGitInfo: () => Promise.resolve({ repoRoot: REPO, worktreePath: REPO, isWorktree: false }),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -4242,7 +4242,7 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 				return Promise.resolve({ repoRoot: REPO, worktreePath: WORKTREE, isWorktree: true });
 			},
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -4296,7 +4296,7 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 						: { repoRoot: REPO, worktreePath: WORKTREE, isWorktree: true },
 				),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			const handler = handlers.get('agents/session')!;
@@ -4343,7 +4343,7 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 							: { repoRoot: REPO, worktreePath: WORKTREE, isWorktree: true },
 				),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([WORKTREE]);
 			const handler = handlers.get('agents/session')!;
@@ -4406,7 +4406,7 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 			resolveGitInfo: (cwd: string) =>
 				Promise.resolve(cwd === SCRATCH ? undefined : { repoRoot: cwd, worktreePath: cwd, isWorktree: false }),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO_A, REPO_B]);
 			const handler = handlers.get('agents/session')!;
@@ -4450,13 +4450,13 @@ suite('ClaudeCodeProvider worktree attribution', () => {
 	});
 });
 
-class PeerTestProvider extends ClaudeCodeProvider {
+class PeerTestProvider extends GkAgentProvider {
 	runPeerQuery(): Promise<void> {
 		return this.querySiblingWindowSessions();
 	}
 }
 
-suite('ClaudeCodeProvider peer session merge', () => {
+suite('GkAgentProvider peer session merge', () => {
 	const REPO = '/repo';
 
 	/** Stands up a peer window: a discovery file plus an `/agents/sessions/list` route serving
@@ -4681,20 +4681,83 @@ suite('ClaudeCodeProvider peer session merge', () => {
 	});
 });
 
-suite('ClaudeCodeProvider host filtering (providerId)', () => {
+// Phase 5 extends this suite with real per-agent coverage (native event/tool vocabularies, the
+// capability-flag degradations). What it pins today is only the admission boundary: which hook
+// clients are accepted at all, and that the accepted ones land under their own agent identity.
+suite('GkAgentProvider host filtering (providerId)', () => {
 	const REPO = '/repo';
 
 	suite('IPC events', () => {
-		test('ignores an event from another AI host', async () => {
+		test('tracks an event from another supported AI host under that agent’s identity', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([REPO]);
 				const handler = handlers.get('agents/session')!;
-				// codex event names are identical to Claude's, so this is processed in full without the filter.
+				// codex event names are identical to Claude's, so this is processed in full.
 				await handler(sessionStart('codex-1', REPO, 'codex'), new URLSearchParams());
 
-				assert.strictEqual(provider.sessions.length, 0, 'a foreign host event must not create a session');
+				assert.strictEqual(provider.sessions.length, 1, 'a supported host’s event must create a session');
+				assert.strictEqual(provider.sessions[0].providerId, 'codex');
+				assert.strictEqual(provider.sessions[0].providerName, 'Codex');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('ignores an event from a hook client with no descriptor', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new GkAgentProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('cursor-1', REPO, 'cursor'), new URLSearchParams());
+
+				assert.strictEqual(
+					provider.sessions.length,
+					0,
+					'a client we cannot interpret must not create a session',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('ignores an event whose native name has no canonical equivalent', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new GkAgentProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				// `session.updated` is deliberately unmapped — see `openCodeCapabilities.eventMap`.
+				await handler(
+					{ event: 'session.updated', sessionId: 'opencode-1', providerId: 'opencode', cwd: REPO },
+					new URLSearchParams(),
+				);
+
+				assert.strictEqual(
+					provider.sessions.length,
+					0,
+					'an unresolvable event must not reach the status switch, nor create a row',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('resolves an opencode native event through the capability table', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new GkAgentProvider(callbacks);
+			try {
+				provider.start([REPO]);
+				const handler = handlers.get('agents/session')!;
+				await handler(
+					{ event: 'session.created', sessionId: 'opencode-1', providerId: 'opencode', cwd: REPO },
+					new URLSearchParams(),
+				);
+
+				assert.strictEqual(provider.sessions.length, 1);
+				assert.strictEqual(provider.sessions[0].providerId, 'opencode');
 			} finally {
 				provider.dispose();
 			}
@@ -4702,7 +4765,7 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 
 		test('tracks an event explicitly stamped claude-code', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([REPO]);
 				const handler = handlers.get('agents/session')!;
@@ -4717,7 +4780,7 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 
 		test('tracks an event with no providerId (older CLI fails open)', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([REPO]);
 				const handler = handlers.get('agents/session')!;
@@ -4733,9 +4796,9 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 			}
 		});
 
-		test('ignores a foreign blocking PermissionRequest without answering it', async () => {
+		test('surfaces a non-Claude blocking PermissionRequest observe-only, without answering it', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([REPO]);
 				const handler = handlers.get('agents/session')!;
@@ -4745,14 +4808,25 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 						sessionId: 'copilot-1',
 						providerId: 'copilot',
 						cwd: REPO,
-						toolName: 'Bash',
+						toolName: 'bash',
 						toolInput: { command: 'rm -rf /' },
 					},
 					new URLSearchParams('blocking=true'),
 				);
 
+				// The response we build is Claude-shaped, so we must not answer for another agent —
+				// the CLI waits out its own hook timeout. Per-agent response builders are phase 6.
 				assert.strictEqual(response, undefined, 'no permission decision may be returned');
-				assert.strictEqual(provider.sessions.length, 0, 'no session or pending ask may be created');
+				assert.strictEqual(provider.sessions.length, 1);
+				const ask = provider.sessions[0].pendingPermission;
+				assert.strictEqual(ask?.resolvable, false, 'the ask must be surfaced as unanswerable');
+				// `bash` → `Bash` via copilot's alias table, so the card reads like every other one.
+				assert.strictEqual(ask?.toolName, 'Bash');
+				assert.strictEqual(
+					provider.resolvePermission('copilot-1', 'allow'),
+					false,
+					'resolvePermission must refuse an agent whose asks we cannot route',
+				);
 			} finally {
 				provider.dispose();
 			}
@@ -4760,14 +4834,15 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 	});
 
 	suite('reconciliation poll', () => {
-		test('imports only our own and unstamped records, and keeps them out of the drift signal', async () => {
+		test('imports every supported and unstamped record, and reports drift per agent', async () => {
 			const { callbacks, syncDiscrepancies } = createMockCallbacks({
 				cliResponse: JSON.stringify([
 					sessionFileData('claude-1', REPO, 'claude-code'),
 					sessionFileData('codex-1', REPO, 'codex'),
-					// opencode's event names never match the live switch — the poll is its only way in.
 					sessionFileData('opencode-1', REPO, 'opencode'),
 					sessionFileData('legacy-1', REPO),
+					// No descriptor — the CLI supports more clients than the capability table does.
+					sessionFileData('cursor-1', REPO, 'cursor'),
 				]),
 			});
 			const provider = new GateTestProvider(callbacks);
@@ -4776,29 +4851,63 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 
 				assert.deepStrictEqual(
 					provider.sessions.map(s => s.id).sort(),
-					['claude-1', 'legacy-1'],
-					'only claude-code and unstamped records may be tracked',
+					['claude-1', 'codex-1', 'legacy-1', 'opencode-1'],
+					'every record from a client we have a descriptor for must be tracked',
 				);
-				// Drift counts must describe our own sessions only.
-				assert.strictEqual(syncDiscrepancies.length, 1);
-				assert.deepStrictEqual(syncDiscrepancies[0], {
-					provider: 'claudeCode',
-					discovered: 2,
-					missing: 0,
-					polled: 2,
-					tracked: 0,
-				});
+				assert.deepStrictEqual(
+					provider.sessions.map(s => s.providerId).sort(),
+					['claudeCode', 'claudeCode', 'codex', 'opencode'],
+					'an unstamped record is Claude Code, matching the live path',
+				);
+				// One report per agent — pooling them would average away a per-agent reliability gap.
+				// A client with no descriptor stays out of every count.
+				assert.deepStrictEqual(
+					[...syncDiscrepancies].sort((a, b) => a.provider.localeCompare(b.provider)),
+					[
+						{ provider: 'claudeCode', discovered: 2, missing: 0, polled: 2, tracked: 0 },
+						{ provider: 'codex', discovered: 1, missing: 0, polled: 1, tracked: 0 },
+						{ provider: 'opencode', discovered: 1, missing: 0, polled: 1, tracked: 0 },
+					],
+				);
 			} finally {
 				provider.dispose();
 			}
 		});
 
-		test('does not create an ended row for another host’s ended record', async () => {
+		test('creates an ended row for another supported host’s ended record', async () => {
 			const { callbacks } = createMockCallbacks({
 				cliResponse: JSON.stringify([
 					{
 						sessionId: 'opencode-ended',
 						providerId: 'opencode',
+						event: 'session.deleted',
+						cwd: REPO,
+						pid: 999999,
+						status: 'ended',
+						endReason: 'session-end',
+						endedAt: '2026-07-10T00:00:00.000Z',
+						updatedAt: '2026-07-10T00:00:00.000Z',
+					},
+				]),
+			});
+			const provider = new GateTestProvider(callbacks);
+			try {
+				await provider.runGatedSync();
+
+				assert.strictEqual(provider.sessions.length, 1);
+				assert.strictEqual(provider.sessions[0].status, 'ended');
+				assert.strictEqual(provider.sessions[0].providerId, 'opencode');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('does not create a row for a hook client with no descriptor', async () => {
+			const { callbacks } = createMockCallbacks({
+				cliResponse: JSON.stringify([
+					{
+						sessionId: 'cursor-ended',
+						providerId: 'cursor',
 						event: 'Stop',
 						cwd: REPO,
 						pid: 999999,
@@ -4813,7 +4922,11 @@ suite('ClaudeCodeProvider host filtering (providerId)', () => {
 			try {
 				await provider.runGatedSync();
 
-				assert.strictEqual(provider.sessions.length, 0, 'a foreign ended record must not surface as ended');
+				assert.strictEqual(
+					provider.sessions.length,
+					0,
+					'a record we cannot interpret must not surface as ended',
+				);
 			} finally {
 				provider.dispose();
 			}

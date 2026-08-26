@@ -291,7 +291,7 @@ export class AgentStatusService implements Disposable {
 			// installed=false, and has no providers anyway.)
 		}
 		for (const provider of this._providers) {
-			provider.setClaudeHooksInstalled?.(installed);
+			provider.setHooksInstalled?.(installed);
 		}
 	}
 
@@ -437,7 +437,12 @@ export class AgentStatusService implements Disposable {
 		const cached = this._sessionStateCache.get(session);
 		if (cached != null && cached.generation === this._worktreeMetadataGeneration) return cached;
 
-		const provider = this._providers.find(candidate => candidate.id === session.providerId);
+		// Owner by session id, NOT `provider.id === session.providerId`: a session's `providerId` names
+		// the AGENT (`claudeCode`, `codex`, …) while `provider.id` names the provider hosting it, and
+		// one provider now fronts several agents. Same lookup shape as `dispatchSessionAction`.
+		const provider = this._providers.find(candidate =>
+			candidate.sessions.some(candidateSession => candidateSession.id === session.id),
+		);
 		const actions =
 			session.status === 'ended' && provider?.archiveSession != null ? ({ archive: true } as const) : undefined;
 		const state = serializeAgentSession(session, this.getWorktreeMetadataForSession(session), actions);
@@ -544,7 +549,12 @@ export class AgentStatusService implements Disposable {
 								: {}),
 						},
 					};
-					sessions.push(serializePastAgentSession(provider.id, normalized, worktreePath, worktreeName));
+					// The item's own agent id, not `provider.id` — consumers dedupe a past row against a
+					// live one via `getAgentSessionIdentityKey(providerId, id)`, so the two must share the
+					// agent namespace.
+					sessions.push(
+						serializePastAgentSession(normalized.providerId, normalized, worktreePath, worktreeName),
+					);
 				}
 			}
 
@@ -631,7 +641,7 @@ export class AgentStatusService implements Disposable {
 		if (outcome === false) return;
 
 		this.container.telemetry.sendEvent('agents/sessionResumed', {
-			'agent.provider': provider.id,
+			'agent.provider': this.resolveAgentProviderId(provider, sessionId, providerId),
 			'agent.resume.source': source,
 			'agent.resume.target': outcome,
 		});
@@ -944,12 +954,27 @@ export class AgentStatusService implements Disposable {
 		this.maybeFireSessionsChanged(true);
 	}
 
-	/** Resolves a provider-scoped session reference. `providerId` remains optional only for legacy
-	 *  command links; every current webview context supplies it. */
+	/** Resolves a provider-scoped session reference. `providerId` is a SESSION provider id — the agent
+	 *  (`claudeCode`, `codex`, …) — which is a different namespace from `AgentSessionProvider.id`, so
+	 *  it can never be matched against `provider.id` directly. Ownership of the session id is the real
+	 *  lookup; `providerId` only disambiguates it. A historical row isn't tracked by anyone, so those
+	 *  fall back to the provider that declares it hosts that agent. `providerId` remains optional only
+	 *  for legacy command links; every current webview context supplies it. */
 	private getProviderForSession(providerId: string | undefined, sessionId: string): AgentSessionProvider | undefined {
-		if (providerId != null) return this._providers.find(provider => provider.id === providerId);
-
-		const provider = this._providers.find(provider => provider.sessions.some(session => session.id === sessionId));
+		let provider = this._providers.find(candidate =>
+			candidate.sessions.some(
+				session => session.id === sessionId && (providerId == null || session.providerId === providerId),
+			),
+		);
+		if (provider == null && providerId != null) {
+			// A provider that hosts exactly one agent may omit `agentProviderIds`, in which case its
+			// own id IS the agent id.
+			provider = this._providers.find(candidate =>
+				candidate.agentProviderIds != null
+					? candidate.agentProviderIds.includes(providerId)
+					: candidate.id === providerId,
+			);
+		}
 		if (provider == null) {
 			Logger.warn(
 				`AgentStatusService.getProviderForSession: no provider tracks session ${sessionId}; provider-scoped context required`,
@@ -957,6 +982,17 @@ export class AgentStatusService implements Disposable {
 		}
 
 		return provider;
+	}
+
+	/** The agent id to attribute a session-scoped telemetry event to. Prefers the caller's
+	 *  provider-scoped context, then the tracked session's own identity, and only falls back to the
+	 *  provider's id when neither is available (a legacy command link against an untracked session). */
+	private resolveAgentProviderId(
+		provider: AgentSessionProvider,
+		sessionId: string,
+		providerId: string | undefined,
+	): string {
+		return providerId ?? provider.sessions.find(session => session.id === sessionId)?.providerId ?? provider.id;
 	}
 
 	private getTrackedSession(providerId: string | undefined, sessionId: string): AgentSession | undefined {
@@ -1148,9 +1184,12 @@ export class AgentStatusService implements Disposable {
 			// regardless of which window discovered the (ended) session. Only record the
 			// telemetry when the provider actually archived — it returns `false` when it refused a
 			// row that resumed out of `ended` since the click.
+			// Resolved BEFORE the archive: it drops the row, so the session's own identity is gone by
+			// the time the event is sent.
+			const agentProviderId = this.resolveAgentProviderId(provider, sessionId, providerId);
 			const archived = await provider.archiveSession(sessionId);
 			if (archived) {
-				this.container.telemetry.sendEvent('agents/session/archived', { 'agent.provider': provider.id });
+				this.container.telemetry.sendEvent('agents/session/archived', { 'agent.provider': agentProviderId });
 			}
 			return archived;
 		} catch (ex) {

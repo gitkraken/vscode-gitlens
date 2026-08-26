@@ -237,6 +237,14 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	readonly name: string;
 	readonly icon: string;
 
+	/** Every {@link AgentSession.providerId} this provider can host — a DIFFERENT namespace from
+	 *  {@link id}, which names the provider itself. A provider that fronts several agents needs this
+	 *  so the host can route an action for a session it isn't tracking (a historical row, or one
+	 *  optimistically removed), where ownership-by-session-id has no answer. Omit it when the
+	 *  provider hosts exactly one agent whose session provider id equals its own {@link id}.
+	 */
+	readonly agentProviderIds?: readonly string[];
+
 	readonly onDidChangeSessions: Event<void>;
 	readonly sessions: readonly AgentSession[];
 
@@ -251,7 +259,7 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	/** Pushed by the host from its cached agent detection. Lets the provider gate its reconciliation
 	 *  poll (the CLI `list-sessions` call) so an idle window with no sessions and no installed hooks
 	 *  doesn't spawn the CLI every interval. */
-	setClaudeHooksInstalled?(installed: boolean): void;
+	setHooksInstalled?(installed: boolean): void;
 
 	/** Resolves a pending permission. Returns `true` when the resolve was routed (the local IPC
 	 *  owns the session's pending entry); `false` when no local entry exists (typically a peer-
@@ -343,11 +351,14 @@ export interface AgentSessionHistoryActions {
 	readonly archive?: true;
 }
 
-/** A provider-local historical session. `providerId` is deliberately absent: the host stamps the
- *  identity from the provider that returned the item, preventing a buggy provider from misrouting
- *  another harness's actions. */
+/** A provider-local historical session. */
 export interface AgentSessionHistoryItem {
 	readonly id: string;
+	/** The owning agent's {@link AgentSession.providerId}. Set by the provider, which is the only
+	 *  side that knows it once one provider fronts several agents — and it has to match the live
+	 *  namespace exactly, because consumers dedupe a past row against a live one by
+	 *  `getAgentSessionIdentityKey(providerId, id)`. */
+	readonly providerId: string;
 	readonly disposition: AgentSessionHistoryDisposition;
 	readonly actions: AgentSessionHistoryActions;
 	readonly lastActivity: Date;

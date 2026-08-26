@@ -14,8 +14,16 @@ function getCapabilities(hookClientId: string): AgentCapabilities {
 	return capabilities;
 }
 
-function statusPayload(type: unknown): Record<string, unknown> {
-	return { properties: { status: { type: type } } };
+/** An OpenCode `session.status` hook input, nested the way the CLI's generated plugin builds it:
+ *  the raw SDK event sits under `hook_payload.event`, so the status type is at
+ *  `hook_payload.event.properties.status.type` from the hook-input root. */
+function statusHookInput(type: unknown): Record<string, unknown> {
+	return { hook_payload: { event: { properties: { status: { type: type } } } } };
+}
+
+/** Wraps an arbitrary raw SDK event body at the nesting `resolveEvent` navigates from. */
+function hookInputWithEvent(event: unknown): Record<string, unknown> {
+	return { hook_payload: { event: event } };
 }
 
 suite('agentCapabilities', () => {
@@ -127,44 +135,61 @@ suite('agentCapabilities', () => {
 			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.updated'), undefined);
 		});
 
-		test('resolves opencode session.status from the payload', () => {
+		test('resolves opencode session.status from the hook input', () => {
 			const opencode = getCapabilities('opencode');
-			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusPayload('idle')), 'Stop');
+			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput('idle')), 'Stop');
 			assert.strictEqual(
-				resolveCanonicalHookEvent(opencode, 'session.status', statusPayload('busy')),
+				resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput('busy')),
 				'PostToolUse',
 			);
 			assert.strictEqual(
-				resolveCanonicalHookEvent(opencode, 'session.status', statusPayload('retry')),
+				resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput('retry')),
 				undefined,
 			);
 		});
 
-		test('returns undefined for a malformed or absent session.status payload', () => {
+		test('returns undefined for a malformed or absent session.status hook input', () => {
 			const opencode = getCapabilities('opencode');
 			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status'), undefined);
 			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', {}), undefined);
-			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusPayload(42)), undefined);
-			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusPayload(null)), undefined);
+			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput(42)), undefined);
+			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput(null)), undefined);
+			// A raw event body handed in un-nested — i.e. the wrapping the CLI actually applies is
+			// missing — must not resolve, or the real payload's path would be a coincidence.
 			assert.strictEqual(
-				resolveCanonicalHookEvent(opencode, 'session.status', { properties: 'nope' }),
+				resolveCanonicalHookEvent(opencode, 'session.status', {
+					properties: { status: { type: 'idle' } },
+				}),
+				undefined,
+			);
+			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', { hook_payload: {} }), undefined);
+			assert.strictEqual(
+				resolveCanonicalHookEvent(opencode, 'session.status', hookInputWithEvent('nope')),
 				undefined,
 			);
 			assert.strictEqual(
-				resolveCanonicalHookEvent(opencode, 'session.status', { properties: { status: 'nope' } }),
+				resolveCanonicalHookEvent(opencode, 'session.status', hookInputWithEvent({ properties: 'nope' })),
+				undefined,
+			);
+			assert.strictEqual(
+				resolveCanonicalHookEvent(
+					opencode,
+					'session.status',
+					hookInputWithEvent({ properties: { status: 'nope' } }),
+				),
 				undefined,
 			);
 		});
 
 		test('only consults the opencode resolver for session.status', () => {
 			const opencode = getCapabilities('opencode');
-			// A payload that would resolve `session.status` must not affect other events.
+			// A hook input that would resolve `session.status` must not affect other events.
 			assert.strictEqual(
-				resolveCanonicalHookEvent(opencode, 'session.created', statusPayload('busy')),
+				resolveCanonicalHookEvent(opencode, 'session.created', statusHookInput('busy')),
 				'SessionStart',
 			);
 			assert.strictEqual(
-				resolveCanonicalHookEvent(opencode, 'session.updated', statusPayload('idle')),
+				resolveCanonicalHookEvent(opencode, 'session.updated', statusHookInput('idle')),
 				undefined,
 			);
 		});

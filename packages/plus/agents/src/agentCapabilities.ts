@@ -31,10 +31,12 @@ export interface AgentCapabilities {
 	readonly eventMap?: Readonly<Record<string, AgentHookEvent>>;
 	/** Escape hatch for the cases where the native event name alone can't determine the canonical
 	 *  event and the payload has to be consulted. Tried BEFORE {@link eventMap}; returning
-	 *  `undefined` falls through to it. */
+	 *  `undefined` falls through to it. `hookInput` is the ROOT of the JSON the agent piped to
+	 *  `gk ai hook run` (what the CLI relays verbatim as `hookInput`), not a pre-unwrapped payload —
+	 *  navigate the agent's own nesting from there. */
 	readonly resolveEvent?: (
 		nativeEvent: string,
-		payload: Record<string, unknown> | undefined,
+		hookInput: Record<string, unknown> | undefined,
 	) => AgentHookEvent | undefined;
 	/** Native tool name → canonical (Claude Code) tool name. Omitted when already canonical. */
 	readonly toolNameMap?: Readonly<Record<string, string>>;
@@ -76,7 +78,9 @@ const claudeCodeInstallEvents: readonly AgentHookEvent[] = canonicalNonBlockingH
 	e => e !== 'WorktreeCreate' && e !== 'WorktreeRemove',
 );
 
-const claudeCodeCapabilities: AgentCapabilities = {
+/** Exported because Claude Code is the wire default: an event with no `providerId` comes from a CLI
+ *  too old to stamp one, which predates every other client. */
+export const claudeCodeCapabilities: AgentCapabilities = {
 	hookClientId: 'claude-code',
 	providerId: 'claudeCode',
 	displayName: 'Claude Code',
@@ -149,10 +153,15 @@ const copilotCapabilities: AgentCapabilities = {
 	cwdIsStatic: false,
 };
 
-/** Reads `properties.status.type` out of an OpenCode `session.status` payload. The payload is
- *  untyped JSON, so every hop is checked rather than cast. */
-function getOpenCodeSessionStatusType(payload: Record<string, unknown> | undefined): string | undefined {
-	const properties = asRecord(payload?.properties);
+/** Reads the status type out of an OpenCode `session.status` hook input. The CLI's generated
+ *  OpenCode plugin nests the raw SDK event under `hook_payload.event` (`buildHookInput` sets
+ *  `hook_payload: payload`, and the generic event hook passes `{ event }`), so the full path from
+ *  the hook-input root is `hook_payload.event.properties.status.type`. The payload is untyped JSON,
+ *  so every hop is checked rather than cast. */
+function getOpenCodeSessionStatusType(hookInput: Record<string, unknown> | undefined): string | undefined {
+	const hookPayload = asRecord(hookInput?.hook_payload);
+	const event = asRecord(hookPayload?.event);
+	const properties = asRecord(event?.properties);
 	const status = asRecord(properties?.status);
 	const type = status?.type;
 
@@ -179,10 +188,10 @@ const openCodeCapabilities: AgentCapabilities = {
 		// `session.updated` is intentionally absent — it has no canonical analogue.
 		// `session.status` is resolved by `resolveEvent` below, since its meaning is in the payload.
 	},
-	resolveEvent: (nativeEvent, payload) => {
+	resolveEvent: (nativeEvent, hookInput) => {
 		if (nativeEvent !== 'session.status') return undefined;
 
-		switch (getOpenCodeSessionStatusType(payload)) {
+		switch (getOpenCodeSessionStatusType(hookInput)) {
 			case 'idle':
 				return 'Stop';
 			case 'busy':
@@ -240,9 +249,9 @@ export function getAgentCapabilitiesByProviderId(providerId: string): AgentCapab
 export function resolveCanonicalHookEvent(
 	capabilities: AgentCapabilities,
 	nativeEvent: string,
-	payload?: Record<string, unknown>,
+	hookInput?: Record<string, unknown>,
 ): AgentHookEvent | undefined {
-	const resolved = capabilities.resolveEvent?.(nativeEvent, payload);
+	const resolved = capabilities.resolveEvent?.(nativeEvent, hookInput);
 	if (resolved != null) return resolved;
 
 	const mapped = capabilities.eventMap?.[nativeEvent];

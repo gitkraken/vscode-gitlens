@@ -6,6 +6,15 @@ import { disposableInterval } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
+import type { AgentCapabilities } from '../agentCapabilities.js';
+import {
+	agentCapabilities,
+	claudeCodeCapabilities,
+	getAgentCapabilities,
+	getAgentCapabilitiesByProviderId,
+	resolveCanonicalHookEvent,
+	resolveCanonicalToolName,
+} from '../agentCapabilities.js';
 import { prepareStoredPrompt } from '../sanitizePrompt.js';
 import {
 	classifyPermissionKind,
@@ -19,7 +28,6 @@ import {
 	rehydrateSubagents,
 } from '../stateMachine.js';
 import type {
-	AgentHookEvent,
 	AgentProviderCallbacks,
 	AgentSession,
 	AgentSessionHistoryItem,
@@ -41,7 +49,10 @@ import type { EndedTranscriptDetails } from './claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
 
 interface AgentSessionEvent {
-	event: AgentHookEvent;
+	/** The originating agent's NATIVE hook event name, relayed verbatim by the CLI — NOT yet a
+	 *  canonical `AgentHookEvent`. Resolve it through {@link resolveCanonicalHookEvent} before
+	 *  switching on it. */
+	event: string;
 	sessionId: string;
 	/** `gk ai hook` client id of the originating host (`claude-code`, `codex`, …) — NOT
 	 *  `AgentSession.providerId`. Absent on older CLIs. */
@@ -191,6 +202,7 @@ interface SessionFileData {
 	sessionId: string;
 	/** `gk ai hook` client id of the owning host — see {@link AgentSessionEvent.providerId}. */
 	providerId?: string;
+	/** The owning agent's NATIVE hook event name — see {@link AgentSessionEvent.event}. */
 	event: string;
 	cwd: string;
 	/** CLI-provided launch directory; absent on older CLIs (fall back to `cwd`). */
@@ -348,6 +360,26 @@ function unionVisitedAppendOnly(
 	return grew ? [...next] : existing;
 }
 
+/** The event's tool name, translated from the agent's native vocabulary into the canonical (Claude
+ *  Code) one. Prefers the raw `hookInput.tool_name` passthrough and falls back to the projected
+ *  top-level field for older CLIs. Everything downstream — `describeToolInput`,
+ *  `classifyPermissionKind`, `getToolFilePath`, `getToolReadPath`, and the display detail — expects
+ *  canonical names, and Claude Code has no alias table, so its names pass through untouched. */
+function canonicalToolNameFromEvent(capabilities: AgentCapabilities, event: AgentSessionEvent): string | undefined {
+	const native = (event.hookInput?.tool_name as string | undefined) ?? event.toolName;
+	return native != null ? resolveCanonicalToolName(capabilities, native) : undefined;
+}
+
+/** Whether GitLens can actually answer a blocking permission ask from this agent. Two conditions,
+ *  deliberately separate: the agent must support blocking hooks at all, AND the response we build
+ *  must be one it understands. {@link PermissionResponse} is Claude-shaped
+ *  (`hookSpecificOutput.hookEventName: 'PermissionRequest'`), so an agent that supports blocking
+ *  hooks but expects a different envelope stays observe-only until per-agent response builders land
+ *  — at which point the second clause is what gets deleted. */
+function canAnswerBlockingPermission(capabilities: AgentCapabilities): boolean {
+	return capabilities.supportsBlockingPermissions && capabilities.hookClientId === 'claude-code';
+}
+
 /** Synthesizes an unresolvable ask for a `permission_requested` row that has no routable
  *  `PendingPermission` — a non-blocking `Notification`/`PermissionRequest` tail, or a
  *  poll-discovered live/revived row. None of these hold a blocking hook entry to route an
@@ -418,6 +450,10 @@ interface DiscoveryFile {
 }
 
 interface SessionContext {
+	/** The owning agent's descriptor — the source of a created session's `providerId`/`providerName`.
+	 *  Omitted only by the deferred-commit paths (the `Stop → idle` timer, a permission resolve),
+	 *  which run against a row that already exists. */
+	capabilities?: AgentCapabilities;
 	pid?: number;
 	workspacePath?: string;
 	isInWorkspace?: boolean;
@@ -552,10 +588,14 @@ function isUnknownFlagError(ex: unknown): boolean {
 	return /unknown (?:flag|shorthand flag|command)/i.test(message);
 }
 
-export class ClaudeCodeProvider implements AgentSessionProvider {
-	readonly id = 'claudeCode';
-	readonly name = 'Claude Code';
+export class GkAgentProvider implements AgentSessionProvider {
+	/** Identifies the PROVIDER, not an agent: this one hosts every `gk ai hook` client GitLens has
+	 *  a descriptor for. A session's own agent identity lives on {@link AgentSession.providerId}
+	 *  (`claudeCode`, `codex`, …), sourced from {@link AgentCapabilities} — never from here. */
+	readonly id = 'gkAgents';
+	readonly name = 'Coding Agents';
 	readonly icon = 'robot';
+	readonly agentProviderIds: readonly string[] = agentCapabilities.map(c => c.providerId);
 
 	private readonly _onDidChangeSessions = new Emitter<void>();
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
@@ -582,10 +622,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private _staleCheckTimer: UnifiedDisposable | undefined;
 	/** When the last poll actually ran (gated or not) — paces the idle cadence above. */
 	private _lastSyncAt = 0;
-	/** Whether Claude hooks are installed, pushed by the host via {@link setClaudeHooksInstalled}.
+	/** Whether agent hooks are installed, pushed by the host via {@link setHooksInstalled}.
 	 *  Fail-open (`true`) until the first push lands so a fresh window with real hooks isn't
 	 *  suppressed on its first ticks. Gates the reconciliation poll in {@link syncSessions}. */
-	private _claudeHooksInstalled = true;
+	private _hooksInstalled = true;
 	/** Whether the CLI supports `list-sessions --status` (and with it the durable ended-session
 	 *  store). Optimistic until the poll's flagless fallback proves otherwise. When unsupported,
 	 *  ended rows are untenable — no poll can ever confirm or archive one — so `SessionEnd`
@@ -671,15 +711,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// Re-publish so the agents discovery file reflects the new workspacePaths.
 			this.callbacks.ipc
 				.publishAgents(this._workspacePaths)
-				.catch((ex: unknown) =>
-					Logger.error(ex, 'ClaudeCodeProvider.updateWorkspacePaths: publishAgents failed'),
-				);
+				.catch((ex: unknown) => Logger.error(ex, 'GkAgentProvider.updateWorkspacePaths: publishAgents failed'));
 		}
 	}
 
-	setClaudeHooksInstalled(installed: boolean): void {
-		const wasOff = !this._claudeHooksInstalled;
-		this._claudeHooksInstalled = installed;
+	setHooksInstalled(installed: boolean): void {
+		const wasOff = !this._hooksInstalled;
+		this._hooksInstalled = installed;
 		// On a fresh off→on transition, reconcile immediately rather than waiting up to a full
 		// interval — picks up any session that was already running before hooks were installed.
 		// This is a deliberate discovery pass (like the cold-start bootstrap), not a routine tick:
@@ -724,7 +762,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				if (!resumeOnly) {
 					trackedEndedSessions.push(session);
 				}
-				endedSessionIds.add(session.id);
+				// Only an agent whose sessions can be resumed feeds transcript recovery. The reader is
+				// Claude-transcript-specific, so another agent's id could only ever miss — but stating it
+				// keeps the resume capability the reason, rather than leaving it to a coincidence of which
+				// store the reader happens to read.
+				if (getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume !== false) {
+					endedSessionIds.add(session.id);
+				}
 			}
 		}
 
@@ -747,6 +791,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			const resumeActions = this.callbacks.resumeSession != null ? { resume: { cwd: resumeCwd } } : {};
 			historyById.set(session.sessionId, {
 				id: session.sessionId,
+				// The reader only reads Claude Code's transcript store, so every row it produces is
+				// Claude's by construction.
+				providerId: claudeCodeCapabilities.providerId,
 				disposition: disposition,
 				actions: disposition === 'ended' ? { ...resumeActions, archive: true } : resumeActions,
 				lastActivity: new Date(session.lastActivityMs),
@@ -766,6 +813,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			historyById.set(session.id, {
 				id: session.id,
+				providerId: session.providerId,
 				disposition: 'ended',
 				actions: { archive: true },
 				lastActivity: session.lastActivity,
@@ -824,7 +872,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		this.dispose();
 	}
 
-	@gate<typeof ClaudeCodeProvider.prototype.ensureIpcServer>()
+	@gate<typeof GkAgentProvider.prototype.ensureIpcServer>()
 	private async ensureIpcServer(): Promise<void> {
 		if (this._ipcStarted || this._disposed) return;
 
@@ -867,7 +915,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					return { opened: true };
 				} catch (ex) {
 					Logger.warn(
-						`ClaudeCodeProvider.agents/sessions/open: ${ex instanceof Error ? ex.message : String(ex)}`,
+						`GkAgentProvider.agents/sessions/open: ${ex instanceof Error ? ex.message : String(ex)}`,
 					);
 					return { opened: false };
 				}
@@ -881,7 +929,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			for (const d of handlers) {
 				d.dispose();
 			}
-			Logger.error(ex, 'ClaudeCodeProvider.ensureIpcServer');
+			Logger.error(ex, 'GkAgentProvider.ensureIpcServer');
 			return;
 		}
 
@@ -916,21 +964,40 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				staleCheckIntervalMs,
 			);
 		} catch (ex) {
-			Logger.error(ex, 'ClaudeCodeProvider.ensureIpcServer');
+			Logger.error(ex, 'GkAgentProvider.ensureIpcServer');
 		}
 	}
 
 	private handleSessionEvent(event: AgentSessionEvent, isBlocking: boolean): Promise<PermissionResponse | void> {
-		// The CLI broadcasts every AI host's events to every listener. Absent = accept: older CLIs
-		// don't stamp it. A dropped blocking request gets no decision, so the CLI waits out its own
-		// hook timeout — correct, since we must not answer for an agent we don't track.
-		if (event.providerId != null && event.providerId !== 'claude-code') {
-			Logger.debug(`ClaudeCodeProvider.handleSessionEvent: ignoring ${event.event} from ${event.providerId}`);
+		// The CLI broadcasts every AI host's events to every listener, stamped with its `gk ai hook`
+		// client id. Absent = `claude-code`: older CLIs don't stamp it, and no other client existed
+		// then. A client we hold no descriptor for is dropped — the CLI supports more than this table
+		// does, and we can't interpret an agent whose vocabulary we don't know. A dropped blocking
+		// request gets no decision, so the CLI waits out its own hook timeout, which is correct: we
+		// must not answer for an agent we don't track.
+		const hookClientId = event.providerId ?? 'claude-code';
+		const capabilities = getAgentCapabilities(hookClientId);
+		if (capabilities == null) {
+			Logger.debug(`GkAgentProvider.handleSessionEvent: ignoring ${event.event} from ${hookClientId}`);
 			return Promise.resolve();
 		}
 
+		// The CLI relays each agent's native event name verbatim, so translate before doing anything
+		// else. An unresolvable name must never reach the switch below: it would match no case while
+		// still having created/updated a row, and for a blocking delivery would answer nothing while
+		// looking handled.
+		const hookEvent = resolveCanonicalHookEvent(capabilities, event.event, event.hookInput);
+		if (hookEvent == null) {
+			Logger.debug(
+				`GkAgentProvider.handleSessionEvent: ignoring unmapped event ${event.event} from ${hookClientId}`,
+			);
+			return Promise.resolve();
+		}
+
+		const toolName = canonicalToolNameFromEvent(capabilities, event);
 		const workspacePath = this.resolveWorkspacePath(event.cwd);
 		const eventContext: SessionContext = {
+			capabilities: capabilities,
 			pid: event.pid,
 			workspacePath: workspacePath,
 			isInWorkspace: workspacePath != null,
@@ -943,16 +1010,18 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			visitedWorktreePaths: visitedFromTimeline(event.cwdTimeline),
 		};
 		const tag = this.sessionTag(event.sessionId, event.sessionName ?? 'unnamed');
+		// Log the native name alongside the canonical one — a mapping mistake is otherwise invisible.
+		const eventTag = event.event === hookEvent ? hookEvent : `${hookEvent}(${event.event})`;
 
-		if (event.event === 'SessionStart' || event.event === 'SessionEnd') {
-			Logger.info(`ClaudeCodeProvider.handleSessionEvent: ${event.event} ${tag}`);
+		if (hookEvent === 'SessionStart' || hookEvent === 'SessionEnd') {
+			Logger.info(`GkAgentProvider.handleSessionEvent: ${eventTag} ${tag}`);
 		} else {
 			Logger.debug(
-				`ClaudeCodeProvider.handleSessionEvent: ${event.event} ${tag}${event.toolName ? ` tool=${event.toolName}` : ''}${event.agentId ? ` agent=${event.agentId}` : ''}${event.notificationType ? ` type=${event.notificationType}` : ''}`,
+				`GkAgentProvider.handleSessionEvent: ${eventTag} ${tag}${toolName ? ` tool=${toolName}` : ''}${event.agentId ? ` agent=${event.agentId}` : ''}${event.notificationType ? ` type=${event.notificationType}` : ''}`,
 			);
 		}
 
-		switch (event.event) {
+		switch (hookEvent) {
 			case 'SessionStart': {
 				const wasNew = this._sessions.findIndex(s => s.id === event.sessionId) < 0;
 				const { index } = this.ensureSession(event.sessionId, eventContext);
@@ -998,7 +1067,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 				this._onDidChangeSessions.fire();
 				void this.resolveTranscriptTitles(event.sessionId, event.cwd);
-				this.callbacks.onSessionStarted?.(this.id);
+				this.callbacks.onSessionStarted?.(capabilities.providerId);
 				break;
 			}
 
@@ -1045,7 +1114,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// transcript — an in-flight history query must not accept an answer that predates it.
 					this.noteTerminalTransition();
 				}
-				this.callbacks.onSessionEnded?.(this.id);
+				this.callbacks.onSessionEnded?.(capabilities.providerId);
 				break;
 			}
 
@@ -1078,15 +1147,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			case 'PreToolUse': {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount++;
-				const filesChanged = this.trackToolUseFile(event.sessionId, event);
-				const readsChanged = this.trackToolUseRead(event.sessionId, event);
+				const filesChanged = this.trackToolUseFile(event.sessionId, event, capabilities);
+				const readsChanged = this.trackToolUseRead(event.sessionId, event, capabilities);
 				// Resolve a rich `Bash(grep …)`-style detail via the same tool_input passthrough the
 				// PermissionRequest handler uses, so working sessions surface what their tool is
 				// actually doing — not just the bare tool name. Falls back to bare name when no
 				// toolInput is available (older CLI / unhandled tool).
-				const hookInput = event.hookInput;
-				const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
-				const toolName = (hookInput?.tool_name as string | undefined) ?? event.toolName ?? '';
+				const toolInput =
+					(event.hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
 				const statusDetail =
 					toolInput != null && toolName ? describeToolInput(toolName, toolInput) : toolName || undefined;
 				// Capture pre-update status so we can tell whether the upcoming updateSessionStatus
@@ -1108,7 +1176,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			case 'PostToolUse':
 			case 'PostToolUseFailure': {
-				this.clearStalePermission(event.sessionId, event.event, this.settledByFromEvent(event));
+				this.clearStalePermission(event.sessionId, hookEvent, this.settledByFromEvent(event, capabilities));
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				// Cooldown the file-edit decoration instead of dropping it immediately, so a quick
@@ -1117,8 +1185,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				// `editing`/`reading` off the moment refcount hits zero, though — capture whether that
 				// changed the published list so we fire it ourselves when the status update below short-
 				// circuits (a parallel tool is still in flight, so activeToolCount stays > 0).
-				const filesChanged = this.scheduleClearToolUseFile(event.sessionId, event);
-				const readsChanged = this.scheduleClearToolUseRead(event.sessionId, event);
+				const filesChanged = this.scheduleClearToolUseFile(event.sessionId, event, capabilities);
+				const readsChanged = this.scheduleClearToolUseRead(event.sessionId, event, capabilities);
 				if (bk.activeToolCount === 0) {
 					// updateSessionStatus short-circuits without firing when status+detail are unchanged
 					// (already 'thinking' with no detail) — which would drop the editing/reading flag-flip
@@ -1181,9 +1249,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					case 'permission_prompt':
 						this.updateSessionStatus(event.sessionId, 'permission_requested', {
 							...eventContext,
-							statusDetail: event.toolName,
+							statusDetail: toolName,
 							pendingPermission: synthesizeUnresolvableAsk(
-								event.toolName,
+								toolName,
 								// Plan-kind body: prefer the session's planFile, fall back to the event's
 								// — mirrors the blocking path.
 								this._sessions.find(s => s.id === event.sessionId)?.planFile ?? event.planFile,
@@ -1196,11 +1264,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// hook produces.
 						this.updateSessionStatus(event.sessionId, 'permission_requested', {
 							...eventContext,
-							statusDetail: event.toolName,
+							statusDetail: toolName,
 							pendingPermission: {
 								kind: 'elicitation',
-								toolName: event.toolName ?? 'Input Required',
-								toolDescription: event.toolName ?? 'Waiting for input',
+								toolName: toolName ?? 'Input Required',
+								toolDescription: toolName ?? 'Waiting for input',
 								resolvable: false,
 							},
 						});
@@ -1215,11 +1283,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				// hookInput is the raw passthrough; fall back to top-level fields for older CLI versions.
 				const hookInput = event.hookInput;
 				const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
-				if (isBlocking && toolInput != null) {
-					const toolName = (hookInput?.tool_name as string | undefined) ?? event.toolName ?? '';
-					const toolDescription = describeToolInput(toolName, toolInput);
+				// An agent whose asks we can't answer falls through to the observe-only branch below,
+				// which publishes the same card marked `resolvable: false`. Registering a pending entry
+				// for it would promise an Allow/Deny this window can never route.
+				if (canAnswerBlockingPermission(capabilities) && isBlocking && toolInput != null) {
+					const askToolName = toolName ?? '';
+					const toolDescription = describeToolInput(askToolName, toolInput);
 					const toolInputDescription = (toolInput.description as string | undefined) || undefined;
-					const kind: PendingPermissionKind = classifyPermissionKind(toolName);
+					const kind: PendingPermissionKind = classifyPermissionKind(askToolName);
 					const toolUseId = hookInput?.tool_use_id as string | undefined;
 					const toolInputJson = stableStringify(toolInput);
 
@@ -1232,7 +1303,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							((existing.toolUseId != null && toolUseId != null && existing.toolUseId === toolUseId) ||
 								(existing.toolUseId == null &&
 									toolUseId == null &&
-									existing.toolName === toolName &&
+									existing.toolName === askToolName &&
 									existing.toolInputJson === toolInputJson));
 
 						if (isDuplicateDelivery) {
@@ -1248,7 +1319,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 						if (existing != null) {
 							Logger.debug(
-								`ClaudeCodeProvider.handleSessionEvent: auto-denying stale permission ${tag} tool=${existing.toolName}`,
+								`GkAgentProvider.handleSessionEvent: auto-denying stale permission ${tag} tool=${existing.toolName}`,
 							);
 							this.resolveAllPending(existing, {
 								hookSpecificOutput: {
@@ -1260,7 +1331,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 						this._pendingPermissions.set(event.sessionId, {
 							resolvers: [{ resolve: resolve, reject: reject }],
-							toolName: toolName,
+							toolName: askToolName,
 							toolDescription: toolDescription,
 							toolUseId: toolUseId,
 							toolInputJson: toolInputJson,
@@ -1277,7 +1348,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 						const permission: PendingPermission = {
 							kind: kind,
-							toolName: toolName,
+							toolName: askToolName,
 							toolDescription: toolDescription,
 							toolInputDescription: toolInputDescription,
 							suggestions:
@@ -1295,7 +1366,6 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				{
 					// Mirror the blocking payload's shape so the ask renders identically either way —
 					// just unresolvable, since no blocking hook entry exists to route an answer through.
-					const toolName = (hookInput?.tool_name as string | undefined) ?? event.toolName;
 					const kind = toolName != null ? classifyPermissionKind(toolName) : undefined;
 					// Plan-kind body: same session-first preference as the blocking path.
 					const planFilePath =
@@ -1323,7 +1393,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							: synthesizeUnresolvableAsk(toolName, planFilePath);
 					this.updateSessionStatus(event.sessionId, 'permission_requested', {
 						...eventContext,
-						statusDetail: event.toolName,
+						statusDetail: toolName,
 						pendingPermission: synthesized,
 					});
 				}
@@ -1331,11 +1401,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			}
 
 			case 'PermissionDenied': {
-				this.clearStalePermission(event.sessionId, 'PermissionDenied', this.settledByFromEvent(event));
+				this.clearStalePermission(
+					event.sessionId,
+					'PermissionDenied',
+					this.settledByFromEvent(event, capabilities),
+				);
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
-				const filesChanged = this.untrackToolUseFile(event.sessionId, event);
-				const readsChanged = this.untrackToolUseRead(event.sessionId, event);
+				const filesChanged = this.untrackToolUseFile(event.sessionId, event, capabilities);
+				const readsChanged = this.untrackToolUseRead(event.sessionId, event, capabilities);
 				// When a parallel tool is still active the next status equals the current one and
 				// updateSessionStatus short-circuits — without an explicit fire, the dropped path
 				// would never reach subscribers (treemap activity overlay, WIP decoration).
@@ -1354,15 +1428,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.pendingPermission = {
 					kind: 'elicitation',
-					toolName: event.toolName ?? 'Input Required',
-					toolDescription: event.toolName ?? 'Waiting for input',
+					toolName: toolName ?? 'Input Required',
+					toolDescription: toolName ?? 'Waiting for input',
 					// `Elicitation` arrives on a non-blocking hook, so no entry exists for
 					// `resolvePermission` to answer — the user responds in the agent's own session.
 					resolvable: false,
 				};
 				this.updateSessionStatus(event.sessionId, 'permission_requested', {
 					...eventContext,
-					statusDetail: event.toolName,
+					statusDetail: toolName,
 				});
 				break;
 			}
@@ -1399,8 +1473,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					const now = new Date();
 					const subagent: AgentSession = {
 						id: event.agentId,
-						providerId: this.id,
-						providerName: this.name,
+						providerId: capabilities.providerId,
+						providerName: capabilities.displayName,
 						name: event.agentType ?? 'Subagent',
 						status: 'thinking',
 						phase: 'working',
@@ -1451,6 +1525,22 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		return name != null
 			? `[session=${sessionId.substring(0, 8)}(${name})]`
 			: `[session=${sessionId.substring(0, 8)}]`;
+	}
+
+	/** The owning agent's descriptor for a tracked session, resolved from the session's own
+	 *  `providerId`. `undefined` when the session isn't tracked (pruned/archived since) or carries a
+	 *  `providerId` the descriptor table doesn't know — callers pick their own fallback rather than
+	 *  silently assuming Claude Code. */
+	private getSessionCapabilities(sessionId: string): AgentCapabilities | undefined {
+		const session = this._sessions.find(s => s.id === sessionId);
+		return session != null ? getAgentCapabilitiesByProviderId(session.providerId) : undefined;
+	}
+
+	/** Whether the session's agent leaves a transcript on disk for {@link ClaudeCodeTranscriptReader}
+	 *  to tail. Fails OPEN when no descriptor resolves, so an unknown/absent `providerId` can never
+	 *  suppress the Claude path this reader exists for. */
+	private supportsTranscripts(sessionId: string): boolean {
+		return this.getSessionCapabilities(sessionId)?.supportsTranscripts ?? true;
 	}
 
 	private getBookkeeping(sessionId: string): SessionBookkeeping {
@@ -1566,8 +1656,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 *  for older CLI versions that only fill the top-level fields. Treats an empty-object
 	 *  `hookInput.tool_input` as missing — `??` would have kept it (truthy) and shadowed a
 	 *  populated `event.toolInput`. */
-	private getEventFilePath(event: AgentSessionEvent): string | undefined {
-		const toolName = (event.hookInput?.tool_name as string | undefined) ?? event.toolName;
+	private getEventFilePath(event: AgentSessionEvent, capabilities: AgentCapabilities): string | undefined {
+		const toolName = canonicalToolNameFromEvent(capabilities, event);
 		if (toolName == null) return undefined;
 
 		const rawHookInput = event.hookInput?.tool_input as Record<string, unknown> | undefined;
@@ -1607,8 +1697,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 *  doesn't reliably surface) so parallel calls bump the count and Post/Pre order doesn't matter.
 	 *  Returns whether the parent's published `fileActivity` actually changed so callers can fire
 	 *  when the surrounding {@link updateSessionStatus} short-circuits. */
-	private trackToolUseFile(sessionId: string, event: AgentSessionEvent): boolean {
-		const filePath = this.getEventFilePath(event);
+	private trackToolUseFile(sessionId: string, event: AgentSessionEvent, capabilities: AgentCapabilities): boolean {
+		const filePath = this.getEventFilePath(event, capabilities);
 		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
@@ -1632,8 +1722,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 *  above zero. Returns whether the parent's published `fileActivity` changed (i.e. `editing`
 	 *  flipped off) so the PostToolUse caller can fire when its `updateSessionStatus` short-
 	 *  circuits (a parallel tool still in flight keeps activeToolCount > 0). */
-	private scheduleClearToolUseFile(sessionId: string, event: AgentSessionEvent): boolean {
-		const filePath = this.getEventFilePath(event);
+	private scheduleClearToolUseFile(
+		sessionId: string,
+		event: AgentSessionEvent,
+		capabilities: AgentCapabilities,
+	): boolean {
+		const filePath = this.getEventFilePath(event, capabilities);
 		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
@@ -1690,8 +1784,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	/** Drops a tracked tool call's file immediately (no cooldown). Used for PermissionDenied,
 	 *  where the tool never ran — keeping the "live" badge would be misleading.
 	 *  Returns whether the published list changed. */
-	private untrackToolUseFile(sessionId: string, event: AgentSessionEvent): boolean {
-		const filePath = this.getEventFilePath(event);
+	private untrackToolUseFile(sessionId: string, event: AgentSessionEvent, capabilities: AgentCapabilities): boolean {
+		const filePath = this.getEventFilePath(event, capabilities);
 		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
@@ -1713,8 +1807,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	/** Mirror of {@link getEventFilePath} for read-only file tools. */
-	private getEventReadPath(event: AgentSessionEvent): string | undefined {
-		const toolName = (event.hookInput?.tool_name as string | undefined) ?? event.toolName;
+	private getEventReadPath(event: AgentSessionEvent, capabilities: AgentCapabilities): string | undefined {
+		const toolName = canonicalToolNameFromEvent(capabilities, event);
 		if (toolName == null) return undefined;
 
 		const rawHookInput = event.hookInput?.tool_input as Record<string, unknown> | undefined;
@@ -1724,8 +1818,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	/** Refcount mirror of {@link trackToolUseFile} for read-only file tools. */
-	private trackToolUseRead(sessionId: string, event: AgentSessionEvent): boolean {
-		const filePath = this.getEventReadPath(event);
+	private trackToolUseRead(sessionId: string, event: AgentSessionEvent, capabilities: AgentCapabilities): boolean {
+		const filePath = this.getEventReadPath(event, capabilities);
 		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
@@ -1741,8 +1835,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	/** Cooldown mirror of {@link scheduleClearToolUseFile} for read-only file tools. Returns
 	 *  whether the parent's published `fileActivity` changed (i.e. `reading` flipped off). */
-	private scheduleClearToolUseRead(sessionId: string, event: AgentSessionEvent): boolean {
-		const filePath = this.getEventReadPath(event);
+	private scheduleClearToolUseRead(
+		sessionId: string,
+		event: AgentSessionEvent,
+		capabilities: AgentCapabilities,
+	): boolean {
+		const filePath = this.getEventReadPath(event, capabilities);
 		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
@@ -1787,8 +1885,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	/** Immediate-drop mirror of {@link untrackToolUseFile} for read-only file tools. */
-	private untrackToolUseRead(sessionId: string, event: AgentSessionEvent): boolean {
-		const filePath = this.getEventReadPath(event);
+	private untrackToolUseRead(sessionId: string, event: AgentSessionEvent, capabilities: AgentCapabilities): boolean {
+		const filePath = this.getEventReadPath(event, capabilities);
 		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
@@ -1957,7 +2055,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 *  carry `hookInput.tool_use_id` and `hookInput.tool_input` in production; the top-level
 	 *  `event.toolName`/`event.toolInput` are the older-CLI fallback. Input is canonicalized so key
 	 *  order (or arriving via the fallback field instead of `hookInput`) doesn't defeat comparison. */
-	private settledByFromEvent(event: AgentSessionEvent): {
+	private settledByFromEvent(
+		event: AgentSessionEvent,
+		capabilities: AgentCapabilities,
+	): {
 		toolUseId?: string;
 		toolName?: string;
 		toolInputJson?: string;
@@ -1966,7 +2067,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const toolInput = (hookInput?.tool_input as Record<string, unknown> | undefined) ?? event.toolInput;
 		return {
 			toolUseId: hookInput?.tool_use_id as string | undefined,
-			toolName: (hookInput?.tool_name as string | undefined) ?? event.toolName,
+			// Canonical, because the registered ask's `toolName` is canonical too — comparing a native
+			// name against it would look like an identity mismatch and strand the ask.
+			toolName: canonicalToolNameFromEvent(capabilities, event),
 			toolInputJson: toolInput != null ? stableStringify(toolInput) : undefined,
 		};
 	}
@@ -2025,13 +2128,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 				if (mismatch) {
 					Logger.debug(
-						`ClaudeCodeProvider.clearStalePermission: skip (identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${pending.toolUseId ?? pending.toolName} settledBy=${settledBy.toolUseId ?? settledBy.toolName ?? 'unknown'}`,
+						`GkAgentProvider.clearStalePermission: skip (identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${pending.toolUseId ?? pending.toolName} settledBy=${settledBy.toolUseId ?? settledBy.toolName ?? 'unknown'}`,
 					);
 					return;
 				}
 			}
 
-			Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
+			Logger.debug(`GkAgentProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
 			this.resolveAllPending(pending, {
 				hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'deny' } },
 			});
@@ -2048,12 +2151,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			settledBy.toolName !== bk.pendingPermission.toolName
 		) {
 			Logger.debug(
-				`ClaudeCodeProvider.clearStalePermission: skip (display-only identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${bk.pendingPermission.toolName} settledBy=${settledBy.toolName}`,
+				`GkAgentProvider.clearStalePermission: skip (display-only identity mismatch) ${reason} ${this.sessionTag(sessionId)} pending=${bk.pendingPermission.toolName} settledBy=${settledBy.toolName}`,
 			);
 			return;
 		}
 
-		Logger.debug(`ClaudeCodeProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
+		Logger.debug(`GkAgentProvider.clearStalePermission: ${reason} ${this.sessionTag(sessionId)}`);
 		bk.pendingPermission = undefined;
 	}
 
@@ -2062,11 +2165,22 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		decision: PermissionDecision,
 		updatedPermissions?: PermissionSuggestion[],
 	): boolean {
+		// Explicit refusal rather than an incidental one: an agent we can't answer for never registers
+		// a pending entry, so the `pending == null` check below would already return `false` — but the
+		// caller deserves to know WHY, and the guard has to survive a future entry-registering path.
+		const capabilities = this.getSessionCapabilities(sessionId);
+		if (capabilities != null && !canAnswerBlockingPermission(capabilities)) {
+			Logger.debug(
+				`GkAgentProvider.resolvePermission: refusing ${decision} for ${this.sessionTag(sessionId)} — ${capabilities.displayName} asks are observe-only`,
+			);
+			return false;
+		}
+
 		const pending = this._pendingPermissions.get(sessionId);
 		if (pending == null) return false;
 
 		Logger.debug(
-			`ClaudeCodeProvider.resolvePermission: ${decision} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
+			`GkAgentProvider.resolvePermission: ${decision} ${this.sessionTag(sessionId)} tool=${pending.toolName}`,
 		);
 		this.resolveAllPending(pending, {
 			hookSpecificOutput: {
@@ -2075,7 +2189,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			},
 		});
 		this.callbacks.onPermissionResolved?.({
-			provider: this.id,
+			provider: capabilities?.providerId ?? claudeCodeCapabilities.providerId,
 			tool: pending.toolName,
 			decision: decision,
 		});
@@ -2098,12 +2212,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const session = this._sessions.find(s => s.id === sessionId);
 		if (session != null && session.status !== 'ended') {
 			Logger.warn(
-				`ClaudeCodeProvider.archiveSession: refusing to archive non-ended ${this.sessionTag(sessionId)} (status=${session.status})`,
+				`GkAgentProvider.archiveSession: refusing to archive non-ended ${this.sessionTag(sessionId)} (status=${session.status})`,
 			);
 			return false;
 		}
 
-		Logger.debug(`ClaudeCodeProvider.archiveSession: ${this.sessionTag(sessionId)}`);
+		Logger.debug(`GkAgentProvider.archiveSession: ${this.sessionTag(sessionId)}`);
 		await this.callbacks.runCLICommand(['ai', 'hook', 'archive-session', sessionId, '--json']);
 		// Invalidate the archived-id cache so the next `getPastSessions` re-fetches and excludes this id.
 		this._archivedSessionIdsCache = undefined;
@@ -2168,7 +2282,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (session.cwd) {
 			void this.resolveGitInfo(sessionId, session.cwd);
 		}
-		void this.applyEndedTranscriptDetails(sessionId, session.cwd);
+		// Git identity resolves for every agent; the transcript read is Claude-only (see
+		// `resolveTranscriptTitles`).
+		if (this.supportsTranscripts(sessionId)) {
+			void this.applyEndedTranscriptDetails(sessionId, session.cwd);
+		}
 	}
 
 	/** No `_sessions` gate, unlike {@link resolveEndedSessionDetails} — must work for a
@@ -2366,6 +2484,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 	private ensureSession(sessionId: string, context?: SessionContext): { index: number; changed: boolean } {
 		const {
+			capabilities,
 			pid,
 			workspacePath,
 			isInWorkspace,
@@ -2384,11 +2503,16 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// Same worktree-derived fallback as the update branch below: a session created with a
 			// scratch cwd but a CLI-seated worktree still belongs to that worktree's workspace.
 			const createdWorkspacePath = workspacePath ?? this.resolveWorkspacePath(worktreePath);
+			// Identity comes from the owning agent's descriptor, never from the provider — Claude's
+			// `providerId` stays the `claudeCode` the descriptor encodes. The fallback covers the
+			// deferred-commit paths (see `SessionContext.capabilities`), which only ever run against a
+			// row that already exists; reaching it would mean a row created outside every event path.
+			const identity = capabilities ?? claudeCodeCapabilities;
 			index = this._sessions.length;
 			this._sessions.push({
 				id: sessionId,
-				providerId: this.id,
-				providerName: this.name,
+				providerId: identity.providerId,
+				providerName: identity.displayName,
 				name: sessionName || undefined,
 				status: 'idle',
 				phase: getPhaseForStatus('idle'),
@@ -2406,7 +2530,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				visitedWorktreePaths: unionVisited(undefined, visitedWorktreePaths, worktreePath),
 			});
 			Logger.debug(
-				`ClaudeCodeProvider.ensureSession: implicitly created ${this.sessionTag(sessionId, sessionName ?? 'unnamed')}`,
+				`GkAgentProvider.ensureSession: implicitly created ${this.sessionTag(sessionId, sessionName ?? 'unnamed')}`,
 			);
 			if (worktreePath != null) {
 				this.getBookkeeping(sessionId).cliSeatedWorktree = true;
@@ -2702,6 +2826,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private async resolveTranscriptTitles(sessionId: string, cwd: string | undefined): Promise<void> {
+		// The reader only understands Claude Code's `~/.claude/projects/**` JSONL store, so for any
+		// other agent this would be a guaranteed-miss directory scan on every event and poll.
+		if (!this.supportsTranscripts(sessionId)) return;
+
 		let titles;
 		try {
 			titles = await this._transcriptReader.resolve(sessionId, cwd);
@@ -2774,6 +2902,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				continue;
 			}
 
+			// An agent that multiplexes concurrent sessions in one process (Codex) reports the SAME
+			// pid for all of them, so the pid answers "is the host process alive", not "is this
+			// session alive" — in both directions. A live shared process would pin every session it
+			// ever hosted, and a dead one would reap live siblings along with the finished session.
+			// Neither is recoverable here, so pid liveness is not evidence for these rows at all:
+			// keep them and let the paths that DO identify a session end them — a `SessionEnd`, or the
+			// poll seeing the CLI's durable `ended` record (which the CLI writes for a stale session
+			// of its own accord). The CLI takes the same position: for `pidSharingClients` a pid-only
+			// match is a guess, so it keeps such an end revivable.
+			if (getAgentCapabilitiesByProviderId(s.providerId)?.sharesPids === true) {
+				kept.push(s);
+				continue;
+			}
+
 			// A session blocking on us for a permission decision is by definition alive,
 			// even if `kill(pid, 0)` says otherwise (e.g. transient EPERM/ESRCH). Dropping
 			// it here loses pendingPermission and lastPrompt; the next syncSessions then
@@ -2807,7 +2949,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		}
 		this.noteTerminalTransition();
 		Logger.debug(
-			`ClaudeCodeProvider.syncSessions: removed ${removedIds.length} stale session(s): ${removedIds.map(id => id.substring(0, 8)).join(', ')}`,
+			`GkAgentProvider.syncSessions: removed ${removedIds.length} stale session(s): ${removedIds.map(id => id.substring(0, 8)).join(', ')}`,
 		);
 		return true;
 	}
@@ -2825,7 +2967,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// what triggers the CLI's own 30-day retention sweep, which runs on `list-sessions` and
 		// nothing else: no timer, no daemon. Gating it out to save a spawn wouldn't avoid work, it
 		// would strand the rows on screen AND the records on disk until the window reloads.
-		if (options?.gate && this._sessions.length === 0 && !this._claudeHooksInstalled) return;
+		if (options?.gate && this._sessions.length === 0 && !this._hooksInstalled) return;
 
 		// Narrowly: hooks off AND nothing running, i.e. we hold only terminal history. There's no
 		// dying process to reap and no live state to correct — just rows to reconcile and the
@@ -2835,7 +2977,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// session whose hook events never reached our IPC server.
 		if (
 			options?.gate &&
-			!this._claudeHooksInstalled &&
+			!this._hooksInstalled &&
 			!this._sessions.some(s => s.status !== 'ended') &&
 			Date.now() - this._lastSyncAt < idleReconcileIntervalMs
 		) {
@@ -2879,7 +3021,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// every session in the window silently stops reconciling until the next tick, and without
 			// this the symptom ("no agents anywhere") is indistinguishable from having no agents.
 			Logger.debug(
-				`ClaudeCodeProvider.syncSessions: poll skipped — ${ex instanceof Error ? ex.message : String(ex)}`,
+				`GkAgentProvider.syncSessions: poll skipped — ${ex instanceof Error ? ex.message : String(ex)}`,
 			);
 			if (this.pruneDeadSessions()) {
 				this._onDidChangeSessions.fire();
@@ -2892,8 +3034,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// missed an add (poll discovers it) or a teardown (poll no longer reports a session we track).
 		// Drift is measured over *live* sessions only; ended sessions are durable history, so their
 		// absence from `polledAlive` is expected and must not skew the discrepancy signal.
-		const trackedLiveBefore = new Set(this._sessions.filter(s => s.status !== 'ended').map(s => s.id));
-		const polledAlive = new Set<string>();
+		//
+		// Both maps carry the owning agent's `providerId` per session so the report below can be split
+		// per agent: the two paths' reliability differs by agent (one may never reach the live path at
+		// all), and one pooled number would average that away into noise.
+		const trackedLiveBefore = new Map(
+			this._sessions.filter(s => s.status !== 'ended').map(s => [s.id, s.providerId] as const),
+		);
+		const polledAlive = new Map<string, string>();
 		// Every id the poll returned (live *and* ended). Drives ended-session reconciliation:
 		// a tracked ended session absent from this set was archived/purged by the CLI.
 		const polledIds = new Set<string>();
@@ -2910,7 +3058,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const liveSessions = await this.callbacks.getLiveAgentSessions?.();
 
 		let changed = false;
-		let discovered = 0;
+		const discoveredByAgent = new Map<string, number>();
+		const noteDiscovered = (providerId: string): void => {
+			discoveredByAgent.set(providerId, (discoveredByAgent.get(providerId) ?? 0) + 1);
+		};
 		/** Ids kept alive against a stale `ended` record. Logged below — this path has no other
 		 *  observability, and "the agent isn't showing up" is otherwise indistinguishable from
 		 *  "the listing never ran". */
@@ -2919,10 +3070,23 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		for (const data of sessions) {
 			if (!data.sessionId) continue;
 
-			// Another AI host's record in the CLI's shared store. Must stay ahead of `polledIds`/
-			// `polledAlive`: an id in either would skew ended-row reconciliation and the
-			// `onSyncDiscrepancy` drift signal below.
-			if (data.providerId != null && data.providerId !== 'claude-code') continue;
+			// A record from a client we hold no descriptor for (the CLI supports more than this table
+			// does). Must stay ahead of `polledIds`/`polledAlive`: an id in either would skew ended-row
+			// reconciliation and the `onSyncDiscrepancy` drift signal below. Absent = `claude-code`,
+			// matching the live path — older CLIs don't stamp it.
+			const capabilities = getAgentCapabilities(data.providerId ?? 'claude-code');
+			if (capabilities == null) continue;
+
+			// The record's `event` is the agent's native name. Canonicalize it so `deriveStatusFromEvent`
+			// sees a vocabulary it knows — an unmapped native name falls through to `data.event`, which
+			// that function's `default` already resolves to `idle`. Deliberately NOT a skip: unlike the
+			// live path, nothing here switches exhaustively on the name, and dropping the record would
+			// hide a real session whose last event simply has no canonical analogue.
+			const canonicalEvent = resolveCanonicalHookEvent(capabilities, data.event) ?? data.event;
+			// Same translation for the record's tool name — `classifyPermissionKind` and the display
+			// detail expect canonical names.
+			const polledToolName =
+				data.toolName != null ? resolveCanonicalToolName(capabilities, data.toolName) : undefined;
 
 			const effectiveStatus = data.status ?? 'active';
 
@@ -2999,7 +3163,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							changed = true;
 						}
 						keptAlive.push(`${data.sessionId.substring(0, 8)}:${nextStatus}`);
-						polledAlive.add(data.sessionId);
+						polledAlive.set(data.sessionId, capabilities.providerId);
 					} else if (this._sessions[existingIndex].status !== 'ended') {
 						// Already tracked, and Claude no longer lists it as live. If the live path missed the
 						// SessionEnd (e.g. `/clear` kept the PID alive under a new id), transition it to
@@ -3114,8 +3278,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// the live cwd's git probe resolves it.
 					this._sessions.push({
 						id: data.sessionId,
-						providerId: this.id,
-						providerName: this.name,
+						providerId: capabilities.providerId,
+						providerName: capabilities.displayName,
 						name: data.sessionName || undefined,
 						status: liveStatus,
 						phase: getPhaseForStatus(liveStatus),
@@ -3149,9 +3313,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						this.getBookkeeping(data.sessionId).supersededRecordCwd = data.cwd;
 					}
 					changed = true;
-					discovered++;
+					noteDiscovered(capabilities.providerId);
 					keptAlive.push(`${data.sessionId.substring(0, 8)}:${liveStatus}`);
-					polledAlive.add(data.sessionId);
+					polledAlive.set(data.sessionId, capabilities.providerId);
 					if (liveCwdMoved || recordWorktreeRoot == null) {
 						void this.resolveGitInfo(data.sessionId, currentCwd);
 					}
@@ -3161,8 +3325,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 				this._sessions.push({
 					id: data.sessionId,
-					providerId: this.id,
-					providerName: this.name,
+					providerId: capabilities.providerId,
+					providerName: capabilities.displayName,
 					name: data.sessionName || undefined,
 					status: 'ended',
 					phase: 'ended',
@@ -3212,7 +3376,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// Active / legacy (absent-status) path — only genuinely-live processes are discoverable.
 			if (!data.pid || !isProcessAlive(data.pid)) continue;
 
-			polledAlive.add(data.sessionId);
+			polledAlive.set(data.sessionId, capabilities.providerId);
 			polledIds.add(data.sessionId);
 
 			if (known.has(data.sessionId)) {
@@ -3223,7 +3387,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					// The status the CLI's last event implies — a resumed session may already be mid-work
 					// (`PreToolUse` → tool_use, `UserPromptSubmit` → thinking), and hardcoding `idle` would
 					// mislabel active work and risk a concurrent-write resume.
-					const polledStatus = deriveStatusFromEvent(data.event);
+					const polledStatus = deriveStatusFromEvent(canonicalEvent);
 					const isSynthesizedAsk =
 						existing.status === 'permission_requested' && existing.pendingPermission?.resolvable === false;
 					const liveEntry = isSynthesizedAsk ? liveSessions?.get(data.sessionId) : undefined;
@@ -3258,7 +3422,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// the row shows what it's waiting on instead of an empty "Needs input" card.
 						const revivedPendingPermission =
 							polledStatus === 'permission_requested'
-								? synthesizeUnresolvableAsk(data.toolName, data.planFile ?? undefined)
+								? synthesizeUnresolvableAsk(polledToolName, data.planFile ?? undefined)
 								: undefined;
 						// Seat worktreePath from the record, mirroring the ended-record re-seat above — the
 						// existing row is otherwise stuck with whatever (or nothing) it had while ended.
@@ -3334,7 +3498,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							// The detail described the ask's tool; carry the record's current tool for
 							// tool_use, else clear — keeping it would show the answered ask's tool as
 							// the active one.
-							statusDetail: polledStatus === 'tool_use' ? (data.toolName ?? undefined) : undefined,
+							statusDetail: polledStatus === 'tool_use' ? polledToolName : undefined,
 							pendingPermission: undefined,
 							lastActivity: new Date(data.updatedAt),
 						};
@@ -3374,7 +3538,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			const workspacePath = this.resolveWorkspacePath(data.cwd);
 			const isInWorkspace = workspacePath != null;
 			const activityDate = new Date(data.updatedAt);
-			let status = deriveStatusFromEvent(data.event);
+			let status = deriveStatusFromEvent(canonicalEvent);
 			let phaseSince = activityDate;
 			// The record's last event can be arbitrarily stale — an ask answered while no window
 			// was listening (e.g. mid-reload), or a session stopped right there, never advances it,
@@ -3401,7 +3565,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			// poll-discovered ask, so synthesize an unresolvable one for the card.
 			const pendingPermission =
 				status === 'permission_requested'
-					? synthesizeUnresolvableAsk(data.toolName, data.planFile ?? undefined)
+					? synthesizeUnresolvableAsk(polledToolName, data.planFile ?? undefined)
 					: undefined;
 			// Read straight from the CLI's durable record so the row attaches to the right branch
 			// card/WIP row immediately, no git probe — mirrors the ended-session push below.
@@ -3409,8 +3573,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			const subagents: AgentSession[] | undefined = data.subagents?.map(sub => ({
 				id: sub.agentId,
-				providerId: this.id,
-				providerName: this.name,
+				providerId: capabilities.providerId,
+				providerName: capabilities.displayName,
 				name: sub.agentType ?? 'Subagent',
 				status: 'thinking',
 				phase: 'working' as const,
@@ -3423,8 +3587,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 			this._sessions.push({
 				id: data.sessionId,
-				providerId: this.id,
-				providerName: this.name,
+				providerId: capabilities.providerId,
+				providerName: capabilities.displayName,
 				name: data.sessionName || undefined,
 				status: status,
 				phase: phase,
@@ -3454,7 +3618,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				),
 			});
 			changed = true;
-			discovered++;
+			noteDiscovered(capabilities.providerId);
 
 			// The record's worktree is the CLI's own resolution — mark it seated so the probe below
 			// (still wanted for `commonPath`) can't clobber it for a nested worktree. Mirrors the
@@ -3498,7 +3662,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		if (liveSessions != null) {
 			Logger.debug(
-				`ClaudeCodeProvider.syncSessions: Claude lists ${liveSessions.size} session(s); kept ${keptAlive.length} alive against a stale ended record${
+				`GkAgentProvider.syncSessions: Claude lists ${liveSessions.size} session(s); kept ${keptAlive.length} alive against a stale ended record${
 					keptAlive.length > 0 ? `: ${keptAlive.join(', ')}` : ''
 				}`,
 			);
@@ -3518,20 +3682,38 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		// live sessions we still track that the poll no longer reports alive (a teardown the live path
 		// missed, e.g. an agent killed without firing `SessionEnd`).
 		if (options?.gate) {
-			let missing = 0;
-			for (const id of trackedLiveBefore) {
+			type Drift = { discovered: number; missing: number; polled: number; tracked: number };
+			const driftByAgent = new Map<string, Drift>();
+			const driftFor = (providerId: string): Drift => {
+				let drift = driftByAgent.get(providerId);
+				if (drift == null) {
+					drift = { discovered: 0, missing: 0, polled: 0, tracked: 0 };
+					driftByAgent.set(providerId, drift);
+				}
+				return drift;
+			};
+
+			for (const [providerId, count] of discoveredByAgent) {
+				driftFor(providerId).discovered += count;
+			}
+			for (const [id, providerId] of trackedLiveBefore) {
+				const drift = driftFor(providerId);
+				drift.tracked++;
 				if (!polledAlive.has(id)) {
-					missing++;
+					drift.missing++;
 				}
 			}
-			if (discovered > 0 || missing > 0) {
-				this.callbacks.onSyncDiscrepancy?.({
-					provider: this.id,
-					discovered: discovered,
-					missing: missing,
-					polled: polledAlive.size,
-					tracked: trackedLiveBefore.size,
-				});
+			for (const providerId of polledAlive.values()) {
+				driftFor(providerId).polled++;
+			}
+
+			// One report per agent, not one pooled report: the counts describe how well the live path
+			// and the poll agree, which is a per-agent property. A single agent's numbers are unchanged
+			// from the pre-multi-agent shape.
+			for (const [providerId, drift] of driftByAgent) {
+				if (drift.discovered === 0 && drift.missing === 0) continue;
+
+				this.callbacks.onSyncDiscrepancy?.({ provider: providerId, ...drift });
 			}
 		}
 	}
@@ -3803,7 +3985,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						});
 						if (!response.ok) {
 							Logger.warn(
-								`ClaudeCodeProvider.notifyPeerOpenSession: peer at ${discovery.address} returned ${response.status}`,
+								`GkAgentProvider.notifyPeerOpenSession: peer at ${discovery.address} returned ${response.status}`,
 							);
 						} else {
 							// Log a peer that failed to open the specific session, but still treat it
@@ -3814,7 +3996,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 								| undefined;
 							if (body?.opened === false) {
 								Logger.warn(
-									`ClaudeCodeProvider.notifyPeerOpenSession: peer at ${discovery.address} could not open session ${sessionId}`,
+									`GkAgentProvider.notifyPeerOpenSession: peer at ${discovery.address} could not open session ${sessionId}`,
 								);
 							}
 						}
@@ -3823,7 +4005,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 						// Peer advertised but unreachable (timeout, RST, etc.). Treat as no match so
 						// the caller opens a new window instead of trying to focus a dead window.
 						Logger.warn(
-							`ClaudeCodeProvider.notifyPeerOpenSession: peer at ${discovery.address} unreachable: ${
+							`GkAgentProvider.notifyPeerOpenSession: peer at ${discovery.address} unreachable: ${
 								ex instanceof Error ? ex.message : String(ex)
 							}`,
 						);

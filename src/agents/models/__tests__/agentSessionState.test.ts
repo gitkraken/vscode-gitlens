@@ -210,6 +210,7 @@ suite('serializePastAgentSession', () => {
 	test('keeps the provider identity needed to manage an untracked transcript', () => {
 		const session: AgentSessionHistoryItem = {
 			id: 'session-1',
+			providerId: 'claudeCode',
 			disposition: 'ended',
 			actions: { resume: { cwd: '/repo/worktree' }, archive: true },
 			lastActivity: new Date(1234),
