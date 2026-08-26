@@ -13,7 +13,7 @@ import type {
 import type { SubscriptionService } from '../../../rpc/services/subscription.js';
 import type { Disposable } from '../events.js';
 import { subscribeAll } from '../events/subscriptions.js';
-import type { ReadableSignal } from '../state.js';
+import type { ReadableSignal } from '../state/signals.js';
 
 /** The promos service as seen over the webview's RPC session (its methods proxied to promises). */
 type RemoteApplicablePromoService = Awaited<Remote<{ promos: ApplicablePromoService }>['promos']>;

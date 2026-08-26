@@ -1,7 +1,7 @@
 import './timeline.scss';
 import type { Remote, Subscription } from '@eamodio/supertalk';
 import { html, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, query } from 'lit/decorators.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
 import type {
 	TimelineDatasetResult,
@@ -47,9 +47,6 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		compactBreadcrumbsConsumerStyles,
 	];
 
-	@property({ type: String, noAccessor: true })
-	private context!: string;
-
 	@query('#chart')
 	private _chart?: GlTimelineChart;
 
@@ -84,9 +81,7 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		this.consumeContext();
 	}
 
 	override disconnectedCallback(): void {

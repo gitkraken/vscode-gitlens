@@ -125,11 +125,10 @@ export class SubscriptionTracker implements Disposable {
 
 	/**
 	 * True once `session` is known to be released — see {@link _releasedSessions} for exactly which
-	 * sessions that is (and, just as importantly, which it deliberately is NOT). An async
-	 * subscription method checks this AFTER its `await` (alongside the existing {@link epoch} check,
-	 * which covers reset/disposal instead) so a session invalidated while a resource was
-	 * mid-acquisition doesn't get its late registration reintroduced. `undefined` never counts as
-	 * released — there's no identity to track.
+	 * sessions that is (and, just as importantly, which it deliberately is NOT). `undefined` never
+	 * counts as released — there's no identity to track. For when an ASYNC subscription method must
+	 * check this (and the capture/reserve ordering that makes the answer reliable), see
+	 * {@link reserveSession}.
 	 */
 	isSessionReleased(session: number | undefined): boolean {
 		return session != null && this._releasedSessions.has(session);
@@ -195,16 +194,7 @@ export class SubscriptionTracker implements Disposable {
 			this._releasedSessions.add(previous);
 		}
 
-		for (const registrations of this._registrationSets) {
-			for (const registration of registrations) {
-				if (registration.session !== session) {
-					if (registration.session != null) {
-						this._releasedSessions.add(registration.session);
-					}
-					registration.release();
-				}
-			}
-		}
+		this.releaseMatching(registration => registration.session !== session);
 
 		for (const reserved of this._reservedSessions.keys()) {
 			if (reserved !== session) {
@@ -222,10 +212,20 @@ export class SubscriptionTracker implements Disposable {
 	releaseSession(session: number | undefined): void {
 		if (session == null) return;
 
+		// Added up front, not just via the scan — the session may have nothing registered yet.
 		this._releasedSessions.add(session);
+		this.releaseMatching(registration => registration.session === session);
+	}
+
+	/** The shared release scan: releases — and tombstones — every registration matching `matches`,
+	 *  across every watched registration set. See {@link releaseAllExcept}/{@link releaseSession}. */
+	private releaseMatching(matches: (registration: EventRegistration) => boolean): void {
 		for (const registrations of this._registrationSets) {
 			for (const registration of registrations) {
-				if (registration.session === session) {
+				if (matches(registration)) {
+					if (registration.session != null) {
+						this._releasedSessions.add(registration.session);
+					}
 					registration.release();
 				}
 			}
@@ -388,25 +388,19 @@ export interface EventRegistration {
  *
  * A SYNCHRONOUS subscription method (the common case: this call is itself the RPC dispatch target,
  * with no `await` before it) omits `session` — the helper reads {@link SubscriptionTracker.callerSession}
- * itself, since at this point it's still reliably the live caller's. An ASYNC subscription method
- * (one that awaits resource acquisition before calling this — see
- * `RepositoryService.onRepositoryOrWorktreeChanged`) MUST capture `callerSession` before its own
- * first `await` and pass it explicitly: `tracker.callerSession` is unreliable by the time an async
- * caller reaches this call (see that getter's doc comment), so re-reading it here would attribute
- * the registration to whatever happens to be dispatching NOW instead of the caller that made it.
+ * itself, still reliably the live caller's at this point. An ASYNC subscription method MUST instead
+ * capture the session before its own first `await`, reserve it, and pass the capture explicitly —
+ * the full contract (why, and the `try/finally` handle ownership) lives on
+ * {@link SubscriptionTracker.reserveSession}; `RepositoryService.onRepositoryOrWorktreeChanged` is
+ * the reference implementation.
  *
  * Either way, the resolved session is checked immediately before attaching: if it's already
  * released (superseded at validation, or rejected as a straggler — see
  * {@link SubscriptionTracker.isSessionReleased}), `attach()` still runs — its resource needs a
  * teardown to call, not to leak — but the result is torn down immediately instead of installed.
- * This is what closes the gap an async caller's own pre-await guard can't: a session released
- * WHILE the resource was mid-acquisition is caught here regardless — PROVIDED the async caller
- * called {@link SubscriptionTracker.reserveSession} before its own first `await`, which is what
- * makes it visible to a validation landing before this call is reached. The caller owns its
- * reservation handle and releases it itself, on every exit path, AFTER this call returns (a
- * `try/finally` around the whole acquisition) — this helper never touches reservations, since a
- * synchronous same-session registration clearing an unrelated in-flight acquisition's reservation
- * would reopen exactly the gap the reservation exists to close.
+ * This helper never touches reservations: the async caller releases its own handle AFTER this call
+ * returns, since a synchronous same-session registration clearing an unrelated in-flight
+ * acquisition's reservation would reopen exactly the gap the reservation exists to close.
  *
  * ```ts
  * const tracked = trackRpcRegistration(registrations, tracker, () => {
@@ -488,14 +482,11 @@ export interface RpcEvent<T> {
  * `.subscribe`: each new handler is immediately invoked with the current truth (when defined),
  * through the same visibility-buffered path a live fire takes.
  *
- * Registrations are session-scoped (see {@link SubscriptionTracker.callerSession}): once the
- * tracker's owning client is VALIDATED, its session supersedes — disposes — every other session's
- * registration for this event (see {@link SubscriptionTracker.releaseAllExcept}), but concurrent
- * same-session registrations (e.g. two genuine subscribers) both stay live. The `registrations`
- * set lives at this level rather than inside `subscribe`, so registrations made via different
- * `.subscribe(buffer, tracker)` bags still supersede each other. Superseding is deferred past the
- * new `subscribe(...)` call (see {@link SubscriptionTracker.releaseAllExcept} for why) — briefly,
- * both the old and new session's handlers are live and a fired event reaches both.
+ * Registrations are session-scoped — a validated session supersedes every other session's
+ * registration, while concurrent same-session subscribers stay live; see
+ * {@link SubscriptionTracker.releaseAllExcept} for the full contract. The `registrations` set lives
+ * at this level rather than inside `subscribe`, so registrations made via different
+ * `.subscribe(buffer, tracker)` bags still supersede each other.
  *
  * @param key - Logical event key for visibility buffering pending entries
  * @param mode - `'save-last'` replays latest data; `'signal'` replays `signalValue`
@@ -549,13 +540,10 @@ export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', sig
  *
  * For custom patterns (aggregation, handler maps, replay-on-subscribe), use `bufferEventHandler` directly.
  *
- * Registrations are session-scoped (see {@link SubscriptionTracker.callerSession}): once the
- * tracker's owning client is VALIDATED, its session supersedes — disposes — every other session's
- * registration for this event (see {@link SubscriptionTracker.releaseAllExcept}), but concurrent
- * same-session registrations (e.g. two genuine subscribers) both stay live. Superseding is
- * deferred past the new `subscribe(...)` call — briefly, a source that only supports one live
- * listener sees two attached at once; see {@link SubscriptionTracker.releaseAllExcept} for why
- * that's the safer trade.
+ * Registrations are session-scoped — see {@link SubscriptionTracker.releaseAllExcept} for the full
+ * contract. One consequence specific to this factory: superseding is deferred past the new
+ * `subscribe(...)` call, so a source that only supports one live listener briefly sees two attached
+ * at once — the safer trade (see that method for why).
  *
  * @param buffer - Optional visibility buffer (undefined = no buffering)
  * @param key - Logical event key used to create a per-subscription pending entry

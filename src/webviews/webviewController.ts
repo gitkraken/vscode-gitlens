@@ -188,7 +188,7 @@ export class WebviewController<
 	private _refreshing: Promise<void> | undefined;
 	private _lastRefreshCompletedAt = 0;
 
-	/** Used to cancel pending ipc promise operations */
+	/** Cancels in-flight host operations (html builds, refreshes) on reload/reconnect/teardown. */
 	private cancellation: CancellationTokenSource | undefined;
 	private disposable: Disposable | undefined;
 	private _isInEditor: boolean;
@@ -482,20 +482,17 @@ export class WebviewController<
 			return Promise.resolve();
 		}
 
-		// Identity gate: while establishing or re-establishing the active client (not yet healthy),
-		// only the session RpcHost actually SERVED may validate. Without this, whichever caller's
-		// connect() call happens to land first would become "the" active client — including an
-		// interloper whose announcement was ignored (see `RpcHost.armAnnouncementTap`) but who still
-		// got a resolved handshake off the re-posted frame. A live-healthy client's own remount
-		// skips this: its announcement is deliberately left unserved (see the same tap), so its
-		// session never becomes the pending one — the clientId check below covers it instead.
+		// Identity gate: while not yet healthy, only the session RpcHost actually SERVED may validate
+		// (see `_sessionState`) — otherwise whichever caller's connect() lands first would become
+		// "the" active client, including an interloper whose ignored announcement still got a
+		// resolved handshake off the re-posted frame. A live-healthy client's own re-boot skips this
+		// gate (its announcement was left unserved, so it never becomes the pending session) and is
+		// covered by the clientId check below instead.
 		//
-		// `none` rejects UNCONDITIONALLY, regardless of whether `callerSession` happens to match
-		// `pendingServedSession` — that value is only meaningful during `served-awaiting-validation`;
-		// once invalidated (`invalidateSession()` clears it too, belt-and-suspenders) nothing has
-		// been served since, so no caller has anything legitimate to validate against. Without this,
-		// a late call from the client served just before an html reload/dispose/hide could still
-		// match a stale `pendingServedSession` and validate against the now-invalidated controller.
+		// `none` rejects UNCONDITIONALLY, even on a `pendingServedSession` match — that value is
+		// only meaningful during `served-awaiting-validation`, and `invalidateSession()` clears it
+		// as well (belt-and-suspenders): a late call from the client served just before an html
+		// reload/dispose/hide must not validate against the now-invalidated controller.
 		const servedSessionValidated =
 			this._sessionState === 'served-awaiting-validation' &&
 			callerSession === this._rpcHost?.pendingServedSession;

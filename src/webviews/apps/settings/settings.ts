@@ -3,7 +3,7 @@ import type { Remote, Subscription } from '@eamodio/supertalk';
 import { subscribe } from '@eamodio/supertalk';
 import { ContextProvider, provide } from '@lit/context';
 import { html, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
 import type { SettingsServices } from '../../settings/settingsService.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
@@ -38,9 +38,6 @@ function navSnap({ pos, size }: { pos: number; size: number }): number {
 @customElement('gl-settings-app')
 export class GlSettingsApp extends SignalWatcherWebviewApp {
 	static override styles = [settingsAppStyles];
-
-	@property({ type: String, noAccessor: true })
-	private context!: string;
 
 	@query('#search')
 	private _search?: HTMLInputElement;
@@ -82,9 +79,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		this.consumeContext();
 
 		window.addEventListener('keydown', this.handleGlobalKeyDown);
 	}

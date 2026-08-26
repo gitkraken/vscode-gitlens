@@ -1,7 +1,7 @@
 import type { Signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import type { IntegrationStateInfo } from '../../../rpc/services/types.js';
-import { createSignalGroup } from '../state.js';
+import { createSignalGroup } from '../state/signals.js';
 
 export interface IntegrationsState {
 	readonly integrations: Signal.State<IntegrationStateInfo[]>;

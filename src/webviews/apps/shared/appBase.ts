@@ -47,6 +47,9 @@ export abstract class GlWebviewApp extends GlElement {
 	@property({ type: String }) name!: string;
 	@property({ type: String }) placement: 'editor' | 'view' | 'panel' = 'editor';
 
+	/** The one-shot bootstrap context attribute (the `#{state}` token value) — see {@link consumeContext}. */
+	@property({ type: String, noAccessor: true }) protected context!: string;
+
 	@provide({ context: loggerContext })
 	protected _logger!: LoggerContext;
 
@@ -139,6 +142,16 @@ export abstract class GlWebviewApp extends GlElement {
 	protected consumeOneShotAttribute(value: string): string {
 		this._oneShotAttributeRaw ??= value;
 		return this._oneShotAttributeRaw;
+	}
+
+	/** Consumes the one-shot `context` bootstrap attribute and initializes `_webview` from it —
+	 *  the preamble every app root runs first in `connectedCallback`. Returns the decoded context
+	 *  string so subclasses can also parse their own bootstrap metadata from it. */
+	protected consumeContext(): string {
+		const context = this.consumeOneShotAttribute(this.context);
+		this.context = undefined!;
+		this.initWebviewContext(context);
+		return context;
 	}
 
 	override disconnectedCallback(): void {

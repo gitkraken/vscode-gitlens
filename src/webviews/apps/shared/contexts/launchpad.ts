@@ -1,7 +1,7 @@
 import type { Signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../../plus/launchpad/launchpadIndicator.js';
-import { createSignalGroup } from '../state.js';
+import { createSignalGroup } from '../state/signals.js';
 
 /** Structural interface for the launchpad service — not coupled to a specific RPC type. */
 export interface LaunchpadService {

@@ -2,7 +2,7 @@ import { signal as litSignal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import type { Subscription } from '../../../../plus/gk/models/subscription.js';
 import type { AiUsageInfo, OrgSettings } from '../../../rpc/services/types.js';
-import type { ReadableSignal } from '../state.js';
+import type { ReadableSignal } from '../state/signals.js';
 
 /** Subscription-related state provided by the host via RemoteSignals. */
 export interface SubscriptionContextState {

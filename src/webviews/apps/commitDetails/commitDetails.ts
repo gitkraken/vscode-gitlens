@@ -1,7 +1,7 @@
 import './commitDetails.scss';
 import type { Remote, Subscription } from '@eamodio/supertalk';
 import { html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { StashApplyCommandArgs } from '../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../config.js';
@@ -41,9 +41,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	protected override createRenderRoot(): HTMLElement {
 		return this;
 	}
-
-	@property({ type: String, noAccessor: true })
-	private context!: string;
 
 	// ── Host abstraction ──
 	private _host = getHost();
@@ -86,9 +83,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		this.consumeContext();
 	}
 
 	override disconnectedCallback(): void {

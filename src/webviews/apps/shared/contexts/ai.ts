@@ -1,7 +1,7 @@
 import type { Signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import type { AiModelInfo, AIState } from '../../../rpc/services/types.js';
-import { createSignalGroup } from '../state.js';
+import { createSignalGroup } from '../state/signals.js';
 
 export interface AIContextState {
 	readonly model: Signal.State<AiModelInfo | undefined>;

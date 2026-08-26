@@ -70,9 +70,6 @@ import '../shared/components/gl-error-banner.js';
 export class GlHomeApp extends SignalWatcherWebviewApp {
 	static override styles = [homeBaseStyles, scrollableBase, homeStyles];
 
-	@property({ type: String, noAccessor: true })
-	private context!: string;
-
 	@property({ type: String }) webroot?: string;
 
 	// ── Domain states ──
@@ -282,9 +279,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		this.consumeContext();
 
 		// Create context providers for child components — once per element lifetime: a provider
 		// attaches host listeners that nothing detaches, so re-creating them on a startup-churn

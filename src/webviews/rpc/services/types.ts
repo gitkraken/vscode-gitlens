@@ -68,15 +68,6 @@ export interface SerializedRepository {
 }
 
 /**
- * Serialized commit reference for RPC.
- */
-export interface SerializedCommitRef {
-	readonly repoPath: string;
-	readonly sha: string;
-	readonly message?: string;
-}
-
-/**
  * Repository change event data.
  *
  * `changes` contains numeric values matching the `RepositoryChange` const enum.

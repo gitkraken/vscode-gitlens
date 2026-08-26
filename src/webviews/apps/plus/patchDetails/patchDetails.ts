@@ -1,9 +1,8 @@
 /*global*/
 import './patchDetails.scss';
-import type { Remote, Subscription } from '@eamodio/supertalk';
-import { subscribe } from '@eamodio/supertalk';
+import type { Remote } from '@eamodio/supertalk';
 import { html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { ViewFilesLayout } from '../../../../config.js';
@@ -25,13 +24,13 @@ import type {
 	PatchDetailsStateChangedEvent,
 	PatchDetailsViewService,
 } from '../../../rpc/patchDetailsService.js';
-import { SeedBuffer } from '../../shared/actions/seedBuffer.js';
 import { SignalWatcherWebviewApp } from '../../shared/appBase.js';
 import { DOM } from '../../shared/dom.js';
 import type { Disposable } from '../../shared/events.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { getHost } from '../../shared/host/context.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
+import { SubscribeThenSeed } from '../../shared/rpc/subscribeThenSeed.js';
 import { createSignalGroup } from '../../shared/state/signals.js';
 import type {
 	ApplyPatchDetail,
@@ -66,22 +65,14 @@ export type FileChangeListItemDetail = ExecuteFileActionParams;
 
 @customElement('gl-patch-details-root')
 export class PatchDetailsApp extends SignalWatcherWebviewApp {
-	@property({ type: String, noAccessor: true })
-	private context!: string;
-
 	private _host = getHost();
 
 	/** Instance-owned ephemeral state — reseeded from the bootstrap on every mount. */
 	private readonly _state = createPatchDetailsAppState();
 
-	/**
-	 * RPC event subscription — released at disconnect (the subscriber closes over this mount's
-	 * state) and recreated per ready against the new session.
-	 */
-	private _eventsSubscription?: Subscription;
-
-	/** Buffers event applications while the subscribe-then-query seed is in flight — see {@link SeedBuffer}. */
-	private readonly _seedBuffer = new SeedBuffer();
+	/** Subscribe-then-seed choreography — released at disconnect and rerun per ready against the
+	 *  new session (the subscriber closes over this mount's state). */
+	private readonly _seed = new SubscribeThenSeed<PatchDetailsServices>();
 
 	/** The resolved view-specific service — set per ready; UI handlers are no-ops before then. */
 	private _patchDetails?: Awaited<Remote<PatchDetailsServices>['patchDetails']>;
@@ -104,9 +95,7 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		const context = this.consumeContext();
 
 		// Document-delegated component events — the same wiring the legacy app had in onBind()
 		this.disposables.push(...this.bindDomEvents());
@@ -120,13 +109,11 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 		// Unsubscribe before resetting state: the retained handle would otherwise re-issue its
 		// subscriber — which closes over the reset state — on the next handshake. A fresh
 		// subscription is created per ready anyway, so nothing is lost by releasing it here.
-		this._eventsSubscription?.unsubscribe();
-		this._eventsSubscription = undefined;
-		this._patchDetails = undefined;
-		this._commands = undefined;
 		// A seed still in flight belongs to this mount's buffer; stranding it here means its
 		// deferred applications must not touch the next mount.
-		this._seedBuffer.reset();
+		this._seed.reset();
+		this._patchDetails = undefined;
+		this._commands = undefined;
 
 		this._explainAbort?.abort();
 		this._explainAbort = undefined;
@@ -149,58 +136,47 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 
 		this._promos.connect(this._rpc.connection!);
 
-		// Subscribe to events FIRST so changes during startup aren't missed — synchronous:
-		// `subscribe()` buffers the wire subscribe until the connection's handshake completes.
-		// Recreated per ready (not `??=`): the subscriber closes over this mount's state.
-		this._eventsSubscription?.unsubscribe();
-		this._eventsSubscription = subscribe<PatchDetailsServices>(this._rpc.connection!, async remoteServices => {
-			const svc = await remoteServices.patchDetails;
+		// Subscribe to events FIRST so changes during startup aren't missed, then fetch and apply the
+		// authoritative snapshot: pushes emitted before this element generation die with the old
+		// session (save-last buffers only for connected subscribers), and the one-shot bootstrap
+		// attribute can be stale after an in-place remount. See `SubscribeThenSeed`'s docs for how
+		// buffering guarantees the final state reflects every event in order instead of racing the
+		// response.
+		await this._seed.run({
+			connection: this._rpc.connection!,
+			subscriber: async remoteServices => {
+				const svc = await remoteServices.patchDetails;
 
-			return subscribeAll([
-				() =>
-					svc.onStateChanged(state => {
-						this.onStateChanged(state);
-					}),
-				() =>
-					svc.onCreateChanged(event => {
-						this.onCreateChanged(event.mode, event.create);
-					}),
-				() =>
-					svc.onDraftChanged(event => {
-						this.onDraftChanged(event.mode, event.draft);
-					}),
-				() =>
-					svc.onPreferencesChanged(event => {
-						this.onPreferencesChanged(event.preferences);
-					}),
-				() =>
-					svc.onPatchRepositoryChanged(event => {
-						this.onPatchRepositoryChanged(event.patch);
-					}),
-			]);
+				return subscribeAll([
+					() =>
+						svc.onStateChanged(state => {
+							this.onStateChanged(state);
+						}),
+					() =>
+						svc.onCreateChanged(event => {
+							this.onCreateChanged(event.mode, event.create);
+						}),
+					() =>
+						svc.onDraftChanged(event => {
+							this.onDraftChanged(event.mode, event.draft);
+						}),
+					() =>
+						svc.onPreferencesChanged(event => {
+							this.onPreferencesChanged(event.preferences);
+						}),
+					() =>
+						svc.onPatchRepositoryChanged(event => {
+							this.onPatchRepositoryChanged(event.patch);
+						}),
+				]);
+			},
+			seed: () => patchDetails.getState(),
+			// Apply the snapshot DIRECTLY (not via onStateChanged/the seed buffer): events buffered
+			// while it was pending are newer than it, and replaying them after the direct apply is
+			// what converges state — routing the seed through the buffer would order the older
+			// snapshot last and clobber them.
+			applySeed: state => this.setState(state),
 		});
-
-		// Subscribe-then-query seed: pushes emitted before this element generation die with the
-		// old session (save-last buffers only for connected subscribers), and the one-shot
-		// bootstrap attribute can be stale after an in-place remount — fetch the authoritative
-		// snapshot now that events are armed so nothing is missed. The query awaits repository
-		// work, so slice events can land while it is pending; those are buffered (starting now,
-		// since even pre-query events may be newer than the snapshot) and replayed AFTER the
-		// snapshot — guaranteeing the final state reflects every event in order instead of
-		// racing the response.
-		this._seedBuffer.start();
-		await this._eventsSubscription.ready;
-		const state = await patchDetails.getState();
-		// This mount may have torn down while the query was pending — a dead seed must not
-		// apply (or drain) anything into whatever replaced it.
-		if (this._patchDetails !== patchDetails) return;
-
-		// Apply the snapshot DIRECTLY (not via onStateChanged/the seed buffer): events buffered
-		// while it was pending are newer than it, and replaying them after the direct apply is
-		// what converges state — routing the seed through the buffer would order the older
-		// snapshot last and clobber them.
-		this.setState(state);
-		this._seedBuffer.drain();
 	}
 
 	// ------------------------------------------------------------------
@@ -211,23 +187,23 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 	// ------------------------------------------------------------------
 
 	private onStateChanged(state: PatchDetailsStateChangedEvent): void {
-		this._seedBuffer.during(() => this.setState(state));
+		this._seed.during(() => this.setState(state));
 	}
 
 	private onCreateChanged(mode: Mode, create: PatchDetailsCreateChangedEvent['create']): void {
-		this._seedBuffer.during(() => this.setState({ ...this.getState(), mode: mode, create: create }));
+		this._seed.during(() => this.setState({ ...this.getState(), mode: mode, create: create }));
 	}
 
 	private onDraftChanged(mode: Mode, draft: PatchDetailsDraftChangedEvent['draft']): void {
-		this._seedBuffer.during(() => this.setState({ ...this.getState(), mode: mode, draft: draft }));
+		this._seed.during(() => this.setState({ ...this.getState(), mode: mode, draft: draft }));
 	}
 
 	private onPreferencesChanged(preferences: PatchDetailsPreferencesChangedEvent['preferences']): void {
-		this._seedBuffer.during(() => this.setState({ ...this.getState(), preferences: preferences }));
+		this._seed.during(() => this.setState({ ...this.getState(), preferences: preferences }));
 	}
 
 	private onPatchRepositoryChanged(patch: PatchDetailsPatchRepositoryChangedEvent['patch']): void {
-		this._seedBuffer.during(() => {
+		this._seed.during(() => {
 			const state = this.getState();
 			const patches = state.draft?.patches;
 			if (patches == null) return;

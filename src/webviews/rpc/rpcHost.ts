@@ -56,12 +56,10 @@ export interface RpcHostOptions {
 	onClientSession?: () => void;
 
 	/**
-	 * Consulted BEFORE serving an announcement (resetting tracked subscriptions and swapping the
-	 * exposed connection). When it returns `false` — i.e. a validated session is already live and
-	 * healthy — the announcement is treated as a duplicate or a stale generation's late arrival:
-	 * the swap is skipped so the live session's event subscriptions survive, and the host
-	 * re-posts its handshake announcement so any legitimately-waiting client still unblocks
-	 * (duplicate announcements are inert to clients whose handshake slot is already consumed).
+	 * Consulted BEFORE serving an announcement (which resets tracked subscriptions and swaps the
+	 * exposed connection). `false` — a validated session is already live — skips the swap so the
+	 * live session's subscriptions survive, re-posting the captured handshake so a genuine waiter
+	 * still unblocks. The full session state machine lives on `WebviewController._sessionState`.
 	 */
 	shouldServeSession?: () => boolean;
 
@@ -234,13 +232,12 @@ export class RpcHost<TServices extends object> implements Disposable {
 			const announce = extractAnnounceMessage(event.data);
 			if (announce == null) return;
 
-			// A validated session is already live: this announcement is an element remount (or,
-			// hypothetically, a stray duplicate — none has a production producer). The connection
-			// is long-lived by design, so this path swaps nothing and `_pendingServedSession` is
-			// left untouched — event sources supersede the replayed registration once the
-			// remount's OWN `connect()` validates it (attributed by its own caller session, not
-			// this announcement). Re-post the captured handshake frame so the announcer's pending
-			// wait resolves against the live services.
+			// A validated session is already live (see `WebviewController._sessionState`): this
+			// announcement is a same-connection re-boot — an element remount or an in-place iframe
+			// reload — so this path swaps nothing and `_pendingServedSession` is left untouched;
+			// the re-booted client is validated (and its predecessor superseded) by its own
+			// `connect()`. Re-post the captured handshake frame so the announcer's pending wait
+			// resolves against the live services.
 			if (this.options?.shouldServeSession?.() === false) {
 				Logger.debug(`${this.logPrefix}: session announcement ignored — re-announcing on live connection`);
 				if (this._lastAnnounceMessage != null) {

@@ -64,6 +64,7 @@ import { bufferEventHandler, toEventNotifier, trackRpcRegistration } from '../ev
 import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
 import { classifyFilesForDiscard, discardOneWith } from './discard.utils.js';
+import { createRepositoryChangeAggregator } from './repositoryChangeAggregator.js';
 import type {
 	CommitAvatarsShape,
 	CommitSignatureShape,
@@ -131,36 +132,21 @@ export class RepositoryService {
 	 */
 	onRepositoryChanged(repoPath: string, callback: (data: RepositoryChangeEventData) => void): Unsubscribe {
 		const pendingKey = Symbol(`repositoryChanged:${repoPath}`);
-		const pendingChanges = new Set<RepositoryChange>();
-		let pendingUri: string | undefined;
 		const notifier = toEventNotifier(callback);
+		const aggregator = createRepositoryChangeAggregator(this.buffer, pendingKey, notifier);
 
 		return trackRpcRegistration(this.#repositoryChangedRegistrations, this.tracker, () => {
 			const disposable = this.container.git.onDidChangeRepository(e => {
 				if (e.repository.path !== repoPath) return;
 
-				const data: RepositoryChangeEventData = {
+				aggregator.record({
 					repoPath: e.repository.path,
 					repoUri: e.repository.uri.toString(),
 					changes: extractRepositoryChanges(e),
-				};
-				if (!this.buffer || this.buffer.visible) {
-					notifier(data);
-				} else {
-					pendingUri = data.repoUri;
-					for (const c of data.changes) {
-						pendingChanges.add(c);
-					}
-					this.buffer.addPending(pendingKey, () => {
-						notifier({ repoPath: repoPath, repoUri: pendingUri!, changes: [...pendingChanges] });
-						pendingChanges.clear();
-						pendingUri = undefined;
-					});
-				}
+				});
 			});
 			return () => {
-				this.buffer?.removePending(pendingKey);
-				pendingChanges.clear();
+				aggregator.dispose();
 				disposable.dispose();
 			};
 		});

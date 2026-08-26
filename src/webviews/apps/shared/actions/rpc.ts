@@ -24,6 +24,12 @@ export function isConnectionClosedError(ex: unknown): ex is ConnectionClosedErro
 	return ex instanceof ConnectionClosedError;
 }
 
+/** Shared warn-level logging for the `noop`/`noopUnlessReal` rejection handlers below. */
+function warnRejection(ex: unknown, handlerName: string): void {
+	const msg = ex instanceof Error ? ex.message : 'unknown error';
+	Logger.warn(`RPC call rejected (${handlerName} handler): ${msg}`);
+}
+
 /**
  * Lightweight rejection handler for `.then(onFulfilled, noop)` patterns.
  * Logs the error at trace level so it's not silently swallowed, but does
@@ -32,8 +38,7 @@ export function isConnectionClosedError(ex: unknown): ex is ConnectionClosedErro
 export const noop = (ex?: unknown): void => {
 	if (ex == null || isConnectionClosedError(ex)) return;
 
-	const msg = ex instanceof Error ? ex.message : 'unknown error';
-	Logger.warn(`RPC call rejected (noop handler): ${msg}`);
+	warnRejection(ex, 'noop');
 };
 
 /**
@@ -57,9 +62,23 @@ export function isAbortError(ex: unknown): boolean {
 export const noopUnlessReal = (ex?: unknown): void => {
 	if (ex == null || isAbortError(ex) || isConnectionClosedError(ex)) return;
 
-	const msg = ex instanceof Error ? ex.message : 'unknown error';
-	Logger.warn(`RPC call rejected (noopUnlessReal handler): ${msg}`);
+	warnRejection(ex, 'noopUnlessReal');
 };
+
+/**
+ * Shared closed-vs-error logging for the fire-and-forget RPC helpers below: a deliberate
+ * connection teardown (`ConnectionClosedError`) logs at debug level, anything else at error
+ * level. `suffix` lets a call site append extra context (e.g. ", rolled back") to both messages.
+ */
+function logRpcFailure(ex: unknown, errorContext?: string, suffix: string = ''): void {
+	if (isConnectionClosedError(ex)) {
+		Logger.debug(
+			`RPC call dropped by deliberate connection teardown${errorContext ? ` (${errorContext})` : ''}${suffix}`,
+		);
+	} else {
+		Logger.error(ex, `RPC call failed${errorContext ? ` (${errorContext})` : ''}${suffix}`);
+	}
+}
 
 /**
  * Per-signal version counter for optimistic rollback safety.
@@ -135,13 +154,7 @@ export function optimisticBatchFireAndForget(
 				r.signal.set(r.previous);
 			}
 		}
-		if (isConnectionClosedError(ex)) {
-			Logger.debug(
-				`RPC call dropped by deliberate connection teardown${errorContext ? ` (${errorContext})` : ''}, rolled back`,
-			);
-		} else {
-			Logger.error(ex, `RPC call failed${errorContext ? ` (${errorContext})` : ''}, rolled back`);
-		}
+		logRpcFailure(ex, errorContext, ', rolled back');
 		errorSignal?.set(ex instanceof Error ? ex.message : 'RPC call failed');
 	});
 }
@@ -209,14 +222,7 @@ export function guardedEnrich<T>(
  */
 export function fireAndForget(promise: Promise<unknown>, errorContext?: string): void {
 	promise.catch((ex: unknown) => {
-		if (isConnectionClosedError(ex)) {
-			Logger.debug(
-				`RPC call dropped by deliberate connection teardown${errorContext ? ` (${errorContext})` : ''}`,
-			);
-			return;
-		}
-
-		Logger.error(ex, `RPC call failed${errorContext ? ` (${errorContext})` : ''}`);
+		logRpcFailure(ex, errorContext);
 	});
 }
 
@@ -230,13 +236,7 @@ export function fireRpc(
 	errorContext?: string,
 ): void {
 	promise.catch((ex: unknown) => {
-		if (isConnectionClosedError(ex)) {
-			Logger.debug(
-				`RPC call dropped by deliberate connection teardown${errorContext ? ` (${errorContext})` : ''}`,
-			);
-		} else {
-			Logger.error(ex, `RPC call failed${errorContext ? ` (${errorContext})` : ''}`);
-		}
+		logRpcFailure(ex, errorContext);
 		errorSignal.set(ex instanceof Error ? ex.message : 'RPC call failed');
 	});
 }

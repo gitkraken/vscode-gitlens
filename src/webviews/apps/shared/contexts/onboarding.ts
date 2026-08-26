@@ -2,7 +2,7 @@ import type { Signal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import { signalObject } from 'signal-utils/object';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../../../constants.walkthroughs.js';
-import { createSignalGroup } from '../state.js';
+import { createSignalGroup } from '../state/signals.js';
 
 export type OnboardingKey = 'integrationBanner';
 

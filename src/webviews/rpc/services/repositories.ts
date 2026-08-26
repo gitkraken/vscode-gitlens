@@ -12,10 +12,15 @@
 import { workspace } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
-import type { RepositoryChange } from '../../../git/models/repository.js';
 import type { EventRegistration, EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { bufferEventHandler, createRpcEventSubscription, trackRpcRegistration } from '../eventVisibilityBuffer.js';
+import {
+	bufferEventHandler,
+	createRpcEventSubscription,
+	toEventNotifier,
+	trackRpcRegistration,
+} from '../eventVisibilityBuffer.js';
 import { extractRepositoryChanges } from './repository.js';
+import { createRepositoryChangeAggregator } from './repositoryChangeAggregator.js';
 import type {
 	CommitSelectedEventData,
 	RepositoriesState,
@@ -88,37 +93,19 @@ export class RepositoriesService {
 		// fire one event per affected repo on visibility restore.
 		this.onRepositoryChanged = (callback): Unsubscribe => {
 			const pendingKey = Symbol('repositoryChanged');
-			const pendingRepoChanges = new Map<string, { uri: string; changes: Set<RepositoryChange> }>();
+			const notifier = toEventNotifier(callback);
+			const aggregator = createRepositoryChangeAggregator(buffer, pendingKey, notifier);
 
 			return trackRpcRegistration(repositoryChangedRegistrations, tracker, () => {
 				const disposable = container.git.onDidChangeRepository(e => {
-					const data: RepositoryChangeEventData = {
+					aggregator.record({
 						repoPath: e.repository.path,
 						repoUri: e.repository.uri.toString(),
 						changes: extractRepositoryChanges(e),
-					};
-					if (!buffer || buffer.visible) {
-						callback(data);
-					} else {
-						let existing = pendingRepoChanges.get(data.repoPath);
-						if (existing == null) {
-							existing = { uri: data.repoUri, changes: new Set() };
-							pendingRepoChanges.set(data.repoPath, existing);
-						}
-						for (const c of data.changes) {
-							existing.changes.add(c);
-						}
-						buffer.addPending(pendingKey, () => {
-							for (const [repoPath, entry] of pendingRepoChanges) {
-								callback({ repoPath: repoPath, repoUri: entry.uri, changes: [...entry.changes] });
-							}
-							pendingRepoChanges.clear();
-						});
-					}
+					});
 				});
 				return () => {
-					buffer?.removePending(pendingKey);
-					pendingRepoChanges.clear();
+					aggregator.dispose();
 					disposable.dispose();
 				};
 			});

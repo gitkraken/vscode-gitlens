@@ -1,13 +1,11 @@
 /*global*/
 import './allowedSigners.scss';
-import type { Remote, Subscription } from '@eamodio/supertalk';
-import { subscribe } from '@eamodio/supertalk';
+import type { Remote } from '@eamodio/supertalk';
 import { html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import type { CandidateSigner, State } from '../../allowedSigners/protocol.js';
 import type { AllowedSignersResultsChangedEvent, AllowedSignersServices } from '../../rpc/allowedSignersService.js';
-import { SeedBuffer } from '../shared/actions/seedBuffer.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { Checkbox } from '../shared/components/checkbox/checkbox.js';
 import type { RadioGroup } from '../shared/components/radio/radio-group.js';
@@ -15,6 +13,7 @@ import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
 import { subscribeAll } from '../shared/events/subscriptions.js';
 import { getHost } from '../shared/host/context.js';
 import { RpcController } from '../shared/rpc/rpcController.js';
+import { SubscribeThenSeed } from '../shared/rpc/subscribeThenSeed.js';
 import { allowedSignersBaseStyles, allowedSignersStyles } from './allowedSigners.css.js';
 import { createAllowedSignersState } from './state.js';
 import type { AllowedSignersState } from './state.js';
@@ -29,9 +28,6 @@ import '../shared/components/radio/radio-group.js';
 export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 	static override styles = [scrollableBase, allowedSignersBaseStyles, allowedSignersStyles];
 
-	@property({ type: String, noAccessor: true })
-	private context!: string;
-
 	private _host = getHost();
 
 	/** Instance-owned ephemeral state — reseeded from bootstrap on every mount. */
@@ -40,14 +36,9 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 	@property({ type: String })
 	webroot?: string;
 
-	/**
-	 * RPC event subscription — released at disconnect (the subscriber closes over this mount's
-	 * state) and recreated per ready against the new session.
-	 */
-	private _eventsSubscription?: Subscription;
-
-	/** Buffers event applications while the subscribe-then-query seed is in flight — see {@link SeedBuffer}. */
-	private readonly _seedBuffer = new SeedBuffer();
+	/** Subscribe-then-seed choreography — released at disconnect and rerun per ready against the
+	 *  new session (the subscriber closes over this mount's state). */
+	private readonly _seed = new SubscribeThenSeed<AllowedSignersServices>();
 
 	/** The resolved view-specific service — set per ready; UI handlers are no-ops before then. */
 	private _allowedSigners?: Awaited<Remote<AllowedSignersServices>['allowedSigners']>;
@@ -64,9 +55,7 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		const context = this.consumeContext();
 
 		// Seed all state from the bootstrap — fixed for this iframe load. Discovery results ride the
 		// bootstrap when the panel is re-shown after being hidden (the host caches them); a fresh open
@@ -93,10 +82,8 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 		// Unsubscribe before resetting state: the retained handle would otherwise re-issue its
 		// subscriber — which closes over the reset state — on the next handshake. A fresh
 		// subscription is created per ready anyway, so nothing is lost by releasing it here.
-		this._eventsSubscription?.unsubscribe();
-		this._eventsSubscription = undefined;
+		this._seed.reset();
 		this._allowedSigners = undefined;
-		this._seedBuffer.reset();
 
 		this._state.resetAll();
 
@@ -111,41 +98,34 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 
 		const s = this._state;
 
-		// Subscribe to events FIRST so changes during discovery aren't missed — synchronous:
-		// `subscribe()` buffers the wire subscribe until the connection's handshake completes.
-		// Recreated per ready (not `??=`): the subscriber closes over this session's state.
-		this._eventsSubscription?.unsubscribe();
-		this._eventsSubscription = subscribe<AllowedSignersServices>(this._rpc.connection!, async remoteServices => {
-			const svc = await remoteServices.allowedSigners;
+		// Subscribe to events FIRST so changes during discovery aren't missed, then pull the latest
+		// snapshot — discovery runs once per controller, so a remounted webview's bootstrap can
+		// predate the results; `undefined` simply leaves the bootstrap seed. See `SubscribeThenSeed`'s
+		// docs for why a results event landing while the fetch is pending is buffered and replayed
+		// after it, so the (possibly older) response can't regress it.
+		await this._seed.run({
+			connection: this._rpc.connection!,
+			subscriber: async remoteServices => {
+				const svc = await remoteServices.allowedSigners;
 
-			return subscribeAll([
-				() =>
-					svc.onProgressChanged(progress => {
-						s.progress.set(progress);
-					}),
-				() =>
-					svc.onResultsChanged(results => {
-						this._seedBuffer.during(() => this.applyResults(s, results));
-					}),
-			]);
+				return subscribeAll([
+					() =>
+						svc.onProgressChanged(progress => {
+							s.progress.set(progress);
+						}),
+					() =>
+						svc.onResultsChanged(results => {
+							this._seed.during(() => this.applyResults(s, results));
+						}),
+				]);
+			},
+			seed: () => allowedSigners.getResults(),
+			applySeed: results => {
+				if (results != null) {
+					this.applyResults(s, results);
+				}
+			},
 		});
-
-		// Subscribe-then-query seed: discovery runs once per controller, so a remounted webview's
-		// bootstrap can predate the results — pull the latest snapshot now that events are armed
-		// instead of risking a stuck loading shell. `undefined` simply leaves the bootstrap seed.
-		// A results event landing while the query is pending is buffered and replayed after it,
-		// so the (possibly older) response can't regress it.
-		this._seedBuffer.start();
-		await this._eventsSubscription.ready;
-		const results = await allowedSigners.getResults();
-		// This mount may have torn down while the query was pending — a dead seed must not
-		// apply (or drain) anything into whatever replaced it.
-		if (this._allowedSigners !== allowedSigners) return;
-
-		if (results != null) {
-			this.applyResults(s, results);
-		}
-		this._seedBuffer.drain();
 	}
 
 	private applyResults(s: AllowedSignersState, results: AllowedSignersResultsChangedEvent): void {

@@ -1,11 +1,10 @@
 import './rebase.scss';
-import type { Remote, Subscription } from '@eamodio/supertalk';
-import { subscribe } from '@eamodio/supertalk';
+import type { Remote } from '@eamodio/supertalk';
 import type { LitVirtualizer } from '@lit-labs/virtualizer';
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
 import type { PropertyValues } from 'lit';
 import { html, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -20,7 +19,6 @@ import type { ConflictFileInfo, RebaseActiveStatus, RebaseCommitEntry, RebaseEnt
 import { isCommandEntry, isCommitEntry } from '../../rebase/protocol.js';
 import type { RebaseServices, RebaseStateChangedEvent } from '../../rpc/rebaseService.js';
 import { fireAndForget } from '../shared/actions/rpc.js';
-import { SeedBuffer } from '../shared/actions/seedBuffer.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { GlPopoverConfirm } from '../shared/components/overlays/popover-confirm.js';
 import type { GlSelect } from '../shared/components/select/select.js';
@@ -40,6 +38,7 @@ import { ContextMenuProxyController } from '../shared/controllers/context-menu-p
 import { subscribeAll } from '../shared/events/subscriptions.js';
 import { getHost } from '../shared/host/context.js';
 import { RpcController } from '../shared/rpc/rpcController.js';
+import { SubscribeThenSeed } from '../shared/rpc/subscribeThenSeed.js';
 import { RebaseActions } from './actions.js';
 import type { GlRebaseEntryElement } from './components/rebase-entry.js';
 import { getConflictFileActions, getConflictFileContextData } from './conflictStatus.utils.js';
@@ -85,22 +84,14 @@ const actionKeyMap: Record<string, RebaseTodoCommitAction> = {
 export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	static override styles = [scrollableBase, splitButtonStyles, rebaseStyles];
 
-	@property({ type: String, noAccessor: true })
-	private context!: string;
-
 	private _host = getHost();
 
 	/** The resolved view-specific service — set per ready; UI handlers are no-ops before then. */
 	private _rebase?: Awaited<Remote<RebaseServices>['rebase']>;
 
-	/**
-	 * RPC event subscription — released at disconnect (the subscriber closes over this mount's
-	 * state) and recreated per ready against the new session.
-	 */
-	private _eventsSubscription?: Subscription;
-
-	/** Buffers event applications while the subscribe-then-query seed is in flight — see {@link SeedBuffer}. */
-	private readonly _seedBuffer = new SeedBuffer();
+	/** Subscribe-then-seed choreography — released at disconnect and rerun per ready against the
+	 *  new session (the subscriber closes over this mount's state). */
+	private readonly _seed = new SubscribeThenSeed<RebaseServices>();
 
 	/** Optimistic updates, enrichment batching, and reconciliation over the host-pushed state. */
 	private readonly _actions: RebaseActions = new RebaseActions(this, () => this._rebase);
@@ -232,9 +223,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		this.consumeContext();
 
 		document.addEventListener('keydown', this.onDocumentKeyDown);
 		// Listen for missing data events from entry components
@@ -250,12 +239,10 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		// Unsubscribe before resetting state: the retained handle would otherwise re-issue its
 		// subscriber — which closes over the reset state — on the next handshake. A fresh
 		// subscription is created per ready anyway, so nothing is lost by releasing it here.
-		this._eventsSubscription?.unsubscribe();
-		this._eventsSubscription = undefined;
+		// Also strands any seed still in flight from this mount — its deferred applications must
+		// not touch anything after teardown.
+		this._seed.reset();
 		this._rebase = undefined;
-		// Strand any seed still in flight from this mount — its deferred applications must not
-		// touch anything after teardown.
-		this._seedBuffer.reset();
 		this._actions.reset();
 
 		super.disconnectedCallback?.();
@@ -269,49 +256,40 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		// pre-connect waiters never fulfill, so e.g. the conflict-detection Pro promo never shows.
 		this._promos.connect(this._rpc.connection!);
 
-		// Subscribe to events FIRST so an update pushed during the initial fetch isn't missed —
-		// synchronous: `subscribe()` buffers the wire subscribe until the connection's handshake
-		// completes. Recreated per ready (not `??=`): the subscriber closes over this session's state.
-		this._eventsSubscription?.unsubscribe();
-		this._eventsSubscription = subscribe<RebaseServices>(this._rpc.connection!, async remoteServices => {
-			const svc = await remoteServices.rebase;
+		// Subscribe to events FIRST so an update pushed during the initial fetch isn't missed, then
+		// fetch and apply the authoritative snapshot. This replaces the legacy deferred bootstrap:
+		// unlike the visibility-gated push pipeline, the fetch answers even while hidden, matching
+		// the old bootstrap semantics. The fetch parses the todo document host-side, so an event
+		// landing mid-parse could otherwise be regressed by the older snapshot — see
+		// `SubscribeThenSeed`'s docs for how buffering preserves event order without racing an
+		// unordered full-state response.
+		await this._seed.run({
+			connection: this._rpc.connection!,
+			subscriber: async remoteServices => {
+				const svc = await remoteServices.rebase;
 
-			return subscribeAll([
-				() =>
-					svc.onStateChanged(state => {
-						this._seedBuffer.during(() => this._actions.applyIncomingState(state));
-					}),
-				() =>
-					svc.onAvatarsChanged(event => {
-						this._seedBuffer.during(() => this._actions.onAvatarsChanged(event));
-					}),
-				() =>
-					svc.onCommitsChanged(event => {
-						this._seedBuffer.during(() => this._actions.onCommitsChanged(event));
-					}),
-				() =>
-					svc.onSubscriptionChanged(event => {
-						this._seedBuffer.during(() => this._actions.onSubscriptionChanged(event.subscription));
-					}),
-			]);
+				return subscribeAll([
+					() =>
+						svc.onStateChanged(state => {
+							this._seed.during(() => this._actions.applyIncomingState(state));
+						}),
+					() =>
+						svc.onAvatarsChanged(event => {
+							this._seed.during(() => this._actions.onAvatarsChanged(event));
+						}),
+					() =>
+						svc.onCommitsChanged(event => {
+							this._seed.during(() => this._actions.onCommitsChanged(event));
+						}),
+					() =>
+						svc.onSubscriptionChanged(event => {
+							this._seed.during(() => this._actions.onSubscriptionChanged(event.subscription));
+						}),
+				]);
+			},
+			seed: () => rebase.getState(),
+			applySeed: state => this._actions.applyIncomingState(state),
 		});
-
-		// Initial fetch — after the subscriptions above are armed, so a push racing the query
-		// can't be missed. This replaces the legacy deferred bootstrap: unlike the
-		// visibility-gated push pipeline, the query answers even while hidden, matching the old
-		// bootstrap semantics. The query parses the todo document host-side, so an event landing
-		// mid-parse could otherwise be regressed by the older snapshot — events are buffered
-		// (starting now) and replayed AFTER the snapshot, preserving event order without racing
-		// an unordered full-state response.
-		this._seedBuffer.start();
-		await this._eventsSubscription.ready;
-		const state = await rebase.getState();
-		// This mount may have torn down while the query was pending — a dead seed must not
-		// apply (or drain) anything into whatever replaced it.
-		if (this._rebase !== rebase) return;
-
-		this._actions.applyIncomingState(state);
-		this._seedBuffer.drain();
 	}
 
 	private readonly onMissingAvatar = (e: Event): void => {

@@ -16,10 +16,6 @@ import {
 } from '../../rpc/constants.js';
 import { getHostIpcApi } from './ipc.js';
 
-// Re-export for convenience
-export type { RpcMessageWrapper } from '../../rpc/constants.js';
-export { isRpcMessage, RPC_NAMESPACE } from '../../rpc/constants.js';
-
 /**
  * Extended Endpoint interface with disposal support.
  */
@@ -35,6 +31,18 @@ export interface DisposableEndpoint extends Endpoint {
 export interface OrderedDispatcher {
 	dispatch(message: RpcMessageWrapper, event: MessageEvent): void;
 	dispose(): void;
+}
+
+/** A registered listener's wrapper and dispatcher, as tracked by {@link createWebviewEndpoint}. */
+interface ListenerEntry {
+	wrapped: (event: MessageEvent) => void;
+	dispatcher: OrderedDispatcher;
+}
+
+/** Unregisters a listener entry's window listener and disposes its dispatcher. */
+function teardown(entry: ListenerEntry): void {
+	window.removeEventListener('message', entry.wrapped);
+	entry.dispatcher.dispose();
 }
 
 /**
@@ -139,10 +147,7 @@ export function createOrderedDispatcher(deliver: (data: unknown, event: MessageE
  */
 export function createWebviewEndpoint(): DisposableEndpoint {
 	const api = getHostIpcApi();
-	const listeners = new Map<
-		(event: MessageEvent) => void,
-		{ wrapped: (event: MessageEvent) => void; dispatcher: OrderedDispatcher }
-	>();
+	const listeners = new Map<(event: MessageEvent) => void, ListenerEntry>();
 
 	return {
 		postMessage: function (message: unknown, _transfer?: Transferable[]): void {
@@ -185,8 +190,7 @@ export function createWebviewEndpoint(): DisposableEndpoint {
 			// Re-registering the same listener must not leak the previous wrapper/dispatcher
 			const existing = listeners.get(listener);
 			if (existing) {
-				window.removeEventListener('message', existing.wrapped);
-				existing.dispatcher.dispose();
+				teardown(existing);
 			}
 
 			listeners.set(listener, { wrapped: wrappedListener, dispatcher: dispatcher });
@@ -198,8 +202,7 @@ export function createWebviewEndpoint(): DisposableEndpoint {
 
 			const entry = listeners.get(listener);
 			if (entry) {
-				window.removeEventListener('message', entry.wrapped);
-				entry.dispatcher.dispose();
+				teardown(entry);
 				listeners.delete(listener);
 			}
 		},
@@ -207,8 +210,7 @@ export function createWebviewEndpoint(): DisposableEndpoint {
 		dispose: function (): void {
 			// Remove all registered event listeners to prevent memory leaks
 			for (const entry of listeners.values()) {
-				window.removeEventListener('message', entry.wrapped);
-				entry.dispatcher.dispose();
+				teardown(entry);
 			}
 			listeners.clear();
 		},

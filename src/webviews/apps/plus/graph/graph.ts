@@ -4,7 +4,7 @@ import { subscribe } from '@eamodio/supertalk';
 import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { ContextProvider } from '@lit/context';
 import { html } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type {
@@ -47,9 +47,6 @@ function computeHooksAgents(infos: readonly AgentInfo[]): { id: string; displayN
 
 @customElement('gl-graph-apphost')
 export class GraphAppHost extends SignalWatcherWebviewApp {
-	@property({ type: String, noAccessor: true })
-	private context!: string;
-
 	private _stateProvider!: GraphStateProvider;
 
 	get state(): State {
@@ -299,9 +296,7 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
-		const context = this.consumeOneShotAttribute(this.context);
-		this.context = undefined!;
-		this.initWebviewContext(context);
+		const context = this.consumeContext();
 
 		// Recreated per mount: the provider permanently captures this mount's context (and its rows
 		// channel listeners), and its Lit context registration must die with the element it was
