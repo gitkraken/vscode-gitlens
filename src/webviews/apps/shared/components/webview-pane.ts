@@ -75,7 +75,7 @@ export class WebviewPane extends LitElement {
 			}
 
 			:host(:not([collapsable])) .title {
-				margin-left: var(--gl-space-8);
+				margin-left: var(--gl-webview-pane-title-indent, var(--gl-space-8));
 			}
 
 			.subtitle {

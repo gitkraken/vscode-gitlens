@@ -20,6 +20,13 @@ export const fileTreeStyles = css`
 		overflow: hidden;
 	}
 
+	/* Checkbox mode: pull the title (and its select-all checkbox) back so the checkbox's left
+	   edge sits at the content inset, aligned with the filter box and the commit box's checkbox
+	   below — the default non-collapsable title indent lands it 4px to their right. */
+	:host([checkable]) webview-pane {
+		--gl-webview-pane-title-indent: var(--gl-space-4);
+	}
+
 	gl-tree-view {
 		flex: 1;
 		min-height: 0;
