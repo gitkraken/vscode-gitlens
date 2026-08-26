@@ -11,10 +11,12 @@ import { renderDetailsMaximizeChip } from '../../../shared/components/details-he
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { dispatchContextMenuAt } from '../../../shared/dom.js';
+import { remoteRefIcon } from '../../../shared/git-utils.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	branchSheetContextRef,
+	findRemoteRefHostingProvider,
 	findRowHead,
 	findWildcardRemoteExclude,
 	parseBranchSheetContext,
@@ -64,16 +66,39 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 				min-width: 0;
 			}
 
-			.branch-sheet-title--head {
+			/* Remote shares the local-branch color on purpose — the kind badge carries the distinction;
+			   the remote scroll-marker token is a rail fill, too dark to read as text. */
+			.branch-sheet-title--head,
+			.branch-sheet-title--remote {
 				color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 			}
 
-			.branch-sheet-title--remote {
-				color: var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor, inherit);
+			/* Tags keep their gold kind hue, but the scroll-marker token is a dim rail fill that can't be
+			   lifted to a vivid text color by mixing — dark themes use the palette's vivid gold (the
+			   light-theme marker default) outright; light themes darken the token toward the foreground
+			   instead, since the vivid gold is unreadable on light backgrounds. Theme gate mirrors
+			   gl-graph-scope-popover: body theme class via :host-context, prefers-color-scheme fallback. */
+			.branch-sheet-title--tag {
+				color: #d2a379;
 			}
 
-			.branch-sheet-title--tag {
-				color: var(--vscode-gitlens-graphScrollMarkerTagsColor, inherit);
+			:host-context(.vscode-light) .branch-sheet-title--tag,
+			:host-context(.vscode-high-contrast-light) .branch-sheet-title--tag {
+				color: color-mix(
+					in srgb,
+					var(--vscode-gitlens-graphScrollMarkerTagsColor) 50%,
+					var(--vscode-sideBar-foreground, var(--vscode-foreground))
+				);
+			}
+
+			@media (prefers-color-scheme: light) {
+				.branch-sheet-title--tag {
+					color: color-mix(
+						in srgb,
+						var(--vscode-gitlens-graphScrollMarkerTagsColor) 50%,
+						var(--vscode-sideBar-foreground, var(--vscode-foreground))
+					);
+				}
 			}
 
 			/* The tooltip host is display: contents, so the name span itself is the flex item —
@@ -161,7 +186,14 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 		// alone is the bare branch name shared with its local tracking counterpart.
 		const title = ref.refType === 'remote' && ref.remote != null ? `${ref.remote}/${ref.name}` : ref.name;
 		const kind = ref.refType === 'tag' ? 'Tag' : ref.refType === 'remote' ? 'Remote Branch' : 'Branch';
-		const icon = ref.refType === 'tag' ? 'tag' : 'git-branch';
+		// Remote refs lead with their hosting-provider glicon (`cloud` when unknown or the ref's row
+		// hasn't paged in), matching the graph pill's own leading glyph vocabulary.
+		const icon =
+			ref.refType === 'tag'
+				? 'tag'
+				: ref.refType === 'remote'
+					? remoteRefIcon(findRemoteRefHostingProvider(ref, this._graphState?.rows))
+					: 'git-branch';
 		// Live-resolved from the loaded row the same way the graph's own ref pills build theirs — carries every
 		// flag (+tracking/+remote/+worktree/+current/+pinned/…), not just pin, so the kebab menu and the chips
 		// below track publish/upstream/pin changes made while this sheet stays open. Falls back to the open-time

@@ -18,6 +18,7 @@ import type { StyleInfo } from '../../../../shared/components/csp-style-map.dire
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
 import type { AutolinkIconStatus } from '../../../../shared/components/rich/utils.js';
 import { getAutolinkIcon } from '../../../../shared/components/rich/utils.js';
+import { remoteRefIcon } from '../../../../shared/git-utils.js';
 import { refContextPinKey, refPillKey } from '../../utils/refKey.utils.js';
 import type { RowMarkerRole, RowMarkerTips } from '../../utils/rowMarker.utils.js';
 import { primaryRowMarkerRole, rowMarkerRolesFor, shortRefName } from '../../utils/rowMarker.utils.js';
@@ -1187,25 +1188,6 @@ function renderPopoverRefRow(
 		<span class="gl-graph__ref-popover-row-label">${chipLabel(parsed, hooks?.getShowRemoteNames() === true)}</span>
 		${upstreamSegment}
 	</div>`;
-}
-
-// A remote's hosting provider glicon, when known; `cloud` for an unrecognized/absent provider.
-function remoteRefIcon(hostingServiceType: GkProviderId | undefined): string {
-	switch (hostingServiceType) {
-		case 'github':
-		case 'githubEnterprise':
-			return 'gl-provider-github';
-		case 'gitlab':
-		case 'gitlabSelfHosted':
-			return 'gl-provider-gitlab';
-		case 'bitbucket':
-		case 'bitbucketServer':
-			return 'gl-provider-bitbucket';
-		case 'azureDevops':
-			return 'gl-provider-azdo';
-		default:
-			return 'cloud';
-	}
 }
 
 // Ref codicons: `vm` for a local branch/HEAD (the "local machine" counterpart to the remote cloud),

@@ -1,5 +1,6 @@
 import type { GitGraphRow, GitGraphRowHead, GitGraphRowRemoteHead, GitGraphRowTag } from '@gitlens/git/models/graph.js';
 import type { GitBranchReference, GitTagReference } from '@gitlens/git/models/reference.js';
+import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
 import type {
 	GraphExcludedRef,
 	GraphExcludeRefs,
@@ -145,6 +146,17 @@ function findRowRemote(
 		if (remote != null) return remote;
 	}
 	return undefined;
+}
+
+/** A remote sheet ref's hosting provider, from its loaded row. `undefined` for non-remote refs and
+ *  when the ref's row hasn't paged in — see {@link findRowHead}; callers degrade to the `cloud` icon. */
+export function findRemoteRefHostingProvider(
+	ref: BranchSheetRef,
+	rows: GitGraphRow[] | undefined,
+): GkProviderId | undefined {
+	if (ref.refType !== 'remote' || ref.remote == null) return undefined;
+
+	return findRowRemote(rows, r => r.owner === ref.remote && r.name === ref.name)?.hostingServiceType;
 }
 
 /** First tag across the loaded rows matching `predicate` — see {@link findRowHead}. */
