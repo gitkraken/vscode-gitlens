@@ -6,7 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsc -p tsconfig.json --noEmit",
-		"test": "tsc -p tsconfig.json --noEmit && node scripts/run.mjs"
+		"test": "pnpm -w run build:core && tsc -p tsconfig.json --noEmit && node scripts/run.mjs"
 	},
 	"dependencies": {
 		"@gitkraken/core-gitlens": "workspace:*"
