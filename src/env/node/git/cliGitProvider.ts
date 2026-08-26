@@ -1033,12 +1033,23 @@ export class GlCliGitProvider implements GlGitProvider {
 
 		// If the ref is the index, then try to create a Uri using the Git extension, but if we can't find a repo for it, then generate our own Uri
 		if (isUncommittedStaged(rev)) {
+			// If the repoPath is a canonical path, then we need to remap it to the real path, because the vscode.git extension always uses the real path
+			const realUri = this.fromCanonicalMap.get(repoPath);
+
 			let scmRepo = await this.getScmRepository(repoPath);
+			if (scmRepo == null && realUri != null) {
+				scmRepo = await this.getScmRepository(realUri.fsPath);
+			}
+
 			if (scmRepo == null) {
-				// If the repoPath is a canonical path, then we need to remap it to the real path, because the vscode.git extension always uses the real path
-				const realUri = this.fromCanonicalMap.get(repoPath);
-				if (realUri != null) {
-					scmRepo = await this.getScmRepository(realUri.fsPath);
+				// Not registered — or only an ancestor is, e.g. a worktree nested inside another repo — so
+				// force-register it: the built-in Stage/Unstage Hunk gutter actions only appear for `git:`
+				// index Uris the Git extension can resolve. Verify the root, since `openRepository`
+				// discovers the root from the path itself
+				const uri = realUri ?? Uri.file(repoPath);
+				const opened = await this.getOrOpenScmRepository(uri);
+				if (opened != null && arePathsEqual(opened.rootUri.fsPath, uri.fsPath)) {
+					scmRepo = opened;
 				}
 			}
 
