@@ -4933,3 +4933,385 @@ suite('GkAgentProvider host filtering (providerId)', () => {
 		});
 	});
 });
+
+suite('GkAgentProvider sharesPids pruning', () => {
+	const REPO = '/repo';
+	// Not a live process — same convention `endedRecord` uses above: pid liveness pruning must
+	// see this as dead.
+	const deadPid = 999999;
+
+	test('a pid-sharing agent (codex) is never pid-pruned, unlike an agent that owns its pid (Claude)', async () => {
+		const { callbacks, handlers } = createMockCallbacks({ cliResponse: '[]' });
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'SessionStart', sessionId: 'codex-dead', cwd: REPO, pid: deadPid, providerId: 'codex' },
+				new URLSearchParams(),
+			);
+			await handler(
+				{
+					event: 'SessionStart',
+					sessionId: 'claude-dead',
+					cwd: REPO,
+					pid: deadPid,
+					providerId: 'claude-code',
+				},
+				new URLSearchParams(),
+			);
+			assert.strictEqual(provider.sessions.length, 2, 'both sessions tracked before the prune runs');
+
+			// The gated poll's list-sessions response is empty, so this exercises pruneDeadSessions'
+			// pid-liveness path in isolation from record-based (poll) reconciliation.
+			await provider.runGatedSync();
+
+			assert.ok(
+				provider.sessions.some(s => s.id === 'codex-dead'),
+				'a session whose agent multiplexes pids must survive pid pruning even with a dead pid — a shared ' +
+					'pid only proves the host process state, not this session',
+			);
+			assert.strictEqual(
+				provider.sessions.some(s => s.id === 'claude-dead'),
+				false,
+				'a Claude session with the SAME dead pid must be pruned — isolates the difference to the ' +
+					'sharesPids flag, not some other condition',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a codex session still ends via a SessionEnd event despite sharesPids', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'SessionStart', sessionId: 'codex-1', cwd: REPO, pid: deadPid, providerId: 'codex' },
+				new URLSearchParams(),
+			);
+			await handler({ event: 'SessionEnd', sessionId: 'codex-1' }, new URLSearchParams());
+
+			const s = provider.sessions.find(x => x.id === 'codex-1');
+			assert.ok(s != null, 'SessionEnd must still identify and terminate a pid-sharing session');
+			assert.strictEqual(s.status, 'ended');
+			assert.strictEqual(s.phase, 'ended');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a codex session still ends via the poll reporting a durable ended record despite sharesPids', async () => {
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				{
+					sessionId: 'codex-ended',
+					providerId: 'codex',
+					event: 'Stop',
+					cwd: REPO,
+					pid: deadPid,
+					status: 'ended',
+					endReason: 'session-end',
+					endedAt: '2026-07-10T00:00:00.000Z',
+					updatedAt: '2026-07-10T00:00:00.000Z',
+				},
+			]),
+		});
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync();
+
+			const s = provider.sessions.find(x => x.id === 'codex-ended');
+			assert.ok(s != null, "the poll's durable ended record must still surface the session");
+			assert.strictEqual(s.status, 'ended');
+			assert.strictEqual(s.providerId, 'codex');
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
+suite('GkAgentProvider opencode session.status resolution', () => {
+	const REPO = '/repo';
+
+	/** A `session.status` event whose `hookInput` matches the CLI's generated OpenCode plugin
+	 *  shape: `hook_payload.event.properties.status.type` from the hook-input root. */
+	function sessionStatus(sessionId: string, statusType: string): Record<string, unknown> {
+		return {
+			event: 'session.status',
+			sessionId: sessionId,
+			providerId: 'opencode',
+			cwd: REPO,
+			hookInput: {
+				hook_payload: { event: { type: 'session.status', properties: { status: { type: statusType } } } },
+			},
+		};
+	}
+
+	test('a busy session.status resolves through the provider to the phase PostToolUse produces', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'session.created', sessionId: 'oc-1', providerId: 'opencode', cwd: REPO },
+				new URLSearchParams(),
+			);
+			assert.strictEqual(provider.sessions.find(s => s.id === 'oc-1')?.status, 'idle');
+
+			await handler(sessionStatus('oc-1', 'busy'), new URLSearchParams());
+
+			const s = provider.sessions.find(x => x.id === 'oc-1');
+			assert.strictEqual(
+				s?.status,
+				'thinking',
+				'busy must resolve through the seam to a PostToolUse-produced status',
+			);
+			assert.strictEqual(s?.phase, 'working');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('an idle session.status resolves through the provider to the phase Stop produces, after the debounce', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'session.created', sessionId: 'oc-2', providerId: 'opencode', cwd: REPO },
+				new URLSearchParams(),
+			);
+			// Move off idle first so the eventual Stop-phase transition is a real state change, not a no-op.
+			await handler(sessionStatus('oc-2', 'busy'), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(s => s.id === 'oc-2')?.status, 'thinking');
+
+			await handler(sessionStatus('oc-2', 'idle'), new URLSearchParams());
+			// Stop defers its idle commit by `stopToIdleDebounceMs` (750ms).
+			await wait(900);
+
+			const s = provider.sessions.find(x => x.id === 'oc-2');
+			assert.strictEqual(s?.status, 'idle', 'idle must resolve through the seam to the Stop-produced status');
+			assert.strictEqual(s?.phase, 'idle');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a retry status, a malformed hook_payload, and an absent hookInput are all ignored', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'session.created', sessionId: 'oc-3', providerId: 'opencode', cwd: REPO },
+				new URLSearchParams(),
+			);
+			const before = provider.sessions.find(s => s.id === 'oc-3');
+			assert.ok(before != null);
+
+			// `retry` carries no status change resolveEvent can canonicalize.
+			await handler(sessionStatus('oc-3', 'retry'), new URLSearchParams());
+			// `hook_payload` isn't the expected object shape at all.
+			await handler(
+				{
+					event: 'session.status',
+					sessionId: 'oc-3',
+					providerId: 'opencode',
+					cwd: REPO,
+					hookInput: { hook_payload: 'not-an-object' },
+				},
+				new URLSearchParams(),
+			);
+			// No `hookInput` at all (older CLI, or a client that doesn't relay it for this event).
+			await handler(
+				{ event: 'session.status', sessionId: 'oc-3', providerId: 'opencode', cwd: REPO },
+				new URLSearchParams(),
+			);
+
+			assert.strictEqual(provider.sessions.length, 1, 'no new session may be created by an ignored event');
+			const after = provider.sessions.find(s => s.id === 'oc-3');
+			assert.strictEqual(
+				after,
+				before,
+				'an unresolvable session.status must never reach the status switch, so the row is untouched',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
+suite('GkAgentProvider opencode native lifecycle', () => {
+	const REPO = '/repo';
+
+	test('a full opencode lifecycle through native dotted event names', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+
+			await handler(
+				{
+					event: 'session.created',
+					sessionId: 'oc-life',
+					providerId: 'opencode',
+					cwd: REPO,
+					pid: process.pid,
+				},
+				new URLSearchParams(),
+			);
+			let s = provider.sessions.find(x => x.id === 'oc-life');
+			assert.ok(s != null, 'session.created must surface the session');
+			assert.strictEqual(s.providerId, 'opencode');
+			assert.strictEqual(s.status, 'idle');
+
+			await handler(
+				{
+					event: 'tool.execute.before',
+					sessionId: 'oc-life',
+					providerId: 'opencode',
+					cwd: REPO,
+					toolName: 'bash',
+					toolInput: { command: 'ls' },
+				},
+				new URLSearchParams(),
+			);
+			s = provider.sessions.find(x => x.id === 'oc-life');
+			assert.strictEqual(s?.status, 'tool_use', 'tool.execute.before must reach a working phase during the call');
+			assert.strictEqual(s?.phase, 'working');
+
+			await handler(
+				{
+					event: 'tool.execute.after',
+					sessionId: 'oc-life',
+					providerId: 'opencode',
+					cwd: REPO,
+					toolName: 'bash',
+					toolInput: { command: 'ls' },
+				},
+				new URLSearchParams(),
+			);
+			s = provider.sessions.find(x => x.id === 'oc-life');
+			assert.strictEqual(s?.phase, 'working', 'still working (thinking) immediately after the tool call ends');
+
+			await handler(
+				{
+					event: 'session.status',
+					sessionId: 'oc-life',
+					providerId: 'opencode',
+					cwd: REPO,
+					hookInput: {
+						hook_payload: { event: { type: 'session.status', properties: { status: { type: 'idle' } } } },
+					},
+				},
+				new URLSearchParams(),
+			);
+			await wait(900); // Stop → idle debounce (stopToIdleDebounceMs = 750ms).
+			s = provider.sessions.find(x => x.id === 'oc-life');
+			assert.strictEqual(s?.status, 'idle', 'session.status idle must return the session to idle');
+			assert.strictEqual(s?.phase, 'idle');
+
+			await handler(
+				{ event: 'session.deleted', sessionId: 'oc-life', providerId: 'opencode', cwd: REPO },
+				new URLSearchParams(),
+			);
+			s = provider.sessions.find(x => x.id === 'oc-life');
+			assert.strictEqual(s?.status, 'ended', 'session.deleted must end the session');
+			assert.strictEqual(s?.phase, 'ended');
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
+suite('GkAgentProvider tool-name canonicalization reaches fileActivity', () => {
+	const REPO = '/repo';
+	const FILE = '/repo/src/foo.ts';
+
+	test('a copilot create/view PreToolUse registers edit/read fileActivity via the alias table', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'SessionStart', sessionId: 'cop-1', providerId: 'copilot', cwd: REPO, pid: process.pid },
+				new URLSearchParams(),
+			);
+
+			await handler(
+				{
+					event: 'PreToolUse',
+					sessionId: 'cop-1',
+					providerId: 'copilot',
+					toolName: 'create',
+					toolInput: { file_path: FILE },
+				},
+				new URLSearchParams(),
+			);
+			let entry = fileActivityOf(provider, 'cop-1').find(e => e.path === FILE);
+			assert.ok(entry != null, "'create' → 'Write' via copilot's alias table must register edit activity");
+			assert.strictEqual(entry.editing, true);
+			assert.strictEqual(entry.reading, undefined);
+
+			await handler(
+				{
+					event: 'PreToolUse',
+					sessionId: 'cop-1',
+					providerId: 'copilot',
+					toolName: 'view',
+					toolInput: { file_path: FILE },
+				},
+				new URLSearchParams(),
+			);
+			entry = fileActivityOf(provider, 'cop-1').find(e => e.path === FILE);
+			assert.strictEqual(
+				entry?.reading,
+				true,
+				"'view' → 'Read' via copilot's alias table must register read activity",
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
+suite('GkAgentProvider supportsTranscripts gating', () => {
+	const REPO = '/repo';
+
+	test('a codex session never drives a transcript read, unlike a Claude session', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const reader = new StubTranscriptReader({ ai: 'must not be observed' });
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+
+			await handler(sessionStart('codex-notrans', REPO, 'codex'), new URLSearchParams());
+			await flushMicrotasks();
+			assert.strictEqual(
+				reader.calls.some(c => c.sessionId === 'codex-notrans'),
+				false,
+				'an agent whose capabilities say supportsTranscripts: false must never reach the reader',
+			);
+			assert.strictEqual(provider.sessions.find(s => s.id === 'codex-notrans')?.transcriptTitles, undefined);
+
+			await handler(sessionStart('claude-trans', REPO, 'claude-code'), new URLSearchParams());
+			await flushMicrotasks();
+			assert.ok(
+				reader.calls.some(c => c.sessionId === 'claude-trans'),
+				'a Claude session must still drive the read the gate is protecting',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+});
