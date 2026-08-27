@@ -14,6 +14,8 @@ import type { GitGraph, GitGraphRow, IncrementalGraphFallbackReason } from './gr
  * {@link refresh} returns a result object, never a bare `GitGraph`.
  */
 export interface GitGraphSession {
+	/** The CURRENT bound path — the repo the session was opened for, or the worktree it was last
+	 *  {@link rebind}-ed onto. */
 	readonly repoPath: string;
 
 	/** Canonical accumulated window (the FULL loaded rows, never page-scoped after pagination). */
@@ -40,6 +42,14 @@ export interface GitGraphSession {
 	 * there was nothing to add or a concurrent {@link refresh} superseded the page.
 	 */
 	more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<boolean>;
+
+	/**
+	 * Re-perspective the session onto another worktree of the SAME repo family without discarding
+	 * the accumulated window. Rides the incremental fast path: unchanged tips, HEAD endpoints
+	 * refetched, flags/reachability replayed, ref ids re-stamped to the new path. Falls back to a
+	 * full walk only when a genuine structural/metadata change happened concurrently.
+	 */
+	rebind(repoPath: string, cancellation?: AbortSignal): Promise<GitGraphSessionRefreshResult>;
 
 	dispose(): void;
 }

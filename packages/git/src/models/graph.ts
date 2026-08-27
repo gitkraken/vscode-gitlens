@@ -362,6 +362,22 @@ export interface GraphIncrementalSeed {
 	 * never matches ⇒ safe full fallback.
 	 */
 	readonly decorationFingerprint?: string;
+	/**
+	 * HEAD's tracking upstream (e.g. `origin/main`) as of the prior walk — one INPUT to
+	 * {@link decorationFingerprint}, carried separately so a session REBIND can neutralize it.
+	 *
+	 * A rebind onto another worktree of the same repo family moves HEAD to a branch with its own upstream,
+	 * which changes the fingerprint even though nothing in the repo did — and in a cloned repo that is the
+	 * normal case, so leaving it in would make every rebind a full walk. Recomputing the seed-comparable
+	 * fingerprint from THIS value (with the old repoPath, and everything else current) cancels exactly the
+	 * perspective move. Sound because HEAD's upstream feeds only ONE field of a reused row —
+	 * `remotes[].current` — which the rebind re-derives in memory; every other consumer (the unpushed /
+	 * unpulled flags) is recomputed per row on the fast path.
+	 *
+	 * Absent ⇒ compares as "no upstream", so a seed built before this field existed whose HEAD DID track
+	 * something compares unequal ⇒ safe full fallback.
+	 */
+	readonly headRefUpstreamName?: string;
 }
 
 /**
@@ -416,6 +432,16 @@ export type IncrementalGraphFallbackReason =
  */
 export interface GraphRowProcessor {
 	processRow(row: GitGraphRow, context: GraphContext): void;
+	/**
+	 * Rebuild a reused row's HOST-SERIALIZED contexts (`contexts.refGroups`, a stash row's
+	 * `contexts.row`) for a session rebind. Scoped to exactly that: the row's ref IDS are already
+	 * re-stamped when this runs — the walk owns them via `restampGraphRowIds`, which is the only layer
+	 * guaranteed to run, since this processor is optional. Implementations therefore read the row's ids
+	 * as already correct and must NOT swap them again, nor touch message/author (those transforms are
+	 * not idempotent). The path parameters are supplied for context a future implementation might need;
+	 * the current one derives everything from the corrected ids.
+	 */
+	restampRow?(row: GitGraphRow, fromRepoPath: string, toRepoPath: string, context: GraphContext): void;
 }
 
 export interface GraphContext {

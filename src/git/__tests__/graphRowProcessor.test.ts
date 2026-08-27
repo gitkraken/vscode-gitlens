@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import type {
 	GitGraphRow,
 	GitGraphRowHead,
@@ -10,11 +11,6 @@ import type {
 import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { Container } from '../../container.js';
-import {
-	serializeBranchRefContext,
-	serializeRemoteBranchRefContext,
-	serializeTagRefContext,
-} from '../../webviews/apps/plus/graph/utils/refContext.utils.js';
 import { GlGraphRowProcessor } from '../graphRowProcessor.js';
 
 function createMockContainer(): Container {
@@ -242,6 +238,116 @@ suite('GlGraphRowProcessor', () => {
 				(flags & GitGraphRowContextFlags.RewriteableFromHead) === 0,
 				`unexpected RewriteableFromHead bit in flags ${flags}`,
 			);
+		});
+	});
+
+	/**
+	 * NARROWED CONTRACT: `restampRow` rebuilds only the HOST-SERIALIZED contexts. The row's ref ids are
+	 * already swapped when it runs — the walk owns them (`restampGraphRowIds` in packages/git, which is
+	 * the only layer guaranteed to run, since this processor is optional). The id-swap assertions that
+	 * used to live here now sit with that helper's own unit tests, and the git-cli integration suite pins
+	 * the same swap end-to-end.
+	 */
+	suite('restampRow', () => {
+		const fromRepoPath = '/repo';
+		const toRepoPath = '/repo.worktrees/wt';
+
+		test('rebuilds refGroups contexts from the already-swapped ids', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow({
+				heads: [createHead('main', `${fromRepoPath}|heads/main`, true)],
+				remotes: [createRemoteHead('main', 'origin', `${fromRepoPath}|remotes/origin/main`)],
+			});
+			// Build the initial (pre-rebind) contexts the same way processRow would.
+			processor.processRow(row, createMockContext({ repoPath: fromRepoPath }));
+			assert.ok(row.contexts?.refGroups?.main != null, 'expected a refGroup context to be built for "main"');
+
+			// What the provider hands over: ids already re-stamped, contexts still naming the old path.
+			row.heads![0].id = `${toRepoPath}|heads/main`;
+			row.remotes![0].id = `${toRepoPath}|remotes/origin/main`;
+
+			processor.restampRow(row, fromRepoPath, toRepoPath, createMockContext({ repoPath: toRepoPath }));
+
+			const serialized = row.contexts.refGroups.main;
+			const parsed = (typeof serialized === 'string' ? JSON.parse(serialized) : serialized) as {
+				webviewItemGroupValue: { refs: { repoPath: string; id?: string }[] };
+			};
+			for (const ref of parsed.webviewItemGroupValue.refs) {
+				assert.strictEqual(ref.repoPath, toRepoPath);
+			}
+			assert.strictEqual(parsed.webviewItemGroupValue.refs[0].id, `${toRepoPath}|heads/main`);
+		});
+
+		test('leaves row.message and row.author byte-identical', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow({
+				message: ':tada: initial commit',
+				author: 'Some Author',
+				heads: [createHead('main', `${toRepoPath}|heads/main`, true)],
+			});
+			processor.processRow(row, createMockContext({ repoPath: fromRepoPath }));
+			const originalMessage = row.message;
+			const originalAuthor = row.author;
+
+			processor.restampRow(row, fromRepoPath, toRepoPath, createMockContext({ repoPath: toRepoPath }));
+
+			assert.strictEqual(row.message, originalMessage);
+			assert.strictEqual(row.author, originalAuthor);
+		});
+
+		test('is a no-op (deep-equal) for a row carrying no serialized contexts', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow();
+			const before = structuredClone(row);
+
+			processor.restampRow(row, fromRepoPath, toRepoPath, createMockContext({ repoPath: toRepoPath }));
+
+			assert.deepStrictEqual(row, before);
+		});
+
+		// The narrowing itself: ids are the provider's, and this must not touch them even when they still
+		// carry the old path (which, in production, they never do by the time it runs).
+		test('does not swap ref ids — that belongs to the provider', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow({
+				heads: [createHead('main', `${fromRepoPath}|heads/main`, true)],
+				tags: [{ name: 'v1', id: `${fromRepoPath}|tags/v1`, annotated: false }],
+			});
+			processor.processRow(row, createMockContext({ repoPath: fromRepoPath }));
+
+			processor.restampRow(row, fromRepoPath, toRepoPath, createMockContext({ repoPath: toRepoPath }));
+
+			assert.strictEqual(row.heads![0].id, `${fromRepoPath}|heads/main`);
+			assert.strictEqual(row.tags![0].id, `${fromRepoPath}|tags/v1`);
+		});
+
+		test('re-stamps the stash row context with the new repoPath', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const stash = { name: 'stash@{0}', message: 'WIP', stashNumber: '0' } as unknown as GitStashCommit;
+			const row = createRow({ kind: 'stash', sha: 'stash-sha' });
+			processor.processRow(
+				row,
+				createMockContext({ repoPath: fromRepoPath, stashes: new Map([['stash-sha', stash]]) }),
+			);
+			assert.ok(row.contexts?.row != null, 'expected a stash row context to be built');
+
+			processor.restampRow(
+				row,
+				fromRepoPath,
+				toRepoPath,
+				createMockContext({ repoPath: toRepoPath, stashes: new Map([['stash-sha', stash]]) }),
+			);
+
+			const serialized = row.contexts.row;
+			const parsed = (typeof serialized === 'string' ? JSON.parse(serialized) : serialized) as {
+				webviewItemValue: { ref: { repoPath: string } };
+			};
+			assert.strictEqual(parsed.webviewItemValue.ref.repoPath, toRepoPath);
 		});
 	});
 });

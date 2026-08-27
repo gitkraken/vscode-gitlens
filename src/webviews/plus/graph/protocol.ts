@@ -460,7 +460,8 @@ export interface GraphOverviewData {
  */
 export type GraphScopeOrigin =
 	| { kind: 'pullRequest'; number: string }
-	| { kind: 'stack'; number: number; size: number };
+	| { kind: 'stack'; number: number; size: number }
+	| { kind: 'worktree'; path: string };
 
 export interface GraphScope {
 	branchName: string;
@@ -1019,6 +1020,13 @@ export interface DidResolveGraphScopeParams {
 	/** Set when the scope-anchor resolver threw. `scope` is the unresolved caller-supplied scope
 	 *  as a fallback so consumers reading `scope.mergeBase` etc. don't crash. */
 	error?: string;
+}
+
+/** Result of a successful graph rebind (`GraphScopeService.rebind`) — the session's window
+ *  re-perspectived onto `repoPath` without discarding accumulated state. */
+export interface DidRebindGraphParams {
+	readonly repoPath: string; // now-bound path
+	readonly previousRepoPath: string; // path before this rebind
 }
 
 /** The settled result of a targeted row load (`GraphRowsService.loadRow`) — it never rejects for a

@@ -99,6 +99,7 @@ import type {
 	GraphMinimapZoomChangeEvent,
 } from './minimap/minimap.js';
 import { OverviewBarController } from './overviewBarController.js';
+import { sameScopeOrigin } from './sidebar/branchActions.utils.js';
 import { groupPullRequestsByStack } from './sidebar/pullRequestStacks.utils.js';
 import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
 import type {
@@ -3766,8 +3767,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			current?.branchName === scope.branchName &&
 			current?.upstreamRef === scope.upstreamRef &&
 			current?.mergeTargetTipSha === scope.mergeTargetTipSha &&
-			current?.origin?.kind === scope.origin?.kind &&
-			current?.origin?.number === scope.origin?.number &&
+			sameScopeOrigin(current?.origin, scope.origin) &&
 			(current?.additionalBranchRefs?.length ?? 0) === (scope.additionalBranchRefs?.length ?? 0) &&
 			(current?.additionalBranchRefs ?? []).every((ref, i) => ref === scope.additionalBranchRefs?.[i])
 		) {

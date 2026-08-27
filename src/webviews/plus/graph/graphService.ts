@@ -43,6 +43,7 @@ import type {
 	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
 	DidLoadRowParams,
+	DidRebindGraphParams,
 	DidRequestActiveSidebarPanelParams,
 	DidRequestGraphActionParams,
 	DidRequestOpenCompareModeParams,
@@ -980,6 +981,14 @@ export interface GraphRepoStatusService {
  */
 export interface GraphScopeService {
 	resolveScope(repoPath: string, scope: GraphScope, signal?: AbortSignal): Promise<DidResolveGraphScopeParams>;
+	/**
+	 * Re-perspectives the live graph session onto `worktreePath` (a worktree of the same repo family)
+	 * without discarding its accumulated window, or restores the home repo binding when `worktreePath`
+	 * is `undefined`. Resolves `undefined` when the host refuses the rebind (e.g. no live session, or
+	 * `worktreePath` isn't a worktree of the bound repo's family) — callers fall back to their own
+	 * repo-switch path in that case.
+	 */
+	rebind(params: { worktreePath: string | undefined }): Promise<DidRebindGraphParams | undefined>;
 	/**
 	 * Fires whenever refs/config move in a way that may stale a resolved anchor (heads/remotes change,
 	 * repo swap, force-refresh). Carries the repo the change was detected in, but consumers should treat
