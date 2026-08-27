@@ -318,6 +318,39 @@ const rowHasLocalHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
 const rowHasRemoteHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
 	row.remotes?.some(r => `${r.owner}/${r.name}` === branchName) === true;
 
+/** Drops a `getBranchId`-shaped ref id's `${repoPath}|` prefix, leaving `heads/name`/`remotes/name`. Used
+ *  to build the scope's view-identity (`_scopeIdentity`, below) off the ref alone: a same-family rebind
+ *  re-stamps `branchRef`'s repoPath component (see `rebind.utils.ts`) while the branch itself is
+ *  unchanged, and the view-identity must NOT perceive that as a scope switch — doing so would reset
+ *  manual fold state (`CommitGraphProjectionSession`'s `viewKey` gate) for a rebind that changed nothing
+ *  the user did. Ids with no `|` (shouldn't happen for a real scope ref) pass through unchanged. */
+function stripRepoPathPrefix(ref: string): string {
+	const i = ref.indexOf('|');
+	return i >= 0 ? ref.slice(i + 1) : ref;
+}
+
+/**
+ * The scope's SEMANTIC view-identity — which refs the user scoped to, with each ref's repoPath
+ * component stripped (see {@link stripRepoPathPrefix}) so a same-family rebind's re-stamp (which only
+ * moves that component) computes the SAME identity as before it. Shared by `_scopeIdentity`'s memoized
+ * `recomputeRows` write (the package's fold/`viewKey` gate) and `willUpdate`'s ref-find invalidation
+ * (which must distinguish an actual branch switch from a re-stamp of the SAME branch) — both need to
+ * agree on what counts as "the scope changed" for their respective, differently-timed comparisons.
+ *
+ * Serialized structurally, not joined: ref names may contain commas (and most other punctuation), so a
+ * joined string is not injective — two different ref sets could collide and silently suppress a real
+ * change. `additionalBranchRefs` is set-like, so canonicalized (sorted) — reordering them isn't a scope
+ * change.
+ */
+function computeScopeIdentity(scope: GraphScope | undefined): string | undefined {
+	return scope != null
+		? JSON.stringify([
+				stripRepoPathPrefix(scope.branchRef),
+				(scope.additionalBranchRefs ?? []).map(stripRepoPathPrefix).toSorted(),
+			])
+		: undefined;
+}
+
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
 // attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
 let textMeasureCanvas: HTMLCanvasElement | undefined;
@@ -787,6 +820,11 @@ export class GlLitGraph extends LitElement {
 	// Selected repo path — needed to reconstruct lean commit rows' right-click context (the host now
 	// ships only `contexts.flags`, not a serialized `contexts.row`); see toGraphCommit.
 	@property({ type: String }) repoPath?: string;
+	// The repo's "family" (`commonPath ?? path`) — stable across a same-family rebind, unlike
+	// `repoPath`. Used ONLY as the engine/projection session identity (see `recomputeRows`/
+	// `recomputeLaneDerivations`), falling back to `repoPath` when absent; every other use of the
+	// repo's path (row context, WIP row ids, etc.) still reads the literal `repoPath`.
+	@property({ type: String }) repoFamily?: string;
 	@property({ type: Object }) scope?: GraphScope;
 	@property({ type: Object }) wipStateById?: GraphWipStateById;
 	/** The graph's own worktree's WIP row id, when it renders — see {@link RowRenderContext.primaryWipRowId}. */
@@ -1915,6 +1953,10 @@ export class GlLitGraph extends LitElement {
 			// new view against a stale chain and leaks the `document` pointerdown dismiss listener. Clear
 			// it directly (the @state writes re-render; the lane re-derivation below rebuilds the ref
 			// adornments with the cleared pin) and dismiss any pinned ref popover.
+			//
+			// Gated on OBJECT identity (any scope swap, including a same-family re-stamp) rather than the
+			// semantic identity check below: the click-pin is ephemeral interaction state (dismissed on
+			// outside click already), not something a rebind needs to preserve.
 			let clearedRefState = false;
 			if (this._pinnedRefKey != null || this.pinnedRefDismiss != null) {
 				this._pinnedRefKey = undefined;
@@ -1931,7 +1973,16 @@ export class GlLitGraph extends LitElement {
 			// scope switch, a ref sharing that key in the NEW view would silently inherit the find-hit
 			// emphasis despite never having been searched for. A page-in still chasing the old scope's
 			// walk is equally stale, so the loading watch goes with it.
-			if (this._refFindHitKey != null || this._refFindLoadingSha != null) {
+			//
+			// Gated on the SEMANTIC scope identity (`computeScopeIdentity`, repoPath-stripped), not object
+			// identity: `restampScope` returns a new scope object on every same-family rebind even when the
+			// branch — and so the find-hit's meaning — didn't change; clearing it there would be spurious.
+			// `this._scopeIdentity` still holds the PRIOR value here — `recomputeRows` (below, via
+			// `recomputeScope`/`recomputeLaneDerivations`) is what advances it to `this.scope`'s.
+			if (
+				computeScopeIdentity(this.scope) !== this._scopeIdentity &&
+				(this._refFindHitKey != null || this._refFindLoadingSha != null)
+			) {
 				this._refFindHitKey = undefined;
 				this._refFindLoadingSha = undefined;
 				this._refFindLoadingRevealedIndex = undefined;
@@ -2993,8 +3044,17 @@ export class GlLitGraph extends LitElement {
 		// and the previous repo's tracked viewport row would survive into the new graph — where an
 		// overlapping sha (a shared commit, a fork, the same repo opened twice) resolves and re-parks the
 		// viewport at the old repo's position. Drop the tracking on identity change.
-		if (this.repoPath !== this._lastScrollRepoPath) {
-			this._lastScrollRepoPath = this.repoPath;
+		//
+		// Compares `repoFamily ?? repoPath` — the same substitution the engine/projection sessions use —
+		// rather than the literal `repoPath`: within a family (a rebind), re-parking on an overlapping sha
+		// is exactly the WANTED behavior (it's the same commit graph, so the viewport row genuinely can
+		// still resolve), not the cross-repo collision hazard this gate exists to guard against. Keying on
+		// the literal path would otherwise clear `_viewportTopSha` on every rebind, which both drops the
+		// insert-above scroll correction for the very push that may insert new head rows (Task 3's fast
+		// path), and clears `_lastRevealedSha`, re-arming a passive reveal that can re-park the viewport.
+		const scrollIdentity = this.repoFamily ?? this.repoPath;
+		if (scrollIdentity !== this._lastScrollRepoPath) {
+			this._lastScrollRepoPath = scrollIdentity;
 			this.cancelPendingReveal();
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
@@ -3032,18 +3092,12 @@ export class GlLitGraph extends LitElement {
 		// Which refs the user scoped to — `branchRef`/`additionalBranchRefs` are their choice, while
 		// `focalBranchTipSha`/`mergeTargetTipSha`/`mergeBase` are resolved values that advance with the repo.
 		// Keying on the choice is what separates "the user switched view" (refresh) from "the anchors
-		// re-resolved" (stay stable).
-		// Serialized structurally: ref names may contain commas (and most other punctuation), so a joined
-		// string is not injective — two different ref sets could collide and silently suppress the refresh.
-		// The additional refs are set-like, so canonicalize their order; reordering them isn't a scope change.
+		// re-resolved" (stay stable). See `computeScopeIdentity` for the serialization itself.
 		// Memoized on the scope OBJECT: it holds a stable reference across the far more frequent rows-only
-		// updates, so the sort + stringify would otherwise run on every host push for an unchanged scope.
+		// updates, so the recompute would otherwise run on every host push for an unchanged scope.
 		if (this._scopeIdentityFor !== this.scope) {
 			this._scopeIdentityFor = this.scope;
-			this._scopeIdentity =
-				this.scope != null
-					? JSON.stringify([this.scope.branchRef, (this.scope.additionalBranchRefs ?? []).toSorted()])
-					: undefined;
+			this._scopeIdentity = computeScopeIdentity(this.scope);
 		}
 
 		// Pin the branch (gitlens.graph.pinBranchToEdge) to the leftmost lane(s) via the engine's
@@ -3053,7 +3107,7 @@ export class GlLitGraph extends LitElement {
 
 		const engineStartedAt = DEBUG ? performance.now() : 0;
 		const state = this.engineSession.update({
-			identity: this.repoPath,
+			identity: this.repoFamily ?? this.repoPath,
 			sourceRows: sourceRows,
 			toCommit: row => toGraphCommit(row, idLength, this.repoPath, this.pinnedRef?.id),
 			headSha: rows.find(row => row.heads?.some(head => head.isCurrentHead))?.sha,
@@ -3101,7 +3155,7 @@ export class GlLitGraph extends LitElement {
 		const projectionStartedAt = DEBUG ? performance.now() : 0;
 		const state = this.projectionSession.update(
 			{
-				identity: this.repoPath,
+				identity: this.repoFamily ?? this.repoPath,
 				viewKey: this._scopeIdentity,
 				rows: this.processedRows,
 				segments: this.segments,

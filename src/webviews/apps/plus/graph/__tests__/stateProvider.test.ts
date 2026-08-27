@@ -17,6 +17,7 @@ import type {
 import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
 import type { AppState } from '../context.js';
+import type { ResolvedScopeAnchor } from '../stateProvider.js';
 import {
 	applyScopeAnchorPatch,
 	countLoadedSearchResults,
@@ -1553,5 +1554,162 @@ suite('GraphStateProvider pendingScopeToBranch cancellation', () => {
 		proto.deferScopeClear.call(t);
 
 		assert.strictEqual(t.pendingScopeToBranch, false);
+	});
+});
+
+suite('GraphStateProvider updateState — same-family rebind vs cross-family switch', () => {
+	const proto = GraphStateProvider.prototype;
+	// `updateState` is `protected` — this bare access would be a TS2445 outside the class, so the
+	// property read itself has to happen through an untyped view, not just the eventual `.call()`.
+	const protoUnsafe = proto as unknown as {
+		updateState: (this: GraphStateProvider, partial: Partial<State>, silent?: boolean) => void;
+	};
+
+	// Unlike `WIP stats supersession` above (a narrow, independent `FakeThis` object), `updateState`
+	// calls OTHER prototype methods via `this.xxx(...)` (`restampScopeStateForRebind`, `cancelPendingScope`,
+	// `clearScope`, `setScope`) — those resolve at runtime only if the fake actually inherits from
+	// `GraphStateProvider.prototype`, so this fake is a real (constructor-bypassed) instance, same
+	// approach as `pendingScopeToBranch cancellation` above. Field initializers (`_wips`, `options`,
+	// `fireProviderUpdate`) never run under `Object.create` (no constructor call), so they're seeded
+	// manually below — through `priv()`, since they (and `_pendingScope`/`_mergeBaseCache`) are private
+	// and only reachable from a differently-typed view of the same object, not through `t` itself.
+	function priv(t: GraphStateProvider): Record<string, unknown> {
+		return t as unknown as Record<string, unknown>;
+	}
+
+	function createFakeThis(): GraphStateProvider {
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = false;
+		fake.repositories = undefined;
+		fake.selectedRepository = undefined;
+		priv(fake)._wips = { pin: () => {}, unpin: () => {} };
+		priv(fake).options = {};
+		priv(fake).fireProviderUpdate = () => {};
+		priv(fake)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+		return fake;
+	}
+
+	function makeRepo(id: string, path: string, commonPath?: string): NonNullable<State['repositories']>[number] {
+		return { id: id, name: id, path: path, commonPath: commonPath, uri: `file://${path}`, virtual: false };
+	}
+
+	const home = makeRepo('/home', '/home');
+	const worktree = makeRepo('/wt', '/wt', '/home');
+	const other = makeRepo('/other', '/other');
+
+	test('same-family switch re-stamps the published scope onto the new repo path', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		t.scope = {
+			branchName: 'main',
+			branchRef: '/home|heads/main',
+			upstreamRef: '/home|remotes/origin/main',
+			mergeBase: { sha: 'a'.repeat(40), date: 1 },
+		};
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		assert.deepStrictEqual(t.scope, {
+			branchName: 'main',
+			branchRef: '/wt|heads/main',
+			upstreamRef: '/wt|remotes/origin/main',
+			mergeBase: { sha: 'a'.repeat(40), date: 1 },
+		});
+	});
+
+	test('same-family switch re-keys the merge-base anchor cache, leaving unrelated entries alone', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		const anchor: ResolvedScopeAnchor = {
+			mergeBase: { sha: 'a'.repeat(40), date: 1 },
+			mergeTargetTipSha: undefined,
+			focalBranchTipSha: undefined,
+		};
+		priv(t)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>([
+			['/home|heads/main', anchor],
+			// A different repo's entry the family-scoped prefix match must not touch.
+			['/unrelated|heads/main', anchor],
+		]);
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		const cache = priv(t)._mergeBaseCache as Map<string, ResolvedScopeAnchor | undefined>;
+		assert.strictEqual(cache.get('/wt|heads/main'), anchor);
+		assert.strictEqual(cache.has('/home|heads/main'), false);
+		assert.strictEqual(cache.get('/unrelated|heads/main'), anchor);
+	});
+
+	test('same-family switch re-stamps a pending scope and republishes it synchronously on a cache hit', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		const anchor: ResolvedScopeAnchor = {
+			mergeBase: { sha: 'b'.repeat(40), date: 2 },
+			mergeTargetTipSha: undefined,
+			focalBranchTipSha: undefined,
+		};
+		// Pre-seed the cache under the NEW repoPath — as if a prior scope on the same branch had already
+		// resolved anchors there, so re-driving the pending scope through `setScope` hits the cache
+		// synchronously instead of awaiting an anchor IPC.
+		priv(t)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>([['/wt|heads/main', anchor]]);
+		priv(t)._pendingScope = { branchName: 'main', branchRef: '/home|heads/main' } satisfies GraphScope;
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		assert.strictEqual(priv(t)._pendingScope, undefined, 'the re-driven setScope call must clear it on publish');
+		assert.deepStrictEqual(t.scope, {
+			branchName: 'main',
+			branchRef: '/wt|heads/main',
+			mergeBase: { sha: 'b'.repeat(40), date: 2 },
+		});
+	});
+
+	test('cross-family switch clears the pending scope instead of re-stamping it (existing behavior)', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		// `clearScope` only reaches its telemetry emission (and so does any real clearing work) when
+		// there's a PUBLISHED scope to clear — seed both a real `scope` and a minimal `host` stub
+		// (`emitTelemetrySentEvent` only ever calls `.dispatchEvent` on it) so this test actually
+		// exercises the clear rather than asserting on a value that was never set in the first place.
+		t.scope = { branchName: 'main', branchRef: '/home|heads/main' };
+		priv(t).host = { dispatchEvent: () => true };
+		priv(t)._pendingScope = { branchName: 'main', branchRef: '/home|heads/main' } satisfies GraphScope;
+		priv(t)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>([
+			[
+				'/home|heads/main',
+				{
+					mergeBase: { sha: 'a'.repeat(40), date: 1 },
+					mergeTargetTipSha: undefined,
+					focalBranchTipSha: undefined,
+				},
+			],
+		]);
+
+		protoUnsafe.updateState.call(t, { repositories: [home, other], selectedRepository: other.id });
+
+		assert.strictEqual(priv(t)._pendingScope, undefined);
+		assert.strictEqual(t.scope, undefined, 'the cross-family path must actually clear a published scope');
+		// Unlike the same-family path, a cross-family switch never re-keys the anchor cache — it's a
+		// different dataset, so the stale entry is simply left to age out, not moved.
+		const cache = priv(t)._mergeBaseCache as Map<string, ResolvedScopeAnchor | undefined>;
+		assert.strictEqual(cache.has('/home|heads/main'), true);
+	});
+
+	test('unrelated repositories/selectedRepository shapes missing from the list fall back to a full clear', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		priv(t)._pendingScope = { branchName: 'main', branchRef: '/home|heads/main' } satisfies GraphScope;
+
+		// The new selection isn't present in the incoming `repositories` list (a stale id mid repo-list
+		// refresh) — `nextShape` resolves to `undefined`, so the safe default (full clear) applies rather
+		// than risking a family compare against a shape that doesn't exist yet.
+		protoUnsafe.updateState.call(t, { repositories: [home], selectedRepository: '/ghost' });
+
+		assert.strictEqual(priv(t)._pendingScope, undefined);
 	});
 });
