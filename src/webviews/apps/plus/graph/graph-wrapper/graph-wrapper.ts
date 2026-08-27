@@ -51,7 +51,7 @@ import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
 import { countRenderedSearchResults, isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { GraphHostSelectionRequest } from '../utils/hostSelectionRequest.js';
-import { getSelectedRepoPath } from '../utils/repository.utils.js';
+import { getSelectedRepoFamily, getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	computeSelectionContexts,
 	needsDynamicRowContext,
@@ -1039,6 +1039,32 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return path;
 	}
 
+	// The graph's "repository family" (`commonPath ?? path`) — stable across a same-family rebind,
+	// unlike `getRepoPath()`. Passed to `gl-lit-graph` as the engine/projection identity so a rebind
+	// (worktree ↔ its main repo, or two sibling worktrees) reconciles incrementally against the shared
+	// commit graph instead of resetting lane assignments and manual fold state as if it were a
+	// genuinely different repo. Same caching rationale as `getRepoPath()`.
+	private _repoFamilyCache?: {
+		repositories: typeof graphStateContext.__context__.repositories;
+		selectedRepository: typeof graphStateContext.__context__.selectedRepository;
+		family: string | undefined;
+	};
+	private getRepoFamily(): string | undefined {
+		const { repositories, selectedRepository } = this.graphState;
+		const cached = this._repoFamilyCache;
+		if (
+			cached != null &&
+			cached.repositories === repositories &&
+			cached.selectedRepository === selectedRepository
+		) {
+			return cached.family;
+		}
+
+		const family = getSelectedRepoFamily(this.graphState);
+		this._repoFamilyCache = { repositories: repositories, selectedRepository: selectedRepository, family: family };
+		return family;
+	}
+
 	// Memoization for `getAgentStatusByRowSha`: agent state and WIP metadata both update
 	// independently of other render triggers (selection, hover, theme), so caching on the three
 	// inputs that actually drive the row→agent mapping keeps the prop identity stable and stops
@@ -1227,6 +1253,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.persistColumns=${this.persistColumns}
 			.activeFilterColumns=${graphState.activeFilterColumns}
 			.repoPath=${this.getRepoPath()}
+			.repoFamily=${this.getRepoFamily()}
 			.columnsContext=${graphState.context?.header}
 			.settingsContext=${graphState.context?.settings}
 			.scrollMarkersContext=${graphState.context?.scrollMarkers}

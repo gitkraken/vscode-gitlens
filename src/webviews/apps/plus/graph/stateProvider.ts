@@ -64,6 +64,7 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
 import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
+import { restampId, restampScope } from './utils/rebind.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { hasDirtyCounts } from './utils/wip.utils.js';
 
@@ -1512,6 +1513,46 @@ export class GraphStateProvider implements Disposable {
 	}
 
 	/**
+	 * Re-stamps webview-held, repoPath-embedded scope state onto a same-family rebind's new binding
+	 * instead of clearing it (the {@link updateState} same-family branch above). The commit graph is
+	 * shared across a repository family, so scope anchors (SHAs) and the branch the user picked are
+	 * still valid — only the repoPath component embedded in `branchRef`/`upstreamRef`/
+	 * `additionalBranchRefs` and the anchor-cache keys needs to move from `fromRepoPath` to
+	 * `toRepoPath`.
+	 *
+	 * `_mergeBasePromises`/`_anchorGenerations` are deliberately left untouched: both are keyed
+	 * per-repoPath already-in-flight bookkeeping that's self-cleaning regardless of a rebind (a stale
+	 * in-flight promise still clears itself under its own original key on settle), and
+	 * `_anchorGenerations` defaulting to 0 for a repoPath it hasn't seen yet is correct — there's
+	 * nothing to have invalidated for it. Worst case is one redundant anchor re-resolve, not a
+	 * correctness gap.
+	 */
+	private restampScopeStateForRebind(fromRepoPath: string, toRepoPath: string): void {
+		if (fromRepoPath === toRepoPath) return;
+
+		if (this._mergeBaseCache.size > 0) {
+			const restamped = new Map<string, ResolvedScopeAnchor | undefined>();
+			for (const [key, value] of this._mergeBaseCache) {
+				restamped.set(restampId(key, fromRepoPath, toRepoPath), value);
+			}
+			this._mergeBaseCache = restamped;
+		}
+
+		if (this.scope != null) {
+			this.scope = restampScope(this.scope, fromRepoPath, toRepoPath);
+		}
+
+		if (this._pendingScope != null) {
+			// Re-drive the pending scope through the normal `setScope` flow at the new path: a cache
+			// hit (just re-keyed above) publishes synchronously, a miss re-issues the anchor IPC.
+			// Either way the ORIGINAL in-flight resolve (if any) is for the pre-rebind `branchRef` and
+			// bails harmlessly on `publishResolvedScope`'s branchRef-mismatch guard — the same
+			// "superseded" handling a second real `setScope` call already gets.
+			void this.setScope(restampScope(this._pendingScope, fromRepoPath, toRepoPath));
+		}
+	}
+
+	/**
 	 * Merge a lazily-fetched merge-target into `overviewEnrichment` for the given branchId. The graph
 	 * overview's enrichment IPC opts out of eager merge-target fetching (`skipMergeTarget: true`); the
 	 * click-to-scope path and the shared branch hover (`gl-branch-hover`, backing both the overview card
@@ -2702,8 +2743,12 @@ export class GraphStateProvider implements Disposable {
 	 * owns exclusively and callers must NOT route through here.
 	 */
 	protected updateState(partial: Partial<State>, silent?: boolean) {
-		// Capture the selected repo so we can re-pin its WIP cache entry below if it changes.
+		// Capture the selected repo — and the repositories list it was resolved from — so we can
+		// re-pin its WIP cache entry below if it changes, and (for the family check) look up its
+		// shape from the list it actually belonged to: `partial` may replace `repositories` in this
+		// same call, so `this.repositories` after the loop below is the NEW list, not the OLD one.
 		const prevSelectedRepo = this.selectedRepository;
+		const prevRepositories = this.repositories;
 		let hasChanges = false;
 		for (const key in partial) {
 			hasChanges = true;
@@ -2741,18 +2786,36 @@ export class GraphStateProvider implements Disposable {
 		// the `_pinned` set stays bounded (size 1) and stale primaries can eventually evict.
 		if (this.selectedRepository !== prevSelectedRepo) {
 			if (prevSelectedRepo != null) {
-				// Scope is webview-local, so a repo switch would otherwise carry it over — and none of it
-				// resolves here: `branchRef` embeds the old repo path (`getBranchId`) and the anchors are
-				// SHAs from the old history. Left alone it silently hides the primary WIP row (the
-				// `branchRef` can't match the new repo's branch id) while the view still LOOKS scoped
-				// whenever the new repo shares the branch name.
-				//
-				// Both calls are needed. `clearScope` bails early when nothing is published yet, which is
-				// exactly the state a first `setScope` is in while its anchor IPC is still in flight —
-				// leaving `_pendingScope` set, so the resolve lands after the switch and
-				// `publishResolvedScope` installs the OLD repo's scope here. Each no-ops on its own.
-				this.cancelPendingScope();
-				this.clearScope();
+				// A same-family rebind (a worktree ↔ its main repo, or two sibling worktrees) shares one
+				// commit graph, so scope state keyed on SHAs is still valid — only the repoPath component
+				// embedded in its ref ids needs to move onto the new binding. Resolve both shapes by id
+				// (never by array position — `repositories` may have reordered) and compare on
+				// `commonPath ?? path`, mirroring `RepositoryShape.commonPath`'s own doc comment. Either
+				// shape missing (e.g. mid repo-list refresh) falls back to the cross-family reset, the
+				// safe default.
+				const prevShape = prevRepositories?.find(r => r.id === prevSelectedRepo);
+				const nextShape = this.repositories?.find(r => r.id === this.selectedRepository);
+				const sameFamily =
+					prevShape != null &&
+					nextShape != null &&
+					(prevShape.commonPath ?? prevShape.path) === (nextShape.commonPath ?? nextShape.path);
+
+				if (sameFamily) {
+					this.restampScopeStateForRebind(prevShape.path, nextShape.path);
+				} else {
+					// Scope is webview-local, so a repo switch would otherwise carry it over — and none of it
+					// resolves here: `branchRef` embeds the old repo path (`getBranchId`) and the anchors are
+					// SHAs from the old history. Left alone it silently hides the primary WIP row (the
+					// `branchRef` can't match the new repo's branch id) while the view still LOOKS scoped
+					// whenever the new repo shares the branch name.
+					//
+					// Both calls are needed. `clearScope` bails early when nothing is published yet, which is
+					// exactly the state a first `setScope` is in while its anchor IPC is still in flight —
+					// leaving `_pendingScope` set, so the resolve lands after the switch and
+					// `publishResolvedScope` installs the OLD repo's scope here. Each no-ops on its own.
+					this.cancelPendingScope();
+					this.clearScope();
+				}
 				this._wips.unpin(prevSelectedRepo);
 			}
 			if (this.selectedRepository != null) {
