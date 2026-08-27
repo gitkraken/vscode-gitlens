@@ -5,12 +5,13 @@ import { customElement, property } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AgentInfo, AIState } from '../../../rpc/services/types.js';
 import { srOnly } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
+import { boxSizingBase, inlineCode, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/overlays/popover.js';
 import '../../shared/components/overlays/tooltip.js';
 import '../../shared/components/skeleton-loader.js';
 import '../../shared/components/radio/radio.js';
@@ -35,6 +36,28 @@ const kindIcons: Record<AgentInfo['kind'], string> = {
 	editor: 'robot',
 };
 
+/** Splits an activation hint on the markdown-style backtick spans it is authored with: even indices
+ *  are plain text, odd indices are the code spans. One split serves both the rendered form and the
+ *  plain accessible name, so the convention is expressed once.
+ *
+ *  Deliberately local rather than shared with the host's `stripHintCodeMarkers`: the rendered form
+ *  needs Lit, and `src/agents/utils/` is host-only per AGENTS.md — a webview may not import it. */
+function splitHintCodeSpans(hint: string): string[] {
+	return hint.split(/`([^`]+)`/g);
+}
+
+/** The hint with its code spans rendered as inline code. */
+function renderHintWithInlineCode(hint: string): unknown[] {
+	return splitHintCodeSpans(hint).map((part, i) =>
+		i % 2 === 1 ? html`<span class="inline-code">${part}</span>` : part,
+	);
+}
+
+/** The hint as plain text, for an accessible name — the backticks would be read out literally. */
+function hintPlainText(hint: string): string {
+	return splitHintCodeSpans(hint).join('');
+}
+
 /**
  * The Agents settings table — one row per detected agent (Chat/Extension/CLI),
  * with a Default picker and, for CLI agents only, MCP/Hooks install controls.
@@ -46,6 +69,7 @@ const kindIcons: Record<AgentInfo['kind'], string> = {
 export class GlSettingsAgents extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
+		inlineCode,
 		linkBase,
 		srOnly,
 		css`
@@ -138,6 +162,17 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 			.cell__status-icon--warning {
 				color: var(--vscode-editorWarning-foreground, #cca700);
+				cursor: help;
+			}
+
+			/* Sized so the activation hint wraps to a readable measure instead of one long line —
+			   the popover would otherwise size itself to the whole sentence. */
+			.activation-popover {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: var(--gl-space-8);
+				max-width: 30rem;
 			}
 
 			gl-radio {
@@ -353,20 +388,44 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		></gl-button>`;
 	}
 
-	private renderInstalled(uninstallHref: string, uninstallLabel: string, manualActivationHint?: string) {
+	/** The activation warning: a popover rather than a tooltip, because its content is actionable.
+	 *  A tooltip closes as soon as the pointer leaves its anchor, so a link inside one is
+	 *  unreachable; `gl-popover` keeps the content hoverable, which is why every other actionable
+	 *  overlay in the webviews uses it. */
+	private renderManualActivation(hint: string, startSession?: { href: string; agentLabel: string }) {
+		return html`<gl-popover>
+			<code-icon
+				slot="anchor"
+				class="cell__status-icon--warning"
+				icon="warning"
+				tabindex="0"
+				aria-label="${hintPlainText(hint)}"
+			></code-icon>
+			<div slot="content" class="activation-popover">
+				<span>${renderHintWithInlineCode(hint)}</span>
+				${
+					startSession != null
+						? html`<gl-button
+								appearance="secondary"
+								href="${startSession.href}"
+								aria-label="Start ${startSession.agentLabel} Session"
+								>Start ${startSession.agentLabel} Session</gl-button
+							>`
+						: nothing
+				}
+			</div>
+		</gl-popover>`;
+	}
+
+	private renderInstalled(
+		uninstallHref: string,
+		uninstallLabel: string,
+		manualActivationHint?: string,
+		startSession?: { href: string; agentLabel: string },
+	) {
 		return html`<span class="cell__status">
 			<gl-tooltip content="Installed"><code-icon icon="check" aria-label="Installed"></code-icon></gl-tooltip>
-			${
-				manualActivationHint != null
-					? html`<gl-tooltip content="${manualActivationHint}"
-							><code-icon
-								class="cell__status-icon--warning"
-								icon="warning"
-								aria-label="${manualActivationHint}"
-							></code-icon
-						></gl-tooltip>`
-					: nothing
-			}
+			${manualActivationHint != null ? this.renderManualActivation(manualActivationHint, startSession) : nothing}
 			<gl-button
 				class="cell__button"
 				appearance="secondary"
@@ -407,6 +466,19 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 		const agentId = agent.hooksAgentId ?? agent.id;
 		if (hooks.installed) {
+			// The "start a session" action needs a `cli:${name}` descriptor id to hand `startAgentSession`
+			// — `agent.id` IS that id for a CLI row, but for an IDE-host row (e.g. `ide-chat`) it is not,
+			// which is exactly why `hooksAgentId` exists above. No agent has a hint on a non-CLI row
+			// today, but gate on `kind` anyway so that stays true if one shows up later.
+			const startSession =
+				hooks.manualActivation != null && agent.kind === 'cli'
+					? {
+							href: createCommandLink<{ agentId: string }>('gitlens.startAgentSession', {
+								agentId: agent.id,
+							}),
+							agentLabel: agent.label,
+						}
+					: undefined;
 			return this.renderInstalled(
 				createCommandLink<{ agentId: string; source: string }>('gitlens.agents.uninstallHooksForAgent', {
 					agentId: agentId,
@@ -414,6 +486,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				}),
 				`Uninstall GitKraken Hooks for ${agent.label}`,
 				hooks.manualActivation,
+				startSession,
 			);
 		}
 		return html`<gl-button

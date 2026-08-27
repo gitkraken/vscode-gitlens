@@ -7,7 +7,7 @@ import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
-import { registerCommand } from '../system/-webview/command.js';
+import { executeCommand, registerCommand } from '../system/-webview/command.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
 import { isWebviewItemContext } from '../system/webview.js';
 import type { GkAgent } from './agentService.js';
@@ -42,7 +42,12 @@ import {
 	resumeClaudeSessionInTerminal,
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
-import { areHooksOfferedForAgent, getHookClientId, getManualActivationHint } from './utils/agentHooks.js';
+import {
+	areHooksOfferedForAgent,
+	getHookClientId,
+	getManualActivationHint,
+	stripHintCodeMarkers,
+} from './utils/agentHooks.js';
 
 /** Value carried by a `gitlens:agent-session…` webview-item context — mirrors
  *  `agentUtils.ts`'s `AgentSessionContextValue` (webview-side). Declared separately here rather
@@ -391,6 +396,10 @@ export class AgentStatusService implements Disposable {
 		// needs no activation note) — never re-derived from `targets`, so a partial failure can't
 		// attach a hint to an agent whose install didn't actually happen.
 		const manualActivationHints = new Set<string>();
+		// The `GkAgent`s behind those hints — captured here (not re-derived from `manualActivationHints`,
+		// which is de-duped on hint TEXT and would collapse two agents sharing identical wording) so the
+		// toast's action button can target the CLI it actually belongs to.
+		const hintedAgents: GkAgent[] = [];
 
 		await window.withProgress(
 			{
@@ -412,6 +421,7 @@ export class AgentStatusService implements Disposable {
 							const hint = getManualActivationHint(agent.name);
 							if (hint != null) {
 								manualActivationHints.add(hint);
+								hintedAgents.push(agent);
 							}
 						}
 						this.container.telemetry.sendEvent(
@@ -447,14 +457,28 @@ export class AgentStatusService implements Disposable {
 		}
 
 		let message = `GitKraken Hooks: ${parts.join('. ')}.`;
+		// A notification renders plain text, so the hint's authored backticks would show literally.
 		for (const hint of manualActivationHints) {
-			message += ` ${hint}`;
+			message += ` ${stripHintCodeMarkers(hint)}`;
 		}
 
-		if (failed.length > 0) {
-			void window.showWarningMessage(message);
-		} else {
-			void window.showInformationMessage(message);
+		// A button can only ever point at ONE agent — with two hinted agents there's no single
+		// command to run, so the action is omitted and the hint text (already folded into `message`
+		// above) is all the user gets. Today this can't happen (only Codex carries a hint), but the
+		// check is here so a future second hinted agent degrades gracefully instead of picking one
+		// arbitrarily.
+		const singleHintedAgent = hintedAgents.length === 1 ? hintedAgents[0] : undefined;
+		const startSessionAction =
+			singleHintedAgent != null ? { title: `Start ${singleHintedAgent.displayName} Session` } : undefined;
+		const actions = startSessionAction != null ? [startSessionAction] : [];
+
+		const selection =
+			failed.length > 0
+				? await window.showWarningMessage(message, ...actions)
+				: await window.showInformationMessage(message, ...actions);
+
+		if (selection === startSessionAction && singleHintedAgent != null) {
+			void executeCommand('gitlens.startAgentSession', { agentId: `cli:${singleHintedAgent.name}` });
 		}
 	}
 

@@ -678,6 +678,67 @@ suite('AgentStatusService runHooksOperation manual-activation hint', () => {
 	});
 });
 
+suite('AgentStatusService runHooksOperation start-session action', () => {
+	test('a single hinted agent offers a "Start … Session" action that dispatches startAgentSession', async () => {
+		const sandbox = sinon.createSandbox();
+		// Resolves with whatever action the toast was actually shown (there is exactly one), the same
+		// way a user clicking that one button would — the real action object is created fresh inside
+		// `runHooksOperation`, so the test can't pre-construct it to hand back.
+		const showInformationMessage = sandbox
+			.stub(window, 'showInformationMessage')
+			.callsFake((_message: any, ...actions: any[]) => Promise.resolve(actions[0]));
+		const executeCommand = sandbox.stub(commands, 'executeCommand').resolves(undefined);
+		const { service, dispose } = setupHooksOperation();
+		try {
+			await callRunHooksOperation(service, [makeGkAgent({ name: 'codex', displayName: 'Codex' })], 'install');
+
+			assert.strictEqual(showInformationMessage.callCount, 1);
+			const [message, action] = showInformationMessage.firstCall.args;
+			assert.match(message, /^GitKraken Hooks: Installed for Codex\./);
+			assert.deepStrictEqual(action, { title: 'Start Codex Session' });
+
+			assert.ok(
+				executeCommand.calledWith('gitlens.startAgentSession', { agentId: 'cli:codex' }),
+				'expected gitlens.startAgentSession to be dispatched for the codex CLI descriptor',
+			);
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('two hinted agents omit the action button — a single button cannot target two agents', async () => {
+		const sandbox = sinon.createSandbox();
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const executeCommand = sandbox.stub(commands, 'executeCommand').resolves(undefined);
+		const { service, dispose } = setupHooksOperation();
+		try {
+			// Both named `codex` so each independently carries the real codex manual-activation hint —
+			// today only one capability descriptor has a hint at all, so this is the only way to exercise
+			// the ">1 hinted agent" branch without inventing a second hint that doesn't exist yet.
+			await callRunHooksOperation(
+				service,
+				[
+					makeGkAgent({ name: 'codex', displayName: 'Codex' }),
+					makeGkAgent({ name: 'codex', displayName: 'Codex 2' }),
+				],
+				'install',
+			);
+
+			assert.strictEqual(showInformationMessage.callCount, 1);
+			assert.strictEqual(
+				showInformationMessage.firstCall.args.length,
+				1,
+				'no action should be passed alongside the message',
+			);
+			assert.strictEqual(executeCommand.called, false);
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+});
+
 /** Stubs the three vscode surfaces the dispatcher can reach, and returns them alongside a restore.
  *  Mocha's tdd `setup` hook is shadowed by this file's own `setup()` helper, so each dispatch test
  *  installs and restores its own sandbox instead. */

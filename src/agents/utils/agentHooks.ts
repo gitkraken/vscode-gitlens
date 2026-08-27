@@ -40,3 +40,14 @@ export function areHooksOfferedForAgent(agentName: string): boolean {
 export function getManualActivationHint(agentName: string): string | undefined {
 	return getAgentCapabilities(getHookClientId(agentName))?.manualActivation;
 }
+
+/**
+ * Strips the markdown-style backticks an activation hint is authored with, for surfaces that render
+ * plain text and would otherwise show them literally — a VS Code notification is not markdown.
+ *
+ * The backticks stay in the authored string rather than being dropped at the source because a
+ * surface that CAN style the command (the Agents settings popover) needs to know which span it is.
+ */
+export function stripHintCodeMarkers(hint: string): string {
+	return hint.replace(/`([^`]+)`/g, '$1');
+}

@@ -14,10 +14,13 @@ export interface StartAgentSessionCommandArgs {
 	cwd?: string;
 	/** When true, always show the agent picker instead of using the persisted default. */
 	pick?: boolean;
+	/** Target a specific agent by descriptor id (e.g. `cli:codex`), bypassing both the persisted
+	 *  default and the picker. */
+	agentId?: string;
 }
 
-/** Launches a new coding-agent session targeting a worktree. Resolves the agent as the persisted
- *  `gitlens.ai.defaultAgent` > picker (same as `runPromptInAgent`). */
+/** Launches a new coding-agent session targeting a worktree. Resolves the agent as an explicit
+ *  `agentId` > `pick` > the persisted `gitlens.ai.defaultAgent` > picker (same as `runPromptInAgent`). */
 @command()
 export class StartAgentSessionCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
@@ -25,7 +28,7 @@ export class StartAgentSessionCommand extends GlCommandBase {
 	}
 
 	async execute(args?: StartAgentSessionCommandArgs): Promise<void> {
-		const descriptor = await this.resolveAgent(args?.pick ?? false);
+		const descriptor = await this.resolveAgent(args);
 		if (descriptor == null) return;
 
 		const cwd = args?.cwd;
@@ -43,8 +46,24 @@ export class StartAgentSessionCommand extends GlCommandBase {
 		}
 	}
 
-	private async resolveAgent(pick: boolean): Promise<AgentDescriptor | undefined> {
-		if (!pick) {
+	/** Resolves the agent to target, honoring precedence `agentId` > `pick` > persisted default >
+	 *  picker. An explicit `agentId` that fails to resolve is a hard stop — it warns (naming the
+	 *  agent that couldn't be started) and returns `undefined` WITHOUT falling through to the
+	 *  picker, since offering a different agent isn't what someone who asked for a specific one
+	 *  wants. A cancelled picker also returns `undefined`, but silently — that's the user's own
+	 *  choice, not a failure. */
+	private async resolveAgent(args?: StartAgentSessionCommandArgs): Promise<AgentDescriptor | undefined> {
+		const agentId = args?.agentId;
+		if (agentId != null) {
+			const descriptor = await resolveDefaultAgent(this.container, agentId);
+			if (descriptor == null) {
+				void window.showWarningMessage(`Couldn't start ${describeAgentId(agentId)}.`);
+			}
+
+			return descriptor;
+		}
+
+		if (!(args?.pick ?? false)) {
 			const persistedId = configuration.get('ai.defaultAgent') ?? undefined;
 			if (persistedId != null) {
 				const descriptor = await resolveDefaultAgent(this.container, persistedId);
@@ -54,4 +73,12 @@ export class StartAgentSessionCommand extends GlCommandBase {
 
 		return pickAgentStandalone(this.container);
 	}
+}
+
+/** Best-effort readable name for an `agentId` that failed to resolve to a descriptor — there is no
+ *  `AgentDescriptor.label` to fall back on at that point, so this strips the `cli:` id prefix the
+ *  same way `agentStatusService.ts`'s `handleHooksOperationForAgentCommand` does for its own
+ *  "agent is no longer available" warning. */
+function describeAgentId(agentId: string): string {
+	return agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
 }

@@ -1,5 +1,10 @@
 import * as assert from 'node:assert';
-import { areHooksOfferedForAgent, getHookClientId, getManualActivationHint } from '../agentHooks.js';
+import {
+	areHooksOfferedForAgent,
+	getHookClientId,
+	getManualActivationHint,
+	stripHintCodeMarkers,
+} from '../agentHooks.js';
 
 suite('getHookClientId', () => {
 	test("translates the CLI's `claude-cli` agent name onto the `claude-code` hook client id", () => {
@@ -48,5 +53,22 @@ suite('getManualActivationHint', () => {
 		for (const name of ['cursor', 'antigravity', 'gemini', 'not-an-agent']) {
 			assert.strictEqual(getManualActivationHint(name), undefined, name);
 		}
+	});
+});
+
+suite('stripHintCodeMarkers', () => {
+	test("removes the authored backticks so a plain-text surface doesn't show them", () => {
+		// A VS Code notification is not markdown — the hint's backticks would render literally.
+		const hint = getManualActivationHint('codex');
+		assert.ok(hint != null);
+		assert.ok(hint.includes('`/hooks`'), 'the authored hint is expected to mark up the command');
+
+		const stripped = stripHintCodeMarkers(hint);
+		assert.ok(stripped.includes('/hooks'), 'the command itself must survive');
+		assert.ok(!stripped.includes('`'), 'no backtick may remain');
+	});
+
+	test('leaves a hint with no code spans untouched', () => {
+		assert.strictEqual(stripHintCodeMarkers('nothing to strip here'), 'nothing to strip here');
 	});
 });
