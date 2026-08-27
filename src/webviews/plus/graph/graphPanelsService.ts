@@ -66,7 +66,7 @@ import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnri
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GraphServices } from './graphService.js';
 import { markSidebarInlineInvocation } from './graphSidebarActionTelemetry.js';
-import { buildBranchContextSuffix, buildPullRequestContextSuffix } from './graphWebview.utils.js';
+import { buildBranchContextSuffix, buildPullRequestContextSuffix, restampFilterRefId } from './graphWebview.utils.js';
 import type {
 	DidGetSidebarDataParams,
 	GetOverviewParams,
@@ -89,17 +89,21 @@ import { createWipRowId, sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
- *  live provider state; `getPinnedRefId`/`getExcludedRefsByRepo`/`fetchWipStatus`/`computeWorktreeChanges`
- *  forward into provider-owned filter storage and the WIP service's caches (kept there); `fireSidebarInvalidated`
- *  fires the provider's `sidebarInvalidated` RPC event (that transport stays wired in `getRpcServices`). */
+ *  live provider state; `getPinnedRefId`/`getExcludedRefsByRepo` read the provider's stored filters
+ *  through its home-aware key (`filtersRepoPath` — the graph's own, possibly-rebound repo is home while
+ *  rebound, never a peer worktree, so there's no `repoPath` parameter here; every caller in this file
+ *  re-stamps the returned ids onto whichever LIVE path it's decorating against — see `restampFilterRefId`
+ *  and `getHiddenRefState`); `fetchWipStatus`/`computeWorktreeChanges` forward into the WIP service's
+ *  caches (kept there); `fireSidebarInvalidated` fires the provider's `sidebarInvalidated` RPC event (that
+ *  transport stays wired in `getRpcServices`). */
 export type GraphPanelsServiceContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
 	getRepository: () => GlRepository | undefined;
 	getSession: () => GitGraphSession | undefined;
 	getLoading: () => Promise<GitGraph> | undefined;
-	getPinnedRefId: (repoPath: string | undefined) => string | undefined;
-	getExcludedRefsByRepo: (repoPath: string | undefined) => Record<string, StoredGraphExcludedRef> | undefined;
+	getPinnedRefId: () => string | undefined;
+	getExcludedRefsByRepo: () => Record<string, StoredGraphExcludedRef> | undefined;
 	fetchWipStatus: (path: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
 	computeWorktreeChanges: (worktrees: GitWorktree[]) => void;
 	fireSidebarInvalidated: () => void;
@@ -380,7 +384,7 @@ export class GraphPanelsService {
 
 		const data = this._graphSession.current;
 		const worktreesByBranch = data.worktreesByBranch ?? new Map();
-		const pinnedRefId = this.context.getPinnedRefId(data.repoPath);
+		const pinnedRefId = this.resolvePinnedRefId(data.repoPath);
 		const { hiddenIds } = this.getHiddenRefState(data.repoPath);
 
 		for (const branch of data.branches.values()) {
@@ -489,14 +493,25 @@ export class GraphPanelsService {
 		}
 	}
 
+	/** The pinned ref's id, restamped onto `livePath` — see `restampFilterRefId`'s doc: `getPinnedRefId`
+	 *  reads the home-keyed bucket, but the id it returns may have been minted at a DIFFERENT path than
+	 *  whatever `livePath` (a live branch's own `.id`) this is about to be compared against. */
+	private resolvePinnedRefId(livePath: string): string | undefined {
+		const stored = this.context.getPinnedRefId();
+		return stored != null ? restampFilterRefId(stored, livePath) : undefined;
+	}
+
 	/** The stored `excludeRefs` filter, split into a per-id set (individually hidden branches/tags) and a
 	 *  per-remote-name map (remotes hidden wholesale via the `name: '*'` wildcard entry, to the ids
 	 *  exempted from that hide — the wildcard's `except`, empty when none). Sidebar rows bake these into
 	 *  their `webviewItem` token as `+hidden`/`+hiddenbyremote` — see `getSidebarBranches`,
 	 *  `getSidebarRemotes`, `getSidebarTags`. `+hiddenbyremote` is baked in ONLY for a branch that isn't
-	 *  exempted; the remote header row itself keeps `+hidden` regardless of exceptions. */
-	private getHiddenRefState(repoPath: string): { hiddenIds: Set<string>; hiddenRemotes: Map<string, Set<string>> } {
-		const storedExcludeRefs = this.context.getExcludedRefsByRepo(repoPath);
+	 *  exempted; the remote header row itself keeps `+hidden` regardless of exceptions.
+	 *
+	 *  `livePath` is where every returned id is re-stamped TO (see `restampFilterRefId`'s doc) — the
+	 *  BUCKET `getExcludedRefsByRepo` reads is home-keyed and carries no path parameter of its own. */
+	private getHiddenRefState(livePath: string): { hiddenIds: Set<string>; hiddenRemotes: Map<string, Set<string>> } {
+		const storedExcludeRefs = this.context.getExcludedRefsByRepo();
 		const hiddenIds = new Set<string>();
 		const hiddenRemotes = new Map<string, Set<string>>();
 		if (storedExcludeRefs != null) {
@@ -504,10 +519,13 @@ export class GraphPanelsService {
 				const stored = storedExcludeRefs[id];
 				if (stored.type === 'remote' && stored.name === '*') {
 					if (stored.owner) {
-						hiddenRemotes.set(stored.owner, new Set(stored.except));
+						hiddenRemotes.set(
+							stored.owner,
+							new Set(stored.except?.map(exceptId => restampFilterRefId(exceptId, livePath))),
+						);
 					}
 				} else {
-					hiddenIds.add(stored.id);
+					hiddenIds.add(restampFilterRefId(stored.id, livePath));
 				}
 			}
 		}
@@ -562,7 +580,7 @@ export class GraphPanelsService {
 
 	private getSidebarBranches(graph: GitGraph) {
 		const providerByRemote = this.getProviderByRemote(graph);
-		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
+		const pinnedRefId = this.resolvePinnedRefId(graph.repoPath);
 		const { hiddenIds, hiddenRemotes } = this.getHiddenRefState(graph.repoPath);
 
 		const branchCfg = configuration.get('views.branches.branches');
@@ -632,7 +650,7 @@ export class GraphPanelsService {
 	private async getSidebarRemotes(graph: GitGraph) {
 		const sorted = sortRemotes([...graph.remotes.values()]);
 		const branchOrderBy = configuration.get('sortBranchesBy');
-		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
+		const pinnedRefId = this.resolvePinnedRefId(graph.repoPath);
 		const { hiddenIds, hiddenRemotes } = this.getHiddenRefState(graph.repoPath);
 		const branchesByRemote = new Map<string, GitBranch[]>();
 		// Reverse tracking map (upstream name → local branch name) so each remote branch can name the
@@ -1445,7 +1463,7 @@ export class GraphPanelsService {
 
 	private getSidebarWorktrees(graph: GitGraph, displayed?: boolean) {
 		const providerByRemote = this.getProviderByRemote(graph);
-		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
+		const pinnedRefId = this.resolvePinnedRefId(graph.repoPath);
 
 		const wtCfg = configuration.get('views.worktrees.branches');
 		const worktrees =

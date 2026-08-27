@@ -64,6 +64,29 @@ export function getExcludedRefName(ref: StoredGraphExcludedRef): string | undefi
 	}
 }
 
+/**
+ * Re-stamps a stored filter ref id (`filters.pinnedRef.id`, an `excludeRefs` key/`.id`, or an `except[]`
+ * entry) onto `toRepoPath` — the invariant every `graph:filtersByRepo` consumer follows: the BUCKET is
+ * home-keyed (survives a rebind), but every id INSIDE it was minted at whatever path was live when it was
+ * stored, and both the host (`GraphWebviewProvider.getPinnedRef`/`getExcludedRefs`,
+ * `GraphPanelsService.getHiddenRefState`) and the webview (`isRefHidden`, the remote-branch scans in
+ * `gl-lit-graph.ts`, `gl-graph-branch-sheet.ts`'s hidden checks, `buildBranchContextSuffix`'s `+pinned`/
+ * `+hidden`) match these ids by EXACT equality against a LIVE row/ref/branch's `.id`, which is always
+ * stamped to the graph's CURRENT path. Re-stamp at the read/serve boundary or a pin/hide made pre-rebind
+ * (or while rebound onto a DIFFERENT worktree) silently stops matching.
+ *
+ * Unlike `restampRowIds` (the CLI session's row re-stamp, which knows the EXACT prior path because it's
+ * the one path a rebind just moved off of), a stored filter id could have been minted at ANY worktree of
+ * the family the user was viewing at the time — there's no single `fromPath` to prefix-match. `getBranchId`/
+ * `getTagId`/`getWorktreeId` all format ids as `${repoPath}|<type>/<name>`, and neither a repo path nor a
+ * ref name can contain `|` (git disallows it in refnames), so replacing everything BEFORE the first `|` is
+ * unambiguous.
+ */
+export function restampFilterRefId(id: string, toRepoPath: string): string {
+	const sep = id.indexOf('|');
+	return sep === -1 ? id : `${toRepoPath}${id.slice(sep)}`;
+}
+
 // Column layouts applied by the "Reset Columns" commands; shared by the host provider (column-settings
 // seed) and the extracted graph commands module.
 export const defaultGraphColumnsSettings: GraphColumnsSettings = {
