@@ -206,6 +206,7 @@ import type {
 	DidFailRevealParams,
 	DidGetRowHoverParams,
 	DidGetSidebarDataParams,
+	DidRebindGraphParams,
 	DidRequestActiveSidebarPanelParams,
 	DidRequestGraphActionParams,
 	DidRequestOpenCompareModeParams,
@@ -1241,6 +1242,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			scope: {
 				resolveScope: (repoPath, scope, signal) => this.resolveGraphScope(repoPath, scope, signal),
+				rebind: params => this.rebindGraphScope(params),
 				onScopeAnchorsInvalidated: this._scopeAnchorsInvalidatedEvent.subscribe(buffer, tracker),
 			},
 			...this._panels.createServices(buffer, tracker),
@@ -3453,6 +3455,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// `scope.resolvedMergeTargetTipSha`, etc. don't crash on undefined property access.
 			return { scope: scope, error: ex instanceof Error ? ex.message : String(ex) };
 		}
+	}
+
+	// TODO: implement — re-perspective the live graph session onto `params.worktreePath` (or restore
+	// the home binding when `undefined`) via `GitGraphSession.rebind`. Stubbed for now so the type
+	// surface compiles; always refuses.
+	private rebindGraphScope(_params: { worktreePath: string | undefined }): Promise<DidRebindGraphParams | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	// `signal` (not `save-last`): consumers sweep every cached anchor on receipt regardless of

@@ -41,7 +41,7 @@ import {
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
-import { appendRowsAtCursor, mergeAvatarsForward } from '@gitlens/git/utils/graph.utils.js';
+import { appendRowsAtCursor, mergeAvatarsForward, restampGraphRowIds } from '@gitlens/git/utils/graph.utils.js';
 import { computeGraphRowContextFlags, createReachabilityTableBuilder } from '@gitlens/git/utils/reachability.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '@gitlens/git/utils/search.utils.js';
@@ -323,6 +323,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			},
 			reachabilitySeed: options?.reachabilitySeed != null,
 			rowsStatsSeed: options?.rowsStatsSeed != null,
+			rebindFrom: options?.rebindFromRepoPath,
 		}),
 	})
 	async getGraph(
@@ -341,6 +342,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			incrementalSeed?: GraphIncrementalSeed;
 			// Observational: reports whether the seeded call took the fast path or fell back (with the reason).
 			onIncrementalResult?: (outcome: IncrementalGraphOutcome) => void;
+			// Set only by `GitGraphSession.rebind` — the path the session was bound to BEFORE this call.
+			// Re-perspectives the seed's window onto `repoPath` (same repo family): the decoration gate
+			// compares the seed's fingerprint from the OLD perspective, and every reused row's ref ids are
+			// re-stamped onto the new path. See `restampGraphRowIds` and the metadata gate below.
+			rebindFromRepoPath?: string;
 		},
 		cancellation?: AbortSignal,
 	): Promise<GitGraph> {
@@ -1177,6 +1183,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		let incrementalFallbackReason: IncrementalGraphFallbackReason | undefined;
 		const tryIncrementalGraph = async (seed: GraphIncrementalSeed): Promise<GitGraph | undefined> => {
 			const onResult = options?.onIncrementalResult;
+			// Set only by a session rebind: the path the seed's rows were walked at. A rebind with unchanged
+			// tips looks exactly like a checkout to the gates below (the HEAD gate refetches both endpoint
+			// rows from the NEW cwd); what it additionally needs is the metadata gate's old-perspective
+			// comparison and the per-row id re-stamp, both keyed off this.
+			const rebindFromRepoPath = options?.rebindFromRepoPath;
 			// Reports a fallback outcome; callers then `return undefined` to take the full walk.
 			const fallback = (reason: IncrementalGraphFallbackReason): void => {
 				incrementalFallbackReason = reason;
@@ -1357,9 +1368,56 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			// change here must take the full walk that rebuilds them. An absent seed fingerprint never matches —
 			// safe full fallback. Deliberately LAST of the gates so the structural gates above keep their precise
 			// reasons (a deleted tracking branch reports `ref-deleted`, not this).
-			if (seed.decorationFingerprint !== decorationFingerprint) {
+			//
+			// On a REBIND exactly two components are expected to differ for benign reasons, both because the
+			// PERSPECTIVE moved rather than the repo: `wd:` (the default worktree's checkout, present only when
+			// the graph is NOT on the default worktree) and `h:` (HEAD's upstream — the worktree's branch tracks
+			// its own). Recompute from the OLD path and the SEED's HEAD upstream, with everything else fresh:
+			// equal means nothing but the rebind changed. Unequal is a genuine concurrent metadata change and
+			// still falls back. Neutralizing `h:` is sound only because the single reused-row field it feeds
+			// (`remotes[].current`) is re-derived in the replay pass below. The graph keeps REPORTING
+			// `decorationFingerprint` computed at the NEW path + NEW upstream, so the next refresh gates against
+			// the perspective the window now describes.
+			const seedComparableFingerprint =
+				rebindFromRepoPath != null
+					? computeDecorationFingerprint(
+							rebindFromRepoPath,
+							defaultBranchName,
+							defaultLocalName,
+							seed.headRefUpstreamName,
+							branches,
+							remotes,
+							worktrees,
+							currentUser,
+						)
+					: decorationFingerprint;
+			if (seed.decorationFingerprint !== seedComparableFingerprint) {
 				fallback('metadata-changed');
 				return undefined;
+			}
+
+			// `wd:` blind spot, rebind AWAY FROM the default worktree. That component tracks the default
+			// worktree's checkout and exists only when the graph is NOT on it — so on a default→secondary
+			// rebind it is absent from BOTH the seed's fingerprint and the old-perspective recompute above,
+			// and a checkout made in the default worktree in between slips through. The newly-checked-out
+			// branch's tip row is not a HEAD endpoint here (the HEAD gate refetches the SEED's head and the
+			// NEW cwd's head), so it would be reused with a stale `heads[].worktree` and lose its
+			// `+checkedout` marker until some later full walk. The seed WAS walked at the default worktree,
+			// so its own current-head name IS that worktree's checkout as of the seed: compare the two.
+			// An unknown seed head (its row paged out of the window) can't prove anything, so it falls back.
+			//
+			// The other two directions need no guard: on secondary→default and secondary→secondary the seed's
+			// graph was NOT on the default worktree, so `wd:` is present on the seed side, and the recompute
+			// keeps it too (`rebindFromRepoPath !== defaultWorktreePath`) — a default-worktree checkout busts
+			// the comparison above on its own.
+			if (rebindFromRepoPath != null) {
+				const defaultWorktree = worktrees.find(w => w.isDefault);
+				if (rebindFromRepoPath === defaultWorktree?.path) {
+					if (priorHeadName !== defaultWorktree.branch?.name) {
+						fallback('metadata-changed');
+						return undefined;
+					}
+				}
 			}
 
 			// Per-branch upstream retargets/removals/additions on RETAINED rows: a branch pill embeds its
@@ -1508,6 +1566,20 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			for (const row of windowRows) {
 				ids.add(row.sha);
 				total++;
+				const fresh = freshShas.has(row.sha);
+				// REBIND only: a remote head's `current` marks it as HEAD's tracking upstream tip, and a reused
+				// row has the PRIOR HEAD's answer baked in (the rebind's new HEAD tracks a different branch —
+				// the gate above deliberately stops treating that as a metadata change). It's a pure comparison
+				// against `headRefUpstreamName`, not something git's decoration output supplies, so re-deriving
+				// it here is exactly equivalent to refetching the row — which is why the old/new upstream tip
+				// rows do NOT need to join `affected`. Must run BEFORE `accumulateRowState`, which seeds
+				// `reachableFromHeadUpstream` (and hence the unpushed/unpulled flags) from this flag.
+				// Non-rebind refreshes are untouched: a HEAD-upstream change there still busts the fingerprint.
+				if (rebindFromRepoPath != null && !fresh && row.remotes != null) {
+					for (const remoteHead of row.remotes) {
+						remoteHead.current = `${remoteHead.owner}/${remoteHead.name}` === headRefUpstreamName;
+					}
+				}
 				const refs = accumulateRowState(
 					row.sha,
 					row.parents,
@@ -1517,11 +1589,18 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					row.sha === currentHeadSha,
 					row.kind === 'stash',
 				);
-				if (freshShas.has(row.sha)) {
+				if (fresh) {
 					// Fresh rows are raw — run the full processor (contexts, emojify, avatar). Reused rows keep
 					// their already-processed contexts/message; only their flags (below) are recomputed.
 					row.reachability = refs?.size ? { partial: true, refs: [...refs.values()] } : undefined;
 					rowProcessor.processRow(row, graphCtx);
+				} else if (rebindFromRepoPath != null && restampGraphRowIds(row, rebindFromRepoPath, repoPath)) {
+					// Rebind: a reused row still carries the OLD path's ref ids, just re-stamped above. Hand it
+					// to the processor so the host-serialized contexts that embed the repoPath are rebuilt from
+					// them too. Deliberately in this pass's `else` — rows in `affected` were rebuilt from raw
+					// git at the new path a few lines up and are already correct, so they're never touched
+					// twice. Rows carrying nothing repoPath-derived short-circuit in `restampGraphRowIds`.
+					rowProcessor.restampRow?.(row, rebindFromRepoPath, repoPath, graphCtx);
 				}
 				// Authoritative flags for every commit row (membership can shift on reused rows too — e.g. a new
 				// interior branch flips `+unique`). Stash rows carry none.
@@ -2062,13 +2141,19 @@ class GraphSession implements GitGraphSession {
 
 	constructor(
 		private readonly provider: GraphGitSubProvider,
-		readonly repoPath: string,
+		private _repoPath: string,
 		private readonly rowProcessor: GraphRowProcessor | undefined,
 		private readonly getWalkShape: () => {
 			ordering: 'date' | 'author-date' | 'topo';
 			onlyFollowFirstParent: boolean;
 		},
 	) {}
+
+	/** The CURRENT bound path — the repo the session was opened for, or the worktree {@link rebind} last
+	 *  moved it onto. Mutable internally ONLY through `rebind`, which re-walks the window at the new path. */
+	get repoPath(): string {
+		return this._repoPath;
+	}
 
 	get window(): readonly GitGraphRow[] {
 		return this._window;
@@ -2093,8 +2178,54 @@ class GraphSession implements GitGraphSession {
 		this.applyRebuild(graph, shape);
 	}
 
-	async refresh(
+	refresh(
 		options?: GitGraphSessionRefreshOptions,
+		cancellation?: AbortSignal,
+	): Promise<GitGraphSessionRefreshResult> {
+		return this.refreshCore(options, undefined, cancellation);
+	}
+
+	async rebind(repoPath: string, cancellation?: AbortSignal): Promise<GitGraphSessionRefreshResult> {
+		// Already there — no walk, and nothing for the host to re-publish.
+		if (repoPath === this._repoPath) {
+			return {
+				path: 'fast',
+				added: 0,
+				changed: {
+					rows: false,
+					reachability: false,
+					rowsStats: false,
+					avatars: false,
+					downstreams: false,
+				},
+			};
+		}
+
+		const fromRepoPath = this._repoPath;
+		this._repoPath = repoPath;
+		try {
+			// `rebind` carries no options (a scope switch has none to give), so anchor the walk on the
+			// session's OWN accumulated window — its bottom commit row and its size — the same boundary the
+			// host pins on a refresh. Without it a rebind would re-shape the window to the provider's default
+			// limit, silently trimming a window the user had paged open.
+			return await this.refreshCore(this.computeWindowAnchor(), fromRepoPath, cancellation);
+		} catch (ex) {
+			// The window still describes `fromRepoPath`: leaving the binding moved would strand a session
+			// claiming a perspective its rows don't match (and a later refresh would seed from them).
+			this._repoPath = fromRepoPath;
+			// …but the walk mutates reused rows IN PLACE, so a failure partway through the re-stamp can leave
+			// the window carrying new-path ref ids. Nothing recomputes those on a plain refresh (only a rebind
+			// re-stamps, and only a full walk rebuilds them), so a seeded refresh would ship the corruption
+			// forever. Drop the shape key: the seed is gated on it, so the next refresh is an unseeded FULL
+			// walk that rebuilds every row from scratch. Cheap insurance on a path that should never run.
+			this._buildShape = undefined;
+			throw ex;
+		}
+	}
+
+	private async refreshCore(
+		options: GitGraphSessionRefreshOptions | undefined,
+		rebindFromRepoPath: string | undefined,
 		cancellation?: AbortSignal,
 	): Promise<GitGraphSessionRefreshResult> {
 		const shape = this.getWalkShape();
@@ -2118,6 +2249,11 @@ class GraphSession implements GitGraphSession {
 						onlyFollowFirstParent: shape.onlyFollowFirstParent,
 						shallow: prior.shallow,
 						decorationFingerprint: prior.decorationFingerprint,
+						// Recovered from the prior graph's own `branches` map rather than a new `GitGraph` field:
+						// that map IS the prelude's branch list, and the walk derives `headRefUpstreamName` from
+						// it the same way (`branches.find(b => b.current)?.upstream?.name`) — so this reproduces
+						// the exact value the prior walk fingerprinted, with no extra state to keep in sync.
+						headRefUpstreamName: find(prior.branches.values(), b => b.current)?.upstream?.name,
 					}
 				: undefined;
 
@@ -2137,6 +2273,9 @@ class GraphSession implements GitGraphSession {
 				onIncrementalResult: o => {
 					outcome = o;
 				},
+				// Set only by `rebind`: same repo family, so the seeds above stay valid (reachability keys on
+				// ref NAMES, stats on shas) — what changes is the perspective the rows' ids are stamped from.
+				rebindFromRepoPath: rebindFromRepoPath,
 			},
 			cancellation,
 		);
@@ -2195,6 +2334,27 @@ class GraphSession implements GitGraphSession {
 		// A seeded fallback carries its reason; an unseeded full walk (no `onIncrementalResult` fired) carries none.
 		if (outcome?.path === 'fallback') return { path: 'full', reason: outcome.reason, changed: changed };
 		return { path: 'full', changed: changed };
+	}
+
+	/**
+	 * Refresh options that reproduce the CURRENT window: the oldest loaded COMMIT row as the rev anchor
+	 * (pinning the walk's bottom boundary) and the window's size as the limit. Stash rows are skipped —
+	 * their shas aren't in `git log --all`, so anchoring on one triggers the walk's defensive over-walk.
+	 */
+	private computeWindowAnchor(): GitGraphSessionRefreshOptions | undefined {
+		const rows = this._window;
+		if (!rows.length) return undefined;
+
+		let rev: string | undefined;
+		for (let i = rows.length - 1; i >= 0 && i >= rows.length - 10; i--) {
+			const kind = rows[i].kind;
+			if (kind === 'commit' || kind === 'merge') {
+				rev = rows[i].sha;
+				break;
+			}
+		}
+
+		return { rev: rev, limit: rows.length, include: this._current.includes };
 	}
 
 	async more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<boolean> {

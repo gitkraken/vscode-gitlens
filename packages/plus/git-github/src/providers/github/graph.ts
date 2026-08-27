@@ -608,6 +608,12 @@ class GraphSession implements GitGraphSession {
 		return { path: 'full', changed: changed };
 	}
 
+	// Permanent, not a stub: virtual (GitHub-backed) repos have no worktrees, so there's nothing to
+	// re-perspective onto — a plain refresh is the honest equivalent of a rebind here.
+	rebind(_repoPath: string, cancellation?: AbortSignal): Promise<GitGraphSessionRefreshResult> {
+		return this.refresh(undefined, cancellation);
+	}
+
 	async more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<boolean> {
 		const prior = this._current;
 		const updated = await prior.more?.(limit ?? 0, targetId, cancellation);

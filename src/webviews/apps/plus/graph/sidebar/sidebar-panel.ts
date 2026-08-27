@@ -81,6 +81,7 @@ import {
 	isHiddenWebviewItem,
 	remoteProviderFolderIcon,
 	remoteProviderIconsByName,
+	sameScopeOrigin,
 } from './branchActions.utils.js';
 import { getPullRequestLeafActions } from './pullRequestActions.utils.js';
 import {
@@ -2627,7 +2628,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const scope = this._state.scope;
 		// Same target means same ORIGIN too — focusing a stack over its plain-focused base (or vice versa)
 		// is a re-focus that changes the scope's shape, not a toggle of the same one.
-		const sameOrigin = scope?.origin?.kind === args.origin?.kind && scope?.origin?.number === args.origin?.number;
+		const sameOrigin = sameScopeOrigin(scope?.origin, args.origin);
 		if (
 			repoPath != null &&
 			sameOrigin &&

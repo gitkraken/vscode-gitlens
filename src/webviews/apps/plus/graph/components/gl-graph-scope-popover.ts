@@ -7,6 +7,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { RepositoryShape } from '../../../../../git/models/repositoryShape.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
@@ -224,6 +225,10 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					icon = 'layers';
 					label = `Stack #${origin.number}`;
 					tooltip = `Showing Stack #${origin.number} of ${origin.size} Pull Requests Only`;
+				} else if (origin?.kind === 'worktree') {
+					icon = 'gl-worktree';
+					label = basename(origin.path);
+					tooltip = `Showing Worktree ${basename(origin.path)} Only`;
 				} else {
 					icon = 'target';
 					label = scopedName ?? 'Scoped';

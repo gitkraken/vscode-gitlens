@@ -37,6 +37,25 @@ export function createFocusRefAction(label: string, args: FocusRefActionArgs): T
 }
 
 /**
+ * Structural equality for two {@link GraphScopeOrigin}s — same `kind` and same identifying field
+ * (`number` for `pullRequest`/`stack`, `path` for `worktree`). Used to tell a re-focus that changes
+ * the scope's origin from a toggle of the exact same one.
+ */
+export function sameScopeOrigin(a: GraphScopeOrigin | undefined, b: GraphScopeOrigin | undefined): boolean {
+	if (a === b) return true;
+	if (a == null || b == null || a.kind !== b.kind) return false;
+
+	switch (a.kind) {
+		case 'pullRequest':
+			return a.number === (b as Extract<GraphScopeOrigin, { kind: 'pullRequest' }>).number;
+		case 'stack':
+			return a.number === (b as Extract<GraphScopeOrigin, { kind: 'stack' }>).number;
+		case 'worktree':
+			return a.path === (b as Extract<GraphScopeOrigin, { kind: 'worktree' }>).path;
+	}
+}
+
+/**
  * Whether a row's `webviewItem` token carries the `+hidden` flag — the ref itself (or, on a remote
  * header row, the whole remote) is hidden by the graph's hidden-refs filter. Token-only: the host is
  * the single source of truth, there's no separate hidden-state field to read.
