@@ -143,7 +143,10 @@ export interface AgentInfo {
 	readonly kind: 'ide-chat' | 'claude-extension' | 'cli' | 'editor';
 	readonly detected?: boolean;
 	readonly mcp?: { readonly supported: boolean; readonly installed: boolean };
-	readonly hooks?: { readonly supported: boolean; readonly installed: boolean };
+	/** `manualActivation` mirrors `AgentCapabilities.manualActivation` (see
+	 *  `packages/plus/agents/src/agentCapabilities.ts`) — an extra step the agent's host requires
+	 *  before installed hooks actually fire, surfaced unconditionally whenever `installed` is true. */
+	readonly hooks?: { readonly supported: boolean; readonly installed: boolean; readonly manualActivation?: string };
 	/** For an IDE-host row that supports hooks, the gkcli agent name to target for hooks install/uninstall
 	 *  (e.g. `cursor`) — this row's own `id` may be `ide-chat`. Absent when `id` is already the hooks target. */
 	readonly hooksAgentId?: string;

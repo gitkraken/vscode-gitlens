@@ -27,3 +27,16 @@ export function getHookClientId(agentName: string): string {
 export function areHooksOfferedForAgent(agentName: string): boolean {
 	return getAgentCapabilities(getHookClientId(agentName)) != null;
 }
+
+/**
+ * The activation hint a `gk agents list` agent's capability descriptor carries, if any — see
+ * `AgentCapabilities.manualActivation`. `undefined` when the agent has no descriptor (see
+ * {@link areHooksOfferedForAgent}) or its descriptor requires no extra step beyond installing.
+ *
+ * Shared by every surface that reports hooks install state (the install-completion toast, the
+ * Agents settings table, and the webview RPC boundary), so the {@link getHookClientId} translation
+ * and the descriptor lookup happen in exactly one place.
+ */
+export function getManualActivationHint(agentName: string): string | undefined {
+	return getAgentCapabilities(getHookClientId(agentName))?.manualActivation;
+}

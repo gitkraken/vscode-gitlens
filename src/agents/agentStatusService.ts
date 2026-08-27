@@ -42,7 +42,7 @@ import {
 	resumeClaudeSessionInTerminal,
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
-import { areHooksOfferedForAgent, getHookClientId } from './utils/agentHooks.js';
+import { areHooksOfferedForAgent, getHookClientId, getManualActivationHint } from './utils/agentHooks.js';
 
 /** Value carried by a `gitlens:agent-session…` webview-item context — mirrors
  *  `agentUtils.ts`'s `AgentSessionContextValue` (webview-side). Declared separately here rather
@@ -82,6 +82,13 @@ function resolveAgentSessionArg(arg: unknown): AgentSessionContextArgValue | und
  *  never drift apart. */
 function getLiveSessionIds(provider: AgentSessionProvider): Set<string> {
 	return new Set(provider.sessions.filter(session => session.status !== 'ended').map(session => session.id));
+}
+
+/** The `@env/agents/agentHooks.js` install/uninstall pair `runHooksOperation` drives — real
+ *  implementation dynamic-imported in production, injectable in tests (see `_hooksInstaller`). */
+interface HooksInstallerFns {
+	installAgentHook: (hookClientId: string) => Promise<void>;
+	uninstallAgentHook: (hookClientId: string) => Promise<void>;
 }
 
 export class AgentStatusService implements Disposable {
@@ -149,16 +156,25 @@ export class AgentStatusService implements Disposable {
 	private readonly _providers: AgentSessionProvider[];
 	/** Timer for the deferred initial hooks-installed push; cleared on dispose if it hasn't fired. */
 	private _initialHooksPushTimer: ReturnType<typeof setTimeout> | undefined;
+	/** Overrides the `@env/agents/agentHooks.js` install/uninstall pair `runHooksOperation` otherwise
+	 *  dynamic-imports — tests only. The real functions ultimately shell out to the `gk` CLI, and the
+	 *  dynamic import's exports are non-configurable (esbuild-bundled), so they can't be sinon-stubbed
+	 *  from outside; this is the seam instead. */
+	private readonly _hooksInstaller: HooksInstallerFns | undefined;
 
 	constructor(
 		private readonly container: Container,
 		providers: AgentSessionProvider[],
-		/** Commands are a process-wide singleton surface — VS Code throws on a duplicate id — so an
-		 *  instance beyond the container's own (tests) must opt out of claiming them. Everything else
-		 *  about the service is per-instance and safe to stand up more than once. */
-		options?: { registerCommands?: boolean },
+		options?: {
+			/** Commands are a process-wide singleton surface — VS Code throws on a duplicate id — so an
+			 *  instance beyond the container's own (tests) must opt out of claiming them. Everything else
+			 *  about the service is per-instance and safe to stand up more than once. */
+			registerCommands?: boolean;
+			hooksInstaller?: HooksInstallerFns;
+		},
 	) {
 		this._providers = providers;
+		this._hooksInstaller = options?.hooksInstaller;
 
 		for (const provider of this._providers) {
 			this._disposables.push(
@@ -366,12 +382,15 @@ export class AgentStatusService implements Disposable {
 			return;
 		}
 
-		const { installAgentHook, uninstallAgentHook } = await import(
-			/* webpackChunkName: "agents" */ '@env/agents/agentHooks.js'
-		);
+		const { installAgentHook, uninstallAgentHook } =
+			this._hooksInstaller ?? (await import(/* webpackChunkName: "agents" */ '@env/agents/agentHooks.js'));
 
 		const succeeded: string[] = [];
 		const failed: { agent: string; error: string }[] = [];
+		// Collected only for agents that actually succeeded, and only for `install` (an uninstall
+		// needs no activation note) — never re-derived from `targets`, so a partial failure can't
+		// attach a hint to an agent whose install didn't actually happen.
+		const manualActivationHints = new Set<string>();
 
 		await window.withProgress(
 			{
@@ -389,6 +408,12 @@ export class AgentStatusService implements Disposable {
 							await uninstallAgentHook(hookClientId);
 						}
 						succeeded.push(agent.displayName);
+						if (op === 'install') {
+							const hint = getManualActivationHint(agent.name);
+							if (hint != null) {
+								manualActivationHints.add(hint);
+							}
+						}
 						this.container.telemetry.sendEvent(
 							op === 'install' ? 'agents/hookInstalled' : 'agents/hookUninstalled',
 							{ 'agent.provider': hookClientId },
@@ -421,7 +446,11 @@ export class AgentStatusService implements Disposable {
 			parts.push(`Failed for ${failed.map(f => f.agent).join(', ')}`);
 		}
 
-		const message = `GitKraken Hooks: ${parts.join('. ')}.`;
+		let message = `GitKraken Hooks: ${parts.join('. ')}.`;
+		for (const hint of manualActivationHints) {
+			message += ` ${hint}`;
+		}
+
 		if (failed.length > 0) {
 			void window.showWarningMessage(message);
 		} else {

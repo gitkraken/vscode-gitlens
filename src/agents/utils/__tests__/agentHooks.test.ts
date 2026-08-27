@@ -1,5 +1,5 @@
 import * as assert from 'node:assert';
-import { areHooksOfferedForAgent, getHookClientId } from '../agentHooks.js';
+import { areHooksOfferedForAgent, getHookClientId, getManualActivationHint } from '../agentHooks.js';
 
 suite('getHookClientId', () => {
 	test("translates the CLI's `claude-cli` agent name onto the `claude-code` hook client id", () => {
@@ -28,6 +28,25 @@ suite('areHooksOfferedForAgent', () => {
 		// would report success and never produce a session. `gemini` isn't a hook client at all.
 		for (const name of ['cursor', 'antigravity', 'gemini', 'not-an-agent']) {
 			assert.strictEqual(areHooksOfferedForAgent(name), false, `${name} must not be offered hooks`);
+		}
+	});
+});
+
+suite('getManualActivationHint', () => {
+	test('surfaces the codex hook-trust hint', () => {
+		assert.ok(getManualActivationHint('codex') != null);
+		assert.match(getManualActivationHint('codex') ?? '', /\/hooks/);
+	});
+
+	test('returns undefined for agents with a descriptor but no activation step', () => {
+		for (const name of ['claude-cli', 'copilot', 'opencode']) {
+			assert.strictEqual(getManualActivationHint(name), undefined, name);
+		}
+	});
+
+	test('returns undefined for agents with no capability descriptor', () => {
+		for (const name of ['cursor', 'antigravity', 'gemini', 'not-an-agent']) {
+			assert.strictEqual(getManualActivationHint(name), undefined, name);
 		}
 	});
 });

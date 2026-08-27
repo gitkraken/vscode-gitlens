@@ -8,6 +8,7 @@ import * as sinon from 'sinon';
 import { commands, extensions, window } from 'vscode';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Container } from '../../container.js';
+import type { GkAgent } from '../agentService.js';
 import { AgentStatusService } from '../agentStatusService.js';
 import type {
 	AgentSession,
@@ -574,6 +575,105 @@ suite('AgentStatusService archiveSession', () => {
 			assert.deepStrictEqual(provider.archivedSessionIds, ['past-session']);
 		} finally {
 			dispose();
+		}
+	});
+});
+
+function makeGkAgent(overrides: Partial<GkAgent> & { name: string }): GkAgent {
+	return {
+		displayName: overrides.name,
+		detected: true,
+		executable: '/usr/bin/agent',
+		mcpSupported: true,
+		mcpInstalled: false,
+		hooksSupported: true,
+		hooksInstalled: false,
+		...overrides,
+	};
+}
+
+/** `runHooksOperation` is private; every public entry into it needs either command registration or
+ *  a real `gk` CLI (via `@env/agents/agentHooks.js`), so the tests drive it directly the same way
+ *  `dispatchSessionAction` does, and inject a fake `hooksInstaller` in place of the CLI. */
+function callRunHooksOperation(
+	service: AgentStatusService,
+	agents: readonly GkAgent[],
+	op: 'install' | 'uninstall',
+): Promise<void> {
+	return (
+		service as unknown as {
+			runHooksOperation: (
+				agents: readonly GkAgent[],
+				op: 'install' | 'uninstall',
+				source: string,
+			) => Promise<void>;
+		}
+	).runHooksOperation(agents, op, 'commandPalette');
+}
+
+function setupHooksOperation() {
+	const provider = new TestProvider();
+	const hooksInstaller = { installAgentHook: sinon.stub().resolves(), uninstallAgentHook: sinon.stub().resolves() };
+	const service = new AgentStatusService(makeContainer(), [provider], {
+		registerCommands: false,
+		hooksInstaller: hooksInstaller,
+	});
+	return { service: service, hooksInstaller: hooksInstaller, dispose: () => service.dispose() };
+}
+
+suite('AgentStatusService runHooksOperation manual-activation hint', () => {
+	test('installing codex appends its manual-activation hint to the toast', async () => {
+		const sandbox = sinon.createSandbox();
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const { service, dispose } = setupHooksOperation();
+		try {
+			await callRunHooksOperation(service, [makeGkAgent({ name: 'codex', displayName: 'Codex' })], 'install');
+
+			assert.strictEqual(showInformationMessage.callCount, 1);
+			const message = showInformationMessage.firstCall.args[0];
+			assert.match(message, /^GitKraken Hooks: Installed for Codex\./);
+			assert.match(message, /trust them/, 'the codex manual-activation hint must be appended');
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('installing claude-code alone carries no hint', async () => {
+		const sandbox = sinon.createSandbox();
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const { service, dispose } = setupHooksOperation();
+		try {
+			await callRunHooksOperation(
+				service,
+				[makeGkAgent({ name: 'claude-cli', displayName: 'Claude Code' })],
+				'install',
+			);
+
+			assert.strictEqual(showInformationMessage.callCount, 1);
+			assert.strictEqual(showInformationMessage.firstCall.args[0], 'GitKraken Hooks: Installed for Claude Code.');
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('uninstalling codex carries no hint, even though its descriptor has one', async () => {
+		const sandbox = sinon.createSandbox();
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const { service, dispose } = setupHooksOperation();
+		try {
+			await callRunHooksOperation(
+				service,
+				[makeGkAgent({ name: 'codex', displayName: 'Codex', hooksInstalled: true })],
+				'uninstall',
+			);
+
+			assert.strictEqual(showInformationMessage.callCount, 1);
+			assert.strictEqual(showInformationMessage.firstCall.args[0], 'GitKraken Hooks: Uninstalled for Codex.');
+		} finally {
+			dispose();
+			sandbox.restore();
 		}
 	});
 });

@@ -5,7 +5,7 @@ import type {
 	PastAgentSessionDetail,
 	PastAgentSessionsResult,
 } from '../../../agents/models/agentSessionState.js';
-import { areHooksOfferedForAgent } from '../../../agents/utils/agentHooks.js';
+import { areHooksOfferedForAgent, getManualActivationHint } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import type { AgentDescriptor } from '../../../plus/agents/agentDescriptor.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
@@ -49,7 +49,11 @@ function toCliAgentInfo(agent: GkAgent): AgentInfo {
 		detected: agent.detected,
 		mcp: { supported: agent.mcpSupported, installed: agent.mcpInstalled },
 		hooks: areHooksOfferedForAgent(agent.name)
-			? { supported: agent.hooksSupported, installed: agent.hooksInstalled }
+			? {
+					supported: agent.hooksSupported,
+					installed: agent.hooksInstalled,
+					manualActivation: getManualActivationHint(agent.name),
+				}
 			: undefined,
 	};
 }
@@ -221,7 +225,11 @@ export class AgentsService {
 		const hostGkAgent = hostAgentName != null ? all.find(a => a.name === hostAgentName) : undefined;
 		const hostHooks =
 			hostGkAgent?.hooksSupported === true && areHooksOfferedForAgent(hostGkAgent.name)
-				? { supported: true, installed: hostGkAgent.hooksInstalled }
+				? {
+						supported: true,
+						installed: hostGkAgent.hooksInstalled,
+						manualActivation: getManualActivationHint(hostGkAgent.name),
+					}
 				: undefined;
 		const bundleCapable = this.container.gkMcp?.isRegistrationCapable ?? false;
 
@@ -247,7 +255,13 @@ export class AgentsService {
 					return {
 						...info,
 						mcp: { supported: claudeCli.mcpSupported, installed: claudeCli.mcpInstalled },
-						hooks: { supported: claudeCli.hooksSupported, installed: claudeCli.hooksInstalled },
+						hooks: {
+							supported: claudeCli.hooksSupported,
+							installed: claudeCli.hooksInstalled,
+							// Mirrors whatever the claude-cli descriptor carries (undefined today) — this row
+							// is read-only and must not fabricate its own activation state.
+							manualActivation: getManualActivationHint(claudeCli.name),
+						},
 					};
 				}
 

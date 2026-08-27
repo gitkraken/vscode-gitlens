@@ -270,4 +270,18 @@ suite('agentCapabilities', () => {
 			assert.strictEqual(getCapabilities('opencode').cwdIsStatic, true);
 		});
 	});
+
+	suite('manualActivation', () => {
+		test('codex carries the hook-trust activation hint', () => {
+			const codex = getCapabilities('codex');
+			assert.ok(codex.manualActivation != null);
+			assert.match(codex.manualActivation, /\/hooks/);
+		});
+
+		test('leaves manualActivation undefined for the other clients', () => {
+			for (const hookClientId of ['claude-code', 'copilot', 'opencode']) {
+				assert.strictEqual(getCapabilities(hookClientId).manualActivation, undefined, hookClientId);
+			}
+		});
+	});
 });

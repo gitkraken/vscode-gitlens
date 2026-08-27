@@ -136,6 +136,10 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--50);
 			}
 
+			.cell__status-icon--warning {
+				color: var(--vscode-editorWarning-foreground, #cca700);
+			}
+
 			gl-radio {
 				justify-self: center;
 			}
@@ -349,9 +353,20 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		></gl-button>`;
 	}
 
-	private renderInstalled(uninstallHref: string, uninstallLabel: string) {
+	private renderInstalled(uninstallHref: string, uninstallLabel: string, manualActivationHint?: string) {
 		return html`<span class="cell__status">
 			<gl-tooltip content="Installed"><code-icon icon="check" aria-label="Installed"></code-icon></gl-tooltip>
+			${
+				manualActivationHint != null
+					? html`<gl-tooltip content="${manualActivationHint}"
+							><code-icon
+								class="cell__status-icon--warning"
+								icon="warning"
+								aria-label="${manualActivationHint}"
+							></code-icon
+						></gl-tooltip>`
+					: nothing
+			}
 			<gl-button
 				class="cell__button"
 				appearance="secondary"
@@ -398,6 +413,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 					source: 'settings',
 				}),
 				`Uninstall GitKraken Hooks for ${agent.label}`,
+				hooks.manualActivation,
 			);
 		}
 		return html`<gl-button

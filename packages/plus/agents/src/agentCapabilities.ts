@@ -64,6 +64,11 @@ export interface AgentCapabilities {
 	/** The agent's hook events carry no per-call cwd, so the reported cwd is fixed at install/init
 	 *  time and never reflects later movement. */
 	readonly cwdIsStatic: boolean;
+
+	/** Extra step the agent's own host requires before installed hooks will actually fire. Undefined
+	 *  when installing is sufficient. Not a computed state — we cannot detect whether the step has been
+	 *  done, so consumers surface this unconditionally whenever hooks are installed. */
+	readonly manualActivation?: string;
 }
 
 const canonicalHookEvents = new Set<string>([...canonicalNonBlockingHookEvents, ...canonicalBlockingHookEvents]);
@@ -119,6 +124,14 @@ const codexCapabilities: AgentCapabilities = {
 	// The CLI lists codex in `pidSharingClients` — it multiplexes sessions in one process.
 	sharesPids: true,
 	cwdIsStatic: false,
+	// Verified empirically, not speculative: running an identical Codex session with
+	// `--dangerously-bypass-hook-trust` fires the installed hooks immediately (a session record
+	// appears); without that flag, zero records — Codex silently refuses to run command hooks it
+	// hasn't trusted yet, with no log line or warning of any kind. Trust is granted via `/hooks`
+	// inside interactive Codex and is bound to the hook's hash, so a reinstall invalidates it. There
+	// is no known way to detect trust state from outside Codex, so this hint is unconditional.
+	manualActivation:
+		"Codex won't run these hooks until you trust them — run `/hooks` in Codex. You'll need to trust them again if the hooks are reinstalled.",
 };
 
 const copilotCapabilities: AgentCapabilities = {
