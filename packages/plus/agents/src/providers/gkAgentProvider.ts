@@ -2297,6 +2297,13 @@ export class GkAgentProvider implements AgentSessionProvider {
 	/** No `_sessions` gate, unlike {@link resolveEndedSessionDetails} — must work for a
 	 *  transcript-only id this window never tracked live (past-session-sheet callers). */
 	async resolveSessionDetails(sessionId: string, cwd?: string): Promise<EndedTranscriptDetails | undefined> {
+		// The reader only reads Claude Code's store, so an agent that leaves no transcript can only
+		// ever miss here. Reachable rather than theoretical: an ended session of ANY agent becomes a
+		// Past row, and opening its sheet routes here by `providerId`. `supportsTranscripts` fails
+		// open, so the transcript-only ids this method exists for — untracked, therefore capability-
+		// less, and Claude's by construction since only its store produces them — still resolve.
+		if (!this.supportsTranscripts(sessionId)) return undefined;
+
 		let cached = this._sessionDetailsCache.get(sessionId);
 		if (cached == null) {
 			cached = this._transcriptReader.resolveEndedDetails(sessionId, cwd).catch((ex: unknown) => {

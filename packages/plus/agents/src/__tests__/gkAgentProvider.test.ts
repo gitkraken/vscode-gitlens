@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { IpcHandler } from '@gitlens/ipc/ipcServer.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type {
+	EndedTranscriptDetails,
 	ResumableTranscriptSessionListing,
 	TranscriptSessionListing,
 	TranscriptTitles,
@@ -399,7 +400,7 @@ suite('GkAgentProvider', () => {
 
 		test('a pending decay timer that fires after SessionEnd does not clear the frozen file activity', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 50 });
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				const send = await startSession(provider, handlers, 'sess');
 				await send(preToolUse('sess', 'Edit', FILE));
@@ -708,7 +709,7 @@ suite('GkAgentProvider', () => {
 			const { callbacks, handlers } = createMockCallbacks({
 				resolveGitInfo: () => new Promise(() => {}),
 			});
-			const provider = new ClaudeCodeProvider(callbacks);
+			const provider = new GkAgentProvider(callbacks);
 			try {
 				provider.start([a]);
 				const handler = handlers.get('agents/session')!;
@@ -1721,6 +1722,16 @@ class StubTranscriptReader extends ClaudeCodeTranscriptReader {
 	override forget(sessionId: string): void {
 		this.forgotten.push(sessionId);
 	}
+
+	readonly endedDetailCalls: { sessionId: string; cwd: string | undefined }[] = [];
+
+	override resolveEndedDetails(
+		sessionId: string,
+		cwd: string | undefined,
+	): Promise<EndedTranscriptDetails | undefined> {
+		this.endedDetailCalls.push({ sessionId: sessionId, cwd: cwd });
+		return Promise.resolve({ titles: this.titles, firstPrompt: undefined, lastPrompt: undefined });
+	}
 }
 
 /** Listing stub for exercising the provider's merge of exact-directory and CLI-attributed history. */
@@ -2150,7 +2161,7 @@ suite('GkAgentProvider ended sessions', () => {
 				}),
 			]),
 		});
-		const provider = new ClaudeCodeProvider(callbacks);
+		const provider = new GkAgentProvider(callbacks);
 		try {
 			provider.start([REPO]);
 			await flushMicrotasks();
@@ -5389,6 +5400,40 @@ suite('GkAgentProvider supportsTranscripts gating', () => {
 			assert.ok(
 				reader.calls.some(c => c.sessionId === 'claude-trans'),
 				'a Claude session must still drive the read the gate is protecting',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('resolveSessionDetails skips a tracked non-transcript agent but still serves an untracked id', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const reader = new StubTranscriptReader({ ai: 'title' });
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('codex-past', REPO, 'codex'), new URLSearchParams());
+			await flushMicrotasks();
+			reader.endedDetailCalls.length = 0;
+
+			// Reachable, not theoretical: an ended session of ANY agent becomes a Past row, and opening
+			// its sheet routes here by `providerId`. The reader only reads Claude's store, so this could
+			// only ever miss — and would cost a read per row to find that out.
+			assert.strictEqual(await provider.resolveSessionDetails('codex-past', REPO), undefined);
+			// Asserted on `length` rather than against `[]`: `deepStrictEqual` is typed
+			// `asserts actual is T`, so comparing to an empty literal narrows the array to `never[]`
+			// for the rest of the block and breaks the `.map` below.
+			assert.strictEqual(reader.endedDetailCalls.length, 0, 'a non-transcript agent must not reach the reader');
+
+			// The gate fails open, so the transcript-only ids this method exists for — never tracked
+			// live, therefore carrying no capabilities, and Claude's by construction since only its
+			// store produces them — must still resolve. This is upstream's documented contract.
+			const untracked = await provider.resolveSessionDetails('never-tracked-here', REPO);
+			assert.ok(untracked != null, 'an untracked transcript-only id must still be served');
+			assert.deepStrictEqual(
+				reader.endedDetailCalls.map(c => c.sessionId),
+				['never-tracked-here'],
 			);
 		} finally {
 			provider.dispose();
