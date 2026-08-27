@@ -9,12 +9,12 @@ export type AgentHookClientId = 'claude-code' | 'codex' | 'copilot' | 'opencode'
  *  the same namespace as {@link AgentHookClientId}. */
 export type AgentProviderId = 'claudeCode' | 'codex' | 'copilot' | 'opencode';
 
-/** Icon-font glyph name used to badge the agent in the UI. Every member must name a glyph that
- *  actually exists: `codicons-map.ts` is generated from VS Code's own font so we cannot extend it,
- *  and `glicons` comes from `resources/icons.fig`, so a new mark needs a design asset rather than a
- *  code change. An agent with no mark of its own uses `robot` — a name with no glyph renders as
- *  tofu, it does not fall back. */
-export type AgentIconName = 'claude' | 'openai' | 'copilot' | 'robot';
+/** Icon-font glyph name used to badge the agent in the UI. Every member must name a `ThemeIcon` id
+ *  that actually exists: either a codicon glyph name (`codicons-map.ts` is generated from VS Code's
+ *  own font, so it isn't ours to extend) or a GitLens-contributed `gitlens-*` id from the `glicons`
+ *  font, built from SVGs in `images/icons/`. An agent with no mark of its own uses `robot` — a name
+ *  with no glyph renders as tofu, it does not fall back. */
+export type AgentIconName = 'claude' | 'openai' | 'copilot' | 'gitlens-provider-opencode' | 'robot';
 
 /**
  * Flat, data-only description of one supported `gk ai hook` client. Mirrors how the GitKraken CLI
@@ -189,8 +189,7 @@ const openCodeCapabilities: AgentCapabilities = {
 	hookClientId: 'opencode',
 	providerId: 'opencode',
 	displayName: 'OpenCode',
-	// No OpenCode mark exists in either font yet — see AgentIconName.
-	icon: 'robot',
+	icon: 'gitlens-provider-opencode',
 	eventMap: {
 		'session.created': 'SessionStart',
 		'session.deleted': 'SessionEnd',

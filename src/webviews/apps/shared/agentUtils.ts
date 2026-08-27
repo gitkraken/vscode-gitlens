@@ -58,10 +58,11 @@ export function agentProviderIcon(providerName: string | undefined): string {
 			return 'openai';
 		case 'cursor':
 			return 'cursor';
+		case 'opencode':
+			return 'gl-provider-opencode';
 		default:
-			// `opencode` lands here deliberately — neither the codicon font (generated from VS Code's,
-			// so not ours to extend) nor `glicons` (sourced from `resources/icons.fig`) has a mark for
-			// it, and a name with no glyph renders as tofu rather than falling back.
+			// An unknown provider has no mark to carry, and a glyph name absent from either font
+			// renders as tofu rather than falling back, so it lands on the generic robot instead.
 			return 'robot';
 	}
 }

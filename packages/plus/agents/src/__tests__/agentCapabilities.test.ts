@@ -56,11 +56,11 @@ suite('agentCapabilities', () => {
 			assert.strictEqual(codex.displayName, 'Codex');
 			assert.strictEqual(codex.icon, 'openai');
 
-			// No OpenCode mark exists in either font. A glyph name that isn't in the font renders as
+			// OpenCode carries its own glicons mark; a glyph name that isn't in the font renders as
 			// tofu instead of falling back, so this must stay a real one.
 			const opencode = getCapabilities('opencode');
 			assert.strictEqual(opencode.displayName, 'OpenCode');
-			assert.strictEqual(opencode.icon, 'robot');
+			assert.strictEqual(opencode.icon, 'gitlens-provider-opencode');
 		});
 	});
 

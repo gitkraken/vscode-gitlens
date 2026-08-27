@@ -745,12 +745,12 @@ suite('agentProviderIcon', () => {
 		assert.strictEqual(agentProviderIcon('copilot'), 'copilot');
 		assert.strictEqual(agentProviderIcon('codex'), 'openai');
 		assert.strictEqual(agentProviderIcon('cursor'), 'cursor');
+		assert.strictEqual(agentProviderIcon('opencode'), 'gl-provider-opencode');
 	});
 
 	test('falls back to the generic mark for an agent with no glyph', () => {
 		// A glyph name absent from the font renders as tofu rather than falling back, so an agent
 		// without a mark of its own must resolve to `robot` here.
-		assert.strictEqual(agentProviderIcon('opencode'), 'robot');
 		assert.strictEqual(agentProviderIcon('antigravity'), 'robot');
 		assert.strictEqual(agentProviderIcon(undefined), 'robot');
 		assert.strictEqual(agentProviderIcon(''), 'robot');

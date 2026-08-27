@@ -94,4 +94,5 @@ export const iconMap = Object.freeze({
 	'radio-checked': '\\f156',
 	'radio-unchecked': '\\f157',
 	'provider-trello': '\\f158',
+	'provider-opencode': '\\f159',
 });

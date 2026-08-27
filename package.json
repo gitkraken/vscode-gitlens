@@ -13235,6 +13235,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f158"
 				}
+			},
+			"gitlens-provider-opencode": {
+				"description": "provider-opencode icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f159"
+				}
 			}
 		},
 		"menus": {
