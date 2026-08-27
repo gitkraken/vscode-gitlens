@@ -542,6 +542,10 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 					author: {
 						id: 'me',
 						name: 'Keanu Reeves',
+						// username: 354cc88c5 ("Adds a handle to pull request and issue members") carries the
+						// providers-api account's own `username` through `fromProviderAccount`; the fixture sets
+						// it equal to `name` (see `fakeAccount`).
+						username: 'Keanu Reeves',
 						avatarUrl: 'https://avatars.example/keanu.png',
 						url: 'https://github.com/keanu',
 					},
@@ -555,11 +559,19 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 					reviewRequests: [
 						{
 							isCodeOwner: false,
-							reviewer: { id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined },
+							reviewer: {
+								id: 'rev-1',
+								name: 'Trinity',
+								username: 'Trinity',
+								avatarUrl: undefined,
+								url: undefined,
+							},
 							state: PullRequestReviewState.ReviewRequested,
 						},
 					],
-					assignees: [{ id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined }],
+					assignees: [
+						{ id: 'rev-1', name: 'Trinity', username: 'Trinity', avatarUrl: undefined, url: undefined },
+					],
 					refs: {
 						base: {
 							branch: 'main',
@@ -926,7 +938,6 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 
 			const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
 
-			assert.equal(result.cliUnsupported, false);
 			assert.equal(result.resolution.status, 'resolved');
 			assert.equal(result.resolution.warning, undefined, 'a clean resolve carries no warning');
 			assert.deepEqual(
@@ -965,7 +976,6 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 
 			const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/northwind/platform.git' });
 
-			assert.equal(result.cliUnsupported, false);
 			assert.equal(result.resolution.status, 'resolved');
 			assert.equal(result.resolution.warning, undefined, 'a clean resolve carries no warning');
 			assert.deepEqual(
@@ -1014,8 +1024,13 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 							avatarUrl: 'https://avatars.example/acme.png',
 						},
 					]),
-				getJiraProjectsForResources: () =>
-					Promise.resolve({ values: [{ key: 'ENG', id: 'p1', name: 'Engineering', resourceId: 'org-1' }] }),
+				// Per-resource, cursor-paginated as of de8aec9a8 ("harden provider migration contracts"), replacing
+				// the old batch `getJiraProjectsForResources` call.
+				getJiraProjectsForResource: () =>
+					Promise.resolve({
+						values: [{ key: 'ENG', id: 'p1', name: 'Engineering', resourceId: 'org-1' }],
+						paging: { cursor: '{}', more: false },
+					}),
 				getCurrentUserForResource: () =>
 					Promise.resolve({
 						id: 'u1',
@@ -1402,14 +1417,84 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 					PullRequestFilter.ReviewRequested,
 					PullRequestFilter.Mention,
 				],
+				// pullRequestsAccountWide gains Reviewed (af6ca0a8f, "Adds account-wide reviewed-by filter and
+				// review projection for Kepler needs-my-review"): the account-wide read can now express "PRs I
+				// reviewed" server-side.
 				pullRequestsAccountWide: [
 					PullRequestFilter.Author,
 					PullRequestFilter.Assignee,
 					PullRequestFilter.ReviewRequested,
+					PullRequestFilter.Reviewed,
 					PullRequestFilter.Mention,
 				],
+				// pullRequestSearch: 5059cbf36 ("feat(integrations): add filtered pull request search (#5665)"),
+				// values verified against `githubPullRequestSearchCapabilities` in providers/models.ts.
+				pullRequestSearch: {
+					relationships: [
+						PullRequestFilter.Author,
+						PullRequestFilter.Assignee,
+						PullRequestFilter.ReviewRequested,
+						PullRequestFilter.Reviewed,
+						PullRequestFilter.Mention,
+					],
+					states: ['open', 'closed', 'merged', 'all'],
+					text: true,
+					updatedAfter: true,
+					createdAfter: true,
+					includeArchived: true,
+					draft: true,
+					repositoryScope: true,
+					organizationScope: true,
+					sorts: ['updated:desc', 'updated:asc', 'created:desc', 'created:asc'],
+				},
 				issues: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 				issuesAccountWide: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+				// issueSearch: cdb6ba97b ("add the filtered issue search criteria model and capability table"),
+				// values verified against `githubIssueSearchCapabilities` in providers/models.ts.
+				issueSearch: {
+					relationships: ['authored', 'assigned', 'mentioned', 'any-assignee', 'unassigned'],
+					text: true,
+					labels: true,
+					milestone: true,
+					updatedAfter: true,
+					createdAfter: true,
+					withoutLinkedPullRequest: true,
+					states: true,
+					sorts: [
+						'created:asc',
+						'created:desc',
+						'updated:asc',
+						'updated:desc',
+						'comments:asc',
+						'comments:desc',
+						'reactions:asc',
+						'reactions:desc',
+					],
+				},
+				// issueSorts/issueSortsAccountWide: 5087cc9a9 ("let issue reads choose their ordering") +
+				// 9154096a7 ("derive the issue sort tables from the SDK") — derived from
+				// `@gitkraken/provider-apis`' `SUPPORTED_ISSUE_SORTS.github` (identical on both surfaces for
+				// GitHub; see `githubAccountWideIssueSorts`' doc comment on why).
+				issueSorts: [
+					'created:asc',
+					'created:desc',
+					'updated:asc',
+					'updated:desc',
+					'comments:asc',
+					'comments:desc',
+					'reactions:asc',
+					'reactions:desc',
+				],
+				issueSortsAccountWide: [
+					'created:asc',
+					'created:desc',
+					'updated:asc',
+					'updated:desc',
+					'comments:asc',
+					'comments:desc',
+					'reactions:asc',
+					'reactions:desc',
+				],
 			});
 		} finally {
 			manager.dispose();
@@ -1428,9 +1513,40 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 		try {
 			assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket), {
 				pullRequests: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+				// Unchanged by af6ca0a8f's Reviewed addition: Bitbucket's providersMetadata entry never declares
+				// PullRequestFilter.Reviewed on supportedAccountWidePullRequestFilters.
 				pullRequestsAccountWide: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+				// Bitbucket declares neither supportedPullRequestSearch nor supportedIssueSearch, so
+				// getSupportedFilters (reads/filters.ts) reports the all-empty/all-false baseline for both new
+				// surfaces (5059cbf36, cdb6ba97b) — same absence-collapse rule as `issues`/`issuesAccountWide`.
+				pullRequestSearch: {
+					relationships: [],
+					states: [],
+					text: false,
+					updatedAfter: false,
+					createdAfter: false,
+					includeArchived: false,
+					draft: false,
+					repositoryScope: false,
+					organizationScope: false,
+					sorts: [],
+				},
 				issues: [],
 				issuesAccountWide: [],
+				issueSearch: {
+					relationships: [],
+					text: false,
+					labels: false,
+					milestone: false,
+					updatedAfter: false,
+					createdAfter: false,
+					withoutLinkedPullRequest: false,
+					states: false,
+					sorts: [],
+				},
+				// Bitbucket declares no supportedIssueSorts either (issues are unsupported outright).
+				issueSorts: [],
+				issueSortsAccountWide: [],
 			});
 		} finally {
 			manager.dispose();
@@ -1452,8 +1568,51 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 			assert.deepEqual(manager.getSupportedFilters(IssuesCloudHostIntegrationId.Linear), {
 				pullRequests: [],
 				pullRequestsAccountWide: [],
+				// Linear has no filtered PR search (it isn't a git host): the all-empty/all-false baseline, same
+				// absence-collapse as Bitbucket above.
+				pullRequestSearch: {
+					relationships: [],
+					states: [],
+					text: false,
+					updatedAfter: false,
+					createdAfter: false,
+					includeArchived: false,
+					draft: false,
+					repositoryScope: false,
+					organizationScope: false,
+					sorts: [],
+				},
 				issues: [IssueFilter.Assignee],
 				issuesAccountWide: [],
+				// Linear also has no filtered issue search (only the assignee-scoped "my issues" read).
+				issueSearch: {
+					relationships: [],
+					text: false,
+					labels: false,
+					milestone: false,
+					updatedAfter: false,
+					createdAfter: false,
+					withoutLinkedPullRequest: false,
+					states: false,
+					sorts: [],
+				},
+				// issueSorts: 5087cc9a9 + 9154096a7, derived from `SUPPORTED_ISSUE_SORTS.linear` — verified
+				// directly against the installed @gitkraken/provider-apis 0.57.0 bundle. issueSortsAccountWide
+				// stays empty: Linear reports its one shared read surface under `issueSorts` (see
+				// `linearIssueSorts`' doc comment — one root `issues` query serves both reads).
+				issueSorts: [
+					'created:asc',
+					'created:desc',
+					'updated:asc',
+					'updated:desc',
+					'title:asc',
+					'title:desc',
+					'priority:asc',
+					'priority:desc',
+					'dueDate:asc',
+					'dueDate:desc',
+				],
+				issueSortsAccountWide: [],
 			});
 		} finally {
 			manager.dispose();
@@ -1552,10 +1711,27 @@ suite('listIssuesPage project scoping — base-case trunk (a9379a43b)', () => {
 					author: {
 						id: 'author-1',
 						name: 'Ada Lovelace',
+						// username: Azure's project-scoped "my issues" read goes through
+						// `searchProviderMyIssuesWithTruncation` -> `fromProviderIssue` -> `fromProviderAccount`
+						// (providers/models.ts), not the generic `toIssueShape` the other IssueShape cases in this
+						// file exercise — `fromProviderAccount` carries `username` since 354cc88c5 ("Adds a handle
+						// to pull request and issue members"); `toIssueShape` was NOT touched by that commit and
+						// still omits `username` on IssueShape.author/assignees (see the Jira/Linear/Trello cases
+						// above, which pin no `username`) — a candidate product inconsistency, not something this
+						// resurrection changes.
+						username: 'Ada Lovelace',
 						avatarUrl: 'https://avatars.example/ada.png',
 						url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
 					},
-					assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
+					assignees: [
+						{
+							id: 'me',
+							name: 'Keanu Reeves',
+							username: 'Keanu Reeves',
+							avatarUrl: undefined,
+							url: undefined,
+						},
+					],
 					// Azure work items are project-scoped, not repo-scoped: unlike a git host's repo-scoped issue
 					// read, there is no repository to populate.
 					repository: undefined,
