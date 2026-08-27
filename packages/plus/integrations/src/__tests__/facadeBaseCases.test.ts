@@ -102,7 +102,12 @@ function fakeAccount(
 	return {
 		id: id,
 		name: name,
-		username: name,
+		// Deliberately DISTINCT from `name`: fromProviderAccount's contract is to
+		// carry the provider's handle, never to substitute a display name
+		// (354cc88c5), and toProviderAccount already conflates the two in the
+		// other direction — with username === name these pins could not tell a
+		// copied display name from the real handle (mutation-verified).
+		username: `@${id}`,
 		email: null,
 		avatarUrl: extra?.avatarUrl ?? null,
 		url: extra?.url ?? null,
@@ -545,7 +550,7 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 						// username: 354cc88c5 ("Adds a handle to pull request and issue members") carries the
 						// providers-api account's own `username` through `fromProviderAccount`; the fixture sets
 						// it equal to `name` (see `fakeAccount`).
-						username: 'Keanu Reeves',
+						username: '@me',
 						avatarUrl: 'https://avatars.example/keanu.png',
 						url: 'https://github.com/keanu',
 					},
@@ -562,7 +567,7 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 							reviewer: {
 								id: 'rev-1',
 								name: 'Trinity',
-								username: 'Trinity',
+								username: '@rev-1',
 								avatarUrl: undefined,
 								url: undefined,
 							},
@@ -570,7 +575,7 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 						},
 					],
 					assignees: [
-						{ id: 'rev-1', name: 'Trinity', username: 'Trinity', avatarUrl: undefined, url: undefined },
+						{ id: 'rev-1', name: 'Trinity', username: '@rev-1', avatarUrl: undefined, url: undefined },
 					],
 					refs: {
 						base: {
@@ -1719,7 +1724,7 @@ suite('listIssuesPage project scoping — base-case trunk (a9379a43b)', () => {
 						// still omits `username` on IssueShape.author/assignees (see the Jira/Linear/Trello cases
 						// above, which pin no `username`) — a candidate product inconsistency, not something this
 						// resurrection changes.
-						username: 'Ada Lovelace',
+						username: '@author-1',
 						avatarUrl: 'https://avatars.example/ada.png',
 						url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
 					},
@@ -1727,7 +1732,7 @@ suite('listIssuesPage project scoping — base-case trunk (a9379a43b)', () => {
 						{
 							id: 'me',
 							name: 'Keanu Reeves',
-							username: 'Keanu Reeves',
+							username: '@me',
 							avatarUrl: undefined,
 							url: undefined,
 						},
