@@ -459,6 +459,13 @@ export const treeItemStyles = [
 			color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
 		}
 
+		/* The row the Commit Graph is currently scoped to — same yellow token as the graph header's
+		   scoped branch pill / mode chip (--gl-chip-scoped-color, defined app-wide in theme.scss), so
+		   the two surfaces read as one state (UX review finding 8). */
+		::slotted([slot^='decorations-'].decoration-icon--scoped) {
+			color: var(--gl-chip-scoped-color);
+		}
+
 		/* High Contrast Mode Support */
 		@media (forced-colors: active) {
 			:host {

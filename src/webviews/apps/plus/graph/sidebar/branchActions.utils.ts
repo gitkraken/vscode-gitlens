@@ -22,11 +22,27 @@ export interface FocusRefActionArgs {
 	additional?: { branchName: string; remote?: boolean }[];
 	/** What was focused, when the branch was reached through a pull request or a stack. */
 	origin?: GraphScopeOrigin;
+	/**
+	 * The worktree row this payload came from, set on BOTH of a worktree row's dual-verb payloads (see
+	 * {@link createWorktreeScopeAction}) — including the plain-Focus alt payload, which carries no
+	 * `origin`. `focusRef` needs this independent of `origin` to detect a LIVE perspective on this exact
+	 * worktree (left by an earlier Scope gesture) and close it even when the current click is the
+	 * Focus verb. Absent for an ordinary branch/remote-branch row, which has no worktree to perspective.
+	 */
+	worktreePath?: string;
+	/** Whether `worktreePath` is the graph's HOME worktree — the un-scoped identity a gesture exits to
+	 * (`isHomeWorktree`, NOT the repo's default worktree: a window opened on a worktree makes that
+	 * worktree home and the main checkout an ordinary scope target). Set on BOTH of a worktree row's
+	 * dual-verb payloads (see {@link createWorktreeScopeAction}). A gesture on home always exits any live
+	 * perspective instead of stamping a new one (UX review finding 1); absent (falls back to `false`) for
+	 * an ordinary branch/remote-branch row. */
+	isHome?: boolean;
 }
 
 /**
- * Inline action focusing (scoping) the graph onto a branch — shared by the branch, worktree, and
- * remote-branch leaves, which all ultimately focus a branch.
+ * Inline action focusing (scoping) the graph onto a branch — shared by the branch and remote-branch
+ * leaves, which ultimately focus a branch only (no worktree perspective — see
+ * {@link createWorktreeScopeAction} for the worktree row's dual-verb variant).
  *
  * Clicking it while the graph is already focused there unfocuses, mirroring the header's
  * jump-to-ref button. The label is deliberately fixed across both states so the row's icons don't
@@ -34,6 +50,64 @@ export interface FocusRefActionArgs {
  */
 export function createFocusRefAction(label: string, args: FocusRefActionArgs): TreeItemAction {
 	return { icon: 'target', label: label, action: focusRefActionId, arguments: [args] };
+}
+
+/**
+ * Inline action for a worktree/WIP row offering BOTH verbs on ONE button, main-click vs. Alt+click —
+ * the same alt-affordance pattern the tracking (Pull/Fetch) action uses. Main click "Scopes" the graph
+ * onto the worktree (the perspective; also focuses the branch when `graph.scopeBehavior` is
+ * `'scopeAndFocus'` — the default). Alt+click is the ordinary branch "Focus" (F only, no perspective) — identical
+ * semantics to {@link createFocusRefAction}, just reached via the worktree row instead of a branch
+ * row. Both variants route through {@link focusRefActionId} (view state, handled entirely in
+ * the webview); they're distinguished by whether their payload carries a worktree `origin`.
+ */
+export function createWorktreeScopeAction(args: {
+	branchName: string;
+	upstreamName?: string;
+	worktreePath: string;
+	/** Whether this row IS the graph's home worktree — see {@link FocusRefActionArgs.isHome}.
+	 * On a home row, the main-click (Scope) payload stamps NO origin — the gesture means "go home",
+	 * never "perspective to home" (UX review finding 1). */
+	isHome?: boolean;
+	/** Whether this row IS the graph's LIVE worktree perspective — swaps the main-click label to
+	 * "Unscope Worktree" so the row that's actively scoped reads as a toggle rather than a repeat of
+	 * the same "Scope to Worktree" verb (UX review finding 8). Purely cosmetic: the click still routes
+	 * through {@link focusRefActionId}, whose handler (`focusRef`) already detects and closes the live
+	 * perspective from `worktreePath` regardless of this flag. */
+	isScoped?: boolean;
+}): TreeItemAction {
+	return {
+		// `gl-scope` (framing corners around a focal dot) is the SCOPE concept's own glyph — it means
+		// "the graph is looking through this worktree" and nothing else. Deliberately not `gl-worktree`,
+		// which is worktree IDENTITY (the row's own icon, the branch pill's) and never scope, nor
+		// `target`, which is the focus vocabulary the alt verb below keeps.
+		icon: 'gl-scope',
+		label: args.isScoped ? 'Unscope Worktree' : 'Scope to Worktree',
+		action: focusRefActionId,
+		arguments: [
+			{
+				branchName: args.branchName,
+				upstreamName: args.upstreamName,
+				...(args.isHome ? {} : { origin: { kind: 'worktree', path: args.worktreePath } }),
+				worktreePath: args.worktreePath,
+				isHome: args.isHome,
+			} satisfies FocusRefActionArgs,
+		],
+		altIcon: 'target',
+		altLabel: 'Focus on Branch',
+		altAction: focusRefActionId,
+		// `worktreePath` on the ALT (plain Focus) payload too — no `origin` here (this verb never
+		// perspectives), but `focusRef` still needs to know which worktree this row is, so a live
+		// perspective left by an earlier Scope gesture on it gets closed by this click too.
+		altArguments: [
+			{
+				branchName: args.branchName,
+				upstreamName: args.upstreamName,
+				worktreePath: args.worktreePath,
+				isHome: args.isHome,
+			} satisfies FocusRefActionArgs,
+		],
+	};
 }
 
 /**

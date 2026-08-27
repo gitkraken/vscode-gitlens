@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?a1ae374da018b0b3806653d327a4a2d9") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?6638b6b64e7fd14fe0d7465538b50abd") format("woff2");
 	}
 </style>
 */
@@ -329,6 +329,10 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 .glicon-provider-trello:before {
 	content: '\f158';
 }
+.glicon-scope:before {
+	content: '\f159';
+}
+
 .glicon-provider-opencode:before {
 	content: '\f159';
 }

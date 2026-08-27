@@ -3000,6 +3000,16 @@
 						"when": "webviewItem =~ /gitlens:branch\\b/",
 						"group": "8_gitlens_actions",
 						"order": 7
+					},
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\+branch\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 8
+					},
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 8
 					}
 				]
 			}
@@ -3017,11 +3027,11 @@
 			}
 		},
 		"gitlens.focusWorktree:graph": {
-			"label": "Focus on Worktree",
+			"label": "Scope to Worktree",
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /^gitlens:wip\\b/",
+						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\+branch\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 7
 					},

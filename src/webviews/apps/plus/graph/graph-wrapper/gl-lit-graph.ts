@@ -2305,7 +2305,46 @@ export class GlLitGraph extends LitElement {
 		// an unchanged row set (`rowUnitsMayHaveShifted` — toggling the setting, or a ref-visibility filter
 		// change while it's on). The second moves NO index at all; only the unit-position disjunct below
 		// catches it, and without it a promoted row appearing above the viewport slides the whole list.
-		if (
+		// A REBIND (same family, new binding — a worktree Scope) is the one rows update that MOVES the WIP
+		// rows rather than inserting around them: the newly-bound worktree's row is pinned to the top and
+		// the previous binding's drops back to its own branch tip. Every other row keeps its place, so the
+		// correction below is right for all of them — but following a WIP row means following a teleport,
+		// which is what dragged a scope gesture's viewport to row 0 (the destination of the very row the
+		// gesture targeted). Re-track from the unchanged scroll position instead: nothing else above the
+		// viewport moved by more than the one WIP row that left it.
+		// Armed on the binding change, consumed by the first rows update after it: the two don't have to
+		// land in the same pass (`repoPath` rides the full state, the rows ride their own channel), and
+		// re-tracking against rows that haven't moved yet would just re-anchor the same WIP row and follow
+		// it anyway on the next pass.
+		if (this.repoPath !== this._lastViewportRepoPath) {
+			this._lastViewportRepoPath = this.repoPath;
+			this._retrackViewportOnRebind = true;
+		}
+
+		let reboundOffWipAnchor = false;
+		if (this._retrackViewportOnRebind && rowsChanged) {
+			const topSha = this._viewportTopSha;
+			if (topSha != null && isWipRowId(topSha)) {
+				// Consume the arm only when the WIP anchor actually MOVED (or vanished) — that's the
+				// rebind's own delta. An unrelated rows update landing first (an in-flight page/refresh
+				// splice, a filter toggle) would otherwise spend the arm on a pass where nothing
+				// teleported, and the rebind's real delta would then follow the WIP anchor's jump — the
+				// exact scroll teleport this exists to suppress.
+				const nowAt = this.indexBySha.get(topSha);
+				if (nowAt == null || nowAt !== this._viewportTopIndex) {
+					this._retrackViewportOnRebind = false;
+					reboundOffWipAnchor = true;
+				}
+			} else {
+				// Not anchored on a WIP row — no teleport hazard for this rebind; the ordinary correction
+				// below handles the delta.
+				this._retrackViewportOnRebind = false;
+			}
+		}
+
+		if (reboundOffWipAnchor) {
+			this.trackViewportTop(this._viewportScrollTop);
+		} else if (
 			(rowsChanged || rowUnitsMayHaveShifted) &&
 			this.wasScrolled &&
 			this._viewportTopSha != null &&
@@ -3800,6 +3839,13 @@ export class GlLitGraph extends LitElement {
 
 	/** The repo the pending scroll state belongs to — a swap reuses this element, so it must invalidate. */
 	private _lastScrollRepoPath?: string;
+	/** The BINDING (`repoPath`, not the family) the tracked viewport row was last seen under — a change
+	 *  means a rebind moved the WIP rows under us. Separate from {@link _lastScrollRepoPath}, which keys on
+	 *  the family precisely so a rebind DOESN'T reset the tracking. */
+	private _lastViewportRepoPath?: string;
+	/** Set when {@link _lastViewportRepoPath} moved, cleared by the first rows update that follows — see
+	 *  the viewport correction's rebind branch for why the two can't be checked together. */
+	private _retrackViewportOnRebind = false;
 
 	// Visually-hidden polite live region for screen-reader announcements (lane collapse, paging).
 	// Written via the cached element ref (CSSOM textContent — no host re-render).

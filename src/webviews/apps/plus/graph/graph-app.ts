@@ -113,6 +113,8 @@ import { SidebarOverlayController } from './sidebarOverlayController.js';
 import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { resolveMinimapShown } from './utils/minimap.utils.js';
+import type { WorktreeGestureOutcome } from './utils/rebind.utils.js';
+import { isHomeWorktree, resolveWorktreeGesture } from './utils/rebind.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { resolveScopeToBranchTarget, shouldDrainParkedScopeToBranch } from './utils/scopeToBranch.utils.js';
@@ -355,6 +357,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.jumpToast.revealFailed(id);
 	}
 
+	/** A worktree Scope the host refused (or that threw) — the state provider has already rolled the
+	 *  optimistic perspective back; this is what makes the failure visible instead of a yellow flash. */
+	handleRebindFailed(message: string): void {
+		this.jumpToast.rebindFailed(message);
+	}
+
 	/** The overlay (unpinned) side bar's auto-collapse, Esc dismissal, and focus-handoff behaviors
 	 *  (see {@link SidebarOverlayController}); wired here with closures over this element's own state. */
 	private readonly sidebarOverlay = new SidebarOverlayController(
@@ -396,6 +404,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		scopeToBranchByName: (branchName, upstreamName, options) =>
 			this.scopeToBranchByName(branchName, upstreamName, options),
 		fetchSelectedWorktreeWipStats: sha => this.fetchSelectedWorktreeWipStats(sha),
+		followRowAfterRebind: (rowId, repoPath) => this.followRowAfterRebind(rowId, repoPath),
 	});
 
 	/** Stable `pushOverlay` reference for surfaces that register themselves on the Esc stack through a
@@ -1121,10 +1130,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
 			// to the current branch (the welcome-page / generic `scope-to-branch` entry point).
 			if (scopeBranch != null) {
-				await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
-					remote: scopeBranch.remote,
-					origin: scopeOrigin,
-				});
+				const gesture = this.applyWorktreeGestureOrigin(scopeOrigin, scopeBranch.branchName);
+				if (gesture.focus) {
+					await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
+						remote: scopeBranch.remote,
+						origin: gesture.origin,
+					});
+				}
 			} else {
 				await this.scopeToBranch();
 			}
@@ -1219,12 +1231,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// branch once the selection above has landed. CONSTRAINT: `scopeBranch` must cover the target
 		// row — every producer resolves it from the target worktree's OWN current branch, so this
 		// scope can't re-hide the row `unscopeToRevealWip` just revealed. A producer scoping to some
-		// OTHER branch would break that.
+		// OTHER branch would break that. Skipping the focus call entirely (perspective-only, via
+		// `applyWorktreeGestureOrigin`'s setting gate) is safe here too — nothing re-scopes the row
+		// away, so it stays exactly as visible as `unscopeToRevealWip` left it.
 		if (scopeBranch != null) {
-			await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
-				remote: scopeBranch.remote,
-				origin: scopeOrigin,
-			});
+			const gesture = this.applyWorktreeGestureOrigin(scopeOrigin, scopeBranch.branchName);
+			if (gesture.focus) {
+				await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
+					remote: scopeBranch.remote,
+					origin: gesture.origin,
+				});
+			}
 		}
 
 		// `revealOnly` (passive follow deliveries) selects/reveals the row above without opening the
@@ -3781,6 +3798,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				source: source,
 				'scope.hasUpstream': scope.upstreamRef != null,
 				'scope.hasMergeTarget': scope.mergeTargetTipSha != null,
+				'scope.isWorktree': scope.origin?.kind === 'worktree',
 			},
 		});
 		// `stateProvider.setScope` resolves after the final scope publish (anchored when the
@@ -4273,10 +4291,116 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** Whether a worktree-origin scope gesture should ALSO focus the branch — the `graph.scopeBehavior`
+	 *  setting (default `'scopeAndFocus'`, preserving the pre-setting behavior). */
+	private get scopeBehaviorIncludesFocus(): boolean {
+		return (this.graphState.config?.scopeBehavior ?? 'scopeAndFocus') !== 'scope';
+	}
+
+	/**
+	 * Sets the worktree perspective SYNCHRONOUSLY when `origin` is a worktree gesture — immediacy: the
+	 * header tint + pill must render off this write in the same frame, before the focus pipeline's
+	 * anchor IPC. Shared by every `scope-to-branch` entry point that carries a `GraphScopeOrigin` from a
+	 * host-resolved focus command (`consumePendingAction` — covers `graphCommands.ts`'s focus command
+	 * AND `worktreeActions.ts`'s `showWorktreeInGraph`, which both fund the same `pendingAction`
+	 * payload); the WIP-row and overview-pill gestures call `setWorktreePerspective` directly since they
+	 * already branch on `origin.kind` and need the `graph.doubleClickWorktreeAction` setting layered in
+	 * too.
+	 *
+	 * Returns BOTH halves of what the caller does next: `focus` is whether to still run the focus
+	 * pipeline, and `origin` is what to forward to it — NOT always the origin passed in (a go-home
+	 * gesture drops it so the focus is genuinely plain). See {@link resolveWorktreeGesture}, which owns
+	 * the rule; this is its imperative shell for the host-command path.
+	 *
+	 * That's the single story for every producer, gesture and command alike: the host stamps a worktree
+	 * origin for any worktree it's asked about (it can't cheaply know which one is home for a path the
+	 * graph isn't bound to), and the machine decides that home means exit.
+	 */
+	private applyWorktreeGestureOrigin(
+		origin: GraphScopeOrigin | undefined,
+		branchName: string,
+	): { focus: boolean; origin: GraphScopeOrigin | undefined } {
+		const outcome = resolveWorktreeGesture({
+			// The command path carries no branch REF and no live-scope comparison of its own — it is a
+			// fresh ask, never a toggle — so the toggle-off half is deliberately left unarmed here.
+			branchRef: undefined,
+			origin: origin,
+			worktreePath: origin?.kind === 'worktree' ? origin.path : undefined,
+			scope: undefined,
+			perspectivePath: this.graphState.worktreePerspective?.path,
+			homeRepositoryPath: this.graphState.homeRepositoryPath,
+			scopeBehaviorIncludesFocus: this.scopeBehaviorIncludesFocus,
+		});
+		this.applyWorktreeGestureOutcome(outcome, branchName);
+
+		return { focus: outcome.focus, origin: outcome.origin };
+	}
+
+	/** Executes the perspective half of a {@link resolveWorktreeGesture} outcome, plus the follow-up
+	 *  selection when the gesture was performed on a WIP row. The focus half stays with the caller,
+	 *  which owns how it scopes (by name, by ref, with `additional` refs). */
+	private applyWorktreeGestureOutcome(outcome: WorktreeGestureOutcome, branchName: string | undefined): void {
+		if (outcome.clearScope) {
+			this.graphState.clearScope();
+		}
+
+		if (outcome.perspective === 'set' && outcome.perspectivePath != null) {
+			this.graphState.setWorktreePerspective(outcome.perspectivePath, { branchName: branchName });
+			if (outcome.followRowId != null) {
+				this.followRowAfterRebind(outcome.followRowId, outcome.perspectivePath);
+			}
+		} else if (outcome.perspective === 'clear' && this.graphState.worktreePerspective != null) {
+			this.graphState.clearWorktreePerspective();
+		}
+	}
+
+	/**
+	 * Selects and reveals the row a Scope gesture was performed ON, once the rebind it fired has landed.
+	 *
+	 * Deferred until the binding actually converges, for two reasons: the host ships its own
+	 * `selectedRows` on the rebind push (which would otherwise land AFTER our selection and clobber it —
+	 * the "selection ends up on the branch" bug), and a navigation armed before the push is cancelled by
+	 * it, since `selectedRepository` changes underneath the pending select.
+	 *
+	 * This is the deliberate counterpart to `gl-lit-graph`'s rebind viewport PARKING: parking exists so a
+	 * rebind the user is merely watching doesn't drag them to wherever a WIP row teleported, while this
+	 * follows the row on purpose when the user's own gesture targeted it. A reveal outranks the parked
+	 * anchor by construction (see `applyPendingScrollAnchor`), so the two never fight.
+	 */
+	private followRowAfterRebind(rowId: string, repoPath: string): void {
+		void (async () => {
+			const bound = () => getSelectedRepoPath(this.graphState) === repoPath;
+			if (!bound()) {
+				await this.waitForState(bound, 5000);
+				if (!bound()) return;
+			}
+
+			await this.updateComplete;
+			void this.graph?.navigateToCommit(rowId, { source: 'wip', flash: true });
+		})();
+	}
+
 	private toggleScopeFromWipRow(sha: string): void {
 		let branchRef: string | undefined;
 		let branchName: string | undefined;
 		let upstreamName: string | undefined;
+		let origin: GraphScopeOrigin | undefined;
+		// The row's OWN repoPath, regardless of primary/secondary — handed to the gesture machine, which
+		// uses it for both the home test and the toggle-off exit. Kept apart from `origin`: after a rebind
+		// lands, `selectedRepository` IS the worktree, so its WIP row satisfies `isPrimaryWipRowId` and
+		// gets no `origin` stamped, while its repoPath can still BE the live perspective.
+		let repoPath: string | undefined;
+		// Whether this row IS the graph's HOME worktree (see `isHomeWorktree`; NOT the repo's default
+		// worktree, which is an ordinary scope target in a window opened on a worktree). Needed HERE only
+		// to decide whether to stamp an origin at all — the machine re-derives it for the gesture itself.
+		let isHomeRow = false;
+
+		// Which verb a SECONDARY worktree's WIP-row double-click performs — `graph.doubleClickWorktreeAction`
+		// (default `'scope'`). `'focus'` is the classic branch-focus toggle (no perspective, ever, even
+		// on a secondary row); `'scope'` is the worktree-perspective cycle, itself further gated by
+		// `graph.scopeBehavior` for whether it ALSO focuses. The graph's own (primary) row is unaffected
+		// either way — it's already home, with no perspective to offer.
+		const doubleClickAction = this.graphState.config?.doubleClickWorktreeAction ?? 'scope';
 
 		if (isPrimaryWipRowId(sha, this.fallbackRepoPath)) {
 			const branch = this.graphState.branch;
@@ -4285,6 +4409,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			branchRef = branch.id;
 			branchName = branch.name;
 			upstreamName = branch.upstream?.missing ? undefined : branch.upstream?.name;
+			repoPath = this.fallbackRepoPath;
+			// The primary row is home only while the graph is UNSCOPED — once rebound it IS the worktree
+			// the perspective sits on, and the `perspectived` exit below owns that row instead.
+			isHomeRow = isHomeWorktree(this.fallbackRepoPath, this.graphState.homeRepositoryPath);
+			// The graph is already bound to the primary worktree — plain branch scope, no origin to stamp.
 		} else {
 			const wip = this.graphState.wipRowsById?.[sha];
 			if (wip?.branchRef == null || wip.branch == null) return;
@@ -4292,15 +4421,37 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			branchRef = wip.branchRef;
 			branchName = wip.branch.name;
 			upstreamName = wip.branch.upstream?.missing ? undefined : wip.branch.upstream?.name;
+			repoPath = wip.repoPath;
+			isHomeRow = isHomeWorktree(wip.repoPath, this.graphState.homeRepositoryPath);
+			if (doubleClickAction === 'scope' && !isHomeRow) {
+				// `wip.repoPath` is the worktree's own path — stamp it for provenance/toggle-identity,
+				// same as the sidebar's "Scope to Worktree" action. The machine below turns it into the
+				// actual perspective transition.
+				origin = { kind: 'worktree', path: wip.repoPath };
+			}
+			// `doubleClickAction === 'focus'`, or a home row even in `'scope'` mode: leave `origin`
+			// undefined — the classic pre-two-mode plain branch-focus toggle, with no perspective
+			// involvement at all.
 		}
 
-		if (this.graphState.scope?.branchRef === branchRef) {
-			this.graphState.clearScope();
+		// One rule, resolved centrally — `resolveWorktreeGesture` owns toggle-off detection (origin-aware),
+		// the go-home exit, and the perspective transition. `targetRowId` says this gesture was performed
+		// ON that WIP row, which is what earns the selection+reveal follow once the rebind lands.
+		const outcome = resolveWorktreeGesture({
+			branchRef: branchRef,
+			origin: origin,
+			worktreePath: repoPath,
+			scope: this.graphState.scope,
+			perspectivePath: this.graphState.worktreePerspective?.path,
+			homeRepositoryPath: this.graphState.homeRepositoryPath,
+			scopeBehaviorIncludesFocus: this.scopeBehaviorIncludesFocus,
+			targetRowId: sha,
+		});
+		this.applyWorktreeGestureOutcome(outcome, branchName);
 
-			return;
+		if (outcome.focus) {
+			void this.scopeToBranchByName(branchName, upstreamName, { source: 'wip-row', origin: outcome.origin });
 		}
-
-		void this.scopeToBranchByName(branchName, upstreamName, { source: 'wip-row' });
 	}
 
 	private handleGraphRowHover({

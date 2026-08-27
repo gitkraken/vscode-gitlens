@@ -446,6 +446,11 @@ export interface GraphConfig {
 		readonly maximizeOnMode: boolean;
 	};
 	readonly dimMergeCommits: boolean;
+	/** What double-clicking a secondary worktree's WIP row, its overview bar pill, or its sidebar row
+	 *  does — `'scope'` re-perspectives the graph onto the worktree (composing per
+	 *  {@link scopeBehavior}); `'focus'` is the classic branch-focus toggle, with no perspective
+	 *  involved. */
+	readonly doubleClickWorktreeAction: 'scope' | 'focus';
 	readonly editorOpeningBehavior: 'auto' | 'active';
 	readonly experimental: {
 		readonly kanban: {
@@ -500,6 +505,10 @@ export interface GraphConfig {
 		readonly maxStacked: number | 'auto';
 		readonly layout: 'inline' | 'stacked';
 	};
+	/** What "Scope to Worktree" composes — `'scopeAndFocus'` also focuses the worktree's branch
+	 *  (narrows the visible rows); `'scope'` only re-perspectives HEAD-derived state onto the worktree,
+	 *  leaving every commit visible. */
+	readonly scopeBehavior: 'scope' | 'scopeAndFocus';
 	readonly scrollMarkers: {
 		readonly enabled: boolean;
 		readonly additionalTypes: GraphScrollMarkersAdditionalTypes[];

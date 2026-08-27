@@ -1527,7 +1527,12 @@ export class GraphPanelsService {
 									remote: false,
 									upstream: w.branch.upstream,
 								}),
-								worktreePath: w.uri.fsPath,
+								// `w.path` (normalized via `getRepositoryOrWorktreePath`), NOT `w.uri.fsPath` (the
+								// raw, backslashed-on-Windows OS path) — this value round-trips as a
+								// `GraphScopeOrigin.path`/rebind `worktreePath` and must compare equal, byte
+								// for byte, against `RepositoryShape.path` (also normalized). See the `uri`
+								// field below for the same fix.
+								worktreePath: w.path,
 							},
 						}
 					: w.sha != null
@@ -1542,14 +1547,17 @@ export class GraphPanelsService {
 										name: w.sha,
 										message: '',
 									}),
-									worktreePath: w.uri.fsPath,
+									worktreePath: w.path,
 								},
 							}
 						: undefined;
 
 			return {
 				name: w.name,
-				uri: w.uri.fsPath,
+				// Normalized (see the `worktreePath` comment above) — the sidebar stamps this straight
+				// onto `GraphScopeOrigin.path`/`setWorktreePerspective`'s path, which the header compares
+				// against `RepositoryShape.path` to detect rebind convergence.
+				uri: w.path,
 				branch: w.branch?.name,
 				sha: w.sha,
 				isDefault: w.isDefault,

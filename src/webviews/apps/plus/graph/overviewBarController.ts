@@ -4,8 +4,8 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
-import type { GraphScopeSource, State } from '../../../plus/graph/protocol.js';
-import { isPrimaryWipRowId } from '../../../plus/graph/protocol.js';
+import type { GraphScopeOrigin, GraphScopeSource, State } from '../../../plus/graph/protocol.js';
+import { createWipRowId, isPrimaryWipRowId } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import { HeldActionController } from '../../shared/controllers/held-action.js';
@@ -19,6 +19,7 @@ import type {
 import { pickWipRowAgentStatus } from './components/wipRowAgentStatus.js';
 import type { AppState } from './context.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
+import { isHomeWorktree, resolveWorktreeGesture } from './utils/rebind.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import {
 	filterSecondariesForScopeAndVisibility,
@@ -76,9 +77,18 @@ export type OverviewBarHostDeps = {
 	scopeToBranchByName(
 		branchName: string,
 		upstreamName?: string,
-		options?: { remote?: boolean; source?: GraphScopeSource; additionalBranchRefs?: string[] },
+		options?: {
+			remote?: boolean;
+			source?: GraphScopeSource;
+			additionalBranchRefs?: string[];
+			origin?: GraphScopeOrigin;
+		},
 	): Promise<void>;
 	fetchSelectedWorktreeWipStats(sha: string): Promise<void>;
+	/** Selects and reveals `rowId` once the graph's binding converges on `repoPath` — the follow a Scope
+	 *  gesture performed ON that row earns (see `GraphApp.followRowAfterRebind`). Optional so a test host
+	 *  can omit it; a missing implementation simply means no follow. */
+	followRowAfterRebind?(rowId: string, repoPath: string): void;
 };
 
 /**
@@ -137,13 +147,64 @@ export class OverviewBarController implements ReactiveController {
 		// The double-click supersedes its own clicks' held select — the scope owns positioning now.
 		this._select.cancel();
 		const gs = this.deps.graphState();
-		if (gs.scope?.branchRef === e.detail.branchId) {
-			gs.clearScope();
 
-			return;
+		// Which verb a SECONDARY pill's double-click performs — `graph.doubleClickWorktreeAction`
+		// (default `'scope'`), same setting and semantics as the graph canvas's WIP-row double-click
+		// (`GraphApp.toggleScopeFromWipRow`) — this pill shares that gesture. `'focus'` is the classic
+		// branch-focus toggle (no perspective); `'scope'` re-perspectives the whole graph onto the
+		// worktree (further gated by `graph.scopeBehavior` for whether it ALSO focuses, below).
+		//
+		// BOTH exclusions are needed, and they're different facts: the PRIMARY pill's worktree is already
+		// the graph's own binding, so there's no rebind to ask for (a self-scope would just be refused);
+		// the HOME worktree is where the gesture means "go home" (the clear below), never "scope to home".
+		// They diverge after a rebind or a picker switch onto a worktree — then the primary pill is not
+		// home — and the WIP-row gesture reads that same row through the same `isHomeWorktree` test, so
+		// dropping either check would put the two surfaces at odds over the identical worktree.
+		const doubleClickAction = gs.config?.doubleClickWorktreeAction ?? 'scope';
+		// Home, not the repo's DEFAULT worktree: in a window opened on a worktree the default worktree is
+		// an ordinary scope target, and home is the worktree the window was opened on (see
+		// `isHomeWorktree`). Default-ness decides nothing here, which is why the pills no longer carry it.
+		const isHome = isHomeWorktree(e.detail.repoPath, gs.homeRepositoryPath);
+		const origin: GraphScopeOrigin | undefined =
+			!e.detail.isPrimary && !isHome && doubleClickAction === 'scope'
+				? { kind: 'worktree', path: e.detail.repoPath }
+				: undefined;
+
+		// One rule, resolved centrally — see `resolveWorktreeGesture`, which owns toggle-off detection
+		// (origin-aware), the go-home exit and the perspective transition for every gesture surface. The
+		// pill IS its worktree's WIP row, so it declares that row as the gesture's target: a Scope from
+		// here follows the row to its new position once the rebind lands, exactly as the canvas gesture does.
+		const outcome = resolveWorktreeGesture({
+			branchRef: e.detail.branchId,
+			origin: origin,
+			worktreePath: e.detail.repoPath,
+			scope: gs.scope,
+			perspectivePath: gs.worktreePerspective?.path,
+			homeRepositoryPath: gs.homeRepositoryPath,
+			scopeBehaviorIncludesFocus: (gs.config?.scopeBehavior ?? 'scopeAndFocus') !== 'scope',
+			targetRowId: createWipRowId(e.detail.repoPath),
+		});
+
+		if (outcome.clearScope) {
+			gs.clearScope();
+		}
+		if (outcome.perspective === 'set' && outcome.perspectivePath != null) {
+			// Set SYNCHRONOUSLY, before the focus pipeline below — the header tint + pill must reflect the
+			// worktree instantly, not after `scopeToBranchByName`'s anchor IPC settles.
+			gs.setWorktreePerspective(outcome.perspectivePath, { branchName: e.detail.branch });
+			if (outcome.followRowId != null) {
+				this.deps.followRowAfterRebind?.(outcome.followRowId, outcome.perspectivePath);
+			}
+		} else if (outcome.perspective === 'clear' && gs.worktreePerspective != null) {
+			gs.clearWorktreePerspective();
 		}
 
-		void this.deps.scopeToBranchByName(e.detail.branch, undefined, { source: 'wip-row' });
+		if (outcome.focus) {
+			void this.deps.scopeToBranchByName(e.detail.branch, undefined, {
+				source: 'wip-row',
+				origin: outcome.origin,
+			});
+		}
 	};
 
 	/** Selects a WIP overview-bar item (click or digit shortcut) — puts the graph in graph mode, drops
@@ -515,7 +576,12 @@ export class OverviewBarController implements ReactiveController {
 			...(primaryAhead > 0 ? { hasUnpushed: true } : {}),
 			...pickAgent(fallbackRepoPath),
 			isPrimary: true,
-			context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
+			context: serializeWipContext(
+				fallbackRepoPath,
+				false,
+				primary?.hasConflicts ?? false,
+				gs.branch != null && !gs.branch.detached,
+			),
 		});
 
 		for (const { sha, meta, state, dirty } of secondaries) {
@@ -564,7 +630,12 @@ export class OverviewBarController implements ReactiveController {
 				},
 				...pickAgent(meta.repoPath),
 				isPrimary: false,
-				context: serializeWipContext(meta.repoPath, true, state?.hasConflicts ?? false),
+				context: serializeWipContext(
+					meta.repoPath,
+					true,
+					state?.hasConflicts ?? false,
+					meta.branchRef != null && meta.branch != null,
+				),
 			});
 		}
 

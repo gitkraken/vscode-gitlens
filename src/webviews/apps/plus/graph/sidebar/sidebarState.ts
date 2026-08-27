@@ -105,10 +105,46 @@ export function createSidebarActions(): SidebarActions {
 	// referencing `actions` before it's defined.
 	let sidebarShowing = true;
 
+	/**
+	 * Last known clean/dirty bit per worktree uri — CLIENT-owned state, which is why it has to be held
+	 * here at all: the host's worktrees payload never carries `hasChanges` (see `getSidebarWorktrees`,
+	 * which fires `computeWorktreeChanges` fire-and-forget AFTER returning the items), so the field only
+	 * ever arrives on the `onWorktreeStateChanged` patch stream.
+	 *
+	 * Without this carry-forward, every refetch replaces the rows with a payload where the field is
+	 * absent, blanking each dirty pill until the next probe re-pushes it — a visible flash on any
+	 * `invalidateAll`, most noticeably the one a worktree Scope's rebind fires. Same rationale as the
+	 * state provider's `mergeWipRows`/`mergeWipState`: whoever owns a field must not lose it to a
+	 * wholesale push from the side that doesn't.
+	 */
+	const worktreeHasChanges = new Map<string, boolean | undefined>();
+
 	let service: GraphSidebarService | undefined;
 	let unsubscribeConfig: (() => void) | undefined;
 	let unsubscribeWorktree: (() => void) | undefined;
 	let fetchCountsPromise: Promise<void> | undefined;
+
+	/** Re-applies {@link worktreeHasChanges} onto a freshly fetched worktrees payload, and prunes entries
+	 *  for worktrees that are gone. Runs AFTER the fetch resolves, so a patch that landed while the fetch
+	 *  was in flight still wins. Mutates the just-arrived payload in place — nothing else holds it yet. */
+	function restoreWorktreeHasChanges(data: DidGetSidebarDataParams | undefined) {
+		if (data?.panel !== 'worktrees') return data;
+
+		const items = data.items as Array<{ uri: string; hasChanges?: boolean }>;
+		const present = new Set<string>();
+		for (const w of items) {
+			present.add(w.uri);
+			if (w.hasChanges == null && worktreeHasChanges.has(w.uri)) {
+				w.hasChanges = worktreeHasChanges.get(w.uri);
+			}
+		}
+		for (const uri of worktreeHasChanges.keys()) {
+			if (!present.has(uri)) {
+				worktreeHasChanges.delete(uri);
+			}
+		}
+		return data;
+	}
 
 	function createPanelResource(panel: GraphSidebarPanel) {
 		return createResource<DidGetSidebarDataParams | undefined>(
@@ -116,7 +152,9 @@ export function createSidebarActions(): SidebarActions {
 				if (service == null) return undefined;
 				// Read at fetch time, not capture time, so a fetch issued as the sidebar opens reports the
 				// current visibility rather than whatever it was when the resource was created.
-				return service.getSidebarData(panel, { displayed: sidebarShowing }, signal);
+				return restoreWorktreeHasChanges(
+					await service.getSidebarData(panel, { displayed: sidebarShowing }, signal),
+				);
 			},
 			{ initialValue: undefined },
 		);
@@ -213,6 +251,9 @@ export function createSidebarActions(): SidebarActions {
 			// as permanently in flight. Drop both; the next tooltip open re-asks the new service.
 			worktreeWipStats.set(new Map());
 			worktreeWipStatsInFlight.clear();
+			// Same reason: a new service is a new repo (or a reconnect), so last-known dirty bits keyed by
+			// the old one's paths must not be restored onto its rows.
+			worktreeHasChanges.clear();
 
 			// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so
 			// the call must be awaited — synchronous assignment captures the Promise
@@ -396,6 +437,10 @@ export function createSidebarActions(): SidebarActions {
 				const next = changes[w.uri];
 				if (next == null) continue;
 
+				// Recorded whether or not the row's value moved, so a refetch can restore it — see
+				// `worktreeHasChanges`. (The `changed` flag below is about re-rendering, not about
+				// whether this is worth remembering.)
+				worktreeHasChanges.set(w.uri, next.hasChanges);
 				// Compare before assigning: pushes land on every FS tick, and republishing an unchanged
 				// value would re-render the whole panel each time.
 				if (w.hasChanges !== next.hasChanges) {

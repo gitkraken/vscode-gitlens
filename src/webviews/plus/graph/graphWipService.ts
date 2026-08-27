@@ -1224,7 +1224,12 @@ export class GraphWipService {
 			conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: `gitlens:wip${isSecondaryWorktree ? '+worktree' : ''}${status.hasConflicts ? '+hasConflicts' : ''}`,
+				// `+branch` mirrors the graph rows' `buildWipContext`: gates the Scope to Worktree / Focus
+				// on Branch kebab items off for a detached-HEAD worktree, which has no branch to offer
+				// (UX review finding 3). The `detached` half is load-bearing, not belt-and-braces: a
+				// detached HEAD's `getBranch()` still resolves (`status.branch` is normalized to the same
+				// synthetic `(sha…)` name the branch model carries), so a null check alone passes.
+				webviewItem: `gitlens:wip${isSecondaryWorktree ? '+worktree' : ''}${status.hasConflicts ? '+hasConflicts' : ''}${branch != null && !branch.detached ? '+branch' : ''}`,
 				webviewItemValue: {
 					type: 'commit',
 					ref: this.context.getRevisionReference(repo.path, uncommitted, 'workdir')!,

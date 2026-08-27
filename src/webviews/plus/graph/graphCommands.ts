@@ -123,6 +123,7 @@ import type {
 	GraphPinnedRef,
 	GraphPullRequestContextValue,
 	GraphScopeBranch,
+	GraphScopeOrigin,
 	GraphSelection,
 } from './protocol.js';
 import { createWipRowId } from './protocol.js';
@@ -1763,20 +1764,34 @@ export class GraphCommands {
 		});
 	}
 
-	// Two command ids, one handler — VS Code menu titles are static, so distinct ids let the menu
-	// read "Focus on Branch" on branch rows/leaves and "Focus on Worktree" on worktree/WIP rows.
+	// Two command ids, two thin wrappers over one resolver — VS Code menu titles are static, so
+	// distinct ids let the menu read "Focus on Branch" (branch vocabulary — F only, never a worktree
+	// perspective) on branch rows/leaves, a row's branch pill, AND now worktree/WIP rows too, alongside
+	// "Scope to Worktree" (the perspective, + focus per `graph.scopeBehavior`) on those same
+	// worktree/WIP rows. The verb is threaded through explicitly rather than inferred from the item's
+	// shape, since both ids can now land on the identical `gitlens:worktree`/`gitlens:wip` items.
 	@command('gitlens.focusBranch:graph')
+	@debug()
+	private async focusBranchReference(item?: GraphItemContext): Promise<void> {
+		await this.focusOrScopeReference(item, 'focus');
+	}
+
 	@command('gitlens.focusWorktree:graph')
 	@debug()
-	private async focusReference(item?: GraphItemContext): Promise<void> {
-		const scopeBranch = await this.getScopeBranch(item);
-		if (scopeBranch == null) return;
+	private async scopeWorktreeReference(item?: GraphItemContext): Promise<void> {
+		await this.focusOrScopeReference(item, 'scope');
+	}
+
+	private async focusOrScopeReference(item: GraphItemContext | undefined, verb: 'focus' | 'scope'): Promise<void> {
+		const resolved = await this.getScopeBranch(item, verb);
+		if (resolved == null) return;
 
 		// Invoked from a context menu inside the open graph (warm), so notify the webview directly to
 		// focus (scope) onto the branch — mirrors the `scope-to-branch` action the popover/overview use.
 		this.context.fireRequestAction({
 			action: 'scope-to-branch',
-			scopeBranch: scopeBranch,
+			scopeBranch: resolved.scopeBranch,
+			scopeOrigin: resolved.origin,
 		});
 	}
 
@@ -1957,26 +1972,87 @@ export class GraphCommands {
 		await this.container.deepLinks.processDeepLinkUri(deepLink, false, this.container.git.getRepository(repoPath));
 	}
 
-	private async getScopeBranch(item?: GraphItemContext): Promise<GraphScopeBranch | undefined> {
+	private async getScopeBranch(
+		item: GraphItemContext | undefined,
+		verb: 'focus' | 'scope',
+	): Promise<{ scopeBranch: GraphScopeBranch; origin?: GraphScopeOrigin } | undefined> {
 		const ref = this.getGraphItemRef(item, 'branch');
 		if (ref != null) {
-			if (!ref.remote) return { branchName: ref.name, upstreamName: ref.upstream?.name };
+			// FOUR producers land here, all `'branch'`-shaped (`GraphBranchContextValue`) contexts:
+			// - `gitlens.focusBranch:graph` ('focus') on a branch-panel/leaf row — `webviewItem`
+			//   `gitlens:branch…`, no `worktreePath`.
+			// - `gitlens.focusBranch:graph` ('focus') on a commit-graph row's branch PILL
+			//   (`refContext.utils.ts`'s `buildBranchRefContext`) — ALSO `webviewItem` `gitlens:branch…`
+			//   (optionally `+worktree`), and DOES carry `worktreePath` when the branch is checked out in a
+			//   non-default worktree. Ruling: a plain branch focus stays a plain branch focus — no
+			//   rebind — even when the branch lives in a worktree, so `worktreePath` PRESENCE ALONE must
+			//   NOT be used to stamp a worktree origin here (the `verb === 'scope'` gate below covers it
+			//   too, but the webviewItem-prefix check is kept as an independent guard).
+			// - `gitlens.focusWorktree:graph`'s ('scope') SIDEBAR-worktree-row binding — `webviewItem`
+			//   `gitlens:worktree…` (`graphPanelsService.ts:1478-1508`, always `gitlens:worktree`-prefixed,
+			//   never `gitlens:branch`), matching contributions.json's
+			//   `gitlens:worktree\b(?=.*?\+branch\b)`.
+			// - `gitlens.focusBranch:graph`'s ('focus') NEW sibling binding on that SAME worktree-row
+			//   pattern — reachable now that both ids share it, so `verb` is what tells them apart, not
+			//   just the item's shape: this producer is `gitlens:worktree`-prefixed too, but must NEVER
+			//   stamp an origin.
+			//
+			// No detached guard needed: `graphPanelsService.ts`'s worktree-row builder only produces a
+			// `'branch'`-shaped context when the worktree has a real branch at all (`w.branch != null`) — a
+			// detached worktree gets the `'commit'`-shaped context instead (see the
+			// `isGraphItemRefContext(item, 'revision')` branch below), so this branch is structurally
+			// unreachable for a detached worktree.
+			//
+			// The graph's HOME worktree is deliberately NOT excluded here (nor hidden from the menu):
+			// "Scope to Worktree" on it MEANS "go home" — it exits any live scope and plain-focuses its
+			// branch, the same thing double-clicking that row does. The webview owns that decision in one
+			// place (`GraphApp.applyWorktreeGestureOrigin` → `resolveWorktreeGesture`), so an origin is
+			// stamped for every worktree and home is recognized there — which is also the only place that
+			// CAN recognize it: home is the graph's own binding, not the repo's default worktree.
+			const worktreePath =
+				verb === 'scope' &&
+				isGraphItemRefContext(item, 'branch') &&
+				item.webviewItem.startsWith('gitlens:worktree')
+					? item.webviewItemValue.worktreePath
+					: undefined;
+			const origin: GraphScopeOrigin | undefined =
+				worktreePath != null ? { kind: 'worktree', path: worktreePath } : undefined;
+
+			if (!ref.remote) {
+				return { scopeBranch: { branchName: ref.name, upstreamName: ref.upstream?.name }, origin: origin };
+			}
 
 			// Scope is keyed on local heads, so a remote branch focuses its local counterpart when one
 			// tracks it — only an untracked remote branch is scoped as a `remotes/*` ref.
 			const local = this.findLocalBranchTracking(ref.name);
-			return local != null
-				? { branchName: local, upstreamName: ref.name }
-				: { branchName: ref.name, remote: true };
+			return {
+				scopeBranch:
+					local != null
+						? { branchName: local, upstreamName: ref.name }
+						: { branchName: ref.name, remote: true },
+				origin: origin,
+			};
 		}
 
 		if (!isGraphItemRefContext(item, 'revision')) return undefined;
 
+		// The WIP-row context-menu binding — BOTH `gitlens.focusWorktree:graph` ('scope') and the new
+		// `gitlens.focusBranch:graph` ('focus') sibling land here now; a WIP row has no branch pill of
+		// its own, so its worktree's checked-out branch is the only ref either verb can resolve.
 		const { worktreePath } = item.webviewItemValue;
 		if (worktreePath == null) return undefined;
 
 		const branch = await this.container.git.getRepositoryService(worktreePath).branches.getBranch();
-		return branch != null ? { branchName: branch.name, upstreamName: branch.upstream?.name } : undefined;
+		// A detached WIP row's `getBranch()` still returns a (synthetic, `(sha…)`-named) branch object —
+		// there's no real branch to focus, so this stays a plain reveal rather than a bogus scope+rebind.
+		if (branch == null || branch.detached) return undefined;
+
+		return {
+			scopeBranch: { branchName: branch.name, upstreamName: branch.upstream?.name },
+			// Stamped for the home worktree's WIP row too — see the origin comment above: home is
+			// recognized (and turned into "go home") webview-side, in `applyWorktreeGestureOrigin`.
+			origin: verb === 'scope' ? { kind: 'worktree', path: worktreePath } : undefined,
+		};
 	}
 
 	/** Name of the local branch tracking `upstreamName`, read off the in-memory graph snapshot so

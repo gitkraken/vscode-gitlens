@@ -2169,9 +2169,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			const hasConflicts = this.graphState.wipStateById?.[graphRow.sha]?.hasConflicts ?? false;
 			if (worktreePath != null && worktreePath !== repoPath) {
 				const row = this.graphState.wipRowsById?.[graphRow.sha];
-				return row?.repoPath != null ? serializeWipContext(row.repoPath, true, hasConflicts) : undefined;
+				const hasBranch = row?.branchRef != null && row.branch != null;
+				return row?.repoPath != null
+					? serializeWipContext(row.repoPath, true, hasConflicts, hasBranch)
+					: undefined;
 			}
-			return serializeWipContext(repoPath, false, hasConflicts);
+
+			const branch = this.graphState.branch;
+			return serializeWipContext(repoPath, false, hasConflicts, branch != null && !branch.detached);
 		}
 
 		// Lean commit rows: build the commit context from `contexts.flags` + row fields. Stash rows

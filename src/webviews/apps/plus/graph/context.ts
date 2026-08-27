@@ -58,6 +58,16 @@ export interface AppState extends State {
 	scope: GraphScope | undefined;
 	/** `scopeToBranch` parked until an attached branch arrives; any scope set or clear cancels it. */
 	pendingScopeToBranch: boolean;
+	/**
+	 * The worktree PERSPECTIVE — independent of the branch FOCUS projection (`scope`). While set, the
+	 * graph's HEAD-derived data (current-branch markers, WIP primary, `branchState`, action cwd) is the
+	 * named worktree's, but every commit stays visible (no row narrowing) — that's `scope`'s job. Session-
+	 * only, not persisted; the host's rebind RPC fires off transitions of this field alone (see
+	 * `setWorktreePerspective`/`clearWorktreePerspective`). NOT a field of `GraphScope`: a worktree-origin
+	 * FOCUS (`scope.origin.kind === 'worktree'`) can exist independent of a perspective, and vice versa —
+	 * see the two-mode addendum (`.work/dev/graph-worktree-rebind/two-modes.md`).
+	 */
+	worktreePerspective: { path: string; branchName?: string } | undefined;
 	searching: boolean;
 	searchMode: 'filter' | 'normal';
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
@@ -184,6 +194,22 @@ export interface AppState extends State {
 	 * state, and emit `graph/scope/cleared` telemetry. No-op when no scope is active.
 	 */
 	clearScope(): void;
+
+	/**
+	 * Sets the worktree perspective and fires the rebind RPC immediately (queued synchronously off this
+	 * write — see `GraphStateProvider.reconcileWorktreeRebind`), independent of and before any focus/
+	 * anchor IPC. Same `path` as the live perspective is a no-op (keeps a same-worktree re-focus, e.g. a
+	 * stack re-focus over the same worktree's base, from re-firing the RPC). `options.branchName`, when
+	 * given, renders optimistically on the branch pill until the rebind's `state.branch` push confirms
+	 * the same repo (see `graph-header.ts`).
+	 */
+	setWorktreePerspective(path: string, options?: { branchName?: string }): void;
+
+	/**
+	 * Clears the worktree perspective, rebinding the graph back onto its home repository. No-op when no
+	 * perspective is live.
+	 */
+	clearWorktreePerspective(): void;
 
 	/**
 	 * Seed the per-repo WIP cache with an optimistically-edited `Wip` (e.g. after a local stage/
