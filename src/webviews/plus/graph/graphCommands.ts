@@ -147,6 +147,12 @@ export type GraphCommandsContext = {
 	getRepository: () => GlRepository | undefined;
 	getSession: () => GitGraphSession | undefined;
 	getActiveSelection: () => GitRevisionReference | undefined;
+	/** The `graph:filtersByRepo` storage key for the graph's CURRENT binding — home while rebound onto a
+	 *  worktree, so a filter change made via a row context-menu action doesn't fork into a second,
+	 *  worktree-keyed bucket the header filter panel never reads from. Only the STORAGE KEY; ref-id
+	 *  values built from a specific `GraphItemContext`'s own `repoPath` (which tracks the live/rebound
+	 *  perspective, matching how the graph decorates live rows) are left alone. */
+	getFiltersRepoPath: () => string | undefined;
 	toggleColumn: (name: GraphColumnName, visible: boolean) => Promise<void>;
 	toggleColumnGrouping: (name: 'graph' | 'ref', grouped: boolean) => Promise<void>;
 	toggleScrollMarker: (type: GraphScrollMarkersAdditionalTypes, enabled: boolean) => Promise<void>;
@@ -323,6 +329,9 @@ export class GraphCommands {
 	}
 	private get _graphSession(): GitGraphSession | undefined {
 		return this.context.getSession();
+	}
+	private get filtersRepoPath(): string | undefined {
+		return this.context.getFiltersRepoPath();
 	}
 	private get activeSelection(): GitRevisionReference | undefined {
 		return this.context.getActiveSelection();
@@ -1569,7 +1578,7 @@ export class GraphCommands {
 
 		if (refs != null) {
 			this.context.updateExcludedRefs(
-				this._graphSession?.repoPath,
+				this.filtersRepoPath,
 				refs.map(r => {
 					const remoteBranch = r.refType === 'branch' && r.remote;
 					return {
@@ -1598,8 +1607,11 @@ export class GraphCommands {
 	private hideRemote(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'remote')) {
 			const { name, repoPath } = item.webviewItemValue;
+			// `repoPath` (the item's own, live-perspective path) stays in the wildcard id below — it's
+			// only ever matched back by `owner`/`type` (see `showRemoteRefs`), never by parsing the id's
+			// path prefix. Only the STORAGE KEY routes through `filtersRepoPath`.
 			this.context.updateExcludedRefs(
-				repoPath,
+				this.filtersRepoPath,
 				[{ id: `${repoPath}|remotes/${name}/*`, name: '*', owner: name, type: 'remote' }],
 				false,
 			);
@@ -1625,15 +1637,12 @@ export class GraphCommands {
 	@command('gitlens.graph.showRemote')
 	private showRemote(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'remote')) {
-			const { name, repoPath } = item.webviewItemValue;
-			this.context.showRemoteRefs(repoPath, name);
+			const { name } = item.webviewItemValue;
+			this.context.showRemoteRefs(this.filtersRepoPath, name);
 		} else if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.remote) {
-				this.context.showRemoteRefs(
-					ref.repoPath ?? this._graphSession?.repoPath,
-					getRemoteNameFromBranchName(ref.name),
-				);
+				this.context.showRemoteRefs(this.filtersRepoPath, getRemoteNameFromBranchName(ref.name));
 			}
 		}
 
@@ -1649,7 +1658,7 @@ export class GraphCommands {
 		if (ref.refType !== 'branch' || ref.id == null) return Promise.resolve();
 
 		const remote = ref.remote;
-		this.context.updatePinnedRef(ref.repoPath ?? this._graphSession?.repoPath, {
+		this.context.updatePinnedRef(this.filtersRepoPath, {
 			id: ref.id,
 			name: remote ? getBranchNameWithoutRemote(ref.name) : ref.name,
 			owner: remote ? getRemoteNameFromBranchName(ref.name) : undefined,
@@ -1661,7 +1670,7 @@ export class GraphCommands {
 	@command('gitlens.graph.unpinBranchFromEdge')
 	@debug()
 	private unpinBranchFromEdge(_item?: GraphItemContext) {
-		this.context.updatePinnedRef(this._graphSession?.repoPath, null);
+		this.context.updatePinnedRef(this.filtersRepoPath, null);
 		return Promise.resolve();
 	}
 
