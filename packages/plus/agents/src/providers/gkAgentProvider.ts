@@ -204,6 +204,11 @@ interface SessionFileData {
 	providerId?: string;
 	/** The owning agent's NATIVE hook event name — see {@link AgentSessionEvent.event}. */
 	event: string;
+	/** The agent's RAW hook payload for {@link event}, relayed verbatim by the CLI — same field the
+	 *  live path reads off {@link AgentSessionEvent.hookInput}. The poll needs it because some agents
+	 *  encode an event's meaning in the payload rather than its name (OpenCode's `session.status`),
+	 *  and {@link resolveCanonicalHookEvent} can't canonicalize those without being handed it. */
+	hookInput?: Record<string, unknown>;
 	cwd: string;
 	/** CLI-provided launch directory; absent on older CLIs (fall back to `cwd`). */
 	initialCwd?: string;
@@ -3082,7 +3087,12 @@ export class GkAgentProvider implements AgentSessionProvider {
 			// that function's `default` already resolves to `idle`. Deliberately NOT a skip: unlike the
 			// live path, nothing here switches exhaustively on the name, and dropping the record would
 			// hide a real session whose last event simply has no canonical analogue.
-			const canonicalEvent = resolveCanonicalHookEvent(capabilities, data.event) ?? data.event;
+			//
+			// `data.hookInput` must be passed: an agent whose event name alone can't determine the
+			// canonical event (OpenCode's `session.status`) is resolved from the payload, so withholding
+			// it makes those names permanently unresolvable on this path — and the poll is the only way
+			// a pre-existing session enters after a window reload.
+			const canonicalEvent = resolveCanonicalHookEvent(capabilities, data.event, data.hookInput) ?? data.event;
 			// Same translation for the record's tool name — `classifyPermissionKind` and the display
 			// detail expect canonical names.
 			const polledToolName =

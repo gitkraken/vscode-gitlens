@@ -5051,7 +5051,7 @@ suite('GkAgentProvider opencode session.status resolution', () => {
 		};
 	}
 
-	test('a busy session.status resolves through the provider to the phase PostToolUse produces', async () => {
+	test('a busy session.status is deliberately unresolvable and never reaches the status switch', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
 		const provider = new GkAgentProvider(callbacks);
 		try {
@@ -5061,17 +5061,21 @@ suite('GkAgentProvider opencode session.status resolution', () => {
 				{ event: 'session.created', sessionId: 'oc-1', providerId: 'opencode', cwd: REPO },
 				new URLSearchParams(),
 			);
-			assert.strictEqual(provider.sessions.find(s => s.id === 'oc-1')?.status, 'idle');
+			const before = provider.sessions.find(s => s.id === 'oc-1');
+			assert.strictEqual(before?.status, 'idle');
 
 			await handler(sessionStatus('oc-1', 'busy'), new URLSearchParams());
 
-			const s = provider.sessions.find(x => x.id === 'oc-1');
+			// `busy` maps to no canonical event on purpose. A canonical event brings its whole handler
+			// with it, so naming `PostToolUse` here (as this once did) would clear a pending permission
+			// ask while the agent is still blocked on it and desync the parallel-tool refcount — OpenCode
+			// emits `session.status` independently of tool lifecycle. Do not "fix" this back: there is no
+			// tool-free canonical event meaning "resumed working".
 			assert.strictEqual(
-				s?.status,
-				'thinking',
-				'busy must resolve through the seam to a PostToolUse-produced status',
+				provider.sessions.find(x => x.id === 'oc-1'),
+				before,
+				'busy must never reach the status switch, so the row is untouched',
 			);
-			assert.strictEqual(s?.phase, 'working');
 		} finally {
 			provider.dispose();
 		}
@@ -5087,9 +5091,13 @@ suite('GkAgentProvider opencode session.status resolution', () => {
 				{ event: 'session.created', sessionId: 'oc-2', providerId: 'opencode', cwd: REPO },
 				new URLSearchParams(),
 			);
-			// Move off idle first so the eventual Stop-phase transition is a real state change, not a no-op.
-			await handler(sessionStatus('oc-2', 'busy'), new URLSearchParams());
-			assert.strictEqual(provider.sessions.find(s => s.id === 'oc-2')?.status, 'thinking');
+			// Move off idle first so the eventual Stop-phase transition is a real state change, not a
+			// no-op. Uses a native tool event because `busy` is deliberately unresolvable (see above).
+			await handler(
+				{ event: 'tool.execute.before', sessionId: 'oc-2', providerId: 'opencode', cwd: REPO },
+				new URLSearchParams(),
+			);
+			assert.strictEqual(provider.sessions.find(s => s.id === 'oc-2')?.status, 'tool_use');
 
 			await handler(sessionStatus('oc-2', 'idle'), new URLSearchParams());
 			// Stop defers its idle commit by `stopToIdleDebounceMs` (750ms).
@@ -5142,6 +5150,39 @@ suite('GkAgentProvider opencode session.status resolution', () => {
 				before,
 				'an unresolvable session.status must never reach the status switch, so the row is untouched',
 			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('the reconciliation poll resolves a session.status record from its relayed hookInput', async () => {
+		// The poll is the only way a pre-existing session enters after a window reload, so it must hand
+		// `hookInput` to the resolver too — without it, `session.status` is permanently unresolvable
+		// there and the record's native name falls through untranslated.
+		//
+		// Note this pins the WIRING, not a status divergence: `deriveStatusFromEvent` returns `idle` for
+		// `Stop` and also for its `default`, so an unresolved fallthrough happens to land on the same
+		// status today. The assertion exists so the resolver stays reachable from this path — the moment
+		// any resolvable native event derives something other than `idle`, this becomes load-bearing.
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				{
+					...sessionFileData('oc-polled', REPO, 'opencode'),
+					event: 'session.status',
+					hookInput: { hook_payload: { event: { properties: { status: { type: 'idle' } } } } },
+				},
+			]),
+		});
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'oc-polled');
+			assert.ok(s != null, 'the polled opencode record must surface a session');
+			assert.strictEqual(s.providerId, 'opencode');
+			assert.strictEqual(s.status, 'idle', "must be the status 'Stop' derives, not a raw native fallthrough");
+			assert.strictEqual(s.phase, 'idle');
 		} finally {
 			provider.dispose();
 		}
@@ -5236,7 +5277,45 @@ suite('GkAgentProvider tool-name canonicalization reaches fileActivity', () => {
 	const REPO = '/repo';
 	const FILE = '/repo/src/foo.ts';
 
-	test('a copilot create/view PreToolUse registers edit/read fileActivity via the alias table', async () => {
+	// Both tests deliver tool data ONLY as the CLI actually relays it: verbatim inside `hookInput`.
+	// The top-level `toolInput` field is legacy and no current CLI populates it for any agent, so a
+	// test that fills it proves nothing about production.
+	test("a codex apply_patch PreToolUse registers edit fileActivity through the agent's real payload", async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new GkAgentProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(
+				{ event: 'SessionStart', sessionId: 'cdx-1', providerId: 'codex', cwd: REPO, pid: process.pid },
+				new URLSearchParams(),
+			);
+
+			// Codex speaks snake_case, so its raw payload lands as `hookInput.tool_name` /
+			// `hookInput.tool_input` — exactly the keys GitLens reads.
+			await handler(
+				{
+					event: 'PreToolUse',
+					sessionId: 'cdx-1',
+					providerId: 'codex',
+					hookInput: { tool_name: 'apply_patch', tool_input: { file_path: FILE } },
+				},
+				new URLSearchParams(),
+			);
+
+			const entry = fileActivityOf(provider, 'cdx-1').find(e => e.path === FILE);
+			assert.ok(
+				entry != null,
+				"'apply_patch' → 'Edit' via codex's alias table must reach getToolFilePath and register edit activity",
+			);
+			assert.strictEqual(entry.editing, true);
+			assert.strictEqual(entry.reading, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a copilot create PreToolUse registers no fileActivity — a known, pinned limitation', async () => {
 		const { callbacks, handlers } = createMockCallbacks();
 		const provider = new GkAgentProvider(callbacks);
 		try {
@@ -5247,36 +5326,37 @@ suite('GkAgentProvider tool-name canonicalization reaches fileActivity', () => {
 				new URLSearchParams(),
 			);
 
+			// Copilot speaks camelCase, so its raw payload lands as `hookInput.toolName` /
+			// `hookInput.toolInput`. The CLI's `normalizeCopilotInput` copies the NAME up onto the record
+			// (hence the top-level `toolName` here), but nothing surfaces the input under the
+			// `hookInput.tool_input` key GitLens reads — so Copilot's tool inputs are invisible to us.
 			await handler(
 				{
 					event: 'PreToolUse',
 					sessionId: 'cop-1',
 					providerId: 'copilot',
 					toolName: 'create',
-					toolInput: { file_path: FILE },
+					hookInput: { toolName: 'create', toolInput: { file_path: FILE } },
 				},
 				new URLSearchParams(),
 			);
-			let entry = fileActivityOf(provider, 'cop-1').find(e => e.path === FILE);
-			assert.ok(entry != null, "'create' → 'Write' via copilot's alias table must register edit activity");
-			assert.strictEqual(entry.editing, true);
-			assert.strictEqual(entry.reading, undefined);
 
-			await handler(
-				{
-					event: 'PreToolUse',
-					sessionId: 'cop-1',
-					providerId: 'copilot',
-					toolName: 'view',
-					toolInput: { file_path: FILE },
-				},
-				new URLSearchParams(),
+			// This asserts a DOCUMENTED LIMITATION, not desired behavior: it is pinned so the gap is
+			// discoverable and can't regress silently, and so that whoever makes Copilot's tool inputs
+			// readable (the fix is in the CLI's normalization, or a camelCase fallback here) is forced to
+			// come back and flip this assertion. The same gap applies to OpenCode, which nests its args
+			// at `hookInput.hook_payload.input`.
+			assert.deepStrictEqual(
+				fileActivityOf(provider, 'cop-1'),
+				[],
+				"copilot's tool input arrives under a key GitLens does not read, so no file activity is registered",
 			);
-			entry = fileActivityOf(provider, 'cop-1').find(e => e.path === FILE);
+			// The NAME does arrive and canonicalize — proof the gap is specifically the input, not the
+			// alias table or the event plumbing.
 			assert.strictEqual(
-				entry?.reading,
-				true,
-				"'view' → 'Read' via copilot's alias table must register read activity",
+				provider.sessions.find(s => s.id === 'cop-1')?.statusDetail,
+				'Write',
+				"'create' → 'Write' must still canonicalize off the record's top-level toolName",
 			);
 		} finally {
 			provider.dispose();

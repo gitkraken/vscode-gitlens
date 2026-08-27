@@ -874,7 +874,10 @@ export class GlFileTreePane extends LitElement {
 			decorations.push({
 				type: 'agent' as const,
 				label: 'Editing',
-				tooltip: 'Claude Code is editing this file',
+				// Agent-agnostic on purpose: `agentTouchedFiles` carries the phase only, no provider
+				// identity, and a file can be touched by more than one agent at once — so there is no
+				// single agent to name here.
+				tooltip: 'An agent is editing this file',
 				phase: agentPhase,
 				position: 'before' as const,
 			});

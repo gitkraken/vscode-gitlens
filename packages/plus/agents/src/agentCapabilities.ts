@@ -147,10 +147,11 @@ const copilotCapabilities: AgentCapabilities = {
 	// Copilot's own documented tool alias table.
 	toolNameMap: {
 		bash: 'Bash',
-		// Deliberate: `powershell` → `Bash` loses label fidelity (a PowerShell call renders as
-		// `Bash(...)`) but gains the command detail, because `describeToolInput` only extracts
-		// `toolInput.command` for tools it knows to be shells.
-		powershell: 'Bash',
+		// `powershell` is deliberately absent. Aliasing it to `Bash` would only be worth the lost
+		// label fidelity (a PowerShell call rendering as `Bash(...)`) if it bought the command detail
+		// `describeToolInput` extracts for shells — and it can't: Copilot relays its args as
+		// `hookInput.toolInput` (camelCase), a key nothing here reads, so no tool input reaches us at
+		// all. Pure label loss today; revisit if Copilot's tool inputs ever become readable.
 		view: 'Read',
 		create: 'Write',
 		edit: 'Edit',
@@ -205,18 +206,18 @@ const openCodeCapabilities: AgentCapabilities = {
 		// `session.updated` is intentionally absent — it has no canonical analogue.
 		// `session.status` is resolved by `resolveEvent` below, since its meaning is in the payload.
 	},
+	// Only `idle` resolves. `busy` is deliberately unmapped, and so is everything else (`retry`
+	// included): the canonical event this returns doesn't just pick a status, it selects a branch of
+	// the provider's state-machine switch, so a mapping inherits that event's ENTIRE handler. Naming
+	// `PostToolUse` here would also clear a pending permission ask, decrement the parallel-tool
+	// refcount, and schedule file decorations away — all wrong for a tick OpenCode emits
+	// independently of any tool lifecycle, and the ask-clearing is visibly wrong (the agent is still
+	// blocked on it). There is no tool-free canonical event meaning "resumed working", and `busy`
+	// carries no tool semantics to justify inventing one.
 	resolveEvent: (nativeEvent, hookInput) => {
 		if (nativeEvent !== 'session.status') return undefined;
 
-		switch (getOpenCodeSessionStatusType(hookInput)) {
-			case 'idle':
-				return 'Stop';
-			case 'busy':
-				return 'PostToolUse';
-			// Anything else (including `retry`) carries no status change we can canonicalize.
-			default:
-				return undefined;
-		}
+		return getOpenCodeSessionStatusType(hookInput) === 'idle' ? 'Stop' : undefined;
 	},
 	toolNameMap: {
 		bash: 'Bash',

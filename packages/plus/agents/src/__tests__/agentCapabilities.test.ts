@@ -149,9 +149,15 @@ suite('agentCapabilities', () => {
 		test('resolves opencode session.status from the hook input', () => {
 			const opencode = getCapabilities('opencode');
 			assert.strictEqual(resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput('idle')), 'Stop');
+			// `busy` must stay unresolved. A canonical event selects a branch of the provider's
+			// state-machine switch and therefore runs that event's whole handler — mapping `busy` onto
+			// `PostToolUse` (as this once did) would clear a pending permission ask while the agent is
+			// still blocked on it and desync the parallel-tool refcount, because OpenCode emits
+			// `session.status` independently of any tool lifecycle. Do not "fix" this back: there is no
+			// tool-free canonical event meaning "resumed working".
 			assert.strictEqual(
 				resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput('busy')),
-				'PostToolUse',
+				undefined,
 			);
 			assert.strictEqual(
 				resolveCanonicalHookEvent(opencode, 'session.status', statusHookInput('retry')),
@@ -222,7 +228,10 @@ suite('agentCapabilities', () => {
 		test('maps copilot tool aliases', () => {
 			const copilot = getCapabilities('copilot');
 			assert.strictEqual(resolveCanonicalToolName(copilot, 'bash'), 'Bash');
-			assert.strictEqual(resolveCanonicalToolName(copilot, 'powershell'), 'Bash');
+			// `powershell` has no alias on purpose — aliasing it to `Bash` would mislabel a PowerShell
+			// call for nothing, since Copilot's tool inputs never reach GitLens (they arrive under
+			// `hookInput.toolInput`, which nothing reads), so there is no command detail to gain.
+			assert.strictEqual(resolveCanonicalToolName(copilot, 'powershell'), 'powershell');
 			assert.strictEqual(resolveCanonicalToolName(copilot, 'view'), 'Read');
 			assert.strictEqual(resolveCanonicalToolName(copilot, 'create'), 'Write');
 			assert.strictEqual(resolveCanonicalToolName(copilot, 'str_replace_editor'), 'Edit');
