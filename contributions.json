@@ -3652,6 +3652,19 @@
 				]
 			}
 		},
+		"gitlens.graph.copyBranchName": {
+			"label": "Copy Branch Name",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.graph.copyDeepLinkToBranch": {
 			"label": "Copy Link to Branch",
 			"icon": "$(copy)",
@@ -3765,6 +3778,19 @@
 						"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.copyWorktreePath": {
+			"label": "Copy Worktree Path",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 4
 					}
 				]
 			}

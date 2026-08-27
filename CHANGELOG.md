@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds _Copy Worktree Path_ to worktree branch pills and _Copy Branch Name_ to working-changes (WIP) rows in the _Commit Graph_
 - Adds a _Show Resource Usage_ command to the Command Palette &mdash; shows resource counts for long-lived GitLens caches and trackers plus memory usage for the entire VS Code extension host, where available, in a dedicated output channel; extension-host memory cannot be attributed to GitLens alone; an aggregate of the same data is also sampled as telemetry once an hour while the window is focused ([#5504](https://github.com/gitkraken/vscode-gitlens/issues/5504))
 
 - Adds a `gitlens.openInTerminalLocation` setting &mdash; controls where GitLens opens the terminals it creates (the _Open in Integrated Terminal_ actions in the views and _Commit Graph_, plus agent session start/resume terminals), either in the terminal panel (default) or as an editor tab; a one-time notification offers to switch to editor tabs
@@ -74,6 +75,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes _Copy_ on a worktree branch's ref pill in the _Commit Graph_ copying the worktree's folder path instead of the branch name
 - Fixes deleting an unmerged branch from the _Commit Graph_ or views showing a generic error instead of offering the force-delete confirmation &mdash; delete failures were left unclassified, so the "delete anyway?" prompt could never trigger; a failed remote-ref delete where the ref no longer exists is also reported as such now instead of a generic rejection
 - Fixes quick picks opened from the _Commit Graph_ (repository switcher, search filter pickers, compare-ref choosers, _Add Co-authors_) sometimes closing immediately &mdash; the webview could win back focus from the picker while the click's focus was still settling; the webview now releases focus before opening the picker, and pickers no longer hang when dismissed while their items are still loading
 - Fixes the _Commit Graph_'s minimap resizing with the graph when the details panel changes size &mdash; it now holds its pixel height until there isn't room for it, and can no longer shrink below its minimum or get stuck in a sliver where the divider couldn't restore it; the agents/WIP splitter in the details panel keeps its chosen size across resizes as well

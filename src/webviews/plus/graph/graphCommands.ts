@@ -1128,16 +1128,21 @@ export class GraphCommands {
 	private async copy(item?: GraphItemContext) {
 		let data;
 
-		// Worktree sidebar rows carry the worktree path on their ref context — prefer that
+		// Worktree sidebar rows and WIP rows carry the worktree path on their ref context — prefer
+		// that. Branch ref pills for worktree branches ALSO carry `worktreePath` (so worktree-aware
+		// commands can target the right tree), but Copy on a ref should yield the ref's name, so
+		// gate on the item actually being a worktree/WIP item.
 		if (isGraphItemRefContext(item)) {
-			const values = item.webviewItemsValues?.length
-				? item.webviewItemsValues.map(i => i.webviewItemValue)
-				: [item.webviewItemValue];
-			const paths = values
-				.map(v => ('worktreePath' in v ? v.worktreePath : undefined))
-				.filter((p): p is string => p != null);
-			if (paths.length > 0 && paths.length === values.length) {
-				data = paths.join('\n');
+			const items = item.webviewItemsValues?.length
+				? item.webviewItemsValues
+				: [{ webviewItem: item.webviewItem, webviewItemValue: item.webviewItemValue }];
+			if (items.every(i => /^gitlens:(worktree|wip)\b/.test(i.webviewItem))) {
+				const paths = items
+					.map(i => ('worktreePath' in i.webviewItemValue ? i.webviewItemValue.worktreePath : undefined))
+					.filter((p): p is string => p != null);
+				if (paths.length > 0 && paths.length === items.length) {
+					data = paths.join('\n');
+				}
 			}
 		}
 
@@ -1160,6 +1165,43 @@ export class GraphCommands {
 		if (data != null) {
 			await env.clipboard.writeText(data);
 		}
+	}
+
+	@command('gitlens.graph.copyBranchName')
+	@debug()
+	private async copyBranchName(item?: GraphItemContext) {
+		// WIP rows carry an uncommitted revision (no branch) — resolve the worktree's checked-out branch
+		if (!isGraphItemRefContext(item, 'revision')) return;
+
+		const { worktreePath } = item.webviewItemValue;
+		if (worktreePath == null) return;
+
+		const branch = await this.container.git.getRepositoryService(worktreePath).branches.getBranch();
+		if (branch == null) return;
+
+		await env.clipboard.writeText(branch.name);
+	}
+
+	@command('gitlens.graph.copyWorktreePath')
+	@debug()
+	private async copyWorktreePath(item?: GraphItemContext) {
+		if (!isGraphItemRefContext(item)) return;
+
+		const value = item.webviewItemValue;
+		let worktreePath = 'worktreePath' in value ? value.worktreePath : undefined;
+		if (worktreePath == null && value.type === 'branch') {
+			// Sidebar branch rows and the WIP-header kebab don't carry the path — resolve it from the branch
+			const branch = await this.container.git
+				.getRepositoryService(value.ref.repoPath)
+				.branches.getBranch(value.ref.name);
+			if (branch?.worktree != null && branch.worktree !== false) {
+				worktreePath = branch.worktree.path;
+			}
+		}
+
+		if (worktreePath == null) return;
+
+		await env.clipboard.writeText(worktreePath);
 	}
 
 	@command('gitlens.graph.copyMessage')
