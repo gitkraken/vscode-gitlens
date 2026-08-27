@@ -4,6 +4,8 @@ import * as assert from 'node:assert';
 // command classes whose `@command()` decorator reads a registry that module is still initializing.
 // Letting container initialize first breaks the cycle; without it the bundle throws on load.
 import '../../container.js';
+import * as sinon from 'sinon';
+import { commands, extensions, window } from 'vscode';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Container } from '../../container.js';
 import { AgentStatusService } from '../agentStatusService.js';
@@ -123,7 +125,7 @@ function makeContainer(options?: { worktrees?: unknown[]; onGetWorktrees?: () =>
 			onDidChangeRepositories: () => noopDisposable,
 		},
 		telemetry: { sendEvent: () => {} },
-		agents: { getClaude: () => undefined, invalidateCache: () => {} },
+		agents: { getAll: () => Promise.resolve([]), invalidateCache: () => {} },
 		onReady: () => noopDisposable,
 	} as unknown as Container;
 }
@@ -572,6 +574,119 @@ suite('AgentStatusService archiveSession', () => {
 			assert.deepStrictEqual(provider.archivedSessionIds, ['past-session']);
 		} finally {
 			dispose();
+		}
+	});
+});
+
+/** Stubs the three vscode surfaces the dispatcher can reach, and returns them alongside a restore.
+ *  Mocha's tdd `setup` hook is shadowed by this file's own `setup()` helper, so each dispatch test
+ *  installs and restores its own sandbox instead. */
+function stubDispatchSurfaces() {
+	const sandbox = sinon.createSandbox();
+	return {
+		// Dismissed by default — every assertion here is about which prompt was raised, not what the
+		// user picked, and a resolved `undefined` keeps the resume path from spawning a terminal.
+		showWarningMessage: sandbox.stub(window, 'showWarningMessage').resolves(undefined),
+		// `isClaudeExtensionAvailable`'s first probe. Stubbing it both keeps the real extension out of
+		// the result AND makes "was the Claude path entered at all?" observable.
+		getExtension: sandbox.stub(extensions, 'getExtension').returns(undefined),
+		executeCommand: sandbox.stub(commands, 'executeCommand').resolves(undefined),
+		restore: () => sandbox.restore(),
+	};
+}
+
+/** `dispatchSessionAction` is private, and both public entries into it (`openSession`, the resume
+ *  picker) need command registration or a quickpick, so the tests drive it directly. */
+function dispatchSessionAction(service: AgentStatusService, session: AgentSession): Promise<void> {
+	return (
+		service as unknown as { dispatchSessionAction: (session: AgentSession) => Promise<void> }
+	).dispatchSessionAction(session);
+}
+
+function setupDispatch(session: AgentSession) {
+	const provider = new TestProvider('gkAgents');
+	provider.sessions = [session];
+	const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+	return { provider: provider, service: service, dispose: () => service.dispose() };
+}
+
+suite('AgentStatusService session dispatch', () => {
+	test('a live non-Claude session never reaches the Claude extension and is not offered a terminal resume', async () => {
+		// No pid, so there is no terminal to focus either — the dead-end warning is the whole outcome.
+		const session = makeSession({ id: 'codex-1', providerId: 'codex', providerName: 'Codex' });
+		const stubs = stubDispatchSurfaces();
+		const { service, dispose } = setupDispatch(session);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.getExtension.called, false, 'the Claude extension must never be probed');
+			assert.strictEqual(stubs.executeCommand.called, false, 'no Claude open command may be dispatched');
+			assert.deepStrictEqual(
+				stubs.showWarningMessage.args,
+				[['Unable to open agent session.']],
+				'a single-argument warning proves no "Resume in Terminal" action was offered',
+			);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('an ended non-Claude session is not offered a terminal resume', async () => {
+		// `claude --resume <id>` is meaningless for Codex, so `supportsResume: false` must downgrade
+		// the prompt to a plain warning even though the phase itself is resumable.
+		const session = makeSession({
+			id: 'codex-2',
+			providerId: 'codex',
+			providerName: 'Codex',
+			status: 'ended',
+			phase: 'ended',
+		});
+		const stubs = stubDispatchSurfaces();
+		const { service, dispose } = setupDispatch(session);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.deepStrictEqual(stubs.showWarningMessage.args, [['This agent session has ended.']]);
+			assert.strictEqual(stubs.executeCommand.called, false);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('an ended Claude session still gets the resume offer', async () => {
+		const session = makeSession({ id: 'claude-1', status: 'ended', phase: 'ended' });
+		const stubs = stubDispatchSurfaces();
+		const { service, dispose } = setupDispatch(session);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.deepStrictEqual(stubs.showWarningMessage.args, [
+				['This agent session has ended. Resume it in a terminal?', 'Resume in Terminal'],
+			]);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('a live Claude session still probes the Claude extension', async () => {
+		// The regression guard for the descriptor fork: pid-less and in-workspace, so the Claude chain
+		// falls through to `isClaudeExtensionAvailable` (stubbed unavailable) and then the resume offer.
+		const session = makeSession({ id: 'claude-2' });
+		const stubs = stubDispatchSurfaces();
+		const { service, dispose } = setupDispatch(session);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.getExtension.called, true, 'the Claude path must still probe the extension');
+			assert.deepStrictEqual(stubs.showWarningMessage.args, [
+				['Unable to open agent session. Resume it in a terminal?', 'Resume in Terminal'],
+			]);
+		} finally {
+			dispose();
+			stubs.restore();
 		}
 	});
 });

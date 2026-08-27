@@ -7,7 +7,7 @@
  */
 
 import { Disposable } from 'vscode';
-import { areHooksAllowedForAgent } from '../../../agents/utils/agentHooks.js';
+import { areHooksOfferedForAgent } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
@@ -156,7 +156,7 @@ export class AIService {
 		const agentsEnabled = getContext('gitlens:agents:enabled', false);
 		const all = agentsEnabled ? await this.#container.agents.getAll() : [];
 		const hookAgents = all
-			.filter(a => a.detected && a.hooksSupported && areHooksAllowedForAgent(a.name))
+			.filter(a => a.detected && a.hooksSupported && areHooksOfferedForAgent(a.name))
 			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
 
 		const defaultAgentId = configuration.get('ai.defaultAgent') ?? undefined;

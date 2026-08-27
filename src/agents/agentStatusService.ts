@@ -1,5 +1,6 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { commands, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { claudeCodeCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import type { Source, Sources } from '../constants.telemetry.js';
@@ -41,7 +42,7 @@ import {
 	resumeClaudeSessionInTerminal,
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
-import { areHooksAllowedForAgent, getHookClientId } from './utils/agentHooks.js';
+import { areHooksOfferedForAgent, getHookClientId } from './utils/agentHooks.js';
 
 /** Value carried by a `gitlens:agent-session…` webview-item context — mirrors
  *  `agentUtils.ts`'s `AgentSessionContextValue` (webview-side). Declared separately here rather
@@ -89,7 +90,7 @@ export class AgentStatusService implements Disposable {
 
 	private readonly _onDidChangeHooksInstallState = new EventEmitter<void>();
 	/**
-	 * Fires after the user installs or uninstalls Claude Code hooks. Webviews subscribe so banners
+	 * Fires after the user installs or uninstalls GitKraken Hooks for an agent. Webviews subscribe so banners
 	 * and integration chips reflect the new state without waiting for the 30s cache to expire.
 	 */
 	readonly onDidChangeHooksInstallState = this._onDidChangeHooksInstallState.event;
@@ -266,12 +267,15 @@ export class AgentStatusService implements Disposable {
 		this._onDidChangeHooksInstallState.fire();
 	}
 
-	/** Resolves the host's Claude hooks-installed state and pushes it to all providers so they can
-	 *  gate their reconciliation poll (the CLI `list-sessions` call). Resolves to `false` when the
-	 *  agent can't be detected (e.g. the browser stub's `getClaude()` returns `undefined`); fails
-	 *  *open* (`installed = true`) only if detection throws unexpectedly, so a transient failure
-	 *  never wrongly suppresses polling. The browser has no providers to receive the push regardless.
-	 *  Pass `invalidate` after an install/uninstall so the stale agent cache is dropped before re-reading.
+	/** Resolves whether ANY agent GitLens holds a capability descriptor for has hooks installed on
+	 *  this host, and pushes that to all providers so they can gate their reconciliation poll (the
+	 *  CLI `list-sessions` call). Deliberately not keyed on Claude: the flag gates the poll for every
+	 *  agent the provider fronts, so an installation with Codex hooks but no Claude hooks would
+	 *  otherwise have its poll suppressed. Resolves to `false` when no such agent is detected (e.g.
+	 *  the browser stub returns an empty list); fails *open* (`installed = true`) only if detection
+	 *  throws unexpectedly, so a transient failure never wrongly suppresses polling. The browser has
+	 *  no providers to receive the push regardless. Pass `invalidate` after an install/uninstall so
+	 *  the stale agent cache is dropped before re-reading.
 	 *
 	 *  Note: an external `gk ai hook install` (run outside GitLens) isn't observed here until
 	 *  something else re-reads — acceptable per the staleness window documented in
@@ -283,8 +287,8 @@ export class AgentStatusService implements Disposable {
 			if (options?.invalidate) {
 				this.container.agents.invalidateCache();
 			}
-			const claude = await this.container.agents.getClaude();
-			installed = claude?.hooksInstalled ?? false;
+			const agents = await this.container.agents.getAll();
+			installed = agents.some(a => a.hooksInstalled && areHooksOfferedForAgent(a.name));
 		} catch {
 			// Unexpected detection failure — leave fail-open (assume installed) so a transient error
 			// doesn't wrongly suppress polling. (The browser stub returns an empty list above, yielding
@@ -350,8 +354,9 @@ export class AgentStatusService implements Disposable {
 		op: 'install' | 'uninstall',
 		source: Sources,
 	): Promise<void> {
-		// Honor the Claude-only hooks flag — silently drop any non-Claude targets before operating.
-		const targets = agents.filter(a => areHooksAllowedForAgent(a.name));
+		// Silently drop any agent GitLens holds no capability descriptor for — see
+		// `areHooksOfferedForAgent` for why a descriptor is the gate.
+		const targets = agents.filter(a => areHooksOfferedForAgent(a.name));
 		if (targets.length === 0) {
 			void window.showInformationMessage(
 				op === 'install'
@@ -1362,7 +1367,10 @@ export class AgentStatusService implements Disposable {
 	}
 
 	/**
-	 * Deterministically picks the right action for a resolved session — no quickpick:
+	 * Deterministically picks the right action for a resolved session — no quickpick.
+	 *
+	 * Claude Code sessions take the full chain below. Every other agent takes
+	 * {@link dispatchOtherAgentSessionAction}, because each rung here is Claude-specific plumbing:
 	 *  - Extension-hosted, owned by another VS Code window → notify the owning peer (if it has
 	 *    GitLens running with the workspace) to open the session in its Claude Code extension,
 	 *    then `vscode.openFolder` (different workspace) or an info message (same/no workspace,
@@ -1394,6 +1402,19 @@ export class AgentStatusService implements Disposable {
 		if (session.status === 'ended') {
 			provider?.resolveEndedSessionDetails?.(session.id);
 			await this.offerResumeOrWarn(session, 'This agent session has ended.');
+			return;
+		}
+
+		// Fork before ANY Claude-specific probe. `classifyClaudeSessionHost` reads
+		// `~/.claude/sessions/<pid>.json`, which no other agent writes, so it always answers
+		// `undefined` for them — which used to fall through to `tryOpenClaudeSession` with a foreign
+		// session id, asking the Claude Code extension to open a session it has never heard of. A
+		// session whose `providerId` is unrecognized takes the agnostic path too: we cannot claim it's
+		// Claude, and guessing wrong is exactly the bug above. Compared against the descriptor's own
+		// `providerId` — the same constant the provider stamps onto a Claude session — so the two
+		// cannot drift.
+		if (session.providerId !== claudeCodeCapabilities.providerId) {
+			await this.dispatchOtherAgentSessionAction(provider, session);
 			return;
 		}
 
@@ -1456,13 +1477,53 @@ export class AgentStatusService implements Disposable {
 		await this.offerResumeOrWarn(session, 'Unable to open agent session.');
 	}
 
+	/**
+	 * Open path for every agent that isn't Claude Code. Deliberately reaches for nothing
+	 * Claude-specific — no `classifyClaudeSessionHost`, no `isClaudeExtensionAvailable`, no
+	 * `tryOpenClaudeSession`: none of those know anything about a Codex/Copilot/OpenCode session id.
+	 * What's left is the terminal the agent is actually running in, reached through its `pid`, and a
+	 * warning when even that fails.
+	 *
+	 * `sharesPids` (Codex) does NOT suppress the focus attempt. A shared pid is ambiguous for
+	 * *liveness* — it can't tell you which of the multiplexed sessions is still running, which is why
+	 * the provider's pruning handles that separately — but it unambiguously names the host process
+	 * whose terminal the session lives in, and that terminal is exactly what the user asked to see.
+	 */
+	private async dispatchOtherAgentSessionAction(
+		provider: AgentSessionProvider | undefined,
+		session: AgentSession,
+	): Promise<void> {
+		// A peer-synced session lives in another VS Code window whatever the agent, so the
+		// window-focus half of that route is still the right target. Only the IPC hop is Claude-only:
+		// the far side's `agents/sessions/open` handler ends in `openSessionInClaudeExtension`, which
+		// has the same foreign-session-id problem — hence `notifyPeer: false`.
+		if (session.isPeerOwned) {
+			await this.dispatchPeerOwnedSession(provider, session, { notifyPeer: false });
+			return;
+		}
+
+		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
+
+		Logger.warn(
+			`AgentStatusService.dispatchOtherAgentSessionAction: no actionable target for ${session.providerId} session ${session.id} (isInWorkspace=${session.isInWorkspace}, workspacePath=${session.workspacePath ?? 'none'}, pid=${session.pid ?? 'none'})`,
+		);
+		await this.offerResumeOrWarn(session, 'Unable to open agent session.');
+	}
+
 	/** Shared dead-end handler for every open path that can't reach the live session. When the
-	 *  session is resumable (idle, or waiting on user input — see {@link canResumeSession}),
-	 *  prompts the user to spawn a fresh terminal running `claude --resume <id>`; otherwise just
-	 *  surfaces the original warning. Keeps the prompt single-action so a dismiss is the obvious
-	 *  "no" — the warning text itself communicates the failure that triggered the fallback. */
+	 *  session is resumable (idle, or waiting on user input — see {@link canResumeSession}) AND its
+	 *  agent's descriptor declares `supportsResume`, prompts the user to spawn a fresh terminal
+	 *  running `claude --resume <id>`; otherwise just surfaces the original warning. Keeps the prompt
+	 *  single-action so a dismiss is the obvious "no" — the warning text itself communicates the
+	 *  failure that triggered the fallback.
+	 *
+	 *  The capability check is load-bearing, not defensive: {@link resumeClaudeSessionInTerminal}
+	 *  literally runs `claude --resume <id>`, so offering it for another agent would spawn a Claude
+	 *  process against a session id Claude has never seen. An agent with no descriptor gets no offer
+	 *  for the same reason. */
 	private async offerResumeOrWarn(session: AgentSession, warning: string): Promise<void> {
-		if (!canResumeSession(session)) {
+		const supportsResume = getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume === true;
+		if (!supportsResume || !canResumeSession(session)) {
 			void window.showWarningMessage(warning);
 			return;
 		}
@@ -1494,10 +1555,17 @@ export class AgentStatusService implements Disposable {
 	 *  has GitLens running with the workspace) so its Claude Code extension surfaces the session,
 	 *  then either `vscode.openFolder` (different workspace — focuses the peer window via the
 	 *  folder-already-open path) or an info message (same workspace or unknown workspace, where
-	 *  OS-level cross-window focus across a multi-window VS Code app is unreliable). */
+	 *  OS-level cross-window focus across a multi-window VS Code app is unreliable).
+	 *
+	 *  `notifyPeer: false` skips the IPC hop and keeps only the window focus. The peer's
+	 *  `agents/sessions/open` handler can only open a session in the Claude Code extension, so for any
+	 *  other agent the notify would ask the far side to open a session id that extension has never
+	 *  heard of. Nothing else is lost: the dispatcher ignores the notify's return value, and
+	 *  `vscode.openFolder` focuses the owning window whether or not it has GitLens. */
 	private async dispatchPeerOwnedSession(
 		provider: AgentSessionProvider | undefined,
 		session: AgentSession,
+		options?: { notifyPeer?: boolean },
 	): Promise<void> {
 		// Target folder to focus. Each step picks a more general fallback so out-of-workspace
 		// sessions (cwd doesn't match any of OUR workspace folders) still resolve to a path some
@@ -1515,7 +1583,7 @@ export class AgentStatusService implements Disposable {
 		//                   function could pass that exact path to `openFolder` instead).
 		const targetPath = session.workspacePath ?? session.worktreePath ?? session.commonPath ?? session.cwd;
 
-		if (provider?.notifyPeerOpenSession != null && targetPath != null) {
+		if ((options?.notifyPeer ?? true) && provider?.notifyPeerOpenSession != null && targetPath != null) {
 			// Cap the wait so an unhealthy peer can't stall the user click for the full per-fetch
 			// timeout. The peer only needs to *start* opening the session before the focus switch
 			// lands. `.catch` is on the notify promise itself (not the race) so a late rejection

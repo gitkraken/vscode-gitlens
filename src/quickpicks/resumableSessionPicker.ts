@@ -1,5 +1,6 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
+import { getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import type { PastAgentSessionState } from '../agents/models/agentSessionState.js';
 import type { AgentSession } from '../agents/provider.js';
@@ -26,6 +27,24 @@ const resumeInTerminalButton: QuickInputButton = {
 	tooltip: 'Resume in Terminal',
 };
 
+/** The agent's own mark, falling back to the generic robot. Read from the capability table rather
+ *  than the webviews' `agentProviderIcon` — this is host code, and the table is the host-side
+ *  source for the same thing. */
+function agentIcon(providerId: string | undefined): string {
+	return (providerId != null ? getAgentCapabilitiesByProviderId(providerId)?.icon : undefined) ?? 'robot';
+}
+
+/** Whether this session's agent can be resumed from a terminal at all. Resume spawns
+ *  `claude --resume <id>`, so offering it for another agent would start a Claude process against a
+ *  session id it has never seen. The live list is not provider-filtered, so this has to be checked
+ *  per row. Past rows are already safe — the caller keeps only those carrying a resume action, and
+ *  only Claude's transcript store produces one. */
+function canResumeInTerminal(session: AgentSession): boolean {
+	if (!canResumeSession(session)) return false;
+
+	return getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume === true;
+}
+
 /**
  * Picks a session to reattach to for a worktree — the active ones it can open, then the past ones
  * recovered from the transcript store it can resume (which includes sessions that have since ended).
@@ -48,10 +67,10 @@ export async function showResumableSessionPicker(
 		items.push(createQuickPickSeparator('Active'));
 		for (const session of live) {
 			items.push({
-				label: `$(robot) ${session.name ?? session.id}`,
+				label: `$(${agentIcon(session.providerId)}) ${session.name ?? session.id}`,
 				description: session.status,
 				detail: session.lastPrompt,
-				buttons: canResumeSession(session) ? [resumeInTerminalButton] : undefined,
+				buttons: canResumeInTerminal(session) ? [resumeInTerminalButton] : undefined,
 				live: session,
 			} satisfies SessionQuickPickItem);
 		}
