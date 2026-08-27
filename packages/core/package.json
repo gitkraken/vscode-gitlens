@@ -135,6 +135,10 @@
 			"types": "./dist/ipc/ipcServer.d.ts",
 			"default": "./dist/ipc/ipcServer.js"
 		},
+		"./plus/agents/agentCapabilities.js": {
+			"types": "./dist/plus/agents/agentCapabilities.d.ts",
+			"default": "./dist/plus/agents/agentCapabilities.js"
+		},
 		"./plus/agents/providers/*.js": {
 			"types": "./dist/plus/agents/providers/*.d.ts",
 			"default": "./dist/plus/agents/providers/*.js"
