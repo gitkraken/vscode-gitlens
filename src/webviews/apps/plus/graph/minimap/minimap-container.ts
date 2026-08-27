@@ -466,11 +466,11 @@ export class GlGraphMinimapContainer extends GlElement {
 								</button>
 							</gl-tooltip>`
 						: this.scopeWindow != null
-							? html`<gl-tooltip placement="left" content="Zoom to Scope">
+							? html`<gl-tooltip placement="left" content="Zoom to Focus">
 									<button
 										type="button"
 										class="minimap-settings__trigger"
-										aria-label="Zoom to Scope"
+										aria-label="Zoom to Focus"
 										@click=${this.handleEnterZoom}
 									>
 										<code-icon icon="zoom-in" size="16"></code-icon>

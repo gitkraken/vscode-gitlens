@@ -336,6 +336,7 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 			this._handleRequestEnsureRowVisible as EventListener,
 		);
 		this.addEventListener('gl-graph-request-reveal-failed', this._handleRequestRevealFailed as EventListener);
+		this.addEventListener('gl-graph-request-rebind-failed', this._handleRequestRebindFailed as EventListener);
 	}
 
 	override disconnectedCallback(): void {
@@ -354,6 +355,7 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 			this._handleRequestEnsureRowVisible as EventListener,
 		);
 		this.removeEventListener('gl-graph-request-reveal-failed', this._handleRequestRevealFailed as EventListener);
+		this.removeEventListener('gl-graph-request-rebind-failed', this._handleRequestRebindFailed as EventListener);
 		this._sidebarActions.dispose();
 		this._searchActions.dispose();
 		// `_subscriptions` are intentionally left armed on unmount: the controller's `hostDisconnected`
@@ -373,6 +375,10 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 
 	private _handleRequestRevealFailed = (e: CustomEvent<DidFailRevealParams>): void => {
 		this.appElement?.handleRevealFailed(e.detail.id);
+	};
+
+	private _handleRequestRebindFailed = (e: CustomEvent<{ message: string }>): void => {
+		this.appElement?.handleRebindFailed(e.detail.message);
 	};
 
 	private _handleRequestOpenTimelineScope = (e: CustomEvent<DidRequestOpenTimelineScopeParams>): void => {

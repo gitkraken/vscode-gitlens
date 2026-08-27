@@ -7,7 +7,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { basename } from '@gitlens/utils/path.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { RepositoryShape } from '../../../../../git/models/repositoryShape.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
@@ -226,19 +225,28 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					label = `Stack #${origin.number}`;
 					tooltip = `Showing Stack #${origin.number} of ${origin.size} Pull Requests Only`;
 				} else if (origin?.kind === 'worktree') {
+					// The chip label is always the focused BRANCH now — the worktree identity lives on the
+					// header's branch pill (its yellow tint + ✕ drive off `worktreePerspective`, not this
+					// chip). The `gl-worktree` icon is kept anyway: it's a cheap, still-accurate hint that
+					// this focus was reached via a worktree gesture, and reads fine next to a branch label.
 					icon = 'gl-worktree';
-					label = basename(origin.path);
-					tooltip = `Showing Worktree ${basename(origin.path)} Only`;
+					label = scopedName ?? 'Focused';
+					tooltip = `Showing ${scopedName ?? 'Focused Branch'} Only`;
 				} else {
 					icon = 'target';
-					label = scopedName ?? 'Scoped';
-					tooltip = `Showing ${scopedName ?? 'Specific Branch'} Only`;
+					label = scopedName ?? 'Focused';
+					tooltip = `Showing ${scopedName ?? 'Focused Branch'} Only`;
 				}
 				break;
 			}
 		}
 
 		const filtered = this.isFiltered;
+		// Scope and focus are independent states, each with its own unconditional active color (F12): a
+		// live worktree perspective no longer de-emphasizes this chip while a focus is also active — the
+		// chip renders its ordinary full-yellow `mode-chip--scoped` regardless of `worktreePerspective`.
+		// The whole-titlebar tint's row-level suppression (`header.css.ts`'s `.titlebar--worktree-scoped
+		// .titlebar__row--scoped`) is unrelated — that's background surface compositing, not this chip.
 		const scoped = mode === 'scoped';
 
 		return html`<gl-popover
@@ -332,6 +340,13 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const stashesShown = !(excludeTypes?.stashes ?? false);
 		const tagsShown = !(excludeTypes?.tags ?? false);
 
+		// Deep-links straight to the two worktree-scope settings from wherever this vocabulary is on
+		// screen (UX review finding 9) — same `command:workbench.action.openSettings` recipe as the
+		// fetch popover's gear (`gitActionsButtons.ts`'s `settingsLink`).
+		const scopeSettingsLink = `command:workbench.action.openSettings?${encodeURIComponent(
+			'"@id:gitlens.graph.scopeBehavior @id:gitlens.graph.doubleClickWorktreeAction"',
+		)}`;
+
 		return html`<div class="mode-popover__section-header">
 				<span class="mode-popover__section-title">Graph Options</span>
 				${when(
@@ -376,6 +391,16 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 						@click=${this.handleToggleTags}
 					>
 						<code-icon icon="tag"></code-icon>
+					</gl-button>
+				</gl-tooltip>
+				<gl-tooltip placement="top" content="Worktree Scope Settings...">
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						href=${scopeSettingsLink}
+						aria-label="Worktree Scope Settings..."
+					>
+						<code-icon icon="gear"></code-icon>
 					</gl-button>
 				</gl-tooltip>
 			</div>

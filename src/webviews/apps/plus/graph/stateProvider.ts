@@ -37,6 +37,7 @@ import type {
 	GraphWorktreeEnrichment,
 } from '../../../plus/graph/graphService.js';
 import type {
+	GraphRebindRefusalReason,
 	GraphRefsMetadata,
 	GraphRowsPayload,
 	GraphRowsSplice,
@@ -65,7 +66,7 @@ import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
 import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
 import { restampId, restampScope } from './utils/rebind.utils.js';
-import { getSelectedRepoPath } from './utils/repository.utils.js';
+import { getSelectedRepoPath, worktreeDisplayName } from './utils/repository.utils.js';
 import { hasDirtyCounts } from './utils/wip.utils.js';
 
 const BaseWebviewStateKeys = [
@@ -559,6 +560,9 @@ export class GraphStateProvider implements Disposable {
 	accessor selectedRepository: State['selectedRepository'];
 
 	@signalState()
+	accessor homeRepositoryPath: State['homeRepositoryPath'];
+
+	@signalState()
 	accessor selectedRepositoryVisibility: State['selectedRepositoryVisibility'];
 
 	@signalState()
@@ -644,6 +648,9 @@ export class GraphStateProvider implements Disposable {
 
 	@signalState()
 	accessor scope: AppState['scope'];
+
+	@signalState()
+	accessor worktreePerspective: AppState['worktreePerspective'];
 
 	@signalState()
 	accessor rowMarkerMergeTarget: AppState['rowMarkerMergeTarget'];
@@ -1156,6 +1163,18 @@ export class GraphStateProvider implements Disposable {
 						);
 					}
 					this.updateState(next);
+
+					// A full-state push is the signal "the host is alive now" — retry a rebind that was
+					// refused for what might have been a cold-open race (see `reconcileWorktreeRebind`'s
+					// doc comment, UX review finding 4). Re-verified against the live perspective first:
+					// a later transition may have already superseded the refused one.
+					if (this._pendingRebindRetry != null) {
+						const retry = this._pendingRebindRetry;
+						this._pendingRebindRetry = undefined;
+						if (this.worktreePerspective?.path === retry.nextPath) {
+							this.reconcileWorktreeRebind(retry.nextPath, retry.previousOnRefusal, true);
+						}
+					}
 				}),
 			() =>
 				repoStatus.onBranchStateChanged(data => {
@@ -1501,15 +1520,178 @@ export class GraphStateProvider implements Disposable {
 
 	clearScope(): void {
 		this.pendingScopeToBranch = false;
+		// Cancel any in-flight `setScope` publish REGARDLESS of whether a scope is currently published —
+		// a worktree gesture's anchor IPC can still be resolving when the user asks to clear (e.g. the
+		// header pill ✕'s full exit, clicked mid-resolve, or any full-exit path racing a just-fired
+		// gesture). Left scoped to the `this.scope != null` branch below, a pending pick would survive
+		// this call and `publishResolvedScope` would install a scope moments after the user asked to
+		// leave — mirrors the same unconditional cancel `deferScopeClear` already does.
+		this.cancelPendingScope();
 		if (this.scope == null) return;
 
-		this.cancelPendingScope();
 		this.scope = undefined;
 
 		emitTelemetrySentEvent(this.host, {
 			name: 'graph/scope/cleared',
 			data: {},
 		});
+	}
+
+	/**
+	 * Sets the worktree PERSPECTIVE — see {@link AppState.worktreePerspective}'s doc comment for what it
+	 * means relative to `scope`. Fires {@link reconcileWorktreeRebind} synchronously (immediacy: the
+	 * header tint + pill render off this write in the same frame, independent of and before any focus/
+	 * anchor IPC a caller runs afterward).
+	 *
+	 * Same `path` as the live perspective is a no-op for the RPC (still refreshes `branchName`, so a
+	 * second gesture on the same worktree naming a different branch stays optimistically correct) — this
+	 * is what keeps a same-worktree re-focus (e.g. a stack re-focus over the same worktree's base) from
+	 * re-firing the rebind, and what lets a worktree→different-worktree transition go straight to the new
+	 * path in one call (the host serializes concurrent rebinds, so this doesn't need to round-trip
+	 * through home first).
+	 */
+	setWorktreePerspective(path: string, options?: { branchName?: string }): void {
+		const previous = this.worktreePerspective;
+		if (previous?.path === path) {
+			if (options?.branchName != null && previous.branchName !== options.branchName) {
+				this.worktreePerspective = { path: path, branchName: options.branchName };
+			}
+			return;
+		}
+
+		this.worktreePerspective = { path: path, branchName: options?.branchName };
+		// `previous` is the revert target on a refusal — see `reconcileWorktreeRebind`'s doc comment. NOT
+		// `undefined` unconditionally: a refused wt-a → wt-b rebind leaves the HOST still on wt-a, so the
+		// webview must keep showing wt-a, not fall back to "unscoped" under it.
+		this.reconcileWorktreeRebind(path, previous);
+	}
+
+	/**
+	 * Clears the worktree perspective, rebinding the graph back onto its home repository. No-op when no
+	 * perspective is live — mirrors {@link clearScope}.
+	 */
+	clearWorktreePerspective(): void {
+		if (this.worktreePerspective == null) return;
+
+		// Revert target on a REFUSED clear — see `reconcileWorktreeRebind`'s doc comment (UX review
+		// finding 2): if the host can't actually restore home, the indicator must not claim it did.
+		const previous = this.worktreePerspective;
+		this.worktreePerspective = undefined;
+		this.reconcileWorktreeRebind(undefined, previous);
+	}
+
+	/** Latched by a SET the host refused as `not-ready` — the cold-open race, where it hadn't finished
+	 *  resolving a session yet when the RPC arrived (see `reconcileWorktreeRebind`'s retry branch). ONLY
+	 *  that reason latches; every other refusal reverts on the spot. Consumed (and cleared) by the next
+	 *  `state.onStateChanged` push, which is the signal "the host is alive now." */
+	private _pendingRebindRetry: { nextPath: string; previousOnRefusal: AppState['worktreePerspective'] } | undefined;
+
+	/**
+	 * Rebind side-channel: fires {@link GraphScopeService.rebind} off a `worktreePerspective` TRANSITION.
+	 * Called only from {@link setWorktreePerspective} and {@link clearWorktreePerspective} — scope writes
+	 * (`setScope`/`clearScope`) no longer touch the binding; only the perspective does (see the two-mode
+	 * addendum). `origin.kind === 'worktree'` on a `scope` survives as provenance/toggle-identity only.
+	 *
+	 * Fire-and-forget by design: `worktreePerspective` has already been written by the time this runs, so
+	 * it never delays the (synchronous) UI update. Marks the graph busy for the RPC's whole span
+	 * (`beginEnsureLoading`) — the fast path settles under its arming delay and never shows anything; the
+	 * fallback path (a full walk, ~750ms+) is exactly what that delay exists to cover (UX review finding
+	 * 5), where silence otherwise reads as broken rather than slow.
+	 *
+	 * A refusal carries its REASON (`DidRebindGraphParams.refused`), and that reason decides between the
+	 * two outcomes — this is what keeps a refusal from leaving a false "scoped" state standing:
+	 *
+	 * - `not-ready` (no repository/session yet) on a SET (`nextPath != null`, not already a retry) is the
+	 *   cold-open case (UX review finding 4): `showWorktreeInGraph` can open the graph and fire this
+	 *   before the host has finished resolving a session, so the optimistic perspective is KEPT and a
+	 *   single retry is latched for the next state push — which is exactly the signal "the host is alive
+	 *   now", so the latch can't outlive its own premise.
+	 * - Every other refusal (and every refused CLEAR, and a retry that's refused again) is terminal and
+	 *   reverts IMMEDIATELY to `previousOnRefusal` — the perspective that was live before this call,
+	 *   which is what the host is STILL bound to since the rebind never landed (`undefined` when there
+	 *   wasn't one, e.g. home → wt-a refused, or home for a refused clear). Reverting on the spot is what
+	 *   keeps refusals that generate NO state push (an `already-bound` refusal, say) from stranding the
+	 *   titlebar tint, the ✕, and the aria announcement on a graph that isn't scoped. `already-bound`
+	 *   reverts without a toast — see {@link revertRefusedWorktreeRebind}.
+	 *
+	 * Both arms guard on still owning the field so a later transition that already superseded this call is
+	 * never clobbered. That same guard gates the user-visible failure toast
+	 * (`gl-graph-request-rebind-failed` → `graph.ts` → `GraphApp.handleRebindFailed` →
+	 * `jumpToastController.rebindFailed`) — no point telling the user about an attempt a newer one already
+	 * superseded.
+	 */
+	private reconcileWorktreeRebind(
+		nextPath: string | undefined,
+		previousOnRefusal?: AppState['worktreePerspective'],
+		isRetry = false,
+	): void {
+		// Any new transition supersedes a latched cold-open retry — without this, a toggle-off after a
+		// `not-ready` SET could revert on its own refusal and the stale latch would then re-fire the SET
+		// against the user's last gesture. (The retry path itself already consumed the latch.)
+		this._pendingRebindRetry = undefined;
+
+		const endBusy = this.beginEnsureLoading();
+		void this._servicesReady.promise
+			.then(() => this._scopeService!.rebind({ worktreePath: nextPath }))
+			.then(
+				result => {
+					const refused = result?.refused;
+					if (refused == null) return;
+
+					if (refused === 'not-ready' && !isRetry && nextPath != null) {
+						this._pendingRebindRetry = { nextPath: nextPath, previousOnRefusal: previousOnRefusal };
+						this.logger?.debug(
+							undefined,
+							`rebind not ready (worktreePath=${nextPath}) — retrying on the next state push`,
+						);
+						return;
+					}
+
+					this.revertRefusedWorktreeRebind(nextPath, previousOnRefusal, refused);
+				},
+				(ex: unknown) => {
+					this.logger?.debug(
+						undefined,
+						`rebind failed (worktreePath=${nextPath ?? '<home>'}): ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+
+					// An actual throw (not a domain refusal) is never retried — it isn't the cold-open race
+					// the retry exists for — but reverts and reports the same way a terminal refusal does.
+					this.revertRefusedWorktreeRebind(nextPath, previousOnRefusal, 'failed');
+				},
+			)
+			.finally(() => endBusy());
+	}
+
+	/** Rolls the optimistic perspective back to what the host is still bound to and — for the reasons
+	 *  worth reporting — tells the user why. The terminal half of {@link reconcileWorktreeRebind}. No-ops
+	 *  entirely when a later transition already moved the field on (this attempt is stale, and its target
+	 *  is no longer what's on screen). */
+	private revertRefusedWorktreeRebind(
+		nextPath: string | undefined,
+		previousOnRefusal: AppState['worktreePerspective'],
+		reason: GraphRebindRefusalReason,
+	): void {
+		const stillOwnsField =
+			nextPath == null ? this.worktreePerspective == null : this.worktreePerspective?.path === nextPath;
+		this.logger?.debug(
+			undefined,
+			`rebind refused (worktreePath=${nextPath ?? '<home>'}, reason=${reason})${stillOwnsField ? ` — perspective reverted to ${previousOnRefusal?.path ?? '<home>'}` : ' — superseded, left alone'}`,
+		);
+		if (!stillOwnsField) return;
+
+		this.worktreePerspective = previousOnRefusal;
+
+		// `already-bound` reverts SILENTLY — see `getRebindFailureMessage`.
+		const message = getRebindFailureMessage(
+			nextPath != null ? worktreeDisplayName(this.repositories, nextPath) : undefined,
+			reason,
+		);
+		if (message == null) return;
+
+		this.host.dispatchEvent(
+			new CustomEvent('gl-graph-request-rebind-failed', { detail: { message: message }, bubbles: true }),
+		);
 	}
 
 	/**
@@ -1526,8 +1708,16 @@ export class GraphStateProvider implements Disposable {
 	 * `_anchorGenerations` defaulting to 0 for a repoPath it hasn't seen yet is correct — there's
 	 * nothing to have invalidated for it. Worst case is one redundant anchor re-resolve, not a
 	 * correctness gap.
+	 *
+	 * Deliberately does NOT call {@link reconcileWorktreeRebind}: this runs as a CONSEQUENCE of a rebind
+	 * that already happened (driven by `updateState`'s own repo-switch detection, not a scope pick or a
+	 * `setWorktreePerspective` call), and `restampScope` carries `origin` over unchanged by contract — the
+	 * worktree path a scope was reached through doesn't change just because the live binding did.
+	 * Re-firing here would at best be a no-op (the origin path is identical before/after) and at worst
+	 * race the very rebind this is reacting to. `worktreePerspective` mostly follows the same rule — see
+	 * `toIsHome` below for the one case that diverges.
 	 */
-	private restampScopeStateForRebind(fromRepoPath: string, toRepoPath: string): void {
+	private restampScopeStateForRebind(fromRepoPath: string, toRepoPath: string, toIsHome: boolean): void {
 		if (fromRepoPath === toRepoPath) return;
 
 		if (this._mergeBaseCache.size > 0) {
@@ -1540,6 +1730,28 @@ export class GraphStateProvider implements Disposable {
 
 		if (this.scope != null) {
 			this.scope = restampScope(this.scope, fromRepoPath, toRepoPath);
+		}
+
+		if (toIsHome) {
+			// Belt-and-braces (UX review finding 1): whenever the NEW binding is home, the perspective
+			// must end up cleared — checked against the LIVE field directly, not gated on it having
+			// pointed at `fromRepoPath`. The gesture sites clear it eagerly for their own case (a
+			// worktree gesture ON the default worktree — see `toggleScopeFromWipRow`/`onFocus`/
+			// `focusRef`), but this reactive path is the catch-all: whatever the perspective's path was
+			// (`fromRepoPath` from the plain repo picker choosing home directly, or anything else from a
+			// gap in the eager sites), landing on home must never leave the graph flagged "scoped" while
+			// bound to it — that stickiness is exactly what the review found.
+			if (this.worktreePerspective != null) {
+				this.worktreePerspective = undefined;
+			}
+		} else if (this.worktreePerspective?.path === fromRepoPath) {
+			// Live only for the plain repo PICKER choosing a same-family (non-home) target: a worktree
+			// GESTURE already moved `worktreePerspective.path` to `toRepoPath` eagerly (immediacy), so by
+			// the time the host's push lands here the field no longer equals `fromRepoPath` and this
+			// branch no-ops for it — correctly, there's nothing left to fix. The picker never touches
+			// `setWorktreePerspective`, so a LIVE perspective still points at `fromRepoPath` when its push
+			// arrives, and following it to the new (still non-home) worktree keeps it meaningful.
+			this.worktreePerspective = { ...this.worktreePerspective, path: toRepoPath };
 		}
 
 		if (this._pendingScope != null) {
@@ -1666,6 +1878,7 @@ export class GraphStateProvider implements Disposable {
 
 		this._pendingScope = undefined;
 
+		const previous = this.scope;
 		const anchorUsable = anchor != null && (anchor.mergeBase != null || anchor.mergeTargetTipSha != null);
 
 		if (!anchorUsable) {
@@ -1673,8 +1886,7 @@ export class GraphStateProvider implements Disposable {
 			// here means the resolver offered NO anchors at all (it bailed, or the branch has no merge
 			// target), so there's no replacement to prefer over the working one; a stale-anchor swap is
 			// `applyScopeAnchorPatch`'s job, on the re-resolve path.
-			const current = this.scope;
-			if (current?.branchRef === pending.branchRef && current.mergeBase != null) return;
+			if (previous?.branchRef === pending.branchRef && previous.mergeBase != null) return;
 
 			const bare = stripUnpairedMergeTarget(pending);
 			this.scope =
@@ -2087,6 +2299,10 @@ export class GraphStateProvider implements Disposable {
 		const next = applyScopeAnchorPatch(current, anchor);
 		if (next == null) return;
 
+		// No `reconcileWorktreeRebind` call: `applyScopeAnchorPatch` only ever folds anchor fields
+		// (mergeBase/mergeTargetTipSha/focalBranchTipSha) into the SAME branch's scope and always carries
+		// `origin` over verbatim — this can never be the write that changes which worktree (if any) the
+		// scope was reached through.
 		this.scope = next;
 	}
 
@@ -2801,7 +3017,15 @@ export class GraphStateProvider implements Disposable {
 					(prevShape.commonPath ?? prevShape.path) === (nextShape.commonPath ?? nextShape.path);
 
 				if (sameFamily) {
-					this.restampScopeStateForRebind(prevShape.path, nextShape.path);
+					// "Home" is the worktree the window was opened on (`homeRepositoryPath`), NOT the
+					// family's main checkout — in a window homed on a worktree, the main checkout is an
+					// ordinary scope target (see `State.homeRepositoryPath`/`isHomeWorktree`). Falls back
+					// to the main-checkout heuristic only when home hasn't been pushed yet.
+					const toIsHome =
+						this.homeRepositoryPath != null
+							? nextShape.path === this.homeRepositoryPath
+							: nextShape.commonPath == null;
+					this.restampScopeStateForRebind(prevShape.path, nextShape.path, toIsHome);
 				} else {
 					// Scope is webview-local, so a repo switch would otherwise carry it over — and none of it
 					// resolves here: `branchRef` embeds the old repo path (`getBranchId`) and the anchors are
@@ -2809,12 +3033,13 @@ export class GraphStateProvider implements Disposable {
 					// `branchRef` can't match the new repo's branch id) while the view still LOOKS scoped
 					// whenever the new repo shares the branch name.
 					//
-					// Both calls are needed. `clearScope` bails early when nothing is published yet, which is
-					// exactly the state a first `setScope` is in while its anchor IPC is still in flight —
-					// leaving `_pendingScope` set, so the resolve lands after the switch and
-					// `publishResolvedScope` installs the OLD repo's scope here. Each no-ops on its own.
-					this.cancelPendingScope();
+					// `clearScope` also cancels an in-flight `setScope` pick (the anchor IPC may still be
+					// resolving), so the OLD repo's scope can't publish after the switch.
 					this.clearScope();
+					// The host already reset (or is resetting) the binding as part of THIS cross-family
+					// switch — a direct clear, not `clearWorktreePerspective()`, since that would fire a
+					// redundant rebind RPC for a binding change that's already happened.
+					this.worktreePerspective = undefined;
 				}
 				this._wips.unpin(prevSelectedRepo);
 			}
@@ -2827,6 +3052,43 @@ export class GraphStateProvider implements Disposable {
 
 		this.options.onStateUpdate?.(partial);
 		this.fireProviderUpdate();
+	}
+}
+
+/**
+ * User-facing copy for a refused/failed worktree rebind — what the graph couldn't do, why, and what the
+ * user can do about it (the repo picker is always a way through, since it switches bindings outright).
+ * `worktreeName` is undefined for a refused UNSCOPE, whose target is the home repo, not a worktree.
+ *
+ * `undefined` for `already-bound`, the one refusal that says nothing: the graph is already showing the
+ * worktree the user asked for, so there is no failure to report and nothing they'd do differently.
+ * Claiming "couldn't scope" there would be false, and naming a cause ("it isn't a worktree of this
+ * repository") would be doubly so.
+ */
+function getRebindFailureMessage(
+	worktreeName: string | undefined,
+	reason: GraphRebindRefusalReason,
+): string | undefined {
+	if (reason === 'already-bound') return undefined;
+
+	if (worktreeName == null) {
+		switch (reason) {
+			case 'not-ready':
+				return "Couldn't unscope the graph — it's still loading. Try again in a moment.";
+			case 'unavailable':
+				return "Couldn't unscope the graph — its main worktree isn't open. Switch to it from the repository picker.";
+			case 'failed':
+				return "Couldn't unscope the graph. Try again, or switch back from the repository picker.";
+		}
+	}
+
+	switch (reason) {
+		case 'not-ready':
+			return `Couldn't scope the graph to "${worktreeName}" — the graph is still loading. Try again in a moment.`;
+		case 'unavailable':
+			return `Couldn't scope the graph to "${worktreeName}" — it isn't a worktree of this repository, or it's no longer available.`;
+		case 'failed':
+			return `Couldn't scope the graph to "${worktreeName}". Try again, or open it from the repository picker.`;
 	}
 }
 

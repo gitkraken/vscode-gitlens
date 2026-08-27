@@ -152,6 +152,68 @@ suite('Sidebar State Test Suite', () => {
 		});
 	});
 
+	/**
+	 * `hasChanges` is CLIENT-owned: the host's worktrees payload never carries it (it fires the probe
+	 * fire-and-forget after returning the items), so a refetch that dropped it blanked every dirty pill
+	 * until the next FS tick — the visible flash when a worktree Scope's rebind invalidates the sidebar.
+	 */
+	suite('worktree dirty state across a refetch', () => {
+		function worktreePayload(uris: string[]): DidGetSidebarDataParams {
+			return { panel: 'worktrees', items: uris.map(uri => ({ uri: uri })) } as unknown as DidGetSidebarDataParams;
+		}
+
+		test('a refetch keeps the dirty bits the patch stream delivered', async () => {
+			const actions = createSidebarActions();
+			actions.initialize(fakePanelService(async () => worktreePayload(['/repos/wt-1', '/repos/wt-2'])));
+
+			await actions.state.panels.worktrees.fetch();
+			actions.applyWorktreeChanges({
+				'/repos/wt-1': { hasChanges: true },
+				'/repos/wt-2': { hasChanges: false },
+			});
+
+			// What the rebind's `invalidateAll` does to the ACTIVE panel: refetch in place, no reset.
+			await actions.state.panels.worktrees.fetch();
+
+			assert.strictEqual(worktreesOf(actions)[0].hasChanges, true, 'the dirty pill must survive');
+			assert.strictEqual(worktreesOf(actions)[1].hasChanges, false, 'and so must a known-clean verdict');
+			actions.dispose();
+		});
+
+		test('a worktree that disappeared does not resurrect its bit onto a re-added path', async () => {
+			let uris = ['/repos/wt-1'];
+			const actions = createSidebarActions();
+			actions.initialize(fakePanelService(async () => worktreePayload(uris)));
+
+			await actions.state.panels.worktrees.fetch();
+			actions.applyWorktreeChanges({ '/repos/wt-1': { hasChanges: true } });
+
+			// Removed — the carry-forward entry is pruned on the fetch that no longer lists it...
+			uris = [];
+			await actions.state.panels.worktrees.fetch();
+			// ...so a worktree later re-created at the same path starts with no verdict, not a stale one.
+			uris = ['/repos/wt-1'];
+			await actions.state.panels.worktrees.fetch();
+
+			assert.strictEqual(worktreesOf(actions)[0].hasChanges, undefined);
+			actions.dispose();
+		});
+
+		test('a fresh service clears the carry-forward — its paths belong to the old repo', async () => {
+			const actions = createSidebarActions();
+			actions.initialize(fakePanelService(async () => worktreePayload(['/repos/wt-1'])));
+
+			await actions.state.panels.worktrees.fetch();
+			actions.applyWorktreeChanges({ '/repos/wt-1': { hasChanges: true } });
+
+			actions.initialize(fakePanelService(async () => worktreePayload(['/repos/wt-1'])));
+			await actions.state.panels.worktrees.fetch();
+
+			assert.strictEqual(worktreesOf(actions)[0].hasChanges, undefined);
+			actions.dispose();
+		});
+	});
+
 	suite('requestWorktreeWipStats', () => {
 		const stats: GitDiffFileStats = { added: 1, changed: 2, deleted: 3 };
 

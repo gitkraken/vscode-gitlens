@@ -2,6 +2,18 @@ import { css } from 'lit';
 
 export const titlebarStyles = css`
 	.titlebar {
+		/* Row geometry, as variables because the tint bands below are DERIVED from it (see
+		   --titlebar-row-band-inset) and a hand-tuned inset would silently drift out of sync with it. */
+		--titlebar-row-gap: 0.5rem;
+		--titlebar-row-bleed: 0.5rem;
+		/* Rows deliberately overlap: each one's box bleeds --titlebar-row-bleed past its content on both
+		   sides (padding + an equal negative margin) so a tinted row reads as a band with breathing room,
+		   and the row gap only claws part of that back — leaving adjacent boxes overlapping by
+		   (2 × bleed − gap). Half of that on each side is exactly the inset at which two neighbouring
+		   bands MEET without overlapping, which is what keeps two translucent tints from compositing into
+		   a bright seam where the boxes cross. */
+		--titlebar-row-band-inset: calc(var(--titlebar-row-bleed) - var(--titlebar-row-gap) / 2);
+
 		flex-wrap: wrap;
 		padding: 0 0.4rem 0.5rem;
 		font-size: var(--gl-font-base);
@@ -19,7 +31,7 @@ export const titlebarStyles = css`
 	.titlebar__group {
 		display: flex;
 		flex-direction: row;
-		gap: 0.5rem;
+		gap: var(--titlebar-row-gap);
 		align-items: center;
 	}
 
@@ -36,8 +48,30 @@ export const titlebarStyles = css`
 
 	.titlebar__row {
 		flex: 0 0 100%;
-		padding: 0.5rem 0.8rem;
-		margin: -0.5rem -0.8rem;
+		padding: var(--titlebar-row-bleed) 0.8rem;
+		margin: calc(-1 * var(--titlebar-row-bleed)) -0.8rem;
+		/* Every row's tint is painted as a GRADIENT BAND rather than a plain background, bounded to the
+		   row's own share of the overlapping box (see --titlebar-row-band-inset). Both tokens default to
+		   transparent, so an untinted row paints nothing; a variant just names its two colors. Bands from
+		   adjacent rows abut exactly and never overlap, so any pair of tints (yellow+blue, yellow+yellow,
+		   tint+none) meets in a clean edge instead of compositing into a brighter band. Doing this with a
+		   positioned pseudo-element would have needed a stacking context on the row — which the header's
+		   popovers escape by design — so it rides the row's own background instead.
+		   The border-box origin makes 0%/100% span the border box, matching the geometry the margins
+		   overlap on; the transparent borders below stay for layout stability only. */
+		background-origin: border-box;
+		background-image: linear-gradient(
+			to bottom,
+			transparent 0 var(--titlebar-row-band-inset),
+			var(--titlebar-row-band-edge, transparent) var(--titlebar-row-band-inset)
+				calc(var(--titlebar-row-band-inset) + var(--gl-border-width)),
+			var(--titlebar-row-band-bg, transparent) calc(var(--titlebar-row-band-inset) + var(--gl-border-width))
+				calc(100% - var(--titlebar-row-band-inset) - var(--gl-border-width)),
+			var(--titlebar-row-band-edge, transparent)
+				calc(100% - var(--titlebar-row-band-inset) - var(--gl-border-width))
+				calc(100% - var(--titlebar-row-band-inset)),
+			transparent calc(100% - var(--titlebar-row-band-inset)) 100%
+		);
 		border-top: var(--gl-border-width) solid transparent;
 		border-bottom: var(--gl-border-width) solid transparent;
 	}
@@ -63,15 +97,145 @@ export const titlebarStyles = css`
 	}
 
 	.titlebar__row--filtered {
-		background: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-bg), transparent);
-		border-top-color: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-border), transparent);
-		border-bottom-color: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-hover), transparent);
+		--titlebar-row-band-bg: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-bg), transparent);
+		--titlebar-row-band-edge: color-mix(
+			in srgb,
+			var(--gl-chip-filtered-color) var(--gl-chip-tint-border),
+			transparent
+		);
 	}
 
 	.titlebar__row--scoped {
+		--titlebar-row-band-bg: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
+		--titlebar-row-band-edge: color-mix(
+			in srgb,
+			var(--gl-chip-scoped-color) var(--gl-chip-tint-border),
+			transparent
+		);
+	}
+
+	/* Plain branch scope tints only the search row (.titlebar__row--scoped, set via rowClass).
+	   Worktree scope re-perspectives the whole graph onto that worktree, so .titlebar--worktree-scoped
+	   (set on the header element itself) marks the rebound state across the whole bar. The whole-bar
+	   state paints the CONTAINER as one opaque surface (mixed over the titlebar's own bg) rather than
+	   tinting each row: it must cover the gaps BETWEEN the bands too (the promo row included). The search
+	   row's own band is suppressed so its edges don't draw a seam across that single surface, and the
+	   bottom edge is an inset shadow, not a border, to avoid a layout shift on toggle. */
+	.titlebar--worktree-scoped {
+		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), var(--titlebar-bg));
+		box-shadow: inset 0 calc(-1 * var(--gl-border-width)) 0
+			color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
+	}
+
+	.titlebar--worktree-scoped .titlebar__row--scoped {
+		--titlebar-row-band-bg: transparent;
+		--titlebar-row-band-edge: transparent;
+	}
+
+	/* Scope WITHOUT a focus: tint only the top (identity) row — unfocusing a scoped graph visibly
+	   releases the search row while the scope stays marked. Rides the same bounded band as every other
+	   row tint, so a filter tint on the search row below meets it edge-to-edge instead of compositing
+	   over it; the opaque mix keeps the color identical to the whole-bar state above. */
+	.titlebar--worktree-scoped-only .titlebar__row--wrap {
+		--titlebar-row-band-bg: color-mix(
+			in srgb,
+			var(--gl-chip-scoped-color) var(--gl-chip-tint-bg),
+			var(--titlebar-bg)
+		);
+		--titlebar-row-band-edge: color-mix(
+			in srgb,
+			var(--gl-chip-scoped-color) var(--gl-chip-tint-border),
+			transparent
+		);
+	}
+
+	/* The ◎ focus toggle, pilled while the current branch IS focused — the same chip recipe as the
+	   scope pill and the mode chip, so every "this state is active" affordance shares one colorization.
+	   --button-foreground works here because this selector matches the gl-button ELEMENT itself, which
+	   outranks the toolbar-appearance :host rule that defines the same property inside its shadow DOM.
+	   Setting it on an ANCESTOR would not (see the scoped pill's ::part rule above). */
+	gl-button.jump-to-ref--active {
+		--button-foreground: var(--gl-chip-scoped-text-color);
+
 		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
-		border-top-color: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
-		border-bottom-color: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-hover), transparent);
+		border-radius: var(--gl-radius-sm);
+		box-shadow: inset 0 0 0 var(--gl-border-width)
+			color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
+	}
+
+	/* Wraps the branch pill and (when worktree-scoped) its ✕ clear button as one visual unit — always
+	   present so toggling scope only adds/removes the modifier class and the ✕, not the wrapper itself,
+	   avoiding a DOM-shape change on toggle. Not a <span>: the :nth-child(1) > span selector above pins
+	   flex-shrink to 0, which would stop the branch pill shrinking on narrow rows. */
+	.ref-button-group {
+		display: flex;
+		flex-shrink: 1;
+		align-items: stretch;
+		min-width: 0;
+		/* Colored (not added) by the worktree-scoped modifier below, so toggling never shifts layout. */
+		border: var(--gl-border-width) solid transparent;
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.ref-button-group__ref {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	/* Worktree-scope highlight on the branch pill unit (see isWorktreeScoped in graph-header.ts) —
+	   the EXACT recipe of the scope chip's scoped state (mode-chip--scoped in
+	   gl-graph-scope-popover.css.ts): yellow text + tint-bg background + tint-border border, so the two
+	   treatments read as one colorization. The plain color property here covers the light-DOM ✕ button,
+	   which inherits it. */
+	.ref-button-group--worktree-scoped {
+		padding-right: 0.2rem;
+		color: var(--gl-chip-scoped-text-color);
+		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
+		border-color: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
+	}
+
+	/* The branch NAME lives in gl-ref-button's shadow DOM, and gl-button's own
+	   toolbar-appearance :host rule DEFINES --button-foreground on itself — a local definition
+	   beats an inherited one, so setting the property on this wrapper (or on gl-ref-button) never reached
+	   the text: it kept rendering --vscode-foreground while everything around it went yellow. ::part()
+	   targets that inner gl-button from the outer tree, which does win, and its control inherits the color
+	   onward to the slotted ref name and the chevron. Same token the chip uses, so the two are
+	   identical by construction rather than by coincidence. */
+	.ref-button-group--worktree-scoped gl-ref-button::part(button) {
+		--button-foreground: var(--gl-chip-scoped-text-color);
+	}
+
+	.ref-button-group__clear-tooltip {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+	}
+
+	.ref-button-group__clear {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 1.6rem;
+		height: 1.6rem;
+		color: inherit;
+		cursor: pointer;
+		background: none;
+		border: none;
+		border-radius: var(--gl-radius-xs);
+		opacity: 0.75;
+	}
+
+	.ref-button-group__clear:hover {
+		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-hover), transparent);
+		opacity: 1;
+	}
+
+	.ref-button-group__clear:focus-visible {
+		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-hover), transparent);
+		opacity: 1;
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline-offset: -1px;
 	}
 
 	.titlebar__row--wrap {

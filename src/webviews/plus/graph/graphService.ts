@@ -980,11 +980,12 @@ export interface GraphScopeService {
 	/**
 	 * Re-perspectives the live graph session onto `worktreePath` (a worktree of the same repo family)
 	 * without discarding its accumulated window, or restores the home repo binding when `worktreePath`
-	 * is `undefined`. Resolves `undefined` when the host refuses the rebind (e.g. no live session, or
-	 * `worktreePath` isn't a worktree of the bound repo's family) — callers fall back to their own
-	 * repo-switch path in that case.
+	 * is `undefined`. Never rejects for a domain reason: a refusal resolves with `refused` set to WHY
+	 * (see `GraphRebindRefusalReason` in the protocol), which is what tells a caller whether retrying can help
+	 * (`not-ready`, the cold-open race) or whether the request is dead and any optimistic UI must be
+	 * rolled back now.
 	 */
-	rebind(params: { worktreePath: string | undefined }): Promise<DidRebindGraphParams | undefined>;
+	rebind(params: { worktreePath: string | undefined }): Promise<DidRebindGraphParams>;
 	/**
 	 * Fires whenever refs/config move in a way that may stale a resolved anchor (heads/remotes change,
 	 * repo swap, force-refresh). Carries the repo the change was detected in, but consumers should treat

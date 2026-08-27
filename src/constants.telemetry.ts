@@ -1776,6 +1776,9 @@ interface GraphScopeChangedEvent extends GraphContextEventData {
 	'scope.hasUpstream': boolean;
 	/** Whether the scope's merge-target tip SHA is known at scope time (proxy for "merge-target resolved") */
 	'scope.hasMergeTarget': boolean;
+	/** Whether the scope was reached through a worktree gesture (Scope to Worktree), rather than a plain
+	 *  branch, pull request, or stack focus */
+	'scope.isWorktree': boolean;
 }
 
 type GraphColumnEventData = {
@@ -2240,7 +2243,11 @@ export type GraphSidebarWorktreesActionName =
 	| 'setUpstream'
 	| 'changeUpstream'
 	| 'reset'
-	| 'rebaseOntoUpstream';
+	| 'rebaseOntoUpstream'
+	// View state, not a host command (`gl-graph-scope-worktree`) — emitted directly by
+	// `GlGraphSidebarPanel.scopeWorktree` rather than resolved through `sidebarItemActions.worktree`,
+	// since it has no `GlCommands` id to key that table by.
+	| 'scopeToWorktree';
 
 interface GraphSidebarWorktreesWorktreeActionEvent extends GraphContextEventData {
 	action: GraphSidebarWorktreesActionName;

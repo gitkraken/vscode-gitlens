@@ -358,14 +358,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// regardless of `repoPath` (see `GraphScopeService.onScopeAnchorsInvalidated`), so this is
 		// belt-and-suspenders against a future consumer that scopes its sweep — fire for the previous
 		// path too so the webview's cache can't strand entries keyed to it.
-		const previousPath = this._repository?.path;
+		const previous = this._repository;
+		const previousPath = previous?.path;
 		this._repository = value;
-		// A real repo switch (this setter) ends any rebind — `_rebindHome` only makes sense relative to
-		// the binding it was recorded against. Without this, switching to an unrelated repo B while
-		// rebound would leave `_rebindHome` pointed at the OLD home: filters would keep writing into the
-		// old home's `graph:filtersByRepo` key instead of B's, and `rebindRepository(undefined)` would
+		// A CROSS-family repo switch (this setter) ends any rebind — `_rebindHome` only makes sense
+		// relative to the binding it was recorded against. Without this, switching to an unrelated repo B
+		// while rebound would leave `_rebindHome` pointed at the OLD home: filters would keep writing into
+		// the old home's `graph:filtersByRepo` key instead of B's, and `rebindRepository(undefined)` would
 		// later try to rebind B's session onto the old home's path.
-		this._rebindHome = undefined;
+		//
+		// A SAME-family switch (e.g. the repo picker landing directly on a sibling worktree, bypassing
+		// `rebindRepository`) leaves `_rebindHome` untouched — it still names the true family home, and
+		// clearing it here would make the newly-selected worktree masquerade as home.
+		const sameFamily =
+			previous != null &&
+			value != null &&
+			(previous.commonPath ?? previous.path) === (value.commonPath ?? value.path);
+		if (!sameFamily) {
+			this._rebindHome = undefined;
+		}
 		// Clear per-repo state that survived `resetRepositoryState` historically — `_selection` (last
 		// clicked commit ref) and `_searchRequest` (queued search-from-show) both stored repoPath
 		// implicitly. Done here in the setter — not in `resetRepositoryState`, which also runs on
@@ -393,11 +404,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** Set only by {@link rebindRepository}: the repo `this._repository` was bound to before the FIRST
-	 *  rebind away from it. `undefined` means "not currently rebound" (`this.repository` IS home).
+	 *  rebind away from it — i.e. the family home to restore on an unscope. `undefined` means "no home to
+	 *  restore" (nothing was ever rebound, or the recorded home has since been restored/removed). NOT the
+	 *  same as "the graph is bound to home": a SAME-family picker switch straight from a worktree to home
+	 *  leaves this set while `this.repository` already IS home, which is harmless — `rebindRepositoryCore`
+	 *  then takes the `target === previousRebindHome` branch and simply clears it again.
 	 *  Rebinding back to home clears it; rebinding worktree→worktree leaves it untouched. Also cleared if
 	 *  the home repo itself is removed while rebound (see the `onDidChangeRepositories` subscription), or
-	 *  if a real repo switch happens via the `repository` SETTER (a switch ends any rebind — see there),
-	 *  so the current binding becomes permanent rather than dangling. */
+	 *  if a CROSS-family repo switch happens via the `repository` SETTER (see there) — a SAME-family
+	 *  switch leaves it untouched, since it still names the true family home — so the current binding
+	 *  becomes permanent rather than dangling. */
 	private _rebindHome?: GlRepository;
 
 	private _selection: readonly GitRevisionReference[] | undefined;
@@ -605,6 +621,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (this._rebindHome != null && removed.some(r => r.id === this._rebindHome!.id)) {
 							this._rebindHome = undefined;
 						}
+
+						// The worktree the graph is CURRENTLY rebound to was itself removed (deleted from disk,
+						// or closed) — there's nothing left at that path and every action would fail against a
+						// missing cwd, so rebind back home automatically instead of leaving the graph stuck on
+						// a dead binding (UX review finding 15). No-op when we're not rebound at all, or when
+						// the block above just found home GONE too (nothing left to rebind onto either).
+						if (
+							this._rebindHome != null &&
+							this._repository != null &&
+							removed.some(r => r.id === this._repository!.id)
+						) {
+							// The only fire-and-forget rebind caller — `rebindRepositoryCore` reports domain
+							// refusals in its result but can still THROW (its outer body has no catch), which
+							// would surface as an unhandled rejection with nobody awaiting it.
+							void this.rebindRepository(undefined).catch((ex: unknown) =>
+								Logger.error(ex, 'GraphWebviewProvider', 'rebindRepository'),
+							);
+						}
 					}
 					if (removed.length === 0 && (added.length === 0 || added.every(r => r.isWorktree))) {
 						this._etag = this.container.git.etag;
@@ -764,7 +798,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return {
 			...this.createBaseServiceContext(),
 			getRevisionReference: (repoPath, id, type) => this.getRevisionReference(repoPath, id, type),
-			getPinnedRefId: repoPath => this.getFiltersByRepo(repoPath)?.pinnedRef?.id,
+			getPinnedRefId: repoPath => {
+				// Same home-keyed + restamped read as the panels context below: pins live under the
+				// `filtersRepoPath` bucket (the family home while rebound), and the caller compares the id
+				// against refs stamped with ITS live `repoPath` — a raw `getFiltersByRepo(repoPath)` lookup
+				// would miss the bucket entirely while rebound, silently dropping `+pinned` from the WIP
+				// header's branch kebab.
+				const stored = this.getFiltersByRepo(this.filtersRepoPath)?.pinnedRef?.id;
+				return stored != null && repoPath != null ? restampFilterRefId(stored, repoPath) : stored;
+			},
 			fireSidebarWorktreeChanges: changes => this._sidebarWorktreeEvent.fire({ changes: changes }),
 			fireDraftsChanged: drafts => this._wipDraftsChangedEvent.fire(drafts),
 			fireWatchesClosed: shas => this._wipWatchesClosedEvent.fire({ shas: shas }),
@@ -3486,13 +3528,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private rebindGraphScope(params: { worktreePath: string | undefined }): Promise<DidRebindGraphParams | undefined> {
+	private rebindGraphScope(params: { worktreePath: string | undefined }): Promise<DidRebindGraphParams> {
 		return this.rebindRepository(params.worktreePath);
 	}
 
 	/** Serializes {@link rebindRepository} calls — see there for why. `undefined` once no rebind is
 	 *  running. */
-	private _rebindPromise: Promise<DidRebindGraphParams | undefined> | undefined;
+	private _rebindPromise: Promise<DidRebindGraphParams> | undefined;
 
 	/** True for exactly the span of `session.rebind()`'s own walk inside {@link rebindRepositoryCore} —
 	 *  touched ONLY there (set before the call, cleared in its `finally`), so nothing else can turn it off
@@ -3515,7 +3557,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 * reserves its OWN {@link createCancellation} slot, which cancels a still-running prior rebind's
 	 * token immediately (its walk aborts promptly instead of running to completion just to be discarded).
 	 */
-	private rebindRepository(worktreePath: string | undefined): Promise<DidRebindGraphParams | undefined> {
+	private rebindRepository(worktreePath: string | undefined): Promise<DidRebindGraphParams> {
 		const cancellation = this.createCancellation('rebind');
 		const prior = this._rebindPromise;
 		// The `_rebindPromise` clear lives INSIDE this IIFE (not a separate `run.finally(...)` chained onto
@@ -3524,8 +3566,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// would still surface as an unhandled rejection on a discarded derived promise nobody held a
 		// reference to. Boxed (not a bare `const run = …` self-reference) — same reason as the `getState`
 		// initial-walk IIFE above: a bare self-reference inside the IIFE trips TS's definite-assignment check.
-		const ref: { promise?: Promise<DidRebindGraphParams | undefined> } = {};
-		ref.promise = (async (): Promise<DidRebindGraphParams | undefined> => {
+		const ref: { promise?: Promise<DidRebindGraphParams> } = {};
+		ref.promise = (async (): Promise<DidRebindGraphParams> => {
 			// Only for ordering — a prior call's own failure already resolved (not rejected) per this
 			// method's contract, so this `catch` only guards against an unexpected throw escaping it.
 			if (prior != null) {
@@ -3546,40 +3588,59 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/**
-	 * Refuses (`undefined`) when there's nothing to rebind onto, the target isn't a same-family worktree,
-	 * there's no live session to rebind, or the repository/session moved out from under a drained
-	 * concurrent load before this call could apply its swap. Runs only inside {@link rebindRepository}'s
-	 * serialized section — no two calls execute this body concurrently.
+	 * Refuses (a `refused` result, never a rejection) when there's nothing to rebind onto, the target
+	 * isn't a same-family worktree, there's no live session to rebind, or the repository/session moved
+	 * out from under a drained concurrent load before this call could apply its swap. Runs only inside
+	 * {@link rebindRepository}'s serialized section — no two calls execute this body concurrently.
+	 *
+	 * The refusal REASON is part of the contract, not diagnostics: `not-ready` (no repository/session
+	 * yet) is the cold-open race the webview retries once, every other reason is terminal and tells it
+	 * to roll its optimistic perspective back immediately (see `reconcileWorktreeRebind`).
 	 */
 	private async rebindRepositoryCore(
 		worktreePath: string | undefined,
 		cancellation: CancellationTokenSource,
-	): Promise<DidRebindGraphParams | undefined> {
+	): Promise<DidRebindGraphParams> {
 		try {
 			const current = this._repository;
-			if (current == null) return undefined;
+			if (current == null) return { refused: 'not-ready' };
 
 			let target: GlRepository | undefined;
 			if (worktreePath === undefined) {
 				target = this._rebindHome;
-				if (target == null) return undefined;
+				// No recorded home means the graph is not rebound (never was, or home was removed and the
+				// current binding became permanent — see `onDidChangeRepositories`), so a clear is already
+				// satisfied. Succeed as a no-op rather than refuse: a refusal would make the webview revert
+				// its (possibly never-confirmed) perspective and re-show a "scoped" state it can then never
+				// clear — every subsequent unscope would repeat the same refusal.
+				if (target == null) return { repoPath: current.path, previousRepoPath: current.path };
 
 				// Defense-in-depth: the `repository` setter clears `_rebindHome` on any unrelated switch,
 				// so this should always be same-family already — but refuse rather than silently rebind
 				// the CLI session onto an unrelated path if that invariant is ever violated.
-				if ((target.commonPath ?? target.path) !== (current.commonPath ?? current.path)) return undefined;
+				if ((target.commonPath ?? target.path) !== (current.commonPath ?? current.path)) {
+					return { refused: 'unavailable' };
+				}
 			} else {
 				target = await this.container.git.getOrAddRepository(Uri.file(worktreePath), {
 					opened: false,
 					detectNested: true,
 				});
-				if (target == null || target === current) return undefined;
+				if (target == null) return { refused: 'unavailable' };
+				// Already bound there, so there's no rebind to perform — reported as its own reason because
+				// it isn't a failure the user needs told about: the graph is showing exactly what they
+				// asked for (see `GraphRebindRefusalReason`).
+				if (target === current) return { refused: 'already-bound' };
 
 				// Same-family only — mirrors the family guard in `onShowing`'s repo-switch path above.
-				if ((target.commonPath ?? target.path) !== (current.commonPath ?? current.path)) return undefined;
+				if ((target.commonPath ?? target.path) !== (current.commonPath ?? current.path)) {
+					return { refused: 'unavailable' };
+				}
 			}
 
-			if (this._data.session == null) return undefined;
+			// The cold-open race: `showWorktreeInGraph` can open the graph and fire this before the host
+			// has finished resolving a session, so this refusal is the one worth retrying.
+			if (this._data.session == null) return { refused: 'not-ready' };
 
 			// `this._data.loading` is always the LAST getState data promise — never reset to `undefined`
 			// once assigned (see its usages in `getState`) — so this can't distinguish "never loaded" from
@@ -3592,8 +3653,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			await this._data.loading?.catch(() => undefined);
 
 			// Re-check after the await: a repo swap or a teardown could have landed while draining (a
-			// superseding rebind cannot have — we're already inside the serialized section).
-			if (this._repository !== current || this._data.session == null) return undefined;
+			// superseding rebind cannot have — we're already inside the serialized section). Terminal,
+			// not `not-ready`: the request was for a binding the user has since moved off.
+			if (this._repository !== current || this._data.session == null) return { refused: 'unavailable' };
 
 			const previous = current;
 			const previousEtagRepository = this._etagRepository;
@@ -3615,6 +3677,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this.ensureAutoFetch();
 			this._sidebarEventCounter.next();
 			this.resetHoverCache();
+			// The hover-formatter's memoized branch/tag-tips lookup bakes the current-branch marker in at
+			// build time (`resetRepositoryState` clears it on a plain switch) — without this, hovers
+			// rebuilt after the rebind (the `resetHoverCache` above) would mark the OLD binding's branch
+			// as current.
+			this._getBranchesAndTagsTips = undefined;
 			this._producers.setLastSentBranchState(undefined);
 			this._producers.invalidateUpstreamRefsMetadata();
 			this._wip.resetSendState();
@@ -3653,7 +3720,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (!isCancellationError(ex)) {
 					Logger.error(ex, 'GraphWebviewProvider', 'rebindRepository');
 				}
-				return undefined;
+				return { refused: 'failed' };
 			} finally {
 				this._rebindInFlight = false;
 			}
@@ -4105,25 +4172,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async notifyDidChangeRepoConnection() {
-		this._repoConnectionChangedEvent.fire({ repositories: await this.getRepositoriesState() });
+		this._repoConnectionChangedEvent.fire({ repositories: await this.getGraphRepositories() });
 	}
 
-	private async getRepositoriesState(): Promise<GraphRepository[]> {
-		return formatRepositories(this.getGraphRepositoriesList());
-	}
-
-	/** `openRepositories` plus the currently-bound repo when it's closed — reached via `getOrAddRepository`
-	 *  with `opened: false` during a rebind onto a worktree that was never separately opened. Without this,
-	 *  the picker list a rebound client sees wouldn't include the repo `state.selectedRepository` names. */
-	private getGraphRepositoriesList(): GlRepository[] {
+	/**
+	 * The picker's repository list: `openRepositories` plus the currently-bound repo when it's closed —
+	 * reached via `getOrAddRepository` with `opened: false` during a rebind onto a worktree that was never
+	 * separately opened. Without the append, the list a rebound client sees wouldn't include the repo
+	 * `state.selectedRepository` names.
+	 *
+	 * That appended entry is a switch target but NOT an open repository, so it's stamped `closed: true` —
+	 * the only place that flag is ever set. Clients counting open repositories (the header's repo switcher
+	 * affordance, the timeline's `repositoryCount`) exclude it; without the flag the webview can't tell it
+	 * apart from a worktree the user genuinely opened as a workspace folder, which DOES count.
+	 */
+	private async getGraphRepositories(): Promise<GraphRepository[]> {
 		const openRepositories = this.container.git.openRepositories;
-		if (this._repository == null || openRepositories.some(r => r.id === this._repository!.id)) {
-			return openRepositories;
+		const bound = this._repository;
+		if (bound == null || openRepositories.some(r => r.id === bound.id)) {
+			return formatRepositories(openRepositories);
 		}
 
 		// `openRepositories` (`GitProviderService.openRepositories`) is already `sortRepositories`-ordered;
 		// route the append through the same sort rather than tacking it onto the end unsorted.
-		return sortRepositories([...openRepositories, this._repository]);
+		const repositories = await formatRepositories(sortRepositories([...openRepositories, bound]));
+		return repositories.map(r => (r.id === bound.id ? { ...r, closed: true } : r));
 	}
 
 	private getAutoFetchMode(): GraphAutoFetchMode {
@@ -4697,8 +4770,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				? undefined
 				: (configuration.get('graph.details.location') ?? 'auto'),
 			detailsMaximizeOnMode: configuration.get('graph.details.maximizeOnMode') ?? true,
-			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
+			doubleClickWorktreeAction: configuration.get('graph.doubleClickWorktreeAction') ?? 'scope',
+			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
 			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
 			// Per-repo capability AND the master switch. The sub-provider is absent on web builds, virtual
@@ -4728,6 +4802,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
 			overviewBarVisibility: configuration.get('graph.overviewBar.visibility'),
 			refFindAutoHide: configuration.get('graph.refFindAutoHide'),
+			scopeBehavior: configuration.get('graph.scopeBehavior') ?? 'scopeAndFocus',
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
 			searchAutocompleteOnFocus: configuration.get('graph.searchAutocompleteOnFocus'),
@@ -5398,10 +5473,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
-			repositories: await formatRepositories(this.getGraphRepositoriesList()),
+			repositories: await this.getGraphRepositories(),
 			worktreePaths: getSettledValue(worktreesResult)?.map(w => w.path),
 			worktreeBranches: getSiblingWorktreeBranches(getSettledValue(worktreesResult), this.repository.path),
 			selectedRepository: this.repository.id,
+			// What an unscope would rebind onto — the recorded home while rebound, otherwise the binding
+			// itself. See `State.homeRepositoryPath` for why the webview can't derive this.
+			homeRepositoryPath: (this._rebindHome ?? this.repository).path,
 			selectedRepositoryVisibility: visibility,
 			branchesVisibility: refsVisibility.branchesVisibility,
 			branch: branch && {
@@ -5692,9 +5770,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async updatePinnedRef(repoPath: string | undefined, ref: GraphPinnedRef | null): Promise<void> {
 		if (repoPath == null) return;
 
+		// Canonicalize to the home-keyed bucket's path before storing — same as `updateExcludedRefs`'s
+		// write boundary: `ref.id` arrives live-stamped (the worktree while rebound), and a raw store
+		// would leave an id the read boundaries' exact-equality compares never match after unscoping.
 		const storedPinnedRef =
 			ref != null
-				? { id: ref.id, type: ref.type as StoredGraphRefType, name: ref.name, owner: ref.owner }
+				? {
+						id: restampFilterRefId(ref.id, repoPath),
+						type: ref.type as StoredGraphRefType,
+						name: ref.name,
+						owner: ref.owner,
+					}
 				: undefined;
 
 		await this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
