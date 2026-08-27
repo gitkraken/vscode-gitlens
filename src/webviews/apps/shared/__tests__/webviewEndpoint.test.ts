@@ -18,15 +18,7 @@ function wrapCompressed(message: unknown): RpcMessageWrapper {
 	return { [RPC_NAMESPACE]: true, payload: deflated, compressed: 'deflate-raw' };
 }
 
-/**
- * Yields to the macrotask queue so the dispatcher's chain can drain.
- *
- * With a predicate, keeps yielding until it holds or ~1s elapses — a corrupt payload's error
- * propagates through the webstreams/zlib adapters over a variable number of macrotask hops, so a
- * fixed tick count is flaky under scheduler load.
- * Without a predicate, yields a fixed few ticks — for tests asserting nothing gets delivered,
- * where the bounded wait is the point.
- */
+/** Yields to the microtask/macrotask queue a few times so the dispatcher's chain can drain. */
 async function drain(until?: () => boolean): Promise<void> {
 	if (until == null) {
 		for (let i = 0; i < 5; i++) {
