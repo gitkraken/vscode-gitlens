@@ -18,9 +18,26 @@ function wrapCompressed(message: unknown): RpcMessageWrapper {
 	return { [RPC_NAMESPACE]: true, payload: deflated, compressed: 'deflate-raw' };
 }
 
-/** Yields to the microtask/macrotask queue a few times so the dispatcher's chain can drain. */
-async function drain(): Promise<void> {
-	for (let i = 0; i < 5; i++) {
+/**
+ * Yields to the macrotask queue so the dispatcher's chain can drain.
+ *
+ * With a predicate, keeps yielding until it holds or ~1s elapses — a corrupt payload's error
+ * propagates through the webstreams/zlib adapters over a variable number of macrotask hops, so a
+ * fixed tick count is flaky under scheduler load.
+ * Without a predicate, yields a fixed few ticks — for tests asserting nothing gets delivered,
+ * where the bounded wait is the point.
+ */
+async function drain(until?: () => boolean): Promise<void> {
+	if (until == null) {
+		for (let i = 0; i < 5; i++) {
+			await new Promise<void>(resolve => setImmediate(resolve));
+		}
+
+		return;
+	}
+
+	const deadline = Date.now() + 1000;
+	while (!until() && Date.now() < deadline) {
 		await new Promise<void>(resolve => setImmediate(resolve));
 	}
 }
@@ -49,7 +66,7 @@ suite('createOrderedDispatcher Test Suite', () => {
 		dispatcher.dispatch(wrapCompressed({ id: 1 }), fakeEvent);
 		dispatcher.dispatch(wrapUncompressed({ id: 2 }), fakeEvent);
 
-		await drain();
+		await drain(() => deliveries.length >= 2);
 
 		assert.deepStrictEqual(deliveries, [{ id: 1 }, { id: 2 }]);
 
@@ -94,7 +111,7 @@ suite('createOrderedDispatcher Test Suite', () => {
 		dispatcher.dispatch(corrupt, fakeEvent);
 		dispatcher.dispatch(wrapUncompressed({ id: 'still delivered' }), fakeEvent);
 
-		await drain();
+		await drain(() => deliveries.length >= 1);
 
 		assert.deepStrictEqual(deliveries, [{ id: 'still delivered' }]);
 
