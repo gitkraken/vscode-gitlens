@@ -269,14 +269,11 @@ suite('agentCapabilities', () => {
 			assert.strictEqual(claude.supportsTranscripts, true);
 			assert.strictEqual(claude.supportsResume, true);
 			assert.strictEqual(claude.sharesPids, false);
-			assert.strictEqual(claude.cwdIsStatic, false);
 
 			// The CLI's `pidSharingClients` lists codex — it multiplexes sessions in one process.
 			assert.strictEqual(getCapabilities('codex').sharesPids, true);
 			// The CLI hard-errors on blocking events for opencode.
 			assert.strictEqual(getCapabilities('opencode').supportsBlockingPermissions, false);
-			// OpenCode's tool hooks carry no per-call cwd.
-			assert.strictEqual(getCapabilities('opencode').cwdIsStatic, true);
 		});
 	});
 

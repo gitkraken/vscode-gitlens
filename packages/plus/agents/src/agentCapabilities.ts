@@ -61,9 +61,6 @@ export interface AgentCapabilities {
 	/** The agent multiplexes concurrent sessions in one process, so a pid does not identify a
 	 *  session (matches the CLI's `pidSharingClients`). */
 	readonly sharesPids: boolean;
-	/** The agent's hook events carry no per-call cwd, so the reported cwd is fixed at install/init
-	 *  time and never reflects later movement. */
-	readonly cwdIsStatic: boolean;
 
 	/** Extra step the agent's own host requires before installed hooks will actually fire. Undefined
 	 *  when installing is sufficient. Not a computed state — we cannot detect whether the step has been
@@ -101,7 +98,6 @@ export const claudeCodeCapabilities: AgentCapabilities = {
 	supportsTranscripts: true,
 	supportsResume: true,
 	sharesPids: false,
-	cwdIsStatic: false,
 };
 
 const codexCapabilities: AgentCapabilities = {
@@ -123,7 +119,6 @@ const codexCapabilities: AgentCapabilities = {
 	supportsResume: false,
 	// The CLI lists codex in `pidSharingClients` — it multiplexes sessions in one process.
 	sharesPids: true,
-	cwdIsStatic: false,
 	// Verified empirically, not speculative: running an identical Codex session with
 	// `--dangerously-bypass-hook-trust` fires the installed hooks immediately (a session record
 	// appears); without that flag, zero records — Codex silently refuses to run command hooks it
@@ -168,7 +163,6 @@ const copilotCapabilities: AgentCapabilities = {
 	supportsTranscripts: false,
 	supportsResume: false,
 	sharesPids: false,
-	cwdIsStatic: false,
 };
 
 /** Reads the status type out of an OpenCode `session.status` hook input. The CLI's generated
@@ -235,9 +229,16 @@ const openCodeCapabilities: AgentCapabilities = {
 	supportsTranscripts: false,
 	supportsResume: false,
 	sharesPids: false,
-	// OpenCode's tool hooks carry no per-call cwd; the CLI's generated plugin supplies the
-	// plugin-init directory once, so cwd never reflects later movement.
-	cwdIsStatic: true,
+	// OpenCode's tool hooks carry no per-call cwd: the CLI's generated plugin supplies the
+	// plugin-init directory once, so a session's reported cwd is frozen at that value and never
+	// reflects later movement. Deliberately prose and NOT a capability flag — it was one, and
+	// nothing could be built on it. Every cwd-driven path in `gkAgentProvider` (the
+	// visited-worktree unions, `cwdTimeline` resolution, the `cliSeatedWorktree` unexplained-move
+	// clear) reacts only to an OBSERVED difference between successive cwds, so a frozen cwd
+	// degrades each one to its already-correct single-value no-op. A flag hands that code no fact
+	// it can act on: it explains why the diff never fires, it does not supply the directory the
+	// hooks never sent. Promote it back to a field if a surface ever needs to caveat the
+	// attribution to the user — that would be its first real consumer.
 };
 
 /** Every supported hook client, in registry order. */
