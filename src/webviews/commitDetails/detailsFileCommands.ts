@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { env, window, workspace } from 'vscode';
+import { EndOfLine, env, window, workspace, WorkspaceEdit } from 'vscode';
 import { CheckoutError } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -358,21 +358,38 @@ export class DetailsFileCommands {
 	/** Appends the given repo-relative paths to the repo root's `.gitignore`, creating it when missing. */
 	private async appendToGitignore(repoPath: string, relativePaths: string[], subject: string): Promise<void> {
 		const gitignoreUri = this.container.git.getAbsoluteUri('.gitignore', repoPath);
+		const entries = relativePaths.map(escapeGitignorePath);
 
 		try {
-			let content = '';
+			let exists = true;
 			try {
-				content = new TextDecoder().decode(await workspace.fs.readFile(gitignoreUri));
+				await workspace.fs.stat(gitignoreUri);
 			} catch {
-				// No .gitignore yet — create it
+				exists = false;
 			}
 
-			if (content.length && !content.endsWith('\n')) {
-				content += '\n';
+			if (!exists) {
+				await workspace.fs.writeFile(gitignoreUri, new TextEncoder().encode(`${entries.join('\n')}\n`));
+				return;
 			}
-			content += `${relativePaths.map(escapeGitignorePath).join('\n')}\n`;
 
-			await workspace.fs.writeFile(gitignoreUri, new TextEncoder().encode(content));
+			// Append through the text document rather than `workspace.fs` so an open — possibly dirty —
+			// editor stays in sync: a write behind its back strands the buffer, and the user's next save
+			// either raises a conflict or silently drops the entries. Saving commits their unsaved edits
+			// along with ours, and the append is undoable.
+			const document = await workspace.openTextDocument(gitignoreUri);
+			const eol = document.eol === EndOfLine.CRLF ? '\r\n' : '\n';
+			const lastLine = document.lineAt(document.lineCount - 1);
+
+			const edit = new WorkspaceEdit();
+			edit.insert(
+				document.uri,
+				lastLine.range.end,
+				`${lastLine.text.length ? eol : ''}${entries.join(eol)}${eol}`,
+			);
+			if (!(await workspace.applyEdit(edit)) || !(await document.save())) {
+				throw new Error('the edit could not be applied');
+			}
 		} catch (ex) {
 			void window.showErrorMessage(`Unable to add ${subject} to .gitignore\n${String(ex)}`);
 		}
