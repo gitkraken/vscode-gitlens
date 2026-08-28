@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { env, window } from 'vscode';
+import { EndOfLine, env, window, workspace, WorkspaceEdit } from 'vscode';
 import { CheckoutError } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -11,6 +11,7 @@ import { getFileDiffPathspecs } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CopyDeepLinkCommandArgs, CopyFileDeepLinkCommandArgs } from '../../commands/copyDeepLink.js';
@@ -48,6 +49,14 @@ import type { ComparisonContext, ResolvedDetailsFile } from './commitDetailsWebv
 const { command, getCommands } = createCommandDecorator<string>();
 const { command: multiCommand, getCommands: getMultiCommands } = createCommandDecorator<string>();
 export { getCommands as getDetailsFileCommands, getMultiCommands as getDetailsFileMultiCommands };
+
+// Anchored with a leading `/` so the pattern ignores the selected file rather than that name
+// anywhere in the repo — which also keeps a name starting with `#` or `!` from being read as a
+// comment or a negation. Glob metacharacters and a trailing space (which git would otherwise
+// strip) are escaped so the pattern matches only the file that was picked.
+export function toGitignorePattern(relativePath: string): string {
+	return `/${relativePath.replace(/[*?[]| $/g, '\\$&')}`;
+}
 
 export class DetailsFileCommands {
 	// Reuse the WIP discard service (its confirm + trash + restore core) so the context-menu Discard
@@ -339,6 +348,68 @@ export class DetailsFileCommands {
 		// `includeUntracked` so an untracked selected file is stashed too; the stash wizard confirms.
 		await StashActions.push(file.repoPath, [file.uri], undefined, true);
 	}
+
+	@command('gitlens.addToGitignore:')
+	@debug()
+	async addToGitignore(_commit: GitCommit, file: GitFileChange): Promise<void> {
+		const relativePath = this.container.git.getRelativePath(file.uri, file.repoPath);
+		await this.appendToGitignore(file.repoPath, [relativePath], `'${relativePath}'`);
+	}
+
+	/** Appends the given repo-relative paths to the repo root's `.gitignore`, creating it when missing. */
+	private async appendToGitignore(repoPath: string, relativePaths: string[], subject: string): Promise<void> {
+		const gitignoreUri = this.container.git.getAbsoluteUri('.gitignore', repoPath);
+		const entries = relativePaths.map(toGitignorePattern);
+
+		try {
+			let exists = true;
+			try {
+				await workspace.fs.stat(gitignoreUri);
+			} catch {
+				exists = false;
+			}
+
+			// A missing .gitignore has no document to open yet, so create it with its entries in place
+			if (!exists) {
+				await workspace.fs.writeFile(gitignoreUri, new TextEncoder().encode(`${entries.join('\n')}\n`));
+			}
+
+			const document = await workspace.openTextDocument(gitignoreUri);
+
+			// Reveal it before editing, as the built-in Git extension's "Add to .gitignore" does: the
+			// only signal the user gets about what was written is the file itself, and the pattern is
+			// anchored and escaped, so it isn't always the bare path that was picked
+			await window.showTextDocument(document, { preview: false });
+
+			if (exists) {
+				// Append through the text document rather than `workspace.fs` so an open — possibly
+				// dirty — editor stays in sync: a write behind its back strands the buffer, and the
+				// user's next save either raises a conflict or silently drops the entries. Saving
+				// commits their unsaved edits along with ours, and the append is undoable.
+				const eol = document.eol === EndOfLine.CRLF ? '\r\n' : '\n';
+				const lastLine = document.lineAt(document.lineCount - 1);
+
+				const edit = new WorkspaceEdit();
+				edit.insert(
+					document.uri,
+					lastLine.range.end,
+					`${lastLine.text.length ? eol : ''}${entries.join(eol)}${eol}`,
+				);
+				if (!(await workspace.applyEdit(edit))) throw new Error('the edit could not be applied');
+
+				// `save()` also answers false for a document that isn't dirty (auto-save can beat us
+				// to it), so only a dirty document that refuses to save is a failure. The document is
+				// already revealed, so a pending edit isn't left dirty out of sight.
+				if (document.isDirty && !(await document.save())) {
+					throw new Error('the edit could not be saved');
+				}
+			}
+		} catch (ex) {
+			Logger.error(ex, `Unable to add ${subject} to .gitignore`);
+			void window.showErrorMessage(`Unable to add ${subject} to .gitignore\n${String(ex)}`);
+		}
+	}
+
 	@command('gitlens.views.applyChanges:')
 	@debug()
 	applyChanges(
@@ -807,6 +878,18 @@ export class DetailsFileCommands {
 			undefined,
 			true,
 		);
+	}
+
+	@multiCommand('gitlens.addToGitignore.multi:')
+	@debug()
+	async addToGitignoreMulti(items: ResolvedDetailsFile[]): Promise<void> {
+		// Union-gated - the menu shows if ANY selected file is untracked
+		const files = items.filter(i => i.webviewItem?.includes('+untracked'));
+		if (!files.length) return;
+
+		const repoPath = files[0].file.repoPath;
+		const relativePaths = files.map(i => this.container.git.getRelativePath(i.file.uri, repoPath));
+		await this.appendToGitignore(repoPath, relativePaths, 'the selected files');
 	}
 
 	@multiCommand('gitlens.copyPatchToClipboard.multi:')

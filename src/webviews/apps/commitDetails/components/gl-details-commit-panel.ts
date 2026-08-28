@@ -9,7 +9,7 @@ import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks.js';
-import { serializeWebviewItemContext } from '../../../../system/webview.js';
+import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { WireSerialized } from '../../../../system/wireSerialize.js';
 import type {
 	State as _State,
@@ -1315,7 +1315,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		// (open at revision / on remote / restore previous). Mirrors the WIP panel's file context.
 		if (this.isUncommitted) {
 			const context: DetailsItemTypedContext = {
-				webviewItem: `gitlens:file${file.staged ? '+staged' : '+unstaged'}${submodule}`,
+				webviewItem: `${getWipFileWebviewItem(file)}${submodule}`,
 				webviewItemValue: {
 					type: 'file',
 					path: file.path,

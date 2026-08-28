@@ -15,7 +15,7 @@ import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.j
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
-import { serializeWebviewItemContext } from '../../../../../system/webview.js';
+import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type {
@@ -1182,7 +1182,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 			webviewItem = `gitlens:file${modifiers.join('')}`;
 		} else {
-			webviewItem = file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged';
+			webviewItem = getWipFileWebviewItem(file);
 		}
 
 		const context: DetailsItemTypedContext = {

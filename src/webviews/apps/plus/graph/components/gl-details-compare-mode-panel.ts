@@ -7,7 +7,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
-import { serializeWebviewItemContext } from '../../../../../system/webview.js';
+import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext, Preferences, State } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type {
@@ -785,7 +785,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// WIP context (sha: uncommitted → HEAD↔working) would be wrong there.
 		if (this.selectedCommitSha === uncommitted || (this.activeTab === 'ahead' && this.aheadOnlyWip)) {
 			const context: DetailsItemTypedContext = {
-				webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+				webviewItem: getWipFileWebviewItem(file),
 				webviewItemValue: {
 					type: 'file',
 					path: file.path,
