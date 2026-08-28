@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { mergeWebviewItems, mergeWebviewItemsUnion } from '../webview.js';
+import { getWipFileWebviewItem, mergeWebviewItems, mergeWebviewItemsUnion } from '../webview.js';
 
 suite('mergeWebviewItems', () => {
 	test('returns undefined for an empty list', () => {
@@ -76,5 +76,25 @@ suite('mergeWebviewItemsUnion', () => {
 
 	test('differing base types → undefined', () => {
 		assert.strictEqual(mergeWebviewItemsUnion(['gitlens:file+staged', 'gitlens:commit']), undefined);
+	});
+});
+
+suite('getWipFileWebviewItem', () => {
+	// The `+untracked` flag is the only thing the Add to .gitignore menus gate on, so these pin the
+	// exact strings every WIP file row (graph details + Inspect) is expected to produce.
+	test('flags an untracked file', () => {
+		assert.strictEqual(getWipFileWebviewItem({ staged: false, status: '?' }), 'gitlens:file+unstaged+untracked');
+	});
+
+	test('leaves a tracked working-tree change unflagged', () => {
+		assert.strictEqual(getWipFileWebviewItem({ staged: false, status: 'M' }), 'gitlens:file+unstaged');
+	});
+
+	test('uses the staged base for a staged file', () => {
+		assert.strictEqual(getWipFileWebviewItem({ staged: true, status: 'A' }), 'gitlens:file+staged');
+	});
+
+	test('omits the flag when the status is unknown', () => {
+		assert.strictEqual(getWipFileWebviewItem({}), 'gitlens:file+unstaged');
 	});
 });

@@ -54,7 +54,7 @@ export { getCommands as getDetailsFileCommands, getMultiCommands as getDetailsFi
 // anywhere in the repo — which also keeps a name starting with `#` or `!` from being read as a
 // comment or a negation. Glob metacharacters and a trailing space (which git would otherwise
 // strip) are escaped so the pattern matches only the file that was picked.
-function toGitignorePattern(relativePath: string): string {
+export function toGitignorePattern(relativePath: string): string {
 	return `/${relativePath.replace(/[*?[]| $/g, '\\$&')}`;
 }
 
