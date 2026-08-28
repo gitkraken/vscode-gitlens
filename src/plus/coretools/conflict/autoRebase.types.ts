@@ -212,3 +212,10 @@ export interface AutoRebaseChangeEvent {
 	/** `undefined` when the session was dismissed */
 	session: AutoRebaseSession | undefined;
 }
+
+/** Whether a terminal run left the branch tip exactly where it started — distinguishes a `completed`
+ *  run that had nothing to rewrite from one that cleanly rewrote every commit. `false` before the run
+ *  reaches a terminal phase (`postRun` unset). */
+export function isAutoRebaseUnchanged(session: AutoRebaseSession): boolean {
+	return session.postRun?.headSha === session.preRun.headSha;
+}

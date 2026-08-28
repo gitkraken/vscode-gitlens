@@ -880,12 +880,14 @@ export class AutoRebaseService implements Disposable {
 		const { session } = active;
 		const headSha = (await svc.revision.resolveRevision('HEAD')).sha;
 
-		// The loop reported completion but the tip is back at the start: the rebase was aborted
-		// externally (`git rebase --abort`) while we were driving it — there is nothing to undo (or
-		// summarize as applied). Gate on `fromLoop` rather than `steps.length` so an abort *before* the
-		// first step is recorded is still caught, without misclassifying `start()`'s "already up to
-		// date" no-op (which reaches finalize directly, never from the loop, also with 0 steps).
-		if (options?.fromLoop && headSha === session.preRun.headSha) {
+		// The loop reported completion but the tip is back at the start — that's ambiguous on its own:
+		// it's just as true of a genuine no-op completion (nothing to rewrite) as it is of an external
+		// `git rebase --abort` that raced us while driving it. Git's own reflog tells the two apart
+		// (`rebase (finish): …` vs `rebase (abort): …`) regardless of whether the SHA moved. Gate on
+		// `fromLoop` rather than `steps.length` so an abort *before* the first step is recorded is still
+		// caught, without misclassifying `start()`'s "already up to date" no-op (which reaches finalize
+		// directly, never from the loop, also with 0 steps).
+		if (options?.fromLoop && headSha === session.preRun.headSha && !(await this.rebaseReflogFinished(svc))) {
 			session.phase = 'aborted';
 			clearTransientProgress(session);
 			this.fireChange(session);
@@ -969,12 +971,13 @@ export class AutoRebaseService implements Disposable {
 				return;
 			}
 
-			// Nothing to abort — the rebase already ended. If HEAD moved past the pre-rebase tip the
-			// run actually finished (a cancel that raced the final successful continue), so finalize
-			// it (summary + undo record) instead of misreporting an unchanged branch. Only when HEAD
-			// is still at the pre-rebase tip is "aborted — branch unchanged" literally true.
+			// Nothing to abort — the rebase already ended, racing our cancel. If HEAD moved, the run
+			// actually finished (a cancel that raced the final successful continue). If HEAD didn't
+			// move, that alone doesn't mean it was aborted — a no-op completion (nothing to rewrite)
+			// looks identical by SHA — so check the reflog too. Either signal routes through finalize
+			// for the summary + undo record instead of misreporting a completed run as cancelled.
 			const headSha = (await svc.revision.resolveRevision('HEAD')).sha;
-			if (headSha !== session.preRun.headSha) {
+			if (headSha !== session.preRun.headSha || (await this.rebaseReflogFinished(svc))) {
 				await this.finalize(svc, active, { fromLoop: true });
 				return;
 			}
@@ -1168,6 +1171,22 @@ export class AutoRebaseService implements Disposable {
 		}
 
 		return { ok: true };
+	}
+
+	/** Whether git's own record says the rebase actually finished, for the moments HEAD staying at the
+	 *  pre-rebase tip can't tell a genuine no-op completion apart from an external abort — both leave
+	 *  HEAD unmoved, but git tags the reflog entry `rebase (finish): …` or `rebase (abort): …`
+	 *  accordingly regardless. `false` (the conservative default) when reflog is unreadable. */
+	private async rebaseReflogFinished(svc: GitRepositoryService): Promise<boolean> {
+		const git = svc.createUnsafeGit();
+		if (git == null) return false;
+
+		try {
+			const result = await git.run(['reflog', '-1', '--format=%gs', 'HEAD']);
+			return result.stdout.trim().startsWith('rebase (finish)');
+		} catch {
+			return false;
+		}
 	}
 
 	private async listStashMessages(svc: GitRepositoryService): Promise<string[]> {

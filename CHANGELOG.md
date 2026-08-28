@@ -78,6 +78,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes Auto-Rebase reporting a successful run that left the branch unchanged as cancelled &mdash; a rebase with nothing to rewrite (including one handed off from the _Interactive Rebase Editor_ that finishes without ever pausing) is now reported as completed with nothing to rewrite; "cancelled" is reserved for a rebase that was actually aborted and rolled back ([#5787](https://github.com/gitkraken/vscode-gitlens/issues/5787))
 - Fixes _Copy_ on a worktree branch's ref pill in the _Commit Graph_ copying the worktree's folder path instead of the branch name
 - Fixes deleting an unmerged branch from the _Commit Graph_ or views showing a generic error instead of offering the force-delete confirmation &mdash; delete failures were left unclassified, so the "delete anyway?" prompt could never trigger; a failed remote-ref delete where the ref no longer exists is also reported as such now instead of a generic rejection
 - Fixes quick picks opened from the _Commit Graph_ (repository switcher, search filter pickers, compare-ref choosers, _Add Co-authors_) sometimes closing immediately &mdash; the webview could win back focus from the picker while the click's focus was still settling; the webview now releases focus before opening the picker, and pickers no longer hang when dismissed while their items are still loading

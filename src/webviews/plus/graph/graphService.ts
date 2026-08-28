@@ -232,6 +232,10 @@ export type AutoRebaseRunUpdate = {
 	/** Why automation stopped, when it escalated — lets the panel distinguish a user-requested stop
 	 *  (`stopped`) from a genuine escalation. */
 	escalation?: { reason: string; message: string };
+	/** Whether the branch tip is exactly where it started — only meaningful once `phase` is terminal.
+	 *  Distinguishes a `completed` run that had nothing to rewrite from one that cleanly rewrote
+	 *  every commit. */
+	unchanged: boolean;
 	/** Steps recorded so far — only paused (conflicted/skipped) steps surface; clean picks never do.
 	 *  Files carry no `virtualRef` while running: before/after diffs stay a summary-sheet affordance so
 	 *  no virtual sessions are registered per progress tick. */
