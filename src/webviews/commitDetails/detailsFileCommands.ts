@@ -50,12 +50,12 @@ const { command, getCommands } = createCommandDecorator<string>();
 const { command: multiCommand, getCommands: getMultiCommands } = createCommandDecorator<string>();
 export { getCommands as getDetailsFileCommands, getMultiCommands as getDetailsFileMultiCommands };
 
-// `.gitignore` lines are globs — escape the same two characters the built-in Git extension's
-// `ignore()` does: `\` (Windows separator) becomes `/`, and `[` (which would otherwise open a
-// character class) is backslash-escaped. Deliberately not broader — `*`, `?`, `#`, `!` etc. are
-// left alone to match upstream exactly.
-function escapeGitignorePath(relativePath: string): string {
-	return relativePath.replace(/\\|\[/g, c => (c === '\\' ? '/' : `\\${c}`));
+// Anchored with a leading `/` so the pattern ignores the selected file rather than that name
+// anywhere in the repo — which also keeps a name starting with `#` or `!` from being read as a
+// comment or a negation. Glob metacharacters and a trailing space (which git would otherwise
+// strip) are escaped so the pattern matches only the file that was picked.
+function toGitignorePattern(relativePath: string): string {
+	return `/${relativePath.replace(/[*?[]| $/g, '\\$&')}`;
 }
 
 export class DetailsFileCommands {
@@ -359,7 +359,7 @@ export class DetailsFileCommands {
 	/** Appends the given repo-relative paths to the repo root's `.gitignore`, creating it when missing. */
 	private async appendToGitignore(repoPath: string, relativePaths: string[], subject: string): Promise<void> {
 		const gitignoreUri = this.container.git.getAbsoluteUri('.gitignore', repoPath);
-		const entries = relativePaths.map(escapeGitignorePath);
+		const entries = relativePaths.map(toGitignorePattern);
 
 		try {
 			let exists = true;
