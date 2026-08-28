@@ -1,7 +1,7 @@
 import { commands, env, ThemeIcon, workspace } from 'vscode';
-import { getAgentCapabilities } from '@gitlens/agents/agentCapabilities.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getHookClientId } from '../../agents/utils/agentHooks.js';
+import { getAgentProviderIcon } from '../../agents/utils/agentIcon.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
 import { openTerminal } from '../../system/-webview/terminal.js';
 import type { ChatMode } from '../chat/utils/-webview/chat.utils.js';
@@ -18,13 +18,10 @@ const bpmEnd = '\u001b[201~';
 
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-/** The agent's own mark for its terminal tab, read from the capability table — the same host-side
- *  source `resumableSessionPicker`'s `agentIcon` reads, so a terminal tab and a session row can't
- *  disagree about who an agent is. Takes `gk agents list` names, hence the `getHookClientId` hop.
- *  Falls back to the generic robot for a name with no descriptor (gemini today) — that fallback is
- *  the point, not an oversight. */
+/** Takes `gk agents list` names, hence the `getHookClientId` hop — it reports Claude as
+ *  `claude-cli`, which is in neither namespace {@link getAgentProviderIcon} tries. */
 function getAgentTerminalIcon(agentName: string): ThemeIcon {
-	return new ThemeIcon(getAgentCapabilities(getHookClientId(agentName))?.icon ?? 'robot');
+	return new ThemeIcon(getAgentProviderIcon(getHookClientId(agentName)));
 }
 
 export interface RunAgentOptions {

@@ -6,6 +6,7 @@ import * as assert from 'node:assert';
 import '../../container.js';
 import * as sinon from 'sinon';
 import { commands, extensions, window } from 'vscode';
+import { getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Container } from '../../container.js';
 import type { GkAgent } from '../agentService.js';
@@ -848,6 +849,53 @@ suite('AgentStatusService session dispatch', () => {
 		} finally {
 			dispose();
 			stubs.restore();
+		}
+	});
+});
+
+/** `openSession` is private and its command entry needs registration, so the test drives it
+ *  directly, the same way {@link dispatchSessionAction} does. */
+function callOpenSession(service: AgentStatusService): Promise<void> {
+	return (service as unknown as { openSession: () => Promise<void> }).openSession();
+}
+
+suite('AgentStatusService openSession row marks', () => {
+	test('every row carries its own agent mark, across both row loops', async () => {
+		const sandbox = sinon.createSandbox();
+		const showQuickPick = sandbox.stub(window, 'showQuickPick').resolves(undefined);
+		const provider = new TestProvider();
+		// Two or more sessions are required to reach the picker at all — a single one dispatches
+		// directly. `opencode` sits out-of-workspace so the "Other workspaces" loop builds too, and the
+		// descriptor-less id proves the robot fallback survives.
+		const sessions = [
+			makeSession({ id: 'claude', providerId: 'claudeCode' }),
+			makeSession({ id: 'codex', providerId: 'codex' }),
+			makeSession({ id: 'copilot', providerId: 'copilot' }),
+			makeSession({ id: 'opencode', providerId: 'opencode', isInWorkspace: false }),
+			makeSession({ id: 'unknown', providerId: 'not-a-real-agent' }),
+		];
+		provider.sessions = sessions;
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		try {
+			await callOpenSession(service);
+
+			assert.strictEqual(showQuickPick.callCount, 1);
+			const items = showQuickPick.firstCall.args[0] as readonly { label?: string; session?: AgentSession }[];
+			for (const session of sessions) {
+				// Matched by session, not index — the interleaved separator rows carry no `session`.
+				const item = items.find(i => i.session === session);
+				assert.ok(item, `expected a row for session ${session.id}`);
+				// Read from the capability table, not from the resolver under test, so a resolver that
+				// answered `robot` for everything would still fail here.
+				const icon = getAgentCapabilitiesByProviderId(session.providerId)?.icon ?? 'robot';
+				assert.ok(
+					item.label?.startsWith(`$(${icon}) `),
+					`expected session ${session.id}'s row to start with $(${icon}), got "${item.label}"`,
+				);
+			}
+		} finally {
+			service.dispose();
+			sandbox.restore();
 		}
 	});
 });

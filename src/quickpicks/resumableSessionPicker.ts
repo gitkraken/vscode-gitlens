@@ -5,6 +5,7 @@ import { fromNow } from '@gitlens/utils/date.js';
 import type { PastAgentSessionState } from '../agents/models/agentSessionState.js';
 import type { AgentSession } from '../agents/provider.js';
 import { canResumeSession } from '../agents/utils/-webview/claudeResume.js';
+import { getAgentProviderIcon } from '../agents/utils/agentIcon.js';
 import { createQuickPickSeparator } from './items/common.js';
 
 /** How the user chose to reattach: `open` reaches a live session in place; `resume` starts a fresh
@@ -26,13 +27,6 @@ const resumeInTerminalButton: QuickInputButton = {
 	iconPath: new ThemeIcon('terminal'),
 	tooltip: 'Resume in Terminal',
 };
-
-/** The agent's own mark, falling back to the generic robot. Read from the capability table rather
- *  than the webviews' `agentProviderIcon` — this is host code, and the table is the host-side
- *  source for the same thing. */
-function agentIcon(providerId: string | undefined): string {
-	return (providerId != null ? getAgentCapabilitiesByProviderId(providerId)?.icon : undefined) ?? 'robot';
-}
 
 /** Whether this session's agent can be resumed from a terminal at all. Resume spawns
  *  `claude --resume <id>`, so offering it for another agent would start a Claude process against a
@@ -67,7 +61,7 @@ export async function showResumableSessionPicker(
 		items.push(createQuickPickSeparator('Active'));
 		for (const session of live) {
 			items.push({
-				label: `$(${agentIcon(session.providerId)}) ${session.name ?? session.id}`,
+				label: `$(${getAgentProviderIcon(session.providerId)}) ${session.name ?? session.id}`,
 				description: session.status,
 				detail: session.lastPrompt,
 				buttons: canResumeInTerminal(session) ? [resumeInTerminalButton] : undefined,
@@ -80,7 +74,9 @@ export async function showResumableSessionPicker(
 		items.push(createQuickPickSeparator(total > past.length ? `Past (${past.length} of ${total})` : 'Past'));
 		for (const session of past) {
 			items.push({
-				label: `$(history) ${session.displayName}`,
+				// Agent mark, not `$(history)` — the "Past" separator and `fromNow(...)` below already
+				// carry the recency signal, so the glyph is free to carry identity instead.
+				label: `$(${getAgentProviderIcon(session.providerId)}) ${session.displayName}`,
 				description: fromNow(session.lastActivity),
 				detail: session.lastPrompt,
 				buttons: [resumeInTerminalButton],

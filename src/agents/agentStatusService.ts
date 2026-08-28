@@ -48,6 +48,7 @@ import {
 	getManualActivationHint,
 	stripHintCodeMarkers,
 } from './utils/agentHooks.js';
+import { getAgentProviderIcon } from './utils/agentIcon.js';
 
 /** Value carried by a `gitlens:agent-session…` webview-item context — mirrors
  *  `agentUtils.ts`'s `AgentSessionContextValue` (webview-side). Declared separately here rather
@@ -1282,7 +1283,7 @@ export class AgentStatusService implements Disposable {
 				for (const s of workspaceSessions) {
 					const worktreeName = this.getWorktreeMetadataForSession(s)?.name;
 					items.push({
-						label: `$(robot) ${getSessionDisplayName(s, worktreeName)}`,
+						label: `$(${getAgentProviderIcon(s.providerId)}) ${getSessionDisplayName(s, worktreeName)}`,
 						description: s.status,
 						detail: worktreeName ? `worktree: ${worktreeName}` : undefined,
 						session: s,
@@ -1294,7 +1295,7 @@ export class AgentStatusService implements Disposable {
 				items.push(createQuickPickSeparator('Other workspaces'));
 				for (const s of externalSessions) {
 					items.push({
-						label: `$(robot) ${getSessionDisplayName(s, this.getWorktreeMetadataForSession(s)?.name)}`,
+						label: `$(${getAgentProviderIcon(s.providerId)}) ${getSessionDisplayName(s, this.getWorktreeMetadataForSession(s)?.name)}`,
 						description: s.status,
 						detail: s.workspacePath ?? undefined,
 						session: s,
