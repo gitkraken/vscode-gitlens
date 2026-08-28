@@ -377,6 +377,7 @@ export class DetailsFileCommands {
 			void window.showErrorMessage(`Unable to add ${subject} to .gitignore\n${String(ex)}`);
 		}
 	}
+
 	@command('gitlens.views.applyChanges:')
 	@debug()
 	applyChanges(
