@@ -10,7 +10,7 @@ import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictRe
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
-import { serializeWebviewItemContext } from '../../../../system/webview.js';
+import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { DetailsItemTypedContext, Wip } from '../../../commitDetails/protocol.js';
 import { buildFolderContext } from '../../../commitDetails/protocol.js';
 import type { Change } from '../../../plus/patchDetails/protocol.js';
@@ -866,7 +866,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			}
 			webviewItem = `gitlens:file${modifiers.join('')}`;
 		} else {
-			webviewItem = file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged';
+			webviewItem = getWipFileWebviewItem(file);
 			// Checkbox mode dedupes a mixed file (staged + unstaged) to its unstaged row; gl-wip-tree-pane
 			// flags that row via `options.mixed` (same source as the inline Stage/Unstage actions) so the
 			// context menu can offer the staged/combined diffs the single row otherwise can't reach.

@@ -6,6 +6,10 @@ export type ContributedCommands =
 	| ContributedPaletteCommands
 	| ContributedOrphansOrInternalCommands
 	| 'gitlens.addAuthors'
+	| 'gitlens.addToGitignore.multi:commitDetails'
+	| 'gitlens.addToGitignore.multi:graphDetails'
+	| 'gitlens.addToGitignore:commitDetails'
+	| 'gitlens.addToGitignore:graphDetails'
 	| 'gitlens.agents.allowPermission'
 	| 'gitlens.agents.alwaysAllowPermission'
 	| 'gitlens.agents.approvePlan'

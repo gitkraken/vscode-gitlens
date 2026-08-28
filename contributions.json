@@ -23,6 +23,54 @@
 				]
 			}
 		},
+		"gitlens.addToGitignore:commitDetails": {
+			"label": "Add to .gitignore",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+untracked\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+						"group": "1_gitlens_actions",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.addToGitignore:graphDetails": {
+			"label": "Add to .gitignore",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+untracked\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.addToGitignore.multi:commitDetails": {
+			"label": "Add to .gitignore",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+untracked\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+						"group": "1_gitlens_actions",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.addToGitignore.multi:graphDetails": {
+			"label": "Add to .gitignore",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+untracked\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 5
+					}
+				]
+			}
+		},
 		"gitlens.agents.allowPermission": {
 			"label": "Allow",
 			"icon": "$(check)",

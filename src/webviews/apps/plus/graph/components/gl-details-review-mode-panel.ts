@@ -13,7 +13,7 @@ import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
-import { serializeWebviewItemContext } from '../../../../../system/webview.js';
+import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
@@ -805,7 +805,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				}
 
 				context = {
-					webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+					webviewItem: getWipFileWebviewItem(file),
 					webviewItemValue: {
 						type: 'file',
 						path: file.path,
