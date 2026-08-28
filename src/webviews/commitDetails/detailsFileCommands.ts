@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { env, window } from 'vscode';
+import { env, window, workspace } from 'vscode';
 import { CheckoutError } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -48,6 +48,14 @@ import type { ComparisonContext, ResolvedDetailsFile } from './commitDetailsWebv
 const { command, getCommands } = createCommandDecorator<string>();
 const { command: multiCommand, getCommands: getMultiCommands } = createCommandDecorator<string>();
 export { getCommands as getDetailsFileCommands, getMultiCommands as getDetailsFileMultiCommands };
+
+// `.gitignore` lines are globs — escape the same two characters the built-in Git extension's
+// `ignore()` does: `\` (Windows separator) becomes `/`, and `[` (which would otherwise open a
+// character class) is backslash-escaped. Deliberately not broader — `*`, `?`, `#`, `!` etc. are
+// left alone to match upstream exactly.
+function escapeGitignorePath(relativePath: string): string {
+	return relativePath.replace(/\\|\[/g, c => (c === '\\' ? '/' : `\\${c}`));
+}
 
 export class DetailsFileCommands {
 	// Reuse the WIP discard service (its confirm + trash + restore core) so the context-menu Discard
@@ -338,6 +346,36 @@ export class DetailsFileCommands {
 	async stashChanges(_commit: GitCommit, file: GitFileChange): Promise<void> {
 		// `includeUntracked` so an untracked selected file is stashed too; the stash wizard confirms.
 		await StashActions.push(file.repoPath, [file.uri], undefined, true);
+	}
+
+	@command('gitlens.addToGitignore:')
+	@debug()
+	async addToGitignore(_commit: GitCommit, file: GitFileChange): Promise<void> {
+		const relativePath = this.container.git.getRelativePath(file.uri, file.repoPath);
+		await this.appendToGitignore(file.repoPath, [relativePath], `'${relativePath}'`);
+	}
+
+	/** Appends the given repo-relative paths to the repo root's `.gitignore`, creating it when missing. */
+	private async appendToGitignore(repoPath: string, relativePaths: string[], subject: string): Promise<void> {
+		const gitignoreUri = this.container.git.getAbsoluteUri('.gitignore', repoPath);
+
+		try {
+			let content = '';
+			try {
+				content = new TextDecoder().decode(await workspace.fs.readFile(gitignoreUri));
+			} catch {
+				// No .gitignore yet — create it
+			}
+
+			if (content.length && !content.endsWith('\n')) {
+				content += '\n';
+			}
+			content += `${relativePaths.map(escapeGitignorePath).join('\n')}\n`;
+
+			await workspace.fs.writeFile(gitignoreUri, new TextEncoder().encode(content));
+		} catch (ex) {
+			void window.showErrorMessage(`Unable to add ${subject} to .gitignore\n${String(ex)}`);
+		}
 	}
 	@command('gitlens.views.applyChanges:')
 	@debug()
@@ -807,6 +845,18 @@ export class DetailsFileCommands {
 			undefined,
 			true,
 		);
+	}
+
+	@multiCommand('gitlens.addToGitignore.multi:')
+	@debug()
+	async addToGitignoreMulti(items: ResolvedDetailsFile[]): Promise<void> {
+		// Union-gated - the menu shows if ANY selected file is untracked
+		const files = items.filter(i => i.webviewItem?.includes('+untracked'));
+		if (!files.length) return;
+
+		const repoPath = files[0].file.repoPath;
+		const relativePaths = files.map(i => this.container.git.getRelativePath(i.file.uri, repoPath));
+		await this.appendToGitignore(repoPath, relativePaths, 'the selected files');
 	}
 
 	@multiCommand('gitlens.copyPatchToClipboard.multi:')

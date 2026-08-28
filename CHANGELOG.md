@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds _Copy Worktree Path_ to worktree branch pills and _Copy Branch Name_ to working-changes (WIP) rows in the _Commit Graph_
+- Adds an _Add to .gitignore_ action to untracked files in the _Commit Graph_ details and _Inspect_ views ([#5780](https://github.com/gitkraken/vscode-gitlens/issues/5780)) &mdash; appends the repo-relative path of the selected file (or files) to the repository's `.gitignore`, creating it when missing, so a file can be ignored without leaving the view
 - Adds a _Show Resource Usage_ command to the Command Palette &mdash; shows resource counts for long-lived GitLens caches and trackers plus memory usage for the entire VS Code extension host, where available, in a dedicated output channel; extension-host memory cannot be attributed to GitLens alone; an aggregate of the same data is also sampled as telemetry once an hour while the window is focused ([#5504](https://github.com/gitkraken/vscode-gitlens/issues/5504))
 
 - Adds a `gitlens.openInTerminalLocation` setting &mdash; controls where GitLens opens the terminals it creates (the _Open in Integrated Terminal_ actions in the views and _Commit Graph_, plus agent session start/resume terminals), either in the terminal panel (default) or as an editor tab; a one-time notification offers to switch to editor tabs

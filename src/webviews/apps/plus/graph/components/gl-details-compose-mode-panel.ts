@@ -9,7 +9,7 @@ import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
-import { serializeWebviewItemContext } from '../../../../../system/webview.js';
+import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type {
@@ -711,7 +711,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		}
 
 		const context: DetailsItemTypedContext = {
-			webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+			webviewItem: getWipFileWebviewItem(file),
 			webviewItemValue: {
 				type: 'file',
 				path: file.path,
@@ -1192,7 +1192,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			};
 		} else {
 			context = {
-				webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+				webviewItem: getWipFileWebviewItem(file),
 				webviewItemValue: {
 					type: 'file',
 					path: file.path,
