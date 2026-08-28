@@ -96,9 +96,13 @@ async function runAndRoute(
 				`Auto-Rebase cancelled — ${session.preRun.branch ?? 'the branch'} is unchanged.`,
 			);
 			break;
-		case 'failed':
-			void window.showErrorMessage(`Auto-Rebase failed${session.failure ? `: ${session.failure}` : ''}.`);
+		case 'failed': {
+			const reason = session.failure;
+			void window.showErrorMessage(
+				reason ? `Auto-Rebase failed: ${reason.endsWith('.') ? reason : `${reason}.`}` : 'Auto-Rebase failed.',
+			);
 			break;
+		}
 		default:
 			break;
 	}
