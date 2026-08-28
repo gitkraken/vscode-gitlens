@@ -11,6 +11,7 @@ import { getFileDiffPathspecs } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CopyDeepLinkCommandArgs, CopyFileDeepLinkCommandArgs } from '../../commands/copyDeepLink.js';
@@ -387,10 +388,18 @@ export class DetailsFileCommands {
 				lastLine.range.end,
 				`${lastLine.text.length ? eol : ''}${entries.join(eol)}${eol}`,
 			);
-			if (!(await workspace.applyEdit(edit)) || !(await document.save())) {
-				throw new Error('the edit could not be applied');
+			if (!(await workspace.applyEdit(edit))) throw new Error('the edit could not be applied');
+
+			// `save()` also answers false for a document that isn't dirty (auto-save can beat us to it),
+			// so only a dirty document that refuses to save is a failure
+			if (document.isDirty && !(await document.save())) {
+				// The entries made it into the buffer but not onto disk — reveal the document so the
+				// pending edit isn't left dirty in an editor nobody opened
+				void window.showTextDocument(document);
+				throw new Error('the edit could not be saved');
 			}
 		} catch (ex) {
+			Logger.error(ex, `Unable to add ${subject} to .gitignore`);
 			void window.showErrorMessage(`Unable to add ${subject} to .gitignore\n${String(ex)}`);
 		}
 	}
