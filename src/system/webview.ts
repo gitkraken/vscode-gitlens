@@ -1,3 +1,4 @@
+import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GlPlusCommands, GlWebviewCommands } from '../constants.commands.js';
 import type { WebviewIds } from '../constants.views.js';
 
@@ -75,6 +76,12 @@ export function withWebviewItemFlag<T extends WebviewItemContext>(context: T, fl
 	const re = new RegExp(`\\+${flag}\\b`);
 	if (re.test(context.webviewItem)) return context;
 	return { ...context, webviewItem: `${context.webviewItem}+${flag}` };
+}
+
+/** The `webviewItem` context for a working-changes (WIP) file row. */
+export function getWipFileWebviewItem(file: { staged?: boolean; status?: GitFileStatus }): string {
+	const item = file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged';
+	return file.status === '?' ? `${item}+untracked` : item;
 }
 
 /**
