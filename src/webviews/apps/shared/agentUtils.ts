@@ -45,44 +45,48 @@ export function canResolvePermission(
 
 /** Identity glyph for the agent's provider. Rendered PLAIN — never phase-coloured, never carrying a
  *  badge: a logomark is a thin, radial thing (Claude's asterisk, Gemini's spark) and comes apart the
- *  moment something is punched through it or laid over it. Phase belongs on the mark; this only says
- *  who. Falls back to the generic robot for a provider with no glyph of its own yet. */
-export function agentProviderIcon(providerName: string | undefined): string {
-	switch (providerName) {
-		case 'claudeCode':
-		case 'claude-code':
-			return 'claude';
-		case 'copilot':
-			return 'copilot';
-		case 'codex':
-			// Codex ships no mark of its own in the codicon font; OpenAI's is the brand it carries.
-			return 'openai';
-		case 'cursor':
-			return 'cursor';
-		case 'opencode':
-			return 'gl-provider-opencode';
-		default:
-			// An unknown provider has no mark to carry, and a glyph name absent from either font
-			// renders as tofu rather than falling back, so it lands on the generic robot instead.
-			return 'robot';
-	}
+ *  moment something is punched through it or laid over it. Phase belongs on `gl-agent-mark`; this
+ *  only says who.
+ *
+ *  Both id namespaces are tried, since callers pass either a `providerId` (`claudeCode`) or the CLI's
+ *  hook-client id (`claude-code`). `cursor` — relayed by the CLI but with no descriptor GitLens can
+ *  consume (see `areHooksOfferedForAgent`) — keeps its explicit glyph. An unknown id lands on the
+ *  robot rather than falling back to the raw id the way the label does: a bogus label still reads as
+ *  something, whereas a glyph name in neither font renders as tofu. */
+export function agentProviderIcon(providerId: string | undefined): string {
+	if (!providerId) return 'robot';
+
+	const capabilities = getAgentCapabilitiesByProviderId(providerId) ?? getAgentCapabilities(providerId);
+	if (capabilities != null) return toWebviewIconName(capabilities.icon);
+
+	if (providerId === 'cursor') return 'cursor';
+
+	return 'robot';
 }
 
-/** Text label for the coding harness. Used ONLY where the avatar's glyph alone can't carry
- *  identity — most providers fall through to {@link agentProviderIcon}'s generic robot glyph, so
- *  the harness must be named in TEXT somewhere on the surface.
+/** Converts a host `ThemeIcon` id from `AgentCapabilities.icon` into the `<code-icon>` name for the
+ *  same glyph: a GitLens-contributed mark swaps its LEADING `gitlens-` for `gl-`, which is how
+ *  `code-icon.ts` selects the glicons font. A leading-token swap, not a strip —
+ *  `gitlens-gitlens-inspect` is a real contributed id whose bare name is `gitlens-inspect`.
  *
- *  Read from the capability table rather than a local list so this can't drift from the name a LIVE
- *  session shows: `AgentSessionState.providerName` is that same `displayName`, so a hardcoded table
- *  here would make the past row and the live row disagree about the same agent (they did — `codex`
- *  and `opencode` were missing entirely, and `copilot` read "GitHub Copilot" against the live row's
- *  "GitHub Copilot CLI"). Adding an agent to `agentCapabilities.ts` now names it here too.
+ *  Safe because the two namespaces are 1:1 by construction, not convention:
+ *  `scripts/applyIconsContribution.mjs` writes `contributes.icons` and `glicons-map.ts` from one
+ *  generated source in the same pass, so neither name can exist without the other. */
+function toWebviewIconName(icon: string): string {
+	return icon.startsWith('gitlens-') ? `gl-${icon.slice('gitlens-'.length)}` : icon;
+}
+
+/** Text label for the coding harness. Used ONLY where a glyph alone can't carry identity — an agent
+ *  with no descriptor falls through to {@link agentProviderIcon}'s generic robot, so those surfaces
+ *  must name the harness in TEXT.
+ *
+ *  `AgentSessionState.providerName` is the table's same `displayName`, so reading the table here is
+ *  what keeps a past row and a live row from disagreeing about the same agent.
  *
  *  Both id namespaces are tried because callers pass either: `providerId` (`claudeCode`) off a
- *  session, or the CLI's hook-client id (`claude-code`) off a hook event. Providers with no
- *  descriptor at all — `cursor`, which the CLI relays but GitLens can't yet consume (see
- *  `areHooksOfferedForAgent`) — keep their explicit name; anything else falls back to the raw id
- *  (still informative) or `''` when no id is known. */
+ *  session, or the CLI's hook-client id (`claude-code`) off a hook event. `cursor` — relayed by the
+ *  CLI but with no descriptor GitLens can consume (see `areHooksOfferedForAgent`) — keeps its
+ *  explicit name; anything else falls back to the raw id (still informative) or `''`. */
 export function getAgentProviderLabel(providerId: string | undefined): string {
 	if (!providerId) return '';
 

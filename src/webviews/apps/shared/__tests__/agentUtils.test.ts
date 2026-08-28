@@ -19,6 +19,9 @@ import {
 	isAgentSessionCurrentInFamily,
 	matchAgentSessionsForWorktree,
 } from '../agentUtils.js';
+// Imported here and deliberately NOT in `agentUtils.ts` — the resolver stays free of the generated
+// font map; only this test asserts the names it produces exist in it.
+import { iconMap } from '../components/icons/glicons-map.js';
 
 const repo = '/repo/main';
 const wtA = '/repo.worktrees/feature-a';
@@ -756,6 +759,30 @@ suite('agentProviderIcon', () => {
 		assert.strictEqual(agentProviderIcon('antigravity'), 'robot');
 		assert.strictEqual(agentProviderIcon(undefined), 'robot');
 		assert.strictEqual(agentProviderIcon(''), 'robot');
+	});
+
+	test('marks every agent the capability table describes, in the webview namespace', () => {
+		// A `gitlens-` prefix leaking through would name nothing in either webview font.
+		for (const capabilities of agentCapabilities) {
+			const icon = agentProviderIcon(capabilities.providerId);
+			assert.ok(!icon.startsWith('gitlens-'), capabilities.providerId);
+
+			if (capabilities.icon.startsWith('gitlens-')) {
+				assert.strictEqual(icon, `gl-${capabilities.icon.slice('gitlens-'.length)}`, capabilities.providerId);
+			} else {
+				assert.strictEqual(icon, capabilities.icon, capabilities.providerId);
+			}
+		}
+	});
+
+	test('every GitLens-contributed mark names a glyph the glicons font actually carries', () => {
+		// The tofu check: a `gl-` name absent from the generated map renders as an empty box.
+		for (const capabilities of agentCapabilities) {
+			const icon = agentProviderIcon(capabilities.providerId);
+			if (!icon.startsWith('gl-')) continue;
+
+			assert.ok(Object.hasOwn(iconMap, icon.slice('gl-'.length)), icon);
+		}
 	});
 });
 
