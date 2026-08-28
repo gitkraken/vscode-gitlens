@@ -915,6 +915,11 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// Git drops a step whose resolution left nothing to commit — a completed run has to say so here,
 		// where the eye lands, not only on the step row further down.
 		const emptied = describeEmptySkipped(run.steps);
+		// Like the cancelled message below, only reachable for a render or two before the mode exit
+		// lands (see `auto-rebase-exit`).
+		const noStepsMessage = run.unchanged
+			? `Rebase completed — ${run.branch ?? 'the branch'} had nothing to rewrite.`
+			: 'Rebase completed — no conflicts.';
 		const outcome =
 			run.phase === 'completed'
 				? [
@@ -922,9 +927,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 							? `Rebase completed — ${pluralize('conflicted file', resolvedByAi)} resolved with AI.`
 							: run.steps.length > 0
 								? 'Rebase completed — you resolved every conflict.'
-								: // Like the cancelled message below, only reachable for a render or two before the
-									// mode exit lands (see `auto-rebase-exit`).
-									'Rebase completed — no conflicts.',
+								: noStepsMessage,
 						emptied,
 					]
 						.filter(Boolean)

@@ -38,6 +38,7 @@ import {
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
 import type { AutoRebaseSession } from '../../../plus/coretools/conflict/autoRebase.types.js';
+import { isAutoRebaseUnchanged } from '../../../plus/coretools/conflict/autoRebase.types.js';
 import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
 import { getConsultations, recordConsultation } from '../../../plus/coretools/conflict/consultation.js';
 import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
@@ -163,6 +164,7 @@ function toAutoRebaseRunUpdate(
 			session.escalation != null
 				? { reason: session.escalation.reason, message: session.escalation.message }
 				: undefined,
+		unchanged: isAutoRebaseUnchanged(session),
 		steps: session.steps.map(step => ({
 			step: step.stepNumber,
 			totalSteps: step.totalSteps,

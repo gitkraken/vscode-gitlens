@@ -247,7 +247,7 @@ function makePausedRebaseStatus(): GitPausedOperationStatus {
  * cancel that races the run finishing), and `abortPausedOperation` then reports `nothingToAbort` —
  * the rebase already ended. Whether that resolves to `completed` or `aborted` turns on HEAD.
  */
-function makeTakeoverFakes(headSha: string) {
+function makeTakeoverFakes(headSha: string, reflogSubject?: string) {
 	const state = { headSha: headSha, resets: [] as string[], statusReads: 0 };
 	const storage = new Map<string, unknown>();
 
@@ -280,7 +280,8 @@ function makeTakeoverFakes(headSha: string) {
 			},
 		},
 		staging: { stageFiles: () => Promise.resolve() },
-		createUnsafeGit: () => undefined,
+		createUnsafeGit:
+			reflogSubject != null ? () => ({ run: () => Promise.resolve({ stdout: reflogSubject }) }) : () => undefined,
 	};
 
 	const container = {
@@ -437,6 +438,16 @@ suite('coretools/conflict/AutoRebaseService late cancel', () => {
 		assert.strictEqual(session.phase, 'aborted');
 		assert.strictEqual(storage.has('autoRebase:undo:/repo'), false);
 	});
+
+	test('a cancel that lands on a genuine no-op completes rather than misreporting an abort', async () => {
+		const { service, storage, svc } = makeTakeoverFakes('orig', 'rebase (finish): returning to refs/heads/feature');
+
+		const session = await service.takeover(svc, { source: 'commandPalette' });
+
+		assert.strictEqual(session.phase, 'completed');
+		// Nothing was rewritten, so there's still nothing to undo
+		assert.strictEqual(storage.has('autoRebase:undo:/repo'), false);
+	});
 });
 
 /**
@@ -573,7 +584,7 @@ interface HandoffTick {
  */
 function makeHandoffFakes(
 	ticks: HandoffTick[],
-	options?: { headSha?: string; gitDirPath?: string; releaseError?: Error },
+	options?: { headSha?: string; gitDirPath?: string; releaseError?: Error; reflogSubject?: string },
 ) {
 	const state = { reads: 0, aborts: 0, continues: 0, calls: [] as string[] };
 	const storage = new Map<string, unknown>();
@@ -613,7 +624,10 @@ function makeHandoffFakes(
 		},
 		ops: { reset: () => Promise.resolve() },
 		staging: { stageFiles: () => Promise.resolve() },
-		createUnsafeGit: () => undefined,
+		createUnsafeGit:
+			options?.reflogSubject != null
+				? () => ({ run: () => Promise.resolve({ stdout: options.reflogSubject }) })
+				: () => undefined,
 	} as unknown as Record<string, unknown>;
 	svc.revision = {
 		resolveRevision: () =>
@@ -748,6 +762,20 @@ suite('coretools/conflict/AutoRebaseService handoff', () => {
 		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
 
 		assert.strictEqual(session.phase, 'aborted');
+		assert.strictEqual(storage.has('autoRebase:undo:/repo'), false);
+	});
+
+	test('a rebase that replays with nothing to rewrite completes rather than reporting an abort', async () => {
+		const { service, storage, release, svc } = makeHandoffFakes(
+			[{ status: pendingRebaseStatus() }, { status: undefined }],
+			// HEAD never had to move, but git's reflog confirms the rebase actually finished
+			{ headSha: 'orig', reflogSubject: 'rebase (finish): returning to refs/heads/feature' },
+		);
+
+		const session = await service.handoffPending(svc, { source: 'rebaseEditor' }, release);
+
+		assert.strictEqual(session.phase, 'completed');
+		// Nothing was rewritten, so there's still nothing to undo
 		assert.strictEqual(storage.has('autoRebase:undo:/repo'), false);
 	});
 

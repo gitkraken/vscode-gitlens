@@ -5,6 +5,7 @@ import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { AutoRebaseEscalationReason, AutoRebaseSession } from './autoRebase.types.js';
+import { isAutoRebaseUnchanged } from './autoRebase.types.js';
 import type { AutoRebaseStartOptions } from './autoRebaseService.js';
 
 // Escalation reasons that leave unmerged files for the user to resolve — these auto-open Resolve
@@ -119,7 +120,9 @@ function onCompleted(container: Container, session: AutoRebaseSession): void {
 	}
 
 	// No conflicts, so there's no meaningful summary to open — a brief toast is enough.
-	let message = 'Auto-Rebase completed — no conflicts.';
+	let message = isAutoRebaseUnchanged(session)
+		? `Auto-Rebase completed — ${session.preRun.branch ?? 'the branch'} had nothing to rewrite.`
+		: 'Auto-Rebase completed — no conflicts.';
 	if (session.postRun?.autostash === 'left-in-stash') {
 		message += ' Your uncommitted changes conflicted when re-applied — they are safe in the stash.';
 	}
