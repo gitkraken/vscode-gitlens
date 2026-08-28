@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { agentCapabilities } from '@gitlens/agents/agentCapabilities.js';
 import type { AgentSessionState, PastAgentSessionsResult } from '../../../../agents/models/agentSessionState.js';
 import type { OverviewBranch } from '../../../shared/overviewBranches.js';
 import type { PastAgentSessionsPagerHost } from '../agentUtils.js';
@@ -12,6 +13,7 @@ import {
 	filterLiveAgentSessions,
 	findOverviewBranchForSession,
 	formatAgentElapsed,
+	getAgentProviderLabel,
 	indexAgentSessionsByRepoAndWorktree,
 	isAgentSessionCurrentForWorktree,
 	isAgentSessionCurrentInFamily,
@@ -754,5 +756,38 @@ suite('agentProviderIcon', () => {
 		assert.strictEqual(agentProviderIcon('antigravity'), 'robot');
 		assert.strictEqual(agentProviderIcon(undefined), 'robot');
 		assert.strictEqual(agentProviderIcon(''), 'robot');
+	});
+});
+
+suite('getAgentProviderLabel', () => {
+	test('names every agent the capability table describes, in either id namespace', () => {
+		assert.strictEqual(getAgentProviderLabel('claudeCode'), 'Claude Code');
+		assert.strictEqual(getAgentProviderLabel('claude-code'), 'Claude Code');
+		assert.strictEqual(getAgentProviderLabel('codex'), 'Codex');
+		assert.strictEqual(getAgentProviderLabel('copilot'), 'GitHub Copilot CLI');
+		assert.strictEqual(getAgentProviderLabel('opencode'), 'OpenCode');
+	});
+
+	test('matches the name a live session of the same agent carries', () => {
+		// A past row reads this; a live row reads `providerName`, which the provider sets from the
+		// same `displayName`. The two must not disagree — that split is what left past Codex and
+		// OpenCode rows showing their raw ids.
+		for (const capabilities of agentCapabilities) {
+			assert.strictEqual(
+				getAgentProviderLabel(capabilities.providerId),
+				capabilities.displayName,
+				capabilities.providerId,
+			);
+		}
+	});
+
+	test('keeps the explicit name for a provider with no capability descriptor', () => {
+		assert.strictEqual(getAgentProviderLabel('cursor'), 'Cursor');
+	});
+
+	test('falls back to the raw id, or empty when there is no id at all', () => {
+		assert.strictEqual(getAgentProviderLabel('antigravity'), 'antigravity');
+		assert.strictEqual(getAgentProviderLabel(undefined), '');
+		assert.strictEqual(getAgentProviderLabel(''), '');
 	});
 });

@@ -1,3 +1,4 @@
+import { getAgentCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { getAgentSessionIdentityKey } from '../../../agents/models/agentSessionState.js';
 import type { AgentSessionPhase } from '../../../agents/provider.js';
@@ -69,20 +70,28 @@ export function agentProviderIcon(providerName: string | undefined): string {
 
 /** Text label for the coding harness. Used ONLY where the avatar's glyph alone can't carry
  *  identity — most providers fall through to {@link agentProviderIcon}'s generic robot glyph, so
- *  the harness must be named in TEXT somewhere on the surface. Falls back to the raw id (still
- *  informative) or `''` when no id is known at all. */
+ *  the harness must be named in TEXT somewhere on the surface.
+ *
+ *  Read from the capability table rather than a local list so this can't drift from the name a LIVE
+ *  session shows: `AgentSessionState.providerName` is that same `displayName`, so a hardcoded table
+ *  here would make the past row and the live row disagree about the same agent (they did — `codex`
+ *  and `opencode` were missing entirely, and `copilot` read "GitHub Copilot" against the live row's
+ *  "GitHub Copilot CLI"). Adding an agent to `agentCapabilities.ts` now names it here too.
+ *
+ *  Both id namespaces are tried because callers pass either: `providerId` (`claudeCode`) off a
+ *  session, or the CLI's hook-client id (`claude-code`) off a hook event. Providers with no
+ *  descriptor at all — `cursor`, which the CLI relays but GitLens can't yet consume (see
+ *  `areHooksOfferedForAgent`) — keep their explicit name; anything else falls back to the raw id
+ *  (still informative) or `''` when no id is known. */
 export function getAgentProviderLabel(providerId: string | undefined): string {
-	switch (providerId) {
-		case 'claudeCode':
-		case 'claude-code':
-			return 'Claude Code';
-		case 'copilot':
-			return 'GitHub Copilot';
-		case 'cursor':
-			return 'Cursor';
-		default:
-			return providerId ?? '';
-	}
+	if (!providerId) return '';
+
+	const capabilities = getAgentCapabilitiesByProviderId(providerId) ?? getAgentCapabilities(providerId);
+	if (capabilities != null) return capabilities.displayName;
+
+	if (providerId === 'cursor') return 'Cursor';
+
+	return providerId;
 }
 
 export function getAgentCategoryLabel(category: AgentSessionCategory): string {
