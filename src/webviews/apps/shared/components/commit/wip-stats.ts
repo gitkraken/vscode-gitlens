@@ -49,6 +49,9 @@ export class GlWipStats extends LitElement {
 				--code-icon-v-align: middle;
 
 				color: var(--gl-stat-added);
+				/* Same half-pixel-high ink bias the add/remove glyphs carry (see commit-stats.ts) —
+				   the check's ink hangs above its baseline, so drop it onto the optical center. */
+				transform: translateY(0.5px);
 			}
 
 			.indicator-pill {

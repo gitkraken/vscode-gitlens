@@ -111,6 +111,23 @@ export class CommitStats extends LitElement {
 			user-select: none;
 		}
 
+		/* In icons mode the icon renders INSIDE the label span, so it's inline-positioned — and neither
+		   vertical-align: middle (~1px low) nor baseline (~1.5px high) actually centers the 1.1rem glyph
+		   box in the line. Flexing the label centers it exactly, with no change to the label's own box. */
+		:host([symbol='icons']) .label {
+			display: inline-flex;
+			align-items: center;
+		}
+
+		/* Box-centering isn't enough for add/remove: their ink rides half a pixel high inside the
+		   codicon glyph's em box (edit's is centered), so they still sit optically high next to the
+		   counts. Nudge just those glyphs — at the 1.1rem icon size this also moves their baseline
+		   off the half-pixel that the odd-height glyph box lands it on. */
+		:host([symbol='icons']) .icon[icon='add'],
+		:host([symbol='icons']) .icon[icon='remove'] {
+			transform: translateY(0.5px);
+		}
+
 		.icon {
 			--code-icon-size: 1.1rem;
 			--code-icon-v-align: middle;
