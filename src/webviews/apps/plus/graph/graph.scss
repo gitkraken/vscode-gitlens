@@ -1944,37 +1944,46 @@ gl-lit-graph {
 		}
 
 		// Monochrome — at rest AND on interaction. This pill is info + a jump, not a real ref pill, so it
-		// never takes the head-green or lane colors the true ref pills mean something by; hover only
-		// strengthens the same grey so it still reads as interactive. Direct properties, not `--ref-*`:
-		// `refStyle()` sets those inline, and an inline custom prop beats any class override. Scoped under
-		// the wrapper (0,2,0 + :hover beats the base pill rules) so the shared `renderRefPill` markup
-		// needs no fork and no role/muted flags.
+		// never takes the head-green or lane colors the true ref pills mean something by. Direct
+		// properties, not `--ref-*`: `refStyle()` sets those inline, and an inline custom prop beats any
+		// class override. Scoped under the wrapper so the shared `renderRefPill` markup needs no fork and
+		// no role/muted flags.
+		// At rest the pill is a HAIRLINE — muted text + the 22% ring, no fill — so idle WIP rows stay
+		// calm; row hover/selection adds the fill back, and direct pill hover strengthens further.
+		// `transition` lives only on the STATES BELOW (the destination state's list is what animates), so
+		// entering a stronger state fades in but falling back to rest SNAPS — a fade-out here would show
+		// the pill lingering at hover strength the instant the (display-gated, untransitionable)
+		// hover-expand overlay vanishes, which read as a bold flash on unhover.
 		.gl-graph__ref-pill {
-			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
+			background-color: transparent;
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 16%, transparent);
 			color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+			transition: none;
+		}
 
-			&:is(:hover, :focus-within) {
-				background-color: color-mix(in srgb, var(--vscode-foreground) 15%, transparent);
-				box-shadow:
-					inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 40%, transparent),
-					0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
-				color: var(--vscode-foreground);
-			}
+		.gl-graph__row:is(:hover, .is-selected) & .gl-graph__ref-pill {
+			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+			transition: background-color 150ms ease-out;
+		}
+
+		// Direct pill hover/focus — full interactive strength. The row prefix keeps this above the
+		// row-state rule's specificity; static (inert) pills are excluded so they never strengthen.
+		.gl-graph__row & .gl-graph__ref-pill:not(.gl-graph__wip-branch-pill--static):is(:hover, :focus-within) {
+			background-color: color-mix(in srgb, var(--vscode-foreground) 15%, transparent);
+			box-shadow:
+				inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 40%, transparent),
+				0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
+			color: var(--vscode-foreground);
+			transition:
+				background-color 150ms ease-out,
+				box-shadow 150ms ease-out;
 		}
 
 		// A detached-HEAD or paused-operation row's pill (`renderInertWipBranchPill`) carries this
 		// alongside `.gl-graph__ref-pill` instead of `role`/`tabindex`/click handlers — nothing here is
-		// interactive, so hover must read IDENTICAL to rest rather than strengthening like the real pill's
-		// rule above (same source order beats it at equal specificity).
+		// interactive (excluded from the direct-hover rule above), so it only tracks the row state.
 		.gl-graph__ref-pill.gl-graph__wip-branch-pill--static {
 			cursor: default;
-
-			&:is(:hover, :focus-within) {
-				background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-				box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
-				color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-			}
 		}
 
 		// The hover-expand overlay (full name over a truncated pill) is a SEPARATE filled box that would
