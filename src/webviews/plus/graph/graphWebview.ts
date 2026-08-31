@@ -1258,7 +1258,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onDraftsChanged: this._wipDraftsChangedEvent.subscribe(buffer, tracker),
 				syncWatches: shas => this._wip.syncWipWatches(shas),
 				onWatchesClosed: this._wipWatchesClosedEvent.subscribe(buffer, tracker),
-				onWorkingTreeChanged: this._workingTreeChangedEvent.subscribe(buffer, tracker),
+				// `replay`: the WIP push is standing state, and the producer's content dedup means a fire
+				// lost to a subscribe gap (session re-validation, remount) is never naturally re-sent —
+				// see `GraphWipService._lastFiredWorkingTreeChange`. The client's revision ordering drops
+				// the replay when it already holds newer.
+				onWorkingTreeChanged: this._workingTreeChangedEvent.subscribe(
+					buffer,
+					tracker,
+					() => this._wip.lastWorkingTreeChange,
+				),
 				onWorktreeEnrichment: this._worktreeEnrichmentEvent.subscribe(buffer, tracker),
 				onWipRefetched: this._wipRefetchedEvent.subscribe(buffer, tracker),
 			},

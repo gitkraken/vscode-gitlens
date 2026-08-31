@@ -201,6 +201,18 @@ export class GraphWipService {
 	 *  carries it for real. Compared by revision rather than tracked by a captured counter precisely because the
 	 *  hazard window opens when the push's `git status` STARTS, not when its notify does. */
 	private _lastOutOfBandWipRevision: number | undefined;
+	/** The last payload actually FIRED on the `workingTreeChanged` channel (full, revision included) — the replay
+	 *  source for late (re)subscribers. An RPC event fired while no handler is registered (session re-validation,
+	 *  webview remount) is lost outright, and the content dedup above then suppresses every later tick that
+	 *  reproduces the same truth — one lost push becomes permanent staleness. Replaying the newest fire on
+	 *  subscribe closes that window; the client's revision ordering drops it when it already holds newer.
+	 *  Reset with the rest of the send state in `resetSendState`. */
+	private _lastFiredWorkingTreeChange: GraphWorkingTreeChange | undefined;
+	/** Replay source for the `workingTreeChanged` RPC event subscription — see {@link _lastFiredWorkingTreeChange}. */
+	get lastWorkingTreeChange(): GraphWorkingTreeChange | undefined {
+		return this._lastFiredWorkingTreeChange;
+	}
+
 	/** Whether the client has ever been given authoritative working-tree content for this graph, by push or by
 	 *  out-of-band RPC. Distinct from `_lastSentWipNotificationParams`, which records CONTENT and therefore has to
 	 *  be cleared on an out-of-band serve — that clear must not make the badges look stuck and buy a needless
@@ -687,6 +699,9 @@ export class GraphWipService {
 		// late and disturb the consumer's revision ordering.
 		const comparable = stripWipRevision(params);
 		if (this._lastSentWipNotificationParams != null && areEqual(this._lastSentWipNotificationParams, comparable)) {
+			Logger.debug(
+				`GraphWipService: working-tree push suppressed as identical (revision=${params.wip?.revision})`,
+			);
 			return false;
 		}
 
@@ -704,11 +719,19 @@ export class GraphWipService {
 		// revisions, which covers the whole read window, rather than a counter captured at some point inside
 		// it. An unstamped payload has no ordering to lose: the client always applies it.
 		const revision = params.wip?.revision;
+		this._lastFiredWorkingTreeChange = params;
 		this.context.fireWorkingTreeChanged(params);
 		this._wipEverServed = true;
-		if (revision == null || this._lastOutOfBandWipRevision == null || revision > this._lastOutOfBandWipRevision) {
+		const stamped =
+			revision == null || this._lastOutOfBandWipRevision == null || revision > this._lastOutOfBandWipRevision;
+		if (stamped) {
 			this._lastSentWipNotificationParams = comparable;
 		}
+		Logger.debug(
+			`GraphWipService: working-tree push fired (revision=${revision}, files=${
+				params.wip?.changes?.files?.length ?? 0
+			}, stamped=${stamped})`,
+		);
 		return true;
 	}
 
@@ -1041,6 +1064,7 @@ export class GraphWipService {
 	 */
 	onWipServedOutOfBand(repo: GlRepository, revision: number | undefined): void {
 		if (this.repository?.path === repo.path) {
+			Logger.debug(`GraphWipService: WIP served out-of-band (revision=${revision}); push dedup reset`);
 			this._lastSentWipNotificationParams = undefined;
 			this._wipEverServed = true;
 			if (
@@ -1392,6 +1416,7 @@ export class GraphWipService {
 		this._lastSentWipDrafts = undefined;
 		this._lastSentWipDraftsInitialized = false;
 		this._lastSentWipNotificationParams = undefined;
+		this._lastFiredWorkingTreeChange = undefined;
 		this._wipEverServed = false;
 		// Revisions are per-repo, so the outgoing repo's out-of-band high-water can't fence the incoming one's pushes.
 		this._lastOutOfBandWipRevision = undefined;
