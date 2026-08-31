@@ -18,6 +18,23 @@ interface GraphStateInfo {
 	pinnedRef?: { id: string; name: string; type: string } | undefined;
 }
 
+/**
+ * The pinned ref, wherever it currently lives.
+ *
+ * NOT in the serialized `_state` snapshot: `pinnedRef` was dropped from the Graph webview protocol's
+ * `State` when the write planes moved onto RPC services, and the state provider's own accessor is what
+ * carries it now. `_state` still exists and still carries `webviewId`/`selectedRepository`, so a probe
+ * that prefers `_state` keeps working — and keeps reporting the pin as absent, indistinguishable from
+ * "not pinned". Both places are read so this survives the field moving again in either direction.
+ *
+ * Callers fold the result with ?? undefined where an unpinned graph should omit the key entirely.
+ */
+const pinnedRefExpr = `(() => {
+	const app = document.querySelector('gl-graph-app');
+	const p = app?.graphState?.pinnedRef ?? app?.graphState?._state?.pinnedRef;
+	return p ? { id: p.id, name: p.name, type: p.type } : null;
+})()`;
+
 const getGraphStateScript = `(() => {
 	const app = document.querySelector('gl-graph-app');
 	if (!app) return JSON.stringify(null);
@@ -26,16 +43,11 @@ const getGraphStateScript = `(() => {
 		webviewId: s?.webviewId,
 		webviewInstanceId: s?.webviewInstanceId,
 		repoPath: s?.selectedRepository,
-		pinnedRef: s?.pinnedRef ? { id: s.pinnedRef.id, name: s.pinnedRef.name, type: s.pinnedRef.type } : undefined,
+		pinnedRef: ${pinnedRefExpr} ?? undefined,
 	});
 })()`;
 
-const getPinnedRefScript = `(() => {
-	const app = document.querySelector('gl-graph-app');
-	const s = app?.graphState?._state || app?.graphState;
-	const p = s?.pinnedRef;
-	return JSON.stringify(p ? { id: p.id, name: p.name, type: p.type } : null);
-})()`;
+const getPinnedRefScript = `(() => JSON.stringify(${pinnedRefExpr}))()`;
 
 const hasPinnedContextScript = `(() => {
 	var el = document.querySelector('[data-vscode-context*="+pinned"]');
