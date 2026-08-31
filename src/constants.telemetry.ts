@@ -2172,6 +2172,13 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 	'sessions.needsInput.count': number;
 	'sessions.idle.count': number;
 	'sessions.ended.count': number;
+	/** Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open */
+	'hooks.agentsCount': number | undefined;
+	/** Of those, how many have GitKraken hooks installed (i.e. are connected); undefined while unknown */
+	'hooks.agentsInstalledCount': number | undefined;
+	/** Whether the "connect your agents" empty-state message replaced the sessions tree */
+	'emptyState.shown': boolean;
+	'emptyState.reason': 'agents-undetected' | 'agents-unconnected' | undefined;
 }
 
 interface GraphSidebarAgentsSessionSelectedEvent extends GraphContextEventData {
@@ -2193,7 +2200,7 @@ interface GraphSidebarAgentsSessionActionEvent extends GraphContextEventData {
 }
 
 interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
-	action: 'startWork' | 'startReview' | 'refresh';
+	action: 'startWork' | 'startReview' | 'startAgentSession' | 'startAgentSessionWith' | 'refresh';
 }
 
 interface GraphSidebarAgentsLayoutToggledEvent extends GraphContextEventData {
