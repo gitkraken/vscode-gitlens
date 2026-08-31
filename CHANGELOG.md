@@ -77,6 +77,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes branch cards in the _Commit Graph_ side bar's _Overview_ panel into a scope toggle &mdash; clicking a card scopes the graph to its branch as before, and clicking the scoped card clears the scope and returns you to the branch
 - Improves screen reader support for the _Commit Graph_ side bar's _Overview_ panel &mdash; a branch card now announces whether it is the active scope
 - Changes the _Commit Graph_ side bar to open to the _Overview_ panel by default, and improves the panel with loading skeletons, error and empty states, and a _Load More_ control that pages in branches older than the _Recent_ timeframe
+- Improves the _Account_ section of _GitLens Settings_ &mdash; a purpose-built card stack replaces the compact account panel the section borrowed from the _Commit Graph_ header, using the room the section actually has: an identity card, a plan card carrying tier and status badges, trial progress, and the plan's feature list, plus a next-tier upsell, your active organization, and refer-a-friend
+- Improves the live preview in _GitLens Settings_ &mdash; it now sticks in view as you scroll a section instead of scrolling away, and the _Commit Graph_ preview reflects the Graph's current design
 
 ### Fixed
 
@@ -109,6 +111,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Recent_ header wrapping onto a second line in the _Commit Graph_ side bar's _Overview_ panel when the branch count runs wide
 - Fixes branch cards in the _Commit Graph_ side bar's _Overview_ panel counting ended agent sessions in their agent indicator
 - Fixes _Switch Branch..._ separating _Open Worktree_ from _Open Worktree in New Window_ in the _Commit Graph_'s branch context menus
+- Fixes clicking a checkbox below the fold in _GitLens Settings_ scrolling the page out of view with no way to scroll back &mdash; the hidden input backing the checkbox had no positioned ancestor, so focusing it scrolled the page shell itself
+- Fixes the _Get Started_ section's progress bars in _GitLens Settings_ rendering without their fill &mdash; their inline width was written with Lit's `styleMap`, which the webview's content security policy blocks
+- Fixes Student plan accounts being upsold Advanced instead of Pro in _GitLens Settings_ and the account rollup &mdash; Student sits below Pro, so both surfaces pitched a tier two steps up, showing a Pro price under an Advanced label with the wrong promo; both now target the next paid tier, matching the plan _Upgrade_ resolves to on its own
+- Fixes the plan card in _GitLens Settings_ reading "Renews" for a subscription that will not &mdash; the cancelled flag was never populated from check-in at all, and the predicate behind it matched only one of the three license statuses that mean a plan will not renew
+- Fixes the trial line in _GitLens Settings_ reporting more days left than the trial is long (e.g. "15 of 14 days") &mdash; the remaining count is now clamped to the granted window, which also replaces the hardcoded denominator, and both it and the progress bar derive from one window resolution so they cannot drift apart
 
 ## [19.0.1] - 2026-08-13
 
