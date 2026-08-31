@@ -1,12 +1,12 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
-import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { SheetWrapper } from './sheetWrapper.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/overlays/detail-sheet.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 /** Kept as a small local literal union rather than a shared export — {@link GlGraphDetailsPanel}
  *  keeps its own copy of the same two-value union; not worth a shared type for this. */
@@ -47,7 +47,7 @@ export class GlGraphCompareSheet extends SheetWrapper(LitElement) {
 			}
 
 			/* Title + the slotted onboarding hint sit together on the header's start side, so the hint
-			   reads as annotating the title rather than joining the action chips. */
+  reads as annotating the title rather than joining the action chips. */
 			.title {
 				display: inline-flex;
 				gap: var(--gl-space-6);

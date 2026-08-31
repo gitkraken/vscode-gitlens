@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { scrollableBase } from './styles/lit/base.css.js';
-import './code-icon.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import '@gitlens/components/components/codeIcon.js';
 import './progress.js';
 
 export interface WebviewPaneExpandedChangeEventDetail {

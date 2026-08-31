@@ -2,19 +2,19 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
 import type { AutolinkConfig } from '../../../../config.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -92,7 +92,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			}
 
 			/* The prefix field embeds its match-option toggles, so the prefix + its
-			   options read as one control (mirrors gl-search-input's field pattern) */
+  options read as one control (mirrors gl-search-input's field pattern) */
 			.rule__prefix-field {
 				--toggle-size: 2rem;
 

@@ -1,3 +1,6 @@
+import { getCommitDateFromRow } from '@gitkraken/commit-graph-ui/rows.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/worktree.js';
+import { createWipRowId, getWipRowWorktreePath, isPrimaryWipRowId } from '@gitkraken/commit-graph/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
@@ -6,6 +9,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { isMac } from '@env/platform.js';
+import type { CustomEventType } from '@gitlens/components/components/element.js';
 import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -17,6 +21,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
+import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GlExtensionCommands } from '../../../../constants.commands.js';
@@ -44,14 +49,8 @@ import type {
 	OverviewRecentThreshold,
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
-import {
-	createWipRowId,
-	getWipRowWorktreePath,
-	isPrimaryWipRowId,
-	isWipSelectionSha,
-} from '../../../plus/graph/protocol.js';
+import { isWipSelectionSha } from '../../../plus/graph/protocol.js';
 import { fireAndForget, notifyService } from '../../shared/actions/rpc.js';
-import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlSplitPanel, GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
@@ -59,10 +58,9 @@ import { createOnboardingState, onboardingContext } from '../../shared/contexts/
 import type { OnboardingDismissals } from '../../shared/contexts/onboardingDismissals.js';
 import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
+import '../shared/components/account-bar.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
-import '../shared/components/account-bar.js';
-import type { KeymapDispatcher } from '../../shared/keymap/keymapDispatcher.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { AccountLaunchpadController } from './accountLaunchpadController.js';
 import { graphCoachMarks } from './components/coachMarks.js';
@@ -116,9 +114,8 @@ import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { resolveMinimapShown } from './utils/minimap.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
-import { getCommitDateFromRow } from './utils/row.utils.js';
 import { resolveScopeToBranchTarget, shouldDrainParkedScopeToBranch } from './utils/scopeToBranch.utils.js';
-import { hasDirtyCounts, isScopeFocalHead, shouldShowPrimaryWipRow } from './utils/wip.utils.js';
+import { isScopeFocalHead, shouldShowPrimaryWipRow } from './utils/wip.utils.js';
 import { isGraphWalkthroughBannerHighlighted } from './walkthroughBanner.js';
 import './empty-state.js';
 import './access-account.js';
@@ -131,7 +128,7 @@ import '../../shared/components/split-panel/split-panel.js';
 import './sidebar/sidebar.js';
 import './sidebar/sidebar-panel.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-health-banner.js';

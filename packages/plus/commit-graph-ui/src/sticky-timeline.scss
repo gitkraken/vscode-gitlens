@@ -1,0 +1,88 @@
+gl-lit-graph {
+	// Sticky-timeline pill rides the header/first-row seam, clear of the scroll-marker rail. At rest it
+	// shows only the bucket label; scrolling or hovering widens the same pill without re-rendering.
+	.gl-graph__sticky-timeline {
+		position: absolute;
+		top: 2.5rem;
+		right: var(--gl-graph-scrollbar-width, 14px);
+		z-index: 15;
+		display: inline-flex;
+		align-items: center;
+		height: 1.9rem;
+		padding: 0 0.8rem;
+		font-size: 1.1rem;
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		cursor: default;
+		background-color: var(--gl-graph-elevated-background);
+		border: var(--gl-border-width) solid var(--gl-graph-elevated-border, var(--gl-graph-border));
+		border-radius: 0.5rem;
+		opacity: 1;
+		transition:
+			box-shadow 0.24s ease,
+			opacity 0.18s ease;
+
+		&.is-scroll-active,
+		&:hover {
+			box-shadow: 0 0.2rem 0.6rem var(--gl-graph-shadow);
+
+			.gl-graph__sticky-timeline-icon {
+				max-width: 1.8rem;
+				margin-right: 0.6rem;
+				opacity: 1;
+			}
+
+			.gl-graph__sticky-timeline-label {
+				color: var(--gl-graph-foreground);
+			}
+
+			.gl-graph__sticky-timeline-span {
+				max-width: 16rem;
+				margin-left: 0.8rem;
+				opacity: 1;
+			}
+		}
+
+		// Yield to a top row that needs its covered corner. This rule follows the expanded states so it wins
+		// on tied specificity, and pointer transparency keeps the row underneath hovered without flicker.
+		&.is-yielding {
+			pointer-events: none;
+			opacity: 0;
+		}
+	}
+
+	.gl-graph__sticky-timeline-icon {
+		display: inline-block;
+		max-width: 0;
+		margin-right: 0;
+		overflow: hidden;
+		font-size: 1.2rem;
+		color: var(--gl-graph-focus);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-right 0.24s ease;
+	}
+
+	.gl-graph__sticky-timeline-label {
+		color: var(--gl-graph-muted-foreground);
+		transition: color 0.2s ease;
+	}
+
+	.gl-graph__sticky-timeline-span {
+		display: inline-block;
+		max-width: 0;
+		margin-left: 0;
+		overflow: hidden;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--gl-graph-muted-foreground);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-left 0.24s ease;
+	}
+}

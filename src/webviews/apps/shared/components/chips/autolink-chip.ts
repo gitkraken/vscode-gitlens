@@ -5,7 +5,7 @@ import { getAutolinkIcon } from '../rich/utils.js';
 import './action-chip.js';
 import '../code-icon.js';
 import '../rich/issue-pull-request.js';
-import '../overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 @customElement('gl-autolink-chip')
 export class GlAutolinkChip extends LitElement {

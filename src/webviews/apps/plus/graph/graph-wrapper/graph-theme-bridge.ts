@@ -2,9 +2,77 @@ import { LANE_PALETTE, setLanePalette } from '@gitkraken/commit-graph/colors.js'
 import type { Color } from '@gitlens/utils/color.js';
 import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
 
+const graphThemeVariables = [
+	['--gl-graph-foreground', '--vscode-foreground', 'hsl(var(--foreground))'],
+	['--gl-graph-background', '--vscode-editor-background', 'hsl(var(--background))'],
+	['--gl-graph-font-family', '--vscode-editor-font-family', 'system-ui, sans-serif'],
+	['--gl-graph-muted-foreground', '--vscode-descriptionForeground', 'hsl(var(--muted-foreground))'],
+	['--gl-graph-focus', '--vscode-focusBorder', 'hsl(var(--brand))'],
+	['--gl-graph-icon-foreground', '--vscode-icon-foreground', 'var(--gl-graph-foreground)'],
+	['--gl-graph-selection', '--vscode-list-activeSelectionBackground', 'hsl(var(--brand) / 24%)'],
+	['--gl-graph-selection-foreground', '--vscode-list-activeSelectionForeground', 'var(--gl-graph-foreground)'],
+	['--gl-graph-selection-inactive', '--vscode-list-inactiveSelectionBackground', 'hsl(var(--brand) / 14%)'],
+	[
+		'--gl-graph-selection-inactive-foreground',
+		'--vscode-list-inactiveSelectionForeground',
+		'var(--gl-graph-foreground)',
+	],
+	['--gl-graph-hover', '--vscode-list-hoverBackground', 'hsl(var(--foreground) / 8%)'],
+	['--gl-graph-focus-outline', '--vscode-list-focusOutline', 'var(--gl-graph-focus)'],
+	['--gl-graph-inactive-focus-outline', '--vscode-list-inactiveFocusOutline', 'hsl(var(--brand) / 65%)'],
+	['--gl-graph-elevated-background', '--vscode-editorWidget-background', 'hsl(var(--secondary))'],
+	['--gl-graph-elevated-border', '--vscode-editorWidget-border', 'hsl(var(--border))'],
+	['--gl-graph-border', '--vscode-widget-border', 'hsl(var(--border))'],
+	['--gl-graph-shadow', '--vscode-widget-shadow', 'rgb(0 0 0 / 35%)'],
+	['--gl-graph-toolbar-hover', '--vscode-toolbar-hoverBackground', 'var(--gl-graph-hover)'],
+	['--gl-graph-code-background', '--vscode-textCodeBlock-background', 'var(--gl-graph-elevated-background)'],
+	['--gl-graph-link', '--vscode-textLink-foreground', 'hsl(var(--brand))'],
+	['--gl-graph-link-active', '--vscode-textLink-activeForeground', 'hsl(var(--brand) / 85%)'],
+	['--gl-graph-button-background', '--vscode-button-background', 'hsl(var(--brand))'],
+	['--gl-graph-button-foreground', '--vscode-button-foreground', 'white'],
+	['--gl-graph-button-hover', '--vscode-button-hoverBackground', 'hsl(var(--brand) / 85%)'],
+	['--gl-graph-scrollbar-background', '--vscode-scrollbarSlider-background', 'hsl(var(--foreground) / 18%)'],
+	[
+		'--gl-graph-scrollbar-hover-background',
+		'--vscode-scrollbarSlider-hoverBackground',
+		'hsl(var(--foreground) / 28%)',
+	],
+	[
+		'--gl-graph-scrollbar-active-background',
+		'--vscode-scrollbarSlider-activeBackground',
+		'hsl(var(--foreground) / 38%)',
+	],
+	['--gl-graph-sash-hover-border', '--vscode-sash-hoverBorder', 'var(--gl-graph-focus)'],
+	['--gl-graph-purple', '--vscode-charts-purple', '#a371f7'],
+	['--gl-graph-added-foreground', '--vscode-gitDecoration-addedResourceForeground', '#3fb950'],
+	['--gl-graph-deleted-foreground', '--vscode-gitDecoration-deletedResourceForeground', '#f85149'],
+	['--gl-graph-search-match-background', '--vscode-editor-findMatchHighlightBackground', 'hsl(var(--brand) / 55%)'],
+	['--gl-graph-range-highlight-background', '--vscode-editor-rangeHighlightBackground', 'hsl(var(--brand) / 20%)'],
+	['--gl-graph-range-highlight-border', '--vscode-editor-rangeHighlightBorder', 'transparent'],
+	['--gl-graph-pr-open-color', '--vscode-gitlens-openPullRequestIconColor', '#3fb950'],
+	['--gl-graph-pr-merged-color', '--vscode-gitlens-mergedPullRequestIconColor', '#a371f7'],
+	['--gl-graph-pr-closed-color', '--vscode-gitlens-closedPullRequestIconColor', '#f85149'],
+	[
+		'--gl-graph-operation-active-color',
+		'--vscode-gitlens-decorations.statusMergingOrRebasingForegroundColor',
+		'#d29922',
+	],
+	[
+		'--gl-graph-operation-conflict-color',
+		'--vscode-gitlens-decorations.statusMergingOrRebasingConflictForegroundColor',
+		'#f85149',
+	],
+	[
+		'--gl-graph-operation-ready-color',
+		'--vscode-gitlens-decorations.statusPausedOperationReadyForegroundColor',
+		'#3fb950',
+	],
+] as const;
+
 /**
  * Maps the VS Code theme onto the CSS custom properties consumed by the commit-graph
- * `@gitkraken/commit-graph` package.
+ * engine and host-neutral renderer packages. Direct `--gl-graph-*` aliases preserve the
+ * renderer's existing VS Code colors without adding the optional VS Code adapter to GitLens CSS.
  *
  * commit-graph expects each token as an HSL triplet (e.g. `217 91% 60%`) so its Tailwind utility
  * classes can compose `hsl(var(--brand))` and `hsl(var(--brand) / 0.12)`. VS Code provides
@@ -36,6 +104,18 @@ import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
 export function applyGraphThemeVariables(): boolean {
 	const computed = getComputedStyle(document.documentElement);
 	const root = document.documentElement.style;
+	for (const [target, source, fallback] of graphThemeVariables) {
+		root.setProperty(target, `var(${source}, ${fallback})`);
+	}
+
+	const isHighContrast =
+		document.body.classList.contains('vscode-high-contrast') ||
+		document.body.classList.contains('vscode-high-contrast-light');
+	const isLight =
+		document.body.classList.contains('vscode-light') ||
+		document.body.classList.contains('vscode-high-contrast-light');
+	root.setProperty('--gl-graph-contrast-outline-width', isHighContrast ? '1px' : '0px');
+	root.setProperty('--gl-graph-operation-ready-foreground', isLight ? '#fff' : '#06150a');
 
 	const tokens: Record<string, readonly string[]> = {
 		'--brand': ['--vscode-button-background', '--vscode-focusBorder', '--vscode-textLink-foreground'],

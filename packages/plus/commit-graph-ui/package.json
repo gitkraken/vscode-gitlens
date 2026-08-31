@@ -1,0 +1,79 @@
+{
+	"name": "@gitkraken/commit-graph-ui",
+	"version": "0.1.0",
+	"description": "Host-neutral contracts and renderer for the GitKraken commit graph.",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"homepage": "https://github.com/gitkraken/vscode-gitlens/tree/main/packages/plus/commit-graph-ui",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/gitkraken/vscode-gitlens.git",
+		"directory": "packages/plus/commit-graph-ui"
+	},
+	"license": "SEE LICENSE IN LICENSE",
+	"type": "module",
+	"sideEffects": [
+		"./dist/register.js",
+		"*.css"
+	],
+	"exports": {
+		"./package.json": "./package.json",
+		"./surface.css": "./surface.css",
+		"./themes/vscode.css": "./vscode-theme.css",
+		"./extensions/scroll-markers.css": "./scroll-markers.css",
+		"./extensions/sticky-timeline.css": "./sticky-timeline.css",
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./contracts/*.js": {
+			"types": "./dist/contracts/*.d.ts",
+			"default": "./dist/contracts/*.js"
+		},
+		"./adornments/*.js": {
+			"types": "./dist/adornments/*.d.ts",
+			"default": "./dist/adornments/*.js"
+		},
+		"./extensions/*.js": {
+			"types": "./dist/extensions/*.d.ts",
+			"default": "./dist/extensions/*.js"
+		}
+	},
+	"files": [
+		"dist",
+		"surface.css",
+		"vscode-theme.css",
+		"scroll-markers.css",
+		"sticky-timeline.css",
+		"README.md",
+		"LICENSE",
+		"LICENSE.plus"
+	],
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus surface.css vscode-theme.css scroll-markers.css sticky-timeline.css *.tgz",
+		"lint:css": "stylelint \"src/**/*.{css,scss,ts}\"",
+		"prepack": "node scripts/build.mjs",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'",
+		"verify:package": "node scripts/verify-package.mjs"
+	},
+	"dependencies": {
+		"@gitkraken/commit-graph": "workspace:*",
+		"@gitlens/components": "workspace:*",
+		"@gitlens/utils": "workspace:*",
+		"@lit-labs/virtualizer": "catalog:"
+	},
+	"peerDependencies": {
+		"lit": "catalog:"
+	},
+	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"lit": "catalog:",
+		"mocha": "catalog:",
+		"sass-embedded": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

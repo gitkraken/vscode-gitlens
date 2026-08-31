@@ -1,19 +1,19 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { Preferences } from '../../../../plus/graph/detailsProtocol.js';
 import type { ConflictDetails, ConflictDetailsCommit, ConflictDetailsSide } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { CommitRowData } from './gl-commit-row.js';
 import { SheetWrapper } from './sheetWrapper.js';
 import './gl-commit-row-item.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 
 export type ConflictSheetSide = 'current' | 'incoming';
@@ -55,7 +55,7 @@ export class GlWipConflictSheet extends SheetWrapper(LitElement) {
 			}
 
 			/* Border-box so the split-panel's height:100% on the slotted pane INCLUDES our padding —
-	   otherwise the pane is taller than its grid cell and bleeds past the divider. */
+otherwise the pane is taller than its grid cell and bleeds past the divider. */
 			* {
 				box-sizing: border-box;
 			}
@@ -90,12 +90,12 @@ export class GlWipConflictSheet extends SheetWrapper(LitElement) {
 				min-height: 0;
 
 				/* Thin (1px) divider so the splitter reads as a subtle hairline rather than a 4px gap;
-				   the 8px grab hit-area is unchanged. */
+   the 8px grab hit-area is unchanged. */
 				--gl-split-panel-divider-width: var(--gl-border-width);
 			}
 
 			/* Subtle hairline matching the sheet's own --vscode-widget-border edges (gl-detail-sheet
-			   header/footer). The divider's own :hover/:active states still recolor it on grab. */
+  header/footer). The divider's own :hover/:active states still recolor it on grab. */
 			.sides::part(divider) {
 				background-color: var(--vscode-widget-border, var(--color-foreground--25));
 			}
@@ -157,8 +157,8 @@ export class GlWipConflictSheet extends SheetWrapper(LitElement) {
 				overflow: hidden auto;
 
 				/* Per-side scrollbar fade: reuse scrollableBase's thumb mechanic (transparent thumb whose
-		   inset border inherits this element's border-color), but key visibility to THIS side's
-		   pane — not the host — so hovering one side never reveals the other's scrollbar. */
+ inset border inherits this element's border-color), but key visibility to THIS side's
+ pane — not the host — so hovering one side never reveals the other's scrollbar. */
 				border-color: transparent;
 				transition: border-color 1s linear;
 			}

@@ -2,15 +2,15 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { GraphMinimapDefaultVisibility } from '../../../../config.js';
-import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
-import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
 import type { PreviewKind } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 const sampleCode: { n: number; text: string; fn?: boolean; current?: boolean; container?: boolean }[] = [
 	{ n: 1, text: 'export namespace Gitlens {', container: true },
@@ -174,7 +174,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			}
 
 			/* Mimics an autolink/PR link visually without being a focusable,
-	   clickable anchor (the preview is non-interactive). */
+clickable anchor (the preview is non-interactive). */
 			.preview-link {
 				color: var(--vscode-textLink-foreground);
 			}
@@ -272,7 +272,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			}
 
 			/* When the file-scope lens is also shown, separate it from the
-	   container-scope lens (both sit at column 0) so they read distinctly. */
+container-scope lens (both sit at column 0) so they read distinctly. */
 			.codelens--spaced {
 				margin-top: var(--gl-space-8);
 			}
@@ -311,7 +311,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				background: var(--vscode-button-background);
 
 				/* HC themes set button-background to the editor background, so a
-		   borderless fill vanishes — the contrast border keeps it visible. */
+ borderless fill vanishes — the contrast border keeps it visible. */
 				border: var(--gl-border-width) solid var(--vscode-contrastBorder, transparent);
 				border-radius: 50%;
 			}
@@ -450,7 +450,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			}
 
 			/* Rows region: px, not rem, so the HTML rows stay in register with the gutter SVG's
-	   px coordinate space at any root font size. */
+px coordinate space at any root font size. */
 			.graph-rows {
 				position: relative;
 				height: 168px;
@@ -464,8 +464,8 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			}
 
 			/* The identity node's CONTENT layer (person glyph or initials). The carve, the state fill
-	   and the lane ring are drawn in the gutter SVG beneath it; only the glyph/initials sit
-	   here so the avatar state can use the shipped codicon font via <code-icon>. */
+and the lane ring are drawn in the gutter SVG beneath it; only the glyph/initials sit
+here so the avatar state can use the shipped codicon font via <code-icon>. */
 			.graph-node {
 				--code-icon-size: 1.2rem;
 
@@ -495,7 +495,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			}
 
 			/* Mirrors .gl-graph__ref-pill: the ring is an INSET box-shadow (not a border) over a
-	   transparent background, so the pill's padding box is its visual box. */
+transparent background, so the pill's padding box is its visual box. */
 			.graph-ref-pill {
 				display: inline-flex;
 				flex: none;

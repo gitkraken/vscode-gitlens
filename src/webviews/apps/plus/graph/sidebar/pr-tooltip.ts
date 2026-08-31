@@ -5,7 +5,7 @@ import type { LaunchpadGroup } from '../../../../../plus/launchpad/models/launch
 import { launchpadGroupLabelMap } from '../../../../../plus/launchpad/models/launchpad.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import { getLaunchpadGroupIconName, getLaunchpadItemGrouping } from '../utils/overviewActions.utils.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/markdown/markdown.js';
 
 /**
@@ -39,7 +39,7 @@ export class GlPrTooltip extends LitElement {
 		}
 
 		/* Same three indicator colors the overview card and branch hover use, so one PR never reads as
-		   two different states across surfaces. A quiet group (waiting for review) stays uncolored. */
+   two different states across surfaces. A quiet group (waiting for review) stays uncolored. */
 		.launchpad--mergeable {
 			color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
 		}
@@ -74,7 +74,7 @@ export class GlPrTooltip extends LitElement {
 		}
 
 		/* Only the glyph carries the tone. The grouping line above is a single short phrase and can afford
-		   to be fully colored; a row of colored sentences beside it just gets hard to read. */
+   to be fully colored; a row of colored sentences beside it just gets hard to read. */
 		.signal--blocked code-icon {
 			color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
 		}

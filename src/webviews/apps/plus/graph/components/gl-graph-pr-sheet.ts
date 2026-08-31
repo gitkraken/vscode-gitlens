@@ -19,8 +19,8 @@ import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/formatted-date.js';
 import '../../../shared/components/markdown/markdown.js';
 import '../../../shared/components/menu/menu-popover.js';
@@ -189,14 +189,15 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.title__id {
 				flex: none;
-				color: var(--color-foreground--65);
-				font-variant-numeric: tabular-nums;
 				font-weight: 400;
+				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			/* The glance-level stacked/unstacked discriminator; the stack rail below carries the detail. */
 			.title__count {
 				display: inline-flex;
+				flex: none;
 				gap: var(--gl-space-2);
 				align-items: center;
 				flex: none;
@@ -324,9 +325,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				align-items: baseline;
 				justify-content: space-between;
 				margin-bottom: var(--gl-space-4);
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
+				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}
@@ -339,8 +340,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			/* The soft-card fill both card-shaped sections below share — same background formula as the
-		   app's gl-card, without pulling in its whole (state-indicator-heavy) style module. A fill
-		   reads as "grouped content" without the harder bordered-box look. */
+ app's gl-card, without pulling in its whole (state-indicator-heavy) style module. A fill
+ reads as "grouped content" without the harder bordered-box look. */
 			.meta-card,
 			.stack-rail {
 				background: var(
@@ -366,9 +367,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			/* The branch-chain row: pills wrap on the left, the switch/worktree toolbar stays put on the
-		   right — the row itself never wraps as a whole. */
+ right — the row itself never wraps as a whole. */
 			/* Reserves the toolbar's height even when it's hidden (merged/current pull requests) so the
-		   row never changes height. */
+ row never changes height. */
 			.meta-card__row--chain {
 				flex-wrap: nowrap;
 				min-height: 3.2rem;
@@ -384,7 +385,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			/* Kept no taller than the branch pills so the chain row's height doesn't change with the
-		   toolbar's presence (it hides on merged/current pull requests). */
+ toolbar's presence (it hides on merged/current pull requests). */
 			.meta-card__toolbar {
 				display: flex;
 				flex: none;
@@ -402,8 +403,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.meta-card__ellipsis {
-				color: var(--color-foreground--65);
 				font-family: var(--vscode-editor-font-family);
+				color: var(--color-foreground--65);
 				letter-spacing: 0.2rem;
 			}
 
@@ -413,9 +414,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.meta-card__stats {
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			.meta-card__stats > * {
@@ -475,45 +476,45 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.verdict__title {
 				align-self: center;
-				color: var(--verdict-accent);
 				font-weight: 600;
 				line-height: 1.2;
+				color: var(--verdict-accent);
 			}
 
 			/* The blast-radius count as a badge on the button itself, GitHub-style — a wash of the
-			   button's own foreground so it survives any theme's button color. */
+  button's own foreground so it survives any theme's button color. */
 			.split-btn__count {
-				margin-left: var(--gl-space-4);
 				padding: 0 var(--gl-space-4);
-				border-radius: 1rem;
-				background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
+				margin-left: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
+				border-radius: 1rem;
 			}
 
 			.verdict__reasons {
 				display: flex;
 				flex-wrap: wrap;
 				gap: var(--gl-space-4) var(--gl-space-10);
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			.verdict__blast {
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			/* The fine print's load-bearing facts — which pull requests, which branch. */
 			.verdict__num {
-				color: var(--color-foreground);
-				font-variant-numeric: tabular-nums;
 				font-weight: 500;
+				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground);
 			}
 
 			.verdict__ref {
-				color: var(--color-foreground);
 				font-family: var(--vscode-editor-font-family);
+				color: var(--color-foreground);
 			}
 
 			.description {
@@ -541,18 +542,18 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				bottom: 0;
 				left: 0;
 				height: 3rem;
-				background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
 				pointer-events: none;
+				background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
 			}
 
 			.description__toggle {
 				padding: 0;
 				margin-top: var(--gl-space-4);
-				color: var(--vscode-textLink-foreground);
 				font-size: var(--gl-font-sm);
+				color: var(--vscode-textLink-foreground);
+				cursor: pointer;
 				background: none;
 				border: none;
-				cursor: pointer;
 			}
 
 			.description__toggle:hover,
@@ -600,18 +601,18 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			.stack-rail__dot-col {
 				position: relative;
 				display: flex;
-				align-self: stretch;
 				align-items: center;
+				align-self: stretch;
 				justify-content: center;
 			}
 
 			.stack-rail__dot-col::before {
-				content: '';
 				position: absolute;
 				top: 0;
 				bottom: 0;
 				left: 50%;
 				width: var(--gl-border-width);
+				content: '';
 				background: var(--color-foreground--25);
 				transform: translateX(-50%);
 			}
@@ -656,15 +657,15 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.stack-rail__position {
 				flex: none;
-				color: var(--color-foreground--65);
 				font-family: var(--vscode-editor-font-family);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			.stack-rail__position--current {
-				color: var(--color-foreground);
 				font-weight: 600;
+				color: var(--color-foreground);
 			}
 		`,
 	];

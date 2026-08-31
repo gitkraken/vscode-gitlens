@@ -3,6 +3,13 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { redispatch } from '@gitlens/components/components/element.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	scrollableBase,
+	subPanelEnterStyles,
+} from '@gitlens/components/components/styles/lit/base.css.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -18,15 +25,8 @@ import type {
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { AutolinkMerger } from '../../../shared/components/chips/autolinks.js';
-import { redispatch } from '../../../shared/components/element.js';
 import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
-import {
-	elementBase,
-	metadataBarVarsBase,
-	scrollableBase,
-	subPanelEnterStyles,
-} from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -36,12 +36,12 @@ import { renderAutolinksStrip } from './shared-panel-templates.js';
 import { panelActionInputStyles, panelAutolinkStripStyles } from './shared-panel.css.js';
 import './gl-commit-row-item.js';
 import './gl-compare-ai-actions.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/menu/menu-popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/webview-pane.js';

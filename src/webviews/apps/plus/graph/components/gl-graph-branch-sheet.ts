@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphExcludedRef, GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, OrgSettings } from '../../../../rpc/services/types.js';
@@ -10,7 +11,6 @@ import { notifyService } from '../../../shared/actions/rpc.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
-import { dispatchContextMenuAt } from '../../../shared/dom.js';
 import { remoteRefIcon } from '../../../shared/git-utils.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
@@ -29,10 +29,10 @@ import type { ResolvedServices } from './detailsActions.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import { SheetWrapper } from './sheetWrapper.js';
 import './gl-graph-branch-sheet-pane.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/overlays/detail-sheet.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 /**
  * Branch/tag sheet chrome — owns the `gl-detail-sheet` (title, kebab, Pin/Hide/Open-on-Remote/Focus/
@@ -58,7 +58,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			}
 
 			/* Branch sheet header identity — icon + (remote-qualified) name + a ref-kind badge, slotted
-			   into gl-detail-sheet's title slot in place of the plain sheet-title string. */
+  into gl-detail-sheet's title slot in place of the plain sheet-title string. */
 			.branch-sheet-title {
 				display: flex;
 				gap: 0.6rem;
@@ -67,17 +67,17 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			}
 
 			/* Remote shares the local-branch color on purpose — the kind badge carries the distinction;
-			   the remote scroll-marker token is a rail fill, too dark to read as text. */
+  the remote scroll-marker token is a rail fill, too dark to read as text. */
 			.branch-sheet-title--head,
 			.branch-sheet-title--remote {
 				color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 			}
 
 			/* Tags keep their gold kind hue, but the scroll-marker token is a dim rail fill that can't be
-			   lifted to a vivid text color by mixing — dark themes use the palette's vivid gold (the
-			   light-theme marker default) outright; light themes darken the token toward the foreground
-			   instead, since the vivid gold is unreadable on light backgrounds. Theme gate mirrors
-			   gl-graph-scope-popover: body theme class via :host-context, prefers-color-scheme fallback. */
+  lifted to a vivid text color by mixing — dark themes use the palette's vivid gold (the
+  light-theme marker default) outright; light themes darken the token toward the foreground
+  instead, since the vivid gold is unreadable on light backgrounds. Theme gate mirrors
+  gl-graph-scope-popover: body theme class via :host-context, prefers-color-scheme fallback. */
 			.branch-sheet-title--tag {
 				color: #d2a379;
 			}
@@ -102,7 +102,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			}
 
 			/* The tooltip host is display: contents, so the name span itself is the flex item —
-			   shrinkable but not growing, keeping the kebab directly after the name's end. */
+  shrinkable but not growing, keeping the kebab directly after the name's end. */
 			.branch-sheet-title__name-tooltip {
 				min-width: 0;
 			}
@@ -116,7 +116,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			}
 
 			/* The ref-kind color belongs to the identity (icon + name) only — the chips are chrome, so
-			   they take the header's own foreground like the right-side actions do. */
+  they take the header's own foreground like the right-side actions do. */
 			.branch-sheet-title__kebab,
 			.branch-sheet-title__action {
 				flex: none;

@@ -1,3 +1,5 @@
+import { emptySetMarker } from '@gitkraken/commit-graph-ui/filtering.js';
+import { createWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type {
 	GraphExcludeRefs,
@@ -10,7 +12,6 @@ import type {
 	GraphSidebarTag,
 	GraphWipRowsById,
 } from '../../../../plus/graph/protocol.js';
-import { createWipRowId, emptySetMarker } from '../../../../plus/graph/protocol.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import { refPillKey } from './refKey.utils.js';

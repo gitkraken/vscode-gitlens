@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 2,
+	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
+	"sourceCommit": "9c0d98b3a90b0b53a759833f1fabfc8b67ecb6a1",
+	"entrypoint": "graph",
+	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
+	"budgetRationale": "The full GitLens profile has a 12 KiB ceiling above main for host-neutral extension seams; CSS and shared assets retain zero-growth ceilings.",
+	"baselineBytes": {
+		"entrypoint": 2950436,
+		"graph.js": 1749475,
+		"graph.css": 152795,
+		"shared.js": 1048166
+	},
+	"maximumBytes": {
+		"entrypoint": 2962724,
+		"graph.js": 1749475,
+		"graph.css": 152795,
+		"shared.js": 1048166
+	}
+}

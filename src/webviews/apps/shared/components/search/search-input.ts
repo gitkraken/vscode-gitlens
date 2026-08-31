@@ -3,6 +3,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
+import { GlElement } from '@gitlens/components/components/element.js';
 import type { SearchOperators, SearchQuery } from '@gitlens/git/models/search.js';
 import { searchOperatorsToLongFormMap } from '@gitlens/git/models/search.js';
 import {
@@ -17,7 +18,6 @@ import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
 import { searchActionsContext } from '../../../plus/graph/search/searchContext.js';
 import { blurActiveElement } from '../../../shared/focus.js';
 import type { CompletionItem, CompletionSelectEvent, GlAutocomplete } from '../autocomplete/autocomplete.js';
-import { GlElement } from '../element.js';
 import type {
 	SearchCompletionCommand,
 	SearchCompletionItem,
@@ -32,9 +32,9 @@ import {
 import '../button.js';
 import '../actions/action-nav.js';
 import '../autocomplete/autocomplete.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../copy-container.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 export interface SearchNavigationEventDetail {
 	direction: 'first' | 'previous' | 'next' | 'last';
@@ -182,7 +182,7 @@ export class GlSearchInput extends GlElement {
 			left: 0;
 
 			/* Same tier as the gl-autocomplete dropdown (its display: contents host puts both in
-   this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
+ this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
 			z-index: var(--gl-z-popover);
 			width: 100%;
 			padding: var(--gl-space-4);

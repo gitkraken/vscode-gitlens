@@ -2,12 +2,12 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
+import { renderCommitStatsIcons } from '@gitlens/components/components/commitStats.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { getFileDiffPathspecs, isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import type { Preferences } from '../../../../commitDetails/protocol.js';
 import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs, WipScope } from '../../actions/file.js';
-import { renderCommitStatsIcons } from '../commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
 import { renderOpenChangesAction, selectFilesByPath, selectRowsByPath } from './file-tree-utils.js';
@@ -21,7 +21,7 @@ type Files = Mutable<FileItem[]>;
 export class GlWipTreePane extends LitElement {
 	static override styles = css`
 		/* Establish the named container on this host so the @container query below resolves
-	   in the same shadow scope as the rule (cross-shadow container lookup is spotty). */
+  in the same shadow scope as the rule (cross-shadow container lookup is spotty). */
 		:host {
 			display: flex;
 			flex: 1 1 0%;
@@ -30,27 +30,27 @@ export class GlWipTreePane extends LitElement {
 		}
 
 		/* Group the leading actions (Discard/Stash/Open Changes/Copy) as a cohesive cluster — each
-	   gl-action-chip's own padding supplies the internal rhythm; the gl-file-tree-pane header-actions
-	   gap separates the cluster from the action-nav toggles. */
+  gl-action-chip's own padding supplies the internal rhythm; the gl-file-tree-pane header-actions
+  gap separates the cluster from the action-nav toggles. */
 		.wip-actions {
 			display: flex;
 			align-items: center;
 		}
 
 		/* Set the general file actions (Open Changes/Copy) apart from the conflict-resolution cluster
-		   (Resolve Conflicts + Stage-all) when it precedes them, so the two read as distinct groups.
-		   The adjacent-sibling match only fires when a leading-actions chip immediately precedes
-		   wip-actions — i.e. exactly the conflict scenarios; with no conflicts wip-actions is the first
-		   leading action and the previous element sibling is the subtitle span, so no leading gap. */
+   (Resolve Conflicts + Stage-all) when it precedes them, so the two read as distinct groups.
+   The adjacent-sibling match only fires when a leading-actions chip immediately precedes
+   wip-actions — i.e. exactly the conflict scenarios; with no conflicts wip-actions is the first
+   leading action and the previous element sibling is the subtitle span, so no leading gap. */
 		gl-action-chip[slot='leading-actions'] + .wip-actions {
 			margin-left: var(--gl-space-8);
 		}
 
 		/* Collapse the Stash label to icon-only when the pane runs out of room. display:none
-	   cleanly removes the slotted flex item so the button's internal gap collapses too — true
-	   icon-only, no half-clipped text. The button's tooltip (Stash All/Staged Changes) keeps it
-	   accessible when the label is hidden. The group/action-nav gap is intentionally preserved at
-	   narrow widths so the clusters stay visually distinct. */
+  cleanly removes the slotted flex item so the button's internal gap collapses too — true
+  icon-only, no half-clipped text. The button's tooltip (Stash All/Staged Changes) keeps it
+  accessible when the label is hidden. The group/action-nav gap is intentionally preserved at
+  narrow widths so the clusters stay visually distinct. */
 		@container gl-wip-tree-pane (max-width: 340px) {
 			.stash-label {
 				display: none !important;

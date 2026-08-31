@@ -4,9 +4,9 @@ import { basename } from '@gitlens/utils/path.js';
 import type { PendingPermission } from '../../../../../agents/provider.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import '../chips/action-chip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../copy-container.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 interface PlanActions {
 	openHref: string;
@@ -102,7 +102,7 @@ export class GlAgentPromptDetail extends LitElement {
 		}
 
 		/* gl-copy-container hosts a bare code-icon — give it the same hover affordance the
-	   sibling gl-action-chip has so the two buttons read as a matched pair. */
+  sibling gl-action-chip has so the two buttons read as a matched pair. */
 		.caption-copy {
 			display: inline-flex;
 			align-items: center;
@@ -119,8 +119,8 @@ export class GlAgentPromptDetail extends LitElement {
 		}
 
 		/* Only the agent-session detail sheet sets [expanded] — it has the room to show the
-		   full block and caption inline, so the clamp/ellipsis/tooltip that a cramped hover
-		   needs would just be noise there. */
+   full block and caption inline, so the clamp/ellipsis/tooltip that a cramped hover
+   needs would just be noise there. */
 		:host([expanded]) .block {
 			display: block;
 			-webkit-line-clamp: unset;

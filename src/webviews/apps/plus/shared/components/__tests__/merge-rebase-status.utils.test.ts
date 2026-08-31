@@ -5,11 +5,8 @@ import type {
 	GitRebaseStatus,
 	GitRevertStatus,
 } from '@gitlens/git/models/pausedOperationStatus.js';
-import {
-	getPausedOperationVariant,
-	pausedOperationVariantIcons,
-} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { getPausedOperationVariant, pausedOperationVariantIcons } from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationAbortLabel,
 	getPausedOperationBarActionLabel,

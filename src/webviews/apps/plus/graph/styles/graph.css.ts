@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { focusOutline } from '../../../shared/components/styles/lit/a11y.css.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 
 export const linkBase = css`
 	a {

@@ -1,8 +1,17 @@
+import type { GraphRowActivity } from '@gitkraken/commit-graph-ui/contracts/contributions.js';
+import { getGraphDebugDiagnostics } from '@gitkraken/commit-graph-ui/debug.js';
+import { registerCommitGraphElements } from '@gitkraken/commit-graph-ui/register.js';
+import { pickScopePageTarget } from '@gitkraken/commit-graph-ui/scopePaging.js';
+import type { GlLitGraph, GraphRowHiddenReason, GraphRowPeekRequest } from '@gitkraken/commit-graph-ui/surface.js';
+import type { WipRowInfo } from '@gitkraken/commit-graph-ui/wip.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/worktree.js';
 /*global document window*/
+import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { WipCandidate } from '@gitkraken/commit-graph/nearestWip.js';
 import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-graph/nearestWip.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import { SignalWatcher } from '@lit-labs/signals';
+import '@gitlens/components/components/agentMark.js';
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -11,6 +20,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual } from '@gitlens/utils/array.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
@@ -34,19 +44,15 @@ import type {
 	RowAction,
 	SelectCommitsOptions,
 } from '../../../../plus/graph/protocol.js';
-import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '../../../../plus/graph/protocol.js';
 import { fireAndForget, noop, notifyService } from '../../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { waitForFocusSettled } from '../../../shared/focus.js';
-import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 import type { AnchorKey } from '../components/anchorKey.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
-import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
-import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
+import { agentIndicatorTooltipFor, pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
-import { getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
 import { countRenderedSearchResults, isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
@@ -59,18 +65,16 @@ import {
 	serializeSelectionContext,
 	serializeWipContext,
 } from '../utils/rowContext.utils.js';
-import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import { GraphSelectIntent } from '../utils/selectIntent.js';
-import type { WipRowInfo } from '../utils/wip.utils.js';
 import {
 	buildWipRowInfoByRowSha,
 	filterSecondariesForScopeAndVisibility,
-	hasDirtyCounts,
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
-import type { GlLitGraph, GraphRowHiddenReason, GraphRowPeekRequest } from './gl-lit-graph.js';
-import './gl-lit-graph.js';
+import { gitLensGraphRuntime } from './graph-profile.js';
+
+registerCommitGraphElements();
 
 /**
  * Where a navigation came from, for diagnostics ONLY — never consult it to decide reveal behavior.
@@ -1119,14 +1123,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		agentSessions: typeof graphStateContext.__context__.agentSessions | undefined;
 		wipRowsById: GraphWipRowsById | undefined;
 		primaryRepoPath: string | undefined;
-		byRowSha: ReadonlyMap<string, WipRowAgentStatus> | undefined;
+		byRowSha: ReadonlyMap<string, GraphRowActivity> | undefined;
 	};
 
 	/** Maps each WIP row's sha → the worst-priority agent status running in that worktree. Every row is
 	 *  matched against its own `wipRowsById[sha].repoPath`, keyed against the graph's repo family
 	 *  (`primaryRepoPath`). Returns `undefined` when no WIP row has a surfacing agent so the row
 	 *  renderer can skip the indicator path entirely. */
-	private getAgentStatusByRowSha(): ReadonlyMap<string, WipRowAgentStatus> | undefined {
+	private getAgentStatusByRowSha(): ReadonlyMap<string, GraphRowActivity> | undefined {
 		const agentSessions = this.graphState.agentSessions;
 		const wipRowsById = this.graphState.wipRowsById;
 
@@ -1141,12 +1145,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			return cached.byRowSha;
 		}
 
-		let byRowSha: ReadonlyMap<string, WipRowAgentStatus> | undefined;
+		let byRowSha: ReadonlyMap<string, GraphRowActivity> | undefined;
 		const index = indexAgentSessionsByRepoAndWorktree(agentSessions);
 		if (index == null || index.size === 0) {
 			byRowSha = undefined;
 		} else {
-			const next = new Map<string, WipRowAgentStatus>();
+			const next = new Map<string, GraphRowActivity>();
 
 			// One pass over every WIP row — the graph's own worktree included, since it's an ordinary
 			// entry now. The sha encodes the worktree path; `row.repoPath` is the same value but read
@@ -1169,7 +1173,18 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					});
 					const status = pickWipRowAgentStatus(matches);
 					if (status != null) {
-						next.set(sha, status);
+						next.set(sha, {
+							action: 'agents',
+							icon: 'robot',
+							label: agentIndicatorTooltipFor(status.category),
+							className: `gl-graph__row-action--agent agent-indicator--${status.category}`,
+							status: html`<gl-agent-mark
+								class="gl-graph__row-action-status"
+								category=${status.category}
+								variant="badge"
+								aria-hidden="true"
+							></gl-agent-mark>`,
+						});
 					}
 				}
 			}
@@ -1281,6 +1296,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const changesColumnActive = changesColumnVisible && (graphState.config?.changesColumnEnabled ?? true);
 		return html`<gl-lit-graph
 			.rows=${decoratedRows}
+			.runtime=${gitLensGraphRuntime}
 			.avatars=${graphState.avatars}
 			.changesColumnEnabled=${graphState.config?.changesColumnEnabled ?? true}
 			.rowsStats=${changesColumnActive ? graphState.rowsStats : undefined}
@@ -1314,8 +1330,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.keymap=${this.keymap}
 			.primaryWipRowId=${showPrimary ? primaryWipRowId : undefined}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
-			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
 			.wipRowInfoByRowSha=${this.getWipRowInfoByRowSha()}
+			.activityByRowSha=${this.getAgentStatusByRowSha()}
 			?loading=${graphState.loading || graphState.ensureLoading || graphState.scopeLoading}
 			?rowsError=${graphState.rowsError ?? false}
 			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}
@@ -2825,7 +2841,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		// Ref zones keep their host-serialized branch/tag/remote contexts (rendered per ref pill) —
 		// don't pollute them with row/selection/WIP keys. Every other row's own commit context is
-		// already stamped declaratively (graph-row.ts `data-vscode-context`), so only WIP rows (which
+		// already stamped declaratively (graphRow.ts `data-vscode-context`), so only WIP rows (which
 		// carry no row-level context at all) and multi-selected commit rows (selection keys are
 		// ADDITIVE — VS Code merges them with the nearer row-level `webviewItem`) need a wrapper-level
 		// write here.

@@ -19,7 +19,7 @@ import { createSettingsState, settingsStateContext } from './state.js';
 import './components/settings-detail.js';
 import './components/settings-nav.js';
 import '../shared/components/button.js';
-import '../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../shared/components/gitlens-logo-circle.js';
 import '../shared/components/gl-error-banner.js';
 import '../shared/components/segmented/segmented.js';

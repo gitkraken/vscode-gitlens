@@ -6,6 +6,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
@@ -14,7 +15,6 @@ import type { BranchRef } from '../../../../home/protocol.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { GraphOverviewBranch } from '../../../../plus/graph/protocol.js';
 import type { OverviewBranchEnrichment, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
-import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -30,14 +30,14 @@ import '../../../shared/components/branch-icon.js';
 import '../../../shared/components/card/card.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 import '../../../shared/components/pills/tracking-status.js';
-import '../../../shared/components/commit/commit-stats.js';
-import '../../../shared/components/commit/wip-stats.js';
+import '@gitlens/components/components/commitStats.js';
+import '@gitlens/components/components/wipStats.js';
 import '../../../shared/components/avatar/avatar-list.js';
 import '../../../shared/components/rich/pr-icon.js';
 import '../../../shared/components/rich/issue-icon.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 
@@ -141,8 +141,8 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		/* Lights up when one or more selected/focused graph rows live on this branch.
-	   Overrides the --gl-card-background cascade so the inner-shadow :hover rule
-	   in card.css.ts continues to compose on top via --gl-card-hover-background. */
+  Overrides the --gl-card-background cascade so the inner-shadow :hover rule
+  in card.css.ts continues to compose on top via --gl-card-hover-background. */
 		:host([contains-selection]) {
 			--gl-card-background: color-mix(
 				in lab,
@@ -162,11 +162,11 @@ export class GlGraphOverviewCard extends LitElement {
 
 		gl-popover {
 			/* Anchor wrapper inside the popover defaults to fit-content; grow it so the
-		   whole card is the hover-target. */
+   whole card is the hover-target. */
 			--gl-popover-anchor-width: 100%;
 
 			/* Slightly slower show keeps quick scan-passes from triggering the rich hover;
-		   short hide gives users a beat to move into the popover without it dismissing. */
+   short hide gives users a beat to move into the popover without it dismissing. */
 			--show-delay: 600ms;
 			--hide-delay: 120ms;
 		}
@@ -278,8 +278,8 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		/* One-line layout: tracking + wip pill folded into the name row's right edge when there
-	   are no issues / PRs / agents to take the second meta line. flex-none + margin-inline-start
-	   keeps the pills hugging the right edge while the name shrinks first under width pressure. */
+  are no issues / PRs / agents to take the second meta line. flex-none + margin-inline-start
+  keeps the pills hugging the right edge while the name shrinks first under width pressure. */
 		.branch-item__meta-inline {
 			display: inline-flex;
 			flex: none;
@@ -307,8 +307,8 @@ export class GlGraphOverviewCard extends LitElement {
 			gap: var(--gl-space-4);
 
 			/* flex-start so a compact-fallback pill (needs-input + !canResolve) shrinks to its
-		   content instead of inheriting stretch. Full-mode pills still span the row via their
-		   own width: 100%. */
+   content instead of inheriting stretch. Full-mode pills still span the row via their
+   own width: 100%. */
 			align-items: flex-start;
 		}
 
@@ -318,9 +318,9 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item__inline-actions {
 			/* Anchored to row 1 (grouping is position: relative). Absolute so it floats over the
-		   branch name on hover without pushing layout. Spans grouping height and centers
-		   content via flex — using transform here would create a containing block for the
-		   action-item hoisted (fixed-positioned) tooltip and clip it. */
+   branch name on hover without pushing layout. Spans grouping height and centers
+   content via flex — using transform here would create a containing block for the
+   action-item hoisted (fixed-positioned) tooltip and clip it. */
 			position: absolute;
 			top: 0;
 			right: 0;

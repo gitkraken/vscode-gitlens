@@ -4,6 +4,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
 import { getAltKeySymbol } from '@env/platform.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -19,8 +21,6 @@ import {
 	serializeWebviewItemContext,
 } from '../../../../../system/webview.js';
 import type { FileShowOptions, WorkingFileSorting } from '../../../../commitDetails/protocol.js';
-import { ModifierKeysController } from '../../controllers/modifier-keys.js';
-import { elementBase } from '../styles/lit/base.css.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -50,9 +50,9 @@ import '../badges/badge.js';
 import '../webview-pane.js';
 import '../chips/action-chip.js';
 import '../actions/action-nav.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../checkbox/checkbox.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import './tree-view.js';
 
 export type FileItem = GitFileChangeShape & { stats?: GitFileChangeStats; conflictMarkers?: number };

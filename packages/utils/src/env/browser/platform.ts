@@ -8,3 +8,7 @@ const _userAgent: string = typeof navigator !== 'undefined' ? navigator.userAgen
 export const isWindows: boolean = _platform === 'Windows' || _userAgent.includes('Windows');
 export const isLinux: boolean = _platform === 'Linux' || _userAgent.includes('Linux');
 export const isMac: boolean = _platform === 'macOS' || _userAgent.includes('Macintosh');
+
+export function getShiftKeySymbol(): string {
+	return isMac ? '⇧' : 'Shift';
+}

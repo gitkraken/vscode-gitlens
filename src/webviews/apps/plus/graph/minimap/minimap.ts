@@ -1,10 +1,10 @@
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { GlElement, observe } from '@gitlens/components/components/element.js';
+import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 import { getCssVariable } from '@gitlens/utils/color.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { capitalize, pluralize } from '@gitlens/utils/string.js';
-import { GlElement, observe } from '../../../shared/components/element.js';
-import { elevatedSurface } from '../../../shared/components/styles/lit/elevation.css.js';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
@@ -23,7 +23,7 @@ import {
 	xToDay,
 	xToTimestamp,
 } from './minimapRenderer.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 // Click-vs-brush slop. At 3px, normal clicks (which carry a few px of incidental pointer movement)
 // crossed into "brush" and zoomed instead of selecting the day's commit. 6px lets clicks through while

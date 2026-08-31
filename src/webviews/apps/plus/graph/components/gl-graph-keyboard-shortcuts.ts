@@ -1,12 +1,12 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol, getCmdKeySymbol, getShiftKeySymbol, isMac } from '@env/platform.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { ChordSymbols } from '@gitlens/utils/keys/chord.js';
 import { formatChordParts, parseChord } from '@gitlens/utils/keys/chord.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
-import type { KeymapDispatcher, KeymapSheetRow } from '../../../shared/keymap/keymapDispatcher.js';
-import '../../../shared/components/code-icon.js';
+import type { KeymapDispatcher, KeymapSheetRow } from '@gitlens/utils/keys/keymapDispatcher.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/overlays/dialog.js';
 
 // Platform-aware modifier symbols, matching how `parseChord`/`formatChordParts` resolve `mod` (`meta`
@@ -72,7 +72,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			}
 
 			/* Scoped to [open]: an unconditional display on the part would override the UA's
-	   dialog:not([open]) { display: none } and paint the closed sheet inline under the graph. */
+dialog:not([open]) { display: none } and paint the closed sheet inline under the graph. */
 			.shortcuts-dialog[open]::part(base) {
 				display: flex;
 				flex-direction: column;
@@ -80,14 +80,14 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 
 			.shortcuts-dialog::part(base) {
 				/* gl-dialog's own styles don't set box-sizing, so without it here width/max-width
-		   size the CONTENT box only — the dialog's padding then pushes the actual box past
-		   the max-width at narrow widths. */
+ size the CONTENT box only — the dialog's padding then pushes the actual box past
+ the max-width at narrow widths. */
 				box-sizing: border-box;
 				width: 104rem;
 				max-width: 96vw;
 				max-height: 92vh;
 				/* Sections own their own padding (the title bar and footer rules need to sit flush
-		   against the dialog edge), so the dialog contributes none. */
+ against the dialog edge), so the dialog contributes none. */
 				padding: 0;
 				overflow: hidden;
 			}
@@ -98,8 +98,8 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 				flex-direction: column;
 				min-height: 0;
 				/* The column count responds to the DIALOG's width, not the viewport's — the graph can
-		   be docked into a narrow panel while the window stays wide. Sized by the dialog above,
-		   so inline-size containment has nothing to circularly resolve. */
+ be docked into a narrow panel while the window stays wide. Sized by the dialog above,
+ so inline-size containment has nothing to circularly resolve. */
 				container-type: inline-size;
 			}
 
@@ -140,7 +140,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			}
 
 			/* Caps how tall the sheet gets before it scrolls internally; flex + min-height let it give
-	   back below that cap when the dialog itself is height-capped by a short viewport. */
+back below that cap when the dialog itself is height-capped by a short viewport. */
 			.scrollwrap {
 				flex: 1;
 				min-height: 0;
@@ -149,9 +149,9 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			}
 
 			.body {
+				columns: 3;
 				column-gap: 3.2rem;
 				padding: 1.8rem 2rem 1.4rem;
-				columns: 3;
 			}
 
 			@container (max-width: 88rem) {
@@ -201,7 +201,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			}
 
 			/* Secondary key sequences get their own line under the label — inline text is for short
-	   qualifiers only. */
+qualifiers only. */
 			.subline {
 				display: block;
 				margin-top: 0.15rem;

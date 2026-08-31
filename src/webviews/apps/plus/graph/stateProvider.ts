@@ -1,6 +1,9 @@
 import type { Connection, Remote, Subscription } from '@eamodio/supertalk';
 import { subscribe } from '@eamodio/supertalk';
 import type { ChannelGap, ChannelMeta, SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
+import { getGraphDebugDiagnostics } from '@gitkraken/commit-graph-ui/debug.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/worktree.js';
+import { createWipRowId, isWipRowId } from '@gitkraken/commit-graph/identity.js';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
@@ -50,7 +53,6 @@ import type {
 	WipStats,
 	WorkDirStats,
 } from '../../../plus/graph/protocol.js';
-import { createWipRowId, isWipRowId } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
 import type { OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
@@ -63,9 +65,7 @@ import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
-import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
-import { hasDirtyCounts } from './utils/wip.utils.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
@@ -2125,12 +2125,16 @@ export class GraphStateProvider implements Disposable {
 
 		this.updateState(updates);
 		if (DEBUG) {
+			// Debug/performance builds record the serialized rows-plane cost. This stays inside the literal
+			// DEBUG branch so production dead-code elimination removes both stringify and TextEncoder work.
+			const receivedBytes = new TextEncoder().encode(JSON.stringify(params)).byteLength;
 			getGraphDebugDiagnostics().markRowsApplied(this.rows, {
 				generation: meta.generation,
 				seq: meta.seq,
 				snapshot: snapshot,
 				rows: this.rows?.length ?? 0,
 				receivedRows: params.rows.length,
+				receivedBytes: receivedBytes,
 				splice: params.rowsSplice != null,
 				cursor: params.paging?.startingCursor,
 			});

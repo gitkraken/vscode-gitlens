@@ -1,9 +1,11 @@
+import { createWipRowId } from '@gitkraken/commit-graph/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
 import { getAltKeySymbol } from '@env/platform.js';
+import { scrollableBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
@@ -31,7 +33,6 @@ import type {
 	GraphSidebarTag,
 	GraphSidebarWorktree,
 } from '../../../../plus/graph/protocol.js';
-import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import {
 	branchTooltip,
 	pullRequestMergesTooltip,
@@ -51,7 +52,6 @@ import {
 	getAgentSessionArchiveAction,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
-import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -103,15 +103,15 @@ import type { SidebarActions } from './sidebarState.js';
 import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
 import '../components/gl-graph-coachmark.js';
 import '../overview/graph-overview.js';
-import '../../../shared/components/commit/commit-stats.js';
-import '../../../shared/components/commit/wip-stats.js';
+import '@gitlens/components/components/commitStats.js';
+import '@gitlens/components/components/wipStats.js';
 import '../../../shared/components/markdown/markdown.js';
 import './agent-tooltip.js';
 import './pr-tooltip.js';
 import './worktree-tooltip.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/agents-banner.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/tree/tree-view.js';
@@ -492,15 +492,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			/* Play enter animations only when the parent signals the user-visible moment —
-	   the element is always mounted (inside the split-panel's start slot) so an
-	   unconditional animation would fire at 0 width where the user can't see it.
-	     [opening]   — sidebar went from hidden to visible (slide in from -8px X)
-	     [switching] — active panel changed while visible (slide in from 4px Y, matches
-	                   the sub-panel-enter used by review/compose/compare panes)
-	   The animation runs on the inner .panel — NOT the :host — so the host's solid
-	   background-color stays put and blocks the graph behind it during the animation
-	   (in overlay mode the host floats over the graph; an opacity/translate on the host
-	   would expose the graph through fade or at the gap left by the translate). */
+the element is always mounted (inside the split-panel's start slot) so an
+unconditional animation would fire at 0 width where the user can't see it.
+  [opening]   — sidebar went from hidden to visible (slide in from -8px X)
+  [switching] — active panel changed while visible (slide in from 4px Y, matches
+                the sub-panel-enter used by review/compose/compare panes)
+The animation runs on the inner .panel — NOT the :host — so the host's solid
+background-color stays put and blocks the graph behind it during the animation
+(in overlay mode the host floats over the graph; an opacity/translate on the host
+would expose the graph through fade or at the gap left by the translate). */
 			:host([opening]) .panel {
 				animation: panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 			}
@@ -511,8 +511,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			@media (prefers-reduced-motion: reduce) {
 				/* Near-zero duration, NOT animation:none, so the animationend event still
-		   fires — the internal handler depends on it to remove the opening / switching
-		   attribute. animation:none dispatches no event, so the attribute would stick. */
+ fires — the internal handler depends on it to remove the opening / switching
+ attribute. animation:none dispatches no event, so the attribute would stick. */
 				:host([opening]) .panel,
 				:host([switching]) .panel {
 					animation-duration: 0.01ms;
@@ -544,14 +544,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			/* Flex row so the coach mark's popover/lightbulb ride inline instead of breaking the
-			   line (a block element inside the inline span would wrap the header to two lines);
-			   the inner text span carries the ellipsis. */
+  line (a block element inside the inline span would wrap the header to two lines);
+  the inner text span carries the ellipsis. */
 			.header-title {
-				flex: 1;
-				min-width: 0;
 				display: flex;
-				align-items: center;
+				flex: 1;
 				gap: 0.4rem;
+				align-items: center;
+				min-width: 0;
 			}
 
 			.header-title__text {
@@ -585,7 +585,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			/* Stacks the refresh-failure strip above the tree. The tree takes the rest and keeps its own
-			   scroll clip (min-height: 0), so a strip appearing never spills the list past the panel. */
+  scroll clip (min-height: 0), so a strip appearing never spills the list past the panel. */
 			.tree-stack {
 				display: flex;
 				flex-direction: column;
@@ -594,7 +594,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			/* The list below is still the last good data, so this reports the failed refresh without
-			   taking the panel over — error accents, no fill that would out-weigh the rows. */
+  taking the panel over — error accents, no fill that would out-weigh the rows. */
 			.error-strip {
 				display: flex;
 				flex: none;

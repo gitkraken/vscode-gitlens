@@ -1,6 +1,6 @@
 // @ts-check
 
-// The host resolves `@gitlens/*` through tsconfig `paths` and bundler aliases, both of which point
+// The host resolves internal packages through tsconfig `paths` and bundler aliases, both of which point
 // at `packages/*/src` and bypass the packages' `exports` maps entirely. Nothing else checks host
 // imports against the surface a package actually declares, so this rule does.
 
@@ -9,7 +9,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const scope = '@gitlens/';
+const scopes = ['@gitlens/', '@gitkraken/'];
 
 /** @type {Map<string, Record<string, unknown>>} */
 const exportsByPackage = loadPackageExports();
@@ -18,12 +18,12 @@ export default {
 	meta: {
 		type: 'problem',
 		docs: {
-			description: "Require @gitlens/* imports to name a subpath the target package's `exports` exposes",
+			description: "Require internal package imports to name a subpath the target package's `exports` exposes",
 			recommended: true,
 		},
 		messages: {
 			bare: '`{{specifier}}` has no root export; import a subpath such as `{{package}}/<module>.js`',
-			extension: '@gitlens/* imports must end with a .js extension',
+			extension: 'Internal package imports must end with a .js extension',
 			notExported:
 				'`{{subpath}}` is not exported by {{package}}. Add it to that package\'s "exports" if it is meant to be public.',
 		},
@@ -35,7 +35,10 @@ export default {
 		/** @param {{ value: unknown, raw?: string }} source */
 		const check = source => {
 			const specifier = source.value;
-			if (typeof specifier !== 'string' || !specifier.startsWith(scope)) return;
+			if (typeof specifier !== 'string') return;
+
+			const scope = scopes.find(candidate => specifier.startsWith(candidate));
+			if (scope == null) return;
 
 			const slash = specifier.indexOf('/', scope.length);
 			const name = slash === -1 ? specifier : specifier.slice(0, slash);
@@ -156,7 +159,11 @@ function loadPackageExports() {
 
 			try {
 				const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-				if (typeof pkgJson.name === 'string' && pkgJson.name.startsWith(scope) && pkgJson.exports != null) {
+				if (
+					typeof pkgJson.name === 'string' &&
+					scopes.some(scope => pkgJson.name.startsWith(scope)) &&
+					pkgJson.exports != null
+				) {
 					out.set(pkgJson.name, pkgJson.exports);
 				}
 			} catch {

@@ -2,7 +2,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, queryAssignedElements } from 'lit/decorators.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
 import type { WalkthroughContextKeys } from '../../../../constants.walkthroughs.js';
 

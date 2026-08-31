@@ -233,6 +233,10 @@
 		"./utils/keys/keybinding.js": {
 			"types": "./dist/utils/keys/keybinding.d.ts",
 			"default": "./dist/utils/keys/keybinding.js"
+		},
+		"./utils/keys/keymapDispatcher.js": {
+			"types": "./dist/utils/keys/keymapDispatcher.d.ts",
+			"default": "./dist/utils/keys/keymapDispatcher.js"
 		}
 	},
 	"dependencies": {

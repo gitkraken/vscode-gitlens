@@ -3,8 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import type { CandidateSigner, SignerProvider } from '../../../allowedSigners/protocol.js';
 import type { Checkbox } from '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/checkbox/checkbox.js';
-import '../../shared/components/code-icon.js';
-import '../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 @customElement('gl-signer-row')
 export class GlSignerRow extends LitElement {
@@ -16,8 +16,8 @@ export class GlSignerRow extends LitElement {
 		.row {
 			display: grid;
 			grid-template-columns: auto auto 1fr auto;
-			align-items: center;
 			gap: 1rem;
+			align-items: center;
 			padding: 0.8rem 1.2rem;
 			cursor: pointer;
 		}
@@ -38,8 +38,8 @@ export class GlSignerRow extends LitElement {
 		.avatar {
 			width: 2.4rem;
 			height: 2.4rem;
-			border-radius: 50%;
 			color: var(--vscode-descriptionForeground);
+			border-radius: 50%;
 		}
 
 		.identity {
@@ -50,34 +50,34 @@ export class GlSignerRow extends LitElement {
 		}
 
 		.name {
-			font-weight: 600;
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-weight: 600;
+			white-space: nowrap;
 		}
 
 		.email {
-			color: var(--vscode-descriptionForeground);
-			font-size: 1.2rem;
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-size: 1.2rem;
+			color: var(--vscode-descriptionForeground);
+			white-space: nowrap;
 		}
 
 		.keyinfo {
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			font-family: var(--vscode-editor-font-family, monospace);
 			font-size: 1.1rem;
 			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			max-width: 100%;
 		}
 
 		.details {
 			display: flex;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			font-size: 1.1rem;
 			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;

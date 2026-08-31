@@ -2,7 +2,7 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { dateConverter } from './converters/date-converter.js';
-import './overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 @customElement('formatted-date')
 export class FormattedDate extends LitElement {

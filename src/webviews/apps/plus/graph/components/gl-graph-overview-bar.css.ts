@@ -6,9 +6,9 @@ export const overviewBarStyles = css`
 		   scrolling .bar (which would otherwise carry it out of view), vertically centered. A closed
 		   mark contributes no flex item at all, so the gap only appears alongside the bulb. */
 		display: flex;
-		align-items: center;
-		gap: var(--gl-space-4);
 		flex: 0 0 auto;
+		gap: var(--gl-space-4);
+		align-items: center;
 		padding-block-end: 0.3rem;
 		font-family: var(--font-family);
 		background: var(--color-background);
@@ -57,12 +57,12 @@ export const overviewBarStyles = css`
 		   the commit-message scroller's fades, so both surfaces cut off identically. */
 		--_fade: var(--_fade-bg) 25%, transparent;
 
-		content: '';
 		position: sticky;
 		z-index: 1;
 		flex: none;
 		width: var(--_fade-width);
 		pointer-events: none; /* the fades overlay live pill buttons */
+		content: '';
 		opacity: 0;
 		animation: linear both;
 		animation-timeline: --bar-scroll;
@@ -88,6 +88,7 @@ export const overviewBarStyles = css`
 		0% {
 			opacity: 0;
 		}
+
 		2%,
 		100% {
 			opacity: 1;
@@ -99,6 +100,7 @@ export const overviewBarStyles = css`
 		98% {
 			opacity: 1;
 		}
+
 		100% {
 			opacity: 0;
 		}

@@ -374,9 +374,9 @@ export const graphHeaderControlStyles = css`
 		   height:100% still helps when the stretch chain does work. */
 		height: 100%;
 		min-height: calc(1.6rem + 2 * 0.4rem + 2 * var(--gl-border-width));
+		border-left: 0.1rem solid transparent;
 		border-start-start-radius: 0;
 		border-end-start-radius: 0;
-		border-left: 0.1rem solid transparent;
 		--button-padding: 0.4rem 0.1rem;
 	}
 
@@ -405,16 +405,16 @@ export const graphHeaderControlStyles = css`
 	.details-placement__option {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
 		gap: 0.4rem;
+		align-items: center;
 		padding: 0.4rem;
 		font-family: inherit;
 		font-size: 1.05rem;
 		color: inherit;
+		cursor: pointer;
 		background: none;
 		border: 0.1rem solid transparent;
 		border-radius: 0.5rem;
-		cursor: pointer;
 	}
 
 	.details-placement__option:hover {
@@ -427,9 +427,9 @@ export const graphHeaderControlStyles = css`
 	}
 
 	.details-placement__option[aria-checked='true'] {
-		border-color: var(--vscode-focusBorder);
 		outline: 0.1rem solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
+		border-color: var(--vscode-focusBorder);
 	}
 
 	.details-placement__option svg {

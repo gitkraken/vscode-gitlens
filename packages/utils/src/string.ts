@@ -184,6 +184,19 @@ export function encodeHtmlWeak(s: string | undefined): string | undefined {
 	});
 }
 
+export function splitMessage(message?: string): { summary: string; body?: string } {
+	if (!message) return { summary: '' };
+
+	message = message.trim();
+	const index = message.indexOf('\n');
+	if (index < 0) return { summary: message };
+
+	return {
+		summary: message.substring(0, index),
+		body: message.substring(index + 1).trim(),
+	};
+}
+
 export function escapeRegex(s: string): string {
 	return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }

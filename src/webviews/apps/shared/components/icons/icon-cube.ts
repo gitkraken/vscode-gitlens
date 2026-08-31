@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

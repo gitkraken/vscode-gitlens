@@ -5,6 +5,7 @@ import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
@@ -20,7 +21,6 @@ import type {
 	GraphSidebarPullRequest,
 } from '../../../../plus/graph/protocol.js';
 import { notifyService } from '../../../shared/actions/rpc.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { TreeItemDecoration, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base.js';
 import type { GlTreeView } from '../../../shared/components/tree/tree-view.js';
 import type { ResourceStatus } from '../../../shared/state/resource.js';
@@ -39,11 +39,11 @@ import { graphScopePopoverStyles } from './gl-graph-scope-popover.css.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/menu/menu-item.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/tree/tree-view.js';
 
 declare global {

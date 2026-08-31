@@ -1,4 +1,5 @@
 import type { Remote } from '@eamodio/supertalk';
+import { getWipRowWorktreePath } from '@gitkraken/commit-graph/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
@@ -35,7 +36,7 @@ import type {
 	GraphSidebarPullRequest,
 	State,
 } from '../../../../plus/graph/protocol.js';
-import { getWipRowWorktreePath, isWipSelectionSha } from '../../../../plus/graph/protocol.js';
+import { isWipSelectionSha } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
@@ -137,11 +138,11 @@ import {
 import { sheetWrapperSelector } from './sheetWrapper.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import './gl-graph-branch-sheet.js';

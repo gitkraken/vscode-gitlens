@@ -2,9 +2,9 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import type { CommitFrequencyData, TreemapData, TreemapMode, TreemapNode } from '../../../../plus/treemap/protocol.js';
-import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
-import { elevatedSurface } from '../../../shared/components/styles/lit/elevation.css.js';
 import type { TreemapRect } from '../utils/squarify.js';
 import { descendants, leaves, squarify } from '../utils/squarify.js';
 import '../../../shared/components/indicators/watermark-loader.js';
@@ -253,7 +253,7 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* Mirrors gl-timeline-chart's .notice overlay so the loader sits centered over the
-	 * canvas instead of dropping the chart out of the DOM during refresh. */
+* canvas instead of dropping the chart out of the DOM during refresh. */
 		.notice {
 			position: absolute;
 			inset: 0;
@@ -270,7 +270,7 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* Floating hint shown over the dim treemap when Activity mode is on but no agent is
-	 * currently editing a file. Disappears the moment any session's fileActivity lights up. */
+* currently editing a file. Disappears the moment any session's fileActivity lights up. */
 		.activity-hint {
 			position: absolute;
 			top: 50%;
@@ -309,10 +309,10 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* Compositor-thread pulse overlay for "the agent is here right now" leaves. One element per
-	 * focused leaf, positioned over its canvas rect. The breathing + ping ring animate via CSS
-	 * keyframes on opacity/transform, which the compositor runs off the main thread — so the cue
-	 * keeps gliding smoothly even while the main thread is blocked by unrelated webview work (the
-	 * jank a canvas rAF pulse can't avoid). overflow:hidden clips glows/rings to the chart bounds. */
+* focused leaf, positioned over its canvas rect. The breathing + ping ring animate via CSS
+* keyframes on opacity/transform, which the compositor runs off the main thread — so the cue
+* keeps gliding smoothly even while the main thread is blocked by unrelated webview work (the
+* jank a canvas rAF pulse can't avoid). overflow:hidden clips glows/rings to the chart bounds. */
 		.pulse-layer {
 			position: absolute;
 			inset: 0;
@@ -322,10 +322,10 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* The active leaf: a solid filled rounded box (like the reference) that emits a solid copy of
-	 * itself (the ::after echo) expanding outward and fading — a "broadcast" in the box's own shape,
-	 * at any zoom. Static box; only the echo animates. transform/opacity only → compositor thread,
-	 * smooth even under main-thread load. isolation keeps each pulse's echo + label z-ordering
-	 * self-contained. */
+* itself (the ::after echo) expanding outward and fading — a "broadcast" in the box's own shape,
+* at any zoom. Static box; only the echo animates. transform/opacity only → compositor thread,
+* smooth even under main-thread load. isolation keeps each pulse's echo + label z-ordering
+* self-contained. */
 		.activity-pulse {
 			position: absolute;
 			background: rgb(var(--pulse-ring));
@@ -335,7 +335,7 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* Filename label drawn on top of the solid block (dark on the bright kind-color fill). Above
-	 * the echo (z-index) so the broadcast copy never obscures it; clipped to the block. */
+* the echo (z-index) so the broadcast copy never obscures it; clipped to the block. */
 		.activity-pulse-label {
 			position: absolute;
 			top: 0.2rem;
@@ -361,10 +361,10 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* Broadcast echo in the block's own shape — a rounded rectangle (inheriting the block's
-	 * corners) whose size (--echo-w/--echo-h, set per-leaf in render) tracks the leaf with a floor,
-	 * so it starts ≈ the leaf and expands beyond: a big leaf gets a big rectangular ripple (reads
-	 * as pulsing when zoomed in), a tiny leaf a floored one (still a dramatic ping when zoomed
-	 * out). cubic-bezier front-loads the growth then eases out. */
+* corners) whose size (--echo-w/--echo-h, set per-leaf in render) tracks the leaf with a floor,
+* so it starts ≈ the leaf and expands beyond: a big leaf gets a big rectangular ripple (reads
+* as pulsing when zoomed in), a tiny leaf a floored one (still a dramatic ping when zoomed
+* out). cubic-bezier front-loads the growth then eases out. */
 		.activity-pulse::after {
 			position: absolute;
 			top: 50%;
@@ -377,7 +377,7 @@ export class GlTreemapChart extends LitElement {
 			content: '';
 
 			/* Solid, same color as the block → at scale 1 it's seamless with the box, then a solid
-		 * copy flies outward and fades. */
+ * copy flies outward and fades. */
 			background: rgb(var(--pulse-ring));
 			border-radius: inherit;
 			animation: activity-pulse-broadcast var(--pulse-period, 2000ms) cubic-bezier(0.25, 0, 0, 1) infinite;

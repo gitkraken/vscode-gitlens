@@ -1,6 +1,6 @@
 import { css } from 'lit';
-import { focusableBaseStyles, focusOutline } from '../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase } from '../shared/components/styles/lit/base.css.js';
+import { focusableBaseStyles, focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 export const settingsAppStyles = [
 	boxSizingBase,

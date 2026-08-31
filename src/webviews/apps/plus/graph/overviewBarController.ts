@@ -1,3 +1,5 @@
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/worktree.js';
+import { isPrimaryWipRowId } from '@gitkraken/commit-graph/identity.js';
 import { computed, signal } from '@lit-labs/signals';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -5,7 +7,6 @@ import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
 import type { GraphScopeSource, State } from '../../../plus/graph/protocol.js';
-import { isPrimaryWipRowId } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import { HeldActionController } from '../../shared/controllers/held-action.js';
@@ -22,7 +23,6 @@ import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import {
 	filterSecondariesForScopeAndVisibility,
-	hasDirtyCounts,
 	isScopeFocalHead,
 	shouldIncludeOverviewBarSecondary,
 	shouldShowPrimaryWipRow,

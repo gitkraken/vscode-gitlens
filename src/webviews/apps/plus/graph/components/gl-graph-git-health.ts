@@ -2,6 +2,9 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import type { GitHealthFinding, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 // Derives from the live threshold so tuning it can't strand stale numbers in the UI.
 import { trackedFilesThreshold } from '@gitlens/git/gitHealth.js';
@@ -9,12 +12,9 @@ import type { GitHealthDetails, GitOptimizationId } from '@gitlens/git/providers
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Unsubscribe } from '../../../../rpc/services/types.js';
-import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
-import { srOnly } from '../../../shared/components/styles/lit/a11y.css.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import './gl-graph-coachmark.js';
 import './gl-graph-visualizations-switcher.js';
 
@@ -198,33 +198,36 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			display: flex;
 			flex-direction: column;
 			height: 100%;
+			container-type: inline-size;
 			overflow: hidden;
 			font-size: var(--gl-font-base);
-			container-type: inline-size;
 		}
 
 		.header-row {
 			display: flex;
-			align-items: center;
 			gap: var(--gl-space-6);
+			align-items: center;
 			min-width: 0;
 			min-height: 3.2rem;
 			padding: var(--gl-space-4) var(--gl-space-6);
 			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
+
 		.header-row gl-graph-visualizations-switcher {
 			flex: none;
 		}
+
 		.header-row__title {
 			flex: 0 1 auto;
 			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			text-transform: uppercase;
 			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
 		}
+
 		.header-row__right {
 			display: flex;
 			flex: none;
@@ -232,26 +235,29 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			align-items: center;
 			margin-inline-start: auto;
 		}
+
 		@container (max-width: 44rem) {
 			.run-label {
 				display: none;
 			}
 			/* A one-character ellipsis is worse than no title — the active switcher tab already names
-			   the view at this width. */
+	   the view at this width. */
 			.header-row__title {
 				display: none;
 			}
 			/* The fixed name column starves the status column at side-bar width, clipping the state/owner
-			   info to a character — wrap it onto its own line under the name instead. */
+	   info to a character — wrap it onto its own line under the name instead. */
 			.ledger-row .ledger-name {
 				width: auto;
 			}
+
 			.ledger-row .ledger-action {
 				margin-inline-start: auto;
 			}
+
 			.ledger-row .ledger-status {
-				order: 4;
 				flex-basis: 100%;
+				order: 4;
 				min-width: 0;
 				/* Aligns under .ledger-name: twistie (2.4rem) + gap (1rem) + state icon (1.6rem) + gap (1rem). */
 				padding-inline-start: 6rem;
@@ -259,22 +265,22 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.body {
-			flex: 1;
-			min-height: 0;
-			overflow: hidden auto;
-			padding: var(--gl-space-16) var(--gl-space-16) var(--gl-space-20);
 			display: flex;
+			flex: 1;
 			flex-direction: column;
 			gap: var(--gl-space-20);
+			min-height: 0;
+			padding: var(--gl-space-16) var(--gl-space-16) var(--gl-space-20);
+			overflow: hidden auto;
 		}
 
 		.error {
+			padding: var(--gl-space-4) var(--gl-space-6);
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
 			background: var(--vscode-inputValidation-errorBackground);
 			border: var(--gl-border-width) solid var(--vscode-inputValidation-errorBorder, transparent);
 			border-radius: 0.2rem;
-			padding: var(--gl-space-4) var(--gl-space-6);
 		}
 
 		/* ── Verdict: the panel's answer, read first. */
@@ -282,57 +288,68 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			display: flex;
 			gap: var(--gl-space-10);
 		}
+
 		.verdict code-icon {
 			flex: none;
 			font-size: 1.8rem;
 			line-height: 2.4rem;
 		}
+
 		.verdict[data-tone='attn'] code-icon {
 			color: var(--vscode-editorWarning-foreground);
 		}
+
 		.verdict[data-tone='ok'] code-icon {
 			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
 		}
+
 		.verdict[data-tone='incomplete'] code-icon {
 			color: var(--vscode-descriptionForeground);
 		}
+
 		.verdict-text {
 			display: flex;
 			flex-direction: column;
 			gap: var(--gl-space-4);
 		}
+
 		.verdict-title {
 			font-size: 1.6rem;
 			font-weight: 600;
 			line-height: 2.4rem;
 		}
+
 		.verdict-sub {
-			font-size: var(--gl-font-base);
-			color: var(--vscode-descriptionForeground);
-			line-height: 1.5;
 			max-width: 56rem;
+			font-size: var(--gl-font-base);
+			line-height: 1.5;
+			color: var(--vscode-descriptionForeground);
 		}
+
 		.verdict-facts {
 			display: flex;
 			flex-wrap: wrap;
-			column-gap: var(--gl-space-6);
-			row-gap: var(--gl-space-2);
+			gap: var(--gl-space-2) var(--gl-space-6);
 			font-size: var(--gl-font-base);
 			color: var(--vscode-descriptionForeground);
 		}
+
 		.verdict-facts b {
-			color: var(--vscode-foreground);
 			font-weight: 600;
 			font-variant-numeric: tabular-nums;
+			color: var(--vscode-foreground);
 		}
+
 		.verdict-facts .fact.warn,
 		.verdict-facts .fact.warn b {
 			color: var(--vscode-editorWarning-foreground);
 		}
+
 		.verdict-facts .sep {
 			color: var(--vscode-descriptionForeground);
 			opacity: 0.6;
 		}
+
 		.verdict-placeholder {
 			font-size: var(--gl-font-base);
 			color: var(--vscode-descriptionForeground);
@@ -344,6 +361,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			flex-direction: column;
 			gap: var(--gl-space-10);
 		}
+
 		.card {
 			display: flex;
 			flex-direction: column;
@@ -354,32 +372,37 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			border: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
 			border-radius: var(--gl-radius-sm);
 		}
+
 		.card-head {
 			display: flex;
-			align-items: center;
 			gap: var(--gl-space-10);
+			align-items: center;
 			cursor: pointer;
 		}
+
 		.card-title {
 			font-size: var(--gl-font-lg);
 			font-weight: 600;
 		}
+
 		.card-action {
 			flex: none;
 			margin-inline-start: auto;
 		}
+
 		.card-blurb {
-			font-size: var(--gl-font-base);
-			color: var(--vscode-descriptionForeground);
-			line-height: 1.5;
 			max-width: 54rem;
+			font-size: var(--gl-font-base);
+			line-height: 1.5;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		/* Twistie — the sole disclosure control. Toggling appends .lever-details at the card/row's end;
-		   nothing above it moves. */
+   nothing above it moves. */
 		.twistie {
 			flex: none;
 		}
+
 		.twistie:focus-visible {
 			outline: var(--gl-border-width) solid var(--color-focus-border);
 			outline-offset: 0.2rem;
@@ -387,17 +410,18 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		/* Changes line — always visible; the exact config write, quiet and never behind the twistie. */
 		.changes-line {
-			font-size: var(--gl-font-md);
-			color: var(--vscode-descriptionForeground);
-			line-height: 1.5;
 			max-width: 54rem;
+			font-size: var(--gl-font-md);
+			line-height: 1.5;
+			color: var(--vscode-descriptionForeground);
 		}
+
 		.changes-line code {
+			padding: 0.1rem 0.4rem;
 			font-family: var(--vscode-editor-font-family);
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-foreground);
 			background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-			padding: 0.1rem 0.4rem;
 			border-radius: var(--gl-radius-xs);
 		}
 
@@ -411,6 +435,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			line-height: 1.5;
 			color: var(--vscode-editorWarning-foreground);
 		}
+
 		.note code-icon {
 			flex: none;
 		}
@@ -422,62 +447,72 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			gap: var(--gl-space-4);
 			max-width: 54rem;
 			padding-inline-start: var(--gl-space-12);
-			border-inline-start: 0.2rem solid color-mix(in srgb, var(--vscode-foreground) 15%, transparent);
 			font-size: var(--gl-font-md);
-			color: var(--vscode-descriptionForeground);
 			line-height: 1.5;
+			color: var(--vscode-descriptionForeground);
+			border-inline-start: 0.2rem solid color-mix(in srgb, var(--vscode-foreground) 15%, transparent);
 		}
+
 		.lever-details[hidden] {
 			display: none;
 		}
+
 		.lever-details b {
 			color: var(--vscode-foreground);
 		}
+
 		.lever-details code {
+			padding: 0.1rem 0.4rem;
 			font-family: var(--vscode-editor-font-family);
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-foreground);
 			background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-			padding: 0.1rem 0.4rem;
 			border-radius: var(--gl-radius-xs);
 		}
+
 		.lever-details a {
 			color: var(--vscode-textLink-foreground);
 			text-decoration: none;
 		}
+
 		.lever-details a:hover {
 			text-decoration: underline;
 		}
+
 		.lever-details a:focus-visible {
 			outline: var(--gl-border-width) solid var(--color-focus-border);
 			outline-offset: 0.2rem;
 		}
 
 		/* Threshold meter — why THIS repo, visually: measured value against the threshold that triggers
-		   the suggestion. Mark = threshold; fill past it is the overshoot, in warning tone. */
+   the suggestion. Mark = threshold; fill past it is the overshoot, in warning tone. */
 		.meter {
 			display: flex;
 			flex-direction: column;
 			gap: var(--gl-space-4);
 			max-width: 42rem;
 		}
+
 		.meter-track {
 			position: relative;
 			height: 0.6rem;
-			border-radius: var(--gl-radius-xs);
 			background: var(--vscode-editorWidget-background);
+			border-radius: var(--gl-radius-xs);
 		}
+
 		.meter-base {
 			position: absolute;
 			inset: 0 auto 0 0;
-			border-radius: var(--gl-radius-xs);
 			background: color-mix(in srgb, var(--vscode-descriptionForeground) 55%, transparent);
+			border-radius: var(--gl-radius-xs);
 		}
+
 		.meter-over {
 			position: absolute;
-			inset: 0 auto 0 auto;
+			inset: 0 auto;
 			background: var(--vscode-editorWarning-foreground);
 		}
+
 		.meter-mark {
 			position: absolute;
 			top: -0.2rem;
@@ -485,16 +520,18 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			width: 0.2rem;
 			background: var(--vscode-foreground);
 		}
+
 		.meter-labels {
 			display: flex;
 			justify-content: space-between;
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-descriptionForeground);
 		}
+
 		.meter-labels b {
-			color: var(--vscode-foreground);
 			font-weight: 600;
 			font-variant-numeric: tabular-nums;
+			color: var(--vscode-foreground);
 		}
 
 		/* ── Section eyebrows */
@@ -503,11 +540,12 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			flex-direction: column;
 			gap: var(--gl-space-8);
 		}
+
 		.section-label {
 			font-size: var(--gl-font-sm);
+			color: var(--vscode-descriptionForeground);
 			text-transform: uppercase;
 			letter-spacing: 0.08em;
-			color: var(--vscode-descriptionForeground);
 		}
 
 		/* ── Ledger: everything not needing attention. Repository-specific state stays readable. */
@@ -515,88 +553,100 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			display: flex;
 			flex-direction: column;
 		}
+
 		.ledger-row {
 			display: flex;
 			flex-wrap: wrap;
-			align-items: baseline;
-			column-gap: var(--gl-space-10);
 			/* Benefit/consequence always wrap onto their own line below row one — tighter than the row's
-			   horizontal gap so they read as attached to the row they extend. */
-			row-gap: var(--gl-space-2);
+	   horizontal gap so they read as attached to the row they extend. */
+			gap: var(--gl-space-2) var(--gl-space-10);
+			align-items: baseline;
 			padding: var(--gl-space-6) var(--gl-space-2);
 			font-size: var(--gl-font-base);
 			cursor: pointer;
 		}
+
 		.ledger-row .lever-details {
-			order: 5;
 			/* Forces the block onto its own flex line: the base max-width would otherwise cap the flex
-			   line-breaking's hypothetical size, letting wide rows seat it beside the action instead. The
-			   measure cap moves to the children below. Margin (not padding) indents it under .ledger-name —
-			   twistie (2.4rem) + gap (1rem) + state icon (1.6rem) + gap (1rem) — so the left rule hugs the
-			   text at the indent rather than sitting at the row edge with dead space after it. */
+	   line-breaking's hypothetical size, letting wide rows seat it beside the action instead. The
+	   measure cap moves to the children below. Margin (not padding) indents it under .ledger-name —
+	   twistie (2.4rem) + gap (1rem) + state icon (1.6rem) + gap (1rem) — so the left rule hugs the
+	   text at the indent rather than sitting at the row edge with dead space after it. */
 			flex-basis: 100%;
+			order: 5;
 			max-width: none;
 			margin-inline-start: 6rem;
 		}
+
 		.ledger-row .lever-details > * {
 			max-width: 54rem;
 		}
+
 		.ledger-row + .ledger-row {
 			border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
+
 		.ledger-state {
 			flex: none;
 			color: var(--vscode-descriptionForeground);
 		}
+
 		.ledger-state[data-tone='on'] {
 			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
 		}
+
 		.ledger-name {
 			flex: none;
 			width: 17rem;
 			font-weight: 500;
 		}
+
 		.ledger-status {
 			flex: 1;
 			min-width: 0;
-			color: var(--vscode-descriptionForeground);
 			font-size: var(--gl-font-md);
 			line-height: 1.4;
+			color: var(--vscode-descriptionForeground);
 			overflow-wrap: anywhere;
 		}
+
 		.ledger-action {
 			flex: none;
 		}
 		/* Benefit/consequence lines — always their own flex line, indented under .ledger-name. A max-width
-		   here would cap the size line-breaking uses, letting short rows seat the line beside the action
-		   instead of wrapping it — so the measure cap moves to .ledger-line-text below, same pattern as
-		   .lever-details. */
+   here would cap the size line-breaking uses, letting short rows seat the line beside the action
+   instead of wrapping it — so the measure cap moves to .ledger-line-text below, same pattern as
+   .lever-details. */
 		.ledger-row .ledger-line {
 			flex-basis: 100%;
-			max-width: none;
 			min-width: 0;
+			max-width: none;
 			/* Aligns under .ledger-name: twistie (2.4rem) + gap (1rem) + state icon (1.6rem) + gap (1rem). */
 			padding-inline-start: 6rem;
 			font-size: var(--gl-font-md);
-			color: var(--vscode-descriptionForeground);
 			line-height: 1.5;
+			color: var(--vscode-descriptionForeground);
 		}
+
 		.ledger-line-text {
 			display: inline-block;
 			max-width: 54rem;
 			overflow-wrap: anywhere;
 		}
+
 		.ledger-line-text code {
+			padding: 0.1rem 0.4rem;
 			font-family: var(--vscode-editor-font-family);
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-foreground);
 			background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-			padding: 0.1rem 0.4rem;
 			border-radius: var(--gl-radius-xs);
 		}
+
 		.owner-gl {
 			color: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
 		}
+
 		.card:focus-visible,
 		.ledger-row:focus-visible {
 			outline: var(--gl-border-width) solid var(--color-focus-border);

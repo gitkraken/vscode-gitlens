@@ -1,7 +1,7 @@
 import * as assert from 'assert';
+import { createWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { GitGraphRow, GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import { appendRowsLedger, buildRowsLedger, diffRowsAgainstLedger, fingerprintRow } from '../graphRowsSplice.js';
-import { createWipRowId } from '../protocol.js';
 
 function row(sha: string, options?: Partial<GitGraphRow>): GitGraphRow {
 	return {

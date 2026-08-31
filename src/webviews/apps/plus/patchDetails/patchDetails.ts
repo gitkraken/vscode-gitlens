@@ -5,6 +5,7 @@ import { html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import { DOM } from '@gitlens/utils/dom.js';
 import type { ViewFilesLayout } from '../../../../config.js';
 import type { DraftVisibility } from '../../../../plus/drafts/models/drafts.js';
 import type { Serialized } from '../../../../system/serialize.js';
@@ -25,7 +26,6 @@ import type {
 	PatchDetailsViewService,
 } from '../../../rpc/patchDetailsService.js';
 import { SignalWatcherWebviewApp } from '../../shared/appBase.js';
-import { DOM } from '../../shared/dom.js';
 import type { Disposable } from '../../shared/events.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { getHost } from '../../shared/host/context.js';

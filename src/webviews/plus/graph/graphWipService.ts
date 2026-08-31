@@ -1,3 +1,4 @@
+import { createWipRowId, getWipRowWorktreePath } from '@gitkraken/commit-graph/identity.js';
 import type { CancellationToken } from 'vscode';
 import { CancellationTokenSource, Disposable, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
@@ -43,7 +44,6 @@ import type {
 	GraphWipStateById,
 	SidebarWorktreeChange,
 } from './protocol.js';
-import { createWipRowId, getWipRowWorktreePath } from './protocol.js';
 
 /**
  * Grace period before a secondary-WIP filesystem watcher is disposed after its row leaves the

@@ -142,7 +142,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Fetch button is wired to the fetch command', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6 /* Paid */, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6 /* Paid */, planId: 'pro' });
 
 		const webview = await openGraphOnBranch(vscode, 'main');
 
@@ -152,7 +152,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Publish Branch button is shown (and wired) for an unpublished branch', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		// main has no upstream → unpublished.
 		const webview = await openGraphOnBranch(vscode, 'main');
@@ -166,7 +166,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Push button is shown (and wired) when the branch is ahead', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphOnBranch(vscode, 'feature-ahead');
 
@@ -180,7 +180,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Pull button is shown (and wired) when the branch is behind', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphOnBranch(vscode, 'feature-behind');
 
@@ -192,7 +192,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Force Push button is shown (and wired) when the branch has diverged', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphOnBranch(vscode, 'feature-diverged');
 
@@ -206,7 +206,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Fetch popover exposes the auto-fetch settings gear wired to Git settings', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphOnBranch(vscode, 'main');
 		await openFetchPopover(webview);
@@ -216,7 +216,7 @@ test.describe('Graph — Header git-action buttons', () => {
 	});
 
 	test('Fetch popover surfaces the auto-fetch toggle', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphOnBranch(vscode, 'main');
 		await openFetchPopover(webview);

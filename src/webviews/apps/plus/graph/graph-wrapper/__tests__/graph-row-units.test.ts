@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { RowUnitsIndex } from '../graph-row-units.js';
-import type { RowUnitsSource } from '../graph-row-units.js';
+import { RowUnitsIndex } from '@gitkraken/commit-graph-ui/graphRowUnits.js';
+import type { RowUnitsSource } from '@gitkraken/commit-graph-ui/graphRowUnits.js';
 
 /** Deterministic pseudo-random units vector (no `Math.random`) — a small LCG seeded fixed. */
 function buildUnitsVector(length: number): number[] {

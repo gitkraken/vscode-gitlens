@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { ReactiveControllerHost } from 'lit';
-import { ModifierKeysController } from '../modifier-keys.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 
 type Listener = (e: unknown) => void;
 

@@ -21,9 +21,9 @@ export class GlGraphHeaderPromo extends SignalWatcher(LitElement) {
 	static override styles = [
 		css`
 			/* Visibility (no promo / too narrow) is owned entirely by the header row this sits in — see
-			   .titlebar__row--promo. This component only swaps which text variant shows: compact by
-			   default, full once the strip can seat it. Splitting the "hidden" state across both layers
-			   left an empty band: the row showed because a promo existed while the content hid itself. */
+  .titlebar__row--promo. This component only swaps which text variant shows: compact by
+  default, full once the strip can seat it. Splitting the "hidden" state across both layers
+  left an empty band: the row showed because a promo existed while the content hid itself. */
 			:host {
 				display: block;
 				min-width: 0;

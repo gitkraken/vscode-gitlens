@@ -1,8 +1,8 @@
 import type WaSlider from '@awesome.me/webawesome/dist/components/slider/slider.js';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { GlElement } from '@gitlens/components/components/element.js';
 import type { TimelineDatum } from '../../../../plus/timeline/protocol.js';
-import { GlElement } from '../../../shared/components/element.js';
 import '@awesome.me/webawesome/dist/components/slider/slider.js';
 
 declare global {
@@ -43,8 +43,8 @@ export class GlChartSlider extends GlElement {
 		}
 
 		/* Indicator is anchored to max (= the working tree at the right edge) via indicator-offset,
-	   so it spans the selected commit to the working tree. Hidden by default (matches track),
-	   revealed in the accent color only while Shift is held. */
+  so it spans the selected commit to the working tree. Hidden by default (matches track),
+  revealed in the accent color only while Shift is held. */
 		wa-slider::part(indicator) {
 			background-color: transparent;
 		}
@@ -54,8 +54,8 @@ export class GlChartSlider extends GlElement {
 		}
 
 		/* WA's thumb defaults to var(--wa-form-control-activated-color) (background) + 2px
-	   border in var(--wa-color-surface-default) — neither token is defined since we
-	   don't ship WA's theme CSS, so the thumb is invisible without these overrides. */
+  border in var(--wa-color-surface-default) — neither token is defined since we
+  don't ship WA's theme CSS, so the thumb is invisible without these overrides. */
 		wa-slider::part(thumb) {
 			cursor: pointer;
 			background-color: var(--vscode-foreground);

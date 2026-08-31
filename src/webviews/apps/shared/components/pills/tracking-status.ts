@@ -2,8 +2,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { renderBranchName } from '../branch-name.js';
-import '../overlays/tooltip.js';
-import './tracking.js';
+import '@gitlens/components/components/overlays/tooltip.js';
+import '@gitlens/components/components/pills/tracking.js';
 
 @customElement('gl-tracking-status')
 export class GlTrackingStatus extends LitElement {

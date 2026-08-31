@@ -18,7 +18,7 @@ import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/skeleton-loader.js';
 import './branch-section.js';
 

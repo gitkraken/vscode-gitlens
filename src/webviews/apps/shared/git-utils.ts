@@ -1,21 +1,10 @@
-// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/models/branch.js';
 import type { GitReference, GitStashReference } from '@gitlens/git/models/reference.js';
 import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { capitalize } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 // import { isRevisionRange, isShaParent, isStashReference } from '@gitlens/git/models/reference.js';
-
-// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/models/branch.js';
-export function getRemoteNameSlashIndex(name: string): number {
-	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
-}
-export function getBranchNameWithoutRemote(name: string): string {
-	return name.substring(getRemoteNameSlashIndex(name) + 1);
-}
-export function getRemoteNameFromBranchName(name: string): string {
-	return name.substring(0, getRemoteNameSlashIndex(name));
-}
 
 /** A remote's hosting-provider glicon, or the `cloud` codicon for an unrecognized/absent provider (there is
  *  no `gl-provider-cloud`). Applies the same `'remote'` → `'cloud'` normalization the host already does. */

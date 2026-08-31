@@ -30,7 +30,12 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { ensureGraphRowsRendered, scrollDetailsToFileTree, widenSideBarForGraph } from '../graphHelpers.js';
+import {
+	ensureGraphRowsRendered,
+	graphDetailsRegion,
+	scrollDetailsToFileTree,
+	widenSideBarForGraph,
+} from '../graphHelpers.js';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -132,7 +137,7 @@ async function selectWipDetails(webview: FrameLocator): Promise<void> {
 	await setDetailsPanel(webview, false);
 	await selectWipRow(webview);
 	await setDetailsPanel(webview, true);
-	await expect(webview.locator('gl-details-wip-panel').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphDetailsRegion(webview, 'wip')).toBeVisible({ timeout: 30000 });
 }
 
 function resolvePanel(webview: FrameLocator) {
@@ -200,7 +205,7 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	await selectWipRow(webview!);
 	await setDetailsPanel(webview!, true);
 	await exitResolveMode(webview!);
-	await expect(webview!.locator('gl-details-wip-panel').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphDetailsRegion(webview!, 'wip')).toBeVisible({ timeout: 30000 });
 	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 15000 }).toBeGreaterThan(0);
 	return webview!;
 }
@@ -276,7 +281,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('WIP row exposes the +hasConflicts context', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6 /* Paid */, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6 /* Paid */, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
 
@@ -288,7 +293,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('conflicted file exposes the +conflict context in the WIP details', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
 
@@ -319,7 +324,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('resolveAllConflicts enters resolve mode for the whole worktree', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
@@ -359,7 +364,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('resolveConflicts enters resolve mode scoped to a single file', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
@@ -385,7 +390,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('resolveConflicts.multi enters resolve mode for a multi-selection of conflicts', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
@@ -432,7 +437,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	// VS Code TreeItem contextValue (not in the DOM), so we assert on the rendered conflict node +
 	// file instead — confirming conflict detection surfaces in the tree.
 	test('Commits view surfaces the conflicted file under the merge status', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		await vscode.gitlens.showCommitsView();
 
@@ -448,7 +453,7 @@ test.describe('Graph — Conflict Resolution', () => {
 	// Runs last: aborting the merge clears the conflict, so no other test may depend on the
 	// conflicted state after this point (serial mode guarantees ordering).
 	test('no conflict context once the merge is aborted', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
 		// Baseline: the conflicted merge currently advertises conflicts on the WIP row.

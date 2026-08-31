@@ -1,3 +1,4 @@
+import { createWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { CancellationTokenSource } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
@@ -34,7 +35,6 @@ import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GraphSearchResponse, GraphSearchState, GraphServices } from './graphService.js';
 import type { SelectedRowState } from './graphWebview.js';
-import { createWipRowId } from './protocol.js';
 import type {
 	DidRequestSearchParams,
 	DidSearchHistoryGetParams,

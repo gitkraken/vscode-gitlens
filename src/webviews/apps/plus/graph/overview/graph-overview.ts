@@ -4,6 +4,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import { linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -18,14 +20,12 @@ import type {
 } from '../../../../plus/graph/protocol.js';
 import { isConnectionClosedError, notifyService } from '../../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
-import { linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
-import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import './graph-overview-card.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/menu/menu-popover.js';
 
 /** Labels for the Overview "Recent" timeframe filter, in display order. */

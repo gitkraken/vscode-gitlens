@@ -1,16 +1,16 @@
+import type { GraphRowHiddenReason } from '@gitkraken/commit-graph-ui/surface.js';
 import { html, nothing } from 'lit';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import type { CustomEventType } from '@gitlens/components/components/element.js';
 import type { GraphBranchesVisibility } from '../../../../config.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
 import type { GraphComponentConfig } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
-import type { CustomEventType } from '../../shared/components/element.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { GraphJumpToastKind } from './components/gl-graph-jump-toast.js';
 import type { AppState } from './context.js';
 import type { GlGraphHeader } from './graph-header.js';
-import type { GraphRowHiddenReason } from './graph-wrapper/gl-lit-graph.js';
 import type {
 	GlGraphWrapper,
 	GraphNavigationFailureReason,

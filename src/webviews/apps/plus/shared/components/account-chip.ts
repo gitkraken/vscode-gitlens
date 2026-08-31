@@ -4,6 +4,10 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription.js';
@@ -27,11 +31,7 @@ import {
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import { resolveAiUsage } from '../../../shared/aiUsage.js';
-import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { GlPromo } from '../../../shared/components/promo.js';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
@@ -42,8 +42,8 @@ import { ruleStyles } from './vscode.css.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 @customElement('gl-account-chip')
 export class GlAccountChip extends SignalWatcher(LitElement) {
@@ -142,7 +142,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* The headline is a name plus badges now, so it lays out as a row instead of one ellipsising
-			   string — "GitLens Pro" is short enough that it no longer needs to truncate. */
+  string — "GitLens Pro" is short enough that it no longer needs to truncate. */
 			.header__title {
 				display: flex;
 				flex-wrap: wrap;
@@ -152,12 +152,12 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Squared off from gl-badge's pill default and tightened — at title size the elliptical shape read as
-			   a control sitting next to the name rather than a label on it. Overridden here rather than on the
-			   shared default, which other surfaces still want as a pill.
+  a control sitting next to the name rather than a label on it. Overridden here rather than on the
+  shared default, which other surfaces still want as a pill.
 
-			   The badge text is all-caps with no descenders, so it sits on the box's floor and reads low. The
-			   bottom padding buys back the room those missing descenders would have occupied, and align-items
-			   centers the anonymous text item that gl-badge's inline-flex would otherwise stretch. */
+  The badge text is all-caps with no descenders, so it sits on the box's floor and reads low. The
+  bottom padding buys back the room those missing descenders would have occupied, and align-items
+  centers the anonymous text item that gl-badge's inline-flex would otherwise stretch. */
 			.header__title gl-badge::part(base) {
 				align-items: center;
 				padding: 0 var(--gl-space-4) var(--gl-space-2);
@@ -165,9 +165,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* gl-badge's host sets no display of its own, so as a flex item it blockifies to a box whose height
-			   comes from the INHERITED strut — the title's own tall line — and the badge inside was then placed by
-			   that strut's baseline, riding well below the title's text. Giving the host a display makes its box
-			   the badge itself, so the row's align-items can actually center it. */
+  comes from the INHERITED strut — the title's own tall line — and the badge inside was then placed by
+  that strut's baseline, riding well below the title's text. Giving the host a display makes its box
+  the badge itself, so the row's align-items can actually center it. */
 			.header__title gl-badge {
 				display: inline-flex;
 				align-items: center;
@@ -179,23 +179,23 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Recessed grey sub-chip carved into the tier pill. Styled here rather than with gl-badge's
-			   appearance="muted" because that variant's palette is tuned to sit inside a FILLED badge
-			   (--vscode-badge-foreground on its own tint), and overriding it through ::part would need
-			   !important to outrank the component's internal .badge class. Inherits the pill's small-caps. */
+  appearance="muted" because that variant's palette is tuned to sit inside a FILLED badge
+  (--vscode-badge-foreground on its own tint), and overriding it through ::part would need
+  !important to outrank the component's internal .badge class. Inherits the pill's small-caps. */
 			.plan-trial {
 				display: flex;
 				flex: 0 0 auto;
 				align-items: center;
 
 				/* Bleeds to the pill's inner edges rather than floating in its padding: stretch fills the
-				   content box vertically, and the negative right/bottom margins reach back across the
-				   padding the tier text needs, so the grey ends flush against the border. Only the trailing
-				   corners are rounded — the leading edge butts up against the tier text. */
+   content box vertically, and the negative right/bottom margins reach back across the
+   padding the tier text needs, so the grey ends flush against the border. Only the trailing
+   corners are rounded — the leading edge butts up against the tier text. */
 				align-self: stretch;
 
 				/* Mirrors the pill's own vertical padding so the sub-chip's text centers in the same optical
-				   box as the tier text. Without it the chip centers over the full bled height while the tier
-				   text centers above the bottom padding, and the two labels sit a pixel apart. */
+   box as the tier text. Without it the chip centers over the full bled height while the tier
+   text centers above the bottom padding, and the two labels sit a pixel apart. */
 				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				margin: 0 calc(var(--gl-space-4) * -1) calc(var(--gl-space-2) * -1) var(--gl-space-4);
 				font-weight: 500;
@@ -205,7 +205,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Trial countdown, alongside the pills rather than inside one — see renderPlanTitle. Sits a step
-			   below the badges in the foreground ladder: it's supporting detail, and the body restates it. */
+  below the badges in the foreground ladder: it's supporting detail, and the body restates it. */
 			.plan-remaining {
 				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--50);
@@ -213,7 +213,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* The upgrade CTA rides the account row's right edge, and wraps under the name/email when they
-			   leave it no room — better than squeezing either side in a narrow panel. */
+  leave it no room — better than squeezing either side in a narrow panel. */
 			.row--account {
 				flex-wrap: wrap;
 				row-gap: var(--gl-space-6);
@@ -240,12 +240,12 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Ring matches the Graph header's account pill (accountRing.css.ts) so the same entitlement reads
-			   the same in the toolbar and in the panel it opens. Only the photo gets it — the no-avatar
-			   fallback is a square-ish glyph, and a circular ring around it would read as a mistake.
+  the same in the toolbar and in the panel it opens. Only the photo gets it — the no-avatar
+  fallback is a square-ish glyph, and a circular ring around it would read as a mistake.
 
-			   Never gate the ring color on --vscode-contrastBorder: any theme can set it, and setting it to the
-			   theme's own background is the standard way to suppress VS Code's default hairlines, which would
-			   paint the ring in the background color and erase the state. */
+  Never gate the ring color on --vscode-contrastBorder: any theme can set it, and setting it to the
+  theme's own background is the standard way to suppress VS Code's default hairlines, which would
+  paint the ring in the background color and erase the state. */
 			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
@@ -255,7 +255,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Forced-colors mode drops box-shadow; repaint the ring as an outline, which survives and is
-			   equally layout-free. */
+  equally layout-free. */
 			@media (forced-colors: active) {
 				.row__media img {
 					outline: 0.1rem solid ButtonBorder;
@@ -310,15 +310,15 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			/* ── GitKraken AI usage ── */
 
 			/* The compact counterpart to the Settings Account card's full meter — and the way through to it.
-			   Interactive states match gl-graph-account-indicator's .rollup__walkthrough, the other
-			   navigational row in the same rollup: padded, radiused, toolbar-hover wash, no underline.
+  Interactive states match gl-graph-account-indicator's .rollup__walkthrough, the other
+  navigational row in the same rollup: padded, radiused, toolbar-hover wash, no underline.
 
-			   Padding only, deliberately NO negative inline margin. The wash has to stop at .content's
-			   edge, which is where the header's toolbar actions (sign out, sync, cog) end — pulling it
-			   wider makes the wash, rather than the header, define the panel's visual right edge and
-			   leaves those buttons looking inset from it. That also matches the reference row exactly:
-			   .rollup__walkthrough's wash spans .rollup's INNER width, flush with those same buttons,
-			   with its own text inset by its own padding. This row's text is inset the same way. */
+  Padding only, deliberately NO negative inline margin. The wash has to stop at .content's
+  edge, which is where the header's toolbar actions (sign out, sync, cog) end — pulling it
+  wider makes the wash, rather than the header, define the panel's visual right edge and
+  leaves those buttons looking inset from it. That also matches the reference row exactly:
+  .rollup__walkthrough's wash spans .rollup's INNER width, flush with those same buttons,
+  with its own text inset by its own padding. This row's text is inset the same way. */
 			.ai {
 				display: flex;
 				flex-direction: column;
@@ -331,13 +331,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Focus takes the same wash as hover, not just the outline focusableBaseStyles already gives
-			   every :focus-visible in this root — a keyboard user should get the same affordance a pointer
-			   does, and the outline alone reads as weaker than the row next to it.
+  every :focus-visible in this root — a keyboard user should get the same affordance a pointer
+  does, and the outline alone reads as weaker than the row next to it.
 
-			   The underline reset has to be repeated HERE, not just on .ai: this component includes
-			   linkBase, whose a:hover rule out-specifies a bare class (0,1,1 vs 0,1,0) and would underline
-			   the whole row on hover. .rollup__walkthrough gets away with declaring it once because
-			   gl-graph-account-indicator doesn't pull linkBase in at all. */
+  The underline reset has to be repeated HERE, not just on .ai: this component includes
+  linkBase, whose a:hover rule out-specifies a bare class (0,1,1 vs 0,1,0) and would underline
+  the whole row on hover. .rollup__walkthrough gets away with declaring it once because
+  gl-graph-account-indicator doesn't pull linkBase in at all. */
 			.ai:hover,
 			.ai:focus-visible {
 				text-decoration: none;
@@ -366,9 +366,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color alone
-			   (docs/accessibility.md). The row's accessible name repeats it, because that name replaces this
-			   text for assistive tech. Foreground-register warning token so a hairline of text still
-			   out-contrasts the panel behind it. */
+  (docs/accessibility.md). The row's accessible name repeats it, because that name replaces this
+  text for assistive tech. Foreground-register warning token so a hairline of text still
+  out-contrasts the panel behind it. */
 			.ai__warning {
 				flex: none;
 				font-size: var(--gl-font-sm);
@@ -443,8 +443,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				margin-block-start: 0;
 
 				/* border-radius: 0.3rem;
-		padding: var(--gl-space-2) var(--gl-space-4);
-		background-color: var(--gl-account-chip-color); */
+padding: var(--gl-space-2) var(--gl-space-4);
+background-color: var(--gl-account-chip-color); */
 			}
 
 			.upgrade gl-promo:not([has-promo]) {

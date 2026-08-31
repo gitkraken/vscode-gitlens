@@ -1,6 +1,8 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { basename } from '@gitlens/utils/path.js';
@@ -28,20 +30,18 @@ import {
 	getAgentProviderLabel,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
-import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemBase, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base.js';
 import { folderToTreeModel, sortTreeChildren } from '../../../shared/components/tree/file-tree-utils.js';
 import { graphServicesContext } from '../context.js';
 import { SheetWrapper } from './sheetWrapper.js';
-import '../../../shared/components/agents/gl-agent-mark.js';
+import '@gitlens/components/components/agentMark.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/chips/action-chip.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/overlays/detail-sheet.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/tree/tree-view.js';
 
 declare global {
