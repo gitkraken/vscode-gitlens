@@ -8,6 +8,7 @@
 .claude/*.lock
 .codex
 .DS_Store
+.gitlens/workflow.state.json
 .work/
 .stylelintcache
 .superpowers
