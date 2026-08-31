@@ -64,6 +64,7 @@ import type {
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { TelemetrySendEventParams } from '../../../shared/telemetry.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { panelErrorStyles } from '../components/shared-panel.css.js';
@@ -761,6 +762,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
+	/** Drives the Start Agent Session button's alt-aware tooltip (same idiom as the graph header). */
+	private readonly _modifiers = new ModifierKeysController(this);
+
 	/** The panel a `focusFilter()` call is still owed, when it arrived before that panel had rendered.
 	 *  Panel-scoped rather than a bare flag: a latch left over from a panel the user has since switched
 	 *  away from must never fire, or a much-later render steals focus into the wrong panel's filter. */
@@ -1247,7 +1251,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						? html`<gl-button
 								appearance="toolbar"
 								density="compact"
-								tooltip="Start Agent Session...&#10;[${getAltKeySymbol()}] Start Agent Session With..."
+								tooltip=${
+									this._modifiers.altKey
+										? 'Start Agent Session With...'
+										: `Start Agent Session...\n[${getAltKeySymbol()}] Start Agent Session With...`
+								}
 								aria-label="Start Agent Session"
 								@click=${this.handleStartAgentSession}
 								@keydown=${this.handleStartAgentSessionKeydown}
