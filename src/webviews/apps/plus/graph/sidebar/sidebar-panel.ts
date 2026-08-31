@@ -61,6 +61,8 @@ import type {
 	TreeModel,
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
+import type { AIContextState } from '../../../shared/contexts/ai.js';
+import { aiContext } from '../../../shared/contexts/ai.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import type { TelemetrySendEventParams } from '../../../shared/telemetry.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -728,6 +730,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: false })
 	private readonly _state!: AppState;
 
+	@consume({ context: aiContext })
+	private readonly _ai?: AIContextState;
+
 	/** Memo for `buildTreeModel`. Renders fire on every filter/expansion change, so without this
 	 *  the tree model is rebuilt for an unchanged `data` reference. Reset on key change. */
 	private _treeModelCache?: {
@@ -1314,32 +1319,50 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  "no agent sessions", which hides that connecting an agent is what's missing (#5777). Unlike the
 	 *  banner this is a state of the panel, not dismissible, so the user always knows why it's empty. */
 	private renderAgentsEmptyState(reason: 'agents-undetected' | 'agents-unconnected'): unknown {
-		if (reason === 'agents-undetected') {
-			return html`<div class="empty empty--connect">
-				<span
-					>No AI agents were detected. Once you install a supported agent, connect it to GitLens to see its
-					sessions here.</span
-				>
-				<gl-button
-					appearance="secondary"
-					density="compact"
-					href=${createCommandLink('gitlens.showSettingsPage!agents')}
-					><code-icon icon="gear" slot="prefix"></code-icon> Manage Agents...</gl-button
-				>
-			</div>`;
-		}
+		const message =
+			reason === 'agents-undetected'
+				? 'No AI agents were detected. Once you install a supported agent, connect it to GitLens to see its sessions here.'
+				: 'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.';
+
+		// The button keys on the default agent, not the reason: with one chosen, "Connect Agents" can
+		// actually act — it opens the Agents settings page AND installs hooks for the default agent when
+		// that's available (see `handleConnectAgents`). Without a default there is nothing to act on, so
+		// the gear only routes to the page.
+		const defaultAgent = this._ai?.state.get().defaultAgent;
 
 		return html`<div class="empty empty--connect">
-			<span
-				>Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.</span
-			>
-			<gl-button
-				appearance="secondary"
-				density="compact"
-				href=${createCommandLink('gitlens.showSettingsPage!agents')}
-				><code-icon icon="plug" slot="prefix"></code-icon> Connect Agents...</gl-button
-			>
+			<span>${message}</span>
+			${
+				defaultAgent != null
+					? html`<gl-button appearance="secondary" density="compact" @click=${this.handleConnectAgents}
+							><code-icon icon="plug" slot="prefix"></code-icon> Connect Agents...</gl-button
+						>`
+					: html`<gl-button
+							appearance="secondary"
+							density="compact"
+							href=${createCommandLink('gitlens.showSettingsPage!agents')}
+							><code-icon icon="gear" slot="prefix"></code-icon> Manage Agents...</gl-button
+						>`
+			}
 		</div>`;
+	}
+
+	/** Connect Agents = go to the Agents settings page, and when the default agent is detected,
+	 *  hooks-capable, and not yet connected, install its hooks right away — the page then opens onto
+	 *  the operation's progress instead of asking the user to find the same switch by hand. Hooks are
+	 *  a CLI-agent concept, and `hooksAgents` ids carry the `cli:` prefix already stripped. */
+	private handleConnectAgents() {
+		this._actions?.executeAction('gitlens.showSettingsPage!agents');
+
+		const defaultAgent = this._ai?.state.get().defaultAgent;
+		if (defaultAgent == null || !defaultAgent.id.startsWith('cli:')) return;
+
+		const name = defaultAgent.id.slice(4);
+		if (!(this._state.hooksAgents?.some(a => a.id === name && !a.installed) ?? false)) return;
+
+		this._actions?.executeAction('gitlens.agents.installHooksForAgent', undefined, [
+			{ agentId: defaultAgent.id, source: 'graph-sidebar' },
+		]);
 	}
 
 	/** Renders the panel's tree, with `data` still absent while the first fetch is in flight or has
