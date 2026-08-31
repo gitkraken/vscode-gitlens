@@ -1,4 +1,4 @@
-import type { ProcessExecutionOptions, ShellExecutionOptions, Task } from 'vscode';
+import type { Disposable, ProcessExecutionOptions, ShellExecutionOptions, Task } from 'vscode';
 import {
 	ProcessExecution,
 	QuickPickItemKind,
@@ -8,6 +8,7 @@ import {
 	Task as VscodeTask,
 	window,
 } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { Container } from '../container.js';
 import { command } from '../system/-webview/command.js';
@@ -39,78 +40,117 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 		const worktreePath = args?.worktreePath;
 		if (worktreePath == null) return;
 
-		const allTasks = await tasks.fetchTasks();
-		// A CustomExecution is an extension-owned callback with no cwd to override.
-		const runnableTasks = allTasks.filter(
-			t => t.execution instanceof ShellExecution || t.execution instanceof ProcessExecution,
-		);
+		const quickpick = window.createQuickPick<TaskQuickPickItem>();
+		quickpick.title = 'Run Task on Worktree';
+		quickpick.placeholder = `Choose a task to run in ${basename(worktreePath)}`;
+		quickpick.busy = true;
+		quickpick.show();
 
-		const recentKeys = this.getRecentTaskKeys(worktreePath);
-		const byKey = new Map(runnableTasks.map(t => [this.getTaskKey(t), t]));
-
-		const recentItems: TaskQuickPickItem[] = [];
-		for (const key of recentKeys) {
-			const task = byKey.get(key);
-			if (task == null) continue;
-
-			recentItems.push({ label: task.name, description: task.source, task: task, key: key });
-		}
-
-		const bySource = new Map<string, Task[]>();
-		for (const task of runnableTasks) {
-			const list = bySource.get(task.source);
-			if (list == null) {
-				bySource.set(task.source, [task]);
-			} else {
-				list.push(task);
-			}
-		}
-
-		const sources = [...bySource.keys()].sort((a, b) => {
-			if (a === 'Workspace') return -1;
-			if (b === 'Workspace') return 1;
-			return 0;
-		});
-
-		const allItems: TaskQuickPickItem[] = [];
-		for (const source of sources) {
-			allItems.push({ label: source, kind: QuickPickItemKind.Separator });
-			for (const task of bySource.get(source)!) {
-				allItems.push({ label: task.name, description: task.source, task: task, key: this.getTaskKey(task) });
-			}
-		}
-
-		// The npm script provider alone can detect dozens of tasks, so the first level shows only
-		// recents and tasks.json tasks; everything else sits behind "All Tasks...".
-		const workspaceItems: TaskQuickPickItem[] = (bySource.get('Workspace') ?? [])
-			.filter(t => !recentKeys.includes(this.getTaskKey(t)))
-			.map(t => ({ label: t.name, description: t.source, task: t, key: this.getTaskKey(t) }));
-
+		let allItems: TaskQuickPickItem[] = [];
 		const allTasksItem: TaskQuickPickItem = { label: '$(list-unordered) All Tasks...' };
 
-		const items: TaskQuickPickItem[] = [];
-		if (recentItems.length) {
-			items.push({ label: 'Recent', kind: QuickPickItemKind.Separator }, ...recentItems);
-		}
+		const disposables: Disposable[] = [];
 
-		if (workspaceItems.length) {
-			items.push({ label: 'Workspace', kind: QuickPickItemKind.Separator }, ...workspaceItems);
-		}
+		let picked: TaskQuickPickItem | undefined;
+		try {
+			picked = await new Promise<TaskQuickPickItem | undefined>(resolve => {
+				disposables.push(
+					quickpick.onDidAccept(() => {
+						const item = quickpick.activeItems[0];
+						if (item == null) return;
 
-		items.push({ label: '', kind: QuickPickItemKind.Separator }, allTasksItem);
+						if (item === allTasksItem) {
+							quickpick.items = allItems;
+							return;
+						}
 
-		const options = {
-			title: 'Run Task on Worktree',
-			placeHolder: `Choose a task to run in ${basename(worktreePath)}`,
-		};
+						resolve(item);
+					}),
+				);
 
-		// Nothing curated to offer — skip straight to the full list
-		let picked =
-			items.length > 2
-				? await window.showQuickPick(items, options)
-				: await window.showQuickPick(allItems, options);
-		if (picked === allTasksItem) {
-			picked = await window.showQuickPick(allItems, options);
+				disposables.push(quickpick.onDidHide(() => resolve(undefined)));
+
+				void tasks
+					.fetchTasks()
+					.then(allTasks => {
+						// A CustomExecution is an extension-owned callback with no cwd to override.
+						const runnableTasks = allTasks.filter(
+							t => t.execution instanceof ShellExecution || t.execution instanceof ProcessExecution,
+						);
+
+						const recentKeys = this.getRecentTaskKeys();
+						const byKey = new Map(runnableTasks.map(t => [this.getTaskKey(t), t]));
+
+						const recentItems: TaskQuickPickItem[] = [];
+						for (const key of recentKeys) {
+							const task = byKey.get(key);
+							if (task == null) continue;
+
+							recentItems.push({ label: task.name, description: task.source, task: task, key: key });
+						}
+
+						const bySource = new Map<string, Task[]>();
+						for (const task of runnableTasks) {
+							const list = bySource.get(task.source);
+							if (list == null) {
+								bySource.set(task.source, [task]);
+							} else {
+								list.push(task);
+							}
+						}
+
+						const sources = [...bySource.keys()].sort((a, b) => {
+							if (a === 'Workspace') return -1;
+							if (b === 'Workspace') return 1;
+							return 0;
+						});
+
+						const fullItems: TaskQuickPickItem[] = [];
+						for (const source of sources) {
+							fullItems.push({ label: source, kind: QuickPickItemKind.Separator });
+							for (const task of bySource.get(source)!) {
+								fullItems.push({
+									label: task.name,
+									description: task.source,
+									task: task,
+									key: this.getTaskKey(task),
+								});
+							}
+						}
+
+						allItems = fullItems;
+
+						// The npm script provider alone can detect dozens of tasks, so the first level shows only
+						// recents and tasks.json tasks; everything else sits behind "All Tasks...".
+						const workspaceItems: TaskQuickPickItem[] = (bySource.get('Workspace') ?? [])
+							.filter(t => !recentKeys.includes(this.getTaskKey(t)))
+							.map(t => ({ label: t.name, description: t.source, task: t, key: this.getTaskKey(t) }));
+
+						const items: TaskQuickPickItem[] = [];
+						if (recentItems.length) {
+							items.push({ label: 'Recent', kind: QuickPickItemKind.Separator }, ...recentItems);
+						}
+
+						if (workspaceItems.length) {
+							items.push({ label: 'Workspace', kind: QuickPickItemKind.Separator }, ...workspaceItems);
+						}
+
+						items.push({ label: '', kind: QuickPickItemKind.Separator }, allTasksItem);
+
+						quickpick.busy = false;
+						// Nothing curated to offer — skip straight to the full list
+						quickpick.items = items.length > 2 ? items : allItems;
+					})
+					.then(undefined, (ex: unknown) => {
+						Logger.error(ex, 'RunTaskOnWorktreeCommand', 'fetchTasks');
+						resolve(undefined);
+					});
+			});
+		} finally {
+			quickpick.dispose();
+			for (const disposable of disposables) {
+				disposable.dispose();
+			}
 		}
 
 		if (picked == null) return;
@@ -122,7 +162,7 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 		if (clone == null) return;
 
 		void tasks.executeTask(clone);
-		await this.addRecentTaskKey(worktreePath, picked.key);
+		await this.addRecentTaskKey(picked.key);
 	}
 
 	private cloneTaskForWorktree(task: Task, worktreePath: string): Task | undefined {
@@ -158,18 +198,16 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 		return `${task.source}:${task.name}`;
 	}
 
-	private getRecentTaskKeys(worktreePath: string): string[] {
-		return this.container.storage.getWorkspace('worktrees:runTaskHistory')?.[worktreePath] ?? [];
+	private getRecentTaskKeys(): string[] {
+		const history = this.container.storage.getWorkspace('worktrees:runTaskHistory');
+		// Tolerates the earlier per-worktree Record shape
+		return Array.isArray(history) ? history : [];
 	}
 
-	private async addRecentTaskKey(worktreePath: string, key: string): Promise<void> {
-		const history = this.container.storage.getWorkspace('worktrees:runTaskHistory') ?? {};
-		const existing = history[worktreePath] ?? [];
+	private async addRecentTaskKey(key: string): Promise<void> {
+		const existing = this.getRecentTaskKeys();
 
 		const updated = [key, ...existing.filter(k => k !== key)].slice(0, maxRecentTasks);
-		await this.container.storage.storeWorkspace('worktrees:runTaskHistory', {
-			...history,
-			[worktreePath]: updated,
-		});
+		await this.container.storage.storeWorkspace('worktrees:runTaskHistory', updated);
 	}
 }
