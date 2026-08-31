@@ -4,6 +4,8 @@ import { signal as litSignal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
 import { defer } from '@gitlens/utils/promise.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
+import type { PlansContent } from '../../../../plus/gk/models/plans.js';
+import { defaultPlansContent } from '../../../../plus/gk/models/plans.js';
 import type { Promo, PromoLocation, PromoPlans } from '../../../../plus/gk/models/promo.js';
 import type {
 	ApplicablePromoParams,
@@ -45,6 +47,13 @@ export class PromosContext implements Disposable {
 		return this._generationSignal;
 	}
 
+	private readonly _plansSignal = litSignal<PlansContent>(defaultPlansContent);
+	/** Plan marketing copy (AI credit figures, feature bullets) — seeded with the built-in defaults so
+	 * first paint is always correct, then replaced once the host's product config resolves. */
+	get plans(): ReadableSignal<PlansContent> {
+		return this._plansSignal;
+	}
+
 	/**
 	 * Wire the RPC session whose promos service serves fetches and whose subscription changes
 	 * invalidate the promo cache. One-time: the library re-runs the subscription on every
@@ -64,6 +73,10 @@ export class PromosContext implements Disposable {
 				const [promos, subscription] = await Promise.all([remote.promos, remote.subscription]);
 
 				this._service = promos;
+				void promos.getPlans().then(
+					p => this._plansSignal.set(p),
+					() => {},
+				);
 				this._waitingForService?.fulfill(promos);
 				this._waitingForService = undefined;
 

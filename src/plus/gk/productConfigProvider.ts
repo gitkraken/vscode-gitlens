@@ -8,15 +8,19 @@ import type { GlExtensionCommands } from '../../constants.commands.js';
 import { SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
 import { deviceCohortGroup } from '../../system/-webview/vscode.js';
+import type { PlansContent } from './models/plans.js';
+import { defaultPlansContent } from './models/plans.js';
 import type { Promo, PromoLocation, PromoLocationV2, PromoPlans } from './models/promo.js';
+import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subscription.js';
 import type { ServerConnection } from './serverConnection.js';
 
-type Config = {
+export type Config = {
 	promos: Promo[];
 	cli: {
 		minimumCoreVersion: string;
 		minimumProxyVersion: string;
 	};
+	plans: PlansContent;
 };
 
 type ConfigJson = {
@@ -29,6 +33,9 @@ type ConfigJson = {
 		minimumCoreVersion: string;
 		minimumProxyVersion: string;
 	};
+	/** Deliberately untyped here — validated field-by-field in `resolvePlans`, NOT by the top-level
+	 * validator; see the note on the `plans` entry in {@link createConfigValidator}. */
+	plans?: unknown;
 };
 type PromoJson = Replace<Promo, 'plan' | 'expiresOn' | 'startsOn', string | undefined> & {
 	v?: number;
@@ -73,6 +80,7 @@ const fallbackConfig: Config = {
 		minimumCoreVersion: '3.1.63',
 		minimumProxyVersion: '3.1.53',
 	},
+	plans: defaultPlansContent,
 } as const;
 
 export class ProductConfigProvider {
@@ -101,7 +109,7 @@ export class ProductConfigProvider {
 							})
 						).default;
 					if (data != null && Object.keys(data).length > 0) {
-						const config = getConfig(data);
+						const config = parseProductConfig(data);
 						if (config != null) return config;
 
 						debugger;
@@ -114,7 +122,7 @@ export class ProductConfigProvider {
 				if (rsp.ok) {
 					data = await rsp.json();
 
-					const config = getConfig(data);
+					const config = parseProductConfig(data);
 					if (config != null) return config;
 
 					failed.validation = true;
@@ -166,6 +174,10 @@ export class ProductConfigProvider {
 			core: cli.minimumCoreVersion,
 			proxy: cli.minimumProxyVersion,
 		};
+	}
+
+	async getPlans(): Promise<PlansContent> {
+		return (await this.getConfig()).plans;
 	}
 
 	private getConfig(): Promise<Config> {
@@ -294,6 +306,12 @@ function createConfigValidator(): Validator<ConfigJson> {
 		promos: Is.Optional(Is.Array(promoValidator)),
 		promosV2: Is.Optional(Is.Array(promoV2Validator)),
 		promosV2plus: Is.Optional(Is.Array(promoV2PlusValidator)),
+		// Not checked here AT ALL, on purpose — this validator is all-or-nothing, so anything it rejects
+		// drops the ENTIRE config and takes the live promo campaigns down with it. Marketing copy must
+		// never be able to do that, so every `plans` value (including an outright wrong type) is waved
+		// through to `resolvePlans`, which validates field-by-field and degrades whatever is malformed to
+		// that key's default on its own.
+		plans: (_value: unknown): _value is unknown => true,
 	});
 }
 
@@ -335,11 +353,100 @@ function filterLocations(locations: string[] | undefined): PromoLocation[] | und
 	return locations?.filter(isPromoLocation);
 }
 
-function getConfig(data: unknown): Config | undefined {
+const plansAiCreditsKeys: readonly PaidSubscriptionPlanIds[] = ['student', 'pro', 'advanced', 'teams', 'enterprise'];
+const plansTrialAiCreditsKeys: readonly (PaidSubscriptionPlanIds | 'default')[] = [
+	'default',
+	'student',
+	'pro',
+	'advanced',
+	'teams',
+	'enterprise',
+];
+const plansFeaturesKeys: readonly (SubscriptionPlanIds | 'default')[] = [
+	'default',
+	'community',
+	'community-with-account',
+	'student',
+	'pro',
+	'advanced',
+	'teams',
+	'enterprise',
+];
+const plansUpgradeFeaturesKeys: readonly ('pro' | 'advanced')[] = ['pro', 'advanced'];
+const isStringArray = Is.Array(Is.String);
+
+/**
+ * Layers an authored map over its defaults KEY BY KEY. A wholesale replace (a plain spread) would let a
+ * partially-authored map blank every key it didn't mention, so only recognized keys carrying a well-formed
+ * value win; unknown keys and wrong-typed values are dropped and keep their default. An explicitly authored
+ * empty array is honored — that's authoring intent, the same way an empty `locations` means "targets
+ * nowhere" above.
+ */
+function mergeAuthoredOverDefaults<T extends object, V>(
+	defaults: T,
+	authored: unknown,
+	keys: readonly (keyof T & string)[],
+	isValue: Validator<V>,
+): T {
+	if (!Is.Object(authored)) return defaults;
+
+	const source = authored as Record<string, unknown>;
+
+	const overrides: Record<string, V> = {};
+	let overridden = false;
+	for (const key of keys) {
+		const value = source[key];
+		if (!isValue(value)) continue;
+
+		overrides[key] = value;
+		overridden = true;
+	}
+
+	return overridden ? { ...defaults, ...overrides } : defaults;
+}
+
+function resolvePlans(authored: unknown): PlansContent {
+	if (!Is.Object(authored)) return defaultPlansContent;
+
+	const plans = authored as {
+		aiCredits?: unknown;
+		trialAiCredits?: unknown;
+		features?: unknown;
+		upgradeFeatures?: unknown;
+	};
+	return {
+		aiCredits: mergeAuthoredOverDefaults(
+			defaultPlansContent.aiCredits,
+			plans.aiCredits,
+			plansAiCreditsKeys,
+			Is.String,
+		),
+		trialAiCredits: mergeAuthoredOverDefaults(
+			defaultPlansContent.trialAiCredits,
+			plans.trialAiCredits,
+			plansTrialAiCreditsKeys,
+			Is.String,
+		),
+		features: mergeAuthoredOverDefaults(
+			defaultPlansContent.features,
+			plans.features,
+			plansFeaturesKeys,
+			isStringArray,
+		),
+		upgradeFeatures: mergeAuthoredOverDefaults(
+			defaultPlansContent.upgradeFeatures,
+			plans.upgradeFeatures,
+			plansUpgradeFeaturesKeys,
+			isStringArray,
+		),
+	};
+}
+
+export function parseProductConfig(data: unknown): Config | undefined {
 	const validator = createConfigValidator();
 	if (!validator(data)) return undefined;
 
-	const { promosV2, promosV2plus, promos: promosV1, ...rest } = data;
+	const { promosV2, promosV2plus, promos: promosV1, plans: plansJson, ...rest } = data;
 
 	// `promosV2plus` layers onto `promosV2` and onto nothing else; `promos` is the V1 legacy island.
 	// The list is REVERSED here and reversed back after the dedupe below, so that when one key appears in
@@ -380,6 +487,8 @@ function getConfig(data: unknown): Config | undefined {
 		...fallbackConfig,
 		...rest,
 		promos: promos,
+		// Must come AFTER the `...rest` spread so a raw authored `plans` can't clobber the resolved one
+		plans: resolvePlans(plansJson),
 	};
 	return config;
 }

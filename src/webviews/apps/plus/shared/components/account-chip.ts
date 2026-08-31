@@ -8,6 +8,8 @@ import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription.js';
 import type { Source } from '../../../../../constants.telemetry.js';
+import type { PlansContent } from '../../../../../plus/gk/models/plans.js';
+import { defaultPlansContent } from '../../../../../plus/gk/models/plans.js';
 import type { PromoPlans } from '../../../../../plus/gk/models/promo.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import {
@@ -16,6 +18,7 @@ import {
 	getSubscriptionNextPaidPlanId,
 	getSubscriptionPlanAiCredits,
 	getSubscriptionPlanName,
+	getSubscriptionPlanUpgradeFeatures,
 	getSubscriptionProductPlanName,
 	getSubscriptionProductPlanNameFromState,
 	getSubscriptionTimeRemaining,
@@ -566,6 +569,15 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 	@consume({ context: promosContext })
 	private promos!: PromosContext;
 
+	/**
+	 * Plan marketing copy (AI credit figures, feature bullets) — the `@consume` field can still be unset
+	 * on the very first render, and the signal read here is what makes this `SignalWatcher` element
+	 * re-render when the host's copy lands.
+	 */
+	private get plans(): PlansContent {
+		return this.promos?.plans.get() ?? defaultPlansContent;
+	}
+
 	private get subscription() {
 		return this._subscription.subscription.get();
 	}
@@ -791,8 +803,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		const plan = getSubscriptionNextPaidPlanId(sub);
 		const pitch =
 			plan === 'advanced'
-				? `Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ ${getSubscriptionPlanAiCredits('advanced', false)} credits/week, and more`
-				: `Upgrade to the Pro plan for AI features @ ${getSubscriptionPlanAiCredits('pro', false)} credits/week, and more`;
+				? `Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ ${getSubscriptionPlanAiCredits(this.plans, 'advanced', false)} credits/week, and more`
+				: `Upgrade to the Pro plan for AI features @ ${getSubscriptionPlanAiCredits(this.plans, 'pro', false)} credits/week, and more`;
 
 		return html`<div class="details__button">
 			<gl-button
@@ -1045,12 +1057,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					${this.renderPromo('pro')}
 
 					<ul>
-						<li>Unlimited cloud integrations</li>
-						<li>Smart AI features &mdash; ${getSubscriptionPlanAiCredits('pro', false)} credits/week</li>
-						<li>
-							Powerful tools &mdash; Commit Graph, Visual History, &amp; Git Worktrees for private repos
-						</li>
-						<li>Streamlined workflows &mdash; start work from issues, pull request reviews</li>
+						${getSubscriptionPlanUpgradeFeatures(this.plans, 'pro').map(feature => html`<li>${feature}</li>`)}
 					</ul>
 
 					<br />
@@ -1072,10 +1079,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					${this.renderPromo('advanced')}
 
 					<ul>
-						<li>Self-hosted integrations</li>
-						<li>
-							Advanced AI features &mdash; ${getSubscriptionPlanAiCredits('advanced', false)} credits/week
-						</li>
+						${getSubscriptionPlanUpgradeFeatures(this.plans, 'advanced').map(
+							feature => html`<li>${feature}</li>`,
+						)}
 					</ul>
 				</div>
 			</div>

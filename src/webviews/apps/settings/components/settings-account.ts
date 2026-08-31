@@ -8,6 +8,8 @@ import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
+import type { PlansContent } from '../../../../plus/gk/models/plans.js';
+import { defaultPlansContent } from '../../../../plus/gk/models/plans.js';
 import type { PromoPlans } from '../../../../plus/gk/models/promo.js';
 import type {
 	Subscription,
@@ -20,9 +22,9 @@ import {
 	getSubscriptionEntitlement,
 	getSubscriptionNextPaidPlanId,
 	getSubscriptionPlanAiCredits,
+	getSubscriptionPlanFeatures,
 	getSubscriptionPlanName,
 	isSubscriptionPaid,
-	isSubscriptionPaidPlan,
 } from '../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AiUsageInfo } from '../../../rpc/services/types.js';
@@ -52,53 +54,6 @@ declare global {
 
 /** Absolute-date format used across the panel — the same one the commit surfaces use. */
 const planDateFormat = 'MMMM Do, YYYY';
-
-/**
- * What the given plan includes. Each paid tier above Pro stacks on the one below it with an
- * "Everything in X" lead, mirroring how GitKraken's own pricing presents them, so the list stays short
- * enough to scan instead of restating four tiers' worth of bullets.
- */
-function getPlanFeatures(planId: SubscriptionPlanIds, trial: boolean): string[] {
-	// This branch is the Pro pitch, shown to Community/unpaid users as well as to Pro and Student — so a
-	// Community id must resolve to Pro's figure deliberately (via the paid-plan guard), not by falling
-	// through `getSubscriptionPlanAiCredits`'s exhaustive switch, which can't accept an unpaid id at all.
-	const creditsPlanId = isSubscriptionPaidPlan(planId) ? planId : 'pro';
-	const credits = `AI features — ${getSubscriptionPlanAiCredits(creditsPlanId, trial)} credits/week`;
-
-	switch (planId) {
-		case 'advanced':
-			return [
-				'Everything in Pro',
-				'Self-hosted Git integrations',
-				'Pull request automations & Team Launchpad',
-				'Single domain SSO & AI security controls',
-				credits,
-			];
-		case 'teams':
-			return [
-				'Everything in Advanced',
-				'Multi-domain SSO',
-				'Org-level AI controls & bring-your-own-key',
-				'GitKraken Insights & Git training',
-				credits,
-			];
-		case 'enterprise':
-			return [
-				'Everything in Business',
-				'Security audit logs',
-				'Custom terms, contracting & security review',
-				'Dedicated CSM & SLA-backed support',
-				credits,
-			];
-		default:
-			return [
-				'Commit Graph & Visual File History on private repos',
-				'Issue tracker integrations — Jira, Linear & more',
-				'Launchpad, Worktrees & Code Suggest on private repos',
-				credits,
-			];
-	}
-}
 
 /**
  * One resolved plan-card state — the six subscription states collapsed into what the card actually
@@ -793,6 +748,15 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		return this._subscription.subscription.get();
 	}
 
+	/**
+	 * Plan marketing copy (AI credit figures, feature bullets) — the `@consume` field can still be unset
+	 * on the very first render, and the signal read here is what makes this `SignalWatcher` element
+	 * re-render when the host's copy lands.
+	 */
+	private get plans(): PlansContent {
+		return this._promos?.plans.get() ?? defaultPlansContent;
+	}
+
 	private get subscriptionState(): SubscriptionState | undefined {
 		return this.subscription?.state;
 	}
@@ -924,7 +888,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	private renderPlanCard(sub: Subscription) {
 		const content = this.getPlanCardContent(sub);
 		const trial = sub.state === SubscriptionState.Trial;
-		const features = getPlanFeatures(trial ? this.effectivePlanId : this.planId, trial);
+		const features = getSubscriptionPlanFeatures(this.plans, trial ? this.effectivePlanId : this.planId, trial);
 
 		return html`<div class="card">
 			<div class="plan__head">
@@ -1004,11 +968,13 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 		const plan = getSubscriptionNextPaidPlanId(sub);
 		// "doubles" holds because the only plan this branch pitches Pro to is Student, whose 500K is half of
-		// Pro's 1M — the figures come from the shared table so the claim can't quietly stop being true.
+		// Pro's 1M. Those figures are now authored remotely in `product.json`, so unlike the interpolated
+		// number this claim does NOT follow them — re-pricing either tier without keeping the 2x ratio makes
+		// this sentence quietly wrong (called out in the product.json repo's README).
 		const pitch =
 			plan === 'advanced'
-				? `Advanced adds self-hosted integrations and ${getSubscriptionPlanAiCredits('advanced', false)} AI credits/week.`
-				: `Pro doubles your AI credits to ${getSubscriptionPlanAiCredits('pro', false)}/week.`;
+				? `Advanced adds self-hosted integrations and ${getSubscriptionPlanAiCredits(this.plans, 'advanced', false)} AI credits/week.`
+				: `Pro doubles your AI credits to ${getSubscriptionPlanAiCredits(this.plans, 'pro', false)}/week.`;
 
 		return html`<div class="plan__upsell">
 			<span class="plan__upsell-text">${pitch}</span>

@@ -1,5 +1,6 @@
 import { getTimeRemaining } from '@gitlens/utils/date.js';
 import { SubscriptionState } from '../../../constants.subscription.js';
+import type { PlansContent } from '../models/plans.js';
 import type {
 	PaidSubscriptionPlanIds,
 	Subscription,
@@ -215,6 +216,12 @@ export function getSubscriptionProductPlanNameFromState(
 	}
 }
 
+/** Substitutes every occurrence of the authored `${aiCredits}` placeholder token in plan marketing copy. */
+function substituteAiCredits(text: string, credits: string): string {
+	// oxlint-disable-next-line no-template-curly-in-string -- `${aiCredits}` is an authored placeholder token, not an interpolation
+	return text.split('${aiCredits}').join(credits);
+}
+
 /**
  * Weekly GitKraken AI credit allowance for a paid plan — the bare figure only (e.g. `'1M'`, `'500K'`);
  * each caller composes its own "… credits/week" phrasing, since consumers phrase it differently (a plan
@@ -223,25 +230,46 @@ export function getSubscriptionProductPlanNameFromState(
  * system makes passing one impossible rather than silently returning Pro's figure for it; callers with a
  * possibly-unpaid id must narrow first (see `isSubscriptionPaidPlan`).
  *
- * A trial carries its OWN, much smaller grant (`'250K'`) than the plan it previews — reading the
- * previewed plan's number here would overstate a trial's budget 4x — so `trial` short-circuits the
- * per-plan table rather than being derived from `planId`.
+ * A trial carries its OWN, much smaller grant than the plan it previews — reading the previewed plan's
+ * number here would overstate a trial's budget 4x — so `trial` short-circuits into the separate
+ * `trialAiCredits` table, keyed by the plan being previewed with a `default` fallback, rather than being
+ * derived from `planId` against `aiCredits`.
  */
-export function getSubscriptionPlanAiCredits(planId: PaidSubscriptionPlanIds, trial: boolean): string {
-	if (trial) return '250K';
+export function getSubscriptionPlanAiCredits(
+	plans: PlansContent,
+	planId: PaidSubscriptionPlanIds,
+	trial: boolean,
+): string {
+	return trial ? (plans.trialAiCredits[planId] ?? plans.trialAiCredits.default) : plans.aiCredits[planId];
+}
 
-	switch (planId) {
-		case 'student':
-			return '500K';
-		case 'pro':
-			return '1M';
-		case 'advanced':
-			return '2M';
-		case 'teams':
-			return '3M';
-		case 'enterprise':
-			return '4M';
-	}
+/**
+ * What the given plan includes. Each paid tier above Pro stacks on the one below it with an
+ * "Everything in X" lead, mirroring how GitKraken's own pricing presents them, so the list stays short
+ * enough to scan instead of restating four tiers' worth of bullets.
+ */
+export function getSubscriptionPlanFeatures(
+	plans: PlansContent,
+	planId: SubscriptionPlanIds,
+	trial: boolean,
+): string[] {
+	// The default list is the Pro pitch, shown to Community/unpaid users as well as to Pro and Student — so a
+	// Community id must resolve to Pro's figure deliberately (via the paid-plan guard), not by falling
+	// through `getSubscriptionPlanAiCredits`, whose table has no entry for an unpaid id at all.
+	const creditsPlanId = isSubscriptionPaidPlan(planId) ? planId : 'pro';
+	const credits = getSubscriptionPlanAiCredits(plans, creditsPlanId, trial);
+
+	const features = plans.features[planId] ?? plans.features.default;
+	return features.map(f => substituteAiCredits(f, credits));
+}
+
+/**
+ * What upgrading to the given plan gets you. The credit figure resolves against the PITCHED plan, not the
+ * viewer's current one — these lists sell a specific tier, so Pro's bullet must always quote Pro's grant.
+ */
+export function getSubscriptionPlanUpgradeFeatures(plans: PlansContent, plan: 'pro' | 'advanced'): string[] {
+	const credits = getSubscriptionPlanAiCredits(plans, plan, false);
+	return plans.upgradeFeatures[plan].map(f => substituteAiCredits(f, credits));
 }
 
 export function getSubscriptionStateString(state: SubscriptionState | undefined): SubscriptionStateString {
