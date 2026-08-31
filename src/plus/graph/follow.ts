@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Terminal } from 'vscode';
-import { Disposable, Uri, window } from 'vscode';
+import { Disposable, Uri, window, workspace } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
@@ -80,7 +80,7 @@ export class GraphFollowController implements Disposable {
 			(terminal: Terminal | undefined) => void this.onTerminalChanged(terminal),
 			250,
 		);
-		const debouncedTabChanged = debounce(() => this.onTabChanged(), 250);
+		const debouncedTabChanged = debounce(() => void this.onTabChanged(), 250);
 
 		this._followDisposable = Disposable.from(
 			window.onDidChangeActiveTerminal(terminal => debouncedTerminalChanged(terminal)),
@@ -136,8 +136,14 @@ export class GraphFollowController implements Disposable {
 		if (gen !== this._generation) return;
 
 		if (session?.worktreePath != null) {
-			this.deliver(session.worktreePath, session.id, { source: 'terminal' });
-			return;
+			if (await worktreeExists(session.worktreePath)) {
+				if (gen !== this._generation) return;
+
+				this.deliver(session.worktreePath, session.id, { source: 'terminal' });
+				return;
+			}
+
+			if (gen !== this._generation) return;
 		}
 
 		const cwd = getTerminalCwd(terminal);
@@ -145,6 +151,9 @@ export class GraphFollowController implements Disposable {
 
 		const repo = await this.container.git.getOrAddRepository(cwd, { opened: false, detectNested: true });
 		if (gen !== this._generation || repo == null) return;
+
+		if (!(await worktreeExists(repo.path))) return;
+		if (gen !== this._generation) return;
 
 		const sessions = this.container.agentStatus?.sessions ?? [];
 		const winner = pickMostRecentSession(
@@ -210,7 +219,7 @@ export class GraphFollowController implements Disposable {
 
 	/** Tab flow: only acts when the active tab is a Claude Code conversation, resolved to its
 	 *  backing agent session without ever guessing (no `fallbackToMostRecent`). */
-	private onTabChanged(): void {
+	private async onTabChanged(): Promise<void> {
 		if (!this.hasVisibleGraphSurface || !isActiveClaudeTab()) return;
 
 		const session = this.container.agentStatus?.resolveSessionForActiveClaudeTab();
@@ -218,7 +227,11 @@ export class GraphFollowController implements Disposable {
 
 		// A tab delivery supersedes any terminal resolution still in its async hop — without this a
 		// stale terminal switch could land after the tab's delivery and yank the selection back.
-		this._generation++;
+		const gen = ++this._generation;
+
+		if (!(await worktreeExists(session.worktreePath))) return;
+		if (gen !== this._generation) return;
+
 		this.deliver(session.worktreePath, session.id, { source: 'agents' });
 	}
 
@@ -290,7 +303,7 @@ export class GraphFollowController implements Disposable {
 
 		if (target != null) {
 			const session = await this.findSessionForTerminal(target);
-			if (session?.worktreePath != null) {
+			if (session?.worktreePath != null && (await worktreeExists(session.worktreePath))) {
 				return { worktreePath: session.worktreePath, agentSessionId: session.id };
 			}
 		}
@@ -300,7 +313,7 @@ export class GraphFollowController implements Disposable {
 			cwd != null
 				? await this.container.git.getOrAddRepository(cwd, { opened: false, detectNested: true })
 				: undefined;
-		if (repo == null) {
+		if (repo == null || !(await worktreeExists(repo.path))) {
 			void window.showInformationMessage('No repository was found for this terminal.');
 			return undefined;
 		}
@@ -344,6 +357,18 @@ function walkAncestorChain(pid: number, parentPidMap: Map<number, number>): numb
 	}
 
 	return chain;
+}
+
+/** Whether the worktree's directory still exists — an agent worktree can be deleted while a
+ *  terminal (or a session record) still points at it, and delivering a dead path re-anchors the
+ *  graph's details panel onto a worktree git can no longer read. */
+async function worktreeExists(path: string): Promise<boolean> {
+	try {
+		await workspace.fs.stat(Uri.file(path));
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** Shell integration's reported cwd wins (covers in-terminal `cd`); falls back to the terminal's

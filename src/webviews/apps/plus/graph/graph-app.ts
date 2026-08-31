@@ -11,12 +11,14 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { GlExtensionCommands } from '../../../../constants.commands.js';
 import type { GraphDetailsMode, TrackedUsageKeys } from '../../../../constants.telemetry.js';
 import { mergeWebviewItems } from '../../../../system/webview.js';
@@ -1136,6 +1138,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (
 				!shouldRestoreCapturedComparison(capturedComparison.refs, capturedFamily, this.fallbackRepoFamily, live)
 			) {
+				return;
+			}
+		}
+
+		// A WIP target names a worktree, and the graph's WIP data plane (`wipRowsById`) knows every live
+		// worktree in the family — a target absent from it is gone (e.g. a deleted agent worktree whose
+		// terminal or session record survived). Re-anchoring the details panel onto it would wipe the
+		// panel into a permanently blank state (its `git status` can't even spawn), so keep the current
+		// selection and say why instead. Fail-open while the map hasn't loaded — a cold delivery must not
+		// toast against data that simply isn't there yet.
+		if (
+			target != null &&
+			isUncommitted(target.sha) &&
+			action !== 'show-rebase-summary' &&
+			action !== 'open-compare'
+		) {
+			const wipRowId = createWipRowId(target.worktreePath);
+			if (
+				wipRowId !== this.primaryWipRowId &&
+				this.graphState.wipRowsById != null &&
+				this.graphState.wipRowsById[wipRowId] == null
+			) {
+				this.jumpToast.worktreeRevealFailed(basename(target.worktreePath) || target.worktreePath);
 				return;
 			}
 		}

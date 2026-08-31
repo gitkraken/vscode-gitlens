@@ -197,6 +197,25 @@ export class JumpToastController implements ReactiveController {
 		});
 	}
 
+	/** Routed from `<gl-graph-app>`'s `consumePendingAction` for a WIP reveal whose worktree the
+	 *  graph's WIP data plane doesn't know — deleted, or never part of this repo family. Mirrors
+	 *  {@link revealFailed}'s dismiss-only shape; no wrapper navigation was ever armed for it either. */
+	worktreeRevealFailed(name: string): void {
+		this.clearToast();
+
+		this._failedJumpToast = {
+			kind: 'terminal',
+			message: html`Worktree '<strong>${name}</strong>' wasn't found in this repository`,
+		};
+		this.armJumpToastTimer(6000);
+		this._host.requestUpdate();
+
+		emitTelemetrySentEvent(this._host, {
+			name: 'graph/jump/failed',
+			data: { reason: 'invalid-ref', source: 'host' },
+		});
+	}
+
 	private readonly handleJumpToastAction = (): void => {
 		this._renderedJumpToast?.onAction?.();
 	};
