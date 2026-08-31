@@ -139,6 +139,13 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			/* ---------- Header: title slot (row 1) ---------- */
 
+			/* The corner badge hangs 0.2rem past the avatar's box; the sheet's title part clips
+			   (overflow: hidden serves plain-text titles' ellipsis) — the name span here
+			   ellipsizes itself, so the part can safely show overflow. */
+			gl-detail-sheet::part(title) {
+				overflow: visible;
+			}
+
 			.title-row {
 				display: flex;
 				width: 100%;
@@ -158,11 +165,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			/* The shared mark draws its own silhouette, ring, waves, and opaque backing — this only
 			   positions it, sizes it (badge variant is em-sized off font-size), colors it by phase,
-			   and hands it the surface color to cut the avatar's corner with. */
+			   and hands it the surface color to cut the avatar's corner with. Tucked onto the glyph's
+			   corner exactly as the sidebar tree and graph rows tuck it (the glyph is 1.6rem centered
+			   in this 2rem box, so 0.25rem here ≈ the tree's 0.05em inset from the glyph's own edge) —
+			   every surface should agree on where the phase mark sits. */
 			.avatar__badge {
 				position: absolute;
-				right: -0.2rem;
-				bottom: -0.2rem;
+				right: 0.25rem;
+				bottom: 0.25rem;
 				z-index: 2;
 				font-size: 1.2rem;
 
@@ -822,8 +832,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`
 			<span class="status-zone" slot="actions">
-				${elapsed != null ? html`<span class="status-zone__time" title=${longTitle}>${elapsed}</span>` : nothing}
-				<span class="chip chip--${category}" title=${longTitle}>${phaseLabel}</span>
+				${
+					elapsed != null
+						? html`<gl-tooltip content=${longTitle}
+								><span class="status-zone__time">${elapsed}</span></gl-tooltip
+							>`
+						: nothing
+				}
+				<gl-tooltip content=${longTitle}><span class="chip chip--${category}">${phaseLabel}</span></gl-tooltip>
 			</span>
 		`;
 	}
@@ -835,8 +851,16 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`
 			<span class="status-zone" slot="actions">
-				${elapsed != null ? html`<span class="status-zone__time" title=${longTitle}>${elapsed}</span>` : nothing}
-				<span class="chip chip--ended" title=${longTitle}>${getAgentCategoryLabel('ended')}</span>
+				${
+					elapsed != null
+						? html`<gl-tooltip content=${longTitle}
+								><span class="status-zone__time">${elapsed}</span></gl-tooltip
+							>`
+						: nothing
+				}
+				<gl-tooltip content=${longTitle}
+					><span class="chip chip--ended">${getAgentCategoryLabel('ended')}</span></gl-tooltip
+				>
 			</span>
 		`;
 	}
