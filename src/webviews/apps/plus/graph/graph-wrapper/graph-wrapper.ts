@@ -61,7 +61,9 @@ import {
 } from '../utils/rowContext.utils.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import { GraphSelectIntent } from '../utils/selectIntent.js';
+import type { WipRowInfo } from '../utils/wip.utils.js';
 import {
+	buildWipRowInfoByRowSha,
 	filterSecondariesForScopeAndVisibility,
 	hasDirtyCounts,
 	isScopeFocalHead,
@@ -295,10 +297,11 @@ function resolveSelectedRowsForContextMenu(
 	return { rows: rows, contiguous: contiguous };
 }
 
-// Builds the display message for a WIP row. The label (worktree name) is appended in parens for
-// secondary WIP rows; the primary row passes `undefined` and gets the bare base string.
-function wipRowMessage(label: string | undefined): string {
-	return label != null ? `Working Changes (${label})` : 'Working Changes';
+// The WIP row's display message — the same bare string for every worktree now that the inline branch
+// pill (`gl-lit-graph`'s `buildWipRowBranchPill`) carries the per-worktree identity that used to live in
+// a "(name)" suffix here.
+function wipRowMessage(): string {
+	return 'Working Changes';
 }
 
 // Builds a "lite" CommitDetails from a graph row so the details panel can paint the commit
@@ -711,15 +714,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	/** Builds one synthetic `workdir` row. Shared by the graph's own worktree and every peer — the two
-	 *  differ only in where the row lands and whether it carries a worktree-name suffix. */
-	private buildWipRow(sha: string, parentSha: string | undefined, label: string | undefined): GitGraphRow {
+	 *  differ only in where the row lands; both get the same bare message (see `wipRowMessage`). */
+	private buildWipRow(sha: string, parentSha: string | undefined): GitGraphRow {
 		return {
 			sha: sha,
 			parents: parentSha ? [parentSha] : [],
 			author: '',
 			email: '',
 			date: this.stableWipRowDate(sha, parentSha),
-			message: wipRowMessage(label),
+			message: wipRowMessage(),
 			kind: 'workdir',
 			heads: [],
 			remotes: [],
@@ -757,6 +760,78 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			peers: peers,
 		};
 		return peers;
+	}
+
+	// Memoization for `getWipRowInfoByRowSha`: keyed like `_peerWipRowsCache` plus the branch scalars the
+	// primary entry's `branchName`/`tipSha` read from — the branch OBJECT isn't in the key (the host
+	// re-creates it on every full-state push; see `_decoratedRowsCache`'s note on the same trap).
+	private _wipRowInfoByRowShaCache?: {
+		wipRowsById: GraphWipRowsById | undefined;
+		primaryWipRowId: string | undefined;
+		// In the key because scope/visibility changes can flip it with every other input unchanged
+		// (e.g. scoping to a non-current branch and back) — without it the map would keep serving a
+		// stale primary entry (or none) after the flip.
+		showPrimary: boolean;
+		branchId: string | undefined;
+		branchSha: string | undefined;
+		branchDetached: boolean | undefined;
+		// Identity-keyed: the primary's resolved merge target and the overview-card enrichment (where a
+		// peer's resolved target lands) both arrive as fresh objects when they actually change.
+		primaryTarget: { sha: string; name?: string } | undefined;
+		overviewEnrichment: typeof graphStateContext.__context__.overviewEnrichment;
+		byRowSha: ReadonlyMap<string, WipRowInfo>;
+	};
+
+	/** Per-row WIP identity (branch/worktree name + tip sha), threaded to `gl-lit-graph` for the inline
+	 *  branch pill and the scroll-marker/a11y/tooltip consumers that used to read it off the row
+	 *  message's "(name)" suffix. Memoized on the inputs that drive it; see
+	 *  {@link _wipRowInfoByRowShaCache}. */
+	private getWipRowInfoByRowSha(): ReadonlyMap<string, WipRowInfo> {
+		const wipRowsById = this.graphState.wipRowsById;
+		const primaryWipRowId = this.primaryWipRowId;
+		const branch = this.graphState.branch;
+		const branchId = branch?.id;
+		const branchSha = branch?.sha;
+		const branchDetached = branch?.detached;
+		// Cheap on the hot path: `getDecoratedRows` is itself memoized on these same inputs (and more).
+		const { showPrimary } = this.getDecoratedRows();
+		const primaryTarget = this.rowMarkerMergeTarget;
+		const overviewEnrichment = this.graphState.overviewEnrichment;
+
+		const cached = this._wipRowInfoByRowShaCache;
+		if (
+			cached != null &&
+			cached.wipRowsById === wipRowsById &&
+			cached.primaryWipRowId === primaryWipRowId &&
+			cached.showPrimary === showPrimary &&
+			cached.branchId === branchId &&
+			cached.branchSha === branchSha &&
+			cached.branchDetached === branchDetached &&
+			cached.primaryTarget === primaryTarget &&
+			cached.overviewEnrichment === overviewEnrichment
+		) {
+			return cached.byRowSha;
+		}
+
+		const byRowSha = buildWipRowInfoByRowSha(
+			this.getPeerWipRows(),
+			showPrimary ? primaryWipRowId : undefined,
+			branch,
+			primaryTarget,
+			overviewEnrichment ?? undefined,
+		);
+		this._wipRowInfoByRowShaCache = {
+			wipRowsById: wipRowsById,
+			primaryWipRowId: primaryWipRowId,
+			showPrimary: showPrimary,
+			branchId: branchId,
+			branchSha: branchSha,
+			branchDetached: branchDetached,
+			primaryTarget: primaryTarget,
+			overviewEnrichment: overviewEnrichment,
+			byRowSha: byRowSha,
+		};
+		return byRowSha;
 	}
 
 	// Injects a synthetic WIP row for the graph's own worktree at [0] and one per peer worktree
@@ -882,12 +957,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					: undefined);
 
 			// The primary row's ID is its worktree's WIP row id — the SAME scheme every other worktree's
-			// WIP row uses (`createWipRowId`). Its `type` stays `'workdir'` (the row type). No label
-			// suffix: the graph's own worktree is the implicit subject, so naming it would be noise.
+			// WIP row uses (`createWipRowId`). Its `type` stays `'workdir'` (the row type).
 			const primary: GitGraphRow | undefined =
-				showPrimary && primaryWipRowId != null
-					? this.buildWipRow(primaryWipRowId, headRefSha, undefined)
-					: undefined;
+				showPrimary && primaryWipRowId != null ? this.buildWipRow(primaryWipRowId, headRefSha) : undefined;
 
 			// The focal peer, when scoped to a branch checked out in another worktree: pinned at the top
 			// like the primary (see the comment above `peerWipRows`), built the same way as any other peer
@@ -895,7 +967,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			// a lane and connects it once that commit pages in, rather than dropping the row).
 			const focalPeer: GitGraphRow | undefined =
 				focalPeerId != null && focalPeerWipRow != null
-					? this.buildWipRow(focalPeerId, focalPeerWipRow.parentSha, focalPeerWipRow.label)
+					? this.buildWipRow(focalPeerId, focalPeerWipRow.parentSha)
 					: undefined;
 
 			const pinned: GitGraphRow[] = [];
@@ -926,7 +998,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					const idx = wipRow.parentSha != null ? rowIndexBySha.get(wipRow.parentSha) : undefined;
 					if (idx == null) continue;
 
-					const row = this.buildWipRow(sha, wipRow.parentSha, wipRow.label);
+					const row = this.buildWipRow(sha, wipRow.parentSha);
 					const existing = secondariesByParentIdx.get(idx);
 					if (existing != null) {
 						existing.push(row);
@@ -1243,6 +1315,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.primaryWipRowId=${showPrimary ? primaryWipRowId : undefined}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
+			.wipRowInfoByRowSha=${this.getWipRowInfoByRowSha()}
 			?loading=${graphState.loading || graphState.ensureLoading || graphState.scopeLoading}
 			?rowsError=${graphState.rowsError ?? false}
 			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}

@@ -14,7 +14,7 @@ import { createWipRowId, emptySetMarker } from '../../../../plus/graph/protocol.
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 import { getExcludedRemotes } from '../hiddenRefs.utils.js';
 import { refPillKey } from './refKey.utils.js';
-import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from './wip.utils.js';
+import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow, wipBranchName } from './wip.utils.js';
 
 /**
  * Ref find ("jump to a ref by name") vocabulary, shared by the header trigger and the find widget.
@@ -117,19 +117,6 @@ function isTypeExcluded(kind: RefFindKind, excludeTypes: GraphExcludeTypes | und
 		case 'wip':
 			return false;
 	}
-}
-
-/** The worktree's branch name for a WIP row, or `undefined` for a detached worktree. Prefers the
- *  synced `branch` projection; falls back to parsing `branchRef` (`{repoPath}|heads/{name}`). */
-function wipBranchName(meta: { branch?: { name?: string }; branchRef?: string }): string | undefined {
-	if (meta.branch?.name != null) return meta.branch.name;
-
-	const ref = meta.branchRef;
-	if (ref == null) return undefined;
-
-	const marker = '|heads/';
-	const index = ref.indexOf(marker);
-	return index === -1 ? undefined : ref.slice(index + marker.length);
 }
 
 /** De-dupes candidate names, dropping empties and anything equal to the label (redundant with it). */

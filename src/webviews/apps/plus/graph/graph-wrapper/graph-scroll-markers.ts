@@ -8,6 +8,7 @@ import type {
 } from '../../../../plus/graph/protocol.js';
 import { isPrimaryWipRowId } from '../../../../plus/graph/protocol.js';
 import { shortRefName } from '../utils/rowMarker.utils.js';
+import type { WipRowInfo } from '../utils/wip.utils.js';
 import type { GraphCommitView } from './graph-commit.js';
 import { isRefHidden } from './graph-commit.js';
 
@@ -166,6 +167,10 @@ export interface ScrollMarkerInputs {
 	refsMetadata?: GraphRefsMetadata | null;
 	/** The graph's own repo path — identifies the primary WIP row (peers are other worktrees). */
 	repoPath?: string;
+	/** Per-row branch/worktree identity for the `wip` marker's label — the row message is now the same
+	 *  bare "Working Changes" for every worktree (see `wipRowMessage`), so a peer's worktree name comes
+	 *  from here instead. */
+	wipRowInfoByRowSha?: ReadonlyMap<string, WipRowInfo>;
 }
 
 function laneBox(type: GraphScrollMarkerTypes): {
@@ -198,8 +203,18 @@ function laneBox(type: GraphScrollMarkerTypes): {
  * O(targets), not O(rows)) and merge on top.
  */
 export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[] {
-	const { rows, getCommit, enabled, searchShas, excludeTypes, excludeRefs, downstreams, refsMetadata, repoPath } =
-		inputs;
+	const {
+		rows,
+		getCommit,
+		enabled,
+		searchShas,
+		excludeTypes,
+		excludeRefs,
+		downstreams,
+		refsMetadata,
+		repoPath,
+		wipRowInfoByRowSha,
+	} = inputs;
 	const total = rows.length;
 	if (total <= 0 || enabled.size === 0) return [];
 
@@ -289,12 +304,14 @@ export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[]
 			push(i, 'stashes', commit.message.length > 0 ? commit.message : 'Stash');
 		}
 		if (wantsWip && row.kind === 'workdir') {
-			// The workdir row's message is already "Working Changes (<worktree>)" for secondary
-			// worktrees; the PRIMARY workdir is just "Working Changes" — append the current branch.
-			const label =
-				isPrimaryWipRowId(row.sha, repoPath) && currentBranchName != null && currentBranchName.length > 0
-					? `${commit.message} (${currentBranchName})`
-					: commit.message;
+			// The row message is the same bare "Working Changes" for every worktree now (see
+			// `wipRowMessage`), so the per-worktree name comes from `wipRowInfoByRowSha` instead: the
+			// PRIMARY row names the current branch, a peer names its worktree (falling back to its
+			// branch, for a peer whose `label` hasn't landed yet).
+			const name = isPrimaryWipRowId(row.sha, repoPath)
+				? currentBranchName
+				: (wipRowInfoByRowSha?.get(row.sha)?.worktreeName ?? wipRowInfoByRowSha?.get(row.sha)?.branchName);
+			const label = name != null && name.length > 0 ? `${commit.message} (${name})` : commit.message;
 			push(i, 'wip', label);
 		}
 		if (wantsHighlights && searchShas.has(row.sha)) {

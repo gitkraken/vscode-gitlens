@@ -1151,26 +1151,6 @@ gl-lit-graph {
 	.gl-graph__row-actions--has-persistent .gl-graph__row-action {
 		pointer-events: auto;
 	}
-	// The WIP row's row-marker decorator is a reused ref pill (not a `.gl-graph__row-action`), so restore
-	// its interactivity under the strip's at-rest `pointer-events: none`. The right margin holds it off the
-	// action buttons that reveal to its right on hover/selection.
-	.gl-graph__row-actions--has-row-marker .gl-graph__ref-pill {
-		pointer-events: auto;
-		margin-inline-end: 0.6rem;
-	}
-
-	// Row-marker decorator present (only the primary WIP row's jump pill sets this — tip rows' rails are
-	// not strip members): hide the strip's at-rest backdrop. The pill carries its own chrome, so nothing
-	// needs fading behind it — the row keeps its date/sha readable until the buttons actually reveal, at
-	// which point these interaction-state rules restore the standard masked surface.
-	.gl-graph__row-actions--has-row-marker::before {
-		opacity: 0;
-	}
-	.gl-graph__row:hover .gl-graph__row-actions--has-row-marker::before,
-	.gl-graph__row.is-focused .gl-graph__row-actions--has-row-marker::before,
-	.gl-graph__row.is-selected .gl-graph__row-actions--has-row-marker::before {
-		opacity: 1;
-	}
 	// Gated buttons: hidden + out of the tab order / a11y tree at rest (`display:none` reserves no space,
 	// so the strip is only as wide as its persistent buttons until revealed)...
 	.gl-graph__row-actions--has-persistent .gl-graph__row-action--gated {
@@ -1924,6 +1904,109 @@ gl-lit-graph {
 	.gl-graph__row.is-workdir .gl-graph__message {
 		font-weight: 600;
 		font-style: italic;
+		// No grow (unlike every other row's message): the branch pill sits AFTER this span, and in the
+		// workdir row's full-width flexing cell a growing message shoves the pill to the row's far edge
+		// instead of leaving it right beside the text.
+		flex-grow: 0;
+		// And no shrink below the label either: the workdir label degrades DISCRETELY ("Working Changes" →
+		// "WIP", chosen by `computeWipRowFit`), never by ellipsis — the inherited `flex-shrink: 100` made
+		// this span the flex line's crush victim, squeezing the label to 0px while the pill kept its size.
+		// When the ladder's floor still doesn't fit, the overflow backstop is the CELL clipping the pill's
+		// tail (`overflow: hidden`), not the label vanishing.
+		min-width: min-content;
+	}
+	// The inline branch pill every WIP row carries directly after its message (`buildWipRowBranchPill`) —
+	// identifies the branch/worktree now that the message itself is the same bare "Working Changes" for
+	// every worktree (see `wipRowMessage`). `flex: none` keeps it sized to its content so all the squeeze
+	// falls on `.gl-graph__message` (its `flex-shrink: 100` above) first — the degradation ladder
+	// (`gl-lit-graph.ts`'s `computeWipRowFit`) only reaches the pill's NAME once swapping the message to
+	// 'WIP' alone isn't enough, via the `--gl-wip-pill-max` custom property below.
+	.gl-graph__wip-branch-pill {
+		display: inline-flex;
+		// Shrinkable (unlike the stats pill): when the ladder's cap still isn't enough — a transient
+		// mid-resize frame, or a measurement miss — the pill compresses and its label ellipsizes (the ref
+		// pill's own `-main` grid + label overflow handle that), instead of the cell hard-clipping the
+		// pill's tail with no ellipsis. `min-width: 0` keeps the flex chain from flooring at the pill's
+		// content size.
+		flex: 0 1 auto;
+		min-width: 0;
+		margin-inline-start: 0.7rem;
+
+		.gl-graph__ref-pill {
+			min-width: 0;
+		}
+
+		// Undefined (unset property) falls back to `none` — an uncapped pill costs nothing extra. The
+		// label already owns its own ellipsis/overflow handling (`.gl-graph__ref-pill-label`); this only
+		// adds the ceiling the ladder computes, without forking the shared ref-pill markup.
+		.gl-graph__ref-pill-label {
+			max-width: var(--gl-wip-pill-max, none);
+		}
+
+		// Monochrome — at rest AND on interaction. This pill is info + a jump, not a real ref pill, so it
+		// never takes the head-green or lane colors the true ref pills mean something by; hover only
+		// strengthens the same grey so it still reads as interactive. Direct properties, not `--ref-*`:
+		// `refStyle()` sets those inline, and an inline custom prop beats any class override. Scoped under
+		// the wrapper (0,2,0 + :hover beats the base pill rules) so the shared `renderRefPill` markup
+		// needs no fork and no role/muted flags.
+		.gl-graph__ref-pill {
+			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
+			color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+
+			&:is(:hover, :focus-within) {
+				background-color: color-mix(in srgb, var(--vscode-foreground) 15%, transparent);
+				box-shadow:
+					inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 40%, transparent),
+					0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
+				color: var(--vscode-foreground);
+			}
+		}
+
+		// A detached-HEAD or paused-operation row's pill (`renderInertWipBranchPill`) carries this
+		// alongside `.gl-graph__ref-pill` instead of `role`/`tabindex`/click handlers — nothing here is
+		// interactive, so hover must read IDENTICAL to rest rather than strengthening like the real pill's
+		// rule above (same source order beats it at equal specificity).
+		.gl-graph__ref-pill.gl-graph__wip-branch-pill--static {
+			cursor: default;
+
+			&:is(:hover, :focus-within) {
+				background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+				box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
+				color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+			}
+		}
+
+		// The hover-expand overlay (full name over a truncated pill) is a SEPARATE filled box that would
+		// otherwise paint in the lane fill — keep it in the same monochrome family. Opaque mix over the
+		// editor background (not transparent): it floats OVER row content, so a translucent fill would
+		// let the text underneath bleed through.
+		.gl-graph__ref-pill-expand {
+			background-color: color-mix(in srgb, var(--vscode-foreground) 12%, var(--vscode-editor-background));
+			color: var(--vscode-foreground);
+			box-shadow:
+				inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 40%, transparent),
+				0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
+		}
+
+		// The upstream + merge-target jump segments track the pill's own monochrome (the target segment
+		// otherwise paints itself purple) — on this pill they're plain jump affordances, not role markers;
+		// their dividers tone down to a neutral hairline for the same reason.
+		.gl-graph__ref-pill-upstream,
+		.gl-graph__ref-pill-target {
+			color: inherit;
+			border-left-color: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
+		}
+
+		// The hover fill (15% foreground) all but swallows the 20% divider, and the segments matter MOST
+		// while hovering — strengthen the dividers to the hover ring's weight so the pill visibly splits
+		// into its jump targets.
+		.gl-graph__ref-pill:is(:hover, :focus-within) {
+			.gl-graph__ref-pill-upstream,
+			.gl-graph__ref-pill-target {
+				border-left-color: color-mix(in srgb, var(--vscode-foreground) 40%, transparent);
+			}
+		}
 	}
 	// Commit subject keeps the message's foreground color; the bullet separator + body recede to 60% of it,
 	// so the subject reads first. The whole line truncates in `.gl-graph__message`, so the body
@@ -3351,64 +3434,16 @@ gl-lit-graph {
 
 	// The split-segment divider (`border-left` = `--ref-border` = the lane color) vanishes into the inverted
 	// pill's solid fill — knock it out in the editor background so the separator between name and the
-	// merge-target / upstream / PR / issue / +N segment reads. Excludes the muted pill (handled greyscale
-	// below). Every segment that draws a divider has to be listed — a missing one reads as a divider that
-	// only exists on hover, since the hover rule flips them all to the fill's contrast color.
-	.gl-graph__ref-pill--row-marker-head:not(.gl-graph__ref-pill--row-marker-muted),
+	// merge-target / upstream / PR / issue / +N segment reads. Every segment that draws a divider has to be
+	// listed — a missing one reads as a divider that only exists on hover, since the hover rule flips them
+	// all to the fill's contrast color.
+	.gl-graph__ref-pill--row-marker-head,
 	.gl-graph__ref-pill--row-marker-upstream {
 		.gl-graph__ref-pill-upstream,
 		.gl-graph__ref-pill-more-group,
 		.gl-graph__ref-pill-pr,
 		.gl-graph__ref-pill-issue {
 			border-left-color: color-mix(in srgb, var(--vscode-editor-background) 50%, transparent);
-		}
-	}
-
-	// Muted variant (the WIP-row pill): GREYSCALE + neutral, so it reads as a plain secondary decorator next
-	// to the fully-inverted, role-colored pill on the HEAD row. Only HEAD ever renders muted — `gl-lit-graph.ts`
-	// has exactly one call site that sets `muted: true`, and it hardcodes `role: 'head'` — so the compound
-	// selector (both classes, 0,2,0) is written for HEAD only. Compound rather than a role-agnostic single
-	// class: at equal specificity a single `--row-marker-muted` class only wins over the role rule by being
-	// declared LATER in the file (F7) — reorder the file and it silently un-mutes. The compound selector wins
-	// on SPECIFICITY instead, so source order can't affect it. Direct properties, not `--ref-*`: refStyle()
-	// sets those inline, and an inline custom prop beats a class's custom-prop override.
-	.gl-graph__ref-pill--row-marker-head.gl-graph__ref-pill--row-marker-muted {
-		background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
-		color: var(--vscode-descriptionForeground, var(--vscode-foreground));
-
-		// …but once you interact with it, it takes its ROLE color (HEAD green) like any other emphasis pill —
-		// grey is only its RESTING, secondary state. Same fill + lane ring as the rules above, so hovering the
-		// WIP pill and hovering the real HEAD-row pill land on the same appearance. Unlike the role block's own
-		// hover (deleted above), this one is NOT redundant: the rest declarations here are grey literals, not
-		// `--pill-fill`/`--pill-on-fill`, so hover has to actively re-point them to the role fill. The full
-		// shadow list (lane ring + elevation) has to be restated too: this rule's grey resting ring is
-		// equal-specificity-but-later than the base `:hover`, so it would otherwise clobber it.
-		&:hover {
-			background-color: var(--pill-fill);
-			box-shadow:
-				inset 0 0 0 1px var(--ref-color),
-				0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
-			color: var(--pill-on-fill);
-		}
-
-		.gl-graph__ref-pill-expand {
-			background-color: var(--pill-fill);
-			color: var(--pill-on-fill);
-		}
-
-		// The split segments (merge-target glyph + upstream) track the pill's OWN color in every mode — no
-		// special colorization — so the whole chip reads as one unit at rest and on hover alike. Only the
-		// divider is toned to a neutral hairline (it otherwise reads lane-bright).
-		.gl-graph__ref-pill-target,
-		.gl-graph__ref-pill-upstream {
-			color: inherit;
-		}
-		.gl-graph__ref-pill-upstream,
-		.gl-graph__ref-pill-more-group,
-		.gl-graph__ref-pill-pr,
-		.gl-graph__ref-pill-issue {
-			border-left-color: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
 		}
 	}
 
@@ -3650,11 +3685,6 @@ gl-lit-graph {
 	.gl-graph__ref-pill--row-marker-upstream .gl-graph__ref-pill-more-group .gl-graph__ref-pill-more {
 		color: var(--pill-on-fill);
 	}
-	// ...except on the muted (WIP-row) variant, which is grey at rest — a knockout would vanish into it.
-	// Track the pill's own color like its other segments: grey at rest, knocked out once it fills on hover.
-	.gl-graph__ref-pill--row-marker-muted .gl-graph__ref-pill-more-group .gl-graph__ref-pill-more {
-		color: inherit;
-	}
 	// Split-pill upstream segment: the tracking half (cloud/branch glyph of the linked ref + ahead/behind
 	// stats + a direction arrow), divided from the name by a lane-color rule. flex-shrink:0 so it never
 	// truncates (the name yields first). `line-height:1` + the children's capped sizes keep a combined
@@ -3860,10 +3890,7 @@ gl-lit-graph {
 	// uses for its own text, so the inverted pill looks at rest the way an ordinary pill looks hovered
 	// (which is what it IS: permanently filled). Every rule below resolves through `--pill-on-fill` too, so
 	// the higher-specificity hover/selected states can't put the LANE's contrast color back on a ROLE fill.
-	// Excludes the muted (WIP-row) variant, which is hollow grey at rest, not inverted — nothing there fights
-	// green/red, so it keeps the colorization and only de-colorizes once it fills on hover (where the rule
-	// below picks the prop up). `-upstream` needs no such guard: only HEAD goes muted.
-	.gl-graph__ref-pill--row-marker-head:not(.gl-graph__ref-pill--row-marker-muted) .gl-graph__ref-pill-tracking,
+	.gl-graph__ref-pill--row-marker-head .gl-graph__ref-pill-tracking,
 	.gl-graph__ref-pill--row-marker-upstream .gl-graph__ref-pill-tracking {
 		--gl-tracking-ahead: var(--pill-on-fill);
 		--gl-tracking-behind: var(--pill-on-fill);

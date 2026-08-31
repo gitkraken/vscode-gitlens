@@ -50,6 +50,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves working-changes (WIP) rows in the _Commit Graph_ &mdash; every WIP row (the current branch's and each worktree's) now carries a branch pill right after _Working Changes_ naming the branch it sits on, replacing the branch name in the row's text; clicking the pill jumps to the branch's tip, with additional jumps to its upstream and its merge target when already known; the stats pill leads with a worktree icon, and when space is tight the label compacts to _WIP_ before the branch name truncates
 - Improves remote branch pills on the _Commit Graph_ &mdash; the branch's remote name now follows the branch name as a subtle qualifier (in the pill, its hover expansion, and the +N list), yielding first when space is tight; the `gitlens.graph.showRemoteNames` setting still switches to the full `remote/branch` form
 - Changes focusing (clicking) a ref pill on the _Commit Graph_ to keep the row's pills in place &mdash; a ref already showing no longer jumps to the front, and one collapsed behind the +N counter swaps into just the last pill slot; screen readers hear the refs in the drawn order with the focused one called out
 - Changes maximizing the _Commit Graph_'s details panel (or a maximized sheet) to overlay the graph instead of resizing it &mdash; the graph behind keeps its exact layout and restoring is instant

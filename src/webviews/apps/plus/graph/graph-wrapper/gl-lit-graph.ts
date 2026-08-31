@@ -54,6 +54,8 @@ import { createRef, ref } from 'lit/directives/ref.js';
 import '@lit-labs/virtualizer';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
+import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
+import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import {
 	formatDate as formatGitLensDate,
 	fromNowUnit,
@@ -65,6 +67,7 @@ import {
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	GraphAvatars,
@@ -110,9 +113,9 @@ import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
 import { keepRowUnderRefVisibility } from '../utils/row.utils.js';
 import { serializeWipContext } from '../utils/rowContext.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
-import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
 import { countLoadedIncludedRefs } from '../utils/scopePaging.utils.js';
-import { hasDirtyCounts } from '../utils/wip.utils.js';
+import type { WipRowFit, WipRowFitMetrics, WipRowInfo } from '../utils/wip.utils.js';
+import { computeWipRowFit, hasDirtyCounts, wipRowFullLabel, wipRowShortLabel } from '../utils/wip.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../components/gl-graph-ref-find.js';
 import '../../../shared/components/code-icon.js';
@@ -321,6 +324,21 @@ let textMeasureCanvas: HTMLCanvasElement | undefined;
 function getTextMeasureContext(): CanvasRenderingContext2D | null {
 	textMeasureCanvas ??= document.createElement('canvas');
 	return textMeasureCanvas.getContext('2d');
+}
+
+// Canvas-measured text widths for the WIP row degradation ladder (`buildWipRowFit`), keyed `font|text` —
+// same precedent as `graph-row.ts`'s `initialsCache`. Module-level (not per-instance): the full/short
+// label + branch-name texts a session measures are a small, tab-lifetime-bounded set, same as author names.
+const wipTextWidthCache = new LruMap<string, number>(500);
+function measuredTextWidth(ctx: CanvasRenderingContext2D, font: string, text: string): number {
+	const key = `${font}|${text}`;
+	let width = wipTextWidthCache.get(key);
+	if (width == null) {
+		ctx.font = font;
+		width = ctx.measureText(text).width;
+		wipTextWidthCache.set(key, width);
+	}
+	return width;
 }
 
 // WIP (workdir) rows carry a today-ish synthetic date, not a real commit date — reading one straight
@@ -607,6 +625,9 @@ interface RenderCtx {
 	/** sha → running compose/review operation + agent status for the workdir rows' action buttons. */
 	runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
+	/** sha → branch/worktree identity for every WIP row, threaded into `RowRenderContext.wipIdentity`
+	 *  per row and read by `buildWipRowBranchPill` for the inline branch pill. */
+	wipRowInfoByRowSha?: ReadonlyMap<string, WipRowInfo>;
 	/** Per-worktree hot WIP state (stats + conflicts + paused op), keyed by WIP row id. Covers every
 	 *  worktree, the graph's own included. */
 	wipStateById?: GraphWipStateById;
@@ -616,9 +637,10 @@ interface RenderCtx {
 	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + target name) — the
 	 *  SAME object on every row; drives the left-edge rail on the (≤3) rows those tips land on. */
 	rowMarkerTips?: RowMarkerTips;
-	/** Prebuilt row-marker ref pill for the primary WIP row (built once per render from the HEAD row's
-	 *  refs), threaded to the row so it never re-derives it. Undefined when the pill shouldn't show. */
-	wipRowMarkerPill?: TemplateResult;
+	/** Whether the primary WIP row is far enough from HEAD that the inverse "Jump to Working Changes"
+	 *  action on the HEAD row is worth offering — built once per render; see
+	 *  {@link GlLitGraph.isPrimaryWipFarFromHead}. */
+	primaryWipFarFromHead?: boolean;
 }
 
 // Changes-column mode picker: the four visualizations as an ordered glyph strip. Labels drive the
@@ -778,6 +800,9 @@ export class GlLitGraph extends LitElement {
 	// and attached AI-agent status (the agent indicator). Drive the buttons' live updates.
 	@property({ attribute: false }) runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	@property({ attribute: false }) agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
+	// Per-row branch/worktree identity for every WIP row — drives the inline branch pill and the
+	// scroll-marker/a11y/tooltip surfaces that used to read it off the row message's "(name)" suffix.
+	@property({ attribute: false }) wipRowInfoByRowSha?: ReadonlyMap<string, WipRowInfo>;
 	@property({ type: Boolean }) loading?: boolean;
 	// The host's rows walk failed before shipping anything. Swaps the status overlay's spinner for an
 	// error message + Retry; the app clears it when a load starts or rows land.
@@ -828,9 +853,9 @@ export class GlLitGraph extends LitElement {
 	// of them once HEAD is ahead of or behind it. See `RowRefOrder`.
 	@property({ type: String }) currentUpstream?: string;
 	// The CURRENT branch payload (`graphState.branch`) — the host-side authority on HEAD's identity.
-	// Fallback source for the row-marker tips + the WIP row's proxy pill when HEAD's row isn't in the
-	// loaded page (the engine's `headSha` comes from per-row `isCurrentHead` decoration, so it can't
-	// resolve there). A jump off the fallback pages the row in via the wrapper's load/select/reveal.
+	// Fallback source for the row-marker tips when HEAD's row isn't in the loaded page (the engine's
+	// `headSha` comes from per-row `isCurrentHead` decoration, so it can't resolve there). A jump off
+	// the fallback pages the row in via the wrapper's load/select/reveal.
 	@property({ attribute: false }) currentBranch?: {
 		name: string;
 		sha?: string;
@@ -1159,6 +1184,9 @@ export class GlLitGraph extends LitElement {
 			row.date != null &&
 			prevRowDate != null &&
 			stickyTimelineGroupKeyFor(row.date, this.nowMs) !== stickyTimelineGroupKeyFor(prevRowDate, this.nowMs);
+		// The width-degradation ladder's decision (label swap + pill-name cap) — computed once and reused
+		// for both `RowRenderContext` fields below rather than twice (it re-measures via canvas each call).
+		const wipFit = row.kind === 'workdir' ? this.buildWipRowFit(row, c) : undefined;
 		return renderRow(row, {
 			commit: commit,
 			repoPath: this.repoPath,
@@ -1225,6 +1253,10 @@ export class GlLitGraph extends LitElement {
 			wipState: c.wipStateBySha.get(row.sha),
 			wipOperation: row.kind === 'workdir' ? c.runningOperationByRowSha?.get(row.sha) : undefined,
 			wipAgent: row.kind === 'workdir' ? c.agentStatusByRowSha?.get(row.sha) : undefined,
+			wipIdentity: row.kind === 'workdir' ? c.wipRowInfoByRowSha?.get(row.sha) : undefined,
+			wipBranchPill: row.kind === 'workdir' ? this.buildWipRowBranchPill(row) : undefined,
+			wipDisplayLabel: wipFit?.label,
+			wipPillMaxWidth: wipFit?.pillMaxWidth,
 			// Inline Resolve is gated to the graph's OWN worktree's WIP row — peer
 			// worktrees surface conflicts via the details-header chip instead.
 			hasConflicts:
@@ -1240,17 +1272,15 @@ export class GlLitGraph extends LitElement {
 			isUnpushed: commit.isUnpublished,
 			isUnpulled: commit.isUnpulled,
 			undoTarget: commit.undo,
-			// Gates the inverse Jump to Working Changes action by the SAME decision as the WIP row's proxy
-			// pill (pill built ⇒ the primary WIP row exists, non-adjacent): only the graph's own HEAD row
-			// offers it — a peer worktree's WIP row interleaves directly above its tip, so the jump there
-			// would move one row.
-			hasJumpableWipRow: c.wipRowMarkerPill != null && row.sha === c.rowMarkerTips?.headSha,
+			// Gates the inverse Jump to Working Changes action by the SAME decision as the WIP row's far-
+			// from-head check (`isPrimaryWipFarFromHead`, built once per render): only the graph's own HEAD
+			// row offers it — a peer worktree's WIP row interleaves directly above its tip, so the jump
+			// there would move one row.
+			hasJumpableWipRow: c.primaryWipFarFromHead === true && row.sha === c.rowMarkerTips?.headSha,
 			avatarVscodeContext: commit.avatarVscodeContext,
 			// The SAME tips object for every row (a reference, no per-row derivation): each row resolves its
-			// own HEAD/upstream/target role by sha — 3 compares for the rows that play none. The prebuilt WIP
-			// pill (built once per render) rides along and is placed only on the primary WIP row.
+			// own HEAD/upstream/target role by sha — 3 compares for the rows that play none.
 			rowMarkerTips: c.rowMarkerTips,
-			wipRowMarkerPill: c.wipRowMarkerPill,
 		});
 	}
 
@@ -1335,6 +1365,35 @@ export class GlLitGraph extends LitElement {
 	// Identity of the scope's merge-target anchors at the last marker recompute — the deferred row marker
 	// pull is caught by `changed.has('rowMarkerMergeTarget')`, but the scope's set has no such signal.
 	private lastMergeTargetShasRef?: ReadonlySet<string>;
+	// Identity of `wipRowInfoByRowSha` at the last marker recompute — a peer's branch/worktree name can
+	// change (checkout in another worktree) without the decorated rows array itself changing identity
+	// (the row message no longer carries the name, so it can't rebuild `rows` on its own; see A3/A4).
+	private lastWipRowInfoByRowShaRef?: ReadonlyMap<string, WipRowInfo>;
+	// One-time (per-connect) font the WIP-row degradation ladder (`buildWipRowFit`) measures its label
+	// texts against — resolved lazily from whatever's currently rendered (`resolveWipMessageFont`), since
+	// a live font read is cheap done ONCE, not once per WIP row per render (the per-row/per-text part is
+	// the module-level `wipTextWidthCache`). Undefined until something workdir has actually painted; the
+	// ladder no-ops until then. Every OTHER ladder input (available width, pill chrome, stats width) is
+	// real per-row DOM, read fresh each time in `buildWipRowFit` — not cached, since the pill's own name
+	// span may already be capped from a prior render, which would make a cached "natural" chrome wrong.
+	private _wipMessageFont?: string;
+	// Table-style AND list-style WIP rows: the rendered content-container width `buildWipRowFit` assumed
+	// THIS render, keyed by sha — rebuilt fresh every render (cleared in `updateRenderState`).
+	// `updated()`'s `checkWipFitConvergence` re-measures the SAME cells post-commit (the flex-computed
+	// width only exists once this commit's layout has actually happened) and requests one more update if
+	// any drifted — comparing values rather than a flag is what keeps that from looping: a settled layout
+	// reports the same width back and stops.
+	private _wipFitAvailableWidthBySha = new Map<string, number>();
+	// The layout-affecting inputs `checkWipFitConvergence` last ran under — its re-measure gate; see the
+	// comment there.
+	private _wipFitCheckGate?: {
+		containerWidth: number;
+		zones: readonly ZoneSpec[];
+		style: string;
+		dragSolvedZones: readonly ZoneSpec[] | undefined;
+		graphPlacement: GraphPlacement;
+		graphColumnPos: number;
+	};
 	// Cached set of search-matched shas (undefined = no active search). Rebuilt only when
 	// `searchResults` changes (see willUpdate) — read by dim/highlight + the filter-mode row filter.
 	private _searchMatchedShas?: ReadonlySet<string>;
@@ -1550,7 +1609,7 @@ export class GlLitGraph extends LitElement {
 	// inline pill when it was folded in the +N overflow — see `partitionRowRefs`), never reordering the
 	// row (see createRefAdornmentProvider). Split-pill hooks read live state (metadata/row positions/
 	// row-marker tips), so they're getters, never
-	// cached. Held as a field so the WIP-row pill (`buildWipRowMarkerPill`) reuses the exact same hooks.
+	// cached. Held as a field so the WIP row's branch pill (`buildWipRowBranchPill`) reuses the exact same hooks.
 	private readonly refPillHooks: RefPillHooks = {
 		getUpstream: ref => this.getUpstreamStats(ref),
 		resolveJump: (ref, fromSha) => this.resolveRefJump(ref, fromSha),
@@ -2296,6 +2355,7 @@ export class GlLitGraph extends LitElement {
 
 		const markerTypes = this.config?.scrollMarkerTypes;
 		const markerTypesChanged = markerTypes !== this.lastScrollMarkerTypesRef;
+		const wipRowInfoChanged = this.wipRowInfoByRowSha !== this.lastWipRowInfoByRowShaRef;
 		const baseMarkerInputsChanged =
 			rowsChanged ||
 			laneInputsChanged ||
@@ -2304,7 +2364,8 @@ export class GlLitGraph extends LitElement {
 			markerTypesChanged ||
 			excludeChanged ||
 			refsMetadataChanged ||
-			downstreamsChanged;
+			downstreamsChanged ||
+			wipRowInfoChanged;
 		// The merge target lands AFTER the first paint (the scope-anchor pull) and moves again on a ref
 		// invalidation — so it triggers the O(1) patch, never the row rescan. `scopeAnchors` is rewritten by
 		// the lane derivation above, so its identity is a valid change signal by here.
@@ -2314,6 +2375,7 @@ export class GlLitGraph extends LitElement {
 			this.lastSearchResultsRef = this.searchResults;
 			this.lastScrollMarkerTypesRef = markerTypes;
 			this.lastMergeTargetShasRef = mergeTargetShas;
+			this.lastWipRowInfoByRowShaRef = this.wipRowInfoByRowSha;
 			// Selection/merge-target alone patch on top of the cached base markers — no row rescan.
 			this.recomputeScrollMarkers(!baseMarkerInputsChanged);
 		}
@@ -2459,6 +2521,9 @@ export class GlLitGraph extends LitElement {
 		const rows = this.displayRows;
 		// Refreshed once per render (not per row) — see `nowMs`'s own doc comment.
 		this.nowMs = Date.now();
+		// Fresh per render — `buildWipRowFit` repopulates it below as each WIP row's context is built; see
+		// the field's own doc comment.
+		this._wipFitAvailableWidthBySha.clear();
 		const avatarsSetting = this.config?.avatars ?? true;
 		const nodeStyle = this.effectiveNodeStyle;
 		const zones = this.getVisibleZones();
@@ -2638,10 +2703,11 @@ export class GlLitGraph extends LitElement {
 			wipStateBySha: this.wipStateBySha,
 			runningOperationByRowSha: this.runningOperationByRowSha,
 			agentStatusByRowSha: this.agentStatusByRowSha,
+			wipRowInfoByRowSha: this.wipRowInfoByRowSha,
 			wipStateById: this.wipStateById,
 			primaryWipRowId: this.primaryWipRowId,
 			rowMarkerTips: tips,
-			wipRowMarkerPill: this.buildWipRowMarkerPill(tips),
+			primaryWipFarFromHead: this.isPrimaryWipFarFromHead(tips),
 		};
 		// Horizontal-scrollbar geometry (CSSOM, so the thumb tracks scroll without extra reflow). Left
 		// edge = the fixed zones before the lanes + the fold strip (matches graph-row's `graphLeadOffset`
@@ -3128,6 +3194,7 @@ export class GlLitGraph extends LitElement {
 				downstreams: this.downstreams,
 				refsMetadata: this.refsMetadata,
 				repoPath: this.repoPath,
+				wipRowInfoByRowSha: this.wipRowInfoByRowSha,
 			});
 		}
 
@@ -5286,7 +5353,7 @@ export class GlLitGraph extends LitElement {
 		//  • The "did anything but selection change" test must compare the WHOLE context (excluding only
 		//    `selected`/`focusedSha`) rather than an enumerated field list — an include-list fails unsafe
 		//    (freeze), a whole-object compare fails safe (redundant re-render). That requires memoizing
-		//    `zones`, `laneWindow`, `rowMarkerTips` and `wipRowMarkerPill` at their source: each allocates
+		//    `zones`, `laneWindow` and `rowMarkerTips` at their source: each allocates
 		//    fresh every update, and `laneWindow` does so exactly when lanes overflow — so without the
 		//    memos the check always trips on precisely the repos this is meant to help.
 		//  • State that mutates behind a stable reference is invisible to any such compare and needs an
@@ -8472,6 +8539,9 @@ export class GlLitGraph extends LitElement {
 		// other geometry reader; it rides the ResizeObserver, whose callbacks land after layout. Keep both
 		// off this method: anything measuring here forces a synchronous layout on every update.
 		this.syncChangesOptIn();
+		// Same idea for the WIP-row degradation ladder's table-style measurement — self-gated on there
+		// being any WIP row to check (see the method).
+		this.checkWipFitConvergence();
 		// An open keyboard peek follows the row cursor (self-gated on being open — nothing to do otherwise).
 		if (this._peekOpen && changed.has('focusIndex')) {
 			this.schedulePeekReanchor();
@@ -9547,101 +9617,261 @@ export class GlLitGraph extends LitElement {
 		return { headSha: headSha, upstreamSha: upstreamSha, targetSha: target?.sha, targetName: target?.name };
 	}
 
-	// Whether the primary WIP row's row-marker pill should render, and the data it needs (HEAD refs + lane
-	// color). Rendered only when HEAD has been pushed DOWN the list: suppressed when the HEAD commit row
-	// sits directly below the WIP row (adjacent — HEAD is already right there). Structural (row-index)
-	// checks only — no viewport math. Shared by the pill build and the sticky-timeline yield check so both
-	// read the same decision.
+	// Whether the primary WIP row is far enough from HEAD that the inverse "Jump to Working Changes"
+	// action on the HEAD row is worth offering. Rendered only when HEAD has been pushed DOWN the list:
+	// suppressed when the HEAD commit row sits directly below the WIP row (adjacent — HEAD is already
+	// right there). Structural (row-index) checks only — no viewport math, no ref lookup (the inline
+	// branch pill that used to need HEAD's refs to render itself is gone; this only answers the boolean).
 	//
-	// An UNLOADED HEAD (tips carrying the branch payload's fallback sha) still gets the pill — by
-	// definition not adjacent, and the jump is exactly how the user pulls HEAD into the loaded set. Its
-	// refs are synthesized from the branch payload (the real ref decoration lives on the unloaded row),
-	// and its lane comes from the engine's reservation for the WIP row's unloaded parent, matching the
-	// dangling stub the row draws.
-	private wipRowMarkerPillTarget(
-		tips: RowMarkerTips | undefined,
-	): { headRefs: readonly GraphCommitRef[]; column: number } | undefined {
+	// An UNLOADED HEAD (tips carrying the branch payload's fallback sha) still counts as far — by
+	// definition not adjacent, and the jump is exactly how the user pulls HEAD into the loaded set.
+	private isPrimaryWipFarFromHead(tips: RowMarkerTips | undefined): boolean {
 		const headSha = tips?.headSha;
-		if (headSha == null) return undefined;
+		if (headSha == null) return false;
 
-		if (this.repoPath == null) return undefined;
+		if (this.repoPath == null) return false;
 
 		const wipIdx = this.processedIndexBySha.get(createWipRowId(this.repoPath));
-		if (wipIdx == null) return undefined;
+		if (wipIdx == null) return false;
 
 		const headIdx = this.processedIndexBySha.get(headSha);
-		if (headIdx === wipIdx + 1) return undefined;
-
-		if (headIdx != null) {
-			const headRefs = this.getCommitBySha(headSha)?.commitRefs;
-			if (headRefs == null || headRefs.length === 0) return undefined;
-
-			return { headRefs: headRefs, column: this.processedRows[headIdx]?.column ?? 0 };
-		}
-
-		const branch = this.currentBranch;
-		if (branch == null || branch.detached === true || branch.sha !== headSha) return undefined;
-
-		const syntheticRef: GraphCommitRef = {
-			kind: 'head',
-			name: branch.name,
-			current: true,
-			upstreamName: branch.upstream?.missing !== true ? branch.upstream?.name : undefined,
-		};
-		return { headRefs: [syntheticRef], column: this.unloadedColumns.get(headSha) ?? 0 };
+		return headIdx !== wipIdx + 1;
 	}
 
-	// The primary WIP row's row-marker pill: the CURRENT branch's ref pill (sourced from the HEAD row's
-	// refs), role-forced to HEAD (so it carries the green emphasis + the merge-target segment) and reused
-	// verbatim from `renderRefPill` — one pill language everywhere. `muted` softens the inversion so it
-	// reads as secondary to the real HEAD-row pill; `jumpSha` makes a click JUMP to the HEAD tip (scroll +
-	// select) without pinning — the WIP row is far from HEAD, so the pill is a navigation aid. `iconsOnly`
-	// keeps it icon-only with no hover-expand — the name lives in the tooltip only.
-	private buildWipRowMarkerPill(tips: RowMarkerTips | undefined): TemplateResult | undefined {
-		const target = this.wipRowMarkerPillTarget(tips);
-		if (target == null) return undefined;
+	// The inline branch pill every WIP row carries directly after its message: a single, always-named
+	// pill identifying the branch the row's working changes sit on. Unlike the far-right row-marker pill
+	// it replaced, this ISN'T a jump/navigation proxy pinned to the HEAD row's refs — it's the row's own
+	// identity, sourced from `wipRowInfoByRowSha` (A1) instead. Deliberately ROLE-LESS: it's info + a
+	// jump, not a real ref pill, so it never takes the head/lane emphasis colors — its monochrome
+	// treatment (rest AND hover) lives on the `.gl-graph__wip-branch-pill` wrapper in graph.scss. The
+	// primary/peer distinction survives in the icon alone (`current` ⇒ vm-active). `jumpSha` still lets a
+	// click jump to the branch tip (see `RefPillRowMarker.jumpSha`).
+	private buildWipRowBranchPill(row: ProcessedGraphRow): TemplateResult | undefined {
+		const info = this.wipRowInfoByRowSha?.get(row.sha);
+		if (info?.branchName == null) return undefined;
 
-		// ONLY the checked-out branch's ref — not every ref on the HEAD commit. Two reasons: this pill stands
-		// for "the branch your working changes sit on", so a co-located tag or second branch isn't what it
-		// means; and a multi-ref pill renders a `<gl-popover>` whose content is a SIBLING of the pill (not a
-		// descendant), so `data-jump-sha` isn't in a popover click's `composedPath` — such a click would fall
-		// through to the pin path and open a branch sheet keyed to the WIP row's synthetic sha, breaking this
-		// pill's jump-only contract. One ref ⇒ bare pill, no popover, no such path.
-		const currentHead = target.headRefs.find(r => r.kind === 'head' && r.current === true);
-		const parsed = toParsedRefs(currentHead != null ? [currentHead] : target.headRefs, this._refOrder);
-		// The upstream segment NAMES the remote here rather than counting the divergence (see
-		// `RefPillRowMarker.upstream`). The name rides on the head ref itself, so the segment never waits on
-		// paging; the remote ref — the only source of the provider glyph — is looked up when its row is loaded.
-		const primary = parsed[0];
-		const upstreamSha = primary.upstreamId != null ? this.refRowIndex.get(primary.upstreamId)?.sha : undefined;
-		const upstreamRef =
-			upstreamSha != null
-				? this.getCommitBySha(upstreamSha)?.commitRefs.find(r => r.id === primary.upstreamId)
-				: undefined;
+		// Inert when there's nothing sane to jump to: a detached HEAD has no branch (the name is the
+		// synthesized `(abc1234…)` label), and a paused rebase/merge/etc. moves `tipSha` out from under a
+		// jump mid-operation. Both keep the identity visible but drop the interactive contract entirely.
+		const pausedOp = this.wipStateById?.[row.sha]?.pausedOpStatus != null;
+		if (info.detached === true || pausedOp) return this.renderInertWipBranchPill(info, info.branchName);
 
-		return renderRefPill(
-			parsed,
-			colorForColumn(target.column),
-			// `wipRowMarkerPillTarget` returned a target, so `repoPath` is set.
-			createWipRowId(this.repoPath!),
-			this.refPillHooks,
-			{
-				role: 'head',
-				expandAnchor: 'right',
-				muted: true,
-				suppressPinControl: true,
-				iconsOnly: true,
-				jumpSha: tips?.headSha,
-				upstream:
-					primary.upstreamName != null
-						? {
-								name: primary.upstreamName,
-								hostingServiceType: upstreamRef?.hostingServiceType,
-								jumpSha: upstreamSha,
-							}
-						: undefined,
-			},
+		// ONLY the checked-out branch's ref — not every ref on the commit it happens to share a name with.
+		// A multi-ref pill renders a `<gl-popover>` whose content is a SIBLING of the pill (not a
+		// descendant), so `data-jump-sha` isn't in a popover click's `composedPath` — such a click would
+		// fall through to the pin path and open a branch sheet keyed to the WIP row's synthetic sha,
+		// breaking this pill's jump-only contract. One ref ⇒ bare pill, no popover, no such path.
+		const ref: GraphCommitRef = { kind: 'head', name: info.branchName, current: info.isPrimary };
+		const parsed = toParsedRefs([ref], this._refOrder);
+
+		// Upstream jump segment (icon-only, name in the tooltip), for the primary AND peers alike — the
+		// upstream name is already in the pushed payloads, and the jump target/provider glyph come from the
+		// LOADED rows (`refRowIndex`), so none of this incurs a fetch. Absent upstream ⇒ no segment.
+		let upstream:
+			| { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha; iconOnly?: boolean }
+			| undefined;
+		if (info.upstreamName != null && this.repoPath != null) {
+			const upstreamId = getBranchId(this.repoPath, true, info.upstreamName);
+			const upstreamSha = this.refRowIndex.get(upstreamId)?.sha;
+			const upstreamRef =
+				upstreamSha != null
+					? this.getCommitBySha(upstreamSha)?.commitRefs.find(r => r.id === upstreamId)
+					: undefined;
+			upstream = {
+				name: info.upstreamName,
+				hostingServiceType: upstreamRef?.hostingServiceType,
+				jumpSha: upstreamSha,
+				iconOnly: true,
+			};
+		}
+
+		return renderRefPill(parsed, colorForColumn(row.column), row.sha, this.refPillHooks, {
+			suppressPinControl: true,
+			upstream: upstream,
+			// Only ever ALREADY-RESOLVED data (no fetch): the primary's row-marker pull, or a peer whose
+			// overview card was hovered/clicked — see `buildWipRowInfoByRowSha`.
+			target: info.target,
+			jumpSha: info.tipSha,
+			expandAnchor: 'left',
+		});
+	}
+
+	// The inert form of the branch pill (detached HEAD, or a paused-operation worktree — see the caller):
+	// mirrors `renderOnePill`'s `.gl-graph__ref-pill`/`-main`/`-icon`/`-label` markup, because
+	// `buildWipRowFit` measures the ladder off exactly those rendered classes, but with no
+	// `role`/`tabindex`/`data-jump-sha`, no popover, and no upstream/merge-target segments — nothing here
+	// is clickable. The `--static` modifier (graph.scss) turns off the pointer cursor and pins hover to
+	// the rest state.
+	private renderInertWipBranchPill(info: WipRowInfo, branchName: string): TemplateResult {
+		const icon = info.detached === true ? 'git-commit' : info.isPrimary ? 'vm-active' : 'vm';
+		// Mirrors `describeRef`'s wording for the equivalent interactive pill so a screen reader hears the
+		// same identity either way; detached overrides it since there's no real branch to name.
+		const ariaLabel =
+			info.detached === true
+				? `Detached HEAD at ${branchName}`
+				: info.isPrimary
+					? `HEAD on ${branchName}`
+					: `branch ${branchName}`;
+		// Only the detached case gets a tooltip — the paused-op case has no click/jump left to explain.
+		const tooltip = info.detached === true ? ariaLabel : undefined;
+
+		return html`<span class="gl-graph__ref-pill gl-graph__wip-branch-pill--static" aria-label=${ariaLabel}>
+			<span class="gl-graph__ref-pill-main" data-tooltip=${tooltip ?? nothing}>
+				<span class="gl-graph__ref-pill-icon"><code-icon icon=${icon}></code-icon></span>
+				<span class="gl-graph__ref-pill-label">${branchName}</span>
+			</span>
+		</span>`;
+	}
+
+	// The message font the ladder's canvas measurements use — the ONE thing that must come from a
+	// one-time sample (the swap decides between label strings that aren't both on screen). Guarded so it
+	// probes only until a workdir message first paints, then never again — this runs per WIP row per
+	// render, and an unguarded querySelector/getComputedStyle here is a forced layout read on the render
+	// hot path.
+	private resolveWipMessageFont(): void {
+		if (this._wipMessageFont != null) return;
+
+		const messageEl = this.querySelector<HTMLElement>('.is-workdir .gl-graph__message');
+		if (messageEl == null) return;
+
+		this._wipMessageFont = getComputedStyle(messageEl).font;
+	}
+
+	/** The horizontal space an element costs its flex line: border box + both margins. */
+	private static outerWidth(el: HTMLElement): number {
+		const cs = getComputedStyle(el);
+		return el.offsetWidth + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+	}
+
+	/** The WIP row's rendered content band: the message-zone cell (table) or list line 1. */
+	private wipRowFitContainer(sha: string, style: RenderCtx['style']): HTMLElement | null {
+		return this.querySelector<HTMLElement>(
+			`#${CSS.escape(`graph-row-${sha}`)} ${style === 'list' ? '.gl-graph__list-line1' : '.gl-graph__zone--message'}`,
 		);
+	}
+
+	/** A container's content-box budget: clientWidth minus its own horizontal padding. */
+	private static containerBudget(el: HTMLElement): number {
+		const cs = getComputedStyle(el);
+		return Math.max(0, el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
+	}
+
+	// The width-degradation ladder's decision for one WIP row (label swap, then pill-name cap — see
+	// `computeWipRowFit`). `undefined` when there's nothing to degrade (a detached worktree's row has no
+	// branch pill), or on the row's very first paint (nothing rendered to measure yet — the convergence
+	// pass below requests the corrective update once the row exists).
+	//
+	// Everything except the label strings is measured off the ROW'S OWN rendered DOM, not estimated:
+	// reconstructing the pill/stats widths from one-time chrome samples proved wrong in practice (a
+	// mis-sampled stats chrome made a 244px-wide row compute as 191), and zone arithmetic doesn't equal
+	// the flexing cell's real width once the row set overflows into an h-scroll. The rendered elements are
+	// ground truth; the canvas only measures the three texts that aren't (both) on screen — the full/short
+	// labels and the branch name's natural width. One-frame lag on resize is caught by
+	// `checkWipFitConvergence`. Per-row layout reads are bounded by the WIP-row count (a handful).
+	private buildWipRowFit(row: ProcessedGraphRow, c: RenderCtx): WipRowFit | undefined {
+		const info = c.wipRowInfoByRowSha?.get(row.sha);
+		if (info?.branchName == null) return undefined;
+
+		this.resolveWipMessageFont();
+		const font = this._wipMessageFont;
+		if (font == null) return undefined;
+
+		const measureCtx = getTextMeasureContext();
+		if (measureCtx == null) return undefined;
+
+		const container = this.wipRowFitContainer(row.sha, c.style);
+		const msgEl = container?.querySelector<HTMLElement>('.gl-graph__message');
+		const wrapEl = container?.querySelector<HTMLElement>('.gl-graph__wip-branch-pill');
+		const pillEl = wrapEl?.querySelector<HTMLElement>('.gl-graph__ref-pill');
+		const labelEl = wrapEl?.querySelector<HTMLElement>('.gl-graph__ref-pill-label');
+		if (container == null || msgEl == null || wrapEl == null || pillEl == null || labelEl == null) {
+			// First paint: nothing to measure yet. The sentinel makes the convergence pass request one
+			// corrective update as soon as the row exists, so the ladder engages one frame later.
+			this._wipFitAvailableWidthBySha.set(row.sha, -1);
+			return undefined;
+		}
+
+		const availableWidth = GlLitGraph.containerBudget(container);
+		this._wipFitAvailableWidthBySha.set(row.sha, availableWidth);
+
+		// The pill's non-name cost, real: chrome = pill minus its (possibly currently capped) label, plus
+		// the wrapper's leading margin. Subtracting the RENDERED label is what keeps this correct even
+		// while a cap from the previous decision is applied.
+		const pillChromeWidth =
+			Math.max(0, pillEl.offsetWidth - labelEl.offsetWidth) +
+			(parseFloat(getComputedStyle(wrapEl).marginInlineStart) || 0);
+
+		// Fixed content sharing the band, real: EVERY direct child of the band except the message span and
+		// the pill wrapper — the inline refs span (wrapping the stats pill), message adornments, and
+		// crucially the grouped-placement inline lane gutter, which renders INSIDE this very cell and can
+		// eat half the budget (enumerating known classes missed it and crushed the label to 0px live).
+		// Whatever isn't in the band (a dedicated Refs column, list style's line-2 stats) costs nothing by
+		// construction. Absolutely-positioned overlays report offsetWidth too but don't take flex-line
+		// space — none live as direct children of these bands today.
+		let fixedWidth = 0;
+		for (const child of container.children) {
+			if (child === msgEl || child === wrapEl || !(child instanceof HTMLElement)) continue;
+
+			fixedWidth += GlLitGraph.outerWidth(child);
+		}
+
+		const metrics: WipRowFitMetrics = {
+			fullLabelWidth: measuredTextWidth(measureCtx, font, wipRowFullLabel),
+			shortLabelWidth: measuredTextWidth(measureCtx, font, wipRowShortLabel),
+			pillChromeWidth: pillChromeWidth,
+			pillNameWidth: measuredTextWidth(measureCtx, font, info.branchName),
+			statsWidth: fixedWidth,
+			// One character's width in the same font — a small, derived safety margin so a measurement
+			// miss always swaps a little early rather than overflowing.
+			slack: measuredTextWidth(measureCtx, font, '0'),
+		};
+		return computeWipRowFit(availableWidth, metrics);
+	}
+
+	// Post-commit convergence check for `buildWipRowFit`'s per-row measurements (see
+	// `_wipFitAvailableWidthBySha`'s own doc comment): re-derives the SAME budgets this render assumed
+	// and, if any drifted by more than a rounding px (or a first-paint sentinel row now exists), requests
+	// one more update — the next render reads the settled layout, so this adds at most one extra frame and
+	// can't loop (a settled layout reports the same budget back and the loop below finds nothing to act
+	// on).
+	private checkWipFitConvergence(): void {
+		// Gate on the inputs that can actually change a WIP row's band width — without this the re-measure
+		// below forces a synchronous layout on EVERY update, including per-frame scroll re-renders (see
+		// the warning above `syncChangesOptIn`'s call site). One check per input change is also all
+		// correctness needs: the first post-change check either finds no drift or requests the one
+		// corrective update, whose own willUpdate measures the already-settled layout.
+		const gate = this._wipFitCheckGate;
+		if (
+			gate != null &&
+			gate.containerWidth === this.containerWidth &&
+			gate.zones === this.zones &&
+			gate.style === this.effectiveStyle &&
+			gate.dragSolvedZones === this.dragSolvedZones &&
+			gate.graphPlacement === this.graphPlacement &&
+			gate.graphColumnPos === this.graphColumnPos
+		) {
+			return;
+		}
+
+		this._wipFitCheckGate = {
+			containerWidth: this.containerWidth,
+			zones: this.zones,
+			style: this.effectiveStyle,
+			dragSolvedZones: this.dragSolvedZones,
+			graphPlacement: this.graphPlacement,
+			graphColumnPos: this.graphColumnPos,
+		};
+
+		const style = this.effectiveStyle;
+		for (const [sha, usedBudget] of this._wipFitAvailableWidthBySha) {
+			const container = this.wipRowFitContainer(sha, style);
+			if (container == null) continue;
+
+			if (usedBudget < 0 || Math.abs(GlLitGraph.containerBudget(container) - usedBudget) > 1) {
+				this.requestUpdate();
+				return;
+			}
+		}
 	}
 
 	// The same `--has-persistent` decision `renderRowActions` makes (see `hasPersistentRowActions`),
@@ -9653,21 +9883,12 @@ export class GlLitGraph extends LitElement {
 		const wipOperation = row.kind === 'workdir' ? this.runningOperationByRowSha?.get(row.sha) : undefined;
 		// One payload lookup for both tracking flags — this runs on the SCROLL path.
 		const commit = row.kind === 'workdir' ? undefined : this.getCommitBySha(row.sha);
-		// The primary WIP row's row-marker pill keeps the strip live at rest, and it rides exactly where the
-		// sticky-timeline pill sits — so the timeline must yield to it like any other persistent member. Same
-		// "will the pill render" decision the render loop makes (`wipRowMarkerPillTarget`).
-		// Reuses the per-render tips cache (this runs on the SCROLL path — recomputing would allocate and
-		// re-walk `refRowIndex` every frame the WIP row is topmost).
-		const hasRowMarkerDecorator =
-			isPrimaryWipRow(row.kind, row.sha, this.repoPath) &&
-			this.wipRowMarkerPillTarget(this._rowMarkerTips) != null;
 		return hasPersistentRowActions({
 			kind: row.kind,
 			wipAgent: wipAgent,
 			wipOperation: wipOperation,
 			isUnpushed: commit?.isUnpublished,
 			isUnpulled: commit?.isUnpulled,
-			hasRowMarker: hasRowMarkerDecorator,
 		});
 	}
 

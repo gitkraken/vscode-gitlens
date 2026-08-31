@@ -21,6 +21,11 @@ export function buildAriaLabel(
 	kind: CommitKind | undefined,
 	adornmentLabel?: string,
 	relativeDate?: string,
+	/** Workdir-only: the row's branch/worktree identity (`on main`, `worktree foo, on bar`) — the caller
+	 *  computes this from its own `WipRowInfo`, since that type isn't known to this package. Every
+	 *  workdir row's message is now the same bare "Working Changes" (see `wipRowMessage`), so this is
+	 *  what actually distinguishes the row from every other workdir row. */
+	identity?: string,
 ): string {
 	const parts: string[] = [];
 	const isMerge = kind === 'merge' || commit.parents.length > 1;
@@ -28,12 +33,14 @@ export function buildAriaLabel(
 	// date exactly; fall back to the package's own short formatter when the caller supplies none.
 	const rel = relativeDate ?? (commit.date ? relativeTimeShort(commit.date) : '');
 
-	// For workdir rows the message ("Working Changes (X)" or "Working Tree (X)") IS the
-	// identifying info — lead with it. Skip the generic "Working directory" header so
-	// screen readers don't have to wait through filler before the actually disambiguating
-	// branch name. Fall back to the generic header only when the summary is empty.
+	// For workdir rows the message ("Working Changes") is generic — `identity` carries the actually
+	// disambiguating branch/worktree name, spoken right after it. Fall back to the generic "Working
+	// directory" header only when the summary is empty.
 	if (kind === 'workdir') {
 		parts.push(firstLine(commit.message) || 'Working directory');
+		if (identity) {
+			parts.push(identity);
+		}
 		if (rel) {
 			parts.push(rel);
 		}

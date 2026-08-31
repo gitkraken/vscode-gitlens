@@ -126,7 +126,7 @@ export interface RefPillHooks {
 // purpose, see `RowRefOrder`); the caller must bust its cache when that object changes, which
 // `createRefAdornmentProvider` does by identity.
 //
-// Exported for the WIP row's row-marker pill (`buildWipRowMarkerPill`), which projects the HEAD row's refs.
+// Exported for the WIP row's branch pill (`buildWipRowBranchPill`), which projects its synthetic ref.
 export function toParsedRefs(refs: readonly GraphCommitRef[], order?: RowRefOrder): ParsedRef[] {
 	return sortRowRefs(refs, order).map(r => ({
 		kind: r.kind,
@@ -449,17 +449,18 @@ function renderIssueChip(issue: IssueMetadata, ref: ParsedRef, expanded: boolean
 	</span>`;
 }
 
-/** RowMarker options for the pill. `role` forces the role emphasis (the WIP-row pill, which sits on a
- *  different sha than HEAD, passes `'head'`); otherwise the role is derived from `fromSha` against the
- *  live tips. `expandAnchor: 'right'` right-anchors the hover-expand overlay (the WIP row's far-right slot
- *  clips a left-anchored one). `muted` softens the role emphasis to a tint (the WIP-row pill, so it reads
- *  as secondary to the real on-tip-row pill). `jumpSha` makes a plain click JUMP to that sha (scroll +
- *  select) instead of pinning — rendered as `data-jump-sha`, which onClick handles early (jump +
- *  stopPropagation), so the WIP pill navigates to the branch tip without opening its sheet. */
+/** RowMarker options for the pill. `role` forces the role emphasis; otherwise the role is derived from
+ *  `fromSha` against the live tips. `expandAnchor: 'right'` right-anchors the hover-expand overlay (the
+ *  default extends rightward, which a far-right slot clips). `jumpSha` makes a plain click JUMP to that
+ *  sha (scroll + select) instead of pinning — rendered as `data-jump-sha`, which onClick handles early
+ *  (jump + stopPropagation), so the WIP row's branch pill navigates to the branch tip without opening its
+ *  sheet. */
 export interface RefPillRowMarker {
 	role?: RowMarkerRole;
 	expandAnchor?: 'left' | 'right';
-	muted?: boolean;
+	/** Renders the merge-target jump segment for THIS sha/name, independent of role — the WIP row's
+	 *  branch pill has no head role but still carries the current branch's (already-resolved) target. */
+	target?: { sha: Sha; name?: string };
 	jumpSha?: Sha;
 	/** Names the branch's tracked upstream (provider glyph + remote) in place of the ahead/behind segment.
 	 *  The WIP-row pill is a navigation proxy, so it says WHERE the branch pushes rather than how far it's
@@ -467,7 +468,7 @@ export interface RefPillRowMarker {
 	 *  `hostingServiceType` is only known once the upstream's row has paged in; without it the segment falls
 	 *  back to the generic cloud glyph rather than waiting. `jumpSha` (the upstream tip, likewise only once
 	 *  loaded) turns the segment into a jump button. */
-	upstream?: { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha };
+	upstream?: { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha; iconOnly?: boolean };
 	/** Suppresses the pinned-ref indicator / unpin control in the leading glyph slot. Set by the WIP-row
 	 *  proxy pill, whose contract is jump-ONLY: a second interactive zone there would give a pill that exists
 	 *  to navigate a competing action, and it would unpin from a surface that never offered to pin. The
@@ -643,8 +644,10 @@ export function renderRefPill(
 	const derivedRoleMask =
 		rowMarker?.role == null && tips != null && fromSha != null ? rowMarkerRolesFor(fromSha, tips) : 0;
 	const role = rowMarker?.role ?? (derivedRoleMask !== 0 ? primaryRowMarkerRole(derivedRoleMask) : undefined);
-	// The HEAD pill also carries the merge-target jump segment (the current branch's target, from the tips).
-	const targetSha = role === 'head' ? tips?.targetSha : undefined;
+	// The HEAD pill also carries the merge-target jump segment (the current branch's target, from the
+	// tips); a caller can supply one explicitly instead (the WIP row's role-less branch pill).
+	const targetSha = rowMarker?.target?.sha ?? (role === 'head' ? tips?.targetSha : undefined);
+	const targetName = rowMarker?.target != null ? rowMarker.target.name : tips?.targetName;
 	// Only HEAD and upstream take the colored emphasis — a merge-target (or base) row's pill stays an ORDINARY
 	// lane-colored ref pill. Those rows are already called out by the rail + their marker chip, and recoloring
 	// the branch pill there implied the pill itself was the target rather than just sitting on that commit.
@@ -695,7 +698,7 @@ export function renderRefPill(
 			findHitRefKey: findHitRefKey,
 			emphasisRole: i === emphasisIndex ? emphasisRole : undefined,
 			targetSha: i === emphasisIndex ? targetSha : undefined,
-			targetName: tips?.targetName,
+			targetName: targetName,
 			moreBadge: i === last ? moreBadge : nothing,
 			hasPopover: i === last && restCount > 0,
 			rowMarker: i === 0 ? rowMarker : undefined,
@@ -787,7 +790,7 @@ function renderOnePill(
 		hooks.getContextPinnedRefKey() === refContextPinKey(refPillKey(ref), rowMarker?.jumpSha);
 	const rowMarkerClass = `${
 		options.emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${options.emphasisRole}` : ''
-	}${options.emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''}${
+	}${
 		rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''
 	}${isFindHit ? ' gl-graph__ref-pill--find-hit' : ''}${isPinned ? ' is-pinned' : ''}${
 		isContextPinned ? ' is-context-pinned' : ''
@@ -797,7 +800,16 @@ function renderOnePill(
 	// A row-marker pill that carries `upstream` opts out of both and just NAMES the remote instead.
 	let upstreamSegment: TemplateResult | typeof nothing;
 	if (rowMarker?.upstream != null) {
-		upstreamSegment = renderNamedUpstreamSegment(ref, rowMarker.upstream, hooks, rowMarker?.iconsOnly === true);
+		upstreamSegment = renderNamedUpstreamSegment(
+			ref,
+			rowMarker.upstream,
+			hooks,
+			rowMarker.upstream.iconOnly ?? rowMarker?.iconsOnly === true,
+		);
+	} else if (rowMarker?.target != null) {
+		// An explicit target implies the caller curates the pill's segments (the WIP row's branch pill):
+		// with no named upstream given, render NONE rather than the self-resolving ahead/behind segment.
+		upstreamSegment = nothing;
 	} else {
 		upstreamSegment =
 			fromSha != null

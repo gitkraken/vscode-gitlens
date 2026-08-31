@@ -90,10 +90,14 @@ export const rowMarkerRoleSpecs: readonly {
 	{
 		role: 'wip',
 		flag: rowMarkerWip,
-		icon: 'gl-worktree',
+		// Filled, matching the ref pills' worktree glyph and the WIP stats pill's leading icon — one
+		// worktree mark across the graph's pill vocabulary.
+		icon: 'gl-worktree-filled',
 		label: 'Worktree',
-		// Empty on purpose: the row's own message already reads `Working Changes (<worktree name>)`, so a
-		// tooltip here would just echo it. The expanded pill (icon + "Worktree") carries the meaning instead.
+		// Empty by default — `rowMarkerRolesTooltip` fills in `Worktree (<name>)` from its `wipName`
+		// param when one is given (the row's own message is now the same bare "Working Changes" for
+		// every worktree, so it no longer names it). Left blank here since it's the one role whose
+		// description isn't static.
 		description: '',
 	},
 	{ role: 'head', flag: rowMarkerHead, icon: 'vm-active', label: 'HEAD', description: 'HEAD (Current Branch Tip)' },
@@ -113,16 +117,26 @@ export const rowMarkerRoleSpecs: readonly {
  * describe the same rail in the same shape. `&` degrades past two roles: the real ceiling is four (`head +
  * upstream + target + base` — `focal` is suppressed when `head` is present), which reads as a chain of
  * ampersands.
+ *
+ * `wipName` fills in the `wip` role's description (`Worktree (<name>)`) — that role's spec entry is
+ * deliberately left blank (see its `description`), since only the caller (graph-row) knows the worktree
+ * name to put there.
  */
-export function rowMarkerRolesTooltip(roles: number, targetName?: string): string {
+export function rowMarkerRolesTooltip(roles: number, targetName?: string, wipName?: string): string {
 	if (roles === 0) return '';
 
 	const parts: string[] = [];
 	for (const spec of rowMarkerRoleSpecs) {
 		if ((roles & spec.flag) === 0) continue;
 
-		// `wip`'s description is empty by design (see its spec entry) — skip it rather than join in a blank
-		// segment, which would leave a dangling ", " when combined with another role.
+		if (spec.role === 'wip') {
+			if (wipName != null && wipName.length > 0) {
+				parts.push(`${spec.label} (${wipName})`);
+			}
+			continue;
+		}
+
+		// Every other role's description is static; `wip`'s design-empty case is handled above.
 		if (spec.description.length === 0) continue;
 
 		parts.push(

@@ -120,11 +120,19 @@ suite('rowMarkerRolesTooltip', () => {
 		);
 	});
 
-	test('wip → empty (the row message already says it; no dangling separator when combined)', () => {
+	test('wip → empty without a name (no dangling separator when combined)', () => {
 		assert.strictEqual(rowMarkerRolesTooltip(flagFor('wip')), '');
 		assert.strictEqual(
 			rowMarkerRolesTooltip(flagFor('wip') | flagFor('target') | flagFor('base'), 'main'),
 			'Merge Target (main), Fork Point (Base)',
+		);
+	});
+
+	test('wip names the worktree when given one — it leads the spec order', () => {
+		assert.strictEqual(rowMarkerRolesTooltip(flagFor('wip'), undefined, 'my-worktree'), 'Worktree (my-worktree)');
+		assert.strictEqual(
+			rowMarkerRolesTooltip(flagFor('wip') | flagFor('target'), 'main', 'my-worktree'),
+			'Worktree (my-worktree), Merge Target (main)',
 		);
 	});
 });

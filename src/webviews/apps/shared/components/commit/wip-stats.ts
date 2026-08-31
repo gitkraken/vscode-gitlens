@@ -75,6 +75,23 @@ export class GlWipStats extends LitElement {
 				vertical-align: middle;
 			}
 
+			/* Leading icon inside the pill capsule (icon attribute) — order: -1 puts it ahead of
+			   commit-stats' own .stat spans in its flex layout even though it's a LATER slotted child
+			   there (DOM order alone would land it after them; see commit-stats.ts's render, which
+			   places the stats before the slot). Muted: it names the surface (a worktree), not a count,
+			   so it should read as secondary to the stats/check it sits beside. */
+			.wip-leading-icon {
+				order: -1;
+				margin-inline-end: var(--gl-space-4);
+				color: var(--vscode-descriptionForeground);
+				/* Same size the graph's ref pills give their leading glyph (.gl-graph__ref-pill-icon),
+				   so the worktree mark reads as one vocabulary across the pill kinds; the SAME vertical
+				   alignment as commit-stats' own .icon rule, or this glyph rides the baseline while the
+				   +/~/- icons sit on middle and the pill's contents look staggered. */
+				--code-icon-size: 1.2rem;
+				--code-icon-v-align: middle;
+			}
+
 			.paused-op-badge {
 				display: inline-flex;
 				gap: var(--gl-space-6);
@@ -116,6 +133,10 @@ export class GlWipStats extends LitElement {
 	@property({ type: Boolean, attribute: 'show-clean' }) showClean = false;
 	@property({ type: Boolean }) badge = false;
 	@property({ type: Boolean, attribute: 'no-tooltip' }) noTooltip = false;
+	/** Optional leading icon (a codicon/gl-icon name) rendered inside the pill capsule for the dirty and
+	 *  clean states — additive, and unused by every caller but the graph's WIP-row adornment. Badge and
+	 *  paused-op variants ignore it; those keep their existing look. */
+	@property({ type: String }) icon?: string;
 
 	@property({ attribute: false }) pausedOpStatus?: GitPausedOperationStatus;
 	@property({ type: Boolean, attribute: 'has-conflicts' }) hasConflicts = false;
@@ -141,7 +162,9 @@ export class GlWipStats extends LitElement {
 						symbol="icons"
 						appearance="pill"
 						no-tooltip
-					></commit-stats>`;
+					>
+						${this.icon ? html`<code-icon class="wip-leading-icon" icon=${this.icon}></code-icon>` : nothing}
+					</commit-stats>`;
 
 			if (this.noTooltip) return visible;
 
@@ -183,6 +206,7 @@ export class GlWipStats extends LitElement {
 			no-tooltip
 			aria-label="No working changes"
 		>
+			${this.icon ? html`<code-icon class="wip-leading-icon" icon=${this.icon}></code-icon>` : nothing}
 			<code-icon class="wip-clean-check" icon="check"></code-icon>
 		</commit-stats>`;
 

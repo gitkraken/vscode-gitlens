@@ -43,7 +43,6 @@ import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import {
 	combineRowMarkerRoles,
 	hasWipRole,
-	isPrimaryWipRow,
 	primaryRowMarkerRole,
 	rowMarkerRolesAriaLabel,
 	rowMarkerRolesFor,
@@ -52,6 +51,8 @@ import {
 	scopeAnchorRoles,
 	secondaryWipRoles,
 } from '../utils/rowMarker.utils.js';
+import type { WipRowInfo } from '../utils/wip.utils.js';
+import { wipZoneSuppressFromIndex } from '../utils/wip.utils.js';
 import type { GutterCache } from './graph-gutter-cache.js';
 import type { NodeStyle, WipNodeState } from './graph-gutter.js';
 import { nodeRadiusFor, wipRingInnerRadius } from './graph-gutter.js';
@@ -161,6 +162,21 @@ export interface RowRenderContext {
 	wipOperation?: RunningOperationBucket;
 	/** Workdir-only: attached AI-agent status — drives the agent-indicator action button. */
 	wipAgent?: WipRowAgentStatus;
+	/** Workdir-only: the row's branch/worktree identity (see `wip.utils.ts`'s `WipRowInfo`) — feeds the
+	 *  inline branch pill (`wipBranchPill`) and the row's aria-label. */
+	wipIdentity?: WipRowInfo;
+	/** Workdir-only: the inline branch pill rendered directly after the message text (built per row by
+	 *  `gl-lit-graph.ts`'s `buildWipRowBranchPill`). Undefined for a detached worktree (no branch to name). */
+	wipBranchPill?: TemplateResult;
+	/** Workdir-only: the row's visible message swapped to the short form under width pressure (the first
+	 *  rung of the degradation ladder, `gl-lit-graph.ts`'s `computeWipRowFit`) — undefined renders
+	 *  `commit.message` (`'Working Changes'`) unchanged. Visual only: `commit.message` and the aria-label
+	 *  (`wipIdentityAriaFragment` below) never see this. */
+	wipDisplayLabel?: string;
+	/** Workdir-only: caps the inline branch pill's NAME span once the label swap alone doesn't free enough
+	 *  width (the ladder's second rung) — undefined leaves the name unclamped. Applied as the
+	 *  `--gl-wip-pill-max` custom property on `.gl-graph__wip-branch-pill` (graph.scss). */
+	wipPillMaxWidth?: number;
 	/** Workdir-only: whether this worktree's working tree has merge/rebase conflicts — gates the Resolve action button.
 	 *  Deliberately scoped to the graph's OWN worktree's WIP row (see `gl-lit-graph.ts`); a peer worktree's
 	 *  conflicts still surface, but only via {@link wipHasConflicts}'s read-only indicator. */
@@ -186,9 +202,9 @@ export interface RowRenderContext {
 	 *  optional `worktreePath` routes the undo to a non-active worktree; `branchName` labels the button. */
 	undoTarget?: { worktreePath?: string; branchName?: string };
 	/** Commit/merge-only: this is the graph's own HEAD row with its WIP row pinned non-adjacent at the
-	 *  top — gates the Jump to Working Changes action, the inverse of the WIP row's proxy-pill jump and
-	 *  shown under the SAME decision. Never set for peer worktree tips: their WIP rows interleave
-	 *  directly above them, so the jump would move one row. */
+	 *  top — gates the Jump to Working Changes action, the inverse of the WIP row's branch-pill jump and
+	 *  shown under the SAME decision (`gl-lit-graph.ts`'s `isPrimaryWipFarFromHead`). Never set for peer
+	 *  worktree tips: their WIP rows interleave directly above them, so the jump would move one row. */
 	hasJumpableWipRow?: boolean;
 	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + the target name). The
 	 *  SAME object on every row — rows resolve their own role from it by sha (`rowMarkerRolesFor`, a
@@ -197,11 +213,6 @@ export interface RowRenderContext {
 	 *  client builds it (from `this.headSha` + the upstream/merge-target tips) — the rail then renders
 	 *  nothing. */
 	rowMarkerTips?: RowMarkerTips;
-	/** Prebuilt row-marker ref pill for the PRIMARY WIP row (`renderRefPill` sourced from the HEAD row's
-	 *  refs, right-anchored). gl-lit-graph builds it once per render and threads it here; `renderRowActions`
-	 *  places it as the leading strip member on the primary WIP row only. Undefined when it shouldn't show
-	 *  (HEAD row unloaded, or HEAD directly adjacent to the WIP row). */
-	wipRowMarkerPill?: TemplateResult;
 	/** Right-click context for the author avatar zone (contributor menu) — stamped on the avatar element
 	 *  itself so it's NEARER than the row's own `commit.contextData` and wins there. */
 	avatarVscodeContext?: string;
@@ -266,6 +277,14 @@ function zoneStyle(zone: ZoneSpec): Readonly<StyleInfo> {
 	return { flex: `0 0 ${w}`, width: w, minWidth: `${zone.minWidth}px` };
 }
 
+// A workdir row's message zone: grows past its solved width to absorb the space the suppressed trailing
+// zones freed up (`wipSuppressFromIdx` in `renderRow`) instead of holding the ordinary flex-with-ceiling
+// share every other row's message zone gets. `minWidth` still floors it — the degradation ladder
+// (`gl-lit-graph.ts`'s `computeWipRowFit`) is what actually keeps the content inside it.
+function wipMessageZoneStyle(zone: ZoneSpec): Readonly<StyleInfo> {
+	return { flex: '1 1 auto', minWidth: `${zone.minWidth}px` };
+}
+
 function initials(name: string): string {
 	// The current user's display name can arrive as `<name> (you)` (`formatCurrentUserDisplayName`,
 	// style `nameAndYou`) — a qualifier, not a name part; without stripping it the "(you)" token wins
@@ -314,14 +333,19 @@ function cachedInitials(name: string): string {
  *  because the rail must stay shrink-to-fit for the pill to expand. All state is CSS.
  *
  *  Decorative: the roles ride the row's `aria-label`, so this stays out of the a11y tree. */
-function renderRowMarkerRail(roles: number, targetName: string | undefined, laneColor: string): TemplateResult {
+function renderRowMarkerRail(
+	roles: number,
+	targetName: string | undefined,
+	wipName: string | undefined,
+	laneColor: string,
+): TemplateResult {
 	// The connector takes the primary role's color, so a grouped row's band reads as its dominant role
 	// rather than trying to stripe. Always defined here (callers pass a non-0 mask).
 	const primary = primaryRowMarkerRole(roles);
-	// Hover tooltip: the roles spelled out (+ the merge target's branch name), which the expanded pill has no
-	// room for. Stays `aria-hidden` — the roles already ride the row's own aria-label, so this is a pointer
-	// affordance only, not a second announcement.
-	const tooltip = rowMarkerRolesTooltip(roles, targetName);
+	// Hover tooltip: the roles spelled out (+ the merge target's branch name / the peer worktree's name),
+	// which the expanded pill has no room for. Stays `aria-hidden` — the roles already ride the row's own
+	// aria-label, so this is a pointer affordance only, not a second announcement.
+	const tooltip = rowMarkerRolesTooltip(roles, targetName, wipName);
 	// The `wip` segment fills with the row's LANE color (see graph.scss), which spans a much wider lightness
 	// range than the fixed role colors — a pale lane (e.g. yellow) fails AA against the fixed editor-background
 	// knockout the other roles use. Compute a per-row contrast color only for that case (the other ~97% of
@@ -530,6 +554,27 @@ function renderMessageContent(message: string): TemplateResult {
 		}`;
 	messageContentCache.set(message, result);
 	return result;
+}
+
+// Workdir rows' visible label ('Working Changes' or the degraded 'WIP' — see `wipDisplayLabel`), rendered
+// DIRECTLY rather than through `renderMessageContent`: that cache is keyed by `commit.message`, which
+// stays the bare, constant 'Working Changes' for every workdir row (see `wipRowMessage`) regardless of
+// which label is actually on screen — routing the swap through it would either collide on the SAME key
+// for two different visible strings or pollute the cache with a synthetic non-message string. Workdir
+// labels carry no markdown/body, so the subject-only span is the whole shape.
+function renderWipMessageContent(label: string): TemplateResult {
+	return html`<span class="gl-graph__message-subject">${label}</span>`;
+}
+
+// The inline branch pill's wrapper, carrying the degradation ladder's second rung as a CSS custom
+// property (`--gl-wip-pill-max`, graph.scss) rather than forking `renderRefPill`'s markup — `undefined`
+// removes the declaration (see `cspStyleMap`), so an uncapped pill costs nothing extra.
+function renderWipBranchPill(ctx: RowRenderContext): TemplateResult {
+	return html`<span
+		class="gl-graph__wip-branch-pill"
+		style=${cspStyleMap({ '--gl-wip-pill-max': ctx.wipPillMaxWidth != null ? `${ctx.wipPillMaxWidth}px` : undefined })}
+		>${ctx.wipBranchPill}</span
+	>`;
 }
 
 // The Changes cell's tooltip + aria text: "N files changed, N lines added, N lines deleted", each part
@@ -798,7 +843,13 @@ function renderZoneContent(
 					ctx.messageAdornments?.length
 						? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
 						: nothing
-				}<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>`;
+				}<span class="gl-graph__message"
+					>${
+						row.kind === 'workdir'
+							? renderWipMessageContent(ctx.wipDisplayLabel ?? ctx.commit.message)
+							: renderMessageContent(ctx.commit.message)
+					}</span
+				>${ctx.wipBranchPill != null ? renderWipBranchPill(ctx) : nothing}`;
 		case 'author':
 			return renderAuthor(row, ctx, zone.width <= zone.minWidth);
 		case 'datetime':
@@ -843,7 +894,13 @@ function renderListBody(
 						? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
 						: nothing
 				}
-				<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>
+				<span class="gl-graph__message"
+					>${
+						isWorkdir
+							? renderWipMessageContent(ctx.wipDisplayLabel ?? ctx.commit.message)
+							: renderMessageContent(ctx.commit.message)
+					}</span
+				>${ctx.wipBranchPill != null ? renderWipBranchPill(ctx) : nothing}
 			</div>
 			${line2}
 		</div>`;
@@ -863,25 +920,24 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 const unpulledTooltip = 'Not yet pulled from the upstream';
 const unpulledAriaText = 'not yet pulled';
 
-/** Whether a row's action strip has a PERSISTENT member (a row-marker decorator, an agent attached, an
- *  active resolve/compose/review op, or an unpushed/unpulled commit) — i.e. it switches to per-button
- *  `--has-persistent` mode instead of the whole-strip hover/focus/selected fade. NOT simply
- *  `kind === 'workdir'` — a workdir row with none of the above is JUST as hover-gated as a commit row.
- *  Exported so callers outside the row template (the sticky-timeline pill's yield-to-row check) read the
- *  EXACT same decision `renderRowActions` makes below, rather than re-deriving/drifting from it.
+/** Whether a row's action strip has a PERSISTENT member (an agent attached, an active resolve/compose/
+ *  review op, or an unpushed/unpulled commit) — i.e. it switches to per-button `--has-persistent` mode
+ *  instead of the whole-strip hover/focus/selected fade. NOT simply `kind === 'workdir'` — a workdir row
+ *  with none of the above is JUST as hover-gated as a commit row. Exported so callers outside the row
+ *  template (the sticky-timeline pill's yield-to-row check) read the EXACT same decision
+ *  `renderRowActions` makes below, rather than re-deriving/drifting from it.
  *
  *  A paused op / conflicts state does NOT belong here: since the read-only paused-op indicator moved into
  *  the WIP stats pill (`wipStatsAdornmentProvider.ts`), nothing paused-op-related lives in the action
  *  strip any more — the strip's persistence is driven solely by the agent/operation buttons below. */
-/** Named rather than positional: the signature otherwise carries four interchangeable
- *  `boolean | undefined` flags, and transposing any two of them at a call site type-checks clean. */
+/** Named rather than positional: `isUnpushed`/`isUnpulled` are the same type, and transposing them at a
+ *  call site type-checks clean. */
 export interface PersistentRowActionsInput {
 	kind: ProcessedGraphRow['kind'];
 	wipAgent?: WipRowAgentStatus;
 	wipOperation?: RunningOperationBucket;
 	isUnpushed?: boolean;
 	isUnpulled?: boolean;
-	hasRowMarker?: boolean;
 }
 
 export function hasPersistentRowActions({
@@ -890,11 +946,7 @@ export function hasPersistentRowActions({
 	wipOperation,
 	isUnpushed,
 	isUnpulled,
-	hasRowMarker,
 }: PersistentRowActionsInput): boolean {
-	// The row-marker decorator (the primary WIP row's jump pill) is always shown, so its strip is live.
-	if (hasRowMarker === true) return true;
-
 	if (kind === 'workdir') {
 		return (
 			wipAgent != null ||
@@ -917,21 +969,14 @@ export function hasPersistentRowActions({
 // Per-button visibility (matches the legacy adornment): each button is `--persistent` (always shown) or
 // `--gated` (revealed only on row hover/focus/selected). When a row has ANY persistent member the strip
 // adds `--has-persistent` and switches to per-button mode (CSS, zero JS); otherwise it keeps the whole-
-// strip fade. Persistent cases: the row-marker decorator, an active agent, an active resolve/compose/
-// review operation, the unpushed badge.
+// strip fade. Persistent cases: an active agent, an active resolve/compose/review operation, the
+// unpushed badge.
 //
-// The row-marker decorator leads the strip (leftmost): ONLY the primary WIP row's combined jump pill. The
-// on-row tip indicator (HEAD / upstream / merge-target rows) is NOT a strip member — it renders as a
+// The on-row tip indicator (HEAD / upstream / merge-target rows) is NOT a strip member — it renders as a
 // left-edge rail (`renderRowMarkerRail`) sibling of the anchor, so it never contends with these buttons.
-// Being a strip member (not a floating overlay) is what puts the WIP pill at the row's far right AND keeps
-// it clear of the buttons: they reveal to its right.
 function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
 	let actions: TemplateResult;
 	let hasPersistent = false;
-	// Prebuilt by gl-lit-graph (the current branch's ref pill, right-anchored, sourced from the HEAD row);
-	// present only on the primary WIP row and only when it should show (HEAD row loaded + not adjacent).
-	const decorator = isPrimaryWipRow(row.kind, row.sha, ctx.repoPath) ? ctx.wipRowMarkerPill : undefined;
-	const hasDecorator = decorator != null;
 	switch (row.kind) {
 		case 'workdir': {
 			const op = ctx.wipOperation;
@@ -1134,15 +1179,31 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Gated buttons leave the tab order + a11y tree at rest (whole-strip `visibility:hidden` in default
 	// mode; per-button `display:none` in `--has-persistent` mode) and become reachable on hover/focus/
 	// selected; persistent buttons are always present + reachable. So no aria-hidden is needed.
-	// `--has-row-marker` drops the strip's at-rest backdrop: the WIP jump pill carries its own opaque chrome, so
-	// the primary WIP row keeps its content readable until the buttons actually reveal.
-	return html`<div
-		class="gl-graph__row-actions ${
-			hasPersistent || hasDecorator ? 'gl-graph__row-actions--has-persistent' : ''
-		}${hasDecorator ? ' gl-graph__row-actions--has-row-marker' : ''}"
-	>
-		${decorator ?? nothing}${actions}
+	return html`<div class="gl-graph__row-actions ${hasPersistent ? 'gl-graph__row-actions--has-persistent' : ''}">
+		${actions}
 	</div>`;
+}
+
+// The workdir row's aria-label identity fragment, now that the message no longer carries a "(name)"
+// suffix (see `wipRowMessage`): `on <branch>` for the graph's own worktree, `worktree <name>, on <branch>`
+// for a peer. A detached worktree has no branch to name — a peer still announces its worktree name alone;
+// the primary announces nothing extra (its generic "Working directory" header already covers it).
+function wipIdentityAriaFragment(
+	kind: ProcessedGraphRow['kind'],
+	identity: WipRowInfo | undefined,
+): string | undefined {
+	if (kind !== 'workdir' || identity == null) return undefined;
+
+	// A detached HEAD has no branch to be "on" — `branchName` is the synthesized `(abc1234…)` label.
+	const relation = identity.detached === true ? 'detached at' : 'on';
+
+	if (identity.isPrimary) return identity.branchName != null ? `${relation} ${identity.branchName}` : undefined;
+
+	if (identity.worktreeName == null) return undefined;
+
+	return identity.branchName != null
+		? `worktree ${identity.worktreeName}, ${relation} ${identity.branchName}`
+		: `worktree ${identity.worktreeName}`;
 }
 
 // Total RENDERED width of the `count` zones preceding the lanes — the lead offset that must pin BOTH
@@ -1203,6 +1264,12 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				scopeAnchorRoles(ctx.isFocalAnchor, ctx.isForkAnchor, ctx.isTargetAnchor),
 			);
 	const rowMarkerAriaPrefix = rowMarkerRoles !== 0 ? `${rowMarkerRolesAriaLabel(rowMarkerRoles)}. ` : '';
+
+	// The workdir row's message is the same bare "Working Changes" for every worktree now (see
+	// `wipRowMessage`), so the row's identity — the only thing distinguishing it from every other workdir
+	// row — has to ride a separate fragment instead of the message itself. 'WIP' never reaches this: the
+	// branch/worktree names are spoken in full.
+	const wipIdentityAria = wipIdentityAriaFragment(row.kind, ctx.wipIdentity);
 
 	const nodeStyle: NodeStyle = {
 		mode: ctx.nodeMode,
@@ -1408,6 +1475,15 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	const laneZoneIdx =
 		graphHostIdx >= 0 ? graphHostIdx : Math.min(ctx.graphColumnPos, Math.max(0, ctx.zones.length - 1));
 	const laneZone = ctx.zones[laneZoneIdx];
+	// Full-row budget (workdir only): the first zone index whose empty author/datetime/sha/changes cell
+	// gets SUPPRESSED (not just emptied) so the message zone can flex into its space — see
+	// `wipMessageZoneStyle` below. `wipZoneSuppressFromIndex` is shared with `gl-lit-graph.ts`'s
+	// available-width estimate for the degradation ladder, so the two can never disagree about which
+	// cells are actually gone. A zone positioned before either the message zone or the lanes keeps its
+	// rigid cell so `zoneLeadOffset`/`--row-graph-left` and everything to its left hold their x.
+	const wipSuppressFromIdx = isWorkdir
+		? wipZoneSuppressFromIndex(ctx.zones, ctx.graphPlacement, ctx.graphColumnPos, ctx.graphHostId)
+		: Infinity;
 	// Lead offset = total RENDERED width of every zone BEFORE the lanes (flex zones included — their
 	// solved `width` is the rendered width); the band (an absolute overlay) shifts right by it so it
 	// lines up with the actual lanes regardless of slot. Skipping flex zones mis-anchored the band when
@@ -1467,6 +1543,19 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// Grouped refs render on their HOST zone by id (so the group moves as a unit); fall back to the
 			// first zone only when no host is set (refs as a column → `inlineRefs` is `nothing` anyway).
 			const refsHere = ctx.refsHostId != null ? zone.id === ctx.refsHostId : zoneIndex === 0;
+			// Suppress the cell outright (no div at all, not even an empty flex:0 one) rather than filter it
+			// out of `cells` — filtering would shift every index after it, breaking the graph-column splice's
+			// `graphColumnPos` below. `nothing` in an array slot costs no layout width, so the array keeps
+			// its zone-index alignment for free.
+			if (
+				zoneIndex >= wipSuppressFromIdx &&
+				!gutterHere &&
+				!refsHere &&
+				(zone.id === 'author' || zone.id === 'datetime' || zone.id === 'sha' || zone.id === 'changes')
+			) {
+				return nothing;
+			}
+
 			// A promoted row stacks the zones that CARRY the group — the refs host and the grouped gutter's
 			// host — into two lines (a pill line, then this zone's ordinary content) instead of prepending the
 			// pills inline before it; every other zone keeps today's single-line cell exactly and gets shrunk
@@ -1491,7 +1580,8 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// Outside the stack on purpose: the gutter is a DIRECT child of the zone so its lane art spans the
 			// row's full (possibly multi-unit) height — the stack's lines are one base row tall each.
 			const leading = gutterHere ? inlineGutter : nothing;
-			return html`<div class=${cellClass} style=${cspStyleMap(zoneStyle(zone))}>${leading}${body}</div>`;
+			const style = isWorkdir && zone.id === 'message' ? wipMessageZoneStyle(zone) : zoneStyle(zone);
+			return html`<div class=${cellClass} style=${cspStyleMap(style)}>${leading}${body}</div>`;
 		});
 		// Movable graph column: splice the graph cell into the zone cells at `graphColumnPos` so it
 		// renders at the user-chosen slot (not always leftmost). Then it's part of `body`, not leading.
@@ -1522,7 +1612,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-label=${
 			ctx.skeleton
 				? ctx.commit.message
-				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}${unpulledAriaSuffix}`
+				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate, wipIdentityAria)}${changesAriaSuffix}${unpulledAriaSuffix}`
 		}
 		data-sha=${row.sha}
 		data-index=${ctx.index}
@@ -1554,7 +1644,16 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			'--row-graph-width': `${isGraphColumn ? ctx.graphColumnWidth : 0}px`,
 		})}
 	>
-		${rowMarkerRoles !== 0 ? renderRowMarkerRail(rowMarkerRoles, ctx.rowMarkerTips?.targetName, laneColor) : nothing}
+		${
+			rowMarkerRoles !== 0
+				? renderRowMarkerRail(
+						rowMarkerRoles,
+						ctx.rowMarkerTips?.targetName,
+						ctx.wipIdentity?.worktreeName,
+						laneColor,
+					)
+				: nothing
+		}
 		${ctx.isBucketBoundary ? html`<div class="gl-graph__row-timeline-sep" aria-hidden="true"></div>` : nothing}
 		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx)}
 	</div>`;

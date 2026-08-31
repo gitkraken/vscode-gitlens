@@ -160,7 +160,14 @@ function renderWipStatsBadge(stats: WipStats): TemplateResult {
 	// clean tree is all zeros, and `added=${0 || nothing}` would drop the attribute, leaving the component
 	// unable to tell "clean" from "no data" — which is exactly the distinction it guards on.
 	return html`<span class="gl-graph__wip-stats" style=${cspStyleMap(wrapStyle)}>
-		<gl-wip-stats .added=${added} .modified=${modified} .removed=${deleted} show-clean no-tooltip></gl-wip-stats>
+		<gl-wip-stats
+			.added=${added}
+			.modified=${modified}
+			.removed=${deleted}
+			show-clean
+			no-tooltip
+			icon="gl-worktree-filled"
+		></gl-wip-stats>
 	</span>`;
 }
 
