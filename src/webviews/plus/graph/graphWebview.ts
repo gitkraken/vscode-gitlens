@@ -2625,7 +2625,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// repo activity (e.g. worktrees discovered during graph scroll fire `unknown` repo events).
 		// Deferred to post-rebuild (see consumer in `notifyDidChangeState`) so the webview's refetch
 		// reads the updated graph session.
-		if (e.changed('heads', 'remotes', 'stash', 'tags')) {
+		if (e.changed('heads', 'remotes', 'stash', 'tags', 'worktrees')) {
 			this._sidebarEventCounter.next();
 		}
 
