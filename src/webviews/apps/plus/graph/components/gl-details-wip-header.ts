@@ -672,9 +672,11 @@ export class GlDetailsWipHeader extends LitElement {
 		// The graph decides whether this moves the viewport — the tip can be the next row down or far away,
 		// depending on how many other branches' commits sort between it and the WIP row. Flashes regardless:
 		// the user clicked, and without a scroll the wash is the only signal the selection went anywhere.
+		// `focus: true` — a jump hands the keyboard to the row it lands on, same as every other jump
+		// affordance; without it focus stays on this panel chip and the arrows don't move the selection.
 		this.dispatchEvent(
 			new CustomEvent('gl-jump-to-commit', {
-				detail: { sha: sha, flash: true },
+				detail: { sha: sha, focus: true, flash: true },
 				bubbles: true,
 				composed: true,
 			}),

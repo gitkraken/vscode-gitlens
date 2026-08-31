@@ -5326,6 +5326,7 @@ export class GlLitGraph extends LitElement {
 				@keydown=${this.handleViewportKeydown}
 				@focusin=${this.onFocusIn}
 				@focusout=${this.onFocusOut}
+				@pointerdown=${this.onPointerDownFocusGuard}
 				@click=${this.onClick}
 				@dblclick=${this.onDblClick}
 				@contextmenu=${this.onContextMenu}
@@ -5966,6 +5967,20 @@ export class GlLitGraph extends LitElement {
 		this._pendingPillActivation = undefined;
 	}
 
+	// Row-action buttons (`tabindex="-1"`, hover-gated) must never TAKE focus on click: a mouse click
+	// focuses even a `tabindex="-1"` element, and when the strip hides on mouse-out the focused button
+	// goes `display: none` — the browser then drops focus to `body`, where arrow keys natively SCROLL the
+	// virtualizer instead of moving the selection (the exact "selected it, then the graph just scrolls"
+	// break). Preventing the pointerdown default keeps focus where it was (the tree, for a keyboard user)
+	// while the click still fires — the standard toolbar pattern; jump buttons additionally move focus to
+	// their target row explicitly (`focus: true`).
+	private onPointerDownFocusGuard = (event: PointerEvent): void => {
+		const node = event.target;
+		if (node instanceof Element && node.closest('.gl-graph__row-action') != null) {
+			event.preventDefault();
+		}
+	};
+
 	private onClick = (event: MouseEvent): void => {
 		// Ignore clicks that land while a column resize drag is active (defensive — the drag's
 		// pointerup is captured on window, but guard so a stray click can't select/toggle mid-resize).
@@ -6039,9 +6054,14 @@ export class GlLitGraph extends LitElement {
 			// view stays put, one crammed at the bottom or off-screen gets landed. Flashes either way: when
 			// nothing scrolls, the wash is the ONLY thing that pulls the eye to the row that just took the
 			// selection.
+			// `focus: true` (matching the keyboard jumps): without it the row is selected but keyboard
+			// focus stays on the hover-revealed button that just went away, falling through to the scroll
+			// container — arrow keys then scroll the viewport instead of moving the selection.
 			const jumpSha = el.getAttribute('data-jump-sha');
 			if (jumpSha != null) {
-				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha, flash: true } }));
+				document.dispatchEvent(
+					new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha, focus: true, flash: true } }),
+				);
 				event.stopPropagation();
 				return;
 			}
@@ -6056,7 +6076,8 @@ export class GlLitGraph extends LitElement {
 				if (sha != null) {
 					document.dispatchEvent(
 						new CustomEvent('gl-jump-to-nearest-wip', {
-							detail: { fromSha: sha, flash: true },
+							// Same `focus: true` rationale as the pill jump above.
+							detail: { fromSha: sha, focus: true, flash: true },
 						}),
 					);
 				}

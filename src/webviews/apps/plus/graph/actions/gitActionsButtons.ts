@@ -969,7 +969,11 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		//
 		// A landing: this fires from a popover in the HEADER, so the user isn't looking at the rows, and a
 		// target that happens to already be on screen would otherwise answer the click with nothing.
-		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, flash: true } }));
+		// `focus: true` — a jump hands the keyboard to the row it lands on; without it focus stays on the
+		// header control and arrow keys don't move the selection the user is now looking at.
+		document.dispatchEvent(
+			new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, focus: true, flash: true } }),
+		);
 	}
 
 	private onJumpClick(e: MouseEvent, resolve: () => string | undefined): void {

@@ -267,7 +267,14 @@ function zoneStyle(zone: ZoneSpec): Readonly<StyleInfo> {
 }
 
 function initials(name: string): string {
-	const parts = name.trim().split(/\s+/).filter(Boolean);
+	// The current user's display name can arrive as `<name> (you)` (`formatCurrentUserDisplayName`,
+	// style `nameAndYou`) — a qualifier, not a name part; without stripping it the "(you)" token wins
+	// the last-name slot and the avatar reads "E(" instead of the real first/last initials.
+	const parts = name
+		.replace(/ \(you\)$/, '')
+		.trim()
+		.split(/\s+/)
+		.filter(Boolean);
 	if (parts.length === 0) return '?';
 	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
 
