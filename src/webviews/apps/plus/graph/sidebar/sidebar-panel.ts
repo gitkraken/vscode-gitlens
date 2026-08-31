@@ -1250,6 +1250,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 								tooltip="Start Agent Session...&#10;[${getAltKeySymbol()}] Start Agent Session With..."
 								aria-label="Start Agent Session"
 								@click=${this.handleStartAgentSession}
+								@keydown=${this.handleStartAgentSessionKeydown}
 								><code-icon icon="robot"></code-icon
 							></gl-button>`
 						: nothing
@@ -2680,7 +2681,21 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  so CLI agents open their terminal there. Emits its telemetry directly (like Refresh below): the
 	 *  `headerActions` map is keyed by command id, which cannot tell the two variants apart. */
 	private handleStartAgentSession(e: MouseEvent) {
-		const pick = e.altKey;
+		this.startAgentSession(e.altKey);
+	}
+
+	/** Keyboard route to the alt variant: the click a native button synthesizes from Enter/Space never
+	 *  carries the held Alt modifier (verified against Chromium), so without this the picker variant is
+	 *  mouse-only. Canceling the keydown also suppresses that synthesized click, so the action runs once. */
+	private handleStartAgentSessionKeydown(e: KeyboardEvent) {
+		if (!e.altKey || (e.key !== 'Enter' && e.key !== ' ')) return;
+
+		e.preventDefault();
+		e.stopPropagation();
+		this.startAgentSession(true);
+	}
+
+	private startAgentSession(pick: boolean) {
 		emitTelemetrySentEvent(this, {
 			name: 'graph/agents/headerAction',
 			data: { action: pick ? 'startAgentSessionWith' : 'startAgentSession' },
