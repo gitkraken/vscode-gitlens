@@ -4,9 +4,12 @@ import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
+import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { StashSaveCommandArgs } from '../../../../../commands/stashSave.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
@@ -15,15 +18,9 @@ import type { GraphServices } from '../../../../plus/graph/graphService.js';
 import type { BranchState, GraphAutoFetchMode, GraphWipState, State } from '../../../../plus/graph/protocol.js';
 import type { PullConflictPreview } from '../../../../rpc/services/branches.js';
 import { notifyService } from '../../../shared/actions/rpc.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
-import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
-import {
-	getBranchNameWithoutRemote,
-	getRemoteNameFromBranchName,
-	providerIconName,
-} from '../../../shared/git-utils.js';
+import { providerIconName } from '../../../shared/git-utils.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -32,11 +29,11 @@ import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import { isUnpublishedRow, isUnpulledRow } from '../utils/rowContext.utils.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/commit/wip-stats.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/wipStats.js';
 import '../../../shared/components/menu/menu-divider.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 @customElement('gl-git-actions-buttons')
 export class GitActionsButtons extends SignalWatcher(LitElement) {
@@ -51,12 +48,13 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 
 			gl-tooltip {
 				flex-shrink: 0;
+				margin-left: var(--gl-space-4);
 			}
 
 			/* Each action yields its label completely before the next one loses a pixel — publish, then
-			   fetch, then pull/push — instead of all three shrinking halfway together and none reaching
-			   its icon-only floor. 2.4rem is that floor: the icon plus the anchor's padding. Pull/push
-			   sets its own tier on its wrappers, since its host is display: contents. */
+  fetch, then pull/push — instead of all three shrinking halfway together and none reaching
+  its icon-only floor. 2.4rem is that floor: the icon plus the anchor's padding. Pull/push
+  sets its own tier on its wrappers, since its host is display: contents. */
 			gl-publish-button {
 				flex: 0 1000000 max-content;
 				min-width: 2.4rem;
@@ -78,12 +76,8 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 				background-color: transparent;
 			}
 
-			gl-tooltip {
-				margin-left: var(--gl-space-4);
-			}
-
 			/* Room-gated, not state-gated (state gating is hasWorkingChanges in the template): hidden until
-			   the titlebar has space to spare for a fourth action button. */
+  the titlebar has space to spare for a fourth action button. */
 			.git-actions__stash {
 				display: none;
 			}
@@ -248,20 +242,20 @@ export class GlFetchButton extends LitElement {
 			}
 
 			/* Use CSS Grid so the text column's min-content is 0,
-	   allowing the text to shrink and ellipsize without expanding
-	   the parent's intrinsic min-content beyond the icon size. */
+allowing the text to shrink and ellipsize without expanding
+the parent's intrinsic min-content beyond the icon size. */
 			.action-button {
 				display: grid;
 				grid-template-columns: auto minmax(0, 1fr);
+
+				/* The icon↔text separation lives on the text, not in a column gap: a gap survives even
+   when the text column reaches 0, leaving a dead strip beside the icon at the floor. As
+   padding it overflows the zero-width track and is clipped, so the floor is a true icon. */
+				column-gap: 0;
 				align-items: center;
 				width: 100%;
 				max-width: 100%;
 				overflow: hidden;
-
-				/* The icon↔text separation lives on the text, not in a column gap: a gap survives even
-				   when the text column reaches 0, leaving a dead strip beside the icon at the floor. As
-				   padding it overflows the zero-width track and is clipped, so the floor is a true icon. */
-				column-gap: 0;
 			}
 
 			.action-button__text {
@@ -534,8 +528,8 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			/* The host is display: contents, so the pull popover / push tooltip are themselves the flex
-			   items in the header's action group — they carry the shrink tier. Pull/push yields last:
-			   it's the action you're most likely to still want named. */
+  items in the header's action group — they carry the shrink tier. Pull/push yields last:
+  it's the action you're most likely to still want named. */
 			:host > gl-popover,
 			:host > gl-tooltip {
 				display: block;
@@ -545,17 +539,17 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			/* Grid so the label column's min-content is 0 and the label can ellipsize away without
-			   holding the button above icon width. The pill keeps an auto column — ahead/behind counts
-			   survive the collapse. Separation lives on the items rather than in a column gap so it
-			   collapses with the label instead of leaving a dead strip beside the icon. */
+  holding the button above icon width. The pill keeps an auto column — ahead/behind counts
+  survive the collapse. Separation lives on the items rather than in a column gap so it
+  collapses with the label instead of leaving a dead strip beside the icon. */
 			.action-button {
 				display: grid;
 				grid-template-columns: auto minmax(0, 1fr) auto;
+				column-gap: 0;
 				align-items: center;
 				width: 100%;
 				max-width: 100%;
 				overflow: hidden;
-				column-gap: 0;
 			}
 
 			.action-button__text {
@@ -596,21 +590,21 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			/* Match the tooltip this popover replaced — a header you sweep across shouldn't pop cards at
-			   120ms — while the hide delay gives you a beat to move into it. */
+  120ms — while the hide delay gives you a beat to move into it. */
 			gl-popover {
 				--show-delay: 500ms;
 				--hide-delay: 180ms;
 				/* Without a cap the popover defaults to 70vw and simply grows to fit its widest line, so a long
-				   "Fetched 3 weeks ago" would stretch the whole card instead of yielding. Capping it is what
-				   makes the footer's degradation reachable at all. */
+   "Fetched 3 weeks ago" would stretch the whole card instead of yielding. Capping it is what
+   makes the footer's degradation reachable at all. */
 				--max-width: 34rem;
 				/* Regions own their padding (see .pull-popover). */
 				--wa-tooltip-padding: 0;
 			}
 
 			/* Zero the popover's own body padding and let each region supply its own, so the banner and footer
-			   run edge to edge. Overriding the custom property is exact; a negative margin guessing at
-			   the padding's value is not. Shared by both Pull and Push cards. */
+  run edge to edge. Overriding the custom property is exact; a negative margin guessing at
+  the padding's value is not. Shared by both Pull and Push cards. */
 			.action-popover {
 				display: flex;
 				flex-direction: column;
@@ -628,11 +622,11 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			/* Solid fill, deliberately darkened so a fixed light foreground clears contrast in BOTH themes.
-			   Knocking out to the editor background (the ref-pill convention) can't work here: in a dark theme
-			   that resolves to near-black text on a dark red fill. */
+  Knocking out to the editor background (the ref-pill convention) can't work here: in a dark theme
+  that resolves to near-black text on a dark red fill. */
 			/* Slides the verdict open instead of popping it. Animating a grid track (0fr to 1fr) is the only
-			   way to transition to a content-derived height; the inner wrapper needs min-height: 0 and a clip
-			   or the 0fr track can't actually collapse it. Same technique as the graph's row-marker rail. */
+  way to transition to a content-derived height; the inner wrapper needs min-height: 0 and a clip
+  or the 0fr track can't actually collapse it. Same technique as the graph's row-marker rail. */
 			.banner-slot {
 				display: grid;
 				grid-template-rows: 0fr;
@@ -649,7 +643,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			/* Trails the slide slightly so the text fades in over an already-opening band rather than
-			   arriving with it. */
+  arriving with it. */
 			.banner-slot .banner {
 				opacity: 0;
 				transition: opacity 180ms ease 60ms;
@@ -667,11 +661,11 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			}
 
 			/* Inline flow, NOT flex — code-icon aligns itself with vertical-align: text-bottom, which flex
-			   discards, and baseline-aligning an inline-block box against text rides the glyph too high.
-			   Matches how gl-merge-target-status renders the same kind of conflict line. */
+  discards, and baseline-aligning an inline-block box against text rides the glyph too high.
+  Matches how gl-merge-target-status renders the same kind of conflict line. */
 			.banner {
-				margin-block: 0;
 				padding: var(--gl-space-8) var(--gl-space-10);
+				margin-block: 0;
 				font-weight: 500;
 				color: #fff;
 				background-color: color-mix(in srgb, var(--banner-color) 82%, #000);
@@ -693,30 +687,30 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 				display: flex;
 				gap: var(--gl-space-6);
 				align-items: center;
-				container-type: inline-size;
-				overflow: hidden;
 				/* A touch more below than above — the button otherwise sits hard against the card's edge. */
 				padding: var(--gl-space-8) var(--gl-space-10) var(--gl-space-10);
+				container-type: inline-size;
+				overflow: hidden;
 				background-color: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
 				border-top: 1px solid var(--vscode-menu-separatorBackground);
 			}
 
 			/* The timestamp is the only thing here that yields — the action never shrinks, wraps, or gets
-			   pushed. It shrinks first, then drops out entirely rather than leaving a truncated stub; a stale
-			   repo ("Fetched 3 weeks ago") is exactly when this line is longest. */
+  pushed. It shrinks first, then drops out entirely rather than leaving a truncated stub; a stale
+  repo ("Fetched 3 weeks ago") is exactly when this line is longest. */
 			.footerbar__fetched {
 				flex: 0 1 auto;
 				min-width: 0;
 				margin-left: auto;
 				overflow: hidden;
-				color: var(--vscode-descriptionForeground);
 				text-overflow: ellipsis;
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
 			/* Threshold = the legs' own width plus a gap; below it there's no room for a useful timestamp.
-			   Lower than before Pull's Upstream leg lost its full inline "Jump to Upstream" text for a short
-			   label and Push's HEAD leg lost its label entirely — both cards' legs are narrower now. */
+  Lower than before Pull's Upstream leg lost its full inline "Jump to Upstream" text for a short
+  label and Push's HEAD leg lost its label entirely — both cards' legs are narrower now. */
 			@container (max-width: 24rem) {
 				.footerbar__fetched {
 					display: none;
@@ -1286,14 +1280,14 @@ export class GlPublishButton extends LitElement {
 			.action-button {
 				display: grid;
 				grid-template-columns: auto minmax(0, 1fr);
+
+				/* Separation lives on the text rather than in a column gap so it collapses with the
+   label instead of leaving a dead strip beside the icon at the floor. */
+				column-gap: 0;
 				align-items: center;
 				width: 100%;
 				max-width: 100%;
 				overflow: hidden;
-
-				/* Separation lives on the text rather than in a column gap so it collapses with the
-				   label instead of leaving a dead strip beside the icon at the floor. */
-				column-gap: 0;
 			}
 
 			.publish-button__text {

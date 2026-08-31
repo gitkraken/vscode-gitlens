@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { laneSeedKey, pickLaneSeed } from '../laneSeed.utils.js';
+import { laneSeedKey, pickLaneSeed } from '@gitkraken/commit-graph-ui/laneSeed.js';
 
 suite('pickLaneSeed', () => {
 	test('nothing available → undefined', () => {

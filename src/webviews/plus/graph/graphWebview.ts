@@ -1,5 +1,7 @@
 import type { Handler } from '@eamodio/supertalk';
 import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
+import type { emptySetMarker } from '@gitkraken/commit-graph-ui/filtering.js';
+import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '@gitkraken/commit-graph/identity.js';
 import { changesModeOrDefault, isChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
@@ -24,7 +26,7 @@ import type { GitReference, GitRevisionReference, GitStashReference } from '@git
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
-import { getBranchId, getBranchNameWithoutRemote, getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
+import { getBranchId, getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -46,6 +48,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { DedupedAsyncCache } from '@gitlens/utils/dedupedAsyncCache.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
+import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import { find } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
@@ -213,7 +216,6 @@ import type {
 	DidRequestSearchParams,
 	DidRequestVisualizationParams,
 	DidResolveGraphScopeParams,
-	emptySetMarker,
 	GetWipLineStatsResponse,
 	GetWipStatsResponse,
 	GraphActionTarget,
@@ -260,7 +262,6 @@ import type {
 	State,
 	VisualizationMode,
 } from './protocol.js';
-import { createWipRowId, getWipRowWorktreePath, isWipRowId } from './protocol.js';
 import type { GraphWebviewShowingArgs } from './registration.js';
 
 export interface SelectedRowState {

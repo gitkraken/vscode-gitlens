@@ -278,6 +278,9 @@ export const compareModePanelStyles = css`
 	   inactive dim comes from the parent tab's opacity:0.55, not a different color. This avoids
 	   the badge flashing to the default vscode-badge palette when switching tabs. */
 	.compare-tab__count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		padding: var(--gl-space-2) var(--gl-space-4);
 		font-size: var(--gl-font-micro);
 		font-weight: 500;
@@ -721,12 +724,6 @@ export const compareModePanelStyles = css`
 
 	/* Badge spinner — match the count text size so a "3"→spinner→"5" transition doesn't shift
 	   tab widths. line-height:1 keeps the badge height locked. */
-	.compare-tab__count {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-	}
-
 	.compare-tab__count-spinner {
 		--code-icon-size: var(--gl-font-micro);
 

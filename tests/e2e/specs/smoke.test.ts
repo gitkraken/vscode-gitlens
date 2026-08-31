@@ -143,7 +143,7 @@ test.describe('Smoke Tests — GitLens views', () => {
 
 	test('should show GitLens views (Pro - with simulated Pro subscription)', async ({ vscode }) => {
 		// Simulate a Pro subscription for this test
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* SubscriptionState.Paid */,
 			planId: 'pro',
 		});
@@ -283,7 +283,7 @@ test.describe('Smoke Tests — GitLens Inspect views', () => {
 
 	test('should show Visual File History view (Pro - with simulated Pro subscription)', async ({ vscode }) => {
 		// Simulate a Pro subscription for this test
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* SubscriptionState.Paid */,
 			planId: 'pro',
 		});
@@ -367,7 +367,7 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 
 	test('should show commit graph content (Pro - with simulated Pro subscription)', async ({ vscode }) => {
 		// Simulate a Pro subscription for this test
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* SubscriptionState.Paid */,
 			planId: 'pro',
 		});

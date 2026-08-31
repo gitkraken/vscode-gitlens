@@ -4,13 +4,10 @@ import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import {
-	getBranchId,
-	getBranchNameWithoutRemote,
-	getRemoteNameFromBranchName,
-} from '@gitlens/git/utils/branch.utils.js';
+import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer, getSettledValue } from '@gitlens/utils/promise.js';

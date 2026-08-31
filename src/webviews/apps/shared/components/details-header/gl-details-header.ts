@@ -1,16 +1,16 @@
+import { chipStateSuffix, statusIconFor } from '@gitkraken/commit-graph-ui/rowActions.js';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { RunningOperationExecState } from '../../../plus/graph/components/detailsState.js';
-import { chipStateSuffix, statusIconFor } from '../../../plus/graph/components/runningOperationStatus.js';
-import { elementBase } from '../styles/lit/base.css.js';
 import { modeHeaderStyles, modeToggleStyles } from '../styles/lit/mode.css.js';
 import { renderDetailsMaximizeChip } from './details-maximize-chip.js';
 import { detailsHeaderStyles } from './gl-details-header.css.js';
 import '../chips/action-chip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../indicators/new-indicator.js';
 import '../progress.js';
 

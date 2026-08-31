@@ -8,7 +8,7 @@ import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 export function renderLoadingState(text: string): TemplateResult {
 	return html`<div class="review-loading" aria-busy="true" aria-live="polite">

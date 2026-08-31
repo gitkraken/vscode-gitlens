@@ -25,14 +25,14 @@ export const allowedSignersStyles = css`
 		flex-direction: column;
 		gap: 1.6rem;
 		max-width: 960px;
-		margin: 0 auto;
 		padding: 2rem;
+		margin: 0 auto;
 	}
 
 	header h1 {
+		margin: 0 0 0.4rem;
 		font-size: 2rem;
 		font-weight: 600;
-		margin: 0 0 0.4rem;
 	}
 
 	header p {
@@ -42,16 +42,16 @@ export const allowedSignersStyles = css`
 
 	.notice {
 		display: flex;
-		align-items: center;
 		gap: 0.8rem;
+		align-items: center;
 		padding: 0.8rem 1.2rem;
-		border-radius: 0.4rem;
-		background: var(--vscode-inputValidation-warningBackground, rgba(255, 191, 0, 0.1));
+		background: var(--vscode-inputValidation-warningBackground, rgb(255 191 0 / 10%));
 		border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-foreground));
+		border-radius: 0.4rem;
 	}
 
 	.notice--error {
-		background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.1));
+		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 10%));
 		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
 	}
 
@@ -84,11 +84,11 @@ export const allowedSignersStyles = css`
 		flex: 1;
 		min-width: 0;
 		padding: 0.4rem 0.6rem;
+		font-family: var(--vscode-editor-font-family, monospace);
 		color: var(--vscode-input-foreground);
 		background: var(--vscode-input-background);
 		border: 1px solid var(--vscode-input-border, transparent);
 		border-radius: 0.3rem;
-		font-family: var(--vscode-editor-font-family, monospace);
 	}
 
 	/* Indents the scope radios so they read as sub-options of the "Point …" checkbox above them. */
@@ -101,9 +101,9 @@ export const allowedSignersStyles = css`
 	.list {
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 		border: 1px solid var(--vscode-panel-border);
 		border-radius: 0.4rem;
-		overflow: hidden;
 	}
 
 	gl-signer-row:not(:last-child) {
@@ -114,23 +114,23 @@ export const allowedSignersStyles = css`
 		padding: 0.6rem 1.2rem;
 		font-size: 1.1rem;
 		font-weight: 600;
+		color: var(--vscode-descriptionForeground);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
-		color: var(--vscode-descriptionForeground);
 		background: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background));
 		border-bottom: 1px solid var(--vscode-panel-border);
 	}
 
 	.empty {
 		padding: 2.4rem;
-		text-align: center;
 		color: var(--vscode-descriptionForeground);
+		text-align: center;
 	}
 
 	.actions {
 		display: flex;
-		align-items: center;
 		gap: 1.2rem;
+		align-items: center;
 	}
 
 	.status {
@@ -148,9 +148,9 @@ export const allowedSignersStyles = css`
 	.loading {
 		display: flex;
 		flex-direction: column;
+		gap: 0.8rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.8rem;
 		padding: 4rem 2rem;
 		text-align: center;
 	}
@@ -167,15 +167,15 @@ export const allowedSignersStyles = css`
 
 	.loading__detail {
 		margin: 0;
-		color: var(--vscode-descriptionForeground);
 		font-variant-numeric: tabular-nums;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.verifying {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
-		color: var(--vscode-descriptionForeground);
+		align-items: center;
 		font-size: 1.2rem;
+		color: var(--vscode-descriptionForeground);
 	}
 `;

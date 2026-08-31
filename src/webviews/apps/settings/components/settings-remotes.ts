@@ -2,10 +2,10 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { CustomRemoteType, RemotesUrlsConfig } from '../../../../config.js';
-import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { RemoteRuleDraft, SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -13,7 +13,7 @@ import type { MatcherMode, RemoteDraft } from './settings-remotes.utils.js';
 import { findEntryIndex, isEntryLive, isPersistable, projectEntry, urlsComplete } from './settings-remotes.utils.js';
 import '../../shared/components/button.js';
 import '../../shared/components/checkbox/checkbox.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/segmented/segmented.js';
 import '../../shared/components/select/select.js';
 
@@ -165,9 +165,9 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				flex: 1;
 				min-width: 0;
 				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 1.25rem;
 				color: var(--color-foreground);
-				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
 

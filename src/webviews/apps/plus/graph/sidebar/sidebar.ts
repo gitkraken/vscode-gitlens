@@ -6,12 +6,12 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import { filterAgentSessionsForFamily } from '../../../shared/agentUtils.js';
-import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
-import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -19,10 +19,10 @@ import type { SidebarRailEntry } from './sidebarPanels.js';
 import { visibleSidebarRailEntries } from './sidebarPanels.js';
 import type { SidebarActions } from './sidebarState.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/indicators/new-indicator.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 interface Icon {
 	type: IconTypes;
@@ -90,22 +90,24 @@ export interface GraphSidebarDisplayModeChangeEventDetail {
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
 		/* Keyboard focus ring matching the bottom-rail gl-buttons, which outline a 26px icon-cell host
-		   that carries a border-radius (an outline only rounds if its own element does). The raw .item
-		   buttons are full rail width with a count stacked below, so outlining the button box clips at
-		   the left edge, stays square, and would enclose the count. Instead outline the .icon wrapper:
-		   padding grows it into a 2.6rem rounded cell and an equal negative margin cancels the layout
-		   shift, so the icon doesn't move but the outline (offset 2px) rounds and sits exactly like the
-		   gl-button ring. pointer-events stay on the button, not this decorative cell. */
+   that carries a border-radius (an outline only rounds if its own element does). The raw .item
+   buttons are full rail width with a count stacked below, so outlining the button box clips at
+   the left edge, stays square, and would enclose the count. Instead outline the .icon wrapper:
+   padding grows it into a 2.6rem rounded cell and an equal negative margin cancels the layout
+   shift, so the icon doesn't move but the outline (offset 2px) rounds and sits exactly like the
+   gl-button ring. pointer-events stay on the button, not this decorative cell. */
 		.item .icon {
 			display: inline-flex;
 			padding: 0.5rem;
 			margin: -0.5rem;
-			border-radius: var(--gl-radius-sm);
 			pointer-events: none;
+			border-radius: var(--gl-radius-sm);
 		}
+
 		.item:focus-visible {
 			outline: none;
 		}
+
 		.item:focus-visible .icon {
 			${focusOutlineButton}
 			outline-offset: -1px;
@@ -115,7 +117,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			position: relative;
 
 			/* Workspace-level pinned chrome — must stay below the feature gate's cover tier so the
-		   rail can't paint over (or take clicks through) the Pro gate's scrim */
+   rail can't paint over (or take clicks through) the Pro gate's scrim */
 			z-index: var(--gl-z-sticky);
 			box-sizing: border-box;
 			display: flex;
@@ -138,15 +140,15 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* The gl-new-indicator wrapper is the rail's flex item — gl-tooltip's host is display: contents,
-   so the button used to be. It therefore carries the full-width sizing the button expects, plus the
-   group gap, which a margin on the button inside the wrapper's grid would no longer produce. */
+ so the button used to be. It therefore carries the full-width sizing the button expects, plus the
+ group gap, which a margin on the button inside the wrapper's grid would no longer produce. */
 		.item-indicator {
 			width: 100%;
 		}
 
 		/* Doubles the gap after the last group-1 icon (Pull Requests) so the rail reads as two groups:
-   Overview/Agents/Pull Requests, then the view icons. 1.4rem here + the parent's 1.4rem flex gap
-   = 2.8rem. */
+ Overview/Agents/Pull Requests, then the view icons. 1.4rem here + the parent's 1.4rem flex gap
+ = 2.8rem. */
 		.item-indicator.group-end {
 			margin-bottom: 1.4rem;
 		}
@@ -219,13 +221,13 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Visualization toggle — uses <gl-button> for the checked/unchecked styling. Sits at the
-   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
+ bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
 			margin: 0 auto;
 		}
 
 		/* Must target the button itself: gl-button's own :host([appearance='toolbar']) declaration of
-   --button-foreground beats a value merely inherited from the gl-new-indicator wrapper. */
+ --button-foreground beats a value merely inherited from the gl-new-indicator wrapper. */
 		.display-mode-toggle gl-button {
 			position: relative;
 			--button-foreground: var(--color-view-foreground--65);
@@ -236,8 +238,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Evidence dot for the Git Health banner's indicator — armed only on the visualizations
-		   toggle; see renderDisplayModeToggle. Suppresses the onboarding new-indicator dot while
-		   shown, so the two never double up. */
+   toggle; see renderDisplayModeToggle. Suppresses the onboarding new-indicator dot while
+   shown, so the two never double up. */
 		.display-mode-toggle .health-dot {
 			position: absolute;
 			top: 0.1rem;
@@ -250,7 +252,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Rich tooltip content for the evidence-dot path — the plain tooltip strings need no styling
-		   of their own, only the appended "suggested" hint line. */
+   of their own, only the appended "suggested" hint line. */
 		.toggle-tooltip__hint {
 			display: flex;
 			gap: var(--gl-space-4);
@@ -264,17 +266,17 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Tighten the spacing between consecutive display-mode toggles so they read as one
-   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
-   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
-   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
+ bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
+ Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
+ The first toggle keeps the parent's 1.4rem separation from the spacer above. */
 		.display-mode-toggle + .display-mode-toggle {
 			margin-top: -1rem;
 		}
 
 		/* Keyboard-shortcuts action — shares the rail affordance with the display-mode toggles but
-   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
-   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
-   the measured bottom block and folds nav icons into the … menu instead. */
+ opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
+ the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
+ the measured bottom block and folds nav icons into the … menu instead. */
 		.rail-action {
 			margin: 0 auto;
 			--button-foreground: var(--color-view-foreground--65);
@@ -285,13 +287,13 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Sit the action tight against the display-mode toggles above it (same -1rem pull the
-   toggles use between themselves) so the bottom of the rail reads as one group. */
+ toggles use between themselves) so the bottom of the rail reads as one group. */
 		.display-mode-toggle + .rail-action {
 			margin-top: -1rem;
 		}
 
 		/* Responsive compaction (driven by recompute): hide counts and tighten spacing together. Scoped
-   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
+ to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
 		:host([compact]) .item .count {
 			display: none;
 		}

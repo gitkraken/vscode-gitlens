@@ -1,8 +1,9 @@
 import * as assert from 'assert';
+import type { emptySetMarker } from '@gitkraken/commit-graph-ui/filtering.js';
+import { createWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type {
-	emptySetMarker,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
 	GraphScope,
@@ -14,7 +15,6 @@ import type {
 	State,
 	WorkDirStats,
 } from '../../../../plus/graph/protocol.js';
-import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
 import type { AppState } from '../context.js';
 import {

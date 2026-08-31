@@ -2,9 +2,9 @@ import type { BranchDisposition, BranchTargetInfo, GitBranch } from '@gitlens/gi
 import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';

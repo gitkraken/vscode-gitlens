@@ -1,3 +1,4 @@
+import { createWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { MessageItem, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { env, ProgressLocation, Uri, window } from 'vscode';
 import { getAcceptSequenceEditor, getSquashSequenceEditor } from '@env/git/squashEditor.js';
@@ -18,7 +19,6 @@ import type {
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import {
@@ -30,6 +30,7 @@ import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js'
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
@@ -125,7 +126,6 @@ import type {
 	GraphScopeBranch,
 	GraphSelection,
 } from './protocol.js';
-import { createWipRowId } from './protocol.js';
 import type { ShowInCommitGraphCommandArgs } from './registration.js';
 
 type GraphItemRefs<T> = {

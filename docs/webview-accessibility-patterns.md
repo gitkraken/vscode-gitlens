@@ -17,7 +17,7 @@ unit; Home/End jump to the ends.
 
 Reuse the shared implementations — do **not** hand-roll:
 
-- **`RovingTabindexController`** (`src/webviews/apps/shared/controllers/roving-tabindex.ts`) — vertical or
+- **`RovingTabindexController`** (`src/webviews/apps/shared/controllers/rovingTabindex.ts`) — vertical or
   complex groups, managed imperatively, keyed by `data-roving-key` (survives re-renders/reorders),
   orientation-aware, skips disabled, tracks a default item until the user actually arrows. Used by the graph
   header, the sidebar icon rail, and the overview cards.
@@ -123,18 +123,18 @@ positioned descendants would otherwise paint over a plain `outline`.
 Consequence: a near-full-height decoration (the avatar/identity commit node) gets **clipped** by the ring
 once it reaches the row edge — especially after a hover/select grow. Size such decorations so that, grow
 included, they stay inside the ring's interior. The avatar node radius is capped for exactly this
-(`nodeRadiusFor` / `avatarNodeRadius` in `graph-gutter.ts`): radius 9 (18px) so the ×1.1 grow (19.8px) clears
+(`nodeRadiusFor` / `avatarNodeRadius` in `graphGutter.ts`): radius 9 (18px) so the ×1.1 grow (19.8px) clears
 the ~20px interior of the 24px row.
 
 ## Key files
 
-| Concern                                                                      | File                                                                                                                   |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Roving controllers                                                           | `src/webviews/apps/shared/controllers/roving-tabindex.ts`, `src/webviews/apps/shared/components/actions/action-nav.ts` |
-| Tree / intra-row dive / activedescendant menu / focus-follows-nav / tooltips | `src/webviews/apps/plus/graph/graph-wrapper/gl-lit-graph.ts`                                                           |
-| Pill markup + twin copies + activedescendant ids                             | `src/webviews/apps/plus/graph/graph-wrapper/adornments/refAdornmentProvider.ts`                                        |
-| Node sizing vs. the ring                                                     | `src/webviews/apps/plus/graph/graph-wrapper/graph-gutter.ts`                                                           |
-| Focus rings / bands / `.is-active` vs `.is-cursor`                           | `src/webviews/apps/plus/graph/graph.scss`                                                                              |
+| Concern                                                                      | File                                                                                                                  |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Roving controllers                                                           | `src/webviews/apps/shared/controllers/rovingTabindex.ts`, `src/webviews/apps/shared/components/actions/action-nav.ts` |
+| Tree / intra-row dive / activedescendant menu / focus-follows-nav / tooltips | `src/webviews/apps/plus/graph/graph-wrapper/gl-lit-graph.ts`                                                          |
+| Pill markup + twin copies + activedescendant ids                             | `src/webviews/apps/plus/graph/graph-wrapper/adornments/refAdornmentProvider.ts`                                       |
+| Node sizing vs. the ring                                                     | `src/webviews/apps/plus/graph/graph-wrapper/graphGutter.ts`                                                           |
+| Focus rings / bands / `.is-active` vs `.is-cursor`                           | `src/webviews/apps/plus/graph/graph.scss`                                                                             |
 
 ## See also
 

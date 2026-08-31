@@ -3,7 +3,7 @@ import { css, html, nothing } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 export type NextStepAction = {
 	actionLabel: string;

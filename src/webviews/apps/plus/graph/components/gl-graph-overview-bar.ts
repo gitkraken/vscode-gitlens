@@ -1,3 +1,4 @@
+import { shortRefName } from '@gitkraken/commit-graph-ui/rowMarkers.js';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -5,21 +6,20 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
+import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import type { OverviewBranch, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { providerIconName } from '../../../shared/git-utils.js';
-import { shortRefName } from '../utils/rowMarker.utils.js';
 import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { overviewBarStyles } from './gl-graph-overview-bar.css.js';
 import './gl-branch-hover.js';
 import './gl-graph-coachmark.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 export interface OverviewBarItem {
 	/** The WIP's id: `uncommitted` for the graph's own worktree, its `wipRowsById` row id (see

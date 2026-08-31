@@ -5,6 +5,8 @@ import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
@@ -21,8 +23,6 @@ import type {
 	OverviewBranchWip,
 } from '../../../../shared/overviewBranches.js';
 import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -40,11 +40,11 @@ import '../../../shared/components/avatar/avatar-list.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-icon.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/commit/wip-stats.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/wipStats.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 import '../../../shared/components/pills/tracking-status.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/rich/issue-icon.js';
 import '../../../shared/components/rich/pr-icon.js';
 

@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
@@ -19,14 +20,13 @@ import {
 } from '../../agentUtils.js';
 import { renderRunningTool } from '../agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../agents/agent-status-styles.css.js';
-import { elementBase, linkBase } from '../styles/lit/base.css.js';
 import '../actions/action-item.js';
 import '../actions/action-nav.js';
 import '../agents/gl-agent-prompt-detail.js';
 import '../button.js';
-import '../code-icon.js';
-import '../overlays/popover.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 interface AgentPillSummary {
 	category: AgentSessionCategory;
@@ -77,17 +77,17 @@ export class GlAgentStatusPill extends LitElement {
 				--max-width: 30rem;
 
 				/* Phase colors — pulled from the unified --gl-agent-working-color /
-		   --gl-agent-waiting-color / --gl-agent-idle-color palette in theme.scss so the
-		   pill, card, sidebar leaf, tooltip, and WIP file decoration all share one
-		   source of truth. Local *-bg / *-border derivations stay because the pill
-		   applies different opacity envelopes than other surfaces. */
+ --gl-agent-waiting-color / --gl-agent-idle-color palette in theme.scss so the
+ pill, card, sidebar leaf, tooltip, and WIP file decoration all share one
+ source of truth. Local *-bg / *-border derivations stay because the pill
+ applies different opacity envelopes than other surfaces. */
 				--gl-agent-pill-working-color: var(--gl-agent-working-color);
 				--gl-agent-pill-working-bg: color-mix(in srgb, var(--gl-agent-pill-working-color) 10%, transparent);
 				--gl-agent-pill-working-border: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
 
 				/* Needs Input border is brighter than the other categories (75% vs. 50%/35%) so the
-		   static state already communicates "this one's different" before the breathing
-		   animation kicks in. */
+ static state already communicates "this one's different" before the breathing
+ animation kicks in. */
 				--gl-agent-pill-attention-color: var(--gl-agent-waiting-color);
 				--gl-agent-pill-attention-bg: color-mix(in srgb, var(--gl-agent-pill-attention-color) 10%, transparent);
 				--gl-agent-pill-attention-bg-peak: color-mix(
@@ -107,7 +107,7 @@ export class GlAgentStatusPill extends LitElement {
 				--gl-agent-pill-idle-border: color-mix(in srgb, var(--gl-agent-pill-idle-color) 35%, transparent);
 
 				/* Ended (terminal) — neutral descriptionForeground, matching the details panel's
-		   ended accent, so done reads as history rather than another live state. */
+ ended accent, so done reads as history rather than another live state. */
 				--gl-agent-pill-ended-color: var(--gl-agent-ended-color);
 				--gl-agent-pill-ended-bg: color-mix(in srgb, var(--gl-agent-pill-ended-color) 10%, transparent);
 				--gl-agent-pill-ended-border: color-mix(in srgb, var(--gl-agent-pill-ended-color) 35%, transparent);
@@ -116,7 +116,7 @@ export class GlAgentStatusPill extends LitElement {
 			/* Pill badge */
 			.pill {
 				/* border-box so the 1px border counts inside the 100% width — without it the pill
-		   bleeds 2px past its container in full mode. */
+ bleeds 2px past its container in full mode. */
 				box-sizing: border-box;
 				display: inline-flex;
 				align-items: center;
@@ -150,11 +150,11 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			/* Full mode — pill grows to fill its container and surfaces inline actions on the
-	   right of the label. The popover anchor still wraps the whole pill so hover/focus
-	   keeps surfacing the rich detail (without duplicating the action row).
-	   full-active is a host-managed attribute, distinct from the public full prop, so the
-	   needs-input + !canResolve fallback can still render compact even when the consumer
-	   requested full. */
+right of the label. The popover anchor still wraps the whole pill so hover/focus
+keeps surfacing the rich detail (without duplicating the action row).
+full-active is a host-managed attribute, distinct from the public full prop, so the
+needs-input + !canResolve fallback can still render compact even when the consumer
+requested full. */
 			:host([full-active]) {
 				display: block;
 				width: 100%;
@@ -176,8 +176,8 @@ export class GlAgentStatusPill extends LitElement {
 				flex: none;
 
 				/* Tighten the inline action row so it sits flush with the pill's right padding
-		   instead of stretching the pill height. action-nav is a flex container itself —
-		   we just nudge gap and offset here. */
+ instead of stretching the pill height. action-nav is a flex container itself —
+ we just nudge gap and offset here. */
 				gap: 0.1rem;
 				margin-inline-end: -0.3rem;
 			}
@@ -190,9 +190,11 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			/* Background-only animation (no box-shadow) so it doesn't get clipped by ancestors
-	   with overflow: hidden. */
+with overflow: hidden. */
 			.pill--working .pill__dot {
+				background-color: var(--gl-agent-pill-working-color);
 				animation: gl-agent-pill-pulse 1.5s ease 0s infinite;
+				--pill-pulse-color: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
 			}
 
 			@keyframes gl-agent-pill-pulse {
@@ -210,6 +212,9 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			.pill--needs-input {
+				color: var(--gl-agent-pill-attention-color);
+				background-color: var(--gl-agent-pill-attention-bg);
+				border-color: var(--gl-agent-pill-attention-border);
 				animation: gl-agent-pill-breathing 3.5s var(--gl-ease-in-out) 0s infinite;
 			}
 
@@ -231,18 +236,7 @@ export class GlAgentStatusPill extends LitElement {
 				border-color: var(--gl-agent-pill-working-border);
 			}
 
-			.pill--working .pill__dot {
-				background-color: var(--gl-agent-pill-working-color);
-				--pill-pulse-color: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
-			}
-
 			/* Needs Input */
-			.pill--needs-input {
-				color: var(--gl-agent-pill-attention-color);
-				background-color: var(--gl-agent-pill-attention-bg);
-				border-color: var(--gl-agent-pill-attention-border);
-			}
-
 			.pill--needs-input .pill__dot {
 				background-color: var(--gl-agent-pill-attention-color);
 			}
@@ -369,9 +363,9 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-actions__row > gl-button {
 				/* min-width: max-content keeps Allow / Deny from shrinking below their icon+label
-		   content when the popover is anchored in a narrow sidebar — the popover body
-		   grows horizontally to fit instead. flex: 1 1 0 keeps the row evenly distributed
-		   when there's slack. */
+ content when the popover is anchored in a narrow sidebar — the popover body
+ grows horizontally to fit instead. flex: 1 1 0 keeps the row evenly distributed
+ when there's slack. */
 				flex: 1 1 0;
 				min-width: max-content;
 			}
@@ -431,7 +425,7 @@ export class GlAgentStatusPill extends LitElement {
 				display: grid;
 
 				/* minmax(0, 1fr) lets the name column shrink below its min-content size, enabling
-		   ellipsis on long session names. Right column auto-sizes to the phase label. */
+ ellipsis on long session names. Right column auto-sizes to the phase label. */
 				grid-template-columns: auto minmax(0, 1fr) auto;
 				gap: 0.1rem 0.6rem;
 				align-items: center;
@@ -444,7 +438,7 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			/* Ended rows add a 4th track for Resume/Archive actions — rows without actions keep
-	   the base 3-track layout. */
+the base 3-track layout. */
 			.hover-summary-row--actions {
 				grid-template-columns: auto minmax(0, 1fr) auto auto;
 			}
@@ -508,7 +502,7 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			/* Summary-row tool detail places the shared .agent-tool composite into the row's
-	   second grid cell — visual styling lives in the shared agentToolStyles. */
+second grid cell — visual styling lives in the shared agentToolStyles. */
 			.hover-summary-row__tool {
 				grid-column: 2 / -1;
 			}

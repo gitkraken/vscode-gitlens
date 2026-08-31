@@ -1,6 +1,6 @@
 import * as assert from 'assert';
+import { computeChainLaneRuns } from '@gitkraken/commit-graph-ui/chainLane.js';
 import type { ProcessedGraphRow, RowEdges } from '@gitkraken/commit-graph/engine/types.js';
-import { computeChainLaneRuns } from '../chainLane.utils.js';
 
 function row(
 	sha: string,

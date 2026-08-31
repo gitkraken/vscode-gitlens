@@ -2,13 +2,13 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { getAltKeySymbol } from '@env/platform.js';
+import { handleUnsafeOverlayContent } from '@gitlens/components/components/overlays/overlays.utils.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css.js';
-import { ModifierKeysController } from '../../controllers/modifier-keys.js';
-import { handleUnsafeOverlayContent } from '../overlays/overlays.utils.js';
-import { focusOutline } from '../styles/lit/a11y.css.js';
-import '../overlays/popover.js';
-import '../overlays/tooltip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-action-chip')
 export class ActionChip extends LitElement {
@@ -100,14 +100,14 @@ export class ActionChip extends LitElement {
 			}
 
 			/* Optically center the label against the icon — text sits slightly low in its line-box
-			   under flex centering, so nudge it up a hair. Excludes the suffix icon (centered fine). */
+  under flex centering, so nudge it up a hair. Excludes the suffix icon (centered fine). */
 			::slotted(:not([slot='suffix'])) {
 				margin-block-start: -0.1rem;
 			}
 
 			/* Drop the trailing inline padding for suffix-slotted icons — the asymmetric box
-	   shifts the rotation axis off the glyph's visual center, so a spinning loading
-	   codicon wobbles. Flex gap already spaces this from the preceding label. */
+shifts the rotation axis off the glyph's visual center, so a spinning loading
+codicon wobbles. Flex gap already spaces this from the preceding label. */
 			::slotted([slot='suffix']) {
 				padding-inline-end: 0;
 			}

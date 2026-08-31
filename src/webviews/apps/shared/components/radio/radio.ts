@@ -1,10 +1,10 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { GlElement } from '@gitlens/components/components/element.js';
 import { checkboxBaseStyles } from '../checkbox/checkbox.css.js';
-import { GlElement } from '../element.js';
 import type { RadioGroup } from './radio-group.js';
 import { radioStyles } from './radio.css.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

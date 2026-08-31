@@ -3,8 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import { dateConverter } from '../converters/date-converter.js';
-import '../code-icon.js';
-import '../overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 import './signature-badge.js';
 import './signature-details.js';
 

@@ -2,16 +2,16 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GroupableTreeViewTypes } from '../../../../constants.views.js';
 import { groupableViewTypeLabels, groupableViewTypes, localOnlyGroupedViews } from '../../../../constants.views.js';
-import { srOnly } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
 import type { CheckDescriptor } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/checkbox/checkbox.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/radio/radio.js';
 
 declare global {

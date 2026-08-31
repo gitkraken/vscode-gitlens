@@ -30,15 +30,15 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/breadcrumbs.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/card/card.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/menu/menu-item.js';
 import '../../../shared/components/menu/menu-label.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/pills/tracking.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/pills/tracking.js';
 import '../../../shared/components/ref-button.js';
 import '../../../shared/components/repo-button-group.js';
 import '../../../shared/components/rich/issue-icon.js';
@@ -116,7 +116,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 
 			/* Style hr inside any slotted tooltip — the default browser hr renders too
-	   bright and without proper spacing inside the dark tooltip body. */
+bright and without proper spacing inside the dark tooltip body. */
 			[slot='tooltip'] hr {
 				margin: var(--gl-space-4) 0;
 				border: none;

@@ -1,0 +1,82 @@
+{
+	"name": "@gitlens/components",
+	"version": "0.1.0",
+	"description": "Reusable GitLens Lit components, controllers, directives, and styles.",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"license": "SEE LICENSE IN LICENSE",
+	"type": "module",
+	"sideEffects": [
+		"./src/components/agentMark.ts",
+		"./src/components/codeIcon.ts",
+		"./src/components/commitStats.ts",
+		"./src/components/wipStats.ts",
+		"./src/components/pills/tracking.ts",
+		"./src/components/overlays/popover.ts",
+		"./src/components/overlays/tooltip.ts",
+		"./dist/components/agentMark.js",
+		"./dist/components/codeIcon.js",
+		"./dist/components/commitStats.js",
+		"./dist/components/wipStats.js",
+		"./dist/components/pills/tracking.js",
+		"./dist/components/overlays/popover.js",
+		"./dist/components/overlays/tooltip.js"
+	],
+	"exports": {
+		"./package.json": "./package.json",
+		"./__tests__/*.js": null,
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./components/*.js": {
+			"types": "./dist/components/*.d.ts",
+			"default": "./dist/components/*.js"
+		},
+		"./components/overlays/*.js": {
+			"types": "./dist/components/overlays/*.d.ts",
+			"default": "./dist/components/overlays/*.js"
+		},
+		"./components/icons/*.js": {
+			"types": "./dist/components/icons/*.d.ts",
+			"default": "./dist/components/icons/*.js"
+		},
+		"./components/pills/*.js": {
+			"types": "./dist/components/pills/*.d.ts",
+			"default": "./dist/components/pills/*.js"
+		},
+		"./components/styles/lit/*.js": {
+			"types": "./dist/components/styles/lit/*.d.ts",
+			"default": "./dist/components/styles/lit/*.js"
+		},
+		"./controllers/*.js": {
+			"types": "./dist/controllers/*.d.ts",
+			"default": "./dist/controllers/*.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"clean": "pnpx rimraf --glob dist LICENSE *.tgz",
+		"lint:css": "stylelint \"src/**/*.{css,ts}\"",
+		"prepack": "node scripts/build.mjs",
+		"verify:package": "node scripts/verify-package.mjs"
+	},
+	"dependencies": {
+		"@awesome.me/webawesome": "catalog:",
+		"@gitlens/utils": "workspace:*"
+	},
+	"peerDependencies": {
+		"lit": "catalog:"
+	},
+	"devDependencies": {
+		"lit": "catalog:",
+		"typescript": "catalog:"
+	}
+}

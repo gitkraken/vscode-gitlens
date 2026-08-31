@@ -214,7 +214,7 @@ async function unpinBranch(
 
 /** A row's ref pill, addressed by the ref it names. */
 function refPill(webview: FrameLocator, refName: string): Locator {
-	return webview.locator('.gl-graph__ref-pill').filter({ hasText: refName }).first();
+	return webview.locator('.gl-graph__refs .gl-graph__ref-pill').filter({ hasText: refName }).first();
 }
 
 /**
@@ -282,7 +282,7 @@ async function toggleDetailsPanel(webview: FrameLocator): Promise<void> {
 /**
  * The pinned branch's band on the scroll rail. Matched on its colour variable, because the rendered box
  * carries no type of its own — `renderScrollMarkers` emits only geometry plus `backgroundColor`, and
- * `pinned` is the one lane painted with `--color-graph-scroll-marker-pinned` (`graph-scroll-markers.ts`).
+ * `pinned` is the one lane painted with `--color-graph-scroll-marker-pinned` (`graphScrollMarkers.ts`).
  */
 function pinnedScrollMarker(webview: FrameLocator): Locator {
 	return webview.locator('.gl-graph__scroll-marker-box[style*="scroll-marker-pinned"]');

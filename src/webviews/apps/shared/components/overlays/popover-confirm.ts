@@ -2,12 +2,12 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlButton } from '../button.js';
-import { elementBase } from '../styles/lit/base.css.js';
-import type { GlPopover } from './popover.js';
-import type { GlTooltip } from './tooltip.js';
 import '../button.js';
-import './popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

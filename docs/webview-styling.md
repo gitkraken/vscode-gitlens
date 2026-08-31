@@ -105,7 +105,7 @@ A small elevation scale whose tiers mirror the z-tiers. Every shadow derives fro
 
 **Never apply a `--gl-shadow-*` token raw.** Use the helper, which pairs the shadow with a border (see [Forced-colors](#forced-colors--high-contrast), below). A lint rule flags raw usage.
 
-**Lit** ([`elevation.css.ts`](../src/webviews/apps/shared/components/styles/lit/elevation.css.ts)) — interpolate the `elevatedSurface` fragment into the elevated rule and set the knobs:
+**Lit** ([`elevation.css.ts`](../packages/components/src/components/styles/lit/elevation.css.ts)) — interpolate the `elevatedSurface` fragment into the elevated rule and set the knobs:
 
 ```css
 :host {
@@ -126,11 +126,11 @@ A small elevation scale whose tiers mirror the z-tiers. Every shadow derives fro
 
 ### Forced-colors / high-contrast
 
-This follows VS Code's own widget convention: **shadow in normal themes, border in high-contrast — never both.** In high-contrast themes VS Code leaves `--vscode-widget-shadow` unset, so the `--gl-shadow-*` tiers compute invalid and the shadow vanishes on its own. The helper replaces it with a border keyed on `--vscode-contrastBorder` — the token VS Code leaves **unset in normal themes and set in high-contrast** — so the border self-collapses to nothing in normal themes and appears only in high-contrast.
+This follows VS Code's own widget convention: **shadow in normal themes, border in high-contrast — never both.** The host theme maps its high-contrast-only value onto the semantic `--color-contrast-border` token and leaves it transparent in normal themes; the helper consumes only that host-neutral token across shadow boundaries.
 
 That self-collapsing default is also what makes it work inside Lit shadow roots, where neither signal VS Code itself uses is reliable: `@media (forced-colors)` reflects only _OS-level_ forced-colors (not a VS-Code-picked HC theme), and an ancestor `.vscode-high-contrast` selector lives _outside_ the shadow boundary. An inherited custom property crosses the boundary and covers both HC paths.
 
-A surface that also wants a border in _normal_ themes (e.g. a dialog or dropdown that's always bordered) overrides `--gl-elevation-border-color` with an always-set color such as `var(--vscode-widget-border)`; that border shows in both themes and survives high-contrast because it's `contrastBorder`-backed.
+A surface that also wants a border in _normal_ themes (e.g. a dialog or dropdown that's always bordered) overrides `--gl-elevation-border-color` with an always-set semantic color such as `var(--color-view-header-border)`.
 
 ## Quick guardrails
 

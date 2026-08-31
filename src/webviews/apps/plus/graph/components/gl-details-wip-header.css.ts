@@ -53,8 +53,8 @@ export const detailsWipHeaderStyles = css`
 	   margin on the group's last child narrows the group past the bulb's real edge, and the
 	   details-header content box (overflow: hidden) chops the overhang off the bulb. */
 	.graph-details-header__coachmarks {
-		flex: none;
 		display: inline-flex;
+		flex: none;
 		align-items: center;
 		margin-inline-start: calc(var(--gl-space-6) - var(--gl-space-12));
 	}

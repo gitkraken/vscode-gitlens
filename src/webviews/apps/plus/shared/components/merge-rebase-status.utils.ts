@@ -1,12 +1,10 @@
 import type { GitPausedOperationStatus, GitRebaseStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
-import type { PausedOperationVariant } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
-import {
-	getConflictCurrentRef,
-	pausedOperationStatusStringsByType,
-} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { getConflictCurrentRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import type { PausedOperationVariant } from '@gitlens/utils/pausedOperation.js';
+import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
 import { pluralize, truncate } from '@gitlens/utils/string.js';
 
 /** Longest commit subject a tooltip carries before it's elided. */

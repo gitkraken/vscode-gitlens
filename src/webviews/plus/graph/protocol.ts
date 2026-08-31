@@ -1,3 +1,4 @@
+import { isWipRowId } from '@gitkraken/commit-graph/identity.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import type { ColumnId, ColumnMode, GraphColumnMode, GraphStyle } from '@gitkraken/commit-graph/view.js';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
@@ -30,7 +31,6 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
-import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type {
 	Config,
@@ -54,34 +54,6 @@ import type { Wip, WipStats } from './detailsProtocol.js';
 
 export type { Wip, WipStats };
 
-/** Prefix for synthetic row ids representing a worktree's working-changes (WIP) row. */
-const wipRowIdPrefix = 'wip::';
-
-/** Synthetic row id for a worktree's WIP row — ONE scheme for every worktree, primary included.
- *  Never the `uncommitted` revision: that stays a git revision, translated at the boundaries.
- *
- *  The path is normalized HERE rather than trusted from callers: producers hand us `GitWorktree.path`
- *  (already normalized) while command contexts carry `uri.fsPath` (native separators, and a differently
- *  cased drive letter on Windows). Two spellings of one worktree would mint two ids, and the command's
- *  id would match no rendered row. */
-export function createWipRowId(worktreePath: string): string {
-	return `${wipRowIdPrefix}${normalizePath(worktreePath)}`;
-}
-
-export function isWipRowId(id: string | undefined): boolean {
-	return id?.startsWith(wipRowIdPrefix) ?? false;
-}
-
-/** Decodes the worktree path; `undefined` when `id` isn't a WIP row id. */
-export function getWipRowWorktreePath(id: string | undefined): string | undefined {
-	return isWipRowId(id) ? id!.slice(wipRowIdPrefix.length) : undefined;
-}
-
-/** True when the id is the WIP row of the graph's own (selected) worktree. */
-export function isPrimaryWipRowId(id: string | undefined, selectedRepoPath: string | undefined): boolean {
-	return id != null && selectedRepoPath != null && id === createWipRowId(selectedRepoPath);
-}
-
 /**
  * True when a *selection* sha denotes working changes, in either namespace.
  *
@@ -100,7 +72,7 @@ export function isWipSelectionSha(sha: string | undefined): boolean {
 // `@gitkraken/gitkraken-components`. The host produces these and ships them over IPC to the
 // `@gitkraken/commit-graph` engine.
 
-/** A serialized `data-vscode-context` payload (JSON string) or its pre-serialization object form. */
+/** A serialized host context-menu payload (JSON string) or its pre-serialization object form. */
 export type SerializedGraphItemContext = string | object;
 
 /** Ref kinds the graph recognizes. */
@@ -232,10 +204,6 @@ export interface GraphRef {
 	annotated?: boolean;
 	message?: string;
 }
-
-/** Filter-state sentinel: a one-entry `{ [emptySetMarker]: … }` map means "filtering applied, zero
- *  matches", which the WIP-visibility helpers distinguish from an empty `{}` ("no filter"). */
-export const emptySetMarker = 'gk.empty-set-marker' as const;
 
 /**
  * When a reveal is allowed to act. WHERE it lands is not a caller's choice — one rule decides that: a row

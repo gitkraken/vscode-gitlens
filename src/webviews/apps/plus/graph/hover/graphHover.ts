@@ -1,6 +1,9 @@
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
+import { GlElement } from '@gitlens/components/components/element.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -9,11 +12,8 @@ import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol.js';
-import { GlElement } from '../../../shared/components/element.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
-import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import '../../../shared/components/markdown/markdown.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

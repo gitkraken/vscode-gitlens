@@ -1,5 +1,6 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { GlElement, observe } from '@gitlens/components/components/element.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type {
 	GraphDownstreams,
@@ -10,14 +11,13 @@ import type {
 	GraphSearchResultsError,
 	GraphWipRowsById,
 } from '../../../../plus/graph/protocol.js';
-import { GlElement, observe } from '../../../shared/components/element.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/menu/menu-item.js';
 import '../../../shared/components/menu/menu-label.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/radio/radio.js';
 import '../../../shared/components/radio/radio-group.js';
 import type {

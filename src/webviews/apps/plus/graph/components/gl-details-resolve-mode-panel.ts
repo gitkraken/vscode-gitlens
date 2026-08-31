@@ -3,6 +3,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { scrollableBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -29,8 +31,6 @@ import type {
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
-import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
-import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { prunePathsToFiles } from './aiExclusion.js';
@@ -50,9 +50,9 @@ import '../../../shared/components/ai-input.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/gl-ai-model-chip.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-converging-loading-animation.js';
@@ -140,8 +140,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 		resolveDisplayStyles,
 		css`
 			/* Matches the fade+slide-up entrance used by compose/review so resolve mode animates in
-			   instead of popping. The @keyframes comes from subPanelEnterStyles; overflow is gated to
-			   the animation's lifetime there, reverting to the panelHostStyles :host overflow-y: auto. */
+  instead of popping. The @keyframes comes from subPanelEnterStyles; overflow is gated to
+  the animation's lifetime there, reverting to the panelHostStyles :host overflow-y: auto. */
 			:host {
 				animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 			}
@@ -174,14 +174,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-files {
-				margin: 0;
 				padding: 0;
+				margin: 0;
 				list-style: none;
 			}
 
 			/* Automatic rebase run — the panel's content while a rebase is automating itself, and after it
-			   ends when nothing else seeded the panel. Column layout so the step list scrolls between a
-			   fixed header/progress bar and the fixed stop actions. */
+  ends when nothing else seeded the panel. Column layout so the step list scrolls between a
+  fixed header/progress bar and the fixed stop actions. */
 			.auto-rebase {
 				display: flex;
 				flex: 1;
@@ -190,10 +190,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* Stage for the run's backdrop animation — same relationship review mode uses via
-			   panel-loading-stage, but on the run's own column layout so the header, progress bar and step
-			   list keep their positions. Deliberately stops short of the actions row: the animation anchors
-			   its bucket to the bottom of its own box, so including the footer would tuck the bucket behind
-			   the button. Everything except the animation is lifted above it. */
+  panel-loading-stage, but on the run's own column layout so the header, progress bar and step
+  list keep their positions. Deliberately stops short of the actions row: the animation anchors
+  its bucket to the bottom of its own box, so including the footer would tuck the bucket behind
+  the button. Everything except the animation is lifted above it. */
 			.auto-rebase__stage {
 				position: relative;
 				display: flex;
@@ -237,7 +237,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* Run context above an escalated step's review — a bounded, scrollable band so a long rebase's
-			   history can't push the actionable resolutions off-screen. */
+  history can't push the actionable resolutions off-screen. */
 			.auto-rebase__context {
 				display: flex;
 				flex: none;
@@ -284,23 +284,23 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-progress__need {
-				color: var(--vscode-editorWarning-foreground, #cca700);
 				font-weight: 600;
+				color: var(--vscode-editorWarning-foreground, #cca700);
 			}
 
 			.resolve-progress__bar {
 				display: flex;
 				height: 0.4rem;
 				overflow: hidden;
-				border-radius: 999px;
 				background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+				border-radius: 999px;
 			}
 
 			/* Two-tone fill: green = resolved fraction, amber = still-needs-input fraction, so the bar reads
-			   as a split rather than "complete". Segments size by flex-grow = their file count. */
+  as a split rather than "complete". Segments size by flex-grow = their file count. */
 			.resolve-progress__bar-seg {
-				height: 100%;
 				flex-basis: 0;
+				height: 100%;
 			}
 
 			.resolve-progress__bar-seg--done {
@@ -327,12 +327,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 				align-items: center;
 				width: 100%;
 				padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-6);
-				color: var(--vscode-descriptionForeground);
 				font: inherit;
+				color: var(--vscode-descriptionForeground);
 				text-align: left;
+				cursor: pointer;
 				background: var(--vscode-sideBar-background, var(--vscode-editor-background));
 				border: none;
-				cursor: pointer;
 			}
 
 			.resolve-section__chevron {
@@ -360,8 +360,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 			.resolve-section__label {
 				font-size: var(--gl-font-sm);
 				font-weight: 700;
-				letter-spacing: 0.05em;
 				text-transform: uppercase;
+				letter-spacing: 0.05em;
 			}
 
 			.resolve-section__count {
@@ -410,9 +410,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* The pane group is a flex child with no intrinsic grow — without this it stays at content
-			   height and the inner gl-file-tree-pane (flex:1; min-height:0; overflow:hidden) collapses its
-			   tree to ~0 and clips every row. Mirrors the .scope-files__tree webview-pane-group rule in
-			   shared-panel.css.ts (compose's file curation). */
+  height and the inner gl-file-tree-pane (flex:1; min-height:0; overflow:hidden) collapses its
+  tree to ~0 and clips every row. Mirrors the .scope-files__tree webview-pane-group rule in
+  shared-panel.css.ts (compose's file curation). */
 			.resolve-tree webview-pane-group {
 				flex: 1;
 				min-height: 0;
@@ -420,7 +420,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* Badge + confidence-pip styles are shared with the auto-rebase summary sheet — see
-			   resolveDisplayStyles (resolveDisplay.ts) in the styles array above. */
+  resolveDisplayStyles (resolveDisplay.ts) in the styles array above. */
 
 			.resolve-file__reasoning {
 				margin: 0;
@@ -437,8 +437,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-4);
-				margin: var(--gl-space-6) 0 var(--gl-space-2) var(--gl-space-6);
 				padding-left: var(--gl-space-8);
+				margin: var(--gl-space-6) 0 var(--gl-space-2) var(--gl-space-6);
 				border-left: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
@@ -453,16 +453,16 @@ export class GlDetailsResolveModePanel extends LitElement {
 				min-width: 5rem;
 				font-size: var(--gl-font-sm);
 				font-variant: all-small-caps;
-				letter-spacing: 0.02em;
 				color: var(--vscode-descriptionForeground);
+				letter-spacing: 0.02em;
 			}
 
 			.resolve-file__side-path {
 				flex: 1;
 				min-width: 0;
 				overflow: hidden;
-				font-weight: 600;
 				text-overflow: ellipsis;
+				font-weight: 600;
 				white-space: nowrap;
 			}
 
@@ -477,15 +477,15 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* Ready-state action zone: the Refine gate on top, then either the Apply row (Apply posture)
-			   or the detached refine input (Refine posture) — mirrors compose-plan__actions. The container
-			   query below keeps the gate label and the right-anchored model tab from colliding when narrow. */
+  or the detached refine input (Refine posture) — mirrors compose-plan__actions. The container
+  query below keeps the gate label and the right-anchored model tab from colliding when narrow. */
 			.resolve-ready-actions {
-				container: resolve-ready / inline-size;
 				display: flex;
 				flex: none;
 				flex-direction: column;
 				gap: var(--gl-space-8);
 				padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-10);
+				container: resolve-ready / inline-size;
 				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
@@ -494,7 +494,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* Once wide enough that the gate label and the model tab can't collide, drop the gate's bottom
-			   margin to pull the input up tight; narrower, keep it so the tab drops clear below the gate. */
+  margin to pull the input up tight; narrower, keep it so the tab drops clear below the gate. */
 			@container resolve-ready (min-width: 44rem) {
 				.resolve-gate {
 					margin-bottom: 0;
@@ -514,20 +514,20 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* The detached refine input self-insets/-centres; inside the already-padded zone that doubles
-			   the inset, so pin it flush to the zone's content box (mirrors compose's override). Orange-tint
-			   the Refine submit with the SAME recompose accent compose uses (blue stays reserved for Apply);
-			   the custom props pierce gl-ai-input's shadow boundary. */
+  the inset, so pin it flush to the zone's content box (mirrors compose's override). Orange-tint
+  the Refine submit with the SAME recompose accent compose uses (blue stays reserved for Apply);
+  the custom props pierce gl-ai-input's shadow boundary. */
 			.resolve-ready-actions > gl-ai-input.resolve-refine-input {
 				width: 100%;
 				max-width: none;
 				margin: 0;
-				--gl-resolve-refine-accent: oklch(0.6 0.13 62);
+				--gl-resolve-refine-accent: oklch(60% 0.13 62deg);
 				--gl-ai-submit-bg: var(--gl-resolve-refine-accent);
 				--gl-ai-submit-hover-bg: color-mix(in srgb, #000 15%, var(--gl-resolve-refine-accent));
 			}
 
 			/* The per-row "Retry with feedback" button is a toggle — show the standard active-toggle
-			   background while its feedback input is open (keyed off the existing aria-expanded). */
+  background while its feedback input is open (keyed off the existing aria-expanded). */
 			.resolve-file__head gl-button[aria-expanded='true'] {
 				--button-background: var(--vscode-inputOption-activeBackground);
 				--button-foreground: var(--vscode-inputOption-activeForeground);

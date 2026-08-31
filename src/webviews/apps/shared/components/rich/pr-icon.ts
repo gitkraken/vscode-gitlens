@@ -4,8 +4,8 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { prIconStyles } from './pr.css.js';
 import type { AutolinkIconStatus } from './utils.js';
 import { getAutolinkIcon } from './utils.js';
-import '../code-icon.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 @customElement('pr-icon')
 export class PrIcon extends LitElement {

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { emptySetMarker } from '../../../../plus/graph/protocol.js';
-import { countLoadedIncludedRefs, pickScopePageTarget } from '../utils/scopePaging.utils.js';
+import { emptySetMarker } from '@gitkraken/commit-graph-ui/filtering.js';
+import { countLoadedIncludedRefs, pickScopePageTarget } from '@gitkraken/commit-graph-ui/scopePaging.js';
 
 suite('pickScopePageTarget', () => {
 	test('returns an unloaded, unrequested anchor sha when one exists', () => {

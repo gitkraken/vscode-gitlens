@@ -18,7 +18,7 @@ import { existsSync } from 'node:fs';
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getBundledPackageDirs, mergeBundledDependencies } from '../../../scripts/workspace.mjs';
+import { getCoreBundledPackageDirs, mergeBundledDependencies } from '../../../scripts/workspace.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const coreRoot = dirname(scriptDir);
@@ -53,7 +53,7 @@ const srcName = 'src';
 // modules whose dependencies aren't declared, or declares dependencies for code it doesn't ship —
 // and nothing downstream notices, because both sides of the check-deps comparison use the same half.
 function assertPackagesMatchWorkspace() {
-	const derived = getBundledPackageDirs().map(dir => relative(repoRoot, dir).split(sep).join('/'));
+	const derived = getCoreBundledPackageDirs().map(dir => relative(repoRoot, dir).split(sep).join('/'));
 	const declared = packages.map(p => p.srcDir);
 
 	const missing = derived.filter(dir => !declared.includes(dir));

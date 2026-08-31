@@ -1,8 +1,10 @@
+import type { GraphRefFinderRenderContext } from '@gitkraken/commit-graph-ui/contracts/refFinder.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { ref } from 'lit/directives/ref.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 import type { AppState } from '../context.js';
@@ -22,8 +24,8 @@ import { refPillKey } from '../utils/refKey.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import { graphRefFindStyles } from './gl-graph-ref-find.css.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 export interface GraphRefFindJumpEventDetail {
 	sha: string;
@@ -34,6 +36,21 @@ export interface GraphRefFindJumpEventDetail {
 	/** The row already landed and was revealed by the jump that started its page-in — just take focus,
 	 *  don't re-navigate or re-flash. */
 	handoff?: boolean;
+}
+
+/** GitLens profile adapter for the optional ref-finder slot. Keeping the template here means the
+ * renderer package never imports or registers this product component in profiles that omit it. */
+export function renderGitLensGraphRefFinder(context: GraphRefFinderRenderContext) {
+	return html`<gl-graph-ref-find
+		${ref(context.elementRef)}
+		?open=${context.open}
+		.openedBy=${context.openedBy}
+		.getRowIndex=${context.getRowIndex}
+		.rowsLoaded=${context.rowsLoaded}
+		@click=${context.onClick}
+		@gl-graph-ref-find-jump=${context.onJump}
+		@gl-graph-ref-find-close=${context.onClose}
+	></gl-graph-ref-find>`;
 }
 
 /**

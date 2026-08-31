@@ -23,9 +23,9 @@ export class GlProgressRing extends LitElement {
 			display: inline-flex;
 			flex: none;
 			/* Fallback lives in var(), not as a --gl-progress-ring-size declaration here — a value
-			   declared directly would always win over one inherited from an ancestor wrapper (declared
-			   beats inherited, regardless of specificity), defeating consumers that set the var higher up
-			   the tree (matches gl-avatar's --gl-avatar-size). */
+	   declared directly would always win over one inherited from an ancestor wrapper (declared
+	   beats inherited, regardless of specificity), defeating consumers that set the var higher up
+	   the tree (matches gl-avatar's --gl-avatar-size). */
 			width: var(--gl-progress-ring-size, 2.2rem);
 			aspect-ratio: 1;
 		}
@@ -40,14 +40,14 @@ export class GlProgressRing extends LitElement {
 		circle {
 			fill: none;
 			/* Thickness is in viewBox units (36 = full diameter), so the stroke scales proportionally
-			   with --gl-progress-ring-size. NOT non-scaling-stroke: that makes Chromium compute
-			   stroke-dasharray/-dashoffset in screen pixels (ignoring pathLength), which breaks the
-			   fraction — verified live; at small sizes the dash wraps the circle and reads as complete. */
+	   with --gl-progress-ring-size. NOT non-scaling-stroke: that makes Chromium compute
+	   stroke-dasharray/-dashoffset in screen pixels (ignoring pathLength), which breaks the
+	   fraction — verified live; at small sizes the dash wraps the circle and reads as complete. */
 			stroke-width: var(--gl-progress-ring-thickness, 3.6px);
 		}
 
 		/* Match the tokens the walkthrough progress bar uses (walkthroughProgressStyles in home.css.ts):
-		   track = --color-alert-neutralBackground, value = --vscode-progressBar-background. */
+   track = --color-alert-neutralBackground, value = --vscode-progressBar-background. */
 		.track {
 			stroke: var(--color-alert-neutralBackground);
 		}
@@ -56,7 +56,7 @@ export class GlProgressRing extends LitElement {
 			stroke: var(--vscode-progressBar-background, blue);
 			stroke-linecap: round;
 			/* SVG circles start their path at 3 o'clock and draw clockwise; rotating -90deg moves the
-			   start to 12 o'clock so progress reads like a clock face. */
+	   start to 12 o'clock so progress reads like a clock face. */
 			transform: rotate(-90deg);
 			transform-origin: center;
 			transition: stroke-dashoffset var(--gl-duration-medium) var(--gl-ease-out);

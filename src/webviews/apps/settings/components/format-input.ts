@@ -3,14 +3,14 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type {
 	CompletionItem,
 	CompletionSelectEvent,
 	GlAutocomplete,
 } from '../../shared/components/autocomplete/autocomplete.js';
-import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import { formatDate } from '../../shared/date.js';
 import type { SettingsActions } from '../actions.js';
 import type { FormatTokenInfo } from '../format-tokens.js';
@@ -20,9 +20,9 @@ import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/autocomplete/autocomplete.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/markdown/markdown.js';
-import '../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -251,9 +251,9 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			}
 
 			.mods__align {
-				grid-column: 1 / -1;
 				display: flex;
 				flex-wrap: wrap;
+				grid-column: 1 / -1;
 				gap: 0.3rem 1.2rem;
 				padding: 0;
 				margin: 0;

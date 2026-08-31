@@ -7,7 +7,7 @@ import postcssScss from 'postcss-scss';
  *
  * Two CSS surfaces, two syntaxes:
  *   - `**\/*.scss`                  light-DOM global stylesheets   -> postcss-scss
- *   - `src/webviews/apps/**\/*.ts`  Lit `css``` shadow-DOM styles  -> postcss-lit
+ *   - app and package `*.ts` Lit files             shadow-DOM styles  -> postcss-lit
  *
  * The custom-syntax modules are imported and passed as objects rather than by name:
  * under pnpm's strict node_modules, stylelint (running from the store) cannot resolve a
@@ -96,7 +96,11 @@ export default {
 			},
 		},
 		{
-			files: ['src/webviews/apps/**/*.ts'],
+			files: [
+				'src/webviews/apps/**/*.ts',
+				'packages/components/src/**/*.ts',
+				'packages/plus/commit-graph-ui/src/**/*.ts',
+			],
 			customSyntax: postcssLit,
 			extends: ['stylelint-config-standard', 'stylelint-config-recess-order'],
 			rules: {

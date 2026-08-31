@@ -12,7 +12,7 @@ const scssPromises = Promise.all([
 	fs.promises.readFile('./dist/glicons-map.scss', 'utf8'),
 	fs.promises.readFile('./src/webviews/apps/shared/styles/icons/glicons-map.scss', 'utf8'),
 	fs.promises.readFile('./dist/glicons-map.ts', 'utf8'),
-	fs.promises.readFile('./src/webviews/apps/shared/components/icons/glicons-map.ts', 'utf8'),
+	fs.promises.readFile('./packages/components/src/components/icons/gliconsMap.ts', 'utf8'),
 ]);
 
 let pending = [];
@@ -27,7 +27,8 @@ if (JSON.stringify(packageJSON.contributes.icons) !== JSON.stringify(icons.icons
 }
 
 // Update the scss file
-const [newScss, scss, newSassMap, sassMap, newTsMap, tsMap] = await scssPromises;
+const [newScss, scss, newSassMap, sassMap, generatedTsMap, tsMap] = await scssPromises;
+const newTsMap = generatedTsMap.replace(/^(\s*)'([A-Za-z_$][\w$]*)':/gm, '$1$2:');
 
 if (scss !== newScss) {
 	pending.push(fs.promises.writeFile('./src/webviews/apps/shared/glicons.scss', newScss));
@@ -38,7 +39,7 @@ if (sassMap !== newSassMap) {
 }
 
 if (tsMap !== newTsMap) {
-	pending.push(fs.promises.writeFile('./src/webviews/apps/shared/components/icons/glicons-map.ts', newTsMap));
+	pending.push(fs.promises.writeFile('./packages/components/src/components/icons/gliconsMap.ts', newTsMap));
 }
 
 // Propagate the new cache-busting hash into the per-app webview HTML files, which declare their own

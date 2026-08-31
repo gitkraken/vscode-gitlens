@@ -2,18 +2,18 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { Source } from '../../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AIState } from '../../../../rpc/services/types.js';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import { chipStyles } from './chipStyles.js';
 import { integrationRowStyles } from './integrationRowStyles.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/feature-badge.js';
 
 declare global {

@@ -37,6 +37,19 @@ export function getBundledPackageDirs() {
 	return dirs;
 }
 
+// Browser-only packages are bundled into the GitLens webviews, but do not belong in the published
+// host/core SDK. Keep this list explicit: sharing the @gitlens scope is not an assertion that a
+// package is part of @gitkraken/core-gitlens.
+const coreExcludedPackageNames = new Set(['@gitlens/components']);
+
+/** @returns {string[]} Absolute directories for packages bundled into `@gitkraken/core-gitlens`. */
+export function getCoreBundledPackageDirs() {
+	return getBundledPackageDirs().filter(dir => {
+		const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+		return !coreExcludedPackageNames.has(manifest.name);
+	});
+}
+
 /** @returns {string[]} Absolute paths to the root manifest and every bundled package's manifest. */
 export function getBundledManifestPaths() {
 	return [join(repoRoot, 'package.json'), ...getBundledPackageDirs().map(dir => join(dir, 'package.json'))];
@@ -61,7 +74,7 @@ export async function mergeBundledDependencies() {
 	/** @type {Record<string, string>} */
 	const versions = Object.create(null);
 
-	for (const dir of getBundledPackageDirs()) {
+	for (const dir of getCoreBundledPackageDirs()) {
 		const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
 
 		for (const [name, spec] of Object.entries(manifest.dependencies ?? {})) {

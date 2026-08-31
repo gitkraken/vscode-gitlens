@@ -29,7 +29,7 @@ import { timelineBaseStyles, timelineStyles } from './timeline.css.js';
 import './components/chart.js';
 import './components/header.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/feature-gate.js';
 import '../../shared/components/file-icon/file-icon.js';

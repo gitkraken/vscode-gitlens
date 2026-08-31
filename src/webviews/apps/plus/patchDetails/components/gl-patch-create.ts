@@ -3,6 +3,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { flatCount } from '@gitlens/utils/iterable.js';
@@ -16,7 +17,6 @@ import type {
 	ExecuteFileActionParams,
 	State,
 } from '../../../../plus/patchDetails/protocol.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -28,11 +28,11 @@ import { GlTreeBase } from './gl-tree-base.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/menu/menu-item.js';
 import '../../../shared/components/menu/menu-list.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 import '../../../shared/components/webview-pane.js';
 
 export interface CreatePatchEventDetail {

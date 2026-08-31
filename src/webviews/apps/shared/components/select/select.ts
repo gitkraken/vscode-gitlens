@@ -6,7 +6,7 @@ import { selectStyles } from './select.css.js';
 import '@awesome.me/webawesome/dist/components/select/select.js';
 import '@awesome.me/webawesome/dist/components/option/option.js';
 import '@awesome.me/webawesome/dist/components/popup/popup.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../shoelace-stub.js';
 
 export interface SelectOption {

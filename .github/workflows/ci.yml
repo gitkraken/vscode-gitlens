@@ -52,7 +52,21 @@ jobs:
               run: pnpm run fmt:check
 
             - name: Build (production)
-              run: pnpm run bundle
+              run: pnpm run bundle:analyze
+
+            # The production build above emits the authoritative webpack stats. Reuse them here so the
+            # bundle budget doesn't compile the webviews a second time.
+            - name: Check graph production bundle size
+              run: pnpm run benchmark:graph:bundle:check
+
+            - name: Upload graph bundle measurements
+              if: ${{ !cancelled() }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: graph-bundle-performance
+                  path: out/perf/graph-bundle.json
+                  retention-days: 14
+                  if-no-files-found: error
 
             - name: Verify generated files are current
               run: git diff --exit-code -- ThirdPartyNotices.txt docs/telemetry-events.md
@@ -89,6 +103,12 @@ jobs:
             - name: Build packages
               run: pnpm run build:packages
 
+            - name: Build graph packages
+              run: pnpm run build:graph-packages
+
+            - name: Lint graph package CSS
+              run: pnpm run lint:css:graph-packages
+
             - name: Run package unit tests
               run: pnpm run test:packages
 
@@ -115,6 +135,9 @@ jobs:
 
             - name: Verify packed core package as an external consumer
               run: pnpm --filter @gitkraken/core-gitlens run verify:package
+
+            - name: Verify packed graph packages as external consumers
+              run: pnpm run verify:graph-packages
 
     derive-matrix:
         name: Derive editor matrix
@@ -272,6 +295,14 @@ jobs:
                   pnpm exec playwright test -c tests/e2e/playwright.config.ts
                   --project=${{ matrix.editor.id }} --workers=${{ matrix.editor.ciWorkers || 4 }}
 
+            # The frame/heap benchmark is deliberately excluded from the default functional suite. Run it
+            # serially and repeatedly in the canonical VS Code leg so its measurements remain comparable.
+            - name: Run graph browser performance benchmark
+              if: ${{ matrix.editor.id == 'vscode' }}
+              run: >
+                  xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
+                  pnpm run benchmark:graph:browser
+
             # Upload on both pass and fail (skip only on cancel) so results/report are available to
             # inspect even when the job is green — flaky-retry traces (trace: on-first-retry) land in
             # out/test-results/ but would be dropped by an `if: failure()` gate on a passing run.
@@ -292,3 +323,12 @@ jobs:
                   path: playwright-report/
                   retention-days: 7
                   if-no-files-found: ignore
+
+            - name: Upload graph performance measurements
+              if: ${{ !cancelled() && matrix.editor.id == 'vscode' }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: graph-browser-performance-${{ matrix.editor.id }}
+                  path: out/perf/commit-graph-browser-*.json
+                  retention-days: 14
+                  if-no-files-found: error

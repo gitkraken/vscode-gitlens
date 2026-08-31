@@ -1,9 +1,9 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { ModifierKeysController } from '../../controllers/modifier-keys.js';
-import { GlElement } from '../element.js';
+import { GlElement } from '@gitlens/components/components/element.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { checkboxBaseStyles } from './checkbox.css.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

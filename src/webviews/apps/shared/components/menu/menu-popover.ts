@@ -1,10 +1,10 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { GlElement } from '../element.js';
-import type { GlPopover } from '../overlays/popover.js';
+import { GlElement } from '@gitlens/components/components/element.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import type { MenuItem } from './menu-item.js';
-import '../code-icon.js';
-import '../overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 import './menu-item.js';
 import './menu-list.js';
 
@@ -41,10 +41,10 @@ export class GlMenuPopover extends GlElement {
 		}
 
 		/* Strip menu-list's standalone chrome (its own border + asymmetric bottom padding) — inside
-	   the popover's menu-mode body it just needs a small symmetric vertical pad so the first/
-	   last item clear the body padding. font-weight/text-transform/letter-spacing are inheritable
-	   and cross the shadow boundary from the anchor's context (e.g. an uppercase, letter-spaced
-	   webview-pane title), so reset them here or the menu rows inherit that styling. */
+  the popover's menu-mode body it just needs a small symmetric vertical pad so the first/
+  last item clear the body padding. font-weight/text-transform/letter-spacing are inheritable
+  and cross the shadow boundary from the anchor's context (e.g. an uppercase, letter-spaced
+  webview-pane title), so reset them here or the menu rows inherit that styling. */
 		menu-list {
 			padding: var(--gl-space-2) 0;
 			font-weight: normal;
@@ -61,7 +61,7 @@ export class GlMenuPopover extends GlElement {
 		}
 
 		/* Fixed-width check column so labels align whether or not an item is selected — the
-	   unselected items render a blank icon that occupies the column invisibly. */
+  unselected items render a blank icon that occupies the column invisibly. */
 		menu-item code-icon {
 			flex: 0 0 1.4rem;
 		}

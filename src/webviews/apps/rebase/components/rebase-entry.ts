@@ -13,8 +13,8 @@ import { entryStyles } from './rebase-entry.css.js';
 import '../../shared/components/avatar/avatar-list.js';
 import '../../shared/components/chips/ref-overflow-chip.js';
 import '../../shared/components/markdown/markdown.js';
-import '../../shared/components/overlays/popover.js';
-import '../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../shared/components/select/select.js';
 
 const allCommitActions = [...commitRebaseActions.values()];

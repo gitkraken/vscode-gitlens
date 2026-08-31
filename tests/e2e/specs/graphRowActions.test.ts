@@ -93,7 +93,7 @@ test.describe('Graph — inline row actions', () => {
 	});
 
 	test('preserves hover and selection colors beneath the faded action strip', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* SubscriptionState.Paid */,
 			planId: 'pro',
 		});

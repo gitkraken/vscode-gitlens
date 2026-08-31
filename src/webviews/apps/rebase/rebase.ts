@@ -7,6 +7,7 @@ import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
@@ -22,7 +23,6 @@ import { fireAndForget } from '../shared/actions/rpc.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { GlPopoverConfirm } from '../shared/components/overlays/popover-confirm.js';
 import type { GlSelect } from '../shared/components/select/select.js';
-import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
 import { splitButtonStyles } from '../shared/components/styles/lit/split-button.css.js';
 import type {
 	TreeItemActionDetail,
@@ -54,7 +54,7 @@ import '../shared/components/menu/menu-popover.js';
 import '../shared/components/checkbox/checkbox.js';
 import '../shared/components/commit-sha.js';
 import '../shared/components/overlays/popover-confirm.js';
-import '../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../shared/components/split-panel/split-panel.js';
 
 const filesPanelDefaultPct = 50;

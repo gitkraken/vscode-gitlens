@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlAccountChip } from './account-chip.js';
 import './account-chip.js';
 import './integrations-chip.js';

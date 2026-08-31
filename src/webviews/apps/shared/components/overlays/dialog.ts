@@ -2,8 +2,8 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { focusableBaseStyles } from '../styles/lit/a11y.css.js';
-import { elevatedSurface } from '../styles/lit/elevation.css.js';
+import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 
 // #0000004d - light
 

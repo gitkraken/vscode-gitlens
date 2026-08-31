@@ -1,11 +1,11 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { GlElement } from '@gitlens/components/components/element.js';
 import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
-import { GlElement } from '../element.js';
 import { getAutolinkIcon } from './utils.js';
 import '../button.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../formatted-date.js';
 
 declare global {
@@ -22,7 +22,7 @@ declare global {
 export class IssuePullRequest extends GlElement {
 	static override styles = css`
 		/* Matches the graph's ref-pill hover card (.gl-graph__ref-metadata-card) — same stack, gaps, type
-		   sizes and muted tones, so a pull request reads identically wherever it's hovered. */
+   sizes and muted tones, so a pull request reads identically wherever it's hovered. */
 		:host {
 			display: flex;
 			flex-direction: column;
@@ -31,41 +31,41 @@ export class IssuePullRequest extends GlElement {
 		}
 
 		/* Flex, not the grid the full card uses: compact renders a single row, and the grid's icon spanned
-		   rows 1/3 — so a second, empty row plus its row-gap padded the component below its own ink and the
-		   text rode high inside the anchor's hover box. */
+   rows 1/3 — so a second, empty row plus its row-gap padded the component below its own ink and the
+   text rode high inside the anchor's hover box. */
 		:host([compact]) {
 			display: flex;
 			/* Explicit: the base host is a column, and inheriting that stacked the icon above the title. */
 			flex-direction: row;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 		}
 
 		/* Icon, title, identifier and the actions share the first line; the actions sit hard right, past
-		   the identifier. Baseline alignment keeps a wrapped title level with the id that follows it. */
+   the identifier. Baseline alignment keeps a wrapped title level with the id that follows it. */
 		/* Never wraps: the actions have to stay on the first line, at its right edge. Only the title/id box
-		   inside it wraps, so a long title grows downward without pushing the actions onto a row of their own. */
+   inside it wraps, so a long title grows downward without pushing the actions onto a row of their own. */
 		.head {
 			display: flex;
 			flex-wrap: nowrap;
-			/* Centered, not flex-start: the actions button is taller than the text, so top-aligning left the
-			   icon, title and id riding above it. */
-			align-items: center;
 			gap: 0.2rem 0.5rem;
+			/* Centered, not flex-start: the actions button is taller than the text, so top-aligning left the
+	   icon, title and id riding above it. */
+			align-items: center;
 		}
 
 		.head-text {
 			display: flex;
 			flex: 1 1 auto;
 			flex-wrap: wrap;
-			min-width: 0;
-			align-items: baseline;
 			gap: 0.2rem 0.5rem;
+			align-items: baseline;
+			min-width: 0;
 		}
 
 		/* Inherits rather than taking the link colour: the ref card's title is plain, and two differently
-		   coloured titles was the most visible mismatch between the two cards. Still underlines on hover,
-		   so the affordance survives. */
+   coloured titles was the most visible mismatch between the two cards. Still underlines on hover,
+   so the affordance survives. */
 		a {
 			color: inherit;
 			text-decoration: none;
@@ -76,8 +76,8 @@ export class IssuePullRequest extends GlElement {
 		}
 
 		.icon {
-			align-self: center;
 			flex-shrink: 0;
+			align-self: center;
 			text-align: center;
 		}
 
@@ -114,25 +114,25 @@ export class IssuePullRequest extends GlElement {
 		}
 
 		/* Compact pill: the count is a flex sibling of the identifier so both are centered against the same
-		   box. As an inline box it relied on vertical-align, which centers on an approximated x-height —
-		   close enough to look like a mistake rather than a choice. */
+   box. As an inline box it relied on vertical-align, which centers on an approximated x-height —
+   close enough to look like a mistake rather than a choice. */
 		:host([compact]) .title {
 			display: flex;
-			align-items: center;
 			gap: 0.4rem;
+			align-items: center;
 			font-weight: inherit;
 		}
 
 		.date {
 			margin: 0;
-			color: var(--vscode-descriptionForeground);
 			font-size: 1.1rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.identifier {
 			flex: none;
-			color: var(--vscode-descriptionForeground);
 			font-variant-numeric: tabular-nums;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		/* Pushed to the head's right edge — past the identifier — rather than occupying a column of its own. */
@@ -155,18 +155,18 @@ export class IssuePullRequest extends GlElement {
 		}
 
 		/* Its own row in the content column, below the metadata line — inline it competed with the
-		   author/state/date for a line that's already dense. */
+   author/state/date for a line that's already dense. */
 		.stack-line {
 			display: flex;
 			gap: 0.4rem;
 			align-items: center;
 			margin: 0;
-			color: var(--vscode-descriptionForeground);
 			font-size: 1.1rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		/* The layer count, in the same wash-box treatment the graph's ref-pill chip uses. Sits directly
-		   against the identifier before it — no separator, so icon/number/count read as one unit. */
+   against the identifier before it — no separator, so icon/number/count read as one unit. */
 		.stack {
 			display: inline-flex;
 			align-items: center;
@@ -174,14 +174,14 @@ export class IssuePullRequest extends GlElement {
 			padding: 0 0.3rem;
 			/* Pushed to the line's right edge, under the actions in the head above it. */
 			margin-left: auto;
-			/* Without both of these the box inherits the paragraph's line-height and grows to the full line
-			   box — tall, and sitting on the text baseline rather than centered against it. */
-			line-height: 1;
-			vertical-align: middle;
 			font-size: 0.9em;
 			font-variant-numeric: tabular-nums;
-			border-radius: 0.3rem;
+			/* Without both of these the box inherits the paragraph's line-height and grows to the full line
+	   box — tall, and sitting on the text baseline rather than centered against it. */
+			line-height: 1;
+			vertical-align: middle;
 			background: color-mix(in srgb, currentColor 18%, transparent);
+			border-radius: 0.3rem;
 		}
 
 		.review {

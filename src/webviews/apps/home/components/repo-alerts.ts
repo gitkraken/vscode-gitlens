@@ -3,7 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { linkBase } from '../../shared/components/styles/lit/base.css.js';
+import { linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { alertStyles, homeBaseStyles } from '../home.css.js';
 import type { HomeState } from '../state.js';
 import { homeStateContext } from '../state.js';

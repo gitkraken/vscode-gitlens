@@ -2,9 +2,9 @@ import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleSta
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
-import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { Lazy } from '@gitlens/utils/lazy.js';
+import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Colors } from '../../constants.colors.js';
 import { GitUri } from '../../git/gitUri.js';

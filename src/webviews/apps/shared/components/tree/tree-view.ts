@@ -7,6 +7,8 @@ import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { when } from 'lit/directives/when.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
+import { GlElement } from '@gitlens/components/components/element.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { agentPhaseToCategory, agentProviderIcon } from '../../agentUtils.js';
 import type { CollectionIndexController } from '../../controllers/collection-index.js';
 import { FilterController } from '../../controllers/filter.js';
@@ -15,11 +17,9 @@ import type { SelectionController } from '../../controllers/selection.js';
 import { VirtualCollectionController } from '../../controllers/virtual-collection.js';
 import type { VirtualScrollController } from '../../controllers/virtual-scroll.js';
 import { parseFilterTerms } from '../../utils/filter-match.js';
-import { GlElement } from '../element.js';
 import type { AutolinkIconStatus } from '../rich/utils.js';
 import { getAutolinkIcon } from '../rich/utils.js';
 import type { GlGitStatus } from '../status/git-status.js';
-import { scrollableBase } from '../styles/lit/base.css.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -31,17 +31,17 @@ import type {
 } from './base.js';
 import type { GlTreeItem } from './tree-item.js';
 import '@lit-labs/virtualizer';
-import '../agents/gl-agent-mark.js';
+import '@gitlens/components/components/agentMark.js';
 import '../chips/action-chip.js';
 import '../branch-icon.js';
-import '../commit/wip-stats.js';
-import '../overlays/popover.js';
-import '../pills/tracking.js';
+import '@gitlens/components/components/wipStats.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/pills/tracking.js';
 import '../file-icon/file-icon.js';
 import '../status/git-status.js';
 import '../button.js';
-import '../code-icon.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../markdown/markdown.js';
 import './tree-item.js';
 
@@ -61,8 +61,8 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Signals "the tree has focus" to descendant gl-tree-item rows (inherits across the shadow
-	   boundary). Drives the active-vs-inactive selection background on every selected row —
-	   reliable for click-focus, which doesn't surface as a focusin on this host. */
+boundary). Drives the active-vs-inactive selection background on every selected row —
+reliable for click-focus, which doesn't surface as a focusin on this host. */
 			:host(:focus-within) {
 				--gl-tree-focus-within: 1;
 			}
@@ -85,10 +85,10 @@ export class GlTreeView extends GlElement {
 				height: 100%;
 
 				/* lit-virtualizer sets an inline min-height based on its initial item-size
-		   estimate, which can exceed the scrollable container in small viewports and
-		   push scrolling onto the outer .scrollable div instead of the virtualizer's
-		   own scroller. Since height: 100% already provides correct sizing from the
-		   flex layout, the min-height is always redundant. */
+ estimate, which can exceed the scrollable container in small viewports and
+ push scrolling onto the outer .scrollable div instead of the virtualizer's
+ own scroller. Since height: 100% already provides correct sizing from the
+ flex layout, the min-height is always redundant. */
 				min-height: 0 !important;
 
 				/* Use layout containment instead of strict to avoid rendering issues */
@@ -102,7 +102,7 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Dim non-matched items when highlighting: either the search box is in highlight mode
-	   (search-box-filter absent) or an external source forces dim (dim-unmatched). */
+(search-box-filter absent) or an external source forces dim (dim-unmatched). */
 			:host([filtered]:not([search-box-filter])) gl-tree-item:not([matched]),
 			:host([filtered][dim-unmatched]) gl-tree-item:not([matched]) {
 				opacity: 0.6;
@@ -178,7 +178,7 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Shared by both the no-data case (emptyText) and the filter-yields-no-matches
-	   case ("No results found"); class name dates from the latter. */
+case ("No results found"); class name dates from the latter. */
 			.no-results {
 				padding: var(--gl-space-10);
 				font-style: italic;
@@ -206,10 +206,10 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Sizes codicons to the text for markdown tooltips only, where an icon appears mid-sentence
-			   and 16px towers over the words. Scoped to gl-markdown rather than the wrapper on purpose:
-			   component tooltips render in the same wrapper and own their icon sizing (gl-agent-tooltip
-			   builds a layout around full-size icons), and a custom property on the wrapper would
-			   silently shrink theirs too. */
+  and 16px towers over the words. Scoped to gl-markdown rather than the wrapper on purpose:
+  component tooltips render in the same wrapper and own their icon sizing (gl-agent-tooltip
+  builds a layout around full-size icons), and a custom property on the wrapper would
+  silently shrink theirs too. */
 			.hover-content gl-markdown {
 				--code-icon-size: 1.3rem;
 			}
@@ -227,8 +227,8 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Set in a wash of the row's own foreground rather than a fixed tint: the badge marks
-	   membership, not urgency, so it should read as a shape without competing with the state
-	   glyph or the attention indicator. Tabular figures so 2/3 and 2/10 align down a column. */
+membership, not urgency, so it should read as a shape without competing with the state
+glyph or the attention indicator. Tabular figures so 2/3 and 2/10 align down a column. */
 			.stack-count {
 				display: inline-flex;
 				gap: 0.3rem;
@@ -237,13 +237,13 @@ export class GlTreeView extends GlElement {
 				padding: 0 var(--gl-space-4);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
-				border-radius: 0.8rem;
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+				border-radius: 0.8rem;
 			}
 
 			/* Pull-request state, in GitLens's contributed theme colors so a retheme carries. Draft has
-	   no color of its own — it borrows the description foreground, which is what marks it as the
-	   not-yet-real one of the four. */
+no color of its own — it borrows the description foreground, which is what marks it as the
+not-yet-real one of the four. */
 			code-icon.tree-icon--pr-opened {
 				color: var(--vscode-gitlens-openPullRequestIconColor);
 			}
@@ -261,12 +261,12 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Phase-tinted agent icon — pulls from the shared --gl-agent-* palette defined in
-	   theme.scss so leaf, tooltip, pill, and details panel all dereference the same set
-	   of variables. Unqualified (not scoped to code-icon) so the same rules also tint the
-	   gl-agent-mark corner badge below — both the identity glyph and its phase mark carry
-	   these classes and must always agree on color. code-icon's :host inherits color from its
-	   parent, so styling the element here flows through to its rendered glyph; gl-agent-mark
-	   draws entirely in currentColor, so it picks the color up the same way. */
+theme.scss so leaf, tooltip, pill, and details panel all dereference the same set
+of variables. Unqualified (not scoped to code-icon) so the same rules also tint the
+gl-agent-mark corner badge below — both the identity glyph and its phase mark carry
+these classes and must always agree on color. code-icon's :host inherits color from its
+parent, so styling the element here flows through to its rendered glyph; gl-agent-mark
+draws entirely in currentColor, so it picks the color up the same way. */
 			.tree-icon-agent {
 				color: var(--gl-agent-idle-color);
 			}
@@ -284,11 +284,11 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Positioning context for the robot + its overlaid phase mark, which together read as
-	   one identity marker. The decoration slot's gap applies between this wrapper and any
-	   sibling decoration, never inside it. */
+one identity marker. The decoration slot's gap applies between this wrapper and any
+sibling decoration, never inside it. */
 			/* The leaf's logomark gets the graph's icon size, not the tree's 1.3rem default: at 1.3rem
-	   the badge covers more than half of a thin radial mark. Scoped to this anchor so file-tree
-	   decorations keep the tree's own sizing. */
+the badge covers more than half of a thin radial mark. Scoped to this anchor so file-tree
+decorations keep the tree's own sizing. */
 			.tree-icon-agent-anchor {
 				position: relative;
 				display: inline-flex;
@@ -296,37 +296,37 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Opaque chip behind the mark, in the row's own colour, so the identity glyph is
-	   OCCLUDED rather than cut. A cutout has to survive whatever glyph it lands on, and a thin
-	   radiating mark like Claude's comes apart when you punch a hole through it. The chip needs
-	   the row's background, which tree-item publishes as --gl-tree-row-bg for each of its states
-	   (rest / hover / selected); custom properties inherit through the flattened tree, so slotted
-	   content picks up the right one without tracking state itself.
+OCCLUDED rather than cut. A cutout has to survive whatever glyph it lands on, and a thin
+radiating mark like Claude's comes apart when you punch a hole through it. The chip needs
+the row's background, which tree-item publishes as --gl-tree-row-bg for each of its states
+(rest / hover / selected); custom properties inherit through the flattened tree, so slotted
+content picks up the right one without tracking state itself.
 
-	   Sized to circumscribe the mark's RING, in em so it tracks the glyph — the triangle runs
-	   wider than the circle and the square's corners reach furthest, so both take the larger disc.
-	   Painted between the glyph and the mark, hence the z-index ladder. */
+Sized to circumscribe the mark's RING, in em so it tracks the glyph — the triangle runs
+wider than the circle and the square's corners reach furthest, so both take the larger disc.
+Painted between the glyph and the mark, hence the z-index ladder. */
 			/* The leaf mirrors the graph's WIP-row indicator exactly — same glyph size, same badge
-	   basis, same offsets — so one composition is learned once. The mark draws its own opaque
-	   backing in its own silhouette; all this supplies is the colour to cut with, which
-	   tree-item publishes per row state as --gl-tree-row-bg. */
+basis, same offsets — so one composition is learned once. The mark draws its own opaque
+backing in its own silhouette; all this supplies is the colour to cut with, which
+tree-item publishes per row state as --gl-tree-row-bg. */
 			.tree-icon-agent-anchor--leaf {
 				--code-icon-size: 1.6rem;
 			}
 
 			.tree-icon-agent-anchor gl-agent-mark.tree-icon-agent {
 				/* Composited, not a bare var: the hover and selection colours tree-item publishes are
-		   semi-transparent, so painting one directly leaves a see-through chip that occludes
-		   nothing — the cut vanishes exactly when a row is hovered or selected. Layering the row
-		   colour over the panel's opaque background reproduces the row's effective surface. */
+ semi-transparent, so painting one directly leaves a see-through chip that occludes
+ nothing — the cut vanishes exactly when a row is hovered or selected. Layering the row
+ colour over the panel's opaque background reproduces the row's effective surface. */
 				--gl-agent-mark-chip:
 					linear-gradient(var(--gl-tree-row-bg, transparent), var(--gl-tree-row-bg, transparent)),
 					var(--color-view-background, var(--vscode-sideBar-background));
 
 				position: absolute;
-				font-size: 1.2rem;
 				right: 0.05em;
 				bottom: 0.05em;
 				z-index: 2;
+				font-size: 1.2rem;
 			}
 		`,
 	];

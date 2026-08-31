@@ -1,7 +1,8 @@
 import * as assert from 'assert';
+import type { WipRowFitMetrics } from '@gitkraken/commit-graph-ui/wip.js';
+import { computeWipRowFit } from '@gitkraken/commit-graph-ui/wip.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
-import type { WipRowFitMetrics } from '../wip.utils.js';
-import { buildWipRowInfoByRowSha, computeWipRowFit, shouldIncludeOverviewBarSecondary } from '../wip.utils.js';
+import { buildWipRowInfoByRowSha, shouldIncludeOverviewBarSecondary } from '../wip.utils.js';
 
 const scenarios = [
 	{

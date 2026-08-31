@@ -2,10 +2,10 @@ import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlTooltip } from './overlays/tooltip.js';
-import { focusOutlineButton } from './styles/lit/a11y.css.js';
-import { elementBase } from './styles/lit/base.css.js';
-import './overlays/tooltip.js';
+import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
+import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -274,8 +274,8 @@ export class GlButton extends LitElement {
 			}
 
 			/* Give solid-filled buttons a bit more horizontal breathing room. Exposed via a
-	   CSS var so consumers (e.g. compose-mode commit checkbox) can collapse to a
-	   square icon button. */
+CSS var so consumers (e.g. compose-mode commit checkbox) can collapse to a
+square icon button. */
 			:host(:not([appearance])) .control,
 			:host([appearance='secondary']) .control {
 				padding-inline: var(--button-padding-inline, 0.8rem);

@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import type { GraphCommitRef } from '@gitkraken/commit-graph-ui/commit.js';
+import { columnsToZones, isRefHidden, zonesToColumnsConfig } from '@gitkraken/commit-graph-ui/commit.js';
 import type { ZoneSpec } from '@gitkraken/commit-graph/view.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type {
@@ -8,8 +10,7 @@ import type {
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 } from '../../../../../plus/graph/protocol.js';
-import type { GraphCommitRef } from '../graph-commit.js';
-import { columnsToZones, isRefHidden, toGraphCommit, zonesToColumnsConfig } from '../graph-commit.js';
+import { toGraphCommit } from '../graph-commit.js';
 
 // A persisted-columns fixture with only the `changes` key — columnsToZones ignores keys with no matching
 // default zone. Cast because GraphColumnsSettings is a full Record over every column name.

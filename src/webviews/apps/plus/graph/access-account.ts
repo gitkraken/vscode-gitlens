@@ -3,18 +3,18 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
-import { focusOutlineButton } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
 import '../../shared/components/card/card.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/gitlens-logo-circle.js';
 
@@ -306,12 +306,35 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			:host {
 				--link-foreground: var(--vscode-textLink-foreground);
 				--link-foreground-active: var(--vscode-textLink-activeForeground);
+				--lp-frame-bg: #121212;
+				--lp-frame-stroke: #363636;
+				--lp-shell-bg: #2a2a2c;
+				--lp-dot-fill: #d9d9d9;
+				--lp-row: #808080;
+				--lp-purple: #aa5bf5;
+				--lp-green: #00a02e;
+
+				/* Pro strip vignettes: dark/light exports differing only in these colors, same as the
+   layout illustrations below. */
+				--strip-panel-1: #16181e;
+				--strip-panel-2: #0e1015;
+				--strip-inset: #171a21;
+				--strip-inset-border: #2c2d33;
+				--strip-node-fill: #0f1116;
+				--strip-node-core: #e3efff;
+				--strip-skeleton: #fff;
+				--strip-edge-light: rgb(255 255 255 / 5%);
+				--strip-text-blue: #b4d0ff;
+				--strip-text-cyan: #9fdcff;
+				--strip-text-green: #6fe07c;
+				--strip-text-amber: #e3b341;
+				--strip-text-red: #ff8f87;
 			}
 
 			/* No justify-content here on purpose: .content centers itself with margin-block: auto (which
-			   yields the free space back to flex-start on overflow, so the top stays scrollable). A
-			   justify-content: center would re-center the overflow once those auto margins zero out,
-			   clipping the top of tall content in short viewports. */
+  yields the free space back to flex-start on overflow, so the top stays scrollable). A
+  justify-content: center would re-center the overflow once those auto margins zero out,
+  clipping the top of tall content in short viewports. */
 			.container {
 				display: flex;
 				flex-direction: column;
@@ -334,8 +357,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Slim, subtly-tinted notice pinned to the top of the sign-in screen for users upgrading
-			   from before v19 (the Commit Graph's move to an account-gated home). flex: none keeps it
-			   at its natural size at the top while .content's auto margins take the remaining space. */
+  from before v19 (the Commit Graph's move to an account-gated home). flex: none keeps it
+  at its natural size at the top while .content's auto margins take the remaining space. */
 			.upgrade-banner {
 				display: flex;
 				flex: none;
@@ -507,7 +530,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 			.setup {
 				/* The component's card surface defaults derive from the sidebar background; re-derive it
-				   here since this screen sits on the editor background instead. */
+   here since this screen sits on the editor background instead. */
 				--gl-card-background: color-mix(
 					in lab,
 					var(--vscode-editor-background) 100%,
@@ -647,37 +670,11 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Designed illustrations ship as dark/light exports differing only in these colors — one
-			   markup, themed via custom properties (host body carries the vscode-* theme class) */
-			:host {
-				--lp-frame-bg: #121212;
-				--lp-frame-stroke: #363636;
-				--lp-shell-bg: #2a2a2c;
-				--lp-dot-fill: #d9d9d9;
-				--lp-row: #808080;
-				--lp-purple: #aa5bf5;
-				--lp-green: #00a02e;
-
-				/* Pro strip vignettes: dark/light exports differing only in these colors, same as the
-				   layout illustrations above. */
-				--strip-panel-1: #16181e;
-				--strip-panel-2: #0e1015;
-				--strip-inset: #171a21;
-				--strip-inset-border: #2c2d33;
-				--strip-node-fill: #0f1116;
-				--strip-node-core: #e3efff;
-				--strip-skeleton: #ffffff;
-				--strip-edge-light: rgba(255, 255, 255, 0.05);
-				--strip-text-blue: #b4d0ff;
-				--strip-text-cyan: #9fdcff;
-				--strip-text-green: #6fe07c;
-				--strip-text-amber: #e3b341;
-				--strip-text-red: #ff8f87;
-			}
-
+  markup, themed via custom properties (host body carries the vscode-* theme class). */
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
 				--lp-frame-bg: #fefefe;
-				--lp-frame-stroke: #dddddd;
+				--lp-frame-stroke: #ddd;
 				--lp-shell-bg: #e3e3e3;
 				--lp-dot-fill: #9c9c9c;
 				--lp-row: #b4b4b4;
@@ -686,12 +683,12 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 				--strip-panel-1: #f7f7fa;
 				--strip-panel-2: #ececf1;
-				--strip-inset: #ffffff;
+				--strip-inset: #fff;
 				--strip-inset-border: #d9dade;
 				--strip-node-fill: #f2f2f6;
 				--strip-node-core: #1f4f9e;
-				--strip-skeleton: #000000;
-				--strip-edge-light: rgba(0, 0, 0, 0.05);
+				--strip-skeleton: #000;
+				--strip-edge-light: rgb(0 0 0 / 5%);
 				--strip-text-blue: #2b5cb8;
 				--strip-text-cyan: #0969a2;
 				--strip-text-green: #1a7f37;
@@ -701,7 +698,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 			.pro-strip {
 				/* Scales continuously with viewport height (like the fluid width) — full size above
-				   ~670px, easing down to the floor before the compact tier hides the strip. */
+   ~670px, easing down to the floor before the compact tier hides the strip. */
 				--strip-vignette-size: clamp(12rem, 30vh, 20rem);
 
 				display: flex;
@@ -801,7 +798,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 			.pro-strip__tab[aria-pressed='true']::before {
 				position: absolute;
-				inset: auto 0 0 0;
+				inset: auto 0 0;
 				block-size: 0.2rem;
 				content: '';
 				background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 14%);
@@ -812,8 +809,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				position: absolute;
 				inset-block-end: 0;
 				inset-inline-start: 0;
-				block-size: 0.2rem;
 				inline-size: 100%;
+				block-size: 0.2rem;
 				content: '';
 				background: var(--gl-gradient-brand);
 				border-radius: var(--gl-radius-xs);
@@ -919,16 +916,16 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Compact tier for short viewports (e.g. the default bottom-panel height ~265px), where the
-			   comfortable spacing pushes the sign-in actions below the fold. A media query (not a container
-			   query) is intentional: this screen fills the webview viewport and the host is the scroll
-			   surface, so 'container-type: size' would change scroll ownership. */
+  comfortable spacing pushes the sign-in actions below the fold. A media query (not a container
+  query) is intentional: this screen fills the webview viewport and the host is the scroll
+  surface, so 'container-type: size' would change scroll ownership. */
 			@media (height <= 360px) {
 				:host {
 					padding-block: var(--gl-space-12);
 				}
 
 				/* The fill-mode animation carries the 1.22 upscale, so switching to the plain keyframes is
-				   what actually drops it; the static transform only applies under reduced motion. */
+   what actually drops it; the static transform only applies under reduced motion. */
 				.logo {
 					margin-block: 0 var(--gl-space-6);
 					transform: none;
@@ -957,7 +954,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 
 				/* No room for a marketing strip at this tier — the sign-in actions themselves are
-				   already tight against the fold. */
+   already tight against the fold. */
 				.pro-strip {
 					display: none;
 				}
@@ -974,7 +971,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 
 				/* Fluid width with the artwork's own aspect ratio — a fixed height would make the
-				   'slice' fitting crop-zoom as the ratio drifts from the 200:88 viewBox. */
+   'slice' fitting crop-zoom as the ratio drifts from the 200:88 viewBox. */
 				.pro-strip__vignette {
 					inline-size: 100%;
 					max-width: var(--strip-vignette-size);
@@ -1047,7 +1044,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 
 				/* Static full-width fill — the animated progress read is motion, but the active
-				   indicator itself must survive. */
+   indicator itself must survive. */
 				.pro-strip__tab[aria-pressed='true']::after {
 					transform: none;
 					animation: none;

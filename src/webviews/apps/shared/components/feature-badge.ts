@@ -2,6 +2,9 @@ import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
@@ -15,11 +18,8 @@ import {
 import { createCommandLink } from '../../../../system/commands.js';
 import type { PromosContext } from '../contexts/promos.js';
 import { promosContext } from '../contexts/promos.js';
-import type { GlPopover } from './overlays/popover.js';
-import { focusOutline } from './styles/lit/a11y.css.js';
-import { elementBase, linkBase } from './styles/lit/base.css.js';
-import './overlays/popover.js';
-import './overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import './promo.js';
 
 declare global {

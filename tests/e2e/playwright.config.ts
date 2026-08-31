@@ -7,6 +7,11 @@ interface CustomOptions {
 	editorExecutablePath: string;
 }
 
+const performanceRequested = process.argv.some(
+	(argument, index) =>
+		(argument === '--grep' || argument === '-g') && (process.argv[index + 1]?.includes('@performance') ?? false),
+);
+
 // oxlint-disable-next-line import/no-default-export
 export default defineConfig<CustomOptions>({
 	use: {
@@ -43,8 +48,15 @@ export default defineConfig<CustomOptions>({
 				editorId: e.id,
 				editorExecutablePath: e.envVar ? (process.env[e.envVar] ?? '') : '',
 			},
-			// Forks opt out of editor-incompatible specs via the `@no-fork` tag (see docs/testing.md).
-			grepInvert: e.id === 'vscode' ? undefined : /@no-fork/,
+			// Performance specs are opt-in through an explicit `--grep @performance`; forks additionally
+			// opt out of editor-incompatible specs via `@no-fork` (see docs/testing.md).
+			grepInvert: performanceRequested
+				? e.id === 'vscode'
+					? undefined
+					: /@no-fork/
+				: e.id === 'vscode'
+					? /@performance/
+					: /@(?:no-fork|performance)/,
 			// All CI projects inherit the top-level retry budget. Login-walled forks (Cursor and Kiro),
 			// whose deterministic sign-in-wall failures shouldn't be retried, are excluded from the CI
 			// matrix entirely via editors.ts `runInCI: false`, so no per-project retry override is needed

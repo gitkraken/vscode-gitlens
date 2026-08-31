@@ -4,7 +4,7 @@ import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import { getAutolinkIcon } from '../rich/utils.js';
 import './action-chip.js';
 import '../rich/issue-pull-request.js';
-import '../overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 @customElement('gl-autolink-chip')
 export class GlAutolinkChip extends LitElement {
@@ -40,14 +40,14 @@ export class GlAutolinkChip extends LitElement {
 		.stack-badge {
 			display: inline-flex;
 			align-items: center;
-			margin-inline-start: 0.3rem;
 			padding: 0.15rem 0.25rem;
-			border-radius: 0.3rem;
+			margin-inline-start: 0.3rem;
 			font-size: 0.9em;
 			font-variant-numeric: tabular-nums;
 			line-height: 1;
 			color: currentColor;
 			background: color-mix(in srgb, currentColor 18%, transparent);
+			border-radius: 0.3rem;
 		}
 	`;
 

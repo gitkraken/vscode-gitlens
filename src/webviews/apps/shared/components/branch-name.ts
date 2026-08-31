@@ -1,7 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import './code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-branch-name')
 export class GlBranchName extends LitElement {
@@ -57,8 +57,8 @@ export class GlBranchName extends LitElement {
 
 		.label {
 			/* Block-level box (default span is inline → text-overflow is ignored). flex 1 1 auto
-		   lets the label both grow into available space and shrink when the parent narrows;
-		   min-width: 0 unlocks shrinking past intrinsic content size. */
+   lets the label both grow into available space and shrink when the parent narrows;
+   min-width: 0 unlocks shrinking past intrinsic content size. */
 			display: block;
 			flex: 1 1 auto;
 			min-width: 0;

@@ -1,6 +1,6 @@
 import { html, nothing } from 'lit';
-import '../code-icon.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 /** Renders the working-state `[tools icon] Bash(grep …)` composite: leading tools codicon +
  *  monospace call text, wrapped in a tooltip that surfaces the full untruncated value on hover.

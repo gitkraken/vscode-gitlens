@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import '../chips/action-chip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 declare const CloseWatcher: CloseWatcher;
 interface CloseWatcher extends EventTarget {
@@ -54,10 +54,10 @@ export class GlDetailSheet extends LitElement {
 		css`
 			:host {
 				/* Scoped to the parent host (e.g. .details-host) — sheet covers the details-panel
-		   area only, leaving the graph as a sibling beside it. The scrim darkens just the
-		   details panel; clicks on the scrim close the sheet. The sheet tier sits above the
-		   sticky tier used by the details-header so the sheet renders OVER the underlying
-		   panel header, not behind it. */
+ area only, leaving the graph as a sibling beside it. The scrim darkens just the
+ details panel; clicks on the scrim close the sheet. The sheet tier sits above the
+ sticky tier used by the details-header so the sheet renders OVER the underlying
+ panel header, not behind it. */
 				position: absolute;
 				inset: 0;
 				z-index: var(--gl-z-sheet);
@@ -77,10 +77,10 @@ export class GlDetailSheet extends LitElement {
 
 			:host([closing]) .scrim {
 				/* Mirror the entry: fade scrim out alongside the sheet's slide-down. The forwards
-		   fill-mode pins the final opacity so there's no flash back to full opacity between
-		   the animation ending and the host removing the sheet from the DOM. Distinct
-		   animation name (vs. the entry's gl-sheet-scrim-fade) so the browser starts a
-		   fresh run instead of treating it as a continuation of the finished entry. */
+ fill-mode pins the final opacity so there's no flash back to full opacity between
+ the animation ending and the host removing the sheet from the DOM. Distinct
+ animation name (vs. the entry's gl-sheet-scrim-fade) so the browser starts a
+ fresh run instead of treating it as a continuation of the finished entry. */
 				animation: gl-sheet-scrim-fade-out var(--gl-duration-medium) var(--gl-ease-in) forwards;
 			}
 
@@ -91,7 +91,7 @@ export class GlDetailSheet extends LitElement {
 				flex-direction: column;
 
 				/* Fills the host area so the sheet occupies the entire details panel — the
-		   underlying content stays under the scrim, not peeking through above. */
+ underlying content stays under the scrim, not peeking through above. */
 				width: 100%;
 				height: 100%;
 				min-height: 0;
@@ -100,8 +100,8 @@ export class GlDetailSheet extends LitElement {
 				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 
 				/* Bottom-anchored sheet: directional top-only border (it fills the panel, flush on the
-		   other edges), so it can't use the full-border elevatedSurface helper. The top border
-		   survives high-contrast where the --gl-shadow-sheet upward cast vanishes. */
+ other edges), so it can't use the full-border elevatedSurface helper. The top border
+ survives high-contrast where the --gl-shadow-sheet upward cast vanishes. */
 				/* stylelint-disable-next-line declaration-property-value-disallowed-list */
 				box-shadow: var(--gl-shadow-sheet);
 				animation: gl-sheet-slide-up var(--gl-duration-medium) var(--gl-ease-out);
@@ -109,14 +109,14 @@ export class GlDetailSheet extends LitElement {
 
 			:host([closing]) .sheet {
 				/* Slide down off the bottom edge. The forwards fill-mode pins translateY(100%)
-		   so the sheet stays parked off-screen until the host removes it. Distinct
-		   animation name (vs. the entry's gl-sheet-slide-up) so the browser starts a
-		   fresh run instead of treating it as a continuation of the finished entry. */
+ so the sheet stays parked off-screen until the host removes it. Distinct
+ animation name (vs. the entry's gl-sheet-slide-up) so the browser starts a
+ fresh run instead of treating it as a continuation of the finished entry. */
 				animation: gl-sheet-slide-down var(--gl-duration-medium) var(--gl-ease-in) forwards;
 			}
 
 			/* The sheet is programmatically focused on open — suppress the ring for pointer-driven
-		   opens and show a themed one only for true keyboard focus. */
+ opens and show a themed one only for true keyboard focus. */
 			.sheet:focus {
 				outline: none;
 			}
@@ -163,7 +163,7 @@ export class GlDetailSheet extends LitElement {
 			}
 
 			/* No open/closed gating: an unslotted subtitle renders at zero height, so unconverted
-			   sheets pay nothing. Any spacing belongs to the slotted content itself. */
+  sheets pay nothing. Any spacing belongs to the slotted content itself. */
 			.sheet__subtitle {
 				display: flex;
 				min-width: 0;

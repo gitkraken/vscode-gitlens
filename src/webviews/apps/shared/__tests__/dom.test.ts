@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { isTextEntryTarget } from '../dom.js';
+import { isTextEntryTarget } from '@gitlens/utils/dom.js';
 
 /** Stands in for one entry of a composed path — the helper only reads `tagName`/`type`/`isContentEditable`. */
 type PathEntry = { tagName?: string; type?: string; isContentEditable?: boolean };
