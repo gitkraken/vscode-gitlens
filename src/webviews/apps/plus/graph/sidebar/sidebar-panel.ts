@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
+import { getAltKeySymbol } from '@env/platform.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
@@ -14,6 +15,7 @@ import type { AgentSessionState } from '../../../../../agents/models/agentSessio
 import type { GlCommands } from '../../../../../constants.commands.js';
 import type { WebviewTelemetryEvents } from '../../../../../constants.telemetry.js';
 import { launchpadGroupLabelMap } from '../../../../../plus/launchpad/models/launchpad.js';
+import { createCommandLink } from '../../../../../system/commands.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
 import { serializeWebviewItemContext, withWebviewItemFlag } from '../../../../../system/webview.js';
 import { sidebarItemActions } from '../../../../plus/graph/graphSidebarActionTelemetry.js';
@@ -71,6 +73,8 @@ import {
 	getLaunchpadItemGrouping,
 } from '../utils/overviewActions.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
+import type { AgentsPanelEmptyState } from './agentsEmptyState.utils.js';
+import { resolveAgentsEmptyState } from './agentsEmptyState.utils.js';
 import type { FocusRefActionArgs } from './branchActions.utils.js';
 import {
 	branchTreeIcon,
@@ -1092,9 +1096,26 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			};
 			// The banner is keyed to the family-filtered total — it means "no sessions for this repo's
 			// family", not "all hidden" by the past-sessions toggle.
+			const bannerVisible = this.isAgentsBannerVisible(sessions.length === 0);
+			const emptyState = this.resolveAgentsEmptyState(sessions.length, bannerVisible);
+			// The `connect` states replace the tree entirely (there is no agent to filter or toggle);
+			// `no-sessions` stays inside it so the filter box and the past-sessions toggle survive. When
+			// sessions exist but the past-sessions toggle hides them all, name that instead of "No items".
+			const emptyText =
+				emptyState?.type === 'no-sessions'
+					? 'No agent sessions for this repository'
+					: sessions.length > 0
+						? 'No current agent sessions'
+						: undefined;
 			return html`<div class="panel">
-				${this.renderHeader(config, false)} ${this.renderAgentsBanner(sessions.length === 0)}
-				<div class="content">${this.renderTreeContent(config, data)}</div>
+				${this.renderHeader(config, false)} ${bannerVisible ? this.renderAgentsBanner() : nothing}
+				<div class="content">
+					${
+						emptyState?.type === 'connect'
+							? this.renderAgentsEmptyState(emptyState.reason)
+							: this.renderTreeContent(config, data, undefined, emptyText)
+					}
+				</div>
 			</div>`;
 		}
 
@@ -1212,6 +1233,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				}</span
 			>
 			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
+				${
+					// Alt-variant pair on one button (like the graph header's own alt actions) — a sixth and
+					// seventh icon here is what the platform's "too many actions" guidance warns about.
+					this.activePanel === 'agents'
+						? html`<gl-button
+								appearance="toolbar"
+								density="compact"
+								tooltip="Start Agent Session...&#10;[${getAltKeySymbol()}] Start Agent Session With..."
+								aria-label="Start Agent Session"
+								@click=${this.handleStartAgentSession}
+								><code-icon icon="robot"></code-icon
+							></gl-button>`
+						: nothing
+				}
 				${config.actions?.map(
 					a =>
 						html`<gl-button
@@ -1238,16 +1273,23 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	private renderAgentsBanner(listIsEmpty: boolean): unknown {
+	/** The Connect Your AI Agents banner's visibility gate — shared between rendering it and the
+	 *  empty-state resolution, which must not repeat the banner's pitch below it. */
+	private isAgentsBannerVisible(listIsEmpty: boolean): boolean {
 		// Only pitch the install when there are no sessions to act on — once the list has agents,
 		// the banner becomes noise above their tree.
-		if (!listIsEmpty) return nothing;
+		if (!listIsEmpty) return false;
 		// Only pitch the install when there's something to install — `canInstallHooks` flips
 		// false the moment every detected agent has hooks installed (or none support hooks).
-		if (!(this._state.canInstallHooks ?? false)) return nothing;
+		if (!(this._state.canInstallHooks ?? false)) return false;
 		// Respect the same dismissal as the graph-overview banner — `agentsBannerCollapsed` is true
 		// when the user dismissed it via the onboarding service.
-		if (this._state.agentsBannerCollapsed ?? true) return nothing;
+		if (this._state.agentsBannerCollapsed ?? true) return false;
+
+		return true;
+	}
+
+	private renderAgentsBanner(): unknown {
 		return html`<div class="agents-banner">
 			<gl-agents-banner
 				source="graph-sidebar-agents"
@@ -1255,6 +1297,48 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				.mcpCanAutoRegister=${this._state.mcpCanAutoRegister ?? false}
 				.hooksAvailable=${(this._state.hooksAgents?.length ?? 0) > 0}
 			></gl-agents-banner>
+		</div>`;
+	}
+
+	/** Reads the panel's hooks/session state into {@link resolveAgentsEmptyState} — kept as a thin
+	 *  wrapper so the decision itself stays a pure, tested function. */
+	private resolveAgentsEmptyState(sessionCount: number, bannerVisible: boolean): AgentsPanelEmptyState | undefined {
+		return resolveAgentsEmptyState({
+			hooksAgents: this._state.hooksAgents,
+			sessionCount: sessionCount,
+			bannerVisible: bannerVisible,
+		});
+	}
+
+	/** Stands in for the agents tree when no agent is connected — an empty list otherwise reads as
+	 *  "no agent sessions", which hides that connecting an agent is what's missing (#5777). Unlike the
+	 *  banner this is a state of the panel, not dismissible, so the user always knows why it's empty. */
+	private renderAgentsEmptyState(reason: 'agents-undetected' | 'agents-unconnected'): unknown {
+		if (reason === 'agents-undetected') {
+			return html`<div class="empty empty--connect">
+				<span
+					>No AI agents were detected. Once you install a supported agent, connect it to GitLens to see its
+					sessions here.</span
+				>
+				<gl-button
+					appearance="secondary"
+					density="compact"
+					href=${createCommandLink('gitlens.showSettingsPage!agents')}
+					><code-icon icon="gear" slot="prefix"></code-icon> Manage Agents...</gl-button
+				>
+			</div>`;
+		}
+
+		return html`<div class="empty empty--connect">
+			<span
+				>Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.</span
+			>
+			<gl-button
+				appearance="secondary"
+				density="compact"
+				href=${createCommandLink('gitlens.showSettingsPage!agents')}
+				><code-icon icon="plug" slot="prefix"></code-icon> Connect Agents...</gl-button
+			>
 		</div>`;
 	}
 
@@ -1266,6 +1350,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		config: (typeof panelConfig)[GraphSidebarPanel],
 		data: DidGetSidebarDataParams | undefined,
 		error?: string,
+		emptyText?: string,
 	): unknown {
 		let model: TreeModel<SidebarItemContext>[];
 		if (data == null) {
@@ -1318,6 +1403,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			<gl-tree-view
 				focused-path=${this._actions.selectedPath[this.activePanel!] ?? nothing}
 				.model=${model}
+				empty-text=${emptyText ?? nothing}
 				?has-empty-content=${data == null}
 				.filterTermsParser=${isPullRequests ? parsePullRequestFilterTerms : undefined}
 				filterable
@@ -2563,6 +2649,23 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions.toggleShowRemoteBranches();
 	}
 
+	/** Header launch pair: plain click starts a session with the default agent, alt-click always shows
+	 *  the agent picker. Calls the base `gitlens.startAgentSession` — the `gitlens.graph.*` variants are
+	 *  WIP-row context-menu commands that no-op without a row context — pointing it at the graph's repo
+	 *  so CLI agents open their terminal there. Emits its telemetry directly (like Refresh below): the
+	 *  `headerActions` map is keyed by command id, which cannot tell the two variants apart. */
+	private handleStartAgentSession(e: MouseEvent) {
+		const pick = e.altKey;
+		emitTelemetrySentEvent(this, {
+			name: 'graph/agents/headerAction',
+			data: { action: pick ? 'startAgentSessionWith' : 'startAgentSession' },
+		});
+
+		this._actions?.executeAction('gitlens.startAgentSession', undefined, [
+			{ cwd: this.resolveGraphAnchorContext()?.repoPath, pick: pick },
+		]);
+	}
+
 	private handleRefresh() {
 		if (this.activePanel == null) return;
 		if (this.activePanel === 'overview') {
@@ -2843,6 +2946,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 		}
 
+		// Mirrors the render path's resolution so the event reports the state the user actually saw.
+		const hooksAgents = this._state.hooksAgents;
+		const installedCount = hooksAgents?.filter(a => a.installed).length ?? 0;
+		const emptyState = this.resolveAgentsEmptyState(
+			sessions.length,
+			this.isAgentsBannerVisible(sessions.length === 0),
+		);
+
 		emitTelemetrySentEvent(this, {
 			name: 'graph/agents/shown',
 			data: {
@@ -2852,6 +2963,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				'sessions.needsInput.count': needsInput,
 				'sessions.idle.count': idle,
 				'sessions.ended.count': ended,
+				// Same point-in-time caveat as the counts above: `hooksAgents` may still be undefined at
+				// the open transition, so these record what was known then, not a settled truth.
+				'hooks.agentsCount': hooksAgents?.length,
+				'hooks.agentsInstalledCount': hooksAgents == null ? undefined : installedCount,
+				'emptyState.shown': emptyState?.type === 'connect',
+				'emptyState.reason': emptyState?.type === 'connect' ? emptyState.reason : undefined,
 			},
 		});
 	}
