@@ -103,9 +103,9 @@ test.describe('Review & Compose Sub-Panels', () => {
 			state: 6 /* SubscriptionState.Paid */,
 			planId: 'pro',
 		});
-		dispose = () => {
-			sim[Symbol.dispose]();
-			return Promise.resolve();
+		// Awaits the real teardown — see the note in the other graph specs' helpers.
+		dispose = async () => {
+			await sim[Symbol.asyncDispose]();
 		};
 
 		await vscode.gitlens.showCommitGraphView();

@@ -79,9 +79,10 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 
 	return {
 		graphWebview: graphWebview!,
-		dispose: () => {
-			sim[Symbol.dispose]();
-			return Promise.resolve();
+		// Awaits the real teardown: the sync disposer drops its promise, which let the next test start
+		// while the simulated subscription was still being torn down.
+		dispose: async () => {
+			await sim[Symbol.asyncDispose]();
 		},
 	};
 }
