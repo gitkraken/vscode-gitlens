@@ -207,27 +207,31 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	}
 
 	/**
-	 * Fetches any candidate panel that has no data and isn't already loading.
+	 * Fetches any candidate panel that has no data and isn't already loading; with `force`, re-fetches
+	 * panels that already hold data too (the old value stays live until the fresh one lands).
 	 *
 	 * Runs on every update while open, not just on open: the panels are shared with the sidebar and get
 	 * INVALIDATED out from under us (they reset to a null value with `loading` false), which silently
 	 * emptied the match set mid-session and left it empty until the widget was reopened.
 	 */
-	private ensurePanels(): void {
+	private ensurePanels(force?: boolean): void {
 		const actions = this._sidebarActions;
 		if (actions == null) return;
 
 		for (const panel of ['branches', 'remotes', 'tags'] as const) {
 			const resource = actions.state.panels[panel];
-			if (resource.value.get() == null && !resource.loading.get()) {
+			if (!resource.loading.get() && (force || resource.value.get() == null)) {
 				actions.fetchPanel(panel);
 			}
 		}
 	}
 
 	private onOpened(): void {
-		// Usually a no-op — the sidebar/scope popover share these — but the finder can be first to need them.
-		this.ensurePanels();
+		// Force a re-fetch rather than fetch-if-empty: the panels only refresh on a host invalidation
+		// signal, and a ref created outside the extension can slip past the FS watcher — leaving the
+		// finder unable to match a branch the graph itself already renders. A fresh round-trip is cheap
+		// relative to how rarely the finder opens, and the stale candidates stay usable until it lands.
+		this.ensurePanels(true);
 
 		// Re-run against whatever the panels now hold; a preserved query should still be live on reopen.
 		this.recompute({ jump: false });
