@@ -1765,7 +1765,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'startReview' | 'startWork' | 'refresh',
+  'action': 'startReview' | 'startWork' | 'startAgentSession' | 'startAgentSessionWith' | 'refresh',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -1897,6 +1897,13 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  'emptyState.reason': 'agents-undetected' | 'agents-unconnected',
+  // Whether the "connect your agents" empty-state message replaced the sessions tree
+  'emptyState.shown': boolean,
+  // Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open
+  'hooks.agentsCount': number,
+  // Of those, how many have GitKraken hooks installed (i.e. are connected); undefined while unknown
+  'hooks.agentsInstalledCount': number,
   'layout': 'list' | 'tree',
   'sessions.count': number,
   'sessions.ended.count': number,
