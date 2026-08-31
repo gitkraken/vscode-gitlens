@@ -786,13 +786,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			'gl-tree-view',
 		);
 		if (treeView == null) {
-			// The pull-requests empty states stand in for the tree, so there's no filter to land on and
-			// never will be while that state holds — focus the state's own action instead of latching a
-			// retry that would fire on some unrelated later render. Nothing focusable (the unsupported
-			// state offers no action) leaves focus where the user put it.
-			if (this.treelessEmptyState != null) {
+			// The treeless empty states (pull-requests connect/unsupported, agents connect) stand in for
+			// the tree, so there's no filter to land on and never will be while that state holds — focus
+			// the state's own action instead of latching a retry that would fire on some unrelated later
+			// render (e.g. sessions pushing in after the user connects an agent) and yank focus into the
+			// filter box. Checked by what actually rendered, so every treeless state gets the same
+			// treatment. Nothing focusable (the unsupported state offers no action) leaves focus where
+			// the user put it.
+			const empty = this.shadowRoot?.querySelector('.empty');
+			if (empty != null) {
 				this._pendingFocusPanel = undefined;
-				this.shadowRoot?.querySelector<HTMLElement>('.empty gl-button')?.focus();
+				empty.querySelector<HTMLElement>('gl-button')?.focus();
 				return;
 			}
 
@@ -806,8 +810,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		void Promise.resolve(ready).then(() => treeView.focus());
 	}
 
-	/** The pull-requests empty state currently standing in for the tree, if any — the one render path
-	 *  with no `gl-tree-view` in it. */
+	/** The pull-requests empty state currently standing in for the tree, if any. (The agents connect
+	 *  state is the other treeless render path — resolved in `render` via `resolveAgentsEmptyState`.) */
 	private get treelessEmptyState(): GraphSidebarPullRequestsEmptyState | undefined {
 		if (this.activePanel !== 'pullRequests') return undefined;
 
@@ -1104,14 +1108,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			const bannerVisible = this.isAgentsBannerVisible(sessions.length === 0);
 			const emptyState = this.resolveAgentsEmptyState(sessions.length, bannerVisible);
 			// The `connect` states replace the tree entirely (there is no agent to filter or toggle);
-			// `no-sessions` stays inside it so the filter box and the past-sessions toggle survive. When
-			// sessions exist but the past-sessions toggle hides them all, name that instead of "No items".
+			// everything else stays inside it so the filter box and the past-sessions toggle survive.
+			// The tree's generic "No items" never shows: sessions hidden by the past-sessions toggle get
+			// named as such, and the repository line covers both the settled no-sessions state and the
+			// hooks-state-unknown window (it is literally true in either).
 			const emptyText =
-				emptyState?.type === 'no-sessions'
-					? 'No agent sessions for this repository'
-					: sessions.length > 0
-						? 'No current agent sessions'
-						: undefined;
+				sessions.length > 0 ? 'No current agent sessions' : 'No agent sessions for this repository';
 			return html`<div class="panel">
 				${this.renderHeader(config, false)} ${bannerVisible ? this.renderAgentsBanner() : nothing}
 				<div class="content">
