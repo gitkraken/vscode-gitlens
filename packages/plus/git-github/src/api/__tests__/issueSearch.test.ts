@@ -1130,3 +1130,184 @@ suite('GitHubApi.searchIssuesPage ceiling slide (#5805)', () => {
 		assert.match(query, /org:acme/, 'the caller-supplied scope is the only one applied');
 	});
 });
+
+/**
+ * The ceiling slide against a FAITHFUL provider: a fixture that honours the date bound, the per-query cap and
+ * cursor paging, so a walk can actually be driven to completion and its result checked as a whole.
+ *
+ * The cases below are the ones that broke a first implementation. Each is a property of the WALK (no duplicates,
+ * no gaps, one order) rather than of a single response, and none of them is observable from one page.
+ */
+suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
+	const iso = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+	function node(id: string, updatedAt: string) {
+		return {
+			id: id,
+			number: 1,
+			title: id,
+			url: `https://github.com/o/a/issues/${id}`,
+			createdAt: updatedAt,
+			updatedAt: updatedAt,
+			closedAt: null,
+			closed: false,
+			state: 'OPEN',
+			author: null,
+			assignees: { nodes: [] },
+			comments: { totalCount: 0 },
+			reactions: { totalCount: 0 },
+			repository: { name: 'a', owner: { login: 'o' }, url: 'https://github.com/o/a' },
+		};
+	}
+
+	/** A provider that applies the emitted `updated:` bound, caps each query, and pages. */
+	function faithful(corpusByAlias: Record<string, ReturnType<typeof node>[]>, cap = 1000, pageSize = 100) {
+		return {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as {
+					query?: string;
+					variables?: Record<string, string | boolean | undefined>;
+				};
+				const aliases = Array.from((body.query ?? '').matchAll(/^\s*(\w+): search\(/gm), m => m[1]);
+				const data: Record<string, unknown> = {};
+				for (const alias of aliases) {
+					const q = body.variables?.[alias];
+					if (typeof q !== 'string') continue;
+
+					let items = (corpusByAlias[alias] ?? []).slice();
+					const le = /updated:<=(\S+)/.exec(q);
+					const ge = /updated:>=(\S+)/.exec(q);
+					if (le != null) {
+						items = items.filter(i => i.updatedAt <= le[1]);
+					}
+					if (ge != null) {
+						items = items.filter(i => i.updatedAt >= ge[1]);
+					}
+					const asc = q.includes('sort:updated-asc');
+					items.sort((a, b) =>
+						asc ? a.updatedAt.localeCompare(b.updatedAt) : b.updatedAt.localeCompare(a.updatedAt),
+					);
+					const total = items.length;
+					const reachable = items.slice(0, cap);
+					const after = body.variables?.[`${alias}Cursor`];
+					const start = typeof after === 'string' ? Number(after.split(':')[1]) : 0;
+					const on = body.variables?.[`include${alias[0].toUpperCase()}${alias.slice(1)}`] !== false;
+					const slice = on ? reachable.slice(start, start + pageSize) : [];
+					const next = start + slice.length;
+					const hasNextPage = on && next < reachable.length;
+					data[alias] = {
+						issueCount: total,
+						pageInfo: { endCursor: hasNextPage ? `${alias}:${next}` : null, hasNextPage: hasNextPage },
+						nodes: slice,
+					};
+				}
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+		} as unknown as GitHubApiConfig;
+	}
+
+	async function drain(api: GitHubApi, options: Parameters<GitHubApi['searchIssuesPage']>[2]) {
+		const urls: string[] = [];
+		const dates: number[] = [];
+		let cursor: string | undefined;
+		let truncated = false;
+		for (let page = 1; page <= 80; page++) {
+			const r = await api.searchIssuesPage(provider, token, { ...options, cursor: cursor });
+			truncated = r?.truncated ?? false;
+			for (const v of r?.values ?? []) {
+				urls.push(v.url);
+				dates.push(v.updatedDate?.getTime() ?? 0);
+			}
+			if (r?.hasMore !== true || r.cursor == null) break;
+
+			cursor = r.cursor;
+		}
+		let inversions = 0;
+		for (let i = 1; i < dates.length; i++) {
+			if (dates[i] > dates[i - 1]) {
+				inversions++;
+			}
+		}
+		return { urls: urls, distinct: new Set(urls).size, inversions: inversions, truncated: truncated };
+	}
+
+	const spread = (n: number, prefix = 'N', from = Date.UTC(2026, 0, 1)) =>
+		Array.from({ length: n }, (_, i) => node(`${prefix}${i}`, iso(from - i * 3_600_000)));
+
+	test('a walk past the ceiling is complete, duplicate-free and in one order', async () => {
+		const corpus = spread(1205);
+		const api = new GitHubApi(faithful({ matched: corpus }));
+
+		const { urls, distinct, inversions, truncated } = await drain(api, { org: 'o' });
+
+		assert.equal(distinct, corpus.length, 'every matching issue is served');
+		assert.equal(urls.length, distinct, 'and none of them twice');
+		assert.equal(inversions, 0, 'the whole walk stays in the requested order');
+		assert.equal(truncated, false, 'nothing was omitted, so nothing is reported as omitted');
+	});
+
+	test('a walk needing several slides still completes', async () => {
+		const corpus = spread(2600);
+		const api = new GitHubApi(faithful({ matched: corpus }));
+
+		const { urls, distinct, inversions } = await drain(api, { org: 'o' });
+
+		assert.equal(distinct, corpus.length);
+		assert.equal(urls.length, distinct);
+		assert.equal(inversions, 0);
+	});
+
+	test('an ascending walk slides the other way', async () => {
+		// `updated:asc` walks toward newer, so the remainder is everything at or AFTER the boundary. Emitting
+		// `<=` here would re-request the half already served, forever.
+		const corpus = spread(1205);
+		const api = new GitHubApi(faithful({ matched: corpus }));
+
+		const { urls, distinct } = await drain(api, { org: 'o', criteria: { sort: 'updated:asc' } });
+
+		assert.equal(distinct, corpus.length);
+		assert.equal(urls.length, distinct);
+	});
+
+	test('a tied block spanning several pages is not re-served after the slide', async () => {
+		// A bulk edit stamps hundreds of issues with ONE second. When that block straddles the cap it covers more
+		// than one page, so the set of urls already served at the boundary has to accumulate across pages rather
+		// than be rebuilt from the last one.
+		const tie = iso(Date.UTC(2025, 5, 1));
+		const corpus = [
+			...spread(800),
+			...Array.from({ length: 400 }, (_, i) => node(`T${i}`, tie)),
+			...spread(50, 'O', Date.UTC(2024, 0, 1)),
+		];
+		const api = new GitHubApi(faithful({ matched: corpus }));
+
+		const { urls, distinct } = await drain(api, { org: 'o' });
+
+		assert.equal(distinct, corpus.length, 'the tied block is served in full');
+		assert.equal(urls.length, distinct, 'and no part of it twice');
+	});
+
+	test('a union of relationships reports the ceiling instead of sliding into duplicates', async () => {
+		// The bound is one value applied to every alias, but aliases exhaust independently: one that completed
+		// early sits entirely above the boundary a capped sibling ended at, so re-issuing it bounded re-serves
+		// what it already delivered. Until the bound can be per alias, a union keeps reporting the ceiling.
+		const authored = spread(1200, 'A');
+		const assigned = Array.from({ length: 5 }, (_, i) =>
+			node(`B${i}`, iso(Date.UTC(2026, 0, 1) - (i * 400 + 50) * 3_600_000)),
+		);
+		const api = new GitHubApi(faithful({ authored: authored, assigned: assigned }));
+
+		const { urls, distinct, truncated } = await drain(api, {
+			org: 'o',
+			criteria: { relationships: ['authored', 'assigned'] },
+		});
+
+		assert.equal(urls.length, distinct, 'a union never double-serves');
+		assert.equal(truncated, true, 'and says so when it could not reach everything');
+	});
+});

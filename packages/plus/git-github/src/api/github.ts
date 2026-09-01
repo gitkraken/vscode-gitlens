@@ -4341,6 +4341,8 @@ export class GitHubApi {
 			 * signature, and a url can't contain whitespace, so the separator is unambiguous.
 			 */
 			slideSeen?: string;
+			/** The trailing timestamp {@link SearchCursor.slideSeen} belongs to; a move resets the set. */
+			slideTs?: number;
 			/**
 			 * The order this cursor's pages were produced under: an `IssueSorting`, or `unsortedCursorSort` when
 			 * the caller asked for none. Written as a value rather than left absent in the no-order case
@@ -4365,7 +4367,8 @@ export class GitHubApi {
 				s.alias === 'truncated' ||
 				s.alias === 'sort' ||
 				s.alias === 'slide' ||
-				s.alias === 'slideSeen',
+				s.alias === 'slideSeen' ||
+				s.alias === 'slideTs',
 		);
 		if (reserved.length > 0) {
 			throw new Error(
@@ -4570,9 +4573,52 @@ export class GitHubApi {
 			// The boundary is read off the LAST item of the merged, re-sorted page rather than tracked separately,
 			// so it is by construction the furthest point this walk reached under the requested order.
 			let slid: string | undefined;
-			if (capped && !hasMore && !continuationMissing && options.sort != null) {
+			// ONE active search only, and that restriction is a correctness one rather than caution. The bound is
+			// a single value applied to every alias, but the aliases exhaust INDEPENDENTLY: an alias that
+			// completed early (say 5 results) sits entirely above the boundary a capped sibling ended at, so
+			// re-issuing it bounded re-serves everything it already delivered. Verified against a faithful
+			// simulator: two relationships, one capped at 1.000 and one complete, duplicated exactly the complete
+			// one's items that fell below the capped one's cutoff. A correct multi-alias slide needs a bound PER
+			// alias, which the cursor's flat alias slots have no room for; until then a union search keeps
+			// reporting the ceiling, which is what it did before and is still true.
+			//
+			// Keyed off `searches`, NOT `active`: by the final page an early-finishing alias is already inactive
+			// (its slot is `null`), so `active.length` reads 1 for a union that did serve items from both — which
+			// is exactly the case this has to exclude.
+			if (capped && !hasMore && !continuationMissing && options.sort != null && searches.length === 1) {
 				const boundary = lastSortBoundary(deduped, options.sort);
 				slid = boundary != null ? toGitHubIssueSearchSlideQualifier(options.sort, boundary) : undefined;
+			}
+
+			// The urls already served at the page's TRAILING timestamp, which the INCLUSIVE slide re-serves.
+			//
+			// Accumulated across pages rather than rebuilt from the last one, because a tied block can span
+			// several pages: a bulk edit stamping hundreds of issues with one second puts two whole pages inside
+			// it, and carrying only the final page's would re-serve the earlier one's after the slide (measured:
+			// 200 duplicates). Reset as soon as the trailing timestamp moves, so this holds one second's worth of
+			// urls rather than the walk's.
+			const sortKey = options.sort ?? defaultIssueSort;
+			const trailingTs = lastSortBoundary(deduped, sortKey)?.getTime();
+			const trailing = new Set<string>(
+				typeof cursor?.slideSeen === 'string' && cursor.slideSeen.length > 0 && cursor.slideTs === trailingTs
+					? cursor.slideSeen.split(' ')
+					: [],
+			);
+			for (const issue of deduped) {
+				if (lastSortBoundary([issue], sortKey)?.getTime() === trailingTs) {
+					trailing.add(issue.url);
+				}
+			}
+			if (trailingTs != null) {
+				next.slideTs = trailingTs;
+				next.slideSeen = [...trailing].join(' ');
+			} else {
+				// A page can come back EMPTY right after a slide: the re-issued query restarts at the top of the
+				// bounded range, so its first page is entirely items this set already filtered out. Dropping the
+				// set here would un-filter them on the page after (measured: the whole tied block re-served), so
+				// an empty page carries it forward untouched instead of clearing it.
+				next.slideTs = cursor?.slideTs;
+				next.slideSeen = typeof cursor?.slideSeen === 'string' ? cursor.slideSeen : undefined;
 			}
 
 			// A slide is FORWARD PROGRESS, not incompleteness: the remainder is reachable through the cursor
@@ -4590,16 +4636,6 @@ export class GitHubApi {
 					next[s.alias] = undefined;
 				}
 				next.slide = slid;
-				// The boundary is INCLUSIVE, so the next query deliberately re-serves everything sharing the
-				// boundary second (which is what keeps a tie from being dropped). Carry those urls so the next
-				// page can drop them: without this the walk is correct but emits a duplicate, and a consumer
-				// keying off url would render it twice. Bounded by how many issues share one second, not by
-				// page size.
-				const boundaryValue = lastSortBoundary(deduped, options.sort!)?.getTime();
-				next.slideSeen = deduped
-					.filter(i => lastSortBoundary([i], options.sort!)?.getTime() === boundaryValue)
-					.map(i => i.url)
-					.join(' ');
 			}
 			const continuable = hasMore || slid != null;
 			return {
