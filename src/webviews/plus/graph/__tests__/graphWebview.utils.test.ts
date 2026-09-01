@@ -1,6 +1,8 @@
 import * as assert from 'assert';
-import type { StoredGraphExcludedRef } from '../../../../constants.storage.js';
+import type { StoredGraphColumn, StoredGraphExcludedRef, StoredGraphState } from '../../../../constants.storage.js';
 import {
+	createDefaultLayoutSnapshot,
+	getDefaultLayoutSeeds,
 	getExcludedRefName,
 	isRepoHostingIntegrationConnected,
 	stripRefsMetadataTypes,
@@ -143,5 +145,64 @@ suite('graphWebview.utils — stripRefsMetadataTypes', () => {
 
 		assert.deepStrictEqual(result.get('a'), { upstream: upstream });
 		assert.strictEqual('pullRequest' in result.get('a')!, false, 'the key is absent, not merely null');
+	});
+});
+
+suite('graphWebview.utils — default layout snapshot/seed helpers', () => {
+	const columns: Record<string, StoredGraphColumn> = {
+		author: { isHidden: true },
+		message: { width: 400, order: 2 },
+	};
+	const panels: NonNullable<StoredGraphState['panels']> = {
+		minimap: { visible: false },
+		sidebar: { visible: true, position: 300 },
+	};
+
+	test('createDefaultLayoutSnapshot captures columns and panels verbatim', () => {
+		const snapshot = createDefaultLayoutSnapshot(columns, { panels: panels });
+		assert.deepStrictEqual(snapshot, { columns: columns, panels: panels });
+	});
+
+	test('createDefaultLayoutSnapshot strips a leaked details.maximized key', () => {
+		// `maximized` was dropped from the persisted shape but may linger in old mementos.
+		const leakedDetails = { visible: true, maximized: true };
+		const state: StoredGraphState = {
+			panels: { details: leakedDetails },
+		};
+		const snapshot = createDefaultLayoutSnapshot(undefined, state);
+		assert.deepStrictEqual(snapshot.panels?.details, { visible: true });
+	});
+
+	test('createDefaultLayoutSnapshot of an untouched workspace is empty', () => {
+		assert.deepStrictEqual(createDefaultLayoutSnapshot(undefined, undefined), {});
+	});
+
+	test('getDefaultLayoutSeeds seeds both when the workspace has neither', () => {
+		const seeds = getDefaultLayoutSeeds({ columns: columns, panels: panels }, undefined, undefined);
+		assert.deepStrictEqual(seeds.columns, columns);
+		assert.deepStrictEqual(seeds.state, { panels: panels });
+	});
+
+	test('getDefaultLayoutSeeds never overwrites existing workspace columns', () => {
+		const seeds = getDefaultLayoutSeeds({ columns: columns, panels: panels }, { sha: {} }, undefined);
+		assert.strictEqual(seeds.columns, undefined);
+		assert.deepStrictEqual(seeds.state, { panels: panels });
+	});
+
+	test('getDefaultLayoutSeeds preserves other graph:state fields when filling panels', () => {
+		const existing: StoredGraphState = { visualizationMode: 'timeline' };
+		const seeds = getDefaultLayoutSeeds({ panels: panels }, { sha: {} }, existing);
+		assert.deepStrictEqual(seeds.state, { visualizationMode: 'timeline', panels: panels });
+	});
+
+	test('getDefaultLayoutSeeds never overwrites existing workspace panels', () => {
+		const existing: StoredGraphState = { panels: { minimap: { visible: true } } };
+		const seeds = getDefaultLayoutSeeds({ columns: columns, panels: panels }, undefined, existing);
+		assert.deepStrictEqual(seeds.columns, columns);
+		assert.strictEqual(seeds.state, undefined);
+	});
+
+	test('getDefaultLayoutSeeds with no saved layout seeds nothing', () => {
+		assert.deepStrictEqual(getDefaultLayoutSeeds(undefined, undefined, undefined), {});
 	});
 });

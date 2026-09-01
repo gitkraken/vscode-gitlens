@@ -105,19 +105,12 @@ import type { Change } from '../patchDetails/protocol.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { DetailsItemTypedContext } from './detailsProtocol.js';
 import type { SelectedRowState } from './graphWebview.js';
-import {
-	compactGraphColumnsSettings,
-	defaultGraphColumnsSettings,
-	isGraphItemRefContext,
-	isGraphItemRefGroupContext,
-	isGraphItemTypedContext,
-} from './graphWebview.utils.js';
+import { isGraphItemRefContext, isGraphItemRefGroupContext, isGraphItemTypedContext } from './graphWebview.utils.js';
 import type {
 	DidRequestGraphActionParams,
 	DidRequestOpenCompareModeParams,
 	GraphColumnModeFor,
 	GraphColumnName,
-	GraphColumnsConfig,
 	GraphExcludedRef,
 	GraphItemContext,
 	GraphPinnedRef,
@@ -151,7 +144,9 @@ export type GraphCommandsContext = {
 	toggleColumnGrouping: (name: 'graph' | 'ref', grouped: boolean) => Promise<void>;
 	toggleScrollMarker: (type: GraphScrollMarkersAdditionalTypes, enabled: boolean) => Promise<void>;
 	setColumnMode: <T extends GraphColumnName>(name: T, mode?: GraphColumnModeFor<T>) => Promise<void>;
-	updateColumns: (columnsCfg: GraphColumnsConfig) => Promise<void>;
+	saveAsDefaultLayout: () => Promise<void>;
+	applySavedLayout: () => Promise<void>;
+	resetLayout: () => Promise<void>;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	/** Fires the `GraphSelectionService.onSelectionChanged` push with the selection just written by
 	 *  {@link setSelectedRows} — see `GraphWebviewProvider.createGraphCommandsContext()`. */
@@ -328,15 +323,20 @@ export class GraphCommands {
 		return this.context.getActiveSelection();
 	}
 
-	// Reset columns wrappers
-	@command('gitlens.graph.resetColumnsDefault')
-	private resetColumnsDefault() {
-		void this.context.updateColumns(defaultGraphColumnsSettings);
+	// Layout wrappers
+	@command('gitlens.graph.resetLayout')
+	private resetLayout() {
+		void this.context.resetLayout();
 	}
 
-	@command('gitlens.graph.resetColumnsCompact')
-	private resetColumnsCompact() {
-		void this.context.updateColumns(compactGraphColumnsSettings);
+	@command('gitlens.graph.saveAsDefaultLayout')
+	private saveAsDefaultLayout() {
+		void this.context.saveAsDefaultLayout();
+	}
+
+	@command('gitlens.graph.applySavedLayout')
+	private applySavedLayout() {
+		void this.context.applySavedLayout();
 	}
 
 	@command('gitlens.fetch:')

@@ -70,6 +70,7 @@ import type {
 } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type {
+	StoredGraphColumn,
 	StoredGraphExcludedRef,
 	StoredGraphFilters,
 	StoredGraphRefType,
@@ -124,7 +125,7 @@ import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '..
 import { cancelAndDispose, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import { onDidChangeContext } from '../../../system/-webview/context.js';
+import { onDidChangeContext, setContext } from '../../../system/-webview/context.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
 import { getWebviewCommand } from '../../../system/decorators/command.js';
@@ -185,8 +186,10 @@ import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
 import {
 	activityDecayToMs,
+	createDefaultLayoutSnapshot,
 	defaultGraphColumnsSettings,
 	formatRepositories,
+	getDefaultLayoutSeeds,
 	getExcludedRefName,
 	hasGitReference,
 	isGraphItemRefContext,
@@ -460,6 +463,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// plane defers production itself instead of relying on that buffer.
 	private _pendingStateRefresh = false;
 	private _pendingBranchStateRefresh = false;
+	private _defaultLayoutSeeded = false;
 	private _selectedId?: string;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _theme: ColorTheme | undefined;
@@ -722,7 +726,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			toggleColumnGrouping: (name, grouped) => this.toggleColumnGrouping(name, grouped),
 			toggleScrollMarker: (type, enabled) => this.toggleScrollMarker(type, enabled),
 			setColumnMode: (name, mode) => this.setColumnMode(name, mode),
-			updateColumns: columnsCfg => this.updateColumns(columnsCfg),
+			saveAsDefaultLayout: () => this.saveAsDefaultLayout(),
+			applySavedLayout: () => this.applySavedLayout(),
+			resetLayout: () => this.resetLayout(),
 			setSelectedRows: (id, selection, state) => this.setSelectedRows(id, selection, state),
 			notifyDidChangeSelection: () => this.notifyDidChangeSelection(),
 			writeWipDraftToStorage: (worktreePath, draft) => this._wip.writeWipDraftToStorage(worktreePath, draft),
@@ -4006,6 +4012,38 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
+	/** Seed-once: on the first bootstrap in this provider, copy the user's saved default layout into
+	 *  workspace storage — but only into voids (no stored columns / no stored panels). Runs before
+	 *  `getState` reads either key so the seeded values flow into the very first bootstrap. Also keeps
+	 *  the `hasSavedDefaultLayout` context key fresh for the reset-to-saved menu item. */
+	private async ensureDefaultLayoutSeeded(): Promise<void> {
+		if (this._defaultLayoutSeeded) return;
+
+		this._defaultLayoutSeeded = true;
+
+		const layout = this.container.storage.get('graph:defaultLayout');
+		void setContext('gitlens:graph:hasSavedDefaultLayout', layout != null);
+		if (layout == null) return;
+
+		const seeds = getDefaultLayoutSeeds(
+			layout,
+			this.container.storage.getWorkspace('graph:columns'),
+			this.container.storage.getWorkspace('graph:state'),
+		);
+
+		try {
+			if (seeds.columns != null) {
+				await this.container.storage.storeWorkspace('graph:columns', seeds.columns);
+			}
+
+			if (seeds.state != null) {
+				await this.container.storage.storeWorkspace('graph:state', seeds.state);
+			}
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to seed default layout');
+		}
+	}
+
 	private getExcludedTypes(filters: StoredGraphFilters | undefined): GraphExcludeTypes | undefined {
 		return filters?.excludeTypes;
 	}
@@ -4528,6 +4566,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** `bootstrap` marks the initial state build for a (re)loading webview: rows are deferred, `loading`
 	 *  is reported, and the app-owned persisted UI state is seeded (see the side bar slice below). */
 	private async getState(bootstrap?: boolean): Promise<State> {
+		if (bootstrap) {
+			await this.ensureDefaultLayoutSeeded();
+		}
+
 		this.cancelOperation('branchState');
 		this.cancelOperation('state');
 
@@ -5261,6 +5303,71 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		this.fireColumnsChanged();
+	}
+
+	/** Restores the shipped layout: writes the built-in column preset and an explicitly EMPTY panels
+	 *  record — not voids, since a cleared key would look unseeded and {@link ensureDefaultLayoutSeeded}
+	 *  would quietly re-apply the saved default over the reset on the next reload — then remounts to
+	 *  re-bootstrap from it. The saved default itself is left untouched. */
+	private async resetLayout(): Promise<void> {
+		const columns: Record<string, StoredGraphColumn> = {};
+		for (const [name, cfg] of Object.entries(defaultGraphColumnsSettings)) {
+			columns[name] = { isHidden: cfg.isHidden, mode: cfg.mode, width: cfg.width, order: cfg.order };
+		}
+
+		try {
+			await this.container.storage.storeWorkspace('graph:columns', columns);
+
+			const state = this.container.storage.getWorkspace('graph:state');
+			await this.container.storage.storeWorkspace('graph:state', { ...state, panels: {} });
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to reset layout');
+			return;
+		}
+
+		await this.host.refresh(true);
+	}
+
+	/** Overwrites this workspace's layout with the saved default and remounts the webview so both the
+	 *  columns and the panel arrangement re-bootstrap from the freshly written storage. A direct
+	 *  store (not {@link updateColumns}) so columns absent from the snapshot reset too, instead of
+	 *  surviving the merge. */
+	private async applySavedLayout(): Promise<void> {
+		const layout = this.container.storage.get('graph:defaultLayout');
+		if (layout == null) return;
+
+		try {
+			await this.container.storage.storeWorkspace('graph:columns', layout.columns);
+
+			const state = this.container.storage.getWorkspace('graph:state');
+			await this.container.storage.storeWorkspace('graph:state', { ...state, panels: layout.panels });
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to apply saved default layout');
+			return;
+		}
+
+		await this.host.refresh(true);
+	}
+
+	/** Snapshots the current workspace layout (columns + panels) into the global saved default that
+	 *  seeds new workspaces (see {@link ensureDefaultLayoutSeeded}). */
+	private async saveAsDefaultLayout(): Promise<void> {
+		const snapshot = createDefaultLayoutSnapshot(
+			this.container.storage.getWorkspace('graph:columns'),
+			this.container.storage.getWorkspace('graph:state'),
+		);
+
+		try {
+			await this.container.storage.store('graph:defaultLayout', snapshot);
+		} catch (ex) {
+			Logger.error(ex, 'graph: failed to save default layout');
+			return;
+		}
+
+		void setContext('gitlens:graph:hasSavedDefaultLayout', true);
+		void window.showInformationMessage(
+			'Saved the current Commit Graph layout as your default. New workspaces will open with it.',
+		);
 	}
 
 	/** The id of the whole-remote "Hide Remote" wildcard entry (`type: 'remote'`, `name: '*'`) covering

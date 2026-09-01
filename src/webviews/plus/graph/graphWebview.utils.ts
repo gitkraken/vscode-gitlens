@@ -12,7 +12,12 @@ import {
 import type { Unbrand } from '@gitlens/utils/brand.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { GraphActivityDecay } from '../../../config.js';
-import type { StoredGraphExcludedRef } from '../../../constants.storage.js';
+import type {
+	StoredGraphColumn,
+	StoredGraphDefaultLayout,
+	StoredGraphExcludedRef,
+	StoredGraphState,
+} from '../../../constants.storage.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { toRepositoryShape, toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils.js';
@@ -64,8 +69,8 @@ export function getExcludedRefName(ref: StoredGraphExcludedRef): string | undefi
 	}
 }
 
-// Column layouts applied by the "Reset Columns" commands; shared by the host provider (column-settings
-// seed) and the extracted graph commands module.
+// The shipped column layout — the base layer under stored column state, and what "Reset Layout"
+// writes back.
 export const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0, isFilterable: true },
 	graph: { width: 150, mode: undefined, isHidden: false, order: 1 },
@@ -76,15 +81,61 @@ export const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	sha: { width: 44, isHidden: false, order: 6, isFilterable: true },
 };
 
-export const compactGraphColumnsSettings: GraphColumnsSettings = {
-	ref: { width: 32, isHidden: false, isFilterable: true },
-	graph: { width: 150, mode: 'compact', isHidden: false },
-	author: { width: 34, isHidden: false, order: 2, isFilterable: true },
-	message: { width: 500, isHidden: false, order: 3, isFilterable: true },
-	changes: { width: 36, isHidden: false, order: 4, isFilterable: true },
-	datetime: { width: 130, isHidden: true, order: 5, isFilterable: true },
-	sha: { width: 130, isHidden: false, order: 6, isFilterable: true },
-};
+export interface DefaultLayoutSeeds {
+	/** Value to write to workspace `graph:columns`, or undefined to leave it untouched. */
+	columns?: Record<string, StoredGraphColumn>;
+	/** Value to write to workspace `graph:state`, or undefined to leave it untouched. */
+	state?: StoredGraphState;
+}
+
+/** Computes which workspace-storage writes (if any) seed a fresh workspace from the user's saved
+ *  default layout. Seed-once: a workspace that already has stored columns keeps them untouched, and
+ *  likewise for panels — the saved default only fills a void, it never merges over existing state. */
+export function getDefaultLayoutSeeds(
+	layout: StoredGraphDefaultLayout | undefined,
+	existingColumns: Record<string, StoredGraphColumn> | undefined,
+	existingState: StoredGraphState | undefined,
+): DefaultLayoutSeeds {
+	if (layout == null) return {};
+
+	const seeds: DefaultLayoutSeeds = {};
+	if (layout.columns != null && existingColumns == null) {
+		seeds.columns = layout.columns;
+	}
+
+	if (layout.panels != null && existingState?.panels == null) {
+		seeds.state = { ...existingState, panels: layout.panels };
+	}
+
+	return seeds;
+}
+
+/** Snapshots the workspace's current layout for `graph:defaultLayout`. Copies the raw stored records
+ *  (partial is fine — built-in defaults fill gaps at read time). `details.maximized` may linger in
+ *  mementos written before it was dropped from the persisted shape; strip it so it never round-trips
+ *  through the saved default. */
+export function createDefaultLayoutSnapshot(
+	columns: Record<string, StoredGraphColumn> | undefined,
+	state: StoredGraphState | undefined,
+): StoredGraphDefaultLayout {
+	const snapshot: StoredGraphDefaultLayout = {};
+	if (columns != null) {
+		snapshot.columns = columns;
+	}
+
+	const panels = state?.panels;
+	if (panels != null) {
+		if (panels.details != null) {
+			const { maximized: _leakedMaximized, ...details } = panels.details as NonNullable<typeof panels.details> &
+				Record<'maximized', boolean | undefined>;
+			snapshot.panels = { ...panels, details: details };
+		} else {
+			snapshot.panels = panels;
+		}
+	}
+
+	return snapshot;
+}
 
 /**
  * Scale the per-page row limit with how deep the graph is already loaded. `git log --skip=N` re-walks

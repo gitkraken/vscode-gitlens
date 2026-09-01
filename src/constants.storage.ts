@@ -121,6 +121,7 @@ interface GlobalStorageCore {
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
+	'graph:defaultLayout': StoredGraphDefaultLayout;
 	'graph:searchMode': StoredGraphSearchMode;
 	/** A/B (intro-video): the variant the most recently RENDERED sign-in gate actually showed */
 	'graph:signInGate:introVideoShown': boolean;
@@ -394,6 +395,8 @@ export interface StoredGraphColumn {
 	isHidden?: boolean;
 	mode?: StoredGraphColumnMode;
 	width?: number;
+	/** Left-to-right position of the column. Persisted by the webview's full-config writes; absent for records written only by host-side single-field toggles. */
+	order?: number;
 	/** Column↔grouped placement for both columns: `undefined`/`true` = grouped with the default host zone (host Group commands write `true`; the webview echoes back the resolved zone id), a zone-id string = grouped with that zone, `false` = standalone column. */
 	grouped?: boolean | string;
 }
@@ -436,6 +439,15 @@ export interface StoredGraphState {
 	treemap?: {
 		mode?: GraphTreemapMode;
 	};
+}
+
+/** A user-saved snapshot of the Commit Graph layout, stored globally and used to seed workspaces
+ *  that have no layout of their own yet (see `GraphWebviewProvider.ensureDefaultLayoutSeeded`).
+ *  `columns` mirrors the workspace `graph:columns` record verbatim (possibly partial — built-in
+ *  defaults fill the gaps at read time); `panels` mirrors `StoredGraphState['panels']`. */
+export interface StoredGraphDefaultLayout {
+	columns?: Record<string, StoredGraphColumn>;
+	panels?: StoredGraphState['panels'];
 }
 
 export interface StoredGraphWipDraft {

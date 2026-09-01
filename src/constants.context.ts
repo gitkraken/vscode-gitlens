@@ -40,6 +40,7 @@ export type ContextKeys = {
 	'gitlens:gk:organization:ai:providers': OrgAIProviders;
 	'gitlens:gk:organization:drafts:byob': boolean;
 	'gitlens:gk:organization:drafts:enabled': boolean;
+	'gitlens:graph:hasSavedDefaultLayout': boolean;
 	'gitlens:hasVirtualFolders': boolean;
 	'gitlens:launchpad:connected': boolean;
 	/** Indicates that this is the first run of a new install of GitLens */

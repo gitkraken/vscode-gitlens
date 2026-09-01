@@ -3293,6 +3293,18 @@
 				]
 			}
 		},
+		"gitlens.graph.applySavedLayout": {
+			"label": "Apply Saved Layout",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && gitlens:graph:hasSavedDefaultLayout",
+						"group": "6_reset",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.graph.cherryPick": {
 			"label": "Cherry Pick Commit...",
 			"enablement": "!operationInProgress",
@@ -4493,26 +4505,14 @@
 				]
 			}
 		},
-		"gitlens.graph.resetColumnsCompact": {
-			"label": "Reset Columns to Compact Layout",
+		"gitlens.graph.resetLayout": {
+			"label": "Reset Layout",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 						"group": "6_reset",
-						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.graph.resetColumnsDefault": {
-			"label": "Reset Columns to Default Layout",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
-						"group": "6_reset",
-						"order": 1
+						"order": 3
 					}
 				]
 			}
@@ -4614,6 +4614,18 @@
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 7
+					}
+				]
+			}
+		},
+		"gitlens.graph.saveAsDefaultLayout": {
+			"label": "Save as Default Layout",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
+						"group": "6_reset",
+						"order": 1
 					}
 				]
 			}
