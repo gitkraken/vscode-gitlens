@@ -2475,6 +2475,17 @@ export class GlLitGraph extends LitElement {
 		return visibleZones[Math.min(this.graphVisibleSlot, Math.max(0, visibleZones.length - 1))]?.id;
 	}
 
+	// Latch the fallback-resolved host BEFORE a content reorder can move it: with no captured id (the
+	// default `grouped === undefined` and legacy `grouped: true` both restore as undefined), the host
+	// re-derives positionally from the anchor slot each render — so a reorder that changes which zone
+	// lands at that slot would re-host the graph into the dropped column instead of letting it pass.
+	// Called at both reorder entry points (drag threshold crossing + keyboard label reorder).
+	private latchGraphHostId(): void {
+		if (this.graphPlacement !== 'grouped' || this.graphHostZoneId != null) return;
+
+		this.graphHostZoneId = this.graphHostIdFor(this.getVisibleZones());
+	}
+
 	// Project the graph's anchor (an insert-index into the FULL ordered `this.zones`) onto the VISIBLE
 	// list: the visible slot = how many visible zones precede the anchor. This is the desync fix — a
 	// hidden/inlined/reordered zone to the graph's left drops out of `visibleZones`, so the count (and
@@ -11857,6 +11868,10 @@ export class GlLitGraph extends LitElement {
 			// A reorder beats the open picker (the anchored label is about to move) — close it, no focus return.
 			this.closeChangesModeMenu('none');
 			document.body.style.cursor = 'grabbing';
+			// Pin an uncaptured grouped host by id before the reorder simulation starts moving zones —
+			// otherwise the anchor-slot fallback would re-host the graph into whatever zone the drag drops
+			// at its slot (the "dropped INTO the group" bug on default/legacy configs).
+			this.latchGraphHostId();
 			this.captureColumnDragBase();
 		}
 
@@ -12267,6 +12282,8 @@ export class GlLitGraph extends LitElement {
 		}
 
 		event.preventDefault();
+		// Same latch as the pointer drag: pin an uncaptured grouped host before the zones move.
+		this.latchGraphHostId();
 		const zoneId = visibleZones[visibleIdx].id;
 		const fromFull = mapVisibleIndex(this.zones, visibleZones, visibleIdx);
 		const toFull = mapVisibleIndex(this.zones, visibleZones, toVisible);
