@@ -1884,7 +1884,7 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/agents/shown
 
-> Sent when the Agents sidebar panel becomes visible
+> Sent when the Agents sidebar panel becomes visible — deferred until the agents/hooks state has arrived so the hooks properties reflect what the user actually sees
 
 ```typescript
 {
@@ -1900,9 +1900,9 @@ background-upgraded the extension while the host kept running the old build
   'emptyState.reason': 'agents-undetected' | 'agents-unconnected',
   // Whether the "connect your agents" empty-state message replaced the sessions tree
   'emptyState.shown': boolean,
-  // Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open, or when the agents feature is unavailable (disabled, or a host with no session providers)
+  // Detected, hooks-capable agents; the event is deferred until this state arrives, so undefined only when the agents feature is unavailable (disabled, or a host with no session providers)
   'hooks.agentsCount': number,
-  // Of those, how many have GitKraken hooks installed (i.e. are connected); undefined while unknown
+  // Of those, how many have GitKraken hooks installed (i.e. are connected); undefined only when the agents feature is unavailable
   'hooks.agentsInstalledCount': number,
   'layout': 'list' | 'tree',
   'sessions.count': number,
