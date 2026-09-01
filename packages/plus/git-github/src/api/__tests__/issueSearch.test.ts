@@ -1341,6 +1341,26 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 		// the slide, so pinning it either way here would pin an accident of the fixture.
 	});
 
+	test('an uncapped search carries no slide bookkeeping in its cursor', async () => {
+		// The boundary set only matters to a slide, and only a capped alias can reach one. Sealing it on every
+		// page of every search would put a trailing second's urls in a cursor that `broadenIssues` nests once per
+		// org, for a slide that will never happen.
+		const api = new GitHubApi(faithful({ matched: spread(400) }));
+
+		let cursor: string | undefined;
+		let largest = 0;
+		for (let page = 1; page <= 10; page++) {
+			const r = await api.searchIssuesPage(provider, token, { org: 'o', cursor: cursor });
+			largest = Math.max(largest, r?.cursor?.length ?? 0);
+			if (r?.hasMore !== true || r.cursor == null) break;
+
+			cursor = r.cursor;
+		}
+
+		assert.ok(!(cursor ?? '').includes('slideSeen'), 'no boundary set is carried');
+		assert.ok(largest < 200, `the cursor stays small (was ${largest} bytes)`);
+	});
+
 	test('a bound that does nothing stops the walk instead of looping forever', async () => {
 		// Defence in depth, not a reachable state: against a provider that honours the bound no walk repeats one
 		// (a tied block larger than the cap terminates on its own, covered above). But a slide that silently did
