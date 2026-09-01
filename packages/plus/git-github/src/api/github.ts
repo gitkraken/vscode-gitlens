@@ -4631,6 +4631,21 @@ export class GitHubApi {
 				if (endCursor == null && issueCount > githubSearchResultLimit && sortKey != null) {
 					const boundary = mapped != null ? lastSortBoundary(mapped, sortKey) : undefined;
 					aliasSlide = boundary != null ? toGitHubIssueSearchSlideQualifier(sortKey, boundary) : undefined;
+					// A bound identical to the one this alias is ALREADY under would re-issue the same query
+					// forever. NOT needed for correctness, and that is measured rather than assumed: against a
+					// provider that honours the bound there is no walk that reaches it. The nearest case, a tied
+					// block larger than the cap, terminates on its own instead — every page inside the block is
+					// filtered away by `slideSeen` until the walk ends on an empty page with no boundary to slide
+					// from, so the second slide is never computed (verified: 1.200 issues sharing one second serve
+					// the reachable 1.000 and report the ceiling, with this guard never firing).
+					//
+					// It is here purely as defence in depth against a bound that silently does nothing, because
+					// that failure mode is an unbounded request loop rather than a wrong answer, and this read
+					// walks until a provider tells it to stop. Cheap insurance against the one bug class that
+					// cannot be shrugged off.
+					if (aliasSlide != null && aliasSlide === cursorString(cursor, `slide:${s.alias}`)) {
+						aliasSlide = undefined;
+					}
 					if (aliasSlide == null) {
 						strandedByCeiling = true;
 					}

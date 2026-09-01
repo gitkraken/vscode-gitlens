@@ -1341,6 +1341,83 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 		// the slide, so pinning it either way here would pin an accident of the fixture.
 	});
 
+	test('a bound that does nothing stops the walk instead of looping forever', async () => {
+		// Defence in depth, not a reachable state: against a provider that honours the bound no walk repeats one
+		// (a tied block larger than the cap terminates on its own, covered above). But a slide that silently did
+		// nothing would be an unbounded request loop rather than a wrong answer, and this read pages until the
+		// provider says stop, so the repeat is caught and reported as the ceiling it is.
+		const items = spread(120, 'I');
+		const config = {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as {
+					query?: string;
+					variables?: Record<string, string | boolean | undefined>;
+				};
+				const aliases = Array.from((body.query ?? '').matchAll(/^\s*(\w+): search\(/gm), m => m[1]);
+				const data = Object.fromEntries(
+					aliases.map(alias => {
+						const after = body.variables?.[`${alias}Cursor`];
+						const start = typeof after === 'string' ? Number(after.split(':')[1]) : 0;
+						// The `updated:` bound is deliberately ignored here.
+						const slice = items.slice(start, start + 100);
+						const next = start + slice.length;
+						return [
+							alias,
+							{
+								issueCount: 5000,
+								pageInfo: {
+									endCursor: next < items.length ? `${alias}:${next}` : null,
+									hasNextPage: next < items.length,
+								},
+								nodes: slice,
+							},
+						];
+					}),
+				);
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+		} as unknown as GitHubApiConfig;
+		const api = new GitHubApi(config);
+
+		let cursor: string | undefined;
+		let pages = 0;
+		let truncated = false;
+		for (; pages < 100;) {
+			const r = await api.searchIssuesPage(provider, token, { org: 'o', cursor: cursor });
+			pages++;
+			truncated = r?.truncated ?? false;
+			if (r?.hasMore !== true || r.cursor == null) break;
+
+			cursor = r.cursor;
+		}
+
+		assert.ok(pages < 100, 'the walk terminates rather than paging forever');
+		assert.equal(truncated, true, 'and reports the results it could not reach');
+	});
+
+	test('a tied block larger than the cap terminates and reports the ceiling', async () => {
+		// The nearest thing to a repeated bound that a well-behaved provider can produce. It resolves without the
+		// guard above: every page inside the block is filtered out by the per-alias `slideSeen`, so the walk ends
+		// on an empty page with no boundary to slide from.
+		const tie = iso(Date.UTC(2025, 5, 1));
+		const corpus = [
+			...Array.from({ length: 1200 }, (_, i) => node(`T${i}`, tie)),
+			...spread(50, 'O', Date.UTC(2024, 0, 1)),
+		];
+		const api = new GitHubApi(faithful({ matched: corpus }));
+
+		const { urls, distinct, truncated } = await drain(api, { org: 'o' });
+
+		assert.equal(urls.length, distinct, 'no issue is served twice');
+		assert.equal(distinct, 1000, 'the reachable window is served in full');
+		assert.equal(truncated, true, 'and the unreachable remainder is reported');
+	});
+
 	test('an unslidable sort still reports the ceiling for a union', async () => {
 		const api = new GitHubApi(faithful({ authored: spread(1200, 'A') }));
 
