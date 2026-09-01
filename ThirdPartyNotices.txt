@@ -3,7 +3,7 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @awesome.me/webawesome version 3.11.0 (https://github.com/shoelace-style/webawesome)
+1. @awesome.me/webawesome version 3.12.0 (https://github.com/shoelace-style/webawesome)
 2. @configcat/sdk version 1.1.0 (https://github.com/configcat/js-unified-sdk)
 3. @eamodio/supertalk-core version 0.1.4 (https://github.com/eamodio/supertalk)
 4. @eamodio/supertalk-signals version 0.0.7 (https://github.com/eamodio/supertalk)
@@ -26,7 +26,7 @@ This project incorporates components from the projects listed below.
 21. fflate version 0.8.3 (https://github.com/101arrowz/fflate)
 22. ignore version 7.0.6 (https://github.com/kaelzhang/node-ignore)
 23. lit version 3.3.3 (https://github.com/lit/lit)
-24. marked version 18.0.9 (https://github.com/markedjs/marked)
+24. marked version 18.0.11 (https://github.com/markedjs/marked)
 25. microsoft/vscode (https://github.com/microsoft/vscode)
 26. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
 27. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
@@ -34,7 +34,7 @@ This project incorporates components from the projects listed below.
 29. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
 30. slug version 12.0.1 (https://github.com/Trott/slug)
 31. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
-32. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+32. vscode-uri version 3.2.0 (https://github.com/microsoft/vscode-uri)
 
 %% @awesome.me/webawesome NOTICES AND INFORMATION BEGIN HERE
 =========================================
