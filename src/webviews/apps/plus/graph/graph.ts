@@ -271,6 +271,16 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 	}
 
 	private applyAgentsInfo(infos: readonly AgentInfo[]): void {
+		// An empty list is the agents service's "feature unavailable" marker — `getAgents()` returns []
+		// when `gitlens:agents:enabled` is off (AI disabled by setting or org, or a host with no session
+		// providers, e.g. web), while an enabled feature always lists every known CLI, detected or not.
+		// Keep `hooksAgents` undefined then: "unavailable" must read as unknown, not as "no agents
+		// detected", or the panel's empty state would pitch connecting agents that cannot be connected.
+		if (infos.length === 0) {
+			this._stateProvider.applyHooksCapability(false, undefined);
+			return;
+		}
+
 		const hooksAgents = computeHooksAgents(infos);
 		this._stateProvider.applyHooksCapability(
 			hooksAgents.some(a => !a.installed),

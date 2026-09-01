@@ -11,9 +11,10 @@ export type AgentsPanelEmptyState =
 /**
  * Decides what the Agents panel shows when it has no sessions to list.
  *
- * Returns `undefined` when there is nothing to explain: sessions exist, or the hooks state hasn't
- * arrived yet (`hooksAgents` is `undefined` until the host's first agents push, so treating "unknown"
- * as "unconnected" would flash the pitch at every panel open).
+ * Returns `undefined` when there is nothing to explain: sessions exist, or `hooksAgents` is
+ * `undefined` — before the host's first agents push (treating "unknown" as "unconnected" would flash
+ * the pitch at every panel open) and while the agents feature is unavailable (disabled by setting or
+ * org, or a host with no session providers — pitching agents that cannot be connected would be a lie).
  *
  * The pitch must never lie: it only appears when NO detected agent has hooks installed — the banner's
  * own `canInstallHooks` gate is the wrong predicate here, since it stays true while one agent is
@@ -22,7 +23,8 @@ export type AgentsPanelEmptyState =
  * of saying the same thing twice; once the banner is dismissed the pitch becomes the panel's permanent
  * answer — that persistence is the point of #5777.
  *
- * @param hooksAgents Detected, hooks-capable agents (`undefined` while unknown; `[]` when none detected)
+ * @param hooksAgents Detected, hooks-capable agents (`undefined` while unknown or the agents feature
+ * is unavailable; `[]` when enabled but none detected)
  * @param sessionCount Family-filtered session total — NOT the post-"past sessions"-toggle count, since
  * hidden ended sessions still prove agents are connected
  * @param bannerVisible Whether the Connect Your AI Agents banner is currently rendered above the tree

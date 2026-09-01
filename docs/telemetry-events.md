@@ -1900,7 +1900,7 @@ background-upgraded the extension while the host kept running the old build
   'emptyState.reason': 'agents-undetected' | 'agents-unconnected',
   // Whether the "connect your agents" empty-state message replaced the sessions tree
   'emptyState.shown': boolean,
-  // Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open
+  // Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open, or when the agents feature is unavailable (disabled, or a host with no session providers)
   'hooks.agentsCount': number,
   // Of those, how many have GitKraken hooks installed (i.e. are connected); undefined while unknown
   'hooks.agentsInstalledCount': number,

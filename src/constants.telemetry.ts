@@ -2172,7 +2172,7 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 	'sessions.needsInput.count': number;
 	'sessions.idle.count': number;
 	'sessions.ended.count': number;
-	/** Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open */
+	/** Detected, hooks-capable agents; undefined while the hooks state hasn't arrived yet at panel open, or when the agents feature is unavailable (disabled, or a host with no session providers) */
 	'hooks.agentsCount': number | undefined;
 	/** Of those, how many have GitKraken hooks installed (i.e. are connected); undefined while unknown */
 	'hooks.agentsInstalledCount': number | undefined;
