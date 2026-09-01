@@ -1338,13 +1338,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  "no agent sessions", which hides that connecting an agent is what's missing (#5777). Unlike the
 	 *  banner this is a state of the panel, not dismissible, so the user always knows why it's empty. */
 	private renderAgentsEmptyState(reason: 'agents-undetected' | 'agents-unconnected'): unknown {
+		// The undetected copy claims nothing about detection: without the GK CLI, CLI-agent detection
+		// cannot run at all, so "no agents were detected" would be an unverified claim — and the Agents
+		// settings page can simultaneously show IDE agents as detected. Say what the panel shows instead.
 		const message =
 			reason === 'agents-undetected'
-				? 'No AI agents were detected. Once you install a supported agent, connect it to GitLens to see its sessions here.'
+				? 'GitLens shows sessions from supported agent CLIs. Install one and connect it to see its sessions here.'
 				: 'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.';
 
-		// "Connect Agents" renders only when the click can actually connect something; otherwise the
-		// gear honestly routes to the settings page and nothing more.
+		// The connect button renders only when the click can actually connect something; otherwise the
+		// gear honestly routes to the settings page and nothing more. Named for the agent it connects —
+		// the banner's own "Connect Agents" runs a different, install-everything flow, and the two can
+		// be on screen moments apart.
 		const connectable = this.connectableDefaultAgent;
 
 		return html`<div class="empty empty--connect">
@@ -1352,7 +1357,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			${
 				connectable != null
 					? html`<gl-button appearance="secondary" density="compact" @click=${this.handleConnectAgents}
-							><code-icon icon="plug" slot="prefix"></code-icon> Connect Agents...</gl-button
+							><code-icon icon="plug" slot="prefix"></code-icon> Connect
+							${connectable.label}...</gl-button
 						>`
 					: html`<gl-button
 							appearance="secondary"
@@ -1364,7 +1370,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	/** The default agent when "Connect Agents" can actually connect it: a CLI agent (hooks are a
+	/** The default agent when the connect button can actually connect it: a CLI agent (hooks are a
 	 *  CLI-agent concept), detected and hooks-capable (present in `hooksAgents`, whose ids carry the
 	 *  `cli:` prefix already stripped), with hooks not yet installed. */
 	private get connectableDefaultAgent(): { id: string; label: string } | undefined {
@@ -1376,7 +1382,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		return connectable ? defaultAgent : undefined;
 	}
 
-	/** Connect Agents = go to the Agents settings page and install the default agent's hooks right
+	/** Connect ${agent} = go to the Agents settings page and install that agent's hooks right
 	 *  away — the page then opens onto the operation's progress instead of asking the user to find
 	 *  the same switch by hand. */
 	private handleConnectAgents() {
