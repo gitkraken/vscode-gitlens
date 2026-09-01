@@ -1335,16 +1335,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				? 'No AI agents were detected. Once you install a supported agent, connect it to GitLens to see its sessions here.'
 				: 'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.';
 
-		// The button keys on the default agent, not the reason: with one chosen, "Connect Agents" can
-		// actually act — it opens the Agents settings page AND installs hooks for the default agent when
-		// that's available (see `handleConnectAgents`). Without a default there is nothing to act on, so
-		// the gear only routes to the page.
-		const defaultAgent = this._ai?.state.get().defaultAgent;
+		// "Connect Agents" renders only when the click can actually connect something; otherwise the
+		// gear honestly routes to the settings page and nothing more.
+		const connectable = this.connectableDefaultAgent;
 
 		return html`<div class="empty empty--connect">
 			<span>${message}</span>
 			${
-				defaultAgent != null
+				connectable != null
 					? html`<gl-button appearance="secondary" density="compact" @click=${this.handleConnectAgents}
 							><code-icon icon="plug" slot="prefix"></code-icon> Connect Agents...</gl-button
 						>`
@@ -1358,21 +1356,29 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	/** Connect Agents = go to the Agents settings page, and when the default agent is detected,
-	 *  hooks-capable, and not yet connected, install its hooks right away — the page then opens onto
-	 *  the operation's progress instead of asking the user to find the same switch by hand. Hooks are
-	 *  a CLI-agent concept, and `hooksAgents` ids carry the `cli:` prefix already stripped. */
+	/** The default agent when "Connect Agents" can actually connect it: a CLI agent (hooks are a
+	 *  CLI-agent concept), detected and hooks-capable (present in `hooksAgents`, whose ids carry the
+	 *  `cli:` prefix already stripped), with hooks not yet installed. */
+	private get connectableDefaultAgent(): { id: string; label: string } | undefined {
+		const defaultAgent = this._ai?.state.get().defaultAgent;
+		if (defaultAgent == null || !defaultAgent.id.startsWith('cli:')) return undefined;
+
+		const name = defaultAgent.id.slice(4);
+		const connectable = this._state.hooksAgents?.some(a => a.id === name && !a.installed) ?? false;
+		return connectable ? defaultAgent : undefined;
+	}
+
+	/** Connect Agents = go to the Agents settings page and install the default agent's hooks right
+	 *  away — the page then opens onto the operation's progress instead of asking the user to find
+	 *  the same switch by hand. */
 	private handleConnectAgents() {
 		this._actions?.executeAction('gitlens.showSettingsPage!agents');
 
-		const defaultAgent = this._ai?.state.get().defaultAgent;
-		if (defaultAgent == null || !defaultAgent.id.startsWith('cli:')) return;
-
-		const name = defaultAgent.id.slice(4);
-		if (!(this._state.hooksAgents?.some(a => a.id === name && !a.installed) ?? false)) return;
+		const agent = this.connectableDefaultAgent;
+		if (agent == null) return;
 
 		this._actions?.executeAction('gitlens.agents.installHooksForAgent', undefined, [
-			{ agentId: defaultAgent.id, source: 'graph-sidebar' },
+			{ agentId: agent.id, source: 'graph-sidebar' },
 		]);
 	}
 
