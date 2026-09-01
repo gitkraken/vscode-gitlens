@@ -1761,7 +1761,7 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/agents/headerAction
 
-> Sent when the user clicks a header action (Start Work, Start Review, Refresh) in the sidebar agents panel
+> Sent when the user clicks a header action (Start Work, Start Review, Start Agent Session (With), Refresh) in the sidebar agents panel
 
 ```typescript
 {

@@ -340,7 +340,8 @@ export class AgentStatusService implements Disposable {
 	}
 
 	/** `gitlens.agents.installHooksForAgent` / `uninstallHooksForAgent` — hidden, dispatched by the
-	 *  Settings → Agents table for a single agent's Hooks cell. */
+	 *  Settings → Agents table for a single agent's Hooks cell and by the Graph Agents panel's
+	 *  empty-state connect button (install only, for the default agent). */
 	private async handleHooksOperationForAgentCommand(
 		op: 'install' | 'uninstall',
 		args?: { agentId?: string; source?: Sources },

@@ -353,7 +353,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/agents/permissionResolved': GraphSidebarAgentsPermissionResolvedEvent;
 	/** Sent when the user clicks Open/Resume Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel */
 	'graph/agents/sessionAction': GraphSidebarAgentsSessionActionEvent;
-	/** Sent when the user clicks a header action (Start Work, Start Review, Refresh) in the sidebar agents panel */
+	/** Sent when the user clicks a header action (Start Work, Start Review, Start Agent Session (With), Refresh) in the sidebar agents panel */
 	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
 	/** Sent when the user toggles the tree/list layout in the sidebar agents panel */
 	'graph/agents/layoutToggled': GraphSidebarAgentsLayoutToggledEvent;
