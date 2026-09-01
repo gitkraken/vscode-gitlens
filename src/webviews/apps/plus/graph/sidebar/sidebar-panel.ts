@@ -2708,9 +2708,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	/** Keyboard route to the alt variant: the click a native button synthesizes from Enter/Space never
 	 *  carries the held Alt modifier (verified against Chromium), so without this the picker variant is
-	 *  mouse-only. Canceling the keydown also suppresses that synthesized click, so the action runs once. */
+	 *  mouse-only. Canceling the keydown also suppresses that synthesized click, so the action runs once.
+	 *  Space is matched by physical key (`code`): with Alt held, macOS turns `key` into the composed
+	 *  character (Option+Space is a non-breaking space), and a missed match here would not just do
+	 *  nothing — the un-canceled native click would start a session with the default agent instead. */
 	private handleStartAgentSessionKeydown(e: KeyboardEvent) {
-		if (!e.altKey || (e.key !== 'Enter' && e.key !== ' ')) return;
+		if (!e.altKey || (e.key !== 'Enter' && e.code !== 'Space')) return;
 
 		e.preventDefault();
 		e.stopPropagation();
