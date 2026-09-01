@@ -16,6 +16,7 @@ import type {
 	PullRequestCountScope,
 } from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
+import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -563,6 +564,31 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>>;
+	/**
+	 * Resolves several issues BY COORDINATE — `(owner, repo, number)` — in one request.
+	 *
+	 * The read for "which issue does this branch name reference", which is an IDENTITY question rather than a
+	 * search. Emulating it by paging a scoped list and matching the identifier cannot prove absence without
+	 * walking the whole scope, so a miss stays unproven, uncacheable, and repeats its whole budget on every pass.
+	 * This answers it in one request per chunk, and a miss is final.
+	 *
+	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-target isolation
+	 * is the rule: a chunk that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
+	 * every other target still answers.
+	 *
+	 * `issue: undefined` means PROVEN ABSENT — the issue does not exist, or is not visible to this connection —
+	 * and is safe to cache. A target whose chunk failed is NOT returned at all, so the two are distinguishable;
+	 * caching a failure as an absence is exactly the bug this distinction prevents. GitHub/GHE only: a provider
+	 * that cannot batch refuses outright rather than degrading into N requests behind the caller's back.
+	 */
+	getIssuesBatch(options: {
+		providerId: IntegrationIds;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly IssueBatchTarget[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<IssueBatchResult>>;
 	/**
 	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
 	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,

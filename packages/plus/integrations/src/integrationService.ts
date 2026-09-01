@@ -87,6 +87,8 @@ import { countIssues, countPullRequests } from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
 import { getSupportedFilters } from './reads/filters.js';
 import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
+import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
+import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
@@ -1154,6 +1156,19 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>> {
 		return countIssues(this, options);
+	}
+
+	async getIssuesBatch(options: {
+		providerId: IntegrationIds;
+		targets: readonly IssueBatchTarget[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<IssueBatchResult>> {
+		return getIssuesBatch(this, options);
 	}
 
 	/**

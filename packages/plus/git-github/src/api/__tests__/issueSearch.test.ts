@@ -1506,3 +1506,128 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 		assert.equal(truncated, true);
 	});
 });
+
+/**
+ * The batch issue read (#5802): N `(owner, repo, number)` coordinates in one aliased document.
+ *
+ * The case worth pinning is the PARTIAL response. GitHub answers a batch with a missing coordinate as HTTP 200
+ * carrying every resolvable alias PLUS a `NOT_FOUND` error per missing one, and the GraphQL client throws on any
+ * error by default. Since a miss is the common outcome for this read, throwing would discard the results that did
+ * resolve and make it useless for the question it answers.
+ */
+suite('GitHubApi.getIssuesBatch (#5802)', () => {
+	function batchServe(
+		byAlias: Record<string, unknown>,
+		errors?: { type: string; path: string[] }[],
+	): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
+		let variables: Record<string, unknown> = {};
+		const config = {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
+				variables = body.variables ?? {};
+				return new Response(JSON.stringify({ data: byAlias, ...(errors != null ? { errors: errors } : {}) }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+		} as unknown as GitHubApiConfig;
+		return { config: config, getVariables: () => variables };
+	}
+
+	const issueNode = (n: number) => ({
+		id: `i${n}`,
+		number: n,
+		title: `issue ${n}`,
+		url: `https://github.com/o/a/issues/${n}`,
+		createdAt: '2026-01-01T00:00:00Z',
+		updatedAt: '2026-01-01T00:00:00Z',
+		closedAt: null,
+		closed: false,
+		state: 'OPEN',
+		author: null,
+		assignees: { nodes: [] },
+		comments: { totalCount: 0 },
+		reactions: { totalCount: 0 },
+		repository: { name: 'a', owner: { login: 'o' }, url: 'https://github.com/o/a' },
+	});
+
+	test('resolves every coordinate in one request, positionally', async () => {
+		const { config, getVariables } = batchServe({
+			i0: { issue: issueNode(1) },
+			i1: { issue: issueNode(2) },
+		});
+		const api = new GitHubApi(config);
+
+		const out = await api.getIssuesBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'b', number: 2 },
+		]);
+
+		// `IssueShape.id` is the issue NUMBER as a string, not the GraphQL node id.
+		assert.deepEqual(
+			out.map(i => i?.id),
+			['1', '2'],
+		);
+		// Coordinates reach the query as VARIABLES, never interpolated into it.
+		assert.equal(getVariables().o0, 'o');
+		assert.equal(getVariables().n1, 'b');
+		assert.equal(getVariables().k1, 2);
+	});
+
+	test('a NOT_FOUND alongside real results yields absences, not a thrown batch', async () => {
+		// GitHub's actual shape for a partly-resolvable batch, verified against the live API: 200, full `data`,
+		// one NOT_FOUND per missing coordinate. Throwing here would discard `i0` because `i1` does not exist.
+		const { config } = batchServe({ i0: { issue: issueNode(1) }, i1: { issue: null }, i2: null }, [
+			{ type: 'NOT_FOUND', path: ['i1', 'issue'] },
+			{ type: 'NOT_FOUND', path: ['i2'] },
+		]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getIssuesBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'a', number: 999 },
+			{ owner: 'o', repo: 'gone', number: 1 },
+		]);
+
+		assert.deepEqual(
+			out.map(i => i?.id),
+			['1', undefined, undefined],
+		);
+	});
+
+	test('an error that is NOT a NOT_FOUND still throws rather than reading as absences', async () => {
+		// The narrowing that keeps the tolerance honest: a rate limit or auth failure must not be reported as a
+		// batch of issues that do not exist, which a caller would then cache.
+		const { config } = batchServe({ i0: { issue: issueNode(1) }, i1: { issue: null } }, [
+			{ type: 'RATE_LIMITED', path: ['i1'] },
+		]);
+		const api = new GitHubApi(config);
+
+		await assert.rejects(
+			() =>
+				api.getIssuesBatch(provider, token, [
+					{ owner: 'o', repo: 'a', number: 1 },
+					{ owner: 'o', repo: 'a', number: 2 },
+				]),
+			'a real failure is not silently converted into absences',
+		);
+	});
+
+	test('no coordinates costs no request', async () => {
+		let called = false;
+		const config = {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async () => {
+				called = true;
+				return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+			},
+		} as unknown as GitHubApiConfig;
+		const api = new GitHubApi(config);
+
+		assert.deepEqual(await api.getIssuesBatch(provider, token, []), []);
+		assert.equal(called, false);
+	});
+});

@@ -65,6 +65,7 @@ type SyncReqUsecase = Exclude<
 	| 'getDefaultBranch'
 	| 'getIssue'
 	| 'getIssueOrPullRequest'
+	| 'getIssuesBatch'
 	| 'getIssuesForProject'
 	| 'getIssuesForRepos'
 	| 'getMyPullRequestsForUser'
