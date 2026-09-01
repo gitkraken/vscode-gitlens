@@ -5178,6 +5178,15 @@ gl-graph-app {
 				overflow: hidden auto;
 			}
 
+			// The empty hub has no rigid floor to protect (no file-list floor, no commit box), so
+			// `min-content` would size the track to the hub's full height — overflowing past
+			// gl-split-panel's `overflow: clip` while this slot's own scroller never engages,
+			// leaving everything past the fold unreachable. Let the track shrink so the
+			// `overflow-y: auto` above can do its job.
+			&__bottom:has(gl-details-wip-empty-pane) {
+				min-height: 0;
+			}
+
 			// Do NOT set `min-height: 0` here — the base `.commit-panel__files` floor above must
 			// still apply inside the agent-status split, or the file list collapses to zero rows in
 			// short panes.
