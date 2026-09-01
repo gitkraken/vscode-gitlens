@@ -1897,9 +1897,12 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  // `undefined` when the connect empty state is not shown
   'emptyState.reason': 'agents-undetected' | 'agents-unconnected',
   'emptyState.shown': boolean,
+  // `undefined` when the agents feature is unavailable
   'hooks.agentsCount': number,
+  // `undefined` when the agents feature is unavailable
   'hooks.agentsInstalledCount': number,
   'layout': 'list' | 'tree',
   'sessions.count': number,

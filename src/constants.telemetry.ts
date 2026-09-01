@@ -2172,9 +2172,12 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 	'sessions.needsInput.count': number;
 	'sessions.idle.count': number;
 	'sessions.ended.count': number;
+	/** `undefined` when the agents feature is unavailable */
 	'hooks.agentsCount': number | undefined;
+	/** `undefined` when the agents feature is unavailable */
 	'hooks.agentsInstalledCount': number | undefined;
 	'emptyState.shown': boolean;
+	/** `undefined` when the connect empty state is not shown */
 	'emptyState.reason': 'agents-undetected' | 'agents-unconnected' | undefined;
 }
 
