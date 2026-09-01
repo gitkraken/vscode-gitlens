@@ -39,6 +39,7 @@ import { dirname, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/pa
 import { defer } from '@gitlens/utils/promise.js';
 import type { Mutable } from '@gitlens/utils/types.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
+import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
 import type { RunOptions, RunResult } from './exec.js';
 import { fsExists, runSpawn } from './exec.js';
@@ -49,7 +50,11 @@ import type { GitQueueConfig } from './gitQueue.js';
 import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQueue.js';
 import type { GitLocation } from './locator.js';
 
-const slowCallWarningThreshold = 2000;
+export const slowCallWarningThreshold = 2000;
+/** Below this, a queue-wait annotation isn't worth adding to the log line. */
+const queueWaitAnnotationThreshold = 100;
+/** Below this, a measured event-loop stall isn't worth annotating — see {@link EventLoopMonitor}. */
+const eventLoopDelayAnnotationThreshold = 500;
 export const maxGitCliLength = 30000;
 
 export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
@@ -560,7 +565,13 @@ export interface GitHooks {
 	 * command that actually executed, never for a deduplicated rider that merely awaited it, so a single
 	 * slow subprocess counts once. `operation` is the primary git subcommand (e.g. `status`, `rev-list`).
 	 */
-	onSlowCommand?(info: { operation: string | undefined; cwd: string | undefined; duration: number }): void;
+	onSlowCommand?(info: {
+		operation: string | undefined;
+		cwd: string | undefined;
+		duration: number;
+		/** Measured event-loop stall overlapping the command; omitted (or 0) when none was observed. */
+		eventLoopDelay?: number;
+	}): void;
 }
 
 const emptyArray: readonly never[] = Object.freeze([]);
@@ -576,6 +587,10 @@ export class Git {
 	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
 	/** Queue for throttling background git operations */
 	private readonly _queue: GitQueue;
+	/** Detects event-loop stalls while at least one git command is in flight */
+	private readonly _eventLoopMonitor = new EventLoopMonitor();
+	/** Count of git commands currently in flight, across both the exec and streaming paths */
+	private _activeCommandCount = 0;
 
 	/** Cached base environment: process.env + static options.env + GCM/LC_ALL vars */
 	private _baseEnv: Record<string, string | undefined> | undefined;
@@ -632,11 +647,34 @@ export class Git {
 
 	dispose(): void {
 		this._queue.dispose();
+		this._eventLoopMonitor.dispose();
 	}
 
 	/** Clear pending commands (e.g. on cache reset) */
 	clearPendingCommands(): void {
 		this.pendingCommands.clear();
+	}
+
+	/** Marks one more git command as in flight; starts the event-loop monitor on the first. */
+	private beginActiveCommand(): void {
+		this._activeCommandCount++;
+		if (this._activeCommandCount === 1) {
+			this._eventLoopMonitor.start();
+		}
+	}
+
+	/** Marks a git command as finished; stops the event-loop monitor once none remain. */
+	private endActiveCommand(): void {
+		this._activeCommandCount--;
+		if (this._activeCommandCount === 0) {
+			this._eventLoopMonitor.stop();
+		}
+	}
+
+	/** Formats the shared "event loop blocked" log annotation; undefined below {@link eventLoopDelayAnnotationThreshold}. */
+	private formatEventLoopDelayAnnotation(sinceEpochMs: number): string | undefined {
+		const delay = this._eventLoopMonitor.maxDelaySince(sinceEpochMs);
+		return delay >= eventLoopDelayAnnotationThreshold ? `event loop blocked ~${delay}ms` : undefined;
 	}
 
 	private _gitLocation: GitLocation | undefined;
@@ -757,6 +795,7 @@ export class Git {
 		gitCommand: string,
 	): Promise<GitResult<T | unknown>> {
 		const start = hrtime();
+		const startEpochMs = Date.now();
 
 		gitCommand = `[${options.cwd}] ${gitCommand}`;
 		const {
@@ -837,6 +876,10 @@ export class Git {
 			Logger.trace(`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u00b7 awaiting existing call...`);
 		}
 
+		// Placed HERE, not at the top of the method — every path from this point flows through the
+		// `finally` below, so the active count can't leak if setup (e.g. locating git) throws.
+		this.beginActiveCommand();
+
 		let exception: Error | undefined;
 		let result;
 		try {
@@ -889,8 +932,14 @@ export class Git {
 				// Also surfaced on the result, but DIAGNOSTIC ONLY — a timeout kill and a caller abort are both
 				// SIGTERM, so this duration heuristic can be wrong near the boundary. Never gate behavior on it.
 				cancellationReason = reason === 'cancellation' ? 'aborted' : reason;
+
+				// A stalled event loop can leave a command looking timed out when it merely never got its exit
+				// event delivered in time \u2014 surface the same signal here so it isn't misread as a real timeout.
+				const loopDelayAnnotation = this.formatEventLoopDelayAnnotation(startEpochMs);
+				const loopDelayText = loopDelayAnnotation != null ? ` \u00b7 ${loopDelayAnnotation}` : '';
+
 				Logger.warn(
-					`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u00b7 ABORTED after ${duration}ms (${reason})`,
+					`${formatLoggableScopeBlock('GIT')} ${gitCommand} \u00b7 ABORTED after ${duration}ms (${reason})${loopDelayText}`,
 				);
 				this.options.hooks?.onAborted?.({
 					operation: gitCommand,
@@ -986,7 +1035,9 @@ export class Git {
 				waiting,
 				options.cwd,
 				args,
+				startEpochMs,
 			);
+			this.endActiveCommand();
 		}
 	}
 
@@ -994,6 +1045,7 @@ export class Git {
 		if (this.options.isTrusted?.() === false) throw new WorkspaceUntrustedError();
 
 		const start = hrtime();
+		const startEpochMs = Date.now();
 		const streamId = uniqueCounterForStream.next();
 
 		const { configs, stdin, stdinEncoding, cancellation, encoding, ...opts } = options;
@@ -1103,9 +1155,16 @@ export class Git {
 				false,
 				spawnOpts.cwd as string | undefined,
 				runArgs,
+				startEpochMs,
 				streamId,
 			);
+			this.endActiveCommand();
 		};
+
+		// Placed HERE, not at the top of the method — every path from this point reaches `cleanup()`
+		// (the `finally` below, or the generator-close return), so the active count can't leak if
+		// setup (e.g. locating git) throws.
+		this.beginActiveCommand();
 
 		try {
 			this.logGitCommandStart(gitCommand, streamId);
@@ -1271,10 +1330,38 @@ export class Git {
 		waiting: boolean,
 		cwd: string | undefined,
 		args: readonly (string | undefined)[] | undefined,
+		startEpochMs: number,
 		id?: number,
 	): void {
 		const slow = duration > slowCallWarningThreshold;
-		const status = slow && waiting ? ' (slow, waiting)' : waiting ? ' (waiting)' : slow ? ' (slow)' : '';
+
+		const annotations: string[] = [];
+		if (slow) {
+			annotations.push('slow');
+		}
+
+		if (waiting) {
+			annotations.push('waiting');
+		} else if (execDuration > 0) {
+			// Dedup riders (`waiting`) and never-started commands (`execDuration === 0`) have no queue
+			// wait of their own to report.
+			const queued = duration - execDuration;
+			if (queued >= queueWaitAnnotationThreshold) {
+				annotations.push(`queued ${queued}ms`);
+			}
+		}
+
+		// `hrtime` spans don't correlate with the monitor's wall-clock ring, so the lookup needs the
+		// command's own start time — only worth measuring once the command is already slow. Whole-call
+		// window on purpose: the annotation explains the TOTAL duration this log line reports.
+		if (slow) {
+			const loopDelayAnnotation = this.formatEventLoopDelayAnnotation(startEpochMs);
+			if (loopDelayAnnotation != null) {
+				annotations.push(loopDelayAnnotation);
+			}
+		}
+
+		const status = annotations.length > 0 ? ` (${annotations.join(', ')})` : '';
 
 		// The health signal is gated on the SUBPROCESS time, not the total: time spent queued behind other
 		// git work is congestion, not repository slowness, and counting it would let a busy queue (including
@@ -1286,11 +1373,17 @@ export class Git {
 		// Guarded: this runs inside the command's `finally`, so a hook throw would otherwise replace
 		// the command's real result/error for the caller.
 		if (execDuration > slowCallWarningThreshold && !waiting) {
+			// Scoped to the SUBPROCESS window, matching the hook's `duration`: `duration - execDuration`
+			// is the queue wait, and a stall while queued is congestion, not the command's own signal
+			// (same reasoning as the `execDuration` gate above). The subprocess ends at log time, so it
+			// started `duration - execDuration` after the call did.
+			const execEventLoopDelay = this._eventLoopMonitor.maxDelaySince(startEpochMs + (duration - execDuration));
 			try {
 				this.options.hooks?.onSlowCommand?.({
 					operation: args != null ? getPrimaryGitCommand(args) : undefined,
 					cwd: cwd,
 					duration: execDuration,
+					eventLoopDelay: execEventLoopDelay,
 				});
 			} catch {}
 		}

@@ -7,6 +7,7 @@ import { fetch } from '@env/fetch.js';
 import { isLinux, isWindows } from '@env/platform.js';
 import type { CliGitProviderOptions } from '@gitlens/git-cli/cliGitProvider.js';
 import { CliGitProvider } from '@gitlens/git-cli/cliGitProvider.js';
+import { slowCallWarningThreshold } from '@gitlens/git-cli/exec/git.js';
 import type { GitLocation } from '@gitlens/git-cli/exec/locator.js';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from '@gitlens/git-cli/exec/locator.js';
 import type { Cache } from '@gitlens/git/cache.js';
@@ -273,6 +274,12 @@ export class GlCliGitProvider implements GlGitProvider {
 						});
 					},
 					onSlowCommand: info => {
+						// An event-loop stall inflates the measured duration (the exit event sat undelivered),
+						// so only count samples that would still be slow with the entire stall discounted —
+						// health evidence drives maintenance recommendations, and a starved host must not
+						// manufacture "slow repository" evidence.
+						if (info.duration - (info.eventLoopDelay ?? 0) <= slowCallWarningThreshold) return;
+
 						// Feed the Git Health passive-slowness counters. Resolution stays in-memory only
 						// (`getRepository`) — never invoke git here, or we'd recurse through the exec layer
 						// that just fired this hook.
