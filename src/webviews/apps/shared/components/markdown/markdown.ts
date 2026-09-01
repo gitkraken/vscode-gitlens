@@ -7,6 +7,7 @@ import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
 import { applyCspSafeStyles, rewriteInlineStylesToData } from './css-inline-styles.js';
+import '../overlays/tooltip.js';
 
 let inlineMarked: Marked | undefined;
 let blockMarked: Marked | undefined;
@@ -36,6 +37,23 @@ export class GlMarkdown extends LitElement {
 
 			a:hover:not(.disabled) {
 				cursor: pointer;
+			}
+
+			.image {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--gl-space-4);
+				padding: var(--gl-space-2) var(--gl-space-6) var(--gl-space-2) var(--gl-space-4);
+				border-radius: var(--gl-radius-sm);
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+				line-height: 1.4;
+				vertical-align: middle;
+			}
+
+			/* The chip's own padding and gap place the icon; the general icon nudge below would double it.
+			   The :not() matches that rule's specificity so this earlier rule can win. */
+			.image > code-icon:not(.leading) {
+				margin-left: 0;
 			}
 
 			p,
@@ -209,23 +227,8 @@ export function escape(html: string, encode?: boolean) {
 
 function getMarkdownRenderer(): RendererObject {
 	return {
-		image: function (this: RendererThis, { href, title, text }: Tokens.Image): string {
-			let dimensions: string[] = [];
-			let attributes: string[] = [];
-			if (href) {
-				({ href, dimensions } = parseHrefAndDimensions(href));
-				attributes.push(`src="${escapeDoubleQuotes(href)}"`);
-			}
-			if (text) {
-				attributes.push(`alt="${escapeDoubleQuotes(text)}"`);
-			}
-			if (title) {
-				attributes.push(`title="${escapeDoubleQuotes(title)}"`);
-			}
-			if (dimensions.length) {
-				attributes = [...attributes, ...dimensions];
-			}
-			return `<img ${attributes.join(' ')}>`;
+		image: function (this: RendererThis, { href, text }: Tokens.Image): string {
+			return renderImagePlaceholder(href ? parseHrefAndDimensions(href).href : href, text);
 		},
 		codespan: function (this: RendererThis, { text }: Tokens.Codespan): string {
 			return `<code>${escape(text)}</code>`;
@@ -235,10 +238,46 @@ function getMarkdownRenderer(): RendererObject {
 			return `<p>${text}</p>`;
 		},
 		html: function (this: RendererThis, { text }: Tokens.HTML | Tokens.Tag): string {
+			const images = renderImagePlaceholdersFromHtml(text);
+			if (images) return images;
+
 			const match = text.match(/^(<span[^>]+>)|(<\/\s*span>)$/);
 			return match ? text : '';
 		},
 	};
+}
+
+/** GitHub-flavored pasted images and private-repo images can't render in the webview — no cookies, and
+ *  the `html` renderer otherwise drops raw `<img>` tags entirely (see `getMarkdownRenderer`'s `html`
+ *  case). This renders a clickable chip in their place instead of the image itself. */
+function renderImagePlaceholder(src: string | undefined, alt: string | undefined): string {
+	const label = escape(alt || 'Image');
+	const icon = renderThemeIcon({ id: 'file-media' });
+	if (src && /^https?:\/\//i.test(src)) {
+		return `<gl-tooltip content="Open image in browser"><a class="image" href="${escapeDoubleQuotes(src)}">${icon}${label}</a></gl-tooltip>`;
+	}
+
+	return `<span class="image">${icon}${label}</span>`;
+}
+
+const htmlImageTagRegex = /<img\b[^>]*>/gis;
+const htmlImageSrcRegex = /\bsrc=(?:"([^"]*)"|'([^']*)')/i;
+const htmlImageAltRegex = /\balt=(?:"([^"]*)"|'([^']*)')/i;
+
+/** Extracts every `<img …>` tag out of a raw HTML block (e.g. a `<picture>` wrapper) and renders each as
+ *  a placeholder chip — see `renderImagePlaceholder`. */
+function renderImagePlaceholdersFromHtml(text: string): string {
+	const tags = text.match(htmlImageTagRegex);
+	if (!tags?.length) return '';
+
+	let result = '';
+	for (const tag of tags) {
+		const srcMatch = htmlImageSrcRegex.exec(tag);
+		const altMatch = htmlImageAltRegex.exec(tag);
+		result += renderImagePlaceholder(srcMatch?.[1] ?? srcMatch?.[2], altMatch?.[1] ?? altMatch?.[2]);
+	}
+
+	return result;
 }
 
 function getInlineMarkdownRenderer(): RendererObject {

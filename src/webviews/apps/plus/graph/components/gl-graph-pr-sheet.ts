@@ -23,6 +23,7 @@ import '../../../shared/components/markdown/markdown.js';
 import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/popover-confirm.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -88,6 +89,18 @@ function joinPrNumbers(numbers: string[]): string {
 		.join(', ')}, and #${numbers.at(-1)}`;
 }
 
+const htmlCommentRegex = /<!--[\s\S]*?-->/g;
+const nonImageHtmlTagRegex = /<(?!img\b)\/?[a-z][^>]*>/gi;
+
+/** True when a pull request's description has nothing to show — either it's missing, or all that's
+ *  left after stripping comments and every tag except `<img>` (which renders as a placeholder chip via
+ *  `gl-markdown`) is whitespace. PR templates often leave only HTML comments behind. */
+function isDescriptionBlank(body: string | undefined): boolean {
+	if (!body) return true;
+
+	return !body.replace(htmlCommentRegex, '').replace(nonImageHtmlTagRegex, '').trim();
+}
+
 /**
  * Details sheet for a pull request — identity, branch context, mergeability, and (when it's one layer
  * of a stack, or the stack itself) the stack rail beside it.
@@ -139,6 +152,31 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
+			}
+
+			.title__link {
+				display: inline-flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+				padding: 0;
+				margin: 0;
+				color: inherit;
+				font: inherit;
+				background: none;
+				border: none;
+				cursor: pointer;
+			}
+
+			.title__link:hover .title__name,
+			.title__link:focus-visible .title__name {
+				text-decoration: underline;
+			}
+
+			.title__link:focus-visible {
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline-offset: 0.2rem;
+				border-radius: 0.2rem;
 			}
 
 			.title__id {
@@ -424,6 +462,12 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				font-size: var(--gl-font-sm);
 			}
 
+			.description__empty {
+				margin: 0;
+				color: var(--color-foreground--65);
+				font-size: var(--gl-font-sm);
+			}
+
 			.description__fade {
 				position: absolute;
 				right: 0;
@@ -647,7 +691,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		}
 
 		const pr = this.pullRequest;
-		if (pr == null || this.stackRoot || !pr.body || this._descriptionMeasuredFor === pr.number) return;
+		if (pr == null || this.stackRoot || isDescriptionBlank(pr.body) || this._descriptionMeasuredFor === pr.number) {
+			return;
+		}
 
 		this._descriptionMeasuredFor = pr.number;
 		requestAnimationFrame(() => {
@@ -718,11 +764,19 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 					>`
 				: nothing;
 
-		return html`<span slot="title" class="title">
-			${titleIcon}
-			<span class="title__name">${titleText}</span>
-			${!this.stackRoot ? html`<span class="title__id">#${pr.number}</span>` : nothing} ${chip}
-		</span>`;
+		const titleName = html`<span class="title__name">${titleText}</span>`;
+		const titleId = !this.stackRoot ? html`<span class="title__id">#${pr.number}</span>` : nothing;
+
+		const titleLink =
+			!this.stackRoot && pr.url
+				? html`<gl-tooltip content="Open Pull Request on Remote">
+						<button type="button" class="title__link" @click=${this.onOpenOnRemote}>
+							${titleName}${titleId}
+						</button>
+					</gl-tooltip>`
+				: html`${titleName}${titleId}`;
+
+		return html`<span slot="title" class="title"> ${titleIcon} ${titleLink} ${chip} </span>`;
 	}
 
 	private renderSubtitleRow(pr: GraphSidebarPullRequest) {
@@ -1198,7 +1252,14 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	 *  and a "Show more" toggle — only when it actually overflows the clamp (measured in `updated()`).
 	 *  Never rendered for a stack-root sheet, which has no single description of its own. */
 	private renderDescription(pr: GraphSidebarPullRequest) {
-		if (this.stackRoot || !pr.body) return nothing;
+		if (this.stackRoot) return nothing;
+
+		if (isDescriptionBlank(pr.body)) {
+			return html`<div>
+				<span class="section-label">Description</span>
+				<p class="description__empty">No description provided.</p>
+			</div>`;
+		}
 
 		const collapsed = !this._descriptionExpanded;
 		return html`<div>
