@@ -1,33 +1,19 @@
-/**
- * The Agents panel's empty presentation, resolved from hooks + session state. `connect` replaces the
- * tree body with a pitch naming why the list is empty (no agents connected) and routing to the Agents
- * settings page; `no-sessions` keeps the tree (and its filter/past-sessions chrome) and only swaps the
- * generic "No items" for a truthful line. See #5777.
- */
+/** The Agents panel's empty presentation: `connect` pitches connecting an agent; `no-sessions` keeps
+ *  the tree and only replaces its generic empty text. See #5777. */
 export type AgentsPanelEmptyState =
 	| { type: 'connect'; reason: 'agents-undetected' | 'agents-unconnected' }
 	| { type: 'no-sessions' };
 
 /**
- * Decides what the Agents panel shows when it has no sessions to list.
+ * Decides what the Agents panel shows when it has no sessions to list. `undefined` means nothing to
+ * explain: sessions exist, or `hooksAgents` is `undefined` — no push yet, or the agents feature is
+ * unavailable — where a pitch would flash or lie.
  *
- * Returns `undefined` when there is nothing to explain: sessions exist, or `hooksAgents` is
- * `undefined` — before the host's first agents push (treating "unknown" as "unconnected" would flash
- * the pitch at every panel open) and while the agents feature is unavailable (disabled by setting or
- * org, or a host with no session providers — pitching agents that cannot be connected would be a lie).
+ * The pitch requires that NO agent has hooks installed (not the banner's `canInstallHooks`, which stays
+ * true while one agent works and another merely lacks hooks) and that the banner isn't already pitching.
  *
- * The pitch must never lie: it only appears when NO detected agent has hooks installed — the banner's
- * own `canInstallHooks` gate is the wrong predicate here, since it stays true while one agent is
- * connected and working and another merely lacks hooks. And while the "Connect Your AI Agents" banner
- * is still visible it already carries the pitch, so the empty body drops to the neutral line instead
- * of saying the same thing twice; once the banner is dismissed the pitch becomes the panel's permanent
- * answer — that persistence is the point of #5777.
- *
- * @param hooksAgents Detected, hooks-capable agents (`undefined` while unknown or the agents feature
- * is unavailable; `[]` when enabled but none detected)
- * @param sessionCount Family-filtered session total — NOT the post-"past sessions"-toggle count, since
- * hidden ended sessions still prove agents are connected
- * @param bannerVisible Whether the Connect Your AI Agents banner is currently rendered above the tree
+ * @param sessionCount Family-filtered total, pre-"past sessions" toggle — hidden ended sessions still
+ * prove agents are connected
  */
 export function resolveAgentsEmptyState(options: {
 	hooksAgents: readonly { installed: boolean }[] | undefined;
