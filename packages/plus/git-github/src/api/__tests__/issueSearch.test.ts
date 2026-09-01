@@ -1418,6 +1418,63 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 		assert.equal(truncated, true, 'and the unreachable remainder is reported');
 	});
 
+	test('the account-wide read reports the ceiling when it has no order to slide by', async () => {
+		// `searchMyIssues` orders only on request, so with none there is no boundary to slide from. It must still
+		// SAY it hit the ceiling: a first pass at the per-alias slide folded that check into the slide attempt,
+		// which silently dropped it here and served 1.000 of 1.150 as if complete.
+		const api = new GitHubApi(faithful({ assigned: spread(1150, 'I') }));
+
+		let cursor: string | undefined;
+		let truncated = false;
+		const urls: string[] = [];
+		for (let page = 1; page <= 40; page++) {
+			const r = await api.searchMyIssues(provider, token, { repos: ['o/a'], cursor: cursor });
+			truncated = r?.truncated ?? false;
+			for (const v of r?.values ?? []) {
+				urls.push(v.url);
+			}
+			if (r?.hasMore !== true || r.cursor == null) break;
+
+			cursor = r.cursor;
+		}
+
+		assert.equal(new Set(urls).size, 1000, 'only the reachable window is served');
+		assert.equal(truncated, true, 'and the rest is reported as omitted, not passed off as complete');
+	});
+
+	test('the account-wide read APPLIES a slide bound it sealed, rather than recording it and ignoring it', async () => {
+		// This method composes its own query text, so it has to append the bound itself. Without that the
+		// continuation re-issues the unbounded query, re-serves the same first 1.000, has every one filtered out
+		// as already-seen, and pages through nothing until it gives up: 20 requests to do 10 requests' work.
+		const corpus = spread(1150, 'I');
+		const api = new GitHubApi(faithful({ assigned: corpus }));
+
+		let cursor: string | undefined;
+		let pages = 0;
+		let truncated = false;
+		const urls: string[] = [];
+		for (; pages < 40;) {
+			const r = await api.searchMyIssues(provider, token, {
+				repos: ['o/a'],
+				sort: 'updated:desc',
+				cursor: cursor,
+			});
+			pages++;
+			truncated = r?.truncated ?? false;
+			for (const v of r?.values ?? []) {
+				urls.push(v.url);
+			}
+			if (r?.hasMore !== true || r.cursor == null) break;
+
+			cursor = r.cursor;
+		}
+
+		assert.equal(new Set(urls).size, corpus.length, 'the walk reaches past the ceiling');
+		assert.equal(urls.length, new Set(urls).size, 'without serving anything twice');
+		assert.equal(truncated, false);
+		assert.ok(pages <= 13, `no requests wasted on fully-filtered pages (took ${pages})`);
+	});
+
 	test('an unslidable sort still reports the ceiling for a union', async () => {
 		const api = new GitHubApi(faithful({ authored: spread(1200, 'A') }));
 
