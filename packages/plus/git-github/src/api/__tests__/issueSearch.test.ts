@@ -988,3 +988,145 @@ suite('GitHubApi issue-search cursor ordering fingerprint', () => {
 		);
 	});
 });
+
+/**
+ * The CEILING SLIDE (#5805): GitHub caps a search at 1,000 results PER QUERY, so a walk that runs out of pages
+ * against a capped query continues by re-issuing the search bounded to the far side of the last item served.
+ * That turns the ceiling from terminal into continuable while keeping ONE query per page, so the order across
+ * the whole read stays the provider's.
+ */
+suite('GitHubApi.searchIssuesPage ceiling slide (#5805)', () => {
+	/** A capped result: `issueCount` over the limit, and a terminal page (nothing left to page to). */
+	function cappedServe(nodes: unknown[], count = 1500) {
+		let variables: Record<string, unknown> = {};
+		const config = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { query?: string; variables?: Record<string, unknown> };
+				variables = body.variables ?? {};
+				const aliases = Array.from((body.query ?? '').matchAll(/^\s*(\w+): search\(/gm), m => m[1]);
+				return new Response(
+					JSON.stringify({
+						data: Object.fromEntries(
+							aliases.map(a => [
+								a,
+								{ issueCount: count, pageInfo: { endCursor: null, hasNextPage: false }, nodes: nodes },
+							]),
+						),
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			},
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		return { config: config, getVariables: () => variables };
+	}
+
+	/** One GraphQL issue node, complete enough for `fromGitHubIssue` to map it (a partial node maps to
+	 * nothing, which would silently make every page below empty and every assertion vacuous). */
+	const issue = (n: number, updatedAt: string) => ({
+		id: `i${n}`,
+		number: n,
+		title: `issue ${n}`,
+		url: `https://github.com/acme/repo/issues/${n}`,
+		createdAt: updatedAt,
+		updatedAt: updatedAt,
+		closedAt: null,
+		closed: false,
+		state: 'OPEN',
+		author: null,
+		assignees: { nodes: [] },
+		comments: { totalCount: 0 },
+		reactions: { totalCount: 0 },
+		repository: { name: 'repo', owner: { login: 'acme' }, url: 'https://github.com/acme/repo' },
+	});
+
+	test('a capped, page-exhausted walk continues with an inclusive boundary instead of reporting the ceiling', async () => {
+		const { config } = cappedServe([issue(1, '2026-05-01T10:00:00Z'), issue(2, '2026-04-01T09:30:00Z')]);
+		const api = new GitHubApi(config);
+
+		const page = await api.searchIssuesPage(provider, token, { org: 'acme' });
+
+		assert.equal(page?.truncated, false, 'a slidable ceiling is forward progress, not incompleteness');
+		assert.equal(page?.hasMore, true, 'the remainder is reachable');
+		assert.ok(page?.cursor != null);
+		const cursor = JSON.parse(page.cursor) as { slide?: string; slideSeen?: string };
+		// INCLUSIVE (`<=`): GitHub timestamps are second-resolution and ties occur, so an exclusive bound would
+		// silently drop every issue sharing the boundary second with the last one served.
+		assert.equal(cursor.slide, 'updated:<=2026-04-01T09:30:00Z', 'bounded at the last item served, inclusive');
+		assert.equal(
+			cursor.slideSeen,
+			'https://github.com/acme/repo/issues/2',
+			'the boundary second it re-serves is carried so the next page can drop it',
+		);
+	});
+
+	test('the slid query carries the boundary and drops what the boundary second already served', async () => {
+		const boundary = issue(2, '2026-04-01T09:30:00Z');
+		const { config, getVariables } = cappedServe([boundary, issue(3, '2026-03-01T08:00:00Z')], 10);
+		const api = new GitHubApi(config);
+
+		const cursor = JSON.stringify({
+			page: 2,
+			sort: 'updated:desc',
+			slide: 'updated:<=2026-04-01T09:30:00Z',
+			slideSeen: boundary.url,
+		});
+		const page = await api.searchIssuesPage(provider, token, { org: 'acme', cursor: cursor });
+
+		assert.match(
+			String(getVariables().matched),
+			/updated:<=2026-04-01T09:30:00Z/,
+			'the continuation re-issues the search bounded to the far side of what was served',
+		);
+		assert.deepEqual(
+			page?.values.map(v => v.url),
+			['https://github.com/acme/repo/issues/3'],
+			'the re-served boundary issue is dropped, so the walk emits no duplicate',
+		);
+	});
+
+	test('a capped walk with pages remaining is not yet marked truncated', async () => {
+		// The slide happens once the walk runs OUT of pages. Marking `truncated` earlier would seal it into the
+		// cursor and keep it there for the rest of the read: a completed walk reporting omitted results it fetched.
+		const { config } = serve({ matched: [issue(1, '2026-05-01T10:00:00Z')] }, { hasNextPage: true });
+		const api = new GitHubApi(config);
+
+		const page = await api.searchIssuesPage(provider, token, { org: 'acme' });
+
+		assert.equal(page?.hasMore, true);
+		assert.equal(page?.truncated, false, 'nothing is omitted while the walk can still page forward');
+	});
+
+	test('an unslidable sort key still reports the ceiling rather than continuing', async () => {
+		// `comments` has a GitHub range qualifier, but its value moves under concurrent activity: an issue that
+		// gains a comment mid-walk crosses the boundary and is dropped or repeated. Reporting the ceiling is the
+		// honest answer there.
+		const { config } = cappedServe([issue(1, '2026-05-01T10:00:00Z')]);
+		const api = new GitHubApi(config);
+
+		const page = await api.searchIssuesPage(provider, token, {
+			org: 'acme',
+			criteria: { sort: 'comments:desc' },
+		});
+
+		assert.equal(page?.truncated, true, 'an unreachable remainder is still reported as omitted');
+		assert.equal(page?.hasMore, false, 'and never advertised as continuable');
+	});
+
+	test('a foreign or malformed slide in a cursor is ignored rather than injected into the query', async () => {
+		// The slide is caller-supplied data on a round trip, so it is validated against the exact shape this
+		// emits: anything else restarts the walk instead of reaching the query.
+		const { config, getVariables } = cappedServe([issue(1, '2026-05-01T10:00:00Z')], 10);
+		const api = new GitHubApi(config);
+
+		await api.searchIssuesPage(provider, token, {
+			org: 'acme',
+			cursor: JSON.stringify({ page: 2, sort: 'updated:desc', slide: 'org:evil-corp' }),
+		});
+
+		const query = String(getVariables().matched);
+		assert.ok(!query.includes('evil-corp'), 'an unrecognized slide never reaches the query');
+		assert.match(query, /org:acme/, 'the caller-supplied scope is the only one applied');
+	});
+});
