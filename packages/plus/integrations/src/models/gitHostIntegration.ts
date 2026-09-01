@@ -1789,6 +1789,54 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<(number | undefined)[] | undefined>;
 
+	/**
+	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates in
+	 * one request. Recovers thrown errors into `{ error }` like the reads around it.
+	 *
+	 * Distinct from every search on this class, and deliberately so. A search answers "what matches"; this answers
+	 * "does this exact issue exist", which is the question a caller correlating a branch name to an issue is
+	 * actually asking. It has no result ceiling, no ordering and no cursor, and — the property that matters most —
+	 * an absent slot is a PROVEN ABSENCE rather than "not found within a page budget", so a caller can cache a
+	 * miss instead of re-walking for it forever.
+	 *
+	 * Results come back POSITIONALLY — one per input coordinate, in order — for the same reason
+	 * {@link countIssuesResult} does: a caller's key must never reach the provider query. `undefined` in a slot
+	 * means the issue does not exist or is not visible to this token, never that the read failed.
+	 */
+	async getIssuesBatchResult(
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<(IssueShape | undefined)[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const issues = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
+			this.resetRequestExceptionCount('getIssuesBatch');
+			return { value: issues, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getIssuesBatch', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: only a provider that can resolve SEVERAL issues by coordinate in one request implements this.
+	 * GitHub aliases its point read into one document; the SDK exposes only a singular `getIssue` for every other
+	 * provider, and there is no plural variant to build on. A provider that can't answer doesn't implement it and
+	 * the facade refuses the read, so a caller keeps its own per-issue path rather than being handed a batch that
+	 * silently degraded into N requests.
+	 */
+	protected getProviderIssuesBatch?(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+	): Promise<(IssueShape | undefined)[] | undefined>;
+
 	/** The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none. */
 	async countPullRequestsResult(
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],

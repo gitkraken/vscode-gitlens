@@ -690,6 +690,24 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
+	 * Resolves several issues by `(owner, repo, number)` in ONE request, by aliasing the point read rather than a
+	 * search — see {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design.
+	 */
+	protected override async getProviderIssuesBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+	): Promise<(IssueShape | undefined)[] | undefined> {
+		return (await this.authenticationService.apis.github)?.getIssuesBatch(
+			this,
+			toTokenWithInfo(this.id, session),
+			coordinates,
+			{ baseUrl: this.apiBaseUrl, includeBody: true },
+			cancellation,
+		);
+	}
+
+	/**
 	 * Counts several pull-request scopes in ONE request. Like {@link countProviderIssues}, GitHub's `search`
 	 * reports `issueCount` on a zero-node selection, so a count preview costs no pull-request transfer.
 	 */

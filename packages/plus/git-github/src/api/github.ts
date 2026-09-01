@@ -3342,6 +3342,18 @@ export class GitHubApi {
 		variables: RequestParameters,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
+		/**
+		 * Accept a response whose only failures are NOT_FOUND, returning its PARTIAL data instead of throwing.
+		 *
+		 * For a single-entity query a NOT_FOUND is the whole answer, so throwing is right. For an ALIASED batch it
+		 * is one slot's answer: GitHub replies 200 with every resolvable alias populated and a NOT_FOUND per
+		 * missing one, so throwing discards the results that did resolve. Since a missing coordinate is the common
+		 * case for a batch, that would make the read useless for the very question it answers.
+		 *
+		 * Narrow on purpose: any error that is NOT a NOT_FOUND still throws, so auth, rate-limit and query-cost
+		 * failures keep their existing handling rather than being silently reported as a batch of absences.
+		 */
+		allowPartialNotFound?: boolean,
 	): Promise<T | undefined> {
 		const { accessToken, ...tokenInfo } = token;
 		// Only dedupe when no cancellation/request option is in play — sharing a promise that
@@ -3386,6 +3398,16 @@ export class GitHubApi {
 				);
 			} catch (ex) {
 				if (ex instanceof GraphqlResponseError) {
+					// `every`, not `[0]`: a batch can report several, and one non-NOT_FOUND among them is a real
+					// failure that must not be reported as a set of absences.
+					if (
+						allowPartialNotFound &&
+						ex.data != null &&
+						(ex.errors?.every(e => e.type === 'NOT_FOUND') ?? false)
+					) {
+						return ex.data as T;
+					}
+
 					switch (ex.errors?.[0]?.type) {
 						case 'NOT_FOUND':
 							throw new RequestNotFoundError(ex);
@@ -4238,6 +4260,98 @@ export class GitHubApi {
 			if (rsp == null) return queries.map(() => undefined);
 
 			return queries.map((_, i) => rsp[`s${i}`]?.issueCount);
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Resolves several issues BY COORDINATE — `(owner, repo, number)` — in one request, via aliased `repository`
+	 * fields rather than aliased searches.
+	 *
+	 * Aliasing the point read rather than {@link searchIssuesByAlias} is the whole design, and each difference
+	 * matters to the caller this exists for (correlating a branch name to the issue it references):
+	 * - it resolves by EXACT NUMBER, where a search answers a relevance question;
+	 * - no result ceiling applies, so there is no partial window to reason about;
+	 * - and a null is a PROVEN ABSENCE rather than "not found within a page budget", which is what makes a miss
+	 *   cacheable. That last one is the point: a caller that cannot prove absence re-walks its budget forever.
+	 *
+	 * Returns POSITIONALLY — one slot per input coordinate, in order — for the same reason {@link countIssues}
+	 * does: a caller's key is arbitrary text and would break the GraphQL document, so the aliases are generated
+	 * and the caller maps back by index. `undefined` in a slot means the issue does not exist (or is not visible
+	 * to this token), never that the read failed; a failure throws.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getIssuesBatch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		options?: { baseUrl?: string; avatarSize?: number; includeBody?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<(IssueShape | undefined)[]> {
+		const scope = getScopedLogger();
+		if (coordinates.length === 0) return [];
+
+		const params = coordinates
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
+			.join('\n\t\t\t\t');
+		const fields = coordinates
+			.map(
+				(_, i) => `i${i}: repository(owner: $o${i}, name: $n${i}) {
+					issue(number: $k${i}) {
+						${gqIssueFragment}${options?.includeBody ? '\n\t\t\t\t\t\tbody' : ''}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getIssuesBatch(
+				${params}
+				$avatarSize: Int
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options?.baseUrl,
+			avatarSize: options?.avatarSize,
+		};
+		coordinates.forEach((c, i) => {
+			variables[`o${i}`] = c.owner;
+			variables[`n${i}`] = c.repo;
+			variables[`k${i}`] = c.number;
+		});
+
+		try {
+			// `allowPartialNotFound`: a coordinate that does not exist is this read's ANSWER for that slot, not a
+			// failure of the batch. GitHub replies 200 with the resolvable aliases populated and a NOT_FOUND per
+			// missing one, so without this a single bad coordinate would discard every good result — and a miss
+			// is the common outcome for the caller this read exists for.
+			const rsp = await this.graphql<Record<string, { issue?: GitHubIssue | null } | null | undefined>>(
+				provider,
+				token,
+				query,
+				variables,
+				scope,
+				cancellation,
+				true,
+			);
+			if (rsp == null) return coordinates.map(() => undefined);
+
+			// Mapped slot by slot so one unmappable issue can't discard the whole batch, matching the aliased
+			// search's node-by-node mapping. An unmappable issue reads as absent, which is the safe direction
+			// here only because the caller is asking "does this exist", and a false absent costs a re-read
+			// rather than a wrong issue.
+			return coordinates.map((c, i) => {
+				const node = rsp[`i${i}`]?.issue;
+				if (node == null) return undefined;
+
+				try {
+					return fromGitHubIssue(node, provider);
+				} catch (ex) {
+					scope?.warn(`skipped unmappable issue; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
+					return undefined;
+				}
+			});
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
