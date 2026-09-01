@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.1.0] - 2026-09-01
+
 ### Added
 
 - Adds live status for more coding agents &mdash; Codex, GitHub Copilot CLI, and OpenCode sessions now appear alongside Claude Code's everywhere agent status is shown, each with its own icon ([#5742](https://github.com/gitkraken/vscode-gitlens/issues/5742), [#5798](https://github.com/gitkraken/vscode-gitlens/issues/5798))
@@ -7340,7 +7342,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.1.0...HEAD
+[19.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...gitkraken:v19.1.0
 [19.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...gitkraken:v19.0.1
 [19.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...gitkraken:v19.0.0
 [18.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...gitkraken:v18.3.0
