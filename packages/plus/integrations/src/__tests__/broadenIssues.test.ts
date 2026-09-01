@@ -972,28 +972,32 @@ suite('broaden issues fan-out (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('broadenIssues does not search an org with an empty name, which would search the whole host', async () => {
-		const runtime = createFakeRuntime();
-		const { manager, gh } = await connectedGitHub(runtime);
+	// An org name that carries nothing is DROPPED by the provider's scope translation rather than rejected
+	// (`toGitHubIssueSearchScopeQualifiers` emits no bare `org:`, which GitHub rejects), so an unguarded search
+	// of one emits NO scope qualifier and matches every issue on the host — measured at 52 million. A bare
+	// `length > 0` check does not catch it: whitespace and quotes are exactly what a name pasted from a config
+	// or a URL degrades to, and they sanitize away to nothing.
+	for (const name of ['', '   ', '"', '""', '\t\n']) {
+		test(`broadenIssues does not search an org named ${JSON.stringify(name)}, which would search the whole host`, async () => {
+			const runtime = createFakeRuntime();
+			const { manager, gh } = await connectedGitHub(runtime);
 
-		// An emptied org value is DROPPED by the provider's scope translation rather than rejected, so an
-		// unguarded search of `org: ''` is a search of every issue on GitHub. The scope has to be validated
-		// before the engine is chosen.
-		let searches = 0;
-		stubIssueSearch(gh, () => {
-			searches++;
-			return Promise.resolve({ value: searchPage() });
+			let searches = 0;
+			stubIssueSearch(gh, () => {
+				searches++;
+				return Promise.resolve({ value: searchPage() });
+			});
+			stubOrgRepos(gh, () => Promise.resolve({ value: { values: [] } }));
+
+			const result = await manager.broadenIssues({
+				orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: name }],
+				page: 1,
+			});
+
+			assert.equal(searches, 0, 'an unscopable org never reaches the search');
+			assert.deepEqual(result.items, []);
+
+			manager.dispose();
 		});
-		stubOrgRepos(gh, () => Promise.resolve({ value: { values: [] } }));
-
-		const result = await manager.broadenIssues({
-			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: '' }],
-			page: 1,
-		});
-
-		assert.equal(searches, 0, 'an unscopable org never reaches the search');
-		assert.deepEqual(result.items, []);
-
-		manager.dispose();
-	});
+	}
 });

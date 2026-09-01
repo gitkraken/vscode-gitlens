@@ -326,6 +326,23 @@ export type IssueSearchScopeRejection =
 	| 'repo-ids';
 
 /**
+ * Whether a scope name survives the provider's sanitizing, i.e. whether it will actually constrain the query.
+ *
+ * Provider-NEUTRAL by design, and deliberately not an import of GitHub's `sanitizeGitHubQualifierValue`: this
+ * module validates for every provider, and a GitHub-specific rule reaching in here would be wrong for the next
+ * one that declares a search. What is common to any query language is the part that matters: a value made only of
+ * whitespace, quotes and control characters carries no name, and every sanitizer strips exactly those (quotes
+ * because they would close their own qualifier, control characters because they cannot appear in a query at all).
+ *
+ * Strictly weaker than any provider's own sanitizing, which is the safe direction: this can only pass a name the
+ * provider would then narrow further, never reject one the provider would have accepted.
+ */
+function isUsableSearchScopeName(name: string): boolean {
+	// eslint-disable-next-line no-control-regex
+	return name.replace(/["\u0000-\u001f\u007f\s]/g, '').length > 0;
+}
+
+/**
  * Validates that a filtered issue search is scoped at all, and narrows `repos` to the descriptor form the
  * provider query needs.
  *
@@ -336,6 +353,13 @@ export type IssueSearchScopeRejection =
  *
  * The two rejections are mutually exclusive — `repo-ids` requires repositories and `unscoped` requires none — so
  * the order they're checked in cannot change the outcome.
+ *
+ * An org is checked for what SURVIVES SANITIZING, not merely for being non-empty, and that distinction is a
+ * SECURITY one rather than a nicety: the provider query drops a value that sanitizes away rather than rejecting
+ * it (`toGitHubIssueSearchScopeQualifiers` emits no bare `org:`, which GitHub would reject), so an org of `'   '`
+ * or `'"'` would pass a length check, emit NO scope qualifier at all, and leave a search of the entire host —
+ * measured at 52 million issues across unrelated accounts. Whitespace and quotes are exactly what a name pasted
+ * from a config or a URL degrades to, so this is reachable without anything adversarial.
  */
 export function resolveIssueSearchScope(
 	repos: ProviderReposInput | undefined,
@@ -349,7 +373,7 @@ export function resolveIssueSearchScope(
 		return { repos: repos as ProviderRepoInput[] };
 	}
 
-	if (org != null && org.length > 0) return {};
+	if (org != null && isUsableSearchScopeName(org)) return {};
 	if (criteria?.relationships?.some(r => userScopingIssueSearchRelationships.includes(r)) === true) return {};
 
 	return { rejection: 'unscoped' };
