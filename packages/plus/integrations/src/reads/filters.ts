@@ -197,6 +197,20 @@ export type IssueSearchCriteriaRejection =
 	| { reason: 'contradictory-relationships' };
 
 /**
+ * Whether a provider exposes the FILTERED issue search at all — the one predicate a caller can check BEFORE
+ * building criteria, so a read that would only be refused is never issued.
+ *
+ * The same test {@link resolveIssueSearchCriteria} makes for its `unsupported-search` rejection, named rather
+ * than re-derived at each call site: a caller writing `supportedIssueSearch != null` itself is a copy free to
+ * disagree with the validator about what "has a search" means. `broadenIssues` reads it to pick its engine —
+ * the org-scoped search where there is one, the repository drain where there isn't — which is a CHOICE rather
+ * than a refusal, so it needs the predicate without the rejection.
+ */
+export function supportsFilteredIssueSearch(id: IntegrationIds): boolean {
+	return providersMetadata[id]?.supportedIssueSearch != null;
+}
+
+/**
  * Validates a filtered issue search's criteria against {@link ProviderMetadata.supportedIssueSearch}.
  *
  * All-or-nothing like its three siblings above, and for the same reason: a criterion dropped because the

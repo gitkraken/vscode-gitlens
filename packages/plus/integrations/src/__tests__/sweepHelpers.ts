@@ -75,3 +75,22 @@ export async function connectedGitHub(
 	(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 	return { manager: manager, gh: gh };
 }
+
+/**
+ * A connected GitLab manager, for the broaden tests that must exercise the REPOSITORY DRAIN engine.
+ *
+ * GitLab is the fixture for that path because it declares no filtered issue search
+ * (`supportedIssueSearch`), which is exactly what makes `broadenIssues` fall back to draining the org's
+ * repositories — the same condition in production, rather than a stub arranged to look like it.
+ */
+export async function connectedGitLab(
+	runtime: ReturnType<typeof createFakeRuntime>,
+): Promise<{ manager: ReturnType<typeof createIntegrationManager>; gl: GitHostIntegration }> {
+	const manager = createIntegrationManager(runtime);
+	const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+	(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+		...primarySession('t'),
+		domain: 'gitlab.com',
+	};
+	return { manager: manager, gl: gl };
+}
