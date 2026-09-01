@@ -8,6 +8,7 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
+import type { ProviderIssueSearchPage } from '../models/issueReads.js';
 import type {
 	ProviderIssue,
 	ProviderPullRequest,
@@ -103,6 +104,37 @@ function endlessCursorPage<T extends object>(values: T[], round: number): PagedR
 
 function providerRepo(): ProviderRepository {
 	return { id: 'r1', namespace: 'org', name: 'repo' } as unknown as ProviderRepository;
+}
+
+/**
+ * {@link endlessCursorPage} for the org-scoped issue search — the engine `broadenIssues` uses for a provider
+ * that has one (#5804). Same never-terminating shape, in the flat page that read returns rather than the SDK's
+ * `PagedResult` wrapper.
+ */
+function endlessSearchPage(values: IssueShape[], round: number): ProviderIssueSearchPage {
+	return {
+		values: values,
+		hasMore: true,
+		cursor: JSON.stringify({ value: `next-${round}`, type: 'cursor' }),
+		page: round,
+		truncated: false,
+	};
+}
+
+/** Swaps the org-scoped issue search a git-host integration reads through. */
+function stubIssueSearch(
+	integration: GitHostIntegration,
+	fn: (options: { org?: string; cursor?: string }) => Promise<IntegrationResult<ProviderIssueSearchPage>>,
+): void {
+	(
+		integration as unknown as {
+			searchIssuesPageResult: (
+				options: { org?: string; cursor?: string },
+				cancellation?: AbortSignal,
+				connectionId?: string,
+			) => Promise<IntegrationResult<ProviderIssueSearchPage>>;
+		}
+	).searchIssuesPageResult = fn;
 }
 
 suite('cursor paging contract (#5438)', () => {
@@ -282,31 +314,13 @@ suite('cursor paging contract (#5438)', () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
 
-		(
-			gh as unknown as {
-				getRepositoriesForOrgResult: (
-					org: string,
-				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
-			}
-		).getRepositoriesForOrgResult = (org: string) =>
-			Promise.resolve({
-				value: { values: [{ ...providerRepo(), namespace: org, name: `${org}-repo` }] },
-			});
-
 		const seenCursors: (string | undefined)[] = [];
-		(
-			gh as unknown as {
-				getMyIssuesForReposAsShapesResult: (
-					repos: ProviderReposInput,
-					options?: { cursor?: string },
-				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
-			}
-		).getMyIssuesForReposAsShapesResult = (_repos, options) => {
-			seenCursors.push(options?.cursor);
+		stubIssueSearch(gh, options => {
+			seenCursors.push(options.cursor);
 			return Promise.resolve({
-				value: endlessCursorPage([{ id: 'i1' } as unknown as ProviderIssue], seenCursors.length),
+				value: endlessSearchPage([{ id: 'i1' } as unknown as IssueShape], seenCursors.length),
 			});
-		};
+		});
 
 		const result = await manager.broadenIssues({
 			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
@@ -522,28 +536,13 @@ suite('cursor paging contract (#5438)', () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
 
-		(
-			gh as unknown as {
-				getRepositoriesForOrgResult: (
-					org: string,
-				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
-			}
-		).getRepositoriesForOrgResult = (org: string) =>
-			Promise.resolve({
-				value: { values: [{ ...providerRepo(), namespace: org, name: `${org}-repo` }] },
-			});
-
 		let calls = 0;
-		(
-			gh as unknown as {
-				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
-			}
-		).getMyIssuesForReposAsShapesResult = () => {
+		stubIssueSearch(gh, () => {
 			calls++;
 			return Promise.resolve({
-				value: endlessCursorPage([{ id: `page-${calls}` } as unknown as ProviderIssue], calls),
+				value: endlessSearchPage([{ id: `page-${calls}` } as unknown as IssueShape], calls),
 			});
-		};
+		});
 
 		const result = await manager.broadenIssues({
 			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
