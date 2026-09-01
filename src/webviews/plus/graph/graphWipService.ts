@@ -784,14 +784,24 @@ export class GraphWipService {
 		return slice;
 	}
 
-	// Deliberately minimal — the worktree path and the change stats, nothing else. The commit is the
+	// Deliberately minimal — the branch, the worktree path, and the change stats, nothing else. The commit is the
 	// worktree's own `uncommitted` pseudo-commit, so its `repoPath` IS the worktree's path (peer WIP
 	// rows route through their worktree's repository service).
 	async getWipTooltip(commit: GitCommit, cancellation: CancellationToken): Promise<string> {
-		await GitCommit.ensureFullDetails(commit, { include: { stats: true } });
+		const [detailsResult, branchResult] = await Promise.allSettled([
+			GitCommit.ensureFullDetails(commit, { include: { stats: true } }),
+			this.container.git.getRepositoryService(commit.repoPath).branches.getBranch(),
+		]);
 
 		if (cancellation.isCancellationRequested) throw new CancellationError();
 
+		// A failed stats load must fail the hover — falling through would render 'No working changes'
+		// for a worktree that may be dirty (the very state that put the WIP row on screen). The branch
+		// line is garnish, so ITS failure stays tolerated.
+		if (detailsResult.status === 'rejected') throw detailsResult.reason;
+
+		const branch = getSettledValue(branchResult);
+		const branchLine = branch != null ? `$(git-branch) \`${branch.name}\`` : undefined;
 		const workingTreeLine = `$(folder) \`${commit.repoPath}\``;
 
 		const statsShort = formatCommitStats(commit.stats, 'stats', { color: true });
@@ -806,7 +816,7 @@ export class GraphWipService {
 				: statsShort
 			: 'No working changes';
 
-		return `${statsLine}\\\n${workingTreeLine}`;
+		return `${statsLine}\n\n${branchLine ? `${branchLine}\\\n` : ''}${workingTreeLine}`;
 	}
 
 	/** Runs the worktree clean/dirty probe OFF the load path and pushes the enriched metadata
