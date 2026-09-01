@@ -1,4 +1,9 @@
-import type { IssueSearchCriteria, IssueSearchRelationship, IssueSorting } from '@gitlens/git/models/issue.js';
+import type {
+	IssueSearchCriteria,
+	IssueSearchRelationship,
+	IssueSortField,
+	IssueSorting,
+} from '@gitlens/git/models/issue.js';
 
 /**
  * Translation of the provider-neutral issue-search criteria into GitHub search qualifiers, and the sanitizing
@@ -118,6 +123,49 @@ export const gitHubIssueSortQualifiers: Partial<Record<IssueSorting, string>> = 
  */
 export function toGitHubIssueSortQualifier(sort: IssueSorting | undefined): string | undefined {
 	return sort != null ? gitHubIssueSortQualifiers[sort] : undefined;
+}
+
+/**
+ * The sort keys a CEILING SLIDE can continue past, and the qualifier each one continues with.
+ *
+ * The slide works by re-issuing the search bounded to the far side of what has already been served, which needs
+ * two things from the sort key: a value carried on the returned issue (so the boundary can be read off the last
+ * item), and a GitHub range qualifier over that same value (so the continuation can be expressed). Only the two
+ * date keys have both. `comments`/`reactions` have range qualifiers but their values are unstable under
+ * concurrent activity — a comment added mid-walk moves an issue across the boundary, which would drop or repeat
+ * it — and `title` has no range qualifier at all. Those keep reporting the ceiling instead, which is correct
+ * rather than a gap: the read stays truthful about what it could not reach.
+ *
+ * A `Partial<Record<…>>` over the union rather than a lookup with a default, so a sort key added later is
+ * NOT-slidable by construction and has to be opted in deliberately.
+ */
+const gitHubSlidableSortFields: Partial<Record<IssueSortField, string>> = {
+	created: 'created',
+	updated: 'updated',
+};
+
+/**
+ * The qualifier that continues a search past the provider's result ceiling: everything at or beyond the last
+ * item already served, under the same key the search is ordered by.
+ *
+ * INCLUSIVE (`<=` / `>=`) rather than exclusive, and that is a correctness requirement rather than a preference.
+ * GitHub timestamps have one-second resolution and ties genuinely occur (measured: one shared second in a
+ * 100-issue sample), so an exclusive bound would silently drop every issue sharing the boundary second with the
+ * last one served. Being inclusive re-serves that second instead, which the caller dedupes.
+ *
+ * Returns `undefined` when the key can't be slid ({@link gitHubSlidableSortFields}), which is the signal to
+ * report the ceiling rather than to continue.
+ */
+export function toGitHubIssueSearchSlideQualifier(sort: IssueSorting, boundary: Date): string | undefined {
+	const [field, direction] = sort.split(':') as [IssueSortField, 'asc' | 'desc'];
+	const qualifier = gitHubSlidableSortFields[field];
+	if (qualifier == null) return undefined;
+
+	// Whole seconds, matching both GitHub's own resolution and what its range qualifiers accept.
+	const value = boundary.toISOString().replace(/\.\d{3}Z$/, 'Z');
+	// Descending walks toward older, so the remainder is everything at or BEFORE the boundary; ascending is the
+	// mirror. Getting this backwards would re-request the half already served, forever.
+	return `${qualifier}:${direction === 'desc' ? '<=' : '>='}${value}`;
 }
 
 /**
