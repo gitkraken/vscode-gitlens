@@ -4006,15 +4006,29 @@ export class GitHubApi {
 		// - the ORDER is assigned → mentioned → authored, which is the order the union is emitted in and, because
 		//   the dedupe keeps the first occurrence of a url, also the precedence between the three. An issue that
 		//   is both assigned to and authored by the user surfaces as the assigned one.
+		// The per-alias ceiling-slide bound a prior page sealed. Applied HERE because this method owns its query
+		// text: without it the bound would be recorded and never honoured, so the continuation would re-issue the
+		// unbounded query, serve the same first 1.000, and have every one of them filtered out as already-seen —
+		// a page of nothing, repeated until the walk gave up (measured: 20 requests to do 10 requests' work).
+		const bound = this.parseSlidesFromCursor(options?.cursor);
 		const searches: AliasedIssueSearch[] = [];
 		if (requested.assigned) {
-			searches.push({ alias: 'assigned', query: `${search} ${baseFilters} ${assignedQualifier}`.trim() });
+			searches.push({
+				alias: 'assigned',
+				query: `${search} ${baseFilters} ${assignedQualifier} ${bound('assigned') ?? ''}`.trim(),
+			});
 		}
 		if (requested.mentioned) {
-			searches.push({ alias: 'mentioned', query: `${search} ${baseFilters} mentions:@me`.trim() });
+			searches.push({
+				alias: 'mentioned',
+				query: `${search} ${baseFilters} mentions:@me ${bound('mentioned') ?? ''}`.trim(),
+			});
 		}
 		if (requested.authored) {
-			searches.push({ alias: 'authored', query: `${search} ${baseFilters} author:@me`.trim() });
+			searches.push({
+				alias: 'authored',
+				query: `${search} ${baseFilters} author:@me ${bound('authored') ?? ''}`.trim(),
+			});
 		}
 
 		// Field by field, like `searchIssuesPage`: `options` also carries `repos`/`includeAllAssignees`/`categories`,
@@ -4628,7 +4642,12 @@ export class GitHubApi {
 				// from the merged page would sit below where an early-finishing alias stopped and re-serve
 				// everything it had already delivered.
 				let aliasSlide: string | undefined;
-				if (endCursor == null && issueCount > githubSearchResultLimit && sortKey != null) {
+				// Capped AND out of pages is where the ceiling actually bites. Evaluated on its own rather than
+				// inside the slide attempt below: a read that cannot slide at all (no order requested, so no
+				// boundary to slide from) must still REPORT the ceiling, and folding the two together silently
+				// dropped that for `searchMyIssues`, whose ordering is opt-in.
+				const strandedHere = endCursor == null && issueCount > githubSearchResultLimit;
+				if (strandedHere && sortKey != null) {
 					const boundary = mapped != null ? lastSortBoundary(mapped, sortKey) : undefined;
 					aliasSlide = boundary != null ? toGitHubIssueSearchSlideQualifier(sortKey, boundary) : undefined;
 					// A bound identical to the one this alias is ALREADY under would re-issue the same query
@@ -4646,9 +4665,9 @@ export class GitHubApi {
 					if (aliasSlide != null && aliasSlide === cursorString(cursor, `slide:${s.alias}`)) {
 						aliasSlide = undefined;
 					}
-					if (aliasSlide == null) {
-						strandedByCeiling = true;
-					}
+				}
+				if (strandedHere && aliasSlide == null) {
+					strandedByCeiling = true;
 				}
 
 				if (aliasSlide != null) {
