@@ -794,13 +794,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			'gl-tree-view',
 		);
 		if (treeView == null) {
-			// The treeless empty states (pull-requests connect/unsupported, agents connect) stand in for
-			// the tree, so there's no filter to land on and never will be while that state holds — focus
-			// the state's own action instead of latching a retry that would fire on some unrelated later
-			// render (e.g. sessions pushing in after the user connects an agent) and yank focus into the
-			// filter box. Checked by what actually rendered, so every treeless state gets the same
-			// treatment. Nothing focusable (the unsupported state offers no action) leaves focus where
-			// the user put it.
+			// A treeless empty state stands in for the tree — focus its action instead of latching a
+			// retry that a later render (e.g. sessions arriving) would turn into a focus steal. No
+			// button there (the unsupported state) leaves focus where the user put it.
 			const empty = this.shadowRoot?.querySelector('.empty');
 			if (empty != null) {
 				this._pendingFocusPanel = undefined;
