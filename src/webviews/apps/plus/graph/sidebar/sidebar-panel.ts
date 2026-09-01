@@ -1113,10 +1113,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			const bannerVisible = this.isAgentsBannerVisible(sessions.length === 0);
 			const emptyState = this.resolveAgentsEmptyState(sessions.length, bannerVisible);
 			// The `connect` states replace the tree entirely; everything else stays inside it so the
-			// filter box and the past-sessions toggle survive — with empty text that is true in every
-			// state, the hooks-state-unknown window included, instead of the generic "No items".
+			// filter box and the past-sessions toggle survive — never with the generic "No items". The
+			// repository-scoped line is reserved for a settled `no-sessions` verdict; without one (hooks
+			// state unknown or the agents feature unavailable) the text claims no scope.
 			const emptyText =
-				sessions.length > 0 ? 'No current agent sessions' : 'No agent sessions for this repository';
+				sessions.length > 0
+					? 'No current agent sessions'
+					: emptyState?.type === 'no-sessions'
+						? 'No agent sessions for this repository'
+						: 'No agent sessions';
 			return html`<div class="panel">
 				${this.renderHeader(config, false)} ${bannerVisible ? this.renderAgentsBanner() : nothing}
 				<div class="content">
