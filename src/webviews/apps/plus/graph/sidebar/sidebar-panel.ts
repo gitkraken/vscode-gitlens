@@ -780,6 +780,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	// emitted once the switch-triggered fetch settles (see maybeEmitBranchesShownTelemetry).
 	private _branchesShownPending = false;
 
+	// Tracks that the agents panel was just shown and its `shown` telemetry is still owed — emitted
+	// once the first agents push lands (see maybeEmitAgentsShownTelemetry).
+	private _agentsShownPending = false;
+
 	focusFilter(): void {
 		if (this.activePanel == null || this.activePanel === 'overview') {
 			this._pendingFocusPanel = undefined;
@@ -904,9 +908,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				this._actions.fetchPanel(this.activePanel);
 			}
 
-			if (this.activePanel === 'agents') {
-				this.emitAgentsShownTelemetry();
-			}
+			// Defer the `shown` event until the first agents push lands (see
+			// maybeEmitAgentsShownTelemetry). Emitting synchronously here left the hooks/emptyState
+			// properties systematically undefined on the most common path — the panel restored at
+			// window open, before the hooks state arrived — i.e. empty for exactly the audience they
+			// were added to measure.
+			this._agentsShownPending = this.activePanel === 'agents';
 
 			// Defer the `shown` event until the branches data actually resolves (see
 			// maybeEmitBranchesShownTelemetry). Emitting synchronously here would drop the
@@ -956,6 +963,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// refresh(), filter/expansion changes) do not re-emit.
 		this.emitWorktreesShownTelemetry();
 		this.emitRemotesShownTelemetry();
+		this.maybeEmitAgentsShownTelemetry();
 		this.maybeEmitBranchesShownTelemetry();
 		this.emitStashesShownTelemetry();
 		this.emitTagsShownTelemetry();
@@ -2966,15 +2974,31 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		});
 	}
 
+	/** Emits the owed `shown` once the first agents push has landed, so the hooks/emptyState
+	 *  properties measure what the user actually sees. `canInstallHooks` is the arrival tracker:
+	 *  it is written only by `applyHooksCapability` — on every agents push, the feature-unavailable
+	 *  one included — so `undefined` means "no push yet" and never recurs after the first. The event
+	 *  is therefore never lost: with the feature unavailable it fires with the hooks properties
+	 *  `undefined`, exactly as they document. Re-render on arrival is guaranteed because the agents
+	 *  render branch reads the same signal (the banner gate). Deliberate firing-rule change over the
+	 *  original at-open emit — decided 2026-09-01 (#5777), after the at-open snapshot proved to be
+	 *  systematically empty for the population the new properties were added to measure. */
+	private maybeEmitAgentsShownTelemetry(): void {
+		if (!this._agentsShownPending || this.activePanel !== 'agents') return;
+		if (this._state.canInstallHooks == null) return;
+
+		this._agentsShownPending = false;
+		this.emitAgentsShownTelemetry();
+	}
+
 	private emitAgentsShownTelemetry(): void {
-		// Point-in-time snapshot: fired on the `activePanel → 'agents'` transition only. Sessions
-		// arrive asynchronously on `_state.agentSessions` (see `render`), so on first open the counts
-		// below may all read 0, and later arrivals don't re-fire this event. `agentSessions` is a
-		// signal initialized to `[]`, so "not yet loaded" and "loaded but empty" are indistinguishable
-		// here — treat the counts as "what was visible at open", not a settled total. Also no re-fire
-		// when the panel is re-revealed without an `activePanel` change: display-mode round trips
-		// (graph → kanban/visualizations → graph) hide/show the split but preserve the value, and
-		// rail re-clicks that set the same panel don't transition. Close/reopen does re-fire
+		// Deferred to the first agents push (see maybeEmitAgentsShownTelemetry), so the hooks and
+		// emptyState properties are settled. Session counts are still a point-in-time snapshot:
+		// sessions arrive on their own subscription (`_state.agentSessions`, a signal initialized to
+		// `[]`), so early counts may read 0 and later arrivals don't re-fire this event. Also no
+		// re-fire when the panel is re-revealed without an `activePanel` change: display-mode round
+		// trips (graph → kanban/visualizations → graph) hide/show the split but preserve the value,
+		// and rail re-clicks that set the same panel don't transition. Close/reopen does re-fire
 		// (`hideSidebar` clears `activePanel`).
 		const graphAnchor = this.resolveGraphAnchorContext();
 		const familyWorktreePaths = this._state.worktreePaths != null ? new Set(this._state.worktreePaths) : undefined;
@@ -3017,8 +3041,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				'sessions.needsInput.count': needsInput,
 				'sessions.idle.count': idle,
 				'sessions.ended.count': ended,
-				// Same point-in-time caveat as the counts above: `hooksAgents` may still be undefined at
-				// the open transition, so these record what was known then, not a settled truth.
+				// Settled by the deferral above; still undefined when the agents feature is unavailable.
 				'hooks.agentsCount': hooksAgents?.length,
 				'hooks.agentsInstalledCount': hooksAgents == null ? undefined : installedCount,
 				'emptyState.shown': emptyState?.type === 'connect',
