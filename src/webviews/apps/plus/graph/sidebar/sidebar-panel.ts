@@ -814,8 +814,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		void Promise.resolve(ready).then(() => treeView.focus());
 	}
 
-	/** The pull-requests empty state currently standing in for the tree, if any. (The agents connect
-	 *  state is the other treeless render path — resolved in `render` via `resolveAgentsEmptyState`.) */
+	/** The pull-requests empty state currently standing in for the tree, if any. */
 	private get treelessEmptyState(): GraphSidebarPullRequestsEmptyState | undefined {
 		if (this.activePanel !== 'pullRequests') return undefined;
 
@@ -905,10 +904,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			// Defer the `shown` event until the first agents push lands (see
-			// maybeEmitAgentsShownTelemetry). Emitting synchronously here left the hooks/emptyState
-			// properties systematically undefined on the most common path — the panel restored at
-			// window open, before the hooks state arrived — i.e. empty for exactly the audience they
-			// were added to measure.
+			// maybeEmitAgentsShownTelemetry) — an at-open emit reads empty hooks/emptyState properties
+			// whenever the panel is restored before the hooks state arrives.
 			this._agentsShownPending = this.activePanel === 'agents';
 
 			// Defer the `shown` event until the branches data actually resolves (see
@@ -1115,11 +1112,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// family", not "all hidden" by the past-sessions toggle.
 			const bannerVisible = this.isAgentsBannerVisible(sessions.length === 0);
 			const emptyState = this.resolveAgentsEmptyState(sessions.length, bannerVisible);
-			// The `connect` states replace the tree entirely (there is no agent to filter or toggle);
-			// everything else stays inside it so the filter box and the past-sessions toggle survive.
-			// The tree's generic "No items" never shows: sessions hidden by the past-sessions toggle get
-			// named as such, and the repository line covers both the settled no-sessions state and the
-			// hooks-state-unknown window (it is literally true in either).
+			// The `connect` states replace the tree entirely; everything else stays inside it so the
+			// filter box and the past-sessions toggle survive — with empty text that is true in every
+			// state, the hooks-state-unknown window included, instead of the generic "No items".
 			const emptyText =
 				sessions.length > 0 ? 'No current agent sessions' : 'No agent sessions for this repository';
 			return html`<div class="panel">
@@ -1249,8 +1244,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			>
 			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
 				${
-					// Alt-variant pair on one button (like the graph header's own alt actions) — a sixth and
-					// seventh icon here is what the platform's "too many actions" guidance warns about.
+					// One button for the pair — Alt swaps in the picker variant (the graph header's alt idiom).
 					this.activePanel === 'agents'
 						? html`<gl-button
 								appearance="toolbar"
@@ -1330,22 +1324,19 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		});
 	}
 
-	/** Stands in for the agents tree when no agent is connected — an empty list otherwise reads as
-	 *  "no agent sessions", which hides that connecting an agent is what's missing (#5777). Unlike the
-	 *  banner this is a state of the panel, not dismissible, so the user always knows why it's empty. */
+	/** Stands in for the agents tree when no agent is connected — a bare empty list would hide that
+	 *  connecting one is what's missing. A panel state, not a banner: never dismissible (#5777). */
 	private renderAgentsEmptyState(reason: 'agents-undetected' | 'agents-unconnected'): unknown {
-		// The undetected copy claims nothing about detection: without the GK CLI, CLI-agent detection
-		// cannot run at all, so "no agents were detected" would be an unverified claim — and the Agents
-		// settings page can simultaneously show IDE agents as detected. Say what the panel shows instead.
+		// The undetected copy claims nothing about detection — without the GK CLI it cannot run, and
+		// IDE agents may legitimately show as detected elsewhere.
 		const message =
 			reason === 'agents-undetected'
 				? 'GitLens shows sessions from supported agent CLIs. Install one and connect it to see its sessions here.'
 				: 'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.';
 
-		// The connect button renders only when the click can actually connect something; otherwise the
-		// gear honestly routes to the settings page and nothing more. Named for the agent it connects —
-		// the banner's own "Connect Agents" runs a different, install-everything flow, and the two can
-		// be on screen moments apart.
+		// The connect button renders only when the click can actually connect something, and is named
+		// for that agent — a generic "Connect Agents" would collide with the banner's same-named,
+		// install-everything button. Otherwise the gear only routes to the settings page.
 		const connectable = this.connectableDefaultAgent;
 
 		return html`<div class="empty empty--connect">
@@ -1378,9 +1369,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		return connectable ? defaultAgent : undefined;
 	}
 
-	/** Connect ${agent} = go to the Agents settings page and install that agent's hooks right
-	 *  away — the page then opens onto the operation's progress instead of asking the user to find
-	 *  the same switch by hand. */
+	/** Connect ${agent} = open the Agents settings page and install that agent's hooks right away,
+	 *  so the page lands on the operation's progress. */
 	private handleConnectAgents() {
 		this._actions?.executeAction('gitlens.showSettingsPage!agents');
 
@@ -2700,20 +2690,19 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** Header launch pair: plain click starts a session with the default agent, alt-click always shows
-	 *  the agent picker. Calls the base `gitlens.startAgentSession` — the `gitlens.graph.*` variants are
-	 *  WIP-row context-menu commands that no-op without a row context — pointing it at the graph's repo
-	 *  so CLI agents open their terminal there. Emits its telemetry directly (like Refresh below): the
-	 *  `headerActions` map is keyed by command id, which cannot tell the two variants apart. */
+	 *  the agent picker. Calls the base `gitlens.startAgentSession` with the graph's repo as cwd — the
+	 *  `gitlens.graph.*` variants need a WIP-row context and no-op without one. Telemetry is emitted
+	 *  directly (like Refresh): the `headerActions` map is keyed by command id, which cannot tell the
+	 *  variants apart. */
 	private handleStartAgentSession(e: MouseEvent) {
 		this.startAgentSession(e.altKey);
 	}
 
 	/** Keyboard route to the alt variant: the click a native button synthesizes from Enter/Space never
-	 *  carries the held Alt modifier (verified against Chromium), so without this the picker variant is
-	 *  mouse-only. Canceling the keydown also suppresses that synthesized click, so the action runs once.
-	 *  Space is matched by physical key (`code`): with Alt held, macOS turns `key` into the composed
-	 *  character (Option+Space is a non-breaking space), and a missed match here would not just do
-	 *  nothing — the un-canceled native click would start a session with the default agent instead. */
+	 *  carries the held Alt modifier. Space must match by physical key (`code`) — with Alt held, macOS
+	 *  composes `key` into a non-breaking space, and a missed match would let the un-canceled native
+	 *  click start a session with the default agent instead. Canceling the keydown suppresses that
+	 *  synthesized click, so the action runs once. */
 	private handleStartAgentSessionKeydown(e: KeyboardEvent) {
 		if (!e.altKey || (e.key !== 'Enter' && e.code !== 'Space')) return;
 
@@ -2980,14 +2969,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** Emits the owed `shown` once the first agents push has landed, so the hooks/emptyState
-	 *  properties measure what the user actually sees. `canInstallHooks` is the arrival tracker:
-	 *  it is written only by `applyHooksCapability` — on every agents push, the feature-unavailable
-	 *  one included — so `undefined` means "no push yet" and never recurs after the first. The event
-	 *  is therefore never lost: with the feature unavailable it fires with the hooks properties
-	 *  `undefined`, exactly as they document. Re-render on arrival is guaranteed because the agents
-	 *  render branch reads the same signal (the banner gate). Deliberate firing-rule change over the
-	 *  original at-open emit — decided 2026-09-01 (#5777), after the at-open snapshot proved to be
-	 *  systematically empty for the population the new properties were added to measure. */
+	 *  properties measure what the user actually sees. `canInstallHooks` is the arrival tracker: it is
+	 *  written on every push — the feature-unavailable one included, so the event is never lost (it
+	 *  then fires with the hooks properties `undefined`) — and the agents render branch reads the same
+	 *  signal, so arrival re-renders and `updated` flushes the pending emit. */
 	private maybeEmitAgentsShownTelemetry(): void {
 		if (!this._agentsShownPending || this.activePanel !== 'agents') return;
 		if (this._state.canInstallHooks == null) return;
@@ -2998,13 +2983,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private emitAgentsShownTelemetry(): void {
 		// Deferred to the first agents push (see maybeEmitAgentsShownTelemetry), so the hooks and
-		// emptyState properties are settled. Session counts are still a point-in-time snapshot:
-		// sessions arrive on their own subscription (`_state.agentSessions`, a signal initialized to
-		// `[]`), so early counts may read 0 and later arrivals don't re-fire this event. Also no
-		// re-fire when the panel is re-revealed without an `activePanel` change: display-mode round
-		// trips (graph → kanban/visualizations → graph) hide/show the split but preserve the value,
-		// and rail re-clicks that set the same panel don't transition. Close/reopen does re-fire
-		// (`hideSidebar` clears `activePanel`).
+		// emptyState properties are settled. Session counts arrive on their own subscription and stay
+		// a point-in-time snapshot — later arrivals don't re-fire this event. No re-fire without an
+		// `activePanel` transition (display-mode round trips, rail re-clicks); close/reopen re-fires.
 		const graphAnchor = this.resolveGraphAnchorContext();
 		const familyWorktreePaths = this._state.worktreePaths != null ? new Set(this._state.worktreePaths) : undefined;
 		const sessions = filterAgentSessionsForFamily(
