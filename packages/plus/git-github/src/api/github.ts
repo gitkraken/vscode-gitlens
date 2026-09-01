@@ -4615,13 +4615,26 @@ export class GitHubApi {
 				const mapped = issuesByAlias.get(s.alias);
 				const trailingTs =
 					mapped != null ? lastSortBoundary(mapped, sortKey ?? defaultIssueSort)?.getTime() : undefined;
-				if (trailingTs != null) {
-					const trailing = new Set<string>(
-						cursorNumber(cursor, `slideTs:${s.alias}`) === trailingTs
-							? (slideSeenFor(cursor, s.alias) ?? [])
-							: [],
-					);
-					for (const issue of mapped!) {
+				const trailing = new Set<string>(
+					trailingTs != null && cursorNumber(cursor, `slideTs:${s.alias}`) === trailingTs
+						? (slideSeenFor(cursor, s.alias) ?? [])
+						: [],
+				);
+				// Accumulated only while this alias is CAPPED, since only a capped alias can reach a slide. Without
+				// that test every page of every search would seal its trailing second's urls for a slide that
+				// will never happen — a rounding error for an ordinary search, where a second holds one or two
+				// issues, but this rides in a cursor `broadenIssues` nests once per org.
+				//
+				// The carry-forward below is NOT gated the same way: a slid query's remainder is often under the
+				// cap, and its first page still needs the filter for the boundary second the inclusive bound
+				// deliberately re-serves. Gating both re-served that block (measured: 100 duplicates).
+				//
+				// Bounded by the reachable window: one second's worth of urls drawn from at most
+				// `githubSearchResultLimit` items, so ~45 KB per alias at the very worst, which takes a bulk edit
+				// stamping a thousand issues with a single timestamp.
+				const carryBoundary = issueCount > githubSearchResultLimit;
+				if (trailingTs != null && carryBoundary) {
+					for (const issue of mapped ?? []) {
 						if (lastSortBoundary([issue], sortKey ?? defaultIssueSort)?.getTime() === trailingTs) {
 							trailing.add(issue.url);
 						}
