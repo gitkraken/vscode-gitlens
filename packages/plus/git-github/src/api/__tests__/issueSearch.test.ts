@@ -1050,12 +1050,18 @@ suite('GitHubApi.searchIssuesPage ceiling slide (#5805)', () => {
 		assert.equal(page?.truncated, false, 'a slidable ceiling is forward progress, not incompleteness');
 		assert.equal(page?.hasMore, true, 'the remainder is reachable');
 		assert.ok(page?.cursor != null);
-		const cursor = JSON.parse(page.cursor) as { slide?: string; slideSeen?: string };
+		// Per-alias keys: aliases slide independently, so one shared bound would sit below where an
+		// early-finishing alias stopped and re-serve what it had already delivered.
+		const cursor = JSON.parse(page.cursor) as Record<string, unknown>;
 		// INCLUSIVE (`<=`): GitHub timestamps are second-resolution and ties occur, so an exclusive bound would
 		// silently drop every issue sharing the boundary second with the last one served.
-		assert.equal(cursor.slide, 'updated:<=2026-04-01T09:30:00Z', 'bounded at the last item served, inclusive');
 		assert.equal(
-			cursor.slideSeen,
+			cursor['slide:matched'],
+			'updated:<=2026-04-01T09:30:00Z',
+			'bounded at the last item served, inclusive',
+		);
+		assert.equal(
+			cursor['slideSeen:matched'],
 			'https://github.com/acme/repo/issues/2',
 			'the boundary second it re-serves is carried so the next page can drop it',
 		);
@@ -1069,8 +1075,8 @@ suite('GitHubApi.searchIssuesPage ceiling slide (#5805)', () => {
 		const cursor = JSON.stringify({
 			page: 2,
 			sort: 'updated:desc',
-			slide: 'updated:<=2026-04-01T09:30:00Z',
-			slideSeen: boundary.url,
+			'slide:matched': 'updated:<=2026-04-01T09:30:00Z',
+			'slideSeen:matched': boundary.url,
 		});
 		const page = await api.searchIssuesPage(provider, token, { org: 'acme', cursor: cursor });
 
@@ -1122,7 +1128,7 @@ suite('GitHubApi.searchIssuesPage ceiling slide (#5805)', () => {
 
 		await api.searchIssuesPage(provider, token, {
 			org: 'acme',
-			cursor: JSON.stringify({ page: 2, sort: 'updated:desc', slide: 'org:evil-corp' }),
+			cursor: JSON.stringify({ page: 2, sort: 'updated:desc', 'slide:matched': 'org:evil-corp' }),
 		});
 
 		const query = String(getVariables().matched);
@@ -1292,10 +1298,11 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 		assert.equal(urls.length, distinct, 'and no part of it twice');
 	});
 
-	test('a union of relationships reports the ceiling instead of sliding into duplicates', async () => {
-		// The bound is one value applied to every alias, but aliases exhaust independently: one that completed
-		// early sits entirely above the boundary a capped sibling ended at, so re-issuing it bounded re-serves
-		// what it already delivered. Until the bound can be per alias, a union keeps reporting the ceiling.
+	test('a union of relationships slides each alias at its OWN boundary', async () => {
+		// Aliases exhaust independently, so one bound shared across the page would sit below where an
+		// early-finishing alias stopped and re-serve everything it had already delivered. Bounding each alias at
+		// its own last item is what makes a capped union both complete and duplicate-free: `authored` is capped
+		// and slides, `assigned` finishes in one page and never does.
 		const authored = spread(1200, 'A');
 		const assigned = Array.from({ length: 5 }, (_, i) =>
 			node(`B${i}`, iso(Date.UTC(2026, 0, 1) - (i * 400 + 50) * 3_600_000)),
@@ -1307,7 +1314,41 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 			criteria: { relationships: ['authored', 'assigned'] },
 		});
 
-		assert.equal(urls.length, distinct, 'a union never double-serves');
-		assert.equal(truncated, true, 'and says so when it could not reach everything');
+		assert.equal(distinct, authored.length + assigned.length, 'both relationships are served in full');
+		assert.equal(urls.length, distinct, 'and a union never double-serves');
+		assert.equal(truncated, false, 'nothing is left unreachable, so nothing is reported as omitted');
+	});
+
+	test('a union where BOTH relationships are capped slides both', async () => {
+		const authored = spread(1150, 'A');
+		// Offset by half an hour so the two never share a timestamp: distinct boundaries, slid independently.
+		const assigned = Array.from({ length: 1150 }, (_, i) =>
+			node(`B${i}`, iso(Date.UTC(2026, 0, 1) - i * 3_600_000 - 1_800_000)),
+		);
+		const api = new GitHubApi(faithful({ authored: authored, assigned: assigned }));
+
+		const { urls, distinct, truncated } = await drain(api, {
+			org: 'o',
+			criteria: { relationships: ['authored', 'assigned'] },
+		});
+
+		assert.equal(distinct, authored.length + assigned.length);
+		assert.equal(urls.length, distinct);
+		assert.equal(truncated, false);
+		// Deliberately NOT asserting global ordering here. A union is ordered within a page but only per alias
+		// across pages, and whether that shows up depends on the aliases' relative density: two evenly-matched
+		// ones advance in step and look ordered, uneven ones do not. That is a property of the union and predates
+		// the slide, so pinning it either way here would pin an accident of the fixture.
+	});
+
+	test('an unslidable sort still reports the ceiling for a union', async () => {
+		const api = new GitHubApi(faithful({ authored: spread(1200, 'A') }));
+
+		const { truncated } = await drain(api, {
+			org: 'o',
+			criteria: { relationships: ['authored'], sort: 'comments:desc' },
+		});
+
+		assert.equal(truncated, true);
 	});
 });
