@@ -202,6 +202,33 @@ function lastSortBoundary(issues: readonly IssueShape[], sort: IssueSorting): Da
 	return value instanceof Date && !Number.isNaN(value.getTime()) ? value : undefined;
 }
 
+/**
+ * The per-alias ceiling-slide state, read defensively off a composite cursor.
+ *
+ * Keys are `<field>:<alias>`. The colon is what makes them collision-proof: a GraphQL alias is a name (a letter
+ * or underscore followed by letters, digits or underscores) and so can never contain one, which is why these need
+ * no entry in the reserved-alias check and that list does not have to grow with every field added here.
+ *
+ * Everything is validated to the shape this module emits, because a cursor is caller-supplied data on a round
+ * trip: an unrecognized value restarts the walk instead of reaching the query, which is the difference between a
+ * repeated page and an attacker-chosen qualifier re-scoping someone's search.
+ */
+function cursorString(cursor: Record<string, unknown> | undefined, key: string): string | undefined {
+	const value = cursor?.[key];
+	return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function cursorNumber(cursor: Record<string, unknown> | undefined, key: string): number | undefined {
+	const value = cursor?.[key];
+	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** The urls a prior page already served at this alias's inclusive slide boundary. */
+function slideSeenFor(cursor: Record<string, unknown> | undefined, alias: string): Set<string> | undefined {
+	const value = cursorString(cursor, `slideSeen:${alias}`);
+	return value != null ? new Set(value.split(' ')) : undefined;
+}
+
 /** One page of a multi-search issue request, with its composite cursor across every alias. */
 export interface AliasedIssueSearchResult {
 	values: IssueShape[];
@@ -4023,7 +4050,15 @@ export class GitHubApi {
 	 *
 	 * With more than one relationship the page is a UNION of several searches, each ordered by the provider; the
 	 * merged page is re-sorted here so the whole page honors the requested key. Across pages the order is still
-	 * per-alias — see {@link searchIssuesByAlias}.
+	 * per-alias — see {@link searchIssuesByAlias}. Note a union can also serve the same issue on two pages when
+	 * its relationships OVERLAP (an issue both authored by and assigned to the user sits at different depths in
+	 * the two), which predates the ceiling slide and is a property of unioning independent walks: measured at 50
+	 * repeats over 450 issues with no ceiling involved. Dedupe by url if that matters to the surface.
+	 *
+	 * GitHub's per-query result ceiling is NOT terminal here: an alias that runs out of pages while capped
+	 * continues bounded to the far side of its own last item, which is a fresh query with a fresh budget. Bounded
+	 * per alias, since they exhaust independently. Only a ceiling an alias cannot slide past (a sort key with no
+	 * usable range qualifier) is reported as an omission.
 	 *
 	 * Each requested relationship becomes its own aliased search, unioned and deduped by url; with none, a single
 	 * search runs over the scope alone. `criteria.text` and the other free-form values are sanitized so user input
@@ -4048,25 +4083,26 @@ export class GitHubApi {
 		// Resolved once: the emitted qualifier, the merged page's comparator and the cursor's fingerprint must all
 		// be the same key, which is what `effectiveIssueSort` exists to guarantee.
 		const sort = effectiveIssueSort(options?.criteria?.sort);
-		// A cursor from a walk that already slid past the ceiling carries the boundary it slid to; the query has
-		// to be rebuilt with it or this request would restart at the top and re-serve the first 1000.
-		const slide = this.parseSlideFromCursor(options?.cursor);
 		const base = [
 			...toGitHubIssueSearchScopeQualifiers(options?.org, options?.repos),
 			...toGitHubIssueSearchQualifiers(options?.criteria, sort),
-			...(slide != null ? [slide] : []),
 		].join(' ');
+		// A cursor from a walk that already slid past the ceiling carries the bound each alias slid to, and the
+		// query has to be rebuilt with it or that alias would restart at the top and re-serve its first 1.000.
+		// PER ALIAS, because they slide independently: one bound shared across them would sit below where an
+		// early-finishing alias stopped and re-serve everything it had already delivered.
+		const bound = this.parseSlidesFromCursor(options?.cursor);
 
 		// One aliased search per relationship, OR-ed by union. They can't be one query: GitHub AND-s qualifiers,
 		// so `author:@me assignee:@me` would return the intersection — issues the user both opened and is assigned
 		// to — instead of either set. With no relationship the scope + criteria are already the whole query.
 		const relationships = options?.criteria?.relationships;
 		const searches: AliasedIssueSearch[] = relationships?.length
-			? relationships.map(r => ({
-					alias: gitHubIssueSearchRelationships[r].alias,
-					query: `${base} ${gitHubIssueSearchRelationships[r].qualifier}`.trim(),
-				}))
-			: [{ alias: 'matched', query: base }];
+			? relationships.map(r => {
+					const { alias, qualifier } = gitHubIssueSearchRelationships[r];
+					return { alias: alias, query: `${base} ${qualifier} ${bound(alias) ?? ''}`.trim() };
+				})
+			: [{ alias: 'matched', query: `${base} ${bound('matched') ?? ''}`.trim() }];
 
 		// Forwarded field by field rather than spread: `options` also carries `repos`/`org`/`criteria`, which are
 		// already baked into `searches[].query` above and which the callee declares nothing about. `sort` is the
@@ -4086,31 +4122,35 @@ export class GitHubApi {
 				// recorded key came out of a walk under exactly that key, and only a caller asking for a
 				// different one has to restart.
 				legacySort: defaultIssueSort,
-				slide: slide,
 			},
 			cancellation,
 		);
 	}
 
 	/**
-	 * Reads back the ceiling-slide qualifier a prior page sealed into its cursor. Defensive like every other
-	 * cursor read here: a malformed or foreign cursor yields no slide, which restarts the walk at the top rather
-	 * than injecting an attacker-chosen fragment into the query. That last part is why the value is validated
-	 * against the exact shape this emits instead of being trusted as a string.
+	 * Reads back the per-alias ceiling-slide bounds a prior page sealed into its cursor.
+	 *
+	 * Each value is validated against the EXACT shape {@link toGitHubIssueSearchSlideQualifier} emits, not merely
+	 * checked for being a string. A cursor is caller-supplied data on a round trip, so an unvalidated value here
+	 * would be a qualifier of someone else's choosing appended to the search: `org:evil-corp` in a cursor would
+	 * re-scope the read. Anything unrecognized yields no bound, which restarts that alias at the top — a repeated
+	 * page, which is the safe failure.
 	 */
-	private parseSlideFromCursor(cursor: string | undefined): string | undefined {
-		if (cursor == null) return undefined;
+	private parseSlidesFromCursor(cursor: string | undefined): (alias: string) => string | undefined {
+		let parsed: Record<string, unknown> | undefined;
+		if (cursor != null) {
+			try {
+				parsed = JSON.parse(cursor) as Record<string, unknown>;
+			} catch {}
+		}
 
-		try {
-			const slide = (JSON.parse(cursor) as { slide?: unknown }).slide;
-			if (typeof slide !== 'string') return undefined;
-
-			return /^(?:created|updated):(?:<=|>=)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(slide)
+		return alias => {
+			const slide = parsed?.[`slide:${alias}`];
+			return typeof slide === 'string' &&
+				/^(?:created|updated):(?:<=|>=)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(slide)
 				? slide
 				: undefined;
-		} catch {
-			return undefined;
-		}
+		};
 	}
 
 	/**
@@ -4306,12 +4346,6 @@ export class GitHubApi {
 			pageSize?: number;
 			sort?: IssueSorting;
 			legacySort: IssueSorting | typeof unsortedCursorSort;
-			/**
-			 * The ceiling-slide boundary this request is being made under, re-sealed into the cursor so the next
-			 * one continues from the same place. Opaque here: composing it into the query is the caller's job,
-			 * since the caller owns the query text.
-			 */
-			slide?: string;
 		},
 		cancellation?: AbortSignal,
 	): Promise<AliasedIssueSearchResult | undefined> {
@@ -4333,16 +4367,15 @@ export class GitHubApi {
 		interface SearchCursor {
 			page?: number;
 			truncated?: boolean;
-			/** The ceiling-slide boundary the query was bounded by; see this method's `slide` option. */
-			slide?: string;
 			/**
-			 * Urls already served at the inclusive boundary second, which the slid query re-serves. A single
-			 * space-delimited string rather than an array because the alias slots share this object's index
-			 * signature, and a url can't contain whitespace, so the separator is unambiguous.
+			 * Per-alias ceiling-slide state lives under `slide:<alias>`, `slideTs:<alias>` and
+			 * `slideSeen:<alias>`, which the index signature below already covers. Keyed with a colon so they
+			 * cannot collide with an alias slot, since a GraphQL alias cannot contain one — see the cursor
+			 * helpers above.
+			 *
+			 * `slideSeen:<alias>` is a space-delimited string rather than an array because this object's index
+			 * signature holds primitives, and a url cannot contain whitespace, so the separator is unambiguous.
 			 */
-			slideSeen?: string;
-			/** The trailing timestamp {@link SearchCursor.slideSeen} belongs to; a move resets the set. */
-			slideTs?: number;
 			/**
 			 * The order this cursor's pages were produced under: an `IssueSorting`, or `unsortedCursorSort` when
 			 * the caller asked for none. Written as a value rather than left absent in the no-order case
@@ -4361,15 +4394,7 @@ export class GitHubApi {
 		// by a cursor string that reads back as page 1, restarting the walk with no error and no truncation flag.
 		// Cheap to check, and it fails at the one call that introduced the collision rather than in a consumer's
 		// persisted cursor.
-		const reserved = searches.filter(
-			s =>
-				s.alias === 'page' ||
-				s.alias === 'truncated' ||
-				s.alias === 'sort' ||
-				s.alias === 'slide' ||
-				s.alias === 'slideSeen' ||
-				s.alias === 'slideTs',
-		);
+		const reserved = searches.filter(s => s.alias === 'page' || s.alias === 'truncated' || s.alias === 'sort');
 		if (reserved.length > 0) {
 			throw new Error(
 				`Issue search alias(es) ${reserved.map(s => `'${s.alias}'`).join(', ')} collide with the composite cursor's reserved keys`,
@@ -4489,31 +4514,37 @@ export class GitHubApi {
 			);
 			if (rsp == null) return { values: [], hasMore: false, page: page, truncated: false };
 
-			// Map node-by-node so one unmappable issue can't discard the whole result set
-			const issues: IssueShape[] = [];
+			// Map node-by-node so one unmappable issue can't discard the whole result set. Kept PER ALIAS rather
+			// than flattened straight away: a ceiling slide bounds each alias at its OWN last item, so the
+			// boundary has to be read off that alias's own page and not off the merged one (see below).
+			const issuesByAlias = new Map<string, IssueShape[]>();
 			for (const s of active) {
+				const mapped: IssueShape[] = [];
+				// Drop what a previous page already served at this alias's INCLUSIVE slide boundary. Applied
+				// before the merge so the dedupe's precedence rules only ever see genuinely new items.
+				const seen = slideSeenFor(cursor, s.alias);
 				for (const node of rsp[s.alias]?.nodes ?? []) {
 					if (node?.id == null) continue;
 
 					try {
-						issues.push(fromGitHubIssue(node, provider));
+						const issue = fromGitHubIssue(node, provider);
+						if (seen?.has(issue.url) !== true) {
+							mapped.push(issue);
+						}
 					} catch (ex) {
 						scope?.warn(`skipped unmappable issue; id=${node.id}, url=${node.url}, ex=${ex}`);
 					}
 				}
+				issuesByAlias.set(s.alias, mapped);
 			}
+			// Flattened in `active` order, which is `searches` order, so the dedupe's precedence is unchanged.
+			const issues = active.flatMap(s => issuesByAlias.get(s.alias) ?? []);
 
-			// Drop what the previous page already served at the INCLUSIVE slide boundary. Applied before the
-			// dedupe, so the merged page's precedence rules only ever see genuinely new items.
-			const slideSeen =
-				typeof cursor?.slideSeen === 'string' && cursor.slideSeen.length > 0
-					? new Set(cursor.slideSeen.split(' '))
-					: undefined;
 			// Dedupe by `url`, not `IssueShape.id`: for some providers `id` is a per-repository number, so an
 			// id-keyed map would collapse distinct issues across repositories.
 			const deduped = [
 				...uniqueBy(
-					slideSeen != null ? issues.filter(i => !slideSeen.has(i.url)) : issues,
+					issues,
 					r => r.url,
 					(original, _current) => original,
 				),
@@ -4542,102 +4573,91 @@ export class GitHubApi {
 			// missing slot would be read as "never requested", which for a `searches` set that still lists it
 			// would restart it from its first page.
 			// The order is pinned on the way out too, so the next round can refuse a changed key (see above).
-			const next: SearchCursor = { page: page + 1, sort: requestedSort, slide: options.slide };
+			const next: SearchCursor = { page: page + 1, sort: requestedSort };
 			let hasMore = false;
 			let continuationMissing = false;
 			let maxIssueCount = 0;
+			// Whether ANY alias slid this round. A slide is forward progress, so it makes the read continuable
+			// exactly as an ordinary next-cursor does.
+			let slid = false;
+			// Whether any alias ran out of pages against a capped query WITHOUT being able to slide, which is the
+			// only remaining way this read leaves results unreachable.
+			let strandedByCeiling = false;
+			const sortKey = options.sort;
 			for (const s of searches) {
 				const category = rsp[s.alias];
 				const endCursor =
 					category?.pageInfo?.hasNextPage && category.pageInfo.endCursor ? category.pageInfo.endCursor : null;
-				next[s.alias] = endCursor;
-				if (endCursor != null) {
-					hasMore = true;
-				}
 				if (category?.pageInfo?.hasNextPage === true && category.pageInfo.endCursor == null) {
 					continuationMissing = true;
 				}
-				maxIssueCount = Math.max(maxIssueCount, category?.issueCount ?? 0);
-			}
+				const issueCount = category?.issueCount ?? 0;
+				maxIssueCount = Math.max(maxIssueCount, issueCount);
 
-			// GitHub search exposes at most `githubSearchResultLimit` results PER SEARCH, so the ceiling is
-			// reached as soon as any one alias exceeds it. Paging removes the old 100-item truncation; only that
-			// upstream ceiling or an unusable continuation leaves the read incomplete.
-			const capped = maxIssueCount > githubSearchResultLimit;
-			// A CEILING SLIDE turns that ceiling from terminal into continuable: the cap is per QUERY, so
-			// re-issuing the search bounded to the far side of the last item served gives the remainder its own
-			// full budget. Only when the walk has actually run out of pages against a capped query — while pages
-			// remain there is nothing to slide past yet — and only when the sort key supports it (see
-			// `toGitHubIssueSearchSlideQualifier`; an unslidable key still reports the ceiling).
-			//
-			// The boundary is read off the LAST item of the merged, re-sorted page rather than tracked separately,
-			// so it is by construction the furthest point this walk reached under the requested order.
-			let slid: string | undefined;
-			// ONE active search only, and that restriction is a correctness one rather than caution. The bound is
-			// a single value applied to every alias, but the aliases exhaust INDEPENDENTLY: an alias that
-			// completed early (say 5 results) sits entirely above the boundary a capped sibling ended at, so
-			// re-issuing it bounded re-serves everything it already delivered. Verified against a faithful
-			// simulator: two relationships, one capped at 1.000 and one complete, duplicated exactly the complete
-			// one's items that fell below the capped one's cutoff. A correct multi-alias slide needs a bound PER
-			// alias, which the cursor's flat alias slots have no room for; until then a union search keeps
-			// reporting the ceiling, which is what it did before and is still true.
-			//
-			// Keyed off `searches`, NOT `active`: by the final page an early-finishing alias is already inactive
-			// (its slot is `null`), so `active.length` reads 1 for a union that did serve items from both — which
-			// is exactly the case this has to exclude.
-			if (capped && !hasMore && !continuationMissing && options.sort != null && searches.length === 1) {
-				const boundary = lastSortBoundary(deduped, options.sort);
-				slid = boundary != null ? toGitHubIssueSearchSlideQualifier(options.sort, boundary) : undefined;
-			}
-
-			// The urls already served at the page's TRAILING timestamp, which the INCLUSIVE slide re-serves.
-			//
-			// Accumulated across pages rather than rebuilt from the last one, because a tied block can span
-			// several pages: a bulk edit stamping hundreds of issues with one second puts two whole pages inside
-			// it, and carrying only the final page's would re-serve the earlier one's after the slide (measured:
-			// 200 duplicates). Reset as soon as the trailing timestamp moves, so this holds one second's worth of
-			// urls rather than the walk's.
-			const sortKey = options.sort ?? defaultIssueSort;
-			const trailingTs = lastSortBoundary(deduped, sortKey)?.getTime();
-			const trailing = new Set<string>(
-				typeof cursor?.slideSeen === 'string' && cursor.slideSeen.length > 0 && cursor.slideTs === trailingTs
-					? cursor.slideSeen.split(' ')
-					: [],
-			);
-			for (const issue of deduped) {
-				if (lastSortBoundary([issue], sortKey)?.getTime() === trailingTs) {
-					trailing.add(issue.url);
+				// The urls already served at THIS alias's trailing timestamp, which its inclusive slide re-serves.
+				// Accumulated across pages while that timestamp holds, and reset when it moves, so it carries one
+				// second's worth of urls rather than the walk's — a tied block from a bulk edit can span several
+				// pages, and rebuilding this from the last page alone would re-serve the earlier ones.
+				const mapped = issuesByAlias.get(s.alias);
+				const trailingTs =
+					mapped != null ? lastSortBoundary(mapped, sortKey ?? defaultIssueSort)?.getTime() : undefined;
+				if (trailingTs != null) {
+					const trailing = new Set<string>(
+						cursorNumber(cursor, `slideTs:${s.alias}`) === trailingTs
+							? (slideSeenFor(cursor, s.alias) ?? [])
+							: [],
+					);
+					for (const issue of mapped!) {
+						if (lastSortBoundary([issue], sortKey ?? defaultIssueSort)?.getTime() === trailingTs) {
+							trailing.add(issue.url);
+						}
+					}
+					next[`slideTs:${s.alias}`] = trailingTs;
+					next[`slideSeen:${s.alias}`] = [...trailing].join(' ');
+				} else {
+					// A page can come back EMPTY right after a slide: the re-issued query restarts at the top of
+					// the bounded range, so its first page can be entirely items this set already filtered out.
+					// Dropping the set here would un-filter them on the page after, so carry it forward untouched.
+					next[`slideTs:${s.alias}`] = cursorNumber(cursor, `slideTs:${s.alias}`);
+					next[`slideSeen:${s.alias}`] = cursorString(cursor, `slideSeen:${s.alias}`);
 				}
-			}
-			if (trailingTs != null) {
-				next.slideTs = trailingTs;
-				next.slideSeen = [...trailing].join(' ');
-			} else {
-				// A page can come back EMPTY right after a slide: the re-issued query restarts at the top of the
-				// bounded range, so its first page is entirely items this set already filtered out. Dropping the
-				// set here would un-filter them on the page after (measured: the whole tied block re-served), so
-				// an empty page carries it forward untouched instead of clearing it.
-				next.slideTs = cursor?.slideTs;
-				next.slideSeen = typeof cursor?.slideSeen === 'string' ? cursor.slideSeen : undefined;
-			}
 
-			// A slide is FORWARD PROGRESS, not incompleteness: the remainder is reachable through the cursor
-			// below, so the read must not also claim to be truncated. Without this the caller would surface a
-			// "results were omitted" warning for a page it can, in fact, continue.
-			// `capped` alone is NOT incompleteness while pages remain: the slide only happens once the walk runs
-			// out of pages, so marking it earlier would seal `truncated: true` into the cursor and keep it there
-			// for the rest of the read — a completed walk reporting omitted results it went on to fetch.
-			const truncated = cursor?.truncated === true || (capped && !hasMore && slid == null) || continuationMissing;
-			next.truncated = truncated || undefined;
-			if (slid != null) {
-				// The slide replaces every alias's cursor: the continuation is a NEW query, so a position inside
-				// the old one would be meaningless (and GitHub would reject it). Aliases restart, bounded.
-				for (const s of searches) {
+				// A CEILING SLIDE turns the per-query cap from terminal into continuable: re-issuing THIS alias's
+				// search bounded to the far side of its own last item gives its remainder a full budget. Bounded
+				// PER ALIAS and not once for the page, because aliases exhaust independently: one bound taken
+				// from the merged page would sit below where an early-finishing alias stopped and re-serve
+				// everything it had already delivered.
+				let aliasSlide: string | undefined;
+				if (endCursor == null && issueCount > githubSearchResultLimit && sortKey != null) {
+					const boundary = mapped != null ? lastSortBoundary(mapped, sortKey) : undefined;
+					aliasSlide = boundary != null ? toGitHubIssueSearchSlideQualifier(sortKey, boundary) : undefined;
+					if (aliasSlide == null) {
+						strandedByCeiling = true;
+					}
+				}
+
+				if (aliasSlide != null) {
+					// Restart this alias inside its new bound: a position from the old query is meaningless there.
 					next[s.alias] = undefined;
+					next[`slide:${s.alias}`] = aliasSlide;
+					slid = true;
+				} else {
+					next[s.alias] = endCursor;
+					// Carry the bound this alias is already walking under, or it would restart at the top.
+					next[`slide:${s.alias}`] = cursorString(cursor, `slide:${s.alias}`);
+					if (endCursor != null) {
+						hasMore = true;
+					}
 				}
-				next.slide = slid;
 			}
-			const continuable = hasMore || slid != null;
+
+			// Only the ceiling an alias could NOT slide past is incompleteness. A capped alias with pages left has
+			// nothing to slide past yet, and one that slid has its remainder reachable through the cursor: marking
+			// either would seal `truncated: true` and keep it there for the rest of the read, so a completed walk
+			// would report results it went on to fetch as omitted.
+			const truncated = cursor?.truncated === true || strandedByCeiling || continuationMissing;
+			next.truncated = truncated || undefined;
+			const continuable = hasMore || slid;
 			return {
 				values: deduped,
 				cursor: continuable ? JSON.stringify(next) : undefined,
