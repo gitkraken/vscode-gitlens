@@ -100,6 +100,31 @@ suite('IntegrationManager.searchIssuesPage', () => {
 			}
 		});
 
+		// A scope name is validated for what SURVIVES SANITIZING, not for being non-empty. The provider query
+		// DROPS a value that sanitizes away (a bare `org:` is rejected by GitHub), so accepting one would emit no
+		// scope qualifier at all and search the entire host — measured at 52 million issues. Whitespace and quotes
+		// are what a name pasted from a config or a URL degrades to, so this needs no adversarial input.
+		for (const org of ['   ', '"', '""', '\t\n', '" "']) {
+			test(`refuses an org named ${JSON.stringify(org)}, which sanitizes away to no scope at all`, async () => {
+				const manager = createIntegrationManager(createFakeRuntime());
+				try {
+					const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+					const result = await manager.searchIssuesPage({
+						providerId: GitCloudHostIntegrationId.GitHub,
+						org: org,
+					});
+
+					assert.deepEqual(result.items, []);
+					assert.equal(result.fetchFailed, true);
+					assert.match(result.warnings[0].message, /must be scoped/);
+					assert.equal(searchCalls.length, 0, 'no unscoped search reaches the provider');
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
 		// `unassigned` and `any-assignee` read like constraints but describe the ISSUE, not the caller, so neither
 		// reduces the search to anyone's own world: unscoped, `no:assignee` matches tens of millions of issues.
 		for (const relationship of ['unassigned', 'any-assignee'] as const) {
