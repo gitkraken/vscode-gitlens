@@ -1981,7 +1981,8 @@ gl-lit-graph {
 
 		// A detached-HEAD or paused-operation row's pill (`renderInertWipBranchPill`) carries this
 		// alongside `.gl-graph__ref-pill` instead of `role`/`tabindex`/click handlers — nothing here is
-		// interactive (excluded from the direct-hover rule above), so it only tracks the row state.
+		// interactive (excluded from the direct-hover rule above, the base pill's `:hover` fill, and
+		// `$pill-filled`), so it only tracks the row state.
 		.gl-graph__ref-pill.gl-graph__wip-branch-pill--static {
 			cursor: default;
 		}
@@ -3303,7 +3304,10 @@ gl-lit-graph {
 	// pill with its lane color and reveal the hover-expand overlay: pointer/keyboard hover, click-pinned,
 	// context-pinned (native context menu open over the pill), and a find hit. Interpolate as
 	// `.gl-graph__ref-pill#{$pill-filled}` wherever a rule needs to react to the pill being filled.
-	$pill-filled: ':is(:hover, :focus-within, .is-pinned, .is-context-pinned, .gl-graph__ref-pill--find-hit)';
+	// A static (inert) WIP pill never fills — it renders no expand overlay, so the downstream "hide the
+	// in-flow `-main` while the overlay shows" rule would blank it on hover. The `:where()` wrapper keeps
+	// every consuming rule's specificity unchanged.
+	$pill-filled: ':is(:hover, :focus-within, .is-pinned, .is-context-pinned, .gl-graph__ref-pill--find-hit):where(:not(.gl-graph__wip-branch-pill--static))';
 
 	// Ref pills (RefAdornmentProvider). Colors come from the --ref-* custom props set by refStyle()
 	// (NOT inline color/bg, so the :hover rule can win). At rest: lane-colored text + soft border;
@@ -3361,7 +3365,9 @@ gl-lit-graph {
 		// overlay too) — and no fixed white, which is low-contrast on light lanes (amber/gold/teal).
 		// The ring stays the literal lane color (not `--pill-fill`): a role pill's ring must hold the
 		// lane color through hover while its INTERIOR re-points to the role fill (see the role rules below).
-		&:hover {
+		// Static (inert) WIP pills opt out: they carry no inline `--ref-*` props, so this fill would
+		// resolve invalid and compute the ring away — `:where()` keeps the exclusion at zero specificity.
+		&:hover:where(:not(.gl-graph__wip-branch-pill--static)) {
 			color: var(--pill-on-fill);
 			background-color: var(--pill-fill);
 			box-shadow:
