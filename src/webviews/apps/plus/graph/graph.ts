@@ -271,9 +271,7 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 	}
 
 	private applyAgentsInfo(infos: readonly AgentInfo[]): void {
-		// An empty list is the agents service's "feature unavailable" marker (an enabled feature always
-		// lists every known CLI, detected or not). Keep `hooksAgents` undefined then — "unavailable"
-		// must read as unknown, not "no agents detected", or the panel would pitch the unconnectable.
+		// [] from the service means the feature is unavailable — keep `hooksAgents` undefined (unknown).
 		if (infos.length === 0) {
 			this._stateProvider.applyHooksCapability(false, undefined);
 			return;

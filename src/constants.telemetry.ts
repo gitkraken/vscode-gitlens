@@ -345,7 +345,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user clicks a PR or issue link in the Graph Overview hover popover */
 	'graph/overview/linkClicked': GraphSidebarOverviewLinkClickedEvent;
 
-	/** Sent when the Agents sidebar panel becomes visible — deferred until the agents/hooks state has arrived so the hooks properties reflect what the user actually sees */
+	/** Sent when the Agents sidebar panel becomes visible */
 	'graph/agents/shown': GraphSidebarAgentsShownEvent;
 	/** Sent when the user clicks an agent session leaf in the sidebar agents panel */
 	'graph/agents/sessionSelected': GraphSidebarAgentsSessionSelectedEvent;
@@ -353,7 +353,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/agents/permissionResolved': GraphSidebarAgentsPermissionResolvedEvent;
 	/** Sent when the user clicks Open/Resume Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel */
 	'graph/agents/sessionAction': GraphSidebarAgentsSessionActionEvent;
-	/** Sent when the user clicks a header action (Start Work, Start Review, Start Agent Session (With), Refresh) in the sidebar agents panel */
+	/** Sent when the user clicks a header action in the sidebar agents panel */
 	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
 	/** Sent when the user toggles the tree/list layout in the sidebar agents panel */
 	'graph/agents/layoutToggled': GraphSidebarAgentsLayoutToggledEvent;
@@ -2172,11 +2172,8 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 	'sessions.needsInput.count': number;
 	'sessions.idle.count': number;
 	'sessions.ended.count': number;
-	/** Detected, hooks-capable agents; the event is deferred until this state arrives, so undefined only when the agents feature is unavailable (disabled, or a host with no session providers) */
 	'hooks.agentsCount': number | undefined;
-	/** Of those, how many have GitKraken hooks installed (i.e. are connected); undefined only when the agents feature is unavailable */
 	'hooks.agentsInstalledCount': number | undefined;
-	/** Whether the "connect your agents" empty-state message replaced the sessions tree */
 	'emptyState.shown': boolean;
 	'emptyState.reason': 'agents-undetected' | 'agents-unconnected' | undefined;
 }

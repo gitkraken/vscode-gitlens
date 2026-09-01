@@ -903,9 +903,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				this._actions.fetchPanel(this.activePanel);
 			}
 
-			// Defer the `shown` event until the first agents push lands (see
-			// maybeEmitAgentsShownTelemetry) — an at-open emit reads empty hooks/emptyState properties
-			// whenever the panel is restored before the hooks state arrives.
 			this._agentsShownPending = this.activePanel === 'agents';
 
 			// Defer the `shown` event until the branches data actually resolves (see
@@ -1112,10 +1109,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// family", not "all hidden" by the past-sessions toggle.
 			const bannerVisible = this.isAgentsBannerVisible(sessions.length === 0);
 			const emptyState = this.resolveAgentsEmptyState(sessions.length, bannerVisible);
-			// The `connect` states replace the tree entirely; everything else stays inside it so the
-			// filter box and the past-sessions toggle survive — never with the generic "No items". The
-			// repository-scoped line is reserved for a settled `no-sessions` verdict; without one (hooks
-			// state unknown or the agents feature unavailable) the text claims no scope.
 			const emptyText =
 				sessions.length > 0
 					? 'No current agent sessions'
@@ -1330,18 +1323,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** Stands in for the agents tree when no agent is connected — a bare empty list would hide that
-	 *  connecting one is what's missing. A panel state, not a banner: never dismissible (#5777). */
+	 *  connecting one is what's missing. */
 	private renderAgentsEmptyState(reason: 'agents-undetected' | 'agents-unconnected'): unknown {
-		// The undetected copy claims nothing about detection — without the GK CLI it cannot run, and
-		// IDE agents may legitimately show as detected elsewhere.
 		const message =
 			reason === 'agents-undetected'
 				? 'GitLens shows sessions from supported agent CLIs. Install one and connect it to see its sessions here.'
 				: 'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.';
 
-		// The connect button renders only when the click can actually connect something, and is named
-		// for that agent — a generic "Connect Agents" would collide with the banner's same-named,
-		// install-everything button. Otherwise the gear only routes to the settings page.
 		const connectable = this.connectableDefaultAgent;
 
 		return html`<div class="empty empty--connect">
@@ -1362,9 +1350,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	/** The default agent when the connect button can actually connect it: a CLI agent (hooks are a
-	 *  CLI-agent concept), detected and hooks-capable (present in `hooksAgents`, whose ids carry the
-	 *  `cli:` prefix already stripped), with hooks not yet installed. */
+	/** The default agent when the connect button can actually connect it: a CLI agent, detected and
+	 *  hooks-capable, with hooks not yet installed. */
 	private get connectableDefaultAgent(): { id: string; label: string } | undefined {
 		const defaultAgent = this._ai?.state.get().defaultAgent;
 		if (defaultAgent == null || !defaultAgent.id.startsWith('cli:')) return undefined;
@@ -2694,20 +2681,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this._actions.toggleShowRemoteBranches();
 	}
 
-	/** Header launch pair: plain click starts a session with the default agent, alt-click always shows
-	 *  the agent picker. Calls the base `gitlens.startAgentSession` with the graph's repo as cwd — the
-	 *  `gitlens.graph.*` variants need a WIP-row context and no-op without one. Telemetry is emitted
-	 *  directly (like Refresh): the `headerActions` map is keyed by command id, which cannot tell the
-	 *  variants apart. */
 	private handleStartAgentSession(e: MouseEvent) {
 		this.startAgentSession(e.altKey);
 	}
 
-	/** Keyboard route to the alt variant: the click a native button synthesizes from Enter/Space never
-	 *  carries the held Alt modifier. Space must match by physical key (`code`) — with Alt held, macOS
-	 *  composes `key` into a non-breaking space, and a missed match would let the un-canceled native
-	 *  click start a session with the default agent instead. Canceling the keydown suppresses that
-	 *  synthesized click, so the action runs once. */
 	private handleStartAgentSessionKeydown(e: KeyboardEvent) {
 		if (!e.altKey || (e.key !== 'Enter' && e.code !== 'Space')) return;
 
@@ -2973,11 +2950,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		});
 	}
 
-	/** Emits the owed `shown` once the first agents push has landed, so the hooks/emptyState
-	 *  properties measure what the user actually sees. `canInstallHooks` is the arrival tracker: it is
-	 *  written on every push — the feature-unavailable one included, so the event is never lost (it
-	 *  then fires with the hooks properties `undefined`) — and the agents render branch reads the same
-	 *  signal, so arrival re-renders and `updated` flushes the pending emit. */
 	private maybeEmitAgentsShownTelemetry(): void {
 		if (!this._agentsShownPending || this.activePanel !== 'agents') return;
 		if (this._state.canInstallHooks == null) return;

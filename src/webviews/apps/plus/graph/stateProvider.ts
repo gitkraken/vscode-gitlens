@@ -2223,9 +2223,7 @@ export class GraphStateProvider implements Disposable {
 		this.refsMetadataResetToken = (this.refsMetadataResetToken ?? 0) + 1;
 	}
 
-	/** Applies the hooks-install capability derived from `AgentsService.getAgents()`/`onAgentsChanged`.
-	 *  `hooksAgents` stays undefined while the agents feature is unavailable (disabled, or a host with
-	 *  no session providers) — distinct from `[]`, which means "enabled, nothing detected". */
+	/** `hooksAgents` undefined = agents feature unavailable or unknown; `[]` = enabled, nothing detected. */
 	applyHooksCapability(canInstallHooks: boolean, hooksAgents: AppState['hooksAgents']): void {
 		this.canInstallHooks = canInstallHooks;
 		this.hooksAgents = hooksAgents;
