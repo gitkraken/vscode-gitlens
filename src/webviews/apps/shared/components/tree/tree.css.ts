@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { elementBase } from '../styles/lit/base.css.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 export const treeStyles = [
 	elementBase,
@@ -39,7 +39,7 @@ export const treeItemStyles = [
 		}
 
 		/* Rich mode: host a multi-line / card component (e.g. gl-commit-row) in the default slot.
-	   Relaxes the single-line tree-row constraints so the consumer's content drives row height. */
+  Relaxes the single-line tree-row constraints so the consumer's content drives row height. */
 		:host([rich]) {
 			height: auto;
 			min-height: var(--gl-tree-item-min-height, 2.2rem);
@@ -72,10 +72,10 @@ export const treeItemStyles = [
 		}
 
 		/* Disabled state — propagated from disable-check so AI-excluded files (or any other
-	   row that shouldn't be acted on) read as visually inactive AND inert (clicking the
-	   row will not open the file or trigger any action — same UX as a disabled menu item).
-	   The checkbox visual is already dimmed via .checkbox:has(:disabled) and the underlying
-	   <input> is :disabled, so it cannot be activated regardless. */
+  row that shouldn't be acted on) read as visually inactive AND inert (clicking the
+  row will not open the file or trigger any action — same UX as a disabled menu item).
+  The checkbox visual is already dimmed via .checkbox:has(:disabled) and the underlying
+  <input> is :disabled, so it cannot be activated regardless. */
 		:host([disable-check]) .item,
 		:host([disable-check]) slot[name='decorations-before'],
 		:host([disable-check]) slot[name='decorations-after'],
@@ -98,8 +98,8 @@ export const treeItemStyles = [
 		}
 
 		/* Muted — de-emphasized but still fully interactive (e.g. an ended agent session shown as
-	   done history). Dims the label/icon/description only; actions stay at full strength so the
-	   row's affordances (Open, Archive) remain prominent on hover. */
+  done history). Dims the label/icon/description only; actions stay at full strength so the
+  row's affordances (Open, Archive) remain prominent on hover. */
 		:host([muted]) .item,
 		:host([muted]) slot[name='decorations-before'],
 		:host([muted]) slot[name='decorations-after'] {
@@ -107,14 +107,14 @@ export const treeItemStyles = [
 		}
 
 		/* Selection AND the focused-cursor highlight get identical treatment: both brighten from the
-	   inactive to the active selection colors via the --gl-tree-focus-within var (0/1), set by
-	   gl-tree-view's :host(:focus-within) and inherited across the shadow boundary. It must be a
-	   CSS-only signal because DOM focus routinely lands *inside* a row — clicking focuses the row's
-	   inner button and Tab focuses its checkbox — so the container's own focus/blur can't be trusted,
-	   but :focus-within still holds while focus is anywhere in the tree. Folders are never selection
-	   members, so a folder cursor only hits the second selector; giving it the same colors means a
-	   focused folder reads like a selected file — active while the tree (or a checkbox in it) has
-	   focus, and keeping the inactive highlight when the tree loses focus. */
+  inactive to the active selection colors via the --gl-tree-focus-within var (0/1), set by
+  gl-tree-view's :host(:focus-within) and inherited across the shadow boundary. It must be a
+  CSS-only signal because DOM focus routinely lands *inside* a row — clicking focuses the row's
+  inner button and Tab focuses its checkbox — so the container's own focus/blur can't be trusted,
+  but :focus-within still holds while focus is anywhere in the tree. Folders are never selection
+  members, so a folder cursor only hits the second selector; giving it the same colors means a
+  focused folder reads like a selected file — active while the tree (or a checkbox in it) has
+  focus, and keeping the inactive highlight when the tree loses focus. */
 		:host([aria-selected='true']),
 		:host([focused]:not([aria-selected='true'])) {
 			color: color-mix(
@@ -147,7 +147,7 @@ export const treeItemStyles = [
 		}
 
 		/* A row that physically contains DOM focus (its button or checkbox) is unambiguously in the
-	   focused tree — show a solid outline regardless of the var. */
+  focused tree — show a solid outline regardless of the var. */
 		:host(:focus-within) {
 			z-index: 1;
 			outline: var(--gl-border-width) solid var(--vscode-list-focusOutline);
@@ -155,8 +155,8 @@ export const treeItemStyles = [
 		}
 
 		/* Clips at the actions' left edge: .icon never shrinks, so without this it escapes the
-	   shrinking box on a narrow row and paints under the action chips, which have no background of
-	   their own. The label ellipsizes first, so the icon only clips at the extreme. */
+  shrinking box on a narrow row and paints under the action chips, which have no background of
+  their own. The label ellipsizes first, so the icon only clips at the extreme. */
 		.item {
 			display: flex;
 			flex: 1;
@@ -165,8 +165,8 @@ export const treeItemStyles = [
 			align-items: center;
 			justify-content: flex-start;
 			min-width: 0;
-			overflow: hidden;
 			padding: 0;
+			overflow: hidden;
 			font-family: inherit;
 			font-size: inherit;
 			color: inherit;
@@ -184,7 +184,7 @@ export const treeItemStyles = [
 			align-items: center;
 			justify-content: center;
 			/* min-width, not width: wide icons (e.g. the 2.2rem split conflict icon) size the slot via
-		   the ::slotted width below — a fixed width would clip them to the default 1.6rem */
+   the ::slotted width below — a fixed width would clip them to the default 1.6rem */
 			min-width: var(--gl-icon-size, 1.6rem);
 			height: 2.2rem;
 			pointer-events: none;
@@ -290,7 +290,7 @@ export const treeItemStyles = [
 		}
 
 		/* Tooltip wrapper around the checkbox has display: block + line-height from the host,
-	   which adds inline leading and pushes the checkbox 1px above the row. Center-fit it. */
+  which adds inline leading and pushes the checkbox 1px above the row. Center-fit it. */
 		gl-tooltip:has(> .checkbox) {
 			display: inline-flex;
 			align-items: center;
@@ -322,8 +322,8 @@ export const treeItemStyles = [
 		}
 
 		/* Theme-aware keyboard focus ring — the appearance:none input would otherwise show the browser
-	   default outline. Drawn on the wrapper so it frames the whole 1.6rem box; the input's own outline
-	   stays off (see .checkbox__input). :focus-visible keeps it keyboard-only, matching VS Code. */
+  default outline. Drawn on the wrapper so it frames the whole 1.6rem box; the input's own outline
+  stays off (see .checkbox__input). :focus-visible keeps it keyboard-only, matching VS Code. */
 		.checkbox:has(.checkbox__input:focus-visible) {
 			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 0.1rem;
@@ -440,8 +440,8 @@ export const treeItemStyles = [
 		}
 
 		/* Dimmed by opacity rather than a fixed color (same recipe as .description) so it tracks whatever
-		   foreground the row currently has. A fixed descriptionForeground stays grey through selection and
-		   focus, losing contrast against the active-selection background. */
+   foreground the row currently has. A fixed descriptionForeground stays grey through selection and
+   focus, losing contrast against the active-selection background. */
 		::slotted([slot^='decorations-'].decoration-text--muted),
 		::slotted([slot^='decorations-'].decoration-icon--muted) {
 			opacity: 0.7;

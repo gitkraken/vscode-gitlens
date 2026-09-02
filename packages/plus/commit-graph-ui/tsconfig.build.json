@@ -1,0 +1,24 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"composite": true,
+		"incremental": true,
+		"isolatedDeclarations": true,
+		"declaration": true,
+		// The tarball ships no `src/`, and unlike JS source maps, a declaration map cannot embed its
+		// sources — every `.d.ts.map` would point at a file no consumer has.
+		"declarationMap": false,
+		"noEmit": false,
+		"outDir": "dist",
+		"rootDir": "src",
+		"sourceMap": true,
+		"types": [],
+		// Distinct from tsconfig.json's editor buildinfo, and kept out of dist/ so it never ships.
+		"tsBuildInfoFile": "tsconfig.build.tsbuildinfo"
+	},
+	// No `references`: this package is built by tsdown, not `tsc -b`, so nothing here drives another
+	// project's build. tsdown's dts plugin reads this config directly — @gitlens/* resolve through
+	// their own manifests to source, so no extra `paths` are needed here.
+	"include": ["src/**/*.ts"],
+	"exclude": ["src/**/__tests__/**"]
+}

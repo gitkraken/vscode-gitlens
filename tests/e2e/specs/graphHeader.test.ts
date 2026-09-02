@@ -19,7 +19,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout, ShortTimeout } from '../baseTest.js';
-import { widenSideBarForGraph } from '../graphHelpers.js';
+import { ensureGraphDetailsPanelOpen, graphDetailsRegion, widenSideBarForGraph } from '../graphHelpers.js';
 
 let git: GitFixture;
 
@@ -64,29 +64,17 @@ async function openHeaderMenu(webview: FrameLocator, label: string, commandInsid
 	}).toPass({ timeout: MaxTimeout });
 }
 
-/** Ensure the graph's details panel is expanded (it may start collapsed). */
-async function ensureDetailsPanelOpen(webview: FrameLocator): Promise<void> {
-	const toggle = webview.locator('gl-button[aria-label$="Details Panel"]').first();
-	await expect(toggle).toBeVisible({ timeout: MaxTimeout });
-	if ((await toggle.getAttribute('aria-label')) === 'Show Details Panel') {
-		await toggle.click();
-		await expect(webview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
-			timeout: MaxTimeout,
-		});
-	}
-}
-
 /** Select the WIP row and wait for its details (which host the commit box + signing indicator). */
 async function selectWipDetails(webview: FrameLocator): Promise<void> {
-	await ensureDetailsPanelOpen(webview);
+	await ensureGraphDetailsPanelOpen(webview, MaxTimeout);
 	const wipRow = webview
 		.getByText(/Working (Changes|Tree)/)
 		.filter({ visible: true })
 		.first();
 	await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
 	await wipRow.click();
-	await ensureDetailsPanelOpen(webview);
-	await expect(webview.locator('gl-details-wip-panel').first()).toBeVisible({
+	await ensureGraphDetailsPanelOpen(webview, MaxTimeout);
+	await expect(graphDetailsRegion(webview, 'wip')).toBeVisible({
 		timeout: 30000,
 	});
 }
@@ -129,7 +117,7 @@ test.describe('Graph — Header menus', () => {
 	test('Start New menu wires branch / worktree / stash commands', async ({ vscode }) => {
 		// The old standalone Create menu was folded into Start New (df7472130) — same three
 		// command links, different host button
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* Paid */,
 			planId: 'pro',
 		});
@@ -145,7 +133,7 @@ test.describe('Graph — Header menus', () => {
 	});
 
 	test('Start New menu wires start-work / start-review commands', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6,
 			planId: 'pro',
 		});
@@ -160,7 +148,7 @@ test.describe('Graph — Header menus', () => {
 	});
 
 	test('Launchpad indicator shows the not-connected state and Open Launchpad action', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6,
 			planId: 'pro',
 		});
@@ -183,7 +171,7 @@ test.describe('Graph — Header menus', () => {
 	test('Pro feature badge is not shown in the header, even for a non-paid (trial) subscription', async ({
 		vscode,
 	}) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 3 /* Trial */,
 		});
 
@@ -197,7 +185,7 @@ test.describe('Graph — Header menus', () => {
 	});
 
 	test('WIP details show the commit-signing indicator when signing is enabled', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6,
 			planId: 'pro',
 		});
@@ -213,7 +201,7 @@ test.describe('Graph — Header menus', () => {
 	// Runs last: disabling commit.gpgsign mutates the shared repo, so no later test may depend on
 	// signing being on (serial mode guarantees ordering).
 	test('WIP details omit the signing indicator when signing is disabled', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
+		await using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6,
 			planId: 'pro',
 		});

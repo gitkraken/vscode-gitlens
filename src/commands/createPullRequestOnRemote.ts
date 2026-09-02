@@ -1,8 +1,8 @@
 import { window } from 'vscode';
 import type { CreatePullRequestRemoteResource } from '@gitlens/git/models/remoteResource.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { take } from '@gitlens/utils/event.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';

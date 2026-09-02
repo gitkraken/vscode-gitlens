@@ -17,7 +17,7 @@ unit; Home/End jump to the ends.
 
 Reuse the shared implementations — do **not** hand-roll:
 
-- **`RovingTabindexController`** (`src/webviews/apps/shared/controllers/roving-tabindex.ts`) — vertical or
+- **`RovingTabindexController`** (`packages/components/src/controllers/rovingTabindex.ts`) — vertical or
   complex groups, managed imperatively, keyed by `data-roving-key` (survives re-renders/reorders),
   orientation-aware, skips disabled, tracks a default item until the user actually arrows. Used by the graph
   header, the sidebar icon rail, and the overview cards.
@@ -31,7 +31,7 @@ Shift+Arrow to resize/reorder a column) reach the control's own handler instead 
 
 ## 2. Virtualized tree = single tab stop + an intra-row "dive"
 
-`gl-lit-graph` is a `role="tree"` with `aria-activedescendant`: **one** tab stop, Up/Down move the active
+`gl-commit-graph` is a `role="tree"` with `aria-activedescendant`: **one** tab stop, Up/Down move the active
 row _virtually_ (no per-row tab stop). Patterns that make this navigable:
 
 - **Header-first ordering.** The tree role/`tabindex="0"`/`aria-activedescendant` live on an inner
@@ -69,14 +69,14 @@ Split the visual state into two classes with two jobs:
 Navigation: Up/Down move rows (cursor resets to the row's first item); Left/Right rove the cursored row's
 items (`groupedRowItems`: the ref, then its interactive sub-actions); Enter activates the cursored item;
 Esc / Up-past-the-top exit. Give every activedescendant target a **stable `id`** (rows _and_ sub-actions).
-See `handleGroupedPillKeydown` / `setRowItemCursor` / `clearGroupedPillCursor` in `gl-lit-graph.ts`.
+See `moveGroupedPillCursor` / `setRowItemCursor` / `clearGroupedPillCursor` in `graph.ts`.
 
 ## 4. Overlay-covered controls: keep filled, mirror the ring
 
 A pill collapses to an icon and expands to an absolutely-positioned filled overlay
 (`.gl-graph__ref-pill-expand`) on hover/focus. Its interactive sub-chips render **twice**: an in-flow copy
 (the roving/focus target) and an `aria-hidden` expanded twin inside the overlay
-(`refAdornmentProvider.ts`).
+(`extensions/refs/adornmentProvider.ts`).
 
 - Keep the fill on **`:focus-within`** so the pill stays "hover-styled" while a control inside it is focused
   (do **not** gate the fill on the pill's own `:focus` — that collapses it the moment focus dives into a
@@ -85,7 +85,7 @@ A pill collapses to an icon and expands to an absolutely-positioned filled overl
   expanded twin** with `:has()` (`.gl-graph__ref-pill:has(<chip>:focus-visible) .gl-graph__ref-pill-expand
 <twin>`). Real focus + the accessible name stay on the in-flow copy; only the _visual_ ring rides the twin.
 - Do the same for **tooltips**: a keyboard tooltip must re-anchor to the visible twin, not the covered copy
-  (`expandedTwinIfCovered` in `gl-lit-graph.ts`), or it points at nothing behind the fill.
+  (`_expandedTwinIfCovered` in `graphDelegatedTooltip.ts`), or it points at nothing behind the fill.
 
 ## 5. Focus rects as full-height bands, not inner boxes
 
@@ -108,9 +108,9 @@ bonus, moving focus off the source pill collapses its fill and closes its popove
 Tooltips must appear on focus, not just hover (`accessibility.md`). Two gotchas:
 
 - Delegated tooltips (a single host-owned tooltip resolving `data-tooltip` from the focused element) fire on
-  a viewport `focusin` (`showTooltipForFocus`).
+  a viewport `focusin` (`showForFocus`).
 - An **aria-activedescendant cursor emits no `focusin`** — DOM focus never moves — so nothing triggers the
-  tooltip. Surface it explicitly when the cursor moves (`setRowItemCursor` → `showTooltipForTarget`) and hide
+  tooltip. Surface it explicitly when the cursor moves (`setRowItemCursor` → `showForTarget`) and hide
   it when the cursor clears.
 
 ## 8. Decorations must clear the row focus ring
@@ -123,18 +123,18 @@ positioned descendants would otherwise paint over a plain `outline`.
 Consequence: a near-full-height decoration (the avatar/identity commit node) gets **clipped** by the ring
 once it reaches the row edge — especially after a hover/select grow. Size such decorations so that, grow
 included, they stay inside the ring's interior. The avatar node radius is capped for exactly this
-(`nodeRadiusFor` / `avatarNodeRadius` in `graph-gutter.ts`): radius 9 (18px) so the ×1.1 grow (19.8px) clears
+(`nodeRadiusFor` / `avatarNodeRadius` in `gutter/render.ts`): radius 9 (18px) so the ×1.1 grow (19.8px) clears
 the ~20px interior of the 24px row.
 
 ## Key files
 
-| Concern                                                                      | File                                                                                                                   |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Roving controllers                                                           | `src/webviews/apps/shared/controllers/roving-tabindex.ts`, `src/webviews/apps/shared/components/actions/action-nav.ts` |
-| Tree / intra-row dive / activedescendant menu / focus-follows-nav / tooltips | `src/webviews/apps/plus/graph/graph-wrapper/gl-lit-graph.ts`                                                           |
-| Pill markup + twin copies + activedescendant ids                             | `src/webviews/apps/plus/graph/graph-wrapper/adornments/refAdornmentProvider.ts`                                        |
-| Node sizing vs. the ring                                                     | `src/webviews/apps/plus/graph/graph-wrapper/graph-gutter.ts`                                                           |
-| Focus rings / bands / `.is-active` vs `.is-cursor`                           | `src/webviews/apps/plus/graph/graph.scss`                                                                              |
+| Concern                                                                      | File                                                                                                                 |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Roving controllers                                                           | `packages/components/src/controllers/rovingTabindex.ts`, `src/webviews/apps/shared/components/actions/action-nav.ts` |
+| Tree / intra-row dive / activedescendant menu / focus-follows-nav / tooltips | `packages/plus/commit-graph-ui/src/graph.ts`                                                                         |
+| Pill markup + twin copies + activedescendant ids                             | `packages/plus/commit-graph-ui/src/extensions/refs/adornmentProvider.ts`                                             |
+| Node sizing vs. the ring                                                     | `packages/plus/commit-graph-ui/src/gutter/render.ts`                                                                 |
+| Focus rings / bands / `.is-active` vs `.is-cursor`                           | `packages/plus/commit-graph-ui/src/graph.scss`                                                                       |
 
 ## See also
 

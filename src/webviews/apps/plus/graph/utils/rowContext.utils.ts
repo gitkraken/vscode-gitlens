@@ -1,3 +1,4 @@
+import { pickRowUndoTarget } from '@gitkraken/commit-graph-ui/rows/rows.js';
 import type { GitGraphRow, GitGraphRowContextFlags, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { GitGraphRowContextFlags as ContextFlags } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -10,7 +11,6 @@ import type {
 	GraphItemRefContext,
 	GraphItemTypedContext,
 } from '../../../../plus/graph/protocol.js';
-import { pickRowUndoTarget } from './row.utils.js';
 
 /**
  * Minimal row shape the context builders read. The lean graph payload ships `contexts.flags` (host-only

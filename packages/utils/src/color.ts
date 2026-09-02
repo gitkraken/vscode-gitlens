@@ -588,14 +588,14 @@ export class Color {
 		return of.darken(factor);
 	}
 
-	static readonly white = new Color(new RGBA(255, 255, 255, 1));
-	static readonly black = new Color(new RGBA(0, 0, 0, 1));
-	static readonly red = new Color(new RGBA(255, 0, 0, 1));
-	static readonly blue = new Color(new RGBA(0, 0, 255, 1));
-	static readonly green = new Color(new RGBA(0, 255, 0, 1));
-	static readonly cyan = new Color(new RGBA(0, 255, 255, 1));
-	static readonly lightgrey = new Color(new RGBA(211, 211, 211, 1));
-	static readonly transparent = new Color(new RGBA(0, 0, 0, 0));
+	static readonly white: Color = new Color(new RGBA(255, 255, 255, 1));
+	static readonly black: Color = new Color(new RGBA(0, 0, 0, 1));
+	static readonly red: Color = new Color(new RGBA(255, 0, 0, 1));
+	static readonly blue: Color = new Color(new RGBA(0, 0, 255, 1));
+	static readonly green: Color = new Color(new RGBA(0, 255, 0, 1));
+	static readonly cyan: Color = new Color(new RGBA(0, 255, 255, 1));
+	static readonly lightgrey: Color = new Color(new RGBA(211, 211, 211, 1));
+	static readonly transparent: Color = new Color(new RGBA(0, 0, 0, 0));
 }
 
 export function formatRGB(color: Color): string {

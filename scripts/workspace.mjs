@@ -39,10 +39,14 @@ export function getBundledPackageDirs() {
 	return dirs;
 }
 
-// Some packages are bundled into the GitLens webviews but do not belong in the published host/core
-// SDK, and the `@gitkraken/*` graph packages publish on their own. Keep this list explicit: being a
-// workspace package is not an assertion that it is part of @gitkraken/core-gitlens.
-const coreExcludedPackageNames = new Set(['@gitkraken/commit-graph']);
+// Browser-only packages are bundled into the GitLens webviews, but do not belong in the published
+// host/core SDK, and the `@gitkraken/*` graph packages publish on their own. Keep this list explicit:
+// being a workspace package is not an assertion that it is part of @gitkraken/core-gitlens.
+const coreExcludedPackageNames = new Set([
+	'@gitlens/components',
+	'@gitkraken/commit-graph',
+	'@gitkraken/commit-graph-ui',
+]);
 
 /** @returns {string[]} Absolute directories for packages bundled into `@gitkraken/core-gitlens`. */
 export function getCoreBundledPackageDirs() {

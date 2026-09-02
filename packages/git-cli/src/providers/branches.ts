@@ -13,7 +13,6 @@ import type {
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import {
 	formatDetachedHeadName,
-	getBranchId,
 	getLocalBranchByUpstream,
 	isDetachedHead,
 	isRemoteHEAD,
@@ -29,6 +28,7 @@ import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';

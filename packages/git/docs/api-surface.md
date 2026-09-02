@@ -587,34 +587,34 @@ Also: `BlameIgnoreRevsFileError`, `BlameIgnoreRevsFileBadRevisionError`, `GitSea
 
 All in `utils/`:
 
-| Module                           | Key Exports                                                                                                                                                               |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `autolink.utils.js`              | Autolink reference handling                                                                                                                                               |
-| `blame.utils.js`                 | `getBlameRange`                                                                                                                                                           |
-| `branch.utils.js`                | `getBranchId`, `getBranchNameAndRemote`, `getBranchNameWithoutRemote`, `getRemoteNameFromBranchName`, `isDetachedHead`, `isRemoteBranch`, `parseRefName`, `parseUpstream` |
-| `commit.utils.js`                | `getChangedFilesCount`, `splitCommitMessage`, `isOfCommitOrStashRefType`                                                                                                  |
-| `contributor.utils.js`           | `calculateContributionScore`, `calculateDistribution`, `matchContributor`                                                                                                 |
-| `fetch.utils.js`                 | Fetch operation utilities                                                                                                                                                 |
-| `fileStatus.utils.js`            | `getGitFileStatusIcon`, `getGitFileStatusText`                                                                                                                            |
-| `issue.utils.js`                 | Issue utilities                                                                                                                                                           |
-| `issueOrPullRequest.utils.js`    | Issue/PR utilities                                                                                                                                                        |
-| `mergeConflicts.utils.js`        | Merge conflict utilities                                                                                                                                                  |
-| `pausedOperationStatus.utils.js` | Paused operation utilities                                                                                                                                                |
-| `pullRequest.utils.js`           | Pull request utilities                                                                                                                                                    |
-| `rebase.utils.js`                | Rebase todo parsing utilities                                                                                                                                             |
-| `reference.utils.js`             | `createReference`, `isBranchReference`, `isTagReference`, `isStashReference`, `isRevisionReference`, `getReferenceTypeLabel`                                              |
-| `remote.utils.js`                | `getDefaultRemoteOrHighlander`                                                                                                                                            |
-| `repository.utils.js`            | Repository path helpers                                                                                                                                                   |
-| `resourceDescriptor.utils.js`    | Resource descriptor utilities                                                                                                                                             |
-| `revision.utils.js`              | `isUncommitted`, `isUncommittedStaged`, `isSha`, `shortenRevision`, `createRevisionRange`, `getRevisionRangeParts`                                                        |
-| `search.utils.js`                | Search query helpers                                                                                                                                                      |
-| `sorting.js`                     | `BranchSortOptions`, `TagSortOptions`, `BranchSorting`, `TagSorting`, `ContributorSorting`                                                                                |
-| `status.utils.js`                | `getUpstreamStatus`                                                                                                                                                       |
-| `statusFile.utils.js`            | Status file utilities                                                                                                                                                     |
-| `tag.utils.js`                   | Tag utilities                                                                                                                                                             |
-| `uriAuthority.js`                | URI authority helpers                                                                                                                                                     |
-| `user.utils.js`                  | User/author utilities                                                                                                                                                     |
-| `worktree.utils.js`              | Worktree utilities                                                                                                                                                        |
+| Module                           | Key Exports                                                                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `autolink.utils.js`              | Autolink reference handling                                                                                                                                |
+| `blame.utils.js`                 | `getBlameRange`                                                                                                                                            |
+| `branch.utils.js`                | `getBranchNameAndRemote`, `getBranchNameWithoutRemote`, `getRemoteNameFromBranchName`, `isDetachedHead`, `isRemoteBranch`, `parseRefName`, `parseUpstream` |
+| `commit.utils.js`                | `getChangedFilesCount`, `isOfCommitOrStashRefType`                                                                                                         |
+| `contributor.utils.js`           | `calculateContributionScore`, `calculateDistribution`, `matchContributor`                                                                                  |
+| `fetch.utils.js`                 | Fetch operation utilities                                                                                                                                  |
+| `fileStatus.utils.js`            | `getGitFileStatusIcon`, `getGitFileStatusText`                                                                                                             |
+| `issue.utils.js`                 | Issue utilities                                                                                                                                            |
+| `issueOrPullRequest.utils.js`    | Issue/PR utilities                                                                                                                                         |
+| `mergeConflicts.utils.js`        | Merge conflict utilities                                                                                                                                   |
+| `pausedOperationStatus.utils.js` | Paused operation utilities                                                                                                                                 |
+| `pullRequest.utils.js`           | Pull request utilities                                                                                                                                     |
+| `rebase.utils.js`                | Rebase todo parsing utilities                                                                                                                              |
+| `reference.utils.js`             | `createReference`, `isBranchReference`, `isTagReference`, `isStashReference`, `isRevisionReference`, `getReferenceTypeLabel`                               |
+| `remote.utils.js`                | `getDefaultRemoteOrHighlander`                                                                                                                             |
+| `repository.utils.js`            | Repository path helpers                                                                                                                                    |
+| `resourceDescriptor.utils.js`    | Resource descriptor utilities                                                                                                                              |
+| `revision.utils.js`              | `isUncommitted`, `isUncommittedStaged`, `isSha`, `shortenRevision`, `createRevisionRange`, `getRevisionRangeParts`                                         |
+| `search.utils.js`                | Search query helpers                                                                                                                                       |
+| `sorting.js`                     | `BranchSortOptions`, `TagSortOptions`, `BranchSorting`, `TagSorting`, `ContributorSorting`                                                                 |
+| `status.utils.js`                | `getUpstreamStatus`                                                                                                                                        |
+| `statusFile.utils.js`            | Status file utilities                                                                                                                                      |
+| `tag.utils.js`                   | Tag utilities                                                                                                                                              |
+| `uriAuthority.js`                | URI authority helpers                                                                                                                                      |
+| `user.utils.js`                  | User/author utilities                                                                                                                                      |
+| `worktree.utils.js`              | Worktree utilities                                                                                                                                         |
 
 > **Note**: Path utilities (`splitPath`, `normalizePath`, `isChild`, `isDescendant`, etc.) are in `@gitlens/utils/path.js`, not in this package.
 

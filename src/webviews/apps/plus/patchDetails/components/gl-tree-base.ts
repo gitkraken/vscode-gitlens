@@ -1,10 +1,10 @@
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
+import { GlElement } from '@gitlens/components/components/element.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { joinPaths, trimTrailingSlash } from '@gitlens/utils/path.js';
-import { GlElement } from '../../../shared/components/element.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,

@@ -1,15 +1,15 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
+import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlPromoBanner } from '../../../home/components/promo-banner.js';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { GlAccountBar } from './account-bar.js';
 import './account-bar.js';
 import '../../../home/components/onboarding.js';
 import '../../../home/components/promo-banner.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 // import '../../../shared/components/snow.js';
 
 @customElement('gl-home-header')

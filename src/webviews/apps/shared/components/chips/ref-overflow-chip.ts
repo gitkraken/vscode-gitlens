@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../overlays/tooltip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
 
 export interface RefItem {
 	name: string;

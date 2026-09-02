@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 2,
+	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
+	"sourceCommit": "591cdeff88b4cdb62788cdcae303a453f6bc88e7",
+	"entrypoint": "graph",
+	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
+	"budgetRationale": "The full GitLens profile has a 12 KiB ceiling above main for host-neutral extension seams. shared.js (loaded by every webview) gets a 4 KiB ceiling so unrelated shared-code changes don't trip a graph check while real bloat still does. graph.css allows two accounted moves: the element rename (gl-lit-graph to gl-commit-graph adds three bytes to every prefixed rule) and the VS Code theme-token table, which now ships in the package's themes/vscode.css instead of being written from JavaScript (a JS-to-CSS move, neutral for the entrypoint). Dropping the element prefix is queued and will take the ceiling back toward main.",
+	"baselineBytes": {
+		"entrypoint": 2964706,
+		"graph.js": 1759230,
+		"graph.css": 153385,
+		"shared.js": 1052091
+	},
+	"maximumBytes": {
+		"entrypoint": 2976994,
+		"graph.js": 1759230,
+		"graph.css": 160266,
+		"shared.js": 1056187
+	}
+}

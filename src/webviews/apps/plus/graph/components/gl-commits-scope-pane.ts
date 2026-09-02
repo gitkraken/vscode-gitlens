@@ -1,6 +1,6 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { elementBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
 import type { ScopeMode } from './gl-commits-scope-pane.utils.js';
 import {
@@ -9,11 +9,11 @@ import {
 	resolveSelectionRange,
 	resolveStartIndex,
 } from './gl-commits-scope-pane.utils.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/avatar/avatar.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/formatted-date.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 export type ScopeItemState = 'uncommitted' | 'unpushed' | 'pushed' | 'merge-base' | 'load-more';
 

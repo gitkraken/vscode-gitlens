@@ -1,12 +1,7 @@
 import * as assert from 'assert';
-import type {
-	emptySetMarker,
-	GraphRefOptData,
-	GraphScope,
-	GraphWipRow,
-	GraphWipRowsById,
-} from '../../../../../plus/graph/protocol.js';
-import { createWipRowId } from '../../../../../plus/graph/protocol.js';
+import type { emptySetMarker } from '@gitkraken/commit-graph-ui/scope/filtering.js';
+import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
+import type { GraphRefOptData, GraphScope, GraphWipRow, GraphWipRowsById } from '../../../../../plus/graph/protocol.js';
 import type { RefFindCandidate, RefFindMatch } from '../refFind.utils.js';
 import {
 	buildRefFindCandidates,

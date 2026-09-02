@@ -1,13 +1,10 @@
 import type { GitPausedOperationStatus, GitRebaseStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
-import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
-import type { PausedOperationVariant } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
-import {
-	getConflictCurrentRef,
-	pausedOperationStatusStringsByType,
-} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { getConflictCurrentRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { pluralize, truncate } from '@gitlens/utils/string.js';
+import type { PausedOperationVariant } from '@gitlens/utils/pausedOperation.js';
+import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
+import { pluralize, splitMessage, truncate } from '@gitlens/utils/string.js';
 
 /** Longest commit subject a tooltip carries before it's elided. */
 const maxSubjectLength = 50;
@@ -18,17 +15,6 @@ export function isPausedOperationStepped(
 	variant: PausedOperationVariant,
 ): status is GitRebaseStatus {
 	return status.type === 'rebase' && variant !== 'pending';
-}
-
-/** The strip's leading phrase; the paused-at pill and the refs are appended to it by the caller. */
-export function getPausedOperationBarLabel(status: GitPausedOperationStatus, variant: PausedOperationVariant): string {
-	const strings = pausedOperationStatusStringsByType[status.type];
-	// Title Case throughout — these read as state names on a pill or a bar, not as prose.
-	if (variant === 'conflicts') return `${strings.prose} Paused`;
-	// The shared `pending` string trails a preposition for callers that append a ref inline (the tree
-	// view). The bar's refs can shed, so it carries that "of" inside the refs group instead.
-	if (variant === 'pending' && status.type === 'rebase') return 'Pending Rebase';
-	return strings.label;
 }
 
 /** The primary action's label — the conflict count rides on the button, where it's acted on. */
@@ -114,7 +100,7 @@ export function getPausedOperationStepTooltipParts(status: GitRebaseStatus): {
 	const step = `step ${status.steps.current.number} of ${status.steps.total}`;
 	const sha = shortenRevision(status.steps.current.commit?.ref);
 
-	const { summary } = splitCommitMessage(status.steps.current.commit?.message);
+	const { summary } = splitMessage(status.steps.current.commit?.message);
 	return {
 		detail: sha ? `Rebase paused at ${sha} (${step})` : `Rebase paused (${step})`,
 		subject: summary ? `"${truncate(summary, maxSubjectLength)}"` : undefined,
@@ -128,6 +114,6 @@ export function describePausedOperationCommit(ref: GitRevisionReference | undefi
 	const sha = shortenRevision(ref.ref);
 	if (!sha) return undefined;
 
-	const { summary } = splitCommitMessage(ref.message);
+	const { summary } = splitMessage(ref.message);
 	return summary ? `${sha} "${truncate(summary, maxSubjectLength)}"` : sha;
 }

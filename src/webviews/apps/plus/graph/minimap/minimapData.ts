@@ -1,3 +1,4 @@
+import { getCommitDateFromRow } from '@gitkraken/commit-graph-ui/rows/rows.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type {
 	GraphDownstreams,
@@ -8,7 +9,6 @@ import type {
 	GraphSearchResultsError,
 	GraphWipRowsById,
 } from '../../../../plus/graph/protocol.js';
-import { getCommitDateFromRow } from '../utils/row.utils.js';
 import type {
 	GraphMinimapMarker,
 	GraphMinimapSearchResultMarker,

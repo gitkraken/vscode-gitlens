@@ -58,6 +58,8 @@ class WebviewPublicPathPlugin extends WebpackRequireFromPlugin {
 function getLibraryAliases() {
 	return {
 		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
+		'@gitkraken/commit-graph-ui': path.resolve(__dirname, 'packages', 'plus', 'commit-graph-ui', 'src'),
+		'@gitlens/components': path.resolve(__dirname, 'packages', 'components', 'src'),
 		'@gitlens/utils': path.resolve(__dirname, 'packages', 'utils', 'src'),
 		'@gitlens/ipc': path.resolve(__dirname, 'packages', 'ipc', 'src'),
 		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),
@@ -88,7 +90,7 @@ function getUtilsEnvAliases(target) {
 		'#env/platform.js': path.resolve(base, 'platform.ts'),
 	};
 }
-/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; quick?: boolean; trace?: boolean; webviews?: string }} GlEnv */
+/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; quick?: boolean; stats?: boolean; trace?: boolean; webviews?: string }} GlEnv */
 /** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
 
 /**
@@ -103,6 +105,7 @@ export default function (env, argv) {
 		analyzeBundle: false,
 		analyzeDeps: false,
 		quick: false,
+		stats: false,
 		trace: false,
 		...env,
 	};
@@ -637,6 +640,14 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				statsFilename: path.join(out, `${filePrefix}-stats.json`),
 			}),
 		);
+	} else if (env.stats) {
+		// Same stats file as `analyzeBundle` above (so `checkGraphBundle.mjs`'s default path resolves
+		// either way), but written from the actual production compilation — no analyzer instrumentation,
+		// no forced source maps — so the graph bundle budget measures the bundle GitLens ships.
+		const out = path.join(__dirname, 'out');
+		fs.mkdirSync(out, { recursive: true });
+
+		plugins.push(new WebviewStatsPlugin(path.join(out, `${filePrefix}-stats.json`)));
 	}
 
 	return {
@@ -766,6 +777,10 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		},
 
 		resolve: {
+			// GitLens consumes @gitkraken/commit-graph-ui from `src/` through the alias above; the package's
+			// `dist/` also carries compiled copies of @gitlens/utils and @gitlens/components for external
+			// consumers. Refuse to resolve into it so those copies can never be bundled a second time.
+			restrictions: [/^(?!.*[\\/]packages[\\/]plus[\\/]commit-graph-ui[\\/]dist[\\/])/],
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
 				// Deduplicate signal-polyfill: linked @supertalk/* packages resolve to their
@@ -1367,6 +1382,45 @@ class BuildCompletePlugin {
 					}
 				}, 100);
 			}
+		});
+	}
+}
+
+/**
+ * Writes a plain webpack stats JSON (assets + entrypoints only — no analyzer instrumentation) so the
+ * graph bundle budget check (`checkGraphBundle.mjs`) can measure the real production compilation
+ * instead of the source-mapped, analyzer-only build `analyzeBundle`/`BundleAnalyzerPlugin` produces.
+ */
+class WebviewStatsPlugin {
+	/** @param {string} statsFilename */
+	constructor(statsFilename) {
+		this.statsFilename = statsFilename;
+	}
+
+	/** @param {import('webpack').Compiler} compiler */
+	apply(compiler) {
+		const pluginName = 'WebviewStatsPlugin';
+
+		compiler.hooks.done.tap(pluginName, stats => {
+			const json = stats.toJson({
+				assets: true,
+				entrypoints: true,
+				errors: true,
+				errorsCount: true,
+				warnings: false,
+				chunks: false,
+				// Module identifiers (no source, no reasons) so `checkGraphBundle.mjs` can prove every workspace
+				// package was bundled from its aliased `src/`, never from a built `dist/`.
+				modules: true,
+				modulesSpace: Infinity,
+				nestedModules: true,
+				nestedModulesSpace: Infinity,
+				reasons: false,
+				hash: false,
+				builtAt: false,
+				source: false,
+			});
+			fs.writeFileSync(this.statsFilename, JSON.stringify(json));
 		});
 	}
 }

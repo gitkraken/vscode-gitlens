@@ -9,8 +9,8 @@ import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 /**
  * Evidence-gated banner strip advertising the Repository Health visualization — shown above the graph
@@ -48,8 +48,8 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		.strip__msg {
 			min-width: 0;
 			overflow: hidden;
-			white-space: nowrap;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
 		.strip__msg strong {
@@ -88,7 +88,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		}
 
 		/* Same treatment as the jump toast's action (gl-graph-jump-toast.css.ts) — the graph's banner
-		   buttons share one look. */
+   buttons share one look. */
 		.strip__cta {
 			flex: none;
 			padding: 0.2rem 0.5rem;

@@ -3,9 +3,9 @@ import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphCoachMarkType } from '../../../../plus/graph/protocol.js';
-import { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { OnboardingDismissals } from '../../../shared/contexts/onboardingDismissals.js';
 import { onboardingDismissalsContext } from '../../../shared/contexts/onboardingDismissals.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -13,8 +13,8 @@ import type { CoachMarkSeenStore } from '../coachMarkSeen.js';
 import { coachMarkSeenContext } from '../coachMarkSeen.js';
 import { graphCoachMarks } from './coachMarks.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -94,8 +94,8 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			display: contents;
 
 			/* Coach-mark copy is sentence case wherever it's hosted. text-transform is inherited, so
-			   without this the sidebar panel's uppercase header shouts the whole tip — and the same
-			   would happen to the lightbulb's tooltip. */
+	   without this the sidebar panel's uppercase header shouts the whole tip — and the same
+	   would happen to the lightbulb's tooltip. */
 			text-transform: none;
 		}
 
@@ -104,10 +104,10 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		/* A closed mark otherwise lingers as a zero-width flex item in whatever row hosts it (the
-		   host is display: contents, so the popover element itself joins the flow) — and every such
-		   phantom earns the row's flex gap, stacking blank space between the title text and the one
-		   visible lightbulb. Positioning doesn't need the host box: the popup floats off the assigned
-		   anchor element. */
+   host is display: contents, so the popover element itself joins the flow) — and every such
+   phantom earns the row's flex gap, stacking blank space between the title text and the one
+   visible lightbulb. Positioning doesn't need the host box: the popup floats off the assigned
+   anchor element. */
 		gl-popover:not([open]) {
 			display: none;
 		}
@@ -121,29 +121,29 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		.coachmark__header {
 			display: flex;
+			gap: 1ch;
 			align-items: center;
 			justify-content: space-between;
-			gap: 1ch;
 		}
 
 		.coachmark__title {
 			display: flex;
-			align-items: center;
 			gap: var(--gl-space-8);
+			align-items: center;
 			min-width: 0;
 			font-weight: 600;
 		}
 
 		.coachmark__icon {
-			flex: none;
 			display: inline-flex;
+			flex: none;
 			align-items: center;
 			justify-content: center;
 			width: 2.2rem;
 			height: 2.2rem;
-			border-radius: 0.6rem;
-			background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
 			color: var(--vscode-focusBorder);
+			background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
+			border-radius: 0.6rem;
 		}
 
 		.coachmark__icon code-icon {
@@ -151,8 +151,8 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		.coachmark__icon--warning {
-			background: color-mix(in srgb, var(--vscode-charts-yellow) 15%, transparent);
 			color: var(--vscode-charts-yellow);
+			background: color-mix(in srgb, var(--vscode-charts-yellow) 15%, transparent);
 		}
 
 		.coachmark__body strong {
@@ -170,8 +170,8 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		.coachmark__body ol {
-			margin: 0;
 			padding-inline-start: 2rem;
+			margin: 0;
 		}
 
 		.coachmark__body li + li {
@@ -205,11 +205,11 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			justify-content: center;
 			width: 1.6rem;
 			height: 1.6rem;
-			border-radius: 50%;
-			background: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
-			color: var(--vscode-focusBorder);
 			font-size: 1rem;
 			font-weight: 700;
+			color: var(--vscode-focusBorder);
+			background: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+			border-radius: 50%;
 			translate: 0 0.2rem;
 		}
 
@@ -235,16 +235,16 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		.row__icon {
-			color: var(--vscode-focusBorder);
 			justify-self: center;
 			font-size: 1.2rem;
+			color: var(--vscode-focusBorder);
 		}
 
 		.dot {
+			justify-self: center;
 			width: 0.8rem;
 			height: 0.8rem;
 			border-radius: 50%;
-			justify-self: center;
 		}
 
 		.dot--critical {
@@ -278,21 +278,21 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		.chip {
 			display: inline-block;
-			background: var(--vscode-button-background);
-			color: var(--vscode-button-foreground);
+			padding: 0 0.6rem;
 			font-size: 1.1rem;
 			font-weight: 500;
-			padding: 0 0.6rem;
-			border-radius: 0.3rem;
-			white-space: nowrap;
 			line-height: 1.6rem;
+			color: var(--vscode-button-foreground);
+			white-space: nowrap;
+			background: var(--vscode-button-background);
+			border-radius: 0.3rem;
 		}
 
 		.chip--ui {
+			line-height: 1.4rem;
+			color: var(--color-foreground);
 			background: none;
 			border: 0.1rem solid var(--vscode-widget-border);
-			color: var(--color-foreground);
-			line-height: 1.4rem;
 		}
 
 		/* Scoped under the body so it out-specifies the body's blanket p { margin: 0 } reset. */
@@ -311,35 +311,35 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 		}
 
 		.coachmark__trust code-icon {
-			color: var(--vscode-charts-green);
-			font-size: 1rem;
 			flex: none;
+			font-size: 1rem;
+			color: var(--vscode-charts-green);
 			translate: 0 0.1rem;
 		}
 
 		.coachmark__actions {
 			display: flex;
-			justify-content: flex-end;
 			gap: 0.8rem;
+			justify-content: flex-end;
 		}
 
 		.lightbulb {
-			flex: none;
-			/* The host is display: contents, so in a flex row the bulb itself is the flex item — self-center
-			   so baseline-aligned title rows don't stretch to hang the bulb's box off the text baseline. */
-			align-self: center;
 			display: inline-flex;
+			flex: none;
 			align-items: center;
+			/* The host is display: contents, so in a flex row the bulb itself is the flex item — self-center
+	   so baseline-aligned title rows don't stretch to hang the bulb's box off the text baseline. */
+			align-self: center;
 			justify-content: center;
 			width: 2rem;
 			height: 2rem;
 			padding: 0;
+			vertical-align: middle;
+			color: var(--vscode-button-foreground);
+			cursor: pointer;
+			background: var(--vscode-button-background);
 			border: none;
 			border-radius: 50%;
-			color: var(--vscode-button-foreground);
-			background: var(--vscode-button-background);
-			cursor: pointer;
-			vertical-align: middle;
 		}
 
 		.lightbulb:hover {

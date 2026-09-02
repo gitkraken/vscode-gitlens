@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GlTooltip } from './overlays/tooltip.js';
-import './overlays/tooltip.js';
+import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

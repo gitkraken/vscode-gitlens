@@ -1,3 +1,7 @@
+import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import { getCommitDateFromRow } from '@gitkraken/commit-graph-ui/rows/rows.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
+import { createWipRowId, getWipRowWorktreePath, isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
@@ -6,17 +10,19 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { isMac } from '@env/platform.js';
+import type { CustomEventType } from '@gitlens/components/components/element.js';
 import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
-import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
+import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
+import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GlExtensionCommands } from '../../../../constants.commands.js';
@@ -44,14 +50,8 @@ import type {
 	OverviewRecentThreshold,
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
-import {
-	createWipRowId,
-	getWipRowWorktreePath,
-	isPrimaryWipRowId,
-	isWipSelectionSha,
-} from '../../../plus/graph/protocol.js';
+import { isWipSelectionSha } from '../../../plus/graph/protocol.js';
 import { fireAndForget, notifyService } from '../../shared/actions/rpc.js';
-import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlSplitPanel, GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
@@ -59,10 +59,9 @@ import { createOnboardingState, onboardingContext } from '../../shared/contexts/
 import type { OnboardingDismissals } from '../../shared/contexts/onboardingDismissals.js';
 import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
+import '../shared/components/account-bar.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
-import '../shared/components/account-bar.js';
-import type { KeymapDispatcher } from '../../shared/keymap/keymapDispatcher.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { AccountLaunchpadController } from './accountLaunchpadController.js';
 import { graphCoachMarks } from './components/coachMarks.js';
@@ -92,7 +91,6 @@ import type { GraphLaunchpadState } from './graphLaunchpadState.js';
 import { createGraphLaunchpadState, graphLaunchpadContext } from './graphLaunchpadState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import { JumpToastController } from './jumpToastController.js';
-import type { GraphKeymapScope } from './keymap/graphKeymap.js';
 import { createGraphKeymapDispatcher } from './keymap/graphKeymap.js';
 import { registerGraphKeymap } from './keymap/registerKeymap.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
@@ -116,9 +114,8 @@ import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { resolveMinimapShown } from './utils/minimap.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
-import { getCommitDateFromRow } from './utils/row.utils.js';
 import { resolveScopeToBranchTarget, shouldDrainParkedScopeToBranch } from './utils/scopeToBranch.utils.js';
-import { hasDirtyCounts, isScopeFocalHead, shouldShowPrimaryWipRow } from './utils/wip.utils.js';
+import { isScopeFocalHead, shouldShowPrimaryWipRow } from './utils/wip.utils.js';
 import { isGraphWalkthroughBannerHighlighted } from './walkthroughBanner.js';
 import './empty-state.js';
 import './access-account.js';
@@ -131,7 +128,7 @@ import '../../shared/components/split-panel/split-panel.js';
 import './sidebar/sidebar.js';
 import './sidebar/sidebar-panel.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-health-banner.js';
@@ -747,7 +744,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/**
 	 * Last observed non-zero size of the top-level `.graph` element, used to freeze it
 	 * across editor-tab hide/show transitions. Without this freeze the graph's
-	 * ResizeObservers (the row virtualizer's, and `gl-lit-graph`'s own lane-window ones) see
+	 * ResizeObservers (the row virtualizer's, and `gl-commit-graph`'s own lane-window ones) see
 	 * the iframe's layout collapse to 0 (and then re-expand on restore), producing a visible
 	 * re-layout cascade. VS Code applies
 	 * `display: none` to the webview iframe even with `retainContextWhenHidden: true` —
@@ -4295,7 +4292,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	/** `Ctrl`/`Cmd`+`C` inside the graph — `gl-lit-graph` serializes the focused/selected row's own
+	/** `Ctrl`/`Cmd`+`C` inside the graph — `gl-commit-graph` serializes the focused/selected row's own
 	 *  `data-vscode-context` string (same format the right-click menu uses) and we forward it to the
 	 *  existing `gitlens.graph.copy` command, which already prefers `worktreePath` and newline-joins a
 	 *  multi-selection — no new command needed. */

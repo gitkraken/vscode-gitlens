@@ -22,7 +22,7 @@ suite('zones — solveZoneLayout', () => {
 	});
 
 	test('pathological case: targetWidth well below Σ minWidths leaves every zone at/above its floor', () => {
-		// gitlens.graph.style forced to `table` in a very narrow panel bypasses the listAutoBelow
+		// The host's `config.style` option forced to `table` in a very narrow panel bypasses the listAutoBelow
 		// auto-switch — Σ minWidths (126) comfortably exceeds this targetWidth (10).
 		const zones: ZoneSpec[] = [
 			{ id: 'ref', label: 'Ref', width: 180, minWidth: 32 },

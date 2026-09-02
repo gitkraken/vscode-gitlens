@@ -76,6 +76,37 @@ test('...', { tag: '@no-fork' }, async ({ vscode }) => {
 
 Only tag genuine editor incompatibilities (missing UI), never functional failures — those get fixed.
 
+Browser performance specs use the `@performance` tag and are excluded from ordinary E2E runs. Run them
+deliberately with `--grep @performance`; the graph benchmark script supplies that grep automatically.
+Selecting `graphPerformance.test.ts` by file path instead (IDE runner, `--ui`, the HTML report) also
+opts in, as does setting `GITLENS_E2E_PERFORMANCE=1` — otherwise `grepInvert: /@performance/` stays in
+force and those paths silently report "No tests found".
+
+```bash
+# Capture and aggregate five browser repetitions into out/perf/commit-graph-browser-summary.json
+pnpm run benchmark:graph:browser
+
+# Capture an engine report, then compare two reports collected on the same machine/runtime
+pnpm run benchmark commit-graph-engine -- --json out/perf/commit-graph-engine.candidate.json
+pnpm run benchmark:graph:engine:compare \
+    --baseline out/perf/commit-graph-engine.baseline.json \
+    --candidate out/perf/commit-graph-engine.candidate.json
+```
+
+The browser summary is a comparison-ready CI artifact, not an absolute cross-machine budget. Its current
+five-run open-to-visible measurement is too noisy for a defensible 3% gate, so compare candidate and baseline
+runs from the same controlled runner; do not pin a local workstation result as a universal threshold. Production
+bundle bytes are independently enforced against `scripts/performance/graph-bundle-baseline.json`
+(`pnpm run benchmark:graph:bundle:check`). Three metrics carry a standing growth allowance above their
+pinned baseline rather than a zero-growth ceiling: the `entrypoint` total gets 12 KiB for host-neutral
+extension seams, `shared.js` gets 4 KiB so unrelated shared-code changes don't trip the graph check,
+and `graph.css` carries a one-off allowance documented in the baseline's `budgetRationale`. When a
+bundle byte budget rejects an expected, reviewed growth, re-pin the baseline with
+`pnpm run benchmark:graph:bundle:update`, which rebuilds the production webviews bundle, re-measures,
+and rewrites `baselineBytes`, `maximumBytes` (deriving each metric's new maximum as baseline + its
+current allowance, so all three survive the update), and `sourceCommit` in place — commit the
+resulting baseline file alongside the change that grew the bundle.
+
 ### Opt-in specs: the GK CLI insiders channel (`@cli-insiders`)
 
 `mcpCliChannel.test.ts` skips unless `GL_E2E_CLI_INSIDERS=1`, because running it makes GitLens install

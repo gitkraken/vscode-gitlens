@@ -2,10 +2,10 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import type { AIState, IntegrationStateInfo } from '../../../../rpc/services/types.js';
-import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
@@ -15,8 +15,8 @@ import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { chipStyles } from './chipStyles.js';
 import './integrations-panel.js';
 import './ai-panel.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 @customElement('gl-integrations-chip')
 export class GlIntegrationsChip extends SignalWatcher(LitElement) {
@@ -76,7 +76,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			/* The command-link variant (href) must read like the button chip, not a text link — override
-			   linkBase's textLink color and hover underline. */
+  linkBase's textLink color and hover underline. */
 			a.chip,
 			a.chip:hover {
 				color: inherit;

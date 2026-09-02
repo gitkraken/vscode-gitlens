@@ -1,6 +1,6 @@
 import { css, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { elementBase } from '../styles/lit/base.css.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 @customElement('menu-divider')
 export class MenuDivider extends LitElement {

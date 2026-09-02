@@ -1,8 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { scrollableBase } from '../styles/lit/base.css.js';
-import '../overlays/popover.js';
-import '../code-icon.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-chip-overflow')
 export class GlChipOverflow extends LitElement {
@@ -14,9 +14,9 @@ export class GlChipOverflow extends LitElement {
 			}
 
 			/* Multi-row layout (maxRows > 1): block layout (display:flow-root) lets the suffix float
-   to the top-right while inline chips flow around it. Row 1 chips share the line with the
-   suffix; subsequent rows reclaim full width once they pass the suffix's bottom edge.
-   Pure CSS, no JS measure for the float positioning itself. */
+ to the top-right while inline chips flow around it. Row 1 chips share the line with the
+ suffix; subsequent rows reclaim full width once they pass the suffix's bottom edge.
+ Pure CSS, no JS measure for the float positioning itself. */
 			.container {
 				display: flow-root;
 				flex: 1 1 auto;
@@ -27,9 +27,9 @@ export class GlChipOverflow extends LitElement {
 			}
 
 			/* Single-row layout (maxRows === 1): flex puts chips, "+N", and suffix on one line with
-   the suffix pushed right via auto-margin. No float — so the "+N" never wraps off-line
-   the way it can with floated suffix on row 1, where chips fill up to the suffix's left
-   edge and any inline content past that point gets pushed to row 2. */
+ the suffix pushed right via auto-margin. No float — so the "+N" never wraps off-line
+ the way it can with floated suffix on row 1, where chips fill up to the suffix's left
+ edge and any inline content past that point gets pushed to row 2. */
 			.container.is-single-row {
 				display: flex;
 				flex-wrap: nowrap;
@@ -43,9 +43,9 @@ export class GlChipOverflow extends LitElement {
 			}
 
 			/* Chip-layout styles must only target the DEFAULT slot's content (the actual chips) —
-   not the named "suffix"/"prefix"/"popover" slots, whose content (e.g. the popover's
-   <div slot="popover"> wrapper) would otherwise inherit 'display: inline-flex' and lay
-   its own children horizontally. */
+ not the named "suffix"/"prefix"/"popover" slots, whose content (e.g. the popover's
+ <div slot="popover"> wrapper) would otherwise inherit 'display: inline-flex' and lay
+ its own children horizontally. */
 			::slotted(:not([slot])) {
 				display: inline-flex;
 				margin-block-end: var(--gl-chip-overflow-gap, 0.5rem);
@@ -104,7 +104,7 @@ export class GlChipOverflow extends LitElement {
 			}
 
 			/* Floated to the top-right so chips flow around it on the first row, then wrap
-   beneath once they exceed the suffix's bottom edge (multi-row mode). */
+ beneath once they exceed the suffix's bottom edge (multi-row mode). */
 			.suffix {
 				float: right;
 				display: inline-flex;
@@ -132,7 +132,7 @@ export class GlChipOverflow extends LitElement {
 			}
 
 			/* Wraps the gl-popover so we can give the +N a flex order distinct from the chips and
-   suffix. gl-popover itself is display:contents so it'd otherwise inherit no order. */
+ suffix. gl-popover itself is display:contents so it'd otherwise inherit no order. */
 			.overflow-host {
 				display: inline-flex;
 				vertical-align: middle;
@@ -149,8 +149,8 @@ export class GlChipOverflow extends LitElement {
 			}
 
 			/* When prefix/suffix slots have no assigned content, drop them out of layout entirely
-   so the container gap does not leave a phantom inset before the first chip (or
-   after the last). The empty-state class is set by handleSlotChange. */
+ so the container gap does not leave a phantom inset before the first chip (or
+ after the last). The empty-state class is set by handleSlotChange. */
 			.prefix.is-empty,
 			.suffix.is-empty {
 				display: none;

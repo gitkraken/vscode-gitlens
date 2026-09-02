@@ -5,16 +5,16 @@ import type {
 	GitRebaseStatus,
 	GitRevertStatus,
 } from '@gitlens/git/models/pausedOperationStatus.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import {
+	getPausedOperationLabel,
 	getPausedOperationVariant,
 	pausedOperationVariantIcons,
-} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
-import { createReference } from '@gitlens/git/utils/reference.utils.js';
+} from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationAbortLabel,
 	getPausedOperationBarActionLabel,
 	getPausedOperationBarIconTooltip,
-	getPausedOperationBarLabel,
 	getPausedOperationBarRefsSummary,
 	getPausedOperationSkipDetail,
 	getPausedOperationSkipLabel,
@@ -126,24 +126,24 @@ suite('isPausedOperationStepped', () => {
 	});
 });
 
-suite('getPausedOperationBarLabel', () => {
+suite('getPausedOperationLabel', () => {
 	test('conflicts name the paused operation', () => {
-		assert.strictEqual(getPausedOperationBarLabel(createMerge(), 'conflicts'), 'Merge Paused');
-		assert.strictEqual(getPausedOperationBarLabel(createRebase(), 'conflicts'), 'Rebase Paused');
-		assert.strictEqual(getPausedOperationBarLabel(createCherryPick(), 'conflicts'), 'Cherry-pick Paused');
-		assert.strictEqual(getPausedOperationBarLabel(createRevert(), 'conflicts'), 'Revert Paused');
+		assert.strictEqual(getPausedOperationLabel(createMerge(), 'conflicts'), 'Merge Paused');
+		assert.strictEqual(getPausedOperationLabel(createRebase(), 'conflicts'), 'Rebase Paused');
+		assert.strictEqual(getPausedOperationLabel(createCherryPick(), 'conflicts'), 'Cherry-pick Paused');
+		assert.strictEqual(getPausedOperationLabel(createRevert(), 'conflicts'), 'Revert Paused');
 	});
 
 	test('ready is verb-led', () => {
-		assert.strictEqual(getPausedOperationBarLabel(createMerge(), 'ready'), 'Merging');
-		assert.strictEqual(getPausedOperationBarLabel(createRebase(), 'ready'), 'Rebasing');
-		assert.strictEqual(getPausedOperationBarLabel(createCherryPick(), 'ready'), 'Cherry picking');
-		assert.strictEqual(getPausedOperationBarLabel(createRevert(), 'ready'), 'Reverting');
+		assert.strictEqual(getPausedOperationLabel(createMerge(), 'ready'), 'Merging');
+		assert.strictEqual(getPausedOperationLabel(createRebase(), 'ready'), 'Rebasing');
+		assert.strictEqual(getPausedOperationLabel(createCherryPick(), 'ready'), 'Cherry picking');
+		assert.strictEqual(getPausedOperationLabel(createRevert(), 'ready'), 'Reverting');
 	});
 
 	test('a pending rebase stands alone, since its refs can shed', () => {
 		assert.strictEqual(
-			getPausedOperationBarLabel(createRebase({ current: 0, total: 0 }), 'pending'),
+			getPausedOperationLabel(createRebase({ current: 0, total: 0 }), 'pending'),
 			'Pending Rebase',
 		);
 	});

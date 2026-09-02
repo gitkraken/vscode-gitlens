@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { fixedSizeVertical, FixedSizeVerticalLayout } from '../graph-fixed-layout.js';
-import { RowUnitsIndex } from '../graph-row-units.js';
+import { fixedSizeVertical, FixedSizeVerticalLayout } from '@gitkraken/commit-graph-ui/rows/layout.js';
+import { RowUnitsIndex } from '@gitkraken/commit-graph-ui/rows/units.js';
 
 // Minimal shape of the layout's `stateChanged` host message (the package doesn't export the type).
 type StateChanged = {

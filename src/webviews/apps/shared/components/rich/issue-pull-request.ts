@@ -1,11 +1,11 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { GlElement } from '@gitlens/components/components/element.js';
+import { getAutolinkIcon } from '@gitlens/components/components/icons/providerIcons.js';
 import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
-import { GlElement } from '../element.js';
-import { getAutolinkIcon } from './utils.js';
 import '../button.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../formatted-date.js';
 
 declare global {
@@ -37,8 +37,8 @@ export class IssuePullRequest extends GlElement {
 			display: flex;
 			/* Explicit: the base host is a column, and inheriting that stacked the icon above the title. */
 			flex-direction: row;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 		}
 
 		/* Icon, title, identifier and the actions share the first line; the actions sit hard right, past
@@ -48,19 +48,19 @@ export class IssuePullRequest extends GlElement {
 		.head {
 			display: flex;
 			flex-wrap: nowrap;
+			gap: 0.2rem 0.5rem;
 			/* Centered, not flex-start: the actions button is taller than the text, so top-aligning left the
 			   icon, title and id riding above it. */
 			align-items: center;
-			gap: 0.2rem 0.5rem;
 		}
 
 		.head-text {
 			display: flex;
 			flex: 1 1 auto;
 			flex-wrap: wrap;
-			min-width: 0;
-			align-items: baseline;
 			gap: 0.2rem 0.5rem;
+			align-items: baseline;
+			min-width: 0;
 		}
 
 		/* Inherits rather than taking the link colour: the ref card's title is plain, and two differently
@@ -76,8 +76,8 @@ export class IssuePullRequest extends GlElement {
 		}
 
 		.icon {
-			align-self: center;
 			flex-shrink: 0;
+			align-self: center;
 			text-align: center;
 		}
 
@@ -118,21 +118,21 @@ export class IssuePullRequest extends GlElement {
 		   close enough to look like a mistake rather than a choice. */
 		:host([compact]) .title {
 			display: flex;
-			align-items: center;
 			gap: 0.4rem;
+			align-items: center;
 			font-weight: inherit;
 		}
 
 		.date {
 			margin: 0;
-			color: var(--vscode-descriptionForeground);
 			font-size: 1.1rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.identifier {
 			flex: none;
-			color: var(--vscode-descriptionForeground);
 			font-variant-numeric: tabular-nums;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		/* Pushed to the head's right edge — past the identifier — rather than occupying a column of its own. */
@@ -161,28 +161,28 @@ export class IssuePullRequest extends GlElement {
 			gap: 0.4rem;
 			align-items: center;
 			margin: 0;
-			color: var(--vscode-descriptionForeground);
 			font-size: 1.1rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		/* The layer count, in the same wash-box treatment the graph's ref-pill chip uses. Sits directly
 		   against the identifier before it — no separator, so icon/number/count read as one unit. */
 		.stack {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.2rem;
+			align-items: center;
 			height: 1.5rem;
 			padding: 0 0.3rem;
 			/* Pushed to the line's right edge, under the actions in the head above it. */
 			margin-left: auto;
+			font-size: var(--gl-font-micro);
+			font-variant-numeric: tabular-nums;
 			/* Without both of these the box inherits the paragraph's line-height and grows to the full line
 			   box — tall, and sitting on the text baseline rather than centered against it. */
 			line-height: 1;
 			vertical-align: middle;
-			font-size: var(--gl-font-micro);
-			font-variant-numeric: tabular-nums;
-			border-radius: 0.3rem;
 			background: color-mix(in srgb, currentColor 18%, transparent);
+			border-radius: 0.3rem;
 			--code-icon-size: 1.1rem;
 		}
 

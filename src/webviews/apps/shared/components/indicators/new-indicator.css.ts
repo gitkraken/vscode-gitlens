@@ -17,8 +17,7 @@ export const newIndicatorStyles = css`
 	.dot {
 		z-index: 1;
 		grid-area: 1 / 1;
-		align-self: start;
-		justify-self: end;
+		place-self: start end;
 		width: var(--gl-indicator-size);
 		aspect-ratio: 1;
 		pointer-events: none;

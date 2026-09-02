@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
-import './code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-ref-name')
 export class GlRefName extends LitElement {
@@ -41,8 +41,8 @@ export class GlRefName extends LitElement {
 		}
 
 		/* Spacing between icon and label as a margin (not a grid gap) so that
-	   when the label is hidden via display:none — e.g. the icon-only
-	   collapse step in the graph header — the gap collapses with it. */
+  when the label is hidden via display:none — e.g. the icon-only
+  collapse step in the graph header — the gap collapses with it. */
 		:host([icon]) .label {
 			margin-left: var(--gl-space-4);
 		}

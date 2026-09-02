@@ -2,10 +2,10 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 import type { FuzzyMatchResult } from '@gitlens/utils/fuzzy.js';
-import { scrollableBase } from '../styles/lit/base.css.js';
-import { elevatedSurface } from '../styles/lit/elevation.css.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 export interface CompletionItem<T = any> {
 	label: string;

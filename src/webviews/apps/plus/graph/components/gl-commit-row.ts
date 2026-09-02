@@ -68,7 +68,7 @@ export class GlCommitRow extends LitElement {
 		}
 
 		/* Committer avatar overlaid on the author's bottom-right (mirrors gl-commit-author) — the host
-	   only provides committerAvatarUrl when the committer differs from the author. */
+  only provides committerAvatarUrl when the committer differs from the author. */
 		.avatar__committer {
 			position: absolute;
 			right: -0.2rem;
@@ -118,8 +118,8 @@ export class GlCommitRow extends LitElement {
 		}
 
 		/* Trailing group keeps the date and stats glued together at the row's right edge so the
-	   row reads "sha · author … date stats" rather than letting each tail piece independently
-	   absorb the remaining space (which would split them across the row). */
+  row reads "sha · author … date stats" rather than letting each tail piece independently
+  absorb the remaining space (which would split them across the row). */
 		.trailing {
 			display: inline-flex;
 			flex-shrink: 0;
@@ -128,8 +128,8 @@ export class GlCommitRow extends LitElement {
 		}
 
 		/* When the host opts into right-aligned date layout (date-position="right"), the leading
-	   dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
-	   pole-card and ahead/behind list. */
+  dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
+  pole-card and ahead/behind list. */
 		:host([date-position='right']) .trailing {
 			margin-left: auto;
 		}

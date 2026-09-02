@@ -3,8 +3,8 @@ import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vs
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitBranchReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
-import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import type { RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';

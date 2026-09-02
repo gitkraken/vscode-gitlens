@@ -1,11 +1,11 @@
 import * as assert from 'assert';
+import type { GutterBuilder, GutterEpochParams } from '@gitkraken/commit-graph-ui/gutter/cache.js';
+import { __test, GutterCache, gutterEpochSignature } from '@gitkraken/commit-graph-ui/gutter/cache.js';
+import type { GutterMetrics, NodeStyle } from '@gitkraken/commit-graph-ui/gutter/render.js';
 import { computeEdges } from '@gitkraken/commit-graph/engine/edges.js';
 import { computeColumnsAndSegments } from '@gitkraken/commit-graph/engine/layout.js';
 import type { CommitKind, GraphRow, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import { computeLaneWindow, laneWindowsEqual } from '@gitkraken/commit-graph/lanes/window.js';
-import type { GutterBuilder, GutterEpochParams } from '../graph-gutter-cache.js';
-import { __test, GutterCache, gutterEpochSignature } from '../graph-gutter-cache.js';
-import type { GutterMetrics, NodeStyle } from '../graph-gutter.js';
 
 function row(sha: Sha, parents: Sha[] = [], kind: CommitKind = 'commit'): GraphRow {
 	return { sha: sha, parents: parents, kind: kind, date: 0 };

@@ -1,0 +1,160 @@
+import type { CSSResult } from 'lit';
+import { css } from 'lit';
+import { focusOutline } from './a11y.css.js';
+
+export const elementBase: CSSResult = css`
+	:host {
+		box-sizing: border-box;
+	}
+
+	:host *,
+	:host *::before,
+	:host *::after {
+		box-sizing: inherit;
+	}
+
+	[hidden] {
+		display: none !important;
+	}
+`;
+
+export const boxSizingBase: CSSResult = css`
+	:host {
+		box-sizing: border-box;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+`;
+
+export const linkBase: CSSResult = css`
+	a {
+		color: var(--color-link-foreground, currentColor);
+		text-decoration: none;
+	}
+
+	a:focus {
+		${focusOutline}
+	}
+
+	a:hover {
+		text-decoration: underline;
+	}
+`;
+
+export const scrollableBase: CSSResult = css`
+	::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+
+	::-webkit-scrollbar-corner {
+		background-color: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background-color: transparent;
+		border-color: inherit;
+		border-right-style: inset;
+		border-right-width: calc(100vw + 100vh);
+		border-radius: unset !important;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		border-color: var(--color-scrollbar-hover-background, currentColor);
+	}
+
+	::-webkit-scrollbar-thumb:active {
+		border-color: var(--color-scrollbar-active-background, currentColor);
+	}
+
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	:host(:hover) .scrollable,
+	:host(:focus-within) .scrollable {
+		border-color: var(--color-scrollbar-background, currentColor);
+		transition: none;
+	}
+
+	:host-context(.preload) .scrollable {
+		transition: none;
+	}
+`;
+
+export const inlineCode: CSSResult = css`
+	.inline-code {
+		padding: 0 var(--gl-space-4) var(--gl-space-2);
+		font-family: var(--editor-font-family, monospace);
+		background: var(--color-code-background, transparent);
+		border-radius: var(--gl-radius-sm);
+	}
+`;
+
+/**
+ * Fade + slide-up entrance for a sub-panel. Consumer markup: `<div class="sub-panel-enter">…`, or
+ * applied to a scrollable `:host` (compose/review mode panels). Respects `prefers-reduced-motion`.
+ *
+ * `overflow: hidden` is pinned across both keyframes so a scrollable consumer can't flash a
+ * scrollbar while the transform settles — the animation's own lifetime gates overflow (a running
+ * animation overrides the resting `:host { overflow-y: auto }` in the cascade, then reverts when it
+ * ends). This replaces the prior JS `animationend` latch + timer-based clamps with pure CSS.
+ */
+export const subPanelEnterStyles: CSSResult = css`
+	@keyframes sub-panel-enter {
+		from {
+			overflow: hidden;
+			opacity: 0;
+			transform: translateY(4px);
+		}
+
+		to {
+			overflow: hidden;
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.sub-panel-enter {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.sub-panel-enter {
+			animation: none;
+		}
+	}
+`;
+
+/** Flex column panel that fills available space. */
+export const panelBase: CSSResult = css`
+	:host {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
+	}
+`;
+
+/**
+ * Shared metadata-bar visual contract — the tinted strip beneath a panel title used by
+ * single-commit details, multi-commit compare, the WIP secondary header, and review/compose
+ * results. Consumers read `var(--gl-metadata-bar-bg)` etc.; defining the variables on `:host`
+ * keeps any panel that adopts these styles in sync without re-declaring the literal values.
+ */
+export const metadataBarVarsBase: CSSResult = css`
+	:host {
+		--gl-metadata-bar-bg: color-mix(in srgb, var(--color-background) 95%, var(--color-foreground) 5%);
+		--gl-metadata-bar-border: var(--color-view-header-border, var(--color-foreground--25, transparent));
+		--gl-metadata-bar-min-height: 2.94rem;
+	}
+`;

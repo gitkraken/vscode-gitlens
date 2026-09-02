@@ -394,13 +394,13 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 	}
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {
-		// Refresh the graph engine's HSL token vars so lane colors follow theme switches. Cheap
-		// (~7 getComputedStyle reads + Color.from conversions) and idempotent.
+		// Refresh the graph engine's HSL token vars so lane colors follow theme switches. Cheap (one
+		// `getComputedStyle` plus a handful of variable reads + color conversions) and idempotent.
 		// `onThemeUpdated` is invoked once at startup (before the initial render) AND on every later
-		// theme change (see appBase.ts) — so the lane palette is already correct before `gl-lit-graph`
+		// theme change (see appBase.ts) — so the lane palette is already correct before `gl-commit-graph`
 		// ever renders; the event below only matters for a THEME CHANGE while the graph is open, to
 		// invalidate its cached (lane-colored) adornments.
-		if (applyGraphThemeVariables()) {
+		if (applyGraphThemeVariables(e.isLightTheme, e.isHighContrastTheme)) {
 			window.dispatchEvent(new CustomEvent('gl-graph-lane-palette-changed'));
 		}
 

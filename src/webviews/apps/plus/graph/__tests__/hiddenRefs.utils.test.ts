@@ -1,11 +1,7 @@
 import * as assert from 'assert';
+import { getExcludedRemotes } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
 import type { GraphExcludeRefs, GraphRefOptData } from '../../../../plus/graph/protocol.js';
-import {
-	compareGraphRefOpts,
-	getExcludedRemotes,
-	getHiddenRefLabel,
-	getHiddenRefSortKey,
-} from '../hiddenRefs.utils.js';
+import { compareGraphRefOpts, getHiddenRefLabel, getHiddenRefSortKey } from '../hiddenRefs.utils.js';
 
 function ref(overrides: Partial<GraphRefOptData> & Pick<GraphRefOptData, 'type' | 'name'>): GraphRefOptData {
 	return { id: `${overrides.owner ?? ''}${overrides.name}:${overrides.type}`, ...overrides };

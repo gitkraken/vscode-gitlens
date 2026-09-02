@@ -12,7 +12,7 @@ import {
 	getAgentPhaseLabel,
 } from '../../../shared/agentUtils.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import { graphStateContext } from '../context.js';
 
 /** Soft cap on `lastPrompt` rendering — keeps the hover scannable; the full prompt lives one
@@ -83,7 +83,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		}
 
 		/* Phase colors pull from the shared --gl-agent-* palette so the tooltip header and the
-	 * leaf row's icon agree on what each state looks like. */
+* leaf row's icon agree on what each state looks like. */
 		.header__phase--working {
 			color: var(--gl-agent-working-color);
 		}
@@ -131,8 +131,8 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		}
 
 		/* Header-less section rows — leading icon doubles as the section's label. The icon stays
-	 * pinned to the first line via align-items: flex-start; the content column flexes to fill
-	 * the rest and is allowed to break long tokens (paths, branch names) at any point. */
+* pinned to the first line via align-items: flex-start; the content column flexes to fill
+* the rest and is allowed to break long tokens (paths, branch names) at any point. */
 		.section {
 			display: flex;
 			gap: var(--gl-space-6);

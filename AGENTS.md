@@ -53,7 +53,7 @@ Skill artifacts (goals, plans, reviews, live-exercise findings) all live under a
 
 Most of the layout is self-describing — browse `packages/`, `src/`, and `tests/`. What the folder names do _not_ tell you:
 
-- **`packages/` (`@gitlens/*`) vs `src/`** — `packages/git` holds the git domain (models, parsers, per-operation providers) and `packages/git-cli` runs the CLI; `src/git` is the orchestration layer over them (`gitProviderService.ts`, actions, formatters). `packages/utils` is the only utility layer webviews may import; `src/system` is host-only, and `src/system/-webview/` is extension-host-specific.
+- **`packages/` (`@gitlens/*` / `@gitkraken/*`) vs `src/`** — `packages/git` holds the git domain (models, parsers, per-operation providers) and `packages/git-cli` runs the CLI; `src/git` is the orchestration layer over them (`gitProviderService.ts`, actions, formatters). Webviews may import generic utilities (including DOM and keymap helpers) from `packages/utils` and reusable Lit UI from `packages/components`; `src/system` is host-only, and `src/system/-webview/` is extension-host-specific. Scope also marks publication: `@gitkraken/*` is published for other GitKraken products and `@gitlens/*` is workspace-internal, compiled into a `@gitkraken/*` publisher's `dist/` rather than installed.
 - **`src/env/node/` vs `src/env/browser/`** — the same feature must work in desktop VS Code and VS Code for Web. Shared code imports through the `@env/` alias, which resolves per build target. Changing one path means checking the other.
 - **`src/plus/` and `packages/plus/` are non-OSS** — licensed separately, see `LICENSE.plus`.
 - **`src/container.ts`** — the service locator; nearly every service is reached through it.
@@ -92,7 +92,7 @@ The repo enforces its own rules from `scripts/eslint-rules/`. Write conforming c
 | `no-scss-in-css-template`          | No SCSS syntax inside `css` tagged templates                                                                                                                                                                                                       |
 | `no-src-imports`                   | No import specifiers starting with `src/`                                                                                                                                                                                                          |
 | `no-self-package-imports`          | Same-package imports use a relative path, not the workspace package name                                                                                                                                                                           |
-| `valid-package-imports`            | `@gitlens/*` imports name a subpath the target package's `exports` exposes                                                                                                                                                                         |
+| `valid-package-imports`            | Internal `@gitlens/*` and `@gitkraken/*` imports name a subpath the target package's `exports` exposes                                                                                                                                             |
 
 > For webview styling — prefix conventions, the `1rem = 10px` base, the `--gl-*` design tokens, and the elevation (z-index + shadow) system: see `docs/webview-styling.md`
 >

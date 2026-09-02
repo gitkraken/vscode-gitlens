@@ -7,7 +7,6 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { missingRepositoryId } from '@gitlens/git/models/repositoryIdentities.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
-import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isSha } from '@gitlens/git/utils/revision.utils.js';
@@ -15,6 +14,7 @@ import { isIntegrationId, isSupportedCloudIntegrationId } from '@gitlens/integra
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { once } from '@gitlens/utils/event.js';
+import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { maybeUri, normalizePath } from '@gitlens/utils/path.js';

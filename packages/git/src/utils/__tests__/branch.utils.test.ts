@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { getRemoteNameSlashIndex, isDetachedHead, parseRefName, parseUpstream } from '../branch.utils.js';
+import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
+import { isDetachedHead, parseRefName, parseUpstream } from '../branch.utils.js';
 
 suite('Branch Utils Test Suite', () => {
 	suite('parseUpstream', () => {

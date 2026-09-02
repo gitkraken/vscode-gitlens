@@ -36,11 +36,6 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { GitGraphSubProvider } from '@gitlens/git/providers/graph.js';
-import {
-	getBranchId,
-	getBranchNameWithoutRemote,
-	getRemoteNameFromBranchName,
-} from '@gitlens/git/utils/branch.utils.js';
 import { appendRowsAtCursor, mergeAvatarsForward } from '@gitlens/git/utils/graph.utils.js';
 import { computeGraphRowContextFlags, createReachabilityTableBuilder } from '@gitlens/git/utils/reachability.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -51,6 +46,7 @@ import { getWorktreeId, groupWorktreesByBranch } from '@gitlens/git/utils/worktr
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { find, first, join, last } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';

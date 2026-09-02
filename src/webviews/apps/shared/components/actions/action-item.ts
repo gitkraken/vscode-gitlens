@@ -1,10 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
-import { ModifierKeysController } from '../../controllers/modifier-keys.js';
-import { focusOutline } from '../styles/lit/a11y.css.js';
-import '../overlays/tooltip.js';
-import '../code-icon.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
+import '@gitlens/components/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('action-item')
 export class ActionItem extends LitElement {

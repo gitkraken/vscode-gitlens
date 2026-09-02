@@ -1,0 +1,83 @@
+/* Tokens only — no inherited properties (font/color/background) on the element itself: a host loads this
+   alongside its own page styling, and painting the element would override it (in GitLens the graph docks
+   into the sidebar/panel, whose background is not the editor's). Surfaces that need a fill paint one from
+   these tokens in `surface.css`. */
+gl-commit-graph {
+	--gl-graph-foreground: var(--vscode-foreground, hsl(var(--foreground)));
+	--color-ui-foreground: var(--vscode-foreground, hsl(var(--foreground)));
+	--gl-graph-background: var(--vscode-editor-background, hsl(var(--background)));
+	--gl-graph-font-family: var(--vscode-editor-font-family, system-ui, sans-serif);
+	--gl-graph-muted-foreground: var(--vscode-descriptionForeground, hsl(var(--muted-foreground)));
+	--gl-graph-focus: var(--vscode-focusBorder, hsl(var(--brand)));
+	--gl-graph-icon-foreground: var(--vscode-icon-foreground, var(--gl-graph-foreground));
+	--gl-graph-selection: var(--vscode-list-activeSelectionBackground, hsl(var(--brand) / 24%));
+	--gl-graph-selection-foreground: var(--vscode-list-activeSelectionForeground, var(--gl-graph-foreground));
+	--gl-graph-selection-inactive: var(--vscode-list-inactiveSelectionBackground, hsl(var(--brand) / 14%));
+	--gl-graph-selection-inactive-foreground: var(
+		--vscode-list-inactiveSelectionForeground,
+		var(--gl-graph-foreground)
+	);
+	--gl-graph-hover: var(--vscode-list-hoverBackground, hsl(var(--foreground) / 8%));
+	--gl-graph-focus-outline: var(--vscode-list-focusOutline, var(--gl-graph-focus));
+	--gl-graph-inactive-focus-outline: var(--vscode-list-inactiveFocusOutline, hsl(var(--brand) / 65%));
+	--gl-graph-elevated-background: var(--vscode-editorWidget-background, hsl(var(--secondary)));
+	--gl-graph-elevated-border: var(--vscode-editorWidget-border, hsl(var(--border)));
+	--gl-graph-border: var(--vscode-widget-border, hsl(var(--border)));
+	--gl-graph-shadow: var(--vscode-widget-shadow, rgb(0 0 0 / 35%));
+	--gl-graph-toolbar-hover: var(--vscode-toolbar-hoverBackground, var(--gl-graph-hover));
+	--gl-graph-code-background: var(--vscode-textCodeBlock-background, var(--gl-graph-elevated-background));
+	--gl-graph-link: var(--vscode-textLink-foreground, hsl(var(--brand)));
+	--gl-graph-link-active: var(--vscode-textLink-activeForeground, hsl(var(--brand) / 85%));
+	--gl-graph-button-background: var(--vscode-button-background, hsl(var(--brand)));
+	--gl-graph-button-foreground: var(--vscode-button-foreground, white);
+	--gl-graph-button-hover: var(--vscode-button-hoverBackground, hsl(var(--brand) / 85%));
+	--gl-graph-scrollbar-background: var(--vscode-scrollbarSlider-background, hsl(var(--foreground) / 18%));
+	--gl-graph-scrollbar-hover-background: var(--vscode-scrollbarSlider-hoverBackground, hsl(var(--foreground) / 28%));
+	--gl-graph-scrollbar-active-background: var(
+		--vscode-scrollbarSlider-activeBackground,
+		hsl(var(--foreground) / 38%)
+	);
+	--gl-graph-sash-hover-border: var(--vscode-sash-hoverBorder, var(--gl-graph-focus));
+	--gl-graph-purple: var(--vscode-charts-purple, #a371f7);
+	--gl-graph-added-foreground: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
+	--gl-graph-deleted-foreground: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
+	--gl-graph-search-match-background: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 55%));
+	--gl-graph-range-highlight-background: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 20%));
+	--gl-graph-range-highlight-border: var(--vscode-editor-rangeHighlightBorder, transparent);
+	--gl-graph-pr-open-color: var(--vscode-gitlens-openPullRequestIconColor, #3fb950);
+	--gl-graph-pr-merged-color: var(--vscode-gitlens-mergedPullRequestIconColor, #a371f7);
+	--gl-graph-pr-closed-color: var(--vscode-gitlens-closedPullRequestIconColor, #f85149);
+	--gl-graph-operation-active-color: var(
+		--vscode-gitlens-decorations\.statusMergingOrRebasingForegroundColor,
+		#d29922
+	);
+	--gl-graph-operation-conflict-color: var(
+		--vscode-gitlens-decorations\.statusMergingOrRebasingConflictForegroundColor,
+		#f85149
+	);
+	--gl-graph-operation-ready-color: var(
+		--vscode-gitlens-decorations\.statusPausedOperationReadyForegroundColor,
+		#3fb950
+	);
+	--color-link-foreground: var(--vscode-textLink-foreground, var(--gl-graph-link));
+	--color-code-background: var(--vscode-textCodeBlock-background, var(--gl-graph-code-background));
+	--color-contrast-border: var(--vscode-contrastBorder);
+	--color-description-foreground: var(--gl-graph-muted-foreground);
+	--color-elevated-background: var(--vscode-editorWidget-background, var(--gl-graph-elevated-background));
+	--color-focus-border: var(--vscode-focusBorder, var(--gl-graph-focus));
+	--color-menu-background: var(--vscode-menu-background, var(--color-elevated-background));
+	--color-sash-hover-border: var(--vscode-sash-hoverBorder, var(--color-focus-border));
+	--color-scrollbar-background: var(--vscode-scrollbarSlider-background, transparent);
+	--color-scrollbar-hover-background: var(
+		--vscode-scrollbarSlider-hoverBackground,
+		var(--color-scrollbar-background)
+	);
+	--color-scrollbar-active-background: var(
+		--vscode-scrollbarSlider-activeBackground,
+		var(--color-scrollbar-hover-background)
+	);
+	--color-view-header-background: var(--vscode-sideBarSectionHeader-background, var(--gl-graph-background));
+	--color-view-header-border: var(--vscode-sideBarSectionHeader-border, var(--gl-graph-border));
+	--editor-font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Consolas, monospace);
+	--font-size: var(--vscode-font-size, 12px);
+}

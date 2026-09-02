@@ -2,15 +2,15 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { focusOutlineButton, srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { AutolinkConfig } from '../../../../config.js';
-import { focusOutlineButton, srOnly } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { CheckDescriptor, SettingsCategory, SettingsGroup, SettingsSearchMatch } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
 
 declare global {

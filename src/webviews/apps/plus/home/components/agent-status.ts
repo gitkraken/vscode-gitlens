@@ -6,7 +6,7 @@ import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 import './branch-section.js';
 

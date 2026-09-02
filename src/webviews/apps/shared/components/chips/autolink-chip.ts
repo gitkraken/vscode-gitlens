@@ -1,11 +1,11 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { getAutolinkIcon } from '@gitlens/components/components/icons/providerIcons.js';
 import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
-import { getAutolinkIcon } from '../rich/utils.js';
 import './action-chip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../rich/issue-pull-request.js';
-import '../overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 @customElement('gl-autolink-chip')
 export class GlAutolinkChip extends LitElement {
@@ -43,17 +43,17 @@ export class GlAutolinkChip extends LitElement {
 		   the whole badge sitting high in the chip. As a suffix it's a flex item the chip centers itself. */
 		.stack-badge {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.2rem;
+			align-items: center;
+			padding: 0.15rem 0.25rem;
 			/* The chip's gap plus the label's trailing padding overshoots the spacing the badge had inline. */
 			margin-inline-start: -0.1rem;
-			padding: 0.15rem 0.25rem;
-			border-radius: 0.3rem;
 			font-size: var(--gl-font-micro);
 			font-variant-numeric: tabular-nums;
 			line-height: 1;
 			color: currentColor;
 			background: color-mix(in srgb, currentColor 18%, transparent);
+			border-radius: 0.3rem;
 			--code-icon-size: 1.1rem;
 		}
 

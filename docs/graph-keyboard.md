@@ -1,6 +1,6 @@
 # Commit Graph Keyboard Architecture
 
-The Commit Graph's keyboard handling runs through a layered keymap registry: a chord/keybinding core in `packages/utils/src/keys/` (`chord.ts`, `keybinding.ts`), a dispatcher in `src/webviews/apps/shared/keymap/keymapDispatcher.ts`, and the graph's scopes/bindings registered from `graph-app.ts` and `gl-lit-graph.ts` (scope names in `src/webviews/apps/plus/graph/keymap/graphKeymap.ts`). The shortcut sheet (`gl-graph-keyboard-shortcuts.ts`) renders from the registry, so it cannot drift from the bindings.
+The Commit Graph's keyboard handling runs through a layered keymap registry: a chord/keybinding core in `packages/utils/src/keys/` (`chord.ts`, `keybinding.ts`), a dispatcher in `packages/utils/src/keys/keymapDispatcher.ts`, and the graph's scopes/bindings registered from `graph-app.ts` and `graph.ts` (scope names in `packages/plus/commit-graph-ui/src/contracts/keyboard.ts`). The shortcut sheet (`gl-graph-keyboard-shortcuts.ts`) renders from the registry, so it cannot drift from the bindings.
 
 ## Resolution model
 

@@ -3,9 +3,9 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { boxSizingBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { linkify } from '../../shared/components/linkify.js';
-import { boxSizingBase, linkBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
@@ -16,7 +16,7 @@ import { settingsStateContext } from '../state.js';
 import './setting-control.js';
 import './settings-preview.js';
 import './settings-setup.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/icons/icon-cube.js';
 import '../../shared/components/switch/switch.js';
@@ -96,9 +96,9 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			}
 
 			/* Pinned to the top of the detail scroller so the preview stays visible while
-			   scrolling a long category. The background mixes against --color-background
-			   (the pane's actual backdrop) rather than transparent — visually identical,
-			   but opaque so scrolled content can't show through. */
+  scrolling a long category. The background mixes against --color-background
+  (the pane's actual backdrop) rather than transparent — visually identical,
+  but opaque so scrolled content can't show through. */
 			.preview {
 				position: sticky;
 				inset-block-start: 0;

@@ -1,3 +1,4 @@
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { capitalize } from '@gitlens/utils/string.js';
 import type {
 	GitBranchReference,
@@ -6,7 +7,6 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../models/reference.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch.utils.js';
 import { isRevisionRange, isShaWithParentSuffix, shortenRevision } from './revision.utils.js';
 
 interface GitBranchReferenceOptions {

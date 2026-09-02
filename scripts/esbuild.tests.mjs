@@ -78,6 +78,8 @@ async function buildTests(target) {
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
 		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
+		'@gitkraken/commit-graph-ui': path.resolve(__dirname, 'packages', 'plus', 'commit-graph-ui', 'src'),
+		'@gitlens/components': path.resolve(__dirname, 'packages', 'components', 'src'),
 
 		// Deduplicate signal-polyfill: linked @eamodio/supertalk* packages resolve to their own
 		// node_modules copy, breaking instanceof checks in SignalHandler.canHandle(). Mirrors the

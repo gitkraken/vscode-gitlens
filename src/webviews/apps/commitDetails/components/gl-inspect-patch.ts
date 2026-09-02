@@ -1,9 +1,9 @@
 import { css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { GlElement } from '@gitlens/components/components/element.js';
 import type { DraftVisibility } from '../../../../plus/drafts/models/drafts.js';
 import type { Preferences, State } from '../../../commitDetails/protocol.js';
 import type { Change, DraftUserSelection } from '../../../plus/patchDetails/protocol.js';
-import { GlElement } from '../../shared/components/element.js';
 import { buttonStyles } from './button.css.js';
 import '../../plus/patchDetails/components/gl-patch-create.js';
 

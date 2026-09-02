@@ -5,13 +5,13 @@ import { customElement } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { graphStateContext } from './context.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-graph-empty-state')
 export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 	static override styles = css`
 		/* Absolute-fill the workspace region (not a flex container) to center the content; no opaque
-		   background or stacking needed since the graph subtree isn't rendered behind it (see graph-app render). */
+   background or stacking needed since the graph subtree isn't rendered behind it (see graph-app render). */
 		:host {
 			position: absolute;
 			inset: 0;
@@ -25,8 +25,8 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 		.container {
 			display: flex;
 			flex-direction: column;
-			align-items: center;
 			gap: var(--gl-space-16);
+			align-items: center;
 			width: 100%;
 			max-width: 36rem;
 			text-align: center;

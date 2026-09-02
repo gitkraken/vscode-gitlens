@@ -6,6 +6,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { flatCount } from '@gitlens/utils/iterable.js';
 import { trimTrailingSlash } from '@gitlens/utils/path.js';
@@ -23,7 +24,6 @@ import type {
 	PatchDetails,
 	State,
 } from '../../../../plus/patchDetails/protocol.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -38,11 +38,11 @@ import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/markdown/markdown.js';
 import '../../../shared/components/menu/menu-item.js';
 import '../../../shared/components/menu/menu-list.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 import '../../../shared/components/webview-pane.js';
 
 // Can only import types from 'vscode'

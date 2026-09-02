@@ -11,7 +11,7 @@
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import { graphDetailsRegion, waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
 
 const test = base.extend({
 	vscodeOptions: [
@@ -174,8 +174,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		).not.toBeVisible();
 
 		// WIP details and commit bottom should be hidden
-		const wipDetails = graphWebview.locator('gl-details-wip-panel');
-		await expect(wipDetails).not.toBeVisible();
+		await expect(graphDetailsRegion(graphWebview, 'wip')).not.toBeVisible();
 		const commitBottom = graphWebview.locator('.commit-panel__bottom');
 		await expect(commitBottom).not.toBeVisible();
 	});
@@ -201,8 +200,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(graphWebview.locator('.review-panel')).not.toBeVisible({ timeout: MaxTimeout });
 
 		// WIP details should be back
-		const wipDetails = graphWebview.locator('gl-details-wip-panel');
-		await expect(wipDetails).toBeVisible({ timeout: MaxTimeout });
+		await expect(graphDetailsRegion(graphWebview, 'wip')).toBeVisible({ timeout: MaxTimeout });
 
 		// Header tint should be gone
 		await expect(

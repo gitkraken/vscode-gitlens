@@ -1,9 +1,9 @@
 import { html } from 'lit';
 import { customElement, property, queryAssignedElements } from 'lit/decorators.js';
-import { GlElement, observe } from '../element.js';
+import { GlElement, observe } from '@gitlens/components/components/element.js';
 import { radioStyles } from './radio.css.js';
 import type { Radio } from './radio.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

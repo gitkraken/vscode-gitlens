@@ -3,7 +3,7 @@ import { css, html, nothing } from 'lit';
 import { formatDate } from '@gitlens/utils/date.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import { messageHeadlineSplitterToken } from '../../../../commitDetails/protocol.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import './signature-details.js';
 
 export interface CompactCommitAuthor {

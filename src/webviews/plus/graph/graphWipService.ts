@@ -1,3 +1,4 @@
+import { createWipRowId, getWipRowWorktreePath } from '@gitkraken/commit-graph/wip/identity.js';
 import type { CancellationToken } from 'vscode';
 import { CancellationTokenSource, Disposable, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
@@ -9,12 +10,12 @@ import type { GitRevisionReference, GitStashReference } from '@gitlens/git/model
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
-import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
+import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual, updateRecordValue } from '@gitlens/utils/object.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -43,7 +44,6 @@ import type {
 	GraphWipStateById,
 	SidebarWorktreeChange,
 } from './protocol.js';
-import { createWipRowId, getWipRowWorktreePath } from './protocol.js';
 
 /**
  * Grace period before a secondary-WIP filesystem watcher is disposed after its row leaves the

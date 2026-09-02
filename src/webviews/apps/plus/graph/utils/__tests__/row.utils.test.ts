@@ -1,6 +1,6 @@
 import * as assert from 'assert';
+import { keepRowUnderRefVisibility, pickRowUndoTarget } from '@gitkraken/commit-graph-ui/rows/rows.js';
 import type { GitGraphRow, GitGraphRowHead } from '@gitlens/git/models/graph.js';
-import { keepRowUnderRefVisibility, pickRowUndoTarget } from '../row.utils.js';
 
 function head(name: string, isCurrentHead = false, worktree?: GitGraphRowHead['worktree']): GitGraphRowHead {
 	return { name: name, id: `/mock/repo|heads/${name}`, isCurrentHead: isCurrentHead, worktree: worktree };

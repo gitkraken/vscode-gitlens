@@ -1,11 +1,11 @@
 import * as assert from 'assert';
+import { refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
+import type { WipStats } from '@gitkraken/commit-graph-ui/extensions/wipStats/adornmentProvider.js';
+import { createWipStatsAdornmentProvider } from '@gitkraken/commit-graph-ui/extensions/wipStats/adornmentProvider.js';
+import type { GraphCommitRef } from '@gitkraken/commit-graph-ui/rows/commit.js';
+import { isUpstreamRemoteOf, pickGhostRef, sortRowRefs } from '@gitkraken/commit-graph-ui/rows/commit.js';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { TemplateResult } from 'lit';
-import { refPillKey } from '../../../utils/refKey.utils.js';
-import type { GraphCommitRef } from '../../graph-commit.js';
-import { isUpstreamRemoteOf, pickGhostRef, sortRowRefs } from '../../graph-commit.js';
-import type { WipStats } from '../wipStatsAdornmentProvider.js';
-import { createWipStatsAdornmentProvider } from '../wipStatsAdornmentProvider.js';
 
 const repo = 'repo';
 const headId = (name: string) => `${repo}|heads/${name}`;
@@ -314,12 +314,23 @@ function wipProvider(entries: [string, WipStats][]) {
 	return createWipStatsAdornmentProvider({ statsBySha: new Map(entries) });
 }
 
-/** Both states render the same `<gl-wip-stats>` element, so they differ in the template's VALUES, not its
- *  static strings. Also pins that the provider resolves SYNCHRONOUSLY — `resolveRowAdornments` discards a
- *  promised result, so an async return would silently render nothing rather than fail. */
-function resolvedValues(result: TemplateResult | null | Promise<TemplateResult | null>): unknown[] | null {
-	assert.ok(!(result instanceof Promise), 'the wip-stats provider must resolve synchronously');
-	return result == null ? null : [...result.values];
+/** Also pins that the provider resolves SYNCHRONOUSLY — `resolveRowAdornments` discards a promised
+ *  result, so an async return would silently render nothing rather than fail. */
+function findTemplate(template: TemplateResult, source: string): TemplateResult | undefined {
+	if (template.strings.join('').includes(source)) return template;
+
+	for (const value of template.values) {
+		if (!isTemplateResult(value)) continue;
+
+		const found = findTemplate(value, source);
+		if (found != null) return found;
+	}
+
+	return undefined;
+}
+
+function isTemplateResult(value: unknown): value is TemplateResult {
+	return typeof value === 'object' && value != null && '_$litType$' in value && 'values' in value;
 }
 
 // The three states, and specifically that the last two are DISTINCT. Collapsing "not measured" and
@@ -346,28 +357,37 @@ suite('wipStatsAdornmentProvider — the three WIP states', () => {
 	// THE regression: this returned null before, so a measured-clean worktree drew nothing at all.
 	test('a measured-clean worktree still renders — zeros are a result, not an absence', () => {
 		const stats: WipStats = { added: 0, modified: 0, deleted: 0, renamed: 0 };
-		const values = resolvedValues(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats));
-		assert.ok(values != null, 'clean must render the check pill, not nothing');
-		assert.ok(
-			values.includes(0),
-			'the zero counts must be passed through so the component can tell clean from unknown',
-		);
+		const result = wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats);
+		assert.ok(!(result instanceof Promise), 'the wip-stats provider must resolve synchronously');
+		assert.ok(result != null, 'clean must render the check pill, not nothing');
+		const statsElement = findTemplate(result, '<gl-wip-stats');
+		assert.ok(statsElement != null, 'clean must render through the shared WIP stats component');
+		assert.deepStrictEqual(statsElement.values, [undefined, undefined, undefined, false, true, true]);
 	});
 
 	test('a dirty worktree passes its counts through', () => {
 		const stats: WipStats = { added: 2, modified: 1, deleted: 3, renamed: 0 };
-		const values = resolvedValues(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats));
-		assert.ok(values != null);
-		assert.ok(values.includes(2) && values.includes(1) && values.includes(3), `got ${JSON.stringify(values)}`);
+		const result = wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats);
+		assert.ok(!(result instanceof Promise), 'the wip-stats provider must resolve synchronously');
+		assert.ok(result != null);
+		assert.deepStrictEqual(findTemplate(result, '<gl-wip-stats')?.values, [2, 1, 3, true, true, true]);
 	});
 
 	// A rename is ONE modified file, not an add plus a delete — counting it twice would overstate the
-	// magnitude, and `<commit-stats>` has no rename slot to put it in.
+	// magnitude, and the shared stats component has no rename slot to put it in.
 	test('renames fold into modified rather than splitting into add + delete', () => {
 		const stats: WipStats = { added: 0, modified: 1, deleted: 0, renamed: 2 };
-		const values = resolvedValues(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats));
-		assert.ok(values != null);
-		assert.ok(values.includes(3), `modified should be 1 + 2 renames; got ${JSON.stringify(values)}`);
+		const result = wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats);
+		assert.ok(!(result instanceof Promise), 'the wip-stats provider must resolve synchronously');
+		assert.ok(result != null);
+		assert.deepStrictEqual(findTemplate(result, '<gl-wip-stats')?.values, [
+			undefined,
+			3,
+			undefined,
+			true,
+			true,
+			true,
+		]);
 	});
 
 	suite('a11y', () => {

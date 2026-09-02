@@ -5,7 +5,6 @@ import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitDiff } from '@gitlens/git/models/diff.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
-import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { getFileDiffPathspecs } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isSha, isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
@@ -13,6 +12,7 @@ import { getProviderIdFromEntityIdentifier } from '@gitlens/integrations/provide
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { splitMessage } from '@gitlens/utils/string.js';
 import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
 import type { GlCommands } from '../constants.commands.js';
@@ -140,7 +140,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 							await GitCommit.ensureFullDetails(commit);
 						}
 
-						const { summary: title, body: description } = splitCommitMessage(commit.message);
+						const { summary: title, body: description } = splitMessage(commit.message);
 
 						args = {
 							repoPath: context.node.commit.repoPath,

@@ -9,7 +9,7 @@
 
 import { env, Uri, window } from 'vscode';
 import { PushError } from '@gitlens/git/errors.js';
-import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import type { BranchGitCommandArgs } from '../../../commands/git/branch.js';
 import type { Container } from '../../../container.js';
 import { executeGitCommand } from '../../../git/actions.js';

@@ -1,31 +1,38 @@
 // @ts-check
 
-// The host resolves `@gitlens/*` through tsconfig `paths` and bundler aliases, both of which point
+// The host resolves internal packages through tsconfig `paths` and bundler aliases, both of which point
 // at `packages/*/src` and bypass the packages' `exports` maps entirely. Nothing else checks host
 // imports against the surface a package actually declares, so this rule does.
+//
+// A package's published `exports` is a one-way door (widening it later is easy, narrowing it breaks
+// consumers), so a package may additionally declare `workspaceExports` in its `package.json`: subpath
+// patterns, in the same shape as `exports` values, that only this repo's own workspace code may import.
+// They never ship in the published manifest and are invisible to an external consumer.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const scope = '@gitlens/';
+const scopes = ['@gitlens/', '@gitkraken/'];
 
 /** @type {Map<string, Record<string, unknown>>} */
 const exportsByPackage = loadPackageExports();
+/** @type {Map<string, Record<string, unknown>>} */
+const workspaceExportsByPackage = loadWorkspaceExports();
 
 export default {
 	meta: {
 		type: 'problem',
 		docs: {
-			description: "Require @gitlens/* imports to name a subpath the target package's `exports` exposes",
+			description: "Require internal package imports to name a subpath the target package's `exports` exposes",
 			recommended: true,
 		},
 		messages: {
 			bare: '`{{specifier}}` has no root export; import a subpath such as `{{package}}/<module>.js`',
-			extension: '@gitlens/* imports must end with a .js extension',
+			extension: 'Internal package imports must end with a .js extension',
 			notExported:
-				'`{{subpath}}` is not exported by {{package}}. Add it to that package\'s "exports" if it is meant to be public.',
+				'`{{subpath}}` is not exported by {{package}}. Add it to that package\'s "exports" if it is meant to be public, or to its "workspaceExports" if only this repo\'s own code needs it.',
 		},
 		fixable: 'code',
 		schema: [],
@@ -35,7 +42,10 @@ export default {
 		/** @param {{ value: unknown, raw?: string }} source */
 		const check = source => {
 			const specifier = source.value;
-			if (typeof specifier !== 'string' || !specifier.startsWith(scope)) return;
+			if (typeof specifier !== 'string') return;
+
+			const scope = scopes.find(candidate => specifier.startsWith(candidate));
+			if (scope == null) return;
 
 			const slash = specifier.indexOf('/', scope.length);
 			const name = slash === -1 ? specifier : specifier.slice(0, slash);
@@ -70,9 +80,14 @@ export default {
 				return;
 			}
 
-			if (!isExported(exported, subpath)) {
-				context.report({ node: source, messageId: 'notExported', data: { subpath: subpath, package: name } });
-			}
+			if (isExported(exported, subpath)) return;
+
+			// Workspace code (this rule only ever lints files inside this repo) may additionally reach a
+			// subpath the package keeps out of its published `exports`.
+			const workspaceExported = workspaceExportsByPackage.get(name);
+			if (workspaceExported != null && isExported(workspaceExported, subpath)) return;
+
+			context.report({ node: source, messageId: 'notExported', data: { subpath: subpath, package: name } });
 		};
 
 		return {
@@ -127,11 +142,10 @@ function isMoreSpecific(key, against) {
 	return key.length > against.length;
 }
 
-/** @returns {Map<string, Record<string, unknown>>} */
-function loadPackageExports() {
-	/** @type {Map<string, Record<string, unknown>>} */
-	const out = new Map();
-
+/** Yields the parsed `package.json` of every `@gitlens/*`/`@gitkraken/*` workspace package, for the two
+ *  loaders below to each pick their own field off of.
+ *  @returns {Generator<{ name: string, pkgJson: Record<string, unknown> }>} */
+function* eachWorkspacePackage() {
 	for (const searchRoot of [path.join(repoRoot, 'packages'), path.join(repoRoot, 'packages', 'plus')]) {
 		if (!existsSync(searchRoot)) continue;
 
@@ -156,13 +170,39 @@ function loadPackageExports() {
 
 			try {
 				const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-				if (typeof pkgJson.name === 'string' && pkgJson.name.startsWith(scope) && pkgJson.exports != null) {
-					out.set(pkgJson.name, pkgJson.exports);
+				if (typeof pkgJson.name === 'string' && scopes.some(scope => pkgJson.name.startsWith(scope))) {
+					yield { name: pkgJson.name, pkgJson: pkgJson };
 				}
 			} catch {
 				// Ignore malformed package.json
 			}
 		}
+	}
+}
+
+/** Reads each package's `workspaceExports` array (if any) into the same `{ pattern: pattern }` shape
+ *  `isExported` already understands, so both checks share one matcher.
+ *  @returns {Map<string, Record<string, unknown>>} */
+function loadWorkspaceExports() {
+	/** @type {Map<string, Record<string, unknown>>} */
+	const out = new Map();
+
+	for (const { name, pkgJson } of eachWorkspacePackage()) {
+		if (Array.isArray(pkgJson.workspaceExports)) {
+			out.set(name, Object.fromEntries(pkgJson.workspaceExports.map(pattern => [pattern, pattern])));
+		}
+	}
+
+	return out;
+}
+
+/** @returns {Map<string, Record<string, unknown>>} */
+function loadPackageExports() {
+	/** @type {Map<string, Record<string, unknown>>} */
+	const out = new Map();
+
+	for (const { name, pkgJson } of eachWorkspacePackage()) {
+		if (pkgJson.exports != null) out.set(name, /** @type {Record<string, unknown>} */ (pkgJson.exports));
 	}
 
 	return out;

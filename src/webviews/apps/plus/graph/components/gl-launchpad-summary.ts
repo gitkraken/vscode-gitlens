@@ -1,6 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
@@ -9,8 +10,7 @@ import type {
 	LaunchpadSummaryResult,
 } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/skeleton-loader.js';
 
 /** Where the summary is rendered — drives the `source` recorded on the Launchpad command links. */
@@ -39,12 +39,12 @@ export class GlLaunchpadSummary extends LitElement {
 				gap: var(--gl-space-4);
 
 				/* Match the left inset of Next-step rows so the launchpad items line up with the
-				   Next-steps content column rather than sitting flush with the section heading. */
+   Next-steps content column rather than sitting flush with the section heading. */
 				padding-inline-start: var(--gl-space-6);
 
 				/* Matches the start-new top padding so the Launchpad heading-to-content gap reads the
-				   same as the other sections — first launchpad row sits flush with where the first row
-				   of Next-steps and the first button of Start-new sit. */
+   same as the other sections — first launchpad row sits flush with where the first row
+   of Next-steps and the first button of Start-new sit. */
 				margin-block: var(--gl-space-8) var(--gl-space-6);
 				list-style: none;
 			}

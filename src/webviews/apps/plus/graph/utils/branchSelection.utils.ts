@@ -1,8 +1,8 @@
+import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { GraphIncludeOnlyRefs, GraphScope, GraphWipRowsById } from '../../../../plus/graph/protocol.js';
-import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import { isScopeFocalHead, shouldShowPrimaryWipRow } from './wip.utils.js';
 
 export interface SelectionContext {

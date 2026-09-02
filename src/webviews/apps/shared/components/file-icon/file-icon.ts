@@ -7,7 +7,7 @@
 
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { cspStyleMap } from '../csp-style-map.directive.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { resolveSetiFileIcon } from './seti-icons.js';
 
 @customElement('gl-file-icon')

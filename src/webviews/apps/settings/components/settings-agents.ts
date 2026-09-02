@@ -2,17 +2,17 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, inlineCode, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AgentInfo, AIState } from '../../../rpc/services/types.js';
-import { srOnly } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, inlineCode, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
-import '../../shared/components/overlays/popover.js';
-import '../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../shared/components/skeleton-loader.js';
 import '../../shared/components/radio/radio.js';
 
@@ -101,8 +101,8 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 			.header__col,
 			.cell {
-				text-align: center;
 				justify-self: center;
+				text-align: center;
 			}
 
 			.cell__button {
@@ -170,8 +170,8 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			.activation-popover {
 				display: flex;
 				flex-direction: column;
-				align-items: flex-start;
 				gap: var(--gl-space-8);
+				align-items: flex-start;
 				max-width: 30rem;
 			}
 

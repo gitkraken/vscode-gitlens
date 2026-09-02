@@ -1,15 +1,15 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { getAutolinkIcon } from '@gitlens/components/components/icons/providerIcons.js';
+import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { PullRequestReviewDecision } from '@gitlens/git/models/pullRequest.js';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
-import { getAutolinkIcon } from '../../../shared/components/rich/utils.js';
-import { srOnly } from '../../../shared/components/styles/lit/a11y.css.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
@@ -19,14 +19,14 @@ import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/formatted-date.js';
 import '../../../shared/components/markdown/markdown.js';
 import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/popover-confirm.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/skeleton-loader.js';
 
 declare global {
@@ -169,11 +169,11 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				min-width: 0;
 				padding: 0;
 				margin: 0;
-				color: inherit;
 				font: inherit;
+				color: inherit;
+				cursor: pointer;
 				background: none;
 				border: none;
-				cursor: pointer;
 			}
 
 			.title__link:hover .title__name,
@@ -189,26 +189,26 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.title__id {
 				flex: none;
-				color: var(--color-foreground--65);
-				font-variant-numeric: tabular-nums;
 				font-weight: 400;
+				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			/* The glance-level stacked/unstacked discriminator; the stack rail below carries the detail. */
 			.title__count {
 				display: inline-flex;
+				flex: none;
 				gap: var(--gl-space-2);
 				align-items: center;
-				flex: none;
 				height: 1.5rem;
 				padding: 0 var(--gl-space-4);
-				border-radius: var(--gl-radius-sm);
-				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-micro);
-				font-variant-numeric: tabular-nums;
 				font-weight: 400;
+				font-variant-numeric: tabular-nums;
 				line-height: 1;
+				color: var(--color-foreground--65);
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+				border-radius: var(--gl-radius-sm);
 				--code-icon-size: 1.1rem;
 			}
 
@@ -324,9 +324,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				align-items: baseline;
 				justify-content: space-between;
 				margin-bottom: var(--gl-space-4);
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
+				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
 			}
@@ -402,8 +402,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.meta-card__ellipsis {
-				color: var(--color-foreground--65);
 				font-family: var(--vscode-editor-font-family);
+				color: var(--color-foreground--65);
 				letter-spacing: 0.2rem;
 			}
 
@@ -413,9 +413,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.meta-card__stats {
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			.meta-card__stats > * {
@@ -475,45 +475,45 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.verdict__title {
 				align-self: center;
-				color: var(--verdict-accent);
 				font-weight: 600;
 				line-height: 1.2;
+				color: var(--verdict-accent);
 			}
 
 			/* The blast-radius count as a badge on the button itself, GitHub-style — a wash of the
 			   button's own foreground so it survives any theme's button color. */
 			.split-btn__count {
-				margin-left: var(--gl-space-4);
 				padding: 0 var(--gl-space-4);
-				border-radius: 1rem;
-				background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
+				margin-left: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				background: color-mix(in srgb, transparent 78%, var(--vscode-button-foreground));
+				border-radius: 1rem;
 			}
 
 			.verdict__reasons {
 				display: flex;
 				flex-wrap: wrap;
 				gap: var(--gl-space-4) var(--gl-space-10);
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			.verdict__blast {
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			/* The fine print's load-bearing facts — which pull requests, which branch. */
 			.verdict__num {
-				color: var(--color-foreground);
-				font-variant-numeric: tabular-nums;
 				font-weight: 500;
+				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground);
 			}
 
 			.verdict__ref {
-				color: var(--color-foreground);
 				font-family: var(--vscode-editor-font-family);
+				color: var(--color-foreground);
 			}
 
 			.description {
@@ -531,8 +531,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.description__empty {
 				margin: 0;
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			.description__fade {
@@ -541,18 +541,18 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				bottom: 0;
 				left: 0;
 				height: 3rem;
-				background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
 				pointer-events: none;
+				background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
 			}
 
 			.description__toggle {
 				padding: 0;
 				margin-top: var(--gl-space-4);
-				color: var(--vscode-textLink-foreground);
 				font-size: var(--gl-font-sm);
+				color: var(--vscode-textLink-foreground);
+				cursor: pointer;
 				background: none;
 				border: none;
-				cursor: pointer;
 			}
 
 			.description__toggle:hover,
@@ -600,18 +600,18 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			.stack-rail__dot-col {
 				position: relative;
 				display: flex;
-				align-self: stretch;
 				align-items: center;
+				align-self: stretch;
 				justify-content: center;
 			}
 
 			.stack-rail__dot-col::before {
-				content: '';
 				position: absolute;
 				top: 0;
 				bottom: 0;
 				left: 50%;
 				width: var(--gl-border-width);
+				content: '';
 				background: var(--color-foreground--25);
 				transform: translateX(-50%);
 			}
@@ -656,15 +656,15 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.stack-rail__position {
 				flex: none;
-				color: var(--color-foreground--65);
 				font-family: var(--vscode-editor-font-family);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			.stack-rail__position--current {
-				color: var(--color-foreground);
 				font-weight: 600;
+				color: var(--color-foreground);
 			}
 		`,
 	];

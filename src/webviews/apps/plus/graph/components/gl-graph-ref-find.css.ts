@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { elevatedSurface } from '../../../shared/components/styles/lit/elevation.css.js';
+import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 
 export const graphRefFindStyles = css`
 	:host {

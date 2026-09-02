@@ -6,7 +6,6 @@ import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { getFileDiffPathspecs } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -14,6 +13,7 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import { splitMessage } from '@gitlens/utils/string.js';
 import type { CopyDeepLinkCommandArgs, CopyFileDeepLinkCommandArgs } from '../../commands/copyDeepLink.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote.js';
@@ -623,7 +623,7 @@ export class DetailsFileCommands {
 				await GitCommit.ensureFullDetails(commit);
 			}
 
-			const { summary: title, body: description } = splitCommitMessage(commit.message);
+			const { summary: title, body: description } = splitMessage(commit.message);
 
 			args = {
 				repoPath: commit.repoPath,
@@ -779,7 +779,7 @@ export class DetailsFileCommands {
 				await GitCommit.ensureFullDetails(commit);
 			}
 
-			const { summary: title, body: description } = splitCommitMessage(commit.message);
+			const { summary: title, body: description } = splitMessage(commit.message);
 
 			void executeCommand<CreatePatchCommandArgs>('gitlens.createCloudPatch', {
 				to: commit.ref,

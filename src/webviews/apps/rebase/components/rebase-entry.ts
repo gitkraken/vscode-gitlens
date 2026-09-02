@@ -3,8 +3,8 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { RebaseTodoCommitAction, UpdateRefInfo } from '@gitlens/git/models/rebase.js';
-import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { commitRebaseActions } from '@gitlens/git/utils/rebase.utils.js';
+import { splitMessage } from '@gitlens/utils/string.js';
 import type { Author, RebaseEntry } from '../../../rebase/protocol.js';
 import { isCommitEntry } from '../../../rebase/protocol.js';
 import type { AvatarShape } from '../../shared/components/avatar/avatar-list.js';
@@ -13,8 +13,8 @@ import { entryStyles } from './rebase-entry.css.js';
 import '../../shared/components/avatar/avatar-list.js';
 import '../../shared/components/chips/ref-overflow-chip.js';
 import '../../shared/components/markdown/markdown.js';
-import '../../shared/components/overlays/popover.js';
-import '../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../shared/components/select/select.js';
 
 const allCommitActions = [...commitRebaseActions.values()];
@@ -346,7 +346,7 @@ export class GlRebaseEntryElement extends LitElement {
 	private renderMessage(message: string | undefined) {
 		if (!message) return nothing;
 
-		const { summary, body } = splitCommitMessage(message);
+		const { summary, body } = splitMessage(message);
 		if (!body) {
 			return html`<gl-markdown .markdown=${summary} inline></gl-markdown>`;
 		}

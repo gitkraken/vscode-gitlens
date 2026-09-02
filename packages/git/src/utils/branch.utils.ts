@@ -1,3 +1,4 @@
+import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
 import type { PageableResult } from '@gitlens/utils/paging.js';
 import type { GitBranch, GitTrackingUpstream } from '../models/branch.js';
 import type { GitBranchReference, GitReference } from '../models/reference.js';
@@ -20,10 +21,6 @@ export function formatDetachedHeadName(sha: string): string {
 	return `(${shortenRevision(sha)}...)`;
 }
 
-export function getBranchId(repoPath: string, remote: boolean, name: string): string {
-	return `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
-}
-
 export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, remote: string | undefined] {
 	if (ref.remote) {
 		const index = getRemoteNameSlashIndex(ref.name);
@@ -42,20 +39,8 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 	return [ref.name, undefined];
 }
 
-export function getBranchNameWithoutRemote(name: string): string {
-	return name.substring(getRemoteNameSlashIndex(name) + 1);
-}
-
 export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string | undefined {
 	return ref.upstream?.name.substring(getRemoteNameSlashIndex(ref.upstream.name) + 1);
-}
-
-export function getRemoteNameFromBranchName(name: string): string {
-	return name.substring(0, getRemoteNameSlashIndex(name));
-}
-
-export function getRemoteNameSlashIndex(name: string): number {
-	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
 }
 
 export function isDetachedHead(name: string): boolean {
