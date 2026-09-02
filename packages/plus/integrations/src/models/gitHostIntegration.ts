@@ -586,7 +586,14 @@ export abstract class GitHostIntegration<
 	async getPullRequestForBranch(
 		repo: T,
 		branch: string,
-		options?: { avatarSize?: number; expiryOverride?: boolean | number; include?: PullRequestState[] },
+		options?: {
+			avatarSize?: number;
+			expiryOverride?: boolean | number;
+			include?: PullRequestState[];
+			/** Rethrow a failed lookup instead of folding it into `undefined`, for callers that must tell
+			 *  "no pull request" apart from "couldn't ask". */
+			throwOnError?: boolean;
+		},
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -595,20 +602,25 @@ export abstract class GitHostIntegration<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const { expiryOverride, ...opts } = options ?? {};
+		const { expiryOverride, throwOnError, ...opts } = options ?? {};
 
 		const pr = this.ctx.cache.getPullRequestForBranch(
 			branch,
 			repo,
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, opts);
 						this.resetRequestExceptionCount('getPullRequestForBranch');
 						return result;
 					} catch (ex) {
+						// A failed lookup is not an answer: left cached, the `undefined` below reads as "no pull
+						// request" for the bucket's whole expiry (an hour by branch).
+						cacheable.invalidate();
 						this.handleProviderException('getPullRequestForBranch', ex, { scope: scope });
+						if (throwOnError) throw ex;
+
 						return undefined;
 					}
 				})(),
@@ -629,7 +641,7 @@ export abstract class GitHostIntegration<
 	async getPullRequestForCommit(
 		repo: T,
 		rev: string,
-		options?: { expiryOverride?: boolean | number },
+		options?: { expiryOverride?: boolean | number; throwOnError?: boolean },
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -638,23 +650,29 @@ export abstract class GitHostIntegration<
 
 		await this.refreshSessionIfExpired(scope);
 
+		const { throwOnError, ...cacheOptions } = options ?? {};
+
 		const pr = this.ctx.cache.getPullRequestForSha(
 			rev,
 			repo,
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderPullRequestForCommit(this._session!, repo, rev);
 						this.resetRequestExceptionCount('getPullRequestForCommit');
 						return result;
 					} catch (ex) {
+						// A failed lookup is not an answer — and the by-sha bucket never expires a miss.
+						cacheable.invalidate();
 						this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						if (throwOnError) throw ex;
+
 						return undefined;
 					}
 				})(),
 			}),
-			options,
+			cacheOptions,
 		);
 		return pr;
 	}

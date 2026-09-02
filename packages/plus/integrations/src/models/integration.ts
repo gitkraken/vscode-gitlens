@@ -932,7 +932,7 @@ export abstract class IntegrationBase<
 	async getPullRequest(
 		resource: T,
 		id: string,
-		options?: { expiryOverride?: boolean | number },
+		options?: { expiryOverride?: boolean | number; throwOnError?: boolean },
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -945,14 +945,18 @@ export abstract class IntegrationBase<
 			id,
 			resource,
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderPullRequest?.(this._session!, resource, id);
 						this.resetRequestExceptionCount('getPullRequest');
 						return result;
 					} catch (ex) {
+						// A failed lookup is not an answer — and the by-id bucket never expires a miss.
+						cacheable.invalidate();
 						this.handleProviderException('getPullRequest', ex, { scope: scope });
+						if (options?.throwOnError) throw ex;
+
 						return undefined;
 					}
 				})(),

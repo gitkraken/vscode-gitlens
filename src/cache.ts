@@ -372,16 +372,20 @@ export class CacheProvider implements Disposable {
 		return cacheController => {
 			const item = cacheable(cacheController);
 			if (isPromise(item.value)) {
-				void item.value.then(v => {
-					if (v != null) {
-						this.set(
-							'issuesOrPrsById',
-							`id:${v.id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}`,
-							v,
-							etag,
-						);
-					}
-				});
+				void item.value.then(
+					v => {
+						if (v != null) {
+							this.set(
+								'issuesOrPrsById',
+								`id:${v.id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}`,
+								v,
+								etag,
+							);
+						}
+					},
+					// A lookup that opted to throw (`throwOnError`) rejects here too; the caller owns it.
+					() => {},
+				);
 			}
 
 			return item;

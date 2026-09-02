@@ -3,10 +3,12 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer, getSettledValue } from '@gitlens/utils/promise.js';
@@ -261,12 +263,22 @@ export class GraphProducersService {
 		//
 		// An empty result bails too, because `getBranches` reports a failed enumeration that way rather than
 		// throwing: a repo with refs to decorate always has at least one branch.
+		//
+		// A single-branch result bails too when it doesn't cover every requested id: `getBranches` falls back
+		// to reporting just the current branch when the underlying `for-each-ref` enumeration fails, which
+		// looks like a valid non-empty list rather than a failure. The webview never requests tag ids (only
+		// head/remote branch ids), so in a genuinely one-branch repo every requested id IS that one branch —
+		// a mismatch means the enumeration is degraded, not that the other ids don't exist.
 		let branchesById: Map<string, GitBranch>;
 		try {
 			const branches = await this.container.git.getRepositoryService(repoPath).branches.getBranches();
 			if (!branches.values.length) return;
 
 			branchesById = new Map(branches.values.map(b => [b.id, b]));
+
+			if (branches.values.length === 1 && Object.keys(metadata).some(id => !branchesById.has(id))) {
+				return;
+			}
 		} catch {
 			return;
 		}
@@ -307,11 +319,23 @@ export class GraphProducersService {
 			// another (or on `upstream`, which is local-git data) — resolve them concurrently below
 			// instead of blocking one on the other in a sequential loop.
 			const resolvePullRequest = async (): Promise<void> => {
-				const pr = branch != null ? await getBranchAssociatedPullRequest(this.container, branch) : undefined;
+				let pr: PullRequest | undefined;
+				try {
+					pr = await getBranchAssociatedPullRequest(this.container, branch, { throwOnError: true });
+				} catch (ex) {
+					// A failed lookup (rate limit, 5xx, expired session, network, cancellation) is not the same as
+					// "no pull request" — writing `null` here would latch that as the authoritative answer
+					// forever. Leave the entry untouched so the webview re-asks.
+					Logger.debug(`GraphProducersService: pull request lookup failed for ${id}; ${String(ex)}`);
+
+					return;
+				}
 
 				if (pr == null) {
-					// Only claim "no pull request" when nothing is already recorded — an existing list is a
-					// real answer this miss must not erase.
+					// `getBranchAssociatedPullRequest` returned cleanly here — the lookup succeeded and found
+					// nothing, a genuine miss (the `catch` above already handled and returned on a failed
+					// lookup). Only claim "no pull request" when nothing is already recorded — an existing list
+					// is a real answer this miss must not erase.
 					const current = this._refsMetadata!.get(id);
 					if (current?.pullRequest === undefined || current.pullRequest?.length === 0) {
 						write({ pullRequest: null });

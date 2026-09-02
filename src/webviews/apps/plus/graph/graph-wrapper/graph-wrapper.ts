@@ -34,6 +34,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRef,
 	GraphRefMetadataItem,
+	GraphRefsMetadata,
 	GraphRevealMode,
 	GraphScope,
 	GraphSelectedRows,
@@ -3002,19 +3003,25 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 	}
 
-	/** The component asks for the ref-metadata types it's missing on visible rows. The response carries
-	 *  exactly those refs' resolved entries and spread-merges into the `refsMetadata` prop; an id the host
-	 *  couldn't resolve is omitted, which is what lets the component ask again. */
+	/** The component asks for the ref-metadata types it's missing on visible rows. The response carries an
+	 *  entry only for ids the host actually resolved this round; an id it couldn't resolve is omitted
+	 *  entirely. `settleMissingRefsMetadata` reconciles the request against that response, un-latching
+	 *  omitted ids so the component's throttled retry asks for them again. */
 	private onGraphMissingRefsMetadata(event: CustomEvent<GraphMissingRefsMetadata>) {
 		const services = this.services;
 		if (services == null) return;
 
 		const metadata = event.detail;
 		fireAndForget(
-			(async () =>
-				this.graphState.applyRefsMetadata(
-					await (await services.refsMetadata).getMissingRefsMetadata(metadata),
-				))(),
+			(async () => {
+				let result: GraphRefsMetadata | undefined;
+				try {
+					result = await (await services.refsMetadata).getMissingRefsMetadata(metadata);
+					this.graphState.applyRefsMetadata(result);
+				} finally {
+					this.graph?.settleMissingRefsMetadata(metadata, result);
+				}
+			})(),
 			'refsMetadata/getMissing',
 		);
 	}

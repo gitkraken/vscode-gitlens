@@ -112,3 +112,28 @@ suite('GraphProducersService.getMissingRefsMetadata — upstream metadata Test S
 		assert.ok(upstream?.context, 'the live path still carries its push/pull context');
 	});
 });
+
+suite('GraphProducersService.getMissingRefsMetadata — degraded branch enumeration Test Suite', () => {
+	test('a one-branch enumeration that does not cover every requested id writes nothing for any id', async () => {
+		const branch: FakeBranch = { id: 'b1', name: 'feature' };
+		const fakeThis = createFakeThis([branch]);
+
+		// `other-id` isn't `b1` — the only branch `getBranches` came back with — so the enumeration reads as
+		// degraded (see the comment above the bail in `enrichRefsMetadata`), and BOTH ids must come back
+		// untouched: an absent entry, not `null` and not an object, so the webview re-requests them.
+		await invoke(fakeThis, { 'other-id': ['upstream'], b1: ['upstream'] });
+
+		assert.strictEqual(fakeThis._refsMetadata, undefined, 'the map itself must never even get created');
+	});
+
+	test('a one-branch enumeration that covers every requested id still resolves normally', async () => {
+		const branch: FakeBranch = { id: 'b1', name: 'feature' };
+		const fakeThis = createFakeThis([branch]);
+
+		// Every requested id (just `b1`) IS the one branch `getBranches` reported, so this is a genuine
+		// one-branch repo, not a degraded enumeration — it must resolve rather than bail.
+		await invoke(fakeThis, { b1: ['upstream'] });
+
+		assert.strictEqual(fakeThis._refsMetadata?.get('b1')?.upstream, null);
+	});
+});

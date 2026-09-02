@@ -241,6 +241,8 @@ export async function getBranchAssociatedPullRequest(
 		expiryOverride?: boolean | number;
 		/** Only return a value already in the local cache. No remote fetch — returns undefined on cache miss. */
 		cached?: boolean;
+		/** Rethrow a failed lookup rather than folding it into `undefined` ("no pull request"). */
+		throwOnError?: boolean;
 	},
 ): Promise<PullRequest | undefined> {
 	const remote = await getBranchRemote(container, branch);
@@ -264,7 +266,9 @@ export async function getBranchAssociatedPullRequest(
 
 	if (branch.upstream?.missing) {
 		if (!branch.sha) return undefined;
-		return integration.getPullRequestForCommit(remote.provider.repoDesc, branch.sha);
+		return integration.getPullRequestForCommit(remote.provider.repoDesc, branch.sha, {
+			throwOnError: options?.throwOnError,
+		});
 	}
 
 	return integration.getPullRequestForBranch(

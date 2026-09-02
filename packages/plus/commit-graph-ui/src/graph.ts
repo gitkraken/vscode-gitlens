@@ -171,6 +171,11 @@ const holdEngageDelayMs = 500;
 // How long a peeked card's re-anchor keeps retrying for the landing row's element before giving up —
 // generous because a jump (End/Home) can page rows in from git before the landing row exists at all.
 const peekReanchorDeadlineMs = 1000;
+// Base delay before retrying a ref-metadata id/type pair the host bailed on (omitted from its response
+// rather than answering it). Doubles on each consecutive bail (see settleMissingRefsMetadata), capped at
+// refsMetadataRetryMaxDelayMs, so a host that's persistently failing doesn't get hammered.
+const refsMetadataRetryBaseDelayMs = 2000;
+const refsMetadataRetryMaxDelayMs = 30000;
 // The furthest a reveal animates, in viewports — and for a longer jump, how far out it cuts to before
 // running that same animation in. One number, so every animated arrival is the same gesture regardless of
 // how far the jump was.
@@ -1444,8 +1449,15 @@ export class GlCommitGraph extends LitElement {
 	};
 	// Metadata requested so far, per ref id → the set of types already asked for (or already resolved),
 	// so the lazy fetch fires once per (id, type) — turning on a new type later (e.g. Pull Requests)
-	// still fires a request for refs already settled on other types.
+	// still fires a request for refs already settled on other types. Also un-latched per-pair by
+	// settleMissingRefsMetadata when the host bails on an id (see that method).
 	private requestedMetadata = new Map<string, Set<GraphRefMetadataType>>();
+	// Pending throttled retry for un-latched (id, type) pairs — at most one in flight at a time; a bail
+	// while one's already pending just waits for it rather than restarting the clock.
+	private refsMetadataRetryTimer: ReturnType<typeof setTimeout> | undefined;
+	// Doubles (capped) on each consecutive bail, resets to base on a fully-successful settle — see
+	// settleMissingRefsMetadata.
+	private refsMetadataRetryDelayMs = refsMetadataRetryBaseDelayMs;
 	private lastRefsMetadataRef?: GraphRefsMetadata | null;
 	private lastRefsMetadataResetToken = 0;
 	private lastDownstreamsRef?: GraphDownstreams;
@@ -1655,6 +1667,11 @@ export class GlCommitGraph extends LitElement {
 			clearTimeout(this.avatarErrorFlushTimer);
 			this.avatarErrorFlushTimer = undefined;
 		}
+		if (this.refsMetadataRetryTimer != null) {
+			clearTimeout(this.refsMetadataRetryTimer);
+			this.refsMetadataRetryTimer = undefined;
+		}
+		this.refsMetadataRetryDelayMs = refsMetadataRetryBaseDelayMs;
 		this.emitMoreRows.cancel();
 		this.announceLoadingMore.cancel();
 		// Settles (not just clears) so a persisting toast host hears the cancel — the graph element can be
@@ -1975,6 +1992,8 @@ export class GlCommitGraph extends LitElement {
 		// previously-seen refs aren't blocked forever, then re-request now — a metadata-only reset doesn't move
 		// rows/scope, so recomputeDisplayRows' request pass wouldn't otherwise run. The `type in entry` guard in
 		// requestMissingRefsMetadata keeps a preserved `upstream` from re-requesting, so only dropped types refetch.
+		// (This is the wholesale-clear path; a single id the host bailed on for one round un-latches instead
+		// through settleMissingRefsMetadata, without touching every other id's dedup.)
 		const refsMetadataResetTokenChanged = this.refsMetadataResetToken !== this.lastRefsMetadataResetToken;
 		this.lastRefsMetadataResetToken = this.refsMetadataResetToken;
 		if (
@@ -3355,7 +3374,8 @@ export class GlCommitGraph extends LitElement {
 
 	// Lazily request ref metadata (ahead/behind, PRs, issues) for the tracked refs in view that don't
 	// have it yet — once per (id, type) pair (no request storm; see requestedMetadata). Bounded by
-	// branch count (refs are sparse across rows).
+	// branch count (refs are sparse across rows). A pair the host bails on for a round gets un-latched by
+	// settleMissingRefsMetadata and retried through the throttled timer, not from here.
 	private requestMissingRefsMetadata(): void {
 		// The host drops every request while the whole feature is off (no upstream-status/hosting/issue
 		// integration) — matching that here skips the round trip instead of dispatching a no-op event.
@@ -3413,6 +3433,55 @@ export class GlCommitGraph extends LitElement {
 		if (missing != null) {
 			this.dispatchEvent(new CustomEvent('gl-graph-missingrefsmetadata', { detail: missing }));
 		}
+	}
+
+	// Reconciles a `gl-graph-missingrefsmetadata` request against what the host's RPC actually answered.
+	// The host's response only carries an entry for ids it resolved this round — an id it couldn't resolve
+	// (mid-rebuild bail, aborted) is OMITTED entirely, and `resolved` is `undefined` outright when the RPC
+	// itself rejected (e.g. connection closed). Either way, the (id, type) pairs left unanswered are
+	// un-latched from `requestedMetadata` so a later request can ask for them again, and a single throttled
+	// retry is scheduled to actually re-ask (a static view with no re-render wouldn't otherwise trigger one).
+	settleMissingRefsMetadata(
+		requested: GraphMissingRefsMetadata,
+		resolved: GraphRefsMetadata | null | undefined,
+	): void {
+		let unlatchedAny = false;
+		for (const id of Object.keys(requested)) {
+			const entry = resolved?.[id];
+			for (const type of requested[id]) {
+				const answered = resolved != null && entry !== undefined && (entry === null || type in entry);
+				if (answered) continue;
+
+				const requestedTypes = this.requestedMetadata.get(id);
+				if (requestedTypes == null) continue;
+
+				requestedTypes.delete(type);
+				if (requestedTypes.size === 0) {
+					this.requestedMetadata.delete(id);
+				}
+				unlatchedAny = true;
+			}
+		}
+
+		if (unlatchedAny) {
+			this.scheduleRefsMetadataRetry();
+		} else {
+			this.refsMetadataRetryDelayMs = refsMetadataRetryBaseDelayMs;
+		}
+	}
+
+	// Schedules exactly one throttled re-request for un-latched ref-metadata pairs, doubling the backoff
+	// (capped) for the NEXT bail so a persistently-failing host isn't hammered. A timer already pending is
+	// left alone — one at a time, per settleMissingRefsMetadata's contract.
+	private scheduleRefsMetadataRetry(): void {
+		if (this.refsMetadataRetryTimer != null) return;
+
+		const delay = this.refsMetadataRetryDelayMs;
+		this.refsMetadataRetryDelayMs = Math.min(delay * 2, refsMetadataRetryMaxDelayMs);
+		this.refsMetadataRetryTimer = setTimeout(() => {
+			this.refsMetadataRetryTimer = undefined;
+			this.requestMissingRefsMetadata();
+		}, delay);
 	}
 
 	// Dedupe by content so the paging signal doesn't refire every render; resets when the set
