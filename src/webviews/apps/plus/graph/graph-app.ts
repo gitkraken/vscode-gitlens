@@ -2122,8 +2122,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/** A sheet started its animated exit (Esc/X/scrim) — restore early so the maximize glide runs
-	 *  alongside the sheet's own close animation instead of snapping after it finishes. */
+	 *  alongside the sheet's own close animation instead of snapping after it finishes. Only the
+	 *  LAST sheet's exit un-maximizes — a stacked sheet closing reveals the one beneath, which is
+	 *  still open and still wants the maximized pane. */
 	private readonly handleDetailSheetClosing = (): void => {
+		if ((this.detailsPanelEl?.sheetDepth ?? 0) > 1) return;
+
 		this.releaseSheetMaximize();
 	};
 

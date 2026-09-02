@@ -1156,7 +1156,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.removeSheetKind('pullRequest');
 	}
 
-	/** Opens the agent session sheet for a live agent card click. Data-only: `renderTopSheet`
+	/** Opens the agent session sheet for a live agent card click. Data-only: `renderSheets`
 	 *  resolves the session from the full live snapshot on every render, so this costs no fetch.
 	 *  Pushed, not replaced: a card inside the branch sheet stacks the agent sheet on top so
 	 *  closing it returns there; on an empty stack push and replace are the same. */
@@ -1343,16 +1343,24 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.popSheet();
 	};
 
-	/** Renders whatever's on top of {@link _sheetStack}. */
-	private renderTopSheet() {
-		const top = this._sheetStack.at(-1);
-		if (top == null) return nothing;
+	/** Renders every sheet on {@link _sheetStack} in stack order — lower sheets stay mounted (and
+	 *  `inert`) beneath the top so a push slides over them and a pop reveals them instead of
+	 *  remounting them. Lit reconciles the array positionally, so a pop leaves the lower sheets'
+	 *  DOM untouched and an in-place top replace (same kind) keeps its element. */
+	private renderSheets() {
+		if (this._sheetStack.length === 0) return nothing;
 
-		switch (top.kind) {
+		const topIndex = this._sheetStack.length - 1;
+		return this._sheetStack.map((d, i) => this.renderSheet(d, i === topIndex));
+	}
+
+	private renderSheet(d: SheetDescriptor, isTop: boolean) {
+		switch (d.kind) {
 			case 'branch':
 				return html`<gl-graph-branch-sheet
-					.ref=${top.ref}
-					.repoPath=${top.repoPath}
+					?inert=${!isTop}
+					.ref=${d.ref}
+					.repoPath=${d.repoPath}
 					.services=${this._servicesResolved && this._actions != null ? this._actions.services : undefined}
 					.dateFormat=${this._state.preferences.get()?.dateFormat}
 					.dateStyle=${this._state.preferences.get()?.dateStyle}
@@ -1360,8 +1368,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					.aiModel=${this._state.aiModel.get()}
 					.orgSettings=${this._state.orgSettings.get()}
 					.changeStamp=${this._branchSheetChangeStamp}
-					?show-maximize=${this.showMaximize}
-					?maximized=${this.sheetMaximized}
+					?show-maximize=${isTop && this.showMaximize}
+					?maximized=${isTop && this.sheetMaximized}
 					@gl-detail-sheet-close=${this.handleCloseBranchSheet}
 					@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 					@gl-agent-session-sheet-open=${this.handleAgentSessionSheetOpen}
@@ -1369,9 +1377,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				></gl-graph-branch-sheet>`;
 			case 'conflict':
 				return html`<gl-wip-conflict-sheet
-					.detail=${top.detail}
+					?inert=${!isTop}
+					.detail=${d.detail}
 					.getDetails=${this.getConflictDetails}
-					file-name=${top.fileName}
+					file-name=${d.fileName}
 					.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 					.preferences=${this._state.preferences.get()}
 					@gl-detail-sheet-close=${this.handleCloseConflictDetails}
@@ -1383,7 +1392,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				></gl-wip-conflict-sheet>`;
 			case 'rebaseSummary':
 				return html`<gl-rebase-summary-sheet
-					.repoPath=${top.repoPath}
+					?inert=${!isTop}
+					.repoPath=${d.repoPath}
 					.getSummary=${this.getRebaseSummary}
 					.undoRebase=${this.undoRebaseSummary}
 					@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
@@ -1391,20 +1401,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				></gl-rebase-summary-sheet>`;
 			case 'pullRequest':
 				return html`<gl-graph-pr-sheet
-					.target=${top.target}
-					.pullRequest=${top.pr}
-					.layers=${top.layers}
+					?inert=${!isTop}
+					.target=${d.target}
+					.pullRequest=${d.pr}
+					.layers=${d.layers}
 					.dateFormat=${this._state.preferences.get()?.dateFormat}
-					.stackRoot=${top.stackRoot ?? false}
+					.stackRoot=${d.stackRoot ?? false}
 					?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 					@gl-detail-sheet-close=${this.handleClosePrSheet}
 				></gl-graph-pr-sheet>`;
 			case 'agentSession': {
 				const entries = this.getAgentSessionCycleEntries();
-				const cycleIndex = this.findAgentSessionCycleIndex(entries, top);
+				const cycleIndex = this.findAgentSessionCycleIndex(entries, d);
 				return html`<gl-graph-agent-sheet
+					?inert=${!isTop}
 					.session=${this._graphState?.agentSessions?.find(
-						s => s.id === top.sessionId && s.providerId === top.providerId,
+						s => s.id === d.sessionId && s.providerId === d.providerId,
 					)}
 					.cycleIndex=${cycleIndex}
 					.cycleCount=${cycleIndex >= 0 ? entries.length : 0}
@@ -1414,9 +1426,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}
 			case 'pastAgentSession': {
 				const entries = this.getAgentSessionCycleEntries();
-				const cycleIndex = this.findAgentSessionCycleIndex(entries, top);
+				const cycleIndex = this.findAgentSessionCycleIndex(entries, d);
 				return html`<gl-graph-agent-sheet
-					.pastSession=${top.session}
+					?inert=${!isTop}
+					.pastSession=${d.session}
 					.pastDetail=${this._pastSessionDetail}
 					.cycleIndex=${cycleIndex}
 					.cycleCount=${cycleIndex >= 0 ? entries.length : 0}
@@ -1426,11 +1439,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}
 			case 'compare':
 				return html`<gl-graph-compare-sheet
+					?inert=${!isTop}
 					.preferredOrientation=${this._preferredCompareOrientation}
 					@gl-detail-sheet-close=${this.handleCloseCompareSheet}
 					@gl-graph-compare-promote=${this.handleComparePromote}
 					>${this.renderCompareMode()}${
-						this.showMaximize ? renderDetailsMaximizeChip(this.sheetMaximized, true, true) : nothing
+						isTop && this.showMaximize
+							? renderDetailsMaximizeChip(this.sheetMaximized, true, true)
+							: nothing
 					}<gl-action-chip
 						slot="actions"
 						icon="refresh"
@@ -1449,7 +1465,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			default: {
 				// Exhaustive: a new SheetDescriptor kind without a render case would leave the details
 				// content inert (`stack.length > 0`) with no sheet mounted to close — fail at build time.
-				const exhaustive: never = top;
+				const exhaustive: never = d;
 				return exhaustive;
 			}
 		}
@@ -1853,8 +1869,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _resizeObserver?: ResizeObserver;
 	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
 
-	/** Stack of currently-open detail sheets — every sheet kind renders from here, top-only, via
-	 *  {@link renderTopSheet}. Compare's openness is projected in from `compareSheetOpen`. */
+	/** Stack of currently-open detail sheets — every sheet kind renders from here, via
+	 *  {@link renderSheets}. Compare's openness is projected in from `compareSheetOpen`. */
 	@state() private _sheetStack: SheetDescriptor[] = [];
 
 	/** Parallel to {@link _sheetStack} — the element to restore focus to when the sheet at that
@@ -2872,7 +2888,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		</div>`;
 
 		if (!compareAsPanel) {
-			return html`<div class="details-host">${detailsContent}${this.renderTopSheet()}</div>`;
+			return html`<div class="details-host">${detailsContent}${this.renderSheets()}</div>`;
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
@@ -2889,7 +2905,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@gl-split-panel-change=${this.handleCompareSplitChange}
 			@gl-split-panel-dblclick=${this.handleCompareSplitDblClick}
 		>
-			<div slot="start" class="compare-pinned-split__start">${detailsContent}${this.renderTopSheet()}</div>
+			<div slot="start" class="compare-pinned-split__start">${detailsContent}${this.renderSheets()}</div>
 			<div slot="end" class="compare-pinned-split__end">
 				<gl-graph-compare-pinned
 					orientation=${orientation}
@@ -2933,14 +2949,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	openSheet(descriptor: SheetDescriptor, options?: { push?: boolean }): void {
 		const focusEl = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
 
-		// The currently-mounted sheet is about to unmount (or get replaced) as a side effect of a
-		// stack change we're driving here, not the user dismissing it — the router owns focus
-		// restoration for this transition, not the sheet's own disconnect handler.
+		// Every currently-mounted sheet may be about to unmount (a `replaceStack` drops the whole
+		// stack) as a side effect of a stack change we're driving here, not the user dismissing it —
+		// the router owns focus restoration for this transition, not the sheet's own disconnect
+		// handler.
 		// A converted sheet owns its `gl-detail-sheet` inside its shadow root, which this query can't
 		// reach — its host mirrors the flag through (see `SheetWrapper`). A new sheet kind must add
 		// its tag to `sheetWrapperTags` in sheetWrapper.ts.
-		const mounted = this.querySelector<HTMLElement & { skipFocusRestore: boolean }>(sheetWrapperSelector);
-		if (mounted != null) {
+		for (const mounted of this.querySelectorAll<HTMLElement & { skipFocusRestore: boolean }>(
+			sheetWrapperSelector,
+		)) {
 			mounted.skipFocusRestore = true;
 		}
 
