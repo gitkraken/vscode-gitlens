@@ -12,6 +12,7 @@ import { Signal } from 'signal-polyfill';
 import { Disposable } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars.js';
 import type { Container } from '../../../container.js';
+import { hasAIRelevantSubscriptionChanges } from '../../../plus/ai/utils/-webview/ai.utils.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import { serialize } from '../../../system/serialize.js';
@@ -85,19 +86,15 @@ export class SubscriptionService implements Disposable {
 				// The AI allowance doesn't move with every subscription tick — this event also fires on no-op
 				// ones like a session refresh, and a forced refetch on each would be a wasted round trip per
 				// open webview — so it's filtered out of the derived-state pass above and re-read only when
-				// one of its own inputs moved.
-				//
-				// Those inputs are every input to the allowance's cache key (`${accountId}|${orgId}` in
-				// `AIProviderService.getUsage`) plus the plan, which changes the allowance's SIZE under an
-				// unchanged key. The organization is easy to miss here: `AIProviderService` filters on
-				// account and plan alone when clearing that cache, but it doesn't need the org, because an
-				// org switch changes the key and simply misses the old entry. This filter has the opposite
-				// job — deciding whether to re-read — so leaving the org out stranded anyone switching
-				// between two same-tier orgs on the previous org's allowance and shared-pool split.
+				// something that feeds the allowance moved: whatever determines AI resolution (see
+				// `hasAIRelevantSubscriptionChanges`) plus the organization, which is easy to miss here.
+				// `AIProviderService` doesn't need the org when clearing its model cache, because an org
+				// switch changes that cache's key and simply misses the old entry. This filter has the
+				// opposite job — deciding whether to re-read — so leaving the org out stranded anyone
+				// switching between two same-tier orgs on the previous org's allowance and shared-pool split.
 				if (
-					e.current.account?.id !== e.previous.account?.id ||
-					e.current.activeOrganization?.id !== e.previous.activeOrganization?.id ||
-					e.current.plan?.actual?.id !== e.previous.plan?.actual?.id
+					hasAIRelevantSubscriptionChanges(e.previous, e.current) ||
+					e.current.activeOrganization?.id !== e.previous.activeOrganization?.id
 				) {
 					this.#updateAiUsageState(serialized, true);
 				}
@@ -151,8 +148,9 @@ export class SubscriptionService implements Disposable {
 
 	/**
 	 * Refresh `aiUsageState` for a (serialized) subscription. Deliberately NOT part of
-	 * `#updateDerivedState` — unlike the signals there, this one is fetched only when the account or plan
-	 * actually moved, and with a different cache policy depending on which caller asked (see `force`).
+	 * `#updateDerivedState` — unlike the signals there, this one is fetched only when something that
+	 * feeds the allowance actually moved, and with a different cache policy depending on which caller
+	 * asked (see `force`).
 	 */
 	#updateAiUsageState(sub: Subscription, force: boolean): void {
 		// Same stale-answer guard as the orgs fetch above: a later change's fetch can resolve before an

@@ -97,6 +97,7 @@ import {
 	getOrgAIConfig,
 	getOrgAIProviderOfType,
 	getOrPromptApiKey,
+	hasAIRelevantSubscriptionChanges,
 	isProviderEnabledByOrg,
 } from './utils/-webview/ai.utils.js';
 import type { ResolvePromptOptions } from './utils/-webview/prompt.utils.js';
@@ -521,17 +522,17 @@ export class AIProviderService implements AIService, Disposable {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(e => {
 				// Prompt templates are tied to account identity & subscription state — clear on every
-				// fire. Model caches are heavier and only affected by account identity or plan changes
-				// (which can shift available providers/entitlements); filter to avoid wiping the cache
-				// on no-op subscription ticks like session refresh.
+				// fire. Model caches are heavier, so filter to changes that can actually shift what
+				// resolves (see `hasAIRelevantSubscriptionChanges`) to avoid wiping them on no-op
+				// subscription ticks like session refresh.
 				this._promptTemplates.clear();
-				const accountChanged = e.current.account?.id !== e.previous.account?.id;
-				const planChanged = e.current.plan?.actual?.id !== e.previous.plan?.actual?.id;
-				if (accountChanged || planChanged) {
+
+				if (hasAIRelevantSubscriptionChanges(e.previous, e.current)) {
 					this._modelCache.clear();
 					this._providerModelsCache.clear();
-					// The account id is in the usage key, so an account change already misses — but a PLAN
-					// change moves the allowance under an unchanged key, so the entry has to go either way.
+					// The account id is in the usage key, so an account change already misses — but a plan or
+					// verification change moves the allowance under an unchanged key, so the entry has to go
+					// either way.
 					this._usage.clear();
 					clearResponseFormatRejections();
 

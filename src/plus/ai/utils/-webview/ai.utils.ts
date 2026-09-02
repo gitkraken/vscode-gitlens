@@ -21,6 +21,7 @@ import { configuration } from '../../../../system/-webview/configuration.js';
 import { getContext } from '../../../../system/-webview/context.js';
 import { openSettingsEditor } from '../../../../system/-webview/vscode/editors.js';
 import type { OrgAIConfig, OrgAIProvider } from '../../../gk/models/organization.js';
+import type { Subscription } from '../../../gk/models/subscription.js';
 import { ensureAccountQuickPick } from '../../../gk/utils/-webview/acount.utils.js';
 import type { AIResponse, AIResultContext } from '../../aiProviderService.js';
 
@@ -238,6 +239,22 @@ export async function ensureAccess(
 	if (!showPicker) return true;
 
 	return ensureAccountQuickPick(container, createAIAccountDescriptionItem(), source ?? { source: 'ai' }, false);
+}
+
+/**
+ * Whether a subscription change moved any field that determines which AI models and allowance an
+ * account can resolve. Verification and the effective plan are both load-bearing and easy to miss:
+ * `account.verified` is mapped from the account's user status independently of the licenses, so a paid
+ * seat can verify with no plan change at all (#5621); and a trial lives in `plan.effective`, leaving
+ * `plan.actual` untouched for its whole lifetime.
+ */
+export function hasAIRelevantSubscriptionChanges(previous: Subscription, current: Subscription): boolean {
+	return (
+		current.account?.id !== previous.account?.id ||
+		current.account?.verified !== previous.account?.verified ||
+		current.plan?.actual?.id !== previous.plan?.actual?.id ||
+		current.plan?.effective?.id !== previous.plan?.effective?.id
+	);
 }
 
 export function getAIResultContext(result: AIResponse<any>): AIResultContext {
