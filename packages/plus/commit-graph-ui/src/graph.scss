@@ -3172,15 +3172,23 @@ gl-commit-graph {
 		// pill collapse under its own rigid segments (jump button, PR/issue chips, +N badge) until they
 		// painted over the leading icon. Letting `min-width: auto` stand sizes the pill to its real
 		// content instead. It's a SOFT floor — max-width below clamps it (css-flexbox §4.5) — so a narrow
-		// refs zone still squeezes the pill and clips it at the zone's edge; that's fine, because `-main`
-		// can no longer collapse past its icon, so the segments can never overlap it. position:relative
-		// anchors the hover-expand overlay (`-expand`), which reveals the full name ON TOP of the message.
+		// refs zone still squeezes the pill past its content; `-main` can't collapse past its icon, so the
+		// segments never overlap it — they overflow the pill's right edge instead. `overflow: clip` (NOT
+		// hidden: clip is not a scroll container, so the auto-minimum survives) cuts that overflow at the
+		// pill's own rounded edge, and `border-box` keeps that edge INSIDE the zone — content-box +
+		// `max-width: 100%` put the padding past the zone's `overflow: hidden`, which chopped the pill's
+		// right corner and ring off along with the overflowing segments. position:relative anchors the
+		// hover-expand overlay (`-expand`), which reveals the full name ON TOP of the message (the clip
+		// doesn't reach it: anchored-fixed, its containing block is the row; the abspos fallback un-clips
+		// this pill while filled — see the `@supports not` block by the overlay).
 		position: relative;
 		display: inline-flex;
 		flex-shrink: 1;
 		gap: 0.6rem;
 		align-items: center;
+		box-sizing: border-box;
 		max-width: 100%;
+		overflow: clip;
 
 		// Padding absorbs the 1px the border used to occupy (0.1rem = 1px), keeping the pill's overall
 		// size and its content position unchanged.
@@ -4222,6 +4230,7 @@ gl-commit-graph {
 	// find hit), un-clip just that ancestor chain so the overlay can escape and paint on top. Known
 	// wart, accepted here only: un-clipping also reveals sibling pills overflowing the refs box.
 	@supports not ((anchor-scope: --a) and (left: anchor(left))) {
+		.gl-graph__ref-pill#{$pill-filled},
 		.gl-graph__refs:has(.gl-graph__ref-pill#{$pill-filled}),
 		.gl-graph__zone:has(.gl-graph__ref-pill#{$pill-filled}),
 		.gl-graph__refs-line:has(.gl-graph__ref-pill#{$pill-filled}),
