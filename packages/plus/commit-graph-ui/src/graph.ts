@@ -2117,11 +2117,20 @@ export class GlCommitGraph extends LitElement {
 		// an unchanged row set (`rowUnitsMayHaveShifted` — toggling the setting, or a ref-visibility filter
 		// change while it's on). The second moves NO index at all; only the unit-position disjunct below
 		// catches it, and without it a promoted row appearing above the viewport slides the whole list.
+		// The row pitch can change with no row-set change at all — a `style` flip, an `auto` style crossing
+		// its width threshold, a zoom re-snapping the device-pixel rounding. The virtualizer then rescales
+		// every row position by the ratio while `scrollTop` stays put, which silently parks the viewport on
+		// a different row; the correction below is the third trigger that keeps the tracked top row in place.
+		const rowHeight = this.rowHeight;
+		const wasRowHeight = this._renderedRowHeight > 0 ? this._renderedRowHeight : rowHeight;
+		const rowHeightChanged = rowHeight !== wasRowHeight;
+		this._renderedRowHeight = rowHeight;
+
 		if (
-			(rowsChanged || rowUnitsMayHaveShifted) &&
+			(rowsChanged || rowUnitsMayHaveShifted || rowHeightChanged) &&
 			this.wasScrolled &&
 			this._viewportTopSha != null &&
-			this.rowHeight > 0
+			rowHeight > 0
 		) {
 			const nowAt = this.indexBySha.get(this._viewportTopSha);
 			if (nowAt != null) {
@@ -2129,12 +2138,20 @@ export class GlCommitGraph extends LitElement {
 				// `recomputeDisplayRows`, which rebuilds it in lockstep with `indexBySha`.
 				const nowAtUnitPos = this._rowUnits.unitPosOf(nowAt);
 				// Undefined before the first scroll tracked a row — fall back to the plain index delta.
-				const wasAtUnitPos = this._viewportTopUnitPos;
-				if (nowAt !== this._viewportTopIndex || (wasAtUnitPos != null && nowAtUnitPos !== wasAtUnitPos)) {
+				const trackedUnitPos = this._viewportTopUnitPos;
+				const wasAtUnitPos = trackedUnitPos ?? this._viewportTopIndex;
+				if (
+					nowAt !== this._viewportTopIndex ||
+					(trackedUnitPos != null && nowAtUnitPos !== trackedUnitPos) ||
+					rowHeightChanged
+				) {
+					// Re-park the row at its new unit position, carrying the viewport's offset WITHIN it across
+					// (scaled by the pitch ratio, so a pitch change keeps the same fraction of the row above the
+					// fold). At an unchanged pitch this is exactly `scrollTop + (unit delta) * rowHeight`.
+					const withinRow = this._viewportScrollTop - wasAtUnitPos * wasRowHeight;
 					this._pendingViewportTop = Math.max(
 						0,
-						this._viewportScrollTop +
-							(nowAtUnitPos - (wasAtUnitPos ?? this._viewportTopIndex)) * this.rowHeight,
+						Math.round(nowAtUnitPos * rowHeight + (withinRow * rowHeight) / wasRowHeight),
 					);
 					// The new position is committed only when the correction is actually APPLIED (a reveal can
 					// preempt it). Advancing it here would strand `_viewportTopIndex` ahead of the unmoved
@@ -3560,6 +3577,9 @@ export class GlCommitGraph extends LitElement {
 	 *  viewport by whatever tall rows lie between the two positions. */
 	private _viewportTopUnitPos?: number;
 	private _viewportScrollTop = 0;
+	/** The row pitch the last update rendered at — the pitch-change trigger of the insert-above correction
+	 *  compares the next update's `rowHeight` against it. 0 until the first update. */
+	private _renderedRowHeight = 0;
 	/** Scroll position to restore after rows were inserted above the viewport, and the index the tracked
 	 *  row moved to — both applied together in updated(), so a preempted correction commits neither. */
 	private _pendingViewportTop?: number;
@@ -8456,8 +8476,12 @@ export class GlCommitGraph extends LitElement {
 		// "Show in Commit Graph" that opens the graph, where the rows can already be in hand — would other-
 		// wise choose its reveal mode against a zero-height viewport AND be consumed doing it, losing the
 		// positioning request for good. Bail BEFORE the clear below so `updated()` re-flushes once there's a
-		// viewport to reveal into.
-		if (this.scrollerClientHeight <= 0) return;
+		// viewport to reveal into. `containerWidth` is the same story for the row PITCH: `firstUpdated` primes
+		// the height synchronously but the width waits for the observer, and until it lands an `auto` style
+		// resolves to `table` — so a reveal flushed in that window would scroll to the row's single-height
+		// offset and the rows would then re-pitch to double height underneath it, leaving the target off screen
+		// with the reveal already consumed.
+		if (this.scrollerClientHeight <= 0 || this.containerWidth <= 0) return;
 
 		// A push nobody asked for only acts when it names a DIFFERENT row than the last one revealed. Geometry
 		// alone can't carry this: a reader who scrolls away from the selected row and then gets that same
