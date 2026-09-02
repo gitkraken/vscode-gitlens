@@ -44,3 +44,64 @@ export function mergeAvatarsForward(prior: ReadonlyMap<string, string>, incoming
 		}
 	}
 }
+
+/**
+ * Swaps the `${fromRepoPath}|` prefix on every ref id a graph row embeds — local heads plus their
+ * upstream/worktree refs, remote heads, and tags — for a session rebind onto `toRepoPath`. Mutates the
+ * row in place, and returns whether it carried anything repoPath-derived at all (`false` for most rows,
+ * letting callers skip the rest of their per-row rebind work).
+ *
+ * SINGLE OWNER of the row-id swap: the WALK owns these ids (`buildRowFromCommit` stamps them from the
+ * branch map built at the walk's own `repoPath`), which is why this belongs to the provider layer and why
+ * {@link GraphRowProcessor.restampRow} is narrowed to the host-serialized contexts it alone can rebuild.
+ *
+ * Matches the prefix INCLUDING the trailing `|`, so `/repo` never re-stamps `/repo2|heads/x`.
+ *
+ * Not to be confused with the graph webview's `restampId` (`utils/rebind.utils.ts`), which re-keys
+ * client-held STATE ids at the webview layer and shares no data with these rows.
+ */
+export function restampGraphRowIds(row: GitGraphRow, fromRepoPath: string, toRepoPath: string): boolean {
+	if (
+		row.heads == null &&
+		row.remotes == null &&
+		row.tags == null &&
+		row.contexts?.refGroups == null &&
+		row.contexts?.row == null
+	) {
+		return false;
+	}
+
+	const fromPrefix = `${fromRepoPath}|`;
+	const restampId = (id: string): string =>
+		id.startsWith(fromPrefix) ? `${toRepoPath}|${id.slice(fromPrefix.length)}` : id;
+
+	if (row.heads != null) {
+		for (const head of row.heads) {
+			if (head.id != null) {
+				head.id = restampId(head.id);
+			}
+			if (head.upstream != null) {
+				head.upstream.id = restampId(head.upstream.id);
+			}
+			if (head.worktree != null) {
+				head.worktree.id = restampId(head.worktree.id);
+			}
+		}
+	}
+	if (row.remotes != null) {
+		for (const remoteHead of row.remotes) {
+			if (remoteHead.id != null) {
+				remoteHead.id = restampId(remoteHead.id);
+			}
+		}
+	}
+	if (row.tags != null) {
+		for (const tag of row.tags) {
+			if (tag.id != null) {
+				tag.id = restampId(tag.id);
+			}
+		}
+	}
+
+	return true;
+}

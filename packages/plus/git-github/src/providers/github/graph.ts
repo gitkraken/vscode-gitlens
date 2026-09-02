@@ -19,9 +19,11 @@ import type {
 import type {
 	GitGraphSession,
 	GitGraphSessionChangedChannels,
+	GitGraphSessionMoreResult,
 	GitGraphSessionRefreshOptions,
 	GitGraphSessionRefreshResult,
 } from '@gitlens/git/models/graphSession.js';
+import { GraphSessionWriteQueue } from '@gitlens/git/models/graphSession.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -549,6 +551,14 @@ class GraphSession implements GitGraphSession {
 	private _current!: GitGraph;
 	private _window: readonly GitGraphRow[] = [];
 
+	/**
+	 * The SAME serialization + generation machinery the CLI session uses — see
+	 * {@link GraphSessionWriteQueue}, which owns the contract so the two implementations cannot drift.
+	 * This session has no incremental walk, but the contract is about window ownership, not walk strategy:
+	 * a page here is just as capable of landing on a window a refresh already replaced.
+	 */
+	private readonly writes = new GraphSessionWriteQueue();
+
 	constructor(
 		private readonly provider: GraphGitSubProvider,
 		readonly repoPath: string,
@@ -560,6 +570,12 @@ class GraphSession implements GitGraphSession {
 
 	get current(): GitGraph {
 		return this._current;
+	}
+
+	/** See {@link GitGraphSession.tainted}. Never raised here: this session replaces the window wholesale
+	 *  from a fetched graph and has no in-place row mutation that could fail part-way through. */
+	get tainted(): boolean {
+		return this.writes.tainted;
 	}
 
 	async initialize(
@@ -575,25 +591,24 @@ class GraphSession implements GitGraphSession {
 		this.apply(graph);
 	}
 
-	async refresh(
+	refresh(
+		options?: GitGraphSessionRefreshOptions,
+		cancellation?: AbortSignal,
+	): Promise<GitGraphSessionRefreshResult> {
+		return this.writes.run(() => this.refreshCore(options, cancellation));
+	}
+
+	private async refreshCore(
 		options?: GitGraphSessionRefreshOptions,
 		cancellation?: AbortSignal,
 	): Promise<GitGraphSessionRefreshResult> {
 		const prior = this._current;
-		let graph = await this.provider.getGraph(
+		const graph = await this.provider.getGraph(
 			this.repoPath,
 			options?.rev,
 			{ include: options?.include, limit: options?.limit },
 			cancellation,
 		);
-
-		// Host-serialization backstop: the host serializes refresh against more() per repo. Should a more() still
-		// land mid-refresh (`_current` swapped out from under this await), the rebuild predates that appended page
-		// — refresh carries newer repo truth so we still apply it, but when the accumulated window outran the
-		// rebuild the dropped page must re-page, not vanish. `paging.hasMore` is readonly, so re-wrap it truthful.
-		if (this._current !== prior && graph.paging != null && this._window.length > graph.rows.length) {
-			graph = { ...graph, paging: { ...graph.paging, hasMore: true } };
-		}
 
 		mergeAvatarsForward(prior.avatars, graph.avatars);
 		this.apply(graph);
@@ -608,17 +623,37 @@ class GraphSession implements GitGraphSession {
 		return { path: 'full', changed: changed };
 	}
 
-	async more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<boolean> {
+	// Permanent, not a stub: virtual (GitHub-backed) repos have no worktrees, so there's nothing to
+	// re-perspective onto — a plain refresh is the honest equivalent of a rebind here.
+	rebind(_repoPath: string, cancellation?: AbortSignal): Promise<GitGraphSessionRefreshResult> {
+		// Routes through the PUBLIC `refresh`, so it takes a queue slot of its own rather than nesting one
+		// inside another (`run` inside `run` would wait on a tail that includes itself).
+		return this.refresh(undefined, cancellation);
+	}
+
+	more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<GitGraphSessionMoreResult> {
+		// Same contract as the CLI session, from the same helper: the generation is captured at request
+		// time and the page is refused if a refresh replaces the window before it runs.
+		return this.writes.runPage(() => this.moreCore(limit, targetId, cancellation));
+	}
+
+	private async moreCore(
+		limit?: number,
+		targetId?: string,
+		cancellation?: AbortSignal,
+	): Promise<GitGraphSessionMoreResult> {
+		if (cancellation?.aborted === true) return 'none';
+
 		const prior = this._current;
 		const updated = await prior.more?.(limit ?? 0, targetId, cancellation);
-		if (this._current !== prior || updated == null) return false;
+		if (updated == null) return 'none';
 		// A more() past the end returns a degenerate empty graph (no rows, no paging) — nothing to add, so don't
 		// let it REPLACE the accumulated window with empty.
-		if (updated.rows.length === 0 && updated.paging == null) return false;
+		if (updated.rows.length === 0 && updated.paging == null) return 'none';
 
 		mergeAvatarsForward(prior.avatars, updated.avatars);
 		this.apply(updated);
-		return true;
+		return 'added';
 	}
 
 	dispose(): void {
@@ -629,7 +664,14 @@ class GraphSession implements GitGraphSession {
 	private apply(graph: GitGraph): void {
 		this._current = graph;
 		const startingCursor = graph.paging?.startingCursor;
-		this._window =
-			startingCursor == null ? graph.rows : appendRowsAtCursor(this._window, startingCursor, graph.rows);
+		if (startingCursor == null) {
+			this._window = graph.rows;
+			// REPLACED the window, so every cursor a queued page holds is now stale — see
+			// `GraphSessionWriteQueue.invalidate`. Only this branch invalidates: the append below leaves
+			// earlier cursors meaningful.
+			this.writes.invalidate();
+		} else {
+			this._window = appendRowsAtCursor(this._window, startingCursor, graph.rows);
+		}
 	}
 }

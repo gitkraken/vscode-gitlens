@@ -64,6 +64,13 @@ export interface GitGraphSubProvider {
 			 * {@link IncrementalGraphOutcome}.
 			 */
 			onIncrementalResult?: (outcome: IncrementalGraphOutcome) => void;
+			/**
+			 * Set only by {@link GitGraphSession.rebind} — the path the session was bound to before this call.
+			 * Enables the rebind fast path: unchanged tips, HEAD endpoints refetched, flags/reachability
+			 * replayed over the existing window, and every row's `repoPath`-derived decorations re-stamped
+			 * from this path onto `repoPath` (see {@link GraphRowProcessor.restampRow}).
+			 */
+			rebindFromRepoPath?: string;
 		},
 		cancellation?: AbortSignal,
 	): Promise<GitGraph>;
