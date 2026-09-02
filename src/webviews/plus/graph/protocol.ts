@@ -1172,6 +1172,25 @@ export interface GraphSidebarPullRequest {
 	context?: GraphItemTypedContext<GraphPullRequestContextValue> & GraphSidebarItemOrigin;
 }
 
+/**
+ * Everything the pull request sheet renders, resolved host-side in one round trip — by pull request
+ * number, or by stack number for the stack's own summary sheet.
+ *
+ * Deliberately independent of the pull requests panel's list: the sheet only needs one pull request
+ * (and, when it's stacked, the handful beside it), while the panel's list is the whole repository's
+ * open pull requests, several paged fetches and a categorization pass behind it.
+ */
+export interface GraphPullRequestSheetData {
+	pr: GraphSidebarPullRequest;
+	/** Every known layer of the stack, top layer first. Absent when the pull request isn't stacked, or
+	 *  when stack membership couldn't be resolved — the sheet then renders the single pull request. */
+	layers?: GraphSidebarPullRequest[];
+	/** Renders the stack's own summary rather than one layer's. Only ever `true` alongside a complete
+	 *  `layers` roster — a partial one can't be summarized honestly, so the sheet falls back to the top
+	 *  loaded layer's own. */
+	stackRoot?: boolean;
+}
+
 export interface GraphSidebarStash {
 	name: string;
 	sha: string;

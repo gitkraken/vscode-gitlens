@@ -2136,35 +2136,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  onto the same pending sheet, which the newer open now owns. */
 	private _prSheetResolveTargetKey?: string;
 
-	/** Polls the pull requests panel's own fetch to completion (triggering it if it hasn't started) so a
-	 *  stack lookup has data to search — a 5s budget, matching what the panel's own cold load allows.
-	 *  Returns `undefined` when a newer sheet-open superseded this one mid-poll (checked against
-	 *  {@link token}), distinct from the panel legitimately returning no data. */
-	private async ensurePullRequestsPanelData(
-		data: DidGetSidebarDataParams | undefined,
-		token: number,
-	): Promise<DidGetSidebarDataParams | undefined | 'stale'> {
-		if (data?.panel === 'pullRequests') return data;
-
-		this._sidebarActions?.fetchPanel('pullRequests');
-
-		const deadline = Date.now() + 5000;
-		while (Date.now() < deadline) {
-			await new Promise<void>(resolve => setTimeout(resolve, 50));
-			if (token !== this._prSheetResolveToken) return 'stale';
-
-			data = this._sidebarActions?.state.panels.pullRequests.value.get();
-			if (data?.panel === 'pullRequests') break;
-		}
-
-		return data;
-	}
-
 	/** Builds `pr`'s stack layers (top layer first) from already-loaded pull-requests panel data — `pr`
 	 *  is merged into the panel's own member list rather than trusted to already be one of its objects,
-	 *  since it may have come from `findPullRequest` instead (a searched pull request, or one paged off
-	 *  the panel's list). Undefined when `pr` isn't stacked, `data` isn't loaded, or fewer than two
-	 *  members are known. */
+	 *  so a caller can pass one resolved elsewhere. Undefined when `pr` isn't stacked, `data` isn't
+	 *  loaded, or fewer than two members are known. A sheet whose pull request ISN'T in the loaded panel
+	 *  goes to the host instead (`resolvePullRequestSheet`), which brings its layers with it. */
 	private buildStackLayers(
 		data: DidGetSidebarDataParams | undefined,
 		pr: GraphSidebarPullRequest,
@@ -2224,10 +2200,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/** Opens the pull request sheet for `target`. When the pull request is already in the sidebar's
 	 *  loaded panel data, opens once with its final content — no loading flash. Otherwise opens at once
-	 *  in a loading state via {@link openPrSheetResolving} and fills it in once `findPullRequest` (and,
-	 *  for a stacked pull request, the stack's layers) resolves. Returns whether a sheet ended up open,
-	 *  so a caller with a fallback (e.g. opening the pull request on the remote) knows when resolution
-	 *  came up empty. */
+	 *  in a loading state via {@link openPrSheetResolving} and fills it in from one host round trip
+	 *  (`resolvePullRequestSheet`, which brings a stack's layers with it). Returns whether a sheet ended
+	 *  up open, so a caller with a fallback (e.g. opening the pull request on the remote) knows when
+	 *  resolution came up empty. */
 	private async resolveAndOpenPrSheet(target: PullRequestSheetTarget, push: boolean): Promise<boolean> {
 		const token = ++this._prSheetResolveToken;
 		this._prSheetResolveTargetKey = sheetKey({ kind: 'pullRequest', target: target });
@@ -2248,21 +2224,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return true;
 		}
 
+		// One host round trip, layers included — deliberately NOT the pull requests panel's list, which
+		// costs the whole repository's open pull requests just to find the ones in this stack.
 		return this.openPrSheetResolving(target, push, async () => {
-			const found = await this._sidebarActions?.findPullRequest(number);
+			const resolved = await this._sidebarActions?.resolvePullRequestSheet({ number: number });
 			// Superseded by a newer resolve call — that call owns success/fallback, not this one.
 			if (token !== this._prSheetResolveToken) return 'stale';
-			if (found == null) return 'failed';
+			if (resolved == null) return 'failed';
 
-			let layers: GraphSidebarPullRequest[] | undefined;
-			if (found.stack != null) {
-				const resolved = await this.ensurePullRequestsPanelData(data, token);
-				if (resolved === 'stale') return 'stale';
-
-				layers = this.buildStackLayers(resolved, found);
-			}
-
-			return { pr: found, layers: layers };
+			return resolved;
 		});
 	}
 
@@ -2294,20 +2264,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return true;
 		}
 
+		// Same single round trip as the by-number path — the host loads the stack's members itself and
+		// decides whether the roster is complete enough to summarize.
 		return this.openPrSheetResolving(target, push, async () => {
-			const resolved = await this.ensurePullRequestsPanelData(loaded, token);
+			const resolved = await this._sidebarActions?.resolvePullRequestSheet({ stackNumber: stackNumber });
 			// Superseded by a newer resolve call — that call owns success/fallback, not this one.
-			if (resolved === 'stale') return 'stale';
+			if (token !== this._prSheetResolveToken) return 'stale';
+			if (resolved == null) return 'failed';
 
-			const entry =
-				resolved?.panel === 'pullRequests'
-					? groupPullRequestsByStack(resolved.items).find(e => e.kind === 'stack' && e.number === stackNumber)
-					: undefined;
-			if (entry?.kind !== 'stack' || entry.members.length === 0) return 'failed';
-
-			const members = entry.members;
-			const top = members[0];
-			return { pr: top, layers: members, stackRoot: members.length === entry.size };
+			return resolved;
 		});
 	}
 

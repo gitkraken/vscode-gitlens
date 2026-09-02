@@ -1,5 +1,5 @@
 import type { PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
-import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
+import type { GraphPullRequestSheetData, GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 
@@ -28,12 +28,9 @@ export type SheetKind = SheetDescriptor['kind'];
  *  data has necessarily resolved. */
 export type PullRequestSheetTarget = { number: string } | { stackNumber: number };
 
-/** The pull request data a `pullRequest` sheet fills in with once resolved. */
-export type PullRequestSheetPayload = {
-	pr: GraphSidebarPullRequest;
-	layers?: GraphSidebarPullRequest[];
-	stackRoot?: boolean;
-};
+/** The pull request data a `pullRequest` sheet fills in with once resolved — the host's own
+ *  resolution shape, so a sheet can be filled straight from `resolvePullRequestSheet`. */
+export type PullRequestSheetPayload = GraphPullRequestSheetData;
 
 /**
  * Mirrors the details panel's top-of-stack transitions onto the graph keymap's Esc overlay stack.

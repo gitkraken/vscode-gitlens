@@ -5,6 +5,7 @@ import type { GlCommands } from '../../../../../constants.commands.js';
 import type { GraphSidebarService } from '../../../../plus/graph/graphService.js';
 import type {
 	DidGetSidebarDataParams,
+	GraphPullRequestSheetData,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
 	SidebarWorktreeChange,
@@ -85,6 +86,12 @@ export interface SidebarActions {
 	 *  scope popover's Focus pane. Resolves `undefined` when the service isn't wired yet or the
 	 *  provider has no such pull request. */
 	findPullRequest(number: string): Promise<GraphSidebarPullRequest | undefined>;
+	/** Everything the pull request sheet needs for `target`, resolved host-side in one round trip —
+	 *  the pull request (or the whole stack, by stack number) with its layers alongside. Resolves
+	 *  `undefined` when the service isn't wired yet or the pull request can't be resolved. */
+	resolvePullRequestSheet(
+		target: { number: string } | { stackNumber: number },
+	): Promise<GraphPullRequestSheetData | undefined>;
 	applyWorktreeChanges(changes: Record<string, SidebarWorktreeChange | undefined>): void;
 	dispose(): void;
 }
@@ -362,6 +369,9 @@ export function createSidebarActions(): SidebarActions {
 
 		findPullRequest: async function (number: string) {
 			return service?.findPullRequest(number);
+		},
+		resolvePullRequestSheet: async function (target: { number: string } | { stackNumber: number }) {
+			return service?.resolvePullRequestSheet(target);
 		},
 		toggleLayout: function (panel: GraphSidebarPanel) {
 			if (panel === 'agents') {

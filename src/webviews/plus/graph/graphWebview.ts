@@ -1167,6 +1167,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getWorktreeWipStats: async (path, signal) =>
 					(await this._wip.getStatusFromCache(normalizePath(path), signal))?.diffStatus ?? null,
 				findPullRequest: number => this._panels.onFindPullRequest({ number: number }),
+				resolvePullRequestSheet: target => this._panels.onResolvePullRequestSheet(target),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
 				toggleShowRemoteBranches: () => this.onSidebarToggleShowRemoteBranches(),
 				refresh: panel => this.onSidebarRefresh({ panel: panel }),

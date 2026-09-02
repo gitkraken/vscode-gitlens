@@ -69,6 +69,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphOverviewData,
 	GraphPinnedRef,
+	GraphPullRequestSheetData,
 	GraphRef,
 	GraphRefMetadataItem,
 	GraphRefsMetadata,
@@ -793,6 +794,13 @@ export interface GraphSidebarService {
 	/** Looks up one pull request by number, for the Focus pane's search fallback — the panel lists only
 	 *  open PRs, so a pasted URL for a merged or closed one isn't in the loaded set. */
 	findPullRequest(number: string): Promise<GraphSidebarPullRequest | undefined>;
+	/** Everything the pull request sheet renders, in one round trip — one pull request by number, or a
+	 *  whole stack by stack number. Deliberately NOT served off the pull requests panel's list: the sheet
+	 *  needs one pull request and its layers, not the repository's every open pull request, and waiting on
+	 *  that list is what used to make a stacked sheet take seconds or time out. */
+	resolvePullRequestSheet(
+		target: { number: string } | { stackNumber: number },
+	): Promise<GraphPullRequestSheetData | undefined>;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	toggleShowRemoteBranches(): void;
 	refresh(panel: GraphSidebarPanel): void;

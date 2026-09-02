@@ -77,6 +77,7 @@ import type {
 	GraphOverviewBranch,
 	GraphOverviewData,
 	GraphPullRequestContextValue,
+	GraphPullRequestSheetData,
 	GraphRemoteContextValue,
 	GraphSidebarItemOrigin,
 	GraphSidebarPanel,
@@ -1019,6 +1020,109 @@ export class GraphPanelsService {
 			undefined,
 			getCurrentBranchName(graph),
 		);
+	}
+
+	/**
+	 * Everything the pull request sheet renders, in ONE round trip: the pull request itself and, when
+	 * it's one layer of a stack, every layer beside it. Also resolves a whole stack by number, for the
+	 * stack's own summary sheet.
+	 *
+	 * Deliberately independent of the pull requests panel. The sheet used to wait on that panel's list —
+	 * the whole repository's open pull requests, up to three paged fetches plus a viewer lookup and a
+	 * categorization pass — purely to find the handful of pull requests in one stack, and gave up on it
+	 * after 5s, dropping the user out to the browser. Here each layer is one by-number lookup, cached by
+	 * id, so a cold open costs one request per layer and a re-open costs none.
+	 *
+	 * Separate from {@link onFindPullRequest} rather than folded into it: that one answers the Focus
+	 * pane's search, which wants the single pull request and none of the stack work.
+	 */
+	async onResolvePullRequestSheet(
+		params: { number: string } | { stackNumber: number },
+	): Promise<GraphPullRequestSheetData | undefined> {
+		const graph = this._graphSession?.current ?? (await this.context.getLoading()?.catch(() => undefined));
+		if (graph == null) return undefined;
+
+		const remote = await getBestRemoteWithIntegration(graph.repoPath);
+		if (remote == null) return undefined;
+
+		const integration = await getRemoteIntegration(remote);
+		if (integration == null) return undefined;
+
+		// Best-effort, exactly as the panel treats it — a stacked pull request whose membership can't be
+		// resolved still opens, just without its layers. Cancellation is the only error it raises, and
+		// nothing here is cancellable, so swallowing it is the whole story.
+		const stacks = await this.getStacksByPullRequestNumber(remote, integration).catch(() => undefined);
+
+		const { localByUpstream, remoteNames } = buildLocalBranchesByUpstream(graph);
+		const currentBranchName = getCurrentBranchName(graph);
+		const toSidebar = (pr: PullRequest) =>
+			this.toSidebarPullRequest(
+				pr,
+				graph.repoPath,
+				remote.name,
+				localByUpstream,
+				remoteNames,
+				undefined,
+				currentBranchName,
+				stacks,
+			);
+
+		// Set only on the by-number path — it's the pull request the sheet was opened for, and it's
+		// already in hand, so it's never re-fetched below.
+		let requested: GraphSidebarPullRequest | undefined;
+		let stackNumber: number;
+
+		if ('stackNumber' in params) {
+			stackNumber = params.stackNumber;
+		} else {
+			// Cached by id in `src/cache.ts`, so re-opening the same sheet doesn't re-hit the API.
+			const pr = await integration.getPullRequest(remote.provider.repoDesc, params.number);
+			if (pr == null) return undefined;
+
+			requested = toSidebar(pr);
+			// Not stacked (or membership unavailable) — the sheet renders the one pull request.
+			if (requested.stack == null) return { pr: requested };
+
+			stackNumber = requested.stack.number;
+		}
+
+		const numbers: number[] = [];
+		if (stacks != null) {
+			for (const [number, stack] of stacks) {
+				if (stack.number !== stackNumber || String(number) === requested?.number) continue;
+
+				numbers.push(number);
+			}
+		}
+
+		// In parallel, and settled rather than all-or-nothing: one layer the provider won't answer for
+		// shouldn't cost the sheet the rest of the stack.
+		const results = await Promise.allSettled(
+			numbers.map(n => integration.getPullRequest(remote.provider.repoDesc, String(n))),
+		);
+
+		const members: GraphSidebarPullRequest[] = requested != null ? [requested] : [];
+		for (const result of results) {
+			if (result.status !== 'fulfilled' || result.value == null) continue;
+
+			members.push(toSidebar(result.value));
+		}
+
+		// Top layer first, matching how the panel's own stack rows are ordered — `position` is 1-based
+		// from the stack's base.
+		members.sort((a, b) => (b.stack?.position ?? 0) - (a.stack?.position ?? 0));
+
+		if (requested == null) {
+			const top = members[0];
+			if (top == null) return undefined;
+
+			// A partial roster can't be summarized honestly, so `stackRoot` stays false and the sheet
+			// falls back to the top loaded layer's own sheet — the same rule the panel-loaded path applies.
+			return { pr: top, layers: members, stackRoot: members.length === top.stack?.size };
+		}
+
+		// One member is just the requested pull request itself, which is a single-layer sheet.
+		return { pr: requested, layers: members.length >= 2 ? members : undefined };
 	}
 
 	/**
