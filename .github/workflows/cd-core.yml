@@ -54,11 +54,14 @@ jobs:
             - name: Check dependency hygiene
               run: pnpm run check:deps
 
-            - name: Build sub-packages
+            # The bundle below compiles the sub-packages' sources itself and its declaration pass runs with
+            # `--noCheck`, so this `tsc -b` is what actually type-checks them. Keep it ahead of the bundle:
+            # it is the gate that stops a type error from reaching the published tarball.
+            - name: Type-check sub-packages
               run: pnpm run build:packages
 
             - name: Bundle core package
-              run: pnpm --filter @gitkraken/core-gitlens run bundle
+              run: pnpm --filter @gitkraken/core-gitlens run build
 
             # Consumers load this package with Node's own CJS->ESM interop, not a bundler's. A release is
             # the last place to discover that a module cannot even be linked there.

@@ -6,57 +6,31 @@
 	"sideEffects": false,
 	"imports": {
 		"#env/*.js": {
-			"node": {
-				"types": "./dist/env/node/*.d.ts",
-				"default": "./dist/env/node/*.js"
-			},
-			"default": {
-				"types": "./dist/env/browser/*.d.ts",
-				"default": "./dist/env/browser/*.js"
-			}
+			"node": "./src/env/node/*.ts",
+			"default": "./src/env/browser/*.ts"
 		}
 	},
 	"exports": {
+		"./package.json": "./package.json",
 		"./__tests__/*.js": null,
-		"./decorators/*.js": {
-			"types": "./dist/decorators/*.d.ts",
-			"default": "./dist/decorators/*.js"
-		},
+		"./decorators/*.js": "./src/decorators/*.ts",
 		"./env/browser/*.js": null,
-		"./env/node/exec.js": {
-			"types": "./dist/env/node/exec.d.ts",
-			"default": "./dist/env/node/exec.js"
-		},
-		"./env/node/platform.js": {
-			"types": "./dist/env/node/platform.d.ts",
-			"default": "./dist/env/node/platform.js"
-		},
+		"./env/node/exec.js": "./src/env/node/exec.ts",
+		"./env/node/platform.js": "./src/env/node/platform.ts",
 		"./env/node/*.js": null,
-		"./keys/chord.js": {
-			"types": "./dist/keys/chord.d.ts",
-			"default": "./dist/keys/chord.js"
-		},
-		"./keys/keybinding.js": {
-			"types": "./dist/keys/keybinding.d.ts",
-			"default": "./dist/keys/keybinding.js"
-		},
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
-		}
+		"./keys/chord.js": "./src/keys/chord.ts",
+		"./keys/keybinding.js": "./src/keys/keybinding.ts",
+		"./*.js": "./src/*.ts"
 	},
-	"files": [
-		"dist"
-	],
 	"scripts": {
-		"build": "tsc -b",
+		"check": "tsc -p tsconfig.json --noEmit && oxlint --type-aware --type-check -c ../../.oxlintrc.json .",
 		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
 		"test": "pnpm run test:mocha && pnpm run test:node",
-		"test:mocha": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
-		"test:node": "node --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
+		"test:mocha": "mocha --require ../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
+		"test:node": "node --import ../../scripts/tsxTsconfig.cjs --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
 	},
 	"dependencies": {
 		"fast-string-truncated-width": "catalog:",

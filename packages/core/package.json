@@ -26,7 +26,6 @@
 	},
 	"files": [
 		"dist",
-		"src",
 		"LICENSE",
 		"LICENSE.plus",
 		"README.md",
@@ -246,11 +245,17 @@
 		"vscode-uri": "catalog:"
 	},
 	"scripts": {
-		"build": "node scripts/bundle.mjs",
-		"bundle": "node scripts/bundle.mjs",
-		"clean": "pnpx rimraf --glob dist src LICENSE LICENSE.plus *.tgz",
-		"prepack": "node scripts/bundle.mjs",
+		"build": "tsdown && node scripts/bundle.mjs",
+		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../.oxlintrc.json .",
+		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus *.tgz",
+		"prepack": "pnpm run build",
 		"verify:esm": "node scripts/verify-esm.mjs",
 		"verify:package": "node scripts/verify-package.mjs"
+	},
+	"devDependencies": {
+		"@arethetypeswrong/cli": "catalog:",
+		"publint": "catalog:",
+		"tsdown": "catalog:",
+		"typescript": "catalog:"
 	}
 }

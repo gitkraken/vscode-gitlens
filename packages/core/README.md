@@ -28,7 +28,7 @@ import type { GitHubGitProviderInternal } from '@gitkraken/core-gitlens/plus/git
 import { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/openaiProvider.js';
 ```
 
-All exports are fully typed and source-mapped back to the original TypeScript sources shipped in `src/`.
+All exports are fully typed and source-mapped, with the original TypeScript sources embedded in the maps.
 
 ### Provider integrations
 
@@ -61,4 +61,11 @@ Independent from the [GitLens VS Code extension](https://github.com/gitkraken/vs
 
 ## Source
 
-Built from the `packages/` workspace of [vscode-gitlens](https://github.com/gitkraken/vscode-gitlens). See `packages/core/scripts/bundle.mjs` in that repo for the flattening logic.
+Built from the `packages/` workspace of [vscode-gitlens](https://github.com/gitkraken/vscode-gitlens), by `pnpm --filter @gitkraken/core-gitlens run build` in two steps:
+
+1. **`tsdown.config.ts`** compiles the eight packages' TypeScript sources straight into `dist/`, one emitted module per source module, each rooted at the subpath in the table above. It reads their `src/` directly — the packages' own manifests resolve to source, so nothing here waits on their `dist/` — and cross-package imports come out as relative paths, with `#env/*` staying external for the `"imports"` field to resolve.
+2. **`scripts/bundle.mjs`** assembles everything around that: it copies the LICENSEs and generates the manifest's `exports`, `imports`, and `dependencies` from the eight sub-packages' own manifests.
+
+Neither the subpath layout nor the generated manifest is hand-written, so adding or removing a bundled package is a one-line change to `scripts/packages.mjs`, which both steps read.
+
+The declaration files are emitted by the TypeScript compiler against `tsconfig.core-dts.json` at the repo root. That config sits at the root rather than beside this package because the emitter uses its directory as the compiler's `rootDir`, which has to contain every bundled source.

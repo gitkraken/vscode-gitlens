@@ -7,37 +7,19 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./context.js": {
-			"types": "./dist/context.d.ts",
-			"default": "./dist/context.js"
-		},
-		"./models.js": {
-			"types": "./dist/models.d.ts",
-			"default": "./dist/models.js"
-		},
-		"./api/*.js": {
-			"types": "./dist/api/*.d.ts",
-			"default": "./dist/api/*.js"
-		},
-		"./providers/*.js": {
-			"types": "./dist/providers/*.d.ts",
-			"default": "./dist/providers/*.js"
-		},
-		"./providers/github/*.js": {
-			"types": "./dist/providers/github/*.d.ts",
-			"default": "./dist/providers/github/*.js"
-		}
+		"./context.js": "./src/context.ts",
+		"./models.js": "./src/models.ts",
+		"./api/*.js": "./src/api/*.ts",
+		"./providers/*.js": "./src/providers/*.ts",
+		"./providers/github/*.js": "./src/providers/github/*.ts"
 	},
-	"files": [
-		"dist"
-	],
 	"scripts": {
 		"build": "tsc -b",
 		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
-		"test": "tsc -b && mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+		"test": "tsc -b && mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/git": "workspace:*",

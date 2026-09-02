@@ -1,0 +1,60 @@
+{
+	// The tsconfig tsdown's dts pass type-resolves against when building `@gitkraken/core-gitlens`.
+	// Core has no sources of its own, so this config stands in for all eight bundled packages at once.
+	// The internal `@gitlens/*` packages resolve through their own manifests to source, so this config
+	// exists only for `rootDir` placement, the non-isolated dts pass, and the `node` custom condition below.
+	//
+	// It lives at the repo root, not in packages/core, because rolldown-plugin-dts passes the config's own
+	// DIRECTORY to the compiler as `--rootDir`. Anywhere below here and the bundled sources would sit
+	// outside the root, the declarations would land outside the plugin's temp directory, and every module
+	// would fail with "did not generate dts file".
+	//
+	// Deliberately does NOT set `isolatedDeclarations`. With it, the dts plugin switches to oxc, which
+	// cannot infer a type it can't read off the source — and these seven non-graph packages have 222 such
+	// places, several feeding public types like `GitWarningKey`. Without it the plugin drives the real
+	// TypeScript compiler, which emits exactly the declarations `tsc -b` ships today.
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		// Not a `tsc -b` project: core owns no sources, and `composite` would demand every bundled source
+		// sit inside a single package's `rootDir`.
+		"composite": false,
+		"incremental": false,
+		// `rootDir` must contain every bundled source. When it does not, the compiler cannot place output
+		// under `outDir` and falls back to writing each `.d.ts` BESIDE its source — thousands of stray files
+		// through the workspace, which the bundle step would then copy into the published `src/`.
+		"rootDir": ".",
+		// The dts plugin always passes its own `--outDir`, so this only applies to a direct `tsc -p` run.
+		// Pinned anyway: without it the inherited value puts declarations in a `dist/` at the repo root.
+		"outDir": "./packages/core/dist",
+		"noEmit": false,
+		"declaration": true,
+		// The tarball ships no `src/`, and unlike JS source maps, a declaration map cannot embed its
+		// sources — every `.d.ts.map` would point at a file no consumer has.
+		"declarationMap": false,
+		"emitDeclarationOnly": true,
+		// `packages/plus/integrations` cannot type-check under `nodenext` — `@gitkraken/provider-apis` ships
+		// CJS with getter-based named exports and a callable default, which nodenext types as non-callable
+		// (TS2349). Its own tsconfig already overrides to `bundler` for exactly this reason, and bundler is
+		// what webpack and the bundler here actually do at runtime.
+		"moduleResolution": "bundler",
+		"module": "esnext",
+		// ...but bundler resolution drops the `node` condition, which would resolve utils' `#env/*.js` shim
+		// to its browser half. Core is Node-first and today's `nodenext` build picks the node half, so pin
+		// it — the emitted `#env/*` specifiers stay external either way, but their TYPES must match what a
+		// Node consumer resolves.
+		"customConditions": ["node"]
+	},
+	// Enumerated rather than globbed over `packages/plus/*`: that would also pull in the commit-graph
+	// packages, which core does not bundle.
+	"include": [
+		"packages/utils/src/**/*",
+		"packages/ipc/src/**/*",
+		"packages/git/src/**/*",
+		"packages/git-cli/src/**/*",
+		"packages/plus/git-github/src/**/*",
+		"packages/plus/ai/src/**/*",
+		"packages/plus/agents/src/**/*",
+		"packages/plus/integrations/src/**/*"
+	],
+	"exclude": ["**/__tests__/**"]
+}

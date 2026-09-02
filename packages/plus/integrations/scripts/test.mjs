@@ -47,8 +47,9 @@ execFileSync(process.execPath, [mocha, '--ui', 'tdd', '--timeout', '30000', `${o
 	cwd: packageRoot,
 });
 
-// Build the package before exercising any external-consumer boundary. The direct facade smoke test imports
-// this package's published exports, while the fixture imports the flattened Core package.
+// `tsc -b` is this package's type-check gate (it has no `check` script of its own). Run it before
+// exercising the external-consumer boundary below, so a type error here fails loudly rather than
+// surfacing as a confusing resolution error inside the fixture.
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 execFileSync(pnpm, ['build'], {
 	stdio: 'inherit',
@@ -57,7 +58,7 @@ execFileSync(pnpm, ['build'], {
 
 // Generate Core's flattened exports before running the workspace fixture. CI additionally installs the packed
 // tarball via packages/core/scripts/verify-package.mjs, which catches pack-time manifest/export regressions.
-execFileSync(pnpm, ['--filter', '@gitkraken/core-gitlens', 'bundle'], {
+execFileSync(pnpm, ['--filter', '@gitkraken/core-gitlens', 'build'], {
 	stdio: 'inherit',
 	cwd: workspaceRoot,
 });
@@ -66,7 +67,3 @@ execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'
 	stdio: 'inherit',
 	cwd: workspaceRoot,
 });
-
-// Smoke-test the published ESM facade directly under Node too. Bundled tests/fixtures can mask CommonJS named
-// export regressions in transitive deps, but direct consumers of the package import the built entrypoint.
-await import(new URL('../dist/lite.js', import.meta.url));
