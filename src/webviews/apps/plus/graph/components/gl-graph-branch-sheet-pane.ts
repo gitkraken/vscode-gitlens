@@ -581,8 +581,12 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	private renderRemoteStrip(): TemplateResult | typeof nothing {
 		if (this._pullRequest == null && !this._pullRequestLoading) return nothing;
 
+		// Same right-anchored .branch-ops slot as the local strip, so the PR chip lands in the same
+		// place whether or not the issues side of the row has anything to show.
 		return html`<div class="metadata">
-			<div class="strip-row">${this.renderPullRequest()}</div>
+			<div class="strip-row">
+				<div class="branch-ops">${this.renderPullRequest()}</div>
+			</div>
 		</div>`;
 	}
 
