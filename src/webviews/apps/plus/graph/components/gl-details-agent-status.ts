@@ -398,7 +398,7 @@ static Agents label. Live headings retain the normal foreground summary color. *
 
 			.section__past-more {
 				margin-right: auto;
-				font-size: 0.85em;
+				font-size: var(--gl-font-sm);
 			}
 
 			.section__hover {

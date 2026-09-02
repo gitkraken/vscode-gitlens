@@ -262,6 +262,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				overflow-y: auto;
 			}
 
+			/* The body scrolls; its sections never shrink. Without this, a section with its own overflow
+			   (the meta card) is the only shrinkable item, so an expanded description squeezes it to
+			   nothing instead of pushing it up out of view. */
+			.body > * {
+				flex: 0 0 auto;
+			}
+
 			/* Skeleton placeholders sized to the sections they stand in for, so the layout holds when the
 			   pull request lands. skeleton-loader fills its container width; the width modifiers cap it. */
 			.skeleton {
@@ -516,13 +523,68 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				color: var(--color-foreground);
 			}
 
+			/* A scrollable box, like the Commit Details message box — default-sized to content up to
+			   16rem, uncapped by the "Show More" toggle below (the sheet body scrolls from there).
+			   scroll-timeline drives the sticky ::before/::after fades; scrollableBase styles the bar. */
 			.description {
 				position: relative;
-				overflow: hidden;
+				max-height: 16rem;
+				overflow-y: auto;
+				scroll-timeline: --pr-desc-scroll block;
 			}
 
-			.description--collapsed {
-				max-height: 10rem;
+			.description--expanded {
+				max-height: none;
+			}
+
+			.description::before,
+			.description::after {
+				position: sticky;
+				z-index: 1;
+				display: block;
+				pointer-events: none;
+				content: '';
+				opacity: 0;
+				animation: linear both;
+				animation-timeline: --pr-desc-scroll;
+			}
+
+			.description::before {
+				top: 0;
+				height: 2.4rem;
+				margin-bottom: -2.4rem;
+				background: linear-gradient(to bottom, var(--vscode-sideBar-background) 25%, transparent);
+				animation-name: description-fade-in;
+			}
+
+			.description::after {
+				bottom: 0;
+				height: 3.6rem;
+				margin-top: -3.6rem;
+				background: linear-gradient(to top, var(--vscode-sideBar-background) 25%, transparent);
+				animation-name: description-fade-out;
+			}
+
+			@keyframes description-fade-in {
+				0% {
+					opacity: 0;
+				}
+
+				1%,
+				100% {
+					opacity: 1;
+				}
+			}
+
+			@keyframes description-fade-out {
+				0%,
+				95% {
+					opacity: 1;
+				}
+
+				100% {
+					opacity: 0;
+				}
 			}
 
 			.description__content {
@@ -535,29 +597,34 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
-			.description__fade {
-				position: absolute;
-				right: 0;
-				bottom: 0;
-				left: 0;
-				height: 3rem;
-				pointer-events: none;
-				background: linear-gradient(to bottom, transparent, var(--vscode-sideBar-background));
-			}
-
-			.description__toggle {
-				padding: 0;
+			/* The strip beneath the box, where the Commit Details divider sits — the same hairline, with the
+			   "Show More"/"Show Less" toggle straddling it (like the divider's grip). The line is the row's
+			   own ::before, drawn behind the button; the wrapper's sheet-colored background and inline
+			   padding stop the line short of the button's edges. */
+			.description__toggle-row {
+				position: relative;
+				display: flex;
+				justify-content: center;
 				margin-top: var(--gl-space-4);
-				font-size: var(--gl-font-sm);
-				color: var(--vscode-textLink-foreground);
-				cursor: pointer;
-				background: none;
-				border: none;
 			}
 
-			.description__toggle:hover,
-			.description__toggle:focus-visible {
-				text-decoration: underline;
+			.description__toggle-row::before {
+				position: absolute;
+				inset: 50% 0 auto;
+				content: '';
+				border-top: var(--gl-border-width) solid
+					color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 60%, transparent);
+			}
+
+			.description__toggle-wrap {
+				position: relative;
+				padding-inline: var(--gl-space-4);
+				background: var(--vscode-sideBar-background);
+			}
+
+			/* Sized like the agents section's "Show More" (gl-details-agent-status). */
+			.description__toggle-row gl-button {
+				font-size: var(--gl-font-sm);
 			}
 
 			.stack-rail {
@@ -699,10 +766,11 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	stackRoot = false;
 
 	@state()
-	private _descriptionExpanded = false;
-
-	@state()
 	private _descriptionOverflows = false;
+
+	/** Whether "Show More" has lifted the description box's default `max-height` cap. */
+	@state()
+	private _descriptionExpanded = false;
 
 	/** The pull request number the overflow measurement below last ran for — lets a re-render for a
 	 *  different pull request know a fresh measurement is owed. */
@@ -751,19 +819,25 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		);
 	};
 
-	/** Resets (and re-measures) the description clamp per opened pull request — a re-render for the
+	/** Resets (and re-measures) the description box per opened pull request — a re-render for the
 	 *  same pull request (any other prop change) keeps the user's expanded/collapsed choice. */
 	protected override updated(changedProperties: Map<string, unknown>): void {
 		super.updated(changedProperties);
 
 		if (changedProperties.has('pullRequest')) {
-			this._descriptionExpanded = false;
 			this._descriptionOverflows = false;
 			this._descriptionMeasuredFor = undefined;
+			this._descriptionExpanded = false;
 		}
 
 		const pr = this.pullRequest;
-		if (pr == null || this.stackRoot || isDescriptionBlank(pr.body) || this._descriptionMeasuredFor === pr.number) {
+		if (
+			pr == null ||
+			this.stackRoot ||
+			isDescriptionBlank(pr.body) ||
+			!this.descriptionIsCapped(pr) ||
+			this._descriptionMeasuredFor === pr.number
+		) {
 			return;
 		}
 
@@ -778,6 +852,29 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			this._descriptionOverflows = contentEl.scrollHeight > clampEl.clientHeight + 1;
 		});
 	}
+
+	/** Toggles the description between its capped, scrollable default and its full height (the sheet
+	 *  body scrolls from there). Collapsing scrolls the box back into view, since the user is likely
+	 *  sitting well below where it lands — by writing the body's own `scrollTop`, not `scrollIntoView`,
+	 *  which would also re-align every scrollable ancestor (the whole graph webview). */
+	private readonly toggleDescription = (): void => {
+		this._descriptionExpanded = !this._descriptionExpanded;
+		if (this._descriptionExpanded) return;
+
+		void this.updateComplete.then(() => {
+			const box = this._descriptionContentEl?.parentElement;
+			const body = this.renderRoot.querySelector<HTMLElement>('.body');
+			if (box == null || body == null) return;
+
+			const boxRect = box.getBoundingClientRect();
+			const bodyRect = body.getBoundingClientRect();
+			if (boxRect.top < bodyRect.top) {
+				body.scrollTop += boxRect.top - bodyRect.top;
+			} else if (boxRect.bottom > bodyRect.bottom) {
+				body.scrollTop += boxRect.bottom - bodyRect.bottom;
+			}
+		});
+	};
 
 	override render(): unknown {
 		const pr = this.pullRequest;
@@ -809,7 +906,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 						></gl-action-chip>`
 					: nothing
 			}
-			<div class="body" aria-busy=${pr == null ? 'true' : nothing}>
+			<div class="body scrollable" aria-busy=${pr == null ? 'true' : nothing}>
 				${
 					pr != null
 						? html`${this.renderMetaCard(pr)} ${this.renderVerdict(pr)} ${this.renderDescription(pr)}
@@ -1392,9 +1489,17 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		</div>`;
 	}
 
-	/** The pull request's description, rendered as markdown and clamped to ~10 lines with a bottom fade
-	 *  and a "Show more" toggle — only when it actually overflows the clamp (measured in `updated()`).
-	 *  Never rendered for a stack-root sheet, which has no single description of its own. */
+	/** The pull request's description — a scrollable box (mirroring the Commit Details message box)
+	 *  with scroll-driven fades at the top/bottom edges, and a drag-resizable handle beneath it once
+	 *  the content overflows the box's default height (measured in `updated()`). Never rendered for a
+	 *  stack-root sheet, which has no single description of its own. */
+	/** Whether the description gets the capped-and-scrollable treatment with a "Show More" toggle —
+	 *  only when something renders below it (today, the stack rail), so the cap actually keeps that
+	 *  content reachable. A description that ends the sheet just shows in full. */
+	private descriptionIsCapped(pr: GraphSidebarPullRequest): boolean {
+		return pr.stack != null && this.layers != null && this.layers.length > 0;
+	}
+
 	private renderDescription(pr: GraphSidebarPullRequest) {
 		if (this.stackRoot) return nothing;
 
@@ -1405,28 +1510,32 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			</div>`;
 		}
 
-		const collapsed = !this._descriptionExpanded;
+		const expanded = this._descriptionExpanded || !this.descriptionIsCapped(pr);
 		return html`<div>
 			<span class="section-label">Description</span>
-			<div class="description ${collapsed ? 'description--collapsed' : ''}">
+			<div class="description scrollable ${expanded ? 'description--expanded' : ''}">
 				<div class="description__content">
 					<gl-markdown density="compact" image-chips .markdown=${pr.body}></gl-markdown>
 				</div>
-				${collapsed && this._descriptionOverflows ? html`<div class="description__fade"></div>` : nothing}
 			</div>
 			${
-				this._descriptionOverflows
-					? html`<button type="button" class="description__toggle" @click=${this.toggleDescription}>
-							${collapsed ? 'Show more' : 'Show less'}
-						</button>`
+				this._descriptionOverflows && this.descriptionIsCapped(pr)
+					? html`<div class="description__toggle-row">
+							<span class="description__toggle-wrap">
+								<gl-button
+									appearance="secondary"
+									density="compact"
+									aria-expanded=${this._descriptionExpanded ? 'true' : 'false'}
+									@click=${this.toggleDescription}
+								>
+									${this._descriptionExpanded ? 'Show Less' : 'Show More'}
+								</gl-button>
+							</span>
+						</div>`
 					: nothing
 			}
 		</div>`;
 	}
-
-	private readonly toggleDescription = (): void => {
-		this._descriptionExpanded = !this._descriptionExpanded;
-	};
 
 	/** The stack rail — every layer (top-first) plus a trunk row, each layer clickable to open its own
 	 *  sheet except the current one. */
