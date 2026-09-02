@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.114] - 2026-09-02
+
 ### Added
 
 - Adds `getIssuesBatch`, which resolves N `(owner, repo, number)` coordinates in ONE request by aliasing the point read rather than a search ([#5802](https://github.com/gitkraken/vscode-gitlens/issues/5802)). The identity read behind "which issue does this branch name reference", which a search cannot answer: it resolves by exact number, no result ceiling applies, and an absent slot is a PROVEN absence rather than "not found within a page budget" — which is what lets a consumer cache a miss instead of re-walking a scope to prove one. Results echo the caller's own `key`; a target whose chunk failed is NOT returned at all, so it stays distinguishable from a proven absence, since caching a failure as an absence never re-resolves. Chunked at 25 (measured: 10 coordinates 875ms, 25 890ms, 50 1.3s). GitHub/GHE only — a provider without the capability refuses rather than degrading into N requests (plus/integrations, plus/git-github)
@@ -288,7 +290,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.113...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.114...HEAD
+[0.5.114]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.113...gitkraken:releases/core/v0.5.114
 [0.5.113]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.111...gitkraken:releases/core/v0.5.113
 [0.5.111]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.110...gitkraken:releases/core/v0.5.111
 [0.5.110]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.109...gitkraken:releases/core/v0.5.110
