@@ -1,13 +1,13 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
-import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
-import { toError } from '../errors.js';
+import { IntegrationReadUnavailableError, toError } from '../errors.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
@@ -22,6 +22,39 @@ export abstract class IssuesIntegration<
 	T extends ResourceDescriptor = ResourceDescriptor,
 > extends IntegrationBase<ID> {
 	readonly type: IntegrationType = 'issues';
+
+	get supportsIssueLookupByResourceId(): boolean {
+		return this.getProviderIssueByResourceId != null;
+	}
+
+	getIssueByResourceIdResult(
+		resourceId: string,
+		id: string,
+		options?: { connectionId?: string; expiryOverride?: boolean | number; resourceUrl?: string },
+	): Promise<IntegrationResult<Issue | undefined>> {
+		const getProviderIssue = this.getProviderIssueByResourceId;
+		if (getProviderIssue == null) {
+			return Promise.resolve({
+				error: new IntegrationReadUnavailableError(
+					this.name,
+					'does not support direct issue reads by resource id',
+				),
+			});
+		}
+
+		const { resourceUrl, ...readOptions } = options ?? {};
+		const resource = { key: resourceId, resourceId: resourceId, resourceUrl: resourceUrl };
+		return this.getIssueResultCore(resource, id, readOptions, session =>
+			getProviderIssue.call(this, session, resourceId, id, resourceUrl),
+		);
+	}
+
+	protected getProviderIssueByResourceId?(
+		_session: ProviderAuthenticationSession,
+		_resourceId: string,
+		_id: string,
+		_resourceUrl: string | undefined,
+	): Promise<Issue | undefined>;
 
 	@trace()
 	async getAccountForResource(resource: T, connectionId?: string): Promise<Account | undefined> {

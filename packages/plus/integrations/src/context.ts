@@ -148,7 +148,7 @@ export interface IntegrationCacheProvider {
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<Issue>,
-		options?: CacheExpiryOptions,
+		options?: CacheExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Issue>;
 	getCurrentAccount(
 		integration: IntegrationBase,

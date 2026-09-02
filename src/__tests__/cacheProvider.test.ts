@@ -63,4 +63,37 @@ suite('CacheProvider', () => {
 		assert.deepStrictEqual(lookups, ['acct-a', 'acct-b']);
 		assert.strictEqual(accountA2?.id, 'acct-a', 'the first domain keeps its own cached account entry');
 	});
+
+	test('a stale rejected load does not evict its replacement', async () => {
+		const cache = new CacheProvider({} as never);
+		const firstValue = Object.create(null) as DefaultBranch;
+		const replacementValue = Object.create(null) as DefaultBranch;
+		let rejectFirst: ((reason: Error) => void) | undefined;
+		const first = cache.get('defaultBranch', 'repo:one', 'old-etag', cacheable => ({
+			value: new Promise<DefaultBranch>((_resolve, reject) => {
+				rejectFirst = reason => {
+					cacheable.invalidate();
+					reject(reason);
+				};
+			}),
+		}));
+		const replacement = cache.get('defaultBranch', 'repo:one', 'new-etag', () => ({
+			value: Promise.resolve(replacementValue),
+		}));
+
+		assert.ok(rejectFirst != null);
+		rejectFirst(new Error('stale load failed'));
+		await assert.rejects(first as Promise<DefaultBranch | undefined>);
+		await replacement;
+		await Promise.resolve();
+
+		let reloads = 0;
+		const cached = await cache.get('defaultBranch', 'repo:one', 'new-etag', () => {
+			reloads++;
+			return { value: firstValue };
+		});
+
+		assert.strictEqual(cached, replacementValue);
+		assert.equal(reloads, 0);
+	});
 });

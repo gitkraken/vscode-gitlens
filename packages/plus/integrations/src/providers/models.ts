@@ -1229,12 +1229,23 @@ function toIssueIdentifier(value: string | number): string {
 	return String(value);
 }
 
-export function toIssueShape(issue: ProviderIssue, provider: ProviderReference): IssueShape | undefined {
+export function toIssueShape(
+	issue: ProviderIssue,
+	provider: ProviderReference,
+	options?: { reliableStateCategory?: boolean },
+): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
 	// which the SDK maps with `author: null`), and dropping every such item would discard the whole board.
 	// Fall back to an empty author instead so these issues still surface.
 	if (issue.updatedDate == null || issue.url == null) return undefined;
+
+	// Jira SDK results derive this category from a localized display name and default unknown names to DONE.
+	// Only the direct point read opts in because it maps Jira's stable status-category key itself.
+	const closed =
+		issue.closedDate != null ||
+		(issue.state?.category === 'DONE' &&
+			(provider.id !== IssuesCloudHostIntegrationId.Jira || options?.reliableStateCategory === true));
 
 	return {
 		type: 'issue',
@@ -1254,8 +1265,8 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 		createdDate: issue.createdDate,
 		updatedDate: issue.updatedDate,
 		closedDate: issue.closedDate ?? undefined,
-		closed: issue.closedDate != null,
-		state: issue.closedDate != null ? 'closed' : 'opened',
+		closed: closed,
+		state: closed ? 'closed' : 'opened',
 		author: {
 			id: issue.author?.id ?? '',
 			// An absent name stays absent, matching {@link fromProviderAccount}; see `IssueMember.name`.
@@ -1688,6 +1699,7 @@ export function fromProviderIssue(
 	options?: { project?: IssueProject },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
+	const closed = issue.closedDate != null || issue.state?.category === 'DONE';
 	return new Issue(
 		integration,
 		identifier,
@@ -1696,8 +1708,8 @@ export function fromProviderIssue(
 		issue.url ?? '',
 		issue.createdDate,
 		issue.updatedDate ?? issue.closedDate ?? issue.createdDate,
-		issue.closedDate != null,
-		issue.closedDate != null ? 'closed' : 'opened',
+		closed,
+		closed ? 'closed' : 'opened',
 		fromProviderAccount(issue.author),
 		issue.assignees?.map(fromProviderAccount) ?? undefined,
 		issue.repository != null

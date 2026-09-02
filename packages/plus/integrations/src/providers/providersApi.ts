@@ -29,6 +29,7 @@ import {
 	toError,
 	toRateLimitError,
 } from '../errors.js';
+import { requestJiraIssueByKey } from './jiraIssueByKey.js';
 import type {
 	GetIssueFn,
 	GetIssuesForReposFn,
@@ -69,6 +70,7 @@ import type {
 	PullRequestFilter,
 } from './models.js';
 import { isRepoIdsInput, providersMetadata } from './models.js';
+import { isProviderIssueNotFoundError } from './providerErrors.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
@@ -1837,6 +1839,24 @@ export class ProvidersApi {
 		);
 	}
 
+	async getJiraIssueByKey(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
+		resourceId: string,
+		resourceUrl: string,
+		key: string,
+	): Promise<ProviderIssue | undefined> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+
+		try {
+			return await requestJiraIssueByKey(this.request, tokenWithInfo.accessToken, resourceId, resourceUrl, key);
+		} catch (e) {
+			const status = (e as { response?: { status?: unknown } }).response?.status;
+			if (status === 404) return undefined;
+
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+	}
+
 	async getIssue(
 		tokenOptInfo: TokenWithInfo,
 		input: { resourceId: string; number: string } | { namespace: string; name: string; number: string },
@@ -1854,6 +1874,8 @@ export class ProvidersApi {
 
 			return result?.data;
 		} catch (e) {
+			if (isProviderIssueNotFoundError(tokenWithInfo.providerId, e)) return undefined;
+
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
 		}
 	}

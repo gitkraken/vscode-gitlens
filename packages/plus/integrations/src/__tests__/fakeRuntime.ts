@@ -55,7 +55,7 @@ export function createFakeRuntime(): FakeRuntime {
 	const storage = new Map<string, unknown>();
 	const workspaceStorage = new Map<string, unknown>();
 	const secrets = new Map<string, string>();
-	const issueCache = new Map<string, unknown>();
+	const issueCache = new Map<string, { etag: string | undefined; value: unknown }>();
 	const currentAccountCache = new Map<string, { etag: string | undefined; value: unknown }>();
 
 	const storageProvider: IntegrationStorageProvider = {
@@ -127,14 +127,15 @@ export function createFakeRuntime(): FakeRuntime {
 			throw new Error('FakeRuntime.cache.getPullRequest: not implemented in test');
 		},
 		getIssueOrPullRequest: undefined as never,
-		getIssue: (id, resource, integration, cacheable) => {
-			const key = `${integration?.id ?? 'none'}:${integration?.domain ?? 'none'}:${id}:${JSON.stringify(resource)}`;
-			if (issueCache.has(key)) {
-				return issueCache.get(key) as ReturnType<typeof cacheable>['value'];
+		getIssue: (id, resource, integration, cacheable, options) => {
+			const key = `${integration?.id ?? 'none'}:${integration?.domain ?? 'none'}:${options?.connectionId ?? ''}:${id}:${JSON.stringify(resource)}`;
+			const cached = issueCache.get(key);
+			if (cached != null && cached.etag === options?.etag) {
+				return cached.value as ReturnType<typeof cacheable>['value'];
 			}
 
 			const entry = cacheable({ invalidate: () => issueCache.delete(key) } as never).value;
-			issueCache.set(key, entry);
+			issueCache.set(key, { etag: options?.etag, value: entry });
 			void Promise.resolve(entry).catch(() => issueCache.delete(key));
 			return entry;
 		},

@@ -182,5 +182,18 @@ absent slot is a PROVEN absence rather than "not found within a page budget", wh
 CACHE a miss. A target whose chunk failed is not returned at all, so the two stay distinguishable; caching a
 failure as an absence is the bug that distinction prevents. GitHub/GHE only, matching `countIssues`.
 
+**Tracker issue resolution by key (#5810).** `getTrackerIssue` is the same identity read for an issue TRACKER,
+which `getIssuesBatch` cannot serve: its target is `(owner, repo, number)`, and a tracker issue is addressed by
+`(resourceId, ABC-123)` — no owner, no repo, and an identifier that is not a number. It answers in one request
+where the only published tracker surface (`listIssueTrackerIssuesPage`) needs a scoped page-walk that cannot
+prove absence without draining the whole scope. Same absence/failure contract as the batch read, and the same
+reason it matters: a tracker miss is the common outcome and was never cacheable.
+
+`resourceId` is required and trusted, so the read performs no resource discovery. Jira also requires
+`resourceUrl`, obtained alongside the resource ID, because the issue response's `self` is an API endpoint rather
+than a browser link; supplying both retains the one-request contract. Linear needs only the resource ID. Jira and
+Linear only; Trello refuses because its single-issue read can fall back to a capped board scan for a numeric
+identifier, where a "not found" result cannot be distinguished from a card beyond the cap.
+
 **Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
 set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.
