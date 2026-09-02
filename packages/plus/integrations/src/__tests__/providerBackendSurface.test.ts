@@ -4109,11 +4109,13 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		(
 			linear as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
-					value: { values: IssueShape[]; truncated: boolean };
+					value: { values: IssueShape[]; truncated: true; recovery: 'none' };
 				}>;
 			}
 		).getIssuesForProjectWithTruncationResult = () =>
-			Promise.resolve({ value: { values: [{ id: 'i1' } as unknown as IssueShape], truncated: true } });
+			Promise.resolve({
+				value: { values: [{ id: 'i1' } as unknown as IssueShape], truncated: true, recovery: 'none' },
+			});
 
 		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Linear });
 

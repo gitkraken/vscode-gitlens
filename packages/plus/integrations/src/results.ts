@@ -35,27 +35,11 @@ export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-conn
 export type ProviderWarningOmissionKind = 'provider-limit' | 'recovery-budget' | 'pagination-incomplete';
 
 /**
- * What, if anything, would fetch the withheld results — the question `kind` cannot answer.
- *
- * `kind` says WHY results are missing, and two omissions of the same kind can need opposite handling: a drain
- * that stopped at a caller-settable page budget and a provider that advertised another page without a usable
- * cursor are both `pagination-incomplete`, but only the first can be fetched. A consumer offering a "load
- * more" affordance gates it on this, never on `kind`.
- *
- * - `none`: nothing the consumer can call returns the missing items — a provider-enforced cap, an internal
- *   budget it does not control, or a continuation the provider refused to hand back. Say the results are
- *   capped; do not offer to fetch more.
- * - `page-budget`: re-run the SAME read with a higher page budget (`maxPages` on the sweep options). Note this
- *   re-reads from the start rather than continuing — a sweep exposes no cursor — so it is a deliberate,
- *   user-initiated action, not something to retry automatically.
- *
- * Required, not optional: an absent value would be indistinguishable from `none` while actually meaning "this
- * producer didn't say", which is the ambiguity {@link ProviderWarning.omission} exists to remove. And a
- * conservative union on purpose — it names only what a producer can PROVE. A value is added when some layer
- * can vouch for it, never so that a plausible-looking case has something to map to; see
- * `collectionMetadata.ts` for the SDK shape that looks recoverable and is not.
+ * How a consumer can recover omitted results. `page-budget` reruns with a larger budget; `narrow-scope`
+ * requests a smaller server-side scope; `none` promises neither. Switch on the exact value because only
+ * `page-budget` is a fetch-more action.
  */
-export type ProviderWarningOmissionRecovery = 'none' | 'page-budget';
+export type ProviderWarningOmissionRecovery = 'none' | 'page-budget' | 'narrow-scope';
 
 /** Which repository / project / resource an omission is attributed to. All fields optional; a scope may name none. */
 export interface ProviderWarningOmissionScope {

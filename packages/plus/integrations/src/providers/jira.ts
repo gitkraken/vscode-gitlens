@@ -10,7 +10,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
-import type { IssuesForProjectOptions } from '../models/issueReads.js';
+import type { IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
@@ -19,6 +19,12 @@ import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/pro
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
+
+type JiraProjectIssuesDrain<T> = {
+	issues: T[];
+	status: 'complete' | 'backstop' | 'incomplete';
+	metadata?: CollectionMetadata;
+};
 
 export type JiraBaseDescriptor = IssueResourceDescriptor;
 
@@ -244,16 +250,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
 		options?: IssuesForProjectOptions,
-	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
+	): Promise<ProjectIssuesDrain | undefined> {
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
 		const api = await this.getProvidersApi();
 
-		// Drain every page for a project read (bounded by a defensive backstop): the paged wrapper preserves the
-		// SDK's cursor, unlike the plain read which silently caps at the first page. `filter` undefined = the
-		// unscoped project read. Reports `truncated` when the drain stopped at the backstop with more pages
-		// still available, and records a structured failure if a page-level error discarded the rest of the drain,
-		// so the facade can warn + set fetchFailed while preserving the already-fetched prefix.
 		const projectScope = {
 			providerId: this.id,
 			resourceId: project.resourceId,
@@ -263,10 +264,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			authorLogin?: string;
 			assigneeLogins?: string[];
 			mentionLogin?: string;
-		}): Promise<{ issues: ProviderIssue[]; truncated: boolean; metadata?: CollectionMetadata }> => {
+		}): Promise<JiraProjectIssuesDrain<ProviderIssue>> => {
 			const collected: ProviderIssue[] = [];
 			let cursor: string | undefined;
-			let truncated = false;
+			let status: JiraProjectIssuesDrain<ProviderIssue>['status'] = 'complete';
 			let metadata: CollectionMetadata | undefined;
 			for (let i = 0; i < maxPagesPerRequest; i++) {
 				let result: Awaited<ReturnType<typeof api.getIssuesForProjectPaged>> | undefined;
@@ -283,7 +284,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					// than an empty partial success.
 					if (collected.length === 0) throw ex;
 
-					truncated = true;
+					status = 'incomplete';
 					metadata = mergeCollectionMetadata(metadata, {
 						completeness: 'partial',
 						failures: [toCollectionScopeFailure(projectScope, ex)],
@@ -293,7 +294,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				if (result == null) {
 					if (cursor == null) break;
 
-					truncated = true;
+					status = 'incomplete';
 					metadata = mergeCollectionMetadata(metadata, {
 						completeness: 'partial',
 						failures: [
@@ -312,7 +313,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				// The provider claims more pages but gave no advancing cursor: we can't continue, so the drain
 				// is incomplete — flag it rather than silently stopping (matches drainPullRequests/Repositories).
 				if (result.nextCursor == null || result.nextCursor === cursor) {
-					truncated = true;
+					status = 'incomplete';
 					metadata = mergeCollectionMetadata(metadata, {
 						completeness: 'partial',
 						failures: [
@@ -326,18 +327,21 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				}
 
 				cursor = result.nextCursor;
-				// More pages remain but we're at the last allowed iteration: the drain is incomplete.
 				if (i === maxPagesPerRequest - 1) {
-					truncated = true;
+					status = 'backstop';
 				}
 			}
-			return { issues: collected, truncated: truncated, metadata: metadata };
+			return {
+				issues: collected,
+				status: status,
+				metadata: metadata,
+			};
 		};
 
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
-		): Promise<{ issues: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata }> => {
+		): Promise<JiraProjectIssuesDrain<IssueShape>> => {
 			const result = await drainIssues({
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
@@ -348,7 +352,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				issues: result.issues
 					.map(issue => toIssueShape(issue, this))
 					.filter((r): r is IssueShape => r !== undefined),
-				truncated: result.truncated,
+				status: result.status,
 				metadata: result.metadata,
 			};
 		};
@@ -415,7 +419,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					continue;
 				}
 
-				if (outcome.value.truncated) {
+				if (outcome.value.status !== 'complete') {
 					truncated = true;
 				}
 				if (outcome.value.metadata != null) {
@@ -428,17 +432,23 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				}
 			}
 
-			return { values: [...resultsById.values()], truncated: truncated, metadata: metadata };
+			return truncated
+				? { values: [...resultsById.values()], truncated: true, recovery: 'none', metadata: metadata }
+				: { values: [...resultsById.values()], truncated: false, metadata: metadata };
 		}
 
 		const unscoped = await drainIssues({});
-		return {
-			values: unscoped.issues
-				.map(issue => toIssueShape(issue, this))
-				.filter((result): result is IssueShape => result !== undefined),
-			truncated: unscoped.truncated,
-			metadata: unscoped.metadata,
-		};
+		const values = unscoped.issues
+			.map(issue => toIssueShape(issue, this))
+			.filter((result): result is IssueShape => result !== undefined);
+		return unscoped.status !== 'complete'
+			? {
+					values: values,
+					truncated: true,
+					recovery: unscoped.status === 'backstop' ? 'narrow-scope' : 'none',
+					metadata: unscoped.metadata,
+				}
+			: { values: values, truncated: false, metadata: unscoped.metadata };
 	}
 
 	protected override async searchProviderMyIssues(

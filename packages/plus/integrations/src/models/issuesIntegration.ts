@@ -1,4 +1,3 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -11,7 +10,7 @@ import { IntegrationReadUnavailableError, toError } from '../errors.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
-import type { IssuesForProjectOptions } from './issueReads.js';
+import type { IssuesForProjectOptions, ProjectIssuesDrain } from './issueReads.js';
 
 export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
 	return integration.type === 'issues';
@@ -210,9 +209,7 @@ export abstract class IssuesIntegration<
 		project: T,
 		options?: IssuesForProjectOptions,
 		connectionId?: string,
-	): Promise<
-		IntegrationResult<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined>
-	> {
+	): Promise<IntegrationResult<ProjectIssuesDrain | undefined>> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
@@ -243,7 +240,7 @@ export abstract class IssuesIntegration<
 		session: ProviderAuthenticationSession,
 		project: T,
 		options?: IssuesForProjectOptions,
-	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
+	): Promise<ProjectIssuesDrain | undefined> {
 		const values = await this.getProviderIssuesForProject(session, project, options);
 		if (values == null) return undefined;
 		return { values: values, truncated: false };
