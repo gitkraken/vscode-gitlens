@@ -4036,13 +4036,15 @@ gl-lit-graph {
 		display: inline-flex;
 		flex-shrink: 0;
 		align-items: center;
+		gap: 0.2rem;
 		padding: 0.15rem 0.25rem;
 		border-radius: 0.3rem;
-		font-size: 0.9em;
+		font-size: var(--gl-font-micro);
 		font-variant-numeric: tabular-nums;
 		line-height: 1;
 		color: currentColor;
 		background: color-mix(in srgb, currentColor 18%, transparent);
+		--code-icon-size: 1.1rem;
 	}
 	// Filled states (hover/focus-within, and the lane-filled expand overlay) flip it to the fill's contrast
 	// color, matching the `+N` badge's treatment. Set ABOVE the chip's own hover wash (16%, above) — at the

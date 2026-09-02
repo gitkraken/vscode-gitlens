@@ -115,15 +115,23 @@ import type {
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
-import type { SheetDescriptor, SheetKind, SheetOverlayCoordinator } from './sheetStack.js';
+import type {
+	PullRequestSheetPayload,
+	PullRequestSheetTarget,
+	SheetDescriptor,
+	SheetKind,
+	SheetOverlayCoordinator,
+} from './sheetStack.js';
 import {
 	popSheet as popSheetFromStack,
 	projectCompareSignal,
 	pushSheet,
 	reduceOnSelectionChange,
 	removeKind,
+	removePendingPullRequestSheet,
 	replaceStack,
 	replaceTopSheet,
+	resolvePullRequestSheet,
 	sheetKey,
 } from './sheetStack.js';
 import { sheetWrapperSelector } from './sheetWrapper.js';
@@ -1109,16 +1117,38 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.clearSheets();
 	}
 
-	/** Opens the pull request sheet — a details view carrying the row's own payload, so it costs no
-	 *  fetch. `layers` is the stack's members (top layer first) when the pull request is stacked.
-	 *  `push` stacks it over the current sheet (an in-sheet opener, e.g. the branch sheet's PR chip);
-	 *  otherwise it replaces the stack like any other external opener. */
+	/** Opens the pull request sheet for `target`. `payload` undefined opens it in its loading form —
+	 *  the caller doesn't have the pull request's data yet and fills it in later via
+	 *  {@link resolvePrSheet} (or discards it via {@link cancelPrSheet}); given, it opens with full
+	 *  content in one step, no loading flash. `push` stacks it over the current sheet (an in-sheet
+	 *  opener, e.g. the branch sheet's PR chip); otherwise it replaces the stack like any other
+	 *  external opener. */
 	openPrSheet(
-		pr: GraphSidebarPullRequest,
-		layers?: GraphSidebarPullRequest[],
-		options?: { push?: boolean; stackRoot?: boolean },
+		target: PullRequestSheetTarget,
+		payload: PullRequestSheetPayload | undefined,
+		options?: { push?: boolean },
 	): void {
-		this.openSheet({ kind: 'pullRequest', pr: pr, layers: layers, stackRoot: options?.stackRoot }, options);
+		this.openSheet({ kind: 'pullRequest', target: target, ...payload }, options);
+	}
+
+	/** Fills in the pending (loading-form) pull request sheet opened for `target` — a no-op if it
+	 *  already resolved, was closed, or belongs to a different target. */
+	resolvePrSheet(target: PullRequestSheetTarget, payload: PullRequestSheetPayload): void {
+		const next = resolvePullRequestSheet(this._sheetStack, target, payload);
+		if (next !== this._sheetStack) {
+			this._sheetStack = next;
+		}
+	}
+
+	/** Removes the pending (loading-form) pull request sheet opened for `target` — used when its
+	 *  resolution comes up empty, or a newer open supersedes it. A no-op if it already resolved or was
+	 *  closed. */
+	cancelPrSheet(target: PullRequestSheetTarget): void {
+		const { stack, removed } = removePendingPullRequestSheet(this._sheetStack, target);
+		if (removed.some(Boolean)) {
+			this._sheetStack = stack;
+			this._sheetFocusMemos = this._sheetFocusMemos.filter((_, i) => !removed[i]);
+		}
 	}
 
 	/** Close the pull request sheet, wherever it sits in the stack. */
@@ -1242,24 +1272,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		let changed = false;
 
 		const next = this._sheetStack.map((d): SheetDescriptor => {
-			if (d.kind !== 'pullRequest') return d;
+			if (d.kind !== 'pullRequest' || d.pr == null) return d;
 
+			const pr = d.pr;
 			const affected =
-				stack == null ? d.pr.number === number : d.pr.number === number || d.pr.stack?.number === stack.number;
+				stack == null ? pr.number === number : pr.number === number || pr.stack?.number === stack.number;
 			if (!affected) return d;
 
 			changed = true;
-			const position = stack?.position ?? d.pr.stack?.position;
+			const position = stack?.position ?? pr.stack?.position;
 			const layers = d.layers?.map((l): GraphSidebarPullRequest =>
 				position != null && l.stack != null && l.stack.position <= position ? { ...l, state: 'merged' } : l,
 			);
 			const prMerged =
-				d.pr.number === number ||
-				(stack != null && d.pr.stack != null && d.pr.stack.position <= stack.position);
+				pr.number === number || (stack != null && pr.stack != null && pr.stack.position <= stack.position);
 
 			return {
 				kind: 'pullRequest',
-				pr: prMerged ? { ...d.pr, state: 'merged' } : d.pr,
+				target: d.target,
+				pr: prMerged ? { ...pr, state: 'merged' } : pr,
 				layers: layers,
 				stackRoot: d.stackRoot,
 			};
@@ -1360,6 +1391,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				></gl-rebase-summary-sheet>`;
 			case 'pullRequest':
 				return html`<gl-graph-pr-sheet
+					.target=${top.target}
 					.pullRequest=${top.pr}
 					.layers=${top.layers}
 					.dateFormat=${this._state.preferences.get()?.dateFormat}

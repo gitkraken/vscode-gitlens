@@ -235,10 +235,15 @@ export class GlTreeView extends GlElement {
 				align-items: center;
 				height: 1.5rem;
 				padding: 0 var(--gl-space-4);
-				font-size: var(--gl-font-sm);
+				font-size: var(--gl-font-micro);
 				font-variant-numeric: tabular-nums;
 				border-radius: 0.8rem;
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+			}
+
+			/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
+			.stack-count code-icon {
+				transform: translateY(0.1rem);
 			}
 
 			/* Pull-request state, in GitLens's contributed theme colors so a retheme carries. Draft has

@@ -10,7 +10,10 @@ export type SheetDescriptor =
 	| { kind: 'compare' }
 	| {
 			kind: 'pullRequest';
-			pr: GraphSidebarPullRequest;
+			/** What the sheet was opened for — its identity from the moment it opens, before `pr` resolves. */
+			target: PullRequestSheetTarget;
+			/** Undefined while the pull request is still resolving; the sheet renders a loading state. */
+			pr?: GraphSidebarPullRequest;
 			layers?: GraphSidebarPullRequest[];
 			/** Renders the stack's own summary (all layers, top layer's state) instead of one layer's —
 			 *  only ever set alongside a full `layers` load. */
@@ -20,6 +23,17 @@ export type SheetDescriptor =
 	| { kind: 'pastAgentSession'; session: PastAgentSessionState };
 
 export type SheetKind = SheetDescriptor['kind'];
+
+/** Identifies which pull request (or stack) a `pullRequest` sheet is for — set at open, before its
+ *  data has necessarily resolved. */
+export type PullRequestSheetTarget = { number: string } | { stackNumber: number };
+
+/** The pull request data a `pullRequest` sheet fills in with once resolved. */
+export type PullRequestSheetPayload = {
+	pr: GraphSidebarPullRequest;
+	layers?: GraphSidebarPullRequest[];
+	stackRoot?: boolean;
+};
 
 /**
  * Mirrors the details panel's top-of-stack transitions onto the graph keymap's Esc overlay stack.
@@ -44,7 +58,13 @@ export function sheetKey(d: SheetDescriptor): string {
 		case 'compare':
 			return d.kind;
 		case 'pullRequest':
-			return [d.kind, d.pr.number, d.stackRoot ? 'stack' : ''].join('|');
+			// Deliberately excludes `pr`/`stackRoot`: a resolving sheet and its resolved form are the
+			// same sheet, so they must share a key — that's what keeps the Esc overlay coordinator quiet
+			// and the element mounted across resolution, instead of replaying the slide-up.
+			return JSON.stringify([
+				d.kind,
+				'stackNumber' in d.target ? ['stack', d.target.stackNumber] : d.target.number,
+			]);
 		case 'agentSession':
 			// Ids are only unique per provider — include it so two providers' session id 'abc'
 			// (a plausible collision across harnesses) don't collapse to the same sheet.
@@ -102,6 +122,42 @@ export function removeKind(stack: readonly SheetDescriptor[], kind: SheetKind): 
 	}
 
 	return stack.filter(d => d.kind !== kind);
+}
+
+/** Fills in every still-pending (`pr == null`) `pullRequest` sheet opened for `target` with `payload` —
+ *  same reference when none matched (already resolved, or a different target). */
+export function resolvePullRequestSheet(
+	stack: readonly SheetDescriptor[],
+	target: PullRequestSheetTarget,
+	payload: PullRequestSheetPayload,
+): SheetDescriptor[] {
+	const key = sheetKey({ kind: 'pullRequest', target: target });
+	if (!stack.some(d => d.kind === 'pullRequest' && d.pr == null && sheetKey(d) === key)) {
+		return stack as SheetDescriptor[];
+	}
+
+	return stack.map((d): SheetDescriptor => {
+		if (d.kind !== 'pullRequest' || d.pr != null || sheetKey(d) !== key) return d;
+
+		return { kind: 'pullRequest', target: target, ...payload };
+	});
+}
+
+/** Drops every still-pending (`pr == null`) `pullRequest` sheet opened for `target` — mirrors
+ *  {@link removeKind}'s shape but scoped to one target's pending entries, not a whole kind. `removed[i]`
+ *  marks which indices were dropped so a caller can filter a parallel array (e.g. focus memos) in step.
+ *  Same reference and an all-false `removed` when none matched. */
+export function removePendingPullRequestSheet(
+	stack: readonly SheetDescriptor[],
+	target: PullRequestSheetTarget,
+): { stack: SheetDescriptor[]; removed: boolean[] } {
+	const key = sheetKey({ kind: 'pullRequest', target: target });
+	const removed = stack.map(d => d.kind === 'pullRequest' && d.pr == null && sheetKey(d) === key);
+	if (!removed.some(Boolean)) {
+		return { stack: stack as SheetDescriptor[], removed: removed };
+	}
+
+	return { stack: stack.filter((_, i) => !removed[i]), removed: removed };
 }
 
 /**

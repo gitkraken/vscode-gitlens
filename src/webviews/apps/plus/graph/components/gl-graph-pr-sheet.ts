@@ -8,9 +8,12 @@ import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
 import { getAutolinkIcon } from '../../../shared/components/rich/utils.js';
+import { srOnly } from '../../../shared/components/styles/lit/a11y.css.js';
+import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
+import type { PullRequestSheetTarget } from './sheetStack.js';
 import { SheetWrapper } from './sheetWrapper.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/branch-name.js';
@@ -24,6 +27,7 @@ import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/popover-confirm.js';
 import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/skeleton-loader.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -105,8 +109,10 @@ function isDescriptionBlank(body: string | undefined): boolean {
  * Details sheet for a pull request — identity, branch context, mergeability, and (when it's one layer
  * of a stack, or the stack itself) the stack rail beside it.
  *
- * A details view first: merging is one thing it can offer, not what it is for. Every field rendered here
- * already reaches the webview on {@link GraphSidebarPullRequest}, so opening the sheet costs no fetch.
+ * A details view first: merging is one thing it can offer, not what it is for. Opens against
+ * {@link target} alone when {@link pullRequest} hasn't resolved yet — a loading form — and fills in
+ * once the host supplies the payload, so the sheet is visible the instant it's asked for instead of
+ * only after a fetch completes.
  *
  * Owns its `gl-detail-sheet` and re-emits `gl-detail-sheet-close` on dismiss, matching the conflict and
  * rebase sheets. Host actions go through the sidebar's own `executeAction`, so a command invoked here is
@@ -115,7 +121,9 @@ function isDescriptionBlank(body: string | undefined): boolean {
 @customElement('gl-graph-pr-sheet')
 export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	static override styles = [
+		scrollableBase,
 		splitButtonStyles,
+		srOnly,
 		css`
 			:host {
 				display: block;
@@ -192,20 +200,21 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				gap: var(--gl-space-2);
 				align-items: center;
 				flex: none;
+				height: 1.5rem;
 				padding: 0 var(--gl-space-4);
-				border-radius: 1rem;
+				border-radius: var(--gl-radius-sm);
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
 				color: var(--color-foreground--65);
-				font-size: var(--gl-font-sm);
+				font-size: var(--gl-font-micro);
 				font-variant-numeric: tabular-nums;
 				font-weight: 400;
+				line-height: 1;
 				--code-icon-size: 1.1rem;
 			}
 
-			/* The digits have no descenders so their ink rides high in the text box, while the glyph centers
-		   in its em box — box-centering alone leaves the icon reading ~1px low (measured). */
+			/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
 			.title__count code-icon {
-				margin-top: -0.1rem;
+				transform: translateY(0.1rem);
 			}
 
 			.subtitle {
@@ -245,9 +254,67 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.body {
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
 				gap: var(--gl-space-10);
+				min-height: 0;
 				padding: var(--gl-space-10) var(--gl-space-12);
+				overflow-y: auto;
+			}
+
+			/* Skeleton placeholders sized to the sections they stand in for, so the layout holds when the
+			   pull request lands. skeleton-loader fills its container width; the width modifiers cap it. */
+			.skeleton {
+				display: block;
+				font-size: var(--gl-font-sm);
+			}
+
+			.skeleton--pill {
+				width: 9rem;
+				--skeleton-line-height: 1.6;
+			}
+
+			.skeleton--stats {
+				width: 14rem;
+			}
+
+			.skeleton--badge {
+				width: 4rem;
+				--skeleton-line-height: 1.7;
+			}
+
+			.skeleton--author {
+				width: 8rem;
+			}
+
+			.skeleton--line + .skeleton--line {
+				margin-top: var(--gl-space-4);
+			}
+
+			.skeleton--w-40 {
+				width: 40%;
+			}
+
+			.skeleton--w-55 {
+				width: 55%;
+			}
+
+			.skeleton--w-70 {
+				width: 70%;
+			}
+
+			.subtitle--loading {
+				gap: var(--gl-space-6);
+			}
+
+			/* Same box as .verdict, minus the state accent nothing is known for yet. */
+			.skeleton-verdict {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-4);
+				padding: var(--gl-space-8) var(--gl-space-10);
+				background: color-mix(in srgb, transparent 92%, var(--vscode-descriptionForeground));
+				border-radius: var(--gl-radius-sm);
 			}
 
 			/* Matches the branch sheet's section heading treatment. */
@@ -608,6 +675,11 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	@property({ attribute: false })
 	pullRequest?: GraphSidebarPullRequest;
 
+	/** What the sheet was opened for — set immediately, before {@link pullRequest} resolves. Used only
+	 *  to render the loading form (and its title) while resolution is in flight. */
+	@property({ attribute: false })
+	target?: PullRequestSheetTarget;
+
 	/** The stack's members, top layer first — set whenever this pull request is one layer of a stack,
 	 *  or (with {@link stackRoot}) the stack itself. */
 	@property({ attribute: false })
@@ -709,17 +781,23 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	override render(): unknown {
 		const pr = this.pullRequest;
-		if (pr == null) return nothing;
+		const target = this.target;
+		// Keep `render()` total: a sheet opened for nothing renders nothing (shouldn't happen).
+		if (pr == null && target == null) return nothing;
 
+		// ONE `<gl-detail-sheet>` literal for both the loading and resolved forms — Lit identifies
+		// templates by literal, so a separate loading template would remount the inner sheet (and
+		// replay its slide-up) the moment the pull request resolves. Only the slotted parts vary.
 		return html`<gl-detail-sheet
 			esc-managed
 			aria-label="Pull request details"
 			close-label="Close"
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
-			${this.renderTitleRow(pr)} ${this.renderSubtitleRow(pr)}
+			${pr != null ? this.renderTitleRow(pr) : this.renderLoadingTitleRow(target)}
+			${pr != null ? this.renderSubtitleRow(pr) : this.renderLoadingSubtitleRow()}
 			${
-				pr.url
+				pr?.url
 					? html`<gl-action-chip
 							slot="actions"
 							icon="globe"
@@ -731,11 +809,77 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 						></gl-action-chip>`
 					: nothing
 			}
-			<div class="body">
-				${this.renderMetaCard(pr)} ${this.renderVerdict(pr)} ${this.renderDescription(pr)}
-				${this.renderStackRail(pr)}
+			<div class="body" aria-busy=${pr == null ? 'true' : nothing}>
+				${
+					pr != null
+						? html`${this.renderMetaCard(pr)} ${this.renderVerdict(pr)} ${this.renderDescription(pr)}
+							${this.renderStackRail(pr)}`
+						: this.renderLoadingBody(target)
+				}
 			</div>
 		</gl-detail-sheet>`;
+	}
+
+	/** The loading title — identifies the sheet by {@link target} alone (no title-link, no chip) since
+	 *  that's all that's known yet while {@link pullRequest} resolves. `target == null` only when the
+	 *  sheet hasn't been opened for anything (shouldn't happen, but keeps `render()` total). */
+	private renderLoadingTitleRow(target: PullRequestSheetTarget | undefined) {
+		if (target == null) return nothing;
+
+		const isStack = 'stackNumber' in target;
+		return html`<span slot="title" class="title">
+			${
+				isStack
+					? html`<code-icon class="title__icon--stack" icon="layers"></code-icon>`
+					: html`<code-icon icon=${this.glyph.icon}></code-icon>`
+			}
+			<span class="title__name"
+				>${isStack ? `Stack #${target.stackNumber}` : `Pull Request #${target.number}`}</span
+			>
+		</span>`;
+	}
+
+	/** Reserves the subtitle row's height while {@link pullRequest} resolves, so the header doesn't
+	 *  grow when the real subtitle (state, avatar, author, date) lands. */
+	private renderLoadingSubtitleRow() {
+		return html`<span slot="subtitle" class="subtitle subtitle--loading">
+			<skeleton-loader class="skeleton skeleton--badge"></skeleton-loader>
+			<skeleton-loader class="skeleton skeleton--author"></skeleton-loader>
+		</span>`;
+	}
+
+	/** Mirrors the resolved body's sections — meta card, verdict, and description — so nothing shifts
+	 *  when {@link pullRequest} lands. A stack target has no description block, matching
+	 *  {@link renderDescription}'s own stack-root skip. */
+	private renderLoadingBody(target: PullRequestSheetTarget | undefined) {
+		if (target == null) return nothing;
+
+		const isStack = 'stackNumber' in target;
+		return html`<span class="sr-only" aria-live="polite">Loading ${isStack ? 'stack' : 'pull request'}…</span>
+			<div class="meta-card" aria-hidden="true">
+				<div class="meta-card__row meta-card__row--chain">
+					<div class="meta-card__refs">
+						<skeleton-loader class="skeleton skeleton--pill"></skeleton-loader>
+						<skeleton-loader class="skeleton skeleton--pill"></skeleton-loader>
+					</div>
+				</div>
+				<div class="meta-card__row"><skeleton-loader class="skeleton skeleton--stats"></skeleton-loader></div>
+			</div>
+			<div class="skeleton-verdict" aria-hidden="true">
+				<skeleton-loader class="skeleton skeleton--line skeleton--w-40"></skeleton-loader>
+				<skeleton-loader class="skeleton skeleton--line skeleton--w-70"></skeleton-loader>
+				<skeleton-loader class="skeleton skeleton--line skeleton--w-55"></skeleton-loader>
+			</div>
+			${
+				!isStack
+					? html`<div aria-hidden="true">
+							<span class="section-label">Description</span>
+							<skeleton-loader class="skeleton skeleton--line"></skeleton-loader>
+							<skeleton-loader class="skeleton skeleton--line"></skeleton-loader>
+							<skeleton-loader class="skeleton skeleton--line skeleton--w-55"></skeleton-loader>
+						</div>`
+					: nothing
+			}`;
 	}
 
 	private renderTitleRow(pr: GraphSidebarPullRequest) {

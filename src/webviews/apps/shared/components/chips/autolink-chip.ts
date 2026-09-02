@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import { getAutolinkIcon } from '../rich/utils.js';
 import './action-chip.js';
+import '../code-icon.js';
 import '../rich/issue-pull-request.js';
 import '../overlays/popover.js';
 
@@ -37,17 +38,28 @@ export class GlAutolinkChip extends LitElement {
 			color: var(--vscode-gitlens-closedAutolinkedIssueIconColor);
 		}
 
+		/* Slotted as the chip's suffix, not inside the label: the label rides the chip's optical text
+		   nudge and the badge's own baseline moved to the icon's once it gained one, which together left
+		   the whole badge sitting high in the chip. As a suffix it's a flex item the chip centers itself. */
 		.stack-badge {
 			display: inline-flex;
 			align-items: center;
-			margin-inline-start: 0.3rem;
+			gap: 0.2rem;
+			/* The chip's gap plus the label's trailing padding overshoots the spacing the badge had inline. */
+			margin-inline-start: -0.1rem;
 			padding: 0.15rem 0.25rem;
 			border-radius: 0.3rem;
-			font-size: 0.9em;
+			font-size: var(--gl-font-micro);
 			font-variant-numeric: tabular-nums;
 			line-height: 1;
 			color: currentColor;
 			background: color-mix(in srgb, currentColor 18%, transparent);
+			--code-icon-size: 1.1rem;
+		}
+
+		/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
+		.stack-badge code-icon {
+			transform: translateY(0.1rem);
 		}
 	`;
 
@@ -130,15 +142,13 @@ export class GlAutolinkChip extends LitElement {
 				label=${this.getAccessibleLabel()}
 				class="chip--${modifier}"
 				@click=${detailsOnClick ? this.onChipClick : nothing}
-				><span part="label"
-					>${this.identifier}${
-						this.stack != null
-							? html`<span class="stack-badge" aria-hidden="true"
-									>${this.stack.position}/${this.stack.size}</span
-								>`
-							: nothing
-					}</span
-				></gl-action-chip
+				><span part="label">${this.identifier}</span>${
+					this.stack != null
+						? html`<span slot="suffix" class="stack-badge" aria-hidden="true"
+								><code-icon icon="layers"></code-icon>${this.stack.position}/${this.stack.size}</span
+							>`
+						: nothing
+				}</gl-action-chip
 			>
 			<div slot="content">
 				<issue-pull-request

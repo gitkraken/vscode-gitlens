@@ -170,6 +170,7 @@ export class IssuePullRequest extends GlElement {
 		.stack {
 			display: inline-flex;
 			align-items: center;
+			gap: 0.2rem;
 			height: 1.5rem;
 			padding: 0 0.3rem;
 			/* Pushed to the line's right edge, under the actions in the head above it. */
@@ -178,10 +179,16 @@ export class IssuePullRequest extends GlElement {
 			   box — tall, and sitting on the text baseline rather than centered against it. */
 			line-height: 1;
 			vertical-align: middle;
-			font-size: 0.9em;
+			font-size: var(--gl-font-micro);
 			font-variant-numeric: tabular-nums;
 			border-radius: 0.3rem;
 			background: color-mix(in srgb, currentColor 18%, transparent);
+			--code-icon-size: 1.1rem;
+		}
+
+		/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
+		.stack code-icon {
+			transform: translateY(0.1rem);
 		}
 
 		.review {
@@ -296,6 +303,7 @@ export class IssuePullRequest extends GlElement {
 					${this.identifier}${
 						this.stack != null
 							? html`<span class="stack" title="Layer ${this.stack.position} of ${this.stack.size}"
+									><code-icon icon="layers" aria-hidden="true"></code-icon
 									>${this.stack.position}/${this.stack.size}</span
 								>`
 							: nothing

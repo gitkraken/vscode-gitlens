@@ -77,7 +77,8 @@ import type {
 } from './components/gl-graph-timeline.js';
 import type { GraphTreemapModeChangeDetail } from './components/gl-graph-treemap.js';
 import type { GraphVisualizationModeChangeDetail } from './components/gl-graph-visualizations.js';
-import type { SheetKind } from './components/sheetStack.js';
+import type { PullRequestSheetPayload, PullRequestSheetTarget, SheetKind } from './components/sheetStack.js';
+import { sheetKey } from './components/sheetStack.js';
 import { getEffectiveVisualizationKey } from './components/visualizations.utils.js';
 import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
@@ -2129,6 +2130,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** Monotonic stamp for PR-sheet opens — the payload resolution below can await network, so a
 	 *  newer open (or any newer details reveal) must win over one still resolving. */
 	private _prSheetResolveToken = 0;
+	/** Sheet key of the target the latest open is resolving for — a superseded open may only cancel its
+	 *  pending sheet when the newer open is for a DIFFERENT sheet; the same target re-pushed collapses
+	 *  onto the same pending sheet, which the newer open now owns. */
+	private _prSheetResolveTargetKey?: string;
 
 	/** Polls the pull requests panel's own fetch to completion (triggering it if it hasn't started) so a
 	 *  stack lookup has data to search — a 5s budget, matching what the panel's own cold load allows.
@@ -2154,98 +2159,155 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return data;
 	}
 
-	/** Resolves a pull request by number to its full payload (and, when it's part of a stack, that
-	 *  stack's layers) before opening the sheet — so the sheet opens once with its final content instead
-	 *  of opening blank and re-rendering when the panel data lands. The open itself rides
-	 *  {@link withDetailsPanel}, the single reveal path every sheet shares. Returns whether a sheet was
-	 *  actually opened, so a caller with a fallback (e.g. opening the pull request on the remote) knows
-	 *  when resolution came up empty. */
-	private async resolveAndOpenPrSheet(
-		target: { number: string } | { stackNumber: number },
+	/** Builds `pr`'s stack layers (top layer first) from already-loaded pull-requests panel data — `pr`
+	 *  is merged into the panel's own member list rather than trusted to already be one of its objects,
+	 *  since it may have come from `findPullRequest` instead (a searched pull request, or one paged off
+	 *  the panel's list). Undefined when `pr` isn't stacked, `data` isn't loaded, or fewer than two
+	 *  members are known. */
+	private buildStackLayers(
+		data: DidGetSidebarDataParams | undefined,
+		pr: GraphSidebarPullRequest,
+	): GraphSidebarPullRequest[] | undefined {
+		if (pr.stack == null || data?.panel !== 'pullRequests') return undefined;
+
+		const stackNumber = pr.stack.number;
+		const prNumber = pr.number;
+		const members = data.items.filter(p => p.stack?.number === stackNumber);
+		const index = members.findIndex(p => p.number === prNumber);
+		if (index === -1) {
+			members.push(pr);
+		} else {
+			members[index] = pr;
+		}
+		members.sort((a, b) => (b.stack?.position ?? 0) - (a.stack?.position ?? 0));
+
+		return members.length >= 2 ? members : undefined;
+	}
+
+	/** Opens the sheet in its loading form right away, then fills it in once `resolve` yields a payload
+	 *  — or removes it again when resolution comes up empty (`'failed'`) or a newer open superseded this
+	 *  one (`'stale'`). `withDetailsPanel` is used ONLY to open: a second call cancels the first's
+	 *  callback, so resolving/cancelling the pending sheet goes through {@link detailsPanelEl} directly,
+	 *  once the open itself has settled (the RPC in `resolve` can finish before the panel even mounts).
+	 *  Returns whether a sheet ended up open, matching {@link resolveAndOpenPrSheet}'s contract. */
+	private async openPrSheetResolving(
+		target: PullRequestSheetTarget,
 		push: boolean,
+		resolve: () => Promise<PullRequestSheetPayload | 'failed' | 'stale'>,
 	): Promise<boolean> {
+		const pendingOpen = this.withDetailsPanel(
+			panel => panel.openPrSheet(target, undefined, { push: push }),
+			'request-mode',
+		);
+
+		const outcome = await resolve();
+		await pendingOpen;
+
+		if (outcome === 'stale') {
+			// A newer push-mode open for another sheet would otherwise leave this one stuck "Loading"
+			// underneath it; a newer open for the SAME target is still resolving this very sheet.
+			if (this._prSheetResolveTargetKey !== sheetKey({ kind: 'pullRequest', target: target })) {
+				this.detailsPanelEl?.cancelPrSheet(target);
+			}
+			return true;
+		}
+
+		if (outcome === 'failed') {
+			this.detailsPanelEl?.cancelPrSheet(target);
+			return false;
+		}
+
+		this.detailsPanelEl?.resolvePrSheet(target, outcome);
+		return true;
+	}
+
+	/** Opens the pull request sheet for `target`. When the pull request is already in the sidebar's
+	 *  loaded panel data, opens once with its final content — no loading flash. Otherwise opens at once
+	 *  in a loading state via {@link openPrSheetResolving} and fills it in once `findPullRequest` (and,
+	 *  for a stacked pull request, the stack's layers) resolves. Returns whether a sheet ended up open,
+	 *  so a caller with a fallback (e.g. opening the pull request on the remote) knows when resolution
+	 *  came up empty. */
+	private async resolveAndOpenPrSheet(target: PullRequestSheetTarget, push: boolean): Promise<boolean> {
 		const token = ++this._prSheetResolveToken;
+		this._prSheetResolveTargetKey = sheetKey({ kind: 'pullRequest', target: target });
 
 		if ('stackNumber' in target) {
 			return this.resolveAndOpenStackSheet(target.stackNumber, push, token);
 		}
 
 		const number = target.number;
-		let data = this._sidebarActions?.state.panels.pullRequests.value.get();
-		let pr = data?.panel === 'pullRequests' ? data.items.find(p => p.number === number) : undefined;
+		const data = this._sidebarActions?.state.panels.pullRequests.value.get();
+		const pr = data?.panel === 'pullRequests' ? data.items.find(p => p.number === number) : undefined;
 
-		if (pr == null) {
-			pr = await this._sidebarActions?.findPullRequest(number);
-			// Superseded by a newer resolve call — that call owns success/fallback, not this one.
-			if (token !== this._prSheetResolveToken) return true;
-		}
-
-		if (pr == null) return false;
-
-		let layers: GraphSidebarPullRequest[] | undefined;
-
-		if (pr.stack != null) {
-			const resolved = await this.ensurePullRequestsPanelData(data, token);
-			// Superseded by a newer resolve call, not a failed one — that call owns whether a sheet (or
-			// the url fallback) opens, so this one reports success to avoid a second, stale fallback.
-			if (resolved === 'stale') return true;
-
-			data = resolved;
-			if (data?.panel === 'pullRequests') {
-				// Built directly rather than through `groupPullRequestsByStack`: `pr` may have been
-				// resolved via `findPullRequest` rather than found in the panel's own list (a searched
-				// pull request, or one paged off the list), so the grouping's own member set can be
-				// missing the very pull request the sheet is opening for.
-				const stackNumber = pr.stack.number;
-				const prNumber = pr.number;
-				const members = data.items.filter(p => p.stack?.number === stackNumber);
-				const index = members.findIndex(p => p.number === prNumber);
-				if (index === -1) {
-					members.push(pr);
-				} else {
-					members[index] = pr;
-				}
-				members.sort((a, b) => (b.stack?.position ?? 0) - (a.stack?.position ?? 0));
-
-				layers = members.length >= 2 ? members : undefined;
-			}
-		}
-
-		void this.withDetailsPanel(panel => panel.openPrSheet(pr, layers, { push: push }), 'request-mode');
-		return true;
-	}
-
-	/** Opens the stack-root summary sheet for `stackNumber` — the top layer's own sheet with every
-	 *  layer's data alongside it. Requires the full member set (no paged-off gaps): a partial load falls
-	 *  back to the top loaded member's own (non-root) sheet rather than summarizing an incomplete stack. */
-	private async resolveAndOpenStackSheet(stackNumber: number, push: boolean, token: number): Promise<boolean> {
-		const data = await this.ensurePullRequestsPanelData(
-			this._sidebarActions?.state.panels.pullRequests.value.get(),
-			token,
-		);
-		// Superseded by a newer resolve call — that call owns success/fallback, not this one.
-		if (data === 'stale') return true;
-
-		const entry =
-			data?.panel === 'pullRequests'
-				? groupPullRequestsByStack(data.items).find(e => e.kind === 'stack' && e.number === stackNumber)
-				: undefined;
-		if (entry?.kind !== 'stack') return false;
-
-		const members = entry.members;
-		if (members.length === 0) return false;
-
-		const top = members[0];
-		if (members.length !== entry.size) {
-			void this.withDetailsPanel(panel => panel.openPrSheet(top, members, { push: push }), 'request-mode');
+		if (pr != null) {
+			void this.withDetailsPanel(
+				panel => panel.openPrSheet(target, { pr: pr, layers: this.buildStackLayers(data, pr) }, { push: push }),
+				'request-mode',
+			);
 			return true;
 		}
 
-		void this.withDetailsPanel(
-			panel => panel.openPrSheet(top, members, { push: push, stackRoot: true }),
-			'request-mode',
-		);
-		return true;
+		return this.openPrSheetResolving(target, push, async () => {
+			const found = await this._sidebarActions?.findPullRequest(number);
+			// Superseded by a newer resolve call — that call owns success/fallback, not this one.
+			if (token !== this._prSheetResolveToken) return 'stale';
+			if (found == null) return 'failed';
+
+			let layers: GraphSidebarPullRequest[] | undefined;
+			if (found.stack != null) {
+				const resolved = await this.ensurePullRequestsPanelData(data, token);
+				if (resolved === 'stale') return 'stale';
+
+				layers = this.buildStackLayers(resolved, found);
+			}
+
+			return { pr: found, layers: layers };
+		});
+	}
+
+	/** Opens the stack-root summary sheet for `stackNumber` — the top layer's own sheet with every
+	 *  layer's data alongside it. When the panel data is already loaded, opens synchronously in one step
+	 *  — no loading form. Requires the full member set (no paged-off gaps): a partial load falls back to
+	 *  the top loaded member's own (non-root) sheet rather than summarizing an incomplete stack. */
+	private async resolveAndOpenStackSheet(stackNumber: number, push: boolean, token: number): Promise<boolean> {
+		const target: PullRequestSheetTarget = { stackNumber: stackNumber };
+		const loaded = this._sidebarActions?.state.panels.pullRequests.value.get();
+
+		if (loaded?.panel === 'pullRequests') {
+			const entry = groupPullRequestsByStack(loaded.items).find(
+				e => e.kind === 'stack' && e.number === stackNumber,
+			);
+			if (entry?.kind !== 'stack' || entry.members.length === 0) return false;
+
+			const members = entry.members;
+			const top = members[0];
+			void this.withDetailsPanel(
+				panel =>
+					panel.openPrSheet(
+						target,
+						{ pr: top, layers: members, stackRoot: members.length === entry.size },
+						{ push: push },
+					),
+				'request-mode',
+			);
+			return true;
+		}
+
+		return this.openPrSheetResolving(target, push, async () => {
+			const resolved = await this.ensurePullRequestsPanelData(loaded, token);
+			// Superseded by a newer resolve call — that call owns success/fallback, not this one.
+			if (resolved === 'stale') return 'stale';
+
+			const entry =
+				resolved?.panel === 'pullRequests'
+					? groupPullRequestsByStack(resolved.items).find(e => e.kind === 'stack' && e.number === stackNumber)
+					: undefined;
+			if (entry?.kind !== 'stack' || entry.members.length === 0) return 'failed';
+
+			const members = entry.members;
+			const top = members[0];
+			return { pr: top, layers: members, stackRoot: members.length === entry.size };
+		});
 	}
 
 	private handleShowPrSheet = (

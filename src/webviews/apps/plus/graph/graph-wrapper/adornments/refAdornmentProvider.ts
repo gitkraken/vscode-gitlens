@@ -418,7 +418,7 @@ function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean
 			// rather than as a pill with something appended to it.
 			pr.stack != null
 				? html`<span class="gl-graph__ref-pill-stack" aria-hidden="true"
-						>${pr.stack.position}/${pr.stack.size}</span
+						><code-icon icon="layers"></code-icon>${pr.stack.position}/${pr.stack.size}</span
 					>`
 				: nothing
 		}
