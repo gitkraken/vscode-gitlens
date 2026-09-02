@@ -113,23 +113,24 @@ provider before calling the token backend; never reuse an id discovered under a 
 Every read returns `ProviderResult<T>` (`items` + `warnings` + `fetchFailed?`), and every paged read extends
 it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side failure** — see §6.
 
-| Method                       | Returns                   | Scope                                                                                 |
-| ---------------------------- | ------------------------- | ------------------------------------------------------------------------------------- |
-| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups; issue-tracker resources (Jira sites, …).                  |
-| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                           |
-| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.       |
-| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                 |
-| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.    |
-| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                       |
-| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                              |
-| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.     |
-| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                           |
-| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                        |
-| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                     |
-| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                |
-| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out: list the org's repos, then read their issues unfiltered by assignee. |
-| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).          |
-| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                      |
+| Method                       | Returns                   | Scope                                                                                |
+| ---------------------------- | ------------------------- | ------------------------------------------------------------------------------------ |
+| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups; issue-tracker resources (Jira sites, …).                 |
+| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                          |
+| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.      |
+| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                |
+| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.   |
+| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                      |
+| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                             |
+| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.    |
+| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                          |
+| `getIssuesBatch`             | `IssueBatchResult`        | Resolves N `(owner, repo, number)` coordinates in one request; an absence is proven. |
+| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                       |
+| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                    |
+| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                               |
+| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                     |
+| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).         |
+| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                     |
 
 A provider that cannot serve a surface says so explicitly — a warning explaining that the operation is
 unsupported plus `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
@@ -523,8 +524,9 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
-| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
-| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |  ✓   |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✗   |   ✗    |   ✗    |
@@ -604,12 +606,14 @@ free text have no equivalent on either.
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
   `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
 
-**`broadenIssues` vs `searchIssuesPage`.** If you already know your repository set, prefer
-`searchIssuesPage({ repos })`: `broadenIssues` has to discover each org's repositories first (a paged drain)
-and then reads their issues through the SDK path with the recovery walk, so it costs strictly more for the
-same answer. It remains the read for "fan out across these orgs, whatever repos they turn out to contain",
-with per-provider attribution (`broadenedProviderIds` / `failedProviderIds` / `incompleteProviderIds`) that
-the single-provider search doesn't produce.
+**`broadenIssues` vs `searchIssuesPage`.** `broadenIssues` now reads each org through the org-scoped
+filtered search where the provider declares one (GitHub/GHE), so it no longer discovers repositories first
+and no longer routes through the SDK read's recovery walk — one request per page, per org. A provider with
+no filtered search (Azure DevOps, GitLab) still takes the repository drain, since refusing the org would be
+worse. It remains the read for "fan out across these orgs, whatever repos they turn out to contain", with
+per-provider attribution (`broadenedProviderIds` / `failedProviderIds` / `incompleteProviderIds`) that the
+single-provider search doesn't produce; reach for `searchIssuesPage` when you want ONE scope with an order
+you control.
 
 If you do migrate: broaden means **all visible** — it drops the assignee constraint entirely, so unassigned
 issues are included. The equivalent is therefore an **omitted** `relationships`, **not**
