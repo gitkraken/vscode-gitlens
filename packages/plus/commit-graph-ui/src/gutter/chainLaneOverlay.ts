@@ -16,6 +16,12 @@ export type ChainLaneGeometry = {
 	readonly rowHeight: number;
 	readonly columnWidth: number;
 	readonly nodeSizingMode: 'compact' | 'avatar';
+	/** Display-row index → unit position (the row's top, in `rowHeight` multiples). Rows promoted to
+	 *  their own ref line span 2 units, so `index * rowHeight` is NOT a row's top once any promoted row
+	 *  sits above it — the same conversion the virtualizer layout uses. */
+	readonly unitPosOf: (index: number) => number;
+	/** Display-row index → the 0-based unit within the row's span its commit dot centers on. */
+	readonly dataUnitOf: (index: number) => number;
 };
 
 /**
@@ -206,16 +212,19 @@ export class ChainLaneOverlayController implements ReactiveController {
 	// elbow's border-centering math has room to be commented properly.
 	private buildBox(run: ChainLaneRun, geometry: ChainLaneGeometry): ChainLaneBox {
 		const rowHeight = geometry.rowHeight;
-		const top = (run.startIndex + 0.5) * rowHeight; // the tip dot's center
+		// Every y goes through the unit index, never `index * rowHeight` — see `ChainLaneGeometry`.
+		const dotCenterY = (index: number) =>
+			(geometry.unitPosOf(index) + geometry.dataUnitOf(index) + 0.5) * rowHeight;
+		const top = dotCenterY(run.startIndex); // the tip dot's center
 		const x = xForColumn(run.column, geometry.columnWidth);
 		const color = colorForColumn(run.column);
 		// Default: the rule ends at the last chained row's dot center (matches the pre-extension geometry).
-		let ruleHeight = (run.endIndex - run.startIndex) * rowHeight;
+		let ruleHeight = dotCenterY(run.endIndex) - top;
 
 		if (run.extension?.kind === 'clamp') {
 			// No elbow — the engine's own art doesn't lead anywhere further, so neither does the rule. Just
 			// a taller vertical stub, reaching the TOP of the row where continuity broke.
-			ruleHeight = run.extension.clampIndex * rowHeight - top;
+			ruleHeight = geometry.unitPosOf(run.extension.clampIndex) * rowHeight - top;
 		}
 
 		if (run.extension?.kind !== 'fork') {
@@ -236,7 +245,7 @@ export class ChainLaneOverlayController implements ReactiveController {
 		const halfBorderPx = 1;
 		const left = direction === 'left' ? forkX + inset : x - halfBorderPx;
 		const right = direction === 'left' ? x + halfBorderPx : forkX - inset;
-		const elbowHeight = (forkIndex - run.endIndex) * rowHeight; // ends at the fork row's dot center
+		const elbowHeight = dotCenterY(forkIndex) - (top + ruleHeight); // ends at the fork row's dot center
 
 		return {
 			top: top,

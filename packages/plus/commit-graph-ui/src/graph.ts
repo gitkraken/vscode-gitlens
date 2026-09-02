@@ -2649,7 +2649,13 @@ export class GlCommitGraph extends LitElement {
 			activeChain != null && this.graphPlacement !== 'hidden' && !this.singleColumn ? activeChain : undefined,
 			rows,
 			this.indexBySha,
-			{ rowHeight: this.rowHeight, columnWidth: this.columnWidth, nodeSizingMode: this.nodeSizingMode },
+			{
+				rowHeight: this.rowHeight,
+				columnWidth: this.columnWidth,
+				nodeSizingMode: this.nodeSizingMode,
+				unitPosOf: index => this._rowUnits.unitPosOf(index),
+				dataUnitOf: index => dataUnitForRow(this._rowUnits.unitsOf(index)),
+			},
 		);
 		this.style.setProperty('--graph-hscroll-thumb', `${thumb}px`);
 		this.style.setProperty('--graph-hscroll-left', `${graphHScrollLeftPx(this.graphScrollX, max, travel)}px`);
