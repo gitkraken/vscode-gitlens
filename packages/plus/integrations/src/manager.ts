@@ -17,6 +17,7 @@ import type {
 } from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
+import type { TrackerIssueResult } from './reads/trackerIssue.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -589,6 +590,27 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>>;
+	/**
+	 * Resolves one issue-tracker issue by key within a resource — the tracker counterpart of
+	 * {@link getIssuesBatch}, which cannot serve one.
+	 *
+	 * `issue: undefined` is a proven absence and may be cached. A failed read returns no item and sets
+	 * `fetchFailed`. `resourceId` is required and trusted; Jira also requires the resource's site URL so the result
+	 * retains its browser link. The read performs no resource discovery.
+	 *
+	 * Jira and Linear only. Trello refuses: its single-issue read falls back to a capped board scan for a numeric
+	 * identifier, so it cannot prove absence.
+	 */
+	getTrackerIssue(options: {
+		providerId: IntegrationIds;
+		/** Provider resource ID for the Atlassian site or Linear workspace. */
+		resourceId: string;
+		/** Jira site URL from resource discovery. Required for Jira so the result retains a browser link. */
+		resourceUrl?: string;
+		/** The provider's own key, e.g. `ABC-123`. Not a number. */
+		key: string;
+		connectionId?: string;
+	}): Promise<ProviderResult<TrackerIssueResult>>;
 	/**
 	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
 	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,

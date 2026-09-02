@@ -433,30 +433,35 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return result && fromProviderIssue(result, this);
 	}
 
+	protected override async getProviderIssueByResourceId(
+		session: ProviderAuthenticationSession,
+		resourceId: string,
+		id: string,
+		_resourceUrl: string | undefined,
+	): Promise<Issue | undefined> {
+		const api = await this.getProvidersApi();
+		const result = await api.getIssue(toTokenWithInfo(this.id, session), {
+			resourceId: resourceId,
+			number: id,
+		});
+		return result && fromProviderIssue(result, this);
+	}
+
 	private async getRawProviderIssue(
 		session: ProviderAuthenticationSession,
 		resource: ResourceDescriptor,
 		id: string,
 	): Promise<ProviderIssue | undefined> {
 		const api = await this.getProvidersApi();
-		try {
-			if (!isIssueResourceDescriptor(resource)) {
-				Logger.error(undefined, 'getProviderIssue: resource is not an IssueResourceDescriptor');
-				return undefined;
-			}
-
-			const result = await api.getIssue(toTokenWithInfo(this.id, session), {
-				resourceId: resource.id,
-				number: id,
-			});
-
-			if (result == null) return undefined;
-
-			return result;
-		} catch (ex) {
-			Logger.error(ex, 'getProviderIssue');
+		if (!isIssueResourceDescriptor(resource)) {
+			Logger.error(undefined, 'getProviderIssue: resource is not an IssueResourceDescriptor');
 			return undefined;
 		}
+
+		return api.getIssue(toTokenWithInfo(this.id, session), {
+			resourceId: resource.id,
+			number: id,
+		});
 	}
 	private getIssueAutolinkLikeUrl(issue: ProviderIssue): string | null {
 		const url = issue.url;

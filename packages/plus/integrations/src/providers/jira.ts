@@ -516,6 +516,22 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
+	protected override async getProviderIssueByResourceId(
+		session: ProviderAuthenticationSession,
+		resourceId: string,
+		id: string,
+		resourceUrl: string | undefined,
+	): Promise<Issue | undefined> {
+		if (resourceUrl == null) {
+			throw new Error('Jira direct issue reads require a resource URL');
+		}
+
+		const api = await this.getProvidersApi();
+		const apiResult = await api.getJiraIssueByKey(toTokenWithInfo(this.id, session), resourceId, resourceUrl, id);
+		const issue = apiResult != null ? toIssueShape(apiResult, this, { reliableStateCategory: true }) : undefined;
+		return issue != null ? { ...issue, type: 'issue' } : undefined;
+	}
+
 	protected override async providerOnConnect(): Promise<void> {
 		this._autolinks = undefined;
 		if (this._session == null) return;

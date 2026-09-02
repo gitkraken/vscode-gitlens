@@ -132,12 +132,12 @@ export class CacheProvider implements Disposable {
 			const cacheController = new CacheController();
 			const { value, expiresAt } = cacheable(cacheController);
 			const setResult = this.set<T>(cache, key, value, etag, expiresAt, options?.expireOnError);
-			void setResult?.promise?.finally(() => {
-				if (cacheController.invalidated) {
+			void setResult.promise?.finally(() => {
+				if (cacheController.invalidated && setResult.isCurrent()) {
 					this.delete(cache, key);
 				}
 			});
-			return setResult?.item.value as CacheResult<CacheValue<T>>;
+			return setResult.item.value as CacheResult<CacheValue<T>>;
 		}
 
 		return item.value as CacheResult<CacheValue<T>>;
@@ -191,25 +191,27 @@ export class CacheProvider implements Disposable {
 		resource: ResourceDescriptor,
 		integration: IntegrationBase | undefined,
 		cacheable: Cacheable<Issue>,
-		options?: ExpiryOptions,
+		options?: ExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Issue> {
+		const { connectionId, etag: etagOverride, ...cacheOptions } = options ?? {};
 		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
+		const connectionKey = connectionId ? `:${connectionId}` : '';
 
 		if (resource == null) {
 			return this.get(
 				'issuesById',
-				`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}`,
-				etag,
+				`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}${connectionKey}`,
+				etagOverride ?? etag,
 				cacheable,
-				options,
+				cacheOptions,
 			);
 		}
 		return this.get(
 			'issuesByIdAndResource',
-			`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}`,
-			etag,
+			`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}${connectionKey}`,
+			etagOverride ?? etag,
 			cacheable,
-			options,
+			cacheOptions,
 		);
 	}
 
@@ -329,18 +331,28 @@ export class CacheProvider implements Disposable {
 		etag: string | undefined,
 		expiresAt?: number,
 		expireOnError?: boolean,
-	): { item: Cached<CacheResult<CacheValue<T>>>; promise: undefined | Promise<void> } {
+	): {
+		item: Cached<CacheResult<CacheValue<T>>>;
+		promise: undefined | Promise<void>;
+		isCurrent: () => boolean;
+	} {
+		const cacheKey = `${cache}:${key}` as const;
 		let item: Cached<CacheResult<CacheValue<T>>>;
 		let promise: undefined | Promise<void>;
+		const isCurrent = (): boolean => this._cache.get(cacheKey) === item;
 		if (isPromise(value)) {
 			promise = value.then(v => {
-				if (this._cache.get(`${cache}:${key}`)?.value === value) {
-					this.set(cache, key, v, etag, expiresAt, expireOnError);
+				if (isCurrent()) {
+					item = this.set(cache, key, v, etag, expiresAt, expireOnError).item;
 				}
 			});
 			promise = promise.catch(
 				expireOnError !== false
-					? () => this.delete(cache, key)
+					? () => {
+							if (isCurrent()) {
+								this.delete(cache, key);
+							}
+						}
 					: () => {
 							// catch error and do nothing,
 							// This is to make the behaviour consistent and independent from the `expireOnError` option,
@@ -360,8 +372,8 @@ export class CacheProvider implements Disposable {
 			};
 		}
 
-		this._cache.set(`${cache}:${key}`, item);
-		return { item: item, promise: promise };
+		this._cache.set(cacheKey, item);
+		return { item: item, promise: promise, isCurrent: isCurrent };
 	}
 
 	private wrapPullRequestCacheable(
