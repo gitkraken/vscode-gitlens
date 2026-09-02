@@ -97,6 +97,12 @@ export interface OverviewBarJumpDetail {
 export interface OverviewBarFocusDetail {
 	branchId: string;
 	branch: string;
+	/** The focused pill's worktree path (`OverviewBarItem.repoPath`) — lets the handler stamp a
+	 *  worktree scope origin for a SECONDARY pill without re-resolving it. */
+	repoPath: string;
+	/** Whether the focused pill is the graph's own (primary) worktree — a primary focus stays a plain
+	 *  branch scope (the graph is already bound there); only a secondary rebinds the graph. */
+	isPrimary: boolean;
 }
 
 @customElement('gl-graph-overview-bar')
@@ -154,7 +160,12 @@ export class GlGraphOverviewBar extends LitElement {
 		e.stopPropagation();
 		this.dispatchEvent(
 			new CustomEvent<OverviewBarFocusDetail>('gl-graph-overview-bar-focus', {
-				detail: { branchId: item.branchId, branch: item.branch },
+				detail: {
+					branchId: item.branchId,
+					branch: item.branch,
+					repoPath: item.repoPath,
+					isPrimary: item.isPrimary === true,
+				},
 				bubbles: true,
 				composed: true,
 			}),

@@ -2994,6 +2994,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'scope.hasMergeTarget': boolean,
   // Whether the scoped branch has a tracked upstream resolved at the time of the scope change
   'scope.hasUpstream': boolean,
+  // Whether the scope was reached through a worktree gesture (Scope to Worktree), rather than a plain branch, pull request, or stack focus
+  'scope.isWorktree': boolean,
   // Where the user initiated the scope change
   'source': 'sidebar' | 'popover' | 'overview-card' | 'wip-row'
 }
@@ -3086,6 +3088,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.config.details.location': 'auto' | 'right' | 'bottom',
   'context.config.details.maximizeOnMode': boolean,
   'context.config.dimMergeCommits': boolean,
+  'context.config.doubleClickWorktreeAction': 'scope' | 'focus',
   'context.config.editorOpeningBehavior': 'active' | 'auto',
   'context.config.experimental.kanban.enabled': boolean,
   'context.config.experimental.visualizations.activityDecay': '30s' | '1m' | '2m' | '5m' | '10m' | '30m',
@@ -3114,6 +3117,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.config.refs.layout': 'inline' | 'stacked',
   'context.config.refs.maxInline': number | 'auto',
   'context.config.refs.maxStacked': number | 'auto',
+  'context.config.scopeBehavior': 'scope' | 'scopeAndFocus',
   'context.config.scrollMarkers.additionalTypes': string,
   'context.config.scrollMarkers.enabled': boolean,
   'context.config.scrollRowPadding': number,
@@ -4158,7 +4162,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'fetch' | 'pull' | 'push' | 'openWorktree' | 'openWorktreeInNewWindow' | 'delete' | 'rename' | 'rebaseOntoUpstream' | 'reset' | 'publish' | 'setUpstream' | 'changeUpstream' | 'revealInExplorer' | 'openInTerminal' | 'copyWorkingChanges',
+  'action': 'fetch' | 'pull' | 'push' | 'openWorktree' | 'openWorktreeInNewWindow' | 'delete' | 'rename' | 'rebaseOntoUpstream' | 'reset' | 'publish' | 'setUpstream' | 'changeUpstream' | 'revealInExplorer' | 'openInTerminal' | 'copyWorkingChanges' | 'scopeToWorktree',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,

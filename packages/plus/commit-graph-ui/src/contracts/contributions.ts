@@ -18,9 +18,18 @@ export interface GraphRowAction {
 	readonly status?: string | TemplateResult;
 }
 
-/** Product hook for a working-changes row's native context-menu payload. */
+/** Product hook for a working-changes row's native context-menu payload. `hasBranch` is false for a
+ *  detached-HEAD worktree, whose row has no branch for branch-scoped menu items to act on; the surface
+ *  can't derive it (per-worktree branch state belongs to the product), so it comes from the surface's
+ *  `wipRowHasBranch` hook and defaults to true when the product supplies none. */
 export type GraphWipRowContextResolver = (
 	worktreePath: string,
 	secondary: boolean,
 	hasConflicts: boolean,
+	hasBranch: boolean,
 ) => string | undefined;
+
+/** Product hook answering whether a working-changes row's worktree has a branch — see
+ *  {@link GraphWipRowContextResolver}. Per-row (not a static profile value) because it changes as the
+ *  product's worktree state does. */
+export type GraphWipRowBranchResolver = (rowId: string) => boolean;

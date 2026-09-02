@@ -224,16 +224,27 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					icon = 'layers';
 					label = `Stack #${origin.number}`;
 					tooltip = `Showing Stack #${origin.number} of ${origin.size} Pull Requests Only`;
+				} else if (origin?.kind === 'worktree') {
+					// The chip label is always the focused BRANCH — the worktree identity lives on the
+					// header's branch pill. The `gl-worktree` icon is kept anyway as a hint that this focus
+					// was reached via a worktree gesture.
+					icon = 'gl-worktree';
+					label = scopedName ?? 'Focused';
+					tooltip = `Showing ${scopedName ?? 'Focused Branch'} Only`;
 				} else {
 					icon = 'target';
-					label = scopedName ?? 'Scoped';
-					tooltip = `Showing ${scopedName ?? 'Specific Branch'} Only`;
+					label = scopedName ?? 'Focused';
+					tooltip = `Showing ${scopedName ?? 'Focused Branch'} Only`;
 				}
 				break;
 			}
 		}
 
 		const filtered = this.isFiltered;
+		// Scope and focus are independent states, each with its own unconditional active color: this chip
+		// renders its ordinary full-yellow `mode-chip--scoped` regardless of `worktreePerspective`. The
+		// whole-titlebar tint's row-level suppression in `header.css.ts` is unrelated — that's background
+		// surface compositing, not this chip.
 		const scoped = mode === 'scoped';
 
 		return html`<gl-popover
@@ -327,6 +338,12 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const stashesShown = !(excludeTypes?.stashes ?? false);
 		const tagsShown = !(excludeTypes?.tags ?? false);
 
+		// Deep-links straight to the two worktree-scope settings — same
+		// `command:workbench.action.openSettings` recipe as the fetch popover's gear.
+		const scopeSettingsLink = `command:workbench.action.openSettings?${encodeURIComponent(
+			'"@id:gitlens.graph.scopeBehavior @id:gitlens.graph.doubleClickWorktreeAction"',
+		)}`;
+
 		return html`<div class="mode-popover__section-header">
 				<span class="mode-popover__section-title">Graph Options</span>
 				${when(
@@ -371,6 +388,16 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 						@click=${this.handleToggleTags}
 					>
 						<code-icon icon="tag"></code-icon>
+					</gl-button>
+				</gl-tooltip>
+				<gl-tooltip placement="top" content="Worktree Scope Settings...">
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						href=${scopeSettingsLink}
+						aria-label="Worktree Scope Settings..."
+					>
+						<code-icon icon="gear"></code-icon>
 					</gl-button>
 				</gl-tooltip>
 			</div>
@@ -433,8 +460,11 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	private renderFocusBranchRow(currentMode: string) {
 		// A scope reached through a pull request or a stack belongs to the row below: it still resolves to a
 		// branch, but naming that branch here would mark two rows as the live scope and leave the user to
-		// work out which one they actually picked.
-		const isCurrent = currentMode === 'scoped' && this.graphState.scope?.origin == null;
+		// work out which one they actually picked. A WORKTREE origin is not one of those — it has no row of
+		// its own in this menu (the worktree identity lives in the header's branch pill), and what it
+		// produced IS an ordinary branch focus, so it belongs here, named by its branch.
+		const branchOrigin = this.graphState.scope?.origin;
+		const isCurrent = currentMode === 'scoped' && (branchOrigin == null || branchOrigin.kind === 'worktree');
 		const scopedName = isCurrent ? this.graphState.scope?.branchName : undefined;
 		const expanded = this._focusBranchExpanded;
 
@@ -491,12 +521,16 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const expanded = this._focusPrExpanded;
 
 		// A stack is more pull requests than it is branches, so its readout belongs on this row rather than
-		// the branch one — even though the scope it produces focuses a branch like any other.
+		// the branch one — even though the scope it produces focuses a branch like any other. Matched on
+		// the two kinds this row actually represents, NOT on `origin != null`: a worktree-origin focus
+		// belongs to the branch row, and marking this one current for it would claim the user had focused
+		// a pull request they never picked.
 		const origin = this.graphState.scope?.origin;
+		const isCurrent = origin?.kind === 'pullRequest' || origin?.kind === 'stack';
 
 		return html`<menu-item
 				class="mode-menu-item mode-menu-item--focus ${
-					origin != null ? 'mode-menu-item--current' : ''
+					isCurrent ? 'mode-menu-item--current' : ''
 				} ${expanded ? 'mode-menu-item--expanded' : ''}"
 				aria-expanded=${expanded ? 'true' : 'false'}
 				@click=${this.handleFocusPrRowClick}

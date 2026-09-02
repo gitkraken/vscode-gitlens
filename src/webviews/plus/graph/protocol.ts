@@ -429,7 +429,8 @@ export interface GraphOverviewData {
  */
 export type GraphScopeOrigin =
 	| { kind: 'pullRequest'; number: string }
-	| { kind: 'stack'; number: number; size: number };
+	| { kind: 'stack'; number: number; size: number }
+	| { kind: 'worktree'; path: string };
 
 export interface GraphScope {
 	branchName: string;
@@ -479,6 +480,16 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  commit reachable from another worktree" with no git at all — see `DetailsActions.fetchDetails`. */
 	worktreeBranches?: string[];
 	selectedRepository?: string;
+	/**
+	 * Path of the repository the graph calls HOME — the binding it returns to on an unscope. Equals the
+	 * bound repo's own path whenever the graph isn't rebound.
+	 *
+	 * Not derivable client-side, and deliberately NOT the repo FAMILY (always the main checkout): a window
+	 * opened ON a worktree has that worktree as its home, and the family's main checkout is then an ordinary
+	 * scope target that must produce a real scoped state. Travels on the full state, which every rebind and
+	 * repo switch pushes, so it can't go stale.
+	 */
+	homeRepositoryPath?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;
 	/** `detached` is carried alongside the reference because `GitBranchReference` can't express it and
@@ -775,7 +786,12 @@ export interface GraphRowsSplice {
 	lastReusedSha: string;
 }
 
-export type GraphRepository = RepositoryShape;
+export type GraphRepository = RepositoryShape & {
+	/** Set ONLY on the bound-but-not-open repository the host appends to the picker list — a worktree the
+	 *  graph was rebound onto that the user never opened. It's a switch TARGET but not an open repository,
+	 *  so anything counting open repositories must exclude it. Absent for every genuinely open entry. */
+	closed?: boolean;
+};
 
 export type GraphAutoFetchMode = 'off' | 'vscode' | 'gitlens';
 
@@ -793,6 +809,10 @@ export interface GraphComponentConfig {
 	detailsLocation?: 'auto' | 'right' | 'bottom';
 	detailsMaximizeOnMode?: boolean;
 	dimMergeCommits?: boolean;
+	/** Double-clicking a secondary worktree (WIP row, overview bar pill, sidebar row) — `'scope'`
+	 *  re-perspectives the graph onto it; `'focus'` is the classic branch-focus toggle. Backed by
+	 *  `gitlens.graph.doubleClickWorktreeAction`. */
+	doubleClickWorktreeAction?: 'scope' | 'focus';
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalKanbanEnabled?: boolean;
 	experimentalVisualizationsEnabled?: boolean;
@@ -873,6 +893,9 @@ export interface GraphComponentConfig {
 	overviewBarVisibility?: GraphOverviewBarVisibility;
 	/** Whether the ref finder closes when it loses focus. Backed by `gitlens.graph.refFindAutoHide`. */
 	refFindAutoHide?: boolean;
+	/** What "Scope to Worktree" composes — `'scopeAndFocus'` also focuses the worktree's branch;
+	 *  `'scope'` only re-perspectives HEAD-derived state. Backed by `gitlens.graph.scopeBehavior`. */
+	scopeBehavior?: 'scope' | 'scopeAndFocus';
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
 	searchAutocompleteOnFocus?: boolean;
@@ -998,6 +1021,31 @@ export interface DidResolveGraphScopeParams {
 	 *  as a fallback so consumers reading `scope.mergeBase` etc. don't crash. */
 	error?: string;
 }
+
+/** Why the host refused a rebind — the webview reads this to decide between reverting loudly and
+ *  reverting quietly:
+ *  - `unavailable`: nothing to rebind onto — no recorded home, or an unresolvable or cross-family target.
+ *  - `superseded`: a newer request, a repo switch, or a panel dispose overtook this one, and the one
+ *    refusal reported silently: the user is already looking at what the newer writer put there. The host
+ *    may still have undone its OWN optimistic writes before returning this; the invariant is that neither
+ *    side overwrites a NEWER writer, not that nothing was touched.
+ *  - `failed`: the rebind walk threw (the host restored its previous binding). */
+export type GraphRebindRefusalReason = 'unavailable' | 'superseded' | 'failed';
+
+/** The settled result of a graph rebind (`GraphScopeService.rebind`) — it never rejects for a domain
+ *  reason, so every refusal is expressed here (mirrors {@link DidLoadRowParams}'s shape). On success the
+ *  session's window is re-perspectived onto `repoPath` without discarding accumulated state. */
+export type DidRebindGraphParams =
+	| {
+			readonly repoPath: string; // now-bound path
+			readonly previousRepoPath: string; // path before this rebind
+			readonly refused?: undefined;
+	  }
+	| {
+			readonly repoPath?: undefined;
+			readonly previousRepoPath?: undefined;
+			readonly refused: GraphRebindRefusalReason;
+	  };
 
 /** The settled result of a targeted row load (`GraphRowsService.loadRow`) — it never rejects for a
  *  domain reason, so every "the jump didn't land" case is expressed here. */

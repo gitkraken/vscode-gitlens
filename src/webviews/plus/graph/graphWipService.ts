@@ -117,6 +117,9 @@ export class GraphWipService {
 
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _pendingWorktreeChanges?: Parameters<typeof getWorktreeHasWorkingChanges>[1][];
+	/** Last DEFINITE clean/dirty verdict per worktree path, so a sidebar refetch can stamp the bit onto its
+	 *  rows instead of blanking them until the next probe lands. */
+	private readonly _lastWorktreeChanges = new Map<string, SidebarWorktreeChange>();
 
 	/** Per-secondary-WIP filesystem watchers, keyed by the worktree's synthetic WIP row id. */
 	private readonly _wipWatches = new Map<string, Disposable>();
@@ -512,6 +515,11 @@ export class GraphWipService {
 		void this.notifyDidChangeWorkingTree();
 	}
 
+	/** The last verdict this service probed for `path`, or `undefined` when it has never had one. */
+	getLastWorktreeChange(path: string): SidebarWorktreeChange | undefined {
+		return this._lastWorktreeChanges.get(path);
+	}
+
 	computeWorktreeChanges(worktrees: Parameters<typeof getWorktreeHasWorkingChanges>[1][]): void {
 		if (this._computeWorktreeChangesPromise != null) {
 			this._pendingWorktreeChanges = worktrees;
@@ -543,7 +551,10 @@ export class GraphWipService {
 				Array.from({ length: Math.min(probeConcurrency, targets.length) }, async () => {
 					while (nextTarget < targets.length) {
 						const w = targets[nextTarget++];
-						const path = w.uri.fsPath;
+						// Must match the `uri` key `graphPanelsService` stamps on the worktree row (normalized
+						// `w.path`), which is what the webview's `sidebarState` looks the change up by — NOT
+						// `w.uri.fsPath`, which disagrees with `w.path` on Windows (`C:\...` vs `c:/...`).
+						const path = w.path;
 
 						// Per-iteration, so one worktree's failure can't kill this worker and silently strand
 						// the rest of its share of `targets` (the outer allSettled only covers the workers).
@@ -564,8 +575,21 @@ export class GraphWipService {
 				}),
 			);
 			const changes: Record<string, SidebarWorktreeChange | undefined> = {};
+			const probed = new Set<string>();
 			for (const [path, entry] of entries) {
 				changes[path] = entry;
+				probed.add(path);
+				// An `undefined` entry is "unknown", not "clean" — keep the last verdict rather than
+				// downgrading the row to no pill at all.
+				if (entry != null) {
+					this._lastWorktreeChanges.set(path, entry);
+				}
+			}
+
+			for (const path of this._lastWorktreeChanges.keys()) {
+				if (!probed.has(path)) {
+					this._lastWorktreeChanges.delete(path);
+				}
 			}
 
 			this.context.fireSidebarWorktreeChanges(changes);
@@ -1258,7 +1282,11 @@ export class GraphWipService {
 			conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: `gitlens:wip${isSecondaryWorktree ? '+worktree' : ''}${status.hasConflicts ? '+hasConflicts' : ''}`,
+				// `+branch` mirrors the graph rows' `buildWipContext`: gates the Scope to Worktree / Focus on
+				// Branch kebab items off for a detached-HEAD worktree. The `detached` half is load-bearing: a
+				// detached HEAD's `getBranch()` still resolves (`status.branch` is normalized to the same
+				// synthetic `(sha…)` name the branch model carries), so a null check alone passes.
+				webviewItem: `gitlens:wip${isSecondaryWorktree ? '+worktree' : ''}${status.hasConflicts ? '+hasConflicts' : ''}${branch != null && !branch.detached ? '+branch' : ''}`,
 				webviewItemValue: {
 					type: 'commit',
 					ref: this.context.getRevisionReference(repo.path, uncommitted, 'workdir')!,
@@ -1427,6 +1455,7 @@ export class GraphWipService {
 		this._lastSentWipDraftsInitialized = false;
 		this._lastSentWipNotificationParams = undefined;
 		this._lastFiredWorkingTreeChange = undefined;
+		this._lastWorktreeChanges.clear();
 		this._wipEverServed = false;
 		// Revisions are per-repo, so the outgoing repo's out-of-band high-water can't fence the incoming one's pushes.
 		this._lastOutOfBandWipRevision = undefined;

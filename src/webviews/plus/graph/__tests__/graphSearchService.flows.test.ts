@@ -668,14 +668,14 @@ suite('GraphSearchService flows', () => {
 });
 
 suite('GraphSearchService search history', () => {
-	test('recreates the history instance for the current repo on every access instead of sticking to the first repo used', async () => {
+	test('recreates the history instance for the current filters-repo-path on every access instead of sticking to the first one used', async () => {
 		const harness = createSearchHarness();
 
 		await harness.rpc.storeHistory({ query: 'foo' });
 
 		assert.strictEqual(harness.storage.storeWorkspace.firstCall.args[0], 'graph:searchHistory:/repo');
 
-		harness.setRepositoryPath('/repoB');
+		harness.setFiltersRepoPath('/repoB');
 
 		await harness.rpc.storeHistory({ query: 'bar' });
 
@@ -691,11 +691,32 @@ suite('GraphSearchService search history', () => {
 		assert.strictEqual(repoBResponse.history.length, 1);
 		assert.strictEqual(repoBResponse.history[0].query, 'bar');
 
-		harness.setRepositoryPath('/repo');
+		harness.setFiltersRepoPath('/repo');
 
 		const repoAResponse = await harness.rpc.getHistory();
 
 		assert.strictEqual(repoAResponse.history.length, 1);
 		assert.strictEqual(repoAResponse.history[0].query, 'foo');
+	});
+
+	test('stays on the family-home bucket while only the live (scoped) repo path changes', async () => {
+		// Search history is keyed on `getFiltersRepoPath()` (the family home), same as filters/perspective
+		// persistence — a worktree scope must not fork it, since `getRepository()` reads the REBOUND
+		// worktree while scoped.
+		const harness = createSearchHarness();
+
+		await harness.rpc.storeHistory({ query: 'foo' });
+		assert.strictEqual(harness.storage.storeWorkspace.firstCall.args[0], 'graph:searchHistory:/repo');
+
+		harness.setRepositoryPath('/repoB');
+
+		await harness.rpc.storeHistory({ query: 'bar' });
+
+		const lastStoreCall = harness.storage.storeWorkspace.lastCall;
+		assert.strictEqual(lastStoreCall.args[0], 'graph:searchHistory:/repo');
+		const storedForHome = lastStoreCall.args[1] as Array<{ query: string }>;
+		assert.strictEqual(storedForHome.length, 2);
+		assert.strictEqual(storedForHome[0].query, 'bar');
+		assert.strictEqual(storedForHome[1].query, 'foo');
 	});
 });

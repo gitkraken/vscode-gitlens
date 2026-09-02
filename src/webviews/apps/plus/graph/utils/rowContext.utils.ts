@@ -179,15 +179,22 @@ export function serializeRowAvatarContext(row: RowContextSource, repoPath: strin
  * worktree's path and the synthetic `uncommitted` ref, so the webview can build it for any WIP row it
  * renders, no host-serialized blob required. `+worktree` marks a secondary (non-selected) worktree's WIP
  * row; `+hasConflicts` marks a WIP with a paused merge/rebase that has conflicts — it gates the
- * Resolve Conflicts context-menu item so it only appears when there's something to resolve.
+ * Resolve Conflicts context-menu item so it only appears when there's something to resolve; `+branch`
+ * marks a row that HAS a branch to scope/focus onto — absent for a detached-HEAD worktree, which gates
+ * the Scope to Worktree / Focus on Branch context-menu items off, the same way the dblclick gesture
+ * silently no-ops for those rows.
+ *
+ * `hasBranch` is deliberately required rather than defaulted: a `true` default silently claims a branch
+ * for every detached-HEAD worktree in any caller that forgets to pass it.
  */
 function buildWipContext(
 	worktreePath: string,
 	secondary: boolean,
 	hasConflicts: boolean,
+	hasBranch: boolean,
 ): GraphItemTypedContext<GraphCommitContextValue> {
 	return {
-		webviewItem: `gitlens:wip${secondary ? '+worktree' : ''}${hasConflicts ? '+hasConflicts' : ''}`,
+		webviewItem: `gitlens:wip${secondary ? '+worktree' : ''}${hasConflicts ? '+hasConflicts' : ''}${hasBranch ? '+branch' : ''}`,
 		webviewItemValue: {
 			type: 'commit',
 			ref: createReference(uncommitted, worktreePath, { refType: 'revision' }),
@@ -197,8 +204,13 @@ function buildWipContext(
 }
 
 /** Serializes the WIP-row context to the string the `data-vscode-context` DOM attribute carries. */
-export function serializeWipContext(worktreePath: string, secondary: boolean, hasConflicts: boolean): string {
-	return serializeWebviewItemContext(buildWipContext(worktreePath, secondary, hasConflicts));
+export function serializeWipContext(
+	worktreePath: string,
+	secondary: boolean,
+	hasConflicts: boolean,
+	hasBranch: boolean,
+): string {
+	return serializeWebviewItemContext(buildWipContext(worktreePath, secondary, hasConflicts, hasBranch));
 }
 
 /** True when every row is reachable from exactly one local branch AND they all agree on that same

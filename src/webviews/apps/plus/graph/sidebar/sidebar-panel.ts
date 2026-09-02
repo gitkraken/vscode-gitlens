@@ -75,6 +75,7 @@ import {
 	getLaunchpadItemGroup,
 	getLaunchpadItemGrouping,
 } from '../utils/overviewActions.utils.js';
+import { applyWorktreeGestureOutcome, isHomeWorktree, resolveWorktreeGesture } from '../utils/rebind.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import type { AgentsPanelEmptyState } from './agentsEmptyState.utils.js';
 import { resolveAgentsEmptyState } from './agentsEmptyState.utils.js';
@@ -82,6 +83,7 @@ import type { FocusRefActionArgs } from './branchActions.utils.js';
 import {
 	branchTreeIcon,
 	createFocusRefAction,
+	createWorktreeScopeAction,
 	focusRefActionId,
 	getBranchLeafActions,
 	isHiddenByRemoteWebviewItem,
@@ -735,11 +737,15 @@ would expose the graph through fade or at the gap left by the translate). */
 	private readonly _ai?: AIContextState;
 
 	/** Memo for `buildTreeModel`. Renders fire on every filter/expansion change, so without this
-	 *  the tree model is rebuilt for an unchanged `data` reference. Reset on key change. */
+	 *  the tree model is rebuilt for an unchanged `data` reference. Reset on key change — which includes
+	 *  the live worktree perspective, since the worktrees panel paints the scoped row from it (see
+	 *  `renderTreeContent`, where it's read outside this cache). */
 	private _treeModelCache?: {
 		data: DidGetSidebarDataParams;
 		dateFormat: string | null | undefined;
 		searchedPr: GraphSidebarPullRequest | undefined;
+		scopedWorktreePath: string | undefined;
+		homeRepositoryPath: string | undefined;
 		model: TreeModel<SidebarItemContext>[];
 	};
 
@@ -1386,6 +1392,15 @@ would expose the graph through fade or at the gap left by the translate). */
 		error?: string,
 		emptyText?: string,
 	): unknown {
+		// Read UNCONDITIONALLY, ahead of the memo: `buildTreeModel` derives the scoped row's marker and its
+		// "Unscope Worktree" label from this, so a cache HIT would never read the signal — leaving
+		// `SignalWatcher` unsubscribed from it and the memo blind to the change. A REFUSED scope/unscope
+		// moves the perspective with no sidebar refetch behind it, so the row would keep the old state.
+		const scopedWorktreePath = this._state.worktreePerspective?.path;
+		// Same trap: `buildTreeModel` bakes `isHome` into each worktree row's scope-action payload, and the
+		// signal can land after the first sidebar data with no refetch behind it (cold open).
+		const homeRepositoryPath = this._state.homeRepositoryPath;
+
 		let model: TreeModel<SidebarItemContext>[];
 		if (data == null) {
 			model = emptyTreeModel;
@@ -1394,7 +1409,9 @@ would expose the graph through fade or at the gap left by the translate). */
 			if (
 				cache?.data === data &&
 				cache.dateFormat === this.dateFormat &&
-				cache.searchedPr === this.prSearchResult
+				cache.searchedPr === this.prSearchResult &&
+				cache.scopedWorktreePath === scopedWorktreePath &&
+				cache.homeRepositoryPath === homeRepositoryPath
 			) {
 				model = cache.model;
 			} else {
@@ -1403,6 +1420,8 @@ would expose the graph through fade or at the gap left by the translate). */
 					data: data,
 					dateFormat: this.dateFormat,
 					searchedPr: this.prSearchResult,
+					scopedWorktreePath: scopedWorktreePath,
+					homeRepositoryPath: homeRepositoryPath,
 					model: model,
 				};
 			}
@@ -1931,6 +1950,9 @@ would expose the graph through fade or at the gap left by the translate). */
 
 	private toWorktreeLeaf(w: GraphSidebarWorktree, isTree: boolean): LeafProps {
 		const branchName = w.branch ?? w.name;
+		// Whether the Commit Graph is CURRENTLY perspectived onto this exact worktree — same comparison
+		// `focusRef` uses to detect a live perspective to close.
+		const isScoped = this._state.worktreePerspective?.path === w.uri;
 
 		const actions: TreeItemAction[] = [];
 		if (w.tracking?.behind) {
@@ -1966,15 +1988,25 @@ would expose the graph through fade or at the gap left by the translate). */
 			});
 		}
 
-		// Always last, same as the branch and remote-branch leaves. A bare or detached worktree has
-		// no branch to focus.
+		// Always last, same as the branch and remote-branch leaves. A bare or detached worktree has no
+		// branch to focus. ONE dual-verb action: main click Scopes to the worktree (+ focuses per
+		// `graph.scopeBehavior`), Alt+click is the ordinary branch Focus — the same alt-affordance pattern
+		// as the tracking action above. The row's own double-click picks between them per
+		// `graph.doubleClickWorktreeAction` (see `handleTreeItemSelected`).
 		if (w.branch != null) {
-			actions.push(createFocusRefAction('Focus on Worktree', { branchName: w.branch, upstreamName: w.upstream }));
+			actions.push(
+				createWorktreeScopeAction({
+					branchName: w.branch,
+					upstreamName: w.upstream,
+					worktreePath: w.uri,
+					isHome: isHomeWorktree(w.uri, this._state.homeRepositoryPath),
+					isScoped: isScoped,
+				}),
+			);
 		}
 
-		// Place the WIP pill before the tracking arrows so the row reads `[wip][↑↓][active][lock]`,
-		// matching the overview card's left-to-right ordering. Bare worktrees never have a working
-		// tree of their own (`hasChanges` stays undefined) and stay pill-less.
+		// The clean/dirty pill, anchored RIGHT-MOST in the decoration run — see the `decorations` array
+		// below for the order. Bare worktrees have no working tree of their own and stay pill-less.
 		// Clean/dirty only — the badge renders a pencil/check from `hasChanges` and draws no numbers. The
 		// breakdown lives in the row tooltip, fetched on hover.
 		const wipDecoration: TreeItemDecoration[] =
@@ -2011,12 +2043,34 @@ would expose the graph through fade or at the gap left by the translate). */
 			icon: w.branch != null ? { type: 'branch', status: w.status, hasChanges: w.hasChanges } : 'git-commit',
 			description: formatWorktreeDescription(w),
 			context: sidebarItemContext(w.wipSha, { name: branchName }),
+			// Trailing decorations, left to right: [scope] [lock] [pinned] [active] [↑↓] [clean/dirty].
+			// Array order IS the rendered order — every entry lands in the `decorations-after` slot.
+			// The clean/dirty pill is the one marker essentially every row carries, so anchoring it
+			// RIGHT-MOST keeps it column-aligned down the panel, while the markers that come and go per row
+			// (scope, lock) sit at the LEFT where their absence shifts nothing. Do NOT move the pill to the
+			// front or the scope marker to `'before'`.
 			decorations: [
-				...wipDecoration,
-				...(trackingDecorations(w.tracking) ?? []),
+				// Marks the row the graph is currently scoped to, reusing the graph header's scoped-yellow
+				// vocabulary. Left-most of the two per-row state markers: it's the one the user is actively
+				// toggling, so it reads as this row's live state rather than a property.
+				...(isScoped
+					? [
+							{
+								type: 'icon' as const,
+								// Same `gl-scope` glyph the Scope ACTION uses (`createWorktreeScopeAction`), so
+								// the state and the verb that produced it read as one thing.
+								icon: 'gl-scope',
+								label: 'Scoped',
+								kind: 'scoped' as const,
+								position: 'after' as const,
+							},
+						]
+					: []),
+				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked', muted: true }] : []),
 				...(w.pinned ? [pinnedToEdgeDecoration] : []),
 				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active', muted: true }] : []),
-				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked', muted: true }] : []),
+				...(trackingDecorations(w.tracking) ?? []),
+				...wipDecoration,
 			],
 			actions: actions,
 			// `+working` is appended client-side once the async hasChanges check resolves —
@@ -2740,11 +2794,13 @@ would expose the graph through fade or at the gap left by the translate). */
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
 
-		// Focus is view state, not a host command — handle it here, before the per-panel action
+		// Focus/Scope are view state, not a host command — handle here, before the per-panel action
 		// telemetry (which resolves command ids against the sidebar action tables and would find
-		// nothing to map). Scope changes report themselves via `graph/scope/changed|cleared`.
-		if (action.action === focusRefActionId) {
-			this.focusRef(action.arguments?.[0] as FocusRefActionArgs | undefined);
+		// nothing to map). `focusRef` emits its own telemetry for the worktree-scope case; a plain
+		// branch focus reports itself via `graph/scope/changed|cleared`.
+		const isFocusRefGesture = useAlt ? action.altAction === focusRefActionId : action.action === focusRefActionId;
+		if (isFocusRefGesture) {
+			this.focusRef(args?.[0] as FocusRefActionArgs | undefined, 'inline');
 			return;
 		}
 
@@ -2757,28 +2813,57 @@ would expose the graph through fade or at the gap left by the translate). */
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
 	}
 
-	/** Focuses (scopes) the graph onto the action's branch, or unfocuses when that branch is already
-	 *  the live scope. Mirrors the header's jump-to-ref button: a scope on any OTHER branch retargets
-	 *  rather than clearing. Identity by `branchRef` — the one scope field the anchor resolver never
-	 *  rewrites, and the only one that separates a local branch from a same-named remote one. */
-	private focusRef(args: FocusRefActionArgs | undefined): void {
+	/**
+	 * Focuses (scopes) the graph onto the action's branch, or unfocuses when that branch is already
+	 * the live scope. Mirrors the header's jump-to-ref button: a scope on any OTHER branch retargets
+	 * rather than clearing. Identity by `branchRef` — the one scope field the anchor resolver never
+	 * rewrites, and the only one that separates a local branch from a same-named remote one.
+	 *
+	 * Doubles as the worktree row's "Scope to Worktree" handler when `args.origin.kind === 'worktree'`:
+	 * sets the PERSPECTIVE synchronously, reports the scope-in gesture via `graph/worktrees/worktreeAction`
+	 * telemetry, then focuses the branch too only when `graph.scopeBehavior` is `'scopeAndFocus'`. Only the
+	 * scope-IN direction is reported, matching the tree-item table's "this action ran" semantics — an
+	 * un-scope isn't a new invocation of the Scope action.
+	 *
+	 * The toggle-off exit identifies the row by `args.worktreePath`, present on BOTH dual-verb payloads,
+	 * but only the SCOPE verb may act on a live perspective — which is why `args.verb` is threaded through
+	 * rather than inferred from `args.origin`. See `resolveWorktreeGesture`'s `perspectiveExit`.
+	 *
+	 * `location` is threaded from the caller rather than assumed: `'inline'` for both the button click and
+	 * the row's own double-click, since neither is the host's right-click context menu.
+	 */
+	private focusRef(args: FocusRefActionArgs | undefined, location: 'inline' | 'contextMenu'): void {
 		if (args == null) return;
 
 		// Same repo-path resolution the scope path itself uses (`scopeToBranchByName`), so the ref
 		// built here matches the one already published on the scope.
 		const repoPath = getSelectedRepoPath(this._state);
-		const scope = this._state.scope;
-		// Same target means same ORIGIN too — focusing a stack over its plain-focused base (or vice versa)
-		// is a re-focus that changes the scope's shape, not a toggle of the same one.
-		const sameOrigin = scope?.origin?.kind === args.origin?.kind && scope?.origin?.number === args.origin?.number;
-		if (
-			repoPath != null &&
-			sameOrigin &&
-			scope?.branchRef === getBranchId(repoPath, args.remote ?? false, args.branchName)
-		) {
-			this._state.clearScope();
-			return;
+		// No `targetRowId`: a sidebar click is not a gesture ON a graph row, so the rebind must not yank the
+		// user's viewport — see `GraphApp.followRowAfterRebind` for the other side of that distinction.
+		const outcome = resolveWorktreeGesture({
+			branchRef: repoPath != null ? getBranchId(repoPath, args.remote ?? false, args.branchName) : undefined,
+			origin: args.origin,
+			// Which of the row's dual verbs was clicked (main vs Alt) — only Scope may close a live
+			// perspective here; an explicit "Focus on Branch" is focus-only.
+			verb: args.verb,
+			worktreePath: args.worktreePath,
+			scope: this._state.scope,
+			perspectivePath: this._state.worktreePerspective?.path,
+			homeRepositoryPath: this._state.homeRepositoryPath,
+			scopeBehaviorIncludesFocus: this._state.config?.scopeBehavior !== 'scope',
+		});
+
+		if (outcome.perspective === 'set' && outcome.perspectivePath != null) {
+			emitTelemetrySentEvent(this, {
+				name: 'graph/worktrees/worktreeAction',
+				data: { action: 'scopeToWorktree', alt: false, location: location },
+			});
 		}
+		// Set SYNCHRONOUSLY, before the focus dispatch below — the header tint + pill must reflect the
+		// worktree instantly, not after the dispatched event's anchor IPC settles.
+		applyWorktreeGestureOutcome(this._state, outcome, args.branchName);
+
+		if (!outcome.focus) return;
 
 		this.dispatchEvent(
 			new CustomEvent<
@@ -2788,7 +2873,9 @@ would expose the graph through fade or at the gap left by the translate). */
 					origin?: FocusRefActionArgs['origin'];
 				}
 			>('gl-graph-scope-to-branch', {
-				detail: { ...args, source: 'sidebar' },
+				// `outcome.origin`, not `args.origin` — a go-home gesture drops it so the focus that
+				// follows is genuinely plain (no worktree toggle identity for a later focus to mismatch).
+				detail: { ...args, origin: outcome.origin, source: 'sidebar' },
 				bubbles: true,
 				composed: true,
 			}),
@@ -2807,7 +2894,13 @@ would expose the graph through fade or at the gap left by the translate). */
 			const node = e.detail.node as TreeModelFlat | undefined;
 			const focus = node?.actions?.find(a => a.action === focusRefActionId);
 			if (focus != null) {
-				this.focusRef(focus.arguments?.[0] as FocusRefActionArgs | undefined);
+				// Only a worktree row's dual-verb action carries an ALT payload (plain branch Focus), so an
+				// ordinary branch row falls through to the primary payload regardless of the setting.
+				const useAlt = this._state.config?.doubleClickWorktreeAction === 'focus' && focus.altArguments != null;
+				this.focusRef(
+					(useAlt ? focus.altArguments : focus.arguments)?.[0] as FocusRefActionArgs | undefined,
+					'inline',
+				);
 			}
 
 			return;

@@ -67,7 +67,7 @@ import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnri
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GraphServices } from './graphService.js';
 import { markSidebarInlineInvocation } from './graphSidebarActionTelemetry.js';
-import { buildBranchContextSuffix, buildPullRequestContextSuffix } from './graphWebview.utils.js';
+import { buildBranchContextSuffix, buildPullRequestContextSuffix, restampFilterRefId } from './graphWebview.utils.js';
 import type {
 	DidGetSidebarDataParams,
 	GetOverviewParams,
@@ -86,13 +86,17 @@ import type {
 	GraphSidebarWorktree,
 	GraphStashContextValue,
 	GraphTagContextValue,
+	SidebarWorktreeChange,
 } from './protocol.js';
 import { sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
- *  live provider state; `getPinnedRefId`/`getExcludedRefsByRepo`/`fetchWipStatus`/`computeWorktreeChanges`
- *  forward into provider-owned filter storage and the WIP service's caches (kept there); `fireSidebarInvalidated`
+ *  live provider state; `getPinnedRefId`/`getExcludedRefsByRepo` read the provider's stored filters through
+ *  its home-aware key — `getPinnedRefId` returns its id already re-stamped onto the LIVE path passed to it,
+ *  while `getExcludedRefsByRepo` returns raw ids every caller here re-stamps (see `restampFilterRefId`);
+ *  `fetchWipStatus`/
+ *  `computeWorktreeChanges` forward into the WIP service's caches (kept there); `fireSidebarInvalidated`
  *  fires the provider's `sidebarInvalidated` RPC event (that transport stays wired in `getRpcServices`). */
 export type GraphPanelsServiceContext = {
 	container: Container;
@@ -100,10 +104,11 @@ export type GraphPanelsServiceContext = {
 	getRepository: () => GlRepository | undefined;
 	getSession: () => GitGraphSession | undefined;
 	getLoading: () => Promise<GitGraph> | undefined;
-	getPinnedRefId: (repoPath: string | undefined) => string | undefined;
-	getExcludedRefsByRepo: (repoPath: string | undefined) => Record<string, StoredGraphExcludedRef> | undefined;
+	getPinnedRefId: (livePath: string) => string | undefined;
+	getExcludedRefsByRepo: () => Record<string, StoredGraphExcludedRef> | undefined;
 	fetchWipStatus: (path: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
 	computeWorktreeChanges: (worktrees: GitWorktree[]) => void;
+	getLastWorktreeChange: (path: string) => SidebarWorktreeChange | undefined;
 	fireSidebarInvalidated: () => void;
 };
 
@@ -496,9 +501,10 @@ export class GraphPanelsService {
 	 *  exempted from that hide — the wildcard's `except`, empty when none). Sidebar rows bake these into
 	 *  their `webviewItem` token as `+hidden`/`+hiddenbyremote` — see `getSidebarBranches`,
 	 *  `getSidebarRemotes`, `getSidebarTags`. `+hiddenbyremote` is baked in ONLY for a branch that isn't
-	 *  exempted; the remote header row itself keeps `+hidden` regardless of exceptions. */
-	private getHiddenRefState(repoPath: string): { hiddenIds: Set<string>; hiddenRemotes: Map<string, Set<string>> } {
-		const storedExcludeRefs = this.context.getExcludedRefsByRepo(repoPath);
+	 *  exempted; the remote header row itself keeps `+hidden` regardless of exceptions. Every returned id is
+	 *  re-stamped onto `livePath`, since the bucket read is home-keyed — see {@link restampFilterRefId}. */
+	private getHiddenRefState(livePath: string): { hiddenIds: Set<string>; hiddenRemotes: Map<string, Set<string>> } {
+		const storedExcludeRefs = this.context.getExcludedRefsByRepo();
 		const hiddenIds = new Set<string>();
 		const hiddenRemotes = new Map<string, Set<string>>();
 		if (storedExcludeRefs != null) {
@@ -506,10 +512,13 @@ export class GraphPanelsService {
 				const stored = storedExcludeRefs[id];
 				if (stored.type === 'remote' && stored.name === '*') {
 					if (stored.owner) {
-						hiddenRemotes.set(stored.owner, new Set(stored.except));
+						hiddenRemotes.set(
+							stored.owner,
+							new Set(stored.except?.map(exceptId => restampFilterRefId(exceptId, livePath))),
+						);
 					}
 				} else {
-					hiddenIds.add(stored.id);
+					hiddenIds.add(restampFilterRefId(stored.id, livePath));
 				}
 			}
 		}
@@ -1614,7 +1623,10 @@ export class GraphPanelsService {
 									remote: false,
 									upstream: w.branch.upstream,
 								}),
-								worktreePath: w.uri.fsPath,
+								// `w.path` (normalized), NOT `w.uri.fsPath` (raw, backslashed on Windows) — this
+								// round-trips as a `GraphScopeOrigin.path`/rebind `worktreePath` and must
+								// compare byte-for-byte equal against `RepositoryShape.path`, also normalized.
+								worktreePath: w.path,
 							},
 						}
 					: w.sha != null
@@ -1629,20 +1641,23 @@ export class GraphPanelsService {
 										name: w.sha,
 										message: '',
 									}),
-									worktreePath: w.uri.fsPath,
+									worktreePath: w.path,
 								},
 							}
 						: undefined;
 
 			return {
 				name: w.name,
-				uri: w.uri.fsPath,
+				// Normalized, for the same reason as `worktreePath` above.
+				uri: w.path,
 				branch: w.branch?.name,
 				sha: w.sha,
 				isDefault: w.isDefault,
 				locked: w.locked !== false,
 				opened: w.workspaceFolder != null,
 				wipSha: wipSha,
+				// Last known verdict; the probe fired below re-pushes and corrects it.
+				hasChanges: this.context.getLastWorktreeChange(w.path)?.hasChanges,
 				status: w.branch?.status,
 				upstream: w.branch?.upstream?.name,
 				tracking: w.branch?.upstream?.state,

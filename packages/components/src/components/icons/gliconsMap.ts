@@ -95,4 +95,5 @@ export const iconMap: Readonly<Record<string, string>> = Object.freeze({
 	'radio-unchecked': '\\f157',
 	'provider-trello': '\\f158',
 	'provider-opencode': '\\f159',
+	scope: '\\f15a',
 });

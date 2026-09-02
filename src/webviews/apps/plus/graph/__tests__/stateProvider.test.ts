@@ -6,6 +6,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type {
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
+	GraphRebindRefusalReason,
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -17,6 +18,7 @@ import type {
 } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
 import type { AppState } from '../context.js';
+import type { ResolvedScopeAnchor } from '../stateProvider.js';
 import {
 	applyScopeAnchorPatch,
 	countLoadedSearchResults,
@@ -393,7 +395,12 @@ suite('mergeWipState', () => {
 });
 
 function wipRow(label: string, parentSha: string, branchRef?: string): GraphWipRow {
-	return { repoPath: `/repos/${label}`, parentSha: parentSha, label: label, branchRef: branchRef };
+	return {
+		repoPath: `/repos/${label}`,
+		parentSha: parentSha,
+		label: label,
+		branchRef: branchRef,
+	};
 }
 
 /** Minimal `OverviewBranch` stand-in — only the tracking state participates in `mergeWipRows`'s deep
@@ -1553,5 +1560,871 @@ suite('GraphStateProvider pendingScopeToBranch cancellation', () => {
 		proto.deferScopeClear.call(t);
 
 		assert.strictEqual(t.pendingScopeToBranch, false);
+	});
+});
+
+suite('GraphStateProvider clearScope — cancels an in-flight pick even with nothing published yet', () => {
+	// Pins the pill-✕-mid-resolve race: a worktree gesture's anchor IPC can still be resolving (no
+	// `this.scope` published yet) when the user asks for a full exit. Before this fix, `clearScope`
+	// early-returned on `this.scope == null` WITHOUT cancelling `_pendingScope`, so
+	// `publishResolvedScope` would install the scope moments later — after the user already left.
+	const proto = GraphStateProvider.prototype;
+	const protoUnsafe = proto as unknown as {
+		publishResolvedScope: (this: GraphStateProvider, scope: GraphScope, anchor: undefined) => void;
+	};
+
+	function priv(t: GraphStateProvider): Record<string, unknown> {
+		return t as unknown as Record<string, unknown>;
+	}
+
+	function createFakeThis(): GraphStateProvider {
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = false;
+		return fake;
+	}
+
+	test('cancels a pending scope pick with no published scope and no host/telemetry call', () => {
+		const t = createFakeThis();
+		priv(t)._pendingScope = { branchRef: '/wt|heads/feature', branchName: 'feature' } satisfies GraphScope;
+		t.scopeLoading = true;
+		// No `host` stub seeded — if `clearScope` incorrectly reached the telemetry emission (it must
+		// only fire when a PUBLISHED scope is actually cleared), calling `.dispatchEvent` on `undefined`
+		// would throw and fail this test.
+
+		proto.clearScope.call(t);
+
+		assert.strictEqual(priv(t)._pendingScope, undefined, 'the in-flight pick must be cancelled');
+		assert.strictEqual(t.scopeLoading, false);
+	});
+
+	test('a scope that resolves AFTER clearScope no longer publishes (publishResolvedScope bails on the stale pick)', () => {
+		const t = createFakeThis();
+		const scope = { branchRef: '/wt|heads/feature', branchName: 'feature' } satisfies GraphScope;
+		priv(t)._pendingScope = scope;
+
+		proto.clearScope.call(t);
+		// Simulates the anchor IPC landing after the user already asked to leave.
+		protoUnsafe.publishResolvedScope.call(t, scope, undefined);
+
+		assert.strictEqual(t.scope, undefined, 'a superseded resolve must not publish');
+	});
+});
+
+suite('GraphStateProvider — worktreePerspective derives from the host binding', () => {
+	const proto = GraphStateProvider.prototype;
+	const protoUnsafe = proto as unknown as {
+		updateState: (this: GraphStateProvider, partial: Partial<State>, silent?: boolean) => void;
+	};
+
+	function priv(t: GraphStateProvider): Record<string, unknown> {
+		return t as unknown as Record<string, unknown>;
+	}
+
+	function makeRepo(id: string, path: string, commonPath?: string): NonNullable<State['repositories']>[number] {
+		return { id: id, name: id, path: path, commonPath: commonPath, uri: `file://${path}`, virtual: false };
+	}
+
+	const home = makeRepo('/home', '/home');
+	const worktree = makeRepo('/wt', '/wt', '/home');
+
+	function createFakeThis(): GraphStateProvider {
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = false;
+		fake.repositories = undefined;
+		fake.selectedRepository = undefined;
+		fake.homeRepositoryPath = undefined;
+		fake.branch = undefined;
+		priv(fake)._pendingPerspective = undefined;
+		priv(fake)._wips = { pin: () => {}, unpin: () => {} };
+		priv(fake).options = {};
+		priv(fake).fireProviderUpdate = () => {};
+		priv(fake)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+		return fake;
+	}
+
+	// The whole point of the derivation: nothing has to remember that a rebind happened. A reload, a
+	// soft-reconnect with a stale bootstrap, or a host-initiated rebind all arrive as the same push, and
+	// the chrome reads its scoped-ness straight out of it.
+	test('a push binding a non-home worktree reads as scoped, with the pushed branch name', () => {
+		const t = createFakeThis();
+
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, worktree],
+			selectedRepository: worktree.id,
+			homeRepositoryPath: home.path,
+			branch: { name: 'feature' } as unknown as State['branch'],
+		});
+
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt', branchName: 'feature' });
+	});
+
+	test('a push binding home reads as unscoped', () => {
+		const t = createFakeThis();
+
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, worktree],
+			selectedRepository: home.id,
+			homeRepositoryPath: home.path,
+		});
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+	});
+
+	test('an unknown home reads as unscoped — nothing to compare the binding against yet', () => {
+		const t = createFakeThis();
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+	});
+
+	// Home is `homeRepositoryPath` — the worktree the window was opened on — NOT the family's main
+	// checkout (see `State.homeRepositoryPath`/`isHomeWorktree`), so scoping such a window to the main
+	// checkout is an ordinary worktree scope and must read as scoped.
+	test('window homed ON a worktree: binding the MAIN checkout reads as scoped', () => {
+		const t = createFakeThis();
+
+		protoUnsafe.updateState.call(t, {
+			repositories: [worktree, home],
+			selectedRepository: home.id,
+			homeRepositoryPath: worktree.path,
+		});
+
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/home', branchName: undefined });
+	});
+
+	// The host's home repo was closed or removed while the graph was rebound onto `/wt`, so it dropped its
+	// restore target and pushed `homeRepositoryPath: '/wt'`. That worktree IS home now, and there is no
+	// unscope that could ever succeed — so the tint, the pill and the ✕ have to go quiet on their own.
+	test('home MOVING onto the bound worktree reads as unscoped, with the selection standing still', () => {
+		const t = createFakeThis();
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, worktree],
+			selectedRepository: worktree.id,
+			homeRepositoryPath: home.path,
+		});
+		assert.notStrictEqual(t.worktreePerspective, undefined);
+
+		protoUnsafe.updateState.call(t, { homeRepositoryPath: '/wt' });
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+	});
+});
+
+suite('GraphStateProvider — worktree perspective rebind side-channel', () => {
+	const proto = GraphStateProvider.prototype;
+	const protoUnsafe = proto as unknown as {
+		updateState: (this: GraphStateProvider, partial: Partial<State>, silent?: boolean) => void;
+	};
+
+	function priv(t: GraphStateProvider): Record<string, unknown> {
+		return t as unknown as Record<string, unknown>;
+	}
+
+	function makeRepo(id: string, path: string, commonPath?: string): NonNullable<State['repositories']>[number] {
+		return { id: id, name: id, path: path, commonPath: commonPath, uri: `file://${path}`, virtual: false };
+	}
+
+	const home = makeRepo('/home', '/home');
+	const worktreeA = makeRepo('/wt-a', '/wt-a', '/home');
+	const worktreeB = makeRepo('/wt-b', '/wt-b', '/home');
+
+	/** Records every `GraphScopeService.rebind` call the fake's `_scopeService` receives, and every
+	 *  `gl-graph-request-rebind-failed` message the provider dispatches for them.
+	 *
+	 *  `refused` is the host's refusal REASON — pass `undefined` for an accepted rebind. NOTE:
+	 *  deliberately NOT a defaulted-to-accepted parameter, since a default substitutes on an explicit
+	 *  `undefined` argument too, which would silently turn an intended refusal into an acceptance.
+	 *
+	 *  The fake starts bound to HOME, which is what makes `worktreePerspective` read unscoped: it is
+	 *  derived from the binding, so a test wanting a live perspective seeds one with `bindTo`. */
+	function createFakeThis(refused?: GraphRebindRefusalReason): {
+		t: GraphStateProvider;
+		rebindCalls: { worktreePath: string | undefined }[];
+		failureMessages: string[];
+	} {
+		const rebindCalls: { worktreePath: string | undefined }[] = [];
+		const failureMessages: string[] = [];
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = false;
+		fake.branch = undefined;
+		fake.repositories = [home, worktreeA, worktreeB];
+		fake.selectedRepository = home.id;
+		fake.homeRepositoryPath = home.path;
+		priv(fake)._pendingPerspective = undefined;
+		priv(fake)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+		// Reached by the tests that drive a host push through `updateState`.
+		priv(fake)._wips = { pin: () => {}, unpin: () => {} };
+		priv(fake).options = {};
+		priv(fake).fireProviderUpdate = () => {};
+		priv(fake).host = {
+			dispatchEvent: (e: CustomEvent<{ message: string }>) => {
+				if (e.type === 'gl-graph-request-rebind-failed') {
+					failureMessages.push(e.detail.message);
+				}
+				return true;
+			},
+		};
+		priv(fake).logger = { debug: () => {} };
+		// `reconcileWorktreeRebind` awaits `_servicesReady.promise` before touching `_scopeService`, the
+		// same pattern `fetchScopeAnchor` uses — an already-resolved promise here means the mock is
+		// reachable without a real RPC handshake.
+		priv(fake)._servicesReady = { promise: Promise.resolve() };
+		priv(fake)._scopeService = {
+			rebind: (params: { worktreePath: string | undefined }) => {
+				rebindCalls.push(params);
+				return Promise.resolve(
+					refused != null ? { refused: refused } : { repoPath: '/wt', previousRepoPath: '/home' },
+				);
+			},
+		};
+		return { t: fake, rebindCalls: rebindCalls, failureMessages: failureMessages };
+	}
+
+	/** Binds the fake to `repo` the way a host push would, so the derived perspective reports it. */
+	function bindTo(t: GraphStateProvider, repo: NonNullable<State['repositories']>[number], branchName?: string) {
+		t.selectedRepository = repo.id;
+		t.branch = branchName != null ? ({ name: branchName } as unknown as State['branch']) : undefined;
+	}
+
+	/** `reconcileWorktreeRebind`'s call is fire-and-forget off a `_servicesReady.promise.then(() =>
+	 *  rebind(...)).then(result => ...)` chain — the mock `rebind()` itself returns a resolved promise,
+	 *  so settling the whole chain takes more than one microtask turn. A macrotask boundary drains every
+	 *  pending microtask first, so it's used here instead of counting `.then()` hops by hand. */
+	function flush(): Promise<void> {
+		return new Promise(resolve => setTimeout(resolve, 0));
+	}
+
+	test('setWorktreePerspective fires rebind and reads scoped before any push lands', async () => {
+		const { t, rebindCalls } = createFakeThis();
+
+		proto.setWorktreePerspective.call(t, '/wt-a');
+		assert.deepStrictEqual(
+			t.worktreePerspective,
+			{ path: '/wt-a', branchName: undefined },
+			'the optimistic override renders in the same frame as the gesture',
+		);
+
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: '/wt-a' }]);
+	});
+
+	test('setWorktreePerspective carries the optimistic branch name', async () => {
+		const { t, rebindCalls } = createFakeThis();
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'feature' });
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: '/wt-a' }]);
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-a', branchName: 'feature' });
+	});
+
+	// The override outlives the RPC's own result on purpose: dropping it there would show the host's
+	// still-unconverged binding — unscoped — for the frame between the two.
+	test('an ACCEPTED rebind keeps the override until the host push converges', async () => {
+		const { t } = createFakeThis();
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'feature' });
+		await flush();
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-a', branchName: 'feature' });
+
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, worktreeA, worktreeB],
+			selectedRepository: worktreeA.id,
+			homeRepositoryPath: home.path,
+			branch: { name: 'feature' } as unknown as State['branch'],
+		});
+
+		assert.strictEqual(priv(t)._pendingPerspective, undefined, 'the push converged — the override is done');
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-a', branchName: 'feature' });
+	});
+
+	test('clearWorktreePerspective fires rebind(undefined) and reads unscoped immediately', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		bindTo(t, worktreeA, 'feature');
+
+		proto.clearWorktreePerspective.call(t);
+		assert.strictEqual(t.worktreePerspective, undefined);
+
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: undefined }]);
+	});
+
+	test('clearWorktreePerspective is a no-op when nothing is perspectived — no rebind fires', async () => {
+		const { t, rebindCalls } = createFakeThis();
+
+		proto.clearWorktreePerspective.call(t);
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+	});
+
+	test('the same worktree path is a no-op — no rebind fires', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		bindTo(t, worktreeA, 'main');
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'main' });
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+	});
+
+	test('the same worktree path still refreshes the optimistic branch name', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		bindTo(t, worktreeA, 'main');
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'feature' });
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-a', branchName: 'feature' });
+	});
+
+	test('a different worktree rebinds straight to the new path (host serializes)', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		bindTo(t, worktreeA, 'main');
+
+		proto.setWorktreePerspective.call(t, '/wt-b', { branchName: 'main' });
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: '/wt-b' }]);
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-b', branchName: 'main' });
+	});
+
+	// The refusals most likely to produce no state push at all are exactly these — so leaving the override
+	// standing would strand the titlebar tint, the ✕ and the aria announcement on a graph that isn't
+	// scoped, indefinitely. Dropping it hands the chrome back to the binding the host never left.
+	test("a SET refused as 'unavailable' drops the override and reports it", async () => {
+		const { t, rebindCalls, failureMessages } = createFakeThis('unavailable');
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'main' });
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: '/wt-a' }]);
+		assert.strictEqual(t.worktreePerspective, undefined, 'a refusal must not leave a false scope');
+		assert.strictEqual(failureMessages.length, 1, 'the user must be told the scope did not take');
+	});
+
+	test("a SET refused as 'failed' drops the override too", async () => {
+		const { t, failureMessages } = createFakeThis('failed');
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'main' });
+		await flush();
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+		assert.strictEqual(failureMessages.length, 1);
+	});
+
+	test('a rebind RPC that THROWS reverts and reports', async () => {
+		const { t } = createFakeThis();
+		const failureMessages: string[] = [];
+		priv(t).host = {
+			dispatchEvent: (e: CustomEvent<{ message: string }>) => {
+				failureMessages.push(e.detail.message);
+				return true;
+			},
+		};
+		priv(t)._scopeService = { rebind: () => Promise.reject(new Error('boom')) };
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'main' });
+		await flush();
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+		assert.strictEqual(failureMessages.length, 1);
+	});
+
+	// wt-a → wt-b refused: the host never left wt-a, so the webview must go back to showing wt-a. Falling
+	// back to "unscoped" here would desync the chrome from the host's actual binding — and it doesn't,
+	// because the fallback IS that binding rather than a remembered previous value.
+	test('a refused SET falls back to the worktree the host is still bound to, not to unscoped', async () => {
+		const { t } = createFakeThis('unavailable');
+		bindTo(t, worktreeA, 'main');
+
+		proto.setWorktreePerspective.call(t, '/wt-b', { branchName: 'feature' });
+		await flush();
+
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-a', branchName: 'main' });
+	});
+
+	// A refused CLEAR: the host still has the perspective bound, so the indicator must say so rather than
+	// claim "unscoped" while the graph is still showing the worktree.
+	test('a refused CLEAR goes back to the perspective the host still holds', async () => {
+		const { t, rebindCalls, failureMessages } = createFakeThis('unavailable');
+		bindTo(t, worktreeA, 'main');
+
+		proto.clearWorktreePerspective.call(t);
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: undefined }]);
+		assert.deepStrictEqual(
+			t.worktreePerspective,
+			{ path: '/wt-a', branchName: 'main' },
+			'the host never actually cleared it — the indicator must not claim otherwise',
+		);
+		assert.strictEqual(failureMessages.length, 1, 'and the user is told the unscope did not take');
+	});
+
+	// The pill's ✕ is a FULL exit — it clears the focus alongside the perspective — so a refusal has to
+	// put both back. Restoring only the perspective would leave the graph still bound to the worktree but
+	// stripped of the projection, a state the user never asked for and no single gesture produces.
+	test('a refused full-exit CLEAR restores the focus it cleared, not just the perspective', async () => {
+		const { t } = createFakeThis('unavailable');
+		const scope = { branchName: 'feature', branchRef: '/wt-a|heads/feature' } satisfies GraphScope;
+		bindTo(t, worktreeA, 'feature');
+		t.scope = scope;
+
+		// What `GlGraphHeader.handleUnscopeWorktree` does: hand the live scope over as the restore target,
+		// then clear it.
+		proto.clearWorktreePerspective.call(t, { restoreScopeOnRefusal: scope });
+		proto.clearScope.call(t);
+		assert.strictEqual(t.scope, undefined, 'the focus clears optimistically, same as the perspective');
+
+		await flush();
+
+		assert.deepStrictEqual(t.worktreePerspective, { path: '/wt-a', branchName: 'feature' });
+		assert.deepStrictEqual(t.scope, scope, 'a failed exit must not half-land');
+	});
+
+	test('a refused full-exit CLEAR leaves a focus taken while the RPC was in flight alone', async () => {
+		const { t } = createFakeThis('unavailable');
+		const stale = { branchName: 'feature', branchRef: '/wt-a|heads/feature' } satisfies GraphScope;
+		const newer = { branchName: 'other', branchRef: '/wt-a|heads/other' } satisfies GraphScope;
+		bindTo(t, worktreeA, 'feature');
+
+		proto.clearWorktreePerspective.call(t, { restoreScopeOnRefusal: stale });
+		t.scope = newer;
+		await flush();
+
+		assert.deepStrictEqual(t.scope, newer, 'the newer focus owns the field — a rollback must not win');
+	});
+
+	// The client-exit rule keys on a PENDING clear, so a refused one has to stop being pending — otherwise
+	// a later HOST-initiated to-home landing (recovery from an externally-deleted worktree) would read as a
+	// client exit and wrongly skip its focus clear.
+	test('a refused CLEAR stops owning the landing, so a later host-initiated one still clears the focus', async () => {
+		const { t } = createFakeThis('unavailable');
+		bindTo(t, worktreeA, 'feature');
+		t.scope = { branchName: 'feature', branchRef: '/wt-a|heads/feature' };
+
+		proto.clearWorktreePerspective.call(t);
+		await flush();
+		assert.strictEqual(priv(t)._pendingPerspective, undefined, 'the refusal released the override');
+
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, worktreeA, worktreeB],
+			selectedRepository: home.id,
+			homeRepositoryPath: home.path,
+		});
+
+		assert.strictEqual(t.scope, undefined, 'no gesture owned this exit, so the stale projection must go');
+	});
+
+	// A rebind the host abandoned because something newer won (a repo switch, a panel dispose). The
+	// override is dropped like any other refusal, but silently: the user is already looking at whatever
+	// superseded this call, and that state is the host's to report.
+	test("a refusal of 'superseded' drops the override without a toast", async () => {
+		const { t, failureMessages } = createFakeThis('superseded');
+
+		proto.setWorktreePerspective.call(t, '/wt-a', { branchName: 'main' });
+		await flush();
+
+		assert.strictEqual(t.worktreePerspective, undefined, 'the host binding is what the chrome falls back to');
+		assert.deepStrictEqual(failureMessages, [], 'the user superseded this themselves — nothing to report');
+	});
+
+	test('a refusal never clobbers a newer transition that already replaced it', async () => {
+		// wt-a is refused; by the time its promise settles a `setWorktreePerspective('/wt-b')` has already
+		// replaced the override, and that second rebind is ACCEPTED — so the only thing that could put the
+		// chrome back on wt-a is the stale refusal this guard exists to stop.
+		const rebindCalls: { worktreePath: string | undefined }[] = [];
+		const failureMessages: string[] = [];
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.branch = undefined;
+		fake.repositories = [home, worktreeA, worktreeB];
+		fake.selectedRepository = home.id;
+		fake.homeRepositoryPath = home.path;
+		priv(fake)._pendingPerspective = undefined;
+		priv(fake).host = {
+			dispatchEvent: (e: CustomEvent<{ message: string }>) => {
+				failureMessages.push(e.detail.message);
+				return true;
+			},
+		};
+		priv(fake).logger = { debug: () => {} };
+		priv(fake)._servicesReady = { promise: Promise.resolve() };
+		let callCount = 0;
+		priv(fake)._scopeService = {
+			rebind: (params: { worktreePath: string | undefined }) => {
+				callCount++;
+				rebindCalls.push(params);
+				return Promise.resolve(
+					callCount === 1
+						? { refused: 'unavailable' }
+						: { repoPath: params.worktreePath, previousRepoPath: '/home' },
+				);
+			},
+		};
+
+		proto.setWorktreePerspective.call(fake, '/wt-a', { branchName: 'main' });
+		proto.setWorktreePerspective.call(fake, '/wt-b', { branchName: 'feature' });
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, [{ worktreePath: '/wt-a' }, { worktreePath: '/wt-b' }]);
+		assert.deepStrictEqual(
+			fake.worktreePerspective,
+			{ path: '/wt-b', branchName: 'feature' },
+			'the superseding transition must win, not the stale refusal',
+		);
+		assert.deepStrictEqual(failureMessages, [], 'and a superseded attempt is never reported');
+	});
+
+	// A stale CLEAR refused after a cross-family switch used to "restore" the old worktree on top of the
+	// repo the user had just moved to, leaving the header claiming a scope on a repo that has no such
+	// worktree and no push behind it to correct the lie.
+	test('a CLEAR refused after an intervening cross-family switch leaves the new repo alone', async () => {
+		const { t } = createFakeThis('unavailable');
+		const other = makeRepo('/other', '/other');
+		bindTo(t, worktreeA, 'main');
+
+		proto.clearWorktreePerspective.call(t);
+		// Lands while the rebind RPC is still in flight.
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, other],
+			selectedRepository: other.id,
+			homeRepositoryPath: other.path,
+		});
+		assert.strictEqual(t.worktreePerspective, undefined, 'the switch bound a whole different repo');
+
+		await flush();
+
+		assert.strictEqual(
+			t.worktreePerspective,
+			undefined,
+			'the refused clear must not restore the stale worktree over the repo the user switched to',
+		);
+	});
+});
+
+suite('GraphStateProvider — scope writes no longer drive the rebind side-channel', () => {
+	// Pins the two-mode split: `setScope`/`clearScope` must never touch `_scopeService.rebind` — only
+	// `setWorktreePerspective`/`clearWorktreePerspective` do (see the suite above).
+	const proto = GraphStateProvider.prototype;
+
+	function priv(t: GraphStateProvider): Record<string, unknown> {
+		return t as unknown as Record<string, unknown>;
+	}
+
+	function createFakeThis(): { t: GraphStateProvider; rebindCalls: unknown[] } {
+		const rebindCalls: unknown[] = [];
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = false;
+		fake.branch = undefined;
+		fake.repositories = undefined;
+		fake.selectedRepository = undefined;
+		fake.homeRepositoryPath = undefined;
+		priv(fake)._pendingPerspective = undefined;
+		priv(fake)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+		priv(fake).host = { dispatchEvent: () => true };
+		priv(fake).logger = { debug: () => {} };
+		priv(fake)._servicesReady = { promise: Promise.resolve() };
+		priv(fake)._scopeService = {
+			rebind: (params: unknown) => {
+				rebindCalls.push(params);
+				return Promise.resolve({ repoPath: '/wt', previousRepoPath: '/home' });
+			},
+		};
+		return { t: fake, rebindCalls: rebindCalls };
+	}
+
+	// A macrotask boundary, not a fixed `.then()` hop count — matches the positive suite above. A
+	// vacuous `deepStrictEqual(rebindCalls, [])` from under-flushing (the chain never getting the
+	// chance to run) would pass here just as easily as a genuine "never fires" result, so this has to
+	// drain every pending microtask the same way the positive assertions rely on it to.
+	function flush(): Promise<void> {
+		return new Promise(resolve => setTimeout(resolve, 0));
+	}
+
+	test('setScope to a worktree-origin branch never fires rebind', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		priv(t)._mergeBaseCache = new Map([['/wt|heads/feature', undefined]]);
+
+		await proto.setScope.call(t, {
+			branchRef: '/wt|heads/feature',
+			branchName: 'feature',
+			origin: { kind: 'worktree', path: '/wt' },
+		} satisfies GraphScope);
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+	});
+
+	test('clearScope on a worktree-origin scope never fires rebind', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		t.scope = { branchRef: '/wt|heads/feature', branchName: 'feature', origin: { kind: 'worktree', path: '/wt' } };
+
+		proto.clearScope.call(t);
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+	});
+
+	test('a pull-request-origin scope never fires rebind either', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		t.scope = { branchRef: '/repo|heads/pr-1', branchName: 'pr-1', origin: { kind: 'pullRequest', number: '1' } };
+
+		proto.clearScope.call(t);
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+	});
+
+	test('focusing a different branch while perspectived leaves the perspective untouched and fires no rebind', async () => {
+		const { t, rebindCalls } = createFakeThis();
+		t.repositories = [
+			{ id: '/home', name: 'home', path: '/home', uri: 'file:///home', virtual: false },
+			{ id: '/wt', name: 'wt', path: '/wt', commonPath: '/home', uri: 'file:///wt', virtual: false },
+		];
+		t.selectedRepository = '/wt';
+		t.homeRepositoryPath = '/home';
+		t.branch = { name: 'main' } as unknown as State['branch'];
+		t.scope = { branchRef: '/wt|heads/main', branchName: 'main' };
+		priv(t)._mergeBaseCache = new Map([['/wt|heads/feature', undefined]]);
+
+		await proto.setScope.call(t, { branchRef: '/wt|heads/feature', branchName: 'feature' } satisfies GraphScope);
+		await flush();
+
+		assert.deepStrictEqual(rebindCalls, []);
+		assert.deepStrictEqual(
+			t.worktreePerspective,
+			{ path: '/wt', branchName: 'main' },
+			'a focus change must not move or clear an independent perspective',
+		);
+	});
+});
+
+suite('GraphStateProvider updateState — same-family rebind vs cross-family switch', () => {
+	const proto = GraphStateProvider.prototype;
+	// `updateState` is `protected` — this bare access would be a TS2445 outside the class, so the
+	// property read itself has to happen through an untyped view, not just the eventual `.call()`.
+	const protoUnsafe = proto as unknown as {
+		updateState: (this: GraphStateProvider, partial: Partial<State>, silent?: boolean) => void;
+	};
+
+	// Unlike `WIP stats supersession` above (a narrow, independent `FakeThis` object), `updateState`
+	// calls OTHER prototype methods via `this.xxx(...)` (`restampScopeStateForRebind`, `cancelPendingScope`,
+	// `clearScope`, `setScope`) — those resolve at runtime only if the fake actually inherits from
+	// `GraphStateProvider.prototype`, so this fake is a real (constructor-bypassed) instance, same
+	// approach as `pendingScopeToBranch cancellation` above. Field initializers (`_wips`, `options`,
+	// `fireProviderUpdate`) never run under `Object.create` (no constructor call), so they're seeded
+	// manually below — through `priv()`, since they (and `_pendingScope`/`_mergeBaseCache`) are private
+	// and only reachable from a differently-typed view of the same object, not through `t` itself.
+	function priv(t: GraphStateProvider): Record<string, unknown> {
+		return t as unknown as Record<string, unknown>;
+	}
+
+	function createFakeThis(): GraphStateProvider {
+		const fake = Object.create(proto) as GraphStateProvider;
+		fake.scope = undefined;
+		fake.pendingScopeToBranch = false;
+		fake.repositories = undefined;
+		fake.selectedRepository = undefined;
+		fake.homeRepositoryPath = undefined;
+		fake.branch = undefined;
+		priv(fake)._pendingPerspective = undefined;
+		priv(fake)._wips = { pin: () => {}, unpin: () => {} };
+		priv(fake).options = {};
+		priv(fake).fireProviderUpdate = () => {};
+		priv(fake)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+		return fake;
+	}
+
+	function makeRepo(id: string, path: string, commonPath?: string): NonNullable<State['repositories']>[number] {
+		return { id: id, name: id, path: path, commonPath: commonPath, uri: `file://${path}`, virtual: false };
+	}
+
+	const home = makeRepo('/home', '/home');
+	const worktree = makeRepo('/wt', '/wt', '/home');
+	const other = makeRepo('/other', '/other');
+
+	test('same-family switch re-stamps the published scope onto the new repo path', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		t.scope = {
+			branchName: 'main',
+			branchRef: '/home|heads/main',
+			upstreamRef: '/home|remotes/origin/main',
+			mergeBase: { sha: 'a'.repeat(40), date: 1 },
+		};
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		assert.deepStrictEqual(t.scope, {
+			branchName: 'main',
+			branchRef: '/wt|heads/main',
+			upstreamRef: '/wt|remotes/origin/main',
+			mergeBase: { sha: 'a'.repeat(40), date: 1 },
+		});
+	});
+
+	// A client-initiated unscope (the pill ✕, a WIP-row / pill / sidebar exit) already decided what to do
+	// with the focus at gesture time. The to-home landing must not second-guess a focus set AFTER it — a
+	// gesture that lands in the window between the exit and the host's push would otherwise be silently
+	// undone by the push (the "focus vanished after a fast double-click" race).
+	test("a focus set after the client's own unscope survives the to-home push, re-stamped onto home", () => {
+		const t = createFakeThis();
+		t.repositories = [home, worktree];
+		t.selectedRepository = worktree.id;
+		t.homeRepositoryPath = home.path;
+		priv(t).host = { dispatchEvent: () => true };
+		priv(t).logger = { debug: () => {} };
+		// The rebind RPC never settles here — the push below is what lands the exit.
+		priv(t)._servicesReady = { promise: new Promise(() => {}) };
+		priv(t).beginEnsureLoading = () => () => {};
+
+		proto.clearWorktreePerspective.call(t);
+		t.scope = { branchName: 'feature', branchRef: '/wt|heads/feature' };
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: home.id });
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+		assert.deepStrictEqual(t.scope, { branchName: 'feature', branchRef: '/home|heads/feature' });
+	});
+
+	test('a host-initiated to-home rebind (no client gesture behind it) still clears the focus', () => {
+		const t = createFakeThis();
+		t.repositories = [home, worktree];
+		t.selectedRepository = worktree.id;
+		t.homeRepositoryPath = home.path;
+		t.scope = { branchName: 'feature', branchRef: '/wt|heads/feature' };
+		priv(t).host = { dispatchEvent: () => true };
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: home.id });
+
+		assert.strictEqual(t.worktreePerspective, undefined);
+		assert.strictEqual(t.scope, undefined, 'no gesture owned this exit, so the stale projection must go');
+	});
+
+	test('same-family switch re-keys the merge-base anchor cache, leaving unrelated entries alone', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		const anchor: ResolvedScopeAnchor = {
+			mergeBase: { sha: 'a'.repeat(40), date: 1 },
+			mergeTargetTipSha: undefined,
+			focalBranchTipSha: undefined,
+		};
+		priv(t)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>([
+			['/home|heads/main', anchor],
+			// A different repo's entry the family-scoped prefix match must not touch.
+			['/unrelated|heads/main', anchor],
+		]);
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		const cache = priv(t)._mergeBaseCache as Map<string, ResolvedScopeAnchor | undefined>;
+		assert.strictEqual(cache.get('/wt|heads/main'), anchor);
+		assert.strictEqual(cache.has('/home|heads/main'), false);
+		assert.strictEqual(cache.get('/unrelated|heads/main'), anchor);
+	});
+
+	test('same-family switch re-stamps a pending scope and republishes it synchronously on a cache hit', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		const anchor: ResolvedScopeAnchor = {
+			mergeBase: { sha: 'b'.repeat(40), date: 2 },
+			mergeTargetTipSha: undefined,
+			focalBranchTipSha: undefined,
+		};
+		// Pre-seed the cache under the NEW repoPath — as if a prior scope on the same branch had already
+		// resolved anchors there, so re-driving the pending scope through `setScope` hits the cache
+		// synchronously instead of awaiting an anchor IPC.
+		priv(t)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>([['/wt|heads/main', anchor]]);
+		priv(t)._pendingScope = { branchName: 'main', branchRef: '/home|heads/main' } satisfies GraphScope;
+
+		protoUnsafe.updateState.call(t, { repositories: [home, worktree], selectedRepository: worktree.id });
+
+		assert.strictEqual(priv(t)._pendingScope, undefined, 'the re-driven setScope call must clear it on publish');
+		assert.deepStrictEqual(t.scope, {
+			branchName: 'main',
+			branchRef: '/wt|heads/main',
+			mergeBase: { sha: 'b'.repeat(40), date: 2 },
+		});
+	});
+
+	test('cross-family switch clears the pending scope instead of re-stamping it (existing behavior)', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		// `clearScope` cancels any pending scope unconditionally, but its telemetry emission (and the
+		// `this.scope` clear itself) only fire when there's a PUBLISHED scope to clear — seed both a
+		// real `scope` and a minimal `host` stub (`emitTelemetrySentEvent` only ever calls
+		// `.dispatchEvent` on it) so this test actually exercises that half too, not just the pending-scope
+		// cancel (which fires either way — see the dedicated test below).
+		t.scope = { branchName: 'main', branchRef: '/home|heads/main' };
+		priv(t).host = { dispatchEvent: () => true };
+		priv(t)._pendingScope = { branchName: 'main', branchRef: '/home|heads/main' } satisfies GraphScope;
+		priv(t)._mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>([
+			[
+				'/home|heads/main',
+				{
+					mergeBase: { sha: 'a'.repeat(40), date: 1 },
+					mergeTargetTipSha: undefined,
+					focalBranchTipSha: undefined,
+				},
+			],
+		]);
+
+		protoUnsafe.updateState.call(t, { repositories: [home, other], selectedRepository: other.id });
+
+		assert.strictEqual(priv(t)._pendingScope, undefined);
+		assert.strictEqual(t.scope, undefined, 'the cross-family path must actually clear a published scope');
+		// Unlike the same-family path, a cross-family switch never re-keys the anchor cache — it's a
+		// different dataset, so the stale entry is simply left to age out, not moved.
+		const cache = priv(t)._mergeBaseCache as Map<string, ResolvedScopeAnchor | undefined>;
+		assert.strictEqual(cache.has('/home|heads/main'), true);
+	});
+
+	test('unrelated repositories/selectedRepository shapes missing from the list fall back to a full clear', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		priv(t)._pendingScope = { branchName: 'main', branchRef: '/home|heads/main' } satisfies GraphScope;
+
+		// The new selection isn't present in the incoming `repositories` list (a stale id mid repo-list
+		// refresh) — `nextShape` resolves to `undefined`, so the safe default (full clear) applies rather
+		// than risking a family compare against a shape that doesn't exist yet.
+		protoUnsafe.updateState.call(t, { repositories: [home], selectedRepository: '/ghost' });
+
+		assert.strictEqual(priv(t)._pendingScope, undefined);
+	});
+
+	test('cross-family switch drops a pending perspective override WITHOUT firing the rebind RPC', () => {
+		const t = createFakeThis();
+		t.repositories = [home];
+		t.selectedRepository = home.id;
+		t.homeRepositoryPath = home.path;
+		// The host already reset the binding as part of THIS switch, so the branch must drop the override
+		// directly. Deliberately NOT stubbing `_scopeService`/`_servicesReady`: routing through
+		// `clearWorktreePerspective()` would touch `_scopeService.rebind` and throw here (both are
+		// `undefined` on this fake), catching a regression that re-fires a redundant RPC.
+		priv(t)._pendingPerspective = { value: { path: '/wt', branchName: 'main' } };
+
+		protoUnsafe.updateState.call(t, {
+			repositories: [home, other],
+			selectedRepository: other.id,
+			homeRepositoryPath: other.path,
+		});
+
+		assert.strictEqual(priv(t)._pendingPerspective, undefined);
+		assert.strictEqual(t.worktreePerspective, undefined);
 	});
 });

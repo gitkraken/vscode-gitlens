@@ -63,6 +63,9 @@ export type GraphSearchServiceContext = {
 	getSelectedId: () => string | undefined;
 	getSelectedRows: () => Record<string, SelectedRowState> | undefined;
 	getEtagRepository: () => number | undefined;
+	/** The home-keyed bucket while the graph is rebound to a worktree scope — same key as
+	 *  `graph:filtersByRepo`, so search history stays with the family rather than forking per worktree. */
+	getFiltersRepoPath: () => string | undefined;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	updateState: (immediate?: boolean) => void;
 	updateGraphWithMoreRows: (id: string, limitOverride?: number) => Promise<void>;
@@ -468,9 +471,10 @@ export class GraphSearchService {
 	/** Returns the search-history instance for the CURRENT repo, get-or-creating it in
 	 *  {@link _searchHistoryByRepo} — so a repo switch always reads/writes the right repo's history, and
 	 *  switching back to a repo already seen in this session reuses its instance (and write-serialization
-	 *  chain) instead of losing it to a fresh one. */
+	 *  chain) instead of losing it to a fresh one. Keyed by the family home while rebound, not the live repo
+	 *  path — otherwise scoping to a worktree forks history away from the family's filters/perspective. */
 	private getSearchHistory(): SearchHistory {
-		const repoPath = this.repository?.path;
+		const repoPath = this.context.getFiltersRepoPath();
 		let searchHistory = this._searchHistoryByRepo.get(repoPath);
 		if (searchHistory == null) {
 			searchHistory = new SearchHistory(this.container.storage, repoPath);

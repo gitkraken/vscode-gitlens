@@ -1385,6 +1385,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.persistColumns=${this.persistColumns}
 			.activeFilterColumns=${graphState.activeFilterColumns}
 			.repoPath=${this.getRepoPath()}
+			.repoFamily=${this.getRepoFamily()}
 			.columnsContext=${graphState.context?.header}
 			.settingsContext=${graphState.context?.settings}
 			.scrollMarkersContext=${graphState.context?.scrollMarkers}
@@ -1396,6 +1397,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.currentBranch=${graphState.branch}
 			.scope=${graphState.scope}
 			.wipStateById=${graphState.wipStateById}
+			.wipRowHasBranch=${this.wipRowHasBranch}
 			.rowMarkerMergeTarget=${this.rowMarkerMergeTarget}
 			.keymap=${this.keymap}
 			.primaryWipRowId=${showPrimary ? primaryWipRowId : undefined}
@@ -2234,6 +2236,25 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 	}
 
+	/** Whether a working-changes row's worktree is on a branch — false for a detached HEAD, which gates the
+	 *  Scope to Worktree / Focus on Branch menu items off. ONE rule for both context builds: the DOM
+	 *  right-click path below, and the keyboard path, which has no DOM attribute to walk. Arrow property so
+	 *  it can be handed over as a hook. */
+	private readonly wipRowHasBranch = (rowId: string): boolean => {
+		const worktreePath = getWipRowWorktreePath(rowId);
+		if (worktreePath == null) return false;
+
+		// A SECONDARY worktree's branch state rides its own `wipRowsById` entry; the graph's own row reads
+		// the bound repo's branch.
+		if (worktreePath !== this.getRepoPath()) {
+			const row = this.graphState.wipRowsById?.[rowId];
+			return row?.branchRef != null && row.branch != null;
+		}
+
+		const branch = this.graphState.branch;
+		return branch != null && !branch.detached;
+	};
+
 	/** Builds the serialized `data-vscode-context` for a right-clicked row on demand, or `undefined`
 	 *  when the row carries its own host-built context (stash) or none is needed. */
 	private buildRowContextMenuContext(graphRow: GitGraphRow): string | undefined {
@@ -2247,11 +2268,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (graphRow.kind === ('workdir' satisfies GitGraphRowKind)) {
 			const worktreePath = getWipRowWorktreePath(graphRow.sha);
 			const hasConflicts = this.graphState.wipStateById?.[graphRow.sha]?.hasConflicts ?? false;
+			const hasBranch = this.wipRowHasBranch(graphRow.sha);
 			if (worktreePath != null && worktreePath !== repoPath) {
 				const row = this.graphState.wipRowsById?.[graphRow.sha];
-				return row?.repoPath != null ? serializeWipContext(row.repoPath, true, hasConflicts) : undefined;
+				return row?.repoPath != null
+					? serializeWipContext(row.repoPath, true, hasConflicts, hasBranch)
+					: undefined;
 			}
-			return serializeWipContext(repoPath, false, hasConflicts);
+
+			return serializeWipContext(repoPath, false, hasConflicts, hasBranch);
 		}
 
 		// Lean commit rows: build the commit context from `contexts.flags` + row fields. Stash rows

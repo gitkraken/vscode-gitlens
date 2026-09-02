@@ -35,6 +35,11 @@ export class GlRefButton extends LitElement {
 		pickerIconStyles,
 	];
 
+	/** Forwarded onto the inner `gl-button`'s focusable control — see `GlButton.ariaLabel`. Overrides the
+	 *  default accessible name (otherwise derived from the visible label / tooltip slot content). */
+	@property({ type: String, attribute: 'aria-label' })
+	override ariaLabel: string | null = null;
+
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
 
@@ -59,6 +64,7 @@ export class GlRefButton extends LitElement {
 			appearance="toolbar"
 			href=${ifDefined(this.href)}
 			?disabled=${this.disabled}
+			aria-label=${ifDefined(this.ariaLabel ?? undefined)}
 			truncate
 			>${
 				this.ref == null

@@ -58,6 +58,16 @@ export interface AppState extends State {
 	scope: GraphScope | undefined;
 	/** `scopeToBranch` parked until an attached branch arrives; any scope set or clear cancels it. */
 	pendingScopeToBranch: boolean;
+	/**
+	 * The worktree PERSPECTIVE — independent of the branch FOCUS projection (`scope`). While set, the
+	 * graph's HEAD-derived data (current-branch markers, WIP primary, `branchState`, action cwd) is the
+	 * named worktree's, but every commit stays visible — row narrowing is `scope`'s job. Deliberately NOT a
+	 * field of `GraphScope`: a worktree-origin FOCUS can exist without a perspective, and vice versa.
+	 *
+	 * READ-ONLY, and not state of its own: it IS the host's binding (a selected repository whose path isn't
+	 * `homeRepositoryPath`), overridden only while a rebind RPC is in flight.
+	 */
+	readonly worktreePerspective: { path: string; branchName?: string } | undefined;
 	searching: boolean;
 	searchMode: 'filter' | 'normal';
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
@@ -184,6 +194,24 @@ export interface AppState extends State {
 	 * state, and emit `graph/scope/cleared` telemetry. No-op when no scope is active.
 	 */
 	clearScope(): void;
+
+	/**
+	 * Sets the worktree perspective optimistically and fires the rebind RPC immediately, ahead of any
+	 * focus/anchor IPC. Same `path` as the live perspective is a no-op, which keeps a same-worktree
+	 * re-focus from re-firing the RPC. `options.branchName` renders optimistically on the branch pill
+	 * until the rebind's `state.branch` push confirms the same repo.
+	 */
+	setWorktreePerspective(path: string, options?: { branchName?: string }): void;
+
+	/**
+	 * Clears the worktree perspective, rebinding the graph back onto its home repository. No-op when no
+	 * perspective is live.
+	 *
+	 * `restoreScopeOnRefusal` is for callers that clear the FOCUS in the same gesture (the branch pill's ✕
+	 * full exit): a refused clear restores the perspective, and the scope handed over here is restored
+	 * alongside it rather than the exit landing half-way. Capture it BEFORE the `clearScope()` that follows.
+	 */
+	clearWorktreePerspective(options?: { restoreScopeOnRefusal?: GraphScope }): void;
 
 	/**
 	 * Seed the per-repo WIP cache with an optimistically-edited `Wip` (e.g. after a local stage/
