@@ -45,6 +45,7 @@ export type ContributedCommands =
 	| 'gitlens.ai.generateChangelog:views'
 	| 'gitlens.ai.generateChangelogFrom:graph'
 	| 'gitlens.ai.generateChangelogFrom:views'
+	| 'gitlens.ai.generateChangelogFromCommits:graph'
 	| 'gitlens.ai.generateCommitMessage:scm'
 	| 'gitlens.ai.recomposeBranch:graph'
 	| 'gitlens.ai.recomposeBranch:views'
