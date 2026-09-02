@@ -574,7 +574,8 @@ gl-lit-graph {
 		align-items: center;
 		gap: 0.5rem;
 		max-width: 44rem;
-		white-space: normal;
+		// pre-line (not normal): row-action tooltips carry a "\n[Alt] <alternate>" second line
+		white-space: pre-line;
 		overflow-wrap: anywhere;
 
 		// Multi-marker (scroll-rail) mode: stack the markers as a vertical list. Scoped to .is-list so

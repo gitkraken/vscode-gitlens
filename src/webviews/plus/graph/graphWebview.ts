@@ -63,6 +63,7 @@ import { isActiveAgentPhase } from '../../../agents/provider.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
+import type { RunTaskOnWorktreeCommandArgs } from '../../../commands/runTaskOnWorktree.js';
 import type {
 	GraphBranchesVisibility,
 	GraphMinimapMarkersAdditionalTypes,
@@ -3290,6 +3291,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 			case 'push-to-commit':
 				await this.pushUpToCommit(rowRepoPath, params.row.id);
+				break;
+			case 'run-task':
+			case 'run-task-pick':
+				void executeCommand<RunTaskOnWorktreeCommandArgs>('gitlens.runTaskOnWorktree', {
+					worktreePath: rowRepoPath,
+					useDefault: params.action === 'run-task',
+				});
 				break;
 		}
 	}

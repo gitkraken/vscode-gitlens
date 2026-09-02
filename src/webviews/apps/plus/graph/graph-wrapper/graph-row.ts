@@ -29,6 +29,7 @@ import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle, ZoneSpec } from
 import { relativeTime, rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/view.js';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
+import { getAltKeySymbol } from '@env/platform.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -959,8 +960,14 @@ export function hasPersistentRowActions({
 	return isUnpushed === true || isUnpulled === true;
 }
 
-// Row-action strip (right-aligned): per row kind — workdir gets Resolve (conflicts only) / Compose /
-// Review (+ an agent indicator when agents are attached), stash gets Apply/Drop, commit/
+// Two-line "<action>\n[Alt] <alternate>" tooltips, the convention every Alt-alternate control in the graph
+// uses (see graph-header's `[${getAltKeySymbol()}]` tooltips); `.gl-graph__tooltip-content` is `pre-line`
+// so the break renders.
+const runTaskTooltip = `Run Default Task\n[${getAltKeySymbol()}] Choose Task to Run...`;
+const openChangesTooltip = `Open All Changes\n[${getAltKeySymbol()}] Open All Changes with Working Tree`;
+
+// Row-action strip (right-aligned): per row kind — workdir gets Resolve (conflicts only) / Run Task /
+// Compose / Review (+ an agent indicator when agents are attached), stash gets Apply/Drop, commit/
 // merge gets Undo (leaf worktree tip) / Open-Changes / Push-to-Commit (unpushed). Buttons carry
 // data-row-action / data-wip-open; gl-lit-graph's click delegation turns them into the
 // gl-graph-rowaction / gl-graph-wiprowopen events the wrapper routes to the host. WIP buttons reflect
@@ -1045,6 +1052,15 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 							</button>`
 						: nothing
 				}<button
+					class="gl-graph__row-action gl-graph__row-action--gated"
+					type="button"
+					tabindex="-1"
+					data-row-action="run-task"
+					data-tooltip=${runTaskTooltip}
+					aria-label="Run Default Task"
+				>
+					<code-icon icon="play"></code-icon></button
+				><button
 					class="gl-graph__row-action ${
 						composeActive ? 'gl-graph__row-action--persistent' : 'gl-graph__row-action--gated'
 					}"
@@ -1130,7 +1146,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					type="button"
 					tabindex="-1"
 					data-row-action="open-changes"
-					data-tooltip="Open All Changes (Alt: with Working Tree)"
+					data-tooltip=${openChangesTooltip}
 					aria-label="Open All Changes"
 				>
 					<code-icon icon="diff-multiple"></code-icon></button

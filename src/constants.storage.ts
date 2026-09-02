@@ -244,9 +244,11 @@ interface WorkspaceStorageCore {
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
-	/** MRU of "Run Task on Worktree" picks. Key is the worktree's fsPath; values are task keys
-	 *  (`${task.source}:${task.name}`), newest first. */
+	/** Workspace-wide MRU of "Run Task on Worktree" picks: task keys (`${task.source}:${task.name}`),
+	 *  newest first. */
 	'worktrees:runTaskHistory': string[];
+	/** Task key (`${task.source}:${task.name}`) run by the WIP row's Run Task button. */
+	'worktrees:runTaskDefault': string;
 }
 
 /**

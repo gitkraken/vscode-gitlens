@@ -6079,10 +6079,11 @@ export class GlLitGraph extends LitElement {
 		// (the pill branch below re-schedules only on a first click; `onDblClick` handles the checkout).
 		this.cancelPendingPillActivation();
 
-		// Row-action buttons (Open Changes / stash Apply-Drop / WIP Compose-Review) resolve
+		// Row-action buttons (Open Changes / stash Apply-Drop / WIP Compose-Review / WIP Run Task) resolve
 		// BEFORE selection so a button click doesn't also select the row. They carry data-row-action
 		// (→ the rowActions RPC service) or data-wip-open (→ the compose/review/agents workflow); the
-		// wrapper routes both. Alt on open-changes switches to the working-tree variant.
+		// wrapper routes both. Alt on open-changes switches to the working-tree variant; Alt on run-task
+		// opens the task picker instead of running the stored default.
 		for (const el of event.composedPath()) {
 			if (!(el instanceof Element)) continue;
 
@@ -6090,8 +6091,14 @@ export class GlLitGraph extends LitElement {
 			if (rowAction != null) {
 				const sha = this.resolveSha(event);
 				if (sha != null) {
-					const action =
-						rowAction === 'open-changes' && event.altKey ? 'open-changes-with-working' : rowAction;
+					let action = rowAction;
+					if (event.altKey) {
+						if (rowAction === 'open-changes') {
+							action = 'open-changes-with-working';
+						} else if (rowAction === 'run-task') {
+							action = 'run-task-pick';
+						}
+					}
 					// Undo Commit carries the owning worktree's path (when a non-active worktree owns the
 					// tip) so the host undoes the right working copy; absent → host targets the primary repo.
 					const worktreePath = el.getAttribute('data-worktree-path') ?? undefined;
