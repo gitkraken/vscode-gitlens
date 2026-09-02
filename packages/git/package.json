@@ -7,70 +7,22 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./cache.js": {
-			"types": "./dist/cache.d.ts",
-			"default": "./dist/cache.js"
-		},
-		"./context.js": {
-			"types": "./dist/context.d.ts",
-			"default": "./dist/context.js"
-		},
-		"./errors.js": {
-			"types": "./dist/errors.d.ts",
-			"default": "./dist/errors.js"
-		},
-		"./features.js": {
-			"types": "./dist/features.d.ts",
-			"default": "./dist/features.js"
-		},
-		"./gitHealth.js": {
-			"types": "./dist/gitHealth.d.ts",
-			"default": "./dist/gitHealth.js"
-		},
-		"./repositoryService.js": {
-			"types": "./dist/repositoryService.d.ts",
-			"default": "./dist/repositoryService.js"
-		},
-		"./run.types.js": {
-			"types": "./dist/run.types.d.ts",
-			"default": "./dist/run.types.js"
-		},
-		"./service.js": {
-			"types": "./dist/service.d.ts",
-			"default": "./dist/service.js"
-		},
-		"./models/*.js": {
-			"types": "./dist/models/*.d.ts",
-			"default": "./dist/models/*.js"
-		},
-		"./providers/*.js": {
-			"types": "./dist/providers/*.d.ts",
-			"default": "./dist/providers/*.js"
-		},
-		"./providers/shared/*.js": {
-			"types": "./dist/providers/shared/*.d.ts",
-			"default": "./dist/providers/shared/*.js"
-		},
-		"./utils/*.js": {
-			"types": "./dist/utils/*.d.ts",
-			"default": "./dist/utils/*.js"
-		},
-		"./remotes/*.js": {
-			"types": "./dist/remotes/*.d.ts",
-			"default": "./dist/remotes/*.js"
-		},
-		"./parsers/*.js": {
-			"types": "./dist/parsers/*.d.ts",
-			"default": "./dist/parsers/*.js"
-		},
-		"./watching/*.js": {
-			"types": "./dist/watching/*.d.ts",
-			"default": "./dist/watching/*.js"
-		}
+		"./cache.js": "./src/cache.ts",
+		"./context.js": "./src/context.ts",
+		"./errors.js": "./src/errors.ts",
+		"./features.js": "./src/features.ts",
+		"./gitHealth.js": "./src/gitHealth.ts",
+		"./repositoryService.js": "./src/repositoryService.ts",
+		"./run.types.js": "./src/run.types.ts",
+		"./service.js": "./src/service.ts",
+		"./models/*.js": "./src/models/*.ts",
+		"./providers/*.js": "./src/providers/*.ts",
+		"./providers/shared/*.js": "./src/providers/shared/*.ts",
+		"./utils/*.js": "./src/utils/*.ts",
+		"./remotes/*.js": "./src/remotes/*.ts",
+		"./parsers/*.js": "./src/parsers/*.ts",
+		"./watching/*.js": "./src/watching/*.ts"
 	},
-	"files": [
-		"dist"
-	],
 	"scripts": {
 		"build": "tsc -b",
 		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
@@ -78,8 +30,8 @@
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
 		"test": "pnpm run test:mocha && pnpm run test:node",
-		"test:mocha": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
-		"test:node": "node --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
+		"test:mocha": "mocha --require ../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
+		"test:node": "node --import ../../scripts/tsxTsconfig.cjs --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*",

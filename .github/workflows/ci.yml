@@ -108,7 +108,7 @@ jobs:
             # external Node ESM consumer does, so an import that only a bundler can link fails here rather
             # than in a consumer.
             - name: Bundle core package
-              run: pnpm --filter @gitkraken/core-gitlens run bundle
+              run: pnpm --filter @gitkraken/core-gitlens run build
 
             - name: Verify core package loads under Node ESM
               run: pnpm --filter @gitkraken/core-gitlens run verify:esm

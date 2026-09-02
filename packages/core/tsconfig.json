@@ -1,7 +1,24 @@
 {
 	"extends": "../../tsconfig.package.json",
 	"compilerOptions": {
-		"noEmit": true
+		"noEmit": true,
+		// Core owns no sources and nothing references it as a project, so this is a check-only project.
+		// `composite` would additionally demand every file sit under one `rootDir` and be listed by
+		// `include` — which the shared `scripts/*.mjs` the bundle imports never will be.
+		"composite": false,
+		"incremental": false,
+		// Nothing here is emitted, so clear the inherited emit options — with any of them set, TypeScript
+		// still enforces `rootDir` and rejects the shared scripts this package's build imports.
+		"declaration": false,
+		"declarationMap": false,
+		"sourceMap": false,
+		// The program spans this package plus the repo-level build scripts it imports.
+		"rootDir": "../..",
+		// The build scripts are `.mjs` carrying JSDoc types, and tsdown.config.ts imports one of them.
+		// Without this it resolves to an implicit `any` and every use of it goes unchecked.
+		"allowJs": true
 	},
-	"include": ["scripts/**/*"]
+	// tsdown.config.ts reads node builtins and the scripts' JSDoc types, so it has to sit inside a project
+	// that declares the `node` types — otherwise the type-aware lint puts it in an inferred project.
+	"include": ["scripts/**/*", "tsdown.config.ts"]
 }

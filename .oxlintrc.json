@@ -52,7 +52,7 @@
 		"/patches",
 		"/scripts",
 		"/src/@types",
-		"/packages/core",
+		"/packages/core/dist",
 		"/tests/e2e/runner/**",
 		"/tests/fixtures/**"
 	],

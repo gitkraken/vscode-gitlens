@@ -15,74 +15,23 @@
 		"test": "node scripts/test.mjs"
 	},
 	"exports": {
-		"./constants.js": {
-			"types": "./dist/constants.d.ts",
-			"default": "./dist/constants.js"
-		},
-		"./context.js": {
-			"types": "./dist/context.d.ts",
-			"default": "./dist/context.js"
-		},
-		"./errors.js": {
-			"types": "./dist/errors.d.ts",
-			"default": "./dist/errors.js"
-		},
-		"./index.js": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
-		},
-		"./integrationService.js": {
-			"types": "./dist/integrationService.d.ts",
-			"default": "./dist/integrationService.js"
-		},
-		"./lite.js": {
-			"types": "./dist/lite.d.ts",
-			"default": "./dist/lite.js"
-		},
-		"./telemetry.js": {
-			"types": "./dist/telemetry.d.ts",
-			"default": "./dist/telemetry.js"
-		},
-		"./models/*.js": {
-			"types": "./dist/models/*.d.ts",
-			"default": "./dist/models/*.js"
-		},
-		"./authentication/*.js": {
-			"types": "./dist/authentication/*.d.ts",
-			"default": "./dist/authentication/*.js"
-		},
-		"./providers/*.js": {
-			"types": "./dist/providers/*.d.ts",
-			"default": "./dist/providers/*.js"
-		},
-		"./providers/azure/*.js": {
-			"types": "./dist/providers/azure/*.d.ts",
-			"default": "./dist/providers/azure/*.js"
-		},
-		"./providers/bitbucket/*.js": {
-			"types": "./dist/providers/bitbucket/*.d.ts",
-			"default": "./dist/providers/bitbucket/*.js"
-		},
-		"./providers/bitbucket-server/*.js": {
-			"types": "./dist/providers/bitbucket-server/*.d.ts",
-			"default": "./dist/providers/bitbucket-server/*.js"
-		},
-		"./providers/github/*.js": {
-			"types": "./dist/providers/github/*.d.ts",
-			"default": "./dist/providers/github/*.js"
-		},
-		"./providers/gitlab/*.js": {
-			"types": "./dist/providers/gitlab/*.d.ts",
-			"default": "./dist/providers/gitlab/*.js"
-		},
-		"./utils/*.js": {
-			"types": "./dist/utils/*.d.ts",
-			"default": "./dist/utils/*.js"
-		}
+		"./constants.js": "./src/constants.ts",
+		"./context.js": "./src/context.ts",
+		"./errors.js": "./src/errors.ts",
+		"./index.js": "./src/index.ts",
+		"./integrationService.js": "./src/integrationService.ts",
+		"./lite.js": "./src/lite.ts",
+		"./telemetry.js": "./src/telemetry.ts",
+		"./models/*.js": "./src/models/*.ts",
+		"./authentication/*.js": "./src/authentication/*.ts",
+		"./providers/*.js": "./src/providers/*.ts",
+		"./providers/azure/*.js": "./src/providers/azure/*.ts",
+		"./providers/bitbucket/*.js": "./src/providers/bitbucket/*.ts",
+		"./providers/bitbucket-server/*.js": "./src/providers/bitbucket-server/*.ts",
+		"./providers/github/*.js": "./src/providers/github/*.ts",
+		"./providers/gitlab/*.js": "./src/providers/gitlab/*.ts",
+		"./utils/*.js": "./src/utils/*.ts"
 	},
-	"files": [
-		"dist"
-	],
 	"dependencies": {
 		"@gitkraken/provider-apis": "catalog:",
 		"@gitlens/git": "workspace:*",

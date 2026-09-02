@@ -7,18 +7,9 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./discovery.js": {
-			"types": "./dist/discovery.d.ts",
-			"default": "./dist/discovery.js"
-		},
-		"./ipcServer.js": {
-			"types": "./dist/ipcServer.d.ts",
-			"default": "./dist/ipcServer.js"
-		}
+		"./discovery.js": "./src/discovery.ts",
+		"./ipcServer.js": "./src/ipcServer.ts"
 	},
-	"files": [
-		"dist"
-	],
 	"scripts": {
 		"build": "tsc -b",
 		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
@@ -26,8 +17,8 @@
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
 		"test": "pnpm run test:mocha && pnpm run test:node",
-		"test:mocha": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
-		"test:node": "node --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
+		"test:mocha": "mocha --require ../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
+		"test:node": "node --import ../../scripts/tsxTsconfig.cjs --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*"

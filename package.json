@@ -30736,7 +30736,7 @@
 		"build:webviews:quick": "node ./scripts/build.mjs --build=webviews --quick",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
 		"build:packages": "tsc -b packages/utils packages/ipc packages/git packages/git-cli packages/plus/git-github packages/plus/integrations packages/plus/ai packages/plus/agents",
-		"build:core": "pnpm run build:packages && pnpm --filter @gitkraken/core-gitlens run bundle",
+		"build:core": "pnpm run build:packages && pnpm --filter @gitkraken/core-gitlens run build",
 		"bundle": "node ./scripts/build.mjs --mode production",
 		"bundle:e2e": "node ./scripts/build.mjs --mode production --debug --quick",
 		"bundle:quick": "node ./scripts/build.mjs --mode production --quick",

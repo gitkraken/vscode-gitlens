@@ -7,41 +7,20 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./constants.js": {
-			"types": "./dist/constants.d.ts",
-			"default": "./dist/constants.js"
-		},
-		"./errors.js": {
-			"types": "./dist/errors.d.ts",
-			"default": "./dist/errors.js"
-		},
-		"./prompts.js": {
-			"types": "./dist/prompts.d.ts",
-			"default": "./dist/prompts.js"
-		},
-		"./models/*.js": {
-			"types": "./dist/models/*.d.ts",
-			"default": "./dist/models/*.js"
-		},
-		"./utils/*.js": {
-			"types": "./dist/utils/*.d.ts",
-			"default": "./dist/utils/*.js"
-		},
-		"./providers/*.js": {
-			"types": "./dist/providers/*.d.ts",
-			"default": "./dist/providers/*.js"
-		}
+		"./constants.js": "./src/constants.ts",
+		"./errors.js": "./src/errors.ts",
+		"./prompts.js": "./src/prompts.ts",
+		"./models/*.js": "./src/models/*.ts",
+		"./utils/*.js": "./src/utils/*.ts",
+		"./providers/*.js": "./src/providers/*.ts"
 	},
-	"files": [
-		"dist"
-	],
 	"scripts": {
 		"build": "tsc -b",
 		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
-		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+		"test": "mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*",
