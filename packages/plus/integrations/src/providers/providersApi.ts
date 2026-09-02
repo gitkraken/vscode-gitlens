@@ -880,7 +880,7 @@ export class ProvidersApi {
 			/** See {@link GetIssuesOptions.sort}. Linear expresses `created`/`updated`, descending only. */
 			sort?: IssueSorting;
 		},
-	): Promise<PagedResult<ProviderIssue>> {
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getLinearIssuesFn',

@@ -66,6 +66,21 @@ export type IssuesForProjectOptions = {
 	sort?: IssueSorting;
 };
 
+export type ProjectIssuesDrain = {
+	values: IssueShape[];
+	metadata?: CollectionMetadata;
+} & (
+	| { truncated: false }
+	| {
+			truncated: true;
+			/**
+			 * `narrow-scope` means a smaller server-side scope avoids this truncation. `none` covers incomplete
+			 * results without that guarantee, including Linear's client-side assignee filtering.
+			 */
+			recovery: 'narrow-scope' | 'none';
+	  }
+);
+
 /**
  * Options for the REPO-scoped issue read (`GitHostIntegration.getMyIssuesForRepos*`), the git-host counterpart of
  * {@link IssuesForProjectOptions}.

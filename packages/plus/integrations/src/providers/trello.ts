@@ -1,4 +1,3 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -9,7 +8,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
-import type { IssuesForProjectOptions } from '../models/issueReads.js';
+import type { IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
 
@@ -104,7 +103,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
 		options?: IssuesForProjectOptions,
-	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
+	): Promise<ProjectIssuesDrain | undefined> {
 		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
@@ -141,7 +140,9 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		// never a cursor. Surface that as terminal truncation; there is no next page to fetch, so retrying the
 		// same read cannot recover the omitted cards (D11).
 		const truncated = result.metadata != null && result.metadata.completeness !== 'complete';
-		return { values: values, truncated: truncated, metadata: result.metadata };
+		return truncated
+			? { values: values, truncated: true, recovery: 'none', metadata: result.metadata }
+			: { values: values, truncated: false, metadata: result.metadata };
 	}
 
 	protected override searchProviderMyIssues(

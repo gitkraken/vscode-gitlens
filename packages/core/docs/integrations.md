@@ -336,7 +336,9 @@ on it without parsing `message`:
 if (warning.omission != null) {
 	// The read SUCCEEDED — message it as incompleteness, not failure.
 	// Whether anything would fetch the rest is a separate question; see `recovery` below.
-	if (warning.omission.recovery !== 'none') offerLoadMore(warning.omission);
+	// Switch on the VALUE. `!== 'none'` is not "fetchable": `narrow-scope` is not.
+	if (warning.omission.recovery === 'page-budget') offerLoadMore(warning.omission);
+	else if (warning.omission.recovery === 'narrow-scope') suggestNarrowingTheScope(warning.omission);
 }
 ```
 
@@ -366,19 +368,22 @@ mid-read left an unread tail too, but a retry may complete it — that one carri
 a provider that gave no usable cursor are the same kind, but only the first can be fetched. Gate a "load more"
 affordance on `recovery`, never on `kind`:
 
-| `omission.recovery` | Means                                                          | What a consumer does                                                       |
-| ------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `none`              | Nothing you can call returns the missing items.                | Say the results are capped. Do not offer to fetch more.                    |
-| `page-budget`       | Re-run the same read with a higher `maxPages` (sweep options). | Offer it — but note it re-reads from the start, so make it user-initiated. |
+| `omission.recovery` | Means                                                                                    | What a consumer does                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `none`              | Nothing you can call returns the missing items.                                          | Say the results are capped. Do not offer to fetch more.                    |
+| `page-budget`       | Re-run the same read with a higher `maxPages` (sweep options).                           | Offer it — but note it re-reads from the start, so make it user-initiated. |
+| `narrow-scope`      | A smaller server-side scope can avoid the backstop; no budget or retry reaches the rest. | Suggest narrowing the scope. Do **not** offer to fetch more.               |
 
 `recovery` is **required** — unlike `limit`, `totalCount` and `scope`, it is never absent. An absent value
 would be indistinguishable from `none` while actually meaning "this producer didn't say", which is the
 ambiguity `omission` exists to remove.
 
 It is also **conservative**: it names only what a producer can prove, so `none` means "not known to be
-recoverable", not "proven unrecoverable". Today only a sweep that spent its own page budget reports
-`page-budget`; everything else — every provider cap, every exhausted internal budget, and every omission
-derived from SDK metadata — is `none`. A `scope` does not change that. It attributes where results were
+recoverable", not "proven unrecoverable". Only a sweep that spent its own page budget reports `page-budget`, and
+only a broad Jira project query that provably stopped at its own page backstop reports `narrow-scope`.
+Already-scoped Jira reads and Linear reads use `none` when they emit an omission because changing the public
+scope cannot make those provider requests narrower. Other caps and exhausted budgets also use `none`; a stalled
+cursor or failed page may instead be a failure with no omission. A `scope` does not change that. It attributes where results were
 withheld, and the SDK reports the same scoped shape both for a scope it merely sampled and for one whose
 cursor stalled, so re-reading it is not something this layer can promise.
 

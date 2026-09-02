@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds `getTrackerIssue`, which resolves one issue-tracker issue by its provider key within a resource in one request ([#5810](https://github.com/gitkraken/vscode-gitlens/issues/5810)). It is the tracker counterpart of `getIssuesBatch`: a tracker issue is addressed by `(resourceId, ABC-123)`, rather than `(owner, repo, number)`. `issue: undefined` means proven absent and is safe to cache; a failed read returns no item and sets `fetchFailed`. `resourceId` is required and trusted, and Jira additionally requires the resource's site URL so the result keeps its browser link without discovery. Jira and Linear only — Trello refuses because its numeric lookup can fall back to a capped board scan that cannot prove absence (plus/integrations)
 
+### Changed
+
+- Changes a broad Jira tracker-project read that reaches its internal page backstop to report `recovery: 'narrow-scope'`, giving consumers an actionable alternative to the terminal `hasMore: false` result ([#5811](https://github.com/gitkraken/vscode-gitlens/issues/5811)). The recovery is conservative: already user-scoped Jira reads, Linear's client-side assignee filtering, stalled cursors, failed pages, mixed windows, and Trello's provider cap never report `narrow-scope`. Consumers must switch on the exact value because `narrow-scope` is guidance, not a fetch-more action (plus/integrations)
+
 ### Fixed
 
 - Fixes tracker issue reads using the primary account for the issue request even when a secondary `connectionId` was requested, and sharing cached issues between those accounts. The result read now resolves the requested session end to end and partitions its cache by connection and token (plus/integrations)
