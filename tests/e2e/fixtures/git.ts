@@ -153,6 +153,29 @@ export class GitFixture {
 	}
 
 	/**
+	 * Full sha for `ref`. Worth preferring over {@link getShortSha} whenever a test compares two repos'
+	 * positions (a worktree against its main checkout) — a short sha's length is repo-dependent.
+	 */
+	async getSha(ref: string = 'HEAD'): Promise<string> {
+		return this.git('rev-parse', undefined, ref);
+	}
+
+	/**
+	 * `git status --porcelain` lines — an empty array means a clean working tree AND index.
+	 *
+	 * The one observable that separates "this action ran against THIS working tree" from "it ran
+	 * somewhere else in the family": worktrees of one repository share every object and ref but have
+	 * their own index and checkout.
+	 */
+	async getStatusLines(): Promise<string[]> {
+		const out = await this.git('status', undefined, '--porcelain');
+		return out
+			.split('\n')
+			.map(l => l.trim())
+			.filter(l => l.length > 0);
+	}
+
+	/**
 	 * Unmerged (conflicted) paths in the index. Worth asserting after any merge a test EXPECTS to
 	 * conflict: such a merge exits non-zero, so the caller has to swallow the rejection, and that
 	 * equally swallows a merge git declined to start at all. Pair it with {@link isMergeInProgress} —
@@ -398,6 +421,14 @@ export class GitFixture {
 
 	async worktree(worktreePath: string, branch: string): Promise<void> {
 		await this.git('worktree', undefined, 'add', worktreePath, branch);
+	}
+
+	/**
+	 * Remove a worktree the way a terminal would — an EXTERNAL deletion, not a GitLens-initiated one.
+	 * `--force` so a worktree left dirty by a prior journey doesn't block removal with a prompt.
+	 */
+	async removeWorktree(worktreePath: string): Promise<void> {
+		await this.git('worktree', undefined, 'remove', '--force', worktreePath);
 	}
 
 	/**

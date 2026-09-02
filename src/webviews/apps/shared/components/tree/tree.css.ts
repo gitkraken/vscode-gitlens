@@ -459,6 +459,12 @@ export const treeItemStyles = [
 			color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
 		}
 
+		/* The row the Commit Graph is scoped to — the pill's TEXT token, not its tint: the tint is a
+		   background/border color and leaves this glyph under contrast. */
+		::slotted([slot^='decorations-'].decoration-icon--scoped) {
+			color: var(--gl-chip-scoped-text-color);
+		}
+
 		/* High Contrast Mode Support */
 		@media (forced-colors: active) {
 			:host {

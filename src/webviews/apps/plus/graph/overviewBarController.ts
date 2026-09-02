@@ -1,12 +1,12 @@
 import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
-import { isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
+import { createWipRowId, isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { computed, signal } from '@lit-labs/signals';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
-import type { GraphScopeSource, State } from '../../../plus/graph/protocol.js';
+import type { GraphScopeOrigin, GraphScopeSource, State } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import { HeldActionController } from '../../shared/controllers/held-action.js';
@@ -20,6 +20,7 @@ import type {
 import { pickWipRowAgentStatus } from './components/wipRowAgentStatus.js';
 import type { AppState } from './context.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
+import { applyWorktreeGestureOutcome, isHomeWorktree, resolveWorktreeGesture } from './utils/rebind.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import {
 	filterSecondariesForScopeAndVisibility,
@@ -76,9 +77,18 @@ export type OverviewBarHostDeps = {
 	scopeToBranchByName(
 		branchName: string,
 		upstreamName?: string,
-		options?: { remote?: boolean; source?: GraphScopeSource; additionalBranchRefs?: string[] },
+		options?: {
+			remote?: boolean;
+			source?: GraphScopeSource;
+			additionalBranchRefs?: string[];
+			origin?: GraphScopeOrigin;
+		},
 	): Promise<void>;
 	fetchSelectedWorktreeWipStats(sha: string): Promise<void>;
+	/** Selects and reveals `rowId` once the graph's binding converges on `repoPath` — the follow a Scope
+	 *  gesture performed ON that row earns (see `GraphApp.followRowAfterRebind`). Optional so a test host
+	 *  can omit it; a missing implementation simply means no follow. */
+	followRowAfterRebind?(rowId: string, repoPath: string): void;
 };
 
 /**
@@ -137,13 +147,51 @@ export class OverviewBarController implements ReactiveController {
 		// The double-click supersedes its own clicks' held select — the scope owns positioning now.
 		this._select.cancel();
 		const gs = this.deps.graphState();
-		if (gs.scope?.branchRef === e.detail.branchId) {
-			gs.clearScope();
 
-			return;
+		// Which verb a SECONDARY pill's double-click performs — the same setting and semantics as the
+		// canvas's WIP-row double-click, since this pill shares that gesture.
+		//
+		// BOTH exclusions below are needed, and they're different facts: the PRIMARY pill's worktree is
+		// already the graph's binding, so there's no rebind to ask for; the HOME worktree is where the
+		// gesture means "go home", never "scope to home". They diverge after a rebind or a picker switch
+		// onto a worktree, and the WIP-row gesture reads that same row through the same `isHomeWorktree`
+		// test, so dropping either check would put the two surfaces at odds over the identical worktree.
+		const doubleClickAction = gs.config?.doubleClickWorktreeAction ?? 'scope';
+		// Home, not the repo's DEFAULT worktree: in a window opened on a worktree the default worktree is an
+		// ordinary scope target, and home is the worktree the window was opened on (see `isHomeWorktree`).
+		const isHome = isHomeWorktree(e.detail.repoPath, gs.homeRepositoryPath);
+		const origin: GraphScopeOrigin | undefined =
+			!e.detail.isPrimary && !isHome && doubleClickAction === 'scope'
+				? { kind: 'worktree', path: e.detail.repoPath }
+				: undefined;
+
+		// The pill IS its worktree's WIP row, so it declares that row as the gesture's target: a Scope from
+		// here follows the row to its new position once the rebind lands, as the canvas gesture does.
+		const outcome = resolveWorktreeGesture({
+			branchRef: e.detail.branchId,
+			origin: origin,
+			// The setting IS the verb, declared separately from `origin`, which this surface omits on the
+			// PRIMARY pill even under Scope — and that pill is exactly where "click again to exit" must
+			// keep working.
+			verb: doubleClickAction,
+			worktreePath: e.detail.repoPath,
+			scope: gs.scope,
+			perspectivePath: gs.worktreePerspective?.path,
+			homeRepositoryPath: gs.homeRepositoryPath,
+			scopeBehaviorIncludesFocus: (gs.config?.scopeBehavior ?? 'scopeAndFocus') !== 'scope',
+			targetRowId: createWipRowId(e.detail.repoPath),
+		});
+
+		// Set SYNCHRONOUSLY, before the focus pipeline below — the header tint + pill must reflect the
+		// worktree instantly, not after `scopeToBranchByName`'s anchor IPC settles.
+		applyWorktreeGestureOutcome(gs, outcome, e.detail.branch, this.deps.followRowAfterRebind);
+
+		if (outcome.focus) {
+			void this.deps.scopeToBranchByName(e.detail.branch, undefined, {
+				source: 'wip-row',
+				origin: outcome.origin,
+			});
 		}
-
-		void this.deps.scopeToBranchByName(e.detail.branch, undefined, { source: 'wip-row' });
 	};
 
 	/** Selects a WIP overview-bar item (click or digit shortcut) — puts the graph in graph mode, drops
@@ -515,7 +563,12 @@ export class OverviewBarController implements ReactiveController {
 			...(primaryAhead > 0 ? { hasUnpushed: true } : {}),
 			...pickAgent(fallbackRepoPath),
 			isPrimary: true,
-			context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
+			context: serializeWipContext(
+				fallbackRepoPath,
+				false,
+				primary?.hasConflicts ?? false,
+				gs.branch != null && !gs.branch.detached,
+			),
 		});
 
 		for (const { sha, meta, state, dirty } of secondaries) {
@@ -564,7 +617,12 @@ export class OverviewBarController implements ReactiveController {
 				},
 				...pickAgent(meta.repoPath),
 				isPrimary: false,
-				context: serializeWipContext(meta.repoPath, true, state?.hasConflicts ?? false),
+				context: serializeWipContext(
+					meta.repoPath,
+					true,
+					state?.hasConflicts ?? false,
+					meta.branchRef != null && meta.branch != null,
+				),
 			});
 		}
 

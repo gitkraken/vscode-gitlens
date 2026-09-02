@@ -80,8 +80,10 @@ export interface TreeItemDecorationBase {
 	position?: 'before' | 'after';
 }
 
-/** Color treatment for an icon decoration, keyed to the Launchpad indicator colors. */
-export type TreeItemDecorationIconKind = 'launchpad-mergeable' | 'launchpad-blocked' | 'launchpad-attention';
+/** Color treatment for an icon decoration, keyed to the Launchpad indicator colors. `scoped` reuses the
+ *  Commit Graph's scoped-worktree yellow, the same token the graph header's pills render active scope
+ *  with, so a scoped sidebar row reads as the same state rather than inventing new vocabulary. */
+export type TreeItemDecorationIconKind = 'launchpad-mergeable' | 'launchpad-blocked' | 'launchpad-attention' | 'scoped';
 
 export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	type: 'icon';

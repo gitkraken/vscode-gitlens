@@ -222,6 +222,10 @@ export interface SearchHarness {
 	) => void;
 	/** Changes the active repo's path after the harness is built, for exercising repo-switch flows. */
 	setRepositoryPath: (path: string) => void;
+	/** Changes `getFiltersRepoPath()`'s return after the harness is built — the family-home key search
+	 *  history is bucketed on, independent of {@link setRepositoryPath} (which simulates the LIVE, possibly
+	 *  rebound, repo). */
+	setFiltersRepoPath: (path: string) => void;
 	/** The fake workspace-storage stubs backing {@link SearchHistory}, for asserting on the keys/values
 	 *  written by search-history read/write flows. */
 	storage: { getWorkspace: sinon.SinonStub; storeWorkspace: sinon.SinonStub };
@@ -290,6 +294,10 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 	const setSelectedRowsStub = sinon.stub();
 	const notifyDidChangeRowsStub = sinon.stub();
 
+	// Defaults to the same path as the live repo — tests that never scope stay unaffected; tests that
+	// exercise the home/scoped distinction call `setFiltersRepoPath` to diverge it from `setRepositoryPath`.
+	let filtersRepoPath: string | undefined = repoPath;
+
 	const context: GraphSearchServiceContext = {
 		container: container,
 		host: host as unknown as WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>,
@@ -298,6 +306,7 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 		getSelectedId: () => undefined,
 		getSelectedRows: () => undefined,
 		getEtagRepository: () => repository.etag,
+		getFiltersRepoPath: () => filtersRepoPath,
 		setSelectedRows: setSelectedRowsStub,
 		updateState: sinon.stub(),
 		updateGraphWithMoreRows: sinon.stub().resolves(undefined),
@@ -343,6 +352,9 @@ export function createSearchHarness(options?: SearchHarnessOptions): SearchHarne
 		queueContinueSearchGraphStream: factory => continueSearchGraphQueue.push(factory),
 		setRepositoryPath: (path: string) => {
 			repository.path = path;
+		},
+		setFiltersRepoPath: (path: string) => {
+			filtersRepoPath = path;
 		},
 		storage: { getWorkspace: storageGetWorkspaceStub, storeWorkspace: storageStoreWorkspaceStub },
 		context: { setSelectedRows: setSelectedRowsStub, notifyDidChangeRows: notifyDidChangeRowsStub },

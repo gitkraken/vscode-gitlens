@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "591cdeff88b4cdb62788cdcae303a453f6bc88e7",
+	"sourceCommit": "9203af3aae6bd158be723b62d9dcca50e59dc083",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "The full GitLens profile has a 12 KiB ceiling above main for host-neutral extension seams. shared.js (loaded by every webview) gets a 4 KiB ceiling so unrelated shared-code changes don't trip a graph check while real bloat still does. graph.css allows two accounted moves: the element rename (gl-lit-graph to gl-commit-graph adds three bytes to every prefixed rule) and the VS Code theme-token table, which now ships in the package's themes/vscode.css instead of being written from JavaScript (a JS-to-CSS move, neutral for the entrypoint). Dropping the element prefix is queued and will take the ceiling back toward main.",
+	"budgetRationale": "Re-baselined at the worktree-scoping feature (independent Scope and Focus modes): +43 KiB on the entrypoint, of which +35 KiB is graph.js (the scope popover and header pill, the shared worktree gesture machine, the rebind and persisted-perspective state, and superseded-page handling) and +7 KiB is graph.css (the scoped tint bands and pill chrome). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint for host-neutral extension seams, 4 KiB on shared.js (loaded by every webview) so unrelated shared-code changes don't trip a graph check while real bloat still does, and graph.css's accounted allowance for the gl-commit-graph element rename and the VS Code theme-token table. Dropping the element prefix is queued and will take the css ceiling back toward main.",
 	"baselineBytes": {
-		"entrypoint": 2964706,
-		"graph.js": 1759230,
-		"graph.css": 153385,
-		"shared.js": 1052091
+		"entrypoint": 3005881,
+		"graph.js": 1791491,
+		"graph.css": 160779,
+		"shared.js": 1053611
 	},
 	"maximumBytes": {
-		"entrypoint": 2976994,
-		"graph.js": 1759230,
-		"graph.css": 160266,
-		"shared.js": 1056187
+		"entrypoint": 3018169,
+		"graph.js": 1791491,
+		"graph.css": 167660,
+		"shared.js": 1057707
 	}
 }

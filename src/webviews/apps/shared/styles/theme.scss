@@ -192,6 +192,14 @@
 	--gl-chip-tint-border: 50%;
 	--gl-chip-tint-hover: 32%;
 
+	/* Derived "scoped" chip surface colors, computed once from the color + tint tokens above so
+	   every consumer (titlebar row bands, the scope chip, the branch pill) renders the identical
+	   tint by construction — and picks up the dark/light overrides below automatically, since the
+	   cascade re-resolves these `var()`s per theme. */
+	--gl-chip-scoped-bg: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
+	--gl-chip-scoped-border: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
+	--gl-chip-scoped-hover: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-hover), transparent);
+
 	--gitlens-gutter-width: 20px;
 }
 

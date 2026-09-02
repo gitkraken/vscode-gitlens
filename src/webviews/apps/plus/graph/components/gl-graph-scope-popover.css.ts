@@ -44,12 +44,12 @@ export const graphScopePopoverStyles = css`
 
 	.mode-chip--scoped {
 		color: var(--gl-chip-scoped-text-color);
-		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
-		border-color: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
+		background: var(--gl-chip-scoped-bg);
+		border-color: var(--gl-chip-scoped-border);
 	}
 
 	.mode-chip--scoped:hover {
-		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-hover), transparent);
+		background: var(--gl-chip-scoped-hover);
 	}
 
 	.mode-chip__icon {

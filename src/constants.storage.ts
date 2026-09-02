@@ -231,6 +231,12 @@ interface WorkspaceStorageCore {
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
+	/** The worktree perspective the graph is scoped to, so a full window reload can re-establish it on boot
+	 *  (the rebind is otherwise session-only). Keyed `` `${host.id}|${homeRepoPath}` `` — home is the stable
+	 *  identity across a rebind (mirroring `graph:filtersByRepo`), and each surface (sidebar view vs editor
+	 *  panel) binds independently so it needs its own entry or the two clobber each other. Absent means
+	 *  "not scoped". */
+	'graph:perspectiveByRepo': Record<string, StoredGraphWorktreePerspective>;
 	'graph:state': StoredGraphState;
 	/** Per-worktree commit draft for the Graph's WIP details panel. Key is the worktree's
 	 *  fsPath — invariant whether the user opens the main repo or the worktree directly. */
@@ -466,6 +472,12 @@ export interface StoredGraphWipDraft {
 }
 
 export type StoredGraphExcludeTypes = 'remotes' | 'stashes' | 'tags';
+
+/** The persisted half of `graph:perspectiveByRepo` — just enough to re-resolve the worktree at boot; the
+ *  branch name and the rest of the chrome's state ride the fresh state the re-established rebind produces. */
+export interface StoredGraphWorktreePerspective {
+	path: string;
+}
 
 export interface StoredGraphFilters {
 	branchesVisibility?: GraphBranchesVisibility;

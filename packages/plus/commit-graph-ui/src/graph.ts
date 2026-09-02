@@ -62,7 +62,7 @@ import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
 import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import type { GraphRowAction } from './contracts/contributions.js';
+import type { GraphRowAction, GraphWipRowBranchResolver } from './contracts/contributions.js';
 import type { GraphKeymapScope } from './contracts/keyboard.js';
 import type { GraphRefFinderElement } from './contracts/refFinder.js';
 import type { CommitGraphSourceRow, CommitGraphView as GraphCommitView } from './contracts/rows.js';
@@ -273,6 +273,34 @@ const rowHasLocalHead: ScopeHeadsPredicate<CommitGraphSourceRow> = (row, branchN
  *  resolves no focal tip at all, which leaves it with neither a re-root nor a dim. */
 const rowHasRemoteHead: ScopeHeadsPredicate<CommitGraphSourceRow> = (row, branchName) =>
 	row.remotes?.some(r => `${r.owner}/${r.name}` === branchName) === true;
+
+/** Drops a `getBranchId`-shaped ref id's `${repoPath}|` prefix, leaving `heads/name`/`remotes/name`. Used
+ *  to build the scope's view-identity off the ref alone: a same-family rebind re-stamps `branchRef`'s
+ *  repoPath component while the branch itself is unchanged, and the view-identity must NOT perceive that
+ *  as a scope switch — doing so would reset manual fold state for a rebind that changed nothing the user
+ *  did. Ids with no `|` (shouldn't happen for a real scope ref) pass through unchanged. */
+function stripRepoPathPrefix(ref: string): string {
+	const i = ref.indexOf('|');
+	return i >= 0 ? ref.slice(i + 1) : ref;
+}
+
+/**
+ * The scope's SEMANTIC view-identity — which refs the user scoped to, with each ref's repoPath component
+ * stripped (see {@link stripRepoPathPrefix}) so a same-family rebind computes the SAME identity as before
+ * it. Shared by `_scopeIdentity`'s fold/`viewKey` gate and `willUpdate`'s ref-find invalidation, which
+ * both need to agree on what counts as "the scope changed".
+ *
+ * Serialized structurally, not joined: ref names may contain commas, so a joined string is not injective.
+ * `additionalBranchRefs` is set-like, so canonicalized (sorted) — reordering them isn't a scope change.
+ */
+function computeScopeIdentity(scope: GraphScope | undefined): string | undefined {
+	return scope != null
+		? JSON.stringify([
+				stripRepoPathPrefix(scope.branchRef),
+				(scope.additionalBranchRefs ?? []).map(stripRepoPathPrefix).toSorted(),
+			])
+		: undefined;
+}
 
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
 // attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
@@ -611,8 +639,17 @@ export class GlCommitGraph extends LitElement {
 	// Selected repo path — needed to reconstruct lean commit rows' right-click context (the host now
 	// ships only `contexts.flags`, not a serialized `contexts.row`); see toGraphCommit.
 	@property({ type: String }) repoPath?: string;
+	// The repo's "family" (`commonPath ?? path`) — stable across a same-family rebind, unlike
+	// `repoPath`. Used ONLY as the engine/projection session identity (see `recomputeRows`/
+	// `recomputeLaneDerivations`), falling back to `repoPath` when absent; every other use of the
+	// repo's path (row context, WIP row ids, etc.) still reads the literal `repoPath`.
+	@property({ type: String }) repoFamily?: string;
 	@property({ type: Object }) scope?: GraphScope;
 	@property({ type: Object }) wipStateById?: GraphWipStateById;
+	/** Whether a working-changes row's worktree has a branch (false for a detached HEAD) — supplied by the
+	 *  product, which owns per-worktree branch state. Feeds the keyboard row-context build below; unset
+	 *  defaults to true. */
+	@property({ attribute: false }) wipRowHasBranch?: GraphWipRowBranchResolver;
 	/** The graph's own worktree's WIP row id, when it renders — tells `rowContextFor` which WIP row is the
 	 *  primary one, so a peer's native context menu can differ from the graph's own. */
 	@property({ type: String }) primaryWipRowId?: string;
@@ -1795,6 +1832,10 @@ export class GlCommitGraph extends LitElement {
 			// new view against a stale chain and leaks the `document` pointerdown dismiss listener. Clear
 			// it directly (the @state writes re-render; the lane re-derivation below rebuilds the ref
 			// adornments with the cleared pin) and dismiss any pinned ref popover.
+			//
+			// Gated on OBJECT identity (any scope swap, including a same-family re-stamp) rather than the
+			// semantic identity check below: the click-pin is ephemeral interaction state (dismissed on
+			// outside click already), not something a rebind needs to preserve.
 			let clearedRefState = false;
 			if (this._pinnedRefKey != null || this.pinnedRefDismiss != null) {
 				this._pinnedRefKey = undefined;
@@ -1811,7 +1852,15 @@ export class GlCommitGraph extends LitElement {
 			// scope switch, a ref sharing that key in the NEW view would silently inherit the find-hit
 			// emphasis despite never having been searched for. A page-in still chasing the old scope's
 			// walk is equally stale, so the loading watch goes with it.
-			if (this._refFindHitKey != null || this._refFindLoadingSha != null) {
+			//
+			// Gated on the SEMANTIC scope identity (`computeScopeIdentity`), not object identity:
+			// `restampScope` returns a new scope object on every same-family rebind even when the branch
+			// didn't change, so clearing here would be spurious. `_scopeIdentity` still holds the PRIOR
+			// value here — `recomputeRows` below is what advances it.
+			if (
+				computeScopeIdentity(this.scope) !== this._scopeIdentity &&
+				(this._refFindHitKey != null || this._refFindLoadingSha != null)
+			) {
 				this._refFindHitKey = undefined;
 				this._refFindLoadingSha = undefined;
 				this._refFindLoadingRevealedIndex = undefined;
@@ -2145,7 +2194,35 @@ export class GlCommitGraph extends LitElement {
 		const rowHeightChanged = rowHeight !== wasRowHeight;
 		this._renderedRowHeight = rowHeight;
 
-		if (
+		// A REBIND is the one rows update that MOVES the WIP rows rather than inserting around them: the
+		// newly-bound worktree's row jumps to the top and the previous binding's drops to its branch tip.
+		// Following a WIP row here means following that teleport, dragging the viewport to row 0 — so
+		// re-track from the unchanged scroll position instead, for the first rows update after a rebind.
+		if (this.repoPath !== this._lastViewportRepoPath) {
+			this._lastViewportRepoPath = this.repoPath;
+			this._retrackViewportOnRebind = true;
+		}
+
+		let reboundOffWipAnchor = false;
+		if (this._retrackViewportOnRebind && rowsChanged) {
+			const topSha = this._viewportTopSha;
+			if (topSha != null && isWipRowId(topSha)) {
+				// Consume the arm only when the WIP anchor actually moved — an unrelated rows update
+				// landing first would otherwise spend it on a pass where nothing teleported.
+				const nowAt = this.indexBySha.get(topSha);
+				if (nowAt == null || nowAt !== this._viewportTopIndex) {
+					this._retrackViewportOnRebind = false;
+					reboundOffWipAnchor = true;
+				}
+			} else {
+				// Not anchored on a WIP row — no teleport hazard; the ordinary correction below handles it.
+				this._retrackViewportOnRebind = false;
+			}
+		}
+
+		if (reboundOffWipAnchor) {
+			this.trackViewportTop(this._viewportScrollTop);
+		} else if (
 			(rowsChanged || rowUnitsMayHaveShifted || rowHeightChanged) &&
 			this.wasScrolled &&
 			this._viewportTopSha != null &&
@@ -2910,8 +2987,15 @@ export class GlCommitGraph extends LitElement {
 		// and the previous repo's tracked viewport row would survive into the new graph — where an
 		// overlapping sha (a shared commit, a fork, the same repo opened twice) resolves and re-parks the
 		// viewport at the old repo's position. Drop the tracking on identity change.
-		if (this.repoPath !== this._lastScrollRepoPath) {
-			this._lastScrollRepoPath = this.repoPath;
+		//
+		// Compares `repoFamily ?? repoPath` — the same substitution the engine/projection sessions use —
+		// rather than the literal `repoPath`: within a family (a rebind), re-parking on an overlapping sha
+		// is the WANTED behavior, not the cross-repo collision hazard this gate guards against. Keying on
+		// the literal path would otherwise clear `_viewportTopSha` on every rebind, dropping the
+		// insert-above scroll correction and re-arming a passive reveal that can re-park the viewport.
+		const scrollIdentity = this.repoFamily ?? this.repoPath;
+		if (scrollIdentity !== this._lastScrollRepoPath) {
+			this._lastScrollRepoPath = scrollIdentity;
 			this.cancelPendingReveal();
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
@@ -2949,18 +3033,12 @@ export class GlCommitGraph extends LitElement {
 		// Which refs the user scoped to — `branchRef`/`additionalBranchRefs` are their choice, while
 		// `focalBranchTipSha`/`mergeTargetTipSha`/`mergeBase` are resolved values that advance with the repo.
 		// Keying on the choice is what separates "the user switched view" (refresh) from "the anchors
-		// re-resolved" (stay stable).
-		// Serialized structurally: ref names may contain commas (and most other punctuation), so a joined
-		// string is not injective — two different ref sets could collide and silently suppress the refresh.
-		// The additional refs are set-like, so canonicalize their order; reordering them isn't a scope change.
+		// re-resolved" (stay stable). See `computeScopeIdentity` for the serialization itself.
 		// Memoized on the scope OBJECT: it holds a stable reference across the far more frequent rows-only
-		// updates, so the sort + stringify would otherwise run on every host push for an unchanged scope.
+		// updates, so the recompute would otherwise run on every host push for an unchanged scope.
 		if (this._scopeIdentityFor !== this.scope) {
 			this._scopeIdentityFor = this.scope;
-			this._scopeIdentity =
-				this.scope != null
-					? JSON.stringify([this.scope.branchRef, (this.scope.additionalBranchRefs ?? []).toSorted()])
-					: undefined;
+			this._scopeIdentity = computeScopeIdentity(this.scope);
 		}
 
 		// Pin the branch (the host's `pinnedRef` property) to the leftmost lane(s) via the engine's
@@ -2970,7 +3048,7 @@ export class GlCommitGraph extends LitElement {
 
 		const engineStartedAt = debugBuild ? performance.now() : 0;
 		const state = this.engineSession.update({
-			identity: this.repoPath,
+			identity: this.repoFamily ?? this.repoPath,
 			sourceRows: sourceRows,
 			toCommit: row => this.profile.rowAdapter(row, idLength, this.repoPath, this.pinnedRef?.id),
 			headSha: rows.find(row => row.heads?.some(head => head.isCurrentHead))?.sha,
@@ -3018,7 +3096,7 @@ export class GlCommitGraph extends LitElement {
 		const projectionStartedAt = debugBuild ? performance.now() : 0;
 		const state = this.projectionSession.update(
 			{
-				identity: this.repoPath,
+				identity: this.repoFamily ?? this.repoPath,
 				viewKey: this._scopeIdentity,
 				rows: this.processedRows,
 				segments: this.segments,
@@ -3663,6 +3741,13 @@ export class GlCommitGraph extends LitElement {
 
 	/** The repo the pending scroll state belongs to — a swap reuses this element, so it must invalidate. */
 	private _lastScrollRepoPath?: string;
+	/** The BINDING (`repoPath`, not the family) the tracked viewport row was last seen under — a change
+	 *  means a rebind moved the WIP rows under us. Separate from {@link _lastScrollRepoPath}, which keys on
+	 *  the family precisely so a rebind DOESN'T reset the tracking. */
+	private _lastViewportRepoPath?: string;
+	/** Set when {@link _lastViewportRepoPath} moved, cleared by the first rows update that follows — see
+	 *  the viewport correction's rebind branch for why the two can't be checked together. */
+	private _retrackViewportOnRebind = false;
 
 	// Visually-hidden polite live region for screen-reader announcements (lane collapse, paging).
 	// Written via the cached element ref (CSSOM textContent — no host re-render).
@@ -5596,6 +5681,7 @@ export class GlCommitGraph extends LitElement {
 				worktreePath,
 				sha !== this.primaryWipRowId,
 				this.wipStateById?.[sha]?.hasConflicts ?? false,
+				this.wipRowHasBranch?.(sha) ?? true,
 			);
 		}
 

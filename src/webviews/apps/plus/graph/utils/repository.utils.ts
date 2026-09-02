@@ -1,3 +1,4 @@
+import { basename } from '@gitlens/utils/path.js';
 import type { GraphRepository } from '../../../../plus/graph/protocol.js';
 
 /**
@@ -58,4 +59,33 @@ export function getSelectedRepoFamily(state: {
 }): string | undefined {
 	const repo = getSelectedRepo(state);
 	return repo?.commonPath ?? repo?.path;
+}
+
+/**
+ * Counts the repositories the user actually has OPEN — every entry except the bound-but-closed one the
+ * host appends during a rebind ({@link GraphRepository.closed}, stamped only there).
+ *
+ * This is what "can the user switch repositories" means, and it matches the picker's own list: worktrees
+ * opened as workspace folders are real switch targets and count. Only the injected entry is excluded,
+ * since it exists to name `selectedRepository`, not to offer a choice the user made.
+ */
+export function countOpenRepositories(repositories: GraphRepository[] | undefined): number {
+	if (!repositories?.length) return 0;
+
+	let count = 0;
+	for (const repo of repositories) {
+		if (!repo.closed) {
+			count++;
+		}
+	}
+	return count;
+}
+
+/**
+ * Display name for a worktree path — the matching `repositories` entry's `name` when the webview knows it
+ * (worktrees surface as their own entries there), falling back to the path's basename (mirroring
+ * `overviewBarController`'s `primaryFallbackLabel` and the sidebar worktree tree's fallback).
+ */
+export function worktreeDisplayName(repositories: GraphRepository[] | undefined, path: string): string {
+	return repositories?.find(repo => repo.path === path)?.name ?? basename(path);
 }

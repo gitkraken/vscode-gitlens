@@ -69,6 +69,25 @@ export function getExcludedRefName(ref: StoredGraphExcludedRef): string | undefi
 	}
 }
 
+/**
+ * Re-stamps a stored filter ref id (`filters.pinnedRef.id`, an `excludeRefs` key/`.id`, or an `except[]`
+ * entry) onto `toRepoPath` — the invariant every `graph:filtersByRepo` consumer follows: the BUCKET is
+ * home-keyed (survives a rebind), but every id INSIDE it was minted at whatever path was live when it was
+ * stored, and both host and webview match those ids by EXACT equality against a LIVE row/ref/branch's
+ * `.id`, which is always stamped to the graph's CURRENT path. Re-stamp at the read/serve boundary or a
+ * pin/hide made pre-rebind (or while rebound onto a DIFFERENT worktree) silently stops matching.
+ *
+ * Unlike `restampRowIds`, which knows the EXACT prior path, a stored filter id could have been minted at
+ * ANY worktree of the family — there's no single `fromPath` to prefix-match. Ids all format as
+ * `${repoPath}|<type>/<name>`, so replacing everything BEFORE the first `|` is unambiguous for every id the
+ * scheme can round-trip. (`|` is legal in git paths and refnames; an id containing one is already
+ * unparseable everywhere ids are split, not just here.)
+ */
+export function restampFilterRefId(id: string, toRepoPath: string): string {
+	const sep = id.indexOf('|');
+	return sep === -1 ? id : `${toRepoPath}${id.slice(sep)}`;
+}
+
 // The shipped column layout — the base layer under stored column state, and what "Reset Layout"
 // writes back.
 export const defaultGraphColumnsSettings: GraphColumnsSettings = {

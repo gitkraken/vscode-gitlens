@@ -61,6 +61,24 @@ export class VSCodePage {
 		) as Promise<T>;
 	}
 
+	/**
+	 * Write a setting at the user (Global) scope, as the Settings UI would — for specs that have to
+	 * exercise BOTH values of a setting in one worker, where the fixture's static `userSettings` can
+	 * only pin one. Settings written this way land in the worker's own temp user-data dir, so they
+	 * don't leak across workers; a spec that changes one still has to restore it for the specs after it.
+	 */
+	async updateSetting(section: string, value: unknown): Promise<void> {
+		await this.evaluate(
+			async (vscode, section, value) => {
+				// 1 = ConfigurationTarget.Global — the enum isn't reachable through the evaluator's
+				// serialized boundary, and no workspace is guaranteed to be open.
+				await vscode.workspace.getConfiguration().update(section, value, 1);
+			},
+			section,
+			value,
+		);
+	}
+
 	/** The host editor's URI scheme (e.g. `vscode`, `cursor`, `windsurf`, `kiro`) */
 	async getUriScheme(): Promise<string> {
 		return this.evaluate(vscode => vscode.env.uriScheme);

@@ -40,6 +40,7 @@ import type {
 	GraphWorktreeEnrichment,
 } from '../../../plus/graph/graphService.js';
 import type {
+	GraphRebindRefusalReason,
 	GraphRefsMetadata,
 	GraphRowsPayload,
 	GraphRowsSplice,
@@ -66,7 +67,8 @@ import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
-import { getSelectedRepoPath } from './utils/repository.utils.js';
+import { restampId, restampScope } from './utils/rebind.utils.js';
+import { getSelectedRepoPath, worktreeDisplayName } from './utils/repository.utils.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
@@ -559,6 +561,9 @@ export class GraphStateProvider implements Disposable {
 	accessor selectedRepository: State['selectedRepository'];
 
 	@signalState()
+	accessor homeRepositoryPath: State['homeRepositoryPath'];
+
+	@signalState()
 	accessor selectedRepositoryVisibility: State['selectedRepositoryVisibility'];
 
 	@signalState()
@@ -644,6 +649,28 @@ export class GraphStateProvider implements Disposable {
 
 	@signalState()
 	accessor scope: AppState['scope'];
+
+	/** Optimistic override covering the window between a rebind RPC firing and the host's push landing.
+	 *  The BOX is what distinguishes a pending CLEAR (`{ value: undefined }`) from no override at all. */
+	@signalState()
+	private accessor _pendingPerspective: { value: AppState['worktreePerspective'] } | undefined;
+
+	/** The perspective the HOST's binding implies: a bound repo whose path isn't `homeRepositoryPath` IS
+	 *  the scoped state. Nothing writes this — there is no second copy to reconcile. */
+	private get hostPerspective(): AppState['worktreePerspective'] {
+		const home = this.homeRepositoryPath;
+		if (home == null) return undefined;
+
+		const bound = this.repositories?.find(r => r.id === this.selectedRepository);
+		if (bound == null || bound.path === home) return undefined;
+
+		return { path: bound.path, branchName: this.branch?.name };
+	}
+
+	get worktreePerspective(): AppState['worktreePerspective'] {
+		const pending = this._pendingPerspective;
+		return pending != null ? pending.value : this.hostPerspective;
+	}
 
 	@signalState()
 	accessor rowMarkerMergeTarget: AppState['rowMarkerMergeTarget'];
@@ -1501,15 +1528,200 @@ export class GraphStateProvider implements Disposable {
 
 	clearScope(): void {
 		this.pendingScopeToBranch = false;
+		// Cancel unconditionally, even with no scope published — a worktree gesture's anchor IPC can still
+		// be resolving when the user asks to clear, and a pending pick left alive would let
+		// `publishResolvedScope` install a scope moments after the user asked to leave.
+		this.cancelPendingScope();
 		if (this.scope == null) return;
 
-		this.cancelPendingScope();
 		this.scope = undefined;
 
 		emitTelemetrySentEvent(this.host, {
 			name: 'graph/scope/cleared',
 			data: {},
 		});
+	}
+
+	/**
+	 * Sets the worktree PERSPECTIVE — see {@link AppState.worktreePerspective} for what it means relative
+	 * to `scope`. Writes the optimistic override and fires {@link reconcileWorktreeRebind} synchronously so
+	 * the header tint and pill render in the same frame, ahead of any focus/anchor IPC the caller runs
+	 * afterward.
+	 *
+	 * Same `path` is a no-op for the RPC (still refreshes `branchName`), which keeps a same-worktree
+	 * re-focus from re-firing the rebind and lets worktree→worktree go straight to the new path in one
+	 * call — the host serializes concurrent rebinds, so there's no need to round-trip through home.
+	 */
+	setWorktreePerspective(path: string, options?: { branchName?: string }): void {
+		const previous = this.worktreePerspective;
+		if (previous?.path === path) {
+			if (options?.branchName != null && previous.branchName !== options.branchName) {
+				this._pendingPerspective = { value: { path: path, branchName: options.branchName } };
+			}
+			return;
+		}
+
+		this._pendingPerspective = { value: { path: path, branchName: options?.branchName } };
+		this.reconcileWorktreeRebind(path);
+	}
+
+	/**
+	 * Clears the worktree perspective, rebinding the graph back onto its home repository. No-op when no
+	 * perspective is live — mirrors {@link clearScope}.
+	 *
+	 * `restoreScopeOnRefusal` is for callers that clear the FOCUS alongside the perspective (the branch
+	 * pill's ✕ full exit): a refused clear brings the perspective back, and the focus has to come back with
+	 * it or the exit half-lands. Pass the live scope, captured BEFORE the `clearScope()` that follows.
+	 */
+	clearWorktreePerspective(options?: { restoreScopeOnRefusal?: AppState['scope'] }): void {
+		if (this.worktreePerspective == null) return;
+
+		this._pendingPerspective = { value: undefined };
+		this.reconcileWorktreeRebind(undefined, options?.restoreScopeOnRefusal);
+	}
+
+	/**
+	 * Rebind side-channel: fires {@link GraphScopeService.rebind} off a `worktreePerspective` TRANSITION.
+	 * Only the perspective touches the binding — `setScope`/`clearScope` never do, and a scope's
+	 * `origin.kind === 'worktree'` is provenance/toggle-identity only.
+	 *
+	 * Fire-and-forget by design: the optimistic override is already written, so this never delays the
+	 * synchronous UI update. Marks the graph busy for the RPC's whole span so the slow fallback (a full
+	 * walk) doesn't read as broken; the fast path settles under the arming delay and shows nothing.
+	 *
+	 * On SUCCESS the override is deliberately KEPT until the host's push converges ({@link updateState}),
+	 * so the chrome never flickers to "unscoped" in the gap between the two. A refusal drops it on the spot
+	 * instead, which is what stops a pushless refusal stranding the tint, the ✕ and the aria announcement:
+	 * with the override gone the derived host truth — the binding the host never left — shows through.
+	 * `superseded` drops it just as quietly, since the newer writer's state is what should be on screen.
+	 *
+	 * Both arms bail unless the override is still the one this call installed — a newer transition owns it
+	 * otherwise, and that guard gates the failure toast too.
+	 */
+	private reconcileWorktreeRebind(nextPath: string | undefined, scopeOnRefusal?: AppState['scope']): void {
+		const pending = this._pendingPerspective;
+
+		const endBusy = this.beginEnsureLoading();
+		void this._servicesReady.promise
+			.then(() => this._scopeService!.rebind({ worktreePath: nextPath }))
+			.then(
+				result => {
+					const refused = result?.refused;
+					if (refused == null) return;
+
+					if (this._pendingPerspective !== pending) {
+						this.logger?.debug(
+							undefined,
+							`rebind refused (worktreePath=${nextPath ?? '<home>'}, reason=${refused}) — superseded, left alone`,
+						);
+						return;
+					}
+
+					if (refused === 'superseded') {
+						this.logger?.debug(
+							undefined,
+							`rebind superseded (worktreePath=${nextPath ?? '<home>'}) — leaving the newer state alone`,
+						);
+						this._pendingPerspective = undefined;
+						return;
+					}
+
+					this.revertRefusedWorktreeRebind(nextPath, refused, scopeOnRefusal);
+				},
+				(ex: unknown) => {
+					this.logger?.debug(
+						undefined,
+						`rebind failed (worktreePath=${nextPath ?? '<home>'}): ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+					if (this._pendingPerspective !== pending) return;
+
+					this.revertRefusedWorktreeRebind(nextPath, 'failed', scopeOnRefusal);
+				},
+			)
+			.finally(() => endBusy());
+	}
+
+	/** Drops the optimistic override so the perspective falls back to what the host is still bound to, and
+	 *  reports why for the reasons worth reporting. The terminal half of {@link reconcileWorktreeRebind}.
+	 *
+	 *  `scopeOnRefusal` restores the focus the caller cleared as part of the same gesture — see
+	 *  {@link clearWorktreePerspective}. Written straight to the field, not through `setScope`: re-running
+	 *  the anchor IPC would re-emit `graph/scope/changed` telemetry for a scope the user never re-picked,
+	 *  and let a newer pick lose a race to it. */
+	private revertRefusedWorktreeRebind(
+		nextPath: string | undefined,
+		reason: GraphRebindRefusalReason,
+		scopeOnRefusal?: AppState['scope'],
+	): void {
+		this.logger?.debug(
+			undefined,
+			`rebind refused (worktreePath=${nextPath ?? '<home>'}, reason=${reason}) — perspective reverted to ${this.hostPerspective?.path ?? '<home>'}`,
+		);
+		this._pendingPerspective = undefined;
+		// Only when the caller's clear actually landed and nothing has re-focused since — a focus taken
+		// while the RPC was in flight is newer than the one we're rolling back and owns the field.
+		if (scopeOnRefusal != null && this.scope == null) {
+			this.scope = scopeOnRefusal;
+		}
+
+		const message = getRebindFailureMessage(
+			nextPath != null ? worktreeDisplayName(this.repositories, nextPath) : undefined,
+			reason,
+		);
+		if (message == null) return;
+
+		this.host.dispatchEvent(
+			new CustomEvent('gl-graph-request-rebind-failed', { detail: { message: message }, bubbles: true }),
+		);
+	}
+
+	/**
+	 * Re-stamps webview-held, repoPath-embedded scope state onto a same-family rebind's new binding instead
+	 * of clearing it. The commit graph is shared across a repository family, so anchors (SHAs) and the
+	 * picked branch stay valid — only the repoPath embedded in `branchRef`/`upstreamRef`/
+	 * `additionalBranchRefs` and the anchor-cache keys moves from `fromRepoPath` to `toRepoPath`.
+	 *
+	 * `_mergeBasePromises`/`_anchorGenerations` are deliberately left untouched: both are per-repoPath
+	 * in-flight bookkeeping that self-cleans under its own original key, and a generation defaulting to 0
+	 * for an unseen repoPath is correct. Worst case is one redundant anchor re-resolve.
+	 *
+	 * Deliberately does NOT call {@link reconcileWorktreeRebind}: this runs as a CONSEQUENCE of a rebind
+	 * that already happened, and `restampScope` carries `origin` over unchanged by contract. Re-firing
+	 * would be a no-op at best and race the very rebind this is reacting to at worst.
+	 */
+	private restampScopeStateForRebind(fromRepoPath: string, toRepoPath: string, toIsHome: boolean): void {
+		if (fromRepoPath === toRepoPath) return;
+
+		if (this._mergeBaseCache.size > 0) {
+			const restamped = new Map<string, ResolvedScopeAnchor | undefined>();
+			for (const [key, value] of this._mergeBaseCache) {
+				restamped.set(restampId(key, fromRepoPath, toRepoPath), value);
+			}
+			this._mergeBaseCache = restamped;
+		}
+
+		if (this.scope != null) {
+			this.scope = restampScope(this.scope, fromRepoPath, toRepoPath);
+		}
+
+		if (toIsHome) {
+			// A pending CLEAR means a CLIENT exit is landing here, and that gesture already made its focus
+			// decision — so a focus live now was set AFTER it and must be re-stamped, not cleared. A
+			// HOST-initiated to-home rebind (e.g. recovery from an externally-deleted worktree) has no pending
+			// clear, and there the restamp above would leave the projection narrowed to the old, now-gone
+			// worktree's spine, hiding home's own rows including its WIP row.
+			const pending = this._pendingPerspective;
+			if (pending == null || pending.value != null) {
+				this.clearScope();
+			}
+		}
+
+		if (this._pendingScope != null) {
+			// Re-drive through the normal `setScope` flow at the new path: a cache hit (just re-keyed above)
+			// publishes synchronously, a miss re-issues the anchor IPC. The ORIGINAL in-flight resolve is for
+			// the pre-rebind `branchRef` and bails on `publishResolvedScope`'s branchRef-mismatch guard.
+			void this.setScope(restampScope(this._pendingScope, fromRepoPath, toRepoPath));
+		}
 	}
 
 	/**
@@ -1626,6 +1838,7 @@ export class GraphStateProvider implements Disposable {
 
 		this._pendingScope = undefined;
 
+		const previous = this.scope;
 		const anchorUsable = anchor != null && (anchor.mergeBase != null || anchor.mergeTargetTipSha != null);
 
 		if (!anchorUsable) {
@@ -1633,8 +1846,7 @@ export class GraphStateProvider implements Disposable {
 			// here means the resolver offered NO anchors at all (it bailed, or the branch has no merge
 			// target), so there's no replacement to prefer over the working one; a stale-anchor swap is
 			// `applyScopeAnchorPatch`'s job, on the re-resolve path.
-			const current = this.scope;
-			if (current?.branchRef === pending.branchRef && current.mergeBase != null) return;
+			if (previous?.branchRef === pending.branchRef && previous.mergeBase != null) return;
 
 			const bare = stripUnpairedMergeTarget(pending);
 			this.scope =
@@ -2047,6 +2259,8 @@ export class GraphStateProvider implements Disposable {
 		const next = applyScopeAnchorPatch(current, anchor);
 		if (next == null) return;
 
+		// No `reconcileWorktreeRebind` call: this only folds anchor fields into the SAME branch's scope and
+		// carries `origin` over verbatim, so it can never change which worktree the scope was reached through.
 		this.scope = next;
 	}
 
@@ -2707,8 +2921,10 @@ export class GraphStateProvider implements Disposable {
 	 * owns exclusively and callers must NOT route through here.
 	 */
 	protected updateState(partial: Partial<State>, silent?: boolean) {
-		// Capture the selected repo so we can re-pin its WIP cache entry below if it changes.
+		// Capture the selected repo AND the repositories list it was resolved from: `partial` may replace
+		// `repositories` in this same call, so `this.repositories` after the loop below is the NEW list.
 		const prevSelectedRepo = this.selectedRepository;
+		const prevRepositories = this.repositories;
 		let hasChanges = false;
 		for (const key in partial) {
 			hasChanges = true;
@@ -2746,18 +2962,38 @@ export class GraphStateProvider implements Disposable {
 		// the `_pinned` set stays bounded (size 1) and stale primaries can eventually evict.
 		if (this.selectedRepository !== prevSelectedRepo) {
 			if (prevSelectedRepo != null) {
-				// Scope is webview-local, so a repo switch would otherwise carry it over — and none of it
-				// resolves here: `branchRef` embeds the old repo path (`getBranchId`) and the anchors are
-				// SHAs from the old history. Left alone it silently hides the primary WIP row (the
-				// `branchRef` can't match the new repo's branch id) while the view still LOOKS scoped
-				// whenever the new repo shares the branch name.
-				//
-				// Both calls are needed. `clearScope` bails early when nothing is published yet, which is
-				// exactly the state a first `setScope` is in while its anchor IPC is still in flight —
-				// leaving `_pendingScope` set, so the resolve lands after the switch and
-				// `publishResolvedScope` installs the OLD repo's scope here. Each no-ops on its own.
-				this.cancelPendingScope();
-				this.clearScope();
+				// A same-family rebind (a worktree ↔ its main repo, or two siblings) shares one commit graph, so
+				// SHA-keyed scope state is still valid — only the repoPath embedded in its ref ids moves. Resolve
+				// both shapes by id (never by array position — `repositories` may have reordered) and compare on
+				// `commonPath ?? path`. Either shape missing falls back to the cross-family reset, the safe
+				// default.
+				const prevShape = prevRepositories?.find(r => r.id === prevSelectedRepo);
+				const nextShape = this.repositories?.find(r => r.id === this.selectedRepository);
+				const sameFamily =
+					prevShape != null &&
+					nextShape != null &&
+					(prevShape.commonPath ?? prevShape.path) === (nextShape.commonPath ?? nextShape.path);
+
+				if (sameFamily) {
+					// "Home" is the worktree the window was opened on, NOT the family's main checkout — in a
+					// window homed on a worktree the main checkout is an ordinary scope target. Falls back to the
+					// main-checkout heuristic only when home hasn't been pushed yet.
+					const toIsHome =
+						this.homeRepositoryPath != null
+							? nextShape.path === this.homeRepositoryPath
+							: nextShape.commonPath == null;
+					this.restampScopeStateForRebind(prevShape.path, nextShape.path, toIsHome);
+				} else {
+					// Scope is webview-local and none of it resolves in the new repo: `branchRef` embeds the old
+					// repo path and the anchors are SHAs from the old history. Left alone it silently hides the
+					// primary WIP row while the view still LOOKS scoped whenever the new repo shares the branch
+					// name. `clearScope` also cancels an in-flight pick, so the OLD repo's scope can't publish
+					// after the switch.
+					this.clearScope();
+					// Whatever rebind that override was optimistic about belongs to the family the user just
+					// left, so it can no longer say anything true about this binding.
+					this._pendingPerspective = undefined;
+				}
 				this._wips.unpin(prevSelectedRepo);
 			}
 			if (this.selectedRepository != null) {
@@ -2765,10 +3001,48 @@ export class GraphStateProvider implements Disposable {
 			}
 		}
 
+		// The host's binding has caught up with what the optimistic override claimed, so hand the chrome back
+		// to the derived truth. Kept until now, not dropped when the RPC resolved, so the tint and pill never
+		// flicker to "unscoped" in the gap between the two.
+		const pendingPerspective = this._pendingPerspective;
+		if (pendingPerspective != null && this.hostPerspective?.path === pendingPerspective.value?.path) {
+			this._pendingPerspective = undefined;
+		}
+
 		if (silent || !hasChanges) return;
 
 		this.options.onStateUpdate?.(partial);
 		this.fireProviderUpdate();
+	}
+}
+
+/**
+ * User-facing copy for a refused/failed worktree rebind — what the graph couldn't do, why, and what the
+ * user can do about it. `worktreeName` is undefined for a refused UNSCOPE, whose target is the home repo.
+ *
+ * `undefined` for `superseded` — a newer gesture won, so the user is getting what they asked for last.
+ * Routing it here can only ever go quiet, never toast.
+ */
+function getRebindFailureMessage(
+	worktreeName: string | undefined,
+	reason: GraphRebindRefusalReason,
+): string | undefined {
+	if (reason === 'superseded') return undefined;
+
+	if (worktreeName == null) {
+		switch (reason) {
+			case 'unavailable':
+				return "Couldn't unscope the graph — its main worktree isn't open. Switch to it from the repository picker.";
+			case 'failed':
+				return "Couldn't unscope the graph. Try again, or switch back from the repository picker.";
+		}
+	}
+
+	switch (reason) {
+		case 'unavailable':
+			return `Couldn't scope the graph to "${worktreeName}" — it isn't a worktree of this repository, or it's no longer available.`;
+		case 'failed':
+			return `Couldn't scope the graph to "${worktreeName}". Try again, or open it from the repository picker.`;
 	}
 }
 

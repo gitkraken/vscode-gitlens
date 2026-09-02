@@ -118,6 +118,8 @@ export class GraphDataController {
 	private _graphLoading: Promise<GitGraph> | undefined;
 	private _rowsStatsLoadingOverride = false;
 	private _pendingRowsQuery: GraphPendingRowsQuery | undefined;
+	private _sessionReady: Promise<void> | undefined;
+	private _resolveSessionReady: (() => void) | undefined;
 
 	private _pendingStateOp: Promise<unknown> | undefined;
 	private _lastStateSentAt: number | undefined;
@@ -162,7 +164,34 @@ export class GraphDataController {
 	}
 	set session(value: GitGraphSession | undefined) {
 		this._graphSession = value;
+		if (value != null) {
+			this._resolveSessionReady?.();
+			this._resolveSessionReady = undefined;
+		}
 	}
+
+	/** Resolves once a session has been adopted, or as soon as `token` cancels. One-shot by design: it
+	 *  covers the cold-open window before the first `getState` has walked a session, and a later clear
+	 *  (repo swap, dispose) must not re-park a caller on a session that may never come back. */
+	whenSessionReady(token: CancellationToken): Promise<void> {
+		if (this._graphSession != null || token.isCancellationRequested) return Promise.resolve();
+
+		const ready = (this._sessionReady ??= new Promise<void>(resolve => {
+			this._resolveSessionReady = resolve;
+		}));
+
+		return new Promise<void>(resolve => {
+			const subscription = token.onCancellationRequested(() => {
+				subscription.dispose();
+				resolve();
+			});
+			void ready.then(() => {
+				subscription.dispose();
+				resolve();
+			});
+		});
+	}
+
 	/** The in-flight (re)walk promise. `getGraph` compares its own boxed promise against this for liveness. */
 	get loading(): Promise<GitGraph> | undefined {
 		return this._graphLoading;

@@ -216,6 +216,18 @@ export class JumpToastController implements ReactiveController {
 		});
 	}
 
+	/** Routed from {@link GraphAppHost} for a refused/failed worktree rebind — the perspective has already
+	 *  been rolled back, so this is the only thing telling the user their Scope gesture didn't take.
+	 *  Message-only: the recovery is a different gesture, which the copy names. No wrapper navigation is
+	 *  involved, so there's no `sha` to disarm. */
+	rebindFailed(message: string): void {
+		this.clearToast();
+
+		this._failedJumpToast = { kind: 'terminal', message: html`${message}` };
+		this.armJumpToastTimer(6000);
+		this._host.requestUpdate();
+	}
+
 	private readonly handleJumpToastAction = (): void => {
 		this._renderedJumpToast?.onAction?.();
 	};
@@ -451,8 +463,8 @@ export class JumpToastController implements ReactiveController {
 			case 'scope':
 				return {
 					kind: 'hidden',
-					message: html`${jumpTargetLabel(ref, label)} is outside the current scope`,
-					actionLabel: 'Clear Scope',
+					message: html`${jumpTargetLabel(ref, label)} is outside the current focus`,
+					actionLabel: 'Clear Focus',
 					sha: sha,
 					onAction: () =>
 						this.applyJumpRemedy(

@@ -1794,6 +1794,9 @@ interface GraphScopeChangedEvent extends GraphContextEventData {
 	'scope.hasUpstream': boolean;
 	/** Whether the scope's merge-target tip SHA is known at scope time (proxy for "merge-target resolved") */
 	'scope.hasMergeTarget': boolean;
+	/** Whether the scope was reached through a worktree gesture (Scope to Worktree), rather than a plain
+	 *  branch, pull request, or stack focus */
+	'scope.isWorktree': boolean;
 }
 
 type GraphColumnEventData = {
@@ -2265,7 +2268,12 @@ export type GraphSidebarWorktreesActionName =
 	| 'setUpstream'
 	| 'changeUpstream'
 	| 'reset'
-	| 'rebaseOntoUpstream';
+	| 'rebaseOntoUpstream'
+	// View state, not a host command — the worktree row's Scope action routes through `focusRefActionId`
+	// (`gl-graph-focus-ref`), so there is no `GlCommands` id to key `sidebarItemActions.worktree` by.
+	// Emitted directly by `GlGraphSidebarPanel.focusRef`, which handles both of that row's dual verbs and
+	// reports this one only when the gesture actually scopes.
+	| 'scopeToWorktree';
 
 interface GraphSidebarWorktreesWorktreeActionEvent extends GraphContextEventData {
 	action: GraphSidebarWorktreesActionName;

@@ -18,7 +18,7 @@ import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CommitEventDetail, LoadMoreEventDetail } from '../../timeline/components/chart.js';
 import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
-import { getSelectedRepo } from '../utils/repository.utils.js';
+import { countOpenRepositories, getSelectedRepo } from '../utils/repository.utils.js';
 import { getAdditionalBranches, shouldWalkAllBranches } from './visualizations.utils.js';
 import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
@@ -900,7 +900,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 					placement=${this.placement}
 					host="graph"
 					.repository=${repoWithRef}
-					.repositoryCount=${this.graphState.repositories?.length ?? 0}
+					.repositoryCount=${countOpenRepositories(this.graphState.repositories)}
 					.headRef=${this.graphState.branch}
 					.scopeType=${localScopeType}
 					.relativePath=${localRelativePath}
