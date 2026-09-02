@@ -1,4 +1,4 @@
-import { LANE_PALETTE, setLanePalette } from '@gitkraken/commit-graph/colors.js';
+import { LANE_PALETTE, setLanePalette } from '@gitkraken/commit-graph/lanes/colors.js';
 import type { Color } from '@gitlens/utils/color.js';
 import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
 

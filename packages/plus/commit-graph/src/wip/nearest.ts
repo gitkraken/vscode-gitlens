@@ -1,4 +1,4 @@
-import type { Sha } from './engine/types.js';
+import type { Sha } from '../engine/types.js';
 
 /**
  * Minimum row shape the WIP search reads — a sha plus its parent links. Consumers pass their own row

@@ -89,6 +89,9 @@ jobs:
             - name: Build packages
               run: pnpm run build:packages
 
+            - name: Lint graph package CSS
+              run: pnpm run lint:css:graph-packages
+
             - name: Run package unit tests
               run: pnpm run test:packages
 
@@ -115,6 +118,12 @@ jobs:
 
             - name: Verify packed core package as an external consumer
               run: pnpm --filter @gitkraken/core-gitlens run verify:package
+
+            - name: Build graph packages
+              run: pnpm run build:graph-packages
+
+            - name: Verify packed graph packages as external consumers
+              run: pnpm run verify:graph-packages
 
     derive-matrix:
         name: Derive editor matrix

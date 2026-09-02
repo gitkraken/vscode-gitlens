@@ -13,5 +13,5 @@
 		"noEmit": true,
 		"types": ["node", "mocha"]
 	},
-	"include": ["src/**/*"]
+	"include": ["src/**/*", "tsdown.config.ts"]
 }

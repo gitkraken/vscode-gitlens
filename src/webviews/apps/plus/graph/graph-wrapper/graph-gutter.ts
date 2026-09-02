@@ -1,8 +1,8 @@
-import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import type { GutterEdgeOp, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
-import { computeGutterGeometry, gutterMidY, gutterTotalHeight } from '@gitkraken/commit-graph/laneClamp.js';
-import { nodeRadiusRef, xForColumn } from '@gitkraken/commit-graph/view.js';
+import { nodeRadiusRef, xForColumn } from '@gitkraken/commit-graph/geometry.js';
+import { colorForColumn } from '@gitkraken/commit-graph/lanes/colors.js';
+import type { GutterEdgeOp, LaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
+import { computeGutterGeometry, gutterMidY, gutterTotalHeight } from '@gitkraken/commit-graph/lanes/window.js';
 import type { SVGTemplateResult, TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import { LruMap } from '@gitlens/utils/lruMap.js';

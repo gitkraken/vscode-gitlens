@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { Edge, ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import type { GutterEdgeOp } from '@gitkraken/commit-graph/laneClamp.js';
-import { computeGutterGeometry, computeLaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
+import type { GutterEdgeOp } from '@gitkraken/commit-graph/lanes/window.js';
+import { computeGutterGeometry, computeLaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
 import { buildRasterImageData } from '../graph-gutter-raster.js';
 
 // `buildRasterImageData` is the Lit-free serialization of a row's pass-through lanes into one

@@ -5,7 +5,7 @@
 // Commit-graph engine (@gitkraken/commit-graph) — theme token fallbacks consumed by the
 // `gl-graph__*` rules below. VS Code → HSL token conversion is wired at runtime in `graph.ts`
 // (onThemeUpdated); this stylesheet provides the defaults before the bridge runs.
-@include meta.load-css('../../../../../node_modules/@gitkraken/commit-graph/graph-default-theme.css');
+@include meta.load-css('../../../../../node_modules/@gitkraken/commit-graph/src/theme.css');
 
 // The commit graph (gl-lit-graph) renders into the light DOM, so these are plain descendant rules.
 gl-lit-graph {

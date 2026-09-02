@@ -18,7 +18,7 @@ import {
 	computeDroppedShas,
 	computeSegmentMaps,
 	spliceDroppedRows,
-} from './laneCollapse.js';
+} from './lanes/collapse.js';
 import type { FocalScope, ScopeAnchors, ScopeProjection } from './scope.js';
 import { computeScopeProjection } from './scope.js';
 

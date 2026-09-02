@@ -1,4 +1,4 @@
-import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
+import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
 import type { GitHealthSlowness, GitHealthSlownessSample } from '@gitlens/git/gitHealth.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';

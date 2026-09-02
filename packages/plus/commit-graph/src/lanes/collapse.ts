@@ -1,5 +1,5 @@
-import { carriedEdgesEqual, collapsedLinkKey, computeEdges } from './engine/edges.js';
-import type { LaneSegment, ProcessedGraphRow, RowEdges, Sha } from './engine/types.js';
+import { carriedEdgesEqual, collapsedLinkKey, computeEdges } from '../engine/edges.js';
+import type { LaneSegment, ProcessedGraphRow, RowEdges, Sha } from '../engine/types.js';
 
 /**
  * Walk the segment list and return the tip-sha of the segment whose `commitShas` includes

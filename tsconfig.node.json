@@ -4,6 +4,7 @@
 		"rootDir": ".",
 		"paths": {
 			"@env/*": ["./src/env/node/*"],
+			"@gitkraken/commit-graph/*": ["./packages/plus/commit-graph/src/*"],
 			"#env/*": ["./packages/utils/src/env/node/*"],
 			"@gitlens/utils/*": ["./packages/utils/src/*"],
 			"@gitlens/ipc/*": ["./packages/ipc/src/*"],

@@ -7,7 +7,7 @@
  * host, DOM, or rendering-framework types.
  */
 
-import { computeTrunkSegment } from '../laneCollapse.js';
+import { computeTrunkSegment } from '../lanes/collapse.js';
 import type { RowsDelta, RowTopology } from './delta.js';
 import { classifyRowsDelta } from './delta.js';
 import type { GraphProcessResume } from './process.js';

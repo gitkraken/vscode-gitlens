@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { computeEdges } from '@gitkraken/commit-graph/engine/edges.js';
 import { computeColumnsAndSegments } from '@gitkraken/commit-graph/engine/layout.js';
 import type { CommitKind, GraphRow, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import { computeLaneWindow, laneWindowsEqual } from '@gitkraken/commit-graph/laneClamp.js';
+import { computeLaneWindow, laneWindowsEqual } from '@gitkraken/commit-graph/lanes/window.js';
 import type { GutterBuilder, GutterEpochParams } from '../graph-gutter-cache.js';
 import { __test, GutterCache, gutterEpochSignature } from '../graph-gutter-cache.js';
 import type { GutterMetrics, NodeStyle } from '../graph-gutter.js';

@@ -1,0 +1,21 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"composite": true,
+		"incremental": true,
+		"isolatedDeclarations": true,
+		"declaration": true,
+		// The tarball ships no `src/`, and unlike JS source maps, a declaration map cannot embed its
+		// sources — every `.d.ts.map` would point at a file no consumer has.
+		"declarationMap": false,
+		"noEmit": false,
+		"outDir": "dist",
+		"rootDir": "src",
+		"sourceMap": true,
+		"types": [],
+		// Distinct from tsconfig.json's editor buildinfo, and kept out of dist/ so it never ships.
+		"tsBuildInfoFile": "tsconfig.build.tsbuildinfo"
+	},
+	"include": ["src/**/*.ts"],
+	"exclude": ["src/**/__tests__/**"]
+}

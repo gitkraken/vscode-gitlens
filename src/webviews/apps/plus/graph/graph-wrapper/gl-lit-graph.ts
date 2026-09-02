@@ -1,4 +1,3 @@
-import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
 import { collectReachable } from '@gitkraken/commit-graph/engine/layout.js';
@@ -11,8 +10,18 @@ import {
 import type { CommitGraphSessionTransition } from '@gitkraken/commit-graph/engine/session.js';
 import { CommitGraphEngineSession } from '@gitkraken/commit-graph/engine/session.js';
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
-import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
+import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle } from '@gitkraken/commit-graph/geometry.js';
+import {
+	gutterPadding,
+	listAutoBelow,
+	rowHeightList,
+	rowHeightTable,
+	shortDateWidth,
+	xForColumn,
+} from '@gitkraken/commit-graph/geometry.js';
+import { colorForColumn } from '@gitkraken/commit-graph/lanes/colors.js';
+import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
+import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/lanes/window.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
 import type { CommitGraphProjectionState } from '@gitkraken/commit-graph/projection.js';
 import { CommitGraphProjectionSession } from '@gitkraken/commit-graph/projection.js';
@@ -25,27 +34,15 @@ import {
 	changesStageCompact,
 	changesStageForWidth,
 } from '@gitkraken/commit-graph/stats.js';
-import type {
-	GraphPlacement,
-	RefsPlacement,
-	ResolvedGraphStyle,
-	ZoneId,
-	ZoneSpec,
-} from '@gitkraken/commit-graph/view.js';
+import type { ZoneId, ZoneSpec } from '@gitkraken/commit-graph/zones.js';
 import {
 	defaultZones,
 	dragResizeZone,
-	gutterPadding,
-	listAutoBelow,
 	mapVisibleIndex,
 	mergeZones,
 	reorderZones,
-	rowHeightList,
-	rowHeightTable,
-	shortDateWidth,
 	solveZoneLayout,
-	xForColumn,
-} from '@gitkraken/commit-graph/view.js';
+} from '@gitkraken/commit-graph/zones.js';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';

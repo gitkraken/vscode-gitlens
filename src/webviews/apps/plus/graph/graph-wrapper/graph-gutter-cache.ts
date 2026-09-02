@@ -1,8 +1,8 @@
 import { buildEdgeHash } from '@gitkraken/commit-graph/engine/edges.js';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import type { LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
-import { laneWindowCovers, windowClipsRow } from '@gitkraken/commit-graph/laneClamp.js';
-import type { GraphPlacement } from '@gitkraken/commit-graph/view.js';
+import type { GraphPlacement } from '@gitkraken/commit-graph/geometry.js';
+import type { LaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
+import { laneWindowCovers, windowClipsRow } from '@gitkraken/commit-graph/lanes/window.js';
 import type { TemplateResult } from 'lit';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { GutterMetrics, GutterRowSpan, NodeStyle } from './graph-gutter.js';

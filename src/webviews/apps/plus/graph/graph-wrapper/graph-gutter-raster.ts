@@ -1,4 +1,4 @@
-import type { GutterEdgeOp } from '@gitkraken/commit-graph/laneClamp.js';
+import type { GutterEdgeOp } from '@gitkraken/commit-graph/lanes/window.js';
 
 /**
  * Serializes a row's pass-through lane verticals (`layer: 'raster'` ops) into one `data:image/svg+xml`

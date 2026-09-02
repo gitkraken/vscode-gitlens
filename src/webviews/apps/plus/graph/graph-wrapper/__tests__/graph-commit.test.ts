@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import type { ZoneSpec } from '@gitkraken/commit-graph/view.js';
+import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type {
 	GraphColumnSetting,

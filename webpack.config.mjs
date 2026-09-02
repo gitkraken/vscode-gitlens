@@ -57,6 +57,7 @@ class WebviewPublicPathPlugin extends WebpackRequireFromPlugin {
 
 function getLibraryAliases() {
 	return {
+		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
 		'@gitlens/utils': path.resolve(__dirname, 'packages', 'utils', 'src'),
 		'@gitlens/ipc': path.resolve(__dirname, 'packages', 'ipc', 'src'),
 		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),

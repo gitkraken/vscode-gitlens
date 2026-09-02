@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { buildAriaLabel } from '../a11y.js';
 import type { CommitKind, GraphCommit } from '../engine/types.js';
-import { relativeTimeShort } from '../view.js';
+import { relativeTimeShort } from '../time.js';
 
 function commit(overrides?: Partial<GraphCommit>): GraphCommit {
 	return {

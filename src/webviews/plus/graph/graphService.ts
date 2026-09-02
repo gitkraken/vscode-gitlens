@@ -1,4 +1,4 @@
-import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
+import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';

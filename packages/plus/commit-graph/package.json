@@ -1,104 +1,70 @@
 {
 	"name": "@gitkraken/commit-graph",
-	"version": "0.0.0",
-	"private": true,
-	"description": "High-performance, themable commit-graph engine — vendored into GitLens as its Commit Graph (Lit) renderer.",
-	"author": "GitKraken",
+	"version": "0.1.0",
+	"description": "High-performance, rendering-agnostic commit-graph engine and view model.",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"homepage": "https://github.com/gitkraken/vscode-gitlens/tree/main/packages/plus/commit-graph",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/gitkraken/vscode-gitlens.git",
+		"directory": "packages/plus/commit-graph"
+	},
 	"license": "SEE LICENSE IN LICENSE",
 	"type": "module",
 	"sideEffects": [
 		"*.css"
 	],
 	"exports": {
-		"./a11y.js": {
-			"types": "./src/a11y.ts",
-			"default": "./src/a11y.ts"
+		"./package.json": "./package.json",
+		"./__tests__/*.js": null,
+		"./engine/__tests__/*.js": null,
+		"./lanes/__tests__/*.js": null,
+		"./wip/__tests__/*.js": null,
+		"./engine/*.js": {
+			"types": "./dist/engine/*.d.ts",
+			"default": "./dist/engine/*.js"
 		},
-		"./colors.js": {
-			"types": "./src/colors.ts",
-			"default": "./src/colors.ts"
+		"./lanes/*.js": {
+			"types": "./dist/lanes/*.d.ts",
+			"default": "./dist/lanes/*.js"
 		},
-		"./laneClamp.js": {
-			"types": "./src/laneClamp.ts",
-			"default": "./src/laneClamp.ts"
+		"./wip/*.js": {
+			"types": "./dist/wip/*.d.ts",
+			"default": "./dist/wip/*.js"
 		},
-		"./laneCollapse.js": {
-			"types": "./src/laneCollapse.ts",
-			"default": "./src/laneCollapse.ts"
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
 		},
-		"./nearestWip.js": {
-			"types": "./src/nearestWip.ts",
-			"default": "./src/nearestWip.ts"
-		},
-		"./paging.js": {
-			"types": "./src/paging.ts",
-			"default": "./src/paging.ts"
-		},
-		"./projection.js": {
-			"types": "./src/projection.ts",
-			"default": "./src/projection.ts"
-		},
-		"./scope.js": {
-			"types": "./src/scope.ts",
-			"default": "./src/scope.ts"
-		},
-		"./stats.js": {
-			"types": "./src/stats.ts",
-			"default": "./src/stats.ts"
-		},
-		"./view.js": {
-			"types": "./src/view.ts",
-			"default": "./src/view.ts"
-		},
-		"./engine/adornments.js": {
-			"types": "./src/engine/adornments.ts",
-			"default": "./src/engine/adornments.ts"
-		},
-		"./engine/delta.js": {
-			"types": "./src/engine/delta.ts",
-			"default": "./src/engine/delta.ts"
-		},
-		"./engine/edges.js": {
-			"types": "./src/engine/edges.ts",
-			"default": "./src/engine/edges.ts"
-		},
-		"./engine/layout.js": {
-			"types": "./src/engine/layout.ts",
-			"default": "./src/engine/layout.ts"
-		},
-		"./engine/navigation.js": {
-			"types": "./src/engine/navigation.ts",
-			"default": "./src/engine/navigation.ts"
-		},
-		"./engine/process.js": {
-			"types": "./src/engine/process.ts",
-			"default": "./src/engine/process.ts"
-		},
-		"./engine/reconcile.js": {
-			"types": "./src/engine/reconcile.ts",
-			"default": "./src/engine/reconcile.ts"
-		},
-		"./engine/session.js": {
-			"types": "./src/engine/session.ts",
-			"default": "./src/engine/session.ts"
-		},
-		"./engine/types.js": {
-			"types": "./src/engine/types.ts",
-			"default": "./src/engine/types.ts"
-		},
-		"./theme.css": "./graph-default-theme.css"
+		"./theme.css": "./dist/theme.css"
 	},
 	"files": [
-		"src",
-		"graph-default-theme.css",
-		"README.md"
+		"dist",
+		"README.md",
+		"LICENSE",
+		"LICENSE.plus"
 	],
+	"publishConfig": {
+		"provenance": false
+	},
 	"scripts": {
-		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+		"build": "tsdown",
+		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../../.oxlintrc.json .",
+		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus *.tgz",
+		"lint:css": "stylelint src/theme.css",
+		"prepack": "pnpm run build",
+		"test": "mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'",
+		"verify:package": "node scripts/verify-package.mjs"
 	},
 	"devDependencies": {
+		"@arethetypeswrong/cli": "catalog:",
 		"@types/mocha": "catalog:",
 		"mocha": "catalog:",
+		"publint": "catalog:",
+		"tsdown": "catalog:",
 		"tsx": "catalog:",
 		"typescript": "catalog:"
 	}

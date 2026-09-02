@@ -1,7 +1,7 @@
 /*global document window*/
-import type { WipCandidate } from '@gitkraken/commit-graph/nearestWip.js';
-import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-graph/nearestWip.js';
-import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
+import type { WipCandidate } from '@gitkraken/commit-graph/wip/nearest.js';
+import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-graph/wip/nearest.js';
+import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
