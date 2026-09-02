@@ -27,6 +27,16 @@ export const splitButtonStyles = css`
 		align-items: stretch;
 	}
 
+	/* Each half is an inline-block gl-button sitting on a line box inside gl-popover's anchor <div>,
+	   so its baseline alignment leaves a descender gap beneath it. The wrappers stretch to the tallest
+	   half INCLUDING that gap, and the menu half's height:100% then fills it — a chevron taller than
+	   the main button by a few px. Top-aligning both halves drops the gap so the wrappers' height is
+	   exactly the buttons'. */
+	.split-btn__main,
+	.split-btn__menu {
+		vertical-align: top;
+	}
+
 	.split-btn__main {
 		border-start-end-radius: 0;
 		border-end-end-radius: 0;
