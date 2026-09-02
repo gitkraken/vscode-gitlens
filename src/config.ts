@@ -1,4 +1,4 @@
-import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
+import type { GraphStyle } from '@gitkraken/commit-graph/geometry.js';
 import type { AIProviderAndModel, SupportedAIModels } from '@gitlens/ai/constants.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { GroupableTreeViewTypes } from './constants.views.js';

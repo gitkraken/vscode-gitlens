@@ -1,92 +1,9 @@
 /**
- * Framework-agnostic view-model for the commit graph: geometry constants, the multi-zone
- * column layout, density/placement/search enums, scroll-marker types, and the pure layout
- * math shared by every renderer. No DOM, no rendering framework — keep it that way.
+ * Framework-agnostic multi-zone column layout for the commit graph: density/placement modes and the
+ * zero-scroll zone solver shared by every renderer. No DOM, no rendering framework — keep it that way.
  */
 
-import type { ProcessedGraphRow } from './engine/types.js';
 import type { ChangesColumnMode } from './stats.js';
-
-// Date formatting
-
-/**
- * Lightweight relative-time formatter for commit dates. Consumers can override per-render
- * by passing a `formatDate` prop; otherwise this English-default is used. No i18n
- * dependency in the package — keeping the surface focused on the graph itself.
- */
-export function relativeTime(date: number): string {
-	if (!Number.isFinite(date)) return '';
-
-	const diff = Date.now() - date;
-	const minutes = Math.floor(diff / 60000);
-	if (minutes < 1) return 'just now';
-	if (minutes < 60) return `${minutes}m ago`;
-
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-
-	const days = Math.floor(hours / 24);
-	return `${days}d ago`;
-}
-
-/**
- * Ultra-compact relative-time formatter ("5m", "3h", "2d", "4w", "6mo", "1y") used when the
- * date column is too narrow for the verbose "N days ago" form. No "ago" suffix — the column
- * header already labels the column as a date, so the bare magnitude reads cleanly.
- *
- * Pass `now` to make the result deterministic — a test that pins it, a snapshot, or a host that
- * keeps its own clock. Omitted, it reads the wall clock, which is what a live renderer wants.
- */
-export function relativeTimeShort(date: number, now: number = Date.now()): string {
-	if (!Number.isFinite(date)) return '';
-
-	const diff = now - date;
-	const minutes = Math.floor(diff / 60000);
-	if (minutes < 1) return 'now';
-	if (minutes < 60) return `${minutes}m`;
-
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h`;
-
-	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days}d`;
-	if (days < 30) return `${Math.floor(days / 7)}w`;
-	if (days < 365) return `${Math.floor(days / 30)}mo`;
-	return `${Math.floor(days / 365)}y`;
-}
-
-// Geometry
-
-export const rowHeightTable = 24; // `table` style: tight single-line rows (was 30 — too much vertical gap)
-export const rowHeightList = 44; // `list` style: 2-line stacked rows
-export const nodeRadius = 5;
-export const nodeRadiusRef = 6;
-export const nodeRadiusWorkdir = 7;
-export const columnWidth = 18;
-export const gutterPadding = 8;
-
-/** Container width (px) below which the `auto` graph style switches from `table` to `list` (the
- *  panel is too narrow for the columns). */
-export const listAutoBelow = 520;
-/** Date-column width (px) at/below which the date renders in ultra-compact form ("2d" not
- *  "2 days ago"). Sized so the long form would otherwise clip. */
-export const shortDateWidth = 78;
-
-export function xForColumn(column: number, columnWidth: number): number {
-	return gutterPadding + column * columnWidth + columnWidth / 2;
-}
-
-/**
- * Per-row gutter width — sized to that row's own lane footprint (commit column + max
- * edge column passing through). In inline placement we use this so the message text
- * snaps tight to *this* row's right-most lane edge instead of being pushed out by the
- * widest row in the visible set. Standalone-gutter mode keeps a fixed `totalGutterWidth`
- * so all rows align under the same column.
- */
-export function rowGutterWidth(row: ProcessedGraphRow, columnWidth: number): number {
-	const max = Math.max(row.column, row.edgeColumnMax);
-	return gutterPadding * 2 + (max + 1) * columnWidth;
-}
 
 // Multi-zone column layout
 
@@ -420,32 +337,3 @@ export function reorderZones(zones: readonly ZoneSpec[], fromIdx: number, toIdx:
 	next.splice(adjustedTarget, 0, moved);
 	return next;
 }
-
-// Graph style modes
-
-/**
- * Graph style (row layout):
- *   - `table` — single-line rows (`rowHeightTable`), metadata in columns (5 visible, or fewer if narrow)
- *   - `list`  — 2-line stacked rows (`rowHeightList`), all metadata stacked under the message, no columns
- *   - `auto`  — switch to `list` when the container is narrower than `listAutoBelow`, else `table`
- */
-export type GraphStyle = 'table' | 'list' | 'auto';
-
-/** {@link GraphStyle} after `auto` has been resolved against the container width. */
-export type ResolvedGraphStyle = Exclude<GraphStyle, 'auto'>;
-
-/**
- * Where the SVG gutter (lanes + nodes) is placed relative to the content columns:
- *   - `column`  — its own gutter column ahead of the content zones (classic look).
- *   - `grouped` — folded into another column; the lanes render inline within a shared column
- *                (the graph is grouped with the message/refs rather than standing alone).
- *   - `hidden`  — the gutter is not rendered.
- */
-export type GraphPlacement = 'column' | 'grouped' | 'hidden';
-
-/**
- * Where the refs ("branch / tag / remote" chips) adornment is placed. Same domain as
- * {@link GraphPlacement} today (`column` / `grouped` / `hidden`); named separately for intent and
- * possible future divergence.
- */
-export type RefsPlacement = GraphPlacement;

@@ -1,6 +1,6 @@
-import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import { xForColumn } from '@gitkraken/commit-graph/view.js';
+import { xForColumn } from '@gitkraken/commit-graph/geometry.js';
+import { colorForColumn } from '@gitkraken/commit-graph/lanes/colors.js';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { ChainLaneRun } from '../utils/chainLane.utils.js';
 import { computeChainLaneRuns } from '../utils/chainLane.utils.js';

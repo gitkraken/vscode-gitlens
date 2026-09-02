@@ -1,6 +1,6 @@
 import type { CommitKind, GraphCommit } from '@gitkraken/commit-graph/engine/types.js';
-import type { ZoneId, ZoneSpec } from '@gitkraken/commit-graph/view.js';
-import { defaultZones } from '@gitkraken/commit-graph/view.js';
+import type { ZoneId, ZoneSpec } from '@gitkraken/commit-graph/zones.js';
+import { defaultZones } from '@gitkraken/commit-graph/zones.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
 import type {

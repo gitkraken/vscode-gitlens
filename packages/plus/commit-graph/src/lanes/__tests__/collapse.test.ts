@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { processGraphRows } from '../engine/process.js';
-import { reconcileRowsSuffix } from '../engine/reconcile.js';
-import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from '../engine/types.js';
+import { processGraphRows } from '../../engine/process.js';
+import { reconcileRowsSuffix } from '../../engine/reconcile.js';
+import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from '../../engine/types.js';
 import {
 	appendDroppedRows,
 	applyDroppedRows,
@@ -10,7 +10,7 @@ import {
 	computeSegmentMaps,
 	computeTrunkSegment,
 	spliceDroppedRows,
-} from '../laneCollapse.js';
+} from '../collapse.js';
 
 function commit(sha: string, parents: string[]): GraphCommit {
 	return {

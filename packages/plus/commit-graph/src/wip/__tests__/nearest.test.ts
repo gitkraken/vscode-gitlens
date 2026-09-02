@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import type { ColumnNumberBySha, WipCandidate, WipMetadataBySha, WipSearchRow } from '../nearestWip.js';
-import { findNearestWipByAncestry, findWipInColumn } from '../nearestWip.js';
+import type { ColumnNumberBySha, WipCandidate, WipMetadataBySha, WipSearchRow } from '../nearest.js';
+import { findNearestWipByAncestry, findWipInColumn } from '../nearest.js';
 
 // Host sentinels the search is handed rather than knows: the primary working-changes revision (all
 // zeroes, as GitLens uses) and the per-worktree secondary WIP row ids.

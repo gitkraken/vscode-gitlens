@@ -1,7 +1,7 @@
 import type { Handler } from '@eamodio/supertalk';
 import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
 import { changesModeOrDefault, isChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
-import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
+import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import {
 	CancellationTokenSource,

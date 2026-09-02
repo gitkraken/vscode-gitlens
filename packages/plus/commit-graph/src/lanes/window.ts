@@ -1,6 +1,6 @@
+import type { Edge, ProcessedGraphRow } from '../engine/types.js';
+import { gutterPadding, xForColumn } from '../geometry.js';
 import { colorForColumn } from './colors.js';
-import type { Edge, ProcessedGraphRow } from './engine/types.js';
-import { gutterPadding, xForColumn } from './view.js';
 
 /**
  * Lane math for the TRANSLATED-SURFACE gutter: rows build their lane art once at LOGICAL (absolute)
@@ -212,7 +212,7 @@ export function laneWindowCovers(built: LaneWindow | undefined, needed: LaneWind
 // outside `[startColumn, endColumn]`, so `computeGutterGeometry` skips at least one lane's own art and the
 // windowed build diverges from the unwindowed one. When false, every column the row touches is inside the
 // window, so the build is byte-identical to unwindowed (the gutter cache keys the window only when this is
-// true, and the predicate↔geometry agreement is asserted in laneClamp.test.ts).
+// true, and the predicate↔geometry agreement is asserted in window.test.ts).
 export function windowClipsRow(win: LaneWindow, row: ProcessedGraphRow): boolean {
 	return win.startColumn > 0 || row.edgeColumnMax > win.endColumn;
 }

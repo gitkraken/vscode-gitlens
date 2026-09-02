@@ -330,7 +330,12 @@ export function buildEdgeHash(edges: RowEdges, maxColumn: number, nodeColumn: nu
 
 // Exports used only by tests (internal helpers that deserve direct coverage)
 
-export const __test = {
+export const __test: {
+	carryEdgesFromPrevRow: typeof carryEdgesFromPrevRow;
+	computeStartingEdges: typeof computeStartingEdges;
+	computeRowEdges: typeof computeRowEdges;
+	edgeColumnMax: typeof edgeColumnMax;
+} = {
 	carryEdgesFromPrevRow: carryEdgesFromPrevRow,
 	computeStartingEdges: computeStartingEdges,
 	computeRowEdges: computeRowEdges,

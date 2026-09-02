@@ -1,4 +1,5 @@
-import type { GraphPlacement, ZoneSpec } from '@gitkraken/commit-graph/view.js';
+import type { GraphPlacement } from '@gitkraken/commit-graph/geometry.js';
+import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import { hasKeys } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility, GraphOverviewBarVisibility } from '../../../../../config.js';

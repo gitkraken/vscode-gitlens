@@ -1,6 +1,6 @@
-import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
+import { colorForColumn } from '@gitkraken/commit-graph/lanes/colors.js';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 import { getShiftKeySymbol } from '@env/platform.js';
@@ -41,7 +41,7 @@ export interface LaneCollapseAdornmentOptions {
  * head, falling back to the first head, then to the first remote's `owner/name` (or bare `name`).
  * Returns `undefined` for unreffed tips, in which case the chip just shows "+N".
  *
- * Lives app-side (not in `@gitkraken/commit-graph/laneCollapse.js` with the rest of the collapse
+ * Lives app-side (not in `@gitkraken/commit-graph/lanes/collapse.js` with the rest of the collapse
  * math) because it is the only part that reads GitLens ref metadata — the engine takes the label
  * as an injected resolver instead of learning about heads/remotes.
  *

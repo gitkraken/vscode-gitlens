@@ -67,7 +67,7 @@ const changesFullStageChrome = 16 + 12 + 4 + 16 + 11;
  * content (`numbers` with 5-digit counts genuinely wants more). Lands above {@link changesStageFull}
  * by construction, so fitting always resolves to the `full` stage.
  */
-export const changesFitWidth = changesFullStageChrome + changesTrackWidth;
+export const changesFitWidth: number = changesFullStageChrome + changesTrackWidth;
 
 /** Square-root-scaled magnitude (0..1) for a churn amount, clamped at {@link changesChurnClamp}. */
 export function changesMagnitude(churn: number): number {

@@ -3,7 +3,7 @@
  */
 
 import type { CommitKind, GraphCommit } from './engine/types.js';
-import { relativeTimeShort } from './view.js';
+import { relativeTimeShort } from './time.js';
 
 /**
  * Build the aria-label string announced for a commit row. Composes:

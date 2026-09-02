@@ -1,7 +1,7 @@
-import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/colors.js';
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import { relativeTime } from '@gitkraken/commit-graph/view.js';
+import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/lanes/colors.js';
+import { relativeTime } from '@gitkraken/commit-graph/time.js';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';

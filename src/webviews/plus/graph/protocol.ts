@@ -1,5 +1,6 @@
+import type { GraphStyle } from '@gitkraken/commit-graph/geometry.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
-import type { ColumnId, ColumnMode, GraphColumnMode, GraphStyle } from '@gitkraken/commit-graph/view.js';
+import type { ColumnId, ColumnMode, GraphColumnMode } from '@gitkraken/commit-graph/zones.js';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
 import type {
 	GitGraphRow,

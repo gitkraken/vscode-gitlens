@@ -591,12 +591,21 @@ importers:
 
   packages/plus/commit-graph:
     devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: 'catalog:'
+        version: 0.18.5
       '@types/mocha':
         specifier: 'catalog:'
         version: 10.0.10
       mocha:
         specifier: 'catalog:'
         version: 11.8.0
+      publint:
+        specifier: 'catalog:'
+        version: 0.3.24
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.22.14(@arethetypeswrong/core@0.18.5)(oxc-resolver@11.24.2)(publint@0.3.24)(tsx@4.23.12)(typescript@7.0.2)
       tsx:
         specifier: 'catalog:'
         version: 4.23.12

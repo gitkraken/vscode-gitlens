@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import type { Edge, ProcessedGraphRow } from '../engine/types.js';
+import type { Edge, ProcessedGraphRow } from '../../engine/types.js';
+import { gutterPadding, xForColumn } from '../../geometry.js';
 import {
 	computeGutterGeometry,
 	computeLaneWindow,
@@ -12,9 +13,8 @@ import {
 	resolveGroupedLaneCap,
 	rowShiftedGutterWidth,
 	windowClipsRow,
-} from '../laneClamp.js';
-import type { GutterGeomParams, LaneWindow } from '../laneClamp.js';
-import { gutterPadding, xForColumn } from '../view.js';
+} from '../window.js';
+import type { GutterGeomParams, LaneWindow } from '../window.js';
 
 // Translated-surface model: geometry is built ONCE at logical (absolute) lane positions — these tests
 // assert the op list's structure (layer split, membership, window skipping) and the pure width/window

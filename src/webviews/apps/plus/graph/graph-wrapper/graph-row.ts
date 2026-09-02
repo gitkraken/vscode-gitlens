@@ -1,13 +1,15 @@
 import { buildAriaLabel } from '@gitkraken/commit-graph/a11y.js';
-import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/colors.js';
 import type { GraphCommit, ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import type { LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
+import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle } from '@gitkraken/commit-graph/geometry.js';
+import { rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/geometry.js';
+import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/lanes/colors.js';
+import type { LaneWindow } from '@gitkraken/commit-graph/lanes/window.js';
 import {
 	graphEdgeFadePx,
 	gutterMidY,
 	gutterTotalHeight,
 	rowShiftedGutterWidth,
-} from '@gitkraken/commit-graph/laneClamp.js';
+} from '@gitkraken/commit-graph/lanes/window.js';
 import type {
 	ChangesColumnMode,
 	ChangesColumnStage,
@@ -25,8 +27,8 @@ import {
 	formatChangesFiles,
 	formatChangesLines,
 } from '@gitkraken/commit-graph/stats.js';
-import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle, ZoneSpec } from '@gitkraken/commit-graph/view.js';
-import { relativeTime, rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/view.js';
+import { relativeTime } from '@gitkraken/commit-graph/time.js';
+import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import { getAltKeySymbol } from '@env/platform.js';
