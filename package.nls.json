@@ -132,6 +132,7 @@
 	"command.gitlens.ai.generateChangelog:views.title": "Generate Changelog",
 	"command.gitlens.ai.generateChangelogFrom:graph.title": "Generate Changelog...",
 	"command.gitlens.ai.generateChangelogFrom:views.title": "Generate Changelog...",
+	"command.gitlens.ai.generateChangelogFromCommits:graph.title": "Generate Changelog",
 	"command.gitlens.ai.generateCommitMessage.title": "Generate Commit Message",
 	"command.gitlens.ai.generateCommitMessage:scm.title": "Generate Commit Message with GitLens",
 	"command.gitlens.ai.mcp.install.title": "Install GitKraken MCP Server",

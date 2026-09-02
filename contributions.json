@@ -668,6 +668,19 @@
 				]
 			}
 		},
+		"gitlens.ai.generateChangelogFromCommits:graph": {
+			"label": "Generate Changelog",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:commit\\b/ && listMultiSelection && !gitlens:untrusted && gitlens:ai:allowed",
+						"group": "1_gitlens_ai",
+						"order": 10
+					}
+				]
+			}
+		},
 		"gitlens.ai.generateCommitMessage": {
 			"label": "Generate Commit Message",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
