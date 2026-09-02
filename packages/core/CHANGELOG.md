@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `getIssuesBatch`, which resolves N `(owner, repo, number)` coordinates in ONE request by aliasing the point read rather than a search ([#5802](https://github.com/gitkraken/vscode-gitlens/issues/5802)). The identity read behind "which issue does this branch name reference", which a search cannot answer: it resolves by exact number, no result ceiling applies, and an absent slot is a PROVEN absence rather than "not found within a page budget" — which is what lets a consumer cache a miss instead of re-walking a scope to prove one. Results echo the caller's own `key`; a target whose chunk failed is NOT returned at all, so it stays distinguishable from a proven absence, since caching a failure as an absence never re-resolves. Chunked at 25 (measured: 10 coordinates 875ms, 25 890ms, 50 1.3s). GitHub/GHE only — a provider without the capability refuses rather than degrading into N requests (plus/integrations, plus/git-github)
+
+### Changed
+
+- Changes `broadenIssues` to read each org through the org-scoped filtered search where the provider declares one, instead of draining the org's repositories and reading through the SDK's repo-scoped path ([#5804](https://github.com/gitkraken/vscode-gitlens/issues/5804)). Measured on an org of 217 repositories: 111s and 133 requests before, 40s and 10 after. Below the provider's result ceiling both engines return the IDENTICAL set; above it they differ, and the search is the more useful of the two despite returning fewer items — its 1,000 are exactly the 1,000 most recently updated, while the drain's 1,118 were an arbitrary subset omitting 356 issues inside that window. Azure DevOps and GitLab declare no filtered search and keep the drain. The public surface is unchanged: same options, per-org cursor bundle, provider attribution and return type (plus/integrations)
+- Changes the filtered issue search to CONTINUE past the provider's per-query result ceiling rather than report it as terminal ([#5805](https://github.com/gitkraken/vscode-gitlens/issues/5805)). A walk that runs out of pages while capped re-issues its search bounded to the far side of the last item served, which is a fresh query with a fresh budget; the same org that served 1,000 of 1,474 now serves all of them, still one query per page and still in the requested order. Bounded PER ALIAS, since aliases exhaust independently. Only `created`/`updated` can be slid — both have a value on the issue and a range qualifier over it — so a sort key with neither still reports the quantified omission (plus/git-github)
+
+### Fixed
+
+- Fixes a filtered issue search accepting a scope name that sanitizes away to nothing. The provider query DROPS such a value rather than rejecting it, so an org of `'   '` or `'\"'` passed the guard, emitted no scope qualifier at all, and searched the entire host — measured at 52,715,163 issues, with results from unrelated accounts. Whitespace and quotes are what a name pasted from a config or a URL degrades to. Affects `searchIssuesPage`, `countIssues` and `broadenIssues` (plus/integrations)
+
 ## [0.5.113] - 2026-08-18
 
 ## [0.5.111] - 2026-08-16
