@@ -362,6 +362,16 @@ export interface GraphIncrementalSeed {
 	 * never matches ⇒ safe full fallback.
 	 */
 	readonly decorationFingerprint?: string;
+	/**
+	 * HEAD's tracking upstream (e.g. `origin/main`) as of the prior walk — carried separately from
+	 * {@link decorationFingerprint} so a session REBIND can neutralize it: moving HEAD to another
+	 * worktree's branch changes the fingerprint even though nothing in the repo did, so recomputing the
+	 * seed-comparable fingerprint from this value (old repoPath, everything else current) cancels exactly
+	 * that perspective move. Sound because it feeds only `remotes[].current` on a reused row, which the
+	 * rebind re-derives in memory. Absent compares as "no upstream", so an older seed with a real upstream
+	 * compares unequal ⇒ safe full fallback.
+	 */
+	readonly headRefUpstreamName?: string;
 }
 
 /**
@@ -416,6 +426,13 @@ export type IncrementalGraphFallbackReason =
  */
 export interface GraphRowProcessor {
 	processRow(row: GitGraphRow, context: GraphContext): void;
+	/**
+	 * Rebuild a reused row's HOST-SERIALIZED contexts (`contexts.refGroups`, a stash row's `contexts.row`)
+	 * for a session rebind. The row's ref ids are already re-stamped by the walk (`restampGraphRowIds`)
+	 * before this runs — since this processor is optional, implementations must read ids as already
+	 * correct and must NOT touch them again, nor message/author (not idempotent).
+	 */
+	restampRow?(row: GitGraphRow, context: GraphContext): void;
 }
 
 export interface GraphContext {

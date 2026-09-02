@@ -425,6 +425,26 @@ export function addWorktree(repoPath: string, dir: string, branch: string): void
 	execFileSync('git', ['worktree', 'add', dir, branch], { cwd: repoPath, stdio: 'pipe' });
 }
 
+/**
+ * Add a linked worktree for `branch` in its OWN temp dir (outside the repo, so the repo's working tree
+ * stays clean) and return its path plus a cleanup that removes it. Call `cleanup()` before the repo's,
+ * and note the returned path is what `git worktree list` reports — the same string the provider stamps
+ * ref ids with when the graph walks from there.
+ */
+export function createWorktree(repoPath: string, branch: string): { path: string; cleanup: () => void } {
+	const parent = mkdtempSync(join(tmpdir(), 'gitlens-worktree-'));
+	// `git worktree add` creates the leaf itself, so point it at a not-yet-existing child of the temp dir.
+	const path = join(parent, 'wt');
+	try {
+		addWorktree(repoPath, path, branch);
+	} catch (ex) {
+		rmSync(parent, { recursive: true, force: true });
+		throw ex;
+	}
+
+	return { path: path, cleanup: () => rmSync(parent, { recursive: true, force: true }) };
+}
+
 /** Set a branch's GitKraken disposition directly in `.git/gk/config` — a metadata-only change (no tip moves). */
 export function setBranchGkDisposition(repoPath: string, branch: string, disposition: 'starred' | 'archived'): void {
 	const gkDir = join(repoPath, '.git', 'gk');

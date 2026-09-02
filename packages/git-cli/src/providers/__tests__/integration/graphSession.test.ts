@@ -9,22 +9,117 @@
 
 import * as assert from 'assert';
 import type { GitGraphRow, GraphContext, GraphRowProcessor } from '@gitlens/git/models/graph.js';
+import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { computeGraphRowContextFlags } from '@gitlens/git/utils/reachability.utils.js';
 import { FlagsRowProcessor } from './graphEquivalence.js';
 import {
 	addCommit,
 	addEmptyCommits,
+	checkout,
 	cloneTestRepo,
 	createBranch,
+	createBranchAt,
 	createReplaceRef,
+	createStash,
 	createTag,
 	createTestRepo,
 	createTrackingBranch,
+	createWorktree,
 	deleteBranch,
 	getHeadSha,
+	push,
 	revParse,
+	setBranchGkDisposition,
+	setUpstream,
 } from './helpers.js';
+
+/**
+ * Like {@link FlagsRowProcessor} but records which rows `restampRow` was invoked for, so a rebind can
+ * assert the re-stamp pass runs over REUSED decorated rows and skips the ones the fast path already
+ * rebuilt from raw git at the new path. Recording only: the ref-id prefix swap is the PROVIDER's job
+ * (the walk stamps those ids), while production's `GlGraphRowProcessor.restampRow` rebuilds the
+ * serialized webview-item contexts that embed the repoPath.
+ */
+class RestampTrackingRowProcessor extends FlagsRowProcessor {
+	readonly restamped = new Set<string>();
+
+	restampRow(row: GitGraphRow, _context: GraphContext): void {
+		this.restamped.add(row.sha);
+	}
+}
+
+/**
+ * Like {@link FlagsRowProcessor} but also builds a serialized STASH row context embedding
+ * `context.repoPath` — the one host-serialized blob a rebind has to rebuild (production's
+ * `GlGraphRowProcessor` does the same via `buildStashRowContext`). Kept deliberately minimal: the point is
+ * that the blob carries the repoPath, not that it matches the host's exact shape.
+ */
+class StashContextRowProcessor extends FlagsRowProcessor {
+	override processRow(row: GitGraphRow, context: GraphContext): void {
+		super.processRow(row, context);
+		if (row.kind === 'stash') {
+			(row.contexts ??= {}).row = JSON.stringify({ type: 'stash', repoPath: context.repoPath, sha: row.sha });
+		}
+	}
+
+	restampRow(row: GitGraphRow, context: GraphContext): void {
+		if (row.kind !== 'stash' || row.contexts?.row == null) return;
+
+		row.contexts = {
+			...row.contexts,
+			row: JSON.stringify({ type: 'stash', repoPath: context.repoPath, sha: row.sha }),
+		};
+	}
+}
+
+/**
+ * Once `armed`, fails a rebind PARTWAY THROUGH the re-stamp and then fails the full walk it degrades to —
+ * the only sequence that can leave the session holding a window whose ids were half-moved to the new path.
+ * `restampRow` throws first (so the rows before it are already re-stamped in place), and `processRow` only
+ * starts throwing afterwards, so the fast path gets far enough to mutate before everything collapses.
+ */
+class ExplodingRowProcessor extends FlagsRowProcessor {
+	armed = false;
+	private restampThrew = false;
+
+	override processRow(row: GitGraphRow, context: GraphContext): void {
+		if (this.armed && this.restampThrew) throw new Error('row processing exploded');
+
+		super.processRow(row, context);
+	}
+
+	restampRow(_row: GitGraphRow, _context: GraphContext): void {
+		if (!this.armed) return;
+
+		this.restampThrew = true;
+		throw new Error('row re-stamping exploded');
+	}
+}
+
+/**
+ * Witnesses whether a walk ever ran while the session's binding had moved out from under it: for every row
+ * it processes, it compares the walk's OWN path (`context.repoPath`, fixed when that walk was launched)
+ * against the session's LIVE `repoPath` at that instant.
+ *
+ * Any mismatch means a second op flipped the binding mid-walk — the deterministic signature of two walks
+ * sharing one session, since `rebind` moves `_repoPath` synchronously at its entry, before its own walk
+ * emits anything. Serialized, a walk can never observe a binding other than its own.
+ */
+class BindingWitnessRowProcessor extends FlagsRowProcessor {
+	/** Assigned after `openGraphSession` returns — the session doesn't exist yet when this is constructed. */
+	liveRepoPath: (() => string) | undefined;
+	readonly torn: { walk: string; live: string }[] = [];
+
+	override processRow(row: GitGraphRow, context: GraphContext): void {
+		super.processRow(row, context);
+
+		const live = this.liveRepoPath?.();
+		if (live != null && live !== context.repoPath) {
+			this.torn.push({ walk: context.repoPath, live: live });
+		}
+	}
+}
 
 /** Like {@link FlagsRowProcessor} but also seeds an avatar URL per author email — so the walk's avatar map
  *  grows when a commit introduces a NEW email, exercising the session's `changed.avatars` derivation. */
@@ -105,7 +200,7 @@ suite('GitGraphSession (R7a)', () => {
 			const firstPageSize = session.window.length;
 
 			const gotMore = await session.more(10);
-			assert.strictEqual(gotMore, true, 'more() reported new rows');
+			assert.strictEqual(gotMore, 'added', 'more() reported new rows');
 
 			// The window ACCUMULATES the pages; `current.rows` is only the last (page-scoped) page. The page
 			// appends at the first page's bottom cursor, so `window = firstPage + page` (git's `--skip` re-reads
@@ -440,6 +535,859 @@ suite('GitGraphSession refresh channel-change reporting (R7b)', () => {
 			}
 		} finally {
 			origin.cleanup();
+		}
+	});
+});
+
+/**
+ * Rebind: re-perspective a live session onto another worktree of the SAME repo family without discarding
+ * the accumulated window. Nothing in the repo changed — only which checkout the graph is "standing in" —
+ * so this must ride the R6b fast path: unchanged tips, the HEAD endpoints refetched from the new cwd, and
+ * every reused row's repoPath-derived ref ids re-stamped in place. A `'full'` result is a test failure.
+ */
+suite('GitGraphSession rebind (worktree re-perspective)', () => {
+	/**
+	 * Repo with `main` checked out and a `feature` worktree one commit ahead, plus two decorated rows
+	 * (`other`, tag `v1.0`) sitting well below both HEADs so they're REUSED — never in the fast path's
+	 * `affected` refetch set — and therefore only correct if the re-stamp pass ran.
+	 */
+	function createRebindFixture() {
+		const repo = createTestRepo();
+		try {
+			addEmptyCommits(repo.path, 5, 'a');
+			createTag(repo.path, 'v1.0');
+			addEmptyCommits(repo.path, 5, 'b');
+			createBranchAt(repo.path, 'other', 'HEAD~2');
+			createBranch(repo.path, 'feature');
+			const worktree = createWorktree(repo.path, 'feature');
+			try {
+				addCommit(worktree.path, 'f.txt', 'f', 'Feature-only commit');
+			} catch (ex) {
+				worktree.cleanup();
+				throw ex;
+			}
+
+			return {
+				repo: repo,
+				worktree: worktree,
+				mainPath: repo.path,
+				wtPath: worktree.path,
+				mainTip: revParse(repo.path, 'main'),
+				featureTip: revParse(worktree.path, 'HEAD'),
+				otherTip: revParse(repo.path, 'other'),
+				taggedSha: revParse(repo.path, 'v1.0'),
+				cleanup: () => {
+					worktree.cleanup();
+					repo.cleanup();
+				},
+			};
+		} catch (ex) {
+			repo.cleanup();
+			throw ex;
+		}
+	}
+
+	/** Every ref id a row embeds — the repoPath-stamped fields the rebind has to swap. */
+	function rowRefIds(rows: readonly GitGraphRow[]): string[] {
+		const ids: string[] = [];
+		for (const row of rows) {
+			for (const head of row.heads ?? []) {
+				if (head.id != null) {
+					ids.push(head.id);
+				}
+				if (head.upstream != null) {
+					ids.push(head.upstream.id);
+				}
+				if (head.worktree != null) {
+					ids.push(head.worktree.id);
+				}
+			}
+			for (const remote of row.remotes ?? []) {
+				if (remote.id != null) {
+					ids.push(remote.id);
+				}
+			}
+			for (const tag of row.tags ?? []) {
+				if (tag.id != null) {
+					ids.push(tag.id);
+				}
+			}
+		}
+		return ids;
+	}
+
+	test('rebinding onto a worktree rides the fast path and re-perspectives the window', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath, mainTip, featureTip, otherTip, taggedSha } = fixture;
+		try {
+			const rowProcessor = new RestampTrackingRowProcessor();
+			const session = await repo.provider.graph.openGraphSession(mainPath, { rowProcessor: rowProcessor });
+
+			assert.strictEqual(session.repoPath, mainPath, 'the session opens bound to the main worktree');
+			const priorShas = session.window.map(r => r.sha);
+			assert.ok(priorShas.includes(featureTip), 'the feature-only commit is in the window (refs are shared)');
+			assert.ok(
+				session.current.reachableFromHEAD?.has(featureTip) !== true,
+				'the feature-only commit is NOT reachable from main HEAD before the rebind',
+			);
+			for (const id of rowRefIds(session.window)) {
+				assert.ok(id.startsWith(`${mainPath}|`), `ref id ${id} is stamped at the main worktree`);
+			}
+
+			repo.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(
+				result.path,
+				'fast',
+				`a plain rebind must ride the fast path (fallback reason: ${result.reason ?? 'none'})`,
+			);
+			assert.strictEqual(result.added, 0, 'a rebind enumerates no new commits');
+			assert.strictEqual(session.repoPath, wtPath, 'the session is now bound to the worktree');
+
+			// Row identity + order survive: this is a re-perspective, not a re-walk.
+			assert.deepStrictEqual(
+				session.window.map(r => r.sha),
+				priorShas,
+				'the window is unchanged in size/order',
+			);
+
+			// Top-level graph outputs come from the prelude at the NEW path.
+			assert.strictEqual(session.current.repoPath, wtPath, 'the graph reports the new repoPath');
+			const branches = session.current.branches;
+			assert.strictEqual(branches.get('feature')?.id, `${wtPath}|heads/feature`);
+			assert.strictEqual(branches.get('feature')?.current, true, 'feature is the current branch');
+			assert.strictEqual(branches.get('main')?.id, `${wtPath}|heads/main`);
+			assert.strictEqual(branches.get('main')?.current, false, 'main is no longer current');
+
+			// The HEAD endpoints were refetched from the worktree's cwd, so `isCurrentHead` moved.
+			let rowsBySha = new Map(session.window.map(r => [r.sha, r]));
+			assert.strictEqual(
+				rowsBySha.get(featureTip)?.heads?.find(h => h.name === 'feature')?.isCurrentHead,
+				true,
+				"feature's tip row carries the current-HEAD marker",
+			);
+			assert.strictEqual(
+				rowsBySha.get(mainTip)?.heads?.find(h => h.name === 'main')?.isCurrentHead,
+				false,
+				"main's tip row no longer carries the current-HEAD marker",
+			);
+			assert.ok(
+				session.current.reachableFromHEAD?.has(featureTip) === true,
+				'the feature-only commit is reachable from the rebound HEAD',
+			);
+
+			// Reused (never-refetched) decorated rows were re-stamped in place.
+			assert.strictEqual(
+				rowsBySha.get(otherTip)?.heads?.find(h => h.name === 'other')?.id,
+				`${wtPath}|heads/other`,
+			);
+			assert.strictEqual(rowsBySha.get(taggedSha)?.tags?.find(t => t.name === 'v1.0')?.id, `${wtPath}|tags/v1.0`);
+			for (const id of rowRefIds(session.window)) {
+				assert.ok(id.startsWith(`${wtPath}|`), `ref id ${id} is re-stamped at the worktree`);
+			}
+
+			// The re-stamp pass covers reused decorated rows only — rows the fast path rebuilt from raw git
+			// at the new path are already correct and must not be processed twice.
+			assert.ok(rowProcessor.restamped.has(otherTip), 'the reused `other` row went through restampRow');
+			assert.ok(rowProcessor.restamped.has(taggedSha), 'the reused tagged row went through restampRow');
+			assert.ok(!rowProcessor.restamped.has(featureTip), 'the refetched feature HEAD row was not re-stamped');
+			assert.ok(!rowProcessor.restamped.has(mainTip), 'the refetched main HEAD row was not re-stamped');
+
+			// Round-trip: rebinding home restores the mirror image.
+			repo.provider.cache.clearCaches(wtPath);
+			const back = await session.rebind(mainPath);
+
+			assert.strictEqual(
+				back.path,
+				'fast',
+				`the round-trip rebind must ride the fast path (fallback reason: ${back.reason ?? 'none'})`,
+			);
+			assert.strictEqual(session.repoPath, mainPath);
+			assert.deepStrictEqual(
+				session.window.map(r => r.sha),
+				priorShas,
+				'the window survived the round-trip',
+			);
+			assert.strictEqual(session.current.branches.get('main')?.current, true, 'main is current again');
+			assert.strictEqual(session.current.branches.get('feature')?.current, false);
+
+			rowsBySha = new Map(session.window.map(r => [r.sha, r]));
+			assert.strictEqual(rowsBySha.get(mainTip)?.heads?.find(h => h.name === 'main')?.isCurrentHead, true);
+			assert.strictEqual(rowsBySha.get(featureTip)?.heads?.find(h => h.name === 'feature')?.isCurrentHead, false);
+			assert.ok(session.current.reachableFromHEAD?.has(mainTip) === true);
+			assert.ok(
+				session.current.reachableFromHEAD?.has(featureTip) !== true,
+				'the feature-only commit is unreachable again',
+			);
+			assert.strictEqual(
+				rowsBySha.get(otherTip)?.heads?.find(h => h.name === 'other')?.id,
+				`${mainPath}|heads/other`,
+			);
+			for (const id of rowRefIds(session.window)) {
+				assert.ok(id.startsWith(`${mainPath}|`), `ref id ${id} is re-stamped back at the main worktree`);
+			}
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('a paged window survives a rebind (no re-shape to the default limit)', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const session = await repo.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new FlagsRowProcessor(),
+				limit: 5,
+			});
+			await session.more(5);
+			const pagedShas = session.window.map(r => r.sha);
+			assert.ok(pagedShas.length > 5, 'paged the window past the first page');
+
+			repo.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(
+				result.path,
+				'fast',
+				`expected the fast path (fallback reason: ${result.reason ?? 'none'})`,
+			);
+			assert.deepStrictEqual(
+				session.window.map(r => r.sha),
+				pagedShas,
+				'the rebind anchors on the accumulated window rather than the default limit',
+			);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('a genuine metadata change concurrent with a rebind still falls back to the full walk', async () => {
+		// The rebind only excuses the fingerprint's `wd:` component (the perspective itself). Anything else
+		// that moved must still rebuild every decoration — reused rows bake it in.
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const session = await repo.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+
+			// `+starred` is baked into pill contexts and moves no ref tip.
+			setBranchGkDisposition(mainPath, 'main', 'starred');
+			repo.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(result.path, 'full', 'a real metadata change must not ride the rebind fast path');
+			assert.strictEqual(result.reason, 'metadata-changed');
+			assert.strictEqual(session.repoPath, wtPath, 'the rebind still applied — just via a full walk');
+			assert.strictEqual(session.current.branches.get('feature')?.current, true);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	/**
+	 * The real-world shape: a CLONE where `main` tracks `origin/main` and the worktree's `feature` tracks
+	 * `origin/feature`, each one unpushed commit ahead. HEAD's upstream is a decoration-fingerprint input, so
+	 * without the seed carrying the prior HEAD upstream this rebind would look like a metadata change and
+	 * re-walk — which, in a cloned repo, would be every rebind.
+	 */
+	function createUpstreamRebindFixture() {
+		const origin = createTestRepo();
+		try {
+			addEmptyCommits(origin.path, 5, 'o');
+			const clone = cloneTestRepo(origin.path);
+			try {
+				// `feature` forks at (and is pushed to) the same commit `origin/main` sits on, so ONE reused row
+				// carries both remote pills — exactly the row whose `current` marker has to move.
+				createBranch(clone.path, 'feature');
+				push(clone.path, 'origin', 'feature');
+				setUpstream(clone.path, 'feature', 'origin/feature');
+				addCommit(clone.path, 'm.txt', 'm', 'Main-only unpushed commit');
+				const worktree = createWorktree(clone.path, 'feature');
+				try {
+					addCommit(worktree.path, 'f.txt', 'f', 'Feature-only unpushed commit');
+				} catch (ex) {
+					worktree.cleanup();
+					throw ex;
+				}
+
+				return {
+					clone: clone,
+					mainPath: clone.path,
+					wtPath: worktree.path,
+					sharedTip: revParse(clone.path, 'origin/main'),
+					mainOnly: revParse(clone.path, 'main'),
+					featureOnly: revParse(worktree.path, 'HEAD'),
+					cleanup: () => {
+						worktree.cleanup();
+						clone.cleanup();
+						origin.cleanup();
+					},
+				};
+			} catch (ex) {
+				clone.cleanup();
+				throw ex;
+			}
+		} catch (ex) {
+			origin.cleanup();
+			throw ex;
+		}
+	}
+
+	/** Whether the row for `sha` is flagged ahead of HEAD's upstream. */
+	function isUnpublished(session: GitGraphSession, sha: string): boolean {
+		const row = session.window.find(r => r.sha === sha);
+		assert.ok(row != null, `row ${sha} is in the window`);
+		return ((row.contexts?.flags ?? 0) & GitGraphRowContextFlags.Unpublished) !== 0;
+	}
+
+	/** The `current` marker on the row's remote pill for `origin/<name>` — HEAD's tracking upstream tip. */
+	function remoteCurrent(session: GitGraphSession, sha: string, name: string): boolean | undefined {
+		const row = session.window.find(r => r.sha === sha);
+		assert.ok(row != null, `row ${sha} is in the window`);
+		const remote = row.remotes?.find(r => r.owner === 'origin' && r.name === name);
+		assert.ok(remote != null, `row ${sha} carries an origin/${name} pill`);
+		return remote.current;
+	}
+
+	test('rebinding between worktrees with DIFFERENT upstreams stays on the fast path', async () => {
+		const fixture = createUpstreamRebindFixture();
+		const { clone, mainPath, wtPath, sharedTip, mainOnly, featureOnly } = fixture;
+		try {
+			const session = await clone.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+
+			// Baseline: HEAD is `main`, tracking `origin/main`.
+			assert.strictEqual(remoteCurrent(session, sharedTip, 'main'), true);
+			assert.strictEqual(remoteCurrent(session, sharedTip, 'feature'), false);
+			assert.strictEqual(
+				isUnpublished(session, mainOnly),
+				true,
+				"main's unpushed commit is ahead of origin/main",
+			);
+			assert.strictEqual(isUnpublished(session, featureOnly), false, 'a commit off HEAD is never unpublished');
+
+			clone.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(
+				result.path,
+				'fast',
+				`a rebind onto a differently-tracked branch must stay fast (fallback reason: ${result.reason ?? 'none'})`,
+			);
+
+			// The upstream marker moved between the two pills on the SAME reused row.
+			assert.strictEqual(
+				remoteCurrent(session, sharedTip, 'feature'),
+				true,
+				"origin/feature is now HEAD's upstream",
+			);
+			assert.strictEqual(remoteCurrent(session, sharedTip, 'main'), false, 'origin/main no longer is');
+			assert.strictEqual(
+				isUnpublished(session, featureOnly),
+				true,
+				'the feature-only commit is ahead of origin/feature',
+			);
+			assert.strictEqual(
+				isUnpublished(session, mainOnly),
+				false,
+				"main's unpushed commit is off the rebound HEAD, so it is not marked",
+			);
+			assert.ok(session.current.reachableFromHEAD?.has(featureOnly) === true);
+			assert.ok(session.current.reachableFromHEAD?.has(mainOnly) !== true);
+
+			// Round-trip restores the original perspective.
+			clone.provider.cache.clearCaches(wtPath);
+			const back = await session.rebind(mainPath);
+
+			assert.strictEqual(
+				back.path,
+				'fast',
+				`the round-trip must stay fast (fallback reason: ${back.reason ?? 'none'})`,
+			);
+			assert.strictEqual(remoteCurrent(session, sharedTip, 'main'), true);
+			assert.strictEqual(remoteCurrent(session, sharedTip, 'feature'), false);
+			assert.strictEqual(isUnpublished(session, mainOnly), true);
+			assert.strictEqual(isUnpublished(session, featureOnly), false);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test("neutralizing HEAD's upstream does not disarm the rest of the metadata gate", async () => {
+		// Same cloned shape as above (where `h:` IS being neutralized) — a real decoration change must still
+		// force the full walk that rebuilds every pill.
+		const fixture = createUpstreamRebindFixture();
+		const { clone, mainPath, wtPath } = fixture;
+		try {
+			const session = await clone.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+
+			setBranchGkDisposition(mainPath, 'feature', 'starred');
+			clone.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(result.path, 'full', 'a real metadata change must not ride the rebind fast path');
+			assert.strictEqual(result.reason, 'metadata-changed');
+			assert.strictEqual(session.repoPath, wtPath, 'the rebind still applied — just via a full walk');
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('a checkout in the DEFAULT worktree concurrent with a rebind away from it falls back', async () => {
+		// `wd:` (the default worktree's checkout) is absent from the fingerprint on BOTH sides of a
+		// default→secondary rebind, so this change is invisible to the comparison — the gate has to catch it
+		// by comparing the seed's own current-head name against the default worktree's fresh branch.
+		// Otherwise the newly-checked-out branch's tip row would be reused with a stale `worktree` ref.
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath, otherTip } = fixture;
+		try {
+			const session = await repo.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+			const otherRow = session.window.find(r => r.sha === otherTip);
+			assert.strictEqual(
+				otherRow?.heads?.find(h => h.name === 'other')?.worktree,
+				undefined,
+				'`other` is not checked out anywhere yet',
+			);
+
+			checkout(mainPath, 'other');
+			repo.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(result.path, 'full', 'the default worktree moved — reused rows must be rebuilt');
+			assert.strictEqual(result.reason, 'metadata-changed');
+			assert.strictEqual(session.repoPath, wtPath);
+			// The full walk rebuilt it: `other` now carries the default worktree.
+			const rebuilt = session.window.find(r => r.sha === otherTip);
+			assert.strictEqual(
+				rebuilt?.heads?.find(h => h.name === 'other')?.worktree?.isDefault,
+				true,
+				"`other` is now the default worktree's checkout",
+			);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	/** The stash row's serialized context, parsed. `contexts.row` is `string | object`; the processors here
+	 *  always serialize, so anything else is a test failure. */
+	function parseStashContext(session: GitGraphSession, sha: string): unknown {
+		const context = session.window.find(r => r.sha === sha)?.contexts?.row;
+		if (typeof context !== 'string') {
+			assert.fail(`row ${sha} carries a serialized stash context`);
+		}
+
+		return JSON.parse(context);
+	}
+
+	test('a stash-bearing window rebinds on the fast path, re-stamping the stash context', async () => {
+		const repo = createTestRepo();
+		let worktree: { path: string; cleanup: () => void } | undefined;
+		try {
+			addEmptyCommits(repo.path, 5, 's');
+			createBranch(repo.path, 'feature');
+			worktree = createWorktree(repo.path, 'feature');
+			addCommit(worktree.path, 'f.txt', 'f', 'Feature-only commit');
+			// Stashes live on the SHARED `refs/stash`, so both perspectives see the same stack.
+			createStash(repo.path, 'wip');
+
+			const wtPath = worktree.path;
+			const session = await repo.provider.graph.openGraphSession(repo.path, {
+				rowProcessor: new StashContextRowProcessor(),
+			});
+			const priorShas = session.window.map(r => r.sha);
+			const stashSha = session.window.find(r => r.kind === 'stash')?.sha;
+			assert.ok(stashSha != null, 'the stash row is in the window');
+			assert.deepStrictEqual(parseStashContext(session, stashSha), {
+				type: 'stash',
+				repoPath: repo.path,
+				sha: stashSha,
+			});
+
+			repo.provider.cache.clearCaches(repo.path);
+			const result = await session.rebind(wtPath);
+
+			assert.strictEqual(
+				result.path,
+				'fast',
+				`a stash in the window must not force a re-walk (fallback reason: ${result.reason ?? 'none'})`,
+			);
+			assert.deepStrictEqual(
+				session.window.map(r => r.sha),
+				priorShas,
+				'the window survived intact',
+			);
+			const stashRow = session.window.find(r => r.sha === stashSha);
+			assert.strictEqual(stashRow?.kind, 'stash', 'the stash row survived as a stash row');
+			assert.deepStrictEqual(
+				parseStashContext(session, stashSha),
+				{ type: 'stash', repoPath: wtPath, sha: stashSha },
+				'the serialized stash context was rebuilt at the new path',
+			);
+		} finally {
+			worktree?.cleanup();
+			repo.cleanup();
+		}
+	});
+
+	test('a rebind whose walk fails reverts the binding and forces the next refresh to walk fully', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath, otherTip } = fixture;
+		try {
+			const rowProcessor = new ExplodingRowProcessor();
+			const session = await repo.provider.graph.openGraphSession(mainPath, { rowProcessor: rowProcessor });
+			const priorShas = session.window.map(r => r.sha);
+
+			// Both the fast path AND the full walk it degrades to now throw, so the rebind can't complete.
+			rowProcessor.armed = true;
+			repo.provider.cache.clearCaches(mainPath);
+			await assert.rejects(() => session.rebind(wtPath), 'the rebind surfaces the walk failure');
+
+			assert.strictEqual(session.repoPath, mainPath, 'the binding reverted to the path the window describes');
+			// The window really is corrupt: the re-stamp landed on the rows walked before the throw.
+			assert.strictEqual(
+				session.window.find(r => r.sha === otherTip)?.heads?.find(h => h.name === 'other')?.id,
+				`${wtPath}|heads/other`,
+				'a reused row was re-stamped in place before the failure',
+			);
+
+			// And the session SAYS SO, which is the only reason a reader can keep these rows off screen —
+			// reads don't go through the write queue, so a corrupt window is otherwise indistinguishable
+			// from a good one (the binding is restored, the etag is restored, nothing else has moved).
+			assert.strictEqual(session.tainted, true, 'a half-restamped window must announce itself as corrupt');
+
+			// A page queued against it is REFUSED rather than appending to known-corrupt rows: the failure
+			// advanced the generation for exactly this, because a corrupt window is not "the window that
+			// exists". Without it this returns 'added' and hands the caller rows it should never ship.
+			const pagedFromCorrupt = await session.more(5);
+			assert.strictEqual(pagedFromCorrupt, 'superseded', 'no page may be cut from a known-corrupt window');
+
+			// The window may have been mutated in place before the throw, so the next refresh must NOT be
+			// seeded from it — it has to walk fully and rebuild every row.
+			rowProcessor.armed = false;
+			repo.provider.cache.clearCaches(mainPath);
+			const result = await session.refresh();
+
+			assert.strictEqual(result.path, 'full', 'the failed rebind dropped the incremental seed');
+			assert.strictEqual(result.reason, undefined, 'an unseeded full walk carries no fallback reason');
+			assert.deepStrictEqual(
+				session.window.map(r => r.sha),
+				priorShas,
+				'the rebuilt window matches',
+			);
+			assert.strictEqual(
+				session.window.find(r => r.sha === otherTip)?.heads?.find(h => h.name === 'other')?.id,
+				`${mainPath}|heads/other`,
+				'every ref id is stamped at the bound path again',
+			);
+			// The rebuild IS the repair, so the session stops flagging itself and can be served again.
+			assert.strictEqual(session.tainted, false, 'a full rebuild clears the taint');
+			assert.strictEqual(await session.more(5), 'added', 'and paging works again off the repaired window');
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('a rebind CANCELLED during the ref-tips read rejects cleanly, without tainting the still-intact window', async () => {
+		// Reproduces the live churn-fast race: a second gesture's cancellation kills THIS rebind's own
+		// ref-tips read (the `force: true` prelude spawn, evicted fresh and so sole registrant on its own
+		// cancellation aggregate — see `getCurrentRefTips`) before the fast path ever reaches its
+		// "commit to mutate rows in place" point. The bug this guards: that cancellation used to be
+		// swallowed into an EMPTY tips map, which the incremental gate then misread as "every ref
+		// deleted" — a full walk ran under the already-cancelled token and its degraded result was
+		// applied as a SUCCESS. Now it must reject instead — and because no row mutation ever started,
+		// the session must NOT taint an otherwise-untouched window (that would force a needless
+		// full-walk repair on the very next rebind).
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const session = await repo.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+			const priorShas = session.window.map(r => r.sha);
+
+			repo.provider.cache.clearCaches(mainPath);
+			const controller = new AbortController();
+			const rebinding = session.rebind(wtPath, controller.signal);
+			controller.abort();
+
+			await assert.rejects(
+				() => rebinding,
+				/Operation cancelled/,
+				'the cancelled ref-tips read must reject the rebind, not resolve with a poisoned empty tip map',
+			);
+
+			assert.strictEqual(
+				session.repoPath,
+				mainPath,
+				'the binding reverted — it never left the path the window describes',
+			);
+			assert.strictEqual(session.tainted, false, 'no row was ever mutated, so there is nothing to repair');
+			assert.deepStrictEqual(
+				session.window.map(r => r.sha),
+				priorShas,
+				'the window itself was never touched',
+			);
+
+			// The window is genuinely intact — a page against it must still succeed (a TAINTED window would
+			// refuse this with 'superseded' instead).
+			assert.strictEqual(await session.more(5), 'added', 'the untainted window still serves pages normally');
+
+			// The point of the fix: taint's side effect (dropping `_buildShape`) must NOT have fired either,
+			// so a follow-up rebind still rides the fast path instead of being forced into a full walk.
+			repo.provider.cache.clearCaches(mainPath);
+			const result = await session.rebind(wtPath);
+			assert.strictEqual(
+				result.path,
+				'fast',
+				`a follow-up rebind must still ride the fast path (fallback reason: ${result.reason ?? 'none'})`,
+			);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('rebinding to the already-bound path is a no-op', async () => {
+		const repo = createTestRepo();
+		try {
+			addEmptyCommits(repo.path, 5, 's');
+			const session = await repo.provider.graph.openGraphSession(repo.path, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+			const priorGraph = session.current;
+
+			const result = await session.rebind(repo.path);
+
+			assert.strictEqual(result.path, 'fast');
+			assert.strictEqual(result.added, 0);
+			assert.deepStrictEqual(result.changed, {
+				rows: false,
+				reachability: false,
+				rowsStats: false,
+				avatars: false,
+				downstreams: false,
+			});
+			assert.strictEqual(session.repoPath, repo.path);
+			assert.strictEqual(session.current, priorGraph, 'no walk ran — the graph is untouched');
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	/**
+	 * `refresh` and `rebind` fired without an await between them — the session serializes them itself
+	 * (its `GraphSessionWriteQueue`), so whichever order they were called in it lands wholly on the
+	 * LAST-completed op's binding and never on a mix of the two.
+	 *
+	 * Without that chain both walks share `_current`/`_window`: the rebind swaps `_repoPath` and re-stamps
+	 * reused rows IN PLACE while a concurrent refresh seeds from those same rows, and either one's failure
+	 * path restores `_repoPath` out from under the other's already-stamped ids. The observable damage is a
+	 * torn window — some ref ids at the old path, some at the new — which is what this rejects.
+	 */
+	function assertCoherent(session: GitGraphSession, expectedPath: string, priorShas: readonly string[]): void {
+		assert.strictEqual(session.repoPath, expectedPath, 'the session settled on the expected binding');
+		assert.strictEqual(session.current.repoPath, expectedPath, 'the graph reports that same binding');
+		assert.deepStrictEqual(
+			session.window.map(r => r.sha),
+			priorShas,
+			'nothing in the repo changed, so the window is unchanged in size and order',
+		);
+
+		for (const id of rowRefIds(session.window)) {
+			assert.ok(id.startsWith(`${expectedPath}|`), `ref id ${id} is stamped at the settled binding`);
+		}
+		for (const branch of session.current.branches.values()) {
+			assert.ok(branch.id.startsWith(`${expectedPath}|`), `branch id ${branch.id} is stamped at the binding`);
+		}
+	}
+
+	test('a refresh and a rebind fired concurrently (refresh first) never overlap, and land on the rebind', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const witness = new BindingWitnessRowProcessor();
+			const session = await repo.provider.graph.openGraphSession(mainPath, { rowProcessor: witness });
+			witness.liveRepoPath = () => session.repoPath;
+			const priorShas = session.window.map(r => r.sha);
+			repo.provider.cache.clearCaches(mainPath);
+
+			// No await between them — both are outstanding before either resolves. This is the ordering the
+			// host's own gates provably can't cover: a state build that started while the rebind was still
+			// resolving its target sees no rebind in flight and walks anyway.
+			// `rebuild: true` forces an UNSEEDED full walk, so the refresh actually processes every row —
+			// a seeded no-change refresh reuses the window and would emit almost none for the witness to see.
+			const refreshing = session.refresh({ rebuild: true });
+			const rebinding = session.rebind(wtPath);
+			await Promise.all([refreshing, rebinding]);
+
+			// Unserialized, the rebind's synchronous `_repoPath` flip lands while the refresh's walk is still
+			// emitting rows, so every one of them witnesses a binding that isn't its own.
+			assert.deepStrictEqual(witness.torn, [], 'no walk may observe a binding other than the one it started at');
+			// The rebind was queued second, so it completes last and owns the settled binding.
+			assertCoherent(session, wtPath, priorShas);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('a rebind and a refresh fired concurrently (rebind first) leave the rebound binding intact', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const session = await repo.provider.graph.openGraphSession(mainPath, {
+				rowProcessor: new RestampTrackingRowProcessor(),
+			});
+			const priorShas = session.window.map(r => r.sha);
+			repo.provider.cache.clearCaches(mainPath);
+
+			const rebinding = session.rebind(wtPath);
+			const refreshing = session.refresh();
+			await Promise.all([rebinding, refreshing]);
+
+			// The refresh completes last, and a refresh never moves the binding — so the rebind's target
+			// stands, and the refresh must have SEEDED from the re-stamped window rather than racing it.
+			// No binding witness in this order: the rebind flips `_repoPath` before the refresh is even
+			// launched, so both walks legitimately run at the same path and the tear is invisible from
+			// inside a walk. This pins the settled result instead.
+			assertCoherent(session, wtPath, priorShas);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	test('a rebind back home queued behind a refresh never overlaps it, and settles on home', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const witness = new BindingWitnessRowProcessor();
+			const session = await repo.provider.graph.openGraphSession(mainPath, { rowProcessor: witness });
+			witness.liveRepoPath = () => session.repoPath;
+			await session.rebind(wtPath);
+			witness.torn.length = 0; // that rebind ran alone; only the concurrent pair below is under test
+			const priorShas = session.window.map(r => r.sha);
+			repo.provider.cache.clearCaches(wtPath);
+
+			// The unscope direction, which is the one that re-stamps ids BACK — a torn result here leaves
+			// worktree-stamped ids on a session claiming the main checkout.
+			const refreshing = session.refresh({ rebuild: true });
+			const rebinding = session.rebind(mainPath);
+			await Promise.all([refreshing, rebinding]);
+
+			assert.deepStrictEqual(witness.torn, [], 'no walk may observe a binding other than the one it started at');
+			assertCoherent(session, mainPath, priorShas);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	/**
+	 * PAGING against a rebind. This pair was ordered by nothing at all before `more()` joined the chain:
+	 * paging is tracked in the host's `_pendingRowsQuery`, while the rebind drains only the state-load
+	 * promise, so neither could see the other. The damage was a silently discarded page — the rebind
+	 * anchors its re-walk on the window it read BEFORE the page landed, so its `applyRebuild` replaced the
+	 * grown window with the pre-page one and the user's scroll depth vanished.
+	 *
+	 * The two tests below assert OPPOSITE page outcomes, on purpose, because the order decides which is
+	 * correct: a page that reached the front of the queue FIRST is applied and the rebind then anchors on
+	 * the deeper window ('added'), while one still queued when the rebind replaced the window is refused
+	 * ('superseded') — its cursor no longer fits. Both assert the session is coherent on the settled
+	 * binding, and that whatever happened to the page, the window was never left half-modified.
+	 */
+	test('a page and a rebind fired concurrently (page first) keeps the page and lands on the rebind', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const witness = new BindingWitnessRowProcessor();
+			// A small first page so there is history left to page into.
+			const session = await repo.provider.graph.openGraphSession(mainPath, { rowProcessor: witness, limit: 5 });
+			witness.liveRepoPath = () => session.repoPath;
+			const firstPageSize = session.window.length;
+			assert.strictEqual(session.current.paging?.hasMore, true, 'the fixture must have more to page');
+			repo.provider.cache.clearCaches(mainPath);
+
+			const paging = session.more(5);
+			const rebinding = session.rebind(wtPath);
+			const [pageResult] = await Promise.all([paging, rebinding]);
+
+			// Asserted BEFORE the witness so a regression names the damage the user actually sees: the
+			// rebind landing on top of the page and taking the window back to its pre-page depth.
+			assert.strictEqual(pageResult, 'added', 'the page was applied, not dropped');
+			assert.ok(
+				session.window.length > firstPageSize,
+				`the rebind must not discard the page (window ${session.window.length} vs first page ${firstPageSize})`,
+			);
+			assert.deepStrictEqual(witness.torn, [], 'no walk may observe a binding other than the one it started at');
+			assertCoherent(
+				session,
+				wtPath,
+				session.window.map(r => r.sha),
+			);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
+	/**
+	 * The other order, and the SUPERSESSION CONTRACT itself: a page requested against one window, reaching
+	 * the front of the queue after a rebind replaced that window, is refused — it never walks, never
+	 * half-applies, and the caller re-requests. Stated by the generation, not raced for: the alternative
+	 * (append it to whatever window is current now) splices rows cut against a dead cursor.
+	 */
+	test('a page requested before a rebind is REFUSED once the rebind replaces the window, and re-requests cleanly', async () => {
+		const fixture = createRebindFixture();
+		const { repo, mainPath, wtPath } = fixture;
+		try {
+			const witness = new BindingWitnessRowProcessor();
+			const session = await repo.provider.graph.openGraphSession(mainPath, { rowProcessor: witness, limit: 5 });
+			witness.liveRepoPath = () => session.repoPath;
+			const firstPageSize = session.window.length;
+			assert.strictEqual(session.current.paging?.hasMore, true, 'the fixture must have more to page');
+			repo.provider.cache.clearCaches(mainPath);
+
+			// Queued in this order, so the rebind's `applyRebuild` moves the generation before the page runs.
+			const rebinding = session.rebind(wtPath);
+			const paging = session.more(5);
+			const [, pageResult] = await Promise.all([rebinding, paging]);
+
+			assert.strictEqual(
+				pageResult,
+				'superseded',
+				'the page was requested against a window that no longer exists — and says so, so a caller can retry',
+			);
+			assert.strictEqual(
+				session.window.length,
+				firstPageSize,
+				'a refused page must leave the window exactly as the rebind left it — never half-applied',
+			);
+			assert.deepStrictEqual(witness.torn, [], 'no walk may observe a binding other than the one it started at');
+			const rebound = session.window.map(r => r.sha);
+			assertCoherent(session, wtPath, rebound);
+
+			// `false` means "re-request", so the caller's next ask must actually page — against the window
+			// that exists now, at the new binding.
+			assert.strictEqual(session.current.paging?.hasMore, true, 'there is still more to page');
+			const retried = await session.more(5);
+
+			assert.strictEqual(retried, 'added', 'the re-request pages off the window that exists now');
+			assert.ok(session.window.length > firstPageSize, 'and the window finally grew');
+			assertCoherent(
+				session,
+				wtPath,
+				session.window.map(r => r.sha),
+			);
+			assert.deepStrictEqual(
+				session.window.slice(0, rebound.length).map(r => r.sha),
+				rebound,
+				'the re-requested page EXTENDS the rebound window rather than replacing it',
+			);
+		} finally {
+			fixture.cleanup();
 		}
 	});
 });
