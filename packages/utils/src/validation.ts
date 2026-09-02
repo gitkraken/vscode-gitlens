@@ -1,6 +1,16 @@
 export type Validator<T> = (data: unknown) => data is T;
 
-export const Is = Object.freeze({
+type IsValidators = {
+	readonly String: Validator<string>;
+	readonly Number: Validator<number>;
+	readonly Boolean: Validator<boolean>;
+	readonly Object: Validator<object>;
+	readonly Array: <T>(elementValidator: Validator<T>) => Validator<T[]>;
+	readonly Enum: <T extends string | number>(...values: T[]) => Validator<T>;
+	readonly Optional: <T>(validator: Validator<T>) => Validator<T | undefined>;
+};
+
+export const Is: IsValidators = Object.freeze({
 	String: (data: unknown): data is string => typeof data === 'string',
 	Number: (data: unknown): data is number => typeof data === 'number',
 	Boolean: (data: unknown): data is boolean => typeof data === 'boolean',

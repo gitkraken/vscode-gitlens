@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import { getSignatureState, getSignatureStatusInfo } from './signature.utils.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../copy-container.js';
 import './signature-badge.js';
 
@@ -84,8 +84,8 @@ export class GlSignatureDetails extends LitElement {
 
 		.signature-action {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.3rem;
+			align-items: center;
 			width: fit-content;
 			margin-top: 0.15rem;
 			color: var(--vscode-textLink-foreground);

@@ -2,11 +2,11 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { ref } from 'lit/directives/ref.js';
-import { cspStyleMap } from './csp-style-map.directive.js';
-import { focusableBaseStyles, srOnlyStyles } from './styles/lit/a11y.css.js';
-import './code-icon.js';
-import './overlays/popover.js';
-import './overlays/tooltip.js';
+import { focusableBaseStyles, srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 export type BreadcrumbAppearance = 'default' | 'segment' | 'ellipsis';
 export type BreadcrumbCollapse = 'outer-in' | 'shrink' | 'none';
@@ -69,8 +69,8 @@ export class GlBreadcrumbs extends LitElement {
 		}
 
 		/* Style the cloned tooltip content from each menu row's tooltip — the source
-	   markup is text + hr + path, and the default browser hr style looks wrong
-	   in our dark tooltip body. */
+  markup is text + hr + path, and the default browser hr style looks wrong
+  in our dark tooltip body. */
 		.overflow-menu gl-tooltip hr {
 			margin: var(--gl-space-4) 0;
 			border: none;
@@ -416,16 +416,16 @@ export class GlBreadcrumbItem extends LitElement {
 				color: var(--vscode-descriptionForeground);
 
 				/* Defensive — section headings (e.g. Home) apply uppercase to their
-		   contents; reset here so crumbs always render in natural casing. */
+ contents; reset here so crumbs always render in natural casing. */
 				text-transform: none;
 				white-space: nowrap;
 			}
 
 			/* density="compact" — set on the host by gl-breadcrumbs (propagated to each
-	   child on slotchange / density change). Shrinks icons and caps slotted
-	   toolbar widget heights so the row stays tight. The inner gl-button's
-	   --button-padding/--button-line-height live in compactBreadcrumbsConsumerStyles
-	   (must be in consumer scope to cross the shadow boundary). */
+child on slotchange / density change). Shrinks icons and caps slotted
+toolbar widget heights so the row stays tight. The inner gl-button's
+--button-padding/--button-line-height live in compactBreadcrumbsConsumerStyles
+(must be in consumer scope to cross the shadow boundary). */
 			:host([has-widget]) .breadcrumb-label {
 				overflow: visible;
 			}
@@ -481,15 +481,15 @@ export class GlBreadcrumbItem extends LitElement {
 				min-width: 0;
 
 				/* Fixed min-height keeps every crumb the same height regardless of
-		   slotted content size or collapsed state — without this, a collapsed
-		   icon-only crumb is shorter than a text crumb. */
+ slotted content size or collapsed state — without this, a collapsed
+ icon-only crumb is shorter than a text crumb. */
 				min-height: 1.8rem;
 
 				/* Horizontal padding matches HALF the inside gap so that the visual
-		   space between elements is uniform — inside a crumb, gap supplies
-		   0.4rem between content and chevron; across crumbs, this item's
-		   padding-right (0.2rem) plus the next item's padding-left (0.2rem)
-		   sums to the same 0.4rem. */
+ space between elements is uniform — inside a crumb, gap supplies
+ 0.4rem between content and chevron; across crumbs, this item's
+ padding-right (0.2rem) plus the next item's padding-left (0.2rem)
+ sums to the same 0.4rem. */
 				padding: 0.1rem 0.2rem;
 				overflow: hidden;
 				font: inherit;
@@ -530,18 +530,18 @@ export class GlBreadcrumbItem extends LitElement {
 				text-overflow: ellipsis;
 
 				/* Generous line-height (1.4 ratio) ensures the label's line-box accommodates
-		   both descenders for plain-text crumbs AND the natural height of slotted
-		   gl-button widgets (gl-ref-button, gl-repo-button-group) without clipping
-		   them at overflow: hidden. With symmetric leading, the text x-height visual
-		   center sits at the line-box geometric center, aligning with centered icons
-		   under align-items: center. */
+ both descenders for plain-text crumbs AND the natural height of slotted
+ gl-button widgets (gl-ref-button, gl-repo-button-group) without clipping
+ them at overflow: hidden. With symmetric leading, the text x-height visual
+ center sits at the line-box geometric center, aligning with centered icons
+ under align-items: center. */
 				line-height: 1.4;
 				white-space: nowrap;
 			}
 
 			/* Use :host(:hover) instead of .breadcrumb-item:hover so hovering anywhere on the
-	   host (not just the inner button) reveals the label when [compact] is auto-set
-	   by the breadcrumbs host on overflow. */
+host (not just the inner button) reveals the label when [compact] is auto-set
+by the breadcrumbs host on overflow. */
 			:host([compact]:not(:hover, :focus-within)) .breadcrumb-label,
 			:host([appearance='ellipsis'][icon]:not(:hover, :focus-within)) .breadcrumb-label {
 				max-width: 0;
@@ -559,8 +559,8 @@ export class GlBreadcrumbItem extends LitElement {
 				margin-left: -0.2rem;
 
 				/* No additional margin — let the breadcrumb-item's gap supply the spacing
-		   on both sides (gap before the separator + the next item's padding-left
-		   after). Keeps spacing uniform throughout the chain. */
+ on both sides (gap before the separator + the next item's padding-left
+ after). Keeps spacing uniform throughout the chain. */
 				color: var(--vscode-descriptionForeground);
 				-webkit-user-select: none;
 				user-select: none;

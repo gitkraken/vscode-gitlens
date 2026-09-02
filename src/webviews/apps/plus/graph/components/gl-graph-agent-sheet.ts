@@ -1,6 +1,8 @@
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { basename } from '@gitlens/utils/path.js';
@@ -28,20 +30,18 @@ import {
 	getAgentProviderLabel,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
-import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemBase, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base.js';
 import { folderToTreeModel, sortTreeChildren } from '../../../shared/components/tree/file-tree-utils.js';
 import { graphServicesContext } from '../context.js';
 import { SheetWrapper } from './sheetWrapper.js';
-import '../../../shared/components/agents/gl-agent-mark.js';
+import '@gitlens/components/components/agentMark.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/chips/action-chip.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/overlays/detail-sheet.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/tree/tree-view.js';
 
 declare global {
@@ -148,10 +148,10 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.title-row {
 				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
 				width: 100%;
 				min-width: 0;
-				align-items: center;
-				gap: var(--gl-space-8);
 			}
 
 			.avatar {
@@ -196,10 +196,10 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				min-width: 0;
 				margin: 0;
 				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: var(--gl-font-lg);
 				font-weight: 600;
 				line-height: 1.35;
-				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
 
@@ -207,29 +207,29 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.subtitle {
 				display: flex;
-				width: 100%;
-				min-width: 0;
 				flex-direction: column;
 				gap: var(--gl-space-6);
+				width: 100%;
+				min-width: 0;
 			}
 
 			.meta-row {
 				display: flex;
-				align-items: center;
 				gap: var(--gl-space-8);
+				align-items: center;
 			}
 
 			.meta {
 				display: flex;
 				flex: 1 1 auto;
 				flex-wrap: wrap;
-				align-items: center;
 				gap: var(--gl-space-6);
+				align-items: center;
 				min-width: 0;
 				margin: 0;
 				overflow: hidden;
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			.meta__dot {
@@ -239,8 +239,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			/* Subagent count as glyph + number — the word lives in the title tooltip. */
 			.subs {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.3rem;
+				align-items: center;
 			}
 
 			/* Status zone: quiet elapsed beside the phase pill — "in this state for N". The long form
@@ -250,29 +250,29 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.status-zone {
 				display: inline-flex;
 				flex: none;
-				align-items: center;
 				gap: var(--gl-space-6);
+				align-items: center;
 				margin-right: var(--gl-space-8);
 			}
 
 			.status-zone__time {
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
 				font-variant-numeric: tabular-nums;
+				color: var(--color-foreground--65);
 			}
 
 			/* Squircle phase pill — phase only, no pip: the avatar's corner mark already carries the dot. */
 			.chip {
 				display: inline-flex;
 				flex: none;
-				align-items: center;
 				gap: var(--gl-space-4);
+				align-items: center;
 				padding: 0.2rem 0.6rem;
-				border: var(--gl-border-width) solid currentColor;
-				border-radius: var(--gl-radius-sm);
 				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				white-space: nowrap;
+				border: var(--gl-border-width) solid currentColor;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.chip--needs-input {
@@ -297,9 +297,9 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.loc-chips {
 				display: inline-flex;
 				flex: 0 1 auto;
-				min-width: 0;
-				align-items: center;
 				gap: var(--gl-space-8);
+				align-items: center;
+				min-width: 0;
 			}
 
 			/* gl-tooltip is display: contents, so this sizes nothing itself — min-width: 0 just lets
@@ -312,15 +312,15 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.loc-chip-btn {
 				display: inline-flex;
 				flex: 0 1 auto;
-				min-width: 0;
 				align-items: center;
+				min-width: 0;
 				padding: 0.2rem 0.5rem;
 				margin: -0.2rem -0.5rem;
 				font: inherit;
+				cursor: pointer;
 				background: none;
 				border: none;
 				border-radius: var(--gl-radius-sm);
-				cursor: pointer;
 			}
 
 			/* Zero gl-branch-name's own margin-inline — it assumes it's a standalone label, not a
@@ -349,14 +349,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.loc-chip-static {
 				display: inline-flex;
 				flex: 0 1 auto;
-				min-width: 0;
-				align-items: center;
 				gap: var(--gl-space-4);
+				align-items: center;
+				min-width: 0;
 				padding: 0.2rem 0.5rem;
 				overflow: hidden;
-				color: var(--color-foreground--65);
-				font-size: var(--gl-font-sm);
 				text-overflow: ellipsis;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 				white-space: nowrap;
 			}
 
@@ -373,16 +373,16 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.hero__actions {
 				display: flex;
 				flex-wrap: wrap;
+				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: flex-end;
-				gap: var(--gl-space-6);
 				margin-top: var(--gl-space-8);
 			}
 
 			.hero__unresolvable {
 				display: flex;
-				align-items: center;
 				gap: var(--gl-space-8);
+				align-items: center;
 			}
 
 			.hero__hint {
@@ -390,9 +390,9 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				min-width: 0;
 				margin: 0;
 				overflow: hidden;
-				color: var(--color-foreground--65);
-				font-size: var(--gl-font-sm);
 				text-overflow: ellipsis;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 				white-space: nowrap;
 			}
 
@@ -408,22 +408,22 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			}
 
 			.tool-block__code {
-				overflow-wrap: anywhere;
 				font-family: var(--vscode-editor-font-family, monospace);
 				word-break: break-all;
+				overflow-wrap: anywhere;
 			}
 
 			.tool-block__caption {
 				margin-top: var(--gl-space-2);
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			/* Slim end row (ended live / past sessions) — reason left, actions right. No status card. */
 			.endrow {
 				display: flex;
-				align-items: center;
 				gap: var(--gl-space-8);
+				align-items: center;
 				margin: 0 var(--gl-space-12) var(--gl-space-12);
 			}
 
@@ -432,17 +432,17 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				min-width: 0;
 				margin: 0;
 				overflow: hidden;
-				color: var(--color-foreground--65);
-				font-size: var(--gl-font-sm);
 				text-overflow: ellipsis;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 				white-space: nowrap;
 			}
 
 			.endrow__actions {
 				display: inline-flex;
 				flex: none;
-				align-items: center;
 				gap: var(--gl-space-6);
+				align-items: center;
 			}
 
 			/* ---------- Constant body sections ---------- */
@@ -453,26 +453,26 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.sec__head {
 				display: flex;
-				align-items: center;
 				gap: var(--gl-space-6);
+				align-items: center;
 				margin: 0 0 var(--gl-space-8);
 			}
 
 			.sec__title {
 				margin: 0;
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
 				font-weight: 600;
-				letter-spacing: 0.05em;
+				color: var(--color-foreground--65);
 				text-transform: uppercase;
+				letter-spacing: 0.05em;
 			}
 
 			.sec__count {
 				padding: 0.1rem 0.5rem;
+				font-size: var(--gl-font-micro, 1rem);
+				color: var(--color-foreground--65);
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
 				border-radius: 1rem;
-				color: var(--color-foreground--65);
-				font-size: var(--gl-font-micro, 1rem);
 			}
 
 			/* "Also worked in" rows — history, so a distinct row style from the header's .loc-chip-btn.
@@ -486,18 +486,18 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			.loc__row {
 				display: flex;
+				gap: var(--gl-space-8);
 				align-items: center;
 				width: 100%;
-				gap: var(--gl-space-8);
 				padding: 0.2rem 0.4rem;
 				margin: -0.2rem -0.4rem;
-				color: inherit;
 				font: inherit;
+				color: inherit;
 				text-align: left;
+				cursor: pointer;
 				background: none;
 				border: none;
 				border-radius: var(--gl-radius-xs, 0.2rem);
-				cursor: pointer;
 			}
 
 			.loc__row:hover {
@@ -514,21 +514,21 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			}
 
 			.loc__val {
-				overflow: hidden;
 				min-width: 0;
+				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
 
 			.loc__meta {
-				color: var(--color-foreground--65);
 				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
 			}
 
 			.prompt {
 				margin: 0;
+				overflow-wrap: anywhere;
 				white-space: pre-wrap;
-				word-break: break-word;
 			}
 
 			.prompt--clamped {

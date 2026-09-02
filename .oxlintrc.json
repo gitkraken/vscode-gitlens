@@ -318,7 +318,9 @@
 				"packages/plus/integrations/src/**/*",
 				"packages/plus/ai/src/**/*",
 				"packages/plus/agents/src/**/*",
-				"packages/plus/commit-graph/src/**/*"
+				"packages/plus/commit-graph/src/**/*",
+				"packages/components/src/**/*",
+				"packages/plus/commit-graph-ui/src/**/*"
 			],
 			"rules": {
 				"curly": ["error", "multi-line", "consistent"],
@@ -636,15 +638,231 @@
 			}
 		},
 		{
+			// Generic primitives are shared by webview products and must never reach back into GitLens,
+			// host transport, or the product container.
+			"files": ["packages/components/src/**/*"],
+			"rules": {
+				"typescript/explicit-module-boundary-types": "off",
+				"typescript/no-confusing-void-expression": [
+					"error",
+					{ "ignoreArrowShorthand": true, "ignoreVoidOperator": true }
+				],
+				"typescript/no-duplicate-type-constituents": "off",
+				"typescript/no-invalid-void-type": "off",
+				"typescript/no-misused-spread": "off",
+				"typescript/unified-signatures": ["error", { "ignoreDifferentlyNamedParameters": true }],
+				"lit/attribute-value-entities": "error",
+				"lit/binding-positions": "error",
+				"lit/lifecycle-super": "error",
+				"lit/no-duplicate-template-bindings": "error",
+				"lit/no-invalid-html": "error",
+				"lit/no-legacy-imports": "error",
+				"lit/no-legacy-template-syntax": "error",
+				"lit/no-native-attributes": "error",
+				"lit/no-property-change-update": "error",
+				"lit/no-template-bind": "error",
+				"lit/no-this-assign-in-render": "error",
+				"wc/attach-shadow-constructor": "error",
+				"wc/guard-super-call": "error",
+				"wc/no-child-traversal-in-attributechangedcallback": "error",
+				"wc/no-child-traversal-in-connectedcallback": "error",
+				"wc/no-closed-shadow-root": "error",
+				"wc/no-constructor-attributes": "error",
+				"wc/no-constructor-params": "error",
+				"wc/no-customized-built-in-elements": "error",
+				"wc/no-invalid-element-name": "error",
+				"wc/no-invalid-extends": "error",
+				"wc/no-self-class": "error",
+				"wc/no-typos": "error",
+				"wc/require-listener-teardown": "error",
+				// oxlint overrides replace a repeated rule key rather than merge it, so the Node-builtin ban
+				// from the base override (~line 340) must be duplicated here by hand to keep it enforced for
+				// this package (see memory note project_oxlint_overrides_replace_not_merge).
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							"assert",
+							"buffer",
+							"child_process",
+							"cluster",
+							"crypto",
+							"dgram",
+							"dns",
+							"domain",
+							"events",
+							"freelist",
+							"fs",
+							"http",
+							"https",
+							"module",
+							"net",
+							"os",
+							"path",
+							"process",
+							"punycode",
+							"querystring",
+							"readline",
+							"repl",
+							"smalloc",
+							"stream",
+							"string_decoder",
+							"sys",
+							"timers",
+							"tls",
+							"tracing",
+							"tty",
+							"url",
+							"util",
+							"vm",
+							"zlib",
+							{ "name": "vscode", "message": "Webview primitives must not import vscode" }
+						],
+						"patterns": [
+							{
+								"group": [
+									"@gitlens/*",
+									"@gitlens/**",
+									"!@gitlens/utils",
+									"!@gitlens/utils/**",
+									"@gitkraken/*",
+									"@gitkraken/**"
+								],
+								"message": "Webview primitives must remain host- and product-neutral"
+							},
+							{
+								"group": ["**/container.js", "**/container", "**/src/*", "**/src/**"],
+								"message": "Webview primitives must not import host source or Container"
+							}
+						]
+					}
+				]
+			},
+			"env": { "browser": true }
+		},
+		{
+			// The renderer package may depend on the public engine contract but never on GitLens product,
+			// transport, or container modules. Keep this separate from the engine's stricter all-GitKraken ban.
+			"files": ["packages/plus/commit-graph-ui/src/**/*"],
+			"rules": {
+				"typescript/no-confusing-void-expression": [
+					"error",
+					{ "ignoreArrowShorthand": true, "ignoreVoidOperator": true }
+				],
+				// oxlint overrides replace a repeated rule key rather than merge it, so the Node-builtin ban
+				// from the base override (~line 340) must be duplicated here by hand to keep it enforced for
+				// this package (see memory note project_oxlint_overrides_replace_not_merge).
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							"assert",
+							"buffer",
+							"child_process",
+							"cluster",
+							"crypto",
+							"dgram",
+							"dns",
+							"domain",
+							"events",
+							"freelist",
+							"fs",
+							"http",
+							"https",
+							"module",
+							"net",
+							"os",
+							"path",
+							"process",
+							"punycode",
+							"querystring",
+							"readline",
+							"repl",
+							"smalloc",
+							"stream",
+							"string_decoder",
+							"sys",
+							"timers",
+							"tls",
+							"tracing",
+							"tty",
+							"url",
+							"util",
+							"vm",
+							"zlib",
+							{ "name": "vscode", "message": "The commit graph UI must not import vscode" }
+						],
+						"patterns": [
+							{
+								"group": [
+									"@gitlens/*",
+									"@gitlens/**",
+									"!@gitlens/components",
+									"!@gitlens/components/**",
+									"!@gitlens/utils",
+									"!@gitlens/utils/**"
+								],
+								"message": "The commit graph UI must remain product-neutral; adapt GitLens data at the host boundary"
+							},
+							{
+								"group": ["**/container.js", "**/container", "**/-webview/**/*"],
+								"message": "The commit graph UI must not import host transport or Container"
+							}
+						]
+					}
+				]
+			},
+			"env": { "browser": true }
+		},
+		{
 			// The commit-graph engine is deliberately host- and renderer-agnostic, which was convention
 			// only — nothing failed if a GitLens type crept in. These bans make the boundary real. Scoped
 			// to this package alone: the sibling plus packages legitimately import `@gitlens/*`.
 			"files": ["packages/plus/commit-graph/src/**/*"],
 			"rules": {
+				// oxlint overrides replace a repeated rule key rather than merge it, so the Node-builtin ban
+				// from the base override (~line 340) must be duplicated here by hand to keep it enforced for
+				// this package (see memory note project_oxlint_overrides_replace_not_merge).
 				"no-restricted-imports": [
 					"error",
 					{
-						"paths": [{ "name": "vscode", "message": "Packages must not import vscode" }],
+						"paths": [
+							"assert",
+							"buffer",
+							"child_process",
+							"cluster",
+							"crypto",
+							"dgram",
+							"dns",
+							"domain",
+							"events",
+							"freelist",
+							"fs",
+							"http",
+							"https",
+							"module",
+							"net",
+							"os",
+							"path",
+							"process",
+							"punycode",
+							"querystring",
+							"readline",
+							"repl",
+							"smalloc",
+							"stream",
+							"string_decoder",
+							"sys",
+							"timers",
+							"tls",
+							"tracing",
+							"tty",
+							"url",
+							"util",
+							"vm",
+							"zlib",
+							{ "name": "vscode", "message": "Packages must not import vscode" }
+						],
 						"patterns": [
 							{
 								"group": ["@gitlens/*", "@gitlens/**", "@gitkraken/*", "@gitkraken/**"],
@@ -662,6 +880,20 @@
 						]
 					}
 				]
+			}
+		},
+		{
+			// The three package-specific `no-restricted-imports` overrides above replace (not merge with)
+			// the generic `packages/**/src/**/__tests__/**/*` override that turns the rule off for tests,
+			// which would otherwise re-ban Node's `assert` (the repo-wide test-assertion convention) inside
+			// these packages' test files. Re-assert the exemption for just this rule.
+			"files": [
+				"packages/components/src/**/__tests__/**/*",
+				"packages/plus/commit-graph-ui/src/**/__tests__/**/*",
+				"packages/plus/commit-graph/src/**/__tests__/**/*"
+			],
+			"rules": {
+				"no-restricted-imports": "off"
 			}
 		},
 		{

@@ -25,12 +25,12 @@ export class GlAccordion extends LitElement {
 		}
 
 		/*
-	details {
-		border: var(--gl-border-width) solid var(--vscode-panel-border);
-		border-radius: var(--gl-radius-sm);
-		overflow: hidden;
-	}
-	*/
+details {
+border: var(--gl-border-width) solid var(--vscode-panel-border);
+border-radius: var(--gl-radius-sm);
+overflow: hidden;
+}
+*/
 
 		.header {
 			display: flex;

@@ -7,6 +7,8 @@
 			"path": ["./node_modules/path-browserify"],
 			"@env/*": ["./src/env/browser/*"],
 			"@gitkraken/commit-graph/*": ["./packages/plus/commit-graph/src/*"],
+			"@gitkraken/commit-graph-ui/*": ["./packages/plus/commit-graph-ui/src/*"],
+			"@gitlens/components/*": ["./packages/components/src/*"],
 			"#env/*": ["./packages/utils/src/env/browser/*"],
 			"@gitlens/utils/*": ["./packages/utils/src/*"],
 			"@gitlens/ipc/*": ["./packages/ipc/src/*"],

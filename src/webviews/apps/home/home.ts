@@ -5,6 +5,7 @@ import { ContextProvider } from '@lit/context';
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -27,7 +28,6 @@ import {
 } from '../plus/home/components/overviewState.js';
 import type { GlHomeHeader } from '../plus/shared/components/home-header.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
-import { scrollableBase } from '../shared/components/styles/lit/base.css.js';
 import { aiContext, createAIState } from '../shared/contexts/ai.js';
 import type { CommandsState } from '../shared/contexts/commands.js';
 import { commandsContext } from '../shared/contexts/commands.js';

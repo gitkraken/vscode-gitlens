@@ -1,14 +1,14 @@
+import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import { isTextEntryTarget } from '@gitlens/utils/dom.js';
+import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import type { GlFileTreePane } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import type { GlTreeView } from '../../../shared/components/tree/tree-view.js';
-import { isTextEntryTarget } from '../../../shared/dom.js';
-import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 import type { OverviewBarItem, OverviewBarSelectDetail } from '../components/gl-graph-overview-bar.js';
 import type { GlGraphHeader } from '../graph-header.js';
 import type { GlGraphWrapper } from '../graph-wrapper/graph-wrapper.js';
 import type { GlGraphSidebarPanel } from '../sidebar/sidebar-panel.js';
 import { visibleSidebarPanels } from '../sidebar/sidebarPanels.js';
-import type { GraphKeymapScope } from './graphKeymap.js';
 
 /** Maps a numeric-row `KeyboardEvent.code` (`Digit0`-`Digit9`) to the shortcut index it represents:
  *  `Digit1`-`Digit9` → 0-8, `Digit0` → 9 (the 10th item). `undefined` for anything else, including the

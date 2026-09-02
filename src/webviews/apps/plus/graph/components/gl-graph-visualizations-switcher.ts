@@ -9,9 +9,9 @@ import { graphStateContext } from '../context.js';
 import { getSelectedRepo } from '../utils/repository.utils.js';
 import type { GraphVisualizationKey } from './visualizations.utils.js';
 import { getEffectiveVisualizationKey } from './visualizations.utils.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/indicators/new-indicator.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 /** Flat enumeration of the visualizations the switcher offers. Each entry collapses the two-axis
  *  (mode × treemapMode) state into a single key, so the UI is one button group instead of two nested
@@ -82,7 +82,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		/* Separates the visualization lenses from Repository Health, which is a control surface rather
-		   than another way of drawing the repo. */
+   than another way of drawing the repo. */
 		.visualization-separator {
 			align-self: center;
 			width: var(--gl-border-width);

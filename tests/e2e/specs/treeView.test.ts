@@ -10,7 +10,12 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { scrollDetailsToFileTree, waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import {
+	graphDetailsRegion,
+	scrollDetailsToFileTree,
+	waitForGraphRowsRendered,
+	widenSideBarForGraph,
+} from '../graphHelpers.js';
 
 // Build a repo with enough commits and files to exercise the tree thoroughly
 const test = base.extend({
@@ -121,10 +126,7 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
-	const commitDetails = graphWebview.locator('gl-details-commit-panel').first();
-	const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
-	const comparePanel = graphWebview.locator('gl-details-multicommit-panel').first();
-	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
+	await expect(graphDetailsRegion(graphWebview)).toBeVisible({ timeout: 30000 });
 }
 
 async function waitForTreeItems(graphWebview: FrameLocator): Promise<void> {
@@ -261,8 +263,7 @@ test.describe('Tree View - Model Updates', () => {
 
 		await wipButton.click();
 
-		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
-		await expect(wipDetails).toBeVisible({ timeout: 15000 });
+		await expect(graphDetailsRegion(graphWebview, 'wip')).toBeVisible({ timeout: 15000 });
 
 		// Now switch to a regular commit
 		await selectCommitByMessage(graphWebview, 'Add greeting module');

@@ -12,21 +12,21 @@ import { customElement, property } from 'lit/decorators.js';
 export class GlDragShiftOverlay extends LitElement {
 	static override styles = css`
 		/* Override the UA [popover] box (fit-content / auto margin / border / opaque bg) into a
-		   pass-through full-viewport layer. Hiding is the UA's [popover]:not(:popover-open) display:none
-		   — so display is set ONLY when open (an unconditional author display would defeat it). */
+   pass-through full-viewport layer. Hiding is the UA's [popover]:not(:popover-open) display:none
+   — so display is set ONLY when open (an unconditional author display would defeat it). */
 		:host {
 			position: fixed;
 			inset: 0;
 			width: 100%;
-			height: 100%;
 			max-width: none;
+			height: 100%;
 			max-height: none;
-			margin: 0;
 			padding: 0;
-			border: 0;
+			margin: 0;
 			overflow: hidden;
-			background: transparent;
 			pointer-events: none;
+			background: transparent;
+			border: 0;
 		}
 
 		:host(:popover-open) {
@@ -48,26 +48,26 @@ export class GlDragShiftOverlay extends LitElement {
 			gap: 0.6rem;
 			align-items: center;
 			padding: 1rem 1.6rem;
-			border-radius: 0.4rem;
+			font-size: 1.3rem;
 			color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
 			background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
 			border: 0.1rem solid var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
-			box-shadow: 0 0.2rem 0.8rem rgb(0 0 0 / 0.36);
-			font-size: 1.3rem;
+			border-radius: 0.4rem;
+			box-shadow: 0 0.2rem 0.8rem rgb(0 0 0 / 36%);
 		}
 
 		kbd {
 			display: inline-block;
 			padding: 0.1rem 0.6rem;
-			border-radius: 0.3rem;
+			font-family: var(--vscode-editor-font-family, monospace);
+			font-size: 1.15rem;
 			color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
 			background: var(
 				--vscode-keybindingLabel-background,
 				color-mix(in srgb, var(--vscode-foreground) 12%, transparent)
 			);
 			border: 0.1rem solid var(--vscode-keybindingLabel-border, var(--vscode-widget-border, transparent));
-			font-family: var(--vscode-editor-font-family, monospace);
-			font-size: 1.15rem;
+			border-radius: 0.3rem;
 		}
 	`;
 

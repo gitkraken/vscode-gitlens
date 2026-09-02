@@ -1,16 +1,16 @@
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { FeaturePreview } from '../../../../features.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
 import { linkStyles } from '../../plus/shared/components/vscode.css.js';
 import { featureGateBaseStyles } from './feature-gate.css.js';
-import { focusableBaseStyles } from './styles/lit/a11y.css.js';
-import { boxSizingBase, scrollableBase } from './styles/lit/base.css.js';
 import './button.js';
-import './code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../plus/shared/components/feature-gate-plus-state.js';
 
 declare global {

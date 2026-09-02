@@ -1,6 +1,6 @@
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { GlElement } from '../element.js';
+import { GlElement } from '@gitlens/components/components/element.js';
 import { segmentedStyles } from './segmented.css.js';
 
 export interface SegmentedOption {

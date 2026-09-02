@@ -1,6 +1,6 @@
 import * as assert from 'assert';
+import { buildMergeTargetScrollMarkers } from '@gitkraken/commit-graph-ui/extensions/scrollMarkers/controller.js';
 import type { GraphScrollMarkerTypes } from '../../../../../plus/graph/protocol.js';
-import { buildMergeTargetScrollMarkers } from '../graph-scroll-markers.js';
 
 const enabled = new Set<GraphScrollMarkerTypes>(['selection', 'head', 'upstream', 'mergeTarget']);
 // M3 is loaded (row 3); T9 stands for a target tip that hasn't paged in yet.

@@ -1,8 +1,8 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import '../code-icon.js';
-import '../overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 import './avatar.js';
 
 export interface AvatarShape {

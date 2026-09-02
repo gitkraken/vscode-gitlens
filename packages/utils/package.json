@@ -1,7 +1,13 @@
 {
 	"name": "@gitlens/utils",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"private": true,
+	"description": "Browser- and Node-compatible utilities shared by GitLens packages.",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"license": "SEE LICENSE IN LICENSE",
 	"type": "module",
 	"sideEffects": false,
 	"imports": {
@@ -20,11 +26,12 @@
 		"./env/node/*.js": null,
 		"./keys/chord.js": "./src/keys/chord.ts",
 		"./keys/keybinding.js": "./src/keys/keybinding.ts",
+		"./keys/keymapDispatcher.js": "./src/keys/keymapDispatcher.ts",
 		"./*.js": "./src/*.ts"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json --noEmit && oxlint --type-aware --type-check -c ../../.oxlintrc.json .",
-		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
+		"clean": "pnpx rimraf --glob dist out *.tgz **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",

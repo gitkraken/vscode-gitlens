@@ -1,18 +1,21 @@
 import type { Connection, Remote, Subscription } from '@eamodio/supertalk';
 import { subscribe } from '@eamodio/supertalk';
 import type { ChannelGap, ChannelMeta, SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
+import { getGraphDebugDiagnostics } from '@gitkraken/commit-graph-ui/debug.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
+import { createWipRowId, isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
 import type { ReactiveControllerHost } from 'lit';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
-import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { appendRowsAtCursor } from '@gitlens/git/utils/graph.utils.js';
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import { defer } from '@gitlens/utils/promise.js';
@@ -50,8 +53,8 @@ import type {
 	WipStats,
 	WorkDirStats,
 } from '../../../plus/graph/protocol.js';
-import { createWipRowId, isWipRowId } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
+import { getLastDecodedRpcFrameBytes } from '../../../rpc/constants.js';
 import type { Unsubscribe } from '../../../rpc/services/types.js';
 import type { OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
 import type { AgentSessionWorktreeIndex } from '../../shared/agentUtils.js';
@@ -63,9 +66,7 @@ import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
-import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
-import { hasDirtyCounts } from './utils/wip.utils.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
@@ -1610,7 +1611,7 @@ export class GraphStateProvider implements Disposable {
 	 *
 	 * An anchor whose `mergeBase` isn't in the loaded rows yet is still USABLE, and publishing it is what
 	 * makes the boundary arrive at all: anchor reachability is row membership, re-derived on every rows push
-	 * (`gl-lit-graph`'s `recomputeScope`), so `computeScopeAnchors` reports the base unreachable, that drives
+	 * (`gl-commit-graph`'s `recomputeScope`), so `computeScopeAnchors` reports the base unreachable, that drives
 	 * a targeted page, and the re-root adopts it once it lands. Until then the projection re-roots against an
 	 * open terminus. Loaded-ness therefore has no say here — withholding the anchor for it would also
 	 * withhold the paging that loads it.
@@ -2125,12 +2126,19 @@ export class GraphStateProvider implements Disposable {
 
 		this.updateState(updates);
 		if (DEBUG) {
+			// `receivedBytes` is the RPC frame's byte length as decoded off the wire (see
+			// `getLastDecodedRpcFrameBytes` in rpc/constants.ts) — the transport already had the raw
+			// bytes in hand, so this stays free instead of re-serializing `params` on the main thread.
+			// A frame can batch multiple RPC messages (e.g. a visibility-restore replay), in which case
+			// this is the whole frame's size, not this rows update's share of it. This stays inside the
+			// literal DEBUG branch so production dead-code elimination removes it entirely.
 			getGraphDebugDiagnostics().markRowsApplied(this.rows, {
 				generation: meta.generation,
 				seq: meta.seq,
 				snapshot: snapshot,
 				rows: this.rows?.length ?? 0,
 				receivedRows: params.rows.length,
+				receivedBytes: getLastDecodedRpcFrameBytes(),
 				splice: params.rowsSplice != null,
 				cursor: params.paging?.startingCursor,
 			});

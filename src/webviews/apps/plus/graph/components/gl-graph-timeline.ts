@@ -23,7 +23,7 @@ import { getAdditionalBranches, shouldWalkAllBranches } from './visualizations.u
 import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import './gl-graph-coachmark.js';
 import './gl-graph-visualizations-switcher.js';
 
@@ -61,7 +61,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			min-height: 3.2rem;
 
 			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
-		 * tight insets — same chrome as the Treemap visualization toolbar. */
+ * tight insets — same chrome as the Treemap visualization toolbar. */
 			padding: var(--gl-space-4) var(--gl-space-6);
 			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
@@ -71,9 +71,9 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		}
 
 		/* Matches the treemap toolbar's title — uppercase, dim, fixed-width — so the visualization
-	 * label anchors both header rows identically. Sits between the icon switcher and the
-	 * shared timeline header so the standalone Visual History webview (which doesn't use this
-	 * file) keeps its existing chrome. */
+* label anchors both header rows identically. Sits between the icon switcher and the
+* shared timeline header so the standalone Visual History webview (which doesn't use this
+* file) keeps its existing chrome. */
 		.header-row__title {
 			flex: none;
 			font-size: var(--gl-font-sm);

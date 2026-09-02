@@ -1,4 +1,4 @@
-import type { FrameLocator } from '@playwright/test';
+import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from './baseTest.js';
 import { expect } from './baseTest.js';
 
@@ -85,4 +85,52 @@ export async function ensureGraphRowsRendered(
 
 	await widenSideBarForGraph(vscode);
 	await waitForGraphRowsRendered(graphWebview, timeout);
+}
+
+export type GraphDetailsContext = 'commit' | 'multicommit' | 'wip';
+
+const detailsRegionNames: Record<GraphDetailsContext, string> = {
+	commit: 'Commit details',
+	multicommit: 'Multiple commits selected',
+	wip: 'Working changes details',
+};
+
+/**
+ * The visible, semantic boundary of the integrated details panel.
+ *
+ * Do not gate on `gl-details-*-panel` itself. Those custom-element hosts can legitimately have no
+ * layout box while their children overflow into the visible `.details-content`; Playwright then
+ * reports the host as hidden even though the panel is rendered and exposed to assistive technology.
+ * The outer region is the product invariant: `gl-graph-details-panel` gives it a context-specific
+ * accessible name and it owns the visible scrolling viewport.
+ */
+export function graphDetailsRegion(graphWebview: FrameLocator, context?: GraphDetailsContext): Locator {
+	return graphWebview
+		.getByRole('region', {
+			name:
+				context != null
+					? detailsRegionNames[context]
+					: /^(?:Commit details|Multiple commits selected|Working changes details)$/,
+		})
+		.first();
+}
+
+/**
+ * Expand the details panel and wait for its stable, semantic boundary.
+ *
+ * The graph can reconcile its header while its first rows are painting, replacing the toggle between
+ * Playwright's visibility check and click. Retrying the idempotent action against the current toggle
+ * avoids treating that transient host element as the product state.
+ */
+export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, timeout = 10000): Promise<void> {
+	const detailsRegion = graphDetailsRegion(graphWebview);
+	await expect(async () => {
+		if (await detailsRegion.isVisible()) return;
+
+		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
+		if (await showButton.isVisible()) {
+			await showButton.click();
+		}
+		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
+	}).toPass({ timeout: timeout });
 }

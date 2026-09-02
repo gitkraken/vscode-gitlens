@@ -1,12 +1,12 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { elementBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { SubscriptionState } from '../../../../../constants.subscription.js';
-import { elementBase, linkBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { chipStyles } from './chipStyles.js';
 import { mergeTargetStyles } from './merge-target-status.js';
 import './feature-gate-plus-state.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 /** Home-only upsell chip. Kept out of `merge-target-status.ts` so the Graph, which renders only the
  *  status element, doesn't bundle this one. */

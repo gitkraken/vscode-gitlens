@@ -3,7 +3,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { graphJumpToastStyles } from './gl-graph-jump-toast.css.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 /** Which glyph the toast leads with — 'hidden' for a loaded-but-filtered row, 'terminal' for a jump
  *  that can never land, 'searching' for a still-in-flight host walk. */

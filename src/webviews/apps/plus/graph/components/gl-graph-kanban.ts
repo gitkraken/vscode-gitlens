@@ -4,6 +4,7 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { WebviewTelemetryEvents } from '../../../../../constants.telemetry.js';
@@ -25,16 +26,15 @@ import {
 	permissionFingerprint,
 	sortAgentSessions,
 } from '../../../shared/agentUtils.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import './gl-graph-coachmark.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/agents-banner.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -139,9 +139,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* Section is a flex column so the header stays auto-sized at the top and the body
-	   gets the remaining height (via flex: 1 / min-height: 0). Without this, <section>'s
-	   default block layout produces a content-sized body that never overflows — both the
-	   horizontal column scroll and the per-column vertical scroll silently disappear. */
+gets the remaining height (via flex: 1 / min-height: 0). Without this, <section>'s
+default block layout produces a content-sized body that never overflows — both the
+horizontal column scroll and the per-column vertical scroll silently disappear. */
 			section {
 				display: flex;
 				flex: 1 1 auto;
@@ -158,8 +158,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				min-height: 3.2rem;
 
 				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
-		 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
-		 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
+ * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
+ * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
 				padding: var(--gl-space-4) var(--gl-space-6) var(--gl-space-4) var(--gl-space-12);
 				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border, transparent);
 			}
@@ -188,8 +188,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* Experimental stamp uses the shared gl-badge with appearance=experimental. Sits inside
-	   .header__title, between the title h2 and the session count, signalling that the whole
-	   view (not just one control) is experimental. */
+.header__title, between the title h2 and the session count, signalling that the whole
+view (not just one control) is experimental. */
 			.header__experimental gl-badge {
 				--gl-badge-font-size: 0.95rem;
 			}
@@ -200,7 +200,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.agents-banner {
 				/* No bottom margin — .body below has its own 1.2rem padding-top, so an extra
-		 * margin-bottom here would double up to 2.4rem of visual gap. */
+ * margin-bottom here would double up to 2.4rem of visual gap. */
 				display: block;
 				margin: var(--gl-space-12) var(--gl-space-12) 0;
 			}
@@ -216,8 +216,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				overflow: auto hidden;
 
 				/* Hint to the browser to GPU-composite the scrolling layer. Without this, horizontal
-		   scroll of the kanban body forces a full document repaint per frame; with it the
-		   browser can scroll the existing layer's painted bitmap. */
+ scroll of the kanban body forces a full document repaint per frame; with it the
+ browser can scroll the existing layer's painted bitmap. */
 				will-change: scroll-position;
 			}
 
@@ -227,9 +227,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				min-height: 0;
 
 				/* Paint isolation: confine column-internal repaints (card hover/scroll) so the
-		   browser doesn't re-layout the whole kanban body when one column scrolls or a
-		   card hover-state changes. contain:content enables layout, paint, and style
-		   containment but keeps the column's intrinsic size correct (no size). */
+ browser doesn't re-layout the whole kanban body when one column scrolls or a
+ card hover-state changes. contain:content enables layout, paint, and style
+ containment but keeps the column's intrinsic size correct (no size). */
 				contain: content;
 				overflow: hidden;
 				background-color: color-mix(in srgb, var(--vscode-editor-background) 92%, transparent);
@@ -283,7 +283,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				overflow-y: auto;
 
 				/* Same GPU-composite hint as the body. Each column scrolls independently when its
-		   card list overflows; promoting the layer keeps per-column vertical scroll smooth. */
+ card list overflows; promoting the layer keeps per-column vertical scroll smooth. */
 				will-change: scroll-position;
 			}
 
@@ -298,15 +298,15 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-6);
+				contain-intrinsic-size: auto 10rem;
 				padding: 0.9rem 1rem;
 
 				/* Off-screen cards skip layout and paint entirely via content-visibility, keeping long
-		   columns (Inactive collects every ended session) cheap to lay out and scroll.
-		   contain-intrinsic-size reserves a placeholder box while skipped — its auto keyword
-		   keeps the last-rendered size once a card has been painted, so scrollbar jitter stays
-		   minimal as cards enter the viewport. */
+ columns (Inactive collects every ended session) cheap to lay out and scroll.
+ contain-intrinsic-size reserves a placeholder box while skipped — its auto keyword
+ keeps the last-rendered size once a card has been painted, so scrollbar jitter stays
+ minimal as cards enter the viewport. */
 				content-visibility: auto;
-				contain-intrinsic-size: auto 10rem;
 				font: inherit;
 				color: inherit;
 				text-align: left;
@@ -329,8 +329,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* A ghost (visited-but-not-current) card — same dim idiom as the details panel's
-		   .card--ghost (opacity 0.6), applied on top of whichever column accent the card
-		   otherwise carries. */
+ .card--ghost (opacity 0.6), applied on top of whichever column accent the card
+ otherwise carries. */
 			.card--ghost {
 				opacity: 0.6;
 			}
@@ -383,7 +383,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* 2nd row: subtitle on the left, Open Session icon button on the right. Always laid out
-	   even when the subtitle is missing so the Open Session stays visually anchored. */
+even when the subtitle is missing so the Open Session stays visually anchored. */
 			.card__sub-row {
 				display: flex;
 				gap: var(--gl-space-6);
@@ -426,7 +426,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* Sole child of .card__actions — margin-right: auto overrides its flex-end to keep the
-	   Allow / Deny / View Plan cluster left-aligned. */
+Allow / Deny / View Plan cluster left-aligned. */
 			.card__permission-actions {
 				display: flex;
 				flex-wrap: wrap;
@@ -437,14 +437,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.card__permission-actions-hint {
 				/* Shares the action row to the left of the buttons and absorbs the available
-		   space, truncating before the actions wrap. */
+ space, truncating before the actions wrap. */
 				flex: 1 1 0;
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				white-space: nowrap;
 				font-size: var(--gl-font-micro);
 				color: var(--color-foreground--65);
+				white-space: nowrap;
 			}
 
 			.card__actions gl-button {

@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { srOnlyStyles } from '../styles/lit/a11y.css.js';
+import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 
 export const switchStyles = css`
 	:host {

@@ -199,8 +199,8 @@ export const resolveDisplayStyles = css`
 		font-weight: 600;
 		font-variant: all-small-caps;
 		line-height: 1;
-		letter-spacing: 0.02em;
 		color: var(--vscode-badge-foreground);
+		letter-spacing: 0.02em;
 		background: var(--vscode-badge-background);
 		border-radius: var(--gl-radius-sm);
 	}
@@ -225,8 +225,8 @@ export const resolveDisplayStyles = css`
 		flex: none;
 		gap: 0.4rem;
 		align-items: center;
-		color: var(--vscode-descriptionForeground);
 		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.resolve-file__pips {
@@ -274,12 +274,12 @@ export const resolveDisplayStyles = css`
 	.resolve-file__more {
 		align-self: flex-start;
 		padding: var(--gl-space-2) 0;
-		color: var(--vscode-textLink-foreground);
 		font: inherit;
 		font-size: var(--gl-font-sm);
+		color: var(--vscode-textLink-foreground);
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		cursor: pointer;
 	}
 
 	.resolve-file__more:hover {
@@ -291,8 +291,8 @@ export const resolveDisplayStyles = css`
 	.resolve-file__consulted {
 		min-width: 0;
 		margin-top: var(--gl-space-6);
-		color: var(--vscode-descriptionForeground);
 		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Styled as the sibling affordance of the reasoning's "see more", which sits directly above it.
@@ -341,9 +341,9 @@ export const resolveDisplayStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: var(--gl-space-2);
-		margin: var(--gl-space-4) 0 0;
 		/* Room for the marker, which sits outside the content box in a flex-column list */
 		padding-left: var(--gl-space-16);
+		margin: var(--gl-space-4) 0 0;
 		list-style: disc;
 	}
 

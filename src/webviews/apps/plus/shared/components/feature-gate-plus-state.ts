@@ -19,7 +19,7 @@ import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import { linkStyles } from './vscode.css.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/promo.js';
 
 declare global {
@@ -60,8 +60,8 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			/* Collapses the CTA to a block, centered button in narrow default-appearance gates.
-			   A deliberate literal — this threshold is independent of the compact threshold shared
-			   via featureGateCompactThreshold (and of the alert dialog's same-valued width cap). */
+  A deliberate literal — this threshold is independent of the compact threshold shared
+  via featureGateCompactThreshold (and of the alert dialog's same-valued width cap). */
 			@container (max-width: 60rem) {
 				:host([appearance='default']) gl-button:not(.inline) {
 					display: block;
@@ -77,8 +77,8 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			/* .trial's first paragraph is excluded: wrapping the trailing paragraphs made it a
-			   :first-child, which would newly zero its top margin at every size — full-size
-			   spacing must stay as it was before the wrapper existed. */
+  :first-child, which would newly zero its top margin at every size — full-size
+  spacing must stay as it was before the wrapper existed. */
 			:host([appearance='alert']) p:first-child:not(.trial p) {
 				margin-top: 0;
 			}
@@ -92,7 +92,7 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			/* Centering lives on the wrapper (not the paragraphs) because the compact mode below
-			   turns the paragraphs inline — text-align only aligns content of block containers. */
+  turns the paragraphs inline — text-align only aligns content of block containers. */
 			.trial {
 				text-align: center;
 			}
@@ -110,9 +110,9 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			/* Like .actions-row but center-aligned, for a row that mixes a text button with an
-			   icon-only button: their baselines don't match (a text baseline vs the synthesized
-			   bottom edge of the icon button's flex box), so centering the equal-height button
-			   boxes is what lines them up. */
+  icon-only button: their baselines don't match (a text baseline vs the synthesized
+  bottom edge of the icon button's flex box), so centering the equal-height button
+  boxes is what lines them up. */
 			.actions-row-center {
 				display: flex;
 				gap: 0.6em;

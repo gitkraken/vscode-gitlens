@@ -1,6 +1,7 @@
 import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	LaunchpadSummaryError,
@@ -9,7 +10,6 @@ import type {
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { BranchRef } from '../../../../shared/branchRefs.js';
-import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
@@ -17,7 +17,7 @@ import type { NextStep } from './nextStep.js';
 import { nextStepStyles, renderNextStep } from './nextStep.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import './gl-launchpad-summary.js';
 
 function getRemoteNameFromUpstream(upstreamName: string | undefined): string {

@@ -64,6 +64,7 @@
 		"@types/mocha": "catalog:",
 		"mocha": "catalog:",
 		"publint": "catalog:",
+		"tinybench": "catalog:",
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
 		"typescript": "catalog:"

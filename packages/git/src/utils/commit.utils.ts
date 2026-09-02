@@ -47,22 +47,6 @@ export function isOfCommitOrStashRefType(commit: GitReference | undefined): bool
 	return commit?.refType === 'revision' || commit?.refType === 'stash';
 }
 
-/**
- * use `\n` symbol is presented to split commit message to description and title
- */
-export function splitCommitMessage(commitMessage?: string): { summary: string; body?: string } {
-	if (!commitMessage) return { summary: '' };
-
-	const message = commitMessage.trim();
-	const index = message.indexOf('\n');
-	if (index < 0) return { summary: message };
-
-	return {
-		summary: message.substring(0, index),
-		body: message.substring(index + 1).trim(),
-	};
-}
-
 export function createUncommittedChangesCommit(
 	repoPath: string,
 	sha: string,

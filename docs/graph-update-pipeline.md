@@ -113,7 +113,7 @@ ref is `current` (checked out) specifically so a seeded dictionary can't hand ba
 
 `packages/plus/commit-graph/src/engine/session.ts` exports `CommitGraphEngineSession`, the
 webview-side owner of the engine lifecycle (constructed once in
-`src/webviews/apps/plus/graph/graph-wrapper/gl-lit-graph.ts` and driven via `.update()` on every
+`packages/plus/commit-graph-ui/src/graph.ts` and driven via `.update()` on every
 row change). It classifies the incoming row set against what it currently holds via
 `classifyRowsDelta` (`engine/delta.ts`), which compares only `sha`/`parents`/`kind`/`date` — the
 fields that feed layout — and returns one of:

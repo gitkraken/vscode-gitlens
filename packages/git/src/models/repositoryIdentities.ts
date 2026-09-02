@@ -1,4 +1,5 @@
-import type { Branded } from '@gitlens/utils/brand.js';
+import type { Branded, Unbrand } from '@gitlens/utils/brand.js';
+import type { HostingServiceType } from '@gitlens/utils/hostingServiceType.js';
 
 export const missingRepositoryId = '-';
 
@@ -7,6 +8,17 @@ export type GkProviderId = Branded<
 	'GkProviderId'
 >;
 export type GkRepositoryId = Branded<string, 'GkRepositoryId'>;
+
+// `@gitlens/utils` can't import this package, so `HostingServiceType` copies the list above; this fails
+// to compile the moment the two drift.
+type AssertTrue<T extends true> = T;
+export type GkProviderIdMirrorsHostingServiceType = AssertTrue<
+	Unbrand<GkProviderId> extends HostingServiceType
+		? HostingServiceType extends Unbrand<GkProviderId>
+			? true
+			: false
+		: false
+>;
 
 export interface RepositoryIdentityRemoteDescriptor {
 	readonly url?: string;

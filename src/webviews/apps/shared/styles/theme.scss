@@ -47,6 +47,10 @@
 
 	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
 
+	// VS Code's general UI foreground (chrome), NOT the editor's — they differ in Light+/Dark+.
+	--color-ui-foreground: var(--vscode-foreground);
+	--color-description-foreground: var(--vscode-descriptionForeground);
+
 	// Computed variants in code
 	--color-foreground--85: color-mix(in srgb, transparent 15%, var(--color-foreground));
 	--color-foreground--75: color-mix(in srgb, transparent 25%, var(--color-foreground));
@@ -79,6 +83,22 @@
 	--color-focus-border: var(--vscode-focusBorder);
 
 	--color-link-foreground: var(--vscode-textLink-foreground);
+	--color-code-background: var(--vscode-textCodeBlock-background, var(--color-background));
+	--color-contrast-border: var(--vscode-contrastBorder);
+	--color-elevated-background: var(--vscode-editorWidget-background, var(--color-background));
+	--color-menu-background: var(--vscode-menu-background, var(--color-elevated-background));
+	--color-sash-hover-border: var(--vscode-sash-hoverBorder, var(--color-focus-border));
+	--color-scrollbar-background: var(--vscode-scrollbarSlider-background, transparent);
+	--color-scrollbar-hover-background: var(
+		--vscode-scrollbarSlider-hoverBackground,
+		var(--color-scrollbar-background)
+	);
+	--color-scrollbar-active-background: var(
+		--vscode-scrollbarSlider-activeBackground,
+		var(--color-scrollbar-hover-background)
+	);
+	--color-view-header-background: var(--vscode-sideBarSectionHeader-background, var(--color-background));
+	--color-view-header-border: var(--vscode-sideBarSectionHeader-border, var(--color-foreground--25));
 
 	// Computed variants in code
 	--color-link-foreground--darken-20: color-mix(in srgb, #000 20%, var(--color-link-foreground));
@@ -139,6 +159,24 @@
 	--gl-agent-waiting-color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow, #bf8700));
 	--gl-agent-idle-color: var(--vscode-descriptionForeground);
 	--gl-agent-ended-color: var(--vscode-descriptionForeground);
+	--commit-stats-pill-background: color-mix(
+		in srgb,
+		var(--color-view-header-background, transparent) 90%,
+		var(--color-foreground, currentColor) 10%
+	);
+	--wip-stats-operation-background: var(
+		--vscode-gitlens-decorations\.statusMergingOrRebasingForegroundColor,
+		#d29922
+	);
+	--wip-stats-operation-conflict-background: var(
+		--vscode-gitlens-decorations\.statusMergingOrRebasingConflictForegroundColor,
+		#f85149
+	);
+	--wip-stats-operation-ready-background: var(
+		--vscode-gitlens-decorations\.statusPausedOperationReadyForegroundColor,
+		#3fb950
+	);
+	--wip-stats-operation-ready-foreground: #06150a;
 
 	/* Unified scope/filter chip indicator colors — bg/border use the *-color (translucent via
 	   color-mix); text uses *-text-color so light themes can pair a vibrant tint with much
@@ -188,6 +226,12 @@ body[data-placement='panel'] {
 }
 
 @include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
+	--commit-stats-pill-background: color-mix(
+		in srgb,
+		var(--color-view-header-background, transparent) 98%,
+		var(--color-foreground, currentColor) 2%
+	);
+	--wip-stats-operation-ready-foreground: #fff;
 	--color-alert-infoHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-infoBackground));
 	--color-alert-warningHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-warningBackground));
 	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));

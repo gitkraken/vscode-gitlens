@@ -79,7 +79,7 @@ export function buildAriaLabel(
 // A commit's accessible name uses only the SUMMARY (first line): it matches the row's visible
 // single-line (ellipsized) text and keeps screen-reader row navigation scannable — the full body is
 // read in the details panel when the row is opened. Trims the whole message first (matching
-// `splitCommitMessage().summary`), so a leading blank line still yields the real subject; returns ''
+// `splitMessage().summary`), so a leading blank line still yields the real subject; returns ''
 // for an empty/whitespace-only message (callers guard on the result).
 function firstLine(message: string): string {
 	const trimmed = message.trim();

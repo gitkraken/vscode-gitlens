@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { elementBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -29,7 +30,6 @@ import {
 	initialPastAgentSessionLimit,
 	matchAgentSessionsForWorktree,
 } from '../../../shared/agentUtils.js';
-import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { providerIconName } from '../../../shared/git-utils.js';
@@ -50,8 +50,8 @@ import '../../../shared/components/button-container.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/pills/tracking-status.js';
 
 /** Minimal branch/tag identity carried by the `gl-graph-open-branch` event (a ref-pill click).
@@ -541,7 +541,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 	/** The ref's display name — remote-qualified ("origin/main") for a remote ref, else the bare
 	 *  name. `ref.name` alone is the bare branch name shared with its local tracking counterpart
-	 *  (see `resolveRef` in gl-lit-graph), so a remote sheet needs the remote prefixed back on.
+	 *  (see `resolveRef` in gl-commit-graph), so a remote sheet needs the remote prefixed back on.
 	 *  Prefers the authoritative name from the ref's context when available. */
 	private displayName(ref: BranchSheetRef): string {
 		if (ref.refType !== 'remote') return ref.name;

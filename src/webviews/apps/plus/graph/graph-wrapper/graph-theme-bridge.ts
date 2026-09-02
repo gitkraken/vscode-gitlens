@@ -3,8 +3,9 @@ import type { Color } from '@gitlens/utils/color.js';
 import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
 
 /**
- * Maps the VS Code theme onto the CSS custom properties consumed by the commit-graph
- * `@gitkraken/commit-graph` package.
+ * Resolves the parts of the VS Code theme that CSS alone can't express, for the commit-graph engine and
+ * the host-neutral renderer packages. The plain `--gl-graph-*` ← `--vscode-*` aliases are NOT here: they
+ * are static CSS, loaded from `@gitkraken/commit-graph-ui/themes/vscode.css` by `graph.scss`.
  *
  * commit-graph expects each token as an HSL triplet (e.g. `217 91% 60%`) so its Tailwind utility
  * classes can compose `hsl(var(--brand))` and `hsl(var(--brand) / 0.12)`. VS Code provides
@@ -25,7 +26,7 @@ import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
  *   --muted-foreground dim text (sha, date)
  *   --status-warning   tag ref chip
  *
- * The runtime values defined here override the static defaults imported from
+ * The runtime values defined here override the static defaults from
  * `@gitkraken/commit-graph/theme.css` so the graph picks up theme switches.
  *
  * Also resolves the theme's `gitlens.graphLaneNColor` contributions (package.json defaults: dark and
@@ -33,9 +34,13 @@ import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
  * engine's active lane palette (see `applyLanePalette`). Returns whether the lane palette actually
  * changed, so the caller can invalidate lane-colored adornment caches only when it matters.
  */
-export function applyGraphThemeVariables(): boolean {
+export function applyGraphThemeVariables(isLight: boolean, isHighContrast: boolean): boolean {
 	const computed = getComputedStyle(document.documentElement);
 	const root = document.documentElement.style;
+
+	// The two theme-KIND switches: no `--vscode-*` variable carries them, so they can't be static CSS.
+	root.setProperty('--gl-graph-contrast-outline-width', isHighContrast ? '1px' : '0px');
+	root.setProperty('--gl-graph-operation-ready-foreground', isLight ? '#fff' : '#06150a');
 
 	const tokens: Record<string, readonly string[]> = {
 		'--brand': ['--vscode-button-background', '--vscode-focusBorder', '--vscode-textLink-foreground'],

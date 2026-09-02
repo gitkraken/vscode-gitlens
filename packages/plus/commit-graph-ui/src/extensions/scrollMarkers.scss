@@ -1,0 +1,109 @@
+gl-commit-graph {
+	.gl-graph__scroll-markers {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		z-index: 6;
+		width: 1.4rem;
+		pointer-events: auto;
+		cursor: pointer;
+	}
+
+	.gl-graph__scroll-marker-band {
+		position: absolute;
+		left: 0;
+		width: 100%;
+		height: 1.2rem;
+		padding: 0;
+		margin: 0;
+		margin-top: -0.6rem;
+		pointer-events: none;
+		background: transparent;
+		border: 0;
+	}
+
+	.gl-graph__scroll-marker-band.is-hovered {
+		z-index: 10;
+	}
+
+	.gl-graph__scroll-marker-box {
+		position: absolute;
+		top: 50%;
+		left: var(--marker-left, 0);
+		width: var(--marker-width, 33%);
+		height: var(--marker-height, 0.5rem);
+		pointer-events: none;
+		border-radius: 0.1rem;
+		opacity: 0.9;
+		transform: translateY(-50%);
+		transition:
+			left 0.24s ease,
+			width 0.24s ease,
+			height 0.24s ease,
+			opacity 0.2s ease,
+			box-shadow 0.24s ease;
+	}
+
+	.gl-graph__scroll-marker-band.is-hovered .gl-graph__scroll-marker-box.is-primary {
+		left: -1.6rem;
+		z-index: 20;
+		width: calc(100% + 1.6rem);
+		height: 0.4rem;
+		box-shadow: 0 0.2rem 0.6rem var(--gl-graph-shadow);
+		opacity: 1;
+	}
+
+	.gl-graph__scroll-marker-tooltip {
+		--max-width: 44rem;
+		--wa-tooltip-padding: 0.4rem 0.7rem;
+		--wa-tooltip-line-height: 1.5;
+		--wa-tooltip-border-radius: 0.3rem;
+
+		pointer-events: none;
+
+		&::part(body) {
+			min-width: 0;
+			white-space: nowrap;
+			pointer-events: none;
+			border: 0;
+			box-shadow: 0 0.2rem 0.6rem rgb(0 0 0 / 35%);
+			animation: gl-graph-marker-tooltip-in var(--gl-duration-fast, 0.24s) var(--gl-ease-out, ease-out);
+		}
+	}
+
+	.gl-graph__scroll-marker-tooltip-content {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		align-items: flex-start;
+		max-width: 44rem;
+		white-space: nowrap;
+	}
+
+	.gl-graph__scroll-marker-tooltip-row {
+		display: inline-flex;
+		gap: 0.4rem;
+		align-items: center;
+		min-width: 0;
+		max-width: 100%;
+		overflow: hidden;
+
+		> span {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+	}
+}
+
+@keyframes gl-graph-marker-tooltip-in {
+	from {
+		opacity: 0;
+		transform: translateX(0.8rem);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}

@@ -15,7 +15,7 @@ import { homeStateContext } from '../../../home/state.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
 import type { AgentOverviewState, InactiveOverviewState } from './overviewState.js';
 import { agentOverviewStateContext, inactiveOverviewStateContext } from './overviewState.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/skeleton-loader.js';
 import './agent-session-card.js';

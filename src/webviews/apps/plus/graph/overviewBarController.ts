@@ -1,3 +1,5 @@
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
+import { isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { computed, signal } from '@lit-labs/signals';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -5,7 +7,6 @@ import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
 import type { GraphScopeSource, State } from '../../../plus/graph/protocol.js';
-import { isPrimaryWipRowId } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import { HeldActionController } from '../../shared/controllers/held-action.js';
@@ -22,14 +23,13 @@ import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import {
 	filterSecondariesForScopeAndVisibility,
-	hasDirtyCounts,
 	isScopeFocalHead,
 	shouldIncludeOverviewBarSecondary,
 	shouldShowPrimaryWipRow,
 } from './utils/wip.utils.js';
 
 /** How often the overview bar's coarse wall-clock tick fires — see `_overviewBarItemsSignal`. Matches
- *  the 60s relative-time refresh `gl-lit-graph` already uses. */
+ *  the 60s relative-time refresh `gl-commit-graph` already uses. */
 const overviewBarClockTickMs = 60_000;
 
 /** A typical OS double-click interval — how long pill interactions wait to see whether a second

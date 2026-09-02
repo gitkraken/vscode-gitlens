@@ -1,46 +1,14 @@
-// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/models/branch.js';
 import type { GitReference, GitStashReference } from '@gitlens/git/models/reference.js';
-import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { capitalize } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 // import { isRevisionRange, isShaParent, isStashReference } from '@gitlens/git/models/reference.js';
-
-// import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/models/branch.js';
-export function getRemoteNameSlashIndex(name: string): number {
-	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
-}
-export function getBranchNameWithoutRemote(name: string): string {
-	return name.substring(getRemoteNameSlashIndex(name) + 1);
-}
-export function getRemoteNameFromBranchName(name: string): string {
-	return name.substring(0, getRemoteNameSlashIndex(name));
-}
 
 /** A remote's hosting-provider glicon, or the `cloud` codicon for an unrecognized/absent provider (there is
  *  no `gl-provider-cloud`). Applies the same `'remote'` → `'cloud'` normalization the host already does. */
 export function providerIconName(icon: string | undefined): string {
 	return icon == null || icon === 'cloud' || icon === 'remote' ? 'cloud' : `gl-provider-${icon}`;
-}
-
-/** A remote's hosting-provider glicon from its `GkProviderId`; `cloud` for an unrecognized/absent
- *  provider. The id-keyed counterpart to {@link providerIconName} (which takes icon strings). */
-export function remoteRefIcon(hostingServiceType: GkProviderId | undefined): string {
-	switch (hostingServiceType) {
-		case 'github':
-		case 'githubEnterprise':
-			return 'gl-provider-github';
-		case 'gitlab':
-		case 'gitlabSelfHosted':
-			return 'gl-provider-gitlab';
-		case 'bitbucket':
-		case 'bitbucketServer':
-			return 'gl-provider-bitbucket';
-		case 'azureDevops':
-			return 'gl-provider-azdo';
-		default:
-			return 'cloud';
-	}
 }
 
 // import { isRevisionRange, isShaParent, isStashReference } from '@gitlens/git/models/reference.js';

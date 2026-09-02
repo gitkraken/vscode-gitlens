@@ -3,6 +3,13 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { redispatch } from '@gitlens/components/components/element.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	scrollableBase,
+	subPanelEnterStyles,
+} from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -23,13 +30,6 @@ import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { AutolinkMerger } from '../../../shared/components/chips/autolinks.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
-import { redispatch } from '../../../shared/components/element.js';
-import {
-	elementBase,
-	metadataBarVarsBase,
-	scrollableBase,
-	subPanelEnterStyles,
-} from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -37,16 +37,16 @@ import type { RunningOperationExecState } from './detailsState.js';
 import { multiCommitPanelStyles, panelActionInputStyles, panelHostStyles } from './gl-details-multicommit-panel.css.js';
 import { renderAutolinksStrip } from './shared-panel-templates.js';
 import { panelAutolinkStripStyles } from './shared-panel.css.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import './gl-compare-ai-actions.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/progress.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/menu/menu-item.js';
 import '../../../shared/components/menu/menu-label.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import '../../../shared/components/details-header/gl-details-header.js';

@@ -7,7 +7,7 @@ import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
 import { applyCspSafeStyles, rewriteInlineStylesToData } from './css-inline-styles.js';
-import '../overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 let inlineMarked: Marked | undefined;
 let blockMarked: Marked | undefined;
@@ -26,8 +26,8 @@ export class GlMarkdown extends LitElement {
 
 			a,
 			a code {
-				text-decoration: none;
 				color: var(--vscode-textLink-foreground);
+				text-decoration: none;
 			}
 
 			a:hover,
@@ -41,13 +41,13 @@ export class GlMarkdown extends LitElement {
 
 			.image {
 				display: inline-flex;
-				align-items: center;
 				gap: var(--gl-space-4);
+				align-items: center;
 				padding: var(--gl-space-2) var(--gl-space-6) var(--gl-space-2) var(--gl-space-4);
-				border-radius: var(--gl-radius-sm);
-				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
 				line-height: 1.4;
 				vertical-align: middle;
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+				border-radius: var(--gl-radius-sm);
 			}
 
 			/* The chip's own padding and gap place the icon; the general icon nudge below would double it.
@@ -90,31 +90,31 @@ export class GlMarkdown extends LitElement {
 			}
 
 			code {
+				padding: 0 4px 2px;
+				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
 				border-radius: var(--gl-radius-sm);
-				padding: 0px 4px 2px 4px;
-				font-family: var(--vscode-editor-font-family);
 			}
 
 			code code-icon {
-				color: inherit;
 				font-size: inherit;
 				vertical-align: middle;
+				color: inherit;
 			}
 
 			/* An icon labels the ref that follows it, but the literal space plus code's own left
-			   padding put more room on that side than on the side of the word before it, so it read as
-			   attached to the wrong neighbour. Pull it toward its ref and give the preceding text room. */
+  padding put more room on that side than on the side of the word before it, so it read as
+  attached to the wrong neighbour. Pull it toward its ref and give the preceding text room. */
 			/* The child combinator keeps this off icons nested inside a code span. The graph's row
-			   hovercard wraps icon and sha in one span (CommitFormatter.link), where the icon can't be
-			   row-leading and an indent would just push it off the chip's own padding. */
+  hovercard wraps icon and sha in one span (CommitFormatter.link), where the icon can't be
+  row-leading and an indent would just push it off the chip's own padding. */
 			:not(code) > code-icon:not(.leading) {
 				margin-left: 0.3em;
 			}
 
 			/* An icon that starts a row is an emblem for the whole line, not a word in it, so it keeps
-			   the full size a caller's --code-icon-size would otherwise shrink, and needs no leading
-			   space. Tagged during rendering rather than selected here — see renderThemeIconsWithinText. */
+  the full size a caller's --code-icon-size would otherwise shrink, and needs no leading
+  space. Tagged during rendering rather than selected here — see renderThemeIconsWithinText. */
 			code-icon.leading {
 				--code-icon-size: 1.6rem;
 
@@ -122,10 +122,10 @@ export class GlMarkdown extends LitElement {
 			}
 
 			/* Fully absorbs the literal space, so the only separation left is the chip's own padding —
-			   which is also trimmed here, since the icon already reads as attached. */
+  which is also trimmed here, since the icon already reads as attached. */
 			code-icon + code {
-				margin-left: -0.3em;
 				padding-left: 3px;
+				margin-left: -0.3em;
 			}
 
 			p:first-child,
@@ -144,6 +144,7 @@ export class GlMarkdown extends LitElement {
 			ul {
 				padding-left: var(--markdown-list-spacing);
 			}
+
 			ol {
 				padding-left: var(--markdown-list-spacing);
 			}

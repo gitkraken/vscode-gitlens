@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { cspStyleMap } from './csp-style-map.directive.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 
 // height: calc(1em * var(--skeleton-line-height, 1.2) * var(--skeleton-lines, 1));
 // background-color: var(--color-background--lighten-30);

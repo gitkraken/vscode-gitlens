@@ -1,5 +1,5 @@
 import { css } from 'lit';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 export const panelHostStyles = [
 	scrollableBase,

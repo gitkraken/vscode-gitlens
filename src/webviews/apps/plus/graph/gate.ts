@@ -14,7 +14,7 @@ import { waitForFocusSettled } from '../../shared/focus.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/feature-gate.js';
 import '../../shared/components/gitlens-logo-circle.js';

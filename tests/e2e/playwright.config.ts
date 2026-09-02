@@ -7,6 +7,26 @@ interface CustomOptions {
 	editorExecutablePath: string;
 }
 
+// Opting in is not only `--grep @performance`: selecting the spec by file path (IDE runner, `--ui`,
+// the HTML report), or an explicit env var, must also lift `grepInvert` — otherwise those paths run
+// zero tests and report a misleading "No tests found" instead of the perf spec.
+const performanceRequested =
+	process.env.GITLENS_E2E_PERFORMANCE === '1' ||
+	process.argv.some((argument, index) => {
+		// Separated form (`--grep @performance` / `-g @performance`) — the pattern is the NEXT argument.
+		if (argument === '--grep' || argument === '-g') {
+			return process.argv[index + 1]?.includes('@performance') ?? false;
+		}
+		// Joined form (`--grep=@performance` / `-g@performance`) — the pattern is part of THIS argument.
+		if (argument.startsWith('--grep=')) return argument.includes('@performance');
+		if (argument.startsWith('-g') && argument !== '-g') return argument.includes('@performance');
+		// File-selection form — running `graphPerformance.test.ts` directly (by path, IDE runner, `--ui`,
+		// or the HTML report) selects the spec without ever passing `--grep`.
+		if (argument.includes('graphPerformance')) return true;
+
+		return false;
+	});
+
 // oxlint-disable-next-line import/no-default-export
 export default defineConfig<CustomOptions>({
 	use: {
@@ -43,8 +63,15 @@ export default defineConfig<CustomOptions>({
 				editorId: e.id,
 				editorExecutablePath: e.envVar ? (process.env[e.envVar] ?? '') : '',
 			},
-			// Forks opt out of editor-incompatible specs via the `@no-fork` tag (see docs/testing.md).
-			grepInvert: e.id === 'vscode' ? undefined : /@no-fork/,
+			// Performance specs are opt-in through an explicit `--grep @performance`; forks additionally
+			// opt out of editor-incompatible specs via `@no-fork` (see docs/testing.md).
+			grepInvert: performanceRequested
+				? e.id === 'vscode'
+					? undefined
+					: /@no-fork/
+				: e.id === 'vscode'
+					? /@performance/
+					: /@(?:no-fork|performance)/,
 			// All CI projects inherit the top-level retry budget. Login-walled forks (Cursor and Kiro),
 			// whose deterministic sign-in-wall failures shouldn't be retried, are excluded from the CI
 			// matrix entirely via editors.ts `runInCI: false`, so no per-project retry override is needed

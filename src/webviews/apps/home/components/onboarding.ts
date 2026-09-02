@@ -9,8 +9,8 @@ import type { OnboardingState } from '../../shared/contexts/onboarding.js';
 import { onboardingContext } from '../../shared/contexts/onboarding.js';
 import { homeBaseStyles, walkthroughProgressStyles } from '../home.css.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
-import '../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 @customElement('gl-onboarding')
 export class GlOnboarding extends SignalWatcher(LitElement) {

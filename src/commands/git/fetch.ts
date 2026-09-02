@@ -1,9 +1,9 @@
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
-import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';

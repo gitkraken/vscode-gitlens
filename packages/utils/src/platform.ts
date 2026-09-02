@@ -1,1 +1,1 @@
-export { isLinux, isMac, isWindows } from '#env/platform.js';
+export { getShiftKeySymbol, isLinux, isMac, isWindows } from '#env/platform.js';

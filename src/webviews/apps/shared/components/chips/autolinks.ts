@@ -3,7 +3,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import './autolink-chip.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../menu/menu-divider.js';
 import '../menu/menu-item.js';
 import '../menu/menu-label.js';

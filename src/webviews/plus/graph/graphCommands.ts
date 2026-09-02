@@ -1,3 +1,4 @@
+import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { MessageItem, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { env, ProgressLocation, Uri, window } from 'vscode';
 import { getAcceptSequenceEditor, getSquashSequenceEditor } from '@env/git/squashEditor.js';
@@ -18,8 +19,6 @@ import type {
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
-import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import {
 	getComparisonRefsForPullRequest,
@@ -30,7 +29,9 @@ import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js'
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import { splitMessage } from '@gitlens/utils/string.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard.js';
@@ -118,7 +119,6 @@ import type {
 	GraphScopeBranch,
 	GraphSelection,
 } from './protocol.js';
-import { createWipRowId } from './protocol.js';
 import type { ShowInCommitGraphCommandArgs } from './registration.js';
 
 type GraphItemRefs<T> = {
@@ -954,7 +954,7 @@ export class GraphCommands {
 
 		let subject: string;
 		if (row != null) {
-			subject = splitCommitMessage(row.message).summary;
+			subject = splitMessage(row.message).summary;
 		} else {
 			const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(ref.ref);
 			if (commit == null) {
@@ -996,7 +996,7 @@ export class GraphCommands {
 
 		const rewriteable = graph.rewriteableFromHEAD;
 		const rewriteableRows = graph.rows.filter(r => rewriteable?.has(r.sha));
-		const fixupRows = rewriteableRows.filter(r => splitCommitMessage(r.message).summary.startsWith('fixup! '));
+		const fixupRows = rewriteableRows.filter(r => splitMessage(r.message).summary.startsWith('fixup! '));
 		if (fixupRows.length === 0) {
 			void window.showInformationMessage('No fixup commits found on the current branch.');
 			return;
@@ -1007,12 +1007,12 @@ export class GraphCommands {
 		// `--autosquash` does the real per-commit fixup/target matching during the rebase itself.
 		let oldestTargetIndex: number | undefined;
 		for (const fixupRow of fixupRows) {
-			let subject = splitCommitMessage(fixupRow.message).summary;
+			let subject = splitMessage(fixupRow.message).summary;
 			while (subject.startsWith('fixup! ')) {
 				subject = subject.slice('fixup! '.length);
 			}
 
-			const targetIndex = rewriteableRows.findIndex(r => splitCommitMessage(r.message).summary === subject);
+			const targetIndex = rewriteableRows.findIndex(r => splitMessage(r.message).summary === subject);
 			if (targetIndex === -1) continue;
 
 			if (oldestTargetIndex == null || targetIndex > oldestTargetIndex) {
@@ -1476,7 +1476,7 @@ export class GraphCommands {
 
 		if (ref == null) return Promise.resolve();
 
-		const { summary: title, body: description } = splitCommitMessage(ref.message);
+		const { summary: title, body: description } = splitMessage(ref.message);
 		return executeCommand<CreatePatchCommandArgs, void>('gitlens.createCloudPatch', {
 			to: ref.ref,
 			repoPath: ref.repoPath,
@@ -1533,7 +1533,7 @@ export class GraphCommands {
 		const ref = this.getGraphItemRef(item, 'revision') ?? this.getGraphItemRef(item, 'stash');
 		if (ref == null) return Promise.resolve();
 
-		const { summary: title, body: description } = splitCommitMessage(ref.message);
+		const { summary: title, body: description } = splitMessage(ref.message);
 		return executeCommand<CreatePatchCommandArgs, void>('gitlens.copyPatchToClipboard', {
 			from: `${ref.ref}^`,
 			to: ref.ref,

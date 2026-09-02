@@ -19,8 +19,12 @@ function rewriteSourceExtToJs(node) {
 }
 
 export default {
-	globs: ['src/webviews/apps/**/*.ts'],
-	exclude: ['src/webviews/apps/**/*.test.ts'],
+	globs: [
+		'src/webviews/apps/**/*.ts',
+		'packages/components/src/**/*.ts',
+		'packages/plus/commit-graph-ui/src/**/*.ts',
+	],
+	exclude: ['src/webviews/apps/**/*.test.ts', 'packages/**/__tests__/**', 'packages/**/*.test.ts'],
 	litelement: true,
 	packagejson: false,
 	plugins: [

@@ -58,7 +58,7 @@ const hasPinnedContextScript = `(() => {
 })()`;
 
 // New Lit engine: the "Jump to Pinned Branch" affordance is a segment of the floating waypoints capsule
-// (gl-lit-graph.ts renderPinnedPill, inside renderWaypoints) rendered only when a branch is pinned AND its
+// (gl-commit-graph.ts renderPinnedPill, inside renderWaypoints) rendered only when a branch is pinned AND its
 // row is scrolled off-screen. Its mere presence in the DOM means it's shown (renderPinnedPill returns
 // `nothing` otherwise).
 //
@@ -214,7 +214,7 @@ async function unpinBranch(
 
 /** A row's ref pill, addressed by the ref it names. */
 function refPill(webview: FrameLocator, refName: string): Locator {
-	return webview.locator('.gl-graph__ref-pill').filter({ hasText: refName }).first();
+	return webview.locator('.gl-graph__refs .gl-graph__ref-pill').filter({ hasText: refName }).first();
 }
 
 /**
@@ -222,7 +222,7 @@ function refPill(webview: FrameLocator, refName: string): Locator {
  * to unpin (`renderPinControl`).
  *
  * Scoped to `.gl-graph__ref-pill-expand`: a pill renders the leading slot TWICE, and the in-flow copy
- * under `.gl-graph__ref-pill-main` is the covered one — `pinnedTargetForEvent` in `gl-lit-graph.ts`
+ * under `.gl-graph__ref-pill-main` is the covered one — `pinnedTargetForEvent` in `gl-commit-graph.ts`
  * redirects to the expand copy for exactly this reason, so a click has to target the same one.
  */
 function refPillPinControl(webview: FrameLocator, refName: string): Locator {
@@ -259,7 +259,7 @@ async function clickPinControl(webview: FrameLocator, refName: string, control: 
  */
 async function scrollGraphToFraction(webview: FrameLocator, fraction: number): Promise<void> {
 	await webview.locator(':root').evaluate((_el, f) => {
-		const scroller = document.querySelector('gl-lit-graph lit-virtualizer');
+		const scroller = document.querySelector('gl-commit-graph lit-virtualizer');
 		if (scroller != null) {
 			scroller.scrollTop = Math.max(0, (scroller.scrollHeight - scroller.clientHeight) * f);
 		}
@@ -282,7 +282,7 @@ async function toggleDetailsPanel(webview: FrameLocator): Promise<void> {
 /**
  * The pinned branch's band on the scroll rail. Matched on its colour variable, because the rendered box
  * carries no type of its own — `renderScrollMarkers` emits only geometry plus `backgroundColor`, and
- * `pinned` is the one lane painted with `--color-graph-scroll-marker-pinned` (`graph-scroll-markers.ts`).
+ * `pinned` is the one lane painted with `--color-graph-scroll-marker-pinned` (`graphScrollMarkers.ts`).
  */
 function pinnedScrollMarker(webview: FrameLocator): Locator {
 	return webview.locator('.gl-graph__scroll-marker-box[style*="scroll-marker-pinned"]');
@@ -302,7 +302,7 @@ function pinnedWaypoint(webview: FrameLocator): Locator {
 }
 
 const getSelectedShasScript = `(() => {
-	const graph = document.querySelector('gl-lit-graph');
+	const graph = document.querySelector('gl-commit-graph');
 	const rows = graph?.selectedRows;
 	return JSON.stringify(rows != null ? Object.keys(rows).sort() : []);
 })()`;
@@ -349,7 +349,7 @@ const test = base.extend({
 });
 
 // A taller graph for the jump-to-pinned pill: the pill only renders when the pinned branch's row is
-// loaded AND scrolled off-screen (gl-lit-graph.updatePinnedPillDirection). The branch tips are created
+// loaded AND scrolled off-screen (gl-commit-graph.updatePinnedPillDirection). The branch tips are created
 // first, then ~120 commits are added on `main`, so on open (scrolled to the top / newest main commits)
 // the branch rows sit far below the viewport — loaded, but off-screen — which is exactly the pill's
 // trigger. Kept separate from the small fixture above, whose tests read the on-screen branch row's
@@ -613,7 +613,7 @@ testTall.describe('Graph — Pin Branch to Edge — jump-to-pinned pill', () => 
 			// delta (which keeps branch-c off-screen) so the engine evaluates it and renders the pill.
 			await graphWebview!.locator(':root').evaluate(() => {
 				(
-					document.querySelector('gl-lit-graph') as unknown as { scrollByDelta?: (d: number) => void }
+					document.querySelector('gl-commit-graph') as unknown as { scrollByDelta?: (d: number) => void }
 				)?.scrollByDelta?.(120);
 			});
 

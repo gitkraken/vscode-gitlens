@@ -1,6 +1,6 @@
 import { css } from 'lit';
-import { srOnlyStyles } from '../styles/lit/a11y.css.js';
-import { elevatedSurface } from '../styles/lit/elevation.css.js';
+import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 
 export const selectStyles = css`
 	:host {

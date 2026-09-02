@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"lib": ["DOM", "DOM.Iterable", "ES2023"],
+		"strict": true,
+		"skipLibCheck": true,
+		"isolatedModules": true,
+		"experimentalDecorators": true,
+		"useDefineForClassFields": false,
+		"types": ["node", "mocha"],
+		"noEmit": true,
+		// tsdown.config.ts imports the shared output-namer helper, a `.mjs` file carrying JSDoc types.
+		// Without this it resolves to an implicit `any` and every use of it goes unchecked.
+		"allowJs": true,
+		// GitLens's own host tsconfigs point this same specifier at source; the published .d.ts still
+		// names `@gitkraken/commit-graph` because tsdown keeps it external. No `baseUrl` needed — `paths`
+		// works without one under `moduleResolution: Bundler`.
+		"paths": {
+			"@gitkraken/commit-graph/*": ["../commit-graph/src/*"]
+		}
+	},
+	// tsdown.config.ts reads node builtins, so it has to sit inside a project that declares the `node`
+	// types — otherwise the type-aware lint puts it in an inferred project and cannot resolve them.
+	"include": ["src/**/*", "tsdown.config.ts"]
+}

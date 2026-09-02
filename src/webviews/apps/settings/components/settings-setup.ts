@@ -2,18 +2,18 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../../../constants.walkthroughs.js';
 import { graphWalkthroughProgressSteps, walkthroughProgressSteps } from '../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
-import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 // Register the ring's sweep angle as a typed custom property so its fill can transition.
 // @property inside a constructable/shadow stylesheet doesn't reliably register in Chromium —
@@ -175,11 +175,11 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 			}
 
 			/* Ring fill by completed-step count — set via static CSS rather than a dynamic style.
-			   This worked around Lit's styleMap writing the style attribute on its first update,
-			   which the webview CSP blocks; on an in-app navigation mount that first update is the
-			   only one, so the ring stayed greyed. cspStyleMap fixes that at the source, so these
-			   rules could now collapse back to a single dynamic custom property.
-			   Until then, keep the count of rules in sync with the number of steps rendered. */
+  This worked around Lit's styleMap writing the style attribute on its first update,
+  which the webview CSP blocks; on an in-app navigation mount that first update is the
+  only one, so the ring stayed greyed. cspStyleMap fixes that at the source, so these
+  rules could now collapse back to a single dynamic custom property.
+  Until then, keep the count of rules in sync with the number of steps rendered. */
 			.hero__ring--0 {
 				--setup-ring-angle: 0deg;
 			}
@@ -251,7 +251,7 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 			}
 
 			/* Per-step purple→blue rail/icon accent, by position — static CSS for the same
-			   navigation-remount reason as the ring above. */
+  navigation-remount reason as the ring above. */
 			.steps > li:nth-child(1) .step {
 				--step-accent: color-mix(in srgb, var(--gl-brand-purple), var(--gl-brand-blue) 0%);
 			}

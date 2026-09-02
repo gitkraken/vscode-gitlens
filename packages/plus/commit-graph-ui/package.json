@@ -1,0 +1,111 @@
+{
+	"name": "@gitkraken/commit-graph-ui",
+	"version": "0.1.0",
+	"description": "Host-neutral contracts and renderer for the GitKraken commit graph.",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"homepage": "https://github.com/gitkraken/vscode-gitlens/tree/main/packages/plus/commit-graph-ui",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/gitkraken/vscode-gitlens.git",
+		"directory": "packages/plus/commit-graph-ui"
+	},
+	"license": "SEE LICENSE IN LICENSE",
+	"type": "module",
+	"sideEffects": [
+		"./dist/register.js",
+		"./dist/components/components/codeIcon.js",
+		"./dist/components/components/commitStats.js",
+		"./dist/components/components/wipStats.js",
+		"./dist/components/components/pills/tracking.js",
+		"./dist/components/components/overlays/popover.js",
+		"./dist/components/components/overlays/tooltip.js",
+		"*.css"
+	],
+	"exports": {
+		"./package.json": "./package.json",
+		"./graph.css": "./dist/graph.css",
+		"./themes/vscode.css": "./dist/themes/vscode.css",
+		"./extensions/scrollMarkers.css": "./dist/extensions/scrollMarkers.css",
+		"./extensions/stickyTimeline.css": "./dist/extensions/stickyTimeline.css",
+		"./graph.js": {
+			"types": "./dist/graph.d.ts",
+			"default": "./dist/graph.js"
+		},
+		"./register.js": {
+			"types": "./dist/register.d.ts",
+			"default": "./dist/register.js"
+		},
+		"./profile.js": {
+			"types": "./dist/profile.d.ts",
+			"default": "./dist/profile.js"
+		},
+		"./contracts/*.js": {
+			"types": "./dist/contracts/*.d.ts",
+			"default": "./dist/contracts/*.js"
+		},
+		"./extensions/*.js": {
+			"types": "./dist/extensions/*.d.ts",
+			"default": "./dist/extensions/*.js"
+		},
+		"./extensions/refs/*.js": null,
+		"./extensions/wipStats/*.js": null,
+		"./extensions/laneCollapse/*.js": null,
+		"./extensions/scrollMarkers/*.js": null,
+		"./extensions/stickyTimeline/*.js": null
+	},
+	"workspaceExports": [
+		"./rows/*.js",
+		"./gutter/*.js",
+		"./scope/*.js",
+		"./extensions/refs/*.js",
+		"./extensions/wipStats/*.js",
+		"./extensions/laneCollapse/*.js",
+		"./extensions/scrollMarkers/*.js",
+		"./extensions/stickyTimeline/*.js",
+		"./debug.js"
+	],
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE",
+		"LICENSE.plus"
+	],
+	"publishConfig": {
+		"provenance": false
+	},
+	"scripts": {
+		"build": "tsdown && node scripts/css.mjs",
+		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../../.oxlintrc.json .",
+		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus *.tgz",
+		"lint:css": "stylelint \"src/**/*.{css,scss,ts}\"",
+		"prepack": "pnpm run build",
+		"test": "mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'",
+		"verify:package": "node scripts/verify-package.mjs"
+	},
+	"dependencies": {
+		"@awesome.me/webawesome": "catalog:",
+		"@gitkraken/commit-graph": "workspace:*",
+		"@lit-labs/virtualizer": "catalog:",
+		"fast-string-truncated-width": "catalog:",
+		"vscode-uri": "catalog:"
+	},
+	"peerDependencies": {
+		"lit": "catalog:"
+	},
+	"devDependencies": {
+		"@arethetypeswrong/cli": "catalog:",
+		"@gitlens/components": "workspace:*",
+		"@gitlens/utils": "workspace:*",
+		"@types/mocha": "catalog:",
+		"lit": "catalog:",
+		"mocha": "catalog:",
+		"publint": "catalog:",
+		"sass-embedded": "catalog:",
+		"tsdown": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

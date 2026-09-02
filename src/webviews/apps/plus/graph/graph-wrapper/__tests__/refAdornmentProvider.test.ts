@@ -1,11 +1,11 @@
 import * as assert from 'assert';
-import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import type { ParsedRef, RefPillHooks } from '../adornments/refAdornmentProvider.js';
+import type { ParsedRef, RefPillHooks } from '@gitkraken/commit-graph-ui/extensions/refs/adornmentProvider.js';
 import {
 	createRefAdornmentProvider,
 	partitionRowRefs,
-	resolveAutoRefPillCap,
-} from '../adornments/refAdornmentProvider.js';
+} from '@gitkraken/commit-graph-ui/extensions/refs/adornmentProvider.js';
+import { resolveAutoRefPillCap } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
+import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 
 function head(name: string, overrides?: Partial<ParsedRef>): ParsedRef {
 	return { kind: 'head', name: name, id: `repo|heads/${name}`, ...overrides };

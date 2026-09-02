@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { elementBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { basename } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
@@ -30,14 +31,13 @@ import {
 } from '../../../shared/agentUtils.js';
 import { renderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../../../shared/components/agents/agent-status-styles.css.js';
-import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
-import '../../../shared/components/agents/gl-agent-mark.js';
+import '@gitlens/components/components/agentMark.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
 import '../../../shared/components/chips/action-chip.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 /** User-facing modes are `collapsed` (bar only) and `expanded` (all cards) — toggled by the
  *  chevron. `partial` is a panel-driven derived state: when the user is collapsed and a session
@@ -134,13 +134,13 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: block;
 
 				/* No local agent-phase color overrides — inherits the unified palette from
-		   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
-		   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
-		   status pill, and the WIP file decoration all share one set of phase colors. */
+ theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
+ --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
+ status pill, and the WIP file decoration all share one set of phase colors. */
 
 				/* Cap tooltips in the agents pane so long content (Bash command strings, agent
-		   prompts) wraps inside a bounded box instead of escaping the narrow webview
-		   panel's right edge. */
+ prompts) wraps inside a bounded box instead of escaping the narrow webview
+ panel's right edge. */
 				--gl-tooltip-max-width: 28rem;
 			}
 
@@ -156,27 +156,27 @@ export class GlDetailsAgentStatus extends LitElement {
 				gap: var(--gl-space-4);
 
 				/* Tight bottom padding (vs. 0.6rem top) avoids a dead gap above the next
-		   section's intrinsic padding. Background inherits from the WIP details panel;
-		   the sticky heading paints its own opaque background to obscure scrolling cards. */
+ section's intrinsic padding. Background inherits from the WIP details panel;
+ the sticky heading paints its own opaque background to obscure scrolling cards. */
 				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.3rem var(--gl-panel-padding-left, 1.2rem);
 			}
 
 			/* Divider between this section and the WIP section lives on the split-panel sash
-	   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
+(see .agent-status-split::part(divider) in graph.scss), not as a border here. */
 			.section[data-expand='expanded'] {
 				padding-bottom: var(--gl-space-8);
 			}
 
 			/* Heading doubles as the collapse toggle AND the at-a-glance phase summary —
-	   chevron + label on the left, dot cluster + counts on the right. The dots and counts
-	   remain visible in every state so the summary still informs at a glance even when
-	   most cards are filtered out.
+chevron + label on the left, dot cluster + counts on the right. The dots and counts
+remain visible in every state so the summary still informs at a glance even when
+most cards are filtered out.
 
-	   Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
-	   visible while the cards list scrolls behind it. Negative horizontal margins +
-	   matching padding extend the heading's background over the section's horizontal
-	   padding so cards don't peek through the sides as they scroll past. Negative top
-	   margin + matching padding-top similarly covers the section's 'padding-top' zone. */
+Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
+visible while the cards list scrolls behind it. Negative horizontal margins +
+matching padding extend the heading's background over the section's horizontal
+padding so cards don't peek through the sides as they scroll past. Negative top
+margin + matching padding-top similarly covers the section's 'padding-top' zone. */
 			.section__heading {
 				position: sticky;
 				top: 0;
@@ -197,8 +197,8 @@ export class GlDetailsAgentStatus extends LitElement {
 				letter-spacing: 0.04em;
 
 				/* Match the WIP details panel background (same token the commit-box uses) so the
-		   sticky heading reads as continuous with the surrounding panel instead of as a
-		   tinted metadata-bar strip. */
+ sticky heading reads as continuous with the surrounding panel instead of as a
+ tinted metadata-bar strip. */
 				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
 			}
 
@@ -232,7 +232,7 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			.section__heading-chevron {
 				/* Pin the glyph to a fixed inline-flex square so the codicon's intrinsic em-box
-		   offsets center predictably against the text. */
+ offsets center predictably against the text. */
 				display: inline-flex;
 				flex: none;
 				align-items: center;
@@ -246,9 +246,9 @@ export class GlDetailsAgentStatus extends LitElement {
 				color: inherit;
 
 				/* Chevron-right for collapsed/partial (rotated via data-expand below); chevron-down
-		   for expanded (no rotation — set in the template). The shared transition animates
-		   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
-		   is briefly missing. */
+ for expanded (no rotation — set in the template). The shared transition animates
+ the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
+ is briefly missing. */
 				transform: rotate(0deg);
 				transition: transform var(--gl-duration-medium) ease;
 			}
@@ -262,8 +262,8 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* No [data-expand='expanded'] rule — expanded uses the chevron-down glyph (set in
-	   the template), so the default 0deg from .section__heading-chevron keeps it
-	   upright without an explicit override. */
+the template), so the default 0deg from .section__heading-chevron keeps it
+upright without an explicit override. */
 
 			@media (prefers-reduced-motion: reduce) {
 				.section__heading-chevron {
@@ -287,8 +287,8 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* Branch-sheet variant — the sheet's own .hub already supplies outer padding and
-	   scrolls the whole pane (no inner scroller for the heading to stick within), so the
-	   split-panel-scroller chrome below is wrong here and gets neutralized. */
+scrolls the whole pane (no inner scroller for the heading to stick within), so the
+split-panel-scroller chrome below is wrong here and gets neutralized. */
 			:host([flat]) .section {
 				padding: 0;
 			}
@@ -318,7 +318,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* In the no-session WIP state, keep the past count at the same subdued emphasis as the
-	   static Agents label. Live headings retain the normal foreground summary color. */
+static Agents label. Live headings retain the normal foreground summary color. */
 			.section__heading-static .section__cluster {
 				color: inherit;
 			}
@@ -408,14 +408,14 @@ export class GlDetailsAgentStatus extends LitElement {
 				min-width: 24rem;
 
 				/* Bound the popover so long detail strings (errors, multi-line prompts) truncate
-		   via ellipsis instead of stretching the popover to the viewport edge. */
+ via ellipsis instead of stretching the popover to the viewport edge. */
 				max-width: min(44rem, 60vw);
 				padding: var(--gl-space-2);
 
 				/* The heading popover slots its content inside .section__heading, so prose here would
-		   inherit that row's uppercase tag treatment while the compact popover — anchored
-		   outside the heading — renders the same text in sentence case. Reset it so both read
-		   alike; .section__hover-phase opts back into uppercase for its tag label. */
+ inherit that row's uppercase tag treatment while the compact popover — anchored
+ outside the heading — renders the same text in sentence case. Reset it so both read
+ alike; .section__hover-phase opts back into uppercase for its tag label. */
 				text-transform: none;
 				letter-spacing: 0;
 			}
@@ -424,7 +424,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: grid;
 
 				/* minmax(0, 1fr) lets the column shrink below its min-content size, which is
-		   what allows text-overflow: ellipsis on the name/detail spans to engage. */
+ what allows text-overflow: ellipsis on the name/detail spans to engage. */
 				grid-template-columns: auto minmax(0, 1fr) auto;
 				gap: 0.1rem 0.6rem;
 				align-items: center;
@@ -436,9 +436,9 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* One row per session, so it draws the shared phase mark rather than a plain dot — the
-	   same shapes the card rails use. The heading's cluster dots deliberately stay plain: at
-	   cluster size a row of ringed, pulsing marks reads as noise, and that cluster answers
-	   "how many, roughly what mix", not per-session state. */
+same shapes the card rails use. The heading's cluster dots deliberately stay plain: at
+cluster size a row of ringed, pulsing marks reads as noise, and that cluster answers
+"how many, roughly what mix", not per-session state. */
 			gl-agent-mark.section__hover-dot {
 				flex: none;
 			}
@@ -491,7 +491,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* Hover-row tool detail places the shared .agent-tool composite into the row's
-	   second grid cell — visual styling lives in the shared agentToolStyles. */
+second grid cell — visual styling lives in the shared agentToolStyles. */
 			.section__hover-tool {
 				grid-column: 2 / -1;
 			}
@@ -507,10 +507,10 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* ---------- Card ----------
-	   Two-row grid: rail + body on top, action row sits under the body column on bottom.
-	   The actions always sit at the bottom of the card regardless of panel width.
-	   needs-input and working cards adopt the prior banner treatment (gradient bg +
-	   icon-circle in the rail) so each surfaces as actionable on its own. */
+Two-row grid: rail + body on top, action row sits under the body column on bottom.
+The actions always sit at the bottom of the card regardless of panel width.
+needs-input and working cards adopt the prior banner treatment (gradient bg +
+icon-circle in the rail) so each surfaces as actionable on its own. */
 			.card {
 				display: grid;
 				grid-template-rows: auto auto;
@@ -548,7 +548,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* Light hover lift, mirroring list rows: plain cards swap to the list hover background;
-		   the gradient variants keep their accent tint but re-base it on the same hover color. */
+ the gradient variants keep their accent tint but re-base it on the same hover color. */
 			.card:hover {
 				background-color: var(--vscode-list-hoverBackground);
 			}
@@ -563,7 +563,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* Keyboard focus ring — same inset recipe as .card--selected so the two read as one
-		   system, and the ring stays inside the card's footprint. */
+ system, and the ring stays inside the card's footprint. */
 			.card:focus-visible {
 				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
@@ -575,28 +575,30 @@ export class GlDetailsAgentStatus extends LitElement {
 				opacity: 0.85;
 			}
 
-			/* Terminal sessions read as done — muted accent + stronger dim than idle so live rows lead. */
+			/* Terminal sessions read as done — muted accent + stronger dim than idle so live rows lead.
+			   They open the past-session sheet on click/Enter/Space (see activatePastRow). */
 			.card--ended {
 				--card-accent: var(--gl-agent-ended-color);
 
+				cursor: pointer;
 				opacity: 0.7;
 			}
 
 			/* A ghost (visited-but-not-current) card/row — same dim idiom as .card--ended, applied
-			   on top of whichever phase accent the session currently carries. Combined with the hover
-			   list's equivalent row so the two surfaces agree visually. */
+  on top of whichever phase accent the session currently carries. Combined with the hover
+  list's equivalent row so the two surfaces agree visually. */
 			.card--ghost,
 			.section__hover-row--ghost {
 				opacity: 0.6;
 			}
 
 			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
-	   inset outline reads as "you picked this one" without overwhelming the card's
-	   own gradient/accent treatment — the prior halo+border combo was too loud against
-	   needs-input/working cards that already carry a colored gradient. outline-offset
-	   -1px tucks the ring just inside the card border so the card's footprint stays
-	   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
-	   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
+inset outline reads as "you picked this one" without overwhelming the card's
+own gradient/accent treatment — the prior halo+border combo was too loud against
+needs-input/working cards that already carry a colored gradient. outline-offset
+-1px tucks the ring just inside the card border so the card's footprint stays
+stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
+forced-colors mode substitutes Highlight for the focusBorder token automatically. */
 			.card--selected {
 				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
@@ -608,11 +610,6 @@ export class GlDetailsAgentStatus extends LitElement {
 				cursor: pointer;
 			}
 
-			/* Past-session cards open the past-session sheet on click/Enter/Space (see activatePastRow). */
-			.card--ended {
-				cursor: pointer;
-			}
-
 			.card__rail {
 				display: flex;
 				grid-row: 1;
@@ -621,15 +618,15 @@ export class GlDetailsAgentStatus extends LitElement {
 				justify-content: center;
 
 				/* Fixed rail width so the body column lines up across cards regardless of which
-		   phase mark sits inside. */
+ phase mark sits inside. */
 				width: 2.4rem;
 				min-height: 1.6em;
 			}
 
 			/* The ONE agent-phase mark, shared with the Commit Graph's WIP-row indicator and the
-	   agent-sessions tree leaf — shape/tempo differ per phase (working/needs-input carry a
-	   ring + waves, idle is a hollow ring, ended a static filled square), so all four are
-	   distinguishable in FORM, not just color, and stay so with prefers-reduced-motion: reduce. */
+agent-sessions tree leaf — shape/tempo differ per phase (working/needs-input carry a
+ring + waves, idle is a hollow ring, ended a static filled square), so all four are
+distinguishable in FORM, not just color, and stay so with prefers-reduced-motion: reduce. */
 			.card__rail gl-agent-mark {
 				color: var(--card-accent);
 			}
@@ -708,7 +705,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			/* Unresolvable ask: the caption shares the Open/Resume button's row and truncates under
-	   pressure so narrowing the panel squeezes the caption, never the button. */
+pressure so narrowing the panel squeezes the caption, never the button. */
 			.card__actions--unresolvable .card__actions-hint {
 				flex: 1 1 0;
 				min-width: 0;

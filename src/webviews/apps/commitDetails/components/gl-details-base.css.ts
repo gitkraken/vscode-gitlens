@@ -5,7 +5,7 @@ import {
 	metadataBarVarsBase,
 	scrollableBase,
 	subPanelEnterStyles,
-} from '../../shared/components/styles/lit/base.css.js';
+} from '@gitlens/components/components/styles/lit/base.css.js';
 
 export const detailsBaseStyles = [
 	linkBase,
@@ -152,8 +152,8 @@ export const detailsBaseStyles = [
 		}
 
 		/* Inline autolinks loading state — replaces "No autolinks found" while the commit
-	   identity (sha) is changing. min-height matches gl-action-chip's intrinsic 2rem so
-	   the strip doesn't jump between the spinner and the chip-based states. */
+  identity (sha) is changing. min-height matches gl-action-chip's intrinsic 2rem so
+  the strip doesn't jump between the spinner and the chip-based states. */
 		.autolinks-loading {
 			display: inline-flex;
 			gap: var(--gl-space-4);
@@ -163,8 +163,8 @@ export const detailsBaseStyles = [
 		}
 
 		/* File-section loading container — sits in the gl-file-tree-pane "before-tree" slot in
-	   place of the "No Files" empty text while the embedded panel is showing a "lite" commit
-	   shell waiting for the full fetch. */
+  place of the "No Files" empty text while the embedded panel is showing a "lite" commit
+  shell waiting for the full fetch. */
 		.files-loading {
 			display: flex;
 			gap: var(--gl-space-6);

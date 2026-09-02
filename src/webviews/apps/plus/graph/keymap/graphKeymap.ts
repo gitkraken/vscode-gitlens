@@ -1,16 +1,5 @@
-import { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
-
-/** Scopes recognized by the graph webview's key dispatcher, innermost-first when they nest (e.g. a
- *  focused row control is inside the rows scope, which is inside the webview scope). Scope
- *  registration (roots/selectors/guards) lives in `keymap/registerKeymap.ts`. */
-export type GraphKeymapScope =
-	| 'webview'
-	| 'webviewGlobal'
-	| 'rows'
-	| 'rowControl'
-	| 'pillMenu'
-	| 'sidebarFilter'
-	| 'tree';
+import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 
 /** Creates the graph webview's key dispatcher. Scopes and bindings are registered by consumers
  *  (`graph-app.ts` and friends), not here. */

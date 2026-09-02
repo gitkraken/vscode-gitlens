@@ -1,3 +1,4 @@
+import { isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { CancellationToken } from 'vscode';
 import { CancellationTokenSource } from 'vscode';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
@@ -21,7 +22,7 @@ import type { WebviewHost } from '../../webviewProvider.js';
 import { toGraphSearchResultsError } from './graphSearchService.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
-import { isWipRowId, isWipSelectionSha } from './protocol.js';
+import { isWipSelectionSha } from './protocol.js';
 import type {
 	BranchState,
 	DidChangeParams,

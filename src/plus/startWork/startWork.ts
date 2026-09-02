@@ -1,6 +1,6 @@
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';

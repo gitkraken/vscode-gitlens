@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { agentCapabilities } from '@gitlens/agents/agentCapabilities.js';
+import { iconMap } from '@gitlens/components/components/icons/gliconsMap.js';
 import type { AgentSessionState, PastAgentSessionsResult } from '../../../../agents/models/agentSessionState.js';
 import type { OverviewBranch } from '../../../shared/overviewBranches.js';
 import type { PastAgentSessionsPagerHost } from '../agentUtils.js';
@@ -19,10 +20,9 @@ import {
 	isAgentSessionCurrentInFamily,
 	matchAgentSessionsForWorktree,
 } from '../agentUtils.js';
-// Imported here and deliberately NOT in `agentUtils.ts` — the resolver stays free of the generated
-// font map; only this test asserts the names it produces exist in it.
-import { iconMap } from '../components/icons/glicons-map.js';
 
+// `iconMap` is deliberately imported here rather than in `agentUtils.ts`: the resolver stays free of
+// the generated font map, while this test can still assert that every resolved icon name exists.
 const repo = '/repo/main';
 const wtA = '/repo.worktrees/feature-a';
 const wtB = '/repo.worktrees/feature-b';

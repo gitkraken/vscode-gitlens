@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	AutoRebaseSummary,
@@ -8,7 +9,6 @@ import type {
 	ResolvedFileSummary,
 	UndoAutoRebaseResult,
 } from '../../../../plus/graph/graphService.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import {
 	confidenceLevel,
 	manualResolutionDisplay,
@@ -22,11 +22,11 @@ import {
 import { SheetWrapper } from './sheetWrapper.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/popover-confirm.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 export interface RebaseSummaryViewDiffDetail {
 	step: number;
@@ -111,8 +111,8 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				display: flex;
 				gap: var(--gl-space-6);
 				align-items: baseline;
-				margin-block-start: var(--gl-space-4);
 				padding: var(--gl-space-6) var(--gl-space-8);
+				margin-block-start: var(--gl-space-4);
 				color: var(--vscode-inputValidation-warningForeground, inherit);
 				background: var(--vscode-inputValidation-warningBackground, transparent);
 				border: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder, transparent);
@@ -133,10 +133,10 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 			}
 
 			/* The header has to read as a band that owns the rows beneath it. It can't tint itself with
-			   the sideBar-background (the sheet body's own surface) or with the
-			   sideBarSectionHeader-background (identical to it in the default themes) — either way the
-			   band and its rows paint the same color and the steps blur into one wash. Deriving the tint
-			   from the foreground contrasts against whatever surface the host provides. */
+  the sideBar-background (the sheet body's own surface) or with the
+  sideBarSectionHeader-background (identical to it in the default themes) — either way the
+  band and its rows paint the same color and the steps blur into one wash. Deriving the tint
+  from the foreground contrasts against whatever surface the host provides. */
 			.step__head {
 				--step-accent: color-mix(in srgb, var(--vscode-descriptionForeground) 60%, transparent);
 
@@ -161,7 +161,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				border: none;
 				border-block: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
 				/* Outcome accent down the band's edge — the same signal as the header's badge, but
-				   scannable while the rows are what's actually being read. */
+   scannable while the rows are what's actually being read. */
 				box-shadow: inset 0.3rem 0 0 0 var(--step-accent);
 			}
 
@@ -204,43 +204,43 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				flex: 1;
 				min-width: 0;
 				overflow: hidden;
-				color: var(--vscode-descriptionForeground);
-				font-size: var(--gl-font-sm);
 				text-overflow: ellipsis;
+				font-size: var(--gl-font-sm);
+				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
 			}
 
 			.step__count {
 				flex: none;
-				color: var(--vscode-descriptionForeground);
 				font-size: var(--gl-font-sm);
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.step__skipped {
 				flex: none;
-				color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
 				font-size: var(--gl-font-sm);
 				font-variant: all-small-caps;
+				color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
 			}
 
 			.step__manual {
 				flex: none;
-				color: var(--vscode-descriptionForeground);
 				font-size: var(--gl-font-sm);
 				font-variant: all-small-caps;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Indent the rows behind a rail so they read as belonging to the band above, and close the
-			   group with trailing space — a boundary alone still left adjacent steps ambiguous about
-			   which header owned which rows. */
+  group with trailing space — a boundary alone still left adjacent steps ambiguous about
+  which header owned which rows. */
 			.files {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-8);
-				margin-block: 0 var(--gl-space-12);
-				margin-inline: var(--gl-space-24) 0;
 				padding-block: var(--gl-space-8);
 				padding-inline: var(--gl-space-12) var(--gl-space-16);
+				margin-block: 0 var(--gl-space-12);
+				margin-inline: var(--gl-space-24) 0;
 				list-style: none;
 				border-inline-start: 0.2rem solid
 					color-mix(in srgb, var(--vscode-descriptionForeground) 45%, transparent);
@@ -258,16 +258,16 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				flex: 1;
 				min-width: 0;
 				overflow: hidden;
-				font-weight: 600;
 				text-overflow: ellipsis;
+				font-weight: 600;
 				white-space: nowrap;
 			}
 
 			/* Reasoning is indented to hang under the file row's badge; the indent lives on the wrapper so
-			   the "see more" button lines up with the text rather than the row. */
+  the "see more" button lines up with the text rather than the row. */
 			.resolve-file__reason {
-				margin-top: var(--gl-space-4);
 				padding-inline-start: var(--gl-space-16);
+				margin-top: var(--gl-space-4);
 			}
 
 			.resolve-file__reasoning {

@@ -3,6 +3,9 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { getDateDifference } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../constants.js';
@@ -30,10 +33,7 @@ import { createCommandLink } from '../../../../system/commands.js';
 import type { AiUsageInfo } from '../../../rpc/services/types.js';
 import { accountRingStyles } from '../../plus/shared/components/accountRing.css.js';
 import { resolveAiOrgPool, resolveAiUsage } from '../../shared/aiUsage.js';
-import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
 import type { GlPromo } from '../../shared/components/promo.js';
-import { srOnly } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { PromosContext } from '../../shared/contexts/promos.js';
 import { promosContext } from '../../shared/contexts/promos.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
@@ -42,7 +42,7 @@ import { formatDate } from '../../shared/date.js';
 import type { SettingsActions } from '../actions.js';
 import '../../shared/components/badges/badge.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/promo.js';
 import '../../shared/components/skeleton-loader.js';
 
@@ -116,8 +116,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Quiet action — transparent with the widget hairline, matching settings-setup's quiet step
-			   action. gl-button has no such appearance, so it's dialed in through the component's own
-			   custom properties rather than by adding a shared variant for one surface. */
+  action. gl-button has no such appearance, so it's dialed in through the component's own
+  custom properties rather than by adding a shared variant for one surface. */
 			.button--quiet {
 				--button-foreground: var(--color-foreground--75);
 				--button-background: transparent;
@@ -126,9 +126,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Squared off from gl-badge's pill default and tinted — at this size the elliptical outline read
-			   as a control sitting beside the plan name rather than a label on it. Overridden locally rather
-			   than on the shared default, which other surfaces still want as a pill. The bottom padding buys
-			   back the room the all-caps text's missing descenders would otherwise leave under it. */
+  as a control sitting beside the plan name rather than a label on it. Overridden locally rather
+  than on the shared default, which other surfaces still want as a pill. The bottom padding buys
+  back the room the all-caps text's missing descenders would otherwise leave under it. */
 			gl-badge {
 				--gl-badge-color: var(--color-foreground--75);
 
@@ -212,8 +212,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Ring matches the Graph header's account pill (accountRing.css.ts) so the same entitlement reads
-			   the same everywhere. Only the photo gets it — the no-avatar fallback is a square-ish glyph, and
-			   a circular ring around it would read as a mistake. */
+  the same everywhere. Only the photo gets it — the no-avatar fallback is a square-ish glyph, and
+  a circular ring around it would read as a mistake. */
 			.identity__media img {
 				width: 4rem;
 				aspect-ratio: 1 / 1;
@@ -282,7 +282,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Underline the label, not the icon — it has to come off the anchor, since the icon can't opt
-			   out of an inherited decoration from its own side. */
+  out of an inherited decoration from its own side. */
 			.identity__sync:hover {
 				text-decoration: none;
 			}
@@ -321,8 +321,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Accents the TIER badge (what was bought); STATUS badges (Trial / Unverified) keep the neutral
-			   default. Sharing one treatment would make an upgrade and a countdown read as the same kind of
-			   claim — the same distinction account-chip's renderPlanTitle draws, kept in sync here. */
+  default. Sharing one treatment would make an upgrade and a countdown read as the same kind of
+  claim — the same distinction account-chip's renderPlanTitle draws, kept in sync here. */
 			.plan__tier {
 				--gl-badge-color: var(--vscode-textLink-foreground);
 			}
@@ -466,8 +466,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color
-			   alone (docs/accessibility.md). Foreground-register warning token so a hairline of text still
-			   out-contrasts the card behind it. */
+  alone (docs/accessibility.md). Foreground-register warning token so a hairline of text still
+  out-contrasts the card behind it. */
 			.ai__warning {
 				flex: none;
 				font-size: var(--gl-font-sm);
@@ -500,7 +500,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Supplementary to the personal figure, so it stays in the subdued register of the reset line
-			   below rather than competing with the meter above. */
+  below rather than competing with the meter above. */
 			.ai__org {
 				display: flex;
 				flex-direction: row;
@@ -516,8 +516,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Same recipe as the personal meter's track so the two read as siblings, but laid out as a flex
-			   row: the pool is split between this user and everyone else, and whatever no segment covers is
-			   the pool's remaining allowance — the track itself, never a third painted element. */
+  row: the pool is split between this user and everyone else, and whatever no segment covers is
+  the pool's remaining allowance — the track itself, never a third painted element. */
 			.ai__org-track {
 				display: flex;
 				height: 0.6rem;
@@ -533,21 +533,21 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Deliberately the personal meter's own fill token: this segment is the same person's
-			   consumption, and sharing the color is what ties their draw on the pool to their allowance
-			   above instead of reading as an unrelated quantity. */
+  consumption, and sharing the color is what ties their draw on the pool to their allowance
+  above instead of reading as an unrelated quantity. */
 			.ai__org-fill--yours {
 				background: var(--vscode-progressBar-background);
 			}
 
 			/* Everyone else's draw is context rather than this user's standing, so it takes a muted
-			   foreground tint — clearly weaker than the progress fill, still clear of the track behind it. */
+  foreground tint — clearly weaker than the progress fill, still clear of the track behind it. */
 			.ai__org-fill--rest {
 				background: var(--color-foreground--50);
 			}
 
 			/* A color key for the bar, sized as a supplementary row inside a card rather than a chart
-			   legend. It carries no values — those stay in the figure line above and the screen-reader
-			   summary beside it. */
+  legend. It carries no values — those stay in the figure line above and the screen-reader
+  summary beside it. */
 			.ai__legend {
 				display: flex;
 				flex-wrap: wrap;
@@ -590,14 +590,14 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* The card's footer action. A wider gap than the rows above it take from each other, so it reads
-			   as the card's action rather than another line of the pool block it follows. */
+  as the card's action rather than another line of the pool block it follows. */
 			.ai__credits {
 				display: flex;
 				margin-block-start: var(--gl-space-16);
 			}
 
 			/* Not an action: this user can't buy credits, so the line names who can instead of offering a
-			   control that would only bounce them. Same subdued register as the reset line. */
+  control that would only bounce them. Same subdued register as the reset line. */
 			.ai__credits-note {
 				margin-block: var(--gl-space-16) 0;
 				font-size: var(--gl-font-sm);
@@ -605,16 +605,16 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Stands in for the figure and the bar together, so the card holds roughly its loaded height
-			   while the host's async seed lands instead of growing under the pointer. Block, because the
-			   skeleton's host element is inline by default. */
+  while the host's async seed lands instead of growing under the pointer. Block, because the
+  skeleton's host element is inline by default. */
 			.ai__skeleton {
 				display: block;
 				margin-block-start: var(--gl-space-10);
 			}
 
 			/* The same filled error recipe settings-integrations uses for its retry row. Restated here
-			   rather than shared: these are separate shadow roots, and one reuse doesn't earn a shared
-			   module. */
+  rather than shared: these are separate shadow roots, and one reuse doesn't earn a shared
+  module. */
 			.ai__error {
 				display: flex;
 				gap: var(--gl-space-8);
@@ -725,7 +725,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			}
 
 			/* Forced-colors mode drops box-shadow; repaint the entitlement ring as an outline, which survives
-			   and is equally layout-free. */
+  and is equally layout-free. */
 			@media (forced-colors: active) {
 				.identity__media img {
 					outline: 0.1rem solid ButtonBorder;

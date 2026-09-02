@@ -1,3 +1,4 @@
+import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { Uri } from 'vscode';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
@@ -8,7 +9,6 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
@@ -20,6 +20,7 @@ import { fromProviderPullRequest, toProviderPullRequestWithUniqueId } from '@git
 import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
@@ -85,7 +86,7 @@ import type {
 	GraphStashContextValue,
 	GraphTagContextValue,
 } from './protocol.js';
-import { createWipRowId, sidebarItemOrigin } from './protocol.js';
+import { sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read

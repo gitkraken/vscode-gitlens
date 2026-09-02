@@ -1,11 +1,11 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { elementBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
-import { elementBase, scrollableBase } from '../../shared/components/styles/lit/base.css.js';
-import '../../shared/components/code-icon.js';
-import '../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 import '../../plus/shared/components/feature-gate-plus-state.js';
 
 export type RebaseConflictIndicatorStatus = 'loading' | 'clean' | 'conflicts' | 'error' | 'upgrade';

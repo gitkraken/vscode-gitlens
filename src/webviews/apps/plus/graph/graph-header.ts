@@ -1,3 +1,4 @@
+import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { computed, SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
@@ -7,6 +8,9 @@ import { cache } from 'lit/directives/cache.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import { getAltKeySymbol } from '@env/platform.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.js';
+import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import type { SearchOperatorsLongForm, SearchQuery } from '@gitlens/git/models/search.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
@@ -25,21 +29,17 @@ import type {
 	GraphWipState,
 	State,
 } from '../../../plus/graph/protocol.js';
-import { createWipRowId } from '../../../plus/graph/protocol.js';
 import { notifyService } from '../../shared/actions/rpc.js';
-import type { GlPopover } from '../../shared/components/overlays/popover.js';
 import type { RepoButtonGroupClickEvent } from '../../shared/components/repo-button-group.js';
 import type { GlSearchBox } from '../../shared/components/search/search-box.js';
 import type {
 	SearchModeChangeEventDetail,
 	SearchNavigationEventDetail,
 } from '../../shared/components/search/search-input.js';
-import { inlineCode } from '../../shared/components/styles/lit/base.css.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { WebviewContext } from '../../shared/contexts/webview.js';
 import { webviewContext } from '../../shared/contexts/webview.js';
-import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
 import { waitForFocusSettled } from '../../shared/focus.js';
 import { providerIconName } from '../../shared/git-utils.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
@@ -62,13 +62,13 @@ import '../shared/components/account-chip.js';
 import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/menu/menu-divider.js';
 import '../../shared/components/menu/menu-item.js';
 import '../../shared/components/menu/menu-label.js';
 import '../../shared/components/progress.js';
-import '../../shared/components/overlays/popover.js';
-import '../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../shared/components/radio/radio.js';
 import '../../shared/components/radio/radio-group.js';
 import '../../shared/components/ref-button.js';
@@ -150,7 +150,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			/* Search is meaningless in Timeline mode — visually dim it and let inert block focus
-			   + interactions natively (instead of removing it from the row entirely). */
+  + interactions natively (instead of removing it from the row entirely). */
 			.search-box--disabled {
 				cursor: not-allowed;
 				opacity: 0.5;
@@ -161,7 +161,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			/* Create/Start menu rows: icon + label as an inline-flex pair. Color is inherited so the
-			   icon follows the menu-item's hover/selection foreground (no override). */
+  icon follows the menu-item's hover/selection foreground (no override). */
 			.action-menu__item {
 				display: inline-flex;
 				gap: var(--gl-space-6);

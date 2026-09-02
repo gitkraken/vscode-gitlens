@@ -2,6 +2,7 @@ import { exhaustiveArray } from '@gitlens/utils/array.js';
 import { raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
+import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { PromiseOrValue } from '@gitlens/utils/promise.js';
@@ -30,7 +31,6 @@ import type { GitCommitReachability, LeftRightCommitCountResult } from './provid
 import type { GitContributorsResult } from './providers/contributors.js';
 import type { ResolvedRevision } from './providers/revision.js';
 import type { GitResult } from './run.types.js';
-import { getBranchId } from './utils/branch.utils.js';
 import { createReference } from './utils/reference.utils.js';
 import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from './utils/repository.utils.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';

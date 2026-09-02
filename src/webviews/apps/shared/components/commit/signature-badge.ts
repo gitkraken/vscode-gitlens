@@ -2,7 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import { getSignatureIcon, getSignatureState } from './signature.utils.js';
-import '../code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-signature-badge')
 export class GlSignatureBadge extends LitElement {

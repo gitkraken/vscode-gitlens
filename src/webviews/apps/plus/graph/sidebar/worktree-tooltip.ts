@@ -3,7 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
-import '../../../shared/components/commit/commit-stats.js';
+import '@gitlens/components/components/commitStats.js';
 import '../../../shared/components/markdown/markdown.js';
 import { graphStateContext } from '../context.js';
 import type { GraphStateProvider } from '../stateProvider.js';
@@ -36,16 +36,16 @@ const requestSettleMs = 150;
 export class GlWorktreeTooltip extends SignalWatcher(LitElement) {
 	static override styles = css`
 		/* No font-size/line-height: the body is the same markdown the row rendered inline before, so it has
-		   to keep inheriting gl-tree-view's .hover-content typography. Declaring them here would win over
-		   that inherited value and size worktree tooltips differently from every other row's. */
+   to keep inheriting gl-tree-view's .hover-content typography. Declaring them here would win over
+   that inherited value and size worktree tooltips differently from every other row's. */
 		:host {
 			display: block;
 			max-width: 48rem;
 		}
 
 		/* gl-tree-view sizes tooltip codicons to the text via .hover-content gl-markdown, a descendant rule
-		   that cannot cross into this shadow root — so mirror it here, or mid-sentence icons revert to the
-		   16px default and tower over the words. */
+   that cannot cross into this shadow root — so mirror it here, or mid-sentence icons revert to the
+   16px default and tower over the words. */
 		gl-markdown {
 			--code-icon-size: 1.3rem;
 		}

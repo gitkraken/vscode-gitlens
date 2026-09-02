@@ -1,0 +1,129 @@
+import type { CSSResult } from 'lit';
+import { css, LitElement, unsafeCSS } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { iconMap as codiconsMap } from './icons/codiconsMap.js';
+import { iconMap as gliconsMap } from './icons/gliconsMap.js';
+
+function iconToSelector(name: string, char: string, prefix = '') {
+	return /*css*/ `:host([icon='${prefix}${name}'])::before { content: '${char}'; }`;
+}
+
+/**
+ * One `CSSResult` for every icon map, rather than one each. Two interpolations sitting at the top
+ * level of a `css` template both minify to the same placeholder at-rule, and the CSS minifier then
+ * discards the second as a duplicate — so the styles come back one interpolation short.
+ */
+function generateIconStyles(...maps: [iconMap: Record<string, string>, prefix?: string][]) {
+	return unsafeCSS(
+		maps
+			.flatMap(([iconMap, prefix]) =>
+				Object.entries(iconMap).map(([key, value]) => iconToSelector(key, value, prefix)),
+			)
+			.join(''),
+	);
+}
+
+@customElement('code-icon')
+export class CodeIcon extends LitElement {
+	// prettier-ignore
+	static override styles: CSSResult = css`
+		:host {
+			display: inline-block;
+			font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
+			vertical-align: var(--code-icon-v-align, text-bottom);
+			color: inherit;
+			text-align: center;
+			letter-spacing: normal;
+			text-decoration: none;
+			-webkit-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+			text-rendering: auto;
+			-webkit-font-smoothing: antialiased;
+			-moz-osx-font-smoothing: grayscale;
+		}
+
+		:host([icon^='gl-']) {
+			font-family: glicons;
+		}
+
+		${generateIconStyles([codiconsMap], [gliconsMap, 'gl-'])}
+
+		:host([icon='custom-start-work']) {
+			position: relative;
+		}
+
+		:host([icon='custom-start-work'])::before {
+			content: '\\ea68';
+		}
+
+		:host([icon='custom-start-work'])::after {
+			position: absolute;
+			right: -0.2em;
+			bottom: -0.2em;
+			font-size: 0.6em;
+			line-height: normal;
+			content: '\\ea60';
+		}
+
+		:host([icon='gl-pinned-filled'])::before {
+			/* TODO: see relative positioning needed in every use-case */
+			position: relative;
+			left: 1px;
+		}
+
+		@keyframes codicon-spin {
+			100% {
+				transform: rotate(360deg);
+			}
+		}
+
+		:host([modifier='spin']) {
+			/* Use steps to throttle FPS to reduce CPU usage */
+			animation: codicon-spin 1.5s steps(30) infinite;
+		}
+
+		:host([icon='loading'][modifier='spin']) {
+			/* Use steps to throttle FPS to reduce CPU usage */
+			animation: codicon-spin 1.5s steps(30) infinite;
+
+			/* custom speed & easing for loading icon */
+			animation-duration: 1s !important;
+			animation-timing-function: var(--gl-ease-spin) !important;
+		}
+
+		:host([flip='inline']) {
+			transform: rotateY(180deg);
+		}
+
+		:host([flip='block']) {
+			transform: rotateX(180deg);
+		}
+
+		:host([rotate='45']) {
+			transform: rotateZ(45deg);
+		}
+	`;
+
+	@property({ reflect: true })
+	icon = '';
+
+	@property({ reflect: true })
+	modifier = '';
+
+	@property({ type: Number })
+	size: number | undefined = undefined;
+
+	@property({ reflect: true })
+	flip?: 'inline' | 'block';
+
+	@property({ reflect: true })
+	rotate?: '45';
+
+	override updated(changedProperties: Map<string, unknown>): void {
+		if (changedProperties.has('size')) {
+			this.style.setProperty('--code-icon-size', `${this.size}px`);
+		}
+		super.update(changedProperties);
+	}
+}

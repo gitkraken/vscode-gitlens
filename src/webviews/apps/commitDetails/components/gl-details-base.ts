@@ -1,16 +1,16 @@
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { renderCommitStatsIcons } from '@gitlens/components/components/commitStats.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { FileShowOptions, Preferences, State } from '../../../commitDetails/protocol.js';
 import type { OpenMultipleChangesArgs } from '../../shared/actions/file.js';
-import { renderCommitStatsIcons } from '../../shared/components/commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { renderCopyChangesAction, renderOpenChangesAction } from '../../shared/components/tree/file-tree-utils.js';
 import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
-import '../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/chips/action-chip.js';
 import '../../shared/components/tree/gl-file-tree-pane.js';
 

@@ -1,9 +1,18 @@
 import { css } from 'lit';
-import { focusOutline } from '../../../shared/components/styles/lit/a11y.css.js';
+import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 
 export const graphBranchSheetPaneStyles = css`
 	:host {
 		display: block;
+		--relationship-card-merge-behind: var(
+			--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor,
+			var(--color-foreground--50)
+		);
+		--relationship-card-merge-conflict: var(
+			--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor)
+		);
+		--relationship-card-merged: var(--vscode-gitlens-mergedPullRequestIconColor);
 	}
 
 	/* Metadata strip — mirrors gl-details-wip-header's branch/issues rows and the shared
@@ -153,8 +162,8 @@ export const graphBranchSheetPaneStyles = css`
 		min-width: 0;
 		max-width: 100%;
 		padding: 0;
-		color: inherit;
 		font-weight: 600;
+		color: inherit;
 		text-decoration: none;
 		cursor: pointer;
 		background: none;
@@ -222,18 +231,6 @@ export const graphBranchSheetPaneStyles = css`
 	:host-context(.vscode-light),
 	:host-context(.vscode-high-contrast-light) {
 		--relationship-card-merge-clean: #0a0;
-	}
-
-	:host {
-		--relationship-card-merge-behind: var(
-			--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor,
-			var(--color-foreground--50)
-		);
-		--relationship-card-merge-conflict: var(
-			--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
-			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor)
-		);
-		--relationship-card-merged: var(--vscode-gitlens-mergedPullRequestIconColor);
 	}
 
 	/* Merge-target composite — the single gl-merge-target glyph plus a state indicator tucked under
@@ -401,7 +398,7 @@ export const graphBranchSheetPaneStyles = css`
 		display: flex;
 		gap: var(--gl-space-4);
 		align-items: center;
-		color: var(--color-foreground--65);
 		font-size: var(--gl-font-sm);
+		color: var(--color-foreground--65);
 	}
 `;

@@ -7,6 +7,12 @@ import type {
 	AIReviewFocusArea,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
+import { redispatch } from '@gitlens/components/components/element.js';
+import {
+	elementBase,
+	metadataBarVarsBase,
+	subPanelEnterStyles,
+} from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -18,12 +24,6 @@ import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProt
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
-import { redispatch } from '../../../shared/components/element.js';
-import {
-	elementBase,
-	metadataBarVarsBase,
-	subPanelEnterStyles,
-} from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -52,11 +52,11 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/copy-container.js';
 import '../../../shared/components/gl-ai-model-chip.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';

@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import './code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import './copy-container.js';
 
 const styles = css`

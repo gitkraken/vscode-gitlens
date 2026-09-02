@@ -73,9 +73,9 @@ function collectDirectProductionPackages(start) {
 }
 
 async function generate() {
-	// The extension bundles the `@gitlens/*` packages from source, so their runtime dependencies
-	// (e.g. @octokit/* via @gitlens/git-github) ship in dist/ too. Scanning only the root manifest
-	// would omit their notices.
+	// The extension bundles the workspace packages from source, so their runtime dependencies (e.g.
+	// @octokit/* via @gitlens/git-github, @lit-labs/virtualizer via @gitkraken/commit-graph-ui) ship
+	// in dist/ too. Scanning only the root manifest would omit their notices.
 	const roots = [process.cwd(), ...getBundledPackageDirs()];
 	// Each scan walks node_modules independently, so run them concurrently rather than nine-in-a-row.
 	const results = await Promise.allSettled(roots.map(start => collectDirectProductionPackages(start)));

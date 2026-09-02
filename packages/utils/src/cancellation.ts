@@ -9,10 +9,23 @@ const cancellationErrorBrand = Symbol.for('CancellationError');
  * recognized by `isCancellationError`.
  */
 export class CancellationError extends Error {
-	readonly [cancellationErrorBrand] = true;
+	// TS-only nominal brand (not read anywhere) — without it, `CancellationError` has the same
+	// structural shape as any other `Error` subtype, so `isCancellationError`'s negative narrowing
+	// (`if (isCancellationError(ex)) throw ex;`) collapses an unrelated error union to `never` instead
+	// of leaving it narrowed. The runtime brand stays a symbol (below) for the cross-realm check.
+	private readonly _cancellationErrorBrand: true = true;
 
 	constructor(public readonly original?: Error) {
 		super();
+		// A symbol-keyed computed class field can't be typed for `isolatedDeclarations` (only well-known
+		// symbols like `Symbol.iterator` qualify), so the brand is set here with the same runtime shape
+		// (writable/enumerable/configurable) a plain field assignment would produce.
+		Object.defineProperty(this, cancellationErrorBrand, {
+			value: true,
+			writable: true,
+			enumerable: true,
+			configurable: true,
+		});
 		this.name = 'CancellationError';
 
 		if (this.original) {

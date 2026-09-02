@@ -48,7 +48,7 @@ class Logger {
 	#output: LogChannel | undefined;
 	#provider: RequireSome<LogChannelProvider, 'sanitizeKeys'> | undefined;
 
-	configure(provider: LogChannelProvider, debugging: boolean = false) {
+	configure(provider: LogChannelProvider, debugging: boolean = false): void {
 		this.#provider = {
 			...provider,
 			sanitizeKeys: new Set([...defaultSanitizeKeys, ...(provider.sanitizeKeys ?? [])]),
@@ -73,7 +73,7 @@ class Logger {
 	}
 
 	#isDebugging = false;
-	get isDebugging() {
+	get isDebugging(): boolean {
 		return this.#isDebugging;
 	}
 
@@ -298,7 +298,7 @@ class Logger {
 	}
 }
 
-const _logger = new Logger();
+const _logger: Logger = new Logger();
 export { _logger as Logger };
 
 function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
@@ -339,7 +339,10 @@ function toFriendlyLogLevel(level: OrderedLevel): LogLevel {
 	}
 }
 
-export const customLoggableNameFns = new WeakMap<object, (instance: any, name: string) => string>();
+export const customLoggableNameFns: WeakMap<object, (instance: any, name: string) => string> = new WeakMap<
+	object,
+	(instance: any, name: string) => string
+>();
 
 export function getLoggableName(instance: object): string {
 	let ctor;

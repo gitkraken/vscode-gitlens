@@ -7,13 +7,13 @@ import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from '../../.
 import { compactBreadcrumbsConsumerStyles } from '../../../shared/components/breadcrumbs.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/copy-container.js';
 import '../../../shared/components/file-icon/file-icon.js';
 import '../../../shared/components/menu/menu-label.js';
 import '../../../shared/components/menu/menu-popover.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/ref-button.js';
 import '../../../shared/components/ref-name.js';
 import '../../../shared/components/repo-button-group.js';
@@ -110,9 +110,9 @@ export class GlTimelineHeader extends LitElement {
 			}
 
 			/* When embedded inside the Graph webview's Visual History, the surrounding header
-	 * row already supplies horizontal/vertical padding and the visualization-switcher
-	 * sits to our left. Dropping our own margin keeps the two-visualization header
-	 * heights aligned so toggling between Timeline and Treemap doesn't jump the chart. */
+* row already supplies horizontal/vertical padding and the visualization-switcher
+* sits to our left. Dropping our own margin keeps the two-visualization header
+* heights aligned so toggling between Timeline and Treemap doesn't jump the chart. */
 			:host([host='graph']) .header {
 				margin: 0;
 			}
@@ -139,13 +139,13 @@ export class GlTimelineHeader extends LitElement {
 				align-items: center;
 
 				/* Slotted into <gl-breadcrumbs>; the host is display: flex with item orders
-		   at idx * 2. Push to the end of the chain via flex order. */
+ at idx * 2. Push to the end of the chain via flex order. */
 				order: 9999;
 				margin-left: var(--gl-space-4);
 
 				/* Match the breadcrumbs' compact density: smaller font, smaller icons, tighter
-	   button padding. The buttons sit visually adjacent to the crumb chain so they
-	   need to share its size scale or they look like a different control set. */
+button padding. The buttons sit visually adjacent to the crumb chain so they
+need to share its size scale or they look like a different control set. */
 				font-size: var(--gl-font-md);
 				--code-icon-size: 1.3rem;
 			}
@@ -155,14 +155,14 @@ export class GlTimelineHeader extends LitElement {
 				--button-line-height: 1.2;
 
 				/* Match the breadcrumb-item's fixed min-height so icon-only buttons (the Clear
-		   ×) and icon+text buttons (Choose) end up the same height regardless of
-		   content. Without this, the icon-only one is ~1.4px shorter. */
+ ×) and icon+text buttons (Choose) end up the same height regardless of
+ content. Without this, the icon-only one is ~1.4px shorter. */
 				min-height: 1.8rem;
 			}
 
 			/* Style hr inside slotted tooltip content (e.g. gl-ref-button's "Change Reference..."
-	   tooltip in the View Options popover). Browser default hr is a thick beveled line
-	   that looks wrong inside the dark tooltip body. */
+tooltip in the View Options popover). Browser default hr is a thick beveled line
+that looks wrong inside the dark tooltip body. */
 			[slot='tooltip'] hr {
 				margin: var(--gl-space-4) 0;
 				border: none;
@@ -179,8 +179,8 @@ export class GlTimelineHeader extends LitElement {
 			}
 
 			/* Pill renders as a popover-anchor button — strip default <button> chrome so it reads
-	   as the same compact label-with-chevron the static span renders, then add the hover/
-	   focus affordance to advertise interactivity. */
+as the same compact label-with-chevron the static span renders, then add the hover/
+focus affordance to advertise interactivity. */
 			.details__timeframe--button {
 				display: inline-flex;
 				gap: var(--gl-space-2);

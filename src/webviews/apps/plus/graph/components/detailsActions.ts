@@ -26,6 +26,7 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { areEqual } from '@gitlens/utils/array.js';
+import { getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -92,7 +93,6 @@ import {
 } from '../../../shared/actions/rpc.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import { waitForFocusSettled } from '../../../shared/focus.js';
-import { getRemoteNameFromBranchName } from '../../../shared/git-utils.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import type { AppState } from '../context.js';
 import { compareSides } from './detailsState.js';

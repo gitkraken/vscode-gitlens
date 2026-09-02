@@ -1,0 +1,59 @@
+{
+	"name": "@gitlens/components",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Reusable GitLens Lit components, controllers, directives, and styles.",
+	"author": {
+		"name": "GitKraken",
+		"url": "https://gitkraken.com"
+	},
+	"license": "SEE LICENSE IN LICENSE",
+	"type": "module",
+	"sideEffects": [
+		"./src/components/agentMark.ts",
+		"./src/components/codeIcon.ts",
+		"./src/components/commitStats.ts",
+		"./src/components/wipStats.ts",
+		"./src/components/pills/tracking.ts",
+		"./src/components/overlays/popover.ts",
+		"./src/components/overlays/tooltip.ts",
+		"./dist/components/agentMark.js",
+		"./dist/components/codeIcon.js",
+		"./dist/components/commitStats.js",
+		"./dist/components/wipStats.js",
+		"./dist/components/pills/tracking.js",
+		"./dist/components/overlays/popover.js",
+		"./dist/components/overlays/tooltip.js"
+	],
+	"exports": {
+		"./package.json": "./package.json",
+		"./__tests__/*.js": null,
+		"./*.js": "./src/*.ts",
+		"./components/*.js": "./src/components/*.ts",
+		"./components/overlays/*.js": "./src/components/overlays/*.ts",
+		"./components/icons/*.js": "./src/components/icons/*.ts",
+		"./components/pills/*.js": "./src/components/pills/*.ts",
+		"./components/styles/lit/*.js": "./src/components/styles/lit/*.ts",
+		"./controllers/*.js": "./src/controllers/*.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../.oxlintrc.json .",
+		"clean": "pnpx rimraf --glob *.tgz",
+		"lint:css": "stylelint \"src/**/*.{css,ts}\"",
+		"test": "mocha --require ../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+	},
+	"dependencies": {
+		"@awesome.me/webawesome": "catalog:",
+		"@gitlens/utils": "workspace:*"
+	},
+	"peerDependencies": {
+		"lit": "catalog:"
+	},
+	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"lit": "catalog:",
+		"mocha": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

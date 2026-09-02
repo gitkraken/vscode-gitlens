@@ -36,6 +36,21 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
 /**
+ * DEBUG-only: byte length of the most recently decoded RPC frame, exactly as received over the
+ * wire (post-compression, when compressed) — set by {@link decodeRpcPayload} / {@link inflateRpcPayload}
+ * where the raw bytes are already in hand, so a DEBUG diagnostic further downstream (e.g. the graph's
+ * rows-applied perf mark) can report frame size without re-serializing the decoded payload. A frame
+ * can carry more than one batched RPC message (see hostEndpoint.ts's visibility-restore replay), so
+ * this is the whole frame's size, not any single message's share of it. Always 0 in production builds.
+ */
+let lastDecodedFrameBytes = 0;
+
+/** DEBUG-only: returns {@link lastDecodedFrameBytes}. Always 0 in production builds. */
+export function getLastDecodedRpcFrameBytes(): number {
+	return lastDecodedFrameBytes;
+}
+
+/**
  * Encodes a Supertalk message as a Uint8Array for binary transit through VS Code IPC.
  *
  * VS Code extracts TypedArrays from postMessage payloads before JSON serialization,
@@ -53,6 +68,10 @@ export function encodeRpcPayload(message: unknown): Uint8Array {
  * VS Code's internal buffer type normalization.
  */
 export function decodeRpcPayload(data: Uint8Array | ArrayBuffer): unknown {
+	if (DEBUG) {
+		lastDecodedFrameBytes = data.byteLength;
+	}
+
 	return JSON.parse(textDecoder.decode(data));
 }
 
@@ -65,6 +84,10 @@ export const rpcCompressionMinBytes = 1024;
  * bundle-safe on both sides.
  */
 export async function inflateRpcPayload(data: Uint8Array | ArrayBuffer): Promise<unknown> {
+	if (DEBUG) {
+		lastDecodedFrameBytes = data.byteLength;
+	}
+
 	// `body` is only null for a Response with no body (e.g. a 204/205); `data` always provides one.
 	const stream = new Response(data).body!.pipeThrough(new DecompressionStream('deflate-raw'));
 	return JSON.parse(await new Response(stream).text());

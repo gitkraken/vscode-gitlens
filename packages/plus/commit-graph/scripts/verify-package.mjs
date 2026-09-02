@@ -24,7 +24,7 @@ await verifyPackedPackage({
 				attwEntrypoints: [
 					'./zones.js',
 					'./lanes/colors.js',
-					'./wip/nearest.js',
+					'./wip/identity.js',
 					'./engine/session.js',
 					'./engine/types.js',
 				],

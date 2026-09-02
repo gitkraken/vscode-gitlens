@@ -2,6 +2,9 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { focusableBaseStyles, focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlExtensionCommands } from '../../../../../constants.commands.js';
 import {
 	getSubscriptionEntitlement,
@@ -9,9 +12,6 @@ import {
 	isSubscriptionTrial,
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
-import { focusableBaseStyles, focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
@@ -26,8 +26,8 @@ import { actionButton } from '../styles/graph.css.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/codeIcon.js';
+import '@gitlens/components/components/overlays/popover.js';
 import '../../../shared/components/progress-ring.js';
 import '../../shared/components/account-chip.js';
 import '../../shared/components/integrations-chip.js';
@@ -98,32 +98,32 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			/* Account pill: the avatar carries a state ring (which entitlement is active) plus an
-			   always-visible chevron signposting that the pill opens something. The ring is painted with
-			   box-shadow on the avatar part — same technique as the Visual History rail avatars
-			   (timeline/components/chart.ts) — so it takes no layout space and can never nudge the chevron
-			   as the subscription resolves. Emphasis is inverted against tier: it tracks how much the user
-			   needs to act, so unpaid (the upsell) is boldest and paid is calmest. */
+  always-visible chevron signposting that the pill opens something. The ring is painted with
+  box-shadow on the avatar part — same technique as the Visual History rail avatars
+  (timeline/components/chart.ts) — so it takes no layout space and can never nudge the chevron
+  as the subscription resolves. Emphasis is inverted against tier: it tracks how much the user
+  needs to act, so unpaid (the upsell) is boldest and paid is calmest. */
 			.account-button {
 				/* 2rem, down from 2.2rem: the boldest ring is 0.2rem, and 2rem + 2 × 0.2rem = 2.4rem leaves
-				   0.1rem of clearance inside the pill's 2.6rem box instead of sitting flush on its edge. */
+   0.1rem of clearance inside the pill's 2.6rem box instead of sitting flush on its edge. */
 				--gl-avatar-size: 2rem;
 
 				/* The ring spends 0.2rem of the shared 0.5rem grid gap, so widen it to keep the apparent
-				   avatar-to-chevron gap at what the Start-menu pill's icon/chevron pair reads at. */
+   avatar-to-chevron gap at what the Start-menu pill's icon/chevron pair reads at. */
 				gap: var(--gl-space-8);
 			}
 
 			/* gl-avatar's host is inline-block, so its box is a line box: against the pill's 2.2rem strut the
-			   circle rides slightly low, which an unringed avatar hides but a ring exposes as unequal
-			   clearance. A grid host has no line layout, so the host box IS the circle. Local override —
-			   gl-avatar is unchanged for other consumers. */
+  circle rides slightly low, which an unringed avatar hides but a ring exposes as unequal
+  clearance. A grid host has no line layout, so the host box IS the circle. Local override —
+  gl-avatar is unchanged for other consumers. */
 			.account-button gl-avatar {
 				display: grid;
 			}
 
 			/* The slotted avatar-less glyph inherits line-height 2.2rem from the .action-button code-icon rule.
-			   At a 2rem circle that 22px box would hit the automatic minimum size and stretch the circle
-			   into an oval, so pin the glyph's own box. */
+  At a 2rem circle that 22px box would hit the automatic minimum size and stretch the circle
+  into an oval, so pin the glyph's own box. */
 			.account-button gl-avatar code-icon {
 				line-height: 1;
 			}
@@ -133,14 +133,14 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				min-height: 0;
 
 				/* Never gate this on --vscode-contrastBorder: any theme can set it, and setting it to the
-				   theme's own background is the standard way to suppress VS Code's default hairlines, which
-				   would paint the ring in the background color and erase the state. High contrast is covered
-				   by the forced-colors outline below, and the state is in the button's accessible name
-				   regardless. */
+   theme's own background is the standard way to suppress VS Code's default hairlines, which
+   would paint the ring in the background color and erase the state. High contrast is covered
+   by the forced-colors outline below, and the state is in the button's accessible name
+   regardless. */
 				box-shadow: 0 0 0 var(--gl-account-ring-width) var(--gl-account-ring-color);
 
 				/* The shared avatar zooms on hover (it's normally a standalone link); here it's the header
-				   button's glyph, so it must sit still like every other icon in the toolbar row. */
+   button's glyph, so it must sit still like every other icon in the toolbar row. */
 				transform: none;
 
 				/* Softens the loading → resolved handoff into a fade instead of a snap. */
@@ -148,13 +148,13 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			/* Tier badge, shown only when the titlebar row has room to spare (see the container query below).
-			   Neutral by default: TRIAL is a STATUS word, and the account panel deliberately keeps status
-			   neutral so an upgrade and a countdown don't read as the same kind of claim — only a real tier
-			   takes the accent (below). Leaving TRIAL neutral also stops it competing with its own amber ring.
+  Neutral by default: TRIAL is a STATUS word, and the account panel deliberately keeps status
+  neutral so an upgrade and a countdown don't read as the same kind of claim — only a real tier
+  takes the accent (below). Leaving TRIAL neutral also stops it competing with its own amber ring.
 
-			   gl-badge's host sets no display of its own, so it would blockify to a box sized by the pill's
-			   inherited 2.2rem strut and baseline-place the badge inside it, riding low. Giving the host a
-			   display makes its box the badge itself, so the button's align-items can center it. */
+  gl-badge's host sets no display of its own, so it would blockify to a box sized by the pill's
+  inherited 2.2rem strut and baseline-place the badge inside it, riding low. Giving the host a
+  display makes its box the badge itself, so the button's align-items can center it. */
 			.plan-badge {
 				display: none;
 				align-items: center;
@@ -166,15 +166,15 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			/* Squared off and tightened from gl-badge's pill default, mirroring how the account panel re-shapes
-			   its title badge: at toolbar size the ellipse reads as a control beside the avatar rather than a
-			   label on it.
+  its title badge: at toolbar size the ellipse reads as a control beside the avatar rather than a
+  label on it.
 
-			   line-height sets the badge's height here — the badge would otherwise inherit the pill's 2.2rem
-			   strut and pad out to the full pill height. Collapsing to 1 is safe because every tier code is
-			   all-caps with no descenders, but it also leaves the caps sitting on the box's floor, so the
-			   bottom padding buys back the room the missing descenders would have occupied and optically
-			   centers the text. align-items centers the anonymous text item, which gl-badge's inline-flex
-			   would otherwise stretch. */
+  line-height sets the badge's height here — the badge would otherwise inherit the pill's 2.2rem
+  strut and pad out to the full pill height. Collapsing to 1 is safe because every tier code is
+  all-caps with no descenders, but it also leaves the caps sitting on the box's floor, so the
+  bottom padding buys back the room the missing descenders would have occupied and optically
+  centers the text. align-items centers the anonymous text item, which gl-badge's inline-flex
+  would otherwise stretch. */
 			.plan-badge::part(base) {
 				align-items: center;
 				padding: 0 var(--gl-space-4) var(--gl-space-2);
@@ -183,8 +183,8 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			/* Container queries resolve through shadow boundaries by flat-tree ancestry, so this reaches the
-			   graph-titlebar container declared on the row in styles/header.css.ts. No feedback loop: the
-			   row's inline size comes from the webview width, not from this label. */
+  graph-titlebar container declared on the row in styles/header.css.ts. No feedback loop: the
+  row's inline size comes from the webview width, not from this label. */
 			@container graph-titlebar (min-width: 70rem) {
 				.account-button[data-entitlement='trial'] .plan-badge,
 				.account-button[data-entitlement='paid'] .plan-badge {
@@ -193,17 +193,17 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			/* Always visible so the pill reads as "opens something", but dimmed at rest so it never competes
-			   with the avatar. Opacity rather than a foreground token, so it dims whatever color the pill
-			   inherits. */
+  with the avatar. Opacity rather than a foreground token, so it dims whatever color the pill
+  inherits. */
 			.account-button .action-button__more {
 				opacity: 0.55;
 				transition: opacity var(--gl-duration-fast) var(--gl-ease-out);
 			}
 
 			/* One selector list for all three "engaged" signals: pointer hover, keyboard focus, and the
-			   rollup actually being open. gl-popover reflects its open attribute and triggers on hover+focus, so
-			   the pill can be open while the pointer sits on the panel rather than the button — without
-			   this the ring would dim under its own popover. */
+  rollup actually being open. gl-popover reflects its open attribute and triggers on hover+focus, so
+  the pill can be open while the pointer sits on the panel rather than the button — without
+  this the ring would dim under its own popover. */
 			.account-button:hover .action-button__more,
 			.account-button:focus-visible .action-button__more,
 			gl-popover[open] .account-button .action-button__more {
@@ -230,14 +230,14 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			/* .action-button has no :focus-visible rule of its own, so this pill falls back to the UA ring.
-			   Match the header's gl-buttons rather than the inset chip ring: the offset keeps the focus
-			   outline clear of the avatar's own ring instead of stacking two strokes 1px apart. */
+  Match the header's gl-buttons rather than the inset chip ring: the offset keeps the focus
+  outline clear of the avatar's own ring instead of stacking two strokes 1px apart. */
 			.account-button:focus-visible {
 				${focusOutlineButton}
 			}
 
 			/* Forced-colors mode drops box-shadow, which would erase the ring. Repaint it as an outline —
-			   also layout-free, also radius-following, and it survives. */
+  also layout-free, also radius-following, and it survives. */
 			@media (forced-colors: active) {
 				.account-button gl-avatar::part(avatar) {
 					outline: 0.1rem solid ButtonBorder;
@@ -250,8 +250,8 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: var(--gl-space-8);
 				/* Comfortable 30rem target, but yield on narrow viewports: the popover body is capped to the
-				   available viewport width and clips overflow, so a hard min-width would get cut off (≤~650px).
-				   min-width:0 + max-width:100% lets the rollup shrink to the body instead of overflowing it. */
+   available viewport width and clips overflow, so a hard min-width would get cut off (≤~650px).
+   min-width:0 + max-width:100% lets the rollup shrink to the body instead of overflowing it. */
 				width: 30rem;
 				min-width: 0;
 				max-width: min(34rem, 100%);

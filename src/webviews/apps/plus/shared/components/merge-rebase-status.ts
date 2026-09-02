@@ -5,13 +5,14 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { GitPausedOperationStatus, GitRebaseStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
-import type { PausedOperationVariant } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { getConflictCurrentRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import type { PausedOperationVariant } from '@gitlens/utils/pausedOperation.js';
 import {
-	getConflictCurrentRef,
+	getPausedOperationLabel,
 	getPausedOperationVariant,
 	pausedOperationStatusStringsByType,
 	pausedOperationVariantIcons,
-} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+} from '@gitlens/utils/pausedOperation.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../../../commands/autoRebase.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration.js';
@@ -22,7 +23,6 @@ import {
 	getPausedOperationAbortLabel,
 	getPausedOperationBarActionLabel,
 	getPausedOperationBarIconTooltip,
-	getPausedOperationBarLabel,
 	getPausedOperationSkipDetail,
 	getPausedOperationSkipLabel,
 	getPausedOperationStepTooltipParts,
@@ -32,9 +32,9 @@ import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/commit-sha.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 @customElement('gl-merge-rebase-status')
 export class GlMergeConflictWarning extends LitElement {
@@ -42,18 +42,17 @@ export class GlMergeConflictWarning extends LitElement {
 		css`
 			.status {
 				/* The strip's background is a fixed decoration color, not a theme color, so its chips can't
-				   derive from the theme either. Lightening reads on all four variants where a currentColor
-				   tint muddied the amber/green fills, so chips/pills/buttons are white overlays carrying
-				   dark ink whatever the strip's own text color is. */
-				--gl-paused-op-chip: rgb(255 255 255 / 0.45);
-				--gl-paused-op-chip-hover: rgb(255 255 255 / 0.6);
+   derive from the theme either. Lightening reads on all four variants where a currentColor
+   tint muddied the amber/green fills, so chips/pills/buttons are white overlays carrying
+   dark ink whatever the strip's own text color is. */
+				--gl-paused-op-chip: rgb(255 255 255 / 45%);
+				--gl-paused-op-chip-hover: rgb(255 255 255 / 60%);
 				--gl-paused-op-ink: #1a1a1a;
 				--action-item-foreground: #000;
 				--action-item-hover-background: var(--gl-paused-op-chip);
 				--action-item-active-background: var(--gl-paused-op-chip-hover);
 
 				box-sizing: border-box;
-				container-type: inline-size;
 				display: flex;
 				gap: var(--gl-space-6);
 				align-items: center;
@@ -62,6 +61,7 @@ export class GlMergeConflictWarning extends LitElement {
 				min-height: 2.4rem;
 				padding: 0.2rem 0.4rem 0.2rem 0.6rem;
 				margin-block: 0;
+				container-type: inline-size;
 				color: #000;
 				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 				border-radius: var(--gl-radius-sm);
@@ -123,17 +123,17 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			/* Under width pressure the refs are the first thing to go: the branch row directly below the
-			   strip already names the branch, and the leading icon's hover names the operands, so the
-			   phrase and the actions never lose room. The threshold is where the chips stop being able to
-			   NAME their refs — slivers are worse than absence. Every variant sheds, including pending,
-			   whose leading "of" rides inside the group so its phrase still reads once they're gone. */
+  strip already names the branch, and the leading icon's hover names the operands, so the
+  phrase and the actions never lose room. The threshold is where the chips stop being able to
+  NAME their refs — slivers are worse than absence. Every variant sheds, including pending,
+  whose leading "of" rides inside the group so its phrase still reads once they're gone. */
 			@container (max-width: 52rem) {
 				.refs {
 					display: none;
 				}
 
 				/* Refs gone, the phrase is the only thing left that can absorb the squeeze — ellipsize it
-				   rather than let the label's overflow clip it mid-word. */
+   rather than let the label's overflow clip it mid-word. */
 				.label__phrase {
 					flex: 0 1 auto;
 					min-width: 0;
@@ -148,8 +148,8 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			/* Read-only (mode) banner: baseline-align so the "at 3/7" step counter lines up with the
-			   status text. The branch-name chips inflate the label's line-box, so plain center-alignment
-			   leaves the counter sitting too low. Keep the leading icon centered. */
+  status text. The branch-name chips inflate the label's line-box, so plain center-alignment
+  leaves the counter sitting too low. Keep the leading icon centered. */
 			:host([readonly]) .status {
 				align-items: baseline;
 			}
@@ -163,7 +163,7 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			/* The ref chips wrap atomic inline-level components, which text-decoration can't reach, so the
-			   clickable affordance is the fill rather than an underline. */
+  clickable affordance is the fill rather than an underline. */
 			.chip {
 				display: inline-flex;
 				flex: 0 1 auto;
@@ -360,7 +360,7 @@ export class GlMergeConflictWarning extends LitElement {
 		variant: PausedOperationVariant,
 		stepped: GitRebaseStatus | undefined,
 	) {
-		const label = getPausedOperationBarLabel(status, variant);
+		const label = getPausedOperationLabel(status, variant);
 
 		return html`<span class="label"
 			><span class="label__text label__phrase ${variant === 'conflicts' ? 'label__text--emphasized' : ''}"

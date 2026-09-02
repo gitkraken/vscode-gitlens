@@ -1,21 +1,21 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
+import { elementBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
-import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { splitButtonStyles } from '../../../shared/components/styles/lit/split-button.css.js';
 import type { FixupTarget } from '../utils/fixup.utils.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/checkbox/checkbox.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/menu/menu-popover.js';
-import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
+import '@gitlens/components/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/tooltip.js';
 
 // Register as a typed custom property so it can be animated/transitioned. @property in a
 // constructable stylesheet doesn't reliably register in Chromium; the JS API does.

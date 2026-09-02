@@ -1,5 +1,6 @@
 import { enterScope, exitScope, getCurrentScope, runInScope } from '#env/logScope.js';
 import { getScopedCounter } from './counter.js';
+import type { Counter } from './counter.js';
 import { getDurationMilliseconds, hrtime } from './hrtime.js';
 import type { LogLevel } from './logger.js';
 import { Logger } from './logger.js';
@@ -7,7 +8,7 @@ import { Logger } from './logger.js';
 /** Runs a function within a log scope context. */
 export { runInScope };
 
-export const logScopeIdGenerator = getScopedCounter();
+export const logScopeIdGenerator: Counter = getScopedCounter();
 
 export interface ScopedLogger {
 	readonly scopeId?: number;

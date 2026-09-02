@@ -5,7 +5,7 @@ import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, agentProviderIcon } from '../../../shared/agentUtils.js';
 import '../../../shared/components/card/card.js';
-import '../../../shared/components/code-icon.js';
+import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 
 declare global {

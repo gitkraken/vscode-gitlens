@@ -1,175 +1,137 @@
 #!/usr/bin/env node
 
 /**
- * Benchmark runner for GitLens
+ * Benchmark runner for GitLens and its workspace packages.
  *
  * Usage:
- *   pnpm run benchmark              # Run all benchmarks
- *   pnpm run benchmark string       # Run specific benchmark by name
- *   pnpm run benchmark --list       # List all available benchmarks
+ *   pnpm run benchmark                         # Run all benchmarks
+ *   pnpm run benchmark commit-graph-engine    # Run one benchmark by name
+ *   pnpm run benchmark --list                  # List all available benchmarks
+ *   pnpm run benchmark commit-graph-engine -- --quick --json out/perf/graph.json
  */
 
-import { execSync } from 'child_process';
-import { existsSync, readdirSync, statSync } from 'fs';
-import { dirname, join, basename } from 'path';
-import { fileURLToPath } from 'url';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { basename, dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as esbuild from 'esbuild';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const rootDir = join(__dirname, '..');
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const outputDir = join(rootDir, 'out', 'benchmarks');
+const ignoredDirectories = new Set(['.git', 'dist', 'node_modules', 'out']);
 
-// Parse command line arguments
 const args = process.argv.slice(2);
-const shouldList = args.includes('--list') || args.includes('-l');
-const specificBenchmark = args.find(arg => !arg.startsWith('--'));
+const separator = args.indexOf('--');
+const runnerArgs = separator === -1 ? args : args.slice(0, separator);
+const benchmarkArgs = separator === -1 ? [] : args.slice(separator + 1);
+const shouldList = runnerArgs.includes('--list') || runnerArgs.includes('-l');
+const specificBenchmark = runnerArgs.find(arg => !arg.startsWith('-'));
 
-/**
- * Find all benchmark files in the codebase
- */
+/** Find every `*.benchmark.ts` below a `__tests__` directory. */
 function findBenchmarkFiles() {
 	const benchmarks = [];
-	const testDirs = [];
 
-	// Find all __tests__ directories
-	function findTestDirs(dir) {
-		const entries = readdirSync(dir, { withFileTypes: true });
-		for (const entry of entries) {
-			if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'out') continue;
+	function visit(dir, insideTests = false) {
+		if (!existsSync(dir)) return;
+
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			if (entry.isSymbolicLink() || ignoredDirectories.has(entry.name)) continue;
 
 			const fullPath = join(dir, entry.name);
 			if (entry.isDirectory()) {
-				if (entry.name === '__tests__') {
-					testDirs.push(fullPath);
-				}
-				findTestDirs(fullPath);
-			}
-		}
-	}
-
-	findTestDirs(join(rootDir, 'src'));
-
-	// Find benchmark files in test directories
-	for (const testDir of testDirs) {
-		const entries = readdirSync(testDir);
-		for (const entry of entries) {
-			if (entry.endsWith('.benchmark.ts')) {
-				const fullPath = join(testDir, entry);
-				const relativePath = fullPath.replace(rootDir, '').replace(/\\/g, '/').substring(1);
-				const name = basename(entry, '.benchmark.ts');
-
+				visit(fullPath, insideTests || entry.name === '__tests__');
+			} else if (insideTests && entry.name.endsWith('.benchmark.ts')) {
+				const sourcePath = relative(rootDir, fullPath).replaceAll('\\', '/');
 				benchmarks.push({
-					name,
-					sourcePath: relativePath,
-					outputPath: relativePath.replace('src/', 'out/tests/').replace('.ts', '.js'),
+					name: basename(entry.name, '.benchmark.ts'),
+					sourcePath: sourcePath,
+					outputPath: join(outputDir, sourcePath.replace(/\.ts$/, '.mjs')),
 				});
 			}
 		}
 	}
 
-	return benchmarks;
+	visit(join(rootDir, 'src'));
+	visit(join(rootDir, 'packages'));
+	return benchmarks.sort((a, b) => a.sourcePath.localeCompare(b.sourcePath));
 }
 
-/**
- * List all available benchmarks
- */
 function listBenchmarks(benchmarks) {
 	console.log('Available benchmarks:\n');
 	for (const benchmark of benchmarks) {
-		console.log(`  ${benchmark.name.padEnd(20)} - ${benchmark.sourcePath}`);
+		console.log(`  ${benchmark.name.padEnd(24)} - ${benchmark.sourcePath}`);
 	}
 	console.log(`\nTotal: ${benchmarks.length} benchmark(s)`);
-	console.log('\nUsage:');
-	console.log('  pnpm run benchmark              # Run all benchmarks');
-	console.log('  pnpm run benchmark <name>       # Run specific benchmark');
-	console.log('  pnpm run benchmark --list       # Show this list');
+	console.log('\nUse `--` before arguments intended for a benchmark.');
 }
 
-/**
- * Build benchmarks
- */
-function buildBenchmarks() {
+async function buildBenchmarks(benchmarks) {
 	console.log('Building benchmarks...\n');
-	try {
-		execSync(`node ${join(rootDir, 'scripts', 'esbuild.tests.mjs')}`, {
-			stdio: 'inherit',
-			cwd: rootDir,
-		});
-	} catch (error) {
-		console.error('Error building benchmarks:', error.message);
-		process.exit(1);
-	}
+	await rm(outputDir, { recursive: true, force: true });
+	await esbuild.build({
+		bundle: true,
+		define: { DEBUG: 'false' },
+		entryNames: '[dir]/[name]',
+		entryPoints: benchmarks.map(benchmark => join(rootDir, benchmark.sourcePath)),
+		format: 'esm',
+		logLevel: 'warning',
+		minify: false,
+		outbase: rootDir,
+		outdir: outputDir,
+		outExtension: { '.js': '.mjs' },
+		platform: 'node',
+		sourcemap: true,
+		target: 'node20.14.0',
+	});
 }
 
-/**
- * Run a specific benchmark
- */
 function runBenchmark(benchmark) {
-	const benchmarkPath = join(rootDir, benchmark.outputPath);
-
-	if (!existsSync(benchmarkPath)) {
-		console.error(`Error: Benchmark file not found at ${benchmarkPath}`);
-		console.error('Make sure the build completed successfully.');
-		process.exit(1);
+	if (!existsSync(benchmark.outputPath)) {
+		throw new Error(`Benchmark bundle was not written to ${benchmark.outputPath}`);
 	}
 
 	console.log(`\nRunning benchmark: ${benchmark.name}`);
 	console.log(`Source: ${benchmark.sourcePath}\n`);
-
-	try {
-		execSync(`node "${benchmarkPath}"`, { stdio: 'inherit', cwd: rootDir });
-	} catch (error) {
-		console.error(`Error running benchmark ${benchmark.name}:`, error.message);
-		process.exit(1);
-	}
+	const result = spawnSync(process.execPath, ['--expose-gc', benchmark.outputPath, ...benchmarkArgs], {
+		cwd: rootDir,
+		stdio: 'inherit',
+	});
+	if (result.error != null) throw result.error;
+	if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-/**
- * Main execution
- */
-function main() {
+async function main() {
 	const benchmarks = findBenchmarkFiles();
-
 	if (benchmarks.length === 0) {
 		console.log('No benchmarks found.');
 		console.log('Create benchmark files named *.benchmark.ts in __tests__ directories.');
-		process.exit(0);
+		return;
 	}
 
-	// Handle --list flag
 	if (shouldList) {
 		listBenchmarks(benchmarks);
-		process.exit(0);
+		return;
 	}
 
-	// Build benchmarks
-	buildBenchmarks();
+	const selected =
+		specificBenchmark == null ? benchmarks : benchmarks.filter(benchmark => benchmark.name === specificBenchmark);
+	if (selected.length === 0) {
+		console.error(`Error: Benchmark "${specificBenchmark}" not found.\n`);
+		listBenchmarks(benchmarks);
+		process.exit(1);
+	}
+	if (specificBenchmark != null && selected.length > 1) {
+		throw new Error(`Benchmark name "${specificBenchmark}" is ambiguous; benchmark basenames must be unique.`);
+	}
 
-	// Run specific benchmark if specified
-	if (specificBenchmark) {
-		const benchmark = benchmarks.find(b => b.name === specificBenchmark);
-		if (!benchmark) {
-			console.error(`Error: Benchmark "${specificBenchmark}" not found.`);
-			console.error('\nAvailable benchmarks:');
-			for (const b of benchmarks) {
-				console.error(`  - ${b.name}`);
-			}
-			process.exit(1);
-		}
-
-		runBenchmark(benchmark);
-	} else {
-		// Run all benchmarks
-		console.log(`\nRunning ${benchmarks.length} benchmark(s)...\n`);
-
-		for (let i = 0; i < benchmarks.length; i++) {
-			if (i > 0) {
-				console.log('\n' + '━'.repeat(80) + '\n');
-			}
-			runBenchmark(benchmarks[i]);
-		}
+	await buildBenchmarks(selected);
+	for (let i = 0; i < selected.length; i++) {
+		if (i > 0) console.log(`\n${'━'.repeat(80)}\n`);
+		runBenchmark(selected[i]);
 	}
 
 	console.log('\n✓ All benchmarks completed successfully!\n');
 }
 
-main();
+await main();

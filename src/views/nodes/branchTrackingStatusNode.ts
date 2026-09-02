@@ -3,12 +3,12 @@ import type { GitBranch, GitTrackingUpstream } from '@gitlens/git/models/branch.
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
-import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { getUpstreamStatus } from '@gitlens/git/utils/status.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
+import { getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { first, last, map } from '@gitlens/utils/iterable.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Colors } from '../../constants.colors.js';

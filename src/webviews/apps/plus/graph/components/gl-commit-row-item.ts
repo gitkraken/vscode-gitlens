@@ -1,6 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import type { Preferences } from '../../../../plus/graph/detailsProtocol.js';
@@ -8,12 +10,10 @@ import {
 	commitPopoverStyles,
 	renderCommitPopoverContent,
 } from '../../../shared/components/commit/commit-popover-content.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { CommitRowData } from './gl-commit-row.js';
 import './gl-commit-row.js';
 import '../../../shared/components/commit/signature-badge.js';
-import '../../../shared/components/overlays/popover.js';
+import '@gitlens/components/components/overlays/popover.js';
 
 export interface CommitRowItemSelectEventDetail {
 	sha: string;
@@ -37,7 +37,7 @@ export class GlCommitRowItem extends LitElement {
 		css`
 			:host {
 				/* Make the internal gl-popover anchor span the row's container so the commit row is
-				   full-width (not shrink-to-content) in every consumer. */
+   full-width (not shrink-to-content) in every consumer. */
 				--gl-popover-anchor-width: 100%;
 
 				display: block;
@@ -46,7 +46,7 @@ export class GlCommitRowItem extends LitElement {
 			.item {
 				position: relative;
 				/* border-box so inline-size:100% INCLUDES the padding — otherwise 100% + padding overflows
-				   the gl-popover anchor (overflow:hidden) and clips the row's right edge (the date). */
+   the gl-popover anchor (overflow:hidden) and clips the row's right edge (the date). */
 				box-sizing: border-box;
 				display: flex;
 				gap: var(--gl-space-4);
@@ -70,10 +70,10 @@ export class GlCommitRowItem extends LitElement {
 			}
 
 			/* Overlay the signature badge on the avatar's TOP-right edge (the avatar is 2.4rem, leading +
-			   vertically centered inside gl-commit-row): top-right keeps it clear of the bottom-right
-			   committer-overlay convention, and pulling it onto the circular avatar's edge (not the
-			   bounding-box corner) keeps it off the sha/message text in the column to the right.
-			   Center-anchored (translate -50%) so the notch backing can't shift it. */
+  vertically centered inside gl-commit-row): top-right keeps it clear of the bottom-right
+  committer-overlay convention, and pulling it onto the circular avatar's edge (not the
+  bounding-box corner) keeps it off the sha/message text in the column to the right.
+  Center-anchored (translate -50%) so the notch backing can't shift it. */
 			.item__signature {
 				position: absolute;
 				inset-block-start: calc(50% - 0.9rem);
@@ -96,7 +96,7 @@ export class GlCommitRowItem extends LitElement {
 			}
 
 			/* Selection look is themable so consumers can express their own semantics (e.g. compare-mode's
-			   warning-hue "active scope" indicator) — defaults to a neutral list-selection tint + accent rail. */
+  warning-hue "active scope" indicator) — defaults to a neutral list-selection tint + accent rail. */
 			:host([selected]) .item {
 				background: var(
 					--gl-commit-row-item-selected-background,
