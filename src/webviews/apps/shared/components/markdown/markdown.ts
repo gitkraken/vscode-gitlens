@@ -11,6 +11,7 @@ import '@gitlens/components/components/overlays/tooltip.js';
 
 let inlineMarked: Marked | undefined;
 let blockMarked: Marked | undefined;
+let blockMarkedWithImageChips: Marked | undefined;
 
 @customElement('gl-markdown')
 export class GlMarkdown extends LitElement {
@@ -66,6 +67,16 @@ export class GlMarkdown extends LitElement {
 			h5,
 			h6 {
 				margin-inline: 0;
+			}
+
+			/* A paragraph that LEADS with an image (the hover formats' avatar) lays out as a card: the
+			   image in one column, everything after it in the other, so the author/date/sha lines wrap
+			   against a single left edge beside the avatar rather than under a baseline-aligned picture.
+			   (The block renderer strips the format's spacing after the image; the gap replaces it.) */
+			p:has(> img:first-child) {
+				display: flex;
+				gap: var(--gl-space-4);
+				align-items: flex-start;
 			}
 
 			:where(:host([density='compact'])) p,
@@ -168,6 +179,13 @@ export class GlMarkdown extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	inline = false;
 
+	/** Renders every image (markdown `![]()` and raw `<img>`) as a chip that opens the image in the
+	 *  browser rather than an `<img>` — for content like PR descriptions whose images can't load in
+	 *  the webview (no cookies for private repos, GitHub's pasted-image URLs). Off by default so
+	 *  GitLens's own generated images (e.g. hover avatars) still render inline. */
+	@property({ type: Boolean, reflect: true, attribute: 'image-chips' })
+	imageChips = false;
+
 	override render(): unknown {
 		return html`${this.markdown ? this.renderMarkdown(this.markdown) : ''}`;
 	}
@@ -198,8 +216,16 @@ export class GlMarkdown extends LitElement {
 			return html`<span>${unsafeHTML(rewriteInlineStylesToData(rendered))}</span>`;
 		}
 
-		blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer() });
-		rendered = blockMarked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
+		let marked;
+		if (this.imageChips) {
+			blockMarkedWithImageChips ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer(true) });
+			marked = blockMarkedWithImageChips;
+		} else {
+			blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer(false) });
+			marked = blockMarked;
+		}
+
+		rendered = marked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
 		rendered = renderThemeIconsWithinText(rendered);
 		return unsafeHTML(rewriteInlineStylesToData(rendered));
 	}
@@ -226,21 +252,51 @@ export function escape(html: string, encode?: boolean) {
 	return html;
 }
 
-function getMarkdownRenderer(): RendererObject {
+const leadingImageSpacingRegex = /^(<img\b[^>]*>)(?:\s|&nbsp;)+/i;
+
+function getMarkdownRenderer(imageChips: boolean): RendererObject {
 	return {
-		image: function (this: RendererThis, { href, text }: Tokens.Image): string {
-			return renderImagePlaceholder(href ? parseHrefAndDimensions(href).href : href, text);
+		image: function (this: RendererThis, { href, title, text }: Tokens.Image): string {
+			if (imageChips) {
+				return renderImagePlaceholder(href ? parseHrefAndDimensions(href).href : href, text);
+			}
+
+			let dimensions: string[] = [];
+			let attributes: string[] = [];
+			if (href) {
+				({ href, dimensions } = parseHrefAndDimensions(href));
+				attributes.push(`src="${escapeDoubleQuotes(href)}"`);
+			}
+			if (text) {
+				attributes.push(`alt="${escapeDoubleQuotes(text)}"`);
+			}
+			if (title) {
+				attributes.push(`title="${escapeDoubleQuotes(title)}"`);
+			}
+			if (dimensions.length) {
+				attributes = [...attributes, ...dimensions];
+			}
+			return `<img ${attributes.join(' ')}>`;
 		},
 		codespan: function (this: RendererThis, { text }: Tokens.Codespan): string {
 			return `<code>${escape(text)}</code>`;
 		},
 		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
-			const text = this.parser.parseInline(tokens);
+			let text = this.parser.parseInline(tokens);
+			if (!imageChips) {
+				// A leading image lays out as a card column (see the `p:has(> img:first-child)` rule),
+				// where the gap supplies the spacing — drop the format's own spaces/`&nbsp;` so the first
+				// line doesn't start indented relative to the lines that wrap beneath it.
+				text = text.replace(leadingImageSpacingRegex, '$1');
+			}
+
 			return `<p>${text}</p>`;
 		},
 		html: function (this: RendererThis, { text }: Tokens.HTML | Tokens.Tag): string {
-			const images = renderImagePlaceholdersFromHtml(text);
-			if (images) return images;
+			if (imageChips) {
+				const images = renderImagePlaceholdersFromHtml(text);
+				if (images) return images;
+			}
 
 			const match = text.match(/^(<span[^>]+>)|(<\/\s*span>)$/);
 			return match ? text : '';

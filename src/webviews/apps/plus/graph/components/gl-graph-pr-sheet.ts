@@ -1410,7 +1410,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			<span class="section-label">Description</span>
 			<div class="description ${collapsed ? 'description--collapsed' : ''}">
 				<div class="description__content">
-					<gl-markdown density="compact" .markdown=${pr.body}></gl-markdown>
+					<gl-markdown density="compact" image-chips .markdown=${pr.body}></gl-markdown>
 				</div>
 				${collapsed && this._descriptionOverflows ? html`<div class="description__fade"></div>` : nothing}
 			</div>
