@@ -12,7 +12,9 @@ import type { AIService } from '../aiService.js';
 
 export interface AIGenerateChangelogChanges {
 	readonly changes: readonly AIGenerateChangelogChange[];
-	readonly range: {
+	/** The range the changes span, when generating from a comparison;
+	 * `undefined` when generating from an arbitrary set of commits (e.g. a graph selection) */
+	readonly range?: {
 		readonly base: { readonly ref: string; readonly label?: string };
 		readonly head: { readonly ref: string; readonly label?: string };
 	};

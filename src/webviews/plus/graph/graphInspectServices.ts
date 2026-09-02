@@ -1058,7 +1058,7 @@ export class GraphInspectServices {
 						createRevisionRange(mergeBase ?? baseRef.ref, headRef.ref, '..'),
 					);
 					if (!log?.commits?.size) return { changes: [], range: range };
-					return getChangesForChangelog(this.container, range, log);
+					return getChangesForChangelog(this.container, range, [...log.commits.values()]);
 				}),
 				{ source: 'graph', detail: 'compare' },
 				{ progress: { location: ProgressLocation.Notification } },
