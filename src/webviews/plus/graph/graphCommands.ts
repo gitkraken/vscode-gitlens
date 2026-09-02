@@ -32,6 +32,8 @@ import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
+import { lazy } from '@gitlens/utils/lazy.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { splitMessage } from '@gitlens/utils/string.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
@@ -43,6 +45,7 @@ import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.j
 import type { ExplainStashCommandArgs } from '../../../commands/explainStash.js';
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
+import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
 import type { ApplyPatchFromClipboardCommandArgs, CreatePatchCommandArgs } from '../../../commands/patches.js';
@@ -85,10 +88,12 @@ import {
 	setBranchDisposition,
 } from '../../../git/utils/-webview/branch.utils.js';
 import { isCommitPushed } from '../../../git/utils/-webview/commit.utils.js';
+import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
 import { getBestRemoteWithIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
+import { showGenericErrorMessage } from '../../../messages.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
 import { setupPullRequestBranch } from '../../../plus/launchpad/utils/-webview/startReview.utils.js';
@@ -3348,6 +3353,36 @@ export class GraphCommands {
 		}
 
 		return Promise.resolve();
+	}
+
+	@command('gitlens.ai.generateChangelogFromCommits:')
+	@debug()
+	private async generateChangelogFromCommits(item?: GraphItemContext) {
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (!selection.length) return;
+
+		try {
+			const svc = this.container.git.getRepositoryService(selection[0].repoPath);
+
+			await generateChangelogAndOpenMarkdownDocument(
+				this.container,
+				lazy(async () => {
+					// Use exactly the selected commits (the selection can be discontiguous), newest first to
+					// match log order; the selection arrives in click order, not topological order
+					const results = await Promise.allSettled(selection.map(r => svc.commits.getCommit(r.ref)));
+					const commits = results
+						.map(r => getSettledValue(r))
+						.filter(c => c != null)
+						.sort((a, b) => b.committedDate.getTime() - a.committedDate.getTime());
+					return getChangesForChangelog(this.container, undefined, commits);
+				}),
+				{ source: 'graph', detail: 'commits' },
+				{ progress: { location: ProgressLocation.Notification } },
+			);
+		} catch (ex) {
+			Logger.error(ex, 'GraphCommands', 'generateChangelogFromCommits');
+			void showGenericErrorMessage(l10n.t('Unable to generate changelog'));
+		}
 	}
 
 	@debug()
