@@ -71,7 +71,7 @@ export interface BranchEnrichment {
  * working-tree files that make git refuse the pull outright — which files those are depends on the pull
  * mode and whether autostash is on, see {@link getPullBlockedFileCount}; for `merge`/`rebase` the files
  * that conflict, either in the integration itself or (when autostash is on) in reapplying the stash
- * afterward. `unavailable` means we couldn't tell (Git < 2.33, a provider without merge-tree, or a failed
+ * afterward. `unavailable` means we couldn't tell (Git < 2.38, a provider without merge-tree, or a failed
  * simulation) — render nothing rather than guessing.
  */
 export type PullConflictPreview =

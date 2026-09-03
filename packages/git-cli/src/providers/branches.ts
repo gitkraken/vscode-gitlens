@@ -1278,8 +1278,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			repoPath,
 			cacheKey,
 			async (_cacheable, signal) => {
-				// Requires Git v2.33+
-				if (!(await this.git.supports('git:merge-tree'))) {
+				if (!(await this.git.supports('git:merge-tree:write-tree'))) {
 					return createConflictDetectionError('unsupported');
 				}
 
@@ -1350,7 +1349,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<ConflictDetectionResult> {
 		// Requires Git v2.38+ for --write-tree with 3-arg form
-		if (!(await this.git.supports('git:merge-tree:write-tree'))) {
+		// `runMergeTreeStep` relies on `--merge-base`
+		if (!(await this.git.supports('git:merge-tree:merge-base'))) {
 			return createConflictDetectionError('unsupported');
 		}
 
@@ -1476,7 +1476,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const scope = getScopedLogger();
 
 		// Requires Git v2.38+ for --write-tree with 3-arg form
-		if (!(await this.git.supports('git:merge-tree:write-tree'))) {
+		// `runMergeTreeStep` relies on `--merge-base`
+		if (!(await this.git.supports('git:merge-tree:merge-base'))) {
 			return createConflictDetectionError('unsupported');
 		}
 

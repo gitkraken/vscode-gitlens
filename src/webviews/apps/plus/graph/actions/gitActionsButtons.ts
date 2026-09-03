@@ -1010,7 +1010,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	}
 
 	/** The severity banner. Leads the card because it's the only thing here you can't read off the button
-	 *  itself, and it's silent unless there's something to say: clean, undetectable (Git < 2.33, a provider
+	 *  itself, and it's silent unless there's something to say: clean, undetectable (Git < 2.38, a provider
 	 *  without merge-tree, a failed simulation), and still-pending all render nothing rather than putting a
 	 *  reassurance or an error into a hover.
 	 *

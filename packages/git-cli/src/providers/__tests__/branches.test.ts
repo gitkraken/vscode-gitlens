@@ -71,7 +71,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		const target = 'main';
 		const commits = ['commit1', 'commit2'];
 
-		gitStub.supports.withArgs('git:merge-tree:write-tree').resolves(true);
+		gitStub.supports.withArgs('git:merge-tree:merge-base').resolves(true);
 
 		// rev-parse to resolve all parent refs in a single call
 		gitStub.run
@@ -128,7 +128,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		const target = 'main';
 		const commits = ['commit1', 'commit2', 'commit3'];
 
-		gitStub.supports.withArgs('git:merge-tree:write-tree').resolves(true);
+		gitStub.supports.withArgs('git:merge-tree:merge-base').resolves(true);
 
 		// rev-parse to resolve all parent refs in a single call
 		gitStub.run
@@ -228,7 +228,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		const branch = 'feature';
 		const target = 'main';
 
-		gitStub.supports.withArgs('git:merge-tree').resolves(false);
+		gitStub.supports.withArgs('git:merge-tree:write-tree').resolves(false);
 
 		const result = await branchesProvider.getPotentialMergeConflicts(repoPath, branch, target);
 		assert.strictEqual(result.status, 'error');

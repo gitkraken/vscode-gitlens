@@ -13,7 +13,7 @@ export type GitFeatures =
 	| 'git:maintenance:start'
 	| 'git:maintenance:start:systemd'
 	| 'git:manyFiles'
-	| 'git:merge-tree'
+	| 'git:merge-tree:merge-base'
 	| 'git:merge-tree:write-tree'
 	| 'git:push:force-if-includes'
 	| 'git:rebase:autosquash'
@@ -74,7 +74,8 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:maintenance:start:systemd', '2.34'],
 	// `feature.manyFiles` umbrella (index v4 + untracked cache + skipHash where available).
 	['git:manyFiles', '2.24'],
-	['git:merge-tree', '2.33'],
+	['git:merge-tree:merge-base', '2.40'],
+	// `merge-tree --write-tree` mode with `-z`/`--name-only`/`--no-messages`; the older trivial mode can't check conflicts
 	['git:merge-tree:write-tree', '2.38'],
 	['git:push:force-if-includes', '2.30.0'],
 	// `--autosquash` WITHOUT `-i` (folding `fixup!`/`squash!` commits into a plain/automatic rebase).
