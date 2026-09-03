@@ -147,15 +147,7 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				);
 				return getLiveClaudeSessions();
 			},
-			openSessionInClaudeExtension: async sessionId => {
-				// Shared editor → primaryEditor → sidebar fallback chain so the peer-side open
-				// honors a specific session through the same rungs the local-window path uses.
-				// Throws when all three rungs fail so the IPC handler can report
-				// `{ opened: false }` to the initiating window.
-				if (!(await tryOpenClaudeSession(sessionId))) {
-					throw new Error('Claude Code extension did not respond to any open command');
-				}
-			},
+			revealSession: sessionId => container.agentStatus?.revealSession(sessionId) ?? Promise.resolve(false),
 			resumeSession: async (sessionId, cwd, target, name) => {
 				const useExtension =
 					target === 'default' &&

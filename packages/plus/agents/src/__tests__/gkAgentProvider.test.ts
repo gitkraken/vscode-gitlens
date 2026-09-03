@@ -26,7 +26,7 @@ interface MockCallbacks {
 
 function createMockCallbacks(options?: {
 	resolveGitInfo?: AgentProviderCallbacks['resolveGitInfo'];
-	openSessionInClaudeExtension?: AgentProviderCallbacks['openSessionInClaudeExtension'];
+	revealSession?: AgentProviderCallbacks['revealSession'];
 	resumeSession?: AgentProviderCallbacks['resumeSession'];
 	getActivityDecayMs?: AgentProviderCallbacks['getActivityDecayMs'];
 	port?: number;
@@ -72,7 +72,7 @@ function createMockCallbacks(options?: {
 			return Promise.resolve(options?.cliResponse ?? '[]');
 		},
 		resolveGitInfo: options?.resolveGitInfo,
-		openSessionInClaudeExtension: options?.openSessionInClaudeExtension,
+		revealSession: options?.revealSession,
 		resumeSession: options?.resumeSession,
 		onSyncDiscrepancy: info => {
 			syncDiscrepancies.push(info);
@@ -1325,9 +1325,9 @@ suite('GkAgentProvider', () => {
 		test('invokes the host callback with the requested sessionId and reports opened: true', async () => {
 			const calls: string[] = [];
 			const { callbacks, handlers } = createMockCallbacks({
-				openSessionInClaudeExtension: sessionId => {
+				revealSession: sessionId => {
 					calls.push(sessionId);
-					return Promise.resolve();
+					return Promise.resolve(true);
 				},
 			});
 			const provider = new GkAgentProvider(callbacks);
@@ -1346,12 +1346,29 @@ suite('GkAgentProvider', () => {
 			}
 		});
 
+		test('returns { opened: false } when the callback resolves false', async () => {
+			const { callbacks, handlers } = createMockCallbacks({
+				revealSession: () => Promise.resolve(false),
+			});
+			const provider = new GkAgentProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				await flushMicrotasks();
+
+				const handler = handlers.get('agents/sessions/open')!;
+				const response = await handler({ sessionId: 'sess-1' }, new URLSearchParams());
+				assert.deepStrictEqual(response, { opened: false });
+			} finally {
+				provider.dispose();
+			}
+		});
+
 		test('returns { opened: false } without invoking the callback when sessionId is missing', async () => {
 			let called = false;
 			const { callbacks, handlers } = createMockCallbacks({
-				openSessionInClaudeExtension: () => {
+				revealSession: () => {
 					called = true;
-					return Promise.resolve();
+					return Promise.resolve(true);
 				},
 			});
 			const provider = new GkAgentProvider(callbacks);
@@ -1368,7 +1385,7 @@ suite('GkAgentProvider', () => {
 			}
 		});
 
-		test('returns { opened: false } when the host did not wire openSessionInClaudeExtension', async () => {
+		test('returns { opened: false } when the host did not wire revealSession', async () => {
 			const { callbacks, handlers } = createMockCallbacks();
 			const provider = new GkAgentProvider(callbacks);
 			try {
@@ -1385,7 +1402,7 @@ suite('GkAgentProvider', () => {
 
 		test('returns { opened: false } when the callback throws (peer never sees a 500)', async () => {
 			const { callbacks, handlers } = createMockCallbacks({
-				openSessionInClaudeExtension: () => Promise.reject(new Error('extension not installed')),
+				revealSession: () => Promise.reject(new Error('extension not installed')),
 			});
 			const provider = new GkAgentProvider(callbacks);
 			try {

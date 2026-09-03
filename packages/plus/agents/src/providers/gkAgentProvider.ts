@@ -836,13 +836,12 @@ export class GkAgentProvider implements AgentSessionProvider {
 			}),
 			this.callbacks.ipc.registerHandler('agents/sessions/open', async request => {
 				const sessionId = (request as { sessionId?: string } | undefined)?.sessionId;
-				if (!sessionId || this.callbacks.openSessionInClaudeExtension == null) {
+				if (!sessionId || this.callbacks.revealSession == null) {
 					return { opened: false };
 				}
 
 				try {
-					await this.callbacks.openSessionInClaudeExtension(sessionId);
-					return { opened: true };
+					return { opened: await this.callbacks.revealSession(sessionId) };
 				} catch (ex) {
 					Logger.warn(
 						`GkAgentProvider.agents/sessions/open: ${ex instanceof Error ? ex.message : String(ex)}`,

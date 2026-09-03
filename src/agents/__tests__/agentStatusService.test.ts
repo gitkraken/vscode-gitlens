@@ -765,10 +765,13 @@ function dispatchSessionAction(service: AgentStatusService, session: AgentSessio
 	).dispatchSessionAction(session);
 }
 
-function setupDispatch(session: AgentSession) {
+function setupDispatch(session: AgentSession, options?: { revealTerminal?: (pid: number) => Promise<boolean> }) {
 	const provider = new TestProvider('gkAgents');
 	provider.sessions = [session];
-	const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+	const service = new AgentStatusService(makeContainer(), [provider], {
+		registerCommands: false,
+		revealTerminal: options?.revealTerminal,
+	});
 	return { provider: provider, service: service, dispose: () => service.dispose() };
 }
 
@@ -849,6 +852,84 @@ suite('AgentStatusService session dispatch', () => {
 		} finally {
 			dispose();
 			stubs.restore();
+		}
+	});
+
+	test('a live in-workspace Claude session reveals its integrated terminal when the extension is unavailable', async () => {
+		const session = makeSession({ id: 'claude-3', pid: 4242 });
+		const stubs = stubDispatchSurfaces();
+		const revealTerminal = sinon.stub().resolves(true);
+		const { service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.showWarningMessage.called, false, 'a successful terminal reveal needs no warning');
+			assert.strictEqual(revealTerminal.calledOnceWith(4242), true);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('a live in-workspace Claude session falls back to the resume offer when the terminal reveal misses', async () => {
+		const session = makeSession({ id: 'claude-4', pid: 4243 });
+		const stubs = stubDispatchSurfaces();
+		const revealTerminal = sinon.stub().resolves(false);
+		const { service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.deepStrictEqual(stubs.showWarningMessage.args, [
+				['Unable to open agent session. Resume it in a terminal?', 'Resume in Terminal'],
+			]);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('a live non-Claude session reveals its integrated terminal without probing the Claude extension', async () => {
+		const session = makeSession({ id: 'codex-3', providerId: 'codex', providerName: 'Codex', pid: 5551 });
+		const stubs = stubDispatchSurfaces();
+		const revealTerminal = sinon.stub().resolves(true);
+		const { service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.showWarningMessage.called, false);
+			assert.strictEqual(stubs.getExtension.called, false, 'the Claude extension must never be probed');
+			assert.strictEqual(revealTerminal.calledOnceWith(5551), true);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('revealSession resolves false for an unknown session id', async () => {
+		const session = makeSession({ id: 'claude-5' });
+		const revealTerminal = sinon.stub().resolves(true);
+		const { service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		try {
+			const revealed = await service.revealSession('does-not-exist');
+
+			assert.strictEqual(revealed, false);
+			assert.strictEqual(revealTerminal.called, false);
+		} finally {
+			dispose();
+		}
+	});
+
+	test('revealSession resolves false for an ended session without attempting a terminal reveal', async () => {
+		const session = makeSession({ id: 'claude-6', pid: 4244, status: 'ended', phase: 'ended' });
+		const revealTerminal = sinon.stub().resolves(true);
+		const { service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		try {
+			const revealed = await service.revealSession(session.id);
+
+			assert.strictEqual(revealed, false);
+			assert.strictEqual(revealTerminal.called, false);
+		} finally {
+			dispose();
 		}
 	});
 });

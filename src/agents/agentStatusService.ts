@@ -42,6 +42,7 @@ import {
 	resumeClaudeSessionInTerminal,
 	toResumableSessionRef,
 } from './utils/-webview/claudeResume.js';
+import { revealTerminalForProcess } from './utils/-webview/terminalReveal.js';
 import {
 	areHooksOfferedForAgent,
 	getHookClientId,
@@ -167,6 +168,9 @@ export class AgentStatusService implements Disposable {
 	 *  dynamic import's exports are non-configurable (esbuild-bundled), so they can't be sinon-stubbed
 	 *  from outside; this is the seam instead. */
 	private readonly _hooksInstaller: HooksInstallerFns | undefined;
+	/** Reveals the integrated terminal hosting a `pid` — defaults to {@link revealTerminalForProcess};
+	 *  injectable so tests can stub it without a live VS Code `Terminal`. */
+	private readonly _revealTerminal: (pid: number) => Promise<boolean>;
 
 	constructor(
 		private readonly container: Container,
@@ -177,10 +181,12 @@ export class AgentStatusService implements Disposable {
 			 *  about the service is per-instance and safe to stand up more than once. */
 			registerCommands?: boolean;
 			hooksInstaller?: HooksInstallerFns;
+			revealTerminal?: (pid: number) => Promise<boolean>;
 		},
 	) {
 		this._providers = providers;
 		this._hooksInstaller = options?.hooksInstaller;
+		this._revealTerminal = options?.revealTerminal ?? revealTerminalForProcess;
 
 		for (const provider of this._providers) {
 			this._disposables.push(
@@ -1412,6 +1418,48 @@ export class AgentStatusService implements Disposable {
 		return pickMostRecentSession(matches);
 	}
 
+	/** Reveals `sessionId` inside THIS window — the Claude Code tab or the integrated terminal that
+	 *  hosts it. The receiving end of `gk ai hook open-session`. `false` when the session is unknown,
+	 *  ended, or lives nowhere this window can show. */
+	async revealSession(sessionId: string): Promise<boolean> {
+		const session = this._providers.flatMap(p => p.sessions).find(s => s.id === sessionId);
+		if (session == null || session.status === 'ended') return false;
+
+		let host: 'extension' | 'cli' | undefined;
+		if (session.providerId === claudeCodeCapabilities.providerId && session.pid != null) {
+			const { classifyClaudeSessionHost } = await import(
+				/* webpackChunkName: "agents" */ '@env/agents/claudeSessionFile.js'
+			);
+			host = await classifyClaudeSessionHost(session.pid);
+			// The relay targets windows by workspace path, so a session whose live panel belongs to
+			// another window's extension host can still land here; opening it in OUR extension would
+			// only create an inert view.
+			if (host === 'extension' && !(await this.isExtensionSessionLocallyHosted(session.pid))) return false;
+		}
+
+		return this.revealSessionInWindow(session, host);
+	}
+
+	/** In-window reveal shared by {@link revealSession} and {@link dispatchSessionAction}: the Claude
+	 *  extension tab when the session is extension-hosted (or host unknown and the extension is
+	 *  present), else the integrated terminal owning `session.pid`. Never reaches for OS-level window
+	 *  focus. */
+	private async revealSessionInWindow(
+		session: AgentSession,
+		host: 'extension' | 'cli' | undefined,
+	): Promise<boolean> {
+		if (session.providerId === claudeCodeCapabilities.providerId) {
+			const useExtension = host === 'extension' || (host == null && (await isClaudeExtensionAvailable()));
+			if (useExtension && (await tryOpenClaudeSession(session.id))) return true;
+		}
+
+		// `host === 'extension'` means the pid IS the extension host itself; never search terminals
+		// for it.
+		if (host !== 'extension' && session.pid != null && (await this._revealTerminal(session.pid))) return true;
+
+		return false;
+	}
+
 	/**
 	 * Deterministically picks the right action for a resolved session — no quickpick.
 	 *
@@ -1422,7 +1470,8 @@ export class AgentStatusService implements Disposable {
 	 *    then `vscode.openFolder` (different workspace) or an info message (same/no workspace,
 	 *    where OS-level cross-window focus is unreliable on multi-window VS Code instances).
 	 *  - Extension-hosted, owned by this window → open in our Claude Code extension.
-	 *  - CLI-hosted → focus the terminal via `pid`.
+	 *  - CLI-hosted → reveal the integrated terminal owning `pid` (see {@link revealSessionInWindow}),
+	 *    falling back to OS-level window focus via `pid` when no such terminal is found.
 	 *  - Neither workspace nor pid → warn.
 	 *
 	 *  Host classification reads `~/.claude/sessions/<pid>.json` for the `entrypoint` field; the
@@ -1492,9 +1541,8 @@ export class AgentStatusService implements Disposable {
 			// the generic "unable to open" fallback. Forcing `true` here would make the
 			// extension-specific warning unreachable.
 			const extensionAvailable = await isClaudeExtensionAvailable();
-			const useExtension = host === 'extension' || (host == null && extensionAvailable);
 
-			if (useExtension && (await tryOpenClaudeSession(session.id))) return;
+			if (await this.revealSessionInWindow(session, host)) return;
 			// Skip the terminal-focus fallback when we *know* the session is extension-hosted —
 			// `pid` would be the extension host (VS Code itself), so focusing it is a no-op that
 			// would falsely signal success and swallow the warning the user needs.
@@ -1514,7 +1562,9 @@ export class AgentStatusService implements Disposable {
 			return;
 		}
 
-		// CLI-hosted out-of-workspace session — focus the terminal.
+		// CLI-hosted out-of-workspace session — reveal the integrated terminal, falling back to
+		// OS-level window focus.
+		if (await this.revealSessionInWindow(session, host)) return;
 		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 
 		Logger.warn(
@@ -1536,6 +1586,7 @@ export class AgentStatusService implements Disposable {
 	 * whose terminal the session lives in, and that terminal is exactly what the user asked to see.
 	 */
 	private async dispatchOtherAgentSessionAction(session: AgentSession): Promise<void> {
+		if (await this.revealSessionInWindow(session, undefined)) return;
 		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 
 		Logger.warn(

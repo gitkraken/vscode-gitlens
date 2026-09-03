@@ -6,6 +6,7 @@ import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pickMostRecentSession } from '../../agents/agentStatusService.js';
 import type { AgentSession } from '../../agents/provider.js';
 import { isActiveClaudeTab } from '../../agents/utils/-webview/claudeExtension.js';
+import { walkAncestorChain } from '../../agents/utils/processAncestry.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { registerCommand } from '../../system/-webview/command.js';
@@ -340,23 +341,6 @@ function findTerminalForResource(value: unknown): Terminal | undefined {
  *  available; VS Code passes the real `Terminal` instance for `terminal/context`/`terminal/title/context`. */
 function isTerminal(value: unknown): value is Terminal {
 	return value != null && typeof value === 'object' && 'creationOptions' in value && 'processId' in value;
-}
-
-/** Walks `pid`'s parent chain through a process-table snapshot, returning its ancestor pids
- *  nearest-first (bounded, cycle-guarded). Empty when `pid` has no parent in the snapshot. */
-function walkAncestorChain(pid: number, parentPidMap: Map<number, number>): number[] {
-	const maxHops = 8;
-	const chain: number[] = [];
-	const visited = new Set<number>([pid]);
-
-	let current = parentPidMap.get(pid);
-	while (current != null && chain.length < maxHops && !visited.has(current)) {
-		chain.push(current);
-		visited.add(current);
-		current = parentPidMap.get(current);
-	}
-
-	return chain;
 }
 
 /** Whether the worktree's directory still exists — an agent worktree can be deleted while a

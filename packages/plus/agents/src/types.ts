@@ -462,12 +462,10 @@ export interface AgentProviderCallbacks {
 		| undefined
 	>;
 
-	/**
-	 * Open a Claude Code session in the Claude Code VS Code extension. Invoked by the IPC handler
-	 * when a peer GitLens window asks this window to open a session on its behalf — the host wires
-	 * this to `claude-vscode.editor.open`. Throws if the extension isn't installed/active.
-	 */
-	openSessionInClaudeExtension?(sessionId: string): Promise<void>;
+	/** Reveals a session hosted in THIS window — its Claude Code tab or the integrated terminal
+	 *  running it. Invoked by the `agents/sessions/open` IPC handler, the receiving end of
+	 *  `gk ai hook open-session`. Resolves `false` when nothing in this window can show it. */
+	revealSession?(sessionId: string): Promise<boolean>;
 
 	/** Host-side launcher wired into providers that support resumable history. Kept generic at the
 	 *  provider boundary: each harness chooses whether and when to expose it as a capability. */

@@ -25,7 +25,7 @@ removal_. Most of the complexity in `ClaudeCodeProvider` is the reconciliation b
 The CLI broadcasts every hook event to every GitKraken product instance it discovers on the
 machine, and every window runs the same poll, so a session's data reaches every window this way —
 no window has to ask another one for it. What differs window to window is only which one can
-actually _show_ the session (its Claude Code tab); that's a routing
+actually _show_ the session (its Claude Code tab or integrated terminal); that's a routing
 question, handled separately by the CLI relay (see
 [Opening a session in another window](#opening-a-session-in-another-window)).
 
@@ -272,7 +272,7 @@ work, so a blocking permission request is never delayed by startup:
 | Route                        | Caller                    | Behavior                                                                         |
 | ---------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
 | `POST /agents/session`       | `gk ai hook run`          | one hook event; `?blocking=true` means hold the response                         |
-| `POST /agents/sessions/open` | `gk ai hook open-session` | open `sessionId` in _this_ window's Claude Code extension; replies `{opened}`     |
+| `POST /agents/sessions/open` | `gk ai hook open-session` | reveal `sessionId` in _this_ window (Claude tab or terminal); replies `{opened}` |
 
 Then it publishes the agents discovery file, runs one **ungated** `syncSessions`, and arms the
 15-minute gated poll.
@@ -479,7 +479,8 @@ the prior timestamp, so displayed elapsed time doesn't snap to zero on a same-tu
 
 Two GitLens windows on one machine both receive every broadcast and run their own poll, so both
 already track a session's data (see [The problem](#the-problem)). But only one of them typically
-hosts the Claude Code extension panel the session actually lives in, so "open" has to route to the right window rather than just paint the right row.
+hosts the Claude Code extension panel — or has the integrated terminal — the session actually lives
+in, so "open" has to route to the right window rather than just paint the right row.
 
 `dispatchSessionAction` (see [Actions](#actions)) does that routing locally: an extension-hosted
 session owned by another window's extension host is the one case a window can't just reveal
@@ -507,11 +508,19 @@ worktreePath ?? commonPath ?? cwd`) with `forceNewWindow: false` — VS Code's o
 - a same-workspace or unresolved target → an info message telling the user to switch windows
   manually, since there's nothing here to disambiguate or focus.
 
-The receiving end is the `/agents/sessions/open` handler →
-`callbacks.openSessionInClaudeExtension(sessionId)`, which runs the same editor → primaryEditor →
-sidebar fallback chain the local open path uses (`tryOpenClaudeSession`) and answers
-`{opened: false}` when every rung throws. It knows nothing about terminal-hosted or non-Claude
-sessions — a relay for one of those lands here and does nothing visible.
+The receiving end is the `/agents/sessions/open` handler → `callbacks.revealSession(sessionId)` →
+`AgentStatusService.revealSession`. Unknown or `ended` → `false`. A Claude session that's
+extension-hosted but owned by a _different_ window's extension host (classified the same way
+`dispatchSessionAction` does, via `~/.claude/sessions/<pid>.json` and
+`isDescendantOfThisExtensionHost`) → `false` — opening it here would only create an inert view.
+Otherwise `revealSessionInWindow`: a Claude session with a known/likely extension host tries the
+extension's own open command (which reveals an existing tab for a known id); everything else finds
+the integrated terminal (panel or editor tab) whose shell pid is the nearest ancestor of
+`session.pid` — `findTerminalForProcess` (`src/agents/utils/-webview/terminalReveal.ts`), sharing
+`walkAncestorChain` (`src/agents/utils/processAncestry.ts`) with the Graph's own follow-in-terminal
+action — and calls `show()`. This works for non-Claude agents too. It never reaches for OS-level
+window focus itself — that's `dispatchSessionAction`'s job when the in-window reveal comes up empty
+(see [Actions](#actions)).
 
 ## Identity, attribution, naming
 
@@ -692,19 +701,19 @@ eagerly at poll time.
 1. `ended` → straight to resume. Its retained pid is dead and possibly reused, so it must never
    reach the focus dispatch. (Safe by construction: the provider checks every `ended` record against
    `claude agents --json` before accepting `ended`.)
-2. Not a Claude Code session (a different `providerId`) → `dispatchOtherAgentSessionAction`: an
-   OS-level focus of the window owning `pid`, then warn/offer resume. None of the Claude-specific
-   steps below apply to another agent's session id.
+2. Not a Claude Code session (a different `providerId`) → `dispatchOtherAgentSessionAction`: reveal
+   the integrated terminal owning `pid` in this window, then an OS-level window focus, then
+   warn/offer resume. None of the Claude-specific steps below apply to another agent's session id.
 3. Classify the host by reading `~/.claude/sessions/<pid>.json` — `entrypoint === 'claude-vscode'`
    means the VS Code extension. For an extension-hosted session, the Claude binary's direct parent
    _is_ the owning extension host, so `parent === process.pid` decides local ownership.
 4. Extension-hosted and owned by another window's extension host → `dispatchRemotelyHostedSession`:
    relay the open through the CLI, then `vscode.openFolder` or an info hint — see
    [Opening a session in another window](#opening-a-session-in-another-window).
-5. In-workspace → the Claude extension's open command; then an OS-level focus of the window owning
-   `pid`, but only when we don't _know_ it's extension-hosted (the pid would be VS Code itself, so
-   focusing it would falsely signal success); then warn/offer resume.
-6. Out-of-workspace CLI session → an OS-level focus of the window owning `pid`.
+5. In-workspace → `revealSessionInWindow` (the Claude tab, or the integrated terminal owning `pid`);
+   then an OS-level window focus, but only when we don't _know_ it's extension-hosted (the pid would
+   be VS Code itself, so focusing it would falsely signal success); then warn/offer resume.
+6. Out-of-workspace CLI session → `revealSessionInWindow`, then an OS-level window focus.
 7. Dead end → offer `claude --resume <id>` in a fresh terminal, when `canResumeSession` allows it
    (`idle`, `waiting`, or `ended` — never `working`, which risks parallel writes).
 
