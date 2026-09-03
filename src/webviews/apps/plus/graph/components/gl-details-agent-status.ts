@@ -1,7 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { basename } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
@@ -128,7 +128,7 @@ declare global {
 @customElement('gl-details-agent-status')
 export class GlDetailsAgentStatus extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		metadataBarVarsBase,
 		agentToolStyles,
 		agentPhaseElapsedStyles,
@@ -335,8 +335,8 @@ static Agents label. Live headings retain the normal foreground summary color. *
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
-				width: 1rem;
-				height: 1rem;
+				width: 1.4rem;
+				height: 1.4rem;
 				margin-left: -0.4rem;
 				font-size: 0.7em;
 				color: var(--vscode-foreground);

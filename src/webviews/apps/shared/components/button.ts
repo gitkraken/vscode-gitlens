@@ -4,7 +4,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 
 declare global {
@@ -45,7 +45,7 @@ export class GlButton extends LitElement {
 	};
 
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		css`
 			:host {
 				/* Base color variables - can be overridden by variant */

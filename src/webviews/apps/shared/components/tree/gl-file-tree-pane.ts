@@ -4,7 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
 import { getAltKeySymbol } from '@env/platform.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -75,7 +75,7 @@ export interface FileChangeListItemDetail extends FileItem {
 
 @customElement('gl-file-tree-pane')
 export class GlFileTreePane extends LitElement {
-	static override styles = [elementBase, fileTreeStyles];
+	static override styles = [boxSizingBase, fileTreeStyles];
 
 	@property({ type: Array })
 	files?: readonly FileItem[];

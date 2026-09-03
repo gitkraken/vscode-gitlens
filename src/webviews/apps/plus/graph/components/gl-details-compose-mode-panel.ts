@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { redispatch } from '@gitlens/components/components/element.js';
-import { elementBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -112,7 +112,7 @@ export interface ComposeMoveFileDetail {
 @customElement('gl-details-compose-mode-panel')
 export class GlDetailsComposeModePanel extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		subPanelEnterStyles,
 		panelHostStyles,
 		panelActionInputStyles,

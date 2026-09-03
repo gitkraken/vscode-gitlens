@@ -1,7 +1,7 @@
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
@@ -27,7 +27,7 @@ export type LaunchpadSummarySource = 'graph-header' | 'graph-details';
 @customElement('gl-launchpad-summary')
 export class GlLaunchpadSummary extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		css`
 			:host {
 				display: contents;

@@ -1,6 +1,6 @@
 import { css } from 'lit';
 import {
-	elementBase,
+	boxSizingBase,
 	linkBase,
 	metadataBarVarsBase,
 	scrollableBase,
@@ -9,7 +9,7 @@ import {
 
 export const detailsBaseStyles = [
 	linkBase,
-	elementBase,
+	boxSizingBase,
 	scrollableBase,
 	subPanelEnterStyles,
 	metadataBarVarsBase,

@@ -1,7 +1,7 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
-import { elementBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
@@ -34,7 +34,7 @@ if (typeof CSS !== 'undefined' && 'registerProperty' in CSS) {
 
 @customElement('gl-commit-box')
 export class GlCommitBox extends LitElement {
-	static override styles = [elementBase, splitButtonStyles, commitBoxStyles, scrollableBase];
+	static override styles = [boxSizingBase, splitButtonStyles, commitBoxStyles, scrollableBase];
 
 	@property()
 	message = '';

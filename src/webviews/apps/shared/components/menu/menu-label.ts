@@ -1,11 +1,11 @@
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 @customElement('menu-label')
 export class MenuLabel extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		css`
 			:host {
 				display: block;

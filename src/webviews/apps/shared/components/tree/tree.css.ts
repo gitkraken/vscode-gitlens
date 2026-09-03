@@ -1,8 +1,8 @@
 import { css } from 'lit';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 export const treeStyles = [
-	elementBase,
+	boxSizingBase,
 	css`
 		:host {
 			display: block;
@@ -12,7 +12,7 @@ export const treeStyles = [
 ];
 
 export const treeItemStyles = [
-	elementBase,
+	boxSizingBase,
 	css`
 		:host {
 			--tree-connector-spacing: 0.6rem;
@@ -300,7 +300,7 @@ export const treeItemStyles = [
 		.checkbox {
 			position: relative;
 			display: inline-flex;
-			width: 1.6rem;
+			width: 1.8rem;
 			aspect-ratio: 1 / 1;
 			margin-right: var(--gl-space-8);
 			color: var(--vscode-checkbox-foreground);

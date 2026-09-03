@@ -5,7 +5,7 @@ import { cache } from 'lit/directives/cache.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { redispatch } from '@gitlens/components/components/element.js';
 import {
-	elementBase,
+	boxSizingBase,
 	metadataBarVarsBase,
 	scrollableBase,
 	subPanelEnterStyles,
@@ -70,7 +70,7 @@ export function hasOnlyWip(commits: readonly BranchComparisonCommit[]): boolean 
 @customElement('gl-details-compare-mode-panel')
 export class GlDetailsCompareModePanel extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		metadataBarVarsBase,
 		scrollableBase,
 		compareModePanelStyles,

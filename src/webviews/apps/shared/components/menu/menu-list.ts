@@ -1,12 +1,12 @@
 import type { PropertyValueMap } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 
 @customElement('menu-list')
 export class MenuList extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		css`
 			:host {
 				width: max-content;

@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
@@ -13,7 +13,7 @@ export type RebaseConflictIndicatorStatus = 'loading' | 'clean' | 'conflicts' | 
 @customElement('gl-rebase-conflict-indicator')
 export class GlRebaseConflictIndicator extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		scrollableBase,
 		css`
 			:host {

@@ -5,7 +5,7 @@ import { cache } from 'lit/directives/cache.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { redispatch } from '@gitlens/components/components/element.js';
 import {
-	elementBase,
+	boxSizingBase,
 	metadataBarVarsBase,
 	scrollableBase,
 	subPanelEnterStyles,
@@ -55,7 +55,7 @@ import './gl-commit-row-item.js';
 @customElement('gl-details-multicommit-panel')
 export class GlDetailsMultiCommitPanel extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		metadataBarVarsBase,
 		panelHostStyles,
 		panelActionInputStyles,

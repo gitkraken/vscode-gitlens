@@ -9,7 +9,7 @@ import type {
 } from '@gitlens/ai/models/results.js';
 import { redispatch } from '@gitlens/components/components/element.js';
 import {
-	elementBase,
+	boxSizingBase,
 	metadataBarVarsBase,
 	subPanelEnterStyles,
 } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -100,7 +100,7 @@ function isSameRunResultDelta(prev: AIReviewResult | undefined, next: AIReviewRe
 @customElement('gl-details-review-mode-panel')
 export class GlDetailsReviewModePanel extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		metadataBarVarsBase,
 		subPanelEnterStyles,
 		panelHostStyles,

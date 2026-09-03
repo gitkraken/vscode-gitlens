@@ -2,7 +2,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { elementBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { BranchAndTargetRefs, BranchRef } from '../../../../shared/branchRefs.js';
 import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shared/overviewBranches.js';
@@ -230,7 +230,7 @@ export class GlMergeTargetStatus extends LitElement {
 		delegatesFocus: true,
 	};
 
-	static override styles = [elementBase, linkBase, chipStyles, scrollableBase, mergeTargetStyles];
+	static override styles = [boxSizingBase, linkBase, chipStyles, scrollableBase, mergeTargetStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;

@@ -4,7 +4,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlButton } from '../button.js';
 import '../button.js';
 import '@gitlens/components/components/overlays/popover.js';
@@ -46,7 +46,7 @@ declare global {
 @customElement('gl-popover-confirm')
 export class GlPopoverConfirm extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		css`
 			:host {
 				display: contents;

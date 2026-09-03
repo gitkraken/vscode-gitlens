@@ -2,7 +2,7 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { RunningOperationExecState } from '../../../plus/graph/components/detailsState.js';
 import { chipStateSuffix, statusIconFor } from '../../../plus/graph/components/runningOperationStatus.js';
@@ -59,7 +59,7 @@ const modeConfig: Record<
 
 @customElement('gl-details-header')
 export class GlDetailsHeader extends LitElement {
-	static override styles = [elementBase, detailsHeaderStyles, modeHeaderStyles, modeToggleStyles];
+	static override styles = [boxSizingBase, detailsHeaderStyles, modeHeaderStyles, modeToggleStyles];
 
 	@property() activeMode?: Mode | null;
 	@property({ type: Boolean }) loading = false;

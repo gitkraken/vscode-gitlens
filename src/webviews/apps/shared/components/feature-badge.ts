@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
-import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
@@ -33,7 +33,7 @@ declare global {
 @customElement('gl-feature-badge')
 export class GlFeatureBadge extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		linkBase,
 		css`
 			:host {

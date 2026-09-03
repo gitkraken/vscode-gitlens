@@ -3,7 +3,7 @@ import { consume } from '@lit/context';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { elementBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -120,7 +120,7 @@ function onlyTrustedCommandLinkClicks(e: MouseEvent): void {
  */
 @customElement('gl-graph-branch-sheet-pane')
 export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
-	static override styles = [elementBase, metadataBarVarsBase, nextStepStyles, graphBranchSheetPaneStyles];
+	static override styles = [boxSizingBase, metadataBarVarsBase, nextStepStyles, graphBranchSheetPaneStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;

@@ -2,28 +2,21 @@ import type { CSSResult } from 'lit';
 import { css } from 'lit';
 import { focusOutline } from './a11y.css.js';
 
-export const elementBase: CSSResult = css`
-	:host {
-		box-sizing: border-box;
-	}
-
-	:host *,
-	:host *::before,
-	:host *::after {
-		box-sizing: inherit;
-	}
-
-	[hidden] {
-		display: none !important;
-	}
-`;
-
+/**
+ * `box-sizing` reset for a shadow root. Every value is stated outright rather than chained off
+ * `:host` with `inherit` — an outer-document rule matching the host (including a light-DOM `*`
+ * reset) beats the shadow tree's own `:host` rule, so an `inherit` chain can silently resolve to
+ * `content-box` for the entire shadow tree. `box-sizing` is also not an inherited property, so
+ * `::before`/`::after` need their own declaration; `*` alone does not reach them.
+ */
 export const boxSizingBase: CSSResult = css`
 	:host {
 		box-sizing: border-box;
 	}
 
-	* {
+	*,
+	*::before,
+	*::after {
 		box-sizing: border-box;
 	}
 `;

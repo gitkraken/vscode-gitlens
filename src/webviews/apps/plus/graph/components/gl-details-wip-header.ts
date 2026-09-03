@@ -2,7 +2,7 @@ import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -32,7 +32,7 @@ import './gl-graph-coachmark.js';
 
 @customElement('gl-details-wip-header')
 export class GlDetailsWipHeader extends LitElement {
-	static override styles = [elementBase, metadataBarVarsBase, detailsWipHeaderStyles];
+	static override styles = [boxSizingBase, metadataBarVarsBase, detailsWipHeaderStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;

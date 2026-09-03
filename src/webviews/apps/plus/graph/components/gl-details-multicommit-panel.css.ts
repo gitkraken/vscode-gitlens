@@ -169,8 +169,9 @@ export const multiCommitPanelStyles = css`
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		width: 1.6rem;
-		height: 1.6rem;
+		/* Outer size, padding and border included, so the 1.6rem icon keeps its inset relief. */
+		width: 3rem;
+		height: 2.4rem;
 		padding: 0.3rem 0.6rem;
 		color: var(--color-foreground--65);
 		cursor: pointer;

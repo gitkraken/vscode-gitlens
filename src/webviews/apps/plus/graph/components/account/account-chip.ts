@@ -6,7 +6,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
-import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { urls } from '../../../../../../constants.js';
@@ -64,7 +64,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 	};
 
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		linkBase,
 		focusableBaseStyles,
 		accountRingStyles,
@@ -118,7 +118,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			img.chip__media {
-				width: 1.6rem;
+				/* Outer size, not image size: the 0.2rem chip__media padding paints the tinted ring
+				   inside it, leaving a 1.6rem image to match the size=16 code-icon fallback. */
+				width: 2rem;
 				aspect-ratio: 1 / 1;
 				background-color: var(--gl-account-chip-media-color);
 				border-radius: 50%;

@@ -1,7 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -67,7 +67,7 @@ declare global {
 @customElement('gl-agent-status-pill')
 export class GlAgentStatusPill extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		linkBase,
 		agentToolStyles,
 		agentPhaseElapsedStyles,

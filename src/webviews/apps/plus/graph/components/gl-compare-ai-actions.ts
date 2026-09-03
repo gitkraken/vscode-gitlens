@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { State } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import '../../../shared/components/ai-input.js';
@@ -31,7 +31,7 @@ try {
 @customElement('gl-compare-ai-actions')
 export class GlCompareAIActions extends LitElement {
 	static override styles = [
-		elementBase,
+		boxSizingBase,
 		css`
 			:host {
 				display: block;

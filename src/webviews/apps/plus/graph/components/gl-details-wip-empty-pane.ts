@@ -1,7 +1,7 @@
 import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { elementBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	LaunchpadSummaryError,
@@ -29,7 +29,7 @@ function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 
 @customElement('gl-details-wip-empty-pane')
 export class GlDetailsWipEmptyPane extends LitElement {
-	static override styles = [elementBase, nextStepStyles, detailsWipEmptyPaneStyles];
+	static override styles = [boxSizingBase, nextStepStyles, detailsWipEmptyPaneStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
