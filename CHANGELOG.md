@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes the Git Command Palette and other quick picks failing to open on editors older than VS Code 1.108, such as Google Antigravity &mdash; the quick pick `prompt` API is proposal-gated there and throws when set ([#5807](https://github.com/gitkraken/vscode-gitlens/issues/5807))
 - Fixes all GitLens webviews staying blank when the Google Antigravity extension is installed &mdash; its `postMessage` patch mangled the binary messages GitLens sends to its webviews, which are now recovered ([#5818](https://github.com/gitkraken/vscode-gitlens/issues/5818), [#5797](https://github.com/gitkraken/vscode-gitlens/issues/5797))
 - Fixes GitLens AI staying without a model after verifying your account's email &mdash; the resolved model and _GitKraken AI_ usage allowance now refresh on verification, and when a trial starts or ends, instead of staying empty until a window reload or opening the model picker ([#5621](https://github.com/gitkraken/vscode-gitlens/issues/5621))
 

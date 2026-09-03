@@ -799,7 +799,11 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 				);
 
 				quickpick.title = step.title;
-				quickpick.prompt = supportedInVSCodeVersion('quickpick-prompt') ? step.prompt : undefined;
+				// Only touch `prompt` when supported: on older editors the setter itself is proposal-gated and throws
+				if (supportedInVSCodeVersion('quickpick-prompt')) {
+					quickpick.prompt = step.prompt;
+				}
+
 				quickpick.matchOnDescription = Boolean(step.matchOnDescription);
 				quickpick.matchOnDetail = Boolean(step.matchOnDetail);
 
