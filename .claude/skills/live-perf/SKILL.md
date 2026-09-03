@@ -372,7 +372,7 @@ Measured-tier requires a number. Convention-tier requires a pattern match. Neith
 
 ## Before declaring "live-perf complete"
 
-You MUST have:
+Before reporting, confirm you have:
 
 1. **Captured a documented baseline** for every metric you're acting on
 2. **Dispatched only Measured + Convention findings** — speculation stays in open-questions

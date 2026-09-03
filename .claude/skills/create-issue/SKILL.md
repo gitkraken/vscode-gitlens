@@ -64,7 +64,7 @@ Format per `/audit-commits` CHANGELOG conventions. Map: Feature→Added, Enhance
 
 ## Safety
 
-1. NEVER include code snippets, diffs, or implementation details in issues
+1. Describe behavior, not implementation — issues are public and their readers are users, so no code snippets, diffs, or internal details
 2. NEVER include credentials or secrets
 3. NEVER create labels without user confirmation
 4. **NEVER auto-create issues or edit CHANGELOG without user confirmation**

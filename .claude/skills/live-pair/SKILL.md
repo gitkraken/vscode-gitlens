@@ -195,7 +195,7 @@ These all break the contract. The contract: user drives, one message = one chang
 
 ## Before declaring "live-pair complete"
 
-You MUST have:
+Before reporting, confirm you have:
 
 1. **Ended every round with a fresh screenshot** — no "done, trust me"
 2. **Flagged every structural-bug detection** before patching

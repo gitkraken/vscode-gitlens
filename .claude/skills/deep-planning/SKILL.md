@@ -31,7 +31,7 @@ Find the **best** approach to a task — not just a good one. Investigate the co
 
 ## Checklist
 
-You MUST create a task for each of these items and complete them in order:
+Work through these items in order:
 
 1. **Define success criteria** — What does "good" look like? Performance targets, maintainability bar, constraints.
 2. **Investigate the codebase** — Launch Explore agents if available. Otherwise inspect the codebase directly. Map current patterns, utilities, abstractions. Find reusable code.

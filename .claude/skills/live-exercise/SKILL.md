@@ -369,7 +369,7 @@ These are correct outputs AFTER applying lenses live, not substitutes for it.
 
 ## Before declaring "live-exercise complete"
 
-You MUST have:
+Before reporting, confirm you have:
 
 1. **Launched the extension live** (not just `pnpm run build:quick`)
 2. **Exercised each changed mode/state at least once** — click, multi-select, toggle, whatever produces the surface

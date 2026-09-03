@@ -25,7 +25,7 @@ Stress-test a proposed plan before implementation begins. Extract assumptions, v
 
 ## Checklist
 
-You MUST create a task for each of these items and complete them in order:
+Work through these items in order:
 
 1. **Extract assumptions** — List every assumption the plan makes (explicit and implicit). These are your attack surface.
 2. **Verify claims** — For each factual claim in the plan (file paths, API behavior, architectural constraints), verify against actual code. Do NOT take claims at face value.

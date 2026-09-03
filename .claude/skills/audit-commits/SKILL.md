@@ -101,6 +101,6 @@ Then ask: "Process these commits? (create issues / update CHANGELOG / both / ski
 
 ## Safety
 
-1. NEVER include code snippets or implementation details in issues
+1. Describe behavior, not implementation — issues are public and their readers are users, so no code snippets, diffs, or internal details
 2. NEVER create labels without user confirmation
 3. **NEVER auto-create issues or edit CHANGELOG without user confirmation**
