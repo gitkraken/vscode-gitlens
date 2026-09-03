@@ -42,8 +42,6 @@ body {
 	outline-color: var(--color-focus-border);
 }
 
-@include meta.load-css('../shared/codicons');
-@include meta.load-css('../shared/utils');
 @include scrollbars.scrollbarFix;
 @include scrollbars.scrollableBase;
 
