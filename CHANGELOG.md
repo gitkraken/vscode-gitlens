@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes the _Commit Graph_ commit details _Generate Commit Message_ silently doing nothing when the AI provider fails with an untyped error (e.g. Copilot credit limit) &mdash; the failure is now surfaced as an error notification, matching the _Source Control_ panel
 - Fixes the _Commit Graph_ retaining outdated parent connections and file statistics after deepening a shallow clone or changing Git replacement refs
 - Fixes closing _Compose_ or _Review_ after restarting discarding the saved work, and restores _Resume_ when returning after navigating away
 - Fixes contextual tips already seen in one _Commit Graph_ view showing again after another view saves its seen tips
