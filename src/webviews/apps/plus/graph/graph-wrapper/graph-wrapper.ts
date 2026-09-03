@@ -61,7 +61,7 @@ import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { countRenderedSearchResults, isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { GraphHostSelectionRequest } from '../utils/hostSelectionRequest.js';
-import { getSelectedRepoPath } from '../utils/repository.utils.js';
+import { getSelectedRepoFamily, getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	computeSelectionContexts,
 	needsDynamicRowContext,
@@ -1266,6 +1266,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return path;
 	}
 
+	// Rebind-stable — see getSelectedRepoFamily.
+	private getRepoFamily(): string | undefined {
+		return getSelectedRepoFamily(this.graphState);
+	}
+
 	/** Identity guard over {@link computeSelectedRowsProp}: hand back the SAME object whenever the newly
 	 *  computed projection has equal CONTENT, so the prop's identity survives (a) a rows push, which
 	 *  invalidates `_derivedHighlightCache` through `decoratedRows` even though the selection never moved,
@@ -1446,6 +1451,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// AFTER the anchor replay so a targeted anchor walk wins the gate: it's starvation-prone (attempt
 		// budget, parked on a no-progress response), while a generic row page re-parks for free.
 		this.replayDeferredMoreRows();
+		this.consumeSupersededPageRetry();
 	}
 
 	/** When the user switches to `branchesVisibility: 'current'`, a SECONDARY-worktree WIP anchor is
@@ -2859,15 +2865,95 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const services = this.services;
 		if (services == null) return;
 
+		// Captured BEFORE the await — the window the page was CUT FROM. The replacing window can be
+		// delivered while this RPC is in flight, so reading `graphState.rows` after the await would arm the
+		// latch against its own baseline: no later identity change ever comes and the re-ask never fires.
+		const rowsAtRequest = this.graphState.rows;
+
+		let outcome;
 		this.graphState.loading = true;
 		try {
-			await (await services.rows).getMoreRows(id, limit);
+			outcome = await (await services.rows).getMoreRows(id, limit);
 		} catch (ex) {
 			// A failed page leaves the current rows in place; the next scroll retries.
 			noop(ex);
 		} finally {
 			this.graphState.loading = false;
 		}
+
+		// The host refused the page because a refresh or rebind replaced the window it was cut from. Paging
+		// is edge-triggered here, so nothing else re-asks on its own and THIS is the layer that knows
+		// whether the rows are still wanted: arm the re-ask, and the next delivered window fires it (see
+		// {@link consumeSupersededPageRetry}).
+		//
+		// A TARGETED page is excluded: it isn't boundary-driven, so `needsMoreRows()` says nothing about
+		// whether it is still wanted, and the HOST owns retrying it against the replacing window instead.
+		if (outcome === 'superseded' && id == null) {
+			this._supersededPageRetry = {
+				limit: limit,
+				// Keyed on the repo FAMILY, not the literal path: a same-family rebind is one of the events
+				// that produces a `'superseded'` refusal and it changes `getRepoPath()`, so a literal-path
+				// key would mismatch on the very rebind that races it and stall paging at the boundary.
+				repoFamily: this.getRepoFamily(),
+				rows: rowsAtRequest,
+			};
+
+			// The replacement may already have been DELIVERED during the await above — consume right away so
+			// that race can't strand the latch until the next render cycle.
+			this.consumeSupersededPageRetry();
+		}
+	}
+
+	/** A boundary page the host refused as superseded, waiting for the window that replaces it — see
+	 *  {@link consumeSupersededPageRetry}. `rows` is the row-array identity from BEFORE the request was
+	 *  sent, which is how a DELIVERY (including one that raced the refusal) is recognized. `repoFamily`,
+	 *  not `getRepoPath()`, so the latch survives a same-family rebind. */
+	private _supersededPageRetry?: { limit: number | undefined; repoFamily: string | undefined; rows: unknown };
+
+	/**
+	 * Fires a re-ask armed by a superseded page, once and only once the window that replaces it has been
+	 * DELIVERED. The invariant is "at most one re-ask per delivered window".
+	 *
+	 * Keyed on delivery rather than a timer because a refusal does NOT imply a replacement is coming: a
+	 * TAINTED window (a rebind that failed part-way through re-stamping rows) refuses every page until a
+	 * rebuild repairs it, and no window arrives meanwhile. A timer or bare microtask would spin
+	 * back-to-back refused RPCs for the whole repair walk, and forever if the repair itself fails — which
+	 * is exactly when it would, since a wedged repo is why walks fail. Waiting on a delivery instead makes
+	 * that case inert, leaving the boundary edge-trigger (scroll away and back) as the manual recovery.
+	 *
+	 * Called from the render cycle and once immediately after arming, to cover a delivery that raced the
+	 * refusal. Both hit the same identity check, so an immediate call with no delivery yet is a no-op.
+	 *
+	 * Re-checked at CONSUME time, not arm time: the repo may have switched and the user may have scrolled
+	 * away, and that second check is what makes scroll-away clear the latch with nothing explicit to
+	 * clear. The `updateComplete` await is needed because Lit schedules the graph's own update as a
+	 * separate microtask, so `needsMoreRows()` asked now would measure the PRE-delivery window.
+	 */
+	private consumeSupersededPageRetry(): void {
+		const pending = this._supersededPageRetry;
+		if (pending == null) return;
+
+		// No delivery yet — the replacing window (or the repair) has not landed, so there is nothing new
+		// to page against and re-asking now would just earn the same refusal.
+		if (this.graphState.rows === pending.rows) return;
+
+		this._supersededPageRetry = undefined;
+
+		const graph = this.graph;
+		if (graph == null || this.getRepoFamily() !== pending.repoFamily) return;
+
+		void graph.updateComplete.then(() => {
+			if (this.getRepoFamily() !== pending.repoFamily || !graph.needsMoreRows()) return;
+
+			// Blocked behind a targeted walk — re-arm against the CURRENT rows so the walk's own delivery
+			// consumes this again instead of dropping it.
+			if (this.rowLoadInFlight) {
+				this._supersededPageRetry ??= { ...pending, rows: this.graphState.rows };
+				return;
+			}
+
+			void this.requestMoreRowsFromHost(undefined, pending.limit);
+		});
 	}
 
 	/** Re-run a page request deferred while a row load held the gate. Cheap enough for `updated()`: ONE plain
