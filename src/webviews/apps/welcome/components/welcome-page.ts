@@ -353,10 +353,10 @@ const graphWalkthroughSteps: GraphWalkthroughStep[] = [
 		body: html`
 			<p>
 				Every active agent session shows up alongside your work. See a status pill for each session on the
-				branch cards in the Home view and Graph sidebar, or see associated agents in the details panel when
-				viewing working changes. See what needs attention. Hover for the full picture. Take action &mdash;
-				resume, respond, switch &mdash; straight from the status. No more rotating through terminal tabs or chat
-				panes to figure out which agent needs you.
+				branch cards in the Graph sidebar, or see associated agents in the details panel when viewing working
+				changes. See what needs attention. Hover for the full picture. Take action &mdash; resume, respond,
+				switch &mdash; straight from the status. No more rotating through terminal tabs or chat panes to figure
+				out which agent needs you.
 			</p>
 			<div class="card-part--centered">
 				<gl-button href="${createCommandLink('gitlens.showGraph', { sidebarPanel: 'overview' })}"

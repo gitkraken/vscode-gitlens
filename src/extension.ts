@@ -309,7 +309,7 @@ export function deactivate(): void {
 	Container.instance.deactivate();
 }
 
-/** Consumes the one-shot flag set by the `views.legacy:hidden` migration, hiding Home, Cloud Patches
+/** Consumes the one-shot flag set by the `views.legacy:hidden` migration, hiding Cloud Patches
  *  and Cloud Workspaces for upgraded profiles. Best-effort by design: each hide command acts only
  *  while the container currently holding its view is the active composite of that container's
  *  location (verified — a programmatic call resolves without doing anything otherwise, so command
@@ -329,10 +329,10 @@ async function applyPendingLegacyViewHiding(container: Container): Promise<void>
 		}
 
 		// Profiles that disabled Plus features may have no Graph to land on (its `when` hangs off
-		// `gitlens:plus:disabled`) — Home stays their main surface, so don't hide anything. Read the
-		// SETTING, not the context: `gitlens:plus:disabled` is computed debounced-async after ready and
-		// cannot be set yet here. The flag stays ARMED (not consumed): if Plus features come back later,
-		// the next activation performs the hide.
+		// `gitlens:plus:disabled`) — leave their remaining views in place, so don't hide anything. Read
+		// the SETTING, not the context: `gitlens:plus:disabled` is computed debounced-async after ready
+		// and cannot be set yet here. The flag stays ARMED (not consumed): if Plus features come back
+		// later, the next activation performs the hide.
 		if (configuration.get('plusFeatures.enabled', undefined, true) === false) {
 			Logger.debug('applyPendingLegacyViewHiding: deferred (plus features disabled)');
 
@@ -371,7 +371,7 @@ async function applyPendingLegacyViewHiding(container: Container): Promise<void>
 		// A `when` that never comes true isn't showing its view anyway — the common case (no drafts
 		// entitlement) burns the full budget for it; accepted, this runs voided off the critical path,
 		// once per install.
-		let remaining: ('home' | 'drafts' | 'workspaces')[] = ['home', 'drafts', 'workspaces'];
+		let remaining: ('drafts' | 'workspaces')[] = ['drafts', 'workspaces'];
 		const deadline = Date.now() + 15000;
 		while (remaining.length) {
 			const cmds = await commands.getCommands(true);

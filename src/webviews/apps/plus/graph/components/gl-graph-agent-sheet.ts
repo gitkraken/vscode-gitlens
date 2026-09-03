@@ -8,12 +8,12 @@ import { makeHierarchical } from '@gitlens/utils/array.js';
 import { basename } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
+	AgentSessionState,
 	AgentSessionWorktreeState,
 	PastAgentSessionDetail,
 	PastAgentSessionState,
 } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
-import type { AgentSessionState } from '../../../../home/protocol.js';
 import { notifyService } from '../../../shared/actions/rpc.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {

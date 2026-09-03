@@ -20,7 +20,6 @@ per-surface transport choice.
 | --------------- | ---------------------------------------- | ------------------------------------------------------- |
 | Settings        | `apps/settings/settings.ts`              | shared services                                         |
 | Commit Details  | `apps/commitDetails/commitDetails.ts`    | shared services                                         |
-| Home            | `apps/home/home.ts`                      | shared services + promos                                |
 | Timeline        | `apps/plus/timeline/timeline.ts`         | shared services + promos                                |
 | Commit Graph    | `apps/plus/graph/graph.ts`               | `plus/graph/graphService.ts` + the `graph:rows` channel |
 | Patch Details   | `apps/plus/patchDetails/patchDetails.ts` | `rpc/patchDetailsService.ts` + shared services          |
@@ -240,7 +239,7 @@ Two group primitives, differing only in persistence:
   `onboarding`) and the Graph's `detailsState`.
 - **`createStateGroup(options?)`** (`apps/shared/state/signals.ts:85`) — adds persistence.
   Returns `{ signal, persisted, resetAll, startAutoPersist, dispose }`
-  (`signals.ts:57`). Used by Commit Details, Home, Settings, and Timeline.
+  (`signals.ts:57`). Used by Commit Details, Settings, and Timeline.
 
 `persisted(key, initialValue, opts?)` (`signals.ts:175`) restores from the checkpoint **at
 creation time**, so persisted values are readable before RPC connects — that is what lets a
@@ -371,9 +370,9 @@ Surfaces additionally cancel in-flight resource requests on hide and refetch on 
 
 Current `retainContextWhenHidden` values:
 
-| `true`                                        | `false`                                  |
-| --------------------------------------------- | ---------------------------------------- |
-| Commit Details, Home, Graph, Timeline, Rebase | Settings, Patch Details, Allowed Signers |
+| `true`                                  | `false`                                  |
+| --------------------------------------- | ---------------------------------------- |
+| Commit Details, Graph, Timeline, Rebase | Settings, Patch Details, Allowed Signers |
 
 Settings is the proof that persistence covers restore: it runs with `retainContextWhenHidden:
 false`, so a tab-away rebuilds the webview and `createSettingsState` restores the layout

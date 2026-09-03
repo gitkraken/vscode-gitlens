@@ -74,7 +74,7 @@ function adaptLogger(prefix: string | (() => string)): SupertalkLogger {
  * wiring an `RpcHost` or `RpcClient` so each line identifies the channel in the log.
  *
  * Example prefixes:
- * - `host(gitlens.views.home|5cf1bc7c)` — host-side logger for the Home webview
+ * - `host(gitlens.views.commitDetails|5cf1bc7c)` — host-side logger for the Inspect webview
  * - `client(gitlens.views.timeline|4103a120)` — client-side logger inside the Timeline webview
  *
  * Pass a thunk when the tag isn't final at wiring time — the client's connection outlives every

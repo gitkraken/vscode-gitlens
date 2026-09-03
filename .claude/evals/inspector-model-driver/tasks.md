@@ -50,14 +50,14 @@ Tests "did the _right_ thing happen", not "click registered".
 The discriminating task: does the config catch a geometry problem? Whole-sweep cheap configs must
 _look_; driver-split returns geometry for Opus to judge.
 
-- **Setup:** `launch({ commands: ["gitlens.showHomeView"] })`, then `resize_window({ width: 320, height: 900 })`
-  (narrow, to stress layout), `wait_for_webview({ webview_url: "home" })`.
-- **Question:** At this narrow width, is any primary Home action/button clipped or overflowing its
+- **Setup:** `launch({ commands: ["gitlens.showGraphView"] })`, then `resize_window({ width: 320, height: 900 })`
+  (narrow, to stress layout), `wait_for_webview({ webview_url: "graph" })`.
+- **Question:** At this narrow width, is any primary Commit Graph sidebar action/button clipped or overflowing its
   container (horizontal overflow), or is the layout intact? Name the offending element if any.
 - **Oracle probe (geometry, not pixels):**
   ```
-  evaluate_in_webview({ webview_url: "home", expression:
-    "(() => { const root = document.querySelector('gl-home-app').shadowRoot; const host = root.host.getBoundingClientRect(); const bad = [...root.querySelectorAll('*')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > host.right + 1 || r.left < host.left - 1); }).map(e => e.tagName.toLowerCase() + (e.className ? '.'+String(e.className).split(' ')[0] : '')); return { overflowCount: bad.length, sample: bad.slice(0,8) }; })()" })
+  evaluate_in_webview({ webview_url: "graph", expression:
+    "(() => { const root = document.querySelector('gl-graph-app').shadowRoot; const host = root.host.getBoundingClientRect(); const bad = [...root.querySelectorAll('*')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > host.right + 1 || r.left < host.left - 1); }).map(e => e.tagName.toLowerCase() + (e.className ? '.'+String(e.className).split(' ')[0] : '')); return { overflowCount: bad.length, sample: bad.slice(0,8) }; })()" })
   ```
 - **Scores 1.0 if:** the config's verdict (overflow vs intact) matches the oracle's `overflowCount>0`,
   and if overflow it names a plausible offending element. **This is where a text-only driver may beat
@@ -79,14 +79,14 @@ _look_; driver-split returns geometry for Opus to judge.
 
 ## T5 — Perf measurement · type: `perf`
 
-- **Setup:** none pre-opened; the driver measures cold Home hydration.
-- **Question:** Measure Home hydration time — from showing the Home view to Lit `updateComplete` —
+- **Setup:** none pre-opened; the driver measures cold Commit Graph hydration.
+- **Question:** Measure Commit Graph hydration time — from showing the graph view to Lit `updateComplete` —
   averaged over 3 samples. Report the average in ms.
 - **Oracle probe:** the orchestrator runs the same 3-sample measurement:
   ```
-  // per sample: execute_command gitlens.showHomeView, then
-  evaluate_in_webview({ webview_url: "home", expression:
-    "(async () => { const t0 = performance.now(); await document.querySelector('gl-home-app').updateComplete; return performance.now() - t0; })()" })
+  // per sample: execute_command gitlens.showGraphView, then
+  evaluate_in_webview({ webview_url: "graph", expression:
+    "(async () => { const t0 = performance.now(); await document.querySelector('gl-graph-app').updateComplete; return performance.now() - t0; })()" })
   ```
 - **Scores 1.0 if:** the config's average is within ±25% of the oracle average and the method is
   sound (used `updateComplete`, 3 samples). 0.5 if a single sample or loose method; 0 if fabricated.

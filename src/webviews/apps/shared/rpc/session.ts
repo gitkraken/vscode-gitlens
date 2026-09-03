@@ -17,7 +17,7 @@ const firstWarnMs = 20_000;
 const secondWarnMs = 40_000;
 
 export interface RpcSessionOptions {
-	/** Prefix for this session's log lines, e.g. `RpcClient(gitlens.views.home)`. */
+	/** Prefix for this session's log lines, e.g. `RpcClient(gitlens.views.commitDetails)`. */
 	logPrefix: string;
 
 	/**

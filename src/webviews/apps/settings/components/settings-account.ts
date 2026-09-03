@@ -83,10 +83,10 @@ interface PlanCardContent {
  * link row.
  *
  * Account/plan state comes from the shared subscription RPC signals (via `subscriptionContext`, the same
- * bridge the Graph header and Home view use), AI usage included — the host owns that fetch so this panel
+ * bridge the Graph header uses), AI usage included — the host owns that fetch so this panel
  * and the chip read one value. Everything acts through command links — nothing here writes config.
  *
- * The compact `gl-account-chip` still owns the Graph header and Home view; this panel deliberately
+ * The compact `gl-account-chip` still owns the Graph header; this panel deliberately
  * reuses its behavior (command ids, entitlement ring, promo wiring) without reusing its layout.
  */
 @customElement('gl-settings-account')

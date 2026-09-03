@@ -26,7 +26,7 @@ TASK:
 
 HOW TO OBSERVE (use these exact tool calls; batch fields into one evaluate where possible):
 {{driver_steps}}   // the probe(s) from the task; for the `visual` task you MAY also take one scoped
-                   // screenshot ({ target: "webview", webview_url: "home" }) and judge it — this is
+                   // screenshot ({ target: "webview", webview_url: "graph" }) and judge it — this is
                    // the point of the whole-sweep config.
 
 TEARDOWN: call teardown when done.

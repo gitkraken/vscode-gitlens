@@ -1,6 +1,6 @@
 /**
  * Shared command handlers for BranchRef / BranchAndTargetRefs command links
- * fired from webviews (home, graph, …). These back the action buttons in
+ * fired from webviews (graph, …). These back the action buttons in
  * components like `gl-merge-target-status`.
  *
  * Each webview registers a matching `@command(...)` that delegates here, so

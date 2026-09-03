@@ -26,6 +26,7 @@ export enum DeepLinkType {
 export enum DeepLinkCommandType {
 	CloudPatches = 'cloud-patches',
 	Graph = 'graph',
+	/** Legacy — the Home view was removed; still accepted so old links open the Commit Graph */
 	Home = 'home',
 	Inspect = 'inspect',
 	InstallMCP = 'install-mcp',
@@ -45,7 +46,7 @@ export function isDeepLinkCommandType(type: string): type is DeepLinkCommandType
 export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlCommands>([
 	[DeepLinkCommandType.CloudPatches, 'gitlens.showDraftsView'],
 	[DeepLinkCommandType.Graph, 'gitlens.showGraph'],
-	[DeepLinkCommandType.Home, 'gitlens.showHomeView'],
+	[DeepLinkCommandType.Home, 'gitlens.showGraph'],
 	[DeepLinkCommandType.Inspect, 'gitlens.showCommitDetailsView'],
 	[DeepLinkCommandType.Launchpad, 'gitlens.showLaunchpad'],
 	[DeepLinkCommandType.Login, 'gitlens.plus.login'],

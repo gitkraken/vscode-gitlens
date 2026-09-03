@@ -115,7 +115,7 @@ test.describe('Feature Name', () => {
 1. **Explore with MCP first** — Use `/live-inspect` to launch VS Code and discover the right selectors:
    ```
    launch {}
-   execute_command { command: "gitlens.showHomeView" }
+   execute_command { command: "gitlens.showGraphView" }
    aria_snapshot {}                              # See all UI elements and roles
    inspect_dom { selector: "h1", in_webview: true }  # Find webview content
    screenshot {}                                 # Visual verification
@@ -135,12 +135,12 @@ test.describe('Feature Name', () => {
 Use `getGitLensWebview(title, purpose)` to get a `FrameLocator` for webview content:
 
 ```typescript
-const webview = await vscode.gitlens.getGitLensWebview('Home', 'webviewView');
+const webview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView');
 await expect(webview!.locator('h1')).toContainText('Expected heading');
 await expect(webview!.getByRole('button', { name: /Try Pro/i })).toBeVisible();
 ```
 
-Available webviews: `Home`, `Graph`, `Graph Details`, `Inspect`, `Visual File History`, `Interactive Rebase`.
+Available webviews: `Graph`, `Graph Details`, `Inspect`, `Visual File History`, `Interactive Rebase`.
 Purpose is `webviewView` (sidebar/panel) or `webviewPanel` (editor tab) or `customEditor`.
 
 ### E2E Pro Feature Gating

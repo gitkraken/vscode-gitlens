@@ -13,8 +13,8 @@ import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../const
 import type { GraphBranchHoverSurface } from '../../../../../constants.telemetry.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { launchpadGroupIconMap, launchpadGroupLabelMap } from '../../../../../plus/launchpad/models/launchpad.js';
-import type { BranchRef } from '../../../../home/protocol.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
+import type { BranchRef } from '../../../../shared/branchRefs.js';
 import type {
 	OverviewBranch,
 	OverviewBranchEnrichment,
