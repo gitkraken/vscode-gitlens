@@ -48,7 +48,7 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
-		/** Fired on every close path (✕, backdrop click, Esc, a successful send) — the app refocuses
+		/** Fired on every close path (✕, Cancel, Esc, a successful send) — the app refocuses
 		 *  the graph, since the dialog's own focus lands nowhere useful once it closes. */
 		'gl-graph-feedback-closed': CustomEvent<void>;
 	}
@@ -153,7 +153,8 @@ export class GlGraphFeedbackDialog extends LitElement {
 			}
 
 			/* No min-height: 0 here: the field must never shrink below its label + the textarea's own
-	minimum, or the textarea paints over the links row. In a short host the body scrolls instead. */
+	min-height, or the textarea paints over the links row. Only once that floor is reached does the body
+	scroll — so the textarea has no rows attribute, which would raise its floor to the row count. */
 			.field {
 				display: flex;
 				flex: 1;
@@ -408,7 +409,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 	}
 
 	private close = (): void => {
-		// Dispose covers every close path the dispatcher didn't drive (✕ button, backdrop click).
+		// Dispose covers every close path the dispatcher didn't drive (✕ button, Cancel).
 		this._overlay?.dispose();
 		this._overlay = undefined;
 		this.open = false;
@@ -500,7 +501,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 		return html`<gl-dialog
 			class="feedback-dialog"
 			modal
-			closedby="any"
+			closedby="closerequest"
 			label="Send Feedback"
 			?open=${this.open}
 			@gl-dialog-close=${this.close}
@@ -537,7 +538,6 @@ export class GlGraphFeedbackDialog extends LitElement {
 					<textarea
 						id="gl-feedback-message"
 						class="textarea"
-						rows="6"
 						maxlength="4000"
 						placeholder=${current.placeholder}
 						?disabled=${this.pending}
