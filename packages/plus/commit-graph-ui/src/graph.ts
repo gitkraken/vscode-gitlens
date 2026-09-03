@@ -6902,17 +6902,20 @@ export class GlCommitGraph extends LitElement {
 			// Ctrl AND Meta both walk the lineage on every platform (as they always have here), so declare
 			// both rather than collapsing to `mod`.
 			{
+				id: 'graph.lineagePrevious',
 				keys: ['ctrl+ArrowUp', 'ctrl+shift+ArrowUp', 'meta+ArrowUp', 'meta+shift+ArrowUp'],
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
 					label: 'Follow the branch',
 					order: 4,
-					keysOverride: ['mod+ArrowUp', 'sep:/', 'ArrowDown'],
+					keysOverride: ['mod+ArrowUp'],
+					with: [{ id: 'graph.lineageNext', keys: ['ArrowDown'] }],
 				},
 				run: this.repinned(e => this.stepLineage(e, -1)),
 			},
 			{
+				id: 'graph.lineageNext',
 				keys: ['ctrl+ArrowDown', 'ctrl+shift+ArrowDown', 'meta+ArrowDown', 'meta+shift+ArrowDown'],
 				scope: 'rows',
 				sheet: 'hidden',
@@ -6924,6 +6927,7 @@ export class GlCommitGraph extends LitElement {
 			// be canonical; it rides along as an undocumented alias since it reads as "the alt of lineage"
 			// and is unbound in VS Code on every platform.
 			{
+				id: 'graph.forkPrevious',
 				keys: [
 					'alt+ArrowUp',
 					'alt+shift+ArrowUp',
@@ -6937,11 +6941,13 @@ export class GlCommitGraph extends LitElement {
 					group: 'navigation',
 					label: 'Previous / next fork',
 					order: 6,
-					keysOverride: ['alt+ArrowUp', 'sep:/', 'ArrowDown'],
+					keysOverride: ['alt+ArrowUp'],
+					with: [{ id: 'graph.forkNext', keys: ['ArrowDown'] }],
 				},
 				run: this.repinned(e => this.stepForkPoint(e, -1)),
 			},
 			{
+				id: 'graph.forkNext',
 				keys: [
 					'alt+ArrowDown',
 					'alt+shift+ArrowDown',
@@ -6961,17 +6967,20 @@ export class GlCommitGraph extends LitElement {
 			// Control before the webview ever sees them): Ctrl means "structural navigation" on both axes,
 			// lineage vertically and the fork's lanes horizontally. Alt stays the alt-action layer.
 			{
+				id: 'graph.switchBranchLeft',
 				keys: ['ctrl+ArrowLeft', 'meta+ArrowLeft'],
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
 					label: 'Switch branch at a fork',
 					order: 5,
-					keysOverride: ['mod+ArrowLeft', 'sep:/', 'ArrowRight'],
+					keysOverride: ['mod+ArrowLeft'],
+					with: [{ id: 'graph.switchBranchRight', keys: ['ArrowRight'] }],
 				},
 				run: this.repinned(e => this.navigateForkLane(e, -1)),
 			},
 			{
+				id: 'graph.switchBranchRight',
 				keys: ['ctrl+ArrowRight', 'meta+ArrowRight'],
 				scope: 'rows',
 				sheet: 'hidden',
@@ -7130,18 +7139,28 @@ export class GlCommitGraph extends LitElement {
 				sheet: { group: 'selection', label: 'Select only', order: 2 },
 				run: () => this.selectFocusedRow(false),
 			},
-			// `mod+KeyI` rides along for the VS Code hover reflex (Cmd/Ctrl+I) — the code token keeps it
-			// layout-independent, and the plain `i` stays the primary.
+			// Plain `i` — the primary chord, and a fixed (no `id`) widget key: never customizable, so it
+			// can't collide with itself once `mod+KeyI` (below) is rebound. `with` pulls in that partner's
+			// segment so overriding or disabling it is still reflected here.
 			{
-				keys: ['i', 'mod+KeyI'],
+				keys: ['i'],
 				scope: 'rows',
 				sheet: {
 					group: 'selection',
 					label: 'Peek commit info',
 					order: 4,
-					keysOverride: ['i', 'text: / ', 'mod+KeyI'],
 					subline: ['Escape', 'text: closes'],
+					with: [{ id: 'graph.peek', keys: ['mod+KeyI'] }],
 				},
+				run: this.repinned(() => this.togglePeek()),
+			},
+			// `mod+KeyI` rides along for the VS Code hover reflex (Cmd/Ctrl+I) — the code token keeps it
+			// layout-independent. Customizable/disableable independently of the plain `i` above.
+			{
+				id: 'graph.peek',
+				keys: ['mod+KeyI'],
+				scope: 'rows',
+				sheet: 'hidden',
 				run: this.repinned(() => {
 					this.suppressModifierChainUntilRelease();
 					return this.togglePeek();

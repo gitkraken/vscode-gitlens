@@ -507,6 +507,10 @@ export interface GraphConfig {
 	readonly scrollRowPadding: number;
 	readonly searchAutocompleteOnFocus: boolean;
 	readonly searchItemLimit: number;
+	readonly shortcuts: {
+		readonly enabled: boolean;
+		readonly overrides: Record<string, string | string[] | false>;
+	};
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
 	readonly showUpstreamStatus: boolean;

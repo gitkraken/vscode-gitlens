@@ -3119,6 +3119,8 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.config.scrollRowPadding': number,
   'context.config.searchAutocompleteOnFocus': boolean,
   'context.config.searchItemLimit': number,
+  'context.config.shortcuts.enabled': boolean,
+  [`context.config.shortcuts.overrides.${string}`]: string,
   'context.config.showGhostRefsOnRowHover': boolean,
   'context.config.showRemoteNames': boolean,
   'context.config.showUpstreamStatus': boolean,

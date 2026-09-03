@@ -62,6 +62,12 @@ const residualRows: readonly KeymapSheetRow[] = [
 	},
 ];
 
+/** Builds a `command:` URI that opens VS Code's Settings UI. `@id:<id>` jumps straight to one setting;
+ *  a bare query (no `@id:` prefix) runs a search, which is what surfaces BOTH shortcut settings at once. */
+function settingsHref(query: string): string {
+	return `command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify(query))}`;
+}
+
 @customElement('gl-graph-keyboard-shortcuts')
 export class GlGraphKeyboardShortcuts extends LitElement {
 	static override styles = [
@@ -84,6 +90,9 @@ dialog:not([open]) { display: none } and paint the closed sheet inline under the
  the max-width at narrow widths. */
 				box-sizing: border-box;
 				width: 104rem;
+				/* gl-dialog floors its box at 40rem — wider than the graph's side bar view — so the floor
+ has to be lifted here or the sheet overflows off-canvas there. */
+				min-width: 0;
 				max-width: 96vw;
 				max-height: 92vh;
 				/* Sections own their own padding (the title bar and footer rules need to sit flush
@@ -267,6 +276,24 @@ qualifiers only. */
 			.footrow kbd {
 				font-size: 0.95rem;
 			}
+
+			/* Pushed to the far end of the (otherwise centered) footrow — the auto margin absorbs the
+			free space on its left, leaving the other footrow entries centered among themselves. */
+			.footrow .customize {
+				margin-left: auto;
+				color: inherit;
+				text-decoration: underline;
+				text-underline-offset: 0.15rem;
+			}
+
+			.footrow .customize:hover {
+				color: var(--vscode-textLink-foreground);
+			}
+
+			.footrow .customize:focus-visible {
+				outline: var(--gl-border-width) solid var(--color-focus-border);
+				outline-offset: 0.2rem;
+			}
 		`,
 	];
 
@@ -305,8 +332,17 @@ qualifiers only. */
 	}
 
 	override render(): unknown {
+		// `sheetEntries()` reflects the effective (user-overridden) bindings. Fixed (id-less) rows are
+		// never dropped by an override, so there's always at least the fixed navigation rows to show —
+		// no "everything disabled" empty state is reachable.
+		const registryRows = this.keymap?.sheetEntries() ?? [];
+
+		// Every row — registry AND residual, footer included — goes into `grouped`; the body only
+		// renders the groups in `groupOrder` (which excludes `footer`), and the footer strip below
+		// pulls its own rows back out of the same map, so `?`'s registry row ends up alongside the
+		// residual footer rows instead of being dropped.
 		const grouped = new Map<string, KeymapSheetRow[]>();
-		for (const row of [...(this.keymap?.sheetEntries() ?? []), ...residualRows]) {
+		for (const row of [...registryRows, ...residualRows]) {
 			let list = grouped.get(row.group);
 			if (list == null) {
 				list = [];
@@ -319,6 +355,8 @@ qualifiers only. */
 		for (const list of grouped.values()) {
 			list.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
 		}
+
+		const footerRows = grouped.get('footer') ?? [];
 
 		return html`<gl-dialog
 			class="shortcuts-dialog"
@@ -343,9 +381,8 @@ qualifiers only. */
 					</div>
 				</div>
 				<div class="footrow">
-					${(grouped.get('footer') ?? []).map(
-						row => html`<span>${this.renderEntries(row.keys, false)} ${row.label}</span>`,
-					)}
+					${footerRows.map(row => html`<span>${this.renderEntries(row.keys, false)} ${row.label}</span>`)}
+					<a class="customize" href=${settingsHref('gitlens.graph.shortcuts')}>Customize…</a>
 				</div>
 			</div>
 		</gl-dialog>`;
@@ -355,7 +392,7 @@ qualifiers only. */
 		return html`<section class="group">
 			<h3>${groupTitles[group]}</h3>
 			${rows.map(
-				row => html`<div class="row">
+				row => html`<div class="row" title=${this.rowTooltip(row.ids)}>
 					<span class="keys">${this.renderEntries(row.keys, true)}</span>
 					<span class="label"
 						>${row.label}${
@@ -367,6 +404,15 @@ qualifiers only. */
 				</div>`,
 			)}
 		</section>`;
+	}
+
+	/** A row's tooltip names the binding id(s) a user overrides against — absent for fixed (id-less)
+	 *  rows and residual rows, which aren't customizable. */
+	private rowTooltip(ids: readonly string[] | undefined): string | typeof nothing {
+		if (ids == null || ids.length === 0) return nothing;
+		if (ids.length === 1) return `Shortcut id: ${ids[0]}`;
+
+		return `Shortcut ids: ${ids.join(', ')}`;
 	}
 
 	/** Renders a display-entry list. `spaced` puts a space between adjacent chips — what the keys rail

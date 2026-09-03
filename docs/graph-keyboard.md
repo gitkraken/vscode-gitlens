@@ -27,7 +27,7 @@ A binding's `run()` may return `false` — the key falls to the next candidate, 
 - **Shift** = extend (selections, topologically along the first-parent chain) and variant jumps (`Shift+H`/`Shift+W`).
 - **Ctrl/Cmd** = structural navigation: `Ctrl+↑↓` first-parent lineage (lane-faithful, steps through WIP rows), `Ctrl+←→` switch branch at a fork. `Ctrl+F` focuses the commit search box — or, with focus in a file tree (`tree` scope), that tree's filter box, opening it if hidden. Bare Ctrl (no chord) is also the lane-mode hold: holding it dims non-lane rows, unifying with `Ctrl+↑↓`/`Ctrl+←→` — see "Hold `Ctrl`" below (bare Alt holds it too).
 - **Alt** = the chrome layer (`webviewGlobal` scope — works while typing in any graph text box): `Alt+M`/`S`/`D` toggle minimap/side bar/details, `Alt+Shift+D` docks details elsewhere, `Alt+1`–`8` toggle side bar panels, `Alt+K` Agent Kanban, `Alt+V` visualizations. Bare `Alt+↑↓` steps fork points (`Ctrl+Alt` accepted silently — GNOME grabs it at the OS). A bare Alt HOLD (no chord) also engages the lane highlight, same as Ctrl — see "Hold `Ctrl`" below.
-- `/` opens the ref-find, `?` (or `mod+/`) the shortcut sheet.
+- `/` opens the ref-find, `?` the shortcut sheet.
 
 ### Why Alt for the chrome toggles
 
@@ -35,9 +35,36 @@ Toggles must work with the caret in a text entry (search box, filters, AI box) �
 
 Consequences that keep the layer coherent:
 
-- Alt engages the lane dim (again), so every modifier-carrying binding whose action _isn't_ lane navigation — the Alt chrome toggles (`Alt+M`/`S`/`D`/`K`/`V`, `Alt+1`–`8`, `Alt+Shift+D`) and the Ctrl-carrying shortcuts (`Ctrl+F`, `Ctrl/Cmd+I`, `Ctrl/Cmd+C`, `?`/`mod+/`) — calls `suppressModifierChainUntilRelease()` first. The bare Ctrl/Alt-hold lane dim has a ~500ms **engage delay** (`holdEngageDelayMs`) — chording never flashes the dim; holding still highlights.
+- Alt engages the lane dim (again), so every modifier-carrying binding whose action _isn't_ lane navigation — the Alt chrome toggles (`Alt+M`/`S`/`D`/`K`/`V`, `Alt+1`–`8`, `Alt+Shift+D`) and the Ctrl-carrying shortcuts (`Ctrl+F`, `Ctrl/Cmd+I`, `Ctrl/Cmd+C`) — calls `suppressModifierChainUntilRelease()` first. The bare Ctrl/Alt-hold lane dim has a ~500ms **engage delay** (`holdEngageDelayMs`) — chording never flashes the dim; holding still highlights.
 - Keyboard toggles **focus what they open** (rail-click parity — the sidebar toggle and `Alt+digit` land in the panel filter) and **return focus to the graph rows** when closing a surface that contains focus (`isFocusInside`, a shadow-root-walking containment check — plain `contains()` never crosses shadow boundaries).
 - `Alt+digit` shadows VS Code's `openEditorAtIndex`; the webview's `preventDefault` suppresses it (verified live).
+
+## Customizing
+
+Only shortcuts that can collide with a user's own VS Code keybindings, or that a user would reasonably want to change, are customizable — in practice, the ones carrying `Ctrl`/`Alt`/`Cmd`. Everything else (arrows, Tab, Enter, Space, Esc, plain letters, digits, `/`, `[`/`]`) is a fixed widget key: `id` on `KeyBindingDescriptor` is optional, and a binding with no `id` ignores overrides and the master switch entirely, and shows no id in the sheet.
+
+Two settings, both `window`-scoped: `gitlens.graph.shortcuts.enabled` (boolean, default `true`) turns every customizable shortcut on or off; `gitlens.graph.shortcuts.overrides` rebinds or disables individual ones, keyed by binding id. The HOST folds the master switch into the overrides before it ever reaches the webview: `getComponentConfig()` in `graphWebview.ts` pushes a fresh `GraphShortcutOverrides` map (`Record<string, readonly string[] | false>`) as `shortcuts` on every change, sending `{ '*': false }` when `enabled` is off. The webview applies it to the `KeymapDispatcher` via `setOverrides()` from `graph-app.ts`'s `applyShortcutsConfig()` (called from `willUpdate`, and once from `connectedCallback` right after re-registering the keymap so a reconnect re-applies immediately) — there's no `enabled` branch on the webview side, just the one map.
+
+Exactly 16 bindings carry an id, grouped by namespace:
+
+- `graph.*` (rows scope): `graph.lineagePrevious`, `graph.lineageNext`, `graph.forkPrevious`, `graph.forkNext`, `graph.switchBranchLeft`, `graph.switchBranchRight`, `graph.peek`
+- `search.*`: `search.commits`, `search.treeFilter`
+- `panels.*`: `panels.toggleMinimap`, `panels.toggleSidebar`, `panels.toggleDetails`, `panels.dockDetails`, `panels.sidebarPanel`
+- `modes.*`: `modes.toggleKanban`, `modes.toggleVisualizations`
+
+`graph.peek` is a special case: the plain `i` chord is a FIXED binding (no id, never rebindable) that documents the pair via `with`; only its `mod+KeyI` (Ctrl/Cmd+I, the VS Code hover reflex) twin is the actual `graph.peek` binding, registered separately right after it and hidden from the sheet on its own.
+
+Press `?` and hover a row in the sheet to see its id(s) — rows with no id shown aren't customizable. An override key can be an exact id, a `<prefix>.*` wildcard, or bare `*` for everything; precedence is exact match, then the longest matching wildcard, then `*` — see `resolveOverride()` in `keybinding.ts`. **Wildcards can only disable**: a wildcard entry whose value is a non-empty key list is ignored outright (falling through to the next matching wildcard, then `undefined`) and `KeymapDispatcher` warns once per offending wildcard via `onWarn` — only an exact id can rebind.
+
+An override value is a key combination, a list of them, or `false` to disable. Combos join modifiers (`ctrl`, `alt`, `shift`, `meta`, or `mod` for Ctrl/⌘) with `+`; letters and digits use physical key names (`KeyA`–`KeyZ`, `Digit0`–`Digit9`), other keys use their `KeyboardEvent.key` value (`ArrowUp`, `Enter`, `/`). A malformed replacement key is reported via `onWarn` (logged, not surfaced in UI) and the binding keeps its default keys; a disabled binding (`false`) is dropped from registration entirely — but if it names a `with` partner that's still registered, that partner's own row survives in the sheet (see below), just without the disabled half's segment.
+
+A multi-key binding like `panels.sidebarPanel` (`Alt+1`–`8`, one chord per side bar panel) maps override keys to their targets **positionally**: the 1st chord in the override list drives the 1st panel, the 2nd drives the 2nd, and so on — `run()` receives the index of the chord that matched (`chordIndex`, not the physical digit), so an override can reorder or shorten the list freely.
+
+When an override applies to a binding whose DEFAULT chords are "Shift-closed" — every `shift: false` default chord has a `shift: true` twin, e.g. `['ArrowUp', 'shift+ArrowUp']` where Shift extends the selection along the same axis — `registerBinding()` adds matching Shift twins to the override's chords too, so rebinding the plain key preserves its Shift-extend variant without the user having to spell out both. The displayed `keys` stay exactly what the user typed; only the matched chords gain the twin.
+
+A row whose `sheet` declares `with` (partners: previous/next pairs where BOTH halves carry an id, e.g. `graph.lineagePrevious`/`graph.lineageNext`, or a fixed visible half naming its sole customizable partner, e.g. `graph.peek`) composes its rail from segments: the visible binding's own `keysOverride` first, then a `/` separator and each partner's segment — the partner's `keys` (its display when not overridden) or its live effective keys once it IS overridden. So overriding either half of the pair is reflected independently, without the other half's display being touched. If the visible binding itself is disabled by an override, its row still appears — rail and `ids` built from whichever `with` partners are still registered, no leading self segment — as long as at least one partner survives; if none do, the row disappears entirely. A row on a FIXED binding (no id) that documents a fixed partner (e.g. `graph.stepPrevious`'s vim aliases) just spells the whole rail out directly in `keysOverride` — no `with` needed, since neither half can ever be overridden.
+
+Widget-internal keys (next table) don't go through the registry at all and aren't customizable — Ctrl/Alt hold, `F3`/`Shift+F3`, tree type-ahead, etc.
 
 ## Widget-internal keys (not in the registry)
 
@@ -52,7 +79,7 @@ Consequences that keep the layer coherent:
 ## Adding a binding
 
 1. Pick the scope by _where the action makes sense from_ — `rows` for row-relative actions, `webview` for graph-wide actions that must yield to typing, `webviewGlobal` only for chrome toggles that must work mid-typing (and then the chord must be one that types nothing — see the Alt rationale above).
-2. `sheet` metadata is **required** on every binding (`'hidden'` to opt out) — the shortcut sheet generates from it. Use `keysOverride`/`subline` with the display grammar (`raw:`/`mod:`/`text:`/`sep:` — see `SheetDisplayEntry` in `keybinding.ts`) for composed rails.
+2. Give the binding a stable `id`, following the scheme (`graph.*` for the rows, `panels.*` for show/hide/dock, `modes.*` for display modes, `search.*`; add a namespace only if a new area earns one) ONLY if it deserves customization by the "Customizing" rule above — carries `Ctrl`/`Alt`/`Cmd`, or a user could otherwise reasonably want to rebind or disable it. Otherwise leave `id` off — it's a fixed widget key, and that's the default for arrows, Tab, Enter, Space, Esc, plain letters/digits, `/`, `[`/`]`. The `id` is what user overrides key against, and what the sheet's row tooltip shows. `sheet` metadata is **required** on every binding (`'hidden'` to opt out) — the shortcut sheet generates from it. Use `keysOverride`/`subline` with the display grammar (`raw:`/`mod:`/`text:`/`sep:` — see `SheetDisplayEntry` in `keybinding.ts`) for composed rails; a previous/next pair where BOTH halves are customizable needs `with: [{ id, keys }]` on the visible half naming the hidden partner (see "Customizing" above) — a pair where neither half is customizable just spells the combined rail out in `keysOverride` directly.
 3. Alt-carrying chords: use code tokens (`alt+KeyX`), never bare letters — Option remaps `event.key` on macOS. Ctrl- or Alt-carrying chords whose action isn't lane navigation: call `suppressModifierChainUntilRelease()` first, so the chord's own keydown never flashes the lane dim.
 4. `run()` returns `false` when conditions aren't met, so the key falls through; never call `preventDefault` yourself — the dispatcher does, only on `true`.
 5. Transient surfaces own no local Esc: push onto the overlay stack on open, dispose on every close path. Deliberate exception: coach-mark tips (`gl-graph-coachmark`) close in passing on Esc via their own capture keydown — an unrequested interruption shouldn't cost the user a press, and its close must be classified locally (reopen suppression) anyway.

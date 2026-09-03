@@ -876,6 +876,10 @@ export interface GraphComponentConfig {
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
 	searchAutocompleteOnFocus?: boolean;
+	/** Effective shortcut overrides keyed by binding id; `{ '*': false }` when
+	 *  `gitlens.graph.shortcuts.enabled` is off — the host folds the master switch in here so the
+	 *  webview only ever has one thing to apply. */
+	shortcuts?: GraphShortcutOverrides;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	showWorktreeWipStats?: boolean;
@@ -892,6 +896,10 @@ export interface GraphComponentConfig {
 	style?: GraphStyle;
 	timelineSeparators?: boolean;
 }
+
+/** User shortcut customization for the Commit Graph, keyed by binding id (see the keyboard
+ *  registry): a key list to rebind, or `false` to disable. */
+export type GraphShortcutOverrides = Record<string, readonly string[] | false>;
 
 export interface GraphColumnConfig {
 	isHidden?: boolean;

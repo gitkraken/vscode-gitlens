@@ -39,7 +39,7 @@ import {
 	isGitCloudHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
 } from '@gitlens/integrations/utils/integration.utils.js';
-import { filterMap } from '@gitlens/utils/array.js';
+import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -4523,6 +4523,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private getComponentConfig(): GraphComponentConfig {
+		// The master switch folds into the overrides here — `{ '*': false }` disables every
+		// customizable shortcut — so the webview only ever applies one thing (`shortcuts`).
+		const shortcutsEnabled = configuration.get('graph.shortcuts.enabled') ?? true;
+		const shortcutOverrides = normalizeShortcutOverrides(configuration.get('graph.shortcuts.overrides') ?? {});
+
 		const config: GraphComponentConfig = {
 			aiEnabled: this.container.ai.enabled,
 			autoFetchIntervalSeconds: this.getAutoFetchIntervalSeconds(),
@@ -4571,6 +4576,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
 			searchAutocompleteOnFocus: configuration.get('graph.searchAutocompleteOnFocus'),
+			shortcuts: shortcutsEnabled ? shortcutOverrides : { '*': false },
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			showWorktreeWipStats: configuration.get('graph.showWorktreeWipStats'),
@@ -6170,4 +6176,18 @@ function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
 
 function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
 	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
+}
+
+/** Normalizes `gitlens.graph.shortcuts.overrides` values for the component config: a single key
+ *  combination becomes a one-element list, lists and `false` pass through unchanged, and any other
+ *  (malformed, since settings.json is freeform) value is dropped. */
+function normalizeShortcutOverrides(
+	overrides: Record<string, string | string[] | false>,
+): Record<string, readonly string[] | false> {
+	return filterMapObject(overrides, (_, value) => {
+		if (value === false) return false;
+		if (Array.isArray(value) || typeof value === 'string') return ensureArray(value);
+
+		return undefined;
+	});
 }

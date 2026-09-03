@@ -1171,6 +1171,39 @@
 						"scope": "window",
 						"order": 301
 					},
+					"gitlens.graph.shortcuts.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether the customizable keyboard shortcuts of the _Commit Graph_ (those using `Ctrl`, `Alt`, or `⌘`, e.g. `Alt+M` or `Ctrl+↑`) are enabled. Navigation keys such as the arrows, `Enter`, and `Esc` always work. Use `#gitlens.graph.shortcuts.overrides#` to change or disable individual shortcuts",
+						"scope": "window",
+						"order": 310
+					},
+					"gitlens.graph.shortcuts.overrides": {
+						"type": "object",
+						"default": {},
+						"additionalProperties": {
+							"oneOf": [
+								{
+									"type": "string"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								{
+									"type": "boolean",
+									"enum": [
+										false
+									]
+								}
+							]
+						},
+						"markdownDescription": "Specifies changes to the _Commit Graph_ keyboard shortcuts, keyed by shortcut id (press `?` in the _Commit Graph_ and hover a shortcut to see its id — only shortcuts that show an id can be changed). Set an id to a key combination, a list of them, or `false` to disable it. A key ending in `.*` disables every shortcut with that prefix when set to `false` (e.g. `\"panels.*\": false`), and `\"*\": false` disables them all; wildcards cannot rebind. Key combinations join modifiers (`ctrl`, `alt`, `shift`, `meta`, or `mod` for Ctrl, ⌘ on macOS) with `+` before a key, e.g. `\"mod+shift+ArrowUp\"`; letters and digits use physical key names (`KeyA`–`KeyZ`, `Digit0`–`Digit9`), other keys use their `KeyboardEvent.key` value (`ArrowUp`, `Enter`, `/`)",
+						"scope": "window",
+						"order": 311
+					},
 					"gitlens.graph.branchesVisibility": {
 						"type": "string",
 						"enum": [

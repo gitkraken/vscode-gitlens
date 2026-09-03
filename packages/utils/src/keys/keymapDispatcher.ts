@@ -2,7 +2,14 @@
 
 import type { Disposable } from '../disposable.js';
 import { createDisposable } from '../disposable.js';
-import type { KeyBinding, KeyBindingDescriptor, OverlayEntry, SheetDisplayEntry } from './keybinding.js';
+import { matchesChord } from './chord.js';
+import type {
+	KeyBinding,
+	KeyBindingDescriptor,
+	KeyBindingOverrides,
+	OverlayEntry,
+	SheetDisplayEntry,
+} from './keybinding.js';
 import { registerBinding, resolveKeydown, resolveOverlayClose } from './keybinding.js';
 
 /** Where a scope is "active": rooted at a specific element, or matched by a CSS selector against the
@@ -16,6 +23,9 @@ export type KeymapSheetRow = {
 	order?: number;
 	keys: readonly SheetDisplayEntry[];
 	subline?: readonly SheetDisplayEntry[];
+	/** The row's own id (if any) followed by each contributing partner's id — for the row tooltip.
+	 *  Absent (rather than empty) when the row has no ids at all — a fixed/residual row. */
+	ids?: readonly string[];
 };
 
 type ScopeEntry = {
@@ -28,14 +38,27 @@ type ScopeEntry = {
  *  scopes/bindings/overlays and call {@link KeymapDispatcher.attach} once. */
 export class KeymapDispatcher<TScope extends string> {
 	private readonly isMac: boolean;
+	private readonly onWarn: ((message: string) => void) | undefined;
 	private readonly scopes = new Map<TScope, ScopeEntry>();
 	private alwaysOrder: TScope[] = [];
+	/** Registered descriptor groups, in registration order — kept so bindings can be rebuilt whenever
+	 *  a group is added/removed or the overrides change. */
+	private registrationGroups: (readonly KeyBindingDescriptor<TScope, KeyboardEvent>[])[] = [];
+	private overrides: KeyBindingOverrides | undefined;
 	private bindings: KeyBinding<TScope, KeyboardEvent>[] = [];
+	/** Every registered descriptor's outcome, `undefined` when disabled by an override — lets
+	 *  {@link sheetEntries} walk descriptors in registration order (not just the survivors) so a
+	 *  disabled owner's row can still surface via a registered `with` partner. */
+	private bindingByDescriptor = new Map<
+		KeyBindingDescriptor<TScope, KeyboardEvent>,
+		KeyBinding<TScope, KeyboardEvent> | undefined
+	>();
 	private overlayStack: OverlayEntry[] = [];
 	private attached = false;
 
-	constructor(options: { isMac: boolean }) {
+	constructor(options: { isMac: boolean; onWarn?: (message: string) => void }) {
 		this.isMac = options.isMac;
+		this.onWarn = options.onWarn;
 	}
 
 	registerScope(
@@ -59,12 +82,60 @@ export class KeymapDispatcher<TScope extends string> {
 	}
 
 	registerBindings(descriptors: readonly KeyBindingDescriptor<TScope, KeyboardEvent>[]): Disposable {
-		const registered = descriptors.map(descriptor => registerBinding(descriptor, this.isMac));
-		this.bindings.push(...registered);
+		this.registrationGroups.push(descriptors);
+		this.rebuildBindings();
 
 		return createDisposable(() => {
-			this.bindings = this.bindings.filter(binding => !registered.includes(binding));
+			const index = this.registrationGroups.indexOf(descriptors);
+			if (index === -1) return;
+
+			this.registrationGroups.splice(index, 1);
+			this.rebuildBindings();
 		});
+	}
+
+	/** Replaces the active override map and rebuilds the effective binding list. Cheap enough to call
+	 *  on every config push. */
+	setOverrides(overrides: KeyBindingOverrides | undefined): void {
+		this.overrides = overrides;
+		this.warnIgnoredWildcards(overrides);
+		this.rebuildBindings();
+	}
+
+	/** Wildcards can only disable (see `resolveOverride`) — warns once per offending wildcard key so
+	 *  a user who tried to rebind via `'panels.*'`/`'*'` learns why it didn't take. */
+	private warnIgnoredWildcards(overrides: KeyBindingOverrides | undefined): void {
+		if (!overrides || this.onWarn == null) return;
+
+		for (const key of Object.keys(overrides)) {
+			if (key !== '*' && !key.endsWith('.*')) continue;
+
+			const value = overrides[key];
+			if (value === false || value.length === 0) continue;
+
+			this.onWarn(`Ignoring shortcut override '${key}': a wildcard can only disable (false), not rebind`);
+		}
+	}
+
+	private rebuildBindings(): void {
+		const bindings: KeyBinding<TScope, KeyboardEvent>[] = [];
+		const byDescriptor = new Map<
+			KeyBindingDescriptor<TScope, KeyboardEvent>,
+			KeyBinding<TScope, KeyboardEvent> | undefined
+		>();
+
+		for (const group of this.registrationGroups) {
+			for (const descriptor of group) {
+				const binding = registerBinding(descriptor, this.isMac, this.overrides, this.onWarn);
+				byDescriptor.set(descriptor, binding);
+				if (binding == null) continue;
+
+				bindings.push(binding);
+			}
+		}
+
+		this.bindings = bindings;
+		this.bindingByDescriptor = byDescriptor;
 	}
 
 	/** Closes the topmost overlay willing to close, exactly as an Escape keydown would — for hosts whose
@@ -111,22 +182,73 @@ export class KeymapDispatcher<TScope extends string> {
 
 		this.scopes.clear();
 		this.alwaysOrder = [];
+		this.registrationGroups = [];
+		this.overrides = undefined;
 		this.bindings = [];
+		this.bindingByDescriptor = new Map();
 		this.overlayStack = [];
 	}
 
 	sheetEntries(): readonly KeymapSheetRow[] {
-		const rows: KeymapSheetRow[] = [];
+		const byId = new Map<string, KeyBinding<TScope, KeyboardEvent>>();
 		for (const binding of this.bindings) {
-			if (binding.sheet === 'hidden') continue;
+			if (binding.id == null) continue;
 
-			rows.push({
-				group: binding.sheet.group,
-				label: binding.sheet.label,
-				order: binding.sheet.order,
-				keys: binding.sheet.keysOverride ?? binding.keys,
-				subline: binding.sheet.subline,
-			});
+			byId.set(binding.id, binding);
+		}
+
+		// A partner's display segment — its live effective keys once overridden, otherwise the
+		// `with` entry's own default display (falling back to the partner's own keys).
+		const partnerSegment = (
+			partnerBinding: KeyBinding<TScope, KeyboardEvent>,
+			partner: { keys?: readonly SheetDisplayEntry[] },
+		): readonly SheetDisplayEntry[] =>
+			partnerBinding.overridden ? partnerBinding.keys : (partner.keys ?? partnerBinding.keys);
+
+		const rows: KeymapSheetRow[] = [];
+		// Walk descriptors (not just `this.bindings`) so a visible descriptor disabled by an override
+		// can still surface a row when one of its `with` partners is still registered.
+		for (const group of this.registrationGroups) {
+			for (const descriptor of group) {
+				if (descriptor.sheet === 'hidden') continue;
+
+				const sheet = descriptor.sheet;
+				const binding = this.bindingByDescriptor.get(descriptor);
+
+				const keys: SheetDisplayEntry[] = [];
+				const ids: string[] = [];
+
+				if (binding != null) {
+					const self = binding.overridden ? binding.keys : (sheet.keysOverride ?? binding.keys);
+					keys.push(...self);
+					if (binding.id != null) {
+						ids.push(binding.id);
+					}
+				}
+
+				for (const partner of sheet.with ?? []) {
+					const partnerBinding = byId.get(partner.id);
+					if (partnerBinding == null) continue; // disabled (or unregistered) partner contributes nothing
+
+					if (keys.length > 0) {
+						keys.push('sep:/');
+					}
+					keys.push(...partnerSegment(partnerBinding, partner));
+					ids.push(partner.id);
+				}
+
+				// The owner is disabled AND no `with` partner survived — nothing left to show.
+				if (binding == null && ids.length === 0) continue;
+
+				rows.push({
+					group: sheet.group,
+					label: sheet.label,
+					order: sheet.order,
+					keys: keys,
+					subline: sheet.subline,
+					ids: ids.length > 0 ? ids : undefined,
+				});
+			}
 		}
 
 		return rows;
@@ -172,7 +294,8 @@ export class KeymapDispatcher<TScope extends string> {
 
 			if (candidate.when?.some(when => !when(e))) continue;
 
-			if (!candidate.run(e)) continue;
+			const chordIndex = candidate.chords.findIndex(chord => matchesChord(chord, e));
+			if (!candidate.run(e, chordIndex)) continue;
 
 			e.preventDefault();
 			e.stopPropagation();

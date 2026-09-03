@@ -10,18 +10,6 @@ import type { GlGraphWrapper } from '../graph-wrapper/graph-wrapper.js';
 import type { GlGraphSidebarPanel } from '../sidebar/sidebar-panel.js';
 import { visibleSidebarPanels } from '../sidebar/sidebarPanels.js';
 
-/** Maps a numeric-row `KeyboardEvent.code` (`Digit0`-`Digit9`) to the shortcut index it represents:
- *  `Digit1`-`Digit9` → 0-8, `Digit0` → 9 (the 10th item). `undefined` for anything else, including the
- *  numpad's own `Numpad0`-`Numpad9` codes — only the numeric row keys these shortcuts. */
-function digitIndexFromCode(code: string): number | undefined {
-	if (!code.startsWith('Digit')) return undefined;
-
-	const digit = Number(code.slice('Digit'.length));
-	if (!Number.isInteger(digit) || digit < 0 || digit > 9) return undefined;
-
-	return digit === 0 ? 9 : digit - 1;
-}
-
 /** `.open` matters: after a dialog closes, focus can remain on a control still slotted INSIDE the closed
  *  <dialog> (native close doesn't move it), and a tag-only test would keep treating that dialog as a
  *  modal that owns the keyboard. */
@@ -110,6 +98,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			// Opens/focuses whichever tree owns the focused `gl-tree-view` — the details panel's
 			// file tree pane, or a bare tree (e.g. the branch sheet) that supports its own filter.
 			// Declines (falls through to the `webview`-scope binding below) for anything else.
+			id: 'search.treeFilter',
 			keys: ['mod+KeyF'],
 			scope: 'tree',
 			sheet: 'hidden',
@@ -157,6 +146,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
+			id: 'search.commits',
 			keys: ['mod+KeyF'],
 			scope: 'webview',
 			when: [actions.isGraphModeShortcut],
@@ -172,15 +162,11 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
-			// `mod+/` (not `ctrl+/`): the chord exists for GitKraken Desktop parity, and GK's binding is
-			// ⌘/ on macOS.
-			keys: ['?', 'mod+/'],
+			keys: ['?'],
 			scope: 'webview',
-			// Footer copy reads as a sentence after the chip ("? shows this reference"), and only the
-			// primary chord is shown — the `mod+/` alias would double the footer's width.
-			sheet: { group: 'footer', label: 'shows this reference', order: 2, keysOverride: ['?'] },
+			// Footer copy reads as a sentence after the chip ("? shows this reference").
+			sheet: { group: 'footer', label: 'shows this reference', order: 2 },
 			run: () => {
-				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.showShortcuts();
 				return true;
 			},
@@ -195,11 +181,8 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 				order: 8,
 				keysOverride: ['Digit1', 'sep:…', 'Digit0'],
 			},
-			run: e => {
-				const digit = digitIndexFromCode(e.code);
-				if (digit == null) return false;
-
-				const item = actions.overviewBarItems()[digit];
+			run: (e, chordIndex) => {
+				const item = actions.overviewBarItems()[chordIndex];
 				if (item == null) return false;
 
 				const fromGraph = e.composedPath().some(el => el === actions.graph());
@@ -211,6 +194,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
+			id: 'panels.sidebarPanel',
 			keys: sidebarAltDigitKeys,
 			scope: 'webviewGlobal',
 			when: [actions.sidebarEnabled],
@@ -220,11 +204,8 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 				order: 1,
 				keysOverride: ['alt+Digit1', 'sep:…', 'Digit8'],
 			},
-			run: e => {
-				const digit = digitIndexFromCode(e.code);
-				if (digit == null) return false;
-
-				const panel = visibleSidebarPanels(actions.isVirtualRepo())[digit];
+			run: (_e, chordIndex) => {
+				const panel = visibleSidebarPanels(actions.isVirtualRepo())[chordIndex];
 				if (panel == null) return false;
 
 				actions.graph()?.suppressModifierChainUntilRelease?.();
@@ -244,6 +225,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 		{
 			// `alt+KeyK`, not `alt+KeyA`: Option+A produces å on macOS, a real letter for Scandinavian
 			// layouts, so K was chosen to avoid shadowing it.
+			id: 'modes.toggleKanban',
 			keys: ['alt+KeyK'],
 			scope: 'webviewGlobal',
 			sheet: { group: 'panels', label: 'Toggle Agent Kanban', order: 2, keysOverride: ['alt+KeyK'] },
@@ -256,6 +238,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
+			id: 'modes.toggleVisualizations',
 			keys: ['alt+KeyV'],
 			scope: 'webviewGlobal',
 			sheet: { group: 'panels', label: 'Toggle visualizations', order: 3, keysOverride: ['alt+KeyV'] },
@@ -266,6 +249,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
+			id: 'panels.toggleMinimap',
 			keys: ['alt+KeyM'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut],
@@ -277,6 +261,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
+			id: 'panels.toggleSidebar',
 			keys: ['alt+KeyS'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut, actions.sidebarEnabled],
@@ -288,6 +273,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			},
 		},
 		{
+			id: 'panels.toggleDetails',
 			keys: ['alt+KeyD'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut],
@@ -302,6 +288,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			// Alt layers "alternate" on the Shift+D primary — matches GitLens's alt-action convention.
 			// Code-token (`KeyD`), not a bare `D` — Alt remaps `event.key` on Mac/intl layouts (e.g.
 			// Option+Shift+D isn't 'D'), so an Alt-carrying chord must match on the physical key.
+			id: 'panels.dockDetails',
 			keys: ['shift+alt+KeyD'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut],

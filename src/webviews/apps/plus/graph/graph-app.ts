@@ -44,6 +44,7 @@ import type {
 	GraphScopeBranch,
 	GraphScopeOrigin,
 	GraphScopeSource,
+	GraphShortcutOverrides,
 	GraphShowAction,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
@@ -339,6 +340,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** Document-level key dispatcher for the graph webview's shortcuts. Scopes/bindings are registered
 	 *  in {@link connectedCallback}; {@link disconnectedCallback} tears everything down in one call. */
 	readonly keymap: KeymapDispatcher<GraphKeymapScope> = createGraphKeymapDispatcher(isMac);
+
+	/** The `shortcuts` config object last applied to {@link keymap} — {@link applyShortcutsConfig}
+	 *  compares by identity against `this.graphState.config?.shortcuts` and re-applies only when the
+	 *  host pushed a new one (a fresh dispatcher already has no overrides, so `undefined` needs no
+	 *  first-render apply). Reset in {@link connectedCallback} so a reconnect's fresh dispatcher
+	 *  always gets a re-apply, even if the host's config object identity didn't change. */
+	private _appliedShortcutsConfig: GraphShortcutOverrides | undefined;
 
 	/** The jump feedback toast (see {@link JumpToastController}) — owns the toast slots, their timers,
 	 *  and the jump-failure remedies; wired here with closures over this element's own state. */
@@ -759,8 +767,28 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _graphSizeObserver: ResizeObserver | undefined;
 	private _releaseSuspensionRafId: number | undefined;
 
+	/** Applies the host's shortcut customization to {@link keymap} — a no-op unless the host pushed a
+	 *  new `shortcuts` config object since the last apply. Called from {@link willUpdate} on every
+	 *  config push, and once from {@link connectedCallback} right after (re)registering the keymap so
+	 *  a reconnect's fresh dispatcher (which starts with no overrides) picks the current config back
+	 *  up immediately, rather than waiting for the next unrelated re-render. */
+	private applyShortcutsConfig(): void {
+		const shortcuts = this.graphState.config?.shortcuts;
+		if (shortcuts === this._appliedShortcutsConfig) return;
+
+		this._appliedShortcutsConfig = shortcuts;
+		this.keymap.setOverrides(shortcuts);
+		// The sheet renders from the dispatcher, not from reactive state — re-render it in case it's open.
+		this.keyboardShortcutsEl?.requestUpdate();
+	}
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
+
+		// A reconnect's `keymap` is fresh (see `disconnectedCallback`'s `keymap.dispose()`), so force
+		// the next `applyShortcutsConfig()` to re-apply even if the host's `shortcuts` config object
+		// is still the same identity as before disconnect.
+		this._appliedShortcutsConfig = undefined;
 
 		registerGraphKeymap(this.keymap, {
 			isGraphModeShortcut: () => this.isGraphModeShortcut(),
@@ -780,6 +808,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			toggleDetails: e => this.handleToggleDetails(e),
 			showShortcuts: () => this.handleShowShortcuts(),
 		});
+		this.applyShortcutsConfig();
 
 		this._graphSizeObserver = new ResizeObserver(entries => {
 			// Use `borderBoxSize` (not `contentRect`) so the snapshot matches what
@@ -861,7 +890,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `flush()` runs the queued trailing call immediately, no-ops if nothing's queued.
 		this._persistStateDebounced.flush();
 		// Drops every registered scope/binding AND the whole overlay stack, so the surfaces' own disposables
-		// (held for the reconnect case) become no-ops.
+		// (held for the reconnect case) become no-ops. `dispose()` also drops the overrides — a reconnect's
+		// `connectedCallback` clears `_appliedShortcutsConfig` and re-applies them onto the fresh dispatcher.
 		this.keymap.dispose();
 		this._minimapZoomOverlay = undefined;
 
@@ -1450,6 +1480,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	protected override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		super.willUpdate(changedProperties);
+
+		this.applyShortcutsConfig();
 
 		// Post-sign-in welcome interstitial — arm on a live account-wall clear (sign-in completed
 		// while the account screen was showing). Skipped when the plan gate would still block the
