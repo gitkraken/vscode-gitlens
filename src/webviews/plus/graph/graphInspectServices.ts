@@ -28,6 +28,7 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
 import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
+import { showGenericErrorMessage } from '../../../messages.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
 import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
 import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
