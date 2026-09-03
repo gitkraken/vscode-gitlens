@@ -238,7 +238,6 @@ export interface AgentSessionContextValue {
  *  - `+resumable` — an ended session {@link getAgentSessionOpenAction} would resume rather than open.
  *  - `+worktree` — the session has a `worktreePath`.
  *  - `+prompt` — the session has a `lastPrompt`.
- *  - `+peer` — `session.isPeerOwned` — Resolve/Archive are meaningless from this window for these.
  */
 export function buildAgentSessionContext(
 	session: AgentSessionState,
@@ -276,9 +275,6 @@ export function buildAgentSessionContext(
 	}
 	if (session.lastPrompt) {
 		webviewItem += '+prompt';
-	}
-	if (session.isPeerOwned) {
-		webviewItem += '+peer';
 	}
 	if (session.actions?.archive === true) {
 		webviewItem += '+archivable';

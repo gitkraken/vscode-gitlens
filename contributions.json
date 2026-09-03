@@ -77,7 +77,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?!.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_resolve",
 						"order": 1
 					}
@@ -90,7 +90,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?=.*?\\b\\+alwaysallow\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?=.*?\\b\\+alwaysallow\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_resolve",
 						"order": 2
 					}
@@ -103,7 +103,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_resolve",
 						"order": 4
 					}
@@ -116,7 +116,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?=.*?\\b\\+archivable\\b)(?!.*?\\b\\+peer\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?=.*?\\b\\+archivable\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "9_manage",
 						"order": 1
 					}
@@ -155,7 +155,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?!.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_resolve",
 						"order": 3
 					}
@@ -261,7 +261,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?!.*?\\b\\+peer\\b)(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+resolvable\\b)(?=.*?\\b\\+plan\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_resolve",
 						"order": 5
 					}

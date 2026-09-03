@@ -1068,27 +1068,19 @@ export class AgentStatusService implements Disposable {
 		const session = provider?.sessions.find(candidate => candidate.id === sessionId);
 		if (provider == null || session == null) return;
 
-		// `false` means the local provider holds no pending entry to fulfil — another window may own
-		// it, or the provider discovered it on a non-blocking path. Point at the right place rather
-		// than leaving a silent no-op.
+		// `false` means the local provider holds no pending entry to fulfil — the ask arrived on a
+		// non-blocking path (an elicitation, or one the reconciliation poll discovered) and can only be
+		// answered in the agent's own session. Point at the right place rather than leaving a silent
+		// no-op.
 		const resolved = provider.resolvePermission?.(sessionId, decision, updatedPermissions) ?? false;
 		if (!resolved) {
 			// The ask may have been answered between render and click — a raced click, not an error.
 			const refetched = provider.sessions.find(candidate => candidate.id === sessionId);
 			if (refetched?.pendingPermission == null) return;
 
-			if (session.isPeerOwned) {
-				const target = session.workspacePath
-					? `the GitLens window for ${session.workspacePath}`
-					: 'another GitLens window';
-				void window.showInformationMessage(
-					`This agent session is owned by ${target}. Resolve the request from there.`,
-				);
-			} else {
-				void window.showInformationMessage(
-					`This request can only be answered in the agent's session. Open the session to respond.`,
-				);
-			}
+			void window.showInformationMessage(
+				`This request can only be answered in the agent's session. Open the session to respond.`,
+			);
 		}
 	}
 
@@ -1379,7 +1371,7 @@ export class AgentStatusService implements Disposable {
 	 *  tab resolves to the most-recently-active session instead — appropriate for explicit user
 	 *  invocations; passive callers should omit it so a failed match does nothing. */
 	resolveSessionForActiveClaudeTab(options?: { fallbackToMostRecent?: boolean }): AgentSession | undefined {
-		const local = this.sessions.filter(s => s.worktreePath != null && !s.isPeerOwned);
+		const local = this.sessions.filter(s => s.worktreePath != null);
 		const session = this.matchSessionToActiveClaudeTab(local);
 		if (session != null || !options?.fallbackToMostRecent) return session;
 
@@ -1468,7 +1460,7 @@ export class AgentStatusService implements Disposable {
 		// `providerId` — the same constant the provider stamps onto a Claude session — so the two
 		// cannot drift.
 		if (session.providerId !== claudeCodeCapabilities.providerId) {
-			await this.dispatchOtherAgentSessionAction(provider, session);
+			await this.dispatchOtherAgentSessionAction(session);
 			return;
 		}
 
@@ -1487,10 +1479,10 @@ export class AgentStatusService implements Disposable {
 				? await this.isExtensionSessionLocallyHosted(session.pid)
 				: true;
 
-		// Peer-owned extension session, OR a peer-sync-discovered session. Either way the live
-		// panel lives in another VS Code window; opening locally would just create an inert view.
-		if ((host === 'extension' && !isExtensionLocal) || session.isPeerOwned) {
-			await this.dispatchPeerOwnedSession(provider, session);
+		// Extension-hosted session owned by another VS Code window's extension host. The live panel
+		// lives there; opening locally would just create an inert view.
+		if (host === 'extension' && !isExtensionLocal) {
+			await this.dispatchRemotelyHostedSession(provider, session);
 			return;
 		}
 
@@ -1543,19 +1535,7 @@ export class AgentStatusService implements Disposable {
 	 * the provider's pruning handles that separately — but it unambiguously names the host process
 	 * whose terminal the session lives in, and that terminal is exactly what the user asked to see.
 	 */
-	private async dispatchOtherAgentSessionAction(
-		provider: AgentSessionProvider | undefined,
-		session: AgentSession,
-	): Promise<void> {
-		// A peer-synced session lives in another VS Code window whatever the agent, so the
-		// window-focus half of that route is still the right target. Only the IPC hop is Claude-only:
-		// the far side's `agents/sessions/open` handler ends in `openSessionInClaudeExtension`, which
-		// has the same foreign-session-id problem — hence `notifyPeer: false`.
-		if (session.isPeerOwned) {
-			await this.dispatchPeerOwnedSession(provider, session, { notifyPeer: false });
-			return;
-		}
-
+	private async dispatchOtherAgentSessionAction(session: AgentSession): Promise<void> {
 		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 
 		Logger.warn(
@@ -1605,61 +1585,53 @@ export class AgentStatusService implements Disposable {
 		await resumeClaudeSessionInTerminal(toResumableSessionRef(current ?? session), this.container);
 	}
 
-	/** Routes a session that's owned by another VS Code window. Notifies the owning peer (if it
-	 *  has GitLens running with the workspace) so its Claude Code extension surfaces the session,
-	 *  then either `vscode.openFolder` (different workspace — focuses the peer window via the
-	 *  folder-already-open path) or an info message (same workspace or unknown workspace, where
-	 *  OS-level cross-window focus across a multi-window VS Code app is unreliable).
-	 *
-	 *  `notifyPeer: false` skips the IPC hop and keeps only the window focus. The peer's
-	 *  `agents/sessions/open` handler can only open a session in the Claude Code extension, so for any
-	 *  other agent the notify would ask the far side to open a session id that extension has never
-	 *  heard of. Nothing else is lost: the dispatcher ignores the notify's return value, and
-	 *  `vscode.openFolder` focuses the owning window whether or not it has GitLens. */
-	private async dispatchPeerOwnedSession(
+	/** Routes a session that's hosted in another VS Code window. Relays an open-session request
+	 *  through the GK CLI (which resolves the target window itself) so that window surfaces the
+	 *  session, then either `vscode.openFolder` (different workspace — focuses the owning window via
+	 *  the folder-already-open path) or an info message (same workspace or unknown workspace, where
+	 *  OS-level cross-window focus across a multi-window VS Code app is unreliable). */
+	private async dispatchRemotelyHostedSession(
 		provider: AgentSessionProvider | undefined,
 		session: AgentSession,
-		options?: { notifyPeer?: boolean },
 	): Promise<void> {
 		// Target folder to focus. Each step picks a more general fallback so out-of-workspace
 		// sessions (cwd doesn't match any of OUR workspace folders) still resolve to a path some
-		// peer window likely has open as its workspace root:
+		// other window likely has open as its workspace root:
 		//  - workspacePath: our matched folder (only set when isInWorkspace=true; unused here)
 		//  - worktreePath:  the session's worktree root — correct for named worktrees where the
-		//                   peer has the worktree dir open, not the common repo dir
+		//                   other window has the worktree dir open, not the common repo dir
 		//  - commonPath:    the parent repo's common dir — correct for default-worktree sessions
-		//  - cwd:           last-resort raw cwd. May be a subdir of the peer's workspace, in which
-		//                   case `vscode.openFolder` would open the subdir as its own workspace
-		//                   instead of focusing the peer. In practice Claude sessions run at the
-		//                   workspace root so cwd usually equals what the peer holds; the residual
-		//                   risk is documented rather than fixed (full fix would have
-		//                   `notifyPeerOpenSession` return the matched workspacePath so this
-		//                   function could pass that exact path to `openFolder` instead).
+		//  - cwd:           last-resort raw cwd. May be a subdir of the other window's workspace,
+		//                   in which case `vscode.openFolder` would open the subdir as its own
+		//                   workspace instead of focusing that window. In practice Claude sessions
+		//                   run at the workspace root so cwd usually equals what it holds; the
+		//                   residual risk is documented rather than fixed (full fix would have the
+		//                   relay return the matched workspacePath so this function could pass
+		//                   that exact path to `openFolder` instead).
 		const targetPath = session.workspacePath ?? session.worktreePath ?? session.commonPath ?? session.cwd;
 
-		if ((options?.notifyPeer ?? true) && provider?.notifyPeerOpenSession != null && targetPath != null) {
-			// Cap the wait so an unhealthy peer can't stall the user click for the full per-fetch
-			// timeout. The peer only needs to *start* opening the session before the focus switch
-			// lands. `.catch` is on the notify promise itself (not the race) so a late rejection
-			// after the timeout wins is still observed. We don't use the return value: VS Code's
-			// `openFolder` finds and focuses the owning window whether or not it has GitLens, so
-			// peer match status isn't the right signal for `forceNewWindow`.
-			const notifyPromise = provider.notifyPeerOpenSession(targetPath, session.id).catch((ex: unknown) => {
+		if (provider?.relayOpenSession != null && targetPath != null) {
+			// Cap the wait so an unhealthy relay can't stall the user click for the full CLI spawn
+			// timeout. The owning window only needs to *start* opening the session before the focus
+			// switch lands. `.catch` is on the relay promise itself (not the race) so a late
+			// rejection after the timeout wins is still observed. We don't use the return value:
+			// VS Code's `openFolder` finds and focuses the owning window regardless, so delivery
+			// status isn't the right signal for `forceNewWindow`.
+			const relayPromise = provider.relayOpenSession(session.id, targetPath).catch((ex: unknown) => {
 				Logger.warn(
-					`AgentStatusService.dispatchPeerOwnedSession: notifyPeerOpenSession failed: ${
+					`AgentStatusService.dispatchRemotelyHostedSession: relayOpenSession failed: ${
 						ex instanceof Error ? ex.message : String(ex)
 					}`,
 				);
 				return false;
 			});
-			await Promise.race([notifyPromise, new Promise<void>(resolve => setTimeout(resolve, 500))]);
+			await Promise.race([relayPromise, new Promise<void>(resolve => setTimeout(resolve, 500))]);
 		}
 
 		// Different workspace → `vscode.openFolder` with `forceNewWindow: false` asks VS Code to
-		// focus the existing window holding `targetPath` (this works across windows even if the
-		// peer doesn't have GitLens). Peer-owned implies *some* live window holds the folder (the
-		// session is running there), so VS Code's window-folder matching reliably hits it instead
-		// of replacing the current window.
+		// focus the existing window holding `targetPath`. The session being hosted elsewhere
+		// implies *some* live window holds the folder (the session is running there), so VS Code's
+		// window-folder matching reliably hits it instead of replacing the current window.
 		if (!session.isInWorkspace && targetPath != null) {
 			void commands.executeCommand('vscode.openFolder', Uri.file(targetPath), {
 				forceNewWindow: false,
@@ -1670,7 +1642,7 @@ export class AgentStatusService implements Disposable {
 		// Same workspace (already open here, can't disambiguate) or no target at all. Surface a
 		// clear hint with the cwd so the user can switch manually.
 		Logger.warn(
-			`AgentStatusService.dispatchPeerOwnedSession: routed via info hint (pid=${session.pid ?? 'none'}, workspacePath=${session.workspacePath ?? 'none'}, cwd=${session.cwd ?? 'none'})`,
+			`AgentStatusService.dispatchRemotelyHostedSession: routed via info hint (pid=${session.pid ?? 'none'}, workspacePath=${session.workspacePath ?? 'none'}, cwd=${session.cwd ?? 'none'})`,
 		);
 		const cwdHint = session.cwd ? ` (${session.cwd})` : '';
 		await this.offerResumeOrWarn(

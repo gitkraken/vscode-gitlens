@@ -1,5 +1,3 @@
-import { readdir, readFile } from 'fs/promises';
-import { join } from 'path';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
@@ -25,7 +23,6 @@ import {
 	getToolFilePath,
 	getToolReadPath,
 	isProcessAlive,
-	rehydrateSubagents,
 } from '../stateMachine.js';
 import type {
 	AgentProviderCallbacks,
@@ -337,34 +334,6 @@ function unionVisited(
 	return next.length > 0 ? next : undefined;
 }
 
-/** Peer-merge variant of {@link unionVisited}: same normalize-and-dedupe, but APPEND-ONLY —
- *  `existing`'s order is preserved and any path the peer names that we don't already have is
- *  appended in the peer's own order. A peer's order can't be trusted as fresher than ours without
- *  timestamps, so peer input never reorders what we already hold. Returns `existing` BY REFERENCE
- *  when nothing new is added — same rationale as {@link unionVisited}. */
-function unionVisitedAppendOnly(
-	existing: readonly string[] | undefined,
-	...adds: (string | readonly string[] | undefined)[]
-): readonly string[] | undefined {
-	const next = new Set(existing ?? []);
-	let grew = false;
-	for (const add of adds) {
-		if (add == null) continue;
-
-		const values = typeof add === 'string' ? [add] : add;
-		for (const value of values) {
-			if (!value) continue;
-
-			const normalized = normalizePath(value);
-			if (!next.has(normalized)) {
-				next.add(normalized);
-				grew = true;
-			}
-		}
-	}
-	return grew ? [...next] : existing;
-}
-
 /** The event's tool name, translated from the agent's native vocabulary into the canonical (Claude
  *  Code) one. Prefers the raw `hookInput.tool_name` passthrough and falls back to the projected
  *  top-level field for older CLIs. Everything downstream — `describeToolInput`,
@@ -447,13 +416,6 @@ function isSameAsk(a: PendingPermission | undefined, b: PendingPermission | unde
 	);
 }
 
-interface DiscoveryFile {
-	token: string;
-	address: string;
-	port?: number;
-	workspacePaths?: string[];
-}
-
 interface SessionContext {
 	/** The owning agent's descriptor — the source of a created session's `providerId`/`providerName`.
 	 *  Omitted only by the deferred-commit paths (the `Stop → idle` timer, a permission resolve),
@@ -473,24 +435,6 @@ interface SessionContext {
 	worktreePath?: string;
 	/** Distinct worktree roots observed via this event's cwdTimeline. */
 	visitedWorktreePaths?: string[];
-}
-
-type SerializedAgentSession = Omit<AgentSession, 'lastActivity' | 'phaseSince' | 'subagents'> & {
-	lastActivity: string;
-	phaseSince: string;
-	subagents?: (Omit<AgentSession, 'lastActivity' | 'phaseSince'> & {
-		lastActivity: string;
-		phaseSince: string;
-	})[];
-};
-
-/** Normalize a workspace path to GitLens canonical form (forward slashes, lower-case drive letter
- *  on Windows). Comparisons throughout the home view assume this form, but `_workspacePaths` and
- *  peer-session `workspacePath` values originate from `Uri.fsPath`, which on Windows uses
- *  backslashes and preserves drive-letter casing. Without this, `session.workspacePath ===
- *  repository.path` always fails on Windows. */
-function normalizeWorkspacePath(value: string | null | undefined): string | undefined {
-	return value ? normalizePath(value) : undefined;
 }
 
 type FileActivityEntry = NonNullable<AgentSession['fileActivity']>[number];
@@ -890,25 +834,6 @@ export class GkAgentProvider implements AgentSessionProvider {
 				}
 				return Promise.resolve();
 			}),
-			this.callbacks.ipc.registerHandler('agents/sessions/list', () =>
-				Promise.resolve(
-					// Exclude terminal `ended` rows: an older-version peer has no `ended` phase and
-					// would import them as phantom "idle" sessions. Our own poll surfaces ended sessions
-					// independently, so peers never need them from here.
-					this._sessions
-						.filter(s => s.status !== 'ended')
-						.map(s => ({
-							...s,
-							lastActivity: s.lastActivity.toISOString(),
-							phaseSince: s.phaseSince.toISOString(),
-							subagents: s.subagents?.map(sub => ({
-								...sub,
-								lastActivity: sub.lastActivity.toISOString(),
-								phaseSince: sub.phaseSince.toISOString(),
-							})),
-						})),
-				),
-			),
 			this.callbacks.ipc.registerHandler('agents/sessions/open', async request => {
 				const sessionId = (request as { sessionId?: string } | undefined)?.sessionId;
 				if (!sessionId || this.callbacks.openSessionInClaudeExtension == null) {
@@ -960,8 +885,6 @@ export class GkAgentProvider implements AgentSessionProvider {
 		try {
 			await this.syncSessions();
 			if (this._disposed) return;
-
-			void this.querySiblingWindowSessions();
 
 			this._staleCheckTimer?.dispose();
 			this._staleCheckTimer = disposableInterval(
@@ -1048,9 +971,8 @@ export class GkAgentProvider implements AgentSessionProvider {
 						// row IS the resume signal — revive it to a live `idle` row (clearing the
 						// ended/archivable state) with clean bookkeeping that endSession tore
 						// down. The next real event advances it out of idle. A `SessionStart` arrives on
-						// THIS window's hook flow, so the resume is locally owned now: clear the peer
-						// ownership carried over from the terminal record, and take the resume's pid
-						// (never the old terminal/reused one — retaining it would let dispatch focus a
+						// THIS window's hook flow, so the resume is locally owned now: take the resume's
+						// pid (never the old terminal/reused one — retaining it would let dispatch focus a
 						// stale or unrelated process).
 						this._sessions[index] = {
 							...prev,
@@ -1059,7 +981,6 @@ export class GkAgentProvider implements AgentSessionProvider {
 							phaseSince: new Date(),
 							lastActivity: new Date(),
 							pid: event.pid,
-							isPeerOwned: undefined,
 						};
 						this.resetBookkeeping(event.sessionId);
 					} else if (event.pid != null && event.pid !== prev.pid) {
@@ -2373,18 +2294,6 @@ export class GkAgentProvider implements AgentSessionProvider {
 		this._onDidChangeSessions.fire();
 	}
 
-	private matchesWorkspace(workspacePath: string | undefined): boolean {
-		if (!workspacePath) return false;
-
-		// `_workspacePaths` is normalized; normalize the input so prefix comparisons work
-		// regardless of whether the caller passed a raw `fsPath` (CLI hook cwd, peer-session
-		// workspacePath) or an already-normalized path.
-		const normalized = normalizePath(workspacePath);
-		return this._workspacePaths.some(
-			p => normalized === p || normalized.startsWith(`${p}/`) || p.startsWith(`${normalized}/`),
-		);
-	}
-
 	private resolveWorkspacePath(cwd: string | undefined): string | undefined {
 		if (!cwd) return undefined;
 
@@ -3460,10 +3369,8 @@ export class GkAgentProvider implements AgentSessionProvider {
 							phase: getPhaseForStatus(polledStatus),
 							phaseSince: revivedAt,
 							lastActivity: revivedAt,
-							// Fresh pid from the CLI, and re-classify ownership on next open rather than
-							// trusting the terminal record's `isPeerOwned`.
+							// Fresh pid from the CLI.
 							pid: data.pid,
-							isPeerOwned: undefined,
 							pendingPermission: revivedPendingPermission,
 							// The resume can be running somewhere else entirely, so take the record's
 							// location rather than leaving the row filed under where it ended.
@@ -3735,302 +3642,43 @@ export class GkAgentProvider implements AgentSessionProvider {
 		}
 	}
 
-	protected async querySiblingWindowSessions(): Promise<void> {
-		const discoveryDir = this.callbacks.ipc.agentDiscoveryDir;
-		if (discoveryDir == null) return;
-
-		let files: string[];
-		try {
-			files = await readdir(discoveryDir);
-		} catch {
-			return;
+	/** Relays an open-session request to whichever GitLens window hosts `sessionId`, via the GK
+	 *  CLI's `gk ai hook open-session` relay — the CLI resolves the target window itself from its
+	 *  own discovery-file view of every publishing GitLens window, so this process never scans for
+	 *  peers directly. `--exclude-address` keeps the CLI from routing the request back to this
+	 *  window when it also (redundantly) claims the session. Resolves to `false` on any spawn or
+	 *  parse failure, or when the CLI predates the `open-session` hook command — never throws, and
+	 *  never falls back to a direct peer HTTP call. */
+	async relayOpenSession(sessionId: string, path: string): Promise<boolean> {
+		const args = ['ai', 'hook', 'open-session', sessionId, '--path', path];
+		const ownAddress = this.callbacks.ipc.address;
+		if (ownAddress != null) {
+			args.push('--exclude-address', ownAddress);
 		}
+		args.push('--json');
 
-		const ownPort = this.callbacks.ipc.port;
-
-		const peerBatches = await Promise.all(
-			files
-				.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
-				.map(async f => this.fetchPeerSessions(join(discoveryDir, f), ownPort)),
-		);
-
-		let changed = false;
-		// Peer sessions that arrived with `cwd` but no `commonPath` (peer was running pre-
-		// commonPath code, OR the peer's own `resolveGitInfo` failed and we get to retry locally).
-		// Resolved after the merge loop so the local Repository registry is consulted only once
-		// per unique session, off the hot merge path. Keyed by id (value = cwd) so the same
-		// session appearing in multiple peer responses (or re-queued within this loop) only
-		// triggers a single backfill probe.
-		const sessionsNeedingResolve = new Map<string, string>();
-
-		for (const peerSessions of peerBatches) {
-			if (peerSessions == null) continue;
-
-			for (const peerSession of peerSessions) {
-				// Skip terminal rows a peer published: ended sessions live in the machine-global CLI
-				// store, so our own poll surfaces them with proper reconciliation. Importing them from a
-				// peer would add a row with no `polledAtLeastOnce` that our poll can't confirm — a ghost
-				// pinned for this window's lifetime if the store later drops it. (The publish endpoint
-				// filters ended rows out anyway; this also keeps a version-skewed peer's terminal claim
-				// from ending a row we still track live.)
-				if (peerSession.status === 'ended') continue;
-
-				const existing = this._sessions.find(s => s.id === peerSession.id);
-				const peerActivity = new Date(peerSession.lastActivity);
-				const peerPhaseSince = new Date(peerSession.phaseSince);
-
-				if (existing != null) {
-					// If the peer reports a different `cwd` than we last saw, the agent moved
-					// (peer fired a `CwdChanged` event we don't receive locally). Pick up the new
-					// cwd AND reset our local `gitInfoUnresolvable` flag — the new cwd might be a
-					// git repo even if the previous one wasn't.
-					const cwdChanged = peerSession.cwd != null && existing.cwd !== peerSession.cwd;
-					if (cwdChanged && this._sessionBookkeeping.get(peerSession.id)?.gitInfoUnresolvable) {
-						this.getBookkeeping(peerSession.id).gitInfoUnresolvable = false;
-					}
-
-					if (peerActivity > existing.lastActivity) {
-						const idx = this._sessions.indexOf(existing);
-						// A terminal row the peer now reports live IS a resume the peer owns. Mirror the
-						// poll/SessionStart revive paths: take the peer's pid (retaining the terminal
-						// record's dead — and possibly reused — pid would let dispatch focus an unrelated
-						// process) and mark it peer-owned so opens route through the peer's IPC.
-						const revivedFromEnded = existing.status === 'ended';
-						// Peer is the authoritative hook recipient for this session, so wipe any
-						// local bookkeeping that survived from a previous local-ownership window.
-						// Without this, refcounts/timers from a prior local-hosting stretch would
-						// resurface stale paths if ownership ever flips back to us.
-						const bk = this._sessionBookkeeping.get(peerSession.id);
-						if (bk != null) {
-							this.cancelPendingFileClears(bk);
-							this.cancelPendingReadClears(bk);
-							bk.currentFileCounts.clear();
-							bk.currentReadCounts.clear();
-							bk.lastTouchedAt.clear();
-						}
-						this._sessions[idx] = {
-							...existing,
-							status: peerSession.status,
-							phase: peerSession.phase,
-							phaseSince: peerPhaseSince,
-							statusDetail: peerSession.statusDetail,
-							lastActivity: peerActivity,
-							// A locally-routable ask wins — a blocking ask fans out to every window, so we
-							// may hold the hook entry the peer lacks. Otherwise mirror the peer's ask marked
-							// unresolvable (we have no entry to answer it), and clear it when the peer did.
-							pendingPermission:
-								this._sessionBookkeeping.get(peerSession.id)?.pendingPermission ??
-								(peerSession.pendingPermission != null
-									? { ...peerSession.pendingPermission, resolvable: false }
-									: undefined),
-							...(revivedFromEnded ? { pid: peerSession.pid, isPeerOwned: true } : undefined),
-							subagents: rehydrateSubagents(peerSession.subagents),
-							// Carry the peer's published fileActivity across so peer-window WIP
-							// decorations + treemap heatmap follow the agent. Owned by the peer (it's
-							// the hook recipient); we never originate this field for a remote session.
-							fileActivity: peerSession.fileActivity,
-							// Track the peer's resolved repo identity. The peer owns the hook flow and
-							// re-resolves both on `CwdChanged`, so a worktree move (e.g. the agent
-							// `cd`'d into a sibling worktree of the same repo — `commonPath` unchanged
-							// but `worktreePath` changed) only reaches us if we carry BOTH. Carrying
-							// `commonPath` alone froze the displayed worktree at first-discovery.
-							worktreePath: peerSession.worktreePath ?? existing.worktreePath,
-							visitedWorktreePaths: unionVisitedAppendOnly(
-								existing.visitedWorktreePaths,
-								peerSession.visitedWorktreePaths,
-							),
-							commonPath: peerSession.commonPath ?? existing.commonPath,
-							// Pick up the peer's latest cwd so our backfill probe (queued below)
-							// targets the right path. Stale-cwd locally would just re-probe the
-							// non-repo dir and hit the gitInfoUnresolvable retry guard again.
-							cwd: cwdChanged ? peerSession.cwd : existing.cwd,
-							// Launch-state fields are immutable per session: prefer whichever side
-							// already set them (peer that owns the hook flow typically sets first),
-							// and never overwrite a populated local value with the peer's.
-							initialCwd: existing.initialCwd ?? peerSession.initialCwd,
-							initialWorktreePath: existing.initialWorktreePath ?? peerSession.initialWorktreePath,
-							initialCommonPath: existing.initialCommonPath ?? peerSession.initialCommonPath,
-							// The hook path, when present, carries richer un-truncated prompts than what a
-							// peer forwards — prefer our own value over the peer's.
-							lastPrompt: existing.lastPrompt ?? peerSession.lastPrompt,
-							firstPrompt: existing.firstPrompt ?? peerSession.firstPrompt,
-							// Forward peer-discovered transcript titles. Both windows can resolve them
-							// independently against the same on-disk transcript, but only the peer's
-							// hook flow drives its updates — without this, we'd freeze the snapshot
-							// taken at first discovery.
-							transcriptTitles: peerSession.transcriptTitles ?? existing.transcriptTitles,
-						};
-						changed = true;
-					}
-				} else {
-					this._sessions.push({
-						...peerSession,
-						lastActivity: peerActivity,
-						phaseSince: peerPhaseSince,
-						// The peer owns the hook entry, so an imported ask can never be routed from here.
-						pendingPermission:
-							peerSession.pendingPermission != null
-								? { ...peerSession.pendingPermission, resolvable: false }
-								: undefined,
-						workspacePath: normalizeWorkspacePath(peerSession.workspacePath),
-						isInWorkspace: this.matchesWorkspace(peerSession.workspacePath),
-						subagents: rehydrateSubagents(peerSession.subagents),
-						// Override whatever the peer published — this is OUR ownership view: the peer
-						// (or some other window) hosts the live session, not us. Drives the dispatcher
-						// to route opens through the peer's IPC + OS-level window focus instead of
-						// calling `claude-vscode.editor.open` locally (which would just open an inert
-						// view in our window).
-						isPeerOwned: true,
-					});
-					changed = true;
-				}
-
-				// Queue a local resolveGitInfo for any peer session that arrived without a
-				// commonPath but has a cwd — we can fill it in from our own git registry. Skip
-				// if our own bookkeeping already marked this session's cwd unresolvable (we tried
-				// locally and the cwd isn't a git repo from our vantage point either).
-				const merged = this._sessions.find(s => s.id === peerSession.id);
-				if (
-					merged?.commonPath == null &&
-					merged?.cwd != null &&
-					!this.getBookkeeping(merged.id).gitInfoUnresolvable
-				) {
-					sessionsNeedingResolve.set(merged.id, merged.cwd);
-				}
+		let output: string;
+		try {
+			output = await this.callbacks.runCLICommand(args);
+		} catch (ex) {
+			if (isUnknownFlagError(ex)) {
+				Logger.debug('GkAgentProvider.relayOpenSession: CLI does not support `open-session` (older gk)');
+			} else {
+				Logger.debug(`GkAgentProvider.relayOpenSession: ${ex instanceof Error ? ex.message : String(ex)}`);
 			}
-		}
-
-		if (changed) {
-			this._onDidChangeSessions.fire();
-		}
-
-		// Backfill commonPath for peer-synced sessions whose owning peer didn't populate it.
-		// `resolveGitInfo` is idempotent — only mutates + fires if it actually finds new info,
-		// so the worst case here is a few wasted git probes for unresolvable cwds.
-		for (const [id, cwd] of sessionsNeedingResolve) {
-			void this.resolveGitInfo(id, cwd);
-		}
-	}
-
-	private async fetchPeerSessions(
-		path: string,
-		ownPort: number | undefined,
-	): Promise<SerializedAgentSession[] | undefined> {
-		let discovery: DiscoveryFile;
-		try {
-			discovery = JSON.parse(await readFile(path, 'utf8')) as DiscoveryFile;
-		} catch {
-			return undefined;
-		}
-		if (ownPort != null && discovery.port === ownPort) return undefined;
-
-		try {
-			const response = await fetch(`${discovery.address}/agents/sessions/list`, {
-				method: 'POST',
-				headers: { Authorization: `Bearer ${discovery.token}`, 'Content-Type': 'application/json' },
-				body: '{}',
-				signal: AbortSignal.timeout(2000),
-			});
-			if (!response.ok) return undefined;
-			return (await response.json()) as SerializedAgentSession[];
-		} catch {
-			return undefined;
-		}
-	}
-
-	/** Find the peer GitLens window whose discovery file claims `workspacePath`, and POST to its
-	 *  `/agents/sessions/open` route to ask its Claude Code extension to open the session.
-	 *
-	 *  Resolves to `true` when at least one peer claimed the workspace AND was reachable (the POST
-	 *  completed with any HTTP status). The peer's response shape (`{ opened: boolean }`) is logged
-	 *  for diagnostics but does NOT affect the return value — an `opened: false` peer is still the
-	 *  right window for the caller to focus, since it's the window that owns the session. Resolves
-	 *  to `false` when no peer claimed the workspace OR every claimer was unreachable; the caller
-	 *  treats that as "no peer to focus" and opens a new window instead of replacing the current
-	 *  one. Best-effort: swallows scan, JSON-parse errors. */
-	async notifyPeerOpenSession(workspacePath: string, sessionId: string): Promise<boolean> {
-		const discoveryDir = this.callbacks.ipc.agentDiscoveryDir;
-		if (discoveryDir == null) return false;
-
-		const target = normalizePath(workspacePath);
-		const ownPort = this.callbacks.ipc.port;
-
-		let files: string[];
-		try {
-			files = await readdir(discoveryDir);
-		} catch {
 			return false;
 		}
 
-		const results = await Promise.all(
-			files
-				.filter(f => f.startsWith('gitlens-ipc-server-') && f.endsWith('.json'))
-				.map(async f => {
-					let discovery: DiscoveryFile;
-					try {
-						discovery = JSON.parse(await readFile(join(discoveryDir, f), 'utf8')) as DiscoveryFile;
-					} catch {
-						return false;
-					}
-					if (ownPort != null && discovery.port === ownPort) return false;
-					// Symmetric prefix containment — same shape as `matchesWorkspace()` above.
-					// Strict equality misses the common case where the dispatcher passes a `cwd`
-					// inside the peer's workspace folder (or, less commonly, a parent dir that
-					// contains the peer's workspace).
-					if (
-						!discovery.workspacePaths?.some(p => {
-							const normalized = normalizePath(p);
-							return (
-								normalized === target ||
-								target.startsWith(`${normalized}/`) ||
-								normalized.startsWith(`${target}/`)
-							);
-						})
-					) {
-						return false;
-					}
-
-					try {
-						const response = await fetch(`${discovery.address}/agents/sessions/open`, {
-							method: 'POST',
-							headers: {
-								Authorization: `Bearer ${discovery.token}`,
-								'Content-Type': 'application/json',
-							},
-							body: JSON.stringify({ sessionId: sessionId }),
-							signal: AbortSignal.timeout(2000),
-						});
-						if (!response.ok) {
-							Logger.warn(
-								`GkAgentProvider.notifyPeerOpenSession: peer at ${discovery.address} returned ${response.status}`,
-							);
-						} else {
-							// Log a peer that failed to open the specific session, but still treat it
-							// as a reachable claimer of the workspace — focusing that window is still
-							// what the user wants.
-							const body = (await response.json().catch(() => undefined)) as
-								| { opened?: boolean }
-								| undefined;
-							if (body?.opened === false) {
-								Logger.warn(
-									`GkAgentProvider.notifyPeerOpenSession: peer at ${discovery.address} could not open session ${sessionId}`,
-								);
-							}
-						}
-						return true;
-					} catch (ex) {
-						// Peer advertised but unreachable (timeout, RST, etc.). Treat as no match so
-						// the caller opens a new window instead of trying to focus a dead window.
-						Logger.warn(
-							`GkAgentProvider.notifyPeerOpenSession: peer at ${discovery.address} unreachable: ${
-								ex instanceof Error ? ex.message : String(ex)
-							}`,
-						);
-						return false;
-					}
-				}),
-		);
-
-		return results.some(Boolean);
+		try {
+			const result = JSON.parse(output) as { delivered?: boolean };
+			return result.delivered === true;
+		} catch (ex) {
+			Logger.debug(
+				`GkAgentProvider.relayOpenSession: failed to parse CLI response: ${
+					ex instanceof Error ? ex.message : String(ex)
+				}`,
+			);
+			return false;
+		}
 	}
 }

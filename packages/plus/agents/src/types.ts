@@ -209,16 +209,6 @@ export interface AgentSession {
 	 *  Mutable array form so `Shape<AgentSession>` projects it cleanly (the `Shape<>` type mangles
 	 *  `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
 	fileActivity?: { path: string; readAt?: number; editedAt?: number; reading?: true; editing?: true }[];
-	/** `true` when the session was discovered via peer IPC sync (i.e. another GitLens window hosts
-	 *  the agent's hook flow and Claude Code extension panel). Locally-owned sessions leave this
-	 *  unset. The dispatcher uses this to route opens through the peer's IPC route + an OS-level
-	 *  window focus, since calling `claude-vscode.editor.open` in *our* extension only opens an
-	 *  inert local view that isn't connected to the live session running in the peer.
-	 *
-	 *  Window-local: never serialized faithfully across the IPC wire. Each window decides locally
-	 *  based on how it received the session — `querySiblingWindowSessions` always overrides to
-	 *  `true` regardless of what the peer published. */
-	readonly isPeerOwned?: boolean;
 	/**
 	 * Titles discovered by tailing the Claude Code transcript JSONL at
 	 * `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`. Populated by
@@ -271,14 +261,15 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 		updatedPermissions?: PermissionSuggestion[],
 	): boolean;
 
-	/** Asks the peer GitLens window that has `workspacePath` open (or any peer whose workspacePath
-	 *  contains, or is contained by, it) to open the given session in its Claude Code extension
-	 *  via the `agents/sessions/open` IPC route. Resolves to `true` when at least one peer claimed
-	 *  the workspace AND was reachable; `false` otherwise. Best-effort: never rejects. The boolean
-	 *  is currently a diagnostic signal only — the dispatcher fires this in parallel with
-	 *  `vscode.openFolder` and relies on VS Code's window-folder matching to focus the owning
-	 *  window (which works whether or not the peer runs GitLens). */
-	notifyPeerOpenSession?(workspacePath: string, sessionId: string): Promise<boolean>;
+	/** Relays an open-session request to whichever GitLens window hosts `sessionId`, via the GK
+	 *  CLI's `gk ai hook open-session` relay — the CLI (not this process) resolves the target
+	 *  window from its own view of every publishing GitLens window. Resolves to `true` when the
+	 *  CLI reports delivery; `false` otherwise, including when the CLI predates the relay command.
+	 *  Best-effort: never rejects. The boolean is currently a diagnostic signal only — the
+	 *  dispatcher fires this in parallel with `vscode.openFolder` and relies on VS Code's
+	 *  window-folder matching to focus the owning window (which works whether or not the peer
+	 *  runs GitLens). */
+	relayOpenSession?(sessionId: string, path: string): Promise<boolean>;
 
 	/** Lists historical sessions for `cwd`, most-recently-active first. Omitted by providers with no
 	 *  historical-session source. The provider owns reconciliation of its durable store, tracked
@@ -387,8 +378,10 @@ export interface AgentSessionHistoryResult {
  */
 export interface IpcRegistrar {
 	readonly port: number | undefined;
-	/** Directory scanned for peer-window agent discovery files. Omit to disable peer discovery (tests). */
-	readonly agentDiscoveryDir?: string;
+	/** This window's own IPC server address (e.g. `http://127.0.0.1:<port>`), or `undefined` when
+	 *  the server hasn't started. Passed to the CLI relay as `--exclude-address` so it doesn't
+	 *  route an open-session request back to the window that's already asking for it. */
+	readonly address: string | undefined;
 	registerHandler<Request = unknown, Response = unknown>(
 		name: string,
 		handler: IpcHandler<Request, Response>,

@@ -30,7 +30,7 @@ function createMockCallbacks(options?: {
 	resumeSession?: AgentProviderCallbacks['resumeSession'];
 	getActivityDecayMs?: AgentProviderCallbacks['getActivityDecayMs'];
 	port?: number;
-	agentDiscoveryDir?: string;
+	address?: string;
 	cliResponse?: string;
 	archivedCliResponse?: string;
 	liveAgentSessions?: {
@@ -50,7 +50,7 @@ function createMockCallbacks(options?: {
 
 	const ipc: IpcRegistrar = {
 		port: options?.port ?? 1234,
-		agentDiscoveryDir: options?.agentDiscoveryDir,
+		address: options?.address,
 		registerHandler: <Request, Response>(name: string, handler: IpcHandler<Request, Response>) => {
 			handlers.set(name, handler as unknown as IpcHandler<unknown, unknown>);
 			return createDisposable(() => {
@@ -1401,303 +1401,92 @@ suite('GkAgentProvider', () => {
 		});
 	});
 
-	suite('notifyPeerOpenSession', () => {
-		test("skips the discovery file matching this provider's own port and returns false", async () => {
-			const { default: http } = await import('node:http');
-			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-			const { tmpdir } = await import('node:os');
-			const { join } = await import('node:path');
-
-			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-self-'));
-			const hits: string[] = [];
-			const server = http.createServer((req, res) => {
-				hits.push(req.url ?? '');
-				res.writeHead(200);
-				res.end(JSON.stringify({ opened: true }));
+	suite('relayOpenSession', () => {
+		test('spawns the CLI with sessionId, path, exclude-address, and --json', async () => {
+			const { callbacks, cliCalls } = createMockCallbacks({
+				address: 'http://127.0.0.1:9999',
+				cliResponse: JSON.stringify({ delivered: true }),
 			});
-			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-			const port = (server.address() as { port: number }).port;
+			const provider = new GkAgentProvider(callbacks);
 			try {
-				await writeFile(
-					join(dir, 'gitlens-ipc-server-self.json'),
-					JSON.stringify({
-						token: 't',
-						address: `http://127.0.0.1:${port}`,
-						port: port,
-						workspacePaths: ['/repo'],
-					}),
-				);
-
-				const { callbacks } = createMockCallbacks({ port: port, agentDiscoveryDir: dir });
-				const provider = new GkAgentProvider(callbacks);
-				try {
-					provider.start(['/repo']);
-					await flushMicrotasks();
-					hits.length = 0; // ignore any pre-existing list-route hits (there should be none)
-					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-1');
-					assert.deepStrictEqual(
-						hits.filter(u => u === '/agents/sessions/open'),
-						[],
-						'own-port discovery file must be skipped',
-					);
-					assert.strictEqual(opened, false, 'no peer should have been contacted');
-				} finally {
-					provider.dispose();
-				}
+				const delivered = await provider.relayOpenSession('sess-1', '/repo');
+				assert.deepStrictEqual(cliCalls, [
+					[
+						'ai',
+						'hook',
+						'open-session',
+						'sess-1',
+						'--path',
+						'/repo',
+						'--exclude-address',
+						'http://127.0.0.1:9999',
+						'--json',
+					],
+				]);
+				assert.strictEqual(delivered, true);
 			} finally {
-				await new Promise<void>(resolve => server.close(() => resolve()));
-				await rm(dir, { recursive: true, force: true });
+				provider.dispose();
 			}
 		});
 
-		test('skips peers whose workspacePaths do not include the target and returns false', async () => {
-			const { default: http } = await import('node:http');
-			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-			const { tmpdir } = await import('node:os');
-			const { join } = await import('node:path');
-
-			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-mismatch-'));
-			const hits: string[] = [];
-			const server = http.createServer((req, res) => {
-				hits.push(req.url ?? '');
-				res.writeHead(200);
-				res.end(JSON.stringify({ opened: true }));
+		test('omits --exclude-address when the own address is unavailable', async () => {
+			const { callbacks, cliCalls } = createMockCallbacks({
+				cliResponse: JSON.stringify({ delivered: true }),
 			});
-			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-			const peerPort = (server.address() as { port: number }).port;
+			const provider = new GkAgentProvider(callbacks);
 			try {
-				await writeFile(
-					join(dir, 'gitlens-ipc-server-other.json'),
-					JSON.stringify({
-						token: 't',
-						address: `http://127.0.0.1:${peerPort}`,
-						port: peerPort,
-						workspacePaths: ['/other/workspace'],
-					}),
-				);
-
-				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new GkAgentProvider(callbacks);
-				try {
-					provider.start(['/repo']);
-					await flushMicrotasks();
-					hits.length = 0; // ignore `/agents/sessions/list` from querySiblingWindowSessions
-					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-1');
-					assert.deepStrictEqual(
-						hits.filter(u => u === '/agents/sessions/open'),
-						[],
-						'mismatched-workspace peer must not be POSTed',
-					);
-					assert.strictEqual(opened, false, 'no matching peer should have been contacted');
-				} finally {
-					provider.dispose();
-				}
+				await provider.relayOpenSession('sess-2', '/repo');
+				assert.deepStrictEqual(cliCalls, [
+					['ai', 'hook', 'open-session', 'sess-2', '--path', '/repo', '--json'],
+				]);
 			} finally {
-				await new Promise<void>(resolve => server.close(() => resolve()));
-				await rm(dir, { recursive: true, force: true });
+				provider.dispose();
 			}
 		});
 
-		test('POSTs the sessionId to a matching peer and returns true when the peer is reachable', async () => {
-			const { default: http } = await import('node:http');
-			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-			const { tmpdir } = await import('node:os');
-			const { join } = await import('node:path');
-
-			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-match-'));
-			const requests: { url: string; auth: string | undefined; body: string }[] = [];
-			const server = http.createServer((req, res) => {
-				const chunks: Buffer[] = [];
-				req.on('data', c => chunks.push(c as Buffer));
-				req.on('end', () => {
-					requests.push({
-						url: req.url ?? '',
-						auth: req.headers['authorization'],
-						body: Buffer.concat(chunks).toString('utf8'),
-					});
-					res.writeHead(200, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ opened: true }));
-				});
-			});
-			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-			const peerPort = (server.address() as { port: number }).port;
+		test('parses { delivered: false } from the CLI as false', async () => {
+			const { callbacks } = createMockCallbacks({ cliResponse: JSON.stringify({ delivered: false }) });
+			const provider = new GkAgentProvider(callbacks);
 			try {
-				await writeFile(
-					join(dir, 'gitlens-ipc-server-peer.json'),
-					JSON.stringify({
-						token: 'peer-token',
-						address: `http://127.0.0.1:${peerPort}`,
-						port: peerPort,
-						// Mixed-separator path on purpose — `notifyPeerOpenSession` normalizes both sides.
-						workspacePaths: ['d:\\PROJ\\GKGL\\vscode-gitlens'],
-					}),
-				);
-
-				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new GkAgentProvider(callbacks);
-				try {
-					provider.start(['/somewhere/else']);
-					await flushMicrotasks();
-					// Ignore the unrelated `/agents/sessions/list` POST that `querySiblingWindowSessions`
-					// fires on start — we only care about what `notifyPeerOpenSession` does.
-					requests.length = 0;
-					const opened = await provider.notifyPeerOpenSession('d:/PROJ/GKGL/vscode-gitlens', 'sess-42');
-
-					const openRequests = requests.filter(r => r.url === '/agents/sessions/open');
-					assert.strictEqual(openRequests.length, 1, 'matching peer should receive exactly one open POST');
-					assert.strictEqual(openRequests[0].auth, 'Bearer peer-token');
-					assert.deepStrictEqual(JSON.parse(openRequests[0].body), { sessionId: 'sess-42' });
-					assert.strictEqual(opened, true, 'reachable peer should resolve to true');
-				} finally {
-					provider.dispose();
-				}
+				const delivered = await provider.relayOpenSession('sess-3', '/repo');
+				assert.strictEqual(delivered, false);
 			} finally {
-				await new Promise<void>(resolve => server.close(() => resolve()));
-				await rm(dir, { recursive: true, force: true });
+				provider.dispose();
 			}
 		});
 
-		test('returns true even when a matching peer responds with { opened: false } (peer is still the right window to focus)', async () => {
-			const { default: http } = await import('node:http');
-			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-			const { tmpdir } = await import('node:os');
-			const { join } = await import('node:path');
-
-			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-not-opened-'));
-			const server = http.createServer((_req, res) => {
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ opened: false }));
-			});
-			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-			const peerPort = (server.address() as { port: number }).port;
+		test('returns false without throwing when the CLI predates the open-session command', async () => {
+			const { callbacks } = createMockCallbacks();
+			callbacks.runCLICommand = () => Promise.reject(new Error('unknown command: open-session'));
+			const provider = new GkAgentProvider(callbacks);
 			try {
-				await writeFile(
-					join(dir, 'gitlens-ipc-server-peer.json'),
-					JSON.stringify({
-						token: 'peer-token',
-						address: `http://127.0.0.1:${peerPort}`,
-						port: peerPort,
-						workspacePaths: ['/repo'],
-					}),
-				);
-
-				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new GkAgentProvider(callbacks);
-				try {
-					provider.start(['/somewhere/else']);
-					await flushMicrotasks();
-					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-99');
-					// `opened: false` is logged for diagnostics but the peer was reachable, so the
-					// caller still gets the signal it needs to focus that peer's window via
-					// `vscode.openFolder` instead of opening a new window.
-					assert.strictEqual(
-						opened,
-						true,
-						'a reachable peer that failed to open the session is still the right window to focus',
-					);
-				} finally {
-					provider.dispose();
-				}
+				const delivered = await provider.relayOpenSession('sess-4', '/repo');
+				assert.strictEqual(delivered, false);
 			} finally {
-				await new Promise<void>(resolve => server.close(() => resolve()));
-				await rm(dir, { recursive: true, force: true });
+				provider.dispose();
 			}
 		});
 
-		test('matches a peer whose workspacePath *contains* the target (cwd is a subdir of the peer workspace)', async () => {
-			const { default: http } = await import('node:http');
-			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-			const { tmpdir } = await import('node:os');
-			const { join } = await import('node:path');
-
-			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-containment-'));
-			const requests: { url: string; body: string }[] = [];
-			const server = http.createServer((req, res) => {
-				const chunks: Buffer[] = [];
-				req.on('data', c => chunks.push(c as Buffer));
-				req.on('end', () => {
-					requests.push({ url: req.url ?? '', body: Buffer.concat(chunks).toString('utf8') });
-					res.writeHead(200, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ opened: true }));
-				});
-			});
-			await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-			const peerPort = (server.address() as { port: number }).port;
+		test('returns false, not a rejection, when the CLI spawn fails for another reason', async () => {
+			const { callbacks } = createMockCallbacks();
+			callbacks.runCLICommand = () => Promise.reject(new Error('gk not found'));
+			const provider = new GkAgentProvider(callbacks);
 			try {
-				await writeFile(
-					join(dir, 'gitlens-ipc-server-peer.json'),
-					JSON.stringify({
-						token: 'peer-token',
-						address: `http://127.0.0.1:${peerPort}`,
-						port: peerPort,
-						// Peer has the repo *root* open as workspace.
-						workspacePaths: ['/repo'],
-					}),
-				);
-
-				const { callbacks } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-				const provider = new GkAgentProvider(callbacks);
-				try {
-					provider.start(['/somewhere/else']);
-					await flushMicrotasks();
-					requests.length = 0; // ignore startup `/agents/sessions/list` POSTs
-
-					// Dispatcher passes a cwd inside the peer's workspace folder — strict equality
-					// would miss this; containment matching catches it.
-					const opened = await provider.notifyPeerOpenSession('/repo/src/foo', 'sess-contain');
-
-					const openRequests = requests.filter(r => r.url === '/agents/sessions/open');
-					assert.strictEqual(
-						openRequests.length,
-						1,
-						'peer whose workspacePath is a parent of the target must still be POSTed',
-					);
-					assert.deepStrictEqual(JSON.parse(openRequests[0].body), { sessionId: 'sess-contain' });
-					assert.strictEqual(opened, true, 'containment match must propagate as true');
-				} finally {
-					provider.dispose();
-				}
+				const delivered = await provider.relayOpenSession('sess-5', '/repo');
+				assert.strictEqual(delivered, false);
 			} finally {
-				await new Promise<void>(resolve => server.close(() => resolve()));
-				await rm(dir, { recursive: true, force: true });
+				provider.dispose();
 			}
 		});
 
-		test('returns false when a matching peer is advertised but unreachable (refused/timeout)', async () => {
-			const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-			const { tmpdir } = await import('node:os');
-			const { join } = await import('node:path');
-
-			const dir = await mkdtemp(join(tmpdir(), 'gitlens-discovery-unreachable-'));
+		test('returns false when the CLI response is not valid JSON', async () => {
+			const { callbacks } = createMockCallbacks({ cliResponse: 'not json' });
+			const provider = new GkAgentProvider(callbacks);
 			try {
-				// Use port 1 — guaranteed-closed on every platform; fetch will fail with
-				// ECONNREFUSED quickly.
-				await writeFile(
-					join(dir, 'gitlens-ipc-server-dead.json'),
-					JSON.stringify({
-						token: 'dead-token',
-						address: `http://127.0.0.1:1`,
-						port: 1,
-						workspacePaths: ['/repo'],
-					}),
-				);
-
-				const { callbacks } = createMockCallbacks({ port: 50000, agentDiscoveryDir: dir });
-				const provider = new GkAgentProvider(callbacks);
-				try {
-					provider.start(['/somewhere/else']);
-					await flushMicrotasks();
-					const opened = await provider.notifyPeerOpenSession('/repo', 'sess-dead');
-					assert.strictEqual(
-						opened,
-						false,
-						'an advertised-but-unreachable peer must resolve to false so the caller opens a new window instead of trying to focus a dead window',
-					);
-				} finally {
-					provider.dispose();
-				}
+				const delivered = await provider.relayOpenSession('sess-6', '/repo');
+				assert.strictEqual(delivered, false);
 			} finally {
-				await rm(dir, { recursive: true, force: true });
+				provider.dispose();
 			}
 		});
 	});
@@ -4458,237 +4247,6 @@ suite('GkAgentProvider worktree attribution', () => {
 		} finally {
 			provider.dispose();
 		}
-	});
-});
-
-class PeerTestProvider extends GkAgentProvider {
-	runPeerQuery(): Promise<void> {
-		return this.querySiblingWindowSessions();
-	}
-}
-
-suite('GkAgentProvider peer session merge', () => {
-	const REPO = '/repo';
-
-	/** Stands up a peer window: a discovery file plus an `/agents/sessions/list` route serving
-	 *  whatever `published.sessions` holds when the query runs. Starts empty so the start-time query
-	 *  imports nothing and the test can seat local state first, then drive the merge explicitly. */
-	async function withPeer(
-		run: (
-			provider: PeerTestProvider,
-			handlers: MockCallbacks['handlers'],
-			published: { sessions: Record<string, unknown>[] },
-		) => Promise<void>,
-	): Promise<void> {
-		const { default: http } = await import('node:http');
-		const { mkdtemp, rm, writeFile } = await import('node:fs/promises');
-		const { tmpdir } = await import('node:os');
-		const { join } = await import('node:path');
-
-		const published: { sessions: Record<string, unknown>[] } = { sessions: [] };
-		const dir = await mkdtemp(join(tmpdir(), 'gitlens-peer-merge-'));
-		const server = http.createServer((req, res) => {
-			const url = req.url ?? '';
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(url === '/agents/sessions/list' ? published.sessions : {}));
-		});
-		await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-		const peerPort = (server.address() as { port: number }).port;
-		try {
-			await writeFile(
-				join(dir, 'gitlens-ipc-server-peer.json'),
-				JSON.stringify({
-					token: 'peer-token',
-					address: `http://127.0.0.1:${peerPort}`,
-					port: peerPort,
-					workspacePaths: [REPO],
-				}),
-			);
-
-			const { callbacks, handlers } = createMockCallbacks({ port: peerPort + 1, agentDiscoveryDir: dir });
-			const provider = new PeerTestProvider(callbacks);
-			try {
-				provider.start([REPO]);
-				await flushMicrotasks();
-				await run(provider, handlers, published);
-			} finally {
-				provider.dispose();
-			}
-		} finally {
-			await new Promise<void>(resolve => server.close(() => resolve()));
-			await rm(dir, { recursive: true, force: true });
-		}
-	}
-
-	/** A peer's published row for `sessionId`, always newer than anything the local window holds. */
-	function peerRow(sessionId: string, overrides?: Record<string, unknown>): Record<string, unknown> {
-		const at = new Date(Date.now() + 60_000).toISOString();
-		return {
-			id: sessionId,
-			providerId: 'claudeCode',
-			providerName: 'Claude Code',
-			status: 'thinking',
-			phase: 'working',
-			phaseSince: at,
-			lastActivity: at,
-			isSubagent: false,
-			isInWorkspace: true,
-			cwd: REPO,
-			...overrides,
-		};
-	}
-
-	test('a merged peer ask is marked unresolvable', async () => {
-		await withPeer(async (provider, handlers, published) => {
-			const handler = handlers.get('agents/session')!;
-			await handler(sessionStart('s1', REPO), new URLSearchParams());
-
-			published.sessions = [
-				peerRow('s1', {
-					status: 'permission_requested',
-					phase: 'waiting',
-					pendingPermission: {
-						kind: 'tool',
-						toolName: 'Bash',
-						toolDescription: 'Bash(ls -la)',
-						resolvable: true,
-					},
-				}),
-			];
-			await provider.runPeerQuery();
-
-			const s = provider.sessions.find(x => x.id === 's1');
-			assert.strictEqual(s?.status, 'permission_requested');
-			assert.strictEqual(s?.pendingPermission?.toolDescription, 'Bash(ls -la)', 'the ask is mirrored');
-			assert.strictEqual(
-				s?.pendingPermission?.resolvable,
-				false,
-				'we hold no hook entry for the peer’s ask, so it can never be routed from here',
-			);
-		});
-	});
-
-	test('a merge clears an ask the peer no longer reports', async () => {
-		await withPeer(async (provider, handlers, published) => {
-			const handler = handlers.get('agents/session')!;
-			await handler(sessionStart('s1', REPO), new URLSearchParams());
-			// Non-blocking, so the row carries a synthesized ask with no bookkeeping entry behind it.
-			await handler(
-				{
-					event: 'PermissionRequest',
-					sessionId: 's1',
-					cwd: REPO,
-					toolName: 'Bash',
-					toolInput: { command: 'ls -la' },
-				},
-				new URLSearchParams(),
-			);
-			assert.strictEqual(provider.sessions.find(x => x.id === 's1')?.pendingPermission?.resolvable, false);
-
-			published.sessions = [peerRow('s1')];
-			await provider.runPeerQuery();
-
-			assert.strictEqual(
-				provider.sessions.find(x => x.id === 's1')?.pendingPermission,
-				undefined,
-				'the peer answered it — the card must not keep waiting',
-			);
-		});
-	});
-
-	test('a locally-routable ask survives a peer merge', async () => {
-		await withPeer(async (provider, handlers, published) => {
-			const handler = handlers.get('agents/session')!;
-			await handler(sessionStart('s1', REPO), new URLSearchParams());
-			// A blocking ask fans out to every window, so ours can hold the entry the peer lacks.
-			const blocking = handler(
-				{
-					event: 'PermissionRequest',
-					sessionId: 's1',
-					cwd: REPO,
-					toolName: 'Bash',
-					toolInput: { command: 'ls -la' },
-				},
-				new URLSearchParams('blocking=true'),
-			);
-			blocking.catch(() => {});
-
-			published.sessions = [peerRow('s1')];
-			await provider.runPeerQuery();
-
-			const s = provider.sessions.find(x => x.id === 's1');
-			assert.notStrictEqual(
-				s?.pendingPermission,
-				undefined,
-				'a routable ask must not be dropped by the peer’s view',
-			);
-			assert.notStrictEqual(s?.pendingPermission?.resolvable, false);
-		});
-	});
-
-	test('a peer merge backfills lastPrompt/firstPrompt only when the local value is unset', async () => {
-		await withPeer(async (provider, handlers, published) => {
-			const handler = handlers.get('agents/session')!;
-			await handler(sessionStart('s1', REPO), new URLSearchParams());
-
-			published.sessions = [peerRow('s1', { lastPrompt: 'peer prompt', firstPrompt: 'peer first prompt' })];
-			await provider.runPeerQuery();
-
-			const s = provider.sessions.find(x => x.id === 's1');
-			assert.strictEqual(s?.lastPrompt, 'peer prompt', 'lastPrompt is backfilled from the peer');
-			assert.strictEqual(s?.firstPrompt, 'peer first prompt', 'firstPrompt is backfilled from the peer');
-		});
-	});
-
-	test("a peer merge does not clobber a set local lastPrompt/firstPrompt with the peer's", async () => {
-		await withPeer(async (provider, handlers, published) => {
-			const handler = handlers.get('agents/session')!;
-			await handler(sessionStart('s1', REPO), new URLSearchParams());
-			await handler(
-				{
-					event: 'UserPromptSubmit',
-					sessionId: 's1',
-					cwd: REPO,
-					pid: process.pid,
-					prompt: 'local prompt',
-					firstPrompt: 'local prompt',
-				},
-				new URLSearchParams(),
-			);
-
-			published.sessions = [peerRow('s1', { lastPrompt: 'peer prompt', firstPrompt: 'peer first prompt' })];
-			await provider.runPeerQuery();
-
-			const s = provider.sessions.find(x => x.id === 's1');
-			assert.strictEqual(s?.lastPrompt, 'local prompt', 'a hook-set lastPrompt survives the peer merge');
-			assert.strictEqual(s?.firstPrompt, 'local prompt', 'a hook-set firstPrompt survives the peer merge');
-		});
-	});
-
-	test("a peer's ended row is skipped entirely — it never ends a live local session or touch its fileActivity", async () => {
-		await withPeer(async (provider, handlers, published) => {
-			const FILE = '/repo/src/foo.ts';
-			const handler = handlers.get('agents/session')!;
-			await handler(sessionStart('s1', REPO), new URLSearchParams());
-			await handler(preToolUse('s1', 'Edit', FILE), new URLSearchParams());
-			await handler(postToolUse('s1', 'Edit', FILE), new URLSearchParams());
-			assert.ok(
-				fileActivityOf(provider, 's1').some(e => e.path === FILE),
-				'local fileActivity should be populated before the merge',
-			);
-
-			// The publish endpoint filters ended rows out, so this models a version-skewed peer.
-			// Terminal transitions are owned by the local hook/poll paths, never a peer claim.
-			published.sessions = [peerRow('s1', { status: 'ended', phase: 'ended', fileActivity: undefined })];
-			await provider.runPeerQuery();
-
-			const s = provider.sessions.find(x => x.id === 's1');
-			assert.notStrictEqual(s?.status, 'ended', "a peer's terminal claim must not end a live local session");
-			assert.ok(
-				fileActivityOf(provider, 's1').some(e => e.path === FILE),
-				'the local fileActivity must be untouched by a skipped peer row',
-			);
-		});
 	});
 });
 
