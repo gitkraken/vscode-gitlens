@@ -5975,15 +5975,19 @@ export class GlCommitGraph extends LitElement {
 		);
 	};
 
-	// The .gl-graph__ref-pill element under the event (parallels resolveRef). Ghost pills don't count:
-	// they're hoverable (name expand) but not a real ref surface — no `data-ref-key` to context-pin,
-	// and no pill-level host context, so the native menu shows the ROW menu and the zone must
-	// say so.
+	// The .gl-graph__ref-pill element under the event (parallels resolveRef). Two pills don't count, because
+	// neither is a real ref surface with its own host context — the native menu shows the ROW menu and the
+	// zone must say so (the wrapper only writes a WIP row's context for the row zone):
+	//  - ghost pills: hoverable (name expand) but no `data-ref-key` to context-pin;
+	//  - the WIP row's branch pill (`.gl-graph__wip-branch-pill` wrapper, interactive AND inert forms): the
+	//    row's own identity, so right-clicking it IS right-clicking the WIP row.
 	private resolveRefPill(event: Event): HTMLElement | undefined {
 		const pill = composedPathElement(event, elIsRefPill);
 		if (pill == null) return undefined;
 
-		return pill.classList.contains('gl-graph__ref-pill--ghost') ? undefined : pill;
+		if (pill.classList.contains('gl-graph__ref-pill--ghost')) return undefined;
+
+		return pill.closest('.gl-graph__wip-branch-pill') != null ? undefined : pill;
 	}
 
 	// Keep a right-clicked ref pill "open" while the native context menu is up: force-expand it

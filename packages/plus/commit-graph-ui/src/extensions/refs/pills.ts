@@ -8,10 +8,11 @@ export function refPillKey(ref: { kind: string; name: string; owner?: string | n
  * The key a CONTEXT pin (native menu open over a pill) is stored and matched under — {@link refPillKey}
  * qualified by the row's jump sha when there is one.
  *
- * `refPillKey` alone can't tell two pills apart here: the WIP row's row-marker PROXY pill renders the
- * HEAD row's refs, so it carries the SAME `data-ref-key` as the real pill on the HEAD row. Right-clicking
- * the proxy would otherwise expand the HEAD row's pill — the one the user is not pointing at — and leave
- * the proxy to collapse the moment the menu stole its `:hover`.
+ * `refPillKey` alone can't tell two pills apart here: the WIP row's branch PROXY pill renders the HEAD
+ * branch's ref, so it carries the SAME `data-ref-key` as the real pill on the HEAD row. Right-clicking the
+ * HEAD row's pill would otherwise ALSO force the proxy open — over the WIP row's message, for the menu's
+ * whole lifetime. (The proxy itself never takes a context pin: a right-click on it is a right-click on the
+ * WIP row — see `resolveRefPill`.)
  */
 export function refContextPinKey(refKey: string | undefined, jumpSha: string | undefined): string | undefined {
 	if (refKey == null) return undefined;

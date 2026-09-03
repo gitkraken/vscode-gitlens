@@ -771,10 +771,9 @@ function renderOnePill(
 	const isPinned =
 		pinnedKey != null &&
 		(pinnedKey === refPillKey(ref) || (upstreamOnRow != null && pinnedKey === refPillKey(upstreamOnRow)));
-	// Unlike the click pin, the WIP-row proxy pill is NOT excluded: it is right-clickable and must stay
-	// expanded for its own menu's lifetime. Matched through `refContextPinKey`, which qualifies the key by
-	// the jump sha, so the proxy and the real HEAD-row pill (identical `refPillKey`) can't be confused for
-	// one another.
+	// Matched through `refContextPinKey`, which qualifies the key by the jump sha, so the WIP-row proxy pill
+	// and the real HEAD-row pill (identical `refPillKey`) can't be confused for one another. (The proxy itself
+	// is never context-pinned — a right-click on it is a right-click on the WIP row, see `resolveRefPill`.)
 	const isContextPinned =
 		hooks?.getContextPinnedRefKey?.() != null &&
 		hooks.getContextPinnedRefKey() === refContextPinKey(refPillKey(ref), rowMarker?.jumpSha);
