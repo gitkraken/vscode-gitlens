@@ -5,7 +5,7 @@ import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { AzureProjectDescriptor, AzureRemoteRepositoryDescriptor } from '../providers/azure/models.js';
 import type { ProviderPullRequest, ProviderRepoInput } from '../providers/models.js';
@@ -176,6 +176,111 @@ suite('provider pull request search', () => {
 			assert.equal(result?.[0].project?.name, 'Project B');
 			assert.equal(result?.[0].refs?.base?.cloneHttps, 'https://example.com/project-b/api');
 		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure bounds concurrent pull request reads across repositories', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const releases: (() => void)[] = [];
+		try {
+			const integration = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+			assert.ok(integration != null);
+
+			const repoCount = providerFanOutConcurrency + 1;
+			const projects: AzureProjectDescriptor[] = Array.from({ length: repoCount }, (_, i) => ({
+				id: `project-${i}`,
+				key: `project-${i}`,
+				name: `Project ${i}`,
+				resourceId: 'org-id',
+				resourceName: 'org',
+			}));
+			const repos: AzureRemoteRepositoryDescriptor[] = projects.map((project, i) => ({
+				id: `repo-${i}`,
+				key: `repo-${i}`,
+				name: `repo-${i}`,
+				projectName: project.name,
+				resourceName: project.resourceName,
+				cloneUrlHttps: `https://example.com/project-${i}/repo-${i}`,
+				cloneUrlSsh: `ssh://example.com/project-${i}/repo-${i}`,
+			}));
+			const calls: { project: string; repo?: ProviderRepoInput }[] = [];
+			let inFlight = 0;
+			let peakInFlight = 0;
+			const internal = integration as unknown as {
+				getProviderResourcesForUser: () => Promise<{ id: string; key: string; name: string }[]>;
+				getProviderProjectsForResources: () => Promise<{ values: AzureProjectDescriptor[] }>;
+				getRepoDescriptorsForProjects: () => Promise<Map<string, AzureRemoteRepositoryDescriptor[]>>;
+				getProvidersApi: () => Promise<{
+					getPullRequestsForAzureProject: (
+						token: unknown,
+						project: { namespace: string; project: string },
+						options: { repo?: ProviderRepoInput },
+					) => Promise<{ data: ProviderPullRequest[]; hasMore: boolean; nextPage: number | null }>;
+				}>;
+				searchProviderPullRequests: (
+					session: ProviderAuthenticationSession,
+					search: string,
+					repos: { key: string; owner: string; name: string }[],
+				) => Promise<PullRequest[] | undefined>;
+			};
+			internal.getProviderResourcesForUser = () =>
+				Promise.resolve([{ id: 'org-id', key: 'org-id', name: 'org' }]);
+			internal.getProviderProjectsForResources = () => Promise.resolve({ values: projects });
+			internal.getRepoDescriptorsForProjects = () =>
+				Promise.resolve(new Map(repos.map((repo, i) => [`project-${i}`, [repo]])));
+			internal.getProvidersApi = () =>
+				Promise.resolve({
+					getPullRequestsForAzureProject: (_token, project, options) => {
+						calls.push({ project: project.project, repo: options.repo });
+						inFlight++;
+						peakInFlight = Math.max(peakInFlight, inFlight);
+
+						return new Promise(resolve => {
+							releases.push(() => {
+								inFlight--;
+								resolve({ data: [], hasMore: false, nextPage: null });
+							});
+						});
+					},
+				});
+
+			const pending = internal.searchProviderPullRequests(
+				session('dev.azure.com'),
+				'',
+				repos.map(repo => ({
+					key: repo.key,
+					owner: repo.resourceName,
+					name: `${repo.projectName}/_git/${repo.name}`,
+				})),
+			);
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+			assert.equal(calls.length, providerFanOutConcurrency);
+			assert.equal(peakInFlight, providerFanOutConcurrency);
+
+			const release = releases.shift();
+			assert.ok(release != null);
+			release();
+			await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+			assert.equal(calls.length, repoCount);
+			assert.equal(inFlight, providerFanOutConcurrency);
+			assert.equal(peakInFlight, providerFanOutConcurrency);
+			assert.deepEqual(
+				calls.map(call => [call.project, call.repo?.id]),
+				projects.map((project, i) => [project.name, `repo-${i}`]),
+			);
+
+			for (const release of releases.splice(0)) {
+				release();
+			}
+			assert.deepEqual(await pending, []);
+		} finally {
+			for (const release of releases.splice(0)) {
+				release();
+			}
 			manager.dispose();
 		}
 	});

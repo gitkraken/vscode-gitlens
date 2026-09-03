@@ -32,8 +32,7 @@ export function parsePageCursor(cursor: string | undefined): number | undefined 
 }
 
 /** Preserves successful sibling scopes, but doesn't turn an all-scope provider failure into an empty success. */
-export async function flatSettledOrThrow<T>(promises: Promise<T[]>[]): Promise<T[]> {
-	const results = await Promise.allSettled(promises);
+export function flatSettledResultsOrThrow<T>(results: PromiseSettledResult<T[]>[]): T[] {
 	const fulfilled = results.filter((result): result is PromiseFulfilledResult<T[]> => result.status === 'fulfilled');
 	if (fulfilled.length === 0) {
 		const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
@@ -41,6 +40,10 @@ export async function flatSettledOrThrow<T>(promises: Promise<T[]>[]): Promise<T
 	}
 
 	return fulfilled.flatMap(result => result.value);
+}
+
+export async function flatSettledOrThrow<T>(promises: Promise<T[]>[]): Promise<T[]> {
+	return flatSettledResultsOrThrow(await Promise.allSettled(promises));
 }
 
 /** Precedence for merged completeness: any known omission (`partial`) wins, then inability to confirm
