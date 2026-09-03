@@ -16,7 +16,6 @@ import type { SearchOperatorsLongForm, SearchQuery } from '@gitlens/git/models/s
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
 import { debounce } from '@gitlens/utils/decorators/debounce.js';
-import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
@@ -248,14 +247,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const { scope, branch, worktreePerspective } = this.graphState;
 		if (scope == null) return false;
 
-		// While a worktree perspective's rebind push is in flight, `branch` still describes the OLD binding,
-		// so compare against the perspective's own branch until the two converge — the same optimism as
-		// the pill label, so this toggle lights up on the same frame as the scope chip below it.
+		// While a worktree perspective's rebind is in flight, `branch` still describes the OLD binding and
+		// the scope is still keyed under the OLD repo path (it's re-stamped onto the worktree only once the
+		// rebind lands), so neither id can match yet. Compare by NAME against the perspective's own branch
+		// until the two converge — the same optimism as the pill label, so this toggle lights up on the same
+		// frame as the scope chip below it.
 		if (
 			worktreePerspective?.branchName != null &&
 			getSelectedRepoPath(this.graphState) !== worktreePerspective.path
 		) {
-			return scope.branchRef === getBranchId(worktreePerspective.path, false, worktreePerspective.branchName);
+			return scope.branchName === worktreePerspective.branchName;
 		}
 
 		if (branch == null || branch.detached || branch.id == null) return false;
