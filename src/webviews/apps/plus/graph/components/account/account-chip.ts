@@ -9,13 +9,13 @@ import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a
 import { elementBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import { urls } from '../../../../../constants.js';
-import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription.js';
-import type { Source } from '../../../../../constants.telemetry.js';
-import type { PlansContent } from '../../../../../plus/gk/models/plans.js';
-import { defaultPlansContent } from '../../../../../plus/gk/models/plans.js';
-import type { PromoPlans } from '../../../../../plus/gk/models/promo.js';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
+import { urls } from '../../../../../../constants.js';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../../../constants.subscription.js';
+import type { Source } from '../../../../../../constants.telemetry.js';
+import type { PlansContent } from '../../../../../../plus/gk/models/plans.js';
+import { defaultPlansContent } from '../../../../../../plus/gk/models/plans.js';
+import type { PromoPlans } from '../../../../../../plus/gk/models/promo.js';
+import type { SubscriptionUpgradeCommandArgs } from '../../../../../../plus/gk/models/subscription.js';
 import {
 	compareSubscriptionPlans,
 	getSubscriptionEntitlement,
@@ -28,20 +28,20 @@ import {
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
-} from '../../../../../plus/gk/utils/subscription.utils.js';
-import { createCommandLink } from '../../../../../system/commands.js';
-import { resolveAiUsage } from '../../../shared/aiUsage.js';
-import type { GlPromo } from '../../../shared/components/promo.js';
-import type { PromosContext } from '../../../shared/contexts/promos.js';
-import { promosContext } from '../../../shared/contexts/promos.js';
-import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
-import { subscriptionContext } from '../../../shared/contexts/subscription.js';
-import { accountRingStyles } from './accountRing.css.js';
-import { chipStyles } from './chipStyles.js';
-import { ruleStyles } from './vscode.css.js';
-import '../../../shared/components/badges/badge.js';
-import '../../../shared/components/button.js';
-import '../../../shared/components/button-container.js';
+} from '../../../../../../plus/gk/utils/subscription.utils.js';
+import { createCommandLink } from '../../../../../../system/commands.js';
+import { resolveAiUsage } from '../../../../shared/aiUsage.js';
+import type { GlPromo } from '../../../../shared/components/promo.js';
+import type { PromosContext } from '../../../../shared/contexts/promos.js';
+import { promosContext } from '../../../../shared/contexts/promos.js';
+import type { SubscriptionContextState } from '../../../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../../../shared/contexts/subscription.js';
+import { accountRingStyles } from '../../../shared/components/accountRing.css.js';
+import { chipStyles } from '../../../shared/components/chipStyles.js';
+import { ruleStyles } from '../../../shared/components/vscode.css.js';
+import '../../../../shared/components/badges/badge.js';
+import '../../../../shared/components/button.js';
+import '../../../../shared/components/button-container.js';
 import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
 

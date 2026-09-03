@@ -469,6 +469,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  "Manage Workspace Trust" instead of open/clone. Sourced from `workspace.isTrusted`. Absent (undefined)
 	 *  is treated as trusted. */
 	trusted?: boolean;
+	/** True when Git refused to open repositories as potentially unsafe (folders not owned by the
+	 *  current user). Drives the no-repo empty state to explain the block and point at Source Control
+	 *  instead of offering open/clone. Only populated on the empty (no repositories) state builds. */
+	hasUnsafeRepositories?: boolean;
 	repositories?: GraphRepository[];
 	/** Absolute fsPaths of every worktree in the current repo's family (the main checkout plus
 	 *  every secondary worktree), sourced from the loaded graph. A reusable registry for any
