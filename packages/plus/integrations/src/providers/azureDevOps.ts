@@ -14,6 +14,7 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -23,7 +24,7 @@ import type {
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
@@ -56,7 +57,11 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	flatSettledResultsOrThrow,
+	mergeCollectionMetadata,
+} from './utils/providerPaging.js';
 
 function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
 	resourceName: string;
@@ -939,8 +944,8 @@ export abstract class AzureDevOpsIntegrationBase<
 						project: { namespace: project.resourceName, project: project.name },
 					}));
 
-		const providerPullRequests = await flatSettledOrThrow(
-			searchScopes.map(async scope => {
+		const providerPullRequests = flatSettledResultsOrThrow(
+			await mapSettledBounded(searchScopes, providerFanOutConcurrency, async scope => {
 				const values: ProviderPullRequest[] = [];
 				let page: number | undefined;
 				for (let i = 0; i < 20; i++) {

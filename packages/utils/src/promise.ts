@@ -121,6 +121,21 @@ export async function mapBounded<T, R>(
 	return results;
 }
 
+/** Settles each task without stopping the sliding window when one of them rejects. */
+export function mapSettledBounded<T, R>(
+	items: readonly T[],
+	concurrency: number,
+	task: (item: T, index: number) => Promise<R>,
+): Promise<PromiseSettledResult<Awaited<R>>[]> {
+	return mapBounded(items, concurrency, async (item, index): Promise<PromiseSettledResult<Awaited<R>>> => {
+		try {
+			return { status: 'fulfilled', value: await task(item, index) };
+		} catch (reason) {
+			return { status: 'rejected', reason: reason };
+		}
+	});
+}
+
 export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extends Error {
 	constructor(
 		public readonly promise: T,
