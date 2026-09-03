@@ -444,7 +444,7 @@ export async function* resolveAgentFlow(
 	options: { useDefaults?: boolean; requestedRoute?: AgentRoute },
 ): AsyncStepResultGenerator<ResolveAgentFlowResult> {
 	// `'ask'` from the caller (or unspecified) defers to the persisted `gitlens.ai.openInAgent`
-	// default so the user's preference is honored on generic UI entries (Home, Graph WIP empty pane).
+	// default so the user's preference is honored on generic UI entries (the Graph WIP empty pane).
 	// `'manual'`/`'agent'` from the caller are explicit overrides (e.g., the "Start Work in Agent"
 	// surfaces) and always force that route regardless of the persisted setting.
 	const requested: AgentRoute = options.requestedRoute ?? 'ask';

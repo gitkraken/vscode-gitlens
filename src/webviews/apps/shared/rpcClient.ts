@@ -24,7 +24,7 @@ import type { DisposableEndpoint } from './webviewEndpoint.js';
 export interface RpcClientOptions {
 	/**
 	 * Webview identifier used to tag log lines produced by this RPC channel.
-	 * Example: `gitlens.views.home`. Falls back to `?` when not provided.
+	 * Example: `gitlens.views.commitDetails`. Falls back to `?` when not provided.
 	 *
 	 * Accepts a function to defer resolution for cases where the id isn't known
 	 * at `RpcController` construction time (e.g. Timeline serves both panel and

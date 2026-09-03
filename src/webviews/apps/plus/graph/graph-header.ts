@@ -59,8 +59,6 @@ import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProv
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import { countOpenRepositories, getSelectedRepoPath, worktreeDisplayName } from './utils/repository.utils.js';
-import '../shared/components/account-chip.js';
-import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';

@@ -314,25 +314,6 @@ test.describe('Smoke Tests — GitLens Inspect views', () => {
 	});
 });
 
-test.describe('Smoke Tests — Home view', () => {
-	test.describe.configure({ mode: 'serial' });
-	test.afterEach(async ({ vscode }) => {
-		await vscode.gitlens.resetUI();
-	});
-
-	test('should open home with the command', async ({ vscode }) => {
-		await vscode.gitlens.showHomeView();
-
-		await expect(vscode.gitlens.homeViewSection).toBeVisible({ timeout: MaxTimeout });
-
-		// Verify Home webview has actual content
-		const homeWebview = await vscode.gitlens.homeViewWebview;
-		expect(homeWebview).not.toBeNull();
-		// Verify meaningful content has loaded (the branch name from the active-work section)
-		await expect(homeWebview!.getByText(/main/).first()).toBeVisible({ timeout: MaxTimeout });
-	});
-});
-
 test.describe('Smoke Tests — Commit Graph view', () => {
 	test.describe.configure({ mode: 'serial' });
 	test.afterEach(async ({ vscode }) => {

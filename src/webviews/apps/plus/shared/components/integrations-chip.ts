@@ -13,10 +13,7 @@ import { integrationsContext } from '../../../shared/contexts/integrations.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { chipStyles } from './chipStyles.js';
-import './integrations-panel.js';
-import './ai-panel.js';
 import '@gitlens/components/components/codeIcon.js';
-import '@gitlens/components/components/overlays/popover.js';
 
 @customElement('gl-integrations-chip')
 export class GlIntegrationsChip extends SignalWatcher(LitElement) {
@@ -30,9 +27,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	private _ai!: AIContextState;
 
 	/** `icons` renders the integration providers alone; `ai-icons` the AI model status alone; `agent-icons`
-	 *  the MCP / Hooks / Default Agent statuses alone — so a consumer can head them as separate sections;
-	 *  `chip` keeps everything in one row. */
-	@property({ reflect: true }) display: 'chip' | 'panel' | 'icons' | 'ai-icons' | 'agent-icons' = 'chip';
+	 *  the MCP / Hooks / Default Agent statuses alone — so a consumer can head them as separate sections. */
+	@property({ reflect: true }) display: 'icons' | 'ai-icons' | 'agent-icons' = 'icons';
 
 	/** When set, the `icons`/`ai-icons`/`agent-icons` chip renders as a command link (`<a>`) instead of a
 	 *  `<button>`, so clicking it navigates rather than emitting a click for the host to handle. */
@@ -95,20 +91,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				white-space: nowrap;
 			}
 
-			.content {
-				gap: var(--gl-space-6);
-			}
-
-			:host([display='panel']) .content {
-				width: 100%;
-			}
-
 			.status--disconnected.integration {
 				color: var(--color-foreground--25);
-			}
-
-			gl-popover::part(body) {
-				--max-width: 90vw;
 			}
 
 			@keyframes shimmer {
@@ -187,10 +171,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			></span>`;
 		}
 
-		if (this.display === 'icons') {
-			return this.renderIconChip('Integrations', this.renderIntegrationIcons());
-		}
-
 		if (this.display === 'ai-icons') {
 			return this.renderIconChip('AI', this.renderAIStatus());
 		}
@@ -199,14 +179,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			return this.renderIconChip('Agents', this.renderAgentIcons());
 		}
 
-		if (this.display === 'panel') {
-			return html`<div class="content">${this.renderPanelContent()}</div>`;
-		}
-
-		return html`<gl-popover placement="bottom" trigger="hover click focus">
-			<span slot="anchor" class="chip" tabindex="0">${this.renderIconRow()}</span>
-			<div slot="content" class="content">${this.renderPanelContent()}</div>
-		</gl-popover>`;
+		return this.renderIconChip('Integrations', this.renderIntegrationIcons());
 	}
 
 	/** Icon-only chip: a command link when `href` is set (navigates on click), else a button whose click
@@ -219,10 +192,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		return html`<button id="chip" class="chip" type="button" aria-label=${ariaLabel}>${content}</button>`;
 	}
 
-	private renderIconRow(): unknown {
-		return html`${this.renderIntegrationIcons()}${this.renderAIIcons()}`;
-	}
-
 	private renderIntegrationIcons(): unknown {
 		const anyConnected = this.hasConnectedIntegrations;
 		const statusFilter = createStatusIconFilter(this.integrations);
@@ -232,16 +201,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			.map(i => this.renderIntegrationStatus(i))}`;
 	}
 
-	private renderAIIcons(): unknown {
-		return html`${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`;
-	}
-
 	private renderAgentIcons(): unknown {
 		return html`${this.renderMcpStatus()}${this.renderAgentHooksStatus()}${this.renderDefaultAgentStatus()}`;
-	}
-
-	private renderPanelContent(): unknown {
-		return html`<gl-integrations-panel></gl-integrations-panel><gl-ai-panel></gl-ai-panel>`;
 	}
 
 	private renderIntegrationStatus(integration: IntegrationStateInfo) {
@@ -287,15 +248,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		</span>`;
 	}
 
-	private renderHooksStatus() {
-		if (!this.aiEnabled || !this.ai.hooks.canInstallHooks) return nothing;
-		return html`<span class="integration status--disconnected" slot="anchor">
-			<code-icon icon="search-sparkle"></code-icon>
-		</span>`;
-	}
-
-	/** Persistent (always-rendered) hooks status for `agent-icons` — greyed when not installed, unlike
-	 *  `renderHooksStatus`, which only renders while installation is still available. */
+	/** Persistent (always-rendered) hooks status for `agent-icons` — greyed when not installed. */
 	private renderAgentHooksStatus() {
 		const installed = this.aiEnabled && this.ai.hooks.anyInstalled;
 		return html`<span class="integration status--${installed ? 'connected' : 'disconnected'}" slot="anchor">

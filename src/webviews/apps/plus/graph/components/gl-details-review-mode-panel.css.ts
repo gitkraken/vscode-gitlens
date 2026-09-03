@@ -222,8 +222,6 @@ export const reviewModePanelStyles = css`
 
 	/* Review areas */
 
-	/* Section header — matches the home panel's section pattern (branch-section, summary):
-	   1.3rem, normal weight, uppercase, foreground color. */
 	.review-areas__header-row {
 		display: flex;
 		gap: var(--gl-space-4);
