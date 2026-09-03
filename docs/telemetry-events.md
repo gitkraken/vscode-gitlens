@@ -5619,6 +5619,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 }
 ```
 
+### kepler/productPage/opened
+
+> Sent when the user opens Kepler's product page from the "Get Kepler" CTA (Settings or Graph sidebar banner)
+
+```typescript
+void
+```
+
 ### launchpad/action
 
 > Sent when the user takes an action on a launchpad item

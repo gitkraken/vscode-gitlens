@@ -610,6 +610,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user switches the AI model from the resolve-mode chip in the Graph Details panel */
 	'graphDetails/resolve/changeAiModel': GraphDetailsChangeAiModelEvent;
 
+	/** Sent when the user opens Kepler's product page from the "Get Kepler" CTA (Settings or Graph sidebar banner) */
+	'kepler/productPage/opened': void;
+
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
 

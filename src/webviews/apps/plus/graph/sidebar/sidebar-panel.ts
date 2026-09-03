@@ -53,6 +53,7 @@ import {
 	getAgentSessionArchiveAction,
 	getAgentSessionOpenAction,
 } from '../../../shared/agentUtils.js';
+import { shouldShowKeplerBanner } from '../../../shared/components/keplerBanner.utils.js';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -64,6 +65,8 @@ import type {
 } from '../../../shared/components/tree/base.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
+import type { OnboardingState } from '../../../shared/contexts/onboarding.js';
+import { onboardingContext } from '../../../shared/contexts/onboarding.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import type { TelemetrySendEventParams } from '../../../shared/telemetry.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
@@ -115,6 +118,7 @@ import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/agents-banner.js';
+import '../../../shared/components/kepler-banner.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/tree/tree-view.js';
 
@@ -692,7 +696,8 @@ would expose the graph through fade or at the gap left by the translate). */
 				align-items: center;
 			}
 
-			.agents-banner {
+			.agents-banner,
+			.kepler-banner {
 				flex: none;
 				padding: 0 var(--gl-space-4) var(--gl-space-4);
 			}
@@ -735,6 +740,9 @@ would expose the graph through fade or at the gap left by the translate). */
 
 	@consume({ context: aiContext })
 	private readonly _ai?: AIContextState;
+
+	@consume({ context: onboardingContext, subscribe: true })
+	private readonly _onboarding?: OnboardingState;
 
 	/** Memo for `buildTreeModel`. Renders fire on every filter/expansion change, so without this
 	 *  the tree model is rebuilt for an unchanged `data` reference. Reset on key change — which includes
@@ -1123,8 +1131,17 @@ would expose the graph through fade or at the gap left by the translate). */
 					: emptyState?.type === 'no-sessions'
 						? 'No agent sessions for this repository'
 						: 'No agent sessions';
+			// The Connect Agents banner and the Kepler banner are allowed to stack — that's intended, not
+			// an oversight. When both are visible, Connect Agents (the hook-setup CTA) stays on top and
+			// Kepler sits below it.
+			const keplerBannerVisible = shouldShowKeplerBanner({
+				progress: this._onboarding?.walkthroughProgress.get(),
+				onboardingOptedOut: this._onboarding?.onboardingOptedOut.get(),
+				orgDisabledAi: this._ai?.state.get().orgEnabled === false,
+			});
 			return html`<div class="panel">
 				${this.renderHeader(config, false)} ${bannerVisible ? this.renderAgentsBanner() : nothing}
+				${keplerBannerVisible ? this.renderKeplerBanner() : nothing}
 				<div class="content">
 					${
 						emptyState?.type === 'connect'
@@ -1317,6 +1334,12 @@ would expose the graph through fade or at the gap left by the translate). */
 				.mcpCanAutoRegister=${this._state.mcpCanAutoRegister ?? false}
 				.hooksAvailable=${(this._state.hooksAgents?.length ?? 0) > 0}
 			></gl-agents-banner>
+		</div>`;
+	}
+
+	private renderKeplerBanner(): unknown {
+		return html`<div class="kepler-banner">
+			<gl-kepler-banner source="graph-sidebar" layout="responsive"></gl-kepler-banner>
 		</div>`;
 	}
 

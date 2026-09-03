@@ -35,6 +35,7 @@ import './commands/gitWizard.js';
 import './commands/help.js';
 import './commands/inviteToLiveShare.js';
 import './commands/inspect.js';
+import './commands/kepler.js';
 import './commands/logging.js';
 import './commands/openAssociatedPullRequestOnRemote.js';
 import './commands/openBranchesOnRemote.js';

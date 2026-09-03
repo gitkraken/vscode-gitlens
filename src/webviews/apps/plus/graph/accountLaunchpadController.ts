@@ -153,6 +153,11 @@ export class AccountLaunchpadController implements ReactiveController {
 				.then(p => {
 					onboardingState.walkthroughProgress.set(p?.main);
 					onboardingState.graphWalkthroughProgress.set(p?.graph);
+					// `p` is optional here (unlike the subscription below) — leave the default (`false`)
+					// rather than clobbering it with `undefined` when the payload hasn't landed yet.
+					if (p != null) {
+						onboardingState.onboardingOptedOut.set(p.onboardingOptedOut);
+					}
 				})
 				.catch(noop);
 
@@ -169,6 +174,7 @@ export class AccountLaunchpadController implements ReactiveController {
 					walkthrough.onProgressChanged(p => {
 						onboardingState.walkthroughProgress.set(p.main);
 						onboardingState.graphWalkthroughProgress.set(p.graph);
+						onboardingState.onboardingOptedOut.set(p.onboardingOptedOut);
 					}),
 			]);
 

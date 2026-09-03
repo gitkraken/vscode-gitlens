@@ -101,7 +101,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	[
 		'kepler',
 		{
-			usage: ['command:gitlens.welcome.openKepler:executed'],
+			usage: ['command:gitlens.welcome.openKepler:executed', 'command:gitlens.getKepler:executed'],
 		},
 	],
 	[

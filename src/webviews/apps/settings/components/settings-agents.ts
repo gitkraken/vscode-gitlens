@@ -6,6 +6,7 @@ import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, inlineCode, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { AgentInfo, AIState } from '../../../rpc/services/types.js';
+import { shouldShowKeplerBanner } from '../../shared/components/keplerBanner.utils.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -13,6 +14,7 @@ import '../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
 import '@gitlens/components/components/overlays/tooltip.js';
+import '../../shared/components/kepler-banner.js';
 import '../../shared/components/skeleton-loader.js';
 import '../../shared/components/radio/radio.js';
 
@@ -233,6 +235,19 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 	}
 
 	override render(): unknown {
+		const walkthrough = this._state.walkthrough.get();
+		const showKeplerBanner = shouldShowKeplerBanner({
+			progress: walkthrough?.main,
+			onboardingOptedOut: walkthrough?.onboardingOptedOut,
+			orgDisabledAi: this.ai != null && !this.ai.orgEnabled,
+		});
+
+		return html`${
+			showKeplerBanner ? html`<gl-kepler-banner source="settings"></gl-kepler-banner>` : nothing
+		}${this.renderAgents()}`;
+	}
+
+	private renderAgents(): unknown {
 		const ai = this.ai;
 		if (ai == null) {
 			if (this._state.serviceErrors.get().ai) return this.renderError('Couldn’t load AI status.');
