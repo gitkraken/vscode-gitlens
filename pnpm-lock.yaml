@@ -282,21 +282,15 @@ importers:
       '@wc-toolkit/cem-sorter':
         specifier: 1.0.1
         version: 1.0.1
-      cheerio:
-        specifier: 1.0.0-rc.12
-        version: 1.0.0-rc.12
       circular-dependency-plugin:
         specifier: 5.2.2
         version: 5.2.2(webpack@5.110.2)
       copy-webpack-plugin:
         specifier: 14.0.0
         version: 14.0.0(webpack@5.110.2)
-      csp-html-webpack-plugin:
-        specifier: 5.1.0
-        version: 5.1.0(html-webpack-plugin@5.6.8(webpack@5.110.2))(webpack@5.110.2)
       css-loader:
-        specifier: 7.1.4
-        version: 7.1.4(webpack@5.110.2)
+        specifier: 7.1.5
+        version: 7.1.5(webpack@5.110.2)
       css-minimizer-webpack-plugin:
         specifier: 8.0.0
         version: 8.0.0(clean-css@5.3.3)(csso@5.0.5)(esbuild@0.28.2)(webpack@5.110.2)
@@ -346,8 +340,8 @@ importers:
         specifier: 5.0.1
         version: 5.0.1(supports-color@10.2.2)
       lint-staged:
-        specifier: 17.3.0
-        version: 17.3.0
+        specifier: 17.4.1
+        version: 17.4.1
       lz-string:
         specifier: 1.5.0
         version: 1.5.0
@@ -4019,12 +4013,6 @@ packages:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
 
-  csp-html-webpack-plugin@5.1.0:
-    resolution: {integrity: sha512-6l/s6hACE+UA01PLReNKZfgLZWM98f7ewWmE79maDWIbEXiPcIWQGB3LQR/Zw+hPBj4XPZZ5zNrrO+aygqaLaQ==}
-    peerDependencies:
-      html-webpack-plugin: ^4 || ^5
-      webpack: ^4 || ^5
-
   css-declaration-sorter@7.4.0:
     resolution: {integrity: sha512-LTuzjPoyA2vMGKKcaOqKSp7Ub2eGrNfKiZH4LpezxpNrsICGCSFvsQOI29psISxNZtaXibkC2CXzrQ5enMeGGw==}
     engines: {node: ^14 || ^16 || >=18}
@@ -4035,8 +4023,8 @@ packages:
     resolution: {integrity: sha512-8HFEBPKhOpJPEPu70wJJetjKta86Gw9+CCyCnB3sui2qQfOvRyqBy4IKLKKAwdMpWb2lHXWk9Wb4Z6AmaUT1Pg==}
     engines: {node: '>=12'}
 
-  css-loader@7.1.4:
-    resolution: {integrity: sha512-vv3J9tlOl04WjiMvHQI/9tmIrCxVrj6PFbHemBB1iihpeRbi/I4h033eoFIhwxBBqLhI0KYFS7yvynBFhIZfTw==}
+  css-loader@7.1.5:
+    resolution: {integrity: sha512-Q7iAfQkU2twNBryKX/vGAlE+GAmkF7quhSzAGNK8fBimxk3+tqg245rH52UPb9dioBolBc8rP0ihmHBaDTJQBA==}
     engines: {node: '>= 18.12.0'}
     peerDependencies:
       '@rspack/core': 0.x || ^1.0.0 || ^2.0.0-0
@@ -5443,8 +5431,8 @@ packages:
   linkify-it@5.0.2:
     resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
 
-  lint-staged@17.3.0:
-    resolution: {integrity: sha512-woZS3vNe3UKqBaLPvbLOtKRY4tLANpWQhom12MGWqC8Mh1lCOO+WgSwmX2amjJAqTY9BkXYW87fCUH5H9Ph6xw==}
+  lint-staged@17.4.1:
+    resolution: {integrity: sha512-FmJeudcalbSfg1du+JCfvi5vS6Qt08KgbfLWiHinbef+2JJwUZwAWVoaO1AcJVUTWPfk0t30PMQNwPAeCzYQ+Q==}
     engines: {node: '>=22.22.1'}
     hasBin: true
 
@@ -10988,20 +10976,13 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  csp-html-webpack-plugin@5.1.0(html-webpack-plugin@5.6.8(webpack@5.110.2))(webpack@5.110.2):
-    dependencies:
-      cheerio: 1.0.0-rc.12
-      html-webpack-plugin: 5.6.8(webpack@5.110.2)
-      lodash: 4.18.1
-      webpack: 5.110.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(clean-css@5.3.3)(cssnano@7.1.9(postcss@8.5.26))(csso@5.0.5)(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.26)(uglify-js@3.19.3)(webpack-cli@7.2.2)
-
   css-declaration-sorter@7.4.0(postcss@8.5.26):
     dependencies:
       postcss: 8.5.26
 
   css-functions-list@3.3.3: {}
 
-  css-loader@7.1.4(webpack@5.110.2):
+  css-loader@7.1.5(webpack@5.110.2):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.26)
       postcss: 8.5.26
@@ -12590,7 +12571,7 @@ snapshots:
     dependencies:
       uc.micro: 2.1.0
 
-  lint-staged@17.3.0:
+  lint-staged@17.4.1:
     dependencies:
       picomatch: 4.0.7
       string-argv: 0.3.2

@@ -9,7 +9,6 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import CircularDependencyPlugin from 'circular-dependency-plugin';
 import CopyPlugin from 'copy-webpack-plugin';
-import CspHtmlPlugin from 'csp-html-webpack-plugin';
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import esbuild from 'esbuild';
 import { generateFonts } from 'fantasticon';
@@ -591,7 +590,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		new WebviewPublicPathPlugin({ variableName: 'webpackResourceBasePath' }),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
 		...Object.entries(webviews).map(([name, config]) => getHtmlPlugin(name, Boolean(config.plus), mode, env)),
-		getCspHtmlPlugin(mode, env),
+		new WebviewCspPlugin(mode, env),
 	];
 
 	// Keep `custom-elements.json` fresh during dev/watch builds (skipped in production and quick modes)
@@ -802,36 +801,78 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	};
 }
 
-/**
- * @param { GlMode } mode
- * @param {GlEnv} env
- * @returns { CspHtmlPlugin }
- */
-function getCspHtmlPlugin(mode, env) {
-	const cspPlugin = new CspHtmlPlugin(
-		{
-			'default-src': "'none'",
-			'img-src': ['#{cspSource}', 'https:', 'data:'],
-			'script-src':
-				mode !== 'production'
-					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
-					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"],
-			'font-src': ['#{cspSource}'],
-			'connect-src': mode !== 'production' ? ['#{cspSource}'] : "'none'",
-		},
-		{
-			enabled: true,
-			hashingMethod: 'sha256',
-			hashEnabled: { 'script-src': true, 'style-src': mode === 'production' },
-			nonceEnabled: { 'script-src': true, 'style-src': true },
-		},
-	);
-	// Override the nonce creation so we can dynamically generate them at runtime
-	// @ts-ignore
-	cspPlugin.createNonce = () => '#{cspNonce}';
+class WebviewCspPlugin {
+	/**
+	 * @param {GlMode} mode
+	 * @param {GlEnv} env
+	 */
+	constructor(mode, env) {
+		this.mode = mode;
+		this.env = env;
+	}
 
-	return cspPlugin;
+	/**
+	 * @param {import('webpack').Compiler} compiler
+	 */
+	apply(compiler) {
+		compiler.hooks.compilation.tap('WebviewCspPlugin', compilation => {
+			HtmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('WebviewCspPlugin', data => {
+				for (const tag of [...data.headTags, ...data.bodyTags]) {
+					if (tag.tagName === 'script' || (tag.tagName === 'link' && tag.attributes?.rel === 'stylesheet')) {
+						tag.attributes = { ...tag.attributes, nonce: '#{cspNonce}' };
+					}
+				}
+
+				const scriptHashes = [];
+				if (data.plugin?.options?.template) {
+					try {
+						const rawTemplate = (data.plugin.options.template ?? '').split('!').pop().split('?')[0];
+						const templatePath = path.resolve(compiler.context, rawTemplate);
+						const templateContent = fs.readFileSync(templatePath, 'utf8');
+						const scriptRegex = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+						let match;
+						while ((match = scriptRegex.exec(templateContent)) !== null) {
+							const content = match[1];
+							if (content.trim()) {
+								const hash = createHash('sha256').update(content, 'utf8').digest('base64');
+								scriptHashes.push(`'sha256-${hash}'`);
+							}
+						}
+					} catch {}
+				}
+
+				const scriptSrc = [
+					'#{cspSource}',
+					"'nonce-#{cspNonce}'",
+					...(this.mode !== 'production' ? ["'unsafe-eval'"] : []),
+					...scriptHashes,
+				];
+
+				const policy = [
+					`base-uri 'self'`,
+					`object-src 'none'`,
+					`script-src ${scriptSrc.join(' ')}`,
+					`style-src #{cspSource} 'nonce-#{cspNonce}' 'unsafe-hashes'`,
+					`default-src 'none'`,
+					`img-src #{cspSource} https: data:`,
+					`font-src #{cspSource}`,
+					`connect-src ${this.mode !== 'production' ? '#{cspSource}' : "'none'"}`,
+				].join('; ');
+
+				data.headTags.unshift({
+					tagName: 'meta',
+					voidTag: true,
+					attributes: {
+						'http-equiv': 'Content-Security-Policy',
+						content: policy,
+					},
+					meta: { plugin: 'html-webpack-plugin' },
+				});
+
+				return data;
+			});
+		});
+	}
 }
 
 /**
