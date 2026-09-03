@@ -42,7 +42,9 @@
 	"oxc.enable.oxlint": true,
 	"oxc.enable.oxfmt": true,
 	"search.exclude": {
-		"**/dist": true
+		".vscode-test": true,
+		"**/dist": true,
+		"**/out": true
 	},
 	"stylelint.validate": ["scss", "typescript"]
 }
