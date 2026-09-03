@@ -185,8 +185,8 @@ if (isFullBuild && !watch) {
 		// blocking spawnSync) — isolate it so that blocking work gets its own core instead of stalling
 		// a bundling process's event loop.
 		`${baseCmd} --config-name common`,
-		// Keep webviews:common + webviews in one process (CompileComposerTemplatesPlugin shares state).
-		`${baseCmd}${analyzeBundle ? ' --env analyzeBundle' : ''}${stats ? ' --env stats' : ''} --config-name webviews:common --config-name webviews --config-name unit-tests`,
+		`${baseCmd}${analyzeBundle ? ' --env analyzeBundle' : ''}${stats ? ' --env stats' : ''} --config-name webviews:common --config-name webviews`,
+		`${baseCmd} --config-name unit-tests`,
 	];
 } else {
 	bundleCmds = [cmd];

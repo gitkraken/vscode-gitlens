@@ -1108,18 +1108,28 @@ class FileGeneratorPlugin {
 
 				pendingGeneration = true;
 
-				try {
-					const logger = compiler.getInfrastructureLogger(this.pluginName);
-					logger.log(`${this.strings.starting} ${this.command.name}...`);
-					const start = Date.now();
+				const logger = compiler.getInfrastructureLogger(this.pluginName);
+				logger.log(`${this.strings.starting} ${this.command.name}...`);
+				const start = Date.now();
 
-					const result = spawnSync(`${this.command.command} ${this.command.args.join(' ')}`, {
-						cwd: __dirname,
-						encoding: 'utf8',
-						shell: true,
-					});
+				const child = spawn(`${this.command.command} ${this.command.args.join(' ')}`, {
+					cwd: __dirname,
+					shell: true,
+					stdio: ['ignore', 'pipe', 'pipe'],
+				});
 
-					if (result.status === 0) {
+				let stdout = '';
+				let stderr = '';
+				child.stdout?.on('data', d => {
+					stdout += d;
+				});
+				child.stderr?.on('data', d => {
+					stderr += d;
+				});
+
+				child.on('close', code => {
+					pendingGeneration = false;
+					if (code === 0) {
 						const missingOutputs = this.outputs.filter(output => !fs.existsSync(output));
 						if (missingOutputs.length !== 0) {
 							callback(
@@ -1135,21 +1145,27 @@ class FileGeneratorPlugin {
 						logger.log(
 							`${this.strings.completed} ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`,
 						);
+						callback();
 					} else {
-						const detail = (result.stderr || result.stdout || result.error?.message || '').trim();
+						const detail = (stderr || stdout).trim();
 						callback(
 							new WebpackError(
 								`[${this.pluginName}] Failed to run ${this.command.name}${
-									detail ? `: ${detail}` : ` (exit ${result.status})`
+									detail ? `: ${detail}` : ` (exit ${code})`
 								}`,
 							),
 						);
-						return;
 					}
-				} finally {
+				});
+
+				child.on('error', err => {
 					pendingGeneration = false;
-				}
+					callback(
+						new WebpackError(`[${this.pluginName}] Failed to start ${this.command.name}: ${err.message}`),
+					);
+				});
 			} catch (ex) {
+				pendingGeneration = false;
 				callback(new WebpackError(`[${this.pluginName}] Error checking source file: ${ex}`));
 				return;
 			}
@@ -1220,8 +1236,6 @@ class DocsPlugin extends FileGeneratorPlugin {
 				path.join(__dirname, 'pnpm-lock.yaml'),
 			],
 			outputs: [path.join(__dirname, 'docs', 'telemetry-events.md')],
-			// The TypeScript program follows transitive type imports, so an exhaustive static input list
-			// would be brittle. Always regenerate on a one-shot build; the paths above drive watch rebuilds.
 			cache: false,
 			command: {
 				name: 'docs',
@@ -1255,6 +1269,7 @@ class LicensesPlugin extends FileGeneratorPlugin {
 
 class FantasticonPlugin {
 	alreadyRun = false;
+	#cacheFile = path.join(__dirname, '.codegen-cache', 'fantasticon.json');
 
 	/**
 	 * @param {{config?: { [key:string]: any }; configPath?: string; onBefore?: Function; onComplete?: Function }} options
@@ -1272,6 +1287,68 @@ class FantasticonPlugin {
 				baseDataPath: 'options',
 			},
 		);
+	}
+
+	/**
+	 * @private
+	 * @param {string} inputDir
+	 * @param {string | undefined} configPath
+	 */
+	#getInputsHash(inputDir, configPath) {
+		const hash = createHash('sha1');
+		try {
+			for (const entry of fs.readdirSync(inputDir, { recursive: true, withFileTypes: true })) {
+				if (!entry.isFile()) continue;
+				const fullPath = path.join(entry.parentPath, entry.name);
+				hash.update(fullPath);
+				hash.update('\0');
+				try {
+					hash.update(fs.readFileSync(fullPath));
+				} catch {}
+				hash.update('\0');
+			}
+		} catch {}
+
+		const extraFiles = ['scripts/applyIconsContribution.mjs'];
+		if (configPath) extraFiles.push(configPath);
+		for (const file of extraFiles) {
+			try {
+				hash.update(fs.readFileSync(path.resolve(__dirname, file)));
+			} catch {}
+		}
+
+		return hash.digest('hex');
+	}
+
+	/**
+	 * @private
+	 * @param {string[]} outputs
+	 * @param {string} inputDir
+	 * @param {string | undefined} configPath
+	 */
+	#persistedSkip(outputs, inputDir, configPath) {
+		if (outputs.some(o => !fs.existsSync(o))) return false;
+		try {
+			const cached = JSON.parse(fs.readFileSync(this.#cacheFile, 'utf8'));
+			return cached.inputsHash === this.#getInputsHash(inputDir, configPath);
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * @private
+	 * @param {string} inputDir
+	 * @param {string | undefined} configPath
+	 */
+	#recordRun(inputDir, configPath) {
+		try {
+			fs.mkdirSync(path.dirname(this.#cacheFile), { recursive: true });
+			fs.writeFileSync(
+				this.#cacheFile,
+				JSON.stringify({ inputsHash: this.#getInputsHash(inputDir, configPath) }),
+			);
+		} catch {}
 	}
 
 	/**
@@ -1300,9 +1377,18 @@ class FantasticonPlugin {
 		}
 
 		const fontConfig = { ...loadedConfig, ...config };
+		const inputDir = path.resolve(__dirname, fontConfig.inputDir ?? 'images/icons');
+		const outputs = [
+			path.resolve(__dirname, fontConfig.pathOptions?.woff2 ?? 'dist/glicons.woff2'),
+			path.resolve(__dirname, 'src/webviews/apps/shared/glicons.scss'),
+			path.resolve(__dirname, 'packages/components/src/components/icons/gliconsMap.ts'),
+		];
 
-		// TODO@eamodio: Figure out how to add watching for the fontConfig.inputDir
-		// Maybe something like: https://github.com/Fridus/webpack-watch-files-plugin
+		compiler.hooks.thisCompilation.tap(this.pluginName, compilation => {
+			compilation.contextDependencies.add(inputDir);
+			if (configPath) compilation.fileDependencies.add(path.resolve(__dirname, configPath));
+			compilation.fileDependencies.add(path.resolve(__dirname, 'scripts', 'applyIconsContribution.mjs'));
+		});
 
 		/**
 		 * @this {FantasticonPlugin}
@@ -1312,6 +1398,10 @@ class FantasticonPlugin {
 			if (compiler.watchMode) {
 				if (this.alreadyRun) return;
 				this.alreadyRun = true;
+			}
+
+			if (this.#persistedSkip(outputs, inputDir, configPath)) {
+				return;
 			}
 
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
@@ -1345,6 +1435,7 @@ class FantasticonPlugin {
 			}
 
 			logger.log(`Generated icon font in \x1b[32m${Date.now() - start}ms\x1b[0m${suffix}`);
+			this.#recordRun(inputDir, configPath);
 		}
 
 		const generateFn = generate.bind(this);
