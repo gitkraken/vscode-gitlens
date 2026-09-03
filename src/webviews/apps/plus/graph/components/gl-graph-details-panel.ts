@@ -1411,27 +1411,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 					@gl-detail-sheet-close=${this.handleClosePrSheet}
 				></gl-graph-pr-sheet>`;
-			case 'agentSession': {
-				const entries = this.getAgentSessionCycleEntries();
-				const cycleIndex = this.findAgentSessionCycleIndex(entries, d);
-				return html`<gl-graph-agent-sheet
-					?inert=${!isTop}
-					.session=${this._graphState?.agentSessions?.find(
-						s => s.id === d.sessionId && s.providerId === d.providerId,
-					)}
-					.cycleIndex=${cycleIndex}
-					.cycleCount=${cycleIndex >= 0 ? entries.length : 0}
-					@gl-agent-session-cycle=${this.handleAgentSessionCycle}
-					@gl-detail-sheet-close=${this.handleCloseAgentSheet}
-				></gl-graph-agent-sheet>`;
-			}
+			case 'agentSession':
 			case 'pastAgentSession': {
 				const entries = this.getAgentSessionCycleEntries();
 				const cycleIndex = this.findAgentSessionCycleIndex(entries, d);
+				const session =
+					d.kind === 'agentSession'
+						? this._graphState?.agentSessions?.find(
+								s => s.id === d.sessionId && s.providerId === d.providerId,
+							)
+						: undefined;
+				// One literal for both descriptor kinds: lit keys the DOM on the template literal, so two
+				// literals would remount the sheet (and replay its open animation) on every live↔past cycle.
 				return html`<gl-graph-agent-sheet
 					?inert=${!isTop}
-					.pastSession=${d.session}
-					.pastDetail=${this._pastSessionDetail}
+					.session=${session}
+					.pastSession=${d.kind === 'pastAgentSession' ? d.session : undefined}
+					.pastDetail=${d.kind === 'pastAgentSession' ? this._pastSessionDetail : undefined}
 					.cycleIndex=${cycleIndex}
 					.cycleCount=${cycleIndex >= 0 ? entries.length : 0}
 					@gl-agent-session-cycle=${this.handleAgentSessionCycle}

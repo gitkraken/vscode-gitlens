@@ -1,8 +1,25 @@
 import * as assert from 'assert';
-import type { AgentSessionState } from '../../../../../../agents/models/agentSessionState.js';
+import type { TemplateResult } from 'lit';
+import type {
+	AgentSessionState,
+	PastAgentSessionDetail,
+	PastAgentSessionState,
+} from '../../../../../../agents/models/agentSessionState.js';
 import type { Wip } from '../../../../../plus/graph/detailsProtocol.js';
 import { getNextPastAgentSessionsLimit, shouldShowPastSessions } from '../gl-details-agent-status.js';
 import { GlGraphDetailsPanel } from '../gl-graph-details-panel.js';
+import type { SheetDescriptor } from '../sheetStack.js';
+
+/** Minimal `this` for {@link GlGraphDetailsPanel.renderSheet}'s `agentSession`/`pastAgentSession`
+ *  case — only the members that case reads. */
+type RenderSheetHarness = {
+	getAgentSessionCycleEntries(): SheetDescriptor[];
+	findAgentSessionCycleIndex(entries: readonly SheetDescriptor[], top: SheetDescriptor): number;
+	_graphState?: { agentSessions?: AgentSessionState[] };
+	_pastSessionDetail?: PastAgentSessionDetail;
+	handleAgentSessionCycle(e: CustomEvent<{ direction: -1 | 1 }>): void;
+	handleCloseAgentSheet(): void;
+};
 
 type PastSessionsPanelHarness = {
 	isWip: boolean;
@@ -157,5 +174,68 @@ suite('GlGraphDetailsPanel agent history', () => {
 		assert.deepStrictEqual(fetchedLimits, [3]);
 		assert.strictEqual(resetCount, 1);
 		assert.strictEqual(panel._lastPastSessionsFetch?.limit, 3);
+	});
+});
+
+suite('GlGraphDetailsPanel agent sheet cycling', () => {
+	test('renders live and past agent sessions from the same template literal', () => {
+		// This Node test host has no real DOM (Lit's tests run against `@lit-labs/ssr-dom-shim`,
+		// which stubs `customElements`/`HTMLElement` but not lit-html's client renderer — no other
+		// test in this suite calls `document.body.append` or `shadowRoot.querySelector`, and
+		// `globalThis.document` is undefined here), so a rendered instance isn't available to drive
+		// through `gl-detail-sheet-close`/cycle events and read back `shadowRoot`. `renderSheet` is
+		// called directly instead, and the invariant is checked at the level that actually decides
+		// remount vs. patch: lit-html keys DOM on the tagged template's `strings`
+		// (`TemplateStringsArray`) identity, not on the tag name, so `live.strings === past.strings`
+		// proves a live→past cycle patches the existing element instead of remounting it — the same
+		// thing `after === before` would prove on a rendered element.
+		const renderSheet = Reflect.get(GlGraphDetailsPanel.prototype, 'renderSheet') as (
+			this: RenderSheetHarness,
+			d: SheetDescriptor,
+			isTop: boolean,
+		) => TemplateResult;
+
+		const liveSession = makeSession('session-1', 'idle');
+		const pastSession: PastAgentSessionState = {
+			id: 'session-2',
+			providerId: 'claudeCode',
+			disposition: 'ended',
+			actions: {},
+			worktreePath: '/repo/worktree',
+			displayName: 'session-2',
+			lastActivity: Date.now(),
+		};
+		const harness: RenderSheetHarness = {
+			getAgentSessionCycleEntries: () => [],
+			findAgentSessionCycleIndex: () => -1,
+			_graphState: { agentSessions: [liveSession] },
+			_pastSessionDetail: undefined,
+			handleAgentSessionCycle: () => {},
+			handleCloseAgentSheet: () => {},
+		};
+
+		const live = renderSheet.call(
+			harness,
+			{ kind: 'agentSession', sessionId: 'session-1', providerId: 'claudeCode' },
+			true,
+		);
+		const past = renderSheet.call(harness, { kind: 'pastAgentSession', session: pastSession }, true);
+
+		assert.strictEqual(
+			live.strings,
+			past.strings,
+			'agentSession and pastAgentSession must render from the same <gl-graph-agent-sheet> template literal',
+		);
+
+		const strings = [...live.strings];
+		const sessionIndex = strings.findIndex(s => s.trimEnd().endsWith('.session='));
+		const pastSessionIndex = strings.findIndex(s => s.trimEnd().endsWith('.pastSession='));
+
+		assert.notStrictEqual(sessionIndex, -1, 'template must bind .session');
+		assert.notStrictEqual(pastSessionIndex, -1, 'template must bind .pastSession');
+		assert.strictEqual(live.values[sessionIndex], liveSession);
+		assert.strictEqual(live.values[pastSessionIndex], undefined);
+		assert.strictEqual(past.values[sessionIndex], undefined);
+		assert.strictEqual(past.values[pastSessionIndex], pastSession);
 	});
 });
