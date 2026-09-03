@@ -4,18 +4,19 @@ import type { RpcMessageWrapper } from '../../../rpc/constants.js';
 import { encodeRpcPayload, RPC_NAMESPACE } from '../../../rpc/constants.js';
 import { createOrderedDispatcher } from '../webviewEndpoint.js';
 
-/** Builds an uncompressed RPC wrapper for a message. */
+/** Builds an uncompressed RPC wrapper for a message, stamped with `byteLength` as the host does. */
 function wrapUncompressed(message: unknown): RpcMessageWrapper {
-	return { [RPC_NAMESPACE]: true, payload: encodeRpcPayload(message) };
+	const encoded = encodeRpcPayload(message);
+	return { [RPC_NAMESPACE]: true, payload: encoded, byteLength: encoded.byteLength };
 }
 
-/** Builds a `deflate-raw` compressed RPC wrapper for a message. */
+/** Builds a `deflate-raw` compressed RPC wrapper for a message, stamped with `byteLength` as the host does. */
 function wrapCompressed(message: unknown): RpcMessageWrapper {
 	const encoded = encodeRpcPayload(message);
 	const deflated = deflateRaw(encoded);
 	assert.ok(deflated != null);
 
-	return { [RPC_NAMESPACE]: true, payload: deflated, compressed: 'deflate-raw' };
+	return { [RPC_NAMESPACE]: true, payload: deflated, compressed: 'deflate-raw', byteLength: deflated.byteLength };
 }
 
 /** Yields to the microtask/macrotask queue a few times so the dispatcher's chain can drain. */
@@ -106,6 +107,37 @@ suite('createOrderedDispatcher Test Suite', () => {
 		await drain(() => deliveries.length >= 1);
 
 		assert.deepStrictEqual(deliveries, [{ id: 'still delivered' }]);
+
+		dispatcher.dispose();
+	});
+
+	test('delivers an uncompressed message whose payload was JSON-round-tripped into a numeric-keyed object', () => {
+		const deliveries: unknown[] = [];
+		const dispatcher = createOrderedDispatcher(data => deliveries.push(data));
+
+		const wrapped = wrapUncompressed({ hello: 'world' });
+		const mangled = JSON.parse(JSON.stringify(wrapped)) as RpcMessageWrapper;
+
+		dispatcher.dispatch(mangled, fakeEvent);
+
+		assert.strictEqual(deliveries.length, 1);
+		assert.deepStrictEqual(deliveries[0], { hello: 'world' });
+
+		dispatcher.dispose();
+	});
+
+	test('delivers a compressed message whose payload was JSON-round-tripped into a numeric-keyed object', async () => {
+		const deliveries: unknown[] = [];
+		const dispatcher = createOrderedDispatcher(data => deliveries.push(data));
+
+		const wrapped = wrapCompressed({ hello: 'world' });
+		const mangled = JSON.parse(JSON.stringify(wrapped)) as RpcMessageWrapper;
+
+		dispatcher.dispatch(mangled, fakeEvent);
+
+		await drain(() => deliveries.length >= 1);
+
+		assert.deepStrictEqual(deliveries, [{ hello: 'world' }]);
 
 		dispatcher.dispose();
 	});

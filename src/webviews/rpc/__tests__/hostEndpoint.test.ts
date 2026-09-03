@@ -134,6 +134,7 @@ suite('createHostEndpoint Test Suite', () => {
 
 			const encoded = new TextEncoder().encode(JSON.stringify(message));
 			assert.ok(wrapped.payload.byteLength < encoded.byteLength);
+			assert.strictEqual(wrapped.byteLength, wrapped.payload.byteLength);
 
 			const inflated = await inflateRpcPayload(wrapped.payload);
 			assert.deepStrictEqual(inflated, message);
@@ -149,6 +150,8 @@ suite('createHostEndpoint Test Suite', () => {
 
 			assert.strictEqual(posted.length, 1);
 			assert.strictEqual(posted[0].compressed, undefined);
+			assert.ok(posted[0].payload instanceof Uint8Array);
+			assert.strictEqual(posted[0].byteLength, posted[0].payload.byteLength);
 
 			endpoint.dispose();
 		});
@@ -161,6 +164,8 @@ suite('createHostEndpoint Test Suite', () => {
 
 			assert.strictEqual(posted.length, 1);
 			assert.strictEqual(posted[0].compressed, undefined);
+			assert.ok(posted[0].payload instanceof Uint8Array);
+			assert.strictEqual(posted[0].byteLength, posted[0].payload.byteLength);
 
 			endpoint.dispose();
 		});

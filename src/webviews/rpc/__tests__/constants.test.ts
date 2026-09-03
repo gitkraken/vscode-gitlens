@@ -1,7 +1,14 @@
 import * as assert from 'assert';
 import { deflateRaw } from '@env/compression.js';
 import type { RpcMessageWrapper } from '../constants.js';
-import { inflateRpcPayload, isRpcMessage, RPC_NAMESPACE } from '../constants.js';
+import {
+	decodeRpcPayload,
+	encodeRpcPayload,
+	inflateRpcPayload,
+	isRpcMessage,
+	rehydrateBinaryRpcPayload,
+	RPC_NAMESPACE,
+} from '../constants.js';
 
 suite('RPC Constants Test Suite', () => {
 	suite('isRpcMessage', () => {
@@ -99,6 +106,55 @@ suite('RPC Constants Test Suite', () => {
 			) as ArrayBuffer;
 			const inflated = await inflateRpcPayload(buffer);
 			assert.deepStrictEqual(inflated, original);
+		});
+	});
+
+	suite('rehydrateBinaryRpcPayload', () => {
+		test('passes a real Uint8Array through unchanged, ignoring byteLength', () => {
+			const payload = new Uint8Array([1, 2, 3]);
+			assert.strictEqual(rehydrateBinaryRpcPayload(payload, undefined), payload);
+			assert.strictEqual(rehydrateBinaryRpcPayload(payload, 999), payload);
+		});
+
+		test('passes a real ArrayBuffer through unchanged, ignoring byteLength', () => {
+			const payload = new Uint8Array([1, 2, 3]).buffer;
+			assert.strictEqual(rehydrateBinaryRpcPayload(payload, undefined), payload);
+			assert.strictEqual(rehydrateBinaryRpcPayload(payload, 999), payload);
+		});
+
+		test('rehydrates a JSON-round-tripped numeric-keyed object back into a Uint8Array', () => {
+			const encoded = encodeRpcPayload({ a: 1, b: 'test' });
+			const mangled = JSON.parse(JSON.stringify(encoded)) as unknown;
+
+			const rehydrated = rehydrateBinaryRpcPayload(mangled, encoded.byteLength);
+			assert.ok(rehydrated instanceof Uint8Array);
+			assert.deepStrictEqual(decodeRpcPayload(rehydrated), { a: 1, b: 'test' });
+		});
+
+		test('returns undefined for a mangled payload with a missing byteLength', () => {
+			const encoded = encodeRpcPayload({ a: 1 });
+			const mangled = JSON.parse(JSON.stringify(encoded)) as unknown;
+
+			assert.strictEqual(rehydrateBinaryRpcPayload(mangled, undefined), undefined);
+		});
+
+		test('returns undefined for a non-object payload regardless of byteLength', () => {
+			assert.strictEqual(rehydrateBinaryRpcPayload('hello', 5), undefined);
+			assert.strictEqual(rehydrateBinaryRpcPayload(42, 5), undefined);
+			assert.strictEqual(rehydrateBinaryRpcPayload(null, 5), undefined);
+			assert.strictEqual(rehydrateBinaryRpcPayload(undefined, 5), undefined);
+		});
+
+		test('returns an empty Uint8Array for an empty mangled object with byteLength 0', () => {
+			const mangled = JSON.parse(JSON.stringify(new Uint8Array(0))) as unknown;
+
+			const rehydrated = rehydrateBinaryRpcPayload(mangled, 0);
+			assert.ok(rehydrated instanceof Uint8Array);
+			assert.strictEqual(rehydrated.length, 0);
+
+			const rehydratedEmptyObject = rehydrateBinaryRpcPayload({}, 0);
+			assert.ok(rehydratedEmptyObject instanceof Uint8Array);
+			assert.strictEqual(rehydratedEmptyObject.length, 0);
 		});
 	});
 });

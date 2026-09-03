@@ -119,7 +119,12 @@ export function createHostEndpoint(webview: Webview, options?: { compress?: bool
 				const deflated = deflateRaw(encoded);
 				// Skip compression when the host can't provide it or it didn't actually shrink the payload
 				if (deflated != null && deflated.byteLength < encoded.byteLength) {
-					post({ [RPC_NAMESPACE]: true, payload: deflated, compressed: 'deflate-raw' });
+					post({
+						[RPC_NAMESPACE]: true,
+						payload: deflated,
+						compressed: 'deflate-raw',
+						byteLength: deflated.byteLength,
+					});
 
 					return;
 				}
@@ -131,7 +136,7 @@ export function createHostEndpoint(webview: Webview, options?: { compress?: bool
 			}
 		}
 
-		post({ [RPC_NAMESPACE]: true, payload: encoded });
+		post({ [RPC_NAMESPACE]: true, payload: encoded, byteLength: encoded.byteLength });
 	}
 
 	/**

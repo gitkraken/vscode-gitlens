@@ -14,6 +14,13 @@ export interface RpcMessageWrapper {
 	payload: unknown;
 	/** Compression applied to `payload`, if any. Absent means the payload is uncompressed. */
 	compressed?: 'deflate-raw';
+	/**
+	 * Byte length of `payload` as the host stamped it. A third-party extension can monkey-patch the shared
+	 * `Webview.prototype.postMessage` and JSON-round-trip every message (Google Antigravity does, for BigInt
+	 * support — see #5797), which turns the `Uint8Array` into `{"0":123,"1":34,...}`. The receiver uses this
+	 * length to rebuild the bytes ({@link rehydrateBinaryRpcPayload}). Only stamped on host→webview frames.
+	 */
+	byteLength?: number;
 }
 
 /** Type guard to check if a message is a Supertalk RPC message */
@@ -29,6 +36,34 @@ export function isRpcMessage(message: unknown): message is RpcMessageWrapper {
 /** Type guard for a binary RPC payload as delivered by VS Code's message channel */
 export function isBinaryRpcPayload(payload: unknown): payload is Uint8Array | ArrayBuffer {
 	return payload instanceof Uint8Array || payload instanceof ArrayBuffer;
+}
+
+/**
+ * Rehydrates a `payload` that a third-party `postMessage` patch may have JSON-round-tripped into a
+ * numeric-keyed plain object, back into a `Uint8Array` — see {@link RpcMessageWrapper.byteLength}.
+ *
+ * The common (unpatched) case is the fast path: an already-binary `payload` is returned as-is, with no
+ * allocation, regardless of `byteLength`. Only a non-binary `payload` triggers rehydration, and only when
+ * `byteLength` and the payload's shape both look plausible — otherwise `undefined` signals "not rehydratable".
+ */
+export function rehydrateBinaryRpcPayload(
+	payload: unknown,
+	byteLength: number | undefined,
+): Uint8Array | ArrayBuffer | undefined {
+	if (isBinaryRpcPayload(payload)) return payload;
+	if (byteLength == null || !Number.isInteger(byteLength) || byteLength < 0) return undefined;
+	if (typeof payload !== 'object' || payload === null) return undefined;
+
+	const indexed = payload as Record<number, unknown>;
+	// Cheap shape check before allocating
+	if (byteLength > 0 && typeof indexed[0] !== 'number') return undefined;
+
+	const bytes = new Uint8Array(byteLength);
+	for (let i = 0; i < byteLength; i++) {
+		bytes[i] = indexed[i] as number;
+	}
+
+	return bytes;
 }
 
 // Cached encoder/decoder instances for binary payload encoding
