@@ -1,6 +1,7 @@
 import * as assert from 'node:assert';
 import type { AgentCapabilities } from '../agentCapabilities.js';
 import {
+	agentCapabilities,
 	getAgentCapabilities,
 	getAgentCapabilitiesByProviderId,
 	resolveCanonicalHookEvent,
@@ -274,6 +275,30 @@ suite('agentCapabilities', () => {
 			assert.strictEqual(getCapabilities('codex').sharesPids, true);
 			// The CLI hard-errors on blocking events for opencode.
 			assert.strictEqual(getCapabilities('opencode').supportsBlockingPermissions, false);
+		});
+
+		test('every resumable agent declares how its CLI resumes a session', () => {
+			for (const hookClientId of ['claude-code', 'codex', 'copilot', 'opencode']) {
+				const capabilities = getCapabilities(hookClientId);
+				assert.strictEqual(capabilities.supportsResume, true, `${hookClientId} supports resume`);
+				assert.ok(capabilities.cli != null, `${hookClientId} declares a cli block`);
+				assert.ok(
+					capabilities.cli.resumeArgs('abc').includes('abc') ||
+						capabilities.cli.resumeArgs('abc').some(a => a.endsWith('=abc')),
+				);
+			}
+			assert.deepStrictEqual(getCapabilities('claude-code').cli?.resumeArgs('s1'), ['--resume', 's1']);
+			assert.deepStrictEqual(getCapabilities('codex').cli?.resumeArgs('s1'), ['resume', 's1']);
+			assert.deepStrictEqual(getCapabilities('opencode').cli?.resumeArgs('s1'), ['--session', 's1']);
+			assert.deepStrictEqual(getCapabilities('copilot').cli?.resumeArgs('s1'), ['--resume=s1']);
+			assert.strictEqual(getCapabilities('claude-code').cli?.agentName, 'claude-cli');
+			assert.strictEqual(getCapabilities('claude-code').cli?.command, 'claude');
+		});
+
+		test('supportsResume and the cli block agree', () => {
+			for (const capabilities of agentCapabilities) {
+				assert.strictEqual(capabilities.supportsResume, capabilities.cli != null, capabilities.hookClientId);
+			}
 		});
 	});
 

@@ -19,14 +19,14 @@ import {
 	buildPastAgentSessionContext,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
-	createAgentSessionOpenHref,
+	createAgentSessionOpenHrefs,
 	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	fpField,
 	getAgentPhaseLabel,
 	getAgentSessionArchiveAction,
-	getAgentSessionOpenAction,
+	getPastAgentSessionResumeActions,
 	initialPastAgentSessionLimit,
 	isAgentSessionCurrentForWorktree,
 	pastAgentSessionPageSize,
@@ -1009,8 +1009,8 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 
 	/** "Past sessions" list — resumable sessions recovered from the worktree's transcript store,
 	 *  rendered according to {@link shouldShowPastSessions}. Each row links its resume chip at
-	 *  `gitlens.agents.resumeSession` (the default extension-if-available-else-terminal resume), and
-	 *  the footer progressively appends another inline page. */
+	 *  `gitlens.agents.resumeSession` (honors `gitlens.agents.resumeTarget`), and the footer
+	 *  progressively appends another inline page. */
 	private renderPastSection(past: PastAgentSessionState[] | undefined, ownsListId: boolean): unknown {
 		if (!past?.length) return nothing;
 
@@ -1024,7 +1024,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 
 	private renderPastRow(session: PastAgentSessionState): unknown {
 		const elapsed = formatAgentElapsed(session.lastActivity);
-		const resume = session.actions.resume;
+		const resumeActions = getPastAgentSessionResumeActions(session);
 		const phaseLabel = session.disposition === 'archived' ? 'Archived' : getAgentPhaseLabel('ended', undefined);
 		const phaseContent = html`${phaseLabel}${
 			elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : nothing
@@ -1054,21 +1054,15 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 									</gl-tooltip>`
 								: html`<span class="card__phase">${phaseContent}</span>`
 						}
-						${
-							resume != null
-								? html`<gl-action-chip
-										class="card__open"
-										icon="debug-restart"
-										label="Resume Session"
-										overlay="tooltip"
-										href=${createCommandLink('gitlens.agents.resumeSession', {
-											sessionId: session.id,
-											providerId: session.providerId,
-											cwd: resume.cwd,
-										})}
-									></gl-action-chip>`
-								: nothing
-						}
+						${resumeActions.map(
+							action => html`<gl-action-chip
+								class="card__open"
+								icon=${action.icon}
+								label=${action.label}
+								overlay="tooltip"
+								href=${createCommandLink(action.command, action.args[0])}
+							></gl-action-chip>`,
+						)}
 						${
 							getAgentSessionArchiveAction(session) != null
 								? html`<gl-action-chip
@@ -1391,8 +1385,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		// last time the session actually did something, which is a different clock.
 		const lastActive = formatAgentElapsed(session.lastActivity);
 		const phaseTooltip = lastActive != null ? `Last active ${lastActive} ago` : undefined;
-		const openAction = getAgentSessionOpenAction(session);
-		const openHref = createAgentSessionOpenHref(session);
+		const openActions = createAgentSessionOpenHrefs(session);
 		const archiveHref = category === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
 		// Resolve actions surface only for an ask this window can actually route. An unresolvable
 		// one (elicitation, or discovered by the poll rather than the hook) still renders its
@@ -1434,13 +1427,15 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 									</gl-tooltip>`
 								: html`<span class=${`card__phase card__phase--${category}`}>${phaseContent}</span>`
 						}
-						<gl-action-chip
-							class="card__open"
-							icon=${openAction.icon}
-							label=${openAction.label}
-							overlay="tooltip"
-							href=${openHref}
-						></gl-action-chip>
+						${openActions.map(
+							action => html`<gl-action-chip
+								class="card__open"
+								icon=${action.icon}
+								label=${action.label}
+								overlay="tooltip"
+								href=${action.href}
+							></gl-action-chip>`,
+						)}
 						${
 							archiveHref != null
 								? html`<gl-action-chip
@@ -1468,9 +1463,9 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 						: category === 'needs-input'
 							? html`<div class="card__actions card__actions--unresolvable">
 									<span class="card__actions-hint">Answer in the agent's session</span>
-									<gl-button appearance="secondary" density="compact" href=${openHref}>
-										<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
-										${openAction.label}
+									<gl-button appearance="secondary" density="compact" href=${openActions[0].href}>
+										<code-icon icon=${openActions[0].icon} slot="prefix"></code-icon>
+										${openActions[0].label}
 									</gl-button>
 								</div>`
 							: nothing

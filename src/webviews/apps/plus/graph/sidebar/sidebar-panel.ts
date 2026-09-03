@@ -51,7 +51,7 @@ import {
 	describeAgentSession,
 	filterAgentSessionsForFamily,
 	getAgentSessionArchiveAction,
-	getAgentSessionOpenAction,
+	getAgentSessionOpenActions,
 } from '../../../shared/agentUtils.js';
 import { shouldShowKeplerBanner } from '../../../shared/components/keplerBanner.utils.js';
 import type {
@@ -2221,13 +2221,14 @@ would expose the graph through fade or at the gap left by the translate). */
 				arguments: [permission.planFilePath],
 			});
 		}
-		const openAction = getAgentSessionOpenAction(session);
-		actions.push({
-			icon: openAction.icon,
-			label: openAction.label,
-			action: openAction.command,
-			arguments: openAction.args,
-		});
+		for (const openAction of getAgentSessionOpenActions(session)) {
+			actions.push({
+				icon: openAction.icon,
+				label: openAction.label,
+				action: openAction.command,
+				arguments: openAction.args,
+			});
+		}
 		// Archive is offered only on terminal (ended) sessions — a live one would have to be
 		// killed first, so it stays out of the action row for anything still running.
 		if (category === 'ended') {

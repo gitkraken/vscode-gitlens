@@ -57,7 +57,7 @@ export type AgentSessionState = Omit<
 	readonly displayName: string;
 	/** Host-validated management capabilities. Provider methods, not phase inference, decide which
 	 *  actions webview contexts and inline controls may expose. */
-	readonly actions?: Pick<AgentSessionHistoryActions, 'archive'>;
+	readonly actions?: Pick<AgentSessionHistoryActions, 'archive' | 'resume'>;
 	readonly subagentCount: number;
 	readonly worktree?: AgentSessionWorktreeState;
 	/** Distinct worktree roots this session has been observed in — see
@@ -211,7 +211,7 @@ export interface AgentSessionWorktreeMetadata {
 export function serializeAgentSession(
 	session: AgentSession,
 	worktree: AgentSessionWorktreeMetadata | undefined,
-	actions?: Pick<AgentSessionHistoryActions, 'archive'>,
+	actions?: Pick<AgentSessionHistoryActions, 'archive' | 'resume'>,
 ): AgentSessionState {
 	const { subagents, ...rest } = session;
 	return {

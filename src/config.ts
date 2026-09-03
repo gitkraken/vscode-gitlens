@@ -5,6 +5,7 @@ import type { GroupableTreeViewTypes } from './constants.views.js';
 
 export interface Config {
 	readonly advanced: AdvancedConfig;
+	readonly agents: AgentsConfig;
 	readonly ai: AIConfig;
 	readonly autolinks: AutolinkConfig[] | null;
 	readonly blame: BlameConfig;
@@ -220,6 +221,10 @@ export interface AdvancedConfig {
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
 	readonly skipOnboarding: boolean;
+}
+
+interface AgentsConfig {
+	readonly resumeTarget: 'terminal' | 'extension' | null;
 }
 
 interface AIConfig {

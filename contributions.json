@@ -270,7 +270,24 @@
 		},
 		"gitlens.agents.resumeSession": {
 			"label": "Resume Session",
-			"icon": "$(debug-restart)",
+			"icon": "$(debug-restart)"
+		},
+		"gitlens.agents.resumeSessionInExtension": {
+			"label": "Resume in Extension",
+			"icon": "$(extensions)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+ended\\b)(?=.*?\\b\\+resumableInExtension\\b)/ && !listMultiSelection && gitlens:agents:enabled && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "3_open",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.agents.resumeSessionInTerminal": {
+			"label": "Resume in Terminal",
+			"icon": "$(terminal)",
 			"menus": {
 				"webview/context": [
 					{

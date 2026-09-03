@@ -14,14 +14,13 @@ import {
 	agentPhaseToCategory,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
-	createAgentSessionOpenHref,
 	createStickyDetailResolver,
 	describeAgentSession,
 	filterAgentSessionsForFamily,
 	formatAgentElapsed,
 	fpField,
 	getAgentPhaseLabel,
-	getAgentSessionOpenAction,
+	getAgentSessionOpenActions,
 	isAgentSessionCurrentInFamily,
 	permissionFingerprint,
 	sortAgentSessions,
@@ -1012,7 +1011,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 		// functional: they address the session wherever it actually is.
 		const ghost = this.isGhost(session);
 		const detail = ghost ? this.ghostLocationHint(session) : this.resolveStickyDetail(session, category);
-		const openAction = getAgentSessionOpenAction(session);
+		const openActions = getAgentSessionOpenActions(session);
 		const archiveHref = session.phase === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
 
 		// Use a `<div role="button" tabindex="0">` rather than a native `<button>` so we can host
@@ -1057,18 +1056,20 @@ Allow / Deny / View Plan cluster left-aligned. */
 							</gl-button>`
 						: nothing
 				}
-				<gl-button
-					class="card__open"
-					appearance="toolbar"
-					tooltip=${openAction.label}
-					aria-label=${openAction.label}
-					data-telemetry-action=${
-						openAction.command === 'gitlens.agents.resumeSession' ? 'resume-session' : 'open-session'
-					}
-					href=${createAgentSessionOpenHref(session)}
-				>
-					<code-icon icon=${openAction.icon}></code-icon>
-				</gl-button>
+				${openActions.map(
+					action => html`<gl-button
+						class="card__open"
+						appearance="toolbar"
+						tooltip=${action.label}
+						aria-label=${action.label}
+						data-telemetry-action=${
+							action.command === 'gitlens.agents.resumeSession' ? 'resume-session' : 'open-session'
+						}
+						href=${createCommandLink(action.command, action.args[0])}
+					>
+						<code-icon icon=${action.icon}></code-icon>
+					</gl-button>`,
+				)}
 			</div>
 			<p class="card__detail">${detail}</p>
 			${this.renderPermissionActions(session, category)}
@@ -1132,7 +1133,8 @@ Allow / Deny / View Plan cluster left-aligned. */
 		// Open Session instead. View Plan stays: opening the file is local and needs no routing
 		// entry, so it is the one thing still worth offering.
 		if (!canResolvePermission(category, permission)) {
-			const openAction = getAgentSessionOpenAction(session);
+			// A `needs-input` session is never `ended`, so this is always the single `Open Session` action.
+			const openAction = getAgentSessionOpenActions(session)[0];
 			return html`<div class="card__actions">
 				<div class="card__permission-actions">
 					<span class="card__permission-actions-hint">Answer in the agent's session</span>
@@ -1141,7 +1143,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 						density="compact"
 						tooltip=${openAction.label}
 						data-telemetry-action="open-session"
-						href=${createAgentSessionOpenHref(session)}
+						href=${createCommandLink(openAction.command, openAction.args[0])}
 					>
 						<code-icon icon=${openAction.icon}></code-icon>
 						${openAction.label}

@@ -706,16 +706,15 @@ export class GkAgentProvider implements AgentSessionProvider {
 				arePathsEqual(session.worktreePath, cwd) &&
 				!excludeSessionIds.has(session.id)
 			) {
-				// A tracked record's own row carries archive but no resume; its id still drives transcript
-				// recovery below, which does produce a resumable row when the transcript moved with it.
+				// A tracked record's own row gets a resume action below only for an agent with no
+				// transcript store of its own; for an agent with one, its id drives transcript recovery
+				// instead, which produces a resumable row when the transcript moved with it.
 				if (!resumeOnly) {
 					trackedEndedSessions.push(session);
 				}
-				// Only an agent whose sessions can be resumed feeds transcript recovery. The reader is
-				// Claude-transcript-specific, so another agent's id could only ever miss — but stating it
-				// keeps the resume capability the reason, rather than leaving it to a coincidence of which
-				// store the reader happens to read.
-				if (getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume !== false) {
+				// Only an agent with a transcript store feeds transcript recovery — the reader reads
+				// Claude's transcript store specifically, so another agent's id could only ever miss.
+				if (getAgentCapabilitiesByProviderId(session.providerId)?.supportsTranscripts === true) {
 					endedSessionIds.add(session.id);
 				}
 			}
@@ -737,7 +736,10 @@ export class GkAgentProvider implements AgentSessionProvider {
 			if (excludeSessionIds.has(session.sessionId)) return;
 
 			const disposition = archivedSessionIds.has(session.sessionId) ? 'archived' : 'ended';
-			const resumeActions = this.callbacks.resumeSession != null ? { resume: { cwd: resumeCwd } } : {};
+			const resumeActions =
+				this.callbacks.resumeSession != null
+					? { resume: this.resumeActionFor(claudeCodeCapabilities.providerId, resumeCwd) }
+					: {};
 			historyById.set(session.sessionId, {
 				id: session.sessionId,
 				// The reader only reads Claude Code's transcript store, so every row it produces is
@@ -760,11 +762,24 @@ export class GkAgentProvider implements AgentSessionProvider {
 		for (const session of trackedEndedSessions) {
 			if (historyById.has(session.id)) continue;
 
+			const capabilities = getAgentCapabilitiesByProviderId(session.providerId);
+			// The transcript store, when the agent has one, is the authority on resumability (a Claude
+			// record whose transcript is gone can't be resumed). Without one, the durable record is all
+			// there is, and it carries everything the agent's resume command needs.
+			const resumeCwd = session.cwd ?? session.initialCwd ?? session.worktreePath;
+			const resumable =
+				capabilities?.supportsResume === true &&
+				!capabilities.supportsTranscripts &&
+				this.callbacks.resumeSession != null &&
+				resumeCwd != null;
+
 			historyById.set(session.id, {
 				id: session.id,
 				providerId: session.providerId,
 				disposition: 'ended',
-				actions: { archive: true },
+				actions: resumable
+					? { resume: this.resumeActionFor(session.providerId, resumeCwd), archive: true }
+					: { archive: true },
 				lastActivity: session.lastActivity,
 				name: session.name,
 				titles: session.transcriptTitles,
@@ -780,12 +795,20 @@ export class GkAgentProvider implements AgentSessionProvider {
 	}
 
 	resumeSession(
+		providerId: string,
 		sessionId: string,
 		cwd: string,
 		target: AgentSessionResumeTarget,
 		name?: string,
 	): Promise<AgentSessionResumeOutcome | false> {
-		return this.callbacks.resumeSession?.(sessionId, cwd, target, name) ?? Promise.resolve(false);
+		return this.callbacks.resumeSession?.(providerId, sessionId, cwd, target, name) ?? Promise.resolve(false);
+	}
+
+	private resumeActionFor(
+		providerId: string,
+		cwd: string,
+	): { cwd: string; targets: readonly AgentSessionResumeTarget[] } {
+		return { cwd: cwd, targets: this.callbacks.getResumeTargets?.(providerId, cwd) ?? ['terminal'] };
 	}
 
 	dispose(): void {

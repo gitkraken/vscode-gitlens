@@ -7,10 +7,11 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
-import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionProvider } from '../../agents/provider.js';
-import { isClaudeExtensionAvailable, tryOpenClaudeSession } from '../../agents/utils/-webview/claudeExtension.js';
-import { resumeClaudeSessionInTerminal } from '../../agents/utils/-webview/claudeResume.js';
+import { getAgentExtension } from '../../agents/utils/-webview/agentExtensions.js';
+import { resumeAgentSessionInTerminal } from '../../agents/utils/-webview/agentResume.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
@@ -148,15 +149,23 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				return getLiveClaudeSessions();
 			},
 			revealSession: sessionId => container.agentStatus?.revealSession(sessionId) ?? Promise.resolve(false),
-			resumeSession: async (sessionId, cwd, target, name) => {
-				const useExtension =
-					target === 'default' &&
-					(workspace.workspaceFolders ?? []).some(folder => arePathsEqual(folder.uri.fsPath, cwd)) &&
-					(await isClaudeExtensionAvailable());
-				if (useExtension && (await tryOpenClaudeSession(sessionId))) return 'extension';
+			getResumeTargets: (providerId, cwd) =>
+				container.agentStatus?.getResumeTargets(providerId, cwd) ?? ['terminal'],
+			resumeSession: async (providerId, sessionId, cwd, target, name) => {
+				if (target === 'extension') {
+					const extension = getAgentExtension(providerId);
+					if (extension != null && (await extension.openSession(sessionId))) return 'extension';
 
-				await resumeClaudeSessionInTerminal({ id: sessionId, cwd: cwd, name: name }, container);
-				return 'terminal';
+					Logger.warn(
+						`getAgentSessionProviders.resumeSession: extension open failed for ${providerId} session ${sessionId}; falling back to terminal`,
+					);
+				}
+
+				const resumed = await resumeAgentSessionInTerminal(
+					{ providerId: providerId, id: sessionId, cwd: cwd, name: name },
+					container,
+				);
+				return resumed ? 'terminal' : false;
 			},
 			resolveGitInfo: async cwd => {
 				// Fast path: cwd is in an already-loaded repo — fully synchronous, no shell calls.

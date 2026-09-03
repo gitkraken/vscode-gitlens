@@ -1,7 +1,6 @@
-import { commands, env, ThemeIcon, workspace } from 'vscode';
+import { commands, env, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
-import { getHookClientId } from '../../agents/utils/agentHooks.js';
-import { getAgentProviderIcon } from '../../agents/utils/agentIcon.js';
+import { getAgentTerminalIcon } from '../../agents/utils/-webview/agentIcon.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
 import { openTerminal } from '../../system/-webview/terminal.js';
 import type { ChatMode } from '../chat/utils/-webview/chat.utils.js';
@@ -17,12 +16,6 @@ const bpmStart = '\u001b[200~';
 const bpmEnd = '\u001b[201~';
 
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
-
-/** Takes `gk agents list` names, hence the `getHookClientId` hop — it reports Claude as
- *  `claude-cli`, which is in neither namespace {@link getAgentProviderIcon} tries. */
-function getAgentTerminalIcon(agentName: string): ThemeIcon {
-	return new ThemeIcon(getAgentProviderIcon(getHookClientId(agentName)));
-}
 
 export interface RunAgentOptions {
 	/** Working directory for the CLI dispatch path. Required for CLI; ignored by IDE chat / extension. */

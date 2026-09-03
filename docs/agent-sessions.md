@@ -693,13 +693,15 @@ eagerly at poll time.
 
 ## Actions
 
-| Action                        | Route                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------ |
-| Open Session                  | `gitlens.agents.openSession` → `dispatchSessionAction`                                     |
-| Resume Session                | `gitlens.agents.resumeSession` → extension if `cwd` _is_ a workspace folder, else terminal |
-| Archive                       | `gitlens.agents.archiveSession` → `gk ai hook archive-session`                             |
-| Allow / Deny                  | `resolvePermission` → the held blocking HTTP response                                      |
-| Open worktree / show in Graph | `gitlens.agents.openSessionWorktreeInNewWindow`, `showWorktreeInGraph`                     |
+| Action                        | Route                                                                                                                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open Session                  | `gitlens.agents.openSession` → `dispatchSessionAction`                                                                                                                                                                    |
+| Resume in Terminal            | `gitlens.agents.resumeSessionInTerminal` (or `resumeSession` with an explicit `terminal` target) → a terminal at the session's `cwd`                                                                                      |
+| Resume in Extension           | `gitlens.agents.resumeSessionInExtension` (or `resumeSession` with an explicit `extension` target) → the agent's VS Code extension (Claude Code today); offered only when `resume.targets` includes `'extension'`         |
+| Resume Session                | `gitlens.agents.resumeSession` with no target → resolves one: a single-target row always goes to a terminal; a two-target row honors `gitlens.agents.resumeTarget` when it names one of the row's targets, otherwise asks |
+| Archive                       | `gitlens.agents.archiveSession` → `gk ai hook archive-session`                                                                                                                                                            |
+| Allow / Deny                  | `resolvePermission` → the held blocking HTTP response                                                                                                                                                                     |
+| Open worktree / show in Graph | `gitlens.agents.openSessionWorktreeInNewWindow`, `showWorktreeInGraph`                                                                                                                                                    |
 
 `dispatchSessionAction` picks a target in this order:
 
@@ -709,7 +711,7 @@ eagerly at poll time.
 2. Not a Claude Code session (a different `providerId`) → `dispatchOtherAgentSessionAction`: reveal
    the integrated terminal owning `pid` in this window, then relay+raise a peer window that might
    actually host it (`relayAndRaise`, delivery-gated — see below), then an OS-level window focus,
-   then warn/offer resume. None of the
+   then warn/offer resume (in a terminal, running the agent's own resume command). None of the
    Claude-specific steps below apply to another agent's session id.
 3. Classify the host by reading `~/.claude/sessions/<pid>.json` — `entrypoint === 'claude-vscode'`
    means the VS Code extension. For an extension-hosted session, the Claude binary's direct parent
@@ -723,18 +725,38 @@ eagerly at poll time.
    focus; then warn/offer resume.
 6. Out-of-workspace CLI session → `revealSessionInWindow`, then (same "don't know it's ours" guard
    as step 5) `relayAndRaise`, then an OS-level window focus.
-7. Dead end → offer `claude --resume <id>` in a fresh terminal, when `canResumeSession` allows it
-   (`idle`, `waiting`, or `ended` — never `working`, which risks parallel writes).
+7. Dead end → offer the agent's own resume command in a fresh terminal (`claude --resume <id>`,
+   `codex resume <id>`, `opencode --session <id>`, `copilot --resume=<id>`), when `canResumeSession`
+   allows it (`idle`, `waiting`, or `ended` — never `working`, which risks parallel writes) and the
+   agent's descriptor declares one (`supportsResume`).
 
-Terminal resume prefers gkcli's detected `claude-cli` executable over bare `claude`, so a non-PATH
-install (Homebrew, Volta shim, custom prefix) still works. `cwd` is load-bearing: `claude --resume`
-only finds a session when invoked from the directory its transcript is homed under, and Claude
-**migrates** that file when the session `cd`s — which is why the resume cascade prefers live `cwd`
-over `initialCwd`.
+Terminal resume prefers gkcli's detected executable for the agent over its bare command, so a
+non-PATH install (Homebrew, Volta shim, custom prefix) still works. `cwd` is load-bearing: Claude
+and OpenCode both only find a session when invoked from the directory its transcript/session is
+homed under, and Claude **migrates** that file when the session `cd`s — which is why the resume
+cascade prefers live `cwd` over `initialCwd`.
 
 `archiveSession` refuses any non-`ended` row as a last line of defense: the CLI's
 `archive-session` ends an active session first, so a stale click on a row that resumed since render
 must never reach it.
+
+### Resume targets
+
+Every resumable session carries `actions.resume.targets`, computed once host-side by
+`computeResumeTargets` (`agentExtensions.ts`) from a session's `providerId` and `cwd`: `['extension',
+'terminal']` when the agent has a registered VS Code extension (`getAgentExtension`), that extension
+is installed and reachable (`AgentExtensionAvailability`, refreshed on `extensions.onDidChange`), and
+`cwd` is itself one of this window's workspace folders; `['terminal']` otherwise. Chips, the resume
+picker, and the context menu each derive one action per target from this list, so a two-target row
+always shows both destinations by name (_Resume in Terminal_, _Resume in `<Agent>` Extension_).
+
+A target-less resume (Enter in the picker, or `gitlens.agents.resumeSession` invoked with no
+explicit target) resolves one via `AgentStatusService.resolveResumeTarget`: a single-target row
+always goes to a terminal — there's nothing to ask. A two-target row reads
+`gitlens.agents.resumeTarget`: `terminal` / `extension` go straight there when that target is one of
+the row's targets (falling back to `terminal` otherwise); `null` (the default) shows the
+resume-target picker (`resumeTargetPicker.ts`), whose pin item button also persists the pick as the
+new setting value.
 
 ## Timing
 

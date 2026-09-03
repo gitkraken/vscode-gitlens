@@ -55,7 +55,7 @@ export type AgentSessionStatus =
 
 export type AgentSessionPhase = 'idle' | 'working' | 'waiting' | 'ended';
 
-export type AgentSessionResumeTarget = 'default' | 'terminal';
+export type AgentSessionResumeTarget = 'terminal' | 'extension';
 export type AgentSessionResumeOutcome = 'extension' | 'terminal';
 
 export function getPhaseForStatus(status: AgentSessionStatus): AgentSessionPhase {
@@ -281,6 +281,7 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	/** Resumes one historical session using this harness's launcher. Providers only advertise a
 	 *  history `resume` action when this operation is wired and can service it. */
 	resumeSession?(
+		providerId: string,
 		sessionId: string,
 		cwd: string,
 		target: AgentSessionResumeTarget,
@@ -338,7 +339,7 @@ export interface AgentSessionHistoryOptions {
  *  resume action carries its required directory, while archive is appropriate to the item's
  *  disposition. */
 export interface AgentSessionHistoryActions {
-	readonly resume?: { readonly cwd: string };
+	readonly resume?: { readonly cwd: string; readonly targets: readonly AgentSessionResumeTarget[] };
 	readonly archive?: true;
 }
 
@@ -467,9 +468,14 @@ export interface AgentProviderCallbacks {
 	 *  `gk ai hook open-session`. Resolves `false` when nothing in this window can show it. */
 	revealSession?(sessionId: string): Promise<boolean>;
 
+	/** Host-computed resume destinations for a session of `providerId` homed at `cwd`; always ends
+	 *  with `'terminal'`. Omitted callback (or omitted result) defaults to `['terminal']`. */
+	getResumeTargets?(providerId: string, cwd: string): readonly AgentSessionResumeTarget[];
+
 	/** Host-side launcher wired into providers that support resumable history. Kept generic at the
 	 *  provider boundary: each harness chooses whether and when to expose it as a capability. */
 	resumeSession?(
+		providerId: string,
 		sessionId: string,
 		cwd: string,
 		target: AgentSessionResumeTarget,

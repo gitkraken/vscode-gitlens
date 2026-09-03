@@ -24,7 +24,8 @@ export type ContributedCommands =
 	| 'gitlens.agents.openWorktree'
 	| 'gitlens.agents.openWorktreeInNewWindow'
 	| 'gitlens.agents.rejectPlan'
-	| 'gitlens.agents.resumeSession'
+	| 'gitlens.agents.resumeSessionInExtension'
+	| 'gitlens.agents.resumeSessionInTerminal'
 	| 'gitlens.agents.showSessionWorktreeInGraph'
 	| 'gitlens.ai.continueRebase:views'
 	| 'gitlens.ai.explainBranch:graph'
@@ -1254,6 +1255,7 @@ export type ContributedKeybindingCommands =
  */
 export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.agents.installHooksForAgent'
+	| 'gitlens.agents.resumeSession'
 	| 'gitlens.agents.uninstallHooksForAgent'
 	| 'gitlens.ai.autoRebase.undo'
 	| 'gitlens.ai.mcp.installForAgent'

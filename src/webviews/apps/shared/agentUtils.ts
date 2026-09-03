@@ -5,7 +5,7 @@ import type {
 	PastAgentSessionState,
 } from '../../../agents/models/agentSessionState.js';
 import { getAgentSessionIdentityKey } from '../../../agents/models/agentSessionState.js';
-import type { AgentSessionPhase } from '../../../agents/provider.js';
+import type { AgentSessionPhase, AgentSessionResumeTarget } from '../../../agents/provider.js';
 import { createCommandLink } from '../../../system/commands.js';
 import type { WebviewItemContext } from '../../../system/webview.js';
 import type { OverviewBranch } from '../../shared/overviewBranches.js';
@@ -114,8 +114,9 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	}
 }
 
-/** The "open" affordance for an agent session — `Open Session` for every live phase, `Resume
- *  Session` for an ended one that has a directory to resume into. */
+/** The "open" affordance for an agent session — `Open Session` for every live phase, one `Resume`
+ *  action per destination ({@link AgentSessionResumeTarget}) for an ended one that carries a
+ *  resume action. */
 export type AgentSessionOpenAction =
 	| {
 			label: 'Open Session';
@@ -126,46 +127,73 @@ export type AgentSessionOpenAction =
 			args: [{ sessionId: string; providerId: string }];
 	  }
 	| {
-			label: 'Resume Session';
-			icon: 'debug-restart';
+			label: string;
+			icon: string;
 			command: 'gitlens.agents.resumeSession';
-			args: [{ sessionId: string; providerId: string; cwd: string }];
+			target: AgentSessionResumeTarget;
+			args: [{ sessionId: string; providerId: string; cwd: string; target: AgentSessionResumeTarget }];
 	  };
 
-/** Picks between `Open Session` (there's a live process to attach to) and `Resume Session`
- *  (the process is gone, but the transcript can be replayed into a fresh one). Only an ended
- *  session with a resolvable cwd gets `Resume Session` — an ended session with nowhere to
- *  resume from has nothing to offer but the openSession modal's terminal fallback.
- *
- *  cwd resolution mirrors {@link toResumableSessionRef}'s cascade (`claudeResume.ts`): live `cwd`
- *  wins over `initialCwd` because Claude migrates the transcript file to follow the session's
- *  current directory, not its launch directory. */
-export function getAgentSessionOpenAction(session: AgentSessionState): AgentSessionOpenAction {
-	if (session.phase === 'ended') {
-		const cwd = session.cwd ?? session.initialCwd ?? session.worktreePath ?? session.workspacePath;
-		if (cwd != null) {
-			return {
-				label: 'Resume Session',
-				icon: 'debug-restart',
-				command: 'gitlens.agents.resumeSession',
-				args: [{ sessionId: session.id, providerId: session.providerId, cwd: cwd }],
-			};
-		}
-	}
+const openSessionActionLabel = 'Open Session';
+const openSessionActionIcon = 'link-external';
+
+function resumeAction(
+	session: { id: string; providerId: string },
+	cwd: string,
+	target: AgentSessionResumeTarget,
+): AgentSessionOpenAction {
+	const label =
+		target === 'extension'
+			? `Resume in ${getAgentProviderLabel(session.providerId)} Extension`
+			: 'Resume in Terminal';
+	const icon = target === 'extension' ? agentProviderIcon(session.providerId) : 'terminal';
 
 	return {
-		label: 'Open Session',
-		icon: 'link-external',
-		command: 'gitlens.agents.openSession',
-		args: [{ sessionId: session.id, providerId: session.providerId }],
+		label: label,
+		icon: icon,
+		command: 'gitlens.agents.resumeSession',
+		target: target,
+		args: [{ sessionId: session.id, providerId: session.providerId, cwd: cwd, target: target }],
 	};
 }
 
-/** `createCommandLink` form of {@link getAgentSessionOpenAction}, for `href=` surfaces. Both command
- *  shapes carry provider-scoped identity so another harness may reuse the same local session id. */
-export function createAgentSessionOpenHref(session: AgentSessionState): string {
-	const action = getAgentSessionOpenAction(session);
-	return createCommandLink(action.command, action.args[0]);
+/** Live sessions: `[Open Session]` while live; for an ended session, one resume action per
+ *  `actions.resume.targets` entry, in order; `[Open Session]` when it has no resume action —
+ *  the openSession modal's terminal fallback covers that case instead. */
+export function getAgentSessionOpenActions(session: AgentSessionState): AgentSessionOpenAction[] {
+	const resume = session.phase === 'ended' ? session.actions?.resume : undefined;
+	if (resume != null) {
+		return resume.targets.map(target => resumeAction(session, resume.cwd, target));
+	}
+
+	return [
+		{
+			label: openSessionActionLabel,
+			icon: openSessionActionIcon,
+			command: 'gitlens.agents.openSession',
+			args: [{ sessionId: session.id, providerId: session.providerId }],
+		},
+	];
+}
+
+/** Past rows: one resume action per `actions.resume.targets` entry, in order; empty when the row
+ *  carries no resume action. */
+export function getPastAgentSessionResumeActions(session: PastAgentSessionState): AgentSessionOpenAction[] {
+	const resume = session.actions.resume;
+	if (resume == null) return [];
+
+	return resume.targets.map(target => resumeAction(session, resume.cwd, target));
+}
+
+/** `createCommandLink` form of each of {@link getAgentSessionOpenActions}, for `href=` surfaces. */
+export function createAgentSessionOpenHrefs(
+	session: AgentSessionState,
+): { label: string; icon: string; href: string }[] {
+	return getAgentSessionOpenActions(session).map(action => ({
+		label: action.label,
+		icon: action.icon,
+		href: createCommandLink(action.command, action.args[0]),
+	}));
 }
 
 export interface AgentSessionArchiveAction {
@@ -238,7 +266,8 @@ export interface AgentSessionContextValue {
  *    row's alt-action condition in `sidebar-panel.ts`'s `toAgentLeaf`).
  *  - `+plan` — a needs-input `plan` ask with a `planFilePath` — independent of `+resolvable`, matching
  *    `toAgentLeaf`'s View Plan action (an unroutable plan ask still gets "View Plan").
- *  - `+resumable` — an ended session {@link getAgentSessionOpenAction} would resume rather than open.
+ *  - `+resumable` — the host attached a resume action (`session.actions.resume`).
+ *  - `+resumableInExtension` — additionally, that action's `targets` includes `'extension'`.
  *  - `+worktree` — the session has a `worktreePath`.
  *  - `+prompt` — the session has a `lastPrompt`.
  */
@@ -257,8 +286,7 @@ export function buildAgentSessionContext(
 
 	const isPlan = category === 'needs-input' && permission?.kind === 'plan' && permission.planFilePath != null;
 
-	const openAction = getAgentSessionOpenAction(session);
-	const resumable = openAction.command === 'gitlens.agents.resumeSession';
+	const resume = session.actions?.resume;
 
 	let webviewItem = `gitlens:agent-session+${category === 'ended' ? 'ended' : 'live'}`;
 	if (resolvable) {
@@ -270,8 +298,11 @@ export function buildAgentSessionContext(
 	if (isPlan) {
 		webviewItem += '+plan';
 	}
-	if (resumable) {
+	if (resume != null) {
 		webviewItem += '+resumable';
+	}
+	if (resume?.targets.includes('extension')) {
+		webviewItem += '+resumableInExtension';
 	}
 	if (session.worktreePath != null) {
 		webviewItem += '+worktree';
@@ -289,7 +320,7 @@ export function buildAgentSessionContext(
 			sessionId: session.id,
 			providerId: session.providerId,
 			worktreePath: session.worktreePath,
-			cwd: openAction.command === 'gitlens.agents.resumeSession' ? openAction.args[0].cwd : undefined,
+			cwd: resume?.cwd,
 			lastPrompt: session.lastPrompt,
 			planFilePath: isPlan ? permission?.planFilePath : undefined,
 		},
@@ -307,6 +338,9 @@ export function buildPastAgentSessionContext(
 	let webviewItem = 'gitlens:agent-session+ended+past';
 	if (session.actions.resume != null) {
 		webviewItem += '+resumable';
+	}
+	if (session.actions.resume?.targets.includes('extension')) {
+		webviewItem += '+resumableInExtension';
 	}
 	if (session.actions.archive === true) {
 		webviewItem += '+archivable';

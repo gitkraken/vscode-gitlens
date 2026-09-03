@@ -10,13 +10,12 @@ import {
 	agentPhaseToCategory,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
-	createAgentSessionOpenHref,
+	createAgentSessionOpenHrefs,
 	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	getAgentCategoryLabel,
 	getAgentPhaseLabel,
-	getAgentSessionOpenAction,
 } from '../../agentUtils.js';
 import { renderRunningTool } from '../agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../agents/agent-status-styles.css.js';
@@ -719,12 +718,14 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 	private renderSummaryRowActions(session: AgentSessionState, category: AgentSessionCategory): unknown {
 		if (category !== 'ended') return nothing;
 
-		const openAction = getAgentSessionOpenAction(session);
-		const openActionHref = createAgentSessionOpenHref(session);
+		const openActions = createAgentSessionOpenHrefs(session);
 		const archiveHref = createAgentSessionArchiveHref(session);
 
 		return html`<action-nav class="hover-summary-row__actions" @mousedown=${this.onActionMouseDown}>
-			<action-item label=${openAction.label} icon=${openAction.icon} href=${openActionHref}></action-item>
+			${openActions.map(
+				action =>
+					html`<action-item label=${action.label} icon=${action.icon} href=${action.href}></action-item>`,
+			)}
 			${
 				archiveHref != null
 					? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
@@ -821,12 +822,14 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 		}
 
 		const archiveHref = category === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
-		const openAction = getAgentSessionOpenAction(session);
-		const openActionHref = createAgentSessionOpenHref(session);
+		const openActions = createAgentSessionOpenHrefs(session);
 
 		return html`
 			<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
-				<action-item label=${openAction.label} icon=${openAction.icon} href=${openActionHref}></action-item>
+				${openActions.map(
+					action =>
+						html`<action-item label=${action.label} icon=${action.icon} href=${action.href}></action-item>`,
+				)}
 				${
 					archiveHref != null
 						? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
@@ -1026,8 +1029,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 	}
 
 	private renderIdleHover(session: AgentSessionState, omitActions: boolean): unknown {
-		const openAction = getAgentSessionOpenAction(session);
-		const openHref = createAgentSessionOpenHref(session);
+		const openActions = createAgentSessionOpenHrefs(session);
 		// Archive is offered only on terminal (ended) sessions — a live idle one would have to be
 		// killed first, so it's not surfaced here.
 		const archiveHref = session.phase === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
@@ -1055,10 +1057,17 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 					: html`
 							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
 								<div class="hover-actions__row">
-									<gl-button appearance="secondary" full density="compact" href=${openHref}>
-										<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
-										${openAction.label}
-									</gl-button>
+									${openActions.map(
+										action => html`<gl-button
+											appearance="secondary"
+											full
+											density="compact"
+											href=${action.href}
+										>
+											<code-icon icon=${action.icon} slot="prefix"></code-icon>
+											${action.label}
+										</gl-button>`,
+									)}
 									${
 										archiveHref != null
 											? html`<gl-button

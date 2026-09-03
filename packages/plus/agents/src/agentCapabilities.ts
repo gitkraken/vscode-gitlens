@@ -16,6 +16,16 @@ export type AgentProviderId = 'claudeCode' | 'codex' | 'copilot' | 'opencode';
  *  with no glyph renders as tofu, it does not fall back. */
 export type AgentIconName = 'claude' | 'openai' | 'copilot' | 'gitlens-provider-opencode' | 'robot';
 
+/** How to reach an agent from a terminal, and which arguments reattach it to a past session. */
+export interface AgentCliCapabilities {
+	/** The agent's name in `gk agents list`, where the detected executable path comes from. */
+	readonly agentName: string;
+	/** Bare command to run when gkcli reports no usable executable. */
+	readonly command: string;
+	/** Arguments that reattach the agent to a past session by id. */
+	readonly resumeArgs: (sessionId: string) => readonly string[];
+}
+
 /**
  * Flat, data-only description of one supported `gk ai hook` client. Mirrors how the GitKraken CLI
  * models its own clients (`internal/actions/aihook/events.json` + `registry.go`) so the two stay
@@ -56,11 +66,14 @@ export interface AgentCapabilities {
 	readonly supportsBlockingPermissions: boolean;
 	/** The agent writes an on-disk transcript GitLens can tail for titles/prompts. */
 	readonly supportsTranscripts: boolean;
-	/** A past session can be resumed from its cwd. */
+	/** A past session can be resumed from its cwd via {@link cli}. */
 	readonly supportsResume: boolean;
 	/** The agent multiplexes concurrent sessions in one process, so a pid does not identify a
 	 *  session (matches the CLI's `pidSharingClients`). */
 	readonly sharesPids: boolean;
+
+	/** How to reach the agent from a terminal. Omitted when GitLens cannot launch the agent itself. */
+	readonly cli?: AgentCliCapabilities;
 
 	/** Extra step the agent's own host requires before installed hooks will actually fire. Undefined
 	 *  when installing is sufficient. Not a computed state — we cannot detect whether the step has been
@@ -98,6 +111,7 @@ export const claudeCodeCapabilities: AgentCapabilities = {
 	supportsTranscripts: true,
 	supportsResume: true,
 	sharesPids: false,
+	cli: { agentName: 'claude-cli', command: 'claude', resumeArgs: sessionId => ['--resume', sessionId] },
 };
 
 const codexCapabilities: AgentCapabilities = {
@@ -116,7 +130,8 @@ const codexCapabilities: AgentCapabilities = {
 	// are supported by the client but not requested until a later phase.
 	supportsBlockingPermissions: true,
 	supportsTranscripts: false,
-	supportsResume: false,
+	supportsResume: true,
+	cli: { agentName: 'codex', command: 'codex', resumeArgs: sessionId => ['resume', sessionId] },
 	// The CLI lists codex in `pidSharingClients` — it multiplexes sessions in one process.
 	sharesPids: true,
 	// Verified empirically, not speculative: running an identical Codex session with
@@ -161,7 +176,8 @@ const copilotCapabilities: AgentCapabilities = {
 	},
 	supportsBlockingPermissions: true,
 	supportsTranscripts: false,
-	supportsResume: false,
+	supportsResume: true,
+	cli: { agentName: 'copilot', command: 'copilot', resumeArgs: sessionId => [`--resume=${sessionId}`] },
 	sharesPids: false,
 };
 
@@ -227,7 +243,8 @@ const openCodeCapabilities: AgentCapabilities = {
 	// The CLI hard-errors when asked to install blocking events for opencode.
 	supportsBlockingPermissions: false,
 	supportsTranscripts: false,
-	supportsResume: false,
+	supportsResume: true,
+	cli: { agentName: 'opencode', command: 'opencode', resumeArgs: sessionId => ['--session', sessionId] },
 	sharesPids: false,
 	// OpenCode's tool hooks carry no per-call cwd: the CLI's generated plugin supplies the
 	// plugin-init directory once, so a session's reported cwd is frozen at that value and never

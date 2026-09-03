@@ -204,6 +204,12 @@ suite('serializeAgentSession', () => {
 		const session = makeSession({ worktreePath: '/elsewhere/repo' });
 		assert.strictEqual(serializeAgentSession(session, undefined).commonPath, undefined);
 	});
+
+	test('carries a resume action with its targets through', () => {
+		const session = makeSession({ status: 'ended', phase: 'ended' });
+		const actions = { archive: true as const, resume: { cwd: '/w', targets: ['terminal'] as const } };
+		assert.deepStrictEqual(serializeAgentSession(session, undefined, actions).actions, actions);
+	});
 });
 
 suite('serializePastAgentSession', () => {
@@ -212,7 +218,7 @@ suite('serializePastAgentSession', () => {
 			id: 'session-1',
 			providerId: 'claudeCode',
 			disposition: 'ended',
-			actions: { resume: { cwd: '/repo/worktree' }, archive: true },
+			actions: { resume: { cwd: '/repo/worktree', targets: ['terminal'] }, archive: true },
 			lastActivity: new Date(1234),
 			lastPrompt: 'please fix it',
 		};

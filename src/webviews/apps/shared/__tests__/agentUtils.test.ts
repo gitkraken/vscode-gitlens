@@ -6,6 +6,7 @@ import type { OverviewBranch } from '../../../shared/overviewBranches.js';
 import type { PastAgentSessionsPagerHost } from '../agentUtils.js';
 import {
 	agentProviderIcon,
+	buildAgentSessionContext,
 	buildPastAgentSessionContext,
 	canResolvePermission,
 	createPastAgentSessionsPager,
@@ -15,6 +16,8 @@ import {
 	findOverviewBranchForSession,
 	formatAgentElapsed,
 	getAgentProviderLabel,
+	getAgentSessionOpenActions,
+	getPastAgentSessionResumeActions,
 	indexAgentSessionsByRepoAndWorktree,
 	isAgentSessionCurrentForWorktree,
 	isAgentSessionCurrentInFamily,
@@ -33,7 +36,7 @@ function makePastResult(ids: string[], total?: number, providerId = 'claudeCode'
 			id: id,
 			providerId: providerId,
 			disposition: 'ended',
-			actions: { resume: { cwd: wtA }, archive: true },
+			actions: { resume: { cwd: wtA, targets: ['terminal'] }, archive: true },
 			worktreePath: wtA,
 			displayName: id,
 			lastActivity: 0,
@@ -454,6 +457,132 @@ suite('buildPastAgentSessionContext', () => {
 		const readOnly = buildPastAgentSessionContext({ ...base, actions: {} });
 		assert.doesNotMatch(readOnly.webviewItem, /\+resumable\b/);
 		assert.doesNotMatch(readOnly.webviewItem, /\+archivable\b/);
+	});
+
+	test('flags +resumableInExtension only when the extension is one of the row targets', () => {
+		const base = makePastResult(['s1']).sessions[0];
+
+		const terminalOnly = buildPastAgentSessionContext({
+			...base,
+			actions: { resume: { cwd: wtA, targets: ['terminal'] } },
+		});
+		assert.match(terminalOnly.webviewItem, /\+resumable\b/);
+		assert.doesNotMatch(terminalOnly.webviewItem, /\+resumableInExtension\b/);
+
+		const both = buildPastAgentSessionContext({
+			...base,
+			actions: { resume: { cwd: wtA, targets: ['extension', 'terminal'] } },
+		});
+		assert.match(both.webviewItem, /\+resumable\b/);
+		assert.match(both.webviewItem, /\+resumableInExtension\b/);
+	});
+});
+
+suite('buildAgentSessionContext', () => {
+	test('flags +resumable and +resumableInExtension from the session resume action', () => {
+		const ended = makeSession({
+			id: 's1',
+			status: 'ended',
+			phase: 'ended',
+			actions: { resume: { cwd: wtA, targets: ['extension', 'terminal'] } },
+		});
+		const context = buildAgentSessionContext(ended, 'ended');
+		assert.match(context.webviewItem, /\+resumable\b/);
+		assert.match(context.webviewItem, /\+resumableInExtension\b/);
+		assert.strictEqual(context.webviewItemValue.cwd, wtA);
+
+		const terminalOnly = buildAgentSessionContext(
+			{ ...ended, actions: { resume: { cwd: wtA, targets: ['terminal'] } } },
+			'ended',
+		);
+		assert.match(terminalOnly.webviewItem, /\+resumable\b/);
+		assert.doesNotMatch(terminalOnly.webviewItem, /\+resumableInExtension\b/);
+
+		const notResumable = buildAgentSessionContext({ ...ended, actions: undefined }, 'ended');
+		assert.doesNotMatch(notResumable.webviewItem, /\+resumable\b/);
+	});
+});
+
+suite('getAgentSessionOpenActions', () => {
+	test('an ended session with two targets gets two actions, extension first', () => {
+		const ended = makeSession({
+			id: 's1',
+			status: 'ended',
+			phase: 'ended',
+			actions: { resume: { cwd: wtA, targets: ['extension', 'terminal'] } },
+		});
+		const actions = getAgentSessionOpenActions(ended);
+
+		assert.deepStrictEqual(actions, [
+			{
+				label: 'Resume in Claude Code Extension',
+				icon: 'claude',
+				command: 'gitlens.agents.resumeSession',
+				target: 'extension',
+				args: [{ sessionId: 's1', providerId: 'claudeCode', cwd: wtA, target: 'extension' }],
+			},
+			{
+				label: 'Resume in Terminal',
+				icon: 'terminal',
+				command: 'gitlens.agents.resumeSession',
+				target: 'terminal',
+				args: [{ sessionId: 's1', providerId: 'claudeCode', cwd: wtA, target: 'terminal' }],
+			},
+		]);
+	});
+
+	test('an ended session with one target gets one action', () => {
+		const ended = makeSession({
+			id: 's1',
+			status: 'ended',
+			phase: 'ended',
+			actions: { resume: { cwd: wtA, targets: ['terminal'] } },
+		});
+		const actions = getAgentSessionOpenActions(ended);
+
+		assert.strictEqual(actions.length, 1);
+		assert.strictEqual(actions[0].label, 'Resume in Terminal');
+	});
+
+	test('a live session gets Open Session', () => {
+		const live = makeSession({ id: 's1', status: 'thinking', phase: 'working' });
+		const actions = getAgentSessionOpenActions(live);
+
+		assert.deepStrictEqual(actions, [
+			{
+				label: 'Open Session',
+				icon: 'link-external',
+				command: 'gitlens.agents.openSession',
+				args: [{ sessionId: 's1', providerId: 'claudeCode' }],
+			},
+		]);
+	});
+
+	test('an ended session with no resume action gets Open Session', () => {
+		const ended = makeSession({ id: 's1', status: 'ended', phase: 'ended' });
+		const actions = getAgentSessionOpenActions(ended);
+
+		assert.strictEqual(actions.length, 1);
+		assert.strictEqual(actions[0].command, 'gitlens.agents.openSession');
+	});
+});
+
+suite('getPastAgentSessionResumeActions', () => {
+	test('one action per target, in order; empty when there is no resume action', () => {
+		const base = makePastResult(['s1']).sessions[0];
+
+		const both = getPastAgentSessionResumeActions({
+			...base,
+			actions: { resume: { cwd: wtA, targets: ['extension', 'terminal'] } },
+		});
+		assert.strictEqual(both.length, 2);
+		assert.deepStrictEqual(
+			both.map(a => a.label),
+			['Resume in Claude Code Extension', 'Resume in Terminal'],
+		);
+
+		const none = getPastAgentSessionResumeActions({ ...base, actions: {} });
+		assert.deepStrictEqual(none, []);
 	});
 });
 

@@ -5,10 +5,11 @@ import * as assert from 'node:assert';
 // Letting container initialize first breaks the cycle; without it the bundle throws on load.
 import '../../container.js';
 import * as sinon from 'sinon';
-import { commands, extensions, window } from 'vscode';
+import { commands, ConfigurationTarget, extensions, window } from 'vscode';
 import { getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Container } from '../../container.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import type { GkAgent } from '../agentService.js';
 import { AgentStatusService } from '../agentStatusService.js';
 import type {
@@ -17,6 +18,8 @@ import type {
 	AgentSessionHistoryOptions,
 	AgentSessionHistoryResult,
 	AgentSessionProvider,
+	AgentSessionResumeOutcome,
+	AgentSessionResumeTarget,
 } from '../provider.js';
 
 /**
@@ -36,8 +39,28 @@ class TestProvider implements AgentSessionProvider {
 	history: AgentSessionHistoryResult = { sessions: [], total: 0 };
 	readonly historyExclusions: string[][] = [];
 	archivedSessionIds: string[] = [];
+	/** Every `resumeSession` invocation's args, in order. Only populated once {@link enableResumeSession}
+	 *  has been called — mirroring a provider that doesn't wire the operation, `resumeSession` stays
+	 *  `undefined` (not merely a no-op) until then, matching the optional-method contract other
+	 *  tests rely on (e.g. the history normalizer stripping a phantom `resume` action). */
+	readonly resumeSessionCalls: {
+		providerId: string;
+		sessionId: string;
+		cwd: string;
+		target: AgentSessionResumeTarget;
+		name?: string;
+	}[] = [];
+	/** Outcome the next `resumeSession` call resolves to — set per test. */
+	resumeSessionOutcome: AgentSessionResumeOutcome | false = 'terminal';
+	resumeSession?: (
+		providerId: string,
+		sessionId: string,
+		cwd: string,
+		target: AgentSessionResumeTarget,
+		name?: string,
+	) => Promise<AgentSessionResumeOutcome | false>;
 	/** Unset by default (mirrors a provider that doesn't wire the CLI relay); a test assigns a stub
-	 *  directly. */
+	 *  directly, the same way {@link resumeSession} is wired via {@link enableResumeSession}. */
 	relayOpenSession?: (sessionId: string, path: string) => Promise<boolean>;
 
 	constructor(readonly id = 'claudeCode') {
@@ -65,6 +88,20 @@ class TestProvider implements AgentSessionProvider {
 	listSessionHistory(_cwd: string, options?: AgentSessionHistoryOptions): Promise<AgentSessionHistoryResult> {
 		this.historyExclusions.push([...(options?.excludeSessionIds ?? [])]);
 		return Promise.resolve(this.history);
+	}
+
+	/** Wires {@link resumeSession} — see the property's doc comment for why it isn't present by default. */
+	enableResumeSession(): void {
+		this.resumeSession = (providerId, sessionId, cwd, target, name) => {
+			this.resumeSessionCalls.push({
+				providerId: providerId,
+				sessionId: sessionId,
+				cwd: cwd,
+				target: target,
+				name: name,
+			});
+			return Promise.resolve(this.resumeSessionOutcome);
+		};
 	}
 }
 
@@ -328,7 +365,7 @@ suite('AgentStatusService history aggregation', () => {
 					id: 'same',
 					providerId: 'beta',
 					disposition: 'ended',
-					actions: { resume: { cwd: '/repo/worktree' }, archive: true },
+					actions: { resume: { cwd: '/repo/worktree', targets: ['terminal'] }, archive: true },
 					lastActivity: new Date(1234),
 					lastPrompt: 'beta history',
 				},
@@ -779,15 +816,25 @@ function setupDispatch(session: AgentSession, options?: { revealTerminal?: (pid:
 }
 
 suite('AgentStatusService session dispatch', () => {
-	test('a live non-Claude session never reaches the Claude extension and is not offered a terminal resume', async () => {
+	test('a live, actively-working non-Claude session never reaches the Claude extension and is not offered a terminal resume', async () => {
 		// No pid, so there is no terminal to focus either — the dead-end warning is the whole outcome.
-		const session = makeSession({ id: 'codex-1', providerId: 'codex', providerName: 'Codex' });
+		// Codex declares a CLI resume command, so `phase: 'working'` is the only reason no resume is
+		// offered here.
+		const session = makeSession({ id: 'codex-1', providerId: 'codex', providerName: 'Codex', phase: 'working' });
 		const stubs = stubDispatchSurfaces();
 		const { service, dispose } = setupDispatch(session);
+		// The service's own resume-target availability cache probes the Claude extension once on
+		// construction, independent of any session — only a probe ADDED by this dispatch would
+		// mean the non-Claude path wrongly reached it.
+		const extensionProbesBeforeDispatch = stubs.getExtension.callCount;
 		try {
 			await dispatchSessionAction(service, session);
 
-			assert.strictEqual(stubs.getExtension.called, false, 'the Claude extension must never be probed');
+			assert.strictEqual(
+				stubs.getExtension.callCount,
+				extensionProbesBeforeDispatch,
+				'dispatching a non-Claude session must not probe the Claude extension',
+			);
 			assert.strictEqual(stubs.executeCommand.called, false, 'no Claude open command may be dispatched');
 			assert.deepStrictEqual(
 				stubs.showWarningMessage.args,
@@ -800,9 +847,9 @@ suite('AgentStatusService session dispatch', () => {
 		}
 	});
 
-	test('an ended non-Claude session is not offered a terminal resume', async () => {
-		// `claude --resume <id>` is meaningless for Codex, so `supportsResume: false` must downgrade
-		// the prompt to a plain warning even though the phase itself is resumable.
+	test('an ended non-Claude session is offered a terminal resume', async () => {
+		// Codex declares its own resume command, so the ended-session dead end offers the same
+		// terminal resume Claude gets.
 		const session = makeSession({
 			id: 'codex-2',
 			providerId: 'codex',
@@ -815,7 +862,9 @@ suite('AgentStatusService session dispatch', () => {
 		try {
 			await dispatchSessionAction(service, session);
 
-			assert.deepStrictEqual(stubs.showWarningMessage.args, [['This agent session has ended.']]);
+			assert.deepStrictEqual(stubs.showWarningMessage.args, [
+				['This agent session has ended. Resume it in a terminal?', 'Resume in Terminal'],
+			]);
 			assert.strictEqual(stubs.executeCommand.called, false);
 		} finally {
 			dispose();
@@ -896,11 +945,19 @@ suite('AgentStatusService session dispatch', () => {
 		const stubs = stubDispatchSurfaces();
 		const revealTerminal = sinon.stub().resolves(true);
 		const { service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		// The service's own resume-target availability cache probes the Claude extension once on
+		// construction, independent of any session — only a probe ADDED by this dispatch would
+		// mean the non-Claude path wrongly reached it.
+		const extensionProbesBeforeDispatch = stubs.getExtension.callCount;
 		try {
 			await dispatchSessionAction(service, session);
 
 			assert.strictEqual(stubs.showWarningMessage.called, false);
-			assert.strictEqual(stubs.getExtension.called, false, 'the Claude extension must never be probed');
+			assert.strictEqual(
+				stubs.getExtension.callCount,
+				extensionProbesBeforeDispatch,
+				'dispatching a non-Claude session must not probe the Claude extension',
+			);
 			assert.strictEqual(revealTerminal.calledOnceWith(5551), true);
 		} finally {
 			dispose();
@@ -1057,6 +1114,175 @@ suite('AgentStatusService openSession row marks', () => {
 					`expected session ${session.id}'s row to start with $(${icon}), got "${item.label}"`,
 				);
 			}
+		} finally {
+			service.dispose();
+			sandbox.restore();
+		}
+	});
+});
+
+/** `resumeSession` is private — every public entry into it (command, picker) needs command
+ *  registration or a quickpick, so the tests drive it directly. */
+function resumeSession(
+	service: AgentStatusService,
+	providerId: string | undefined,
+	sessionId: string,
+	cwd: string,
+	target: AgentSessionResumeTarget | undefined,
+	name?: string,
+): Promise<void> {
+	return (
+		service as unknown as {
+			resumeSession: (
+				providerId: string | undefined,
+				sessionId: string,
+				cwd: string,
+				target: AgentSessionResumeTarget | undefined,
+				source: 'webview' | 'quickpick',
+				name?: string,
+			) => Promise<void>;
+		}
+	).resumeSession(providerId, sessionId, cwd, target, 'quickpick', name);
+}
+
+/** Fakes `showResumeTargetPicker`'s underlying `window.createQuickPick` seam: `respond` decides
+ *  the outcome as soon as `.show()` is called — mirrors {@link makeCancelledQuickPick} in
+ *  `startAgentSession.test.ts`. `remember: true` drives the pin item button; otherwise Enter. */
+function stubResumeTargetPicker(
+	sandbox: sinon.SinonSandbox,
+	respond: () => { target: AgentSessionResumeTarget; remember: boolean } | undefined,
+): void {
+	sandbox.stub(window, 'createQuickPick').callsFake(() => {
+		let onAccept: (() => void) | undefined;
+		let onButton: ((e: { item: { target: AgentSessionResumeTarget } }) => void) | undefined;
+		let onHide: (() => void) | undefined;
+		const noopDisposable = { dispose: () => {} };
+		const qp = {
+			title: '',
+			placeholder: '',
+			items: [] as { target: AgentSessionResumeTarget }[],
+			activeItems: [] as { target: AgentSessionResumeTarget }[],
+			onDidAccept: (cb: () => void) => {
+				onAccept = cb;
+				return noopDisposable;
+			},
+			onDidTriggerItemButton: (cb: (e: { item: { target: AgentSessionResumeTarget } }) => void) => {
+				onButton = cb;
+				return noopDisposable;
+			},
+			onDidHide: (cb: () => void) => {
+				onHide = cb;
+				return noopDisposable;
+			},
+			show: () => {
+				const pick = respond();
+				if (pick == null) {
+					onHide?.();
+					return;
+				}
+
+				const item = qp.items.find(i => i.target === pick.target) ?? { target: pick.target };
+				if (pick.remember) {
+					onButton?.({ item: item });
+				} else {
+					qp.activeItems = [item];
+					onAccept?.();
+				}
+			},
+			hide: () => {},
+			dispose: () => {},
+		};
+		return qp as unknown as ReturnType<typeof window.createQuickPick>;
+	});
+}
+
+suite('AgentStatusService resume target resolution', () => {
+	test('a single-target row resumes in a terminal without asking', async () => {
+		const sandbox = sinon.createSandbox();
+		const provider = new TestProvider('claudeCode');
+		provider.enableResumeSession();
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		sandbox.stub(service, 'getResumeTargets').returns(['terminal']);
+		const createQuickPick = sandbox.stub(window, 'createQuickPick');
+		try {
+			await resumeSession(service, 'claudeCode', 'sess-1', '/w', undefined, 'Session');
+
+			assert.deepStrictEqual(provider.resumeSessionCalls, [
+				{ providerId: 'claudeCode', sessionId: 'sess-1', cwd: '/w', target: 'terminal', name: 'Session' },
+			]);
+			assert.strictEqual(createQuickPick.called, false, 'no ask for a single-target row');
+		} finally {
+			service.dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('a two-target row honors a setting naming one of its targets', async () => {
+		const sandbox = sinon.createSandbox();
+		const provider = new TestProvider('claudeCode');
+		provider.enableResumeSession();
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		sandbox.stub(service, 'getResumeTargets').returns(['extension', 'terminal']);
+		(sandbox.stub(configuration, 'get') as sinon.SinonStub).withArgs('agents.resumeTarget').returns('extension');
+		try {
+			await resumeSession(service, 'claudeCode', 'sess-1', '/w', undefined, 'Session');
+
+			assert.strictEqual(provider.resumeSessionCalls[0]?.target, 'extension');
+		} finally {
+			service.dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('a setting naming a target absent from this row falls back to terminal', async () => {
+		const sandbox = sinon.createSandbox();
+		const provider = new TestProvider('claudeCode');
+		provider.enableResumeSession();
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		sandbox.stub(service, 'getResumeTargets').returns(['terminal']);
+		(sandbox.stub(configuration, 'get') as sinon.SinonStub).withArgs('agents.resumeTarget').returns('extension');
+		try {
+			await resumeSession(service, 'claudeCode', 'sess-1', '/w', undefined, 'Session');
+
+			assert.strictEqual(provider.resumeSessionCalls[0]?.target, 'terminal');
+		} finally {
+			service.dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('an unset setting asks, and the pin button persists the pick', async () => {
+		const sandbox = sinon.createSandbox();
+		const provider = new TestProvider('claudeCode');
+		provider.enableResumeSession();
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		sandbox.stub(service, 'getResumeTargets').returns(['extension', 'terminal']);
+		(sandbox.stub(configuration, 'get') as sinon.SinonStub).withArgs('agents.resumeTarget').returns(null);
+		const update = sandbox.stub(configuration, 'update').resolves();
+		stubResumeTargetPicker(sandbox, () => ({ target: 'extension', remember: true }));
+		try {
+			await resumeSession(service, 'claudeCode', 'sess-1', '/w', undefined, 'Session');
+
+			assert.strictEqual(provider.resumeSessionCalls[0]?.target, 'extension');
+			assert.deepStrictEqual(update.args, [['agents.resumeTarget', 'extension', ConfigurationTarget.Global]]);
+		} finally {
+			service.dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('dismissing the ask leaves the provider untouched', async () => {
+		const sandbox = sinon.createSandbox();
+		const provider = new TestProvider('claudeCode');
+		provider.enableResumeSession();
+		const service = new AgentStatusService(makeContainer(), [provider], { registerCommands: false });
+		sandbox.stub(service, 'getResumeTargets').returns(['extension', 'terminal']);
+		(sandbox.stub(configuration, 'get') as sinon.SinonStub).withArgs('agents.resumeTarget').returns(null);
+		stubResumeTargetPicker(sandbox, () => undefined);
+		try {
+			await resumeSession(service, 'claudeCode', 'sess-1', '/w', undefined, 'Session');
+
+			assert.strictEqual(provider.resumeSessionCalls.length, 0);
 		} finally {
 			service.dispose();
 			sandbox.restore();

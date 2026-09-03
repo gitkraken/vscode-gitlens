@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Send Feedback_ dialog ([#5812](https://github.com/gitkraken/vscode-gitlens/issues/5812)) &mdash; reachable from the _Commit Graph_'s title toolbar and its account menu; choose general feedback, a feature request, or a bug report about GitLens and send it straight to the team, bug reports also open a prefilled GitHub issue so you can add logs and details, and feature requests offer to file one
 - Adds customizing the _Commit Graph_ keyboard shortcuts ([#5813](https://github.com/gitkraken/vscode-gitlens/issues/5813)) &mdash; use the new `gitlens.graph.shortcuts.overrides` setting to rebind or disable its modifier-key shortcuts (`Alt+M`, `Ctrl+↑`, …) by id (hover a shortcut in the `?` reference to see its id), or `gitlens.graph.shortcuts.enabled` to turn them all off
 - Adds a _Get Kepler_ banner to the _Agents_ section in _GitLens Settings_ and the _Commit Graph_'s _Agents_ side bar panel &mdash; introduces Kepler, GitKraken's delivery engine for agent-driven development, shown until you open Kepler from it
+- Adds resuming past Codex, OpenCode, and GitHub Copilot CLI agent sessions &mdash; every _Resume_ action now names where it goes, _Resume in Terminal_ or _Resume in <Agent> Extension_, and shows both when a session can open either way; the new `gitlens.agents.resumeTarget` setting picks which one Enter uses in the _Resume Agent Session_ picker, or asks the first time with an option to remember
 
 ### Changed
 

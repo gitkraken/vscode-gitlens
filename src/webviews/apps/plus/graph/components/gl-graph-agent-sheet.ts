@@ -21,14 +21,14 @@ import {
 	agentProviderIcon,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
-	createAgentSessionOpenHref,
+	createAgentSessionOpenHrefs,
 	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	getAgentCategoryLabel,
 	getAgentPhaseLabel,
 	getAgentProviderLabel,
-	getAgentSessionOpenAction,
+	getPastAgentSessionResumeActions,
 } from '../../../shared/agentUtils.js';
 import type { TreeItemBase, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base.js';
 import { folderToTreeModel, sortTreeChildren } from '../../../shared/components/tree/file-tree-utils.js';
@@ -663,7 +663,9 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	/** Status zone first (quiet elapsed + phase pill), then the cycle chevrons, then the Open Session
 	 *  chip — live, non-ended only; an ended session's body Resume row covers it instead. */
 	private renderActions(session: AgentSessionState, category: AgentSessionCategory) {
-		const action = category !== 'ended' ? getAgentSessionOpenAction(session) : undefined;
+		// Live, non-ended only — a session here always resolves to the single `Open Session` action;
+		// an ended session's body Resume row (per target) covers it instead.
+		const action = category !== 'ended' ? createAgentSessionOpenHrefs(session)[0] : undefined;
 		return html`
 			${this.renderStatusZone(session, category)}${this.renderCycleActions()}
 			${
@@ -673,7 +675,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 							icon=${action.icon}
 							label=${action.label}
 							overlay="tooltip"
-							href=${createAgentSessionOpenHref(session)}
+							href=${action.href}
 						></gl-action-chip>`
 					: nothing
 			}
@@ -1020,14 +1022,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		session: AgentSessionState,
 		permission: NonNullable<AgentSessionState['pendingPermission']>,
 	) {
-		const openAction = getAgentSessionOpenAction(session);
-		const openHref = createAgentSessionOpenHref(session);
+		// A `needs-input` session is never `ended`, so this is always the single `Open Session` action.
+		const openAction = createAgentSessionOpenHrefs(session)[0];
 
 		if (!canResolvePermission('needs-input', permission)) {
 			return html`
 				<div class="hero__unresolvable">
 					<p class="hero__hint">This request must be answered in the agent's session</p>
-					<gl-button href=${openHref}>
+					<gl-button href=${openAction.href}>
 						<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
 						${openAction.label}
 					</gl-button>
@@ -1036,7 +1038,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		}
 
 		if (permission.kind === 'question') {
-			return html`<gl-button href=${openHref}>Answer in Session</gl-button>`;
+			return html`<gl-button href=${openAction.href}>Answer in Session</gl-button>`;
 		}
 
 		const allowHref = createCommandLink('gitlens.agents.resolvePermission', {
@@ -1105,17 +1107,24 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 	private renderHeroEnded(session: AgentSessionState) {
 		const endReasonLine = this.describeEndReason(session.endReason);
-		const openHref = createAgentSessionOpenHref(session);
+		// Extension first, terminal second — the same order `computeResumeTargets` produces; the
+		// first action is the primary (default appearance) button, the rest secondary.
+		const openActions = createAgentSessionOpenHrefs(session);
 		const archiveHref = createAgentSessionArchiveHref(session);
 
 		return html`
 			<div class="endrow">
 				<span class="endrow__reason">${endReasonLine ?? nothing}</span>
 				<span class="endrow__actions">
-					<gl-button href=${openHref}>
-						<code-icon icon="debug-restart" slot="prefix"></code-icon>
-						Resume
-					</gl-button>
+					${openActions.map(
+						(action, index) => html`<gl-button
+							appearance=${index === 0 ? nothing : 'secondary'}
+							href=${action.href}
+						>
+							<code-icon icon=${action.icon} slot="prefix"></code-icon>
+							${action.label}
+						</gl-button>`,
+					)}
 					${
 						archiveHref != null
 							? html`<gl-button
@@ -1432,7 +1441,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	}
 
 	private renderPastHero(pastSession: PastAgentSessionState) {
-		const resume = pastSession.actions.resume;
+		const resumeActions = getPastAgentSessionResumeActions(pastSession);
 		const archiveHref = createAgentSessionArchiveHref(pastSession);
 
 		return html`
@@ -1440,17 +1449,16 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				<span class="endrow__reason"></span>
 				<span class="endrow__actions">
 					${
-						resume != null
-							? html`<gl-button
-									href=${createCommandLink('gitlens.agents.resumeSession', {
-										sessionId: pastSession.id,
-										providerId: pastSession.providerId,
-										cwd: resume.cwd,
-									})}
-								>
-									<code-icon icon="debug-restart" slot="prefix"></code-icon>
-									Resume
-								</gl-button>`
+						resumeActions.length > 0
+							? resumeActions.map(
+									(action, index) => html`<gl-button
+										appearance=${index === 0 ? nothing : 'secondary'}
+										href=${createCommandLink(action.command, action.args[0])}
+									>
+										<code-icon icon=${action.icon} slot="prefix"></code-icon>
+										${action.label}
+									</gl-button>`,
+								)
 							: html`<gl-button
 									disabled
 									tooltip="Can't resume — Claude Code's transcript for this session is no longer on disk"

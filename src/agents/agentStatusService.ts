@@ -1,5 +1,5 @@
 import type { Disposable, QuickPickItem } from 'vscode';
-import { commands, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { commands, ConfigurationTarget, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { claudeCodeCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
@@ -8,6 +8,7 @@ import type { Container } from '../container.js';
 import { showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { executeCommand, registerCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
 import { isWebviewItemContext } from '../system/webview.js';
 import type { GkAgent } from './agentService.js';
@@ -26,22 +27,21 @@ import {
 } from './models/agentSessionState.js';
 import type {
 	AgentSession,
+	AgentSessionHistoryActions,
 	AgentSessionHistoryResult,
 	AgentSessionProvider,
+	AgentSessionResumeTarget,
 	PermissionDecision,
 	PermissionSuggestion,
 } from './provider.js';
 import { isActiveAgentPhase } from './provider.js';
+import { AgentExtensionAvailability, computeResumeTargets } from './utils/-webview/agentExtensions.js';
+import { canResumeSession, resumeAgentSessionInTerminal, toResumableSessionRef } from './utils/-webview/agentResume.js';
 import {
 	isActiveClaudeTab,
 	isClaudeExtensionAvailable,
 	tryOpenClaudeSession,
 } from './utils/-webview/claudeExtension.js';
-import {
-	canResumeSession,
-	resumeClaudeSessionInTerminal,
-	toResumableSessionRef,
-} from './utils/-webview/claudeResume.js';
 import { revealTerminalForProcess } from './utils/-webview/terminalReveal.js';
 import {
 	areHooksOfferedForAgent,
@@ -62,6 +62,7 @@ interface AgentSessionContextArgValue {
 	cwd?: string;
 	lastPrompt?: string;
 	planFilePath?: string;
+	target?: AgentSessionResumeTarget;
 }
 
 /**
@@ -171,6 +172,9 @@ export class AgentStatusService implements Disposable {
 	/** Reveals the integrated terminal hosting a `pid` — defaults to {@link revealTerminalForProcess};
 	 *  injectable so tests can stub it without a live VS Code `Terminal`. */
 	private readonly _revealTerminal: (pid: number) => Promise<boolean>;
+	/** Sync view of which agent extensions are installed and reachable — feeds
+	 *  {@link getResumeTargets}. */
+	private readonly _extensionAvailability = new AgentExtensionAvailability();
 
 	constructor(
 		private readonly container: Container,
@@ -228,6 +232,13 @@ export class AgentStatusService implements Disposable {
 		}
 
 		this._disposables.push(
+			this._extensionAvailability,
+			this._extensionAvailability.onDidChange(() => {
+				// Extension availability is embedded in every ended session's resume targets, so a flip
+				// has to invalidate the per-session memo the same way a worktree-metadata change does.
+				this._worktreeMetadataGeneration++;
+				this.maybeFireSessionsChanged();
+			}),
 			window.onDidChangeWindowState(e => {
 				if (e.focused) {
 					this.startProviders();
@@ -497,6 +508,44 @@ export class AgentStatusService implements Disposable {
 		return this.sessions.map(s => this.getSessionStateEntry(s).state);
 	}
 
+	/** Resume destinations for a session of `providerId` homed at `cwd` — see
+	 *  {@link computeResumeTargets}. Wired into `GkAgentProvider`'s `getResumeTargets` callback. */
+	getResumeTargets(providerId: string, cwd: string): readonly AgentSessionResumeTarget[] {
+		return computeResumeTargets(
+			providerId,
+			cwd,
+			id => this._extensionAvailability.isAvailable(id),
+			(workspace.workspaceFolders ?? []).map(folder => folder.uri.fsPath),
+		);
+	}
+
+	/** Archive and resume actions for an `ended` live session — `archive` when the owning provider
+	 *  can archive it, `resume` when its agent supports resume and a cwd resolves (the same
+	 *  cascade {@link toResumableSessionRef} uses). `undefined` when neither applies. */
+	private getEndedSessionActions(
+		session: AgentSession,
+		provider: AgentSessionProvider | undefined,
+	): Pick<AgentSessionHistoryActions, 'archive' | 'resume'> | undefined {
+		const archive = provider?.archiveSession != null ? (true as const) : undefined;
+
+		const resumeCwd = toResumableSessionRef(session).cwd;
+		const resume =
+			resumeCwd != null && getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume === true
+				? { cwd: resumeCwd, targets: this.getResumeTargets(session.providerId, resumeCwd) }
+				: undefined;
+
+		if (archive == null && resume == null) return undefined;
+
+		const actions: { archive?: true; resume?: { cwd: string; targets: readonly AgentSessionResumeTarget[] } } = {};
+		if (archive != null) {
+			actions.archive = archive;
+		}
+		if (resume != null) {
+			actions.resume = resume;
+		}
+		return actions;
+	}
+
 	/** Memoized {@link serializeAgentSession} + its change-detect key — see {@link _sessionStateCache}. */
 	private getSessionStateEntry(session: AgentSession): { state: AgentSessionState; key: string; generation: number } {
 		const cached = this._sessionStateCache.get(session);
@@ -508,8 +557,7 @@ export class AgentStatusService implements Disposable {
 		const provider = this._providers.find(candidate =>
 			candidate.sessions.some(candidateSession => candidateSession.id === session.id),
 		);
-		const actions =
-			session.status === 'ended' && provider?.archiveSession != null ? ({ archive: true } as const) : undefined;
+		const actions = session.status === 'ended' ? this.getEndedSessionActions(session, provider) : undefined;
 		const state = serializeAgentSession(session, this.getWorktreeMetadataForSession(session), actions);
 		const entry = {
 			state: state,
@@ -682,34 +730,75 @@ export class AgentStatusService implements Disposable {
 	}
 
 	/**
-	 * Resumes a past session by starting a fresh process against its transcript.
-	 *
-	 * `'default'` uses the Claude Code extension only when `cwd` is itself one of this window's
-	 * workspace folders, and otherwise falls back to a terminal. The extension's open command takes a
-	 * session id and no cwd, so it resolves the session against the window's own folder — right only
-	 * when that folder IS the session's directory. An ancestor folder won't do: the transcript is
-	 * homed under the exact cwd, so the extension would look elsewhere and come up empty. A terminal
-	 * is anchored at `cwd`, so it stays correct for any worktree.
+	 * Resumes a past session by starting a fresh process against its transcript. `target` is
+	 * `undefined` for a target-less resume (Enter in the picker, or a command invoked with no
+	 * explicit destination) — {@link resolveResumeTarget} decides where it goes, and a dismissed
+	 * ask means this no-ops.
 	 */
 	private async resumeSession(
 		providerId: string | undefined,
 		sessionId: string,
 		cwd: string,
-		target: 'default' | 'terminal',
+		target: AgentSessionResumeTarget | undefined,
 		source: 'webview' | 'quickpick',
 		name?: string,
 	): Promise<void> {
 		const provider = this.getProviderForSession(providerId, sessionId);
 		if (provider?.resumeSession == null) return;
 
-		const outcome = await provider.resumeSession(sessionId, cwd, target, name);
+		const resolvedProviderId = this.resolveAgentProviderId(provider, sessionId, providerId);
+
+		let resolvedTarget = target;
+		if (resolvedTarget == null) {
+			resolvedTarget = await this.resolveResumeTarget(
+				resolvedProviderId,
+				cwd,
+				name,
+				this.getResumeTargets(resolvedProviderId, cwd),
+			);
+			if (resolvedTarget == null) return;
+		}
+
+		const outcome = await provider.resumeSession(resolvedProviderId, sessionId, cwd, resolvedTarget, name);
 		if (outcome === false) return;
 
 		this.container.telemetry.sendEvent('agents/sessionResumed', {
-			'agent.provider': this.resolveAgentProviderId(provider, sessionId, providerId),
+			'agent.provider': resolvedProviderId,
 			'agent.resume.source': source,
 			'agent.resume.target': outcome,
 		});
+	}
+
+	/** Resolves an explicit target for a target-less resume. A single-target row always resumes in
+	 *  a terminal — there's nothing to ask. A two-target row honors `gitlens.agents.resumeTarget`
+	 *  when it names one of `targets`, falling back to `'terminal'` when it names the other; `null`
+	 *  asks via the resume-target picker, persisting the pick as the new setting when its pin
+	 *  button was used. Returns `undefined` when the picker was dismissed. */
+	private async resolveResumeTarget(
+		providerId: string,
+		cwd: string,
+		name: string | undefined,
+		targets: readonly AgentSessionResumeTarget[],
+	): Promise<AgentSessionResumeTarget | undefined> {
+		if (targets.length === 1) return 'terminal';
+
+		const setting = configuration.get('agents.resumeTarget');
+		if (setting === 'terminal' || setting === 'extension') {
+			return targets.includes(setting) ? setting : 'terminal';
+		}
+
+		const { showResumeTargetPicker } = await import(
+			/* webpackChunkName: "agents" */ '../quickpicks/resumeTargetPicker.js'
+		);
+		const agentLabel = getAgentCapabilitiesByProviderId(providerId)?.displayName ?? providerId;
+		const pick = await showResumeTargetPicker(providerId, name ?? 'Session', agentLabel, cwd, targets);
+		if (pick == null) return undefined;
+
+		if (pick.remember) {
+			await configuration.update('agents.resumeTarget', pick.target, ConfigurationTarget.Global);
+		}
+
+		return pick.target;
 	}
 
 	private async showResumeSessionPicker(worktreePath: string): Promise<void> {
@@ -723,27 +812,27 @@ export class AgentStatusService implements Disposable {
 		if (pick == null) return;
 
 		if (pick.live != null) {
-			if (pick.target === 'resume-terminal') {
-				const resumable = toResumableSessionRef(pick.live);
-				// Falls back to the first workspace folder — same as `resumeClaudeSessionInTerminal`'s own
-				// fallback — so a cwd-less pick still opens a terminal instead of silently no-oping.
-				const cwd = resumable.cwd ?? workspace.workspaceFolders?.[0]?.uri.fsPath;
-				if (cwd != null) {
-					await this.resumeSession(
-						pick.live.providerId,
-						resumable.id,
-						cwd,
-						'terminal',
-						'quickpick',
-						resumable.name,
-					);
-				} else {
-					await resumeClaudeSessionInTerminal(resumable, this.container);
-				}
+			if (pick.action === 'open') {
+				await this.dispatchSessionAction(pick.live);
 				return;
 			}
 
-			await this.dispatchSessionAction(pick.live);
+			const resumable = toResumableSessionRef(pick.live);
+			// Falls back to the first workspace folder — same as `resumeAgentSessionInTerminal`'s own
+			// fallback — so a cwd-less pick still opens a terminal instead of silently no-oping.
+			const cwd = resumable.cwd ?? workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (cwd != null) {
+				await this.resumeSession(
+					pick.live.providerId,
+					resumable.id,
+					cwd,
+					'terminal',
+					'quickpick',
+					resumable.name,
+				);
+			} else {
+				await resumeAgentSessionInTerminal(resumable, this.container);
+			}
 			return;
 		}
 
@@ -756,7 +845,7 @@ export class AgentStatusService implements Disposable {
 			pick.past.providerId,
 			pick.past.id,
 			resume.cwd,
-			pick.target === 'resume-terminal' ? 'terminal' : 'default',
+			pick.target,
 			'quickpick',
 			pick.past.displayName,
 		);
@@ -1112,7 +1201,31 @@ export class AgentStatusService implements Disposable {
 				const resolved = resolveAgentSessionArg(arg);
 				if (resolved?.sessionId == null || resolved.cwd == null) return Promise.resolve();
 
-				return this.resumeSession(resolved.providerId, resolved.sessionId, resolved.cwd, 'default', 'webview');
+				return this.resumeSession(
+					resolved.providerId,
+					resolved.sessionId,
+					resolved.cwd,
+					resolved.target,
+					'webview',
+				);
+			}),
+			registerCommand('gitlens.agents.resumeSessionInExtension', (arg?: unknown) => {
+				const resolved = resolveAgentSessionArg(arg);
+				if (resolved?.sessionId == null || resolved.cwd == null) return Promise.resolve();
+
+				return this.resumeSession(
+					resolved.providerId,
+					resolved.sessionId,
+					resolved.cwd,
+					'extension',
+					'webview',
+				);
+			}),
+			registerCommand('gitlens.agents.resumeSessionInTerminal', (arg?: unknown) => {
+				const resolved = resolveAgentSessionArg(arg);
+				if (resolved?.sessionId == null || resolved.cwd == null) return Promise.resolve();
+
+				return this.resumeSession(resolved.providerId, resolved.sessionId, resolved.cwd, 'terminal', 'webview');
 			}),
 			registerCommand('gitlens.agents.showResumeSessionPicker', (args?: { worktreePath: string }) => {
 				if (args?.worktreePath == null) return Promise.resolve();
@@ -1614,15 +1727,14 @@ export class AgentStatusService implements Disposable {
 
 	/** Shared dead-end handler for every open path that can't reach the live session. When the
 	 *  session is resumable (idle, or waiting on user input — see {@link canResumeSession}) AND its
-	 *  agent's descriptor declares `supportsResume`, prompts the user to spawn a fresh terminal
-	 *  running `claude --resume <id>`; otherwise just surfaces the original warning. Keeps the prompt
+	 *  agent declares a CLI resume command (`supportsResume`), prompts the user to spawn a fresh
+	 *  terminal running it; otherwise just surfaces the original warning. Keeps the prompt
 	 *  single-action so a dismiss is the obvious "no" — the warning text itself communicates the
 	 *  failure that triggered the fallback.
 	 *
-	 *  The capability check is load-bearing, not defensive: {@link resumeClaudeSessionInTerminal}
-	 *  literally runs `claude --resume <id>`, so offering it for another agent would spawn a Claude
-	 *  process against a session id Claude has never seen. An agent with no descriptor gets no offer
-	 *  for the same reason. */
+	 *  The capability check is load-bearing, not defensive: {@link resumeAgentSessionInTerminal}
+	 *  runs the agent's own resume command against `session.id`, so offering it for an agent with no
+	 *  descriptor would spawn nothing (or the wrong thing) against an id it has never seen. */
 	private async offerResumeOrWarn(session: AgentSession, warning: string): Promise<void> {
 		const supportsResume = getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume === true;
 		if (!supportsResume || !canResumeSession(session)) {
@@ -1635,8 +1747,8 @@ export class AgentStatusService implements Disposable {
 		if (choice !== action) return;
 
 		// Re-read after the prompt: it can sit unanswered indefinitely, and a resume reuses the SAME
-		// session id, so acting on the captured snapshot could start a second `claude --resume` against
-		// a transcript another window is already writing. A row that's gone (archived, or reconciled
+		// session id, so acting on the captured snapshot could start a second resume against a
+		// transcript another window is already writing. A row that's gone (archived, or reconciled
 		// away) is still safe to resume — its transcript is on disk and nothing is holding it.
 		//
 		// The test is that status AND pid are unchanged, not merely that it's still resumable. A
@@ -1650,7 +1762,7 @@ export class AgentStatusService implements Disposable {
 			return;
 		}
 
-		await resumeClaudeSessionInTerminal(toResumableSessionRef(current ?? session), this.container);
+		await resumeAgentSessionInTerminal(toResumableSessionRef(current ?? session), this.container);
 	}
 
 	/** Relays an open-session request to whichever VS Code window actually hosts `session`, then

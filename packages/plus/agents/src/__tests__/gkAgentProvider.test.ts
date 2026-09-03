@@ -28,6 +28,7 @@ function createMockCallbacks(options?: {
 	resolveGitInfo?: AgentProviderCallbacks['resolveGitInfo'];
 	revealSession?: AgentProviderCallbacks['revealSession'];
 	resumeSession?: AgentProviderCallbacks['resumeSession'];
+	getResumeTargets?: AgentProviderCallbacks['getResumeTargets'];
 	getActivityDecayMs?: AgentProviderCallbacks['getActivityDecayMs'];
 	port?: number;
 	address?: string;
@@ -74,6 +75,7 @@ function createMockCallbacks(options?: {
 		resolveGitInfo: options?.resolveGitInfo,
 		revealSession: options?.revealSession,
 		resumeSession: options?.resumeSession,
+		getResumeTargets: options?.getResumeTargets,
 		onSyncDiscrepancy: info => {
 			syncDiscrepancies.push(info);
 		},
@@ -2053,6 +2055,7 @@ suite('GkAgentProvider ended sessions', () => {
 
 		const { callbacks } = createMockCallbacks({
 			resumeSession: () => Promise.resolve('terminal'),
+			getResumeTargets: () => ['extension', 'terminal'],
 			cliResponse: JSON.stringify([
 				endedRecord('moved', {
 					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
@@ -2084,9 +2087,13 @@ suite('GkAgentProvider ended sessions', () => {
 			assert.deepStrictEqual(reader.listByIdsCalls[0].options, { limit: 1, excludeCwd: REPO });
 			assert.strictEqual(result.total, 3, 'direct and recovered transcript totals are combined');
 			assert.deepStrictEqual(
-				result.sessions.map(session => ({ id: session.id, cwd: session.actions.resume?.cwd })),
-				[{ id: 'moved', cwd: transcriptCwd }],
-				'the merged limit is applied by recency and preserves the transcript project cwd',
+				result.sessions.map(session => ({
+					id: session.id,
+					cwd: session.actions.resume?.cwd,
+					targets: session.actions.resume?.targets,
+				})),
+				[{ id: 'moved', cwd: transcriptCwd, targets: ['extension', 'terminal'] }],
+				'the merged limit is applied by recency and preserves the transcript project cwd and resume targets',
 			);
 		} finally {
 			provider.dispose();
@@ -2118,6 +2125,39 @@ suite('GkAgentProvider ended sessions', () => {
 				result.sessions[0].actions,
 				{ archive: true },
 				'a missing transcript removes Resume without hiding the terminal record or Archive',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a tracked ended session of an agent without transcripts is resumable from its durable record', async () => {
+		const reader = new StubListingTranscriptReader();
+		const { callbacks } = createMockCallbacks({
+			resumeSession: () => Promise.resolve('terminal'),
+			cliResponse: JSON.stringify([
+				endedRecord('codex-1', {
+					providerId: 'codex',
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
+				}),
+			]),
+		});
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const result = await provider.listSessionHistory(REPO);
+
+			assert.deepStrictEqual(
+				result.sessions.map(s => [s.id, s.providerId, s.actions]),
+				[['codex-1', 'codex', { resume: { cwd: REPO, targets: ['terminal'] }, archive: true }]],
+				'targets default to terminal-only when getResumeTargets is absent',
+			);
+			assert.deepStrictEqual(
+				reader.listByIdsCalls[0]?.sessionIds.has('codex-1') ?? false,
+				false,
+				'no transcript recovery is attempted for an agent without transcripts',
 			);
 		} finally {
 			provider.dispose();

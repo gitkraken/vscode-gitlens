@@ -53,14 +53,19 @@ export class AgentService {
 		return this._inflight;
 	}
 
-	/** Convenience accessor for the `claude-cli` agent — many callers only want this one. */
-	async getClaude(): Promise<GkAgent | undefined> {
+	/** Looks up one agent by its `gk agents list` name (`claude-cli`, `codex`, `copilot`, `opencode`, …). */
+	async getAgent(agentName: string): Promise<GkAgent | undefined> {
 		const agents = await this.getAll();
-		return agents.find(a => a.name === 'claude-cli');
+		return agents.find(a => a.name === agentName);
+	}
+
+	/** Convenience accessor for the `claude-cli` agent — many callers only want this one. */
+	getClaude(): Promise<GkAgent | undefined> {
+		return this.getAgent('claude-cli');
 	}
 
 	/** Detected CLI-kind agents whose executable exists on disk. Centralizes the filter currently
-	 *  duplicated in `agentRegistry.getDetectedCliDescriptors` and `claudeResume`. */
+	 *  duplicated in `agentRegistry.getDetectedCliDescriptors` and `agentResume`. */
 	async getDetectedCliAgents(): Promise<readonly GkAgent[]> {
 		const agents = await this.getAll();
 		return agents.filter(a => cliAgentIds.has(a.name) && a.detected && isCliExecutableAvailable(a.executable));
