@@ -374,7 +374,7 @@ function getExtensionConfig(target, mode, env) {
 								default: false,
 								defaultVendors: false,
 								// The webview RPC service layer + shared webview infra are copied into every
-								// webview controller (commitDetails, timeline, graph, home, …); emit them once.
+								// webview controller (commitDetails, timeline, graph, …); emit them once.
 								webviewShared: {
 									test: /[\\/]src[\\/]webviews[\\/](rpc|shared)[\\/]/,
 									name: 'webview-shared',
@@ -489,7 +489,6 @@ function getWebviewsConfigs(mode, env) {
 		allowedSigners: { entry: './allowedSigners/allowedSigners.ts' },
 		commitDetails: { entry: './commitDetails/commitDetails.ts' },
 		graph: { entry: './plus/graph/graph.ts', plus: true },
-		home: { entry: './home/home.ts' },
 		rebase: { entry: './rebase/rebase.ts' },
 		settings: { entry: './settings/settings.ts' },
 		timeline: { entry: './plus/timeline/timeline.ts', plus: true },

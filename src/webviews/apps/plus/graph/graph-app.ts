@@ -60,7 +60,6 @@ import { createOnboardingState, onboardingContext } from '../../shared/contexts/
 import type { OnboardingDismissals } from '../../shared/contexts/onboardingDismissals.js';
 import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
-import '../shared/components/account-bar.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
@@ -660,10 +659,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  first resolves (a `@consume`d context value, so it isn't in `updated`'s changedProperties). */
 	private _launchpadInitialized = false;
 
-	// Account/integrations bar state (issue #5411). The `<gl-account-bar>` chips consume these
-	// shared contexts; provide them here (the common ancestor) and populate from the host once
-	// `services` resolves. `promosContext` is provided globally by the app host. NOTE: this
-	// mirrors the Home view's wiring — a follow-up should extract it into a reusable helper.
+	// Account/integrations state (issue #5411). The account rollup's chips consume these shared
+	// contexts; provide them here (the common ancestor) and populate from the host once
+	// `services` resolves. `promosContext` is provided globally by the app host.
 	private readonly _integrationsState = createIntegrationsState();
 	private readonly _aiState = createAIState();
 	private readonly _subscriptionCtx = new ContextProvider(this, {
@@ -671,8 +669,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		initialValue: createDefaultSubscriptionContextState(),
 	});
 	// `_integrationsCtx`/`_aiCtx` are intentionally kept as fields: `ContextProvider` self-registers
-	// on construction, so they're never read again (Home provides these as bare `new ContextProvider`
-	// statements instead — same effect). `_subscriptionCtx` above is a field because it's read later.
+	// on construction, so they're never read again. `_subscriptionCtx` above is a field because it's
+	// read later.
 	private readonly _integrationsCtx = new ContextProvider(this, {
 		context: integrationsContext,
 		initialValue: this._integrationsState,
@@ -688,10 +686,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		context: onboardingContext,
 		initialValue: this._onboardingState,
 	});
-	/** One-shot guard for the account-bar context wiring (see `updated()`). */
+	/** One-shot guard for the account rollup context wiring (see `updated()`). */
 	private _accountContextsInitialized = false;
 
-	/** Launchpad + account-bar context bootstrap and teardown (see {@link AccountLaunchpadController});
+	/** Launchpad + account rollup context bootstrap and teardown (see {@link AccountLaunchpadController});
 	 *  started from `updated()` once `services` resolves. */
 	private readonly accountLaunchpad = new AccountLaunchpadController(this, {
 		launchpadState: () => this._launchpadState,

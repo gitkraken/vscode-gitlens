@@ -68,7 +68,7 @@ This restarts the extension host with the new code on the same VS Code instance.
 
 ```
 rebuild_and_reload { build_command: "pnpm run build:webviews" }
-execute_command { command: "gitlens.views.home.refresh" }
+execute_command { command: "gitlens.views.graph.refresh" }
 ```
 
 Every GitLens webview has a `gitlens.views.<name>.refresh` command (e.g. `gitlens.views.welcome.refresh`, `gitlens.views.graph.refresh`, `gitlens.views.commitDetails.refresh`). These fully reload the webview with fresh JS/CSS.
@@ -81,7 +81,7 @@ Extension host code change:
 
 ```
 launch {}
-execute_command { command: "gitlens.showHomeView" }
+execute_command { command: "gitlens.showGraphView" }
 screenshot {}
 # ... edit extension host code ...
 rebuild_and_reload { build_command: "pnpm run build:extension" }
@@ -129,7 +129,7 @@ The `--query-frame` action searches all frames (including nested webview iframes
 ### Get the full accessibility tree of a view
 
 ```bash
-node scripts/e2e-dev-inspect.mjs --command gitlens.showHomeView --aria
+node scripts/e2e-dev-inspect.mjs --command gitlens.showGraphView --aria
 ```
 
 ### Inspect a specific DOM element
@@ -142,7 +142,7 @@ node scripts/e2e-dev-inspect.mjs --command gitlens.showWelcomeView --aria-select
 
 ```bash
 node scripts/e2e-dev-inspect.mjs \
-  --command gitlens.showHomeView \
+  --command gitlens.showGraphView \
   --click-frame "button.start-work" \
   --pause 2000 \
   --query-frame ".dialog-content h2"
@@ -200,7 +200,7 @@ If VS Code is not installed natively in your Linux environment, use `--download-
 to download a portable binary. Xvfb is started automatically if no `$DISPLAY` is set.
 
 ```bash
-node scripts/e2e-dev-inspect.mjs --download-vscode --command gitlens.showHomeView --aria
+node scripts/e2e-dev-inspect.mjs --download-vscode --command gitlens.showGraphView --aria
 ```
 
 Requires `xvfb` package for headless environments: `sudo apt-get install xvfb`
@@ -253,7 +253,6 @@ When the session model is Opus or Fable, **default to dispatching the mechanical
 
 | Command                         | Webview Title        | Root Element            | Refresh Command                       |
 | ------------------------------- | -------------------- | ----------------------- | ------------------------------------- |
-| `gitlens.showHomeView`          | Home                 | `gl-home-app`           | `gitlens.views.home.refresh`          |
 | `gitlens.showWelcomeView`       | Welcome              | `gl-welcome-page`       | _(N/A)_                               |
 | `gitlens.showGraphPage`         | Commit Graph         | `gl-graph-app`          | `gitlens.graph.refresh`               |
 | `gitlens.showGraphView`         | Commit Graph         | `gl-graph-app`          | `gitlens.views.graph.refresh`         |
@@ -271,11 +270,11 @@ Root element tag convention: `gl-<name>-app`. Use these for `inspect_dom` select
 GitLens webviews use **Lit web components** with Shadow DOM. Here's the recommended approach:
 
 1. **Discover**: `list_webviews` to find open webviews. Output includes `index`, `id` (e.g. `gitlens.views.commitDetails`), `title`, `url`, dimensions, and content status. (Or use the reference table above.)
-2. **Wait**: `wait_for_webview { webview_title: "Home" }` to ensure Lit hydration is complete
-3. **Structure**: `aria_snapshot { webview_title: "Home" }` for the accessibility tree
-4. **Shadow DOM**: `inspect_dom { selector: "gl-home-app", property: "shadowDOM", in_webview: true, webview_title: "Home" }` to see rendered Lit templates
-5. **JS state**: `evaluate_in_webview { expression: "document.querySelector('gl-home-app').shadowRoot.querySelector('.my-element').textContent" }` to read shadow DOM content. Use `.shadowRoot.querySelector()` to reach elements inside Lit shadow roots — plain `document.querySelector()` cannot cross shadow boundaries.
-6. **Styles**: `evaluate_in_webview { expression: "getComputedStyle(document.querySelector('gl-home-app').shadowRoot.querySelector('.my-element')).color" }` for computed styles
+2. **Wait**: `wait_for_webview { webview_title: "Commit Graph" }` to ensure Lit hydration is complete
+3. **Structure**: `aria_snapshot { webview_title: "Commit Graph" }` for the accessibility tree
+4. **Shadow DOM**: `inspect_dom { selector: "gl-graph-app", property: "shadowDOM", in_webview: true, webview_title: "Commit Graph" }` to see rendered Lit templates
+5. **JS state**: `evaluate_in_webview { expression: "document.querySelector('gl-graph-app').shadowRoot.querySelector('.my-element').textContent" }` to read shadow DOM content. Use `.shadowRoot.querySelector()` to reach elements inside Lit shadow roots — plain `document.querySelector()` cannot cross shadow boundaries.
+6. **Styles**: `evaluate_in_webview { expression: "getComputedStyle(document.querySelector('gl-graph-app').shadowRoot.querySelector('.my-element')).color" }` for computed styles
 7. **Errors**: `read_console { level: "error" }` to check for JS errors in the main process. For webview-specific errors, use `evaluate_in_webview` to inspect state directly.
 
 #### Targeting a specific webview when multiple are open
@@ -299,7 +298,7 @@ evaluate_in_webview { webview_url: "commitDetails", expression: "performance.now
 **Always target a specific webview** instead of taking full-window screenshots:
 
 ```
-screenshot { target: "webview", webview_title: "Home" }
+screenshot { target: "webview", webview_title: "Commit Graph" }
 ```
 
 This captures just the webview content instead of the entire VS Code window. Screenshots are downscaled to 1280px longest side and WebP-compressed by default (image cost scales with resolution); raise `max_dimension` (up to 1920) or pass `format: "png"` only when you need fine pixel detail. **Better still, skip the screenshot** when a text/geometry answer will do — see "Token & round-trip discipline" above.
@@ -350,7 +349,7 @@ The extension ships a **subscription simulator** in DEBUG builds that overrides 
 set_account { plan: "pro" }
 ```
 
-That's the whole setup for most Pro-feature testing. Onboarding is pre-dismissed by default (`dismiss_onboarding`) — every tour/banner (composer welcome, home walkthrough, MCP banner, rebase-editor warning, integration banner, SCM-grouped welcome) is a full-screen overlay that intercepts clicks during automation. The tool reports the resulting account, so you can confirm the gate actually opened instead of assuming it.
+That's the whole setup for most Pro-feature testing. Onboarding is pre-dismissed by default (`dismiss_onboarding`) — every tour/banner (composer welcome, walkthrough, MCP banner, rebase-editor warning, integration banner, SCM-grouped welcome) is a full-screen overlay that intercepts clicks during automation. The tool reports the resulting account, so you can confirm the gate actually opened instead of assuming it.
 
 You can also bootstrap at launch, saving a round-trip:
 

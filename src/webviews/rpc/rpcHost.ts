@@ -29,7 +29,7 @@ import { createHostEndpoint } from './hostEndpoint.js';
 export interface RpcHostOptions {
 	/**
 	 * Webview identifier used to tag log lines produced by this RPC channel.
-	 * Example: `gitlens.views.home`.
+	 * Example: `gitlens.views.commitDetails`.
 	 */
 	webviewId?: WebviewIds;
 

@@ -60,7 +60,7 @@ namespace; there is no second message protocol.
   context providers
 - **Major webviews**:
   - **Community**: Commit Details, Rebase, Settings
-  - **Pro** (`apps/plus/`): Home (includes Launchpad), Commit Graph, Timeline, Patch Details
+  - **Pro** (`apps/plus/`): Commit Graph (includes Launchpad), Timeline, Patch Details
 - Webviews bundled separately from extension (separate webpack config)
 
 For state ownership, the RPC primitives, the surface lifecycle, and per-surface service planes,
@@ -84,7 +84,7 @@ see `docs/webview-architecture.md`.
 - **IntegrationService** - GitHub/GitLab/Bitbucket/Azure DevOps integrations
 - **AIProviderService** - AI features (commit messages, explanations, changelogs)
 - **TelemetryService** - Usage analytics and error reporting
-- **WebviewsController** - Manages all webview panels (Graph, Home, Settings, etc.)
+- **WebviewsController** - Manages all webview panels (Graph, Settings, etc.)
 - **AutolinksProvider** - Auto-linking issues/PRs in commit messages
 - **DocumentTracker** - Tracks file changes and editor state
 - **FileAnnotationController** - Blame, heatmap, and change annotations

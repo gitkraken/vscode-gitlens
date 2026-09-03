@@ -16,8 +16,7 @@ import { baseStyles as pillStyles } from './pills/pill.css.js';
 
 /** Builds the "X files added, Y files changed, Z files deleted" parts for the working-tree
  *  tooltip. Returns an empty array when no field is non-zero so the caller can fall back to the
- *  generic dirty message. Shared by the graph overview card, the Home branch card, and the
- *  `gl-wip-stats` badge tooltip so all three surfaces agree on phrasing. */
+ *  generic dirty message. */
 export function getWipTooltipParts(workingTreeState: {
 	added: number | undefined;
 	changed: number | undefined;

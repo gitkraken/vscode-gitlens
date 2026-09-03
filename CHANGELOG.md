@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the _Commits_ view and other history views to load commit file details on demand in repositories where loading them has been slow ([#5498](https://github.com/gitkraken/vscode-gitlens/issues/5498)) &mdash; the `gitlens.advanced.commits.delayLoadingFileDetails` setting now defaults to `null` (automatic); set it to `true` or `false` to force either behavior
 
+### Removed
+
+- Removes the _Home_ view &mdash; superseded by the _Commit Graph_, which covers and expands on its workflows ([#5778](https://github.com/gitkraken/vscode-gitlens/issues/5778)); existing _Home_ deep links now open the _Commit Graph_
+
 ### Fixed
 
 - Fixes GitLens AI staying without a model after verifying your account's email &mdash; the resolved model and _GitKraken AI_ usage allowance now refresh on verification, and when a trial starts or ends, instead of staying empty until a window reload or opening the model picker ([#5621](https://github.com/gitkraken/vscode-gitlens/issues/5621))

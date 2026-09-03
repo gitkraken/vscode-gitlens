@@ -540,7 +540,7 @@ than :host-context. */
 				<span slot="tooltip">
 					Connect to ${provider.name}
 					<hr />
-					View pull requests and issues in Home, Commit Graph, Launchpad, autolinks, and more
+					View pull requests and issues in the Commit Graph, Launchpad, autolinks, and more
 				</span>
 			</gl-button>
 		`;

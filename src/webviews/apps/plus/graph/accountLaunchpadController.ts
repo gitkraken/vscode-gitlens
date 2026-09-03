@@ -12,7 +12,7 @@ import type { subscriptionContext } from '../../shared/contexts/subscription.js'
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import type { GraphLaunchpadState } from './graphLaunchpadState.js';
 
-/** One-time-bound view of the host-owned stores the account-bar/Launchpad bootstrap populates. Built
+/** One-time-bound view of the host-owned stores the account-rollup/Launchpad bootstrap populates. Built
  *  ONCE by `<gl-graph-app>` as closures over itself; none of these run on a hot path. */
 export type AccountLaunchpadHostDeps = {
 	launchpadState(): GraphLaunchpadState;
@@ -25,16 +25,13 @@ export type AccountLaunchpadHostDeps = {
 };
 
 /**
- * Starts and tears down the shared Launchpad pipeline and the account-bar contexts (issue #5411)
+ * Starts and tears down the shared Launchpad pipeline and the account rollup contexts (issue #5411)
  * once the host's `services` resolve. Owns the subscriptions/coalescer lifecycle so
  * connected/disconnected stay symmetric; the state stores and context providers themselves remain
  * owned by the host element.
  *
- * NOTE: the account-bar wiring mirrors the Home view's (`home.ts` / `actions.ts` / `events.ts`) —
- * but the two have diverged beyond a trivial shared helper: Home re-subscribes per RPC handshake via
- * `subscribe(connection)` and drives walkthrough progress through `HomeViewService`, while the graph
- * wires once per webview lifetime and uses the graph walkthrough service's `{ main, graph }`
- * progress.
+ * NOTE: the account rollup wiring happens once per webview lifetime and drives walkthrough progress
+ * through the graph walkthrough service's `{ main, graph }` progress.
  */
 export class AccountLaunchpadController implements ReactiveController {
 	/** A refresh requested while one was in flight; holds the requested `force`. */
@@ -80,10 +77,9 @@ export class AccountLaunchpadController implements ReactiveController {
 		setTimeout(() => void this.refreshLaunchpadSummary(), 0);
 	}
 
-	/** Populates the account-bar contexts once `services` resolves (issue #5411). Swaps the
+	/** Populates the account rollup contexts once `services` resolves (issue #5411). Swaps the
 	 *  subscription context to the host-side RemoteSignals, seeds the initial integrations/AI
-	 *  state, and subscribes to change events. Mirrors the Home view (see `home.ts` / `actions.ts`
-	 *  / `events.ts`). A failed subscription must not break the graph. */
+	 *  state, and subscribes to change events. A failed subscription must not break the graph. */
 	async initAccountContexts(services: Remote<GraphServices>): Promise<void> {
 		const integrationsState = this.deps.integrationsState();
 		const aiState = this.deps.aiState();
@@ -100,8 +96,8 @@ export class AccountLaunchpadController implements ReactiveController {
 				services.walkthrough,
 			]);
 
-			// Swap the subscription context to use the host-side RemoteSignals directly (no copy),
-			// exactly as Home does. Supertalk proxy properties are thenable at runtime.
+			// Swap the subscription context to use the host-side RemoteSignals directly (no copy).
+			// Supertalk proxy properties are thenable at runtime.
 			/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
 			const [
 				subscriptionSignal,

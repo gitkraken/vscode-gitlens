@@ -1713,7 +1713,6 @@ export class SubscriptionService implements Disposable {
 			void this.container.storage
 				.store(`gk:promo:${this._session?.account.id ?? '00000000'}:ai:allAccess:dismissed`, true)
 				.catch();
-			void this.container.views.home.refresh();
 		}
 
 		if (action !== 'cancel') {
@@ -1741,7 +1740,6 @@ export class SubscriptionService implements Disposable {
 				await this.container.storage
 					.store(`gk:promo:${newSession.account.id}:ai:allAccess:dismissed`, true)
 					.catch();
-				void this.container.views.home.refresh();
 			}
 		}
 	}

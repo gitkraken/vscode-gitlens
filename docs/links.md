@@ -280,7 +280,7 @@ _{prefix}/command/{command}(?source={source})(&mode={mode})_
 
   - _graph_ - Runs the `GitLens: Show Graph` command. Accepts the optional _{mode}_ parameter below to open the Commit Graph directly into one of its modes.
 
-  - _home_ - Runs the `GitLens: Show Home View` command.
+  - _home_ - Legacy alias for _graph_, kept for links that predate the Home view's removal. Runs the `GitLens: Show Graph` command.
 
   - _inspect_ - Runs the `GitLens: Inspect Commit Details` command.
 

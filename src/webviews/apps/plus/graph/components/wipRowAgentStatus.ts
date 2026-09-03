@@ -1,4 +1,4 @@
-import type { AgentSessionState } from '../../../../home/protocol.js';
+import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, getAgentCategoryLabel } from '../../../shared/agentUtils.js';
 

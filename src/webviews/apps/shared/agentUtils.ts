@@ -1,10 +1,13 @@
 import { getAgentCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
-import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../agents/models/agentSessionState.js';
+import type {
+	AgentSessionState,
+	PastAgentSessionsResult,
+	PastAgentSessionState,
+} from '../../../agents/models/agentSessionState.js';
 import { getAgentSessionIdentityKey } from '../../../agents/models/agentSessionState.js';
 import type { AgentSessionPhase } from '../../../agents/provider.js';
 import { createCommandLink } from '../../../system/commands.js';
 import type { WebviewItemContext } from '../../../system/webview.js';
-import type { AgentSessionState } from '../../home/protocol.js';
 import type { OverviewBranch } from '../../shared/overviewBranches.js';
 
 const phaseRank: Record<AgentSessionPhase, number> = {
@@ -481,9 +484,9 @@ export function filterLiveAgentSessions(sessions: readonly AgentSessionState[] |
 /** Identifies the worktree the matcher should resolve sessions for. `repoPath` is the workspace's
  *  selected-repo path (main-repo path in most cases, but can be a worktree path if the workspace
  *  opens a worktree directly). `worktreePath` is the worktree's full normalized path; `undefined`
- *  and `worktreePath === repoPath` both denote the default worktree (Home keeps the path on
- *  `OverviewBranch.worktree`; Graph strips the default from its `worktreesByBranch` map to
- *  preserve `+checkedout` vs `+worktree` semantics, so it surfaces as `undefined`). */
+ *  and `worktreePath === repoPath` both denote the default worktree (Graph strips the default
+ *  from its `worktreesByBranch` map to preserve `+checkedout` vs `+worktree` semantics, so it
+ *  surfaces as `undefined`). */
 export interface AgentSessionWorktreeTarget {
 	repoPath: string;
 	worktreePath?: string;

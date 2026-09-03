@@ -153,7 +153,7 @@ export async function* ensureAccessStep<
 				0,
 				0,
 				createDirectiveQuickPickItem(Directive.Noop, undefined, {
-					label: 'Connect your branches to their associated issues in Home view',
+					label: 'Connect your branches to their associated issues',
 					iconPath: new ThemeIcon('issues'),
 				}),
 				createQuickPickSeparator(),
