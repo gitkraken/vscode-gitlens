@@ -55,11 +55,11 @@ catalog:
     # .vscode/settings.json), and @custom-elements-manifest/analyzer keeps its own 5.4.x for the
     # compiler API it needs.
     typescript: 7.0.2
-    # scripts/generateTelemetryDocs.mjs drives the compiler API (createProgram/getTypeChecker) to expand
-    # the telemetry types into docs/telemetry-events.md, so it needs the JS compiler that 7.x dropped.
-    # Pinned to 6.0.3 — the last version the generator ran under — so its output stays byte-identical.
+    # scripts/generateTelemetryDocs.mjs drives the compiler API to expand telemetry types into docs/telemetry-events.md.
+    # 7.0 exposes no compiler API, so this pins the 7.1 nightly for its `unstable/sync` API — far faster than the
+    # 6.x JS compiler it replaced, but an unstable surface on a dated build; move to a stable 7.1 once one ships.
     # Aliased rather than catalogued as `typescript` so the extension's own compiler is unaffected.
-    typescript-6: npm:typescript@6.0.3
+    typescript-nightly: npm:typescript@7.1.0-dev.20260903.1
     vscode-uri: 3.2.0
     yaml: 2.9.0
 
@@ -114,6 +114,14 @@ minimumReleaseAgeExclude:
     - oxfmt@0.66.0
     - oxlint@1.81.0
     - webpack@5.110.2
+    - '@typescript/typescript-darwin-arm64@7.1.0-dev.20260903.1'
+    - '@typescript/typescript-darwin-x64@7.1.0-dev.20260903.1'
+    - '@typescript/typescript-linux-arm64@7.1.0-dev.20260903.1'
+    - '@typescript/typescript-linux-arm@7.1.0-dev.20260903.1'
+    - '@typescript/typescript-linux-x64@7.1.0-dev.20260903.1'
+    - '@typescript/typescript-win32-arm64@7.1.0-dev.20260903.1'
+    - '@typescript/typescript-win32-x64@7.1.0-dev.20260903.1'
+    - typescript@7.1.0-dev.20260903.1
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0

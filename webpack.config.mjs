@@ -1239,8 +1239,8 @@ class DocsPlugin extends FileGeneratorPlugin {
 			cache: false,
 			command: {
 				name: 'docs',
-				command: pkgMgr,
-				args: ['run', 'generate:docs:telemetry'],
+				command: 'node',
+				args: ['./scripts/generateTelemetryDocs.mjs'],
 			},
 		});
 	}

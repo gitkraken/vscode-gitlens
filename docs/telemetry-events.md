@@ -47,14 +47,14 @@
   'global.repositories.hasRichRemotes': boolean,
   'global.repositories.remoteProviders': string,
   'global.repositories.schemes': string,
-  'global.repositories.visibility': 'private' | 'public' | 'local' | 'mixed',
+  'global.repositories.visibility': 'local' | 'mixed' | 'private' | 'public',
   'global.repositories.withHostingIntegrations': number,
   'global.repositories.withHostingIntegrationsConnected': number,
   'global.repositories.withRemotes': number,
   'global.subscription.actual.bundle': boolean,
   'global.subscription.actual.cancelled': boolean,
   'global.subscription.actual.expiresOn': string,
-  'global.subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'global.subscription.actual.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'global.subscription.actual.nextTrialOptInDate': string,
   'global.subscription.actual.organizationId': string,
   'global.subscription.actual.startedOn': string,
@@ -62,7 +62,7 @@
   'global.subscription.effective.bundle': boolean,
   'global.subscription.effective.cancelled': boolean,
   'global.subscription.effective.expiresOn': string,
-  'global.subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'global.subscription.effective.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'global.subscription.effective.nextTrialOptInDate': string,
   'global.subscription.effective.organizationId': string,
   'global.subscription.effective.startedOn': string,
@@ -70,13 +70,13 @@
   'global.subscription.featurePreviews.graph.day': number,
   [`global.subscription.featurePreviews.graph.day.${number}.startedOn`]: string,
   'global.subscription.featurePreviews.graph.startedOn': string,
-  'global.subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
+  'global.subscription.featurePreviews.graph.status': 'active' | 'eligible' | 'expired',
   // Promo discount code associated with the upgrade
   'global.subscription.promo.code': string,
   // Promo key (identifier) associated with the upgrade
   'global.subscription.promo.key': string,
   'global.subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'global.subscription.stateString': 'verification' | 'free' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown',
+  'global.subscription.stateString': 'free' | 'paid' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'unknown' | 'verification',
   'global.upgrade': boolean,
   'global.upgradedFrom': string,
   'global.workspace.isTrusted': boolean
@@ -123,14 +123,14 @@
 ### agents/hooks/setup/completed
 
 > Sent when an install-all/uninstall-all hooks operation (`gitlens.agents.installHooks` /
-`uninstallHooks` / the per-agent variants) completes across its target agents
+> `uninstallHooks` / the per-agent variants) completes across its target agents
 
 ```typescript
 {
   'agents.failed': string,
   'agents.succeeded': string,
   'operation': 'install' | 'uninstall',
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -189,10 +189,10 @@
 ### agents/session/syncDiscrepancy
 
 > Sent when a reconciliation poll (`list-sessions`) finds the polled session set differs from
-what the live IPC hook path had already tracked. In a single window this should be rare and
-usually means a hook event was dropped; a nonzero `sync.discovered` is expected in multi-window
-setups, where the machine-wide poll can surface a session owned by another window that never
-routed its hook events here — so don't treat every event as a dropped IPC signal
+> what the live IPC hook path had already tracked. In a single window this should be rare and
+> usually means a hook event was dropped; a nonzero `sync.discovered` is expected in multi-window
+> setups, where the machine-wide poll can surface a session owned by another window that never
+> routed its hook events here — so don't treat every event as a dropped IPC signal
 
 ```typescript
 {
@@ -216,20 +216,20 @@ routed its hook events here — so don't treat every event as a dropped IPC sign
 {
   'agent.provider': string,
   // Where the resume was invoked from.
-  'agent.resume.source': 'webview' | 'quickpick',
+  'agent.resume.source': 'quickpick' | 'webview',
   // Where it landed — a terminal, or the agent's own editor extension.
-  'agent.resume.target': 'terminal' | 'extension'
+  'agent.resume.target': 'extension' | 'terminal'
 }
 ```
 
 ### ai/credits/addOnClicked
 
 > Sent when the user takes the AI credit add-on purchase path — "Get More Credits" on the weekly AI
-usage-limit notification, or "Get more AI credits" on the Settings account panel's AI usage card
+> usage-limit notification, or "Get more AI credits" on the Settings account panel's AI usage card
 
 ```typescript
 {
-  'organization.role': 'owner' | 'admin' | 'billing' | 'user'
+  'organization.role': 'admin' | 'billing' | 'owner' | 'user'
 }
 ```
 
@@ -239,7 +239,7 @@ usage-limit notification, or "Get more AI credits" on the Settings account panel
 
 ```typescript
 {
-  'organization.role': 'owner' | 'admin' | 'billing' | 'user'
+  'organization.role': 'admin' | 'billing' | 'owner' | 'user'
 }
 ```
 
@@ -257,7 +257,7 @@ void
 
 ```typescript
 {
-  'changeType': 'wip' | 'stash' | 'commit' | 'branch' | 'compare' | 'draft-stash' | 'draft-patch' | 'draft-suggested_pr_change',
+  'changeType': 'branch' | 'commit' | 'compare' | 'draft-patch' | 'draft-stash' | 'draft-suggested_pr_change' | 'stash' | 'wip',
   'config.largePromptThreshold': number,
   'config.usedCustomInstructions': boolean,
   // Groups every request of one AI session — the whole user-facing task. Set by conflict resolution (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`, and `'commitMessage'` for a message regenerated inside a compose); absent on every other feature, whose requests are one-per-task anyway. Counting distinct IDs (filtered by `type`) is how usage is measured for both — the event count itself can't be, since one session is many round-trips: an agentic loop for resolution, and the library's validation retries plus the user's refines and per-commit message regenerations for compose. Note a compose session's IDs therefore span two `type`s, so counting sessions means counting distinct IDs across both rather than per `type`. For per-operation counts use `autoRebase/step/resolved` (automatic resolution), `graphDetails/resolve/generateResolutions/completed` (the resolve panel), and `graphDetails/compose/applyPlan/completed` (compose). Two caveats. An escalated rebase's ID is deliberately adopted by the resolve panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`. And a compose ID survives a generate that errored or was cancelled, so the user's retry continues it — a distinct ID counts one compose session, not one plan produced.
@@ -278,7 +278,7 @@ void
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -311,7 +311,7 @@ void
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'explain-changes' | 'review-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-commits' | 'conflict-resolution' | 'generate-searchQuery',
+  'type': 'conflict-resolution' | 'explain-changes' | 'generate-changelog' | 'generate-commitMessage' | 'generate-commits' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-searchQuery' | 'generate-stashMessage' | 'review-changes',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -351,7 +351,7 @@ void
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -395,7 +395,7 @@ or
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -434,13 +434,57 @@ or
   'diff.hash': string,
   'diff.hunks.count': number,
   'diff.lines.count': number,
-  'draftType': 'stash' | 'patch' | 'suggested_pr_change',
   'duration': number,
   'failed': boolean,
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
+  'id': string,
+  'input.length': number,
+  'model.id': string,
+  'model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'model.provider.name': string,
+  'output.length': number,
+  'retry.count': number,
+  'type': 'commits',
+  'usage.completionTokens': number,
+  'usage.limits.limit': number,
+  'usage.limits.resetsOn': string,
+  'usage.limits.used': number,
+  'usage.promptTokens': number,
+  'usage.totalTokens': number,
+  'warning.exceededLargePromptThreshold': boolean,
+  'warning.promptTruncated': boolean
+}
+```
+
+or
+
+```typescript
+{
+  'config.largePromptThreshold': number,
+  'config.usedCustomInstructions': boolean,
+  // Groups every request of one AI session — the whole user-facing task. Set by conflict resolution (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`, and `'commitMessage'` for a message regenerated inside a compose); absent on every other feature, whose requests are one-per-task anyway. Counting distinct IDs (filtered by `type`) is how usage is measured for both — the event count itself can't be, since one session is many round-trips: an agentic loop for resolution, and the library's validation retries plus the user's refines and per-commit message regenerations for compose. Note a compose session's IDs therefore span two `type`s, so counting sessions means counting distinct IDs across both rather than per `type`. For per-operation counts use `autoRebase/step/resolved` (automatic resolution), `graphDetails/resolve/generateResolutions/completed` (the resolve panel), and `graphDetails/compose/applyPlan/completed` (compose). Two caveats. An escalated rebase's ID is deliberately adopted by the resolve panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`. And a compose ID survives a generate that errored or was cancelled, so the user's retry continues it — a distinct ID counts one compose session, not one plan produced.
+  'conversationId': string,
+  'correlationId': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean,
+  'diff.files.count': number,
+  'diff.hash': string,
+  'diff.hunks.count': number,
+  'diff.lines.count': number,
+  'draftType': 'patch' | 'stash' | 'suggested_pr_change',
+  'duration': number,
+  'failed': boolean,
+  'failed.cancelled.reason': 'large-prompt',
+  'failed.error': string,
+  'failed.error.detail': string,
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -484,7 +528,7 @@ or
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -528,51 +572,7 @@ or
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
-  'id': string,
-  'input.length': number,
-  'model.id': string,
-  'model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
-  'model.provider.name': string,
-  'output.length': number,
-  'retry.count': number,
-  'type': 'commits',
-  'usage.completionTokens': number,
-  'usage.limits.limit': number,
-  'usage.limits.resetsOn': string,
-  'usage.limits.used': number,
-  'usage.promptTokens': number,
-  'usage.totalTokens': number,
-  'warning.exceededLargePromptThreshold': boolean,
-  'warning.promptTruncated': boolean
-}
-```
-
-or
-
-```typescript
-{
-  'config.largePromptThreshold': number,
-  'config.usedCustomInstructions': boolean,
-  // Groups every request of one AI session — the whole user-facing task. Set by conflict resolution (`type: 'resolveConflicts'`) and by Graph compose (`type: 'commits'`, and `'commitMessage'` for a message regenerated inside a compose); absent on every other feature, whose requests are one-per-task anyway. Counting distinct IDs (filtered by `type`) is how usage is measured for both — the event count itself can't be, since one session is many round-trips: an agentic loop for resolution, and the library's validation retries plus the user's refines and per-commit message regenerations for compose. Note a compose session's IDs therefore span two `type`s, so counting sessions means counting distinct IDs across both rather than per `type`. For per-operation counts use `autoRebase/step/resolved` (automatic resolution), `graphDetails/resolve/generateResolutions/completed` (the resolve panel), and `graphDetails/compose/applyPlan/completed` (compose). Two caveats. An escalated rebase's ID is deliberately adopted by the resolve panel that finishes it, so a single ID can carry requests from both paths and distinct-ID counts can't be split cleanly on `source.detail`. And a compose ID survives a generate that errored or was cancelled, so the user's retry continues it — a distinct ID counts one compose session, not one plan produced.
-  'conversationId': string,
-  'correlationId': string,
-  'customInstructions.commitMessage.setting.length': number,
-  'customInstructions.commitMessage.setting.used': boolean,
-  'customInstructions.length': number,
-  'customInstructions.setting.length': number,
-  'customInstructions.setting.used': boolean,
-  'customInstructions.used': boolean,
-  'diff.files.count': number,
-  'diff.hash': string,
-  'diff.hunks.count': number,
-  'diff.lines.count': number,
-  'duration': number,
-  'failed': boolean,
-  'failed.cancelled.reason': 'large-prompt',
-  'failed.error': string,
-  'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -616,7 +616,7 @@ or
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -660,7 +660,7 @@ or
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -706,7 +706,7 @@ or
   'failed.cancelled.reason': 'large-prompt',
   'failed.error': string,
   'failed.error.detail': string,
-  'failed.reason': 'user-cancelled' | 'error',
+  'failed.reason': 'error' | 'user-cancelled',
   'id': string,
   'input.length': number,
   'model.id': string,
@@ -715,7 +715,7 @@ or
   'output.length': number,
   'retry.count': number,
   'reviewMode': 'single-pass' | 'two-pass',
-  'reviewType': 'wip' | 'commit' | 'compare',
+  'reviewType': 'commit' | 'compare' | 'wip',
   'type': 'review',
   'usage.completionTokens': number,
   'usage.limits.limit': number,
@@ -777,7 +777,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -788,7 +788,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -802,7 +802,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -818,10 +818,10 @@ void
 ```typescript
 {
   'instance': number,
-  'action': 'manage' | 'connect',
+  'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -836,7 +836,7 @@ void
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -851,7 +851,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -865,7 +865,7 @@ void
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
 }
 ```
 
@@ -878,7 +878,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -892,7 +892,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -906,7 +906,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -921,7 +921,7 @@ void
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -948,7 +948,7 @@ void
 ```typescript
 {
   // What happened to the autostash at the end of the run
-  'autostash': 'none' | 'reapplied' | 'left-in-stash',
+  'autostash': 'left-in-stash' | 'none' | 'reapplied',
   // Time from run start in milliseconds
   'duration': number,
   // Total conflicted files resolved across the run
@@ -972,7 +972,7 @@ void
   'confidence.threshold': number,
   // Time from run start in milliseconds
   'duration': number,
-  'reason': 'low-confidence' | 'resolve-errors' | 'ai-unavailable' | 'skipped-files' | 'non-conflict-pause' | 'message-edit' | 'edit-step' | 'external-modification' | 'step-cap' | 'continue-error' | 'stopped' | 'unexpected-error',
+  'reason': 'ai-unavailable' | 'continue-error' | 'edit-step' | 'external-modification' | 'low-confidence' | 'message-edit' | 'non-conflict-pause' | 'resolve-errors' | 'skipped-files' | 'step-cap' | 'stopped' | 'unexpected-error',
   // The step automation stopped at, when known
   'step': number,
   // Conflicted steps recorded so far
@@ -1015,7 +1015,7 @@ void
 ```typescript
 {
   // How the run was engaged: fresh rebase, takeover of a paused one, or a pre-start handoff from the Interactive Rebase Editor
-  'mode': 'started' | 'takeover' | 'handoff',
+  'mode': 'handoff' | 'started' | 'takeover',
   'takeover': boolean
 }
 ```
@@ -1077,7 +1077,7 @@ void
 ```typescript
 {
   // Why the undo was refused
-  'reason': 'no-record' | 'unavailable' | 'operation-in-progress' | 'branch-changed' | 'branch-moved' | 'dirty'
+  'reason': 'branch-changed' | 'branch-moved' | 'dirty' | 'no-record' | 'operation-in-progress' | 'unavailable'
 }
 ```
 
@@ -1101,7 +1101,7 @@ void
   'autoInstall': boolean,
   'error.message': string,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -1114,7 +1114,7 @@ void
   'attempts': number,
   'autoInstall': boolean,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -1127,7 +1127,7 @@ void
   'attempts': number,
   'autoInstall': boolean,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees',
   'version': string
 }
 ```
@@ -1275,13 +1275,13 @@ void
 ### cloudIntegrations/refreshConnection/skippedUnusualToken
 
 > Sent when a connection session has a missing expiry date
-or when connection refresh is skipped due to being a non-cloud session
+> or when connection refresh is skipped due to being a non-cloud session
 
 ```typescript
 {
   'cloud': boolean,
   'integration.id': string,
-  'reason': 'skip-non-cloud' | 'missing-expiry'
+  'reason': 'missing-expiry' | 'skip-non-cloud'
 }
 ```
 
@@ -1305,10 +1305,10 @@ or when connection refresh is skipped due to being a non-cloud session
   'draftId': string,
   'provider': string,
   // Named for compatibility with other GK surfaces
-  'reason': 'committed' | 'rejected' | 'accepted',
+  'reason': 'accepted' | 'committed' | 'rejected',
   // Named for compatibility with other GK surfaces
-  'repoPrivacy': 'private' | 'public' | 'local',
-  'repository.visibility': 'private' | 'public' | 'local'
+  'repoPrivacy': 'local' | 'private' | 'public',
+  'repository.visibility': 'local' | 'private' | 'public'
 }
 ```
 
@@ -1321,13 +1321,13 @@ or when connection refresh is skipped due to being a non-cloud session
   // Named for compatibility with other GK surfaces
   'draftId': string,
   // Named for compatibility with other GK surfaces
-  'draftPrivacy': 'private' | 'public' | 'invite_only' | 'provider_access',
+  'draftPrivacy': 'invite_only' | 'private' | 'provider_access' | 'public',
   // Named for compatibility with other GK surfaces
   'filesChanged': number,
   'provider': string,
   // Named for compatibility with other GK surfaces
-  'repoPrivacy': 'private' | 'public' | 'local',
-  'repository.visibility': 'private' | 'public' | 'local',
+  'repoPrivacy': 'local' | 'private' | 'public',
+  'repository.visibility': 'local' | 'private' | 'public',
   // Named for compatibility with other GK surfaces
   'source': 'reviewMode'
 }
@@ -1342,11 +1342,11 @@ or when connection refresh is skipped due to being a non-cloud session
   // Named for compatibility with other GK surfaces
   'draftId': string,
   // Named for compatibility with other GK surfaces
-  'draftPrivacy': 'private' | 'public' | 'invite_only' | 'provider_access',
+  'draftPrivacy': 'invite_only' | 'private' | 'provider_access' | 'public',
   'provider': string,
   // Named for compatibility with other GK surfaces
-  'repoPrivacy': 'private' | 'public' | 'local',
-  'repository.visibility': 'private' | 'public' | 'local',
+  'repoPrivacy': 'local' | 'private' | 'public',
+  'repository.visibility': 'local' | 'private' | 'public',
   // Named for compatibility with other GK surfaces
   'source': string
 }
@@ -1390,7 +1390,7 @@ or
 
 ```typescript
 {
-  'format': 'gpg' | 'ssh' | 'x509' | 'openpgp'
+  'format': 'gpg' | 'openpgp' | 'ssh' | 'x509'
 }
 ```
 
@@ -1400,8 +1400,8 @@ or
 
 ```typescript
 {
-  'format': 'gpg' | 'ssh' | 'x509' | 'openpgp',
-  'reason': 'unknown' | 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed'
+  'format': 'gpg' | 'openpgp' | 'ssh' | 'x509',
+  'reason': 'gpgNotFound' | 'noKey' | 'passphraseFailed' | 'sshNotFound' | 'unknown'
 }
 ```
 
@@ -1411,7 +1411,7 @@ or
 
 ```typescript
 {
-  'format': 'gpg' | 'ssh' | 'x509' | 'openpgp',
+  'format': 'gpg' | 'openpgp' | 'ssh' | 'x509',
   'keyGenerated': boolean
 }
 ```
@@ -1431,7 +1431,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1446,7 +1446,7 @@ or
 {
   'duration': number,
   'failed.error': string,
-  'failed.reason': 'unknown' | 'git-error' | 'timeout'
+  'failed.reason': 'git-error' | 'timeout' | 'unknown'
 }
 ```
 
@@ -1465,7 +1465,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1491,9 +1491,9 @@ or
   'context.config.pullRequests.enabled': boolean,
   'context.mode': 'commit',
   'context.pinned': boolean,
-  'context.type': 'stash' | 'commit',
+  'context.type': 'commit' | 'stash',
   'context.uncommitted': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1505,7 +1505,7 @@ or
 ### extension/chunkLoad/failed
 
 > Sent when a lazily-loaded webpack chunk fails to load — typically because VS Code
-background-upgraded the extension while the host kept running the old build
+> background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
@@ -1532,7 +1532,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'command': 'rebase' | 'merge' | 'cherry-pick' | 'revert' | 'stash-apply' | 'stash-pop'
+  'command': 'cherry-pick' | 'merge' | 'rebase' | 'revert' | 'stash-apply' | 'stash-pop'
 }
 ```
 
@@ -1542,7 +1542,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'command': 'rebase' | 'merge' | 'cherry-pick' | 'revert' | 'stash-apply' | 'stash-pop'
+  'command': 'cherry-pick' | 'merge' | 'rebase' | 'revert' | 'stash-apply' | 'stash-pop'
 }
 ```
 
@@ -1587,7 +1587,7 @@ background-upgraded the extension while the host kept running the old build
   // Whether the repository uses a promisor remote; undefined when unreadable
   'repository.partial': boolean,
   // Repository reference-storage backend
-  'repository.refFormat': 'unknown' | 'files' | 'reftable',
+  'repository.refFormat': 'files' | 'reftable' | 'unknown',
   // Whether the local repository has an intentional shallow-history boundary; undefined when unreadable
   'repository.shallow': boolean,
   // Whether sparse checkout is enabled; undefined when config was unreadable
@@ -1633,9 +1633,9 @@ background-upgraded the extension while the host kept running the old build
   // Duration of the run in ms
   'duration': number,
   // Coarse duration bucket
-  'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
+  'duration.bucket': '1-5s' | '15-60s' | '5-15s' | '<1s' | '>60s',
   // The maintenance task that was invoked
-  'task': 'commit-graph' | 'loose-objects' | 'incremental-repack' | 'pack-refs'
+  'task': 'commit-graph' | 'incremental-repack' | 'loose-objects' | 'pack-refs'
 }
 ```
 
@@ -1648,9 +1648,9 @@ background-upgraded the extension while the host kept running the old build
   // Duration of the apply in ms
   'duration': number,
   // Coarse duration bucket
-  'duration.bucket': '<1s' | '1-5s' | '5-15s' | '15-60s' | '>60s',
+  'duration.bucket': '1-5s' | '15-60s' | '5-15s' | '<1s' | '>60s',
   // The config lever that was applied
-  'optimization': 'untrackedCache' | 'fsmonitor' | 'backgroundMaintenance' | 'manyFiles' | 'sparseIndex',
+  'optimization': 'backgroundMaintenance' | 'fsmonitor' | 'manyFiles' | 'sparseIndex' | 'untrackedCache',
   // Which tier applied it — `auto` is the silent daily pass, `ask` is user-initiated
   'tier': 'ask' | 'auto'
 }
@@ -1668,7 +1668,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1686,7 +1686,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1704,18 +1704,18 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Which kind of reference was landed on.
-  'kind': 'wip' | 'head' | 'remote' | 'tag',
+  'kind': 'head' | 'remote' | 'tag' | 'wip',
   // Whether the reference's commit had to be paged in first (the Enter-to-fetch path).
   'loaded': boolean,
   // Whether the query used `/` path segments (e.g. `d/f/foo`) rather than a plain substring.
   'segmented': boolean,
   // How the finder was opened — tells us whether the header button is carrying its own discovery.
-  'source': 'shortcut' | 'button',
+  'source': 'button' | 'shortcut',
   // Terms in the query, as a proxy for how much typing it took to converge. NOT the query itself.
   'terms': number
 }
@@ -1733,7 +1733,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1751,7 +1751,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1767,13 +1767,13 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'startReview' | 'startWork' | 'startAgentSession' | 'startAgentSessionWith' | 'refresh',
+  'action': 'refresh' | 'startAgentSession' | 'startAgentSessionWith' | 'startReview' | 'startWork',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1791,7 +1791,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1812,7 +1812,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1827,13 +1827,13 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal',
+  'action': 'openPlanFile' | 'openSession' | 'openTerminal' | 'resumeSession',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1851,12 +1851,12 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'layout': 'list' | 'tree',
-  'session.category': 'working' | 'needs-input' | 'idle' | 'ended',
+  'session.category': 'ended' | 'idle' | 'needs-input' | 'working',
   'session.hasPendingPermission': boolean,
   'session.phase': string,
   'session.sameRepo': boolean
@@ -1874,7 +1874,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1895,12 +1895,12 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // `undefined` when the connect empty state is not shown
-  'emptyState.reason': 'agents-undetected' | 'agents-unconnected',
+  'emptyState.reason': 'agents-unconnected' | 'agents-undetected',
   'emptyState.shown': boolean,
   // `undefined` when the agents feature is unavailable
   'hooks.agentsCount': number,
@@ -1926,7 +1926,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1941,19 +1941,19 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'merge' | 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'openWorktreeInNewWindow' | 'delete' | 'rename' | 'rebaseOntoBranch' | 'rebaseOntoUpstream' | 'reset' | 'publish' | 'setUpstream' | 'changeUpstream',
+  'action': 'changeUpstream' | 'compareWithHead' | 'compareWithWorking' | 'delete' | 'fetch' | 'merge' | 'openWorktree' | 'openWorktreeInNewWindow' | 'publish' | 'pull' | 'push' | 'rebaseOntoBranch' | 'rebaseOntoUpstream' | 'rename' | 'reset' | 'setUpstream' | 'switch',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
-  'location': 'inline' | 'contextMenu'
+  'location': 'contextMenu' | 'inline'
 }
 ```
 
@@ -1968,7 +1968,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1992,7 +1992,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2007,13 +2007,13 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'refresh' | 'switchToBranch' | 'createBranch',
+  'action': 'createBranch' | 'refresh' | 'switchToBranch',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2032,7 +2032,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2052,7 +2052,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2073,7 +2073,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2087,14 +2087,14 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'branchesVisibility.new': 'agents' | 'all' | 'smart' | 'current' | 'favorited',
-  'branchesVisibility.old': 'agents' | 'all' | 'smart' | 'current' | 'favorited',
+  'branchesVisibility.new': 'agents' | 'all' | 'current' | 'favorited' | 'smart',
+  'branchesVisibility.old': 'agents' | 'all' | 'current' | 'favorited' | 'smart',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2106,7 +2106,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2119,13 +2119,13 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'shown' | 'dismissed' | 'actioned',
+  'action': 'actioned' | 'dismissed' | 'shown',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2144,7 +2144,7 @@ background-upgraded the extension while the host kept running the old build
 {
   [`column.${string}.grouped`]: string | boolean,
   [`column.${string}.isHidden`]: boolean,
-  [`column.${string}.mode`]: 'compact' | 'numbers' | 'squares' | 'bar' | 'bipolar',
+  [`column.${string}.mode`]: 'bar' | 'bipolar' | 'compact' | 'numbers' | 'squares',
   [`column.${string}.order`]: number,
   [`column.${string}.width`]: number,
   'context.repository.closed': boolean,
@@ -2152,7 +2152,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2181,7 +2181,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2201,15 +2201,15 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Whether a prefilled GitHub issue was opened (bug reports only — opened even on a failed send).
   'issueOpened': boolean,
   // Whether the feedback record reached the GitKraken events intake.
-  'outcome': 'success' | 'failed',
-  'type': 'general' | 'feature_request' | 'bug_report'
+  'outcome': 'failed' | 'success',
+  'type': 'bug_report' | 'feature_request' | 'general'
 }
 ```
 
@@ -2224,7 +2224,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2248,7 +2248,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2266,14 +2266,14 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Count of suggested optimizations advertised
   'findings.suggested': number,
   // Which evidence family armed the banner
-  'reason': 'slowness' | 'large'
+  'reason': 'large' | 'slowness'
 }
 ```
 
@@ -2288,14 +2288,14 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Count of suggested optimizations advertised
   'findings.suggested': number,
   // Which evidence family armed the banner
-  'reason': 'slowness' | 'large'
+  'reason': 'large' | 'slowness'
 }
 ```
 
@@ -2310,14 +2310,14 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Count of suggested optimizations advertised
   'findings.suggested': number,
   // Which evidence family armed the banner
-  'reason': 'slowness' | 'large'
+  'reason': 'large' | 'slowness'
 }
 ```
 
@@ -2332,7 +2332,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2344,7 +2344,7 @@ background-upgraded the extension while the host kept running the old build
 ### graph/jump/failed
 
 > Sent when a Commit Graph jump (a ref pill, sidebar/overview select, search step, host-initiated
-reveal, …) settles without landing on its row and shows the jump-feedback toast
+> reveal, …) settles without landing on its row and shows the jump-feedback toast
 
 ```typescript
 {
@@ -2353,7 +2353,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2375,7 +2375,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2393,7 +2393,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2408,13 +2408,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'openSession' | 'resumeSession' | 'openPlanFile',
+  'action': 'openPlanFile' | 'openSession' | 'resumeSession',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2427,17 +2427,17 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'column': 'working' | 'needs-input' | 'idle' | 'inactive',
+  'column': 'idle' | 'inactive' | 'needs-input' | 'working',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'session.category': 'working' | 'needs-input' | 'idle' | 'ended',
+  'session.category': 'ended' | 'idle' | 'needs-input' | 'working',
   'session.hasPendingPermission': boolean,
   'session.phase': string,
   'session.sameRepo': boolean
@@ -2455,7 +2455,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2474,13 +2474,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 ```typescript
 {
   // `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks)
-  'choice': 'panel' | 'dismissed' | 'sidebar',
+  'choice': 'dismissed' | 'panel' | 'sidebar',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2498,7 +2498,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2518,13 +2518,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where on the card the action was invoked
-  'location': 'inline' | 'hover',
-  'name': 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'publishBranch' | 'compareWithPr' | 'openPrChanges' | 'openChanges' | 'other',
+  'location': 'hover' | 'inline',
+  'name': 'compareWithHead' | 'compareWithPr' | 'compareWithWorking' | 'fetch' | 'openChanges' | 'openPrChanges' | 'openWorktree' | 'other' | 'publishBranch' | 'pull' | 'push' | 'switch',
   // Which surface the hover was anchored on (always `overview` for `location: 'inline'`)
   'surface': 'overview' | 'wip-bar'
 }
@@ -2541,7 +2541,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2569,7 +2569,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2601,14 +2601,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Which surface the hover was anchored on
   'surface': 'overview' | 'wip-bar',
   // Type of external link clicked
-  'type': 'pullrequest' | 'issue' | 'autolink'
+  'type': 'autolink' | 'issue' | 'pullrequest'
 }
 ```
 
@@ -2623,12 +2623,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // New threshold value selected by the user
-  'threshold': 'OneDay' | 'OneWeek' | 'OneMonth'
+  'threshold': 'OneDay' | 'OneMonth' | 'OneWeek'
 }
 ```
 
@@ -2647,12 +2647,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Active Recent timeframe threshold at the time of show
-  'recentThreshold': 'OneDay' | 'OneWeek' | 'OneMonth'
+  'recentThreshold': 'OneDay' | 'OneMonth' | 'OneWeek'
 }
 ```
 
@@ -2669,7 +2669,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2691,7 +2691,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2704,7 +2704,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'switch' | 'openChanges' | 'openOnRemote' | 'openInWorktree' | 'openComparison' | 'openPullRequest' | 'copy' | 'copyUrl',
+  'action': 'copy' | 'copyUrl' | 'openChanges' | 'openComparison' | 'openInWorktree' | 'openOnRemote' | 'openPullRequest' | 'switch',
   // True when invoked via a chip's alt (Alt-click) variant — `openInWorktree` is `switch`'s alt and `copyUrl` is `openOnRemote`'s. `openInWorktree` also reports `alt: false`, as the primary chip when the head already has a worktree and as a context-menu entry.
   'alt': boolean,
   'context.repository.closed': boolean,
@@ -2712,12 +2712,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
-  'location': 'inline' | 'contextMenu'
+  'location': 'contextMenu' | 'inline'
 }
 ```
 
@@ -2732,7 +2732,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2753,7 +2753,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2773,12 +2773,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list
-  'emptyReason': 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unsupported',
+  'emptyReason': 'integration-disconnected' | 'no-remotes' | 'no-supported-remote' | 'unsupported',
   'pullRequests.count': number,
   // Number of drafts, which are listed but rarely the reason the panel was opened
   'pullRequests.draft.count': number,
@@ -2798,7 +2798,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2815,13 +2815,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'refresh' | 'addRemote',
+  'action': 'addRemote' | 'refresh',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2839,7 +2839,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2854,19 +2854,19 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration' | 'openBranchesOnRemote' | 'copyBranchesUrl' | 'prune' | 'remove' | 'setDefault' | 'unsetDefault',
+  'action': 'connectIntegration' | 'copyBranchesUrl' | 'copyUrl' | 'disconnectIntegration' | 'fetch' | 'openBranchesOnRemote' | 'openOnRemote' | 'prune' | 'remove' | 'setDefault' | 'unsetDefault',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
-  'location': 'inline' | 'contextMenu'
+  'location': 'contextMenu' | 'inline'
 }
 ```
 
@@ -2881,7 +2881,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2904,7 +2904,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2927,7 +2927,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2946,7 +2946,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2966,7 +2966,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2986,7 +2986,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2997,7 +2997,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the scope was reached through a worktree gesture (Scope to Worktree), rather than a plain branch, pull request, or stack focus
   'scope.isWorktree': boolean,
   // Where the user initiated the scope change
-  'source': 'sidebar' | 'popover' | 'overview-card' | 'wip-row'
+  'source': 'overview-card' | 'popover' | 'sidebar' | 'wip-row'
 }
 ```
 
@@ -3012,7 +3012,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3030,7 +3030,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3043,7 +3043,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'fallback.literal': boolean,
   'matches': number,
   // The AI-routed search intent for a natural-language search, when present
-  'nl.mode': 'highlight' | 'filter' | 'select',
+  'nl.mode': 'filter' | 'highlight' | 'select',
   // Count of counted relaxation offers shown for a zero-result NL search (0 = none survived probing)
   'nl.relaxations.offered': number,
   // Whether an NL-converted query git rejected went through the AI repair path
@@ -3058,7 +3058,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3078,39 +3078,39 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.config.allowMultiple': boolean,
   'context.config.autoFetch.enabled': boolean,
   'context.config.avatars': boolean,
-  'context.config.branchesVisibility': 'agents' | 'all' | 'smart' | 'current' | 'favorited',
+  'context.config.branchesVisibility': 'agents' | 'all' | 'current' | 'favorited' | 'smart',
   'context.config.changesColumn.enabled': boolean,
-  'context.config.changesColumn.mode': 'numbers' | 'squares' | 'bar' | 'bipolar',
-  'context.config.commitOrdering': 'date' | 'author-date' | 'topo',
+  'context.config.changesColumn.mode': 'bar' | 'bipolar' | 'numbers' | 'squares',
+  'context.config.commitOrdering': 'author-date' | 'date' | 'topo',
   'context.config.dateFormat': string,
   'context.config.dateStyle': 'absolute' | 'relative',
   'context.config.defaultItemLimit': number,
-  'context.config.details.location': 'auto' | 'right' | 'bottom',
+  'context.config.details.location': 'auto' | 'bottom' | 'right',
   'context.config.details.maximizeOnMode': boolean,
   'context.config.dimMergeCommits': boolean,
-  'context.config.doubleClickWorktreeAction': 'scope' | 'focus',
+  'context.config.doubleClickWorktreeAction': 'focus' | 'scope',
   'context.config.editorOpeningBehavior': 'active' | 'auto',
   'context.config.experimental.kanban.enabled': boolean,
-  'context.config.experimental.visualizations.activityDecay': '30s' | '1m' | '2m' | '5m' | '10m' | '30m',
+  'context.config.experimental.visualizations.activityDecay': '10m' | '1m' | '2m' | '30m' | '30s' | '5m',
   'context.config.experimental.visualizations.enabled': boolean,
   'context.config.followTerminal.allowRepositorySwitching': boolean,
   'context.config.followTerminal.enabled': boolean,
-  'context.config.initialRowSelection': 'wip' | 'head',
+  'context.config.initialRowSelection': 'head' | 'wip',
   'context.config.issues.enabled': boolean,
   'context.config.lanes.density': 'compact' | 'expanded',
-  'context.config.lanes.folding.default': 'none' | 'auto' | 'all',
+  'context.config.lanes.folding.default': 'all' | 'auto' | 'none',
   'context.config.lanes.folding.enabled': boolean,
   'context.config.lanes.grouped.max': number,
   'context.config.lanes.grouped.min': number,
   'context.config.layout': 'editor' | 'panel',
   'context.config.minimap.additionalTypes': string,
   'context.config.minimap.dataType': 'commits' | 'lines',
-  'context.config.minimap.defaultVisibility': 'hidden' | 'onSearch' | 'always',
+  'context.config.minimap.defaultVisibility': 'always' | 'hidden' | 'onSearch',
   'context.config.minimap.enabled': boolean,
   'context.config.minimap.reversed': boolean,
-  'context.config.multiselect': boolean | 'topological',
+  'context.config.multiselect': 'topological' | boolean,
   'context.config.onlyFollowFirstParent': boolean,
-  'context.config.overviewBar.visibility': 'worktrees' | 'always' | 'dirtyWorktrees' | 'never',
+  'context.config.overviewBar.visibility': 'always' | 'dirtyWorktrees' | 'never' | 'worktrees',
   'context.config.pageItemLimit': number,
   'context.config.pullRequests.enabled': boolean,
   'context.config.refFindAutoHide': boolean,
@@ -3141,7 +3141,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3161,7 +3161,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3179,7 +3179,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3199,7 +3199,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3215,13 +3215,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'refresh' | 'stashAll' | 'applyStash',
+  'action': 'applyStash' | 'refresh' | 'stashAll',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3239,7 +3239,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3253,7 +3253,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'delete' | 'rename' | 'apply',
+  'action': 'apply' | 'delete' | 'rename',
   // Reserved for parity with other panels' item actions — no stash inline action defines an alt variant yet, so always false today
   'alt': boolean,
   'context.repository.closed': boolean,
@@ -3261,12 +3261,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
-  'location': 'inline' | 'contextMenu'
+  'location': 'contextMenu' | 'inline'
 }
 ```
 
@@ -3281,7 +3281,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3301,7 +3301,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3317,13 +3317,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'refresh' | 'createTag',
+  'action': 'createTag' | 'refresh',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3341,7 +3341,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3361,7 +3361,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3378,7 +3378,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'push' | 'delete' | 'reset' | 'createBranch' | 'switchTo',
+  'action': 'createBranch' | 'delete' | 'push' | 'reset' | 'switchTo',
   // Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today
   'alt': boolean,
   'context.repository.closed': boolean,
@@ -3386,12 +3386,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
-  'location': 'inline' | 'contextMenu'
+  'location': 'contextMenu' | 'inline'
 }
 ```
 
@@ -3408,7 +3408,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3426,7 +3426,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3445,7 +3445,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3460,13 +3460,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'choose' | 'clear' | 'breadcrumb',
+  'action': 'breadcrumb' | 'choose' | 'clear',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3487,13 +3487,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'period': string,
   'scoped': boolean,
-  'sliceBy': 'branch' | 'author'
+  'sliceBy': 'author' | 'branch'
 }
 ```
 
@@ -3508,12 +3508,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'sliceBy.new': 'branch' | 'author',
-  'sliceBy.old': 'branch' | 'author'
+  'sliceBy.new': 'author' | 'branch',
+  'sliceBy.old': 'author' | 'branch'
 }
 ```
 
@@ -3528,7 +3528,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3543,17 +3543,17 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'open' | 'history',
+  'action': 'history' | 'open',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode': 'commits' | 'files' | 'activity',
+  'mode': 'activity' | 'commits' | 'files',
   // Only set in `activity` mode — whether the click also focused an agent session that touched the file
   'session.focused': boolean
 }
@@ -3570,7 +3570,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3590,12 +3590,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'files.count': number,
-  'mode': 'commits' | 'files' | 'activity',
+  'mode': 'activity' | 'commits' | 'files',
   // Only set in `commits` mode — the other modes have no period axis
   'period': string
 }
@@ -3612,14 +3612,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Folder depth of the zoom target; 0 = back at the root
   'depth': number,
   'direction': 'in' | 'out',
-  'mode': 'commits' | 'files' | 'activity'
+  'mode': 'activity' | 'commits' | 'files'
 }
 ```
 
@@ -3634,15 +3634,15 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'error.message': string,
   'files.count': number,
-  'mode': 'diff' | 'comparePrevious' | 'multiDiff',
+  'mode': 'comparePrevious' | 'diff' | 'multiDiff',
   // Best-effort categorization of the failure
-  'reason': 'unknown' | 'provider-missing' | 'parent-missing'
+  'reason': 'parent-missing' | 'provider-missing' | 'unknown'
 }
 ```
 
@@ -3657,14 +3657,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Number of files being opened (1 for single-file modes, N for multiDiff)
   'files.count': number,
   // Which open operation the user triggered
-  'mode': 'diff' | 'comparePrevious' | 'multiDiff'
+  'mode': 'comparePrevious' | 'diff' | 'multiDiff'
 }
 ```
 
@@ -3679,11 +3679,11 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health'
+  'mode': 'health' | 'timeline' | 'treemap-activity' | 'treemap-commits' | 'treemap-files'
 }
 ```
 
@@ -3698,14 +3698,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode.new': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health',
-  'mode.old': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity' | 'health',
+  'mode.new': 'health' | 'timeline' | 'treemap-activity' | 'treemap-commits' | 'treemap-files',
+  'mode.old': 'health' | 'timeline' | 'treemap-activity' | 'treemap-commits' | 'treemap-files',
   // `fallback` when a virtual repo forced Commits → Files on mount (not a user action)
-  'reason': 'user' | 'fallback'
+  'reason': 'fallback' | 'user'
 }
 ```
 
@@ -3716,13 +3716,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 ```typescript
 {
   // Which action was triggered
-  'action': 'startReview' | 'startWork' | 'createPullRequest' | 'fetch' | 'pull' | 'push' | 'createBranch' | 'publishBranch' | 'applyStash' | 'forcePush' | 'switchBranch' | 'createPullRequestWithAI' | 'rebaseOntoMergeTarget' | 'mergeMergeTarget' | 'shareAsCloudPatch' | 'copyPatch' | 'stashSave' | 'stashSaveStaged' | 'stashSaveFiles' | 'createWorktree',
+  'action': 'applyStash' | 'copyPatch' | 'createBranch' | 'createPullRequest' | 'createPullRequestWithAI' | 'createWorktree' | 'fetch' | 'forcePush' | 'mergeMergeTarget' | 'publishBranch' | 'pull' | 'push' | 'rebaseOntoMergeTarget' | 'shareAsCloudPatch' | 'startReview' | 'startWork' | 'stashSave' | 'stashSaveFiles' | 'stashSaveStaged' | 'switchBranch',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3740,7 +3740,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3762,7 +3762,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3786,7 +3786,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3800,7 +3800,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'hasStagedFiles': boolean,
   // Length of the commit message (characters, not content)
   'message.length': number,
-  'reason': 'unknown' | 'hookRejected' | 'signingFailed' | 'nothingToCommit' | 'conflicts' | 'identityMissing',
+  'reason': 'conflicts' | 'hookRejected' | 'identityMissing' | 'nothingToCommit' | 'signingFailed' | 'unknown',
   // Whether the `git.enableSmartCommit` preference was on at commit time
   'smartCommit': boolean
 }
@@ -3821,7 +3821,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3849,7 +3849,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3871,7 +3871,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3882,7 +3882,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether there was prior text
   'hasExistingMessage': boolean,
   // Why the generation failed: 'error' = RPC/AI threw, 'empty' = AI returned an empty message
-  'reason': 'error' | 'empty'
+  'reason': 'empty' | 'error'
 }
 ```
 
@@ -3899,7 +3899,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3929,7 +3929,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3953,14 +3953,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Number of files affected (available for file/files scope)
   'files.count': number,
   // Whether a single file, multi-select, discard-all-staged, or discard-all-unstaged
-  'scope': 'files' | 'file' | 'staged' | 'unstaged'
+  'scope': 'file' | 'files' | 'staged' | 'unstaged'
 }
 ```
 
@@ -3975,12 +3975,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Which staging operation failed
-  'operation': 'stash' | 'stage' | 'unstage' | 'discard' | 'resolveConflict',
+  'operation': 'discard' | 'resolveConflict' | 'stage' | 'stash' | 'unstage',
   // Scope of the failed operation
   'scope': string
 }
@@ -3997,7 +3997,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4019,7 +4019,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4028,7 +4028,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the repo has conflicts at the time (stage-all prompts about conflict markers)
   'hasConflicts': boolean,
   // Whether a single file, multi-select batch, or stage-all
-  'scope': 'files' | 'all' | 'file'
+  'scope': 'all' | 'file' | 'files'
 }
 ```
 
@@ -4043,14 +4043,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Number of files being stashed
   'files.count': number,
   // Whether a single file or multi-select batch
-  'scope': 'files' | 'file'
+  'scope': 'file' | 'files'
 }
 ```
 
@@ -4065,14 +4065,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Number of files being unstaged
   'files.count': number,
   // Whether a single file, multi-select batch, or unstage-all
-  'scope': 'files' | 'all' | 'file'
+  'scope': 'all' | 'file' | 'files'
 }
 ```
 
@@ -4087,7 +4087,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4103,13 +4103,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'refresh' | 'createWorktree',
+  'action': 'createWorktree' | 'refresh',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4127,7 +4127,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4147,7 +4147,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4162,19 +4162,19 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 
 ```typescript
 {
-  'action': 'fetch' | 'pull' | 'push' | 'openWorktree' | 'openWorktreeInNewWindow' | 'delete' | 'rename' | 'rebaseOntoUpstream' | 'reset' | 'publish' | 'setUpstream' | 'changeUpstream' | 'revealInExplorer' | 'openInTerminal' | 'copyWorkingChanges' | 'scopeToWorktree',
+  'action': 'changeUpstream' | 'copyWorkingChanges' | 'delete' | 'fetch' | 'openInTerminal' | 'openWorktree' | 'openWorktreeInNewWindow' | 'publish' | 'pull' | 'push' | 'rebaseOntoUpstream' | 'rename' | 'reset' | 'revealInExplorer' | 'scopeToWorktree' | 'setUpstream',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
-  'location': 'inline' | 'contextMenu'
+  'location': 'contextMenu' | 'inline'
 }
 ```
 
@@ -4189,7 +4189,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4209,7 +4209,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // How long the panel was open in milliseconds
   'duration': number,
   // Active panel mode at time of close
-  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve'
+  'mode': 'commit' | 'compare' | 'compose' | 'multicommit' | 'none' | 'resolve' | 'review' | 'wip'
 }
 ```
 
@@ -4224,7 +4224,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4246,7 +4246,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4268,7 +4268,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4290,7 +4290,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4298,9 +4298,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'hasCustomPrompt': boolean,
   'includeWorkingTree': boolean,
   // Active tab driving the diff direction (branch-compare only; undefined otherwise)
-  'tab': 'all' | 'ahead' | 'behind',
+  'tab': 'ahead' | 'all' | 'behind',
   // Single-commit/range compare vs branch-compare tabs
-  'variant': 'compare' | 'branchCompare'
+  'variant': 'branchCompare' | 'compare'
 }
 ```
 
@@ -4315,7 +4315,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4323,9 +4323,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'hasCustomPrompt': boolean,
   'includeWorkingTree': boolean,
   // Active tab driving the diff direction (branch-compare only; undefined otherwise)
-  'tab': 'all' | 'ahead' | 'behind',
+  'tab': 'ahead' | 'all' | 'behind',
   // Single-commit/range compare vs branch-compare tabs
-  'variant': 'compare' | 'branchCompare'
+  'variant': 'branchCompare' | 'compare'
 }
 ```
 
@@ -4340,7 +4340,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4348,9 +4348,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'hasCustomPrompt': boolean,
   'includeWorkingTree': boolean,
   // Active tab driving the diff direction (branch-compare only; undefined otherwise)
-  'tab': 'all' | 'ahead' | 'behind',
+  'tab': 'ahead' | 'all' | 'behind',
   // Single-commit/range compare vs branch-compare tabs
-  'variant': 'compare' | 'branchCompare'
+  'variant': 'branchCompare' | 'compare'
 }
 ```
 
@@ -4365,13 +4365,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'includeWorkingTree': boolean,
-  'tab': 'all' | 'ahead' | 'behind',
-  'variant': 'compare' | 'branchCompare'
+  'tab': 'ahead' | 'all' | 'behind',
+  'variant': 'branchCompare' | 'compare'
 }
 ```
 
@@ -4386,12 +4386,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'includeWorkingTree': boolean,
-  'tab': 'all' | 'ahead' | 'behind'
+  'tab': 'ahead' | 'all' | 'behind'
 }
 ```
 
@@ -4408,14 +4408,14 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Type of the newly picked ref (e.g. branch/tag/revision); undefined when cancelled
   'refType': string,
   // Which side's ref the user changed (left = Base, right = Compare)
-  'side': 'right' | 'left'
+  'side': 'left' | 'right'
 }
 ```
 
@@ -4434,12 +4434,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'tab.new': 'all' | 'ahead' | 'behind',
-  'tab.old': 'all' | 'ahead' | 'behind'
+  'tab.new': 'ahead' | 'all' | 'behind',
+  'tab.old': 'ahead' | 'all' | 'behind'
 }
 ```
 
@@ -4458,7 +4458,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4486,7 +4486,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4524,7 +4524,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4542,7 +4542,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4564,7 +4564,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4585,9 +4585,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
   // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
+  'scope.kind': 'commits-only' | 'wip+commits' | 'wip-only',
   // Scope type at the time of the event
-  'scope.type': 'wip' | 'commit' | 'compare'
+  'scope.type': 'commit' | 'compare' | 'wip'
 }
 ```
 
@@ -4606,7 +4606,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4635,9 +4635,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
   // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
+  'scope.kind': 'commits-only' | 'wip+commits' | 'wip-only',
   // Scope type at the time of the event
-  'scope.type': 'wip' | 'commit' | 'compare'
+  'scope.type': 'commit' | 'compare' | 'wip'
 }
 ```
 
@@ -4656,7 +4656,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4681,9 +4681,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
   // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
+  'scope.kind': 'commits-only' | 'wip+commits' | 'wip-only',
   // Scope type at the time of the event
-  'scope.type': 'wip' | 'commit' | 'compare'
+  'scope.type': 'commit' | 'compare' | 'wip'
 }
 ```
 
@@ -4698,7 +4698,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4720,7 +4720,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4742,7 +4742,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4760,7 +4760,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4780,7 +4780,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4804,7 +4804,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4826,7 +4826,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4850,7 +4850,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4864,13 +4864,13 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 ```typescript
 {
   // Which file open/diff operation was triggered
-  'action': 'openOnRemote' | 'open' | 'comparePrevious' | 'multiDiff' | 'compareWorking' | 'compareWip' | 'compareBetween' | 'defaultAction',
+  'action': 'compareBetween' | 'comparePrevious' | 'compareWip' | 'compareWorking' | 'defaultAction' | 'multiDiff' | 'open' | 'openOnRemote',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4890,12 +4890,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode.new': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve',
-  'mode.old': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve'
+  'mode.new': 'commit' | 'compare' | 'compose' | 'multicommit' | 'none' | 'resolve' | 'review' | 'wip',
+  'mode.old': 'commit' | 'compare' | 'compose' | 'multicommit' | 'none' | 'resolve' | 'review' | 'wip'
 }
 ```
 
@@ -4907,7 +4907,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 {
   'duration': number,
   'failed.error': string,
-  'failed.reason': 'unknown' | 'git-error' | 'timeout'
+  'failed.reason': 'git-error' | 'timeout' | 'unknown'
 }
 ```
 
@@ -4935,7 +4935,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4964,7 +4964,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5005,7 +5005,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5023,7 +5023,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5041,7 +5041,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5068,7 +5068,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5086,7 +5086,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'retryFile.count': number,
   'retryFromError.count': number,
   // How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve.
-  'run.kind': 'start' | 'refine' | 'retry'
+  'run.kind': 'refine' | 'retry' | 'start'
 }
 ```
 
@@ -5105,7 +5105,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5139,7 +5139,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'retryFile.count': number,
   'retryFromError.count': number,
   // How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve.
-  'run.kind': 'start' | 'refine' | 'retry',
+  'run.kind': 'refine' | 'retry' | 'start',
   // Repo-consultation tool calls summed over the run
   'tools.calls.count': number,
   // Resolver steps summed over the run — one model round-trip each, mirroring `autoRebase/step/resolved` so both paths are comparable
@@ -5162,7 +5162,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5182,7 +5182,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'retryFile.count': number,
   'retryFromError.count': number,
   // How the run was dispatched. `refine` above is `run.kind !== 'start'`; this splits the two non-cold cases, so a retry-after-error is no longer indistinguishable from a fresh resolve.
-  'run.kind': 'start' | 'refine' | 'retry'
+  'run.kind': 'refine' | 'retry' | 'start'
 }
 ```
 
@@ -5197,7 +5197,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5219,7 +5219,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5252,7 +5252,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5293,7 +5293,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5311,7 +5311,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5329,12 +5329,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Whether the action targeted the whole review, a focus area, or a single finding
-  'granularity': 'review' | 'focusArea' | 'finding'
+  'granularity': 'finding' | 'focusArea' | 'review'
 }
 ```
 
@@ -5349,7 +5349,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5371,7 +5371,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5399,7 +5399,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5424,7 +5424,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5443,9 +5443,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
   // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
+  'scope.kind': 'commits-only' | 'wip+commits' | 'wip-only',
   // Scope type at the time of the event
-  'scope.type': 'wip' | 'commit' | 'compare'
+  'scope.type': 'commit' | 'compare' | 'wip'
 }
 ```
 
@@ -5464,7 +5464,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5492,9 +5492,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
   // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
+  'scope.kind': 'commits-only' | 'wip+commits' | 'wip-only',
   // Scope type at the time of the event
-  'scope.type': 'wip' | 'commit' | 'compare'
+  'scope.type': 'commit' | 'compare' | 'wip'
 }
 ```
 
@@ -5513,7 +5513,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5534,9 +5534,9 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
   // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
+  'scope.kind': 'commits-only' | 'wip+commits' | 'wip-only',
   // Scope type at the time of the event
-  'scope.type': 'wip' | 'commit' | 'compare'
+  'scope.type': 'commit' | 'compare' | 'wip'
 }
 ```
 
@@ -5551,7 +5551,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5569,7 +5569,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5587,12 +5587,12 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Whether the action targeted the whole review, a focus area, or a single finding
-  'granularity': 'review' | 'focusArea' | 'finding'
+  'granularity': 'finding' | 'focusArea' | 'review'
 }
 ```
 
@@ -5603,11 +5603,11 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
 ```typescript
 {
   // Which graph host the panel is in: an editor tab, or the side bar or bottom panel view
-  'host': 'view' | 'editor',
+  'host': 'editor' | 'view',
   // Where the details panel is anchored relative to the graph
-  'location': 'right' | 'bottom',
+  'location': 'bottom' | 'right',
   // Active panel mode at time of show
-  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve',
+  'mode': 'commit' | 'compare' | 'compose' | 'multicommit' | 'none' | 'resolve' | 'review' | 'wip',
   // Split-pane position percentage from the closed edge (0–100)
   'position': number,
   // Number of rows currently selected in the graph (0, 1, or N)
@@ -5615,7 +5615,7 @@ reveal, …) settles without landing on its row and shows the jump-feedback toas
   // Whether the active selection is the WIP / uncommitted row
   'selection.uncommitted': boolean,
   // What caused the panel to be shown
-  'trigger': 'toggle' | 'placement' | 'request-compare' | 'request-mode' | 'request-agents' | 'request-graph-wip-bar' | 'auto-restore'
+  'trigger': 'auto-restore' | 'placement' | 'request-agents' | 'request-compare' | 'request-graph-wip-bar' | 'request-mode' | 'toggle'
 }
 ```
 
@@ -5635,7 +5635,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'soft-open' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'start-review' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze',
+  'action': 'merge' | 'open' | 'open-changes' | 'open-in-graph' | 'open-worktree' | 'pin' | 'show-overview' | 'snooze' | 'soft-open' | 'start-review' | 'switch' | 'unpin' | 'unsnooze',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -5674,7 +5674,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'agent.resolution': 'manual' | 'cancel',
+  'agent.resolution': 'cancel' | 'manual',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -5711,7 +5711,7 @@ or
   'instance': number,
   'items.error': string,
   'agent.id': string,
-  'agent.kind': 'ide-chat' | 'claude-extension' | 'cli',
+  'agent.kind': 'claude-extension' | 'cli' | 'ide-chat',
   'agent.resolution': 'agent',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
@@ -5754,7 +5754,7 @@ or
   'config.launchpad.indicator.enabled': boolean,
   'config.launchpad.indicator.groups': string,
   'config.launchpad.indicator.icon': 'default' | 'group',
-  'config.launchpad.indicator.label': false | 'item' | 'counts',
+  'config.launchpad.indicator.label': 'counts' | 'item' | false,
   'config.launchpad.indicator.polling.enabled': boolean,
   'config.launchpad.indicator.polling.interval': number,
   'config.launchpad.indicator.useColors': boolean,
@@ -5771,7 +5771,7 @@ or
   'instance': number,
   'items.error': string,
   'collapsed': boolean,
-  'group': 'other' | 'pinned' | 'current-branch' | 'mergeable' | 'blocked' | 'follow-up' | 'needs-review' | 'waiting-for-review' | 'draft' | 'snoozed',
+  'group': 'blocked' | 'current-branch' | 'draft' | 'follow-up' | 'mergeable' | 'needs-review' | 'other' | 'pinned' | 'snoozed' | 'waiting-for-review',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -5874,7 +5874,7 @@ void
 ```typescript
 {
   'duration': number,
-  'operation': 'getPullRequest' | 'searchPullRequests' | 'getMyPullRequests' | 'getEnrichedItems',
+  'operation': 'getEnrichedItems' | 'getMyPullRequests' | 'getPullRequest' | 'searchPullRequests',
   'timeout': number
 }
 ```
@@ -6002,7 +6002,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'settings' | 'connect' | 'refresh' | 'feedback' | 'open-on-gkdev',
+  'action': 'connect' | 'feedback' | 'open-on-gkdev' | 'refresh' | 'settings',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -6039,7 +6039,7 @@ void
 ```typescript
 {
   'agent.id': string,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6053,7 +6053,7 @@ void
   'cli.version': string,
   'error.message': string,
   'reason': string,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6068,7 +6068,7 @@ void
   'agents.userAction': string,
   'cli.version': string,
   'requiresUserCompletion': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6082,7 +6082,7 @@ void
   'cli.version': string,
   'error.message': string,
   'reason': string,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6092,7 +6092,7 @@ void
 
 ```typescript
 {
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome' | 'rebaseEditor' | 'agents' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'terminal' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'agents' | 'ai' | 'ai:markdown-editor' | 'ai:markdown-preview' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'patchDetails' | 'prompt' | 'quick-wizard' | 'rebaseEditor' | 'remoteProvider' | 'scm' | 'scm-input' | 'settings' | 'startReview' | 'startWork' | 'statusbar:hover' | 'subscription' | 'terminal' | 'timeline' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'welcome' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6103,7 +6103,7 @@ void
   'key': string,
   'prop': string,
   // Whether this is just a warning or the gate was forcibly cleared
-  'status': 'warning' | 'aborted',
+  'status': 'aborted' | 'warning',
   'timeout': number
 }
 ```
@@ -6114,7 +6114,7 @@ void
 {
   'duration': number,
   'operation': string,
-  'reason': 'unknown' | 'timeout' | 'cancellation',
+  'reason': 'cancellation' | 'timeout' | 'unknown',
   'timeout': number
 }
 ```
@@ -6142,7 +6142,7 @@ void
   // Configured max concurrent processes
   'maxConcurrent': number,
   // Priority level of the command that waited
-  'priority': 'interactive' | 'normal' | 'background',
+  'priority': 'background' | 'interactive' | 'normal',
   // Number of background commands queued
   'queued.background': number,
   // Number of interactive commands queued
@@ -6159,7 +6159,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6170,7 +6170,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6184,7 +6184,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6220,7 +6220,7 @@ void
 
 ```typescript
 {
-  'config.git.autoRepositoryDetection': boolean | 'subFolders' | 'openEditors'
+  'config.git.autoRepositoryDetection': 'openEditors' | 'subFolders' | boolean
 }
 ```
 
@@ -6229,7 +6229,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6240,7 +6240,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6254,7 +6254,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6278,7 +6278,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6299,7 +6299,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6320,7 +6320,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6341,7 +6341,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6366,7 +6366,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6388,7 +6388,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6419,7 +6419,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6446,7 +6446,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6467,7 +6467,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6488,14 +6488,14 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   // Where the ref is being revealed
-  'location': 'graph' | 'commitDetails',
+  'location': 'commitDetails' | 'graph',
   // Type of ref being revealed
-  'ref.type': 'commit' | 'branch'
+  'ref.type': 'branch' | 'commit'
 }
 ```
 
@@ -6513,7 +6513,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6534,7 +6534,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6559,7 +6559,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6581,7 +6581,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6603,7 +6603,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6625,7 +6625,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6646,7 +6646,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6673,7 +6673,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6682,7 +6682,7 @@ void
   // Duration of conflict detection in milliseconds
   'duration': number,
   // Result status
-  'status': 'conflicts' | 'clean'
+  'status': 'clean' | 'conflicts'
 }
 ```
 
@@ -6700,7 +6700,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6723,7 +6723,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6750,7 +6750,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6773,7 +6773,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6791,9 +6791,9 @@ void
 ```typescript
 {
   'context.ascending': boolean,
-  'context.config.density': 'compact' | 'comfortable',
+  'context.config.density': 'comfortable' | 'compact',
   'context.config.openBehavior': 'auto' | 'beside',
-  'context.config.openOnPausedRebase': boolean | 'auto' | 'interactive',
+  'context.config.openOnPausedRebase': 'auto' | 'interactive' | boolean,
   'context.config.ordering': 'asc' | 'desc',
   'context.config.revealBehavior': 'onDoubleClick' | 'onSelection',
   'context.config.revealLocation': 'graph' | 'inspect',
@@ -6804,7 +6804,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6856,7 +6856,7 @@ void
 
 ```typescript
 {
-  'repositories.visibility': 'private' | 'public' | 'local' | 'mixed'
+  'repositories.visibility': 'local' | 'mixed' | 'private' | 'public'
 }
 ```
 
@@ -6898,7 +6898,7 @@ void
   'repository.id': string,
   'repository.provider.id': string,
   'repository.scheme': string,
-  'repository.visibility': 'private' | 'public' | 'local'
+  'repository.visibility': 'local' | 'private' | 'public'
 }
 ```
 
@@ -6907,7 +6907,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6918,7 +6918,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6932,7 +6932,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6948,10 +6948,10 @@ void
 ```typescript
 {
   'instance': number,
-  'action': 'manage' | 'connect',
+  'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -6963,10 +6963,10 @@ void
 ```typescript
 {
   'instance': number,
-  'agent.resolution': 'manual' | 'cancel',
+  'agent.resolution': 'cancel' | 'manual',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -6977,11 +6977,11 @@ or
 {
   'instance': number,
   'agent.id': string,
-  'agent.kind': 'ide-chat' | 'claude-extension' | 'cli',
+  'agent.kind': 'claude-extension' | 'cli' | 'ide-chat',
   'agent.resolution': 'agent',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -6994,7 +6994,7 @@ or
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
 }
 ```
 
@@ -7007,7 +7007,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7022,7 +7022,7 @@ or
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7037,7 +7037,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7052,7 +7052,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7066,7 +7066,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7081,7 +7081,7 @@ or
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7093,10 +7093,10 @@ or
 ```typescript
 {
   'instance': number,
-  'action': 'manage' | 'connect',
+  'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7108,10 +7108,10 @@ or
 ```typescript
 {
   'instance': number,
-  'agent.resolution': 'manual' | 'cancel',
+  'agent.resolution': 'cancel' | 'manual',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7122,11 +7122,11 @@ or
 {
   'instance': number,
   'agent.id': string,
-  'agent.kind': 'ide-chat' | 'claude-extension' | 'cli',
+  'agent.kind': 'claude-extension' | 'cli' | 'ide-chat',
   'agent.resolution': 'agent',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7141,7 +7141,7 @@ or
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7156,7 +7156,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7170,7 +7170,7 @@ or
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
 }
 ```
 
@@ -7183,7 +7183,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7197,7 +7197,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7211,7 +7211,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7226,7 +7226,7 @@ or
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'ask' | 'manual' | 'agent',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
   'items.count': number
 }
 ```
@@ -7243,7 +7243,7 @@ or
   'subscription.actual.bundle': boolean,
   'subscription.actual.cancelled': boolean,
   'subscription.actual.expiresOn': string,
-  'subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.actual.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'subscription.actual.nextTrialOptInDate': string,
   'subscription.actual.organizationId': string,
   'subscription.actual.startedOn': string,
@@ -7251,7 +7251,7 @@ or
   'subscription.effective.bundle': boolean,
   'subscription.effective.cancelled': boolean,
   'subscription.effective.expiresOn': string,
-  'subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.effective.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'subscription.effective.nextTrialOptInDate': string,
   'subscription.effective.organizationId': string,
   'subscription.effective.startedOn': string,
@@ -7259,13 +7259,13 @@ or
   'subscription.featurePreviews.graph.day': number,
   [`subscription.featurePreviews.graph.day.${number}.startedOn`]: string,
   'subscription.featurePreviews.graph.startedOn': string,
-  'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
+  'subscription.featurePreviews.graph.status': 'active' | 'eligible' | 'expired',
   // Promo discount code associated with the upgrade
   'subscription.promo.code': string,
   // Promo key (identifier) associated with the upgrade
   'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'subscription.stateString': 'verification' | 'free' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
+  'subscription.stateString': 'free' | 'paid' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'unknown' | 'verification'
 }
 ```
 
@@ -7275,7 +7275,7 @@ or
 
 ```typescript
 {
-  'action': 'manage' | 'sign-up' | 'sign-in' | 'sign-out' | 'manage-subscription' | 'reactivate' | 'refer-friend' | 'resend-verification' | 'pricing' | 'start-preview-trial'
+  'action': 'manage' | 'manage-subscription' | 'pricing' | 'reactivate' | 'refer-friend' | 'resend-verification' | 'sign-in' | 'sign-out' | 'sign-up' | 'start-preview-trial'
 }
 ```
 
@@ -7309,7 +7309,7 @@ or
   // One-time out-of-window trial reset, attempted from Graph state builds; `failed` may repeat within a session (retries), paid accounts emit no event
   'action': 'auto-reset-trial',
   // `refused` = the reset 409'd an account the eligibility check approved (e.g. paid-org members); `failed-shape` = the eligibility payload no longer matches what the client reads
-  'outcome': 'reset' | 'failed' | 'not-eligible' | 'refused' | 'failed-shape'
+  'outcome': 'failed' | 'failed-shape' | 'not-eligible' | 'refused' | 'reset'
 }
 ```
 
@@ -7322,7 +7322,7 @@ or
   [`day.${number}.startedOn`]: string,
   'feature': 'graph',
   'startedOn': string,
-  'status': 'eligible' | 'active' | 'expired'
+  'status': 'active' | 'eligible' | 'expired'
 }
 ```
 
@@ -7341,7 +7341,7 @@ or
   'previous.subscription.actual.bundle': boolean,
   'previous.subscription.actual.cancelled': boolean,
   'previous.subscription.actual.expiresOn': string,
-  'previous.subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'previous.subscription.actual.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'previous.subscription.actual.nextTrialOptInDate': string,
   'previous.subscription.actual.organizationId': string,
   'previous.subscription.actual.startedOn': string,
@@ -7349,7 +7349,7 @@ or
   'previous.subscription.effective.bundle': boolean,
   'previous.subscription.effective.cancelled': boolean,
   'previous.subscription.effective.expiresOn': string,
-  'previous.subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'previous.subscription.effective.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'previous.subscription.effective.nextTrialOptInDate': string,
   'previous.subscription.effective.organizationId': string,
   'previous.subscription.effective.startedOn': string,
@@ -7357,7 +7357,7 @@ or
   'subscription.actual.bundle': boolean,
   'subscription.actual.cancelled': boolean,
   'subscription.actual.expiresOn': string,
-  'subscription.actual.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.actual.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'subscription.actual.nextTrialOptInDate': string,
   'subscription.actual.organizationId': string,
   'subscription.actual.startedOn': string,
@@ -7365,7 +7365,7 @@ or
   'subscription.effective.bundle': boolean,
   'subscription.effective.cancelled': boolean,
   'subscription.effective.expiresOn': string,
-  'subscription.effective.id': 'community' | 'community-with-account' | 'student' | 'pro' | 'advanced' | 'teams' | 'enterprise',
+  'subscription.effective.id': 'advanced' | 'community' | 'community-with-account' | 'enterprise' | 'pro' | 'student' | 'teams',
   'subscription.effective.nextTrialOptInDate': string,
   'subscription.effective.organizationId': string,
   'subscription.effective.startedOn': string,
@@ -7373,13 +7373,13 @@ or
   'subscription.featurePreviews.graph.day': number,
   [`subscription.featurePreviews.graph.day.${number}.startedOn`]: string,
   'subscription.featurePreviews.graph.startedOn': string,
-  'subscription.featurePreviews.graph.status': 'eligible' | 'active' | 'expired',
+  'subscription.featurePreviews.graph.status': 'active' | 'eligible' | 'expired',
   // Promo discount code associated with the upgrade
   'subscription.promo.code': string,
   // Promo key (identifier) associated with the upgrade
   'subscription.promo.key': string,
   'subscription.state': -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6,
-  'subscription.stateString': 'verification' | 'free' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'paid' | 'unknown'
+  'subscription.stateString': 'free' | 'paid' | 'trial' | 'trial-expired' | 'trial-reactivation-eligible' | 'unknown' | 'verification'
 }
 ```
 
@@ -7394,8 +7394,8 @@ or
   'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
-  'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7410,7 +7410,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7428,8 +7428,8 @@ or
   'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
-  'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7447,14 +7447,14 @@ or
   'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
-  'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'period': 'all' | `${number}|D` | `${number}|M` | `${number}|Y`,
   'showAllBranches': boolean,
-  'sliceBy': 'branch' | 'author'
+  'sliceBy': 'author' | 'branch'
 }
 ```
 
@@ -7469,8 +7469,8 @@ or
   'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
-  'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7488,8 +7488,8 @@ or
   'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
-  'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7500,7 +7500,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7523,8 +7523,8 @@ or
   'context.scope.hasHead': boolean,
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
-  'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.sliceBy': 'author' | 'branch',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7550,7 +7550,7 @@ or
 
 ```typescript
 {
-  'step': 'welcome-in-trial' | 'welcome-paid' | 'welcome-in-trial-expired-eligible' | 'welcome-in-trial-expired' | 'get-started-community' | 'visualize-code-history' | 'accelerate-pr-reviews' | 'improve-workflows-with-integrations',
+  'step': 'accelerate-pr-reviews' | 'get-started-community' | 'improve-workflows-with-integrations' | 'visualize-code-history' | 'welcome-in-trial' | 'welcome-in-trial-expired' | 'welcome-in-trial-expired-eligible' | 'welcome-paid',
   'usingFallbackUrl': boolean
 }
 ```
@@ -7563,7 +7563,7 @@ or
 {
   'command': string,
   'detail': string,
-  'name': 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/help-center/ai-features' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/interactive-code-history' | 'open/help-center/community-vs-pro' | 'open/devex-platform' | 'open/drafts' | 'connect/integrations' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'create/worktree' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'open/walkthrough' | 'open/inspect' | 'switch/ai-model',
+  'name': 'connect/integrations' | 'create/worktree' | 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/composer' | 'open/devex-platform' | 'open/drafts' | 'open/graph' | 'open/help-center' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/ai-features' | 'open/help-center/community-vs-pro' | 'open/help-center/interactive-code-history' | 'open/inspect' | 'open/launchpad' | 'open/walkthrough' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'switch/ai-model',
   'type': 'command'
 }
 ```
@@ -7573,7 +7573,7 @@ or
 ```typescript
 {
   'detail': string,
-  'name': 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/help-center/ai-features' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/interactive-code-history' | 'open/help-center/community-vs-pro' | 'open/devex-platform' | 'open/drafts' | 'connect/integrations' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'create/worktree' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'open/walkthrough' | 'open/inspect' | 'switch/ai-model',
+  'name': 'connect/integrations' | 'create/worktree' | 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/composer' | 'open/devex-platform' | 'open/drafts' | 'open/graph' | 'open/help-center' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/ai-features' | 'open/help-center/community-vs-pro' | 'open/help-center/interactive-code-history' | 'open/inspect' | 'open/launchpad' | 'open/walkthrough' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'switch/ai-model',
   'type': 'url',
   'url': string
 }
@@ -7583,7 +7583,7 @@ or
 
 ```typescript
 {
-  'context.key': 'gettingStarted' | 'visualizeCodeHistory' | 'gitBlame' | 'prReviews' | 'kepler' | 'mcpFeatures' | 'aiFeatures' | 'graphAgentMonitoring' | 'graphParallelWork' | 'graphAiReview' | 'graphCompose' | 'graphCompare' | 'graphNextSteps'
+  'context.key': 'aiFeatures' | 'gettingStarted' | 'gitBlame' | 'graphAgentMonitoring' | 'graphAiReview' | 'graphCompare' | 'graphCompose' | 'graphNextSteps' | 'graphParallelWork' | 'kepler' | 'mcpFeatures' | 'prReviews' | 'visualizeCodeHistory'
 }
 ```
 
@@ -7593,7 +7593,7 @@ or
 
 ```typescript
 {
-  'name': 'shown' | 'dismiss',
+  'name': 'dismiss' | 'shown',
   'proButtonClicked': boolean,
   'viewedCarouselPages': number
 }
@@ -7604,7 +7604,7 @@ or
 ```typescript
 {
   'command': string,
-  'name': 'shown' | 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'dismiss' | 'open/kepler',
+  'name': 'dismiss' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
   'type': 'command'
 }
 ```
@@ -7613,7 +7613,7 @@ or
 
 ```typescript
 {
-  'name': 'shown' | 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'dismiss' | 'open/kepler',
+  'name': 'dismiss' | 'open/composer' | 'open/graph' | 'open/help-center' | 'open/help-center/community-vs-pro' | 'open/kepler' | 'open/launchpad' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'shown',
   'type': 'url',
   'url': string
 }
@@ -7624,7 +7624,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7635,7 +7635,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7649,7 +7649,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'panel' | 'view',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,

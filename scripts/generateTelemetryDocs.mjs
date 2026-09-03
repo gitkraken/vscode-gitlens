@@ -4,8 +4,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-// `typescript-6` is an alias for the 6.x JS compiler; 7.x is the native port and exposes no compiler API
-import * as ts from 'typescript-6';
+// `typescript-nightly` is the 7.x native compiler; its `unstable/sync` API is the only compiler API it exposes
+import { isInterfaceDeclaration, isTypeAliasDeclaration } from 'typescript-nightly/unstable/ast/is';
+import { API, SymbolFlags, TypeFlags } from 'typescript-nightly/unstable/sync';
+/** @import { SourceFile } from 'typescript-nightly/unstable/ast' */
+/** @import { Symbol, Type } from 'typescript-nightly/unstable/sync' */
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');
@@ -25,17 +28,18 @@ const remappedTypes = new Map([
 	['TrackedUsageKeys', 'string /* TrackedUsageKeys */'],
 ]);
 
+const api = new API();
 const tsconfigPath = path.join(__dirname, 'tsconfig.node.json');
-const tsconfigFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
-const parsedConfig = ts.parseJsonConfigFileContent(tsconfigFile.config, ts.sys, __dirname);
-const program = ts.createProgram(filePaths, parsedConfig.options);
-const typeChecker = program.getTypeChecker();
+const parsedConfig = api.parseConfigFile(tsconfigPath);
+const program = api.createProgram(parsedConfig.fileNames, { compilerOptions: parsedConfig.options });
+const project = program.getProject();
+const typeChecker = project.checker;
 
-/** @type {{ file: ts.SourceFile, type: ts.Type } | undefined} */
+/** @type {{ file: SourceFile, type: Type } | undefined} */
 let telemetryContext;
-/** @type {{ file: ts.SourceFile, type: ts.Type } | undefined} */
+/** @type {{ file: SourceFile, type: Type } | undefined} */
 let telemetryEvents;
-/** @type {{ file: ts.SourceFile, type: ts.Type } | undefined} */
+/** @type {{ file: SourceFile, type: Type } | undefined} */
 let telemetryGlobalContext;
 
 for (const filePath of filePaths) {
@@ -44,22 +48,21 @@ for (const filePath of filePaths) {
 		throw new Error(`Could not find source file: ${filePath}`);
 	}
 
-	// Find the types
-	ts.forEachChild(sourceFile, node => {
-		if (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node)) {
-			switch (node.name.text) {
-				case 'TelemetryContext':
-					telemetryContext = { file: sourceFile, type: typeChecker.getTypeAtLocation(node) };
-					break;
-				case 'TelemetryEvents':
-					telemetryEvents = { file: sourceFile, type: typeChecker.getTypeAtLocation(node) };
-					break;
-				case 'TelemetryGlobalContext':
-					telemetryGlobalContext = { file: sourceFile, type: typeChecker.getTypeAtLocation(node) };
-					break;
-			}
+	for (const node of sourceFile.statements) {
+		if (!isTypeAliasDeclaration(node) && !isInterfaceDeclaration(node)) continue;
+
+		switch (node.name.text) {
+			case 'TelemetryContext':
+				telemetryContext = { file: sourceFile, type: typeChecker.getTypeAtLocation(node) };
+				break;
+			case 'TelemetryEvents':
+				telemetryEvents = { file: sourceFile, type: typeChecker.getTypeAtLocation(node) };
+				break;
+			case 'TelemetryGlobalContext':
+				telemetryGlobalContext = { file: sourceFile, type: typeChecker.getTypeAtLocation(node) };
+				break;
 		}
-	});
+	}
 }
 
 if (!telemetryContext || !telemetryEvents || !telemetryGlobalContext) {
@@ -85,16 +88,18 @@ markdown += `${result}\n\`\`\`\n\n`;
 
 markdown += '## Events\n\n';
 
-const properties = typeChecker.getPropertiesOfType(telemetryEvents.type).sort((a, b) => a.name.localeCompare(b.name));
+const properties = typeChecker
+	.getPropertiesOfType(telemetryEvents.type)
+	.toSorted((a, b) => a.name.localeCompare(b.name));
 for (const prop of properties) {
 	const propType = typeChecker.getTypeOfSymbolAtLocation(prop, telemetryEvents.file);
 
 	markdown += `### ${prop.name}\n\n`;
 
 	// Add property documentation if available
-	const propDocs = prop.getDocumentationComment(typeChecker);
-	if (propDocs.length > 0) {
-		markdown += `> ${propDocs.map(doc => doc.text).join('\n> ')}\n\n`;
+	const propDocs = getDocComment(prop);
+	if (propDocs) {
+		markdown += `> ${propDocs.split('\n').join('\n> ')}\n\n`;
 	}
 
 	// Check for deprecated tag
@@ -111,20 +116,37 @@ for (const prop of properties) {
 const outputPath = path.join(__dirname, 'docs/telemetry-events.md');
 fs.writeFileSync(outputPath, markdown);
 
+/** @param {Symbol} symbol */
+function getDocComment(symbol) {
+	return typeChecker.getDocumentationCommentOfSymbol(symbol).trim();
+}
+
+/** @param {Symbol} symbol */
+function getJSDocTags(symbol) {
+	/** @type {Record<string, string | true>} */
+	const tags = {};
+	for (const tag of typeChecker.getJsDocTagsOfSymbol(symbol)) {
+		tags[tag.name] = tag.text || true;
+	}
+	return tags;
+}
+
 /**
- * @param {ts.SourceFile} file
- * @param {ts.Type} type
+ * @param {SourceFile} file
+ * @param {Type} type
  * @param {string} indent
  * @param {boolean} isRoot
  * @param {string} prefix
+ * @returns {string}
  */
 function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 	let result = '';
 
 	const remapped = remappedTypes.get(typeChecker.typeToString(type));
+	const symbol = type.getSymbol();
 	if (remapped) {
 		result = remapped;
-	} else if (type.isClassOrInterface() || (type.symbol && type.symbol.flags & ts.SymbolFlags.TypeLiteral)) {
+	} else if (type.isClassOrInterface() || (symbol && symbol.flags & SymbolFlags.TypeLiteral)) {
 		result = interfaceCache.get(type);
 		if (result == null) {
 			const properties = typeChecker.getPropertiesOfType(type);
@@ -136,14 +158,11 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 					const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
 					let propString = '';
 
-					const propDocs = prop.getDocumentationComment(typeChecker);
-					if (propDocs.length > 0) {
+					const propDocs = getDocComment(prop);
+					if (propDocs) {
 						// Collapse newlines from multi-line doc comments — the text follows a single
 						// `//`, so embedded newlines would leave continuation lines unprefixed
-						const text = propDocs
-							.map(doc => doc.text)
-							.join(' ')
-							.replace(/\s*\n\s*/g, ' ');
+						const text = propDocs.replace(/\s*\n\s*/g, ' ');
 						propString += `${indent}  // ${text}\n`;
 					}
 
@@ -170,13 +189,13 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 					};
 				});
 
-				const indexInfos = typeChecker.getIndexInfosOfType(type);
+				const indexInfos = type.getIndexInfos();
 				if (indexInfos.length) {
 					expandedProps.push(
 						...indexInfos.map(indexInfo => {
 							const keyType = typeChecker.typeToString(indexInfo.keyType);
 							const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
-							const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+							const valueType = expandType(file, indexInfo.valueType, indent + '  ', false, prefix);
 
 							return {
 								name: name,
@@ -195,16 +214,18 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 			}
 			interfaceCache.set(type, result);
 		}
-	} else if (type.isUnion()) {
+	} else if (type.isUnionType()) {
 		if (isRoot) {
-			return type.types
+			return type
+				.getTypes()
 				.map(t => `\`\`\`typescript\n${expandType(file, t, '', false, prefix)}\n\`\`\``)
 				.join('\n\nor\n\n');
 		} else {
 			result = unionTypeCache.get(type);
 			if (result == null) {
-				const types = type.types
-					.filter(t => !(t.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)))
+				const types = type
+					.getTypes()
+					.filter(t => !(t.flags & (TypeFlags.Undefined | TypeFlags.Null)))
 					.map(t => expandType(file, t, indent, false, prefix))
 					.filter(t => Boolean(t))
 					.join(' | ')
@@ -214,21 +235,21 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 				unionTypeCache.set(type, result);
 			}
 		}
-	} else if (type.isIntersection()) {
+	} else if (type.isIntersectionType()) {
 		result = intersectionTypeCache.get(type);
 		if (result == null) {
 			const mergedProperties = new Map();
 			/** @type {Map<string, Prop>} */
 			const indexInfos = new Map();
-			for (const t of [type, ...type.types]) {
+			for (const t of [type, ...type.getTypes()]) {
 				for (const prop of typeChecker.getPropertiesOfType(t)) {
 					mergedProperties.set(prop.name, prop);
 				}
 
-				for (const indexInfo of typeChecker.getIndexInfosOfType(t)) {
+				for (const indexInfo of t.getIndexInfos()) {
 					const keyType = typeChecker.typeToString(indexInfo.keyType);
 					const name = `${prefix}${keyType.substring(1, keyType.length - 1)}`;
-					const valueType = expandType(file, indexInfo.type, indent + '  ', false, prefix);
+					const valueType = expandType(file, indexInfo.valueType, indent + '  ', false, prefix);
 					indexInfos.set(name, {
 						name: name,
 						result: `${indent}  [\`${name}\`]: ${valueType}`,
@@ -243,14 +264,11 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 					const propType = typeChecker.getTypeOfSymbolAtLocation(prop, file);
 					let propString = '';
 
-					const propDocs = prop.getDocumentationComment(typeChecker);
-					if (propDocs.length > 0) {
+					const propDocs = getDocComment(prop);
+					if (propDocs) {
 						// Collapse newlines from multi-line doc comments — the text follows a single
 						// `//`, so embedded newlines would leave continuation lines unprefixed
-						const text = propDocs
-							.map(doc => doc.text)
-							.join(' ')
-							.replace(/\s*\n\s*/g, ' ');
+						const text = propDocs.replace(/\s*\n\s*/g, ' ');
 						propString += `${indent}  // ${text}\n`;
 					}
 
@@ -287,16 +305,19 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 					.map(t => t.result)
 					.join(',\n')}\n${indent}}`;
 			} else {
-				const types = type.types.map(t => expandType(file, t, indent, false, prefix)).join(' & ');
+				const types = type
+					.getTypes()
+					.map(t => expandType(file, t, indent, false, prefix))
+					.join(' & ');
 				result = types.includes('\n') ? `(${types})` : types;
 			}
 			intersectionTypeCache.set(type, result);
 		}
-	} else if (type.isStringLiteral()) {
+	} else if (type.isStringLiteralType()) {
 		result = `'${type.value}'`;
-	} else if (type.isNumberLiteral()) {
+	} else if (type.isNumberLiteralType()) {
 		result = type.value.toString();
-	} else if (type.symbol && type.symbol.flags & ts.SymbolFlags.Method) {
+	} else if (symbol && symbol.flags & SymbolFlags.Method) {
 		const signatures = type.getCallSignatures();
 		if (signatures.length) {
 			const params = signatures[0]
@@ -315,27 +336,18 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 			const returnType = expandType(file, signatures[0].getReturnType(), indent, false, prefix);
 			result = `(${params}) => ${returnType}`;
 		}
-	} else if (type.flags & ts.TypeFlags.Boolean) {
+	} else if (type.flags & TypeFlags.Boolean) {
 		result = 'boolean';
-	} else if (type.flags & (ts.TypeFlags.Never | ts.TypeFlags.Undefined)) {
+	} else if (type.flags & (TypeFlags.Never | TypeFlags.Undefined)) {
 		return '';
 	} else {
 		result = typeChecker.typeToString(type);
 	}
 
-	if (isRoot && !type.isUnion()) {
+	if (isRoot && !type.isUnionType()) {
 		return `\`\`\`typescript\n${result}\n\`\`\``;
 	}
 	return result;
-}
-
-function getJSDocTags(/** @type {ts.Symbol } */ symbol) {
-	const tags = {};
-	const jsDocTags = symbol.getJsDocTags();
-	for (const tag of jsDocTags) {
-		tags[tag.name] = tag.text ? tag.text.map(t => t.text).join(' ') : true;
-	}
-	return tags;
 }
 
 /**
