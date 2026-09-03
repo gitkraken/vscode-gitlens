@@ -6030,9 +6030,12 @@
 						]
 					},
 					"gitlens.advanced.commits.delayLoadingFileDetails": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to delay loading commit file details until required. This can improve performance when opening repositories with large histories, but causes more incremental Git calls",
+						"type": [
+							"boolean",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies whether to delay loading commit file details until they are shown. Delaying makes large histories open faster but adds a Git call each time a commit's files are shown. Use `null` to let GitLens delay only in repositories where loading file details has been slow (requires `#gitlens.gitOptimizations.enabled#`)",
 						"scope": "window",
 						"order": 120
 					}

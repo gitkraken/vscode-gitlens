@@ -27,6 +27,7 @@ import type {
 	WorktreeDeleteErrorReason,
 } from '@gitlens/git/errors.js';
 import { GitWarnings, WorkspaceUntrustedError } from '@gitlens/git/errors.js';
+import type { GitHealthSlownessCategory } from '@gitlens/git/gitHealth.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitRunCancellation } from '@gitlens/git/run.types.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -571,6 +572,8 @@ export interface GitHooks {
 		duration: number;
 		/** Measured event-loop stall overlapping the command; omitted (or 0) when none was observed. */
 		eventLoopDelay?: number;
+		/** Caller-declared operation family, see `GitRunOptions.slownessCategory`. */
+		slownessCategory?: GitHealthSlownessCategory;
 	}): void;
 }
 
@@ -806,6 +809,7 @@ export class Git {
 			encoding,
 			runLocally: _,
 			selfMaintenance,
+			slownessCategory,
 			...opts
 		} = options;
 
@@ -1035,6 +1039,7 @@ export class Git {
 				waiting,
 				options.cwd,
 				args,
+				slownessCategory,
 				startEpochMs,
 			);
 			this.endActiveCommand();
@@ -1048,7 +1053,7 @@ export class Git {
 		const startEpochMs = Date.now();
 		const streamId = uniqueCounterForStream.next();
 
-		const { configs, stdin, stdinEncoding, cancellation, encoding, ...opts } = options;
+		const { configs, stdin, stdinEncoding, cancellation, encoding, slownessCategory, ...opts } = options;
 		const runArgs = args.filter(a => a != null);
 
 		const spawnOpts: SpawnOptions = {
@@ -1155,6 +1160,7 @@ export class Git {
 				false,
 				spawnOpts.cwd as string | undefined,
 				runArgs,
+				slownessCategory,
 				startEpochMs,
 				streamId,
 			);
@@ -1330,6 +1336,7 @@ export class Git {
 		waiting: boolean,
 		cwd: string | undefined,
 		args: readonly (string | undefined)[] | undefined,
+		slownessCategory: GitHealthSlownessCategory | undefined,
 		startEpochMs: number,
 		id?: number,
 	): void {
@@ -1384,6 +1391,7 @@ export class Git {
 					cwd: cwd,
 					duration: execDuration,
 					eventLoopDelay: execEventLoopDelay,
+					slownessCategory: slownessCategory,
 				});
 			} catch {}
 		}

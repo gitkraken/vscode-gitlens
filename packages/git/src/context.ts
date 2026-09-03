@@ -48,8 +48,11 @@ export interface GitServiceContext {
  */
 export interface GitServiceConfig {
 	readonly commits: {
-		/** Whether to include file details in commit/stash queries by default. */
-		readonly includeFileDetails?: boolean;
+		/**
+		 * Whether commit/stash queries include per-commit file details by default, resolved per
+		 * repository so a host can defer them where loading them has proven slow.
+		 */
+		readonly includeFileDetails?: (repoPath: string) => boolean;
 		/** Default commit ordering for log/branch queries (e.g., `'date'`, `'author-date'`, `'topo'`). */
 		readonly ordering?: 'date' | 'author-date' | 'topo' | null;
 		/** Default maximum items for operations (0 = unlimited). */

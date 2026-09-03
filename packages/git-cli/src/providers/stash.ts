@@ -112,7 +112,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		// Resolve options against config up front so the cache key reflects the actual values used
 		// to produce the cached payload — undefined inputs aren't conflated across config changes.
 		const cfg = this.context.config;
-		const includeFiles = options?.includeFiles ?? cfg?.commits.includeFileDetails ?? true;
+		const includeFiles = options?.includeFiles ?? cfg?.commits.includeFileDetails?.(repoPath) ?? true;
 		const similarityThreshold = includeFiles
 			? (options?.similarityThreshold ?? cfg?.commits.similarityThreshold ?? null)
 			: null;

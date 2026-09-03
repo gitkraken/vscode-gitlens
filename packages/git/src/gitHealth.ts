@@ -25,8 +25,13 @@ export const approxBytesPerIndexEntry = 80;
 /** Duration (ms) above which a git command is "slow" — mirrors the exec-layer slow-call threshold. */
 export const slowCommandThresholdMs = 2000;
 
-/** Git operation families whose runtime maps to a distinct repository optimization surface. */
-export type GitHealthSlownessCategory = 'worktree' | 'history' | 'refs' | 'objects';
+/**
+ * Git operation families whose runtime maps to a distinct repository optimization surface.
+ * `history` is a plain walk (`log`/`rev-list`/`blame`); `commitFiles` is a paged log that also
+ * carries per-commit file details (`--numstat` diffs every changed blob), which is slow for a
+ * different reason and drives a different lever.
+ */
+export type GitHealthSlownessCategory = 'worktree' | 'history' | 'refs' | 'objects' | 'commitFiles';
 
 /** Persisted passive-slowness sample for one operation family. */
 export interface GitHealthSlownessSample {

@@ -1,5 +1,6 @@
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { GitWarningKey } from './errors.js';
+import type { GitHealthSlownessCategory } from './gitHealth.js';
 
 export type GitErrorHandling = 'throw' | 'ignore';
 
@@ -100,6 +101,13 @@ export interface GitRunOptions {
 	selfMaintenance?: boolean;
 
 	/**
+	 * Files this command's `onSlowCommand` health sample under this operation family instead of the one
+	 * inferred from its git subcommand. A paged `log` carrying per-commit file details is slow because
+	 * `--numstat` diffs every changed blob, not because history is slow — only the caller knows which.
+	 */
+	slownessCategory?: GitHealthSlownessCategory;
+
+	/**
 	 * If provided, cache the command's result (stdout, stderr, exitCode) in this store via an auto-generated cache key
 	 * Only use for commands with stable output (e.g., `git remote -v`)
 	 */
@@ -144,6 +152,13 @@ export interface UnsafeGit {
 export interface GitSpawnOptions {
 	cancellation?: AbortSignal;
 	configs?: readonly string[];
+
+	/**
+	 * Files this command's `onSlowCommand` health sample under this operation family instead of the one
+	 * inferred from its git subcommand. A paged `log` carrying per-commit file details is slow because
+	 * `--numstat` diffs every changed blob, not because history is slow — only the caller knows which.
+	 */
+	slownessCategory?: GitHealthSlownessCategory;
 
 	// Below options comes from SpawnOptions
 	cwd?: string;

@@ -1596,6 +1596,8 @@ background-upgraded the extension while the host kept running the old build
   'repository.sparseIndex': boolean,
   // Whether this worktree uses a split index; undefined when detection failed
   'repository.splitIndex': boolean,
+  // Slow paged commit logs carrying per-commit file details
+  'slowness.commitFiles': number,
   // Count of slow git commands observed for this repo — persisted across sessions, pruned after 30 days idle
   'slowness.count': number,
   // Slow history commands observed

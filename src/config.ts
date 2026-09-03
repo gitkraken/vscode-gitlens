@@ -196,7 +196,7 @@ export interface AdvancedConfig {
 	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo' | null;
 	readonly commits: {
-		readonly delayLoadingFileDetails: boolean;
+		readonly delayLoadingFileDetails: boolean | null;
 	};
 	readonly externalDiffTool: string | null;
 	readonly externalDirectoryDiffTool: string | null;

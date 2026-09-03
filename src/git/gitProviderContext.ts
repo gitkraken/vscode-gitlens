@@ -24,7 +24,7 @@ export function createGitProviderContext(container: Container): GitServiceContex
 	const config: GitServiceConfig = {
 		get commits() {
 			return {
-				includeFileDetails: !configuration.get('advanced.commits.delayLoadingFileDetails'),
+				includeFileDetails: (repoPath: string) => !container.gitHealth.shouldDelayFileDetails(repoPath),
 				ordering: configuration.get('advanced.commitOrdering'),
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 				maxItems: configuration.get('advanced.maxListItems'),

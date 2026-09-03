@@ -55,7 +55,13 @@ const localHealthSignalOperations = new Map<string, GitHealthSlownessCategory>([
 	['for-each-ref', 'refs'],
 	['cat-file', 'objects'],
 ]);
-const healthSlownessCategories: readonly GitHealthSlownessCategory[] = ['worktree', 'history', 'refs', 'objects'];
+const healthSlownessCategories: readonly GitHealthSlownessCategory[] = [
+	'worktree',
+	'history',
+	'refs',
+	'objects',
+	'commitFiles',
+];
 /** Slowness categories idle longer than this are dropped at hydrate time so removed repos don't accrue forever. */
 const slownessMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -206,14 +212,24 @@ export class GitHealthService implements Disposable {
 	 * Records a slow git command against its repo. Called from the exec-layer `onSlowCommand` hook, so it
 	 * MUST stay synchronous and resolve the repo via the in-memory registry only — never invoke git (that
 	 * would recurse through the exec layer that just fired this hook).
+	 *
+	 * An explicit `slownessCategory` (the caller-declared operation family, e.g. a paged log carrying
+	 * per-commit file details) wins over the subcommand allowlist below — only the caller can distinguish
+	 * an eager file-details log from a plain history walk; the git subcommand alone can't.
 	 */
-	recordSlowCommand(cwd: string | undefined, duration: number, operation: string | undefined): void {
+	recordSlowCommand(
+		cwd: string | undefined,
+		duration: number,
+		operation: string | undefined,
+		slownessCategory?: GitHealthSlownessCategory,
+	): void {
 		if (cwd == null || cwd.length === 0) return;
 		if (!configuration.get('gitOptimizations.enabled')) return;
 
 		// An allowlist keeps fetch/push/clone, credential prompts, hooks, and editors from leaking through as
 		// repository slowness. The category then constrains which optimization can use the evidence.
-		const category = operation == null ? undefined : localHealthSignalOperations.get(operation);
+		const category =
+			slownessCategory ?? (operation == null ? undefined : localHealthSignalOperations.get(operation));
 		if (category == null) return;
 
 		const repo = this.container.git.getRepository(cwd);
@@ -240,6 +256,23 @@ export class GitHealthService implements Disposable {
 		if (prevCategory == null) {
 			this.scheduleProbe(repo);
 		}
+	}
+
+	/**
+	 * Whether commit and stash queries should defer per-commit file details for this repository. The
+	 * `advanced.commits.delayLoadingFileDetails` setting is a hard override in either direction; `null`
+	 * (the default) defers only where the eager paged log has been observed slow (`commitFiles`
+	 * slowness within the retention window), and only while Git optimizations are enabled. Evidence
+	 * expires with the slowness samples, so a repository drifts back to eager loading on its own —
+	 * there is nothing to undo.
+	 */
+	shouldDelayFileDetails(repoPath: string): boolean {
+		const setting = configuration.get('advanced.commits.delayLoadingFileDetails');
+		if (setting != null) return setting;
+		if (!configuration.get('gitOptimizations.enabled')) return false;
+
+		const resolvedPath = this.container.git.getRepository(repoPath)?.path ?? repoPath;
+		return (this.getSlowness().get(resolvedPath)?.commitFiles?.count ?? 0) > 0;
 	}
 
 	/** Returns the current report for a repo, probing on first request. */
@@ -636,6 +669,7 @@ export class GitHealthService implements Disposable {
 				'slowness.history': slowness?.history?.count ?? 0,
 				'slowness.refs': slowness?.refs?.count ?? 0,
 				'slowness.objects': slowness?.objects?.count ?? 0,
+				'slowness.commitFiles': slowness?.commitFiles?.count ?? 0,
 			};
 			// Re-probes are frequent (debounced index changes, post-fix refreshes) — only report changes.
 			const serialized = JSON.stringify(event);

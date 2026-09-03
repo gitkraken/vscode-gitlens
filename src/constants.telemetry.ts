@@ -2803,6 +2803,8 @@ interface GitHealthProbeEvent {
 	'slowness.refs': number;
 	/** Slow object-lookup commands observed */
 	'slowness.objects': number;
+	/** Slow paged commit logs carrying per-commit file details */
+	'slowness.commitFiles': number;
 }
 
 interface GitOptimizationsMaintenanceRunEvent {

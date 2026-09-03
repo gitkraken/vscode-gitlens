@@ -483,8 +483,8 @@ suite('gitHealth.isBannerEligible', () => {
 		assert.strictEqual(isBannerEligible(report, slowness), true);
 	});
 
-	test('does not fire for history, ref, or object slowness alone', () => {
-		for (const category of ['history', 'refs', 'objects'] as const) {
+	test('does not fire for history, ref, object, or commit-file slowness alone', () => {
+		for (const category of ['history', 'refs', 'objects', 'commitFiles'] as const) {
 			const slowness = makeSlowness(category);
 			const report = computeHealthReport(makeSnapshot(), slowness, makeCapabilities());
 			assert.strictEqual(isBannerEligible(report, slowness), false);

@@ -255,6 +255,18 @@ suite('GitHealthService Test Suite', () => {
 		);
 	});
 
+	test('an explicit slowness category overrides the subcommand allowlist', async () => {
+		// 'log' alone maps to 'history' via the allowlist; the caller-declared category must win.
+		harness.service.recordSlowCommand(harness.repo.path, 2500, 'log', 'commitFiles');
+
+		harness.service.dispose();
+		await settleAsyncWork();
+		const [, stored] = harness.storeWorkspace.firstCall.args;
+		const storedByRepo = stored as Record<string, Record<string, { count: number }>>;
+		assert.deepStrictEqual(Object.keys(storedByRepo[harness.repo.path]), ['commitFiles']);
+		assert.strictEqual(storedByRepo[harness.repo.path].commitFiles.count, 1);
+	});
+
 	test('hydrates only v3 slowness and deletes retired aggregate keys once', async () => {
 		const now = Date.now();
 		harness.getWorkspace.withArgs('gitHealth:slowness:v3').returns({
@@ -566,5 +578,50 @@ suite('GitHealthService Test Suite', () => {
 		assert.ok(state != null);
 		assert.strictEqual(state.banner, true, 'an expired dismissal must not keep suppressing the banner');
 		assert.strictEqual(state.indicator, true, 'an expired visit must not keep suppressing the indicator');
+	});
+
+	suite('shouldDelayFileDetails', () => {
+		// The stubbed `configuration.get` overload resolves to a `NonNullable` return type, which can't
+		// express the tri-state setting's `null` ("auto") value — narrow the stub's type just for this call.
+		function stubDelaySetting(value: boolean | null): void {
+			(configurationGet as unknown as sinon.SinonStub<[section: string, ...rest: unknown[]], boolean | null>)
+				.withArgs('advanced.commits.delayLoadingFileDetails')
+				.returns(value);
+		}
+
+		test('an explicit true setting always delays, regardless of evidence', () => {
+			configurationGet.withArgs('advanced.commits.delayLoadingFileDetails').returns(true);
+			assert.strictEqual(harness.service.shouldDelayFileDetails(harness.repo.path), true);
+		});
+
+		test('an explicit false setting never delays, even with commitFiles evidence', () => {
+			configurationGet.withArgs('advanced.commits.delayLoadingFileDetails').returns(false);
+			harness.service.recordSlowCommand(harness.repo.path, 2500, 'log', 'commitFiles');
+			assert.strictEqual(harness.service.shouldDelayFileDetails(harness.repo.path), false);
+		});
+
+		test('auto (null) does not delay with no evidence', () => {
+			stubDelaySetting(null);
+			assert.strictEqual(harness.service.shouldDelayFileDetails(harness.repo.path), false);
+		});
+
+		test('auto (null) delays once commitFiles slowness has been observed', () => {
+			stubDelaySetting(null);
+			harness.service.recordSlowCommand(harness.repo.path, 2500, 'log', 'commitFiles');
+			assert.strictEqual(harness.service.shouldDelayFileDetails(harness.repo.path), true);
+		});
+
+		test('auto (null) does not delay when gitOptimizations.enabled is off, despite evidence', () => {
+			stubDelaySetting(null);
+			harness.service.recordSlowCommand(harness.repo.path, 2500, 'log', 'commitFiles');
+			configurationGet.withArgs('gitOptimizations.enabled').returns(false);
+			assert.strictEqual(harness.service.shouldDelayFileDetails(harness.repo.path), false);
+		});
+
+		test('auto (null) does not delay on history-only evidence', () => {
+			stubDelaySetting(null);
+			harness.service.recordSlowCommand(harness.repo.path, 2500, 'log');
+			assert.strictEqual(harness.service.shouldDelayFileDetails(harness.repo.path), false);
+		});
 	});
 });

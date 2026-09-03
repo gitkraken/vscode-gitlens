@@ -628,7 +628,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const limit = options?.limit ?? cfg?.commits.maxItems ?? 0;
 			const isSingleCommit = limit === 1;
 
-			const cfgIncludeFiles = options?.includeFiles ?? cfg?.commits.includeFileDetails ?? true;
+			const cfgIncludeFiles = options?.includeFiles ?? cfg?.commits.includeFileDetails?.(repoPath) ?? true;
 			const includeFiles = cfgIncludeFiles || isSingleCommit || Boolean(options?.path?.pathspec);
 
 			const parser = getCommitsLogParser(includeFiles, Boolean(options?.path?.pathspec && options?.path?.range));
@@ -736,6 +736,10 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			const currentUser = await currentUserPromise.catch(() => undefined);
 			if (cancellation?.aborted) throw new CancellationError();
 
+			// Only the eager, paged, multi-commit log measures the cost this evidence switches off — a
+			// single-commit load and a pathspec-filtered log are cheap per numstat regardless of `includeFiles`.
+			const isEagerPagedFileLog = includeFiles && !isSingleCommit && !options?.path?.pathspec;
+
 			const cmdOpts: GitRunOptions = {
 				cwd: repoPath,
 				cancellation: cancellation,
@@ -752,6 +756,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 							},
 						}
 					: undefined),
+				...(isEagerPagedFileLog ? { slownessCategory: 'commitFiles' as const } : undefined),
 			};
 			let { commits, count } = await parseCommits(
 				parser,

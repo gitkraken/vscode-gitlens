@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds saving your _Commit Graph_ layout as the default for new workspaces ([#4292](https://github.com/gitkraken/vscode-gitlens/issues/4292)) &mdash; arrange columns, sizing, grouping, and panels how you like, then use the new _Save as Default Layout_ action in the column header or settings gear menus; the new _Apply Saved Layout_ action re-applies it anytime, and _Reset Layout_ restores the shipped arrangement (replacing the previous _Reset Columns to Default/Compact Layout_ actions)
 
+### Changed
+
+- Changes the _Commits_ view and other history views to load commit file details on demand in repositories where loading them has been slow ([#5498](https://github.com/gitkraken/vscode-gitlens/issues/5498)) &mdash; the `gitlens.advanced.commits.delayLoadingFileDetails` setting now defaults to `null` (automatic); set it to `true` or `false` to force either behavior
+
 ## [19.1.0] - 2026-09-01
 
 ### Added
