@@ -36,6 +36,9 @@ class TestProvider implements AgentSessionProvider {
 	history: AgentSessionHistoryResult = { sessions: [], total: 0 };
 	readonly historyExclusions: string[][] = [];
 	archivedSessionIds: string[] = [];
+	/** Unset by default (mirrors a provider that doesn't wire the CLI relay); a test assigns a stub
+	 *  directly. */
+	relayOpenSession?: (sessionId: string, path: string) => Promise<boolean>;
 
 	constructor(readonly id = 'claudeCode') {
 		this.name = id;
@@ -930,6 +933,86 @@ suite('AgentStatusService session dispatch', () => {
 			assert.strictEqual(revealTerminal.called, false);
 		} finally {
 			dispose();
+		}
+	});
+
+	test("a CLI-hosted out-of-workspace Claude session opens the owning window's folder when the relay is delivered", async () => {
+		// No `~/.claude/sessions/<pid>.json` exists in the test environment, so `classifyClaudeSessionHost`
+		// answers `undefined` (host unknown) — the same fallback path a CLI-hosted session takes.
+		const session = makeSession({
+			id: 'claude-7',
+			pid: 4245,
+			isInWorkspace: false,
+			worktreePath: '/repo/worktree',
+		});
+		const stubs = stubDispatchSurfaces();
+		const revealTerminal = sinon.stub().resolves(false);
+		const { provider, service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		provider.relayOpenSession = sinon.stub().resolves(true);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.showWarningMessage.called, false, 'a delivered relay needs no warning');
+			assert.strictEqual(stubs.executeCommand.calledOnce, true);
+			const [command, uri, options] = stubs.executeCommand.firstCall.args;
+			assert.strictEqual(command, 'vscode.openFolder');
+			assert.strictEqual((uri as { fsPath: string }).fsPath, '/repo/worktree');
+			assert.deepStrictEqual(options, { forceNewWindow: false });
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test('a CLI-hosted out-of-workspace Claude session falls through to the existing warning when the relay is not delivered', async () => {
+		const session = makeSession({
+			id: 'claude-8',
+			pid: 4246,
+			isInWorkspace: false,
+			worktreePath: '/repo/worktree',
+		});
+		const stubs = stubDispatchSurfaces();
+		const revealTerminal = sinon.stub().resolves(false);
+		const { provider, service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		provider.relayOpenSession = sinon.stub().resolves(false);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.executeCommand.called, false, 'openFolder must not run without a delivered relay');
+			assert.deepStrictEqual(stubs.showWarningMessage.args, [
+				['Unable to open agent session. Resume it in a terminal?', 'Resume in Terminal'],
+			]);
+		} finally {
+			dispose();
+			stubs.restore();
+		}
+	});
+
+	test("a non-Claude out-of-workspace session opens the owning window's folder when the relay is delivered", async () => {
+		const session = makeSession({
+			id: 'codex-4',
+			providerId: 'codex',
+			providerName: 'Codex',
+			pid: 5552,
+			isInWorkspace: false,
+			worktreePath: '/repo/other-worktree',
+		});
+		const stubs = stubDispatchSurfaces();
+		const revealTerminal = sinon.stub().resolves(false);
+		const { provider, service, dispose } = setupDispatch(session, { revealTerminal: revealTerminal });
+		provider.relayOpenSession = sinon.stub().resolves(true);
+		try {
+			await dispatchSessionAction(service, session);
+
+			assert.strictEqual(stubs.showWarningMessage.called, false, 'a delivered relay needs no warning');
+			assert.strictEqual(stubs.executeCommand.calledOnce, true);
+			const [command, uri, options] = stubs.executeCommand.firstCall.args;
+			assert.strictEqual(command, 'vscode.openFolder');
+			assert.strictEqual((uri as { fsPath: string }).fsPath, '/repo/other-worktree');
+			assert.deepStrictEqual(options, { forceNewWindow: false });
+		} finally {
+			dispose();
+			stubs.restore();
 		}
 	});
 });

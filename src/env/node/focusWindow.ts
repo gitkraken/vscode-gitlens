@@ -180,9 +180,21 @@ async function getParentPid(pid: number): Promise<number | undefined> {
 	}
 }
 
+/** Tool names {@link run} has already logged an ENOENT for — keeps a missing `xdotool`/`hyprctl`/etc.
+ *  from writing a debug line on every focus attempt for the life of the window. */
+const reportedMissingTools = new Set<string>();
+
 function run(command: string, args: string[]): Promise<boolean> {
 	return new Promise<boolean>(resolve => {
 		execFile(command, args, { timeout: 5000 }, (error: ExecFileException | null) => {
+			if (
+				error != null &&
+				(error as NodeJS.ErrnoException).code === 'ENOENT' &&
+				!reportedMissingTools.has(command)
+			) {
+				reportedMissingTools.add(command);
+				Logger.debug(`focusWindow: ${command} is not installed; cannot focus a window by pid`);
+			}
 			resolve(error == null);
 		});
 	});

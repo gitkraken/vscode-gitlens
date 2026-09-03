@@ -480,9 +480,13 @@ already track a session's data (see [The problem](#the-problem)). But only one o
 hosts the Claude Code extension panel — or has the integrated terminal — the session actually lives
 in, so "open" has to route to the right window rather than just paint the right row.
 
-`dispatchSessionAction` (see [Actions](#actions)) does that routing locally: an extension-hosted
-session owned by another window's extension host is the one case a window can't just reveal
-in-place, and it's handled by `dispatchRemotelyHostedSession`.
+`dispatchSessionAction` (see [Actions](#actions)) does that routing locally, through one shared
+helper: `relayAndRaise`. An extension-hosted session owned by another window's extension host is
+the one case a window _knows_ it can't reveal in-place — `dispatchRemotelyHostedSession` calls
+`relayAndRaise` directly. Every other path (a CLI-hosted or unknown-host Claude session, and every
+non-Claude session) only _suspects_ it might be hosted elsewhere, once its own in-window reveal has
+already come up empty, and reaches `relayAndRaise` as one more rung before OS-level window focus
+(steps 2, 5, 6 below).
 
 `AgentSessionProvider.relayOpenSession(sessionId, path)` shells out to
 `gk ai hook open-session <id> --path <path> --exclude-address <own address> --json`. The CLI
@@ -496,15 +500,20 @@ that's already asking. `relayOpenSession` resolves `true` only when the CLI repo
 never falls back to a direct HTTP call to another window, and never throws — a spawn/parse failure,
 or a `gk` binary that predates `open-session`, just resolves `false`.
 
-`dispatchRemotelyHostedSession` doesn't treat that boolean as fatal. It fires the relay in parallel
-with a 500 ms wait cap, then either:
+`relayAndRaise` treats that boolean as the gate for everything after it: it fires the relay with a
+500 ms wait cap, and only once delivery is confirmed within that cap does it raise the window —
+`vscode.openFolder` would otherwise risk opening a folder no window actually holds, replacing the
+current workspace instead of finding a peer to focus. So:
 
-- a different-workspace session → `vscode.openFolder` on the target path (`workspacePath ??
+- delivered, different workspace → `vscode.openFolder` on the target path (`workspacePath ??
 worktreePath ?? commonPath ?? cwd`) with `forceNewWindow: false` — VS Code's own window-folder
-  matching finds and focuses the window that already has it open, whether or not the relay landed
-  first, since _some_ window has to hold that folder for the session to be running there; or
-- a same-workspace or unresolved target → an info message telling the user to switch windows
-  manually, since there's nothing here to disambiguate or focus.
+  matching finds and focuses the window that already confirmed it holds the session;
+- delivered, same workspace → an info message telling the user to switch windows manually, since
+  there's nothing here to disambiguate or focus at the OS level;
+- not delivered within the cap (unhealthy relay, no target path, or the provider can't relay at
+  all) → `relayAndRaise` resolves `false` and does nothing further; the caller falls back to its
+  own next rung (OS-level window focus, or — for `dispatchRemotelyHostedSession` — the same
+  "switch to it" info message).
 
 The receiving end is the `/agents/sessions/open` handler → `callbacks.revealSession(sessionId)` →
 `AgentStatusService.revealSession`. Unknown or `ended` → `false`. A Claude session that's
@@ -551,9 +560,9 @@ session whose worktree hasn't resolved yet simply doesn't match — a narrow win
 `resolveGitInfo` runs on the first hook.
 
 One deliberate exception: **cross-window routing does not use the attribution key.**
-`dispatchRemotelyHostedSession` picks `workspacePath ?? worktreePath ?? commonPath ?? cwd`, each step
-more general than the last, because the question there is "which folder should `vscode.openFolder`
-focus" — not "which WIP row does this belong to".
+`relayAndRaise` picks `workspacePath ?? worktreePath ?? commonPath ?? cwd`, each step more general
+than the last, because the question there is "which folder should `vscode.openFolder` focus" — not
+"which WIP row does this belong to".
 
 **Naming** — `getSessionDisplayName` (`src/agents/models/agentSessionState.ts`) resolves once
 host-side so every surface agrees:
@@ -698,8 +707,10 @@ eagerly at poll time.
    reach the focus dispatch. (Safe by construction: the provider checks every `ended` record against
    `claude agents --json` before accepting `ended`.)
 2. Not a Claude Code session (a different `providerId`) → `dispatchOtherAgentSessionAction`: reveal
-   the integrated terminal owning `pid` in this window, then an OS-level window focus, then
-   warn/offer resume. None of the Claude-specific steps below apply to another agent's session id.
+   the integrated terminal owning `pid` in this window, then relay+raise a peer window that might
+   actually host it (`relayAndRaise`, delivery-gated — see below), then an OS-level window focus,
+   then warn/offer resume. None of the
+   Claude-specific steps below apply to another agent's session id.
 3. Classify the host by reading `~/.claude/sessions/<pid>.json` — `entrypoint === 'claude-vscode'`
    means the VS Code extension. For an extension-hosted session, the Claude binary's direct parent
    _is_ the owning extension host, so `parent === process.pid` decides local ownership.
@@ -707,9 +718,11 @@ eagerly at poll time.
    relay the open through the CLI, then `vscode.openFolder` or an info hint — see
    [Opening a session in another window](#opening-a-session-in-another-window).
 5. In-workspace → `revealSessionInWindow` (the Claude tab, or the integrated terminal owning `pid`);
-   then an OS-level window focus, but only when we don't _know_ it's extension-hosted (the pid would
-   be VS Code itself, so focusing it would falsely signal success); then warn/offer resume.
-6. Out-of-workspace CLI session → `revealSessionInWindow`, then an OS-level window focus.
+   then, only when we don't _know_ it's extension-hosted (the pid would be VS Code itself, so a
+   relay or focus attempt would falsely signal success), `relayAndRaise` and then an OS-level window
+   focus; then warn/offer resume.
+6. Out-of-workspace CLI session → `revealSessionInWindow`, then (same "don't know it's ours" guard
+   as step 5) `relayAndRaise`, then an OS-level window focus.
 7. Dead end → offer `claude --resume <id>` in a fresh terminal, when `canResumeSession` allows it
    (`idle`, `waiting`, or `ended` — never `working`, which risks parallel writes).
 
@@ -736,7 +749,7 @@ must never reach it.
 | Archived-id cache                           | 10 s                       | `archivedSessionIdsCacheTtlMs`       |
 | Eager git resolve for ended                 | 24 h                       | `recentEndedGitResolveThresholdMs`   |
 | `claude agents --json` cache / timeout      | 5 s / 5 s                  | `claudeSessionFile.ts`               |
-| Cross-window relay wait cap                 | 500 ms                     | `dispatchRemotelyHostedSession`      |
+| Cross-window relay wait cap                 | 500 ms                     | `relayAndRaise`                      |
 | Transcript listing cache                    | 10 s                       | `listingCacheTtlMs`                  |
 | Deferred CLI probe / hooks push             | 3 s past `onReady`         | `GkCliService`, `AgentStatusService` |
 | Discovery sweep                             | once, 30 s past activation | `IpcService`                         |
@@ -750,9 +763,11 @@ must never reach it.
 
 - **Cross-window open depends on the CLI relay, but degrades gracefully.** `relayOpenSession`
   resolves `false` on any relay failure, including a `gk` binary that predates
-  `ai hook open-session` — the dispatcher still reaches a different-workspace session via
-  `vscode.openFolder`'s own folder-matching, but a same-workspace or unresolved target falls back to
-  an info hint telling the user to switch windows manually.
+  `ai hook open-session` — `relayAndRaise` never fires `vscode.openFolder` without confirmed
+  delivery, so a failed relay for a known extension-hosted peer session falls back to the "switch to
+  it" info hint, and a failed relay for a CLI-hosted/non-Claude session that only _suspected_ a peer
+  falls back further still, to OS-level window focus by pid (and, from there, the resume-in-terminal
+  offer).
 - **The poll is the CLI's garbage collector.** Gating it out to save a subprocess would strand rows
   on screen _and_ records on disk until a window reloads.
 - **`ended` is not terminal.** Any code path that treats a `status: 'ended'` record as proof the

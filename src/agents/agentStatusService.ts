@@ -1479,6 +1479,11 @@ export class AgentStatusService implements Disposable {
 	 *  binary's direct parent is the owning extension host process, so `parent === process.pid`
 	 *  ⇔ ours, with one extra hop reserved as a safety margin for a hypothetical Claude shim
 	 *  between the binary and the extension host.
+	 *
+	 *  A CLI-hosted or unknown-host Claude session, and every non-Claude session, also gets one
+	 *  more rung before OS-level focus: {@link relayAndRaise} asks a peer window to reveal the
+	 *  session, in case it (not this window) actually hosts it. Skipped when the host is known to
+	 *  be this window's own extension — there's no peer to relay to.
 	 */
 	private async dispatchSessionAction(session: AgentSession): Promise<void> {
 		// Match by id, not object identity — provider session arrays are rebuilt on every update
@@ -1509,7 +1514,7 @@ export class AgentStatusService implements Disposable {
 		// `providerId` — the same constant the provider stamps onto a Claude session — so the two
 		// cannot drift.
 		if (session.providerId !== claudeCodeCapabilities.providerId) {
-			await this.dispatchOtherAgentSessionAction(session);
+			await this.dispatchOtherAgentSessionAction(provider, session);
 			return;
 		}
 
@@ -1543,11 +1548,14 @@ export class AgentStatusService implements Disposable {
 			const extensionAvailable = await isClaudeExtensionAvailable();
 
 			if (await this.revealSessionInWindow(session, host)) return;
-			// Skip the terminal-focus fallback when we *know* the session is extension-hosted —
-			// `pid` would be the extension host (VS Code itself), so focusing it is a no-op that
-			// would falsely signal success and swallow the warning the user needs.
-			if (host !== 'extension' && session.pid != null && (await this.tryFocusProcessWindow(session.pid))) {
-				return;
+			// Skip the relay and the terminal-focus fallback when we *know* the session is
+			// extension-hosted and owned by THIS window (the only way to reach here with
+			// `host === 'extension'`) — there's no peer to relay to, and `pid` would be the
+			// extension host (VS Code itself), so focusing it is a no-op that would falsely signal
+			// success and swallow the warning the user needs.
+			if (host !== 'extension') {
+				if (await this.relayAndRaise(provider, session)) return;
+				if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 			}
 
 			Logger.warn(
@@ -1562,9 +1570,13 @@ export class AgentStatusService implements Disposable {
 			return;
 		}
 
-		// CLI-hosted out-of-workspace session — reveal the integrated terminal, falling back to
-		// OS-level window focus.
+		// CLI-hosted (or extension-hosted-but-locally-owned, out-of-workspace) session — reveal the
+		// integrated terminal, relay to a peer window (skipped when we *know* it's ours — see the
+		// in-workspace branch above for why), then fall back to OS-level window focus.
 		if (await this.revealSessionInWindow(session, host)) return;
+		if (host !== 'extension') {
+			if (await this.relayAndRaise(provider, session)) return;
+		}
 		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 
 		Logger.warn(
@@ -1577,16 +1589,21 @@ export class AgentStatusService implements Disposable {
 	 * Open path for every agent that isn't Claude Code. Deliberately reaches for nothing
 	 * Claude-specific — no `classifyClaudeSessionHost`, no `isClaudeExtensionAvailable`, no
 	 * `tryOpenClaudeSession`: none of those know anything about a Codex/Copilot/OpenCode session id.
-	 * What's left is the terminal the agent is actually running in, reached through its `pid`, and a
-	 * warning when even that fails.
+	 * What's left is the terminal the agent is actually running in, reached through its `pid` — in
+	 * this window, then (via {@link relayAndRaise}) a peer window that might actually host it — and
+	 * a warning when even that fails.
 	 *
 	 * `sharesPids` (Codex) does NOT suppress the focus attempt. A shared pid is ambiguous for
 	 * *liveness* — it can't tell you which of the multiplexed sessions is still running, which is why
 	 * the provider's pruning handles that separately — but it unambiguously names the host process
 	 * whose terminal the session lives in, and that terminal is exactly what the user asked to see.
 	 */
-	private async dispatchOtherAgentSessionAction(session: AgentSession): Promise<void> {
+	private async dispatchOtherAgentSessionAction(
+		provider: AgentSessionProvider | undefined,
+		session: AgentSession,
+	): Promise<void> {
 		if (await this.revealSessionInWindow(session, undefined)) return;
+		if (await this.relayAndRaise(provider, session)) return;
 		if (session.pid != null && (await this.tryFocusProcessWindow(session.pid))) return;
 
 		Logger.warn(
@@ -1636,15 +1653,17 @@ export class AgentStatusService implements Disposable {
 		await resumeClaudeSessionInTerminal(toResumableSessionRef(current ?? session), this.container);
 	}
 
-	/** Routes a session that's hosted in another VS Code window. Relays an open-session request
-	 *  through the GK CLI (which resolves the target window itself) so that window surfaces the
-	 *  session, then either `vscode.openFolder` (different workspace — focuses the owning window via
-	 *  the folder-already-open path) or an info message (same workspace or unknown workspace, where
-	 *  OS-level cross-window focus across a multi-window VS Code app is unreliable). */
-	private async dispatchRemotelyHostedSession(
-		provider: AgentSessionProvider | undefined,
-		session: AgentSession,
-	): Promise<void> {
+	/** Relays an open-session request to whichever VS Code window actually hosts `session`, then
+	 *  raises that window into view — the shared core of {@link dispatchRemotelyHostedSession}
+	 *  (which knows the session IS extension-hosted elsewhere) and the CLI-hosted/unknown-host and
+	 *  non-Claude fallback rungs in {@link dispatchSessionAction}/{@link dispatchOtherAgentSessionAction}
+	 *  (which only suspect it might be, after the in-window reveal came up empty). Returns `false` —
+	 *  having done nothing — when the provider can't relay, there's no target path, or the relay
+	 *  wasn't confirmed delivered within the wait cap; every caller falls back to its own dead-end
+	 *  handling in that case. `vscode.openFolder` is only safe to fire once delivery is confirmed:
+	 *  unlike a focus-only call, it would otherwise risk opening a folder no window actually holds,
+	 *  replacing the current workspace instead of finding a peer to focus. */
+	private async relayAndRaise(provider: AgentSessionProvider | undefined, session: AgentSession): Promise<boolean> {
 		// Target folder to focus. Each step picks a more general fallback so out-of-workspace
 		// sessions (cwd doesn't match any of OUR workspace folders) still resolve to a path some
 		// other window likely has open as its workspace root:
@@ -1660,38 +1679,55 @@ export class AgentStatusService implements Disposable {
 		//                   relay return the matched workspacePath so this function could pass
 		//                   that exact path to `openFolder` instead).
 		const targetPath = session.workspacePath ?? session.worktreePath ?? session.commonPath ?? session.cwd;
+		if (provider?.relayOpenSession == null || targetPath == null) return false;
 
-		if (provider?.relayOpenSession != null && targetPath != null) {
-			// Cap the wait so an unhealthy relay can't stall the user click for the full CLI spawn
-			// timeout. The owning window only needs to *start* opening the session before the focus
-			// switch lands. `.catch` is on the relay promise itself (not the race) so a late
-			// rejection after the timeout wins is still observed. We don't use the return value:
-			// VS Code's `openFolder` finds and focuses the owning window regardless, so delivery
-			// status isn't the right signal for `forceNewWindow`.
-			const relayPromise = provider.relayOpenSession(session.id, targetPath).catch((ex: unknown) => {
-				Logger.warn(
-					`AgentStatusService.dispatchRemotelyHostedSession: relayOpenSession failed: ${
-						ex instanceof Error ? ex.message : String(ex)
-					}`,
-				);
-				return false;
-			});
-			await Promise.race([relayPromise, new Promise<void>(resolve => setTimeout(resolve, 500))]);
-		}
+		// Cap the wait so an unhealthy relay can't stall the user click for the full CLI spawn
+		// timeout — a relay that hasn't confirmed delivery within the cap is treated the same as one
+		// that failed outright, and the caller falls back to its own next rung. `.catch` is on the
+		// relay promise itself (not the race) so a late rejection after the timeout wins is still
+		// observed, just discarded.
+		const relayPromise = provider.relayOpenSession(session.id, targetPath).catch((ex: unknown) => {
+			Logger.warn(
+				`AgentStatusService.relayAndRaise: relayOpenSession failed: ${
+					ex instanceof Error ? ex.message : String(ex)
+				}`,
+			);
+			return false;
+		});
+		const delivered = await Promise.race([
+			relayPromise,
+			new Promise<boolean>(resolve => setTimeout(resolve, 500, false)),
+		]);
+		if (!delivered) return false;
 
 		// Different workspace → `vscode.openFolder` with `forceNewWindow: false` asks VS Code to
-		// focus the existing window holding `targetPath`. The session being hosted elsewhere
-		// implies *some* live window holds the folder (the session is running there), so VS Code's
-		// window-folder matching reliably hits it instead of replacing the current window.
-		if (!session.isInWorkspace && targetPath != null) {
-			void commands.executeCommand('vscode.openFolder', Uri.file(targetPath), {
-				forceNewWindow: false,
-			});
-			return;
+		// focus the existing window holding `targetPath`. Delivery already confirmed a live window
+		// holds the session, so VS Code's window-folder matching reliably hits it instead of
+		// replacing the current window.
+		if (!session.isInWorkspace) {
+			void commands.executeCommand('vscode.openFolder', Uri.file(targetPath), { forceNewWindow: false });
+			return true;
 		}
 
-		// Same workspace (already open here, can't disambiguate) or no target at all. Surface a
-		// clear hint with the cwd so the user can switch manually.
+		// Same workspace (already open here, can't disambiguate which window to focus at the OS
+		// level). Surface a clear hint with the cwd so the user can switch manually.
+		const cwdHint = session.cwd ? ` (${session.cwd})` : '';
+		await this.offerResumeOrWarn(
+			session,
+			`This session is running in another VS Code window${cwdHint}. Switch to it to view.`,
+		);
+		return true;
+	}
+
+	/** Routes a session that's hosted in another VS Code window's extension: relays and raises it
+	 *  via {@link relayAndRaise}, falling back to the same "switch to it" info hint when the relay
+	 *  isn't delivered (unhealthy relay, no target path, or the owning window never confirmed). */
+	private async dispatchRemotelyHostedSession(
+		provider: AgentSessionProvider | undefined,
+		session: AgentSession,
+	): Promise<void> {
+		if (await this.relayAndRaise(provider, session)) return;
+
 		Logger.warn(
 			`AgentStatusService.dispatchRemotelyHostedSession: routed via info hint (pid=${session.pid ?? 'none'}, workspacePath=${session.workspacePath ?? 'none'}, cwd=${session.cwd ?? 'none'})`,
 		);
