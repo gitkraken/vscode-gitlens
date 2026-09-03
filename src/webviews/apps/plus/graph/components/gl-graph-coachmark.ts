@@ -11,6 +11,7 @@ import { onboardingDismissalsContext } from '../../../shared/contexts/onboarding
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CoachMarkSeenStore } from '../coachMarkSeen.js';
 import { coachMarkSeenContext } from '../coachMarkSeen.js';
+import type { GraphCoachMarkBodyContext } from './coachMarks.js';
 import { graphCoachMarks } from './coachMarks.js';
 import '../../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
@@ -155,6 +156,11 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			background: color-mix(in srgb, var(--vscode-charts-yellow) 15%, transparent);
 		}
 
+		.coachmark__icon--scoped {
+			color: var(--gl-chip-scoped-text-color);
+			background: var(--gl-chip-scoped-bg);
+		}
+
 		.coachmark__body strong {
 			color: var(--color-foreground);
 		}
@@ -238,6 +244,10 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			justify-self: center;
 			font-size: 1.2rem;
 			color: var(--vscode-focusBorder);
+		}
+
+		.row__icon--scoped {
+			color: var(--gl-chip-scoped-text-color);
 		}
 
 		.dot {
@@ -370,6 +380,10 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 	 *  lightbulb, which only shows while the trigger context holds. */
 	@property({ type: Boolean, attribute: 'auto-show' })
 	autoShow = false;
+
+	/** Host-supplied values the mark's body interpolates; today only the scoped worktree's name. */
+	@property({ attribute: false })
+	bodyContext?: GraphCoachMarkBodyContext;
 
 	@consume({ context: onboardingDismissalsContext, subscribe: true })
 	private _dismissals?: OnboardingDismissals;
@@ -736,7 +750,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 								content.icon
 									? html`<span
 											class="coachmark__icon${
-												content.iconTone === 'warning' ? ' coachmark__icon--warning' : ''
+												content.iconTone ? ` coachmark__icon--${content.iconTone}` : ''
 											}"
 											><code-icon icon=${content.icon}></code-icon
 										></span>`
@@ -758,7 +772,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 								: nothing
 						}
 					</div>
-					<div class="coachmark__body">${content.body()}</div>
+					<div class="coachmark__body">${content.body(this.bodyContext)}</div>
 					${
 						content.trust
 							? html`<div class="coachmark__trust">

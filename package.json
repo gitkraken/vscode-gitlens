@@ -13330,6 +13330,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f15a"
 				}
+			},
+			"gitlens-unscope": {
+				"description": "unscope icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f15b"
+				}
 			}
 		},
 		"menus": {

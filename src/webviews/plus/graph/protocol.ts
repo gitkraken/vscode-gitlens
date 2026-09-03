@@ -1393,6 +1393,7 @@ export const graphCoachMarkTypes = [
 	'visualizations',
 	'gitHealth',
 	'followTerminal',
+	'worktreeScoped',
 ] as const;
 export type GraphCoachMarkType = (typeof graphCoachMarkTypes)[number];
 

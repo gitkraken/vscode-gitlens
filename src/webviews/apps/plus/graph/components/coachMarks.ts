@@ -2,13 +2,18 @@ import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 import type { GraphCoachMarkType } from '../../../../plus/graph/protocol.js';
 
+/** Host-supplied values a coach mark's body may interpolate; today only the scoped worktree's name. */
+export interface GraphCoachMarkBodyContext {
+	worktreeName?: string;
+}
+
 export interface GraphCoachMarkContent {
 	title: string;
 	/** code-icon name rendered as a tinted chip before the title. */
 	icon?: string;
 	/** Tint for the icon chip; defaults to the focus-border accent. */
-	iconTone?: 'accent' | 'warning';
-	body: () => TemplateResult;
+	iconTone?: 'accent' | 'warning' | 'scoped';
+	body: (context?: GraphCoachMarkBodyContext) => TemplateResult;
 	/** Muted reassurance line pinned between the body and the actions row. */
 	trust?: string;
 	/** Same-frame arbitration when multiple marks trigger together — higher wins; the loser is
@@ -298,6 +303,8 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 		// Below `details` so a first open shows the details tip first — this one stays queued and
 		// opens once that closes.
 		priority: 0,
+		// The "Double-click" row below is static text describing the default
+		// `graph.doubleClickWorktreeAction`: these marks are for new users, so a changed setting isn't tracked.
 		body: () =>
 			html`<p class="lede">
 					Each pill is a worktree — its changes, its agents, its branch — one click from anywhere.
@@ -306,6 +313,12 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 					<div class="row">
 						<code-icon class="row__icon" icon="arrow-right"></code-icon>
 						<div class="row__body">Click a pill to jump to that worktree's working changes</div>
+					</div>
+					<div class="row">
+						<code-icon class="row__icon" icon="gl-scope"></code-icon>
+						<div class="row__body">
+							<strong>Double-click</strong> a pill to scope the graph to that worktree
+						</div>
 					</div>
 					<div class="row">
 						<span class="dot dot--dirty"></span>
@@ -441,5 +454,41 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 					Switching terminals keeps it in step. Turn this off anytime from the view's overflow menu ("Stop
 					Following Active Terminal").
 				</p>`,
+	},
+	worktreeScoped: {
+		title: "You're Scoped to a Worktree",
+		icon: 'gl-scope',
+		iconTone: 'scoped',
+		// Event-style: opens the first time a worktree scope lands, so there's no chrome home for a bulb.
+		lightbulb: false,
+		priority: 3,
+		body: context =>
+			html`<p class="lede">
+					The graph now acts as if you had opened
+					<strong>${context?.worktreeName ?? 'that worktree'}</strong>: you see its branch and its changes,
+					and anything you commit, push, or pull happens there.
+				</p>
+				<div class="rows">
+					<div class="row">
+						<code-icon class="row__icon row__icon--scoped" icon="gl-scope"></code-icon>
+						<div class="row__body">
+							Yellow marks what's scoped — the pill here, and the worktree's row in the sidebar
+						</div>
+					</div>
+					<div class="row">
+						<code-icon class="row__icon" icon="gl-unscope"></code-icon>
+						<div class="row__body">
+							<strong>Unscope</strong> — this glyph on the pill, or the same one on the worktree's row
+						</div>
+					</div>
+					<div class="row">
+						<code-icon class="row__icon" icon="target"></code-icon>
+						<div class="row__body">
+							<span class="chip chip--ui">Focus on Branch</span> only narrows the rows — nothing else
+							changes
+						</div>
+					</div>
+				</div>
+				<p class="footnote">Double-click any worktree pill or row to scope to it.</p>`,
 	},
 };

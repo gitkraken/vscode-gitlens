@@ -96,4 +96,5 @@ export const iconMap: Readonly<Record<string, string>> = Object.freeze({
 	'provider-trello': '\\f158',
 	'provider-opencode': '\\f159',
 	scope: '\\f15a',
+	unscope: '\\f15b',
 });

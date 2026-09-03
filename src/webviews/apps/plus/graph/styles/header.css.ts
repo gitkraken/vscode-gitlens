@@ -151,8 +151,8 @@ export const titlebarStyles = css`
 		box-shadow: inset 0 0 0 var(--gl-border-width) var(--gl-chip-scoped-border);
 	}
 
-	/* Wraps the branch pill and (when worktree-scoped) its ✕ clear button as one visual unit — always
-	   present, so toggling scope changes only the modifier class and the ✕, never the DOM shape.
+	/* Wraps the branch pill and (when worktree-scoped) its unscope clear button as one visual unit — always
+	   present, so toggling scope changes only the modifier class and the clear button, never the DOM shape.
 	   Deliberately not a <span>: the :nth-child(1) > span selector above pins flex-shrink to 0, which would
 	   stop the branch pill shrinking on narrow rows. */
 	.ref-button-group {
@@ -172,7 +172,7 @@ export const titlebarStyles = css`
 
 	/* Worktree-scope highlight on the branch pill unit — the EXACT recipe of the scope chip's scoped state
 	   (mode-chip--scoped), so the two treatments read as one colorization. The plain color property here
-	   covers the light-DOM ✕ button, which inherits it. */
+	   covers the light-DOM unscope button, which inherits it. */
 	.ref-button-group--worktree-scoped {
 		padding-right: 0.2rem;
 		color: var(--gl-chip-scoped-text-color);
@@ -187,6 +187,63 @@ export const titlebarStyles = css`
 	   slotted ref name and the chevron. */
 	.ref-button-group--worktree-scoped gl-ref-button::part(button) {
 		--button-foreground: var(--gl-chip-scoped-text-color);
+	}
+
+	/* Full-bleed banner across the top of the scoped pill's tooltip. Bleeds past the tooltip body's padding
+	   (--wa-tooltip-padding is a two-value shorthand, so its halves are named here rather than calc'd) and
+	   rounds its own top corners — the popup doesn't clip. Text is the page background: the chip color is
+	   picked to read against it, so the inverse holds too. */
+	.scope-banner {
+		display: flex;
+		gap: var(--gl-space-6);
+		align-items: flex-start;
+		margin: calc(-1 * var(--wa-spacing-2x-small)) calc(-1 * var(--wa-spacing-x-small)) var(--gl-space-8);
+		padding: var(--gl-space-6) var(--wa-spacing-x-small);
+		color: var(--color-background);
+		background: var(--gl-chip-scoped-color);
+		border-radius: var(--wa-tooltip-border-radius) var(--wa-tooltip-border-radius) 0 0;
+	}
+
+	.scope-banner code-icon {
+		flex: none;
+		margin-block-start: 0.2rem;
+	}
+
+	.scope-banner__text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.scope-banner__label {
+		font-size: 1.1rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		opacity: 0.85;
+	}
+
+	.scope-banner__name {
+		font-weight: 600;
+		overflow-wrap: anywhere;
+	}
+
+	.scope-path {
+		display: flex;
+		gap: var(--gl-space-4);
+		align-items: flex-start;
+		margin-block-start: var(--gl-space-4);
+		font-family: var(--vscode-editor-font-family);
+		font-size: 1.05rem;
+		line-height: 1.4;
+		opacity: 0.7;
+		overflow-wrap: anywhere;
+	}
+
+	.scope-path code-icon {
+		flex: none;
+		font-size: 1.2rem;
+		margin-block-start: 0.1rem;
 	}
 
 	.ref-button-group__clear-tooltip {

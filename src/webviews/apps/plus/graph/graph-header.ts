@@ -79,6 +79,7 @@ import './actions/gitActionsButtons.js';
 import './components/gl-graph-launchpad-indicator.js';
 import './components/gl-graph-account-indicator.js';
 import './components/gl-graph-header-promo.js';
+import './components/gl-graph-coachmark.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -218,6 +219,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	@property({ type: Boolean, attribute: 'has-selected-commit' })
 	hasSelectedCommit = false;
+
+	/** The app's coach-mark gate (see `coachMarksEligible` in graph-app), mirrored so the first-scope
+	 *  tip can't open before the graph is on screen. */
+	@property({ type: Boolean, attribute: 'graph-ready' })
+	graphReady = false;
 
 	get hasFilters() {
 		// Scope mode forces first-parent rendering, so it always counts as a filter.
@@ -445,10 +451,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return true;
 	}
 
-	/** ✕ on the worktree-scoped branch pill — a full "exit this worktree context": clears the PERSPECTIVE
-	 *  AND any FOCUS, however the focus was reached, since jumping home while silently keeping a projection
-	 *  would be surprising leftover state. The chip's ✕ is the deliberate asymmetric counterpart: focus is
-	 *  the subordinate mode, so clearing it never drops the perspective.
+	/** The `gl-unscope` glyph on the worktree-scoped branch pill — a full "exit this worktree context":
+	 *  clears the PERSPECTIVE AND any FOCUS, however the focus was reached, since jumping home while
+	 *  silently keeping a projection would be surprising leftover state. The chip's unscope button is the
+	 *  deliberate asymmetric counterpart: focus is the subordinate mode, so clearing it never drops the
+	 *  perspective.
 	 *
 	 *  Both halves come BACK together too: a refused unscope restores the perspective, and the focus rides
 	 *  along as the restore target, or a failed exit would strip the projection off a graph that never
@@ -456,11 +463,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private handleUnscopeWorktree(): void {
 		if (this.graphState.worktreePerspective == null) return;
 
-		// An action that removes the focused element must move focus with it: the ✕ unrenders once the
-		// perspective clears, dropping focus to <body>. `gl-ref-button` has no delegatesFocus, tabindex or
-		// focus() override of its own, so retarget `.jump-to-ref` — a real `gl-button` sibling that stays
-		// rendered and has a working public `focus()`. Guarded to a KEYBOARD activation of the ✕, so a
-		// mouse click elsewhere doesn't steal focus from wherever it already was.
+		// An action that removes the focused element must move focus with it: the unscope button unrenders
+		// once the perspective clears, dropping focus to <body>. `gl-ref-button` has no delegatesFocus,
+		// tabindex or focus() override of its own, so retarget `.jump-to-ref` — a real `gl-button` sibling
+		// that stays rendered and has a working public `focus()`. Guarded to a KEYBOARD activation of the
+		// unscope button, so a mouse click elsewhere doesn't steal focus from wherever it already was.
 		const clearButton = this.renderRoot.querySelector<HTMLElement>('.ref-button-group__clear');
 		if (this.shadowRoot?.activeElement === clearButton) {
 			this.renderRoot.querySelector<HTMLElement>('.jump-to-ref')?.focus();
@@ -1194,11 +1201,21 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// The accessible name REPLACES the one the slotted `<gl-ref-name>` would otherwise give this
 		// button, so the branch — the single most informative part, and the only part that matters in the
 		// unscoped case — has to be folded in rather than swapped out for the scope state.
-		const pillBranchLabel = pillBranch?.name != null ? `Switch Branch — ${pillBranch.name}` : 'Switch Branch...';
+		const pillBranchLabel =
+			pillBranch?.name != null
+				? `Switch Branch${worktreeScopedName != null ? ' in Worktree' : ''} — ${pillBranch.name}`
+				: `Switch Branch${worktreeScopedName != null ? ' in Worktree' : ''}...`;
 		const pillAriaLabel =
 			worktreeScopedName != null
 				? `${pillBranchLabel}, scoped to worktree ${worktreeScopedName}`
 				: pillBranchLabel;
+
+		// The window's HOME worktree name, for the unscope tooltip's "returns to X" line. Falls back to a
+		// nameless phrasing when `homeRepositoryPath` hasn't arrived yet (it's optional on `State`).
+		const homeName =
+			this.graphState.homeRepositoryPath != null
+				? this.worktreeDisplayName(this.graphState.homeRepositoryPath)
+				: undefined;
 
 		// While the optimistic pill hasn't converged, the PR chip, ahead/behind and worktree adornments
 		// would describe the PREVIOUS branch under the NEW name — suppress them rather than show stale
@@ -1274,44 +1291,68 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								aria-label=${pillAriaLabel}
 							>
 								<div slot="tooltip">
-									Switch Branch...
-									<hr />
-									<gl-branch-name .name=${pillBranch?.name}></gl-branch-name>${
-										pillWorktree ? html`<i> (in a worktree)</i> ` : ''
-									}${
+									${
 										worktreeScopedName != null
-											? html`<hr />
-													Graph is scoped to worktree "${worktreeScopedName}" — status and
-													actions use
-													it${
+											? html`<div class="scope-banner">
+														<code-icon icon="gl-scope"></code-icon>
+														<span class="scope-banner__text">
+															<span class="scope-banner__label">Scoped to Worktree</span>
+															<span class="scope-banner__name"
+																>${worktreeScopedName}</span
+															>
+														</span>
+													</div>
+													Switch Branch in Worktree...
+													<hr />
+													<gl-branch-name .name=${pillBranch?.name}></gl-branch-name>${
 														worktreePerspective != null
-															? html`<br /><i>${worktreePerspective.path}</i>`
+															? html`<div class="scope-path">
+																	<code-icon icon="folder"></code-icon>
+																	<span>${worktreePerspective.path}</span>
+																</div>`
 															: ''
 													}`
-											: ''
+											: html`Switch Branch...
+													<hr />
+													<gl-branch-name .name=${pillBranch?.name}></gl-branch-name>${
+														pillWorktree ? html`<i> (in a worktree)</i> ` : ''
+													}`
 									}
 								</div>
 							</gl-ref-button>
 							${when(
 								this.isWorktreeScoped,
 								() => html`
-									<gl-tooltip
-										class="ref-button-group__clear-tooltip"
-										placement="bottom"
-										content=${'Unscope Worktree\n\nReturns status and actions to your active worktree'}
-									>
+									<gl-tooltip class="ref-button-group__clear-tooltip" placement="bottom">
 										<button
 											type="button"
 											class="ref-button-group__clear"
 											aria-label="Unscope Worktree"
 											@click=${this.handleUnscopeWorktree}
 										>
-											<code-icon icon="close"></code-icon>
+											<code-icon icon="gl-unscope"></code-icon>
 										</button>
+										<div slot="content">
+											Unscope Worktree
+											<hr />
+											${
+												homeName != null
+													? html`Returns to <strong>${homeName}</strong>
+															<i>(active worktree)</i>`
+													: 'Returns to your active worktree'
+											}
+										</div>
 									</gl-tooltip>
 								`,
 							)}
 						</div>
+						<gl-graph-coachmark
+							mark="worktreeScoped"
+							placement="bottom-start"
+							.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.ref-button-group') ?? undefined}
+							.bodyContext=${{ worktreeName: worktreeScopedName }}
+							?auto-show=${this.graphReady && worktreeScopedName != null && pillConverged}
+						></gl-graph-coachmark>
 						<gl-button
 							class="jump-to-ref ${this.isScopedToCurrentBranch ? 'jump-to-ref--active' : ''}"
 							appearance="toolbar"

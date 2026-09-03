@@ -71,15 +71,16 @@ export function createWorktreeScopeAction(args: {
 	 * "perspective to home". */
 	isHome?: boolean;
 	/** Whether this row IS the graph's LIVE worktree perspective — swaps the main-click label to "Unscope
-	 * Worktree" so the scoped row reads as a toggle rather than a repeat of the same verb. Purely
-	 * cosmetic: `focusRef` closes the live perspective from `worktreePath` regardless of this flag. */
+	 * Worktree" and the icon to `gl-unscope`, so the scoped row reads as a toggle rather than a repeat of
+	 * the same verb. Purely cosmetic: `focusRef` closes the live perspective from `worktreePath` regardless
+	 * of this flag. */
 	isScoped?: boolean;
 }): TreeItemAction {
 	return {
-		// `gl-scope` is the SCOPE concept's own glyph — "the graph is looking through this worktree".
-		// Deliberately not `gl-worktree`, which is worktree IDENTITY and never scope, nor `target`, which
-		// is the focus vocabulary the alt verb below keeps.
-		icon: 'gl-scope',
+		// `gl-scope`/`gl-unscope` are the SCOPE concept's own glyphs — "the graph is looking through this
+		// worktree" and its inverse. Deliberately not `gl-worktree`, which is worktree IDENTITY and never
+		// scope, nor `target`, which is the focus vocabulary the alt verb below keeps.
+		icon: args.isScoped ? 'gl-unscope' : 'gl-scope',
 		label: args.isScoped ? 'Unscope Worktree' : 'Scope to Worktree',
 		action: focusRefActionId,
 		arguments: [

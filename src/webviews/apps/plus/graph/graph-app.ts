@@ -1868,6 +1868,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					() => html`
 						<gl-graph-header
 							class="graph__header"
+							?graph-ready=${this.coachMarksEligible}
 							.navigateToCommit=${this.navigateToCommit}
 							.detailsVisible=${detailsVisible}
 							.detailsEffectiveLocation=${this.effectiveDetailsLocation}
