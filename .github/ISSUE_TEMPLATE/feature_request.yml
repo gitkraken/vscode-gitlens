@@ -4,6 +4,7 @@ type: 'Enhancement'
 labels: [triage]
 body:
     - type: textarea
+      id: description
       attributes:
           label: Description
           description: Please describe the enhancement or feature you'd like to see in GitLens.

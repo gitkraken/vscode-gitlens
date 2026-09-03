@@ -138,8 +138,13 @@ export const urls = Object.freeze({
 	browserExtension: `https://gitkraken.com/browser-extension?${utm}`,
 	desktop: `https://gitkraken.com/git-client?${utm}`,
 
-	githubNewIssue: `https://github.com/gitkraken/vscode-gitlens/issues/new/choose?${utm}`,
-	githubDiscussions: `https://github.com/gitkraken/vscode-gitlens/discussions/?${utm}`,
+	githubIssues: 'https://github.com/gitkraken/vscode-gitlens/issues',
+	githubNewIssue: 'https://github.com/gitkraken/vscode-gitlens/issues/new/choose',
+	/** The bug-report issue form; append `description`, `gitlens`, and `vscode` params to prefill its fields. */
+	githubNewBugIssue: 'https://github.com/gitkraken/vscode-gitlens/issues/new?template=bug_report.yml',
+	/** The feature-request issue form; append a `description` param to prefill its field. */
+	githubNewFeatureIssue: 'https://github.com/gitkraken/vscode-gitlens/issues/new?template=feature_request.yml',
+	githubDiscussions: 'https://github.com/gitkraken/vscode-gitlens/discussions/',
 	helpCenter: `https://help.gitkraken.com/gitlens/gitlens-start-here/?${utm}`,
 	helpCenterHome: `https://help.gitkraken.com/gitlens/home-view/?${utm}`,
 	helpCenterMCP: `https://help.gitkraken.com/mcp/mcp-getting-started/?${utm}`,

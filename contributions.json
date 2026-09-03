@@ -4858,6 +4858,19 @@
 				]
 			}
 		},
+		"gitlens.graph.sendFeedback": {
+			"label": "Send Feedback...",
+			"icon": "$(feedback)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.graph",
+						"group": "navigation",
+						"order": -101
+					}
+				]
+			}
+		},
 		"gitlens.graph.setLaneDensityToCompact": {
 			"label": "Use Compact Density Graph Column Lanes",
 			"menus": {
@@ -12966,6 +12979,19 @@
 						"when": "view == gitlens.views.graph",
 						"group": "navigation",
 						"order": -99
+					}
+				]
+			}
+		},
+		"gitlens.views.graph.sendFeedback": {
+			"label": "Send Feedback...",
+			"icon": "$(feedback)",
+			"menus": {
+				"view/title": [
+					{
+						"when": "view == gitlens.views.graph",
+						"group": "navigation",
+						"order": -101
 					}
 				]
 			}

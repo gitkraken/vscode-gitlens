@@ -260,6 +260,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user clicks on the "Open Repository on Remote" header button on the Commit Graph */
 	'graph/action/sidebar': GraphActionSidebarEvent;
 
+	/** Sent when the Send Feedback dialog is opened from the Commit Graph */
+	'graph/feedback/opened': GraphFeedbackOpenedEvent;
+	/** Sent when the Send Feedback dialog is submitted */
+	'graph/feedback/submitted': GraphFeedbackSubmittedEvent;
+
 	/** Sent when a Commit Graph jump (a ref pill, sidebar/overview select, search step, host-initiated
 	 *  reveal, …) settles without landing on its row and shows the jump-feedback toast */
 	'graph/jump/failed': GraphJumpFailedEvent;
@@ -1736,6 +1741,19 @@ interface GraphActionRefFindEvent extends GraphContextEventData {
 	segmented: boolean;
 	/** Terms in the query, as a proxy for how much typing it took to converge. NOT the query itself. */
 	terms: number;
+}
+
+interface GraphFeedbackOpenedEvent extends GraphContextEventData {
+	/** Which entry point opened the dialog. */
+	source: 'toolbar' | 'account';
+}
+
+interface GraphFeedbackSubmittedEvent extends GraphContextEventData {
+	type: 'general' | 'feature_request' | 'bug_report';
+	/** Whether the feedback record reached the GitKraken events intake. */
+	outcome: 'success' | 'failed';
+	/** Whether a prefilled GitHub issue was opened (bug reports only — opened even on a failed send). */
+	issueOpened: boolean;
 }
 
 interface GraphAutoFetchEvent extends GraphContextEventData {

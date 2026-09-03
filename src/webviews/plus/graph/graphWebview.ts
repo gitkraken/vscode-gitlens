@@ -112,6 +112,7 @@ import {
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
+import { getFeedbackIssueUrl } from '../../../plus/gk/feedbackService.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import {
 	isAccountAccessRequired,
@@ -132,6 +133,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { onDidChangeContext, setContext } from '../../../system/-webview/context.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import { isDarkTheme, isLightTheme } from '../../../system/-webview/vscode.js';
+import { openUrl } from '../../../system/-webview/vscode/uris.js';
 import { getWebviewCommand } from '../../../system/decorators/command.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
@@ -177,8 +179,11 @@ import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
 import type {
+	DidRequestShowFeedbackParams,
 	GraphAccessState,
 	GraphColumnsState,
+	GraphFeedbackInput,
+	GraphFeedbackResult,
 	GraphFiltersState,
 	GraphRepoStatus,
 	GraphServices,
@@ -300,6 +305,10 @@ function hasCompare(arg: any): arg is { repository: GlRepository; compare: Graph
 
 function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
 	return typeof arg?.sidebarPanel === 'string';
+}
+
+function hasFeedback(arg: any): arg is { feedback: true; source?: Source } {
+	return arg?.feedback === true;
 }
 
 function hasVisualization(
@@ -1015,6 +1024,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `signal` (not `save-last`): the view re-fetches on receipt, so coalescing a burst of
 	// probe/apply/revert changes for the same repo into one wake-up is exactly the desired behavior.
 	private readonly _gitHealthChangedEvent = createRpcEvent<{ repoPath: string }>('gitHealthChanged', 'signal');
+	// `signal`: the toolbar command that fires this is only reachable from a visible graph, so there is
+	// no cold/hidden path to buffer for.
+	private readonly _requestShowFeedbackEvent = createRpcEvent<DidRequestShowFeedbackParams>(
+		'requestShowFeedback',
+		'signal',
+	);
 	/** Visualization requested by a command during a cold show, replayed once the app is ready. */
 	private _pendingVisualization: VisualizationMode | undefined;
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
@@ -1200,6 +1215,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				dismissBanner: repoPath => this.container.gitHealth.dismissBanner(repoPath),
 				markHealthViewVisited: repoPath => this.container.gitHealth.markHealthViewVisited(repoPath),
 				onHealthChanged: this._gitHealthChangedEvent.subscribe(buffer, tracker),
+			},
+			feedback: {
+				send: input => this.onSendFeedback(input),
+				onRequestShow: this._requestShowFeedbackEvent.subscribe(buffer, tracker),
 			},
 			launchpad: new LaunchpadService(this.container, buffer, tracker),
 			navigation: {
@@ -1439,6 +1458,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					void this.revealRow(id);
 				}
+			}
+		} else if (hasFeedback(arg)) {
+			// The panel's title-toolbar command, so the graph is already open and warm; there is no cold
+			// path to buffer for — an app that isn't ready yet simply has nothing to open the dialog in.
+			if (this.host.ready) {
+				this.showFeedback();
 			}
 		} else if (hasVisualization(arg)) {
 			// Checked ahead of `hasCompare`/`hasRepository` — both duck-type on `arg.repository` alone,
@@ -1772,6 +1797,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.host.is('view')) {
 			commands.push(
 				registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
+				registerCommand(`${this.host.id}.sendFeedback`, () => this.showFeedback()),
 				registerCommand(`${this.host.id}.openInNewWindow`, async () => {
 					this.host.sendTelemetryEvent('graph/command', {
 						command: `${this.host.id}.openInNewWindow`,
@@ -2720,6 +2746,61 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  bar/panel host) — the editor tab has no side-vs-bottom placement to choose. */
 	private getLayoutPromptNeeded(): boolean {
 		return this.host.is('view') && !this.container.onboarding.isDismissed('graph:layoutPrompt');
+	}
+
+	/** Fires the toolbar's "open the Send Feedback dialog" push — see {@link GraphFeedbackService}. */
+	showFeedback(): void {
+		this._requestShowFeedbackEvent.fire({ source: 'toolbar' });
+	}
+
+	/** RPC handler for the Send Feedback dialog's submit — sends the record, opens a prefilled GitHub
+	 *  issue for bug reports (whether or not the send itself succeeded), offers one from the toast for
+	 *  feature requests, and reports the outcome via telemetry and an info toast. */
+	private async onSendFeedback(input: GraphFeedbackInput): Promise<GraphFeedbackResult> {
+		const isBug = input.type === 'bug_report';
+
+		let sent = false;
+		try {
+			await this.container.feedback.send({ ...input, surface: 'graph', githubIssueOpened: isBug });
+			sent = true;
+		} catch {
+			// Already logged by the service; the outcome rides the result (and telemetry) below.
+		}
+
+		let issueOpened = false;
+		if (isBug) {
+			void openUrl(getFeedbackIssueUrl(this.container, 'bug_report', input.message));
+			issueOpened = true;
+		}
+
+		this.host.sendTelemetryEvent('graph/feedback/submitted', {
+			type: input.type,
+			outcome: sent ? 'success' : 'failed',
+			issueOpened: issueOpened,
+		});
+
+		if (isBug) {
+			void window.showInformationMessage("Thanks. We've opened a GitHub issue so you can add more details.");
+		} else if (sent && input.type === 'feature_request') {
+			// Opt-in, unlike bugs: a one-line "would be nice" shouldn't force a public issue, but a real
+			// ask belongs where enhancements are actually tracked and discussed.
+			void this.offerFeatureRequestIssue(input.message);
+		} else if (sent) {
+			void window.showInformationMessage('Thanks for the feedback. The team will use it to improve GitLens.');
+		}
+
+		return { sent: sent, issueOpened: issueOpened };
+	}
+
+	private async offerFeatureRequestIssue(message: string): Promise<void> {
+		const file = { title: 'File on GitHub' };
+		const result = await window.showInformationMessage(
+			'Thanks for the feedback. The team will use it to improve GitLens.',
+			file,
+		);
+		if (result !== file) return;
+
+		void openUrl(getFeedbackIssueUrl(this.container, 'feature_request', message));
 	}
 
 	/** RPC handler for the whole welcome-continue interaction — see docs/webview-architecture.md

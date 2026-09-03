@@ -8644,6 +8644,11 @@
 				"title": "Show Working Tree Markers"
 			},
 			{
+				"command": "gitlens.graph.sendFeedback",
+				"title": "Send Feedback...",
+				"icon": "$(feedback)"
+			},
+			{
 				"command": "gitlens.graph.setLaneDensityToCompact",
 				"title": "Use Compact Density Graph Column Lanes"
 			},
@@ -10903,6 +10908,11 @@
 				"command": "gitlens.views.graph.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.graph.sendFeedback",
+				"title": "Send Feedback...",
+				"icon": "$(feedback)"
 			},
 			{
 				"command": "gitlens.views.highlightChanges",
@@ -14698,6 +14708,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.sendFeedback",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.setLaneDensityToCompact",
 					"when": "false"
 				},
@@ -16422,6 +16436,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.graph.sendFeedback",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.highlightChanges",
 					"when": "false"
 				},
@@ -17943,6 +17961,21 @@
 			],
 			"editor/title": [
 				{
+					"command": "gitlens.graph.sendFeedback",
+					"when": "activeWebviewPanelId === gitlens.graph",
+					"group": "navigation@-101"
+				},
+				{
+					"command": "gitlens.settings.refresh",
+					"when": "activeWebviewPanelId === gitlens.settings",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.timeline.refresh",
+					"when": "activeWebviewPanelId === gitlens.timeline",
+					"group": "navigation@-99"
+				},
+				{
 					"command": "gitlens.agents.focusSessionWorktreeInGraph",
 					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
 					"group": "navigation@1"
@@ -17951,6 +17984,11 @@
 					"command": "gitlens.agents.showSessionWorktreeInGraph",
 					"when": "activeWebviewPanelId == claudeVSCodePanel && gitlens:agents:enabled",
 					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.graph.split",
+					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
+					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.graph.followTerminalOff",
@@ -17978,16 +18016,6 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.settings.refresh",
-					"when": "activeWebviewPanelId === gitlens.settings",
-					"group": "navigation@-99"
-				},
-				{
-					"command": "gitlens.timeline.refresh",
-					"when": "activeWebviewPanelId === gitlens.timeline",
-					"group": "navigation@-99"
-				},
-				{
 					"command": "gitlens.clearFileAnnotations",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || (resource in gitlens:tabs:annotated && resource not in gitlens:tabs:annotated:computing)) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
@@ -17995,17 +18023,6 @@
 				{
 					"command": "gitlens.computingFileAnnotations",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileBlame:editor/title",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
-					"group": "navigation@100",
-					"alt": "gitlens.toggleFileHeatmap:editor/title"
-				},
-				{
-					"submenu": "gitlens/editor/annotations",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
 					"group": "navigation@100"
 				},
 				{
@@ -18035,9 +18052,10 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.graph.split",
-					"when": "activeWebviewPanelId == gitlens.graph && resourceScheme == webview-panel && config.gitlens.graph.allowMultiple",
-					"group": "navigation@-97"
+					"command": "gitlens.toggleFileBlame:editor/title",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame",
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileHeatmap:editor/title"
 				},
 				{
 					"command": "gitlens.toggleFileChanges:editor/title",
@@ -18050,6 +18068,11 @@
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
 					"group": "navigation@100",
 					"alt": "gitlens.toggleFileBlame"
+				},
+				{
+					"submenu": "gitlens/editor/annotations",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
+					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
@@ -26204,6 +26227,11 @@
 					"command": "gitlens.showSettingsPage!file-history-view",
 					"when": "view == gitlens.views.fileHistory",
 					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.graph.sendFeedback",
+					"when": "view == gitlens.views.graph",
+					"group": "navigation@-101"
 				},
 				{
 					"command": "gitlens.views.graph.openInNewWindow",

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds saving your _Commit Graph_ layout as the default for new workspaces ([#4292](https://github.com/gitkraken/vscode-gitlens/issues/4292)) &mdash; arrange columns, sizing, grouping, and panels how you like, then use the new _Save as Default Layout_ action in the column header or settings gear menus; the new _Apply Saved Layout_ action re-applies it anytime, and _Reset Layout_ restores the shipped arrangement (replacing the previous _Reset Columns to Default/Compact Layout_ actions)
+- Adds a _Send Feedback_ dialog ([#5812](https://github.com/gitkraken/vscode-gitlens/issues/5812)) &mdash; reachable from the _Commit Graph_'s title toolbar and its account menu; choose general feedback, a feature request, or a bug report about GitLens and send it straight to the team, bug reports also open a prefilled GitHub issue so you can add logs and details, and feature requests offer to file one
 
 ### Changed
 

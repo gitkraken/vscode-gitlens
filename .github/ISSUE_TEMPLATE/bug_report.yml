@@ -4,6 +4,7 @@ type: 'Bug'
 labels: ['triage']
 body:
     - type: textarea
+      id: description
       attributes:
           label: Description
           description: Please provide a concise description of what you're experiencing, what you expected to happen, and any steps to reproduce the behavior.

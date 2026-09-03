@@ -36,6 +36,12 @@ declare global {
 	interface HTMLElementTagNameMap {
 		'gl-graph-account-indicator': GlGraphAccountIndicator;
 	}
+
+	interface GlobalEventHandlersEventMap {
+		/** Relayed from the account panel's "Send Feedback" action — this indicator has no feedback
+		 *  dialog of its own, so it hands the request up to `gl-graph-app`. */
+		'gl-graph-show-feedback': CustomEvent<void>;
+	}
 }
 
 type AccountRingState = 'loading' | 'unpaid' | 'trial' | 'paid';
@@ -405,7 +411,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
 			</button>
 			<div slot="content" class="rollup">
-				<gl-account-chip display="panel" settings-nav></gl-account-chip>
+				<gl-account-chip
+					display="panel"
+					settings-nav
+					feedback
+					@gl-account-chip-feedback=${this.handleFeedbackClick}
+				></gl-account-chip>
 				${this.renderWalkthrough()}
 				<hr />
 				<div class="rollup__section">
@@ -444,6 +455,14 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			</div>
 		</gl-popover>`;
 	}
+
+	/** The panel's "Send Feedback" action has no dialog of its own — hide the rollup popover (it would
+	 *  otherwise float over the feedback dialog) and hand the request up to `gl-graph-app`, which owns
+	 *  the single `gl-graph-feedback-dialog` instance. */
+	private handleFeedbackClick = (): void => {
+		void this._popover?.hide();
+		this.dispatchEvent(new CustomEvent('gl-graph-show-feedback', { bubbles: true, composed: true }));
+	};
 
 	/** Deep-links to the matching Settings section when a rollup section has nothing set up. */
 	private renderSetupCta(command: GlExtensionCommands, label: string): unknown {

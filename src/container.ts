@@ -47,6 +47,7 @@ import { AIProviderService } from './plus/ai/aiProviderService.js';
 import { AutoRebaseService } from './plus/coretools/conflict/autoRebaseService.js';
 import { DraftService } from './plus/drafts/draftsService.js';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider.js';
+import { FeedbackService } from './plus/gk/feedbackService.js';
 import { OrganizationService } from './plus/gk/organizationService.js';
 import { ProductConfigProvider } from './plus/gk/productConfigProvider.js';
 import { ServerConnection } from './plus/gk/serverConnection.js';
@@ -577,6 +578,15 @@ export class Container {
 		}
 
 		return this._enrichments;
+	}
+
+	private _feedback: FeedbackService | undefined;
+	get feedback(): FeedbackService {
+		if (this._feedback == null) {
+			this._disposables.push((this._feedback = new FeedbackService(this, this._connection)));
+		}
+
+		return this._feedback;
 	}
 
 	@memoize()

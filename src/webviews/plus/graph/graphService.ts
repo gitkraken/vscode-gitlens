@@ -1435,6 +1435,39 @@ export interface GraphStateService {
 	readonly onStateChanged: RpcEventSubscription<DidChangeParams>;
 }
 
+/** What the Send Feedback dialog submits. `type` mirrors Kepler's feedback categories so both products'
+ *  feedback lands in the same warehouse series. */
+export type GraphFeedbackType = 'general' | 'feature_request' | 'bug_report';
+
+export interface GraphFeedbackInput {
+	type: GraphFeedbackType;
+	message: string;
+}
+
+export interface GraphFeedbackResult {
+	/** Whether the feedback record reached the GitKraken events intake. */
+	sent: boolean;
+	/** Whether a prefilled GitHub issue was opened (bug reports only — opened even when `sent` is false). */
+	issueOpened: boolean;
+}
+
+/** Which entry point asked for the dialog — the header account popover opens it directly, so only the
+ *  VS Code title toolbar rides this event. */
+export interface DidRequestShowFeedbackParams {
+	source: 'toolbar';
+}
+
+/**
+ * The Send Feedback plane. {@link GraphFeedbackService.send} is awaited end-to-end so the dialog can
+ * show a real failure state; {@link GraphFeedbackService.onRequestShow} is the host's "open the
+ * dialog" push for the title-toolbar command. `signal`: the toolbar is only reachable from a visible
+ * graph, so there is no cold/hidden path to buffer for.
+ */
+export interface GraphFeedbackService {
+	send(input: GraphFeedbackInput): Promise<GraphFeedbackResult>;
+	readonly onRequestShow: RpcEventSubscription<DidRequestShowFeedbackParams>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly access: GraphAccessService;
 	readonly avatars: GraphAvatarsService;
@@ -1444,6 +1477,7 @@ export interface GraphServices extends SharedWebviewServices {
 	readonly filters: GraphFiltersService;
 	readonly graphInspect: GraphInspectService;
 	readonly graphHealth: GraphHealthService;
+	readonly feedback: GraphFeedbackService;
 	readonly launchpad: GraphLaunchpadService;
 	readonly navigation: GraphNavigationService;
 	readonly walkthrough: GraphWalkthroughService;

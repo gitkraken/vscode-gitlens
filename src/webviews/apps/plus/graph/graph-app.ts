@@ -69,6 +69,7 @@ import type { CapturedComparison } from './components/detailsState.js';
 import { shouldRestoreCapturedComparison } from './components/detailsState.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
+import type { GlGraphFeedbackDialog } from './components/gl-graph-feedback-dialog.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type {
 	GlGraphTimelineCommitSelectDetail,
@@ -131,6 +132,7 @@ import '../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
+import './components/gl-graph-feedback-dialog.js';
 import './components/gl-graph-health-banner.js';
 import './components/gl-graph-jump-toast.js';
 import './components/gl-graph-kanban.js';
@@ -720,6 +722,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-keyboard-shortcuts')
 	private readonly keyboardShortcutsEl: GlGraphKeyboardShortcuts | undefined;
+
+	@query('gl-graph-feedback-dialog')
+	private readonly feedbackDialogEl: GlGraphFeedbackDialog | undefined;
 
 	/** One-shot file/folder scope pushed into the embedded timeline (Visual History) by a graph
 	 *  context-menu action. Cleared once `gl-graph-timeline` reports it applied. */
@@ -1829,6 +1834,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							@gl-search-exit=${this.handleSearchExit}
 							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 							@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
+							@gl-graph-show-feedback=${this.handleShowFeedback}
 						></gl-graph-header>
 					`,
 				)}
@@ -2009,6 +2015,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.keymap=${this.keymap}
 					@gl-graph-keyboard-shortcuts-closed=${() => this.graph?.focus()}
 				></gl-graph-keyboard-shortcuts>
+				<gl-graph-feedback-dialog
+					.keymap=${this.keymap}
+					@gl-graph-feedback-closed=${() => this.graph?.focus()}
+				></gl-graph-feedback-dialog>
 				${
 					this.graphState.config?.sidebar
 						? this.renderSidebarSplit(!isGraphMode)
@@ -2039,6 +2049,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleShowShortcuts = (): void => {
 		this.keyboardShortcutsEl?.show();
+	};
+
+	/** The header's account-popover "Send Feedback" entry point — the title-toolbar command instead
+	 *  reaches the dialog directly via its own `feedback.onRequestShow` subscription. */
+	private handleShowFeedback = (): void => {
+		this.feedbackDialogEl?.show('account');
 	};
 
 	/** Branch/tag pill focus → open/close the branch sheet in the details panel, mirroring the pill's

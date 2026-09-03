@@ -2170,6 +2170,49 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/feedback/opened
+
+> Sent when the Send Feedback dialog is opened from the Commit Graph
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which entry point opened the dialog.
+  'source': 'account' | 'toolbar'
+}
+```
+
+### graph/feedback/submitted
+
+> Sent when the Send Feedback dialog is submitted
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether a prefilled GitHub issue was opened (bug reports only — opened even on a failed send).
+  'issueOpened': boolean,
+  // Whether the feedback record reached the GitKraken events intake.
+  'outcome': 'success' | 'failed',
+  'type': 'general' | 'feature_request' | 'bug_report'
+}
+```
+
 ### graph/filters/changed
 
 > Sent when the user changes the filters on the Commit Graph
@@ -7338,7 +7381,7 @@ or
   // One-time out-of-window trial reset, attempted from Graph state builds; `failed` may repeat within a session (retries), paid accounts emit no event
   'action': 'auto-reset-trial',
   // `refused` = the reset 409'd an account the eligibility check approved (e.g. paid-org members); `failed-shape` = the eligibility payload no longer matches what the client reads
-  'outcome': 'reset' | 'not-eligible' | 'refused' | 'failed' | 'failed-shape'
+  'outcome': 'reset' | 'failed' | 'not-eligible' | 'refused' | 'failed-shape'
 }
 ```
 

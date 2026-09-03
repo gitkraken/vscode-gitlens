@@ -45,6 +45,14 @@ import '../../../shared/components/button-container.js';
 import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
 
+declare global {
+	interface GlobalEventHandlersEventMap {
+		/** The panel's "Send Feedback" toolbar action — only rendered when `feedback` is set. Bubbles
+		 *  so a host (e.g. the Graph header's account rollup) can route it to its own feedback dialog. */
+		'gl-account-chip-feedback': CustomEvent<void>;
+	}
+}
+
 @customElement('gl-account-chip')
 export class GlAccountChip extends SignalWatcher(LitElement) {
 	@consume({ context: subscriptionContext, subscribe: true })
@@ -500,6 +508,12 @@ background-color: var(--gl-account-chip-color); */
 	@property({ type: Boolean, reflect: true, attribute: 'settings-nav' })
 	settingsNav = false;
 
+	/** Shows a "Send Feedback" toolbar action alongside the panel's other header actions. Set by
+	 *  surfaces that have somewhere to route it (e.g. the Graph header wires it to its feedback
+	 *  dialog) — off by default since most hosts of this panel have no such dialog. */
+	@property({ type: Boolean, reflect: true })
+	feedback = false;
+
 	private _showUpgrade = false;
 	@property({ type: Boolean, reflect: true, attribute: 'show-upgrade' })
 	get showUpgrade() {
@@ -632,11 +646,26 @@ background-color: var(--gl-account-chip-color); */
 		this.focus();
 	}
 
+	/** Re-dispatched by the host — this panel has no feedback dialog of its own to open. */
+	private onFeedbackClick = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-account-chip-feedback', { bubbles: true, composed: true }));
+	};
+
 	/** The account panel body: header (plan name + toolbar actions) + account info + subscription-state CTAs. */
 	private renderPanelContent(): unknown {
 		return html`<div class="header">
 				${this.renderPlanTitle()}
 				<span class="header__actions">
+					${when(
+						this.feedback,
+						() => html`<gl-button
+							appearance="toolbar"
+							tooltip="Send Feedback"
+							aria-label="Send Feedback"
+							@click=${this.onFeedbackClick}
+							><code-icon icon="feedback"></code-icon
+						></gl-button>`,
+					)}
 					${
 						this.hasAccount
 							? html`<gl-button
