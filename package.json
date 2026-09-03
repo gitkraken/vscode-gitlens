@@ -9676,11 +9676,6 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
-				"command": "gitlens.showHomeView",
-				"title": "Show Home View",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showInCommitGraph",
 				"title": "Open in Commit Graph",
 				"icon": "$(gitlens-graph)"
@@ -11000,16 +10995,6 @@
 			{
 				"command": "gitlens.views.highlightRevisionChanges:graphDetails",
 				"title": "Highlight Changes from this Commit"
-			},
-			{
-				"command": "gitlens.views.home.info",
-				"title": "Learn about Home View",
-				"icon": "$(question)"
-			},
-			{
-				"command": "gitlens.views.home.refresh",
-				"title": "Refresh",
-				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.launchpad.attach",
@@ -16531,14 +16516,6 @@
 				},
 				{
 					"command": "gitlens.views.highlightRevisionChanges:graphDetails",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.home.info",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.home.refresh",
 					"when": "false"
 				},
 				{
@@ -23841,36 +23818,6 @@
 					"group": "inline@-99"
 				},
 				{
-					"command": "gitlens.whatsNew",
-					"when": "viewItem == gitlens:views:home",
-					"group": "inline@1"
-				},
-				{
-					"command": "gitlens.views.home.info",
-					"when": "viewItem == gitlens:views:home",
-					"group": "inline@98"
-				},
-				{
-					"command": "gitlens.views.home.refresh",
-					"when": "viewItem == gitlens:views:home",
-					"group": "inline@99"
-				},
-				{
-					"command": "gitlens.reportIssue",
-					"when": "viewItem == gitlens:views:home",
-					"group": "2_gitlens@98"
-				},
-				{
-					"command": "gitlens.shareFeedback",
-					"when": "viewItem == gitlens:views:home",
-					"group": "2_gitlens@99"
-				},
-				{
-					"command": "gitlens.helpCenter",
-					"when": "viewItem == gitlens:views:home",
-					"group": "3_gitlens@1"
-				},
-				{
 					"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
 					"when": "viewItem == gitlens:views:launchpad && config.gitlens.views.launchpad.files.layout == tree",
 					"group": "inline@50"
@@ -26360,36 +26307,6 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.whatsNew",
-					"when": "view == gitlens.views.home || view == gitlens.views.welcome",
-					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.views.home.info",
-					"when": "view == gitlens.views.home",
-					"group": "navigation@98"
-				},
-				{
-					"command": "gitlens.views.home.refresh",
-					"when": "view == gitlens.views.home",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.reportIssue",
-					"when": "view == gitlens.views.home || view == gitlens.views.welcome",
-					"group": "2_gitlens@98"
-				},
-				{
-					"command": "gitlens.shareFeedback",
-					"when": "view == gitlens.views.home || view == gitlens.views.welcome",
-					"group": "2_gitlens@99"
-				},
-				{
-					"command": "gitlens.helpCenter",
-					"when": "view == gitlens.views.home || view == gitlens.views.welcome",
-					"group": "3_gitlens@1"
-				},
-				{
 					"command": "gitlens.views.launchpad.setFilesLayoutToAuto",
 					"when": "view == gitlens.views.launchpad && config.gitlens.views.launchpad.files.layout == tree",
 					"group": "navigation@50"
@@ -27820,6 +27737,11 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.whatsNew",
+					"when": "view == gitlens.views.welcome",
+					"group": "navigation@1"
+				},
+				{
 					"command": "gitlens.views.welcome.refresh",
 					"when": "view == gitlens.views.welcome",
 					"group": "navigation@99"
@@ -27828,6 +27750,21 @@
 					"command": "gitlens.views.welcome.close",
 					"when": "view == gitlens.views.welcome",
 					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.reportIssue",
+					"when": "view == gitlens.views.welcome",
+					"group": "2_gitlens@98"
+				},
+				{
+					"command": "gitlens.shareFeedback",
+					"when": "view == gitlens.views.welcome",
+					"group": "2_gitlens@99"
+				},
+				{
+					"command": "gitlens.helpCenter",
+					"when": "view == gitlens.views.welcome",
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.workspaces.create",
@@ -30663,15 +30600,6 @@
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 3,
 					"visibility": "visible"
-				},
-				{
-					"type": "webview",
-					"id": "gitlens.views.home",
-					"name": "Home",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-gitlens)",
-					"initialSize": 6,
-					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.launchpad",

@@ -32,7 +32,7 @@ declare global {
 
 /**
  * The cloud-integrations connection panel — one row per supported integration
- * with its connection state, mirroring the Home view's integrations chip.
+ * with its connection state.
  *
  * These aren't config settings: state comes from the shared integrations and
  * subscription RPC services, and all actions run commands (connect, upgrade,

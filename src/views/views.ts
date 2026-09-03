@@ -20,7 +20,6 @@ import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
 import { getViewFocusCommand } from '../system/-webview/vscode/views.js';
 import { registerCommitDetailsWebviewView } from '../webviews/commitDetails/registration.js';
-import { registerHomeWebviewView } from '../webviews/home/registration.js';
 import { registerGraphWebviewView } from '../webviews/plus/graph/registration.js';
 import { registerPatchDetailsWebviewView } from '../webviews/plus/patchDetails/registration.js';
 import { registerTimelineWebviewView } from '../webviews/plus/timeline/registration.js';
@@ -431,7 +430,6 @@ export class Views implements Disposable {
 		return [
 			(this._commitDetailsView = registerCommitDetailsWebviewView(webviews)),
 			(this._graphView = registerGraphWebviewView(webviews)),
-			(this._homeView = registerHomeWebviewView(webviews)),
 			(this._patchDetailsView = registerPatchDetailsWebviewView(webviews)),
 			(this._timelineView = registerTimelineWebviewView(webviews)),
 			(this._welcomeView = registerWelcomeWebviewView(webviews)),
@@ -731,11 +729,6 @@ export class Views implements Disposable {
 	private _graphView!: ReturnType<typeof registerGraphWebviewView>;
 	get graph(): ReturnType<typeof registerGraphWebviewView> {
 		return this._graphView;
-	}
-
-	private _homeView!: ReturnType<typeof registerHomeWebviewView>;
-	get home(): ReturnType<typeof registerHomeWebviewView> {
-		return this._homeView;
 	}
 
 	private _launchpadView!: LaunchpadView | undefined;

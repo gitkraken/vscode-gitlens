@@ -1,7 +1,6 @@
 import { window } from 'vscode';
 import type { Container } from '../container.js';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
-import type { HomeWebviewShowingArgs } from '../webviews/home/registration.js';
 import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration.js';
 import type { WelcomeWebviewShowingArgs } from '../webviews/welcome/registration.js';
 import { GlCommandBase } from './commandBase.js';
@@ -19,7 +18,6 @@ export class ShowViewCommand extends GlCommandBase {
 			'gitlens.showDraftsView',
 			'gitlens.showFileHistoryView',
 			'gitlens.showGraphView',
-			'gitlens.showHomeView',
 			'gitlens.showLaunchpadView',
 			'gitlens.showLineHistoryView',
 			'gitlens.showRemotesView',
@@ -91,8 +89,6 @@ export class ShowViewCommand extends GlCommandBase {
 				// just wait for discovery so we don't flash the empty state before repos are known.
 				await this.waitForRepo();
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
-			case 'gitlens.showHomeView':
-				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));
 			case 'gitlens.showLaunchpadView':
 				return this.container.views.showView('launchpad');
 			case 'gitlens.showLineHistoryView':

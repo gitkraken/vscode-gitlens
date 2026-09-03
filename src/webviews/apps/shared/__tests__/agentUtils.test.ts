@@ -117,7 +117,7 @@ suite('agentUtils', () => {
 		});
 
 		test('default-worktree session matches default-worktree target with undefined worktreePath', () => {
-			// Home view passes explicit worktreePath; Graph leaves it undefined for the default
+			// Callers may pass an explicit worktreePath or leave it undefined for the default
 			// worktree. The matcher must coalesce both forms to the same key (= repoPath).
 			const s = makeSession({
 				id: 's',

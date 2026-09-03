@@ -4,11 +4,14 @@ import { customElement, property } from 'lit/decorators.js';
 import { elementBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { basename } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
+import type {
+	AgentSessionState,
+	PastAgentSessionsResult,
+	PastAgentSessionState,
+} from '../../../../../agents/models/agentSessionState.js';
 import { getAgentSessionIdentityKey } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
-import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,

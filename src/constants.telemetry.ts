@@ -610,17 +610,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user switches the AI model from the resolve-mode chip in the Graph Details panel */
 	'graphDetails/resolve/changeAiModel': GraphDetailsChangeAiModelEvent;
 
-	/** Sent when a Home command is executed */
-	'home/command': CommandEventData;
-	/** Sent when the user chooses to create a branch from the home view */
-	'home/createBranch': void;
-	/** Sent when the user chooses to start work on an issue from the home view */
-	'home/startWork': void;
-	/** Sent when the user starts defining a user-specific merge target branch */
-	'home/changeBranchMergeTarget': void;
-	/** Sent when Home fails to load some state */
-	'home/failed': HomeFailedEvent;
-
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
 
@@ -2649,14 +2638,6 @@ interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {
 	'permission.kind': string;
 }
 
-export type HomeTelemetryContext = WebviewTelemetryContext;
-
-interface HomeFailedEvent {
-	reason: 'subscription';
-	error: string;
-	'error.detail'?: string;
-}
-
 type InspectCommitContextEventData = {
 	'context.mode': 'commit';
 	'context.autolinks': number;
@@ -3311,7 +3292,6 @@ type WelcomeActionNames =
 	| 'dismiss'
 	| 'open/composer'
 	| 'open/graph'
-	| 'open/home-view'
 	| 'open/help-center'
 	| 'open/help-center/community-vs-pro'
 	| 'open/kepler'
@@ -3383,7 +3363,6 @@ export type Sources =
 	| 'graph-kanban'
 	| 'graph-sidebar'
 	| 'graph-treemap'
-	| 'home'
 	| 'inspect'
 	| 'inspect-overview'
 	| 'integrations'

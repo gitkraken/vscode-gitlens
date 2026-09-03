@@ -47,40 +47,6 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.rebaseCurrentOnto:graph'
 	| 'gitlens.shareWipAsCloudPatch:graph';
 
-type InternalHomeWebviewCommands =
-	| 'gitlens.git.branch.setMergeTarget:home'
-	| 'gitlens.deleteBranchOrWorktree:home'
-	| 'gitlens.ai.explainBranch:home'
-	| 'gitlens.ai.explainWip:home'
-	| 'gitlens.composeCommits:home'
-	| 'gitlens.createBranch:home'
-	| 'gitlens.createCloudPatch:home'
-	| 'gitlens.createPullRequest:home'
-	| 'gitlens.fetch:home'
-	| 'gitlens.mergeIntoCurrent:home'
-	| 'gitlens.openInView.branch:home'
-	| 'gitlens.openMergeTargetComparison:home'
-	| 'gitlens.openPullRequestChanges:home'
-	| 'gitlens.openPullRequestComparison:home'
-	| 'gitlens.openPullRequestDetails:home'
-	// | 'gitlens.openPullRequestOnRemote:home'
-	| 'gitlens.openWorktree:home'
-	| 'gitlens.pausedOperation.abort:home'
-	| 'gitlens.pausedOperation.continue:home'
-	| 'gitlens.pausedOperation.open:home'
-	| 'gitlens.pausedOperation.showConflicts:home'
-	| 'gitlens.pausedOperation.skip:home'
-	| 'gitlens.publishBranch:home'
-	| 'gitlens.pull:home'
-	| 'gitlens.push:home'
-	| 'gitlens.pushBranch:home'
-	| 'gitlens.rebaseCurrentOnto:home'
-	| 'gitlens.showInCommitGraph:home'
-	| 'gitlens.startWork:home'
-	| 'gitlens.switchToBranch:home'
-	| 'gitlens.visualizeHistory.repo:home'
-	| 'gitlens.visualizeHistory.branch:home';
-
 type InternalAgentCommands = 'gitlens.agents.resolvePermission' | 'gitlens.agents.showResumeSessionPicker';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
@@ -139,7 +105,6 @@ type InternalWelcomeCommands =
 	| 'gitlens.welcome.plus.upgrade'
 	| 'gitlens.welcome.showComposer'
 	| 'gitlens.welcome.showGraph'
-	| 'gitlens.welcome.showHomeView'
 	| 'gitlens.welcome.showLaunchpad';
 
 type InternalGlCommands =
@@ -182,7 +147,6 @@ type InternalGlCommands =
 	| InternalAgentCommands
 	| InternalGraphWebviewCommands
 	| InternalGraphWebviewViewCommands
-	| InternalHomeWebviewCommands
 	| InternalLaunchPadCommands
 	| InternalPlusCommands
 	| InternalPullRequestViewCommands

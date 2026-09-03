@@ -57,7 +57,6 @@ flowchart TB
 
     subgraph ui["Surfaces"]
         GRAPH["Commit Graph<br/>sidebar · WIP row · sheets · treemap"]
-        HOME["Home view<br/>session cards · overview"]
         QP["Quick picks<br/>open / resume"]
     end
 
@@ -71,7 +70,6 @@ flowchart TB
     PROV -->|"claude agents --json<br/>(liveness override)"| CC
     PROV --> SVC
     SVC -->|"onDidChangeSessions"| GRAPH
-    SVC --> HOME
     SVC --> QP
     PROV -->|"archive"| ARCH
     IPC -->|"publishAgents"| DA
@@ -610,7 +608,6 @@ the IPC server stays up because hooks fire whether or not the window is focused.
 | Surface           | Channel       | Wiring                                                                                                                                                      |
 | ----------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Commit Graph      | legacy IPC    | `GetAgentSessionsRequest` (pull) + `DidChangeAgentSessionsNotification` (push), `graphWebview.ts`; also recomputes the `agents` branches-visibility ref set |
-| Home view         | Supertalk RPC | `getAgentSessions` (pull) + `onAgentSessionsChanged` signal, `homeWebview.ts`                                                                               |
 | Graph panels      | direct        | `graphPanelsService.ts` reads `getSerializedSessions()` on demand                                                                                           |
 | Settings → Agents | Supertalk RPC | `AgentsService` (`src/webviews/rpc/services/agents.ts`) — **detection state only**, never live sessions                                                     |
 
@@ -618,25 +615,24 @@ the IPC server stays up because hooks fire whether or not the window is focused.
 goes through VS Code's `postMessage`, which structured-clones — so `lastActivity` / `phaseSince`
 arrive on the Graph as real `Date` objects (`pickWipRowAgentStatus` calls `.getTime()` on one
 directly). The RPC channel `JSON.stringify`s its payload (`encodeRpcPayload`), so the same fields
-reach Home as ISO **strings** wearing a `Date` type. Shared helpers hedge — `formatAgentElapsed`
+reach RPC consumers as ISO **strings** wearing a `Date` type. Shared helpers hedge — `formatAgentElapsed`
 accepts `Date | number` — but anything reaching for a `Date` method on a session that arrived over
 RPC is a latent bug. `PastAgentSessionState.lastActivity` sidesteps it by being typed `number`
 (epoch ms) outright, which is the convention to follow for anything new on the RPC channel.
 
 ### Surfaces
 
-| Surface               | Entry point                                                                       | Renders                                                                                                           |
-| --------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Graph sidebar         | `sidebar/sidebar-panel.ts`, `sidebar/agent-tooltip.ts`                            | session rows + hover detail                                                                                       |
-| Graph WIP row         | `components/wipRowAgentStatus.ts`                                                 | one collapsed badge per worktree                                                                                  |
-| Branch hover          | `components/gl-branch-hover.ts`                                                   | sessions on the hovered branch's worktree                                                                         |
-| Details / agent sheet | `components/gl-details-agent-status.ts`                                           | the dense per-session composite — permission actions, plan/question bodies, sticky tool detail                    |
-| Branch sheet          | `components/gl-graph-branch-sheet-pane.ts`                                        | agent pills + the "Past" section                                                                                  |
-| Treemap               | `components/gl-graph-treemap.ts`                                                  | Activity mode reads `session.fileActivity` straight off the pushed array — there is no separate streaming channel |
-| Kanban / overview     | `components/gl-graph-kanban.ts`, `overview/graph-overview.ts`                     | per-branch cards, batch-matched via the index                                                                     |
-| Home                  | `plus/home/components/agent-status.ts`, `agent-session-card.ts`, `branch-card.ts` | status pill, session cards, per-branch match                                                                      |
-| Trees                 | `shared/components/tree/tree-view.ts`                                             | `decoration.type === 'agent'`, sharing the graph's glyph vocabulary                                               |
-| Quick pick            | `src/quickpicks/resumableSessionPicker.ts`                                        | live + past sections                                                                                              |
+| Surface               | Entry point                                                   | Renders                                                                                                           |
+| --------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Graph sidebar         | `sidebar/sidebar-panel.ts`, `sidebar/agent-tooltip.ts`        | session rows + hover detail                                                                                       |
+| Graph WIP row         | `components/wipRowAgentStatus.ts`                             | one collapsed badge per worktree                                                                                  |
+| Branch hover          | `components/gl-branch-hover.ts`                               | sessions on the hovered branch's worktree                                                                         |
+| Details / agent sheet | `components/gl-details-agent-status.ts`                       | the dense per-session composite — permission actions, plan/question bodies, sticky tool detail                    |
+| Branch sheet          | `components/gl-graph-branch-sheet-pane.ts`                    | agent pills + the "Past" section                                                                                  |
+| Treemap               | `components/gl-graph-treemap.ts`                              | Activity mode reads `session.fileActivity` straight off the pushed array — there is no separate streaming channel |
+| Kanban / overview     | `components/gl-graph-kanban.ts`, `overview/graph-overview.ts` | per-branch cards, batch-matched via the index                                                                     |
+| Trees                 | `shared/components/tree/tree-view.ts`                         | `decoration.type === 'agent'`, sharing the graph's glyph vocabulary                                               |
+| Quick pick            | `src/quickpicks/resumableSessionPicker.ts`                    | live + past sections                                                                                              |
 
 There is no status-bar consumer.
 

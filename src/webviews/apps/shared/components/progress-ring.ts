@@ -46,8 +46,8 @@ export class GlProgressRing extends LitElement {
 			stroke-width: var(--gl-progress-ring-thickness, 3.6px);
 		}
 
-		/* Match the tokens the walkthrough progress bar uses (walkthroughProgressStyles in home.css.ts):
-   track = --color-alert-neutralBackground, value = --vscode-progressBar-background. */
+		/* Match the walkthrough progress bar tokens:
+		   track = --color-alert-neutralBackground, value = --vscode-progressBar-background. */
 		.track {
 			stroke: var(--color-alert-neutralBackground);
 		}

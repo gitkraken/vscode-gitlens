@@ -22,12 +22,12 @@ then call them directly.
 - **Evidence, not pixels.** Default to `evaluate_in_webview` (geometry via `getBoundingClientRect()`, computed styles, text, counts), `evaluate` (extension-host `vscode` API — no DOM), and `aria_snapshot({ selector })`. Take a `screenshot` **only if the orchestrator explicitly asks**, and scope it (`target: "webview"`). A screenshot cannot be returned to the orchestrator as a viewable image — so instead of relying on one, read the measurable facts (bounding rects, computed styles, overflow) and return those as numbers/text.
 - **Batch probes into one call.** Return all fields for a state in a single `evaluate_in_webview` running `(() => ({ a, b, c }))()`. Never fire one call per field. Project only the fields asked for; never return whole `innerHTML`/whole-DOM.
 - **Filter every read.** `read_console({ level: "error", last_n })` and `read_logs({ pattern, last_n })` — the key is `pattern`, NOT `filter` (a wrong key silently dumps everything).
-- **Target webviews by `webview_url`** — a substring of the root app element (e.g. `"graph"`, `"commitDetails"`, `"home"`). Titles are often empty.
+- **Target webviews by `webview_url`** — a substring of the root app element (e.g. `"graph"`, `"commitDetails"`, `"timeline"`). Titles are often empty.
 
 ## GitLens webview reference (root elements)
 
 - Graph → `gl-graph-app` — **commit rows/messages render on canvas, NOT in the DOM.** Read commit/git data via the `evaluate` (extension-host `vscode` API) bridge, not by scraping graph DOM.
-- Home → `gl-home-app` (may not hydrate unless it's the active/visible view). Inspect / Commit Details → `gl-commit-details-app`. Timeline → `gl-timeline-app`. Settings → `gl-settings-app`.
+- Inspect / Commit Details → `gl-commit-details-app`. Timeline → `gl-timeline-app`. Settings → `gl-settings-app`.
 
 ## Return format
 

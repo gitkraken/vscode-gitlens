@@ -5332,13 +5332,6 @@
 						"order": 1
 					}
 				],
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "3_gitlens",
-						"order": 1
-					}
-				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.graph",
@@ -5346,7 +5339,7 @@
 						"order": 1
 					},
 					{
-						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"when": "view == gitlens.views.welcome",
 						"group": "3_gitlens",
 						"order": 1
 					}
@@ -7043,13 +7036,6 @@
 						"order": 1
 					}
 				],
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "2_gitlens",
-						"order": 98
-					}
-				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.graph",
@@ -7057,7 +7043,7 @@
 						"order": 1
 					},
 					{
-						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"when": "view == gitlens.views.welcome",
 						"group": "2_gitlens",
 						"order": 98
 					}
@@ -7410,13 +7396,6 @@
 						"order": 2
 					}
 				],
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "2_gitlens",
-						"order": 99
-					}
-				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.graph",
@@ -7424,7 +7403,7 @@
 						"order": 2
 					},
 					{
-						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"when": "view == gitlens.views.welcome",
 						"group": "2_gitlens",
 						"order": 99
 					}
@@ -7583,10 +7562,6 @@
 		"gitlens.showGraphView": {
 			"label": "Show Commit Graph View",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": true
-		},
-		"gitlens.showHomeView": {
-			"label": "Show Home View",
 			"commandPalette": true
 		},
 		"gitlens.showInCommitGraph": {
@@ -13074,46 +13049,6 @@
 						"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "2_gitlens",
 						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.views.home.info": {
-			"label": "Learn about Home View",
-			"icon": "$(question)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "inline",
-						"order": 98
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "navigation",
-						"order": 98
-					}
-				]
-			}
-		},
-		"gitlens.views.home.refresh": {
-			"label": "Refresh",
-			"icon": "$(refresh)",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "inline",
-						"order": 99
-					}
-				],
-				"view/title": [
-					{
-						"when": "view == gitlens.views.home",
-						"group": "navigation",
-						"order": 99
 					}
 				]
 			}
@@ -20825,13 +20760,6 @@
 						"order": 1
 					}
 				],
-				"view/item/context": [
-					{
-						"when": "viewItem == gitlens:views:home",
-						"group": "inline",
-						"order": 1
-					}
-				],
 				"view/title": [
 					{
 						"when": "view == gitlens.views.graph",
@@ -20839,7 +20767,7 @@
 						"order": 1
 					},
 					{
-						"when": "view == gitlens.views.home || view == gitlens.views.welcome",
+						"when": "view == gitlens.views.welcome",
 						"group": "navigation",
 						"order": 1
 					}
@@ -21894,7 +21822,7 @@
 			"initialSize": 2,
 			"visibility": "hidden",
 			"container": "gitlens",
-			"order": 4,
+			"order": 3,
 			"welcomeContent": [
 				{
 					"contents": "Cloud Patches ᴘʀᴇᴠɪᴇᴡ — privately and securely share code with specific teammates and other developers, accessible from anywhere. Enhance collaboration without adding noise to your repositories."
@@ -21934,16 +21862,6 @@
 			"container": "gitlens",
 			"order": 0
 		},
-		"gitlens.views.home": {
-			"type": "webview",
-			"name": "Home",
-			"contextualTitle": "GitLens",
-			"icon": "$(gitlens-gitlens)",
-			"initialSize": 6,
-			"visibility": "hidden",
-			"container": "gitlens",
-			"order": 2
-		},
 		"gitlens.views.launchpad": {
 			"name": "Launchpad",
 			"when": "!(config.gitlens.views.scm.grouped.views.launchpad || gitlens:views:scm:grouped:views:launchpad)",
@@ -21952,7 +21870,7 @@
 			"initialSize": 2,
 			"visibility": "hidden",
 			"container": "gitlens",
-			"order": 3,
+			"order": 2,
 			"welcomeContent": [
 				{
 					"contents": "[Launchpad](command:gitlens.views.launchpad.info \"Learn about Launchpad\") — organizes your pull requests into actionable groups to help you focus and keep your team unblocked.",
@@ -22238,7 +22156,7 @@
 			"initialSize": 2,
 			"visibility": "hidden",
 			"container": "gitlens",
-			"order": 5,
+			"order": 4,
 			"welcomeContent": [
 				{
 					"contents": "Workspaces ᴘʀᴇᴠɪᴇᴡ — group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\n\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration."

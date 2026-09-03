@@ -62,13 +62,13 @@ function createFakeParent(webview: Webview): WebviewView {
 	return parent as unknown as WebviewView;
 }
 
-const testDescriptor: WebviewViewDescriptor<'gitlens.views.home'> = {
-	id: 'gitlens.views.home',
-	fileName: 'home.html',
-	title: 'Home',
-	contextKeyPrefix: 'gitlens:webviewView:home',
-	trackingFeature: 'homeView',
-	type: 'home',
+const testDescriptor: WebviewViewDescriptor<'gitlens.views.commitDetails'> = {
+	id: 'gitlens.views.commitDetails',
+	fileName: 'commitDetails.html',
+	title: 'Inspect',
+	contextKeyPrefix: 'gitlens:webviewView:commitDetails',
+	trackingFeature: 'commitDetailsView',
+	type: 'commitDetails',
 	plusFeature: false,
 };
 
@@ -98,7 +98,7 @@ function createTestProvider(
  */
 async function createTestController(
 	getRpcServices: (buffer: EventVisibilityBuffer | undefined, tracker: SubscriptionTracker | undefined) => object,
-): Promise<WebviewController<'gitlens.views.home', unknown>> {
+): Promise<WebviewController<'gitlens.views.commitDetails', unknown>> {
 	const container = { telemetry: { enabled: false } } as unknown as Container;
 	const commandRegistrar = {} as unknown as WebviewCommandRegistrar;
 	const parent = createFakeParent(createMockWebview());
@@ -125,7 +125,7 @@ function connectParams(clientId: string, clientLoadedAt: number): WebviewClientC
  * drives that transition otherwise. Every test whose first `connect()` call is meant to validate
  * must call this first; a test specifically about the `none`-always-rejects gate must NOT.
  */
-function markServed(controller: WebviewController<'gitlens.views.home', unknown>): void {
+function markServed(controller: WebviewController<'gitlens.views.commitDetails', unknown>): void {
 	(controller as unknown as { _sessionState: 'none' | 'served-awaiting-validation' | 'healthy' })._sessionState =
 		'served-awaiting-validation';
 }

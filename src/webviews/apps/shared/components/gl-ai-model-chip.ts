@@ -12,7 +12,7 @@ import '@gitlens/components/components/overlays/tooltip.js';
  *
  * The chip is intentionally read-only display + click-to-switch — no in-webview popover.
  * Reusing the native quickpick keeps a single source of truth for model selection across
- * GitLens (matches the SCM and Home view model chips).
+ * GitLens (matches the SCM model chip).
  */
 @customElement('gl-ai-model-chip')
 export class GlAiModelChip extends LitElement {

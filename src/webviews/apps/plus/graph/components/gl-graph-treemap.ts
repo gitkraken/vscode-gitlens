@@ -2,8 +2,8 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GraphActivityDecay } from '../../../../../config.js';
-import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { TimelinePeriod } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
 import type {

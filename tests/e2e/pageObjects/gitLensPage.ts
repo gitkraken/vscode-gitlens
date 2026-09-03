@@ -93,20 +93,6 @@ export class GitLensPage extends VSCodePage {
 	// GitLens Sidebar Views
 	// ============================================================================
 
-	/** Home section in GitLens sidebar */
-	get homeViewSection(): Locator {
-		return this.sidebar.getSection(/Home Section/i);
-	}
-
-	/** Home webview in GitLens sidebar */
-	get homeViewWebview(): Promise<FrameLocator | null> {
-		return this.getGitLensWebview('Home', 'webviewView');
-	}
-
-	async showHomeView(): Promise<void> {
-		await this.executeCommand('gitlens.showHomeView');
-	}
-
 	/** Launchpad section in GitLens sidebar */
 	get launchpadViewSection(): Locator {
 		return this.sidebar.getSection(/Launchpad.*Section/i);
@@ -361,7 +347,7 @@ export class GitLensPage extends VSCodePage {
 	 * 1. The outer iframe src containing extensionId=eamodio.gitlens and purpose=webviewView/webviewPanel
 	 * 2. The inner iframe#active-frame having the specified title attribute
 	 *
-	 * @param title - The title of the webview (e.g., "Graph", "Graph Details", "Home")
+	 * @param title - The title of the webview (e.g., "Graph", "Graph Details", "Timeline")
 	 * @param purpose - The purpose of the webview (e.g., "webviewView", "webviewPanel")
 	 * @param timeout - Timeout in ms
 	 * @returns A FrameLocator for the matching webview content, or null if not found

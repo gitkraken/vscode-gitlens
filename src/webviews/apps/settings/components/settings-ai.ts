@@ -30,8 +30,7 @@ const scopedModelMeta: Record<ScopedAiModelInfo['scope'], { label: string; icon:
 };
 
 /**
- * The AI integrations panel — the provider/model row, mirroring the Home
- * view's integrations chip.
+ * The AI integrations panel — the provider/model row.
  *
  * Aside from the category's master switch (`gitlens.ai.enabled`), this isn't
  * a config setting: state comes from the shared AI RPC service and the action
