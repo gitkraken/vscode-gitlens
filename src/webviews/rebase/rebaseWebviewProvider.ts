@@ -894,7 +894,10 @@ export class RebaseWebviewProvider implements Disposable {
 			const author = find(authors.values(), a => a.email === email);
 			if (!author) continue;
 
-			const avatarUrlOrPromise = author.avatarUrl ?? getAvatarUri(email, { ref: sha, repoPath: this.repoPath });
+			// Todo entries carry abbreviated shas; integrations need the full one
+			const commitSha = this._enrichment.commits.get(sha)?.sha ?? sha;
+			const avatarUrlOrPromise =
+				author.avatarUrl ?? getAvatarUri(email, { ref: commitSha, repoPath: this.repoPath });
 			if (avatarUrlOrPromise instanceof Promise) {
 				promises.push(
 					avatarUrlOrPromise.then(uri => {

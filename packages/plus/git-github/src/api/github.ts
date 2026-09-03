@@ -35,6 +35,7 @@ import {
 	getRevisionRangeParts,
 	isRevisionRange,
 	isSha,
+	isUncommitted,
 } from '@gitlens/git/utils/revision.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
 import { base64 } from '@gitlens/utils/base64.js';
@@ -571,6 +572,9 @@ export class GitHubApi {
 	): Promise<Account | UnidentifiedAuthor | undefined> {
 		const scope = getScopedLogger();
 
+		// GitHub's `GitObjectID` scalar rejects anything but a full sha, so don't spend a request on one
+		if (!isSha(rev) || isUncommitted(rev)) return undefined;
+
 		interface QueryResult {
 			repository:
 				| {
@@ -660,9 +664,6 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
-			if (ex.message.includes('Variable $rev of type GitObjectID! was provided invalid value')) {
-				return undefined;
-			}
 
 			throw this.handleException(ex, provider, scope);
 		}
@@ -1232,6 +1233,8 @@ export class GitHubApi {
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
+
+		if (!isSha(rev) || isUncommitted(rev)) return undefined;
 
 		interface QueryResult {
 			repository:

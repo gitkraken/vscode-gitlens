@@ -8125,7 +8125,7 @@ export class GlCommitGraph extends LitElement {
 				!this.requestedAvatars.has(email) &&
 				!(email in missingAvatars)
 			) {
-				missingAvatars[email] = '';
+				missingAvatars[email] = rows[i].sha;
 			}
 		}
 

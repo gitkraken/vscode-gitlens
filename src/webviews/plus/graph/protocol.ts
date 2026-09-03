@@ -270,7 +270,8 @@ export type GraphColumnsSettings = {
 /** The mode vocabulary a given column accepts — `undefined` only, for columns that take none. */
 export type GraphColumnModeFor<T extends GraphColumnName> = GraphColumnsSettings[T]['mode'];
 export type GraphSelectedRows = Record</*id*/ string, true>;
-export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
+/** Request side: `email → commit sha` to resolve the author from; response side: `email → avatar url`. */
+export type GraphAvatars = Record</*email*/ string, /*sha | url*/ string>;
 export type GraphDownstreams = Record</*upstreamName*/ string, /*downstreamNames*/ string[]>;
 
 export type GraphRefMetadata = RefMetadata | null;
