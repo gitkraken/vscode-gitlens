@@ -109,8 +109,10 @@ export function createSidebarActions(): SidebarActions {
 	const worktreeWipStatsInFlight = new Map<string, Promise<void>>();
 
 	// Held as a local (not read off `actions`) so the panel-resource factories below can capture it without
-	// referencing `actions` before it's defined.
-	let sidebarShowing = true;
+	// referencing `actions` before it's defined. Starts `false`, not `true`: the panel component seeds the
+	// real value when it mounts, and until then nothing is on screen — so a service that connects first
+	// must not treat "unknown" as "visible" and fetch a panel nobody can see (see `refreshOnReveal`).
+	let sidebarShowing = false;
 
 	let service: GraphSidebarService | undefined;
 	let unsubscribeConfig: (() => void) | undefined;
@@ -252,7 +254,10 @@ export function createSidebarActions(): SidebarActions {
 
 			actions.fetchCounts();
 
-			if (actions.activePanel != null) {
+			// Only while the sidebar is on screen. A collapsed sidebar's panel is fetched by `refreshOnReveal`
+			// the moment it opens, so fetching it here would just spend the round trip early — and for the
+			// pull requests panel that round trip is the provider's whole open-PR list.
+			if (actions.activePanel != null && sidebarShowing) {
 				actions.fetchPanel(actions.activePanel);
 			}
 		},
@@ -263,9 +268,10 @@ export function createSidebarActions(): SidebarActions {
 			void panels[panel].fetch();
 		},
 
-		/** Called by the sidebar-panel component when the sidebar becomes visible. Unconditional and cheap —
-		 *  it exists to warm the per-worktree enrichment that was suppressed host-side while hidden, since
-		 *  the panel data itself never went stale. */
+		/** Called by the sidebar-panel component when the sidebar becomes visible. This is the ONLY fetch a
+		 *  hidden sidebar's active panel ever gets: the boot fetch and `invalidateAll` both skip a hidden
+		 *  sidebar (and `invalidateAll` resets its panels), so the reveal is what loads it — and, when the
+		 *  panel was already loaded, what warms the per-worktree enrichment suppressed host-side while hidden. */
 		refreshOnReveal: function () {
 			if (actions.activePanel != null) {
 				actions.fetchPanel(actions.activePanel);
@@ -327,15 +333,15 @@ export function createSidebarActions(): SidebarActions {
 		},
 
 		invalidateAll: function () {
-			// Deliberately NOT gated on sidebar visibility. Fetching panel data while hidden is ~7ms of
-			// in-memory assembly; the expensive part was the per-worktree git fan-out, and that is now
-			// suppressed host-side via the `displayed` flag on the request itself. Gating here instead would
-			// mean the client's data freshness depended on a visibility bit staying in sync across every
-			// lifecycle edge — and a wrong bit could leave a visible panel stale, or blank via `refresh()`'s
-			// own reset. Keeping one code path means panel data is always correct; only the enrichment is
-			// conditional, and its worst case is a missing dirty-pill until the next displayed fetch.
+			// Gated on sidebar visibility. A hidden sidebar's panels are all reset — the active one included —
+			// and nothing is fetched: `refreshOnReveal` fetches the active panel the moment the sidebar opens,
+			// so a hidden fetch only spends the round trip early, and for the pull requests panel that round
+			// trip is the provider's whole open-PR list on every graph open and every invalidation. Resetting
+			// the active panel too (rather than leaving its stale list in place) means the reveal shows a
+			// loading state and then fresh rows, never a stale list first. The `displayed` flag on each
+			// request still suppresses the per-worktree fan-out host-side for the rare hidden fetch.
 			for (const [panel, r] of Object.entries(panels)) {
-				if (panel === actions.activePanel) continue;
+				if (panel === actions.activePanel && sidebarShowing) continue;
 
 				// reset(), not mutate(undefined) — mutate marks the resource as resolved, so it
 				// reports status 'success' while holding no data. Consumers that gate on a settled
@@ -345,9 +351,9 @@ export function createSidebarActions(): SidebarActions {
 			}
 			actions.fetchCounts();
 
-			// Always refetch the active panel — Resource's cancelPrevious
-			// handles dedup, and this ensures recovery if a prior fetch got stuck
-			if (actions.activePanel != null) {
+			// Refetch the visible active panel — Resource's cancelPrevious handles dedup, and this ensures
+			// recovery if a prior fetch got stuck.
+			if (actions.activePanel != null && sidebarShowing) {
 				actions.fetchPanel(actions.activePanel);
 			}
 		},

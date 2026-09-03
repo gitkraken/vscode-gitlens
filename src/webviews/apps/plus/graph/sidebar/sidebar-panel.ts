@@ -850,9 +850,10 @@ would expose the graph through fade or at the gap left by the translate). */
 		// Visibility has to sync on its OWN transition, not inside the `activePanel` guard below: collapsing
 		// and re-expanding never changes `activePanel` (the sidebar signal merges key-by-key, so the panel
 		// selection survives), so a write nested in that guard would go stale in both directions — never set
-		// on a live collapse, and stuck `false` after a reload-while-collapsed is re-expanded. A stale value
-		// only mis-reports `displayed` (enrichment computed for a collapsed panel, or pills missing until the
-		// next fetch); it cannot stale or blank the panel's data, which is never gated on it.
+		// on a live collapse, and stuck `false` after a reload-while-collapsed is re-expanded. The value gates
+		// the boot fetch and `invalidateAll`'s refetch (a hidden sidebar fetches nothing; `refreshOnReveal`
+		// loads it on open), so a stale `false` would show a loading state on reveal and then fresh rows,
+		// and a stale `true` costs a fetch nobody sees — neither leaves a visible panel stale.
 		if (changedProperties.has('open') && this._actions != null) {
 			this._actions.sidebarShowing = this.open;
 			// Collapsing answers the focus request: the panel is off screen and inert, so an owed focus
@@ -928,11 +929,12 @@ would expose the graph through fade or at the gap left by the translate). */
 	}
 
 	override updated(_changedProperties: Map<PropertyKey, unknown>): void {
-		// Reveal: warm the per-worktree enrichment the host suppressed while this was collapsed (it gates on
-		// the `displayed` flag we send with each request). The panel's own data never went stale — fetches
-		// are never gated client-side — so this exists only to fill in the pills. Unconditional, so each
-		// reveal costs one small fetch plus a fan-out trigger; `computeWorktreeChanges` coalesces to one
-		// running + one trailing run, which bounds rapid collapse/expand cycling.
+		// Reveal: load the active panel. A collapsed sidebar fetches nothing (the boot fetch and
+		// `invalidateAll` both skip it, and `invalidateAll` resets its panels), so this is what fills it in —
+		// and when the data survived, what warms the per-worktree enrichment the host suppressed via the
+		// `displayed` flag while collapsed. Unconditional, so each reveal costs one fetch plus a fan-out
+		// trigger; `computeWorktreeChanges` coalesces to one running + one trailing run, which bounds rapid
+		// collapse/expand cycling.
 		if (_changedProperties.has('open') && this.open && this._actions != null) {
 			this._actions.refreshOnReveal();
 		}
