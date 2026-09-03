@@ -16,7 +16,7 @@ export class GlBranchIcon extends LitElement {
 
 			--gl-icon-color-status-synced: var(
 				--gl-icon-color-foreground,
-				var(--vscode-gitlens-decoration\\.branchUpToDateForegroundColor)
+				var(--vscode-gitlens-decorations\\.branchUpToDateForegroundColor)
 			);
 			--gl-icon-color-status-diverged: var(--vscode-gitlens-decorations\\.branchDivergedForegroundColor, #ff5);
 			--gl-icon-color-status-behind: var(--vscode-gitlens-decorations\\.branchBehindForegroundColor, #f05);
