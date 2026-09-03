@@ -243,12 +243,6 @@ qualifiers only. */
 				border-radius: var(--gl-radius-sm);
 			}
 
-			/* Modifiers read as hollow so the eye lands on the key that actually names the shortcut. */
-			kbd.mod {
-				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
-				background-color: transparent;
-			}
-
 			.sep {
 				margin: 0 0.12rem;
 				font-size: 1rem;
@@ -431,7 +425,7 @@ qualifiers only. */
 	private renderEntry(entry: string): unknown {
 		if (entry.startsWith('raw:')) return html`<kbd>${entry.slice('raw:'.length)}</kbd>`;
 
-		if (entry.startsWith('mod:')) return html`<kbd class="mod">${entry.slice('mod:'.length)}</kbd>`;
+		if (entry.startsWith('mod:')) return html`<kbd>${entry.slice('mod:'.length)}</kbd>`;
 
 		if (entry.startsWith('text:')) return html`<span class="text">${entry.slice('text:'.length)}</span>`;
 
@@ -445,7 +439,6 @@ qualifiers only. */
 		return parts.map(
 			(part, i) =>
 				html`${i > 0 && chordSeparator ? html`<span class="sep">${chordSeparator}</span>` : nothing}<kbd
-						class=${part.kind === 'mod' ? 'mod' : nothing}
 						>${part.text}</kbd
 					>`,
 		);
