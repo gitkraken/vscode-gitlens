@@ -549,6 +549,9 @@ export class GraphStateProvider implements Disposable {
 	accessor trusted: State['trusted'] = true;
 
 	@signalState()
+	accessor hasUnsafeRepositories: State['hasUnsafeRepositories'] = false;
+
+	@signalState()
 	accessor repositories: State['repositories'];
 
 	@signalState()
