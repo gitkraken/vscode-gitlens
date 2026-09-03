@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@gitkraken/provider-apis':
-      specifier: 0.57.0
-      version: 0.57.0
+      specifier: 0.58.0
+      version: 0.58.0
     '@octokit/graphql':
       specifier: 9.0.4
       version: 9.0.4
@@ -106,7 +106,7 @@ importers:
         version: 0.2.3
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.57.0(encoding@0.1.13)
+        version: 0.58.0
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0
@@ -428,7 +428,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.57.0(encoding@0.1.13)
+        version: 0.58.0
       '@octokit/graphql':
         specifier: 'catalog:'
         version: 9.0.4
@@ -620,7 +620,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.57.0(encoding@0.1.13)
+        version: 0.58.0
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -1107,18 +1107,13 @@ packages:
     resolution: {integrity: sha512-Up/vFkYsYPE8uJYpTcoSbrs9Tdv49z44lsb+LVTDjqozoQ5vd5jbcXR6Pi0L1u451RKk4cS/fhrfG9s9ZpRULg==}
     engines: {node: '>= 22'}
 
-  '@gitkraken/provider-apis@0.57.0':
-    resolution: {integrity: sha512-OewkidbLhW+Sxz6OB06wkNmH9zvFuOxWvFETk20r8oZoe5m8dVcnw4eDoS0rGrIrNS7BLfGIsQO55uukYk9h9A==}
+  '@gitkraken/provider-apis@0.58.0':
+    resolution: {integrity: sha512-hkSBKeOi0QLHrmvcswWxIn4qRf/N9DFjKXrZbzwpulGYwlOdUrVqiLH34Xz1SNo4o8G8p7LsKizQ1qpR+0Mtng==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
     resolution: {integrity: sha512-xXYx5a6UTAOL97VzitbSpW0J/FIRvfw1MMEJORwflJMTtiQR+GhVnO907gnIlt7zxWhibYOTxGJm4E7UM5jIdw==}
     engines: {node: '>= 22'}
-
-  '@graphql-typed-document-node/core@3.2.0':
-    resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
-    peerDependencies:
-      graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
   '@hono/node-server@2.1.1':
     resolution: {integrity: sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg==}
@@ -1510,10 +1505,6 @@ packages:
 
   '@konnorr/qr-creator@1.1.0':
     resolution: {integrity: sha512-6Ae3AfG45MOqF9Qde+1YxIxKf/GUsRmcriV7iCb/HaR+Mk1YDFYP3RINDRMI8z8YMWW3BnSthOujX9RoOex/Kw==}
-
-  '@linear/sdk@58.1.0':
-    resolution: {integrity: sha512-sqzo1j+uZsxeJlMTV2mrBH3yukB/liev7IySmkZil0ka7ic6b4RE9Jk3x+ohw8YgYB52IRR3SPWzhWu96E6W9g==}
-    engines: {node: '>=12.x', yarn: 1.x}
 
   '@lit-labs/signals@0.3.0':
     resolution: {integrity: sha512-PfB5FLtorVfkhwTWXOPNT/rvrVdSDY8siwPyR17ztrViRbMqxy1TQBcHqJoA4303QT8yXPGxYtGKJGj7fEfEwg==}
@@ -4391,10 +4382,6 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  graphql@15.10.2:
-    resolution: {integrity: sha512-1PRqdDPAmViWr4h1GVBT8RoPZfWSGZa7kDzleTilOfVIslsgf+cia3Nl95v1KDmR4iERPaT7WzQ+tN4MJmbg3w==}
-    engines: {node: '>= 10.x'}
-
   gunzip-maybe@1.4.2:
     resolution: {integrity: sha512-4haO1M4mLO91PW57BMsDFf75UmwoRX0GkdD+Faw+Lr+r/OZrOCS0pIBwOL1xCKQqnQzbNFGgK2V2CpBUPeFNTw==}
     hasBin: true
@@ -4785,9 +4772,6 @@ packages:
   isobject@3.0.1:
     resolution: {integrity: sha512-WhB9zCku7EGTj/HQQRz5aUQEUeoQZH2bWcltRErOpymJ4boYE6wL9Tbr23krRPSZ+C5zqNSrSw+Cc7sZZ4b7vg==}
     engines: {node: '>=0.10.0'}
-
-  isomorphic-unfetch@3.1.0:
-    resolution: {integrity: sha512-geDJjpoZ8N0kWexiwkX8F9NkTsXhetLPVbZFQ+JTW239QNOwvB0gniuR1Wc6f0AMTn7/mFGyXvHTifrCp/GH8Q==}
 
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
@@ -5403,15 +5387,6 @@ packages:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
     engines: {node: '>=10.5.0'}
     deprecated: Use your platform's native DOMException instead
-
-  node-fetch@2.7.0:
-    resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
-    engines: {node: 4.x || >=6.0.0}
-    peerDependencies:
-      encoding: ^0.1.0
-    peerDependenciesMeta:
-      encoding:
-        optional: true
 
   node-fetch@3.3.2:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
@@ -7087,9 +7062,6 @@ packages:
     resolution: {integrity: sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==}
     engines: {node: '>=6'}
 
-  tr46@0.0.3:
-    resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
-
   transformation-matrix@3.1.0:
     resolution: {integrity: sha512-oYubRWTi2tYFHAL2J8DLvPIqIYcYZ0fSOi2vmSy042Ho4jBW2ce6VP7QfD44t65WQz6bw5w1Pk22J7lcUpaTKA==}
 
@@ -7213,9 +7185,6 @@ packages:
     resolution: {integrity: sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==}
     engines: {node: '>=18.17'}
 
-  unfetch@4.2.0:
-    resolution: {integrity: sha512-F9p7yYCn6cIW9El1zi0HI6vqpeIvBsr3dSuRO6Xuppb1u5rXpCPmMvLSyECLhybr9isec8Ohl0hPekMVrEinDA==}
-
   unicorn-magic@0.1.0:
     resolution: {integrity: sha512-lRfVq8fE8gz6QMBuDM6a+LO3IAzTi05H6gCVaUpir2E1Rwpo4ZUog45KpNXKC/Mn3Yb9UDuHumeFTo9iV/D9FQ==}
     engines: {node: '>=18'}
@@ -7305,9 +7274,6 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
-  webidl-conversions@3.0.1:
-    resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
-
   webpack-bundle-analyzer@5.3.1:
     resolution: {integrity: sha512-wP2EusncRGL1tZyMHC/umLkjPdYMkTL9nPEKh8G8dkYCJ9TyF6xnXFqjhdqmv5J900irN/g0P5jMvLT22krEXQ==}
     engines: {node: '>= 20.9.0'}
@@ -7362,9 +7328,6 @@ packages:
     peerDependenciesMeta:
       webpack-cli:
         optional: true
-
-  whatwg-url@5.0.0:
-    resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
   which@1.3.1:
     resolution: {integrity: sha512-HxJdYWq1MTIQbJ3nw0cqssHoTNU267KlrDuGZ1WYlxDStUtKUhOaJmh112/TZmHxxUfuJqPXSOm7tDyas0OSIQ==}
@@ -7922,19 +7885,12 @@ snapshots:
       '@gitkraken/shared-tools': 0.2.0
       picomatch: 4.0.5
 
-  '@gitkraken/provider-apis@0.57.0(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.58.0':
     dependencies:
-      '@linear/sdk': 58.1.0(encoding@0.1.13)
       diff: 8.0.4
       js-base64: 3.7.5
-    transitivePeerDependencies:
-      - encoding
 
   '@gitkraken/shared-tools@0.2.0': {}
-
-  '@graphql-typed-document-node/core@3.2.0(graphql@15.10.2)':
-    dependencies:
-      graphql: 15.10.2
 
   '@hono/node-server@2.1.1(hono@4.13.2)':
     dependencies:
@@ -8267,14 +8223,6 @@ snapshots:
       - supports-color
 
   '@konnorr/qr-creator@1.1.0': {}
-
-  '@linear/sdk@58.1.0(encoding@0.1.13)':
-    dependencies:
-      '@graphql-typed-document-node/core': 3.2.0(graphql@15.10.2)
-      graphql: 15.10.2
-      isomorphic-unfetch: 3.1.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
 
   '@lit-labs/signals@0.3.0':
     dependencies:
@@ -11140,8 +11088,6 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  graphql@15.10.2: {}
-
   gunzip-maybe@1.4.2:
     dependencies:
       browserify-zlib: 0.1.4
@@ -11505,13 +11451,6 @@ snapshots:
   isexe@4.0.0: {}
 
   isobject@3.0.1: {}
-
-  isomorphic-unfetch@3.1.0(encoding@0.1.13):
-    dependencies:
-      node-fetch: 2.7.0(encoding@0.1.13)
-      unfetch: 4.2.0
-    transitivePeerDependencies:
-      - encoding
 
   istanbul-lib-coverage@3.2.2: {}
 
@@ -12182,12 +12121,6 @@ snapshots:
     optional: true
 
   node-domexception@1.0.0: {}
-
-  node-fetch@2.7.0(encoding@0.1.13):
-    dependencies:
-      whatwg-url: 5.0.0
-    optionalDependencies:
-      encoding: 0.1.13
 
   node-fetch@3.3.2:
     dependencies:
@@ -14063,8 +13996,6 @@ snapshots:
 
   totalist@3.0.1: {}
 
-  tr46@0.0.3: {}
-
   transformation-matrix@3.1.0: {}
 
   treeify@1.1.0: {}
@@ -14185,8 +14116,6 @@ snapshots:
 
   undici@6.28.0: {}
 
-  unfetch@4.2.0: {}
-
   unicorn-magic@0.1.0: {}
 
   unicorn-magic@0.3.0: {}
@@ -14253,8 +14182,6 @@ snapshots:
       graceful-fs: 4.2.11
 
   web-streams-polyfill@3.3.3: {}
-
-  webidl-conversions@3.0.1: {}
 
   webpack-bundle-analyzer@5.3.1:
     dependencies:
@@ -14339,11 +14266,6 @@ snapshots:
       - lightningcss
       - postcss
       - uglify-js
-
-  whatwg-url@5.0.0:
-    dependencies:
-      tr46: 0.0.3
-      webidl-conversions: 3.0.1
 
   which@1.3.1:
     dependencies:

@@ -293,6 +293,39 @@ suite('IntegrationManager.getTrackerIssue', () => {
 		manager.dispose();
 	});
 
+	test('classifies a Linear GraphQL rate limit from the real provider path', async () => {
+		const runtime = createFakeRuntime();
+		let requests = 0;
+		runtime.http.fetch = () => {
+			requests++;
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						errors: [{ message: 'Rate limit exceeded', extensions: { code: 'RATELIMITED' } }],
+					}),
+					{ status: 400, headers: { 'content-type': 'application/json' } },
+				),
+			);
+		};
+		const manager = createIntegrationManager(runtime);
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+		(linear as unknown as { _session: ProviderAuthenticationSession })._session = trackerSession('linear.app');
+
+		const result = await manager.getTrackerIssue({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			resourceId: 'workspace-1',
+			key: 'ENG-429',
+		});
+
+		assert.equal(requests, 1);
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'rate-limit');
+
+		manager.dispose();
+	});
+
 	test('normalizes the Linear SDK missing-issue error into a proven absence', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
