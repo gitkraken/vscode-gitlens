@@ -418,7 +418,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const src = (await avatarPromise).toString(true);
 		return this._padOrTruncate(
 			outputFormat === 'html'
-				? /*html*/ `<img src="${src}" alt="title)" title="${title}" width="${size}" height="${size}"${
+				? /*html*/ `<img src="${src}" alt="${title}" title="${title}" width="${size}" height="${size}"${
 						this._options.htmlFormat?.classes?.avatar
 							? ` class="${this._options.htmlFormat.classes.avatar}"`
 							: ''

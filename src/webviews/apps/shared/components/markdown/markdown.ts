@@ -9,9 +9,10 @@ import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
 import { applyCspSafeStyles, rewriteInlineStylesToData } from './css-inline-styles.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 
+type BlockRenderMode = 'plain' | 'image-chips' | 'avatar-column';
+
 let inlineMarked: Marked | undefined;
-let blockMarked: Marked | undefined;
-let blockMarkedWithImageChips: Marked | undefined;
+const blockMarkedByMode = new Map<BlockRenderMode, Marked>();
 
 @customElement('gl-markdown')
 export class GlMarkdown extends LitElement {
@@ -69,14 +70,20 @@ export class GlMarkdown extends LitElement {
 				margin-inline: 0;
 			}
 
-			/* A paragraph that LEADS with an image (the hover formats' avatar) lays out as a card: the
-			   image in one column, everything after it in the other, so the author/date/sha lines wrap
-			   against a single left edge beside the avatar rather than under a baseline-aligned picture.
-			   (The block renderer strips the format's spacing after the image; the gap replaces it.) */
-			p:has(> img:first-child) {
+			/* In avatar-column mode a paragraph that LEADS with an image (the hover formats' avatar) lays
+			   out as a card: the image in one column, everything after it in the other, so the
+			   author/date/sha lines wrap against a single left edge beside the avatar rather than under
+			   a baseline-aligned picture. The block renderer wraps everything after the image in one
+			   span — otherwise each inline run would become its own flex item and squeeze into columns —
+			   and strips the format's spacing after the image; the gap replaces it. */
+			:host([avatar-column]) p:has(> img:first-child + .lead-image-body) {
 				display: flex;
 				gap: var(--gl-space-4);
 				align-items: flex-start;
+			}
+
+			.lead-image-body {
+				min-width: 0;
 			}
 
 			:where(:host([density='compact'])) p,
@@ -186,6 +193,12 @@ export class GlMarkdown extends LitElement {
 	@property({ type: Boolean, reflect: true, attribute: 'image-chips' })
 	imageChips = false;
 
+	/** Lays out a paragraph that leads with an image as an avatar column beside the rest of its text —
+	 *  for the host's hover formats, which open with `${avatar}`. Off by default so a commit message
+	 *  that happens to start with an image keeps its ordinary inline flow. */
+	@property({ type: Boolean, reflect: true, attribute: 'avatar-column' })
+	avatarColumn = false;
+
 	override render(): unknown {
 		return html`${this.markdown ? this.renderMarkdown(this.markdown) : ''}`;
 	}
@@ -216,13 +229,11 @@ export class GlMarkdown extends LitElement {
 			return html`<span>${unsafeHTML(rewriteInlineStylesToData(rendered))}</span>`;
 		}
 
-		let marked;
-		if (this.imageChips) {
-			blockMarkedWithImageChips ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer(true) });
-			marked = blockMarkedWithImageChips;
-		} else {
-			blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer(false) });
-			marked = blockMarked;
+		const mode: BlockRenderMode = this.imageChips ? 'image-chips' : this.avatarColumn ? 'avatar-column' : 'plain';
+		let marked = blockMarkedByMode.get(mode);
+		if (marked == null) {
+			marked = new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer(mode) });
+			blockMarkedByMode.set(mode, marked);
 		}
 
 		rendered = marked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
@@ -252,9 +263,10 @@ export function escape(html: string, encode?: boolean) {
 	return html;
 }
 
-const leadingImageSpacingRegex = /^(<img\b[^>]*>)(?:\s|&nbsp;)+/i;
+const leadingImageRegex = /^(<img\b[^>]*>)(?:\s|&nbsp;)*(.*)$/is;
 
-function getMarkdownRenderer(imageChips: boolean): RendererObject {
+function getMarkdownRenderer(mode: BlockRenderMode): RendererObject {
+	const imageChips = mode === 'image-chips';
 	return {
 		image: function (this: RendererThis, { href, title, text }: Tokens.Image): string {
 			if (imageChips) {
@@ -283,11 +295,15 @@ function getMarkdownRenderer(imageChips: boolean): RendererObject {
 		},
 		paragraph: function (this: RendererThis, { tokens }: Tokens.Paragraph): string {
 			let text = this.parser.parseInline(tokens);
-			if (!imageChips) {
-				// A leading image lays out as a card column (see the `p:has(> img:first-child)` rule),
-				// where the gap supplies the spacing — drop the format's own spaces/`&nbsp;` so the first
-				// line doesn't start indented relative to the lines that wrap beneath it.
-				text = text.replace(leadingImageSpacingRegex, '$1');
+			if (mode === 'avatar-column') {
+				// A leading image lays out as a card column (see the `.lead-image-body` rule): the rest of
+				// the paragraph becomes the single second column, and the gap supplies the spacing — so
+				// drop the format's own spaces/`&nbsp;` or the first line starts indented relative to the
+				// lines that wrap beneath it.
+				const match = leadingImageRegex.exec(text);
+				if (match?.[2]) {
+					text = `${match[1]}<span class="lead-image-body">${match[2]}</span>`;
+				}
 			}
 
 			return `<p>${text}</p>`;

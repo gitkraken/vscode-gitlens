@@ -151,7 +151,10 @@ export class GlGraphHover extends GlElement {
 			trigger="manual"
 		>
 			<div slot="content">
-				<gl-markdown .markdown=${until(this.markdown ?? 'Loading...', 'Loading...')}></gl-markdown>
+				<gl-markdown
+					avatar-column
+					.markdown=${until(this.markdown ?? 'Loading...', 'Loading...')}
+				></gl-markdown>
 			</div>
 		</gl-popover>`;
 	}
