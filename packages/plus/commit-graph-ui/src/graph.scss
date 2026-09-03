@@ -3182,13 +3182,12 @@ gl-commit-graph {
 		// doesn't reach it: anchored-fixed, its containing block is the row; the abspos fallback un-clips
 		// this pill while filled — see the `@supports not` block by the overlay).
 		position: relative;
+		box-sizing: border-box;
 		display: inline-flex;
 		flex-shrink: 1;
 		gap: 0.6rem;
 		align-items: center;
-		box-sizing: border-box;
 		max-width: 100%;
-		overflow: clip;
 
 		// Padding absorbs the 1px the border used to occupy (0.1rem = 1px), keeping the pill's overall
 		// size and its content position unchanged.
@@ -3199,6 +3198,7 @@ gl-commit-graph {
 		// pill. Inert where unsupported — the overlay then falls back to abspos on the position:relative.
 		anchor-name: --gl-ref-pill;
 		anchor-scope: --gl-ref-pill;
+		overflow: clip;
 		font-size: 1rem;
 		font-weight: 500;
 		line-height: 1;
