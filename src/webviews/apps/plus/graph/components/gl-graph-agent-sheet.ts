@@ -102,12 +102,15 @@ function relativizeToRoot(root: string, filePath: string): string | undefined {
  * read-only variant for a past (no-longer-live) session, given a {@link PastAgentSessionState}
  * snapshot plus optional on-demand {@link PastAgentSessionDetail} enrichment.
  *
- * The header IS the identity, live and past alike: avatar + phase mark, name, a meta line
- * (harness · model · subagent count), a status zone (quiet elapsed beside the phase pill), and the
- * session's CURRENT location as clickable chips — mapped onto `gl-detail-sheet`'s `title`/`subtitle`
- * slots so it stays sticky above the scrolling body. The body below only ever answers "what does
- * this phase need, and what has it done": hero (by phase) → Activity → Last prompt → First prompt
- * → Also worked in (history, last — the header already carries where the session IS now).
+ * The header IS the identity, live and past alike — mapped onto `gl-detail-sheet`'s `title`/`subtitle`
+ * slots so it stays sticky above the scrolling body. Row 1 (title slot): avatar + phase mark, name;
+ * (actions slot): the cycle chevrons. Row 2 (subtitle, identity line): a meta line (harness · model ·
+ * subagent count) beside the status zone (quiet elapsed + phase pill). Row 3 (subtitle, hairline
+ * above): the session's CURRENT location as clickable chips, the end reason (ended/past only), and
+ * the Open Session/Resume/Archive actions. The body below only ever answers "what has this session
+ * done": hero (needs-input/working only — idle and ended read entirely off the header) → Activity →
+ * Last prompt → First prompt → Also worked in (history, last — the header already carries where the
+ * session IS now).
  *
  * Data via props only — every field already rides on {@link AgentSessionState}, so opening the
  * sheet costs no fetch. When `session` is `undefined` (the session archived or otherwise left the
@@ -205,6 +208,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 			/* ---------- Header: subtitle slot (rows 2-3) ---------- */
 
+			/* Row 2 (identity: meta + status zone) and row 3 (toolbar: location chips + reason +
+			   actions) — the toolbar sits below a hairline that separates it from the identity row. */
 			.subtitle {
 				display: flex;
 				flex-direction: column;
@@ -213,15 +218,47 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				min-width: 0;
 			}
 
-			.meta-row {
+			.subtitle__identity,
+			.subtitle__toolbar {
 				display: flex;
 				gap: var(--gl-space-8);
+				align-items: center;
+				min-width: 0;
+			}
+
+			.subtitle__identity > .meta {
+				flex: 1 1 auto;
+			}
+
+			.subtitle__toolbar {
+				padding-top: var(--gl-space-8);
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+			}
+
+			.subtitle__toolbar > .loc-chips {
+				flex: 1 1 auto;
+				min-width: 0;
+				overflow: hidden;
+			}
+
+			.subtitle__reason {
+				flex: none;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
+				white-space: nowrap;
+			}
+
+			.subtitle__actions {
+				display: inline-flex;
+				flex: none;
+				gap: var(--gl-space-6);
 				align-items: center;
 			}
 
 			.meta {
 				display: flex;
-				flex: 1 1 auto;
 				flex-wrap: wrap;
 				gap: var(--gl-space-6);
 				align-items: center;
@@ -244,15 +281,12 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			}
 
 			/* Status zone: quiet elapsed beside the phase pill — "in this state for N". The long form
-			   ("Waiting for your input for 12m" / "Ended 3 days ago") lives in both elements' title.
-			   Lives in the header's actions slot (left of Open/Close) — the margin keeps it from
-			   crowding those buttons. */
+			   ("Waiting for your input for 12m" / "Ended 3 days ago") lives in both elements' title. */
 			.status-zone {
 				display: inline-flex;
 				flex: none;
 				gap: var(--gl-space-6);
 				align-items: center;
-				margin-right: var(--gl-space-8);
 			}
 
 			.status-zone__time {
@@ -291,9 +325,9 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				color: var(--gl-agent-ended-color);
 			}
 
-			/* Current-location chips — right side of the subtitle's meta row, quiet and clickable, one
-			   per branch/worktree(/folder). The meta line (flex: 1 1 auto) grows to fill the row,
-			   pushing this container flush right; both sides ellipsize on overflow rather than wrap. */
+			/* Current-location chips — left side of the subtitle's toolbar row, quiet and clickable,
+			   one per branch/worktree(/folder). Grows to fill the row (see .subtitle__toolbar >
+			   .loc-chips), pushing the reason/actions flush right; truncates rather than wraps. */
 			.loc-chips {
 				display: inline-flex;
 				flex: 0 1 auto;
@@ -417,32 +451,6 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				margin-top: var(--gl-space-2);
 				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--65);
-			}
-
-			/* Slim end row (ended live / past sessions) — reason left, actions right. No status card. */
-			.endrow {
-				display: flex;
-				gap: var(--gl-space-8);
-				align-items: center;
-				margin: 0 var(--gl-space-12) var(--gl-space-12);
-			}
-
-			.endrow__reason {
-				flex: 1 1 auto;
-				min-width: 0;
-				margin: 0;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
-				white-space: nowrap;
-			}
-
-			.endrow__actions {
-				display: inline-flex;
-				flex: none;
-				gap: var(--gl-space-6);
-				align-items: center;
 			}
 
 			/* ---------- Constant body sections ---------- */
@@ -641,13 +649,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 						? this.renderPastSubtitleSlot(pastSession)
 						: nothing
 			}
-			${
-				session != null
-					? this.renderActions(session, agentPhaseToCategory[session.phase])
-					: pastSession != null
-						? this.renderPastActions(pastSession)
-						: nothing
-			}
+			${session != null ? this.renderActions() : pastSession != null ? this.renderPastActions() : nothing}
 			<div class="content scrollable">
 				${
 					session != null
@@ -660,26 +662,10 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		</gl-detail-sheet>`;
 	}
 
-	/** Status zone first (quiet elapsed + phase pill), then the cycle chevrons, then the Open Session
-	 *  chip — live, non-ended only; an ended session's body Resume row covers it instead. */
-	private renderActions(session: AgentSessionState, category: AgentSessionCategory) {
-		// Live, non-ended only — a session here always resolves to the single `Open Session` action;
-		// an ended session's body Resume row (per target) covers it instead.
-		const action = category !== 'ended' ? createAgentSessionOpenHrefs(session)[0] : undefined;
-		return html`
-			${this.renderStatusZone(session, category)}${this.renderCycleActions()}
-			${
-				action != null
-					? html`<gl-action-chip
-							slot="actions"
-							icon=${action.icon}
-							label=${action.label}
-							overlay="tooltip"
-							href=${action.href}
-						></gl-action-chip>`
-					: nothing
-			}
-		`;
+	/** The actions slot carries only the cycle chevrons — status zone and Open Session/Resume/Archive
+	 *  live in the subtitle's toolbar row instead. */
+	private renderActions() {
+		return html`${this.renderCycleActions()}`;
 	}
 
 	/** Up/down, not left/right — the cycle order IS the agents section's vertical card order, so the
@@ -716,10 +702,10 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		);
 	}
 
-	/** Past sessions carry the status zone and cycle chevrons into the actions slot — no Open chip,
-	 *  close only; the body's Resume row covers opening. */
-	private renderPastActions(pastSession: PastAgentSessionState) {
-		return html`${this.renderPastStatusZone(pastSession)}${this.renderCycleActions()}`;
+	/** The actions slot carries only the cycle chevrons — the status zone and Resume/Archive live in
+	 *  the subtitle's toolbar row instead. */
+	private renderPastActions() {
+		return html`${this.renderCycleActions()}`;
 	}
 
 	private renderContent(session: AgentSessionState) {
@@ -770,10 +756,33 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 	/* ---------- Header: subtitle slot ---------- */
 
+	/** Humanizes the real `endReason` values worth surfacing; every other reason (`rotated`,
+	 *  `stale`, `dead-pid`, `pid-zero-idle`) is internal bookkeeping, not user-facing copy. */
+	private describeEndReason(reason: string | undefined): string | undefined {
+		switch (reason) {
+			case 'session-end':
+				return 'Ended normally';
+			case 'archived':
+				return 'Archived';
+			default:
+				return undefined;
+		}
+	}
+
 	private renderSubtitleSlot(session: AgentSessionState) {
+		const category = agentPhaseToCategory[session.phase];
+		const reason = category === 'ended' ? this.describeEndReason(session.endReason) : undefined;
+
 		return html`
 			<div class="subtitle" slot="subtitle">
-				<div class="meta-row">${this.renderMetaLine(session)} ${this.renderLocationChips(session)}</div>
+				<div class="subtitle__identity">
+					${this.renderMetaLine(session)} ${this.renderStatusZone(session, category)}
+				</div>
+				<div class="subtitle__toolbar">
+					${this.renderLocationChips(session)}
+					${reason != null ? html`<span class="subtitle__reason">${reason}</span>` : nothing}
+					${this.renderToolbarActions(session, category)}
+				</div>
 			</div>
 		`;
 	}
@@ -781,11 +790,98 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	private renderPastSubtitleSlot(pastSession: PastAgentSessionState) {
 		return html`
 			<div class="subtitle" slot="subtitle">
-				<div class="meta-row">
-					${this.renderPastMetaLine(pastSession)} ${this.renderPastLocationChips(pastSession)}
+				<div class="subtitle__identity">
+					${this.renderPastMetaLine(pastSession)} ${this.renderPastStatusZone(pastSession)}
+				</div>
+				<div class="subtitle__toolbar">
+					${this.renderPastLocationChips(pastSession)}
+					${
+						pastSession.disposition === 'archived'
+							? html`<span class="subtitle__reason">Archived</span>`
+							: nothing
+					}
+					${this.renderPastToolbarActions(pastSession)}
 				</div>
 			</div>
 		`;
+	}
+
+	/** Live: one labeled Open Session button. Ended: the first resume target as a primary button
+	 *  labeled just "Resume" with the resume glyph — the destination lives in its tooltip — any
+	 *  further target as an icon-only secondary button wearing the destination glyph, then the
+	 *  archive icon. */
+	private renderToolbarActions(session: AgentSessionState, category: AgentSessionCategory) {
+		const actions = createAgentSessionOpenHrefs(session);
+		if (category !== 'ended') {
+			const open = actions[0];
+			return html`<span class="subtitle__actions">
+				<gl-button density="compact" href=${open.href}>
+					<code-icon icon=${open.icon} slot="prefix"></code-icon>${open.label}
+				</gl-button>
+			</span>`;
+		}
+
+		return this.renderResumeButtons(actions, createAgentSessionArchiveHref(session));
+	}
+
+	private renderPastToolbarActions(pastSession: PastAgentSessionState) {
+		const actions = getPastAgentSessionResumeActions(pastSession).map(a => ({
+			label: a.label,
+			icon: a.icon,
+			href: createCommandLink(a.command, a.args[0]),
+		}));
+
+		return this.renderResumeButtons(actions, createAgentSessionArchiveHref(pastSession), actions.length === 0);
+	}
+
+	private renderResumeButtons(
+		actions: { label: string; icon: string; href: string }[],
+		archiveHref: string | undefined,
+		disabledResume = false,
+	) {
+		const [primary, ...rest] = actions;
+
+		return html`<span class="subtitle__actions">
+			${
+				primary != null
+					? html`<gl-button density="compact" tooltip=${primary.label} href=${primary.href}>
+							<code-icon icon="debug-restart" slot="prefix"></code-icon>Resume
+						</gl-button>`
+					: disabledResume
+						? html`<gl-button
+								density="compact"
+								disabled
+								tooltip="Can't resume — Claude Code's transcript for this session is no longer on disk"
+							>
+								<code-icon icon="debug-restart" slot="prefix"></code-icon>Resume
+							</gl-button>`
+						: nothing
+			}
+			${rest.map(
+				a => html`<gl-button
+					density="compact"
+					appearance="secondary"
+					tooltip=${a.label}
+					aria-label=${a.label}
+					href=${a.href}
+				>
+					<code-icon icon=${a.icon}></code-icon>
+				</gl-button>`,
+			)}
+			${
+				archiveHref != null
+					? html`<gl-button
+							density="compact"
+							appearance="toolbar"
+							tooltip="Archive"
+							aria-label="Archive"
+							href=${archiveHref}
+						>
+							<code-icon icon="archive"></code-icon>
+						</gl-button>`
+					: nothing
+			}
+		</span>`;
 	}
 
 	/** Names the coding harness FIRST — the avatar's glyph alone can't carry identity, since most
@@ -833,7 +929,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		const longTitle = this.describeStatusLongForm(category, elapsed);
 
 		return html`
-			<span class="status-zone" slot="actions">
+			<span class="status-zone">
 				${
 					elapsed != null
 						? html`<gl-tooltip content=${longTitle}
@@ -852,7 +948,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		const longTitle = elapsed != null ? `${verb} ${elapsed} ago` : verb;
 
 		return html`
-			<span class="status-zone" slot="actions">
+			<span class="status-zone">
 				${
 					elapsed != null
 						? html`<gl-tooltip content=${longTitle}
@@ -888,7 +984,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		);
 	}
 
-	/** The session's CURRENT location, right side of the subtitle's meta row — a single colorized
+	/** The session's CURRENT location, left side of the subtitle's toolbar row — a single colorized
 	 *  worktree chip when the branch and worktree names collapse to the same thing (or there's no
 	 *  branch at all, just a worktree), a branch chip PLUS a muted worktree chip when they differ, or
 	 *  a static (non-clickable) folder chip when no worktree resolved at all. History
@@ -994,7 +1090,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				// `lastActivity` clock (see "one time, one meaning").
 				return nothing;
 			case 'ended':
-				return this.renderHeroEnded(session);
+				// No hero — the end reason and resume/archive actions live in the subtitle's toolbar row.
+				return nothing;
 		}
 	}
 
@@ -1103,56 +1200,6 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		if (!line) return nothing;
 
 		return html`<div class="hero"><p class="hero__line">${line}</p></div>`;
-	}
-
-	private renderHeroEnded(session: AgentSessionState) {
-		const endReasonLine = this.describeEndReason(session.endReason);
-		// Extension first, terminal second — the same order `computeResumeTargets` produces; the
-		// first action is the primary (default appearance) button, the rest secondary.
-		const openActions = createAgentSessionOpenHrefs(session);
-		const archiveHref = createAgentSessionArchiveHref(session);
-
-		return html`
-			<div class="endrow">
-				<span class="endrow__reason">${endReasonLine ?? nothing}</span>
-				<span class="endrow__actions">
-					${openActions.map(
-						(action, index) => html`<gl-button
-							appearance=${index === 0 ? nothing : 'secondary'}
-							href=${action.href}
-						>
-							<code-icon icon=${action.icon} slot="prefix"></code-icon>
-							${action.label}
-						</gl-button>`,
-					)}
-					${
-						archiveHref != null
-							? html`<gl-button
-									appearance="toolbar"
-									tooltip="Archive"
-									aria-label="Archive"
-									href=${archiveHref}
-								>
-									<code-icon icon="archive"></code-icon>
-								</gl-button>`
-							: nothing
-					}
-				</span>
-			</div>
-		`;
-	}
-
-	/** Humanizes the real `endReason` values worth surfacing; every other reason (`rotated`,
-	 *  `stale`, `dead-pid`, `pid-zero-idle`) is internal bookkeeping, not user-facing copy. */
-	private describeEndReason(reason: string | undefined): string | undefined {
-		switch (reason) {
-			case 'session-end':
-				return 'Ended normally';
-			case 'archived':
-				return 'Archived';
-			default:
-				return undefined;
-		}
 	}
 
 	/* ---------- Constant body ---------- */
@@ -1437,51 +1484,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	/* ---------- Past session (sparse) ---------- */
 
 	private renderPastContent(pastSession: PastAgentSessionState) {
-		return html`${this.renderPastHero(pastSession)} ${this.renderPastBody(pastSession)}`;
-	}
-
-	private renderPastHero(pastSession: PastAgentSessionState) {
-		const resumeActions = getPastAgentSessionResumeActions(pastSession);
-		const archiveHref = createAgentSessionArchiveHref(pastSession);
-
-		return html`
-			<div class="endrow">
-				<span class="endrow__reason"></span>
-				<span class="endrow__actions">
-					${
-						resumeActions.length > 0
-							? resumeActions.map(
-									(action, index) => html`<gl-button
-										appearance=${index === 0 ? nothing : 'secondary'}
-										href=${createCommandLink(action.command, action.args[0])}
-									>
-										<code-icon icon=${action.icon} slot="prefix"></code-icon>
-										${action.label}
-									</gl-button>`,
-								)
-							: html`<gl-button
-									disabled
-									tooltip="Can't resume — Claude Code's transcript for this session is no longer on disk"
-								>
-									<code-icon icon="debug-restart" slot="prefix"></code-icon>
-									Resume
-								</gl-button>`
-					}
-					${
-						archiveHref != null
-							? html`<gl-button
-									appearance="toolbar"
-									tooltip="Archive"
-									aria-label="Archive"
-									href=${archiveHref}
-								>
-									<code-icon icon="archive"></code-icon>
-								</gl-button>`
-							: nothing
-					}
-				</span>
-			</div>
-		`;
+		return this.renderPastBody(pastSession);
 	}
 
 	private renderPastBody(pastSession: PastAgentSessionState) {
