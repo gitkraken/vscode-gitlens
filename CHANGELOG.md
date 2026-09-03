@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Removed
 
 - Removes the _Home_ view &mdash; superseded by the _Commit Graph_, which covers and expands on its workflows ([#5778](https://github.com/gitkraken/vscode-gitlens/issues/5778)); existing _Home_ deep links now open the _Commit Graph_
+  - Moves the unsafe-repository explanation into the _Commit Graph_ &mdash; when Git blocks repositories as potentially unsafe, its empty state now says so and points at Source Control, instead of a generic "no repository" message
 
 ## [19.1.0] - 2026-09-01
 

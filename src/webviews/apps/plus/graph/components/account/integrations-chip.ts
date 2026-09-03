@@ -4,15 +4,15 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
-import type { AIState, IntegrationStateInfo } from '../../../../rpc/services/types.js';
-import type { AIContextState } from '../../../shared/contexts/ai.js';
-import { aiContext } from '../../../shared/contexts/ai.js';
-import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
-import { integrationsContext } from '../../../shared/contexts/integrations.js';
-import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
-import { subscriptionContext } from '../../../shared/contexts/subscription.js';
-import { chipStyles } from './chipStyles.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../../../plus/gk/utils/subscription.utils.js';
+import type { AIState, IntegrationStateInfo } from '../../../../../rpc/services/types.js';
+import type { AIContextState } from '../../../../shared/contexts/ai.js';
+import { aiContext } from '../../../../shared/contexts/ai.js';
+import type { IntegrationsState } from '../../../../shared/contexts/integrations.js';
+import { integrationsContext } from '../../../../shared/contexts/integrations.js';
+import type { SubscriptionContextState } from '../../../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../../../shared/contexts/subscription.js';
+import { chipStyles } from '../../../shared/components/chipStyles.js';
 import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-integrations-chip')

@@ -29,8 +29,8 @@ import '../../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
 import '../../../shared/components/progress-ring.js';
-import '../../shared/components/account-chip.js';
-import '../../shared/components/integrations-chip.js';
+import './account/account-chip.js';
+import './account/integrations-chip.js';
 
 declare global {
 	interface HTMLElementTagNameMap {

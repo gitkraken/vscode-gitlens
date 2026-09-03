@@ -84,6 +84,26 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 			`;
 		}
 
+		if (this.graphState.hasUnsafeRepositories) {
+			return html`
+				<div class="container" role="group" aria-label="Unsafe repository">
+					<div class="icon"><code-icon icon="warning"></code-icon></div>
+					<h2 class="title">Unsafe repository</h2>
+					<p class="description">
+						Unable to open any repositories — Git blocked them as potentially unsafe, because their
+						folder(s) aren't owned by the current user. Mark them as safe in Source Control to visualize
+						their history, branches, and commits in the Commit Graph.
+					</p>
+					<div class="actions">
+						<gl-button full href="command:workbench.view.scm">
+							<code-icon slot="prefix" icon="source-control"></code-icon>
+							Manage in Source Control
+						</gl-button>
+					</div>
+				</div>
+			`;
+		}
+
 		return html`
 			<div class="container" role="group" aria-label="No repository open">
 				<div class="icon"><code-icon icon="source-control"></code-icon></div>
