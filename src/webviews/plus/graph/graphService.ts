@@ -5,6 +5,7 @@ import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitGraphRowKind } from '@gitlens/git/models/graph.js';
+import type { GitGraphSessionMoreResult } from '@gitlens/git/models/graphSession.js';
 import type { GitCommitSearchContext, SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitHealthDetails, GitMaintenanceTask, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
@@ -1228,6 +1229,13 @@ export interface GraphWipService {
  * a page adding nothing never sends. It resolves (rather than hanging) in every degenerate case: a
  * superseded page, a repo swap mid-flight, a hidden webview.
  *
+ * It also REPORTS which of those happened. `'superseded'` means a rebuild replaced the window the page was
+ * cut from — the rows are still there, and the caller re-asks if it still wants them. For a BOUNDARY page
+ * (`id == null`) the client deliberately owns that decision: its paging is edge-triggered, so only it can
+ * tell whether the user is still at the boundary. A TARGETED page (`id != null`) carries stable intent
+ * instead, so the HOST retries it first (revalidate, then a bounded retry) — a `'superseded'` seen here for
+ * a targeted request means that host-side retry was exhausted, not merely refused once.
+ *
  * {@link loadRow} runs an UNCAPPED walk, so `signal` matters: a navigation that is superseded, times
  * out, or is aborted must withdraw it or the walk keeps scanning the whole repository. It never
  * rejects for a domain reason — a miss comes back as a settled result naming why.
@@ -1236,7 +1244,7 @@ export interface GraphRowsService {
 	/** `limit` overrides the host's configured page size (`gitlens.graph.pageItemLimit`) for this one
 	 *  call — the embedded Visual History raises it on `All time` so the history burns through in
 	 *  fewer, larger chunks instead of paying per-call overhead on the default 200-row page. */
-	getMoreRows(id?: string, limit?: number): Promise<void>;
+	getMoreRows(id?: string, limit?: number): Promise<GitGraphSessionMoreResult | undefined>;
 	loadRow(id: string, signal?: AbortSignal): Promise<DidLoadRowParams>;
 	/**
 	 * The rows plane's ONLY recovery path: bumps the `graph:rows` channel's generation and re-ships a

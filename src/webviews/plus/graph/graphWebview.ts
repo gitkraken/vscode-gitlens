@@ -887,8 +887,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getEtagRepository: () => this._etagRepository,
 			setSelectedRows: (id, selection, state) => this.setSelectedRows(id, selection, state),
 			updateState: immediate => this._data.updateState(immediate),
-			updateGraphWithMoreRows: (id, limitOverride) =>
-				this._data.updateGraphWithMoreRows(id, undefined, limitOverride),
+			// This consumer only needs the rows to have landed, so the page's outcome is deliberately dropped.
+			updateGraphWithMoreRows: async (id, limitOverride) => {
+				await this._data.updateGraphWithMoreRows(id, undefined, limitOverride);
+			},
 			notifyDidChangeRows: sendSelectedRows => this._data.notifyDidChangeRows(sendSelectedRows),
 			getWipRows: async () => (await this._wip.getWipRows()).rows,
 		};
