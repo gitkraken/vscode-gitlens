@@ -7054,7 +7054,7 @@
 			{
 				"command": "gitlens.agents.resumeSession",
 				"title": "Resume Session",
-				"icon": "$(debug-restart)"
+				"icon": "$(debug-continue)"
 			},
 			{
 				"command": "gitlens.agents.resumeSessionInExtension",

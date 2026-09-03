@@ -845,7 +845,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			${
 				primary != null
 					? html`<gl-button density="compact" tooltip=${primary.label} href=${primary.href}>
-							<code-icon icon="debug-restart" slot="prefix"></code-icon>Resume
+							<code-icon icon="debug-continue" slot="prefix"></code-icon>Resume
 						</gl-button>`
 					: disabledResume
 						? html`<gl-button
@@ -853,7 +853,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 								disabled
 								tooltip="Can't resume — Claude Code's transcript for this session is no longer on disk"
 							>
-								<code-icon icon="debug-restart" slot="prefix"></code-icon>Resume
+								<code-icon icon="debug-continue" slot="prefix"></code-icon>Resume
 							</gl-button>`
 						: nothing
 			}

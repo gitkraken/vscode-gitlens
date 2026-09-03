@@ -270,7 +270,7 @@
 		},
 		"gitlens.agents.resumeSession": {
 			"label": "Resume Session",
-			"icon": "$(debug-restart)"
+			"icon": "$(debug-continue)"
 		},
 		"gitlens.agents.resumeSessionInExtension": {
 			"label": "Resume in Extension",
