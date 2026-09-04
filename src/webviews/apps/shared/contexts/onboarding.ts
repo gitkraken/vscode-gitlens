@@ -14,7 +14,7 @@ export interface OnboardingState {
 	readonly walkthroughProgress: Signal.State<WalkthroughProgress | undefined>;
 	readonly graphWalkthroughProgress: Signal.State<GraphWalkthroughProgress | undefined>;
 	/** Mirrors `gitlens.advanced.skipOnboarding` (see `WalkthroughProgressPayload.onboardingOptedOut`) —
-	 *  the service-wide onboarding opt-out that non-dismissible surfaces like the "Get Kepler" banner
+	 *  the service-wide onboarding opt-out that non-dismissible surfaces like the "Try Kepler" banner
 	 *  consult since they have no dismiss button of their own. */
 	readonly onboardingOptedOut: Signal.State<boolean>;
 	/** Dismiss a banner by key. No-op before RPC connects; wired by root component. */

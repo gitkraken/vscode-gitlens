@@ -1,6 +1,6 @@
 import type { WalkthroughProgress } from '../../../../constants.walkthroughs.js';
 
-/** Whether the "Get Kepler" banner should show for the given main-walkthrough progress.
+/** Whether the "Try Kepler" banner should show for the given main-walkthrough progress.
  *
  * `undefined` means the host hasn't pushed walkthrough progress yet — that reads as NOT shown (rather
  * than shown-by-default), so the banner never flashes on before the real state arrives.

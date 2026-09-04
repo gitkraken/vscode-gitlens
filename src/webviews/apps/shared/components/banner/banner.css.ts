@@ -216,6 +216,10 @@ export const bannerStyles = css`
 		text-wrap: pretty;
 	}
 
+	.banner__title-icon {
+		margin-inline-end: var(--gl-space-6);
+	}
+
 	.banner__body {
 		margin: 0;
 		font-size: 1em;

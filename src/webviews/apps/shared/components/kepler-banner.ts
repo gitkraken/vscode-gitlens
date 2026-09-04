@@ -47,14 +47,15 @@ export class GlKeplerBanner extends LitElement {
 		// satisfies the walkthrough's `kepler` step — the banner is non-dismissible, so a link that
 		// bypassed the command would leave it stuck forever for anyone who only ever clicks the link.
 		const keplerCommandLink = createCommandLink('gitlens.getKepler', { source: this.source });
-		const bodyHtml = `Kepler, GitKraken's delivery engine for agent-driven development, starts from an issue or pull request, creates the environment, launches the agent, and keeps the work moving. <a href="${keplerCommandLink}">Learn more</a>`;
+		const bodyHtml = `Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. <a href="${keplerCommandLink}">Learn more</a>`;
 
 		return html`
 			<gl-banner
 				exportparts="base"
 				display="gradient-purple"
 				layout="${this.layout}"
-				banner-title="Get Kepler"
+				banner-title="Try Kepler"
+				title-icon="gl-kepler"
 				body="${bodyHtml}"
 				primary-button="Get Kepler"
 				primary-button-href="${keplerCommandLink}"

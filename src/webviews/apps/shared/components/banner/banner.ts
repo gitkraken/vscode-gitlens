@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import '@gitlens/components/components/codeIcon.js';
 import { bannerStyles } from './banner.css.js';
 import '../button.js';
 
@@ -28,6 +29,9 @@ export class GlBanner extends LitElement {
 
 	@property({ attribute: 'banner-title' })
 	bannerTitle?: string;
+
+	@property({ attribute: 'title-icon' })
+	titleIcon?: string;
 
 	@property()
 	body?: string;
@@ -90,7 +94,13 @@ export class GlBanner extends LitElement {
 	private renderTitle() {
 		if (!this.bannerTitle) return undefined;
 
-		return html`<div class="banner__title">${this.bannerTitle}</div>`;
+		return html`<div class="banner__title">
+			${
+				this.titleIcon
+					? html`<code-icon class="banner__title-icon" icon=${this.titleIcon}></code-icon>`
+					: undefined
+			}${this.bannerTitle}
+		</div>`;
 	}
 
 	private renderBody() {

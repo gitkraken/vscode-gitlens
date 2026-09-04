@@ -28,7 +28,7 @@ export interface WalkthroughProgressPayload {
 	/**
 	 * Whether `gitlens.advanced.skipOnboarding` is on — the single service-wide onboarding opt-out
 	 * (see `OnboardingService.isDismissed`). It rides this payload rather than its own RPC round trip
-	 * because it gates the same onboarding surfaces (like the "Get Kepler" banner) that this progress
+	 * because it gates the same onboarding surfaces (like the "Try Kepler" banner) that this progress
 	 * already reaches. The payload also refires on its own when the setting changes, so toggling it
 	 * takes effect live rather than only on the next walkthrough-progress change.
 	 */
