@@ -1480,37 +1480,14 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		try {
-			// Prefer the optional metadata-aware path for account-wide reads so partial failures (e.g. one Azure
-			// org rejecting) are surfaced as a soft `{ value, error }` instead of being lost. Repo-scoped reads and
-			// providers without that override keep using the legacy array path.
-			let result: IntegrationResult<PullRequest[] | undefined>;
-			if (this.searchProviderMyPullRequestsResult != null && repos == null) {
-				result = await this.searchProviderMyPullRequestsResult(
-					session,
-					ensureArray(repos),
-					cancellation,
-					searchOptions,
-				);
-			} else {
-				result = {
-					value: await this.searchProviderMyPullRequests(
-						session,
-						ensureArray(repos),
-						cancellation,
-						searchOptions,
-					),
-				};
-			}
+			const prs = await this.searchProviderMyPullRequests(
+				session,
+				ensureArray(repos),
+				cancellation,
+				searchOptions,
+			);
 			this.resetRequestExceptionCount('searchMyPullRequests');
-			// `IntegrationResult` is a strict union of value-only or error-only (and may be `undefined`). Return the
-			// matching branch explicitly; a missing result is treated as a successful empty read.
-			if (result == null) {
-				return { value: undefined, duration: performance.now() - start };
-			}
-			if (result.error != null) {
-				return { error: result.error, duration: performance.now() - start };
-			}
-			return { value: result.value, duration: performance.now() - start };
+			return { value: prs, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyPullRequests', ex, {
 				scope: scope,
@@ -1613,21 +1590,6 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined>;
-
-	/**
-	 * Optional metadata-aware counterpart of {@link searchProviderMyPullRequests}. Providers whose account-wide
-	 * "my PRs" read already produces {@link ProviderApiPagedResult} with completeness/failures can override
-	 * this to return a soft `{ value, error }` result so `searchMyPullRequests` surfaces partial data and a
-	 * warning instead of silently discarding the failure signal. The wrapper prefers this when present; the
-	 * abstract {@link searchProviderMyPullRequests} remains the required fallback for repo-scoped and
-	 * metadata-oblivious paths.
-	 */
-	protected searchProviderMyPullRequestsResult?(
-		session: ProviderAuthenticationSession,
-		repos?: T[],
-		cancellation?: AbortSignal,
-		options?: SearchMyPullRequestsOptions,
-	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 
 	/**
 	 * Result-returning wrapper for the filtered pull-request search. Errors become the soft
