@@ -5104,36 +5104,42 @@ export class GitHubApi {
 		const scope = getScopedLogger();
 		const pageSize = 10;
 		const include = options?.include?.length ? options.include : undefined;
-		const requiresPagination = shouldPaginateGitHubSearchState(include);
+		const stateSearches = requiresGitHubPullRequestStateFacets(include)
+			? [
+					{ alias: 'opened', qualifier: 'is:open' },
+					{ alias: 'merged', qualifier: 'is:merged' },
+				]
+			: [{ alias: 'search', qualifier: toGitHubSearchStateQualifier(include) }];
 
-		interface SearchResult {
-			search: {
-				pageInfo: {
-					endCursor?: string | null;
-					hasNextPage: boolean;
-				};
-				nodes: GitHubPullRequest[];
-			};
-		}
+		type SearchResult = Record<
+			string,
+			| {
+					nodes: GitHubPullRequest[];
+			  }
+			| undefined
+		>;
 
 		try {
-			const query = `query searchPullRequests(
-	$searchQuery: String!
-		$cursor: String
-	$avatarSize: Int
-) {
-		search(first: ${pageSize}, after: $cursor, query: $searchQuery, type: ISSUE) {
-			pageInfo {
-				endCursor
-				hasNextPage
-			}
+			const params = stateSearches.map(({ alias }) =>
+				alias === 'search' ? '$searchQuery: String!' : `$${alias}SearchQuery: String!`,
+			);
+			const fields = stateSearches.map(({ alias }) => {
+				const fieldAlias = alias === 'search' ? '' : `${alias}: `;
+				const variable = alias === 'search' ? 'searchQuery' : `${alias}SearchQuery`;
+				return `${fieldAlias}search(first: ${pageSize}, query: $${variable}, type: ISSUE) {
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
 				${gqlPullRequestStackFragmentFor(options)}
 			}
 		}
-	}
+	}`;
+			});
+			const query = `query searchPullRequests(
+	${params.join('\n\t')}
+	$avatarSize: Int
+) {
+	${fields.join('\n\t')}
 }`;
 
 			let search = options?.search?.trim() ?? '';
@@ -5147,44 +5153,32 @@ export class GitHubApi {
 				search += `${repo}${options.repos.join(repo)}`;
 			}
 
-			const searchQuery = ['is:pr', toGitHubSearchStateQualifier(include), 'archived:false', search.trim()]
-				.filter(Boolean)
-				.join(' ');
+			const variables: Record<string, unknown> = {
+				baseUrl: options?.baseUrl,
+				avatarSize: options?.avatarSize,
+			};
+			for (const { alias, qualifier } of stateSearches) {
+				const variable = alias === 'search' ? 'searchQuery' : `${alias}SearchQuery`;
+				variables[variable] = ['is:pr', qualifier, 'archived:false', search.trim()].filter(Boolean).join(' ');
+			}
 
-			// Bound the paginated case with a defensive page backstop like the other paged provider drains, so a
-			// large, low-match result set can't fan out into an unbounded request loop.
-			const maxSearchPages = 20;
-			let cursor: string | undefined;
+			const rsp = await this.graphql<SearchResult>(provider, token, query, variables, scope, cancellation);
+			if (rsp == null) return [];
+
 			const results: PullRequest[] = [];
-			for (let page = 0; page < maxSearchPages; page++) {
-				const rsp = await this.graphql<SearchResult>(
-					provider,
-					token,
-					query,
-					{
-						searchQuery: searchQuery,
-						cursor: cursor,
-						baseUrl: options?.baseUrl,
-						avatarSize: options?.avatarSize,
-					},
-					scope,
-					cancellation,
-				);
-				if (rsp == null) return results;
-
-				const pageResults = filterPullRequestsBySearchState(
-					rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider)),
-					include,
-				);
-				results.push(...pageResults);
-
-				cursor = rsp.search.pageInfo.endCursor ?? undefined;
-				if (!requiresPagination || results.length >= pageSize || !rsp.search.pageInfo.hasNextPage) {
-					break;
+			for (const { alias } of stateSearches) {
+				for (const node of rsp[alias]?.nodes ?? []) {
+					results.push(fromGitHubPullRequest(node, provider));
 				}
 			}
 
-			return results.slice(0, pageSize);
+			return [
+				...uniqueBy(
+					filterPullRequestsBySearchState(results, include),
+					pr => pr.url,
+					(original, _current) => original,
+				),
+			].slice(0, pageSize);
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
@@ -5439,8 +5433,7 @@ export function toGitHubSearchStateQualifier(include: PullRequestState[] | undef
 	if (opened && closed && merged) return ''; // all states -> no qualifier
 	if (opened && closed) return 'is:unmerged';
 	if (closed && merged) return 'is:closed';
-	// `opened && merged` isn't expressible as a single AND qualifier; omit it here and post-filter.
-	if (opened && merged) return '';
+	if (opened && merged) throw new Error('GitHub cannot express opened and merged as one search state qualifier');
 	if (opened) return 'is:open';
 	if (merged) return 'is:merged';
 	if (closed) return 'is:closed is:unmerged';
@@ -5460,7 +5453,7 @@ export function filterPullRequestsBySearchState<T extends { state: PullRequestSt
 	return pullRequests.filter(pr => allowedStates.has(pr.state));
 }
 
-function shouldPaginateGitHubSearchState(include: PullRequestState[] | undefined): boolean {
+function requiresGitHubPullRequestStateFacets(include: PullRequestState[] | undefined): boolean {
 	if (include == null || include.length === 0) return false;
 
 	const uniqueStates = new Set<PullRequestState>(include);
