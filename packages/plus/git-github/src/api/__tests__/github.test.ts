@@ -38,7 +38,6 @@ suite('toGitHubSearchStateQualifier', () => {
 		['closed (not merged)', ['closed'], 'is:closed is:unmerged'],
 		['closed + merged', ['closed', 'merged'], 'is:closed'],
 		['opened + closed', ['opened', 'closed'], 'is:unmerged'],
-		['opened + merged (not expressible, no qualifier)', ['opened', 'merged'], ''],
 		['all states -> no qualifier', ['opened', 'closed', 'merged'], ''],
 	];
 
@@ -51,6 +50,13 @@ suite('toGitHubSearchStateQualifier', () => {
 	test('is order-independent', () => {
 		assert.strictEqual(toGitHubSearchStateQualifier(['merged', 'closed']), 'is:closed');
 		assert.strictEqual(toGitHubSearchStateQualifier(['closed', 'opened']), 'is:unmerged');
+	});
+
+	test('rejects opened + merged because one qualifier cannot express the union', () => {
+		assert.throws(
+			() => toGitHubSearchStateQualifier(['merged', 'opened', 'opened']),
+			/GitHub cannot express opened and merged/,
+		);
 	});
 });
 
@@ -148,26 +154,34 @@ suite('GitHubApi.searchPullRequests', () => {
 		};
 	}
 
-	function createConfig(
-		pages: { requestCursor?: string; nextCursor?: string; hasNextPage: boolean; nodes: unknown[] }[],
-		seenCursors: string[],
-	) {
+	test('aliases opened and merged searches so closed pull requests cannot consume their result slices', async () => {
+		let requestCount = 0;
+		let query = '';
+		let variables: Record<string, unknown> = {};
 		const config: GitHubApiConfig = {
 			isWeb: false,
 			fetch: async (_url, init) => {
-				const body = JSON.parse(String(init?.body ?? '{}')) as { variables?: { cursor?: string } };
-				const cursor = body.variables?.cursor;
-				seenCursors.push(cursor ?? '');
-				const page = pages.find(p => p.requestCursor === cursor) ?? pages[0];
+				requestCount++;
+				const body = JSON.parse(String(init?.body ?? '{}')) as {
+					query?: string;
+					variables?: Record<string, unknown>;
+				};
+				query = body.query ?? '';
+				variables = body.variables ?? {};
 				return new Response(
 					JSON.stringify({
 						data: {
-							search: {
-								pageInfo: {
-									endCursor: page.hasNextPage ? (page.nextCursor ?? null) : null,
-									hasNextPage: page.hasNextPage,
-								},
-								nodes: page.nodes,
+							opened: {
+								nodes: [
+									...Array.from({ length: 5 }, (_, i) => prNode(i + 1, 'OPEN')),
+									prNode(6, 'CLOSED'),
+								],
+							},
+							merged: {
+								nodes: [
+									prNode(6, 'MERGED'),
+									...Array.from({ length: 6 }, (_, i) => prNode(i + 7, 'MERGED')),
+								],
 							},
 						},
 					}),
@@ -176,89 +190,60 @@ suite('GitHubApi.searchPullRequests', () => {
 			},
 			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
 		};
-		return config;
-	}
 
-	test('paginates when include requests opened + merged', async () => {
-		const seenCursors: string[] = [];
-		const api = new GitHubApi(
-			createConfig(
-				[
-					{
-						requestCursor: undefined,
-						nextCursor: 'page-2',
-						hasNextPage: true,
-						nodes: Array.from({ length: 10 }, (_, i) => prNode(i + 1, 'CLOSED')),
-					},
-					{
-						requestCursor: 'page-2',
-						hasNextPage: false,
-						nodes: [prNode(11, 'OPEN'), prNode(12, 'MERGED')],
-					},
-				],
-				seenCursors,
-			),
-		);
+		const results = await new GitHubApi(config).searchPullRequests(provider, token, {
+			search: 'fix',
+			user: 'octo',
+			repos: ['octo/repo'],
+			include: ['merged', 'opened', 'opened'],
+		});
 
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['opened', 'merged'] });
-
-		assert.deepStrictEqual(
+		assert.equal(requestCount, 1);
+		assert.match(query, /opened: search\(first: 10, query: \$openedSearchQuery/);
+		assert.match(query, /merged: search\(first: 10, query: \$mergedSearchQuery/);
+		assert.equal(variables.openedSearchQuery, 'is:pr is:open archived:false fix user:octo repo:octo/repo');
+		assert.equal(variables.mergedSearchQuery, 'is:pr is:merged archived:false fix user:octo repo:octo/repo');
+		assert.deepEqual(
 			results.map(pr => pr.id),
-			['11', '12'],
+			['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
 		);
-		assert.deepStrictEqual(seenCursors, ['', 'page-2']);
 	});
 
-	test('preserves matches from earlier pages when a continuation response is unavailable', async () => {
-		let request = 0;
+	test('keeps exact state combinations on one unaliased search', async () => {
+		let query = '';
+		let searchQuery: unknown;
 		const config: GitHubApiConfig = {
 			isWeb: false,
-			fetch: async () => {
-				request++;
+			fetch: async (_url, init) => {
+				const body = JSON.parse(String(init?.body ?? '{}')) as {
+					query?: string;
+					variables?: { searchQuery?: unknown };
+				};
+				query = body.query ?? '';
+				searchQuery = body.variables?.searchQuery;
 				return new Response(
-					request === 1
-						? JSON.stringify({
-								data: {
-									search: {
-										pageInfo: { endCursor: 'page-2', hasNextPage: true },
-										nodes: [prNode(1, 'MERGED')],
-									},
-								},
-							})
-						: JSON.stringify({ data: null }),
-					{ status: 200, headers: { 'content-type': 'application/json' } },
+					JSON.stringify({ data: { search: { nodes: [prNode(1, 'CLOSED'), prNode(2, 'OPEN')] } } }),
+					{
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					},
 				);
 			},
 			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
 		};
 
-		const api = new GitHubApi(config);
-		const results = await api.searchPullRequests(provider, token, { include: ['opened', 'merged'] });
+		const results = await new GitHubApi(config).searchPullRequests(provider, token, {
+			search: 'fix',
+			include: ['closed', 'merged'],
+		});
 
-		assert.deepStrictEqual(
+		assert.match(query, /\n\s*search\(first: 10, query: \$searchQuery/);
+		assert.doesNotMatch(query, /opened: search|merged: search/);
+		assert.equal(searchQuery, 'is:pr is:closed archived:false fix');
+		assert.deepEqual(
 			results.map(pr => pr.id),
 			['1'],
 		);
-	});
-
-	test('stops at the page backstop when matches never fill the page', async () => {
-		const seenCursors: string[] = [];
-		// Every page is full of non-matching PRs and always reports another page, so results never reach the
-		// page-size cap and `hasNextPage` never goes false. The only thing that can end the drain is the 20-page
-		// backstop. More pages exist than the cap to prove it truncates rather than running away.
-		const pages = Array.from({ length: 25 }, (_, i) => ({
-			requestCursor: i === 0 ? undefined : `cursor-${i}`,
-			nextCursor: `cursor-${i + 1}`,
-			hasNextPage: true,
-			nodes: Array.from({ length: 10 }, (_, j) => prNode(i * 100 + j + 1, 'CLOSED')),
-		}));
-
-		const api = new GitHubApi(createConfig(pages, seenCursors));
-
-		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['opened', 'merged'] });
-
-		assert.deepStrictEqual(results, []);
-		assert.strictEqual(seenCursors.length, 20);
 	});
 });
 
