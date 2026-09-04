@@ -13,6 +13,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { ensureArray } from '@gitlens/utils/array.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -117,8 +118,22 @@ function getSelfManagedApiBaseUrl(
 	}
 }
 
+/** Read options for {@link GitHostIntegration.searchMyPullRequests} and the provider hook behind it. */
 export type SearchMyPullRequestsOptions = {
+	/** Suppresses the user-facing notification when the read fails. */
+	silent?: boolean;
+	/**
+	 * PR states to include (open/closed/merged/all). Providers that cannot express it in a single query
+	 * filter the normalized results; omitted preserves the historical open-only behavior.
+	 */
+	state?: PullRequestStateFilter;
 	includeReviewRequested?: boolean;
+};
+
+/** Read options for {@link GitHostIntegration.searchPullRequests} and the provider hook behind it. */
+export type SearchPullRequestsOptions = {
+	/** PR states to include; omitted preserves the provider's default. */
+	include?: PullRequestState[];
 };
 
 type MyPullRequestsForReposOptions = {
@@ -1468,32 +1483,15 @@ export abstract class GitHostIntegration<
 		}
 	}
 
-	async searchMyPullRequests(
-		repo?: T,
-		cancellation?: AbortSignal,
-		silent?: boolean,
-		connectionId?: string,
-		state?: PullRequestStateFilter,
-		options?: SearchMyPullRequestsOptions,
-	): Promise<IntegrationResult<PullRequest[] | undefined>>;
-	async searchMyPullRequests(
-		repos?: T[],
-		cancellation?: AbortSignal,
-		silent?: boolean,
-		connectionId?: string,
-		state?: PullRequestStateFilter,
-		options?: SearchMyPullRequestsOptions,
-	): Promise<IntegrationResult<PullRequest[] | undefined>>;
+	/** Account-wide (or repo-scoped) search for the current user's pull requests. */
 	@trace()
 	async searchMyPullRequests(
 		repos?: T | T[],
 		cancellation?: AbortSignal,
-		silent?: boolean,
-		connectionId?: string,
-		state?: PullRequestStateFilter,
-		options?: SearchMyPullRequestsOptions,
+		options?: SearchMyPullRequestsOptions & { connectionId?: string },
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const scope = getScopedLogger();
+		const { connectionId, ...searchOptions } = options ?? {};
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
@@ -1507,21 +1505,17 @@ export abstract class GitHostIntegration<
 			if (this.searchProviderMyPullRequestsResult != null && repos == null) {
 				result = await this.searchProviderMyPullRequestsResult(
 					session,
-					repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+					ensureArray(repos),
 					cancellation,
-					silent,
-					state,
-					options,
+					searchOptions,
 				);
 			} else {
 				result = {
 					value: await this.searchProviderMyPullRequests(
 						session,
-						repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+						ensureArray(repos),
 						cancellation,
-						silent,
-						state,
-						options,
+						searchOptions,
 					),
 				};
 			}
@@ -1631,14 +1625,10 @@ export abstract class GitHostIntegration<
 		}
 	}
 
-	// `state` selects which PR states to include (open/closed/merged/all). Providers that cannot express it
-	// in a single query filter the normalized results; omitted preserves the historical open-only behavior.
 	protected abstract searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: T[],
 		cancellation?: AbortSignal,
-		silent?: boolean,
-		state?: PullRequestStateFilter,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined>;
 
@@ -1654,8 +1644,6 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repos?: T[],
 		cancellation?: AbortSignal,
-		silent?: boolean,
-		state?: PullRequestStateFilter,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 
@@ -1707,49 +1695,16 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<ProviderPullRequestSearchPage | undefined>;
 
-	async searchPullRequests(
-		searchQuery: string,
-		repo?: T,
-		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
-	): Promise<PullRequest[] | undefined>;
-	async searchPullRequests(
-		searchQuery: string,
-		repos?: T[],
-		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
-	): Promise<PullRequest[] | undefined>;
-	async searchPullRequests(
-		searchQuery: string,
-		repo?: T,
-		cancellation?: AbortSignal,
-		connectionId?: string,
-		options?: { include?: PullRequestState[] },
-	): Promise<PullRequest[] | undefined>;
-	async searchPullRequests(
-		searchQuery: string,
-		repos?: T[],
-		cancellation?: AbortSignal,
-		connectionId?: string,
-		options?: { include?: PullRequestState[] },
-	): Promise<PullRequest[] | undefined>;
+	/** Free-text search across pull requests, optionally narrowed to `repos`. */
 	@trace()
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T | T[],
 		cancellation?: AbortSignal,
-		connectionIdOrOptions?: string | { include?: PullRequestState[] },
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions & { connectionId?: string },
 	): Promise<PullRequest[] | undefined> {
-		// `connectionId` (string) can be omitted when passing `options`; split the overlapping 4th arg.
-		// When the 4th arg isn't the options object (a string `connectionId` or `undefined`), fall back to
-		// the 5th-arg `options` so an explicit `undefined` connectionId still honors state filtering.
-		const connectionId = typeof connectionIdOrOptions === 'string' ? connectionIdOrOptions : undefined;
-		const searchOptions =
-			connectionIdOrOptions != null && typeof connectionIdOrOptions !== 'string'
-				? connectionIdOrOptions
-				: options;
 		const scope = getScopedLogger();
+		const { connectionId, ...searchOptions } = options ?? {};
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
@@ -1758,7 +1713,7 @@ export abstract class GitHostIntegration<
 			const prs = await this.searchProviderPullRequests?.(
 				session,
 				searchQuery,
-				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+				ensureArray(repos),
 				cancellation,
 				searchOptions,
 			);
@@ -1775,7 +1730,7 @@ export abstract class GitHostIntegration<
 		searchQuery: string,
 		repos?: T[],
 		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions,
 	): Promise<PullRequest[] | undefined>;
 
 	/**

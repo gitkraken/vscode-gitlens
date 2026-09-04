@@ -25,7 +25,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
@@ -251,9 +251,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
 		_cancellation?: AbortSignal,
-		_silent?: boolean,
-		state?: PullRequestStateFilter,
-		_options?: SearchMyPullRequestsOptions,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		if (repos != null) {
 			// TODO: implement repos version
@@ -268,7 +266,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),
 			this.apiBaseUrl,
-			{ states: toProviderPullRequestStates(state) },
+			{ states: toProviderPullRequestStates(options?.state) },
 		);
 		return prs?.data.map(pr => fromProviderPullRequest(pr, this));
 	}
@@ -331,7 +329,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		searchQuery: string,
 		repos?: BitbucketRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		if (cancellation?.aborted) throw new CancellationError();
 

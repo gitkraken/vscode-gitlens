@@ -262,7 +262,7 @@ suite('per-connection reads (#5430)', () => {
 			return Promise.resolve([]);
 		};
 
-		await gh.searchMyPullRequests(undefined, undefined, undefined, 'sec-tok');
+		await gh.searchMyPullRequests(undefined, undefined, { connectionId: 'sec-tok' });
 
 		assert.equal(capturedToken, 'token-secondary', 'PR read used the specified connection token');
 
@@ -575,7 +575,7 @@ suite('per-connection reads (#5430)', () => {
 		};
 
 		// searchMyPullRequests wraps its result in an IntegrationResult ({ value, duration }).
-		const result = await gl.searchMyPullRequests(undefined, undefined, undefined, 'sec-tok');
+		const result = await gl.searchMyPullRequests(undefined, undefined, { connectionId: 'sec-tok' });
 
 		assert.deepEqual(result?.value, [], 'no username resolves to empty results without an API call');
 		assert.equal(accountLookupToken, 'token-secondary', 'username resolved from the read session token');

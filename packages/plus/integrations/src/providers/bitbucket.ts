@@ -23,7 +23,7 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
-import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
@@ -321,8 +321,6 @@ export class BitbucketIntegration extends GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
 		_cancellation?: AbortSignal,
-		_silent?: boolean,
-		state?: PullRequestStateFilter,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		if (repos != null) {
@@ -330,6 +328,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			return undefined;
 		}
 
+		const state = options?.state;
 		const states = toProviderPullRequestStates(state);
 
 		const api = await this.getProvidersApi();
@@ -624,7 +623,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		searchQuery: string,
 		repos?: BitbucketRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		if (cancellation?.aborted) throw new CancellationError();
 
