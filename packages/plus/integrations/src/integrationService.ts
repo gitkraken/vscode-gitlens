@@ -749,7 +749,6 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	async getMyPullRequests(
 		integrationIds?: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
 		cancellation?: AbortSignal,
-		silent?: boolean,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined> = new Map();
@@ -766,13 +765,12 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		}
 		if (integrations.size === 0) return undefined;
 
-		return this.getMyPullRequestsCore(integrations, cancellation, silent, options);
+		return this.getMyPullRequestsCore(integrations, cancellation, options);
 	}
 
 	private async getMyPullRequestsCore(
 		integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined>,
 		cancellation?: AbortSignal,
-		silent?: boolean,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const start = performance.now();
@@ -781,7 +779,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		for (const [integration, repos] of integrations) {
 			if (integration == null) continue;
 
-			promises.push(integration.searchMyPullRequests(repos, cancellation, silent, undefined, undefined, options));
+			promises.push(integration.searchMyPullRequests(repos, cancellation, options));
 		}
 
 		const results = await Promise.allSettled(promises);

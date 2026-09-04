@@ -1371,13 +1371,10 @@ export class GraphPanelsService {
 		// Fallback: provider-native, and only the current user's PRs. Every integration exposes it, but not
 		// every one answers a repo-scoped query — Azure DevOps (both editions) and Bitbucket Server stub
 		// that out. Bitbucket Cloud only stubs this path; it lists via the providers-api path above.
-		const result = await integration.searchMyPullRequests(
-			remote.provider.repoDesc,
-			undefined,
-			true,
-			undefined,
-			'open',
-		);
+		const result = await integration.searchMyPullRequests(remote.provider.repoDesc, undefined, {
+			silent: true,
+			state: 'open',
+		});
 		// It reports failure by resolving with `error` rather than throwing, and resolves a bare `undefined`
 		// when the session can't be resolved at all (expired token, revoked connection) — so an unchecked
 		// `value` turns either into an empty list, which the caller would then cache as the truth. Both are

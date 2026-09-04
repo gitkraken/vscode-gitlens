@@ -343,7 +343,9 @@ export class LaunchpadProvider implements Disposable {
 				this.container.integrations.getMyPullRequests(
 					supportedLaunchpadIntegrations,
 					toAbortSignal(cancellation),
-					true,
+					{
+						silent: true,
+					},
 				),
 				'getMyPullRequests',
 				this.container,

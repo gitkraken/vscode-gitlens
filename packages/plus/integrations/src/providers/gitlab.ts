@@ -25,7 +25,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
@@ -406,9 +406,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		repos?: GitLabRepositoryDescriptor[],
 		_cancellation?: AbortSignal,
-		_silent?: boolean,
-		state?: PullRequestStateFilter,
-		_options?: SearchMyPullRequestsOptions,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		// Resolve the username from THIS session's token (multi-account: `session` may be a non-primary
@@ -421,7 +419,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const apiResult = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
-			states: toProviderPullRequestStates(state),
+			states: toProviderPullRequestStates(options?.state),
 		});
 
 		if (apiResult == null) {
@@ -709,7 +707,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		searchQuery: string,
 		repos?: GitLabRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.authenticationService.apis.gitlab;
 		if (!api) {

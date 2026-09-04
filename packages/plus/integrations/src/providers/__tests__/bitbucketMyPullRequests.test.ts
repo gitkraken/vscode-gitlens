@@ -102,7 +102,7 @@ suite('Bitbucket my pull requests search (#5530)', () => {
 			return Promise.resolve({ data: [], pageInfo: undefined });
 		};
 
-		await manager.getMyPullRequests([GitCloudHostIntegrationId.Bitbucket], undefined, undefined, {
+		await manager.getMyPullRequests([GitCloudHostIntegrationId.Bitbucket], undefined, {
 			includeReviewRequested: true,
 		});
 

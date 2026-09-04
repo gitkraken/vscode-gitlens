@@ -26,7 +26,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	ProviderIssueSearchPage,
@@ -397,9 +397,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		silent?: boolean,
-		state?: PullRequestStateFilter,
-		_options?: SearchMyPullRequestsOptions,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		return (await this.authenticationService.apis.github)?.searchMyPullRequests(
 			this,
@@ -407,8 +405,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			{
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
-				silent: silent,
-				state: state,
+				silent: options?.silent,
+				state: options?.state,
 			},
 			cancellation,
 		);
@@ -734,7 +732,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		searchQuery: string,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		return (await this.authenticationService.apis.github)?.searchPullRequests(
 			this,

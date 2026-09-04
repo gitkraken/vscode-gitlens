@@ -27,7 +27,7 @@ import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
+import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, IntegrationKey, SearchMyIssuesOptions } from '../models/integration.js';
 import type {
@@ -659,9 +659,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		session: ProviderAuthenticationSession,
 		repos?: AzureRepositoryDescriptor[],
 		_cancellation?: AbortSignal,
-		_silent?: boolean,
-		state?: PullRequestStateFilter,
-		_options?: SearchMyPullRequestsOptions,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		if (repos != null) {
@@ -669,7 +667,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			return undefined;
 		}
 
-		const states = toProviderPullRequestStates(state);
+		const states = toProviderPullRequestStates(options?.state);
 
 		const user = await this.getProviderCurrentAccount(session);
 		// Azure filters key on the identity GUID (account id), not the display name — see
@@ -688,21 +686,21 @@ export abstract class AzureDevOpsIntegrationBase<
 			.filter(r => r != null)
 			.flat();
 
-		const { tokenWithInfo, options } = this.getApiOptions(session);
+		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
 		const projectInputs = projects.values.map(p => ({ namespace: p.resourceName, project: p.name }));
 		// Legacy array-returning path (Launchpad/focus view): unwrap `.values` from the SDK collection result.
 		// The metadata (partial/failures) isn't surfaced here because this path's return type has no warning
 		// channel; the metadata-aware ProviderBackend surface is getProviderMyPullRequestsForUser above.
 		const assignedPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-				...options,
+				...apiOptions,
 				assigneeLogins: [user.id],
 				states: states,
 			})
 		).values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects.values));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-				...options,
+				...apiOptions,
 				authorLogin: user.id,
 				states: states,
 			})
@@ -888,7 +886,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		searchQuery: string,
 		repos?: AzureRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		options?: { include?: PullRequestState[] },
+		options?: SearchPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		if (cancellation?.aborted) throw new CancellationError();
 
