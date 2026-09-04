@@ -1,10 +1,12 @@
 import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { assessCollectionMetadata, isIncompleteCollection, mergeAssessmentInto } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import { AuthenticationError, RequestClientError, RequestNotFoundError, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
@@ -21,8 +23,12 @@ import { createFakeRuntime } from './fakeRuntime.js';
  */
 
 const repos: ProviderReposInput = [{ namespace: 'octocat', name: 'hello' }];
+const fanoutRepos: ProviderReposInput = [
+	{ namespace: 'octocat', name: 'hello' },
+	{ namespace: 'octocat', name: 'world' },
+];
 
-function primarySession(token: string): ProviderAuthenticationSession {
+function primarySession(token: string, domain = 'github.com'): ProviderAuthenticationSession {
 	return {
 		id: 'primary',
 		accessToken: token,
@@ -30,7 +36,7 @@ function primarySession(token: string): ProviderAuthenticationSession {
 		scopes: ['repo'],
 		cloud: true,
 		type: 'oauth',
-		domain: 'github.com',
+		domain: domain,
 	};
 }
 
@@ -51,6 +57,27 @@ async function seedCloudConnection(runtime: ReturnType<typeof createFakeRuntime>
 /** Overrides the integration's providers-api with a stub exposing only the fields the read cores touch. */
 function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
 	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
+}
+
+function getRequestExceptionCount(gh: GitHostIntegration): number {
+	return (gh as unknown as { requestExceptionCount: number }).requestExceptionCount;
+}
+
+function getRejectedTokenTracker(gh: GitHostIntegration): { empty: boolean } {
+	return (gh as unknown as { _rejectedTokens: { empty: boolean } })._rejectedTokens;
+}
+
+function authenticationError(): AuthenticationError {
+	return new AuthenticationError(
+		{
+			providerId: GitCloudHostIntegrationId.GitHub,
+			microHash: undefined,
+			cloud: true,
+			type: 'oauth',
+			scopes: [],
+		},
+		'token rejected by provider',
+	);
 }
 
 suite('read result cores (#5438)', () => {
@@ -129,6 +156,213 @@ suite('read result cores (#5438)', () => {
 		});
 		assert.equal(((await gh.getMyIssuesForReposResult(repos)) as { error: Error }).error, failure);
 		assert.equal(await gh.getMyIssuesForRepos(repos), undefined);
+
+		manager.dispose();
+	});
+
+	test('an all-scope fan-out failure counts once and returns an operation error', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary-token');
+
+		const failure = new RequestClientError(new Error('invalid request'));
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repo,
+			getPullRequestsForRepo: () => Promise.reject(failure),
+		});
+
+		const result = await gh.getMyPullRequestsForReposResult(fanoutRepos);
+
+		assert.equal((result as { error: Error }).error, failure);
+		assert.equal(getRequestExceptionCount(gh), 1, 'the operation spends one failure, not one per repository');
+
+		manager.dispose();
+	});
+
+	test('a successful sibling keeps a partial fan-out from rejecting the connection', async () => {
+		const runtime = createFakeRuntime();
+		await seedCloudConnection(runtime, 'sec-tok', 'token-secondary');
+		let disconnected: string | undefined;
+		runtime.hooks!.ui = { onDisconnectedAfterTooManyFailures: name => void (disconnected = name) };
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary-token');
+		for (let i = 0; i < 4; i++) {
+			gh.trackRequestException();
+		}
+
+		const issue = { id: '7' } as unknown as ProviderIssue;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repo,
+			getIssuesForRepo: (_token: unknown, repo: { name: string }) =>
+				repo.name === 'hello'
+					? Promise.resolve({ values: [issue], paging: undefined } satisfies PagedResult<ProviderIssue>)
+					: Promise.reject(authenticationError()),
+		});
+
+		const result = await gh.getMyIssuesForReposResult(fanoutRepos, {}, 'sec-tok');
+
+		assert.deepEqual((result as { value: PagedResult<ProviderIssue> }).value.values, [issue]);
+		assert.equal(getRejectedTokenTracker(gh).empty, true, 'a scope failure does not reject the shared token');
+		assert.equal(getRequestExceptionCount(gh), 0, 'the successful operation resets the prior failure budget');
+		assert.equal(disconnected, undefined);
+
+		manager.dispose();
+	});
+
+	test('an empty successful aggregate sibling keeps structured scope failures partial', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gitlab = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gitlab as unknown as { _session: ProviderAuthenticationSession })._session = primarySession(
+			'primary-token',
+			'gitlab.com',
+		);
+		for (let i = 0; i < 4; i++) {
+			gitlab.trackRequestException();
+		}
+
+		stubApi(gitlab, {
+			isRepoIdsInput: () => true,
+			getProviderIssuesPagingMode: () => PagingMode.Repo,
+			getIssuesForRepos: () =>
+				Promise.resolve({
+					values: [],
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { providerId: 'gitlab', projectId: '1' } }],
+					},
+				}),
+		});
+
+		const result = await gitlab.getMyIssuesForReposResult([1, 2]);
+
+		assert.ok(result?.value != null, 'one failed scope does not turn the aggregate into an operation error');
+		assert.equal(getRejectedTokenTracker(gitlab).empty, true);
+		assert.equal(getRequestExceptionCount(gitlab), 0, 'the partial success resets prior operation failures');
+
+		manager.dispose();
+	});
+
+	test('structured failures for every aggregate scope count once', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gitlab = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gitlab as unknown as { _session: ProviderAuthenticationSession })._session = primarySession(
+			'primary-token',
+			'gitlab.com',
+		);
+
+		stubApi(gitlab, {
+			isRepoIdsInput: () => true,
+			getProviderIssuesPagingMode: () => PagingMode.Repo,
+			getIssuesForRepos: () =>
+				Promise.resolve({
+					values: [],
+					metadata: {
+						completeness: 'partial',
+						failures: [
+							{ kind: 'provider', message: 'HTTP 400 Bad Request', scope: { projectId: '1' } },
+							{ kind: 'provider', message: 'HTTP 400 Bad Request', scope: { projectId: '2' } },
+						],
+					},
+				}),
+		});
+
+		const result = await gitlab.getMyIssuesForReposResult([1, 2]);
+
+		assert.ok(result?.error instanceof RequestClientError);
+		assert.equal(getRequestExceptionCount(gitlab), 1);
+
+		manager.dispose();
+	});
+
+	test('structured aggregate failures preserve rate-limit and not-found classifications', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gitlab = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gitlab as unknown as { _session: ProviderAuthenticationSession })._session = primarySession(
+			'primary-token',
+			'gitlab.com',
+		);
+
+		const cases: [
+			failure: { kind: string; message?: string },
+			errorType: typeof RequestRateLimitError | typeof RequestNotFoundError,
+		][] = [
+			[{ kind: 'rate-limit' }, RequestRateLimitError],
+			[{ kind: 'provider', message: 'HTTP 403 API rate limit exceeded' }, RequestRateLimitError],
+			[{ kind: 'not-found' }, RequestNotFoundError],
+			[{ kind: 'provider', message: 'HTTP 404 Not Found' }, RequestNotFoundError],
+		];
+		for (const [failure, errorType] of cases) {
+			stubApi(gitlab, {
+				isRepoIdsInput: () => true,
+				getProviderIssuesPagingMode: () => PagingMode.Repo,
+				getIssuesForRepos: () =>
+					Promise.resolve({
+						values: [],
+						metadata: { completeness: 'partial', failures: [failure, failure] },
+					}),
+			});
+
+			const result = await gitlab.getMyIssuesForReposResult([1, 2]);
+
+			assert.ok(result?.error instanceof errorType, `${failure.kind} retained its operation error type`);
+		}
+
+		assert.equal(getRequestExceptionCount(gitlab), 0, 'neither classification spends the connection budget');
+
+		manager.dispose();
+	});
+
+	test('provider API acquisition failures are recovered and counted', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary-token');
+
+		const failure = new RequestClientError(new Error('provider API unavailable'));
+		(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.reject(failure);
+
+		const result = await gh.getMyIssuesForReposResult(repos);
+
+		assert.equal((result as { error: Error }).error, failure);
+		assert.equal(getRequestExceptionCount(gh), 1);
+
+		manager.dispose();
+	});
+
+	test('direct result-core failures are logged once without a parent scope', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary-token');
+
+		const issueFailure = new Error('issue read failed');
+		const pullRequestFailure = new Error('pull request read failed');
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: () => Promise.reject(issueFailure),
+			getPullRequestsForRepos: () => Promise.reject(pullRequestFailure),
+		});
+
+		const logged: unknown[] = [];
+		const originalError = Logger.error;
+		Logger.error = ex => void logged.push(ex);
+		try {
+			await gh.getMyIssuesForReposResult(repos);
+			await gh.getMyPullRequestsForReposResult(repos);
+		} finally {
+			Logger.error = originalError;
+		}
+
+		assert.deepEqual(logged, [issueFailure, pullRequestFailure]);
 
 		manager.dispose();
 	});

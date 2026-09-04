@@ -5,6 +5,7 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { ProviderHierarchyResult } from '../providers/models.js';
+import { PagingMode } from '../providers/models.js';
 import type { ProviderOrganization } from '../results.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -39,9 +40,14 @@ const NON_EXPIRING_SECONDS = 100_000;
  * A runtime whose cloud token endpoints answer with a long-lived token, recording every call. `token()`
  * decides the current token value, so a test can prove the refreshed one replaced it.
  */
-function createRuntimeWithCloudToken(tokenId: string, token: () => string) {
+function createRuntimeWithCloudToken(
+	tokenId: string,
+	token: () => string,
+	providerId: GitCloudHostIntegrationId.GitHub | GitCloudHostIntegrationId.GitLab = GitCloudHostIntegrationId.GitHub,
+) {
 	const runtime = createFakeRuntime();
 	const calls: FetchCall[] = [];
+	const domain = providerId === GitCloudHostIntegrationId.GitLab ? 'gitlab.com' : 'github.com';
 	// `getCloudSession` bails before any cloud call when no GK account is signed in, so the refresh under
 	// test would never be reached.
 	runtime.account.getAccount = async () => ({ id: 'me' });
@@ -51,7 +57,7 @@ function createRuntimeWithCloudToken(tokenId: string, token: () => string) {
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({
-						data: [{ tokenId: tokenId, provider: 'github', type: 'oauth', domain: 'github.com' }],
+						data: [{ tokenId: tokenId, provider: providerId, type: 'oauth', domain: domain }],
 					}),
 					{ status: 200 },
 				),
@@ -63,7 +69,7 @@ function createRuntimeWithCloudToken(tokenId: string, token: () => string) {
 					data: {
 						tokenId: tokenId,
 						accessToken: token(),
-						domain: 'github.com',
+						domain: domain,
 						// Deliberately NOT about to lapse: the whole point is that a purely time-based
 						// refresh cannot see this token is dead.
 						expiresIn: NON_EXPIRING_SECONDS,
@@ -78,19 +84,25 @@ function createRuntimeWithCloudToken(tokenId: string, token: () => string) {
 	return { runtime: runtime, calls: calls };
 }
 
-async function seedConnection(runtime: ReturnType<typeof createFakeRuntime>, tokenId: string, token: string) {
+async function seedConnection(
+	runtime: ReturnType<typeof createFakeRuntime>,
+	tokenId: string,
+	token: string,
+	providerId: GitCloudHostIntegrationId.GitHub | GitCloudHostIntegrationId.GitLab = GitCloudHostIntegrationId.GitHub,
+) {
+	const domain = providerId === GitCloudHostIntegrationId.GitLab ? 'gitlab.com' : 'github.com';
 	await runtime.storage.store('integrations:configured', {
-		github: [{ id: tokenId, cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
+		[providerId]: [{ id: tokenId, cloud: true, integrationId: providerId, scopes: 'repo', primary: true }],
 	});
 	await runtime.storage.storeSecret(
-		`integration.auth.cloud:github|${tokenId}`,
+		`integration.auth.cloud:${providerId}|${tokenId}`,
 		JSON.stringify({
 			id: tokenId,
 			accessToken: token,
 			scopes: ['repo'],
 			cloud: true,
 			type: 'oauth',
-			domain: 'github.com',
+			domain: domain,
 			expiresAt: new Date(Date.now() + NON_EXPIRING_SECONDS * 1000),
 		}),
 	);
@@ -158,6 +170,58 @@ suite('rejected-token refresh', () => {
 		);
 		assert.ok(recovered?.error == null, 'the read that follows the refresh succeeds');
 		assert.deepEqual(seen, ['token-stale', 'token-fresh'], 'the refused token is not sent a second time');
+
+		manager.dispose();
+	});
+
+	test('an all-scope bulk rejection records one token failure and refreshes before the next operation', async () => {
+		let token = 'token-stale';
+		const providerId = GitCloudHostIntegrationId.GitLab;
+		const { runtime, calls } = createRuntimeWithCloudToken('sec-tok', () => token, providerId);
+		await seedConnection(runtime, 'sec-tok', token, providerId);
+		const manager = createIntegrationManager(runtime);
+		const gitlab = await manager.get(providerId);
+		const seen: string[] = [];
+		let rejecting = true;
+		(gitlab as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
+			Promise.resolve({
+				isRepoIdsInput: () => true,
+				getProviderIssuesPagingMode: () => PagingMode.Repo,
+				getIssuesForRepos: (sessionToken: { accessToken: string }, repoIds: (string | number)[]) => {
+					seen.push(sessionToken.accessToken);
+					return Promise.resolve({
+						values: [],
+						metadata: rejecting
+							? {
+									completeness: 'partial',
+									failures: repoIds.map(projectId => ({
+										kind: 'authentication',
+										scope: { providerId: providerId, projectId: String(projectId) },
+									})),
+								}
+							: { completeness: 'complete' },
+					});
+				},
+			});
+		const repoIds = [1, 2];
+
+		const failed = await gitlab.getMyIssuesForReposResult(repoIds, {}, 'sec-tok');
+
+		assert.ok(failed?.error != null);
+		assert.deepEqual(seen, ['token-stale']);
+		assert.equal(
+			(gitlab as unknown as { requestExceptionCount: number }).requestExceptionCount,
+			0,
+			'the rejected operation arms one refresh without also spending the failure budget',
+		);
+
+		token = 'token-fresh';
+		rejecting = false;
+		const recovered = await gitlab.getMyIssuesForReposResult(repoIds, {}, 'sec-tok');
+
+		assert.ok(recovered?.error == null);
+		assert.deepEqual(refreshCalls(calls), ['POST v1/provider-tokens/tokens/sec-tok/refresh']);
+		assert.deepEqual(seen, ['token-stale', 'token-fresh']);
 
 		manager.dispose();
 	});

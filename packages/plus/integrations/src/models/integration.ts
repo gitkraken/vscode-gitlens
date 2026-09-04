@@ -11,6 +11,7 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { fnv1aHash64 } from '@gitlens/utils/hash.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type {
@@ -493,7 +494,11 @@ export abstract class IntegrationBase<
 	): void {
 		if (isCancellationError(ex)) return;
 
-		options?.scope?.error(ex);
+		if (options?.scope != null) {
+			options.scope.error(ex);
+		} else {
+			Logger.error(ex);
+		}
 
 		// A per-connection (multi-account) read resolved its session through `resolveReadSession`'s
 		// `connectionId` branch, which deliberately never touches the cached primary `_session`. So the

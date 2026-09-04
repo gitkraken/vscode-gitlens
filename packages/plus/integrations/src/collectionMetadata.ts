@@ -7,7 +7,13 @@ import type {
 // Matched by its `code` discriminator rather than by `instanceof`: the SDK ships one bundle per entry point, so
 // the class reached through the root is not the same object as the one reached through `/providers`.
 import { isInvalidRequestError, isUnsupportedSortError } from '@gitkraken/provider-apis';
-import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
+import {
+	AuthenticationError,
+	RequestClientError,
+	RequestNotFoundError,
+	RequestRateLimitError,
+} from '@gitlens/git/errors.js';
+import type { TokenWithInfo } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
 import type { ProviderWarning, ProviderWarningOmission } from './results.js';
@@ -95,6 +101,22 @@ function toCollectionFailureWarningKind(failure: CollectionScopeFailure): Provid
 		default:
 			return mapped;
 	}
+}
+
+export function toCollectionFailureError(failure: CollectionScopeFailure, tokenWithInfo: TokenWithInfo): Error {
+	const error = new Error(failure.message ?? 'Provider request failed');
+	const kind = toCollectionFailureWarningKind(failure);
+	const { accessToken, ...tokenInfo } = tokenWithInfo;
+	if (kind === 'auth') return new AuthenticationError(tokenInfo, error.message, error);
+	if (kind === 'rate-limit') return new RequestRateLimitError(error, accessToken, undefined);
+	if (kind === 'not-found') return new RequestNotFoundError(error);
+
+	const status = getCollectionFailureStatus(failure.message);
+	if (kind === 'other' && status != null && status >= 400 && status < 500) {
+		return new RequestClientError(error);
+	}
+
+	return error;
 }
 
 /** ` (resource r, project p, repository o/n)` for the scope IDs present; empty when the scope names none. */
