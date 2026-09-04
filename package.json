@@ -13370,6 +13370,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f15b"
 				}
+			},
+			"gitlens-kepler": {
+				"description": "kepler icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f15c"
+				}
 			}
 		},
 		"menus": {

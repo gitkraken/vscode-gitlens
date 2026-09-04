@@ -97,4 +97,5 @@ export const iconMap: Readonly<Record<string, string>> = Object.freeze({
 	'provider-opencode': '\\f159',
 	scope: '\\f15a',
 	unscope: '\\f15b',
+	kepler: '\\f15c',
 });

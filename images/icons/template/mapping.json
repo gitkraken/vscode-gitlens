@@ -91,5 +91,6 @@
   "provider-trello": 61784,
   "provider-opencode": 61785,
   "scope": 61786,
-  "unscope": 61787
+  "unscope": 61787,
+  "kepler": 61788
 }
