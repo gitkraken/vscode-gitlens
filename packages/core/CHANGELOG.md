@@ -6,16 +6,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.115] - 2026-09-05
+
 ### Added
 
 - Adds `getTrackerIssue`, which resolves one issue-tracker issue by its provider key within a resource in one request ([#5810](https://github.com/gitkraken/vscode-gitlens/issues/5810)). It is the tracker counterpart of `getIssuesBatch`: a tracker issue is addressed by `(resourceId, ABC-123)`, rather than `(owner, repo, number)`. `issue: undefined` means proven absent and is safe to cache; a failed read returns no item and sets `fetchFailed`. `resourceId` is required and trusted, and Jira additionally requires the resource's site URL so the result keeps its browser link without discovery. Jira and Linear only — Trello refuses because its numeric lookup can fall back to a capped board scan that cannot prove absence (plus/integrations)
 
 ### Changed
 
+- **Breaking (plus/integrations)** — `GitHostIntegration.searchPullRequests` and `searchMyPullRequests` take every read knob on their `options` object, including `connectionId`, instead of as positional parameters ahead of it ([#5483](https://github.com/gitkraken/vscode-gitlens/issues/5483)). `searchPullRequests(query, repos, cancellation, { include, connectionId })` replaces four overloads plus a runtime string/object check that disambiguated the `connectionId` slot, and `searchMyPullRequests(repos, cancellation, { silent, state, includeReviewRequested, connectionId })` replaces three positional knobs a caller had to fill with `undefined` placeholders to reach the options object behind them. `IntegrationService.getMyPullRequests` folds its positional `silent` the same way. The provider hooks behind both reads take the matching option type, so `connectionId` is consumed by the wrapper to select the account and never forwarded to a provider. Multi-account behavior is unchanged. Neither method is reachable through this package's exports — `GitHostIntegration` is exported by neither `index.js` nor `lite.js` — so no consumer code changes (plus/integrations)
 - Changes a broad Jira tracker-project read that reaches its internal page backstop to report `recovery: 'narrow-scope'`, giving consumers an actionable alternative to the terminal `hasMore: false` result ([#5811](https://github.com/gitkraken/vscode-gitlens/issues/5811)). The recovery is conservative: already user-scoped Jira reads, Linear's client-side assignee filtering, stalled cursors, failed pages, mixed windows, and Trello's provider cap never report `narrow-scope`. Consumers must switch on the exact value because `narrow-scope` is guidance, not a fetch-more action (plus/integrations)
+- Bounds Azure DevOps repository-scoped pull-request drains to a fixed concurrency instead of fanning out one request per requested repository at once, so request pressure no longer scales with the size of the repo set ([#5484](https://github.com/gitkraken/vscode-gitlens/issues/5484)). Partial-success semantics are preserved: a rejected repository no longer stops the sliding window, and the read still throws only when every scope failed (plus/integrations, utils)
+
+### Removed
+
+- Removes the optional `searchProviderMyPullRequestsResult` provider hook, a metadata-aware counterpart to `searchProviderMyPullRequests` that no provider ever implemented, so the branch that preferred it never ran. `searchMyPullRequests` keeps the same contract on every path: `undefined` when the session cannot be resolved, `{ error }` when the read throws, `{ value }` otherwise (plus/integrations)
 
 ### Fixed
 
+- Fixes a GitHub pull-request search for the opened-or-merged union losing results to its own capped search window. GitHub cannot express that union as a single state qualifier, so the read asked for a wider set and filtered afterwards — letting closed-unmerged results exhaust the cap before a merged one was reached. It now queries both exact facets (`is:open`, `is:merged`) as two aliased searches in ONE GraphQL request, then deduplicates and applies the existing result limit: same request count, no borrowed window (plus/git-github)
+- Fixes an all-scope bulk read rejection counting once per failed scope against a connection's health rather than once as a single provider operation, which could push a healthy connection into token recovery over one bad read. Successful sibling scopes no longer penalize the connection, and health resets only after a successful operation ([#5485](https://github.com/gitkraken/vscode-gitlens/issues/5485)) (plus/integrations)
 - Fixes tracker issue reads using the primary account for the issue request even when a secondary `connectionId` was requested, and sharing cached issues between those accounts. The result read now resolves the requested session end to end and partitions its cache by connection and token (plus/integrations)
 - Fixes real Jira and Linear missing-issue responses being reported as failures instead of proven absences, and evicts every failed tracker issue load so it cannot be cached as an absence (plus/integrations)
 - Fixes Jira point reads publishing the REST endpoint as the issue's browser URL and reporting every workflow status as open. The caller-supplied site URL and status category now preserve both without an additional request (plus/integrations)
@@ -304,7 +314,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.114...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.115...HEAD
+[0.5.115]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.114...gitkraken:releases/core/v0.5.115
 [0.5.114]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.113...gitkraken:releases/core/v0.5.114
 [0.5.113]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.111...gitkraken:releases/core/v0.5.113
 [0.5.111]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.110...gitkraken:releases/core/v0.5.111
