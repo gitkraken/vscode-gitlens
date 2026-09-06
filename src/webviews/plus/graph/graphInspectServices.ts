@@ -86,6 +86,8 @@ import {
 } from './graphResolveVirtualContentProvider.js';
 import { getScopeFiles } from './graphScopeService.js';
 import type {
+	AddressReviewFindingsArgs,
+	AddressReviewFindingsResult,
 	AutoRebaseRunUpdate,
 	AutoRebaseSummaryResult,
 	AutoRebaseSummaryStep,
@@ -94,18 +96,32 @@ import type {
 	BranchCommitsResult,
 	BranchComparisonCommit,
 	BranchComparisonContributor,
+	BranchComparisonContributorsResult,
+	BranchComparisonContributorsScope,
 	BranchComparisonFile,
+	BranchComparisonOptions,
+	BranchComparisonSide,
+	BranchComparisonSummary,
+	CommitResult,
+	ComposeChangesOptions,
 	ComposeProgressUpdate,
+	ComposeResult,
 	ComposeSessionKey,
 	ConflictFallbackInfo,
+	ConflictSide,
 	GraphServices,
 	ProposedCommit,
 	QueuedTakeSide,
+	RegenerateProposedCommitMessageResult,
+	ReresolveFileResult,
 	ResolvedFileSummary,
 	ResolveFileError,
 	ResolveProgressUpdate,
 	ResolveResult,
 	ResolveSkippedFile,
+	ReviewChangesOptions,
+	ReviewDetailResult,
+	ReviewResult,
 	ScopeSelection,
 	TakeConflictSideResult,
 	UndoAutoRebaseResult,
@@ -352,149 +368,7 @@ export class GraphInspectServices {
 				},
 				getScopeFiles: async (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) =>
 					getScopeFiles(this.container, repoPath, scope, signal),
-				getBranchCommits: async (repoPath: string, options?: BranchCommitsOptions, signal?: AbortSignal) => {
-					signal?.throwIfAborted();
-					const branchCommitsPageSize = 100;
-					const limit = options?.limit ?? branchCommitsPageSize;
-					try {
-						const svc = this.container.git.getRepositoryService(repoPath);
-						const branch = await svc.branches.getBranch();
-						if (!branch) return { commits: [], hasMore: false };
-
-						const upstreamRef = branch.upstream?.name;
-						const hasUpstream = upstreamRef != null && !branch.upstream?.missing;
-						const aheadCount = hasUpstream ? (branch.upstream!.state.ahead ?? 0) : 0;
-
-						// Always compute merge base against the base branch — even when an upstream
-						// exists — so the picker can extend the scope into already-pushed commits.
-						let mergeBaseSha: string | undefined;
-						let baseBranch: string | undefined;
-						try {
-							baseBranch =
-								(await svc.branches.getBaseBranchName?.(branch.name)) ??
-								(await svc.branches.getDefaultBranchName?.());
-						} catch {
-							// APIs may not be available
-						}
-
-						const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
-						for (const candidate of candidates) {
-							if (candidate === branch.name) continue;
-
-							try {
-								const result = await svc.refs.getMergeBase(branch.ref, candidate);
-								if (result) {
-									mergeBaseSha = result;
-									break;
-								}
-							} catch (ex) {
-								Logger.debug(
-									`getMergeBase(${branch.ref}, ${candidate}) failed: ${String(ex)}`,
-									'graph.compose',
-								);
-							}
-						}
-
-						// Fallback: if no base branch matched but we have an upstream, use the
-						// upstream tip — preserves prior behavior so we never regress.
-						if (mergeBaseSha == null && hasUpstream && upstreamRef != null) {
-							mergeBaseSha = upstreamRef;
-						}
-
-						// On Load more (`includePastMergeBase`) walk the full branch log so ancestor
-						// history past the merge base is brought in. Otherwise scope to the
-						// merge-base..branch range so the picker shows the branch-divergence window.
-						let logRef: string;
-						if (options?.includePastMergeBase) {
-							mergeBaseSha = undefined;
-							logRef = branch.ref;
-						} else {
-							logRef = mergeBaseSha ? `${mergeBaseSha}..${branch.ref}` : branch.ref;
-						}
-						// Request one extra so we can detect "more available" without a separate count.
-						let log = await svc.commits.getLog(logRef, { limit: limit + 1 });
-						signal?.throwIfAborted();
-
-						// Merge base equals (or is reachable from) the branch tip — no commits in
-						// scope. Fall back to a plain branch log so the picker shows a page of recent
-						// commits scoped to this branch (not HEAD, which may be a different worktree).
-						if (mergeBaseSha != null && !log?.commits?.size) {
-							mergeBaseSha = undefined;
-							logRef = branch.ref;
-							log = await svc.commits.getLog(logRef, { limit: limit + 1 });
-							signal?.throwIfAborted();
-						}
-
-						if (!log?.commits?.size) return { commits: [], hasMore: false };
-
-						const total = log.commits.size;
-						// Always offer Load more while in merge-base scope so the user can opt in to
-						// ancestor history even when the page isn't full. Once we've extended past the
-						// merge base, `hasMore` reflects the actual branch log size — when it returns
-						// false on a subsequent Load more, the button disappears.
-						const hasMore = mergeBaseSha != null || total > limit;
-
-						const entries: BranchCommitEntry[] = [];
-						let index = 0;
-						for (const [sha, commit] of log.commits) {
-							if (index >= limit) break;
-
-							const fileCount =
-								commit.stats?.files != null
-									? typeof commit.stats.files === 'number'
-										? commit.stats.files
-										: commit.stats.files.added +
-											commit.stats.files.deleted +
-											commit.stats.files.changed
-									: 0;
-
-							// With upstream: commits within ahead count are unpushed, rest are pushed
-							// Without upstream: all branch commits since merge base are unpushed
-							const isPushed = hasUpstream ? index >= aheadCount : false;
-
-							const entry: BranchCommitEntry = {
-								sha: sha,
-								message: commit.message ?? '',
-								author: commit.author?.name ?? '',
-								date: commit.author?.date != null ? String(commit.author.date) : '',
-								fileCount: fileCount,
-								additions: commit.stats?.additions,
-								deletions: commit.stats?.deletions,
-								pushed: isPushed,
-							};
-							entries.push(entry);
-
-							this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
-							index++;
-						}
-
-						// Resolve the merge base commit message
-						let mergeBase: BranchCommitsResult['mergeBase'];
-						if (mergeBaseSha) {
-							try {
-								const mbCommit = await svc.commits.getCommit(mergeBaseSha);
-								signal?.throwIfAborted();
-								if (mbCommit) {
-									const mbEntry: NonNullable<typeof mergeBase> = {
-										sha: mbCommit.sha,
-										message: mbCommit.message?.split('\n')[0] ?? '',
-										author: mbCommit.author?.name,
-										date: mbCommit.author?.date != null ? String(mbCommit.author.date) : undefined,
-									};
-									this.setAvatarIfCached(mbEntry, mbCommit.author?.email, mbCommit.sha, repoPath);
-									mergeBase = mbEntry;
-								}
-							} catch {
-								// If we can't resolve it, just use the SHA
-								mergeBase = { sha: mergeBaseSha, message: '' };
-							}
-						}
-
-						return { commits: entries, mergeBase: mergeBase, hasMore: hasMore };
-					} catch {
-						return { commits: [], hasMore: false };
-					}
-				},
+				getBranchCommits: (repoPath, options, signal) => this.getBranchCommits(repoPath, options, signal),
 				getCommit: async (
 					repoPath: string,
 					sha: string,
@@ -512,66 +386,7 @@ export class GraphInspectServices {
 				getSearchContext: (sha: string): Promise<GitCommitSearchContext | undefined> => {
 					return Promise.resolve(this.context.getSearchContext(sha));
 				},
-				getCompareDiff: async (
-					repoPath: string,
-					from: string,
-					to: string,
-					signal?: AbortSignal,
-				): Promise<CompareDiff | undefined> => {
-					signal?.throwIfAborted();
-					const svc = this.container.git.getRepositoryService(repoPath);
-					const comparison = `${from}..${to}`;
-					const [filesResult, countResult] = await Promise.allSettled([
-						svc.diff.getDiffStatus(comparison),
-						// The DIFF is directional (the swap button owns that), but the between-count is not:
-						// which sha lands in `from` follows the order the user clicked the two rows in, so a
-						// one-sided `from..to` count reads 0 whenever they picked the newer commit first.
-						// `--left-right` returns both sides in one call; the larger side is the ancestry
-						// distance, and it is 1 for diverged siblings — which have nothing in between.
-						svc.commits.getLeftRightCommitCount(createRevisionRange(from, to, '...'), undefined, signal),
-					]);
-					signal?.throwIfAborted();
-					const files = getSettledValue(filesResult);
-					const counts = getSettledValue(countResult);
-					let additions = 0;
-					let deletions = 0;
-					const changedFiles = { added: 0, deleted: 0, changed: 0 };
-					const mappedFiles =
-						files?.map(f => {
-							if (f.stats != null) {
-								additions += f.stats.additions;
-								deletions += f.stats.deletions;
-							}
-							switch (f.status) {
-								case 'A':
-								case '?':
-									changedFiles.added++;
-									break;
-								case 'D':
-									changedFiles.deleted++;
-									break;
-								default:
-									changedFiles.changed++;
-									break;
-							}
-							return {
-								repoPath: repoPath,
-								path: f.path,
-								status: f.status,
-								originalPath: f.originalPath,
-								staged: false,
-								stats: f.stats,
-							};
-						}) ?? [];
-					return {
-						files: mappedFiles,
-						stats:
-							files != null
-								? { files: changedFiles, additions: additions, deletions: deletions }
-								: undefined,
-						commitCount: counts != null ? Math.max(counts.left, counts.right) : undefined,
-					};
-				},
+				getCompareDiff: (repoPath, from, to, signal) => this.getCompareDiff(repoPath, from, to, signal),
 				getWip: async (
 					repoPath: string,
 					signal?: AbortSignal,
@@ -617,57 +432,8 @@ export class GraphInspectServices {
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
 					}
 				},
-				generateChangelogCompare: async (
-					repoPath: string,
-					fromRef: string,
-					toRef: string,
-					signal?: AbortSignal,
-				): Promise<void> => {
-					// Call `generateChangelogAndOpenMarkdownDocument` directly rather than going
-					// through `executeCommand('gitlens.ai.generateChangelog', …)`. The command
-					// indirection breaks the await chain on the webview-side IPC — the proxy
-					// resolves before `execute()`'s inner awaits settle, clearing the webview's
-					// busy state in milliseconds even though the AI is still running. Calling the
-					// markdown-generator directly keeps the host method pinned through the full AI
-					// cycle, mirroring the `explainCompare` pattern below.
-					try {
-						signal?.throwIfAborted();
-						const svc = this.container.git.getRepositoryService(repoPath);
-						const baseRef = createReference(fromRef, repoPath, { refType: 'revision' });
-						const headRef = createReference(toRef, repoPath, { refType: 'revision' });
-						const mergeBase = await svc.refs.getMergeBase(headRef.ref, baseRef.ref);
-
-						await generateChangelogAndOpenMarkdownDocument(
-							this.container,
-							lazy(async () => {
-								const range: AIGenerateChangelogChanges['range'] = {
-									base: mergeBase
-										? {
-												ref: mergeBase,
-												label:
-													mergeBase === baseRef.ref
-														? `\`${shortenRevision(mergeBase)}\``
-														: `\`${baseRef.ref}@${shortenRevision(mergeBase)}\``,
-											}
-										: { ref: baseRef.ref, label: `\`${shortenRevision(baseRef.ref)}\`` },
-									head: {
-										ref: headRef.ref,
-										label: `\`${shortenRevision(headRef.ref)}\``,
-									},
-								};
-								const log = await svc.commits.getLog(
-									createRevisionRange(mergeBase ?? baseRef.ref, headRef.ref, '..'),
-								);
-								if (!log?.commits?.size) return { changes: [], range: range };
-								return getChangesForChangelog(this.container, range, log);
-							}),
-							{ source: 'graph', detail: 'compare' },
-							{ progress: { location: ProgressLocation.Notification } },
-						);
-					} catch (ex) {
-						Logger.error(ex, 'GraphWebviewProvider', 'generateChangelogCompare');
-					}
-				},
+				generateChangelogCompare: (repoPath, fromRef, toRef, signal) =>
+					this.generateChangelogCompare(repoPath, fromRef, toRef, signal),
 				getPreviousTag: async (
 					repoPath: string,
 					tagName: string,
@@ -701,217 +467,11 @@ export class GraphInspectServices {
 						return undefined;
 					}
 				},
-				explainCompare: async (
-					repoPath: string,
-					fromSha: string,
-					toSha: string,
-					prompt?: string,
-					signal?: AbortSignal,
-				): Promise<ExplainResult> => {
-					try {
-						signal?.throwIfAborted();
-						const svc = this.container.git.getRepositoryService(repoPath);
-						const data = await prepareCompareDataForAIRequest(svc, toSha, fromSha);
-						if (data == null) {
-							return { error: { message: 'No changes found between the selected commits' } };
-						}
-
-						const fromShort = shortenRevision(fromSha);
-						const toShort = shortenRevision(toSha);
-						const changes = {
-							diff: data.diff,
-							message: `Changes between ${fromShort} and ${toShort}:\n\n${data.logMessages}`,
-							instructions: prompt || undefined,
-						};
-
-						const result = await this.container.ai.actions.explainChanges(
-							changes,
-							{ source: 'graph', context: { type: 'compare' } },
-							{
-								progress: {
-									location: ProgressLocation.Notification,
-									title: `Explaining changes between ${fromShort}..${toShort}...`,
-								},
-							},
-						);
-
-						if (result === 'cancelled' || result == null) {
-							return { result: { summary: '', body: '' } };
-						}
-
-						const { promise, model } = result;
-
-						openExplainDocument(
-							this.container,
-							promise,
-							`/explain/compare/${fromSha}/${toSha}`,
-							model,
-							'explain-compare',
-							{
-								header: {
-									title: 'Comparison Summary',
-									subtitle: `${fromShort}..${toShort}`,
-								},
-								command: {
-									label: 'Explain Comparison',
-									name: 'gitlens.ai.explainCommit' as const,
-									args: { repoPath: repoPath, rev: toSha, source: { source: 'graph' } },
-								},
-							},
-						);
-
-						// Keep the webview's busy state pinned for the full generation cycle —
-						// `openExplainDocument` fire-and-forgets `promise` to stream content into the
-						// already-opened placeholder doc, so without this await the busy signal would
-						// clear as soon as the placeholder doc opens (not when the AI actually
-						// finishes). Errors are already surfaced into the doc by openExplainDocument's
-						// own .then handler, so we just swallow rejections here.
-						await promise.catch(() => undefined);
-
-						return { result: { summary: '', body: '' } };
-					} catch (ex) {
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					}
-				},
-				reviewChanges: async (repoPath, scope, prompt, excludedFiles, signal, options) => {
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
-						signal,
-						this._aiCancellations,
-					);
-					try {
-						signal?.throwIfAborted();
-
-						const reviewType = this.getReviewTypeForScope(scope);
-						const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
-
-						// A follow-up (refine) continues the cached conversation against the same
-						// diff; anything else — including a refine request whose conversation is no
-						// longer cached — starts fresh
-						const exchanges =
-							options?.mode === 'refine' ? this._reviewHistoryCache.get(diffCacheKey) : undefined;
-						const followUp = exchanges?.length ? { exchanges: exchanges } : undefined;
-						if (followUp == null) {
-							this._reviewHistoryCache.delete(diffCacheKey);
-							this._graphDetailsDiffCache.delete(diffCacheKey);
-						}
-
-						const excluded = this.getNormalizedExclusions(excludedFiles);
-
-						const cachedData = followUp != null ? this._graphDetailsDiffCache.get(diffCacheKey) : undefined;
-						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
-						if (!data) return { error: { message: 'No changes found.' } };
-
-						if (cachedData == null) {
-							// Drop anything excluded that still made it into the diff (cached entries are already
-							// filtered). `getDiffForScope` already kept excluded untracked files out of the
-							// collection, so this covers what it can't: tracked working-tree files, and
-							// commit/compare diffs.
-							if (excluded != null) {
-								data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
-								if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
-							}
-
-							this._graphDetailsDiffCache.set(diffCacheKey, {
-								diff: data.diff,
-								message: data.message,
-								context: data.context,
-							});
-						} else {
-							this._graphDetailsDiffCache.touch(diffCacheKey);
-						}
-
-						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
-						// threshold is scoped to the selected model's input-context budget — a 1M-
-						// token model happily single-passes a 100KB diff that an 8k-context model
-						// couldn't. `{ silent: true }` avoids prompting the user from a background
-						// fetch; on an unset model the helper falls back to a conservative default.
-						// Pass `scope: 'review'` so the threshold matches the model that the
-						// downstream `reviewChanges` action will actually run.
-						// A follow-up keeps the conversation's original strategy — its replayed
-						// exchanges were produced under it — even if a model switch would now
-						// decide differently.
-						const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
-						signal?.throwIfAborted();
-						const useSinglePass =
-							followUp != null
-								? followUp.exchanges.at(-1)?.result.mode === 'single-pass'
-								: shouldUseSinglePass(data.diff, aiModel);
-						if (useSinglePass) {
-							const result = await this.container.ai.actions.reviewChanges(
-								{
-									diff: data.diff,
-									message: data.message,
-									context: data.context,
-									instructions: prompt || undefined,
-								},
-								{ source: 'graph', context: { type: reviewType, mode: 'single-pass' } },
-								{ cancellation: cancellation, followUp: followUp },
-							);
-
-							if (result === 'cancelled' || result == null) {
-								return { error: { message: 'Review was cancelled.' } };
-							}
-
-							const response = await result.promise;
-							if (response === 'cancelled' || response == null) {
-								return { error: { message: 'Review was cancelled.' } };
-							}
-
-							this.recordReviewExchange(diffCacheKey, prompt, response.result, followUp != null);
-							return { result: response.result };
-						}
-
-						// Two-pass: build file manifest from the (already filtered) diff
-						const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
-							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
-						);
-						signal?.throwIfAborted();
-						// Pass 1 has nothing but this manifest to rank focus areas from — no diff content — so
-						// every field has to be what git would report: the parsed status per file (not a blanket
-						// "modified", which reads an added file as having a previous version to compare against),
-						// and changed-line counts that exclude unchanged context (see
-						// `countDiffInsertionsAndDeletions`).
-						const parsed = parseGitDiff(data.diff);
-						const parsedFiles = parsed.files.map(f => {
-							const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
-							return {
-								path: f.path,
-								status: f.status,
-								additions: insertions,
-								deletions: deletions,
-							};
-						});
-						const fileManifest = JSON.stringify(parsedFiles);
-
-						const overviewResult = await this.container.ai.actions.reviewOverview(
-							{
-								files: fileManifest,
-								message: data.message,
-								context: data.context,
-								instructions: prompt || undefined,
-							},
-							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
-							{ cancellation: cancellation, followUp: followUp },
-						);
-
-						if (overviewResult === 'cancelled' || overviewResult == null) {
-							return { error: { message: 'Review was cancelled.' } };
-						}
-
-						const overviewResponse = await overviewResult.promise;
-						if (overviewResponse === 'cancelled' || overviewResponse == null) {
-							return { error: { message: 'Review was cancelled.' } };
-						}
-
-						this.recordReviewExchange(diffCacheKey, prompt, overviewResponse.result, followUp != null);
-						return { result: overviewResponse.result };
-					} catch (ex) {
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					} finally {
-						disposeCancellation();
-					}
-				},
-				reviewFocusArea: async (
+				explainCompare: (repoPath, fromSha, toSha, prompt, signal) =>
+					this.explainCompare(repoPath, fromSha, toSha, prompt, signal),
+				reviewChanges: (repoPath, scope, prompt, excludedFiles, signal, options) =>
+					this.reviewChanges(repoPath, scope, prompt, excludedFiles, signal, options),
+				reviewFocusArea: (
 					repoPath,
 					scope,
 					focusAreaId,
@@ -920,83 +480,17 @@ export class GraphInspectServices {
 					prompt,
 					excludedFiles,
 					signal,
-				) => {
-					// Registry-tracked like every other AI run (see `reviewChanges`): a superseded focus-area
-					// review must stop consuming the model when the webview aborts, and `dispose()` must be
-					// able to cancel it on teardown.
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
+				) =>
+					this.reviewFocusArea(
+						repoPath,
+						scope,
+						focusAreaId,
+						focusAreaFiles,
+						overviewContext,
+						prompt,
+						excludedFiles,
 						signal,
-						this._aiCancellations,
-					);
-					try {
-						signal?.throwIfAborted();
-
-						const reviewType = this.getReviewTypeForScope(scope);
-						const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
-						const excluded = this.getNormalizedExclusions(excludedFiles);
-
-						const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
-						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
-						if (!data) return { error: { message: 'No changes found for this focus area.' } };
-
-						if (cachedData == null) {
-							// Exclusion-filter before caching, matching what `reviewChanges` stores under this
-							// same key. The focus-area filter below would keep excluded files out of *this*
-							// request's prompt regardless, but a cache entry that still carried them would be
-							// handed to a later `reviewChanges` refine, which trusts cached entries as filtered.
-							data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
-							this._graphDetailsDiffCache.set(diffCacheKey, data);
-						} else {
-							this._graphDetailsDiffCache.touch(diffCacheKey);
-						}
-
-						// Filter diff to only include focus area files, excluding user-excluded files. Both
-						// sides normalized — the focus-area list names diff paths, so it has to be put in the
-						// same shape as the exclusion set (see `getNormalizedExclusions`) before they can meet.
-						const { filterDiffFiles } = await loadChunk(
-							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
-						);
-						const filteredDiff = await filterDiffFiles(data.diff, () =>
-							excluded?.size
-								? focusAreaFiles.filter(f => !excluded.has(normalizePath(f)))
-								: focusAreaFiles,
-						);
-						signal?.throwIfAborted();
-
-						if (!filteredDiff?.trim()) {
-							return { error: { message: 'No diff content found for the specified files.' } };
-						}
-
-						const result = await this.container.ai.actions.reviewFocusArea(
-							{
-								diff: filteredDiff,
-								overview: overviewContext,
-								message: data.message,
-								focusArea: focusAreaFiles.join(', '),
-								context: data.context,
-								instructions: prompt || undefined,
-							},
-							focusAreaId,
-							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
-							{ cancellation: cancellation },
-						);
-
-						if (result === 'cancelled' || result == null) {
-							return { error: { message: 'Review was cancelled.' } };
-						}
-
-						const response = await result.promise;
-						if (response === 'cancelled' || response == null) {
-							return { error: { message: 'Review was cancelled.' } };
-						}
-
-						return { result: response.result };
-					} catch (ex) {
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					} finally {
-						disposeCancellation();
-					}
-				},
+					),
 				trackReviewAction: args => {
 					if (args.action === 'copy') {
 						void this.container.usage.track('action:gitlens.ai.review.copied:happened');
@@ -1010,116 +504,9 @@ export class GraphInspectServices {
 					}
 					return Promise.resolve();
 				},
-				addressReviewFindingsInChat: async args => {
-					try {
-						if ((await getSupportedAgents(this.container)).length === 0) {
-							void window.showWarningMessage(
-								'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
-							);
-							await env.clipboard.writeText(args.reviewMarkdown);
-							return { ok: false, reason: 'no-agents' };
-						}
-
-						// `{ silent: true }` avoids prompting from the RPC. The webview gates the
-						// "Send to agent" button on `aiModel != null`, so this is a defensive check
-						// for the race where the model was cleared between the gate and the call.
-						// `scope: 'review'` matches the model the review action used to produce the
-						// findings being forwarded to chat.
-						const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
-						if (aiModel == null) {
-							void window.showWarningMessage(
-								'An AI model must be selected before sending review findings to chat.',
-							);
-							return { ok: false, reason: 'no-ai-model' };
-						}
-
-						const { prompt } = await this.container.ai.getPrompt('address-review-findings', undefined, {
-							reviewMarkdown: args.reviewMarkdown,
-							scopeLabel: args.scopeLabel,
-							granularity: args.granularity,
-							instructions: args.instructions,
-						});
-
-						void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
-
-						// Review-level is a conversational opener; area/finding-level are self-contained
-						// tasks that should auto-submit.
-						await executeCommand('gitlens.runPromptInAgent', {
-							prompt: prompt,
-							cwd: args.repoPath,
-							mode: 'agent',
-							autoExecute: args.granularity !== 'review',
-							source: 'graph',
-						} as RunPromptInAgentCommandArgs);
-						return { ok: true };
-					} catch (ex) {
-						const message = ex instanceof Error ? ex.message : String(ex);
-						void window.showWarningMessage(`Unable to send review findings to chat: ${message}`);
-						return { ok: false, reason: 'error', message: message };
-					}
-				},
-				generateCommitMessage: async (repoPath, currentMessage, amend, signal) => {
-					// Pass the Repository (not a raw diff) so the AI service applies its
-					// staged-first → unstaged-fallback convention. The previous implementation
-					// always grabbed the full uncommitted diff (staged + unstaged), which produced
-					// messages that didn't match what the user was about to commit on a
-					// staging-aware repo.
-					// Omit `progress` so no VS Code notification is shown — the WIP panel drives
-					// its own inline generating UI and exposes cancel via the sparkle button.
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
-						signal,
-						this._aiCancellations,
-					);
-					// Cancellable by both the webview signal and host `dispose()` (via the registry).
-					const cancellationSignal = toAbortSignal(cancellation);
-					try {
-						const repo = this.container.git.getRepository(repoPath);
-						if (repo == null) return undefined;
-
-						// When amending, generate against what the amend will actually produce: the
-						// existing commit's content plus the changes being folded in. Diff from the
-						// amend target's parent (`sha^`) to the index (staged-only) or working tree
-						// (`all`), matching the staged-vs-all decision the commit itself makes. If
-						// that yields nothing (a message-only amend with no new changes), fall back
-						// to the existing commit's own diff so the AI still has content to describe.
-						let changesOrRepo: GlRepository | string = repo;
-						if (amend != null) {
-							const from = `${amend.sha}^`;
-							let diff = await repo.git.diff.getDiff?.(
-								amend.all ? uncommitted : uncommittedStaged,
-								from,
-								undefined,
-								cancellationSignal,
-							);
-							if (!diff?.contents) {
-								diff = await repo.git.diff.getDiff?.(
-									amend.sha,
-									undefined,
-									undefined,
-									cancellationSignal,
-								);
-							}
-							if (diff?.contents) {
-								changesOrRepo = diff.contents;
-							}
-						}
-
-						const result = await this.container.ai.actions.generateCommitMessage(
-							changesOrRepo,
-							{ source: 'graph-details' },
-							{ context: currentMessage, cancellation: cancellation },
-						);
-						if (result === 'cancelled' || result == null) return undefined;
-
-						return result.result;
-					} catch (ex) {
-						// Surface the failure instead of silently returning so regressions are visible.
-						Logger.error(ex, 'graph.generateCommitMessage');
-						return undefined;
-					} finally {
-						disposeCancellation();
-					}
-				},
+				addressReviewFindingsInChat: args => this.addressReviewFindingsInChat(args),
+				generateCommitMessage: (repoPath, currentMessage, amend, signal) =>
+					this.generateCommitMessage(repoPath, currentMessage, amend, signal),
 				pickCoauthors: async (repoPath, currentMessage) => {
 					try {
 						const repo = this.container.git.getRepository(repoPath);
@@ -1150,7 +537,7 @@ export class GraphInspectServices {
 						return undefined;
 					}
 				},
-				composeChanges: async (
+				composeChanges: (
 					repoPath,
 					sessionKey,
 					scope,
@@ -1159,210 +546,17 @@ export class GraphInspectServices {
 					aiExcludedFiles,
 					signal,
 					options,
-				) => {
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
+				) =>
+					this.composeChanges(
+						repoPath,
+						sessionKey,
+						scope,
+						instructions,
+						excludedFiles,
+						aiExcludedFiles,
 						signal,
-						this._aiCancellations,
-					);
-					// Hoisted so the catch block can `discardCachedPlan` if any step after the
-					// library-side plan registration throws — otherwise an exception after the
-					// `generatePlan...` cache write leaks the cached plan in the compose-tools
-					// library with no path to discard it.
-					let cacheKeyToRegister: string | undefined;
-					// Set once a refine has produced its replacement plan, which is the point the library drops
-					// the prior one. Lets the catch tell that case from a failed cold start, which drops nothing.
-					let refineSwappedPlan = false;
-					try {
-						signal?.throwIfAborted();
-
-						if (scope.type !== 'wip') {
-							return {
-								error: {
-									message:
-										'Compose supports working changes and commit ranges on the current branch.',
-								},
-							};
-						}
-
-						const svc = this.container.git.getRepositoryService(repoPath);
-
-						// AI simulator bypass — `compose-tools`' validators reject synthetic AI
-						// responses (they require real diff-hunk indices), so the simulator can't
-						// drive a successful compose end-to-end through the real pipeline. When the
-						// simulator is active we synthesize a `planResult` from the working tree
-						// directly and reuse the same downstream conversion + virtual session wiring.
-						// `commitCompose` is intentionally out of scope (no cache key is registered);
-						// the bypass surfaces "No active compose plan" if the user tries to commit.
-						// Gated on DEBUG so the bypass is unreachable in production builds even if a
-						// user manually flips `gitlens.ai.model` to `simulator:*` in settings.json.
-						const simulated = DEBUG && isComposeSimulatorActive();
-
-						const composeTools = simulated ? undefined : await this.getOrCreateComposeToolsForGraph();
-						if (!simulated && composeTools == null) {
-							return { error: { message: 'Compose is not available in this environment.' } };
-						}
-
-						// Refine path: chat-style continuation against the cached plan. NO git operations, NO
-						// re-analysis. Gated on the webview's key matching the plan we still hold for this
-						// session: a handle that outlived its plan (host restarted between turns, or the
-						// webview retried a cold run that already discarded it) falls through to a fresh
-						// generate rather than failing the library's cache lookup.
-						const trackedCacheKey = this._activeComposeCacheKeys.get(sessionKey);
-						const priorCacheKey = options?.priorCacheKey ?? trackedCacheKey;
-						const useRefinePath =
-							!simulated &&
-							options?.mode === 'refine' &&
-							priorCacheKey != null &&
-							priorCacheKey === trackedCacheKey &&
-							composeTools != null;
-
-						if (!useRefinePath && trackedCacheKey != null) {
-							// Starting fresh while we still hold a plan means that plan is abandoned — the user
-							// walked back and is starting over — so its conversation ends with it. Holding NO
-							// plan instead means the prior attempt errored or was cancelled, and the
-							// `getOrCreate` below reuses that conversation rather than starting a second one.
-							composeTools?.discardCachedPlan(trackedCacheKey);
-							this._activeComposeCacheKeys.delete(sessionKey);
-							this.endComposeConversation(sessionKey);
-						}
-
-						// One conversation ID per compose session — the library's validation retries and
-						// every refine of the resulting plan reuse it until the plan is applied or
-						// abandoned, so the whole session is tracked as one conversation instead of one
-						// per AI request.
-						const conversationId = this.getOrCreateComposeConversationId(sessionKey);
-
-						this._composeProgressEvent.fire({
-							phase: useRefinePath ? 'refining' : 'collecting',
-							message: useRefinePath ? 'Refining commits…' : 'Preparing changes…',
-						});
-
-						const planResult = simulated
-							? await runSimulatedComposeChanges({
-									svc: svc,
-									scope: scope,
-									signal: signal,
-									onProgress: event => {
-										this._composeProgressEvent.fire({
-											phase: event.phase,
-											message: event.message,
-										});
-									},
-								})
-							: useRefinePath
-								? await composeTools.refinePlanForGraphDetails({
-										svc: svc,
-										priorCacheKey: priorCacheKey,
-										customInstructions: instructions,
-										excludedCommitIds: options?.excludedCommitIds,
-										cancellation: cancellation,
-										conversationId: conversationId,
-										telemetrySource: { source: 'graph' },
-										onProgress: event => {
-											this._composeProgressEvent.fire({
-												phase: event.phase,
-												message: event.message,
-											});
-										},
-									})
-								: await composeTools!.generatePlanForGraphDetails({
-										svc: svc,
-										scope: scope,
-										customInstructions: instructions,
-										excludedFiles: excludedFiles,
-										aiExcludedFiles: aiExcludedFiles,
-										cancellation: cancellation,
-										conversationId: conversationId,
-										telemetrySource: { source: 'graph' },
-										onProgress: event => {
-											this._composeProgressEvent.fire({
-												phase: event.phase,
-												message: event.message,
-											});
-										},
-									});
-						signal?.throwIfAborted();
-
-						// The library cached the plan keyed by `planResult.cacheKey` once
-						// `generatePlan...` resolved — we must `discardCachedPlan(key)` if the
-						// downstream steps throw, otherwise the library-side plan leaks (the key is
-						// our only handle to it). Tracked in the hoisted `cacheKeyToRegister`
-						// until we know the full pipeline succeeded; only then do we register it
-						// for `commitCompose` to apply.
-						cacheKeyToRegister = simulated ? undefined : (planResult as { cacheKey: string }).cacheKey;
-						refineSwappedPlan = useRefinePath;
-
-						// getCommit('HEAD') is optional base metadata — tolerate its failure.
-						const headCommitPromise = svc.commits.getCommit('HEAD').catch(() => undefined);
-						const commits = this.deriveComposeCommits(repoPath, planResult);
-						signal?.throwIfAborted();
-
-						const headCommit = await headCommitPromise;
-
-						const baseAnchorSha =
-							planResult.kind === 'wip-only' ? planResult.headSha : planResult.rewriteFromSha;
-						const baseAnchorCommit =
-							baseAnchorSha === planResult.headSha
-								? headCommit
-								: baseAnchorSha === rootSha
-									? undefined
-									: await svc.commits.getCommit(baseAnchorSha);
-						signal?.throwIfAborted();
-
-						// Register the cache key NOW that the full pipeline succeeded.
-						// Anything that threw between `generatePlan...` and here lands in the
-						// catch below, where we explicitly `discardCachedPlan` so the
-						// library doesn't leak the abandoned plan.
-						if (cacheKeyToRegister != null) {
-							this._activeComposeCacheKeys.set(sessionKey, cacheKeyToRegister);
-						}
-
-						void this.container.usage.track('action:gitlens.ai.generateCommits:happened');
-
-						return {
-							result: {
-								commits: commits.toReversed(),
-								baseCommit: {
-									sha: baseAnchorSha,
-									message: baseAnchorCommit?.message?.split('\n')[0] ?? '',
-									author: baseAnchorCommit?.author?.name,
-									date: baseAnchorCommit?.author?.date?.toISOString(),
-									rewriteFromSha: planResult.rewriteFromSha,
-									kind: planResult.kind,
-									selectedShas: planResult.selectedShas,
-								},
-								cacheKey: cacheKeyToRegister,
-							},
-						};
-					} catch (ex) {
-						// Discard the library-cached plan that `generatePlan...` registered —
-						// this throw path leaves us with no way for the user to apply it.
-						// `composeTools` is scoped to the try block; re-fetch the (cached) singleton
-						// for the discard call here.
-						if (cacheKeyToRegister != null) {
-							this._composeToolsForGraph?.discardCachedPlan(cacheKeyToRegister);
-							if (refineSwappedPlan) {
-								// The refine swapped the plan before this throw, so the key we still have registered
-								// names a plan the library has already dropped. Let go of it, or the next attempt's
-								// refine gate matches a dead key and fails the lookup instead of starting fresh. The
-								// conversation stays — the user is retrying this session, not abandoning it.
-								this._activeComposeCacheKeys.delete(sessionKey);
-							}
-						}
-						if (isCancellationError(ex) || isComposeCancelled(ex)) {
-							return { cancelled: true };
-						}
-						return {
-							error: {
-								message: ex instanceof Error ? ex.message : String(ex),
-								kind: isComposeInputError(ex) ? 'invalid-scope' : undefined,
-							},
-						};
-					} finally {
-						this._composeProgressEvent.fire(undefined);
-						disposeCancellation();
-					}
-				},
+						options,
+					),
 				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
 				discardCompose: (sessionKey, cacheKey) => {
 					// Naming no plan is not enough to end a session: a session whose first generate is still in
@@ -1405,78 +599,8 @@ export class GraphInspectServices {
 						composeTools.discardCachedPlan(cacheKey);
 					}
 				},
-				regenerateProposedCommitMessage: async (sessionKey, cacheKey, commitId, signal) => {
-					const composeTools = await this.getOrCreateComposeToolsForGraph();
-					if (composeTools == null) {
-						return { error: { message: 'Compose is not available in this environment.' } };
-					}
-
-					// Defend against a stale cacheKey (refine swaps keys, panel close discards):
-					// the panel must always send the active key from its workflow signal. A miss
-					// surfaces a recoverable error so the user can simply re-run compose.
-					const activeKey = this._activeComposeCacheKeys.get(sessionKey);
-					if (activeKey !== cacheKey) {
-						return {
-							error: { message: 'This compose plan is no longer active; please regenerate.' },
-						};
-					}
-
-					const cached = composeTools.getMaskedHunksForCachedCommit(cacheKey, commitId);
-					if (cached == null) {
-						return {
-							error: { message: 'Unable to find the selected commit in the current plan.' },
-						};
-					}
-
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
-						signal,
-						this._aiCancellations,
-					);
-					try {
-						const { patch } = createCombinedDiffForCommit(cached.hunks);
-						if (!patch) {
-							return { error: { message: 'Unable to build a diff for the selected commit.' } };
-						}
-
-						// Regenerating one commit's message is part of the compose the user is in, not a task of
-						// its own, so it continues that session's conversation.
-						const result = await this.container.ai.actions.generateCommitMessage(
-							patch,
-							{ source: 'graph-details', correlationId: this.host.instanceId },
-							{
-								cancellation: cancellation,
-								conversationId: this.getOrCreateComposeConversationId(sessionKey),
-							},
-						);
-
-						if (result === 'cancelled') return { cancelled: true };
-						if (result == null) {
-							return { error: { message: 'AI did not return a message. Please try again.' } };
-						}
-
-						const message = result.result.body
-							? `${result.result.summary}\n\n${result.result.body}`
-							: result.result.summary;
-
-						// Mutate the cached plan so subsequent refine sees the new message in
-						// priorPlan (used for locked-commit substitution) and apply commits it.
-						// If the cache entry was discarded between our earlier read and now (race
-						// with a parallel refine or close), the mutation just no-ops and the
-						// caller falls back to refreshing.
-						composeTools.updateCachedPlanCommitMessage(cacheKey, commitId, message);
-
-						return { result: { commitId: commitId, message: message } };
-					} catch (ex) {
-						if (isCancellationError(ex)) return { cancelled: true };
-
-						Logger.error(ex, 'graph.regenerateProposedCommitMessage');
-						return {
-							error: { message: ex instanceof Error ? ex.message : String(ex) },
-						};
-					} finally {
-						disposeCancellation();
-					}
-				},
+				regenerateProposedCommitMessage: (sessionKey, cacheKey, commitId, signal) =>
+					this.regenerateProposedCommitMessage(sessionKey, cacheKey, commitId, signal),
 				reorderProposedCommits: async (sessionKey, cacheKey, orderedCommitIds) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
@@ -1526,584 +650,19 @@ export class GraphInspectServices {
 					const commits = this.deriveComposeCommits(repoPath, planResult);
 					return { result: { commits: commits.toReversed() } };
 				},
-				resolveConflicts: async (repoPath, focusedFilePaths, instructions, signal) => {
-					const integration = await this.getOrCreateConflictToolsForGraph();
-					if (integration == null) {
-						return { error: { message: 'AI conflict resolution is not available in this environment.' } };
-					}
-
-					const svc = this.container.git.getRepositoryService(repoPath);
-					// Conflicts can exist WITHOUT a paused operation (stash pop/apply, a `pull --rebase --autostash`
-					// re-apply, or `merge --quit`) — refs are optional enrichment, so a missing status must not block
-					// the run. The `targets.length === 0` check below handles the truly-nothing-to-resolve case.
-					const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
-
-					// `instructions` (whole-run "Refine" feedback) rides conflict-tools' first-class
-					// `ResolutionContext.userGuidance`, which 0.2.0 renders into the prompt — combined with
-					// the standing custom-instructions setting, since both are guidance for the same prompt.
-					const guidance = combineResolveGuidance(instructions);
-					const context: ResolutionContext = {
-						...(refs != null ? { refs: refs } : {}),
-						...(guidance ? { userGuidance: guidance } : {}),
-					};
-
-					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
-					const resolveSignal = toAbortSignal(token);
-
-					// What the AI consulted, per file — the progress events are the only place the resolver
-					// reports it, and the line below is overwritten within milliseconds when a run has
-					// several files, so keep it for the panel's per-file rows.
-					const consultations = new Map<string, ConsultedTool[]>();
-
-					const onProgress = (event: ConflictProgressEvent) => {
-						switch (event.type) {
-							case 'conflict:found':
-								this._resolveProgressEvent.fire({
-									phase: event.type,
-									message: `Analyzing ${event.filePath}…`,
-								});
-								break;
-							case 'resolution:applied':
-								this._resolveProgressEvent.fire({
-									phase: event.type,
-									message: `Resolved ${event.filePath}.`,
-								});
-								break;
-							case 'resolution:failed':
-								this._resolveProgressEvent.fire({
-									phase: event.type,
-									message: `Couldn't resolve ${event.filePath} — skipping.`,
-								});
-								break;
-							case 'conflict:skipped':
-								this._resolveProgressEvent.fire({
-									phase: event.type,
-									message: `Skipping ${event.filePath} — no conflict markers.`,
-								});
-								break;
-							case 'resolver:tool-call':
-								recordConsultation(consultations, event);
-								this._resolveProgressEvent.fire({
-									phase: event.type,
-									message: `${event.filePath}: inspecting ${event.tool}…`,
-								});
-								break;
-						}
-					};
-
-					try {
-						this._resolveProgressEvent.fire({ phase: 'collecting', message: 'Reading conflicts…' });
-
-						// Entries carry each file's conflict reason (porcelain v2), which makes
-						// delete/modify conflicts extractable instead of appearing marker-less.
-						const entries = await integration.listUnmergedEntries(svc);
-
-						// Scope to the requested files (per-file / multi-select entry points); undefined
-						// means all conflicts. Requested files no longer unmerged just drop out.
-						const focused = focusedFilePaths != null && focusedFilePaths.length > 0;
-						const targets = focused ? entries.filter(e => focusedFilePaths.includes(e.path)) : entries;
-						if (targets.length === 0) {
-							return {
-								error: {
-									message: focused
-										? focusedFilePaths.length === 1
-											? `${focusedFilePaths[0]} is no longer conflicted.`
-											: 'The selected files are no longer conflicted.'
-										: 'No conflicted files to resolve.',
-								},
-							};
-						}
-
-						// One conversation ID per resolve session — re-runs ("Refine") and per-file
-						// retries reuse it until apply/discard, so the backend's flat per-feature fee
-						// is charged once for the whole session instead of once per AI request.
-						const conversationId = this.getOrCreateResolveConversationId(repoPath);
-
-						// Resolve the conflicted files in a bounded-concurrency pool so one file's failure
-						// is isolated (recorded in `errors`) and the rest still resolve — and they run in
-						// parallel rather than one-at-a-time.
-						const result = await integration.resolveAllParallel(
-							{
-								svc: svc,
-								entries: targets,
-								context: context,
-								signal: resolveSignal,
-								onProgress: onProgress,
-								conversationId: conversationId,
-							},
-							{
-								source: 'graph',
-								detail: focused
-									? focusedFilePaths.length === 1
-										? 'resolveFile'
-										: 'resolveFiles'
-									: 'resolveAll',
-							},
-						);
-						const resolutions: ConflictToolsResolution[] = result.resolutions;
-
-						const { errors, skipped } = await this.enrichUnresolvedFiles(
-							repoPath,
-							result.errors.map(e => ({ filePath: e.filePath, message: e.error.message })),
-							result.skipped ?? [],
-						);
-
-						if (resolveSignal?.aborted) return { cancelled: true };
-
-						// Snapshot the conflicted (working-tree) content of every resolved file BEFORE anything
-						// is applied, so "View diff" can show resolved-vs-conflicted. `applyResolutions` runs
-						// later (and may never run if the user discards), so capture now while the markers are
-						// still on disk.
-						const conflictedContents = await integration.readWorkingFiles(
-							svc,
-							resolutions.filter(r => r.strategy !== 'skipped').map(r => r.filePath),
-						);
-
-						logResolutionUsage(resolutions, 'graph.resolveConflicts');
-
-						const summaries = this.seedResolveSession(
-							repoPath,
-							resolutions,
-							conflictedContents,
-							consultations,
-						);
-
-						return {
-							result: {
-								resolutions: summaries,
-								errors: errors.length > 0 ? errors : undefined,
-								skipped: skipped.length > 0 ? skipped : undefined,
-								metrics: sumResolutionEffort(resolutions),
-							},
-						};
-					} catch (ex) {
-						if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					} finally {
-						disposeCancellation();
-						this._resolveProgressEvent.fire(undefined);
-					}
-				},
-				reresolveFile: async (repoPath, filePath, feedback, signal) => {
-					const integration = await this.getOrCreateConflictToolsForGraph();
-					if (integration == null) {
-						return { error: { message: 'AI conflict resolution is not available in this environment.' } };
-					}
-
-					const session = this._activeResolveSessions.get(repoPath);
-					if (session == null) {
-						return { error: { message: 'No active resolutions to retry; please re-run.' } };
-					}
-
-					const svc = this.container.git.getRepositoryService(repoPath);
-					// No paused-op requirement — see `resolveConflicts` above. Staleness is covered by the
-					// session check above and the `entry == null` check below.
-					const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
-
-					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
-					const resolveSignal = toAbortSignal(token);
-					try {
-						const entries = await integration.listUnmergedEntries(svc);
-						const entry = entries.find(e => e.path === filePath);
-						if (entry == null) {
-							return { error: { message: `${filePath} is no longer conflicted.` } };
-						}
-
-						const conflict = await integration.extract({
-							svc: svc,
-							filePath: filePath,
-							reason: entry.reason,
-							signal: resolveSignal,
-						});
-						if (conflict == null) {
-							return {
-								error: {
-									message: `No conflict markers were found in ${filePath} — it needs manual resolution.`,
-								},
-							};
-						}
-
-						// A retry consults the repository the same way the original run does, so collect its
-						// evidence too — otherwise re-resolving a file would blank out the `consulted` line the
-						// row was already showing.
-						const consultations = new Map<string, ConsultedTool[]>();
-
-						// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`, combined
-						// with the standing custom-instructions setting — a retry shouldn't drop it.
-						const resolution = await integration.resolveSingle(
-							{
-								svc: svc,
-								conflict: conflict,
-								context: {
-									...(refs != null ? { refs: refs } : {}),
-									userGuidance: combineResolveGuidance(feedback),
-								},
-								signal: resolveSignal,
-								// Same conversation as the run being retried (an active session implies
-								// the ID exists; minting here is just a defensive fallback).
-								conversationId: this.getOrCreateResolveConversationId(repoPath),
-								onProgress: event => {
-									if (event.type !== 'resolver:tool-call') return;
-
-									recordConsultation(consultations, event);
-									this._resolveProgressEvent.fire({
-										phase: event.type,
-										message: `${event.filePath}: inspecting ${event.tool}…`,
-									});
-								},
-							},
-							{ source: 'graph', detail: 'resolveRetryFile' },
-						);
-						if (resolveSignal?.aborted) return { cancelled: true };
-
-						// Re-read the cached session right before writing — the `session` snapshot above was
-						// captured before the (long) resolveSingle await, so reusing it here would let a
-						// concurrent retry/take-side that completed meanwhile get clobbered. Bail if it was
-						// discarded mid-flight.
-						const latest = this._activeResolveSessions.get(repoPath);
-						if (latest == null) return { cancelled: true };
-
-						// Replace this file's resolution in the cached session (others untouched).
-						const exists = latest.resolutions.some(r => r.filePath === filePath);
-						this._activeResolveSessions.set(repoPath, {
-							...latest,
-							resolutions: exists
-								? latest.resolutions.map(r => (r.filePath === filePath ? resolution : r))
-								: [...latest.resolutions, resolution],
-						});
-
-						// Refresh the file's virtual content in place so its existing `resolved` ref re-reads
-						// the new content (the row's "View diff" stays valid — same sessionId).
-						const conflictedContents = await integration.readWorkingFiles(svc, [filePath]);
-						let virtualRef: VirtualRefShape | undefined;
-						if (resolution.strategy !== 'skipped' && conflictedContents.has(filePath)) {
-							this._resolveVirtual?.provider.updateFile(latest.sessionId, {
-								path: filePath,
-								conflictedContent: conflictedContents.get(filePath)!,
-								resolvedContent: resolution.content,
-							});
-							virtualRef = {
-								namespace: GraphResolveVirtualNamespace,
-								sessionId: latest.sessionId,
-								commitId: ResolveVirtualSide.resolved,
-							};
-						}
-
-						logResolutionUsage([resolution], 'graph.reresolveFile');
-
-						return {
-							result: {
-								filePath: resolution.filePath,
-								strategy: resolution.strategy,
-								reasoning: resolution.description,
-								confidence: resolution.confidence,
-								note: resolution.note,
-								consulted: getConsultations(consultations, resolution.filePath),
-								virtualRef: virtualRef,
-							},
-						};
-					} catch (ex) {
-						if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					} finally {
-						disposeCancellation();
-						// Clears the inspecting line this path now fires — without it a retry that consulted
-						// the repo would leave the panel stuck on its last tool call.
-						this._resolveProgressEvent.fire(undefined);
-					}
-				},
-				applyResolutions: async (repoPath, includedFilePaths) => {
-					const integration = await this.getOrCreateConflictToolsForGraph();
-					if (integration == null) {
-						return { error: { message: 'AI conflict resolution is not available in this environment.' } };
-					}
-
-					const session = this._activeResolveSessions.get(repoPath);
-					if (session == null) {
-						return { error: { message: 'No resolutions to apply; please re-run.' } };
-					}
-
-					const svc = this.container.git.getRepositoryService(repoPath);
-					try {
-						const included = includedFilePaths != null ? new Set(includedFilePaths) : undefined;
-						// Never apply 'skipped' files — they were intentionally left conflicted.
-						const selected = session.resolutions.filter(
-							r => r.strategy !== 'skipped' && (included == null || included.has(r.filePath)),
-						);
-						if (selected.length === 0) {
-							return { error: { message: 'No applicable resolutions were selected.' } };
-						}
-
-						// Per-file stale guard — the sole staleness defense: only apply files still unmerged.
-						// A file resolved externally (manually, via another tool, or by an op ending — abort/
-						// continue/reset all clear unmerged entries) since generation must not be clobbered
-						// with stale AI content. Deliberately NOT gated on a paused operation existing:
-						// op-less conflicts (stash pop, autostash) never have one, and `merge --quit` removes
-						// the op while the files remain genuinely conflicted. Skipped files are surfaced in
-						// the result.
-						const stillConflicted = await integration.listUnmergedPaths(svc);
-						const toApply = selected.filter(r => stillConflicted.has(r.filePath));
-						const skipped = selected.length - toApply.length;
-						if (toApply.length === 0) {
-							this.discardResolveSession(repoPath);
-							return {
-								error: { message: 'These files are no longer conflicted — nothing was applied.' },
-							};
-						}
-
-						await integration.applyBatch({ svc: svc, resolutions: toApply });
-						// `applyBatch` stages ai/merged + take-ours/theirs but not deletions (its port only
-						// unlinks). Stage every applied path once — idempotent for the rest, and it stages
-						// deletions so the merge can be completed.
-						const stagePaths = toApply.map(r => r.filePath);
-						if (stagePaths.length > 0) {
-							await svc.staging?.stageFiles?.(stagePaths);
-						}
-
-						this.discardResolveSession(repoPath);
-						void window.showInformationMessage(
-							skipped > 0
-								? `Resolved ${pluralize('file', toApply.length)} — ${skipped} skipped (no longer conflicted).`
-								: `Resolved ${pluralize('file', toApply.length)}.`,
-						);
-						return skipped > 0
-							? { success: true, warning: `${skipped} file(s) were skipped (no longer conflicted).` }
-							: { success: true };
-					} catch (ex) {
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					}
-				},
+				resolveConflicts: (repoPath, focusedFilePaths, instructions, signal) =>
+					this.resolveConflicts(repoPath, focusedFilePaths, instructions, signal),
+				reresolveFile: (repoPath, filePath, feedback, signal) =>
+					this.reresolveFile(repoPath, filePath, feedback, signal),
+				applyResolutions: (repoPath, includedFilePaths) => this.applyResolutions(repoPath, includedFilePaths),
 				discardResolutions: repoPath => {
 					this.discardResolveSession(repoPath);
 					return Promise.resolve();
 				},
-				takeConflictSide: async (repoPath, filePath, side): Promise<TakeConflictSideResult> => {
-					const svc = this.container.git.getRepositoryService(repoPath);
-					try {
-						// Take-side rides the same cached session + Apply/Discard lifecycle as AI resolutions,
-						// so it must not touch the working tree here — it queues a pending resolution that
-						// `applyResolutions` writes (and `discardResolutions` drops).
-
-						// Do all the IO (rename/kind classification) up front, before touching the cached
-						// session — see the atomic read-modify-write note below.
-						const infos = await getConflictFileInfos(svc);
-						const info = infos.get(filePath);
-						if (info == null) {
-							return { error: { message: `${filePath} is no longer conflicted.` } };
-						}
-
-						// 'delete' is only offered for both-deleted (DD), where either side maps to a delete.
-						const resolution: 'current' | 'incoming' = side === 'delete' ? 'current' : side;
-						const action = classifyConflictAction(info.conflictStatus, resolution);
-						if (action === 'unsupported') {
-							return { error: { message: `Can't take the ${side} side for this conflict.` } };
-						}
-
-						const strategy =
-							action === 'delete' ? 'deleted' : action === 'take-ours' ? 'take-ours' : 'take-theirs';
-
-						// The library's `applyResolutions` applies take-ours/take-theirs/deleted via
-						// checkout/remove with no content, so a content-less Resolution is all we queue.
-						const queued: QueuedTakeSide[] = [{ filePath: filePath, strategy: strategy }];
-						// rename/rename: keeping this name makes the other side's target the loser — queue its
-						// deletion so applying resolves both and the tree isn't left carrying both names.
-						if (info.kind === 'rename-rename' && info.renamePairPath != null) {
-							queued.push({ filePath: info.renamePairPath, strategy: 'deleted' });
-						}
-
-						// Read-modify-write the cached session atomically (no `await` between the read and the
-						// `set`) so two concurrent take-side clicks on different rows can't each derive from a
-						// stale snapshot and clobber the other's queued resolution. A session always exists once
-						// the panel is in its ready state (resolveConflicts caches one even when empty).
-						const session = this._activeResolveSessions.get(repoPath);
-						if (session == null) {
-							return { error: { message: 'No active resolve session; please re-run.' } };
-						}
-
-						const queuedPaths = new Set(queued.map(q => q.filePath));
-						const resolutions: ConflictToolsResolution[] = [
-							...session.resolutions.filter(r => !queuedPaths.has(r.filePath)),
-							...queued.map(q => ({
-								filePath: q.filePath,
-								content: '',
-								strategy: q.strategy,
-								confidence: 1,
-								description: '',
-							})),
-						];
-						this._activeResolveSessions.set(repoPath, { ...session, resolutions: resolutions });
-
-						return { result: { resolved: queued } };
-					} catch (ex) {
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
-					}
-				},
+				takeConflictSide: (repoPath, filePath, side) => this.takeConflictSide(repoPath, filePath, side),
 				onResolveProgress: this._resolveProgressEvent.subscribe(buffer, tracker),
-				getSeededResolveSession: async (repoPath: string): Promise<ResolveResult | undefined> => {
-					// The escalated session lingers if its rebase is ended outside the service (external
-					// abort, or a manual continue/finish) — nothing transitions it off `escalated`. Only
-					// adopt the one-shot handoff if that same rebase is still paused here (orig-head
-					// matches), so a stale handoff can't seed — and clobber the AI conversation of — an
-					// unrelated later resolve in this repo.
-					const session = this.container.autoRebase.getSession(repoPath);
-					if (session?.phase !== 'escalated') return undefined;
-
-					const svc = this.container.git.getRepositoryService(repoPath);
-					const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
-					if (status?.type !== 'rebase' || !status.isPaused || status.source.ref !== session.preRun.headSha) {
-						return undefined;
-					}
-
-					const handoff = this.container.autoRebase.takeEscalationHandoff(repoPath);
-					if (handoff == null) return undefined;
-
-					// Adopt the run's AI conversation so per-file retries and Refine stay in the same
-					// billed session; flush any unrelated conversation being replaced. Mark it as the
-					// run's so Apply/discard here doesn't report usage the run will report itself.
-					const existingConversation = this._resolveConversationIds.get(repoPath);
-					if (existingConversation != null && existingConversation !== handoff.sessionId) {
-						this.endResolveConversation(existingConversation);
-					}
-					this._resolveConversationIds.set(repoPath, handoff.sessionId);
-					this._autoRebaseOwnedConversations.add(handoff.sessionId);
-
-					const summaries = this.seedResolveSession(
-						repoPath,
-						handoff.resolutions,
-						handoff.conflictedContents,
-						handoff.consultations,
-					);
-					const { errors, skipped } = await this.enrichUnresolvedFiles(
-						repoPath,
-						handoff.errors,
-						handoff.skipped,
-					);
-
-					// Mark the result as mid-run so the panel offers "Apply & Resume with AI". The
-					// session stays `escalated` after the one-shot handoff, so its escalation info is
-					// still readable here.
-					const escalation = this.container.autoRebase.getSession(repoPath)?.escalation;
-
-					return {
-						result: {
-							resolutions: summaries,
-							errors: errors.length > 0 ? errors : undefined,
-							skipped: skipped.length > 0 ? skipped : undefined,
-							// The escalated step's effort, for the same reason the run path reports it —
-							// the panel doesn't report a completion for a seeded session today, so this is
-							// only for shape parity if it ever does.
-							metrics: sumResolutionEffort(handoff.resolutions),
-							autoRebase: {
-								sessionId: handoff.sessionId,
-								stepNumber: escalation?.stepNumber,
-								totalSteps: escalation?.totalSteps,
-							},
-						},
-					};
-				},
-				getAutoRebaseSummary: async (repoPath: string): Promise<AutoRebaseSummaryResult | undefined> => {
-					const session = this.container.autoRebase.getSession(repoPath);
-					if (session == null) return undefined;
-
-					const terminalOutcomes = {
-						completed: 'completed',
-						escalated: 'escalated',
-						aborted: 'aborted',
-						failed: 'failed',
-						undone: 'undone',
-					} as const;
-					const outcome = terminalOutcomes[session.phase as keyof typeof terminalOutcomes];
-					if (outcome == null) {
-						return { error: { message: 'The Auto-Rebase is still running.' } };
-					}
-
-					const validation = await this.container.autoRebase.canUndo(repoPath);
-					// A dirty tree that's only the autostash (reapplied/left-in-stash) is still undoable —
-					// `undo()` stashes before resetting. Only genuine user changes truly block it.
-					const undoable =
-						outcome === 'completed' &&
-						(validation.ok || (validation.reason === 'dirty' && validation.recoverable === true));
-					// Whether that recoverable-dirty path applies, so the confirm can warn it'll stash first.
-					const undoWillStash =
-						!validation.ok && validation.reason === 'dirty' && validation.recoverable === true;
-
-					// (Re-)register the per-step virtual diff sessions — the webview may not have
-					// existed when the run finished, so they're built lazily on each summary fetch
-					// (deterministic ids make a re-fetch replace rather than accumulate).
-					const { provider } = this.getOrCreateAutoRebaseVirtual(session.id);
-					const steps: AutoRebaseSummaryStep[] = session.steps.map(step => {
-						const virtualSessionId = `${session.id}:step-${step.stepNumber}`;
-						const previewable = step.files.filter(
-							f => isPreviewableText(f.conflictedContent) && isPreviewableText(f.resolvedContent),
-						);
-						if (previewable.length > 0) {
-							provider.startSession({
-								repoPath: repoPath,
-								sessionId: virtualSessionId,
-								files: previewable.map(f => ({
-									path: f.path,
-									conflictedContent: f.conflictedContent!,
-									resolvedContent: f.resolvedContent!,
-								})),
-							});
-						}
-						return {
-							step: step.stepNumber,
-							totalSteps: step.totalSteps,
-							commit: { sha: step.commit.sha, message: step.commit.message },
-							kind: step.kind,
-							files: step.files.map(f => ({
-								filePath: f.path,
-								strategy: f.strategy,
-								reasoning: f.description,
-								confidence: f.confidence,
-								note: f.note,
-								consulted: f.consulted,
-								// Only files with a registered session above get a diff affordance — offering
-								// one for content the editor can't open as text yields two "file is binary"
-								// panes.
-								virtualRef: previewable.includes(f)
-									? {
-											namespace: AutoRebaseVirtualNamespace,
-											sessionId: virtualSessionId,
-											commitId: ResolveVirtualSide.resolved,
-										}
-									: undefined,
-							})),
-						};
-					});
-
-					this.container.telemetry.sendEvent('autoRebase/summary/shown', {
-						takeover: session.mode !== 'started',
-						'steps.count': session.steps.length,
-						duration: Date.now() - session.preRun.startedAt,
-					});
-
-					return {
-						summary: {
-							sessionId: session.id,
-							branch: session.preRun.branch,
-							upstream: session.preRun.upstream,
-							preRebaseSha: session.preRun.headSha,
-							postRebaseSha: session.postRun?.headSha,
-							totalSteps: session.steps[0]?.totalSteps ?? 0,
-							outcome: outcome,
-							undoable: undoable,
-							undoWillStash: undoWillStash,
-							undoRefusal: undoable
-								? undefined
-								: outcome === 'undone'
-									? 'This rebase was already undone.'
-									: outcome !== 'completed'
-										? 'The rebase did not complete.'
-										: !validation.ok
-											? validation.message
-											: undefined,
-							autostash: session.postRun?.autostash,
-							steps: steps,
-						},
-					};
-				},
+				getSeededResolveSession: repoPath => this.getSeededResolveSession(repoPath),
+				getAutoRebaseSummary: repoPath => this.getAutoRebaseSummary(repoPath),
 				undoAutoRebase: async (repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult> => {
 					// A refused undo also has to speak outside the sheet: its inline banner can sit below
 					// the fold of a short details pane, leaving a confirmed destructive action looking like
@@ -2154,229 +713,12 @@ export class GraphInspectServices {
 					this.releaseAutoRebaseSummarySessions();
 					return Promise.resolve();
 				},
-				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
-					// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
-					// to land the user on a useful panel; per-side commits + their files are fetched
-					// on demand via `getBranchComparisonSide`.
-					//
-					// Convention: leftRef = Base (older / "from"), rightRef = Compare (newer / "to").
-					// The working tree, when included, lives on the Compare side (rightRef).
-					signal?.throwIfAborted();
-					const svc = this.container.git.getRepositoryService(repoPath);
-
-					// Always resolve rightRef's (Compare) worktree path — independent of the IWT
-					// toggle's current state. This separates two concerns the old code conflated:
-					//  (a) "does a worktree exist for rightRef?" — drives the IWT toggle's visibility.
-					//  (b) "should the diff include working-tree changes?" — drives the data shape.
-					// Conflating them caused the toggle to disappear after the user turned IWT off
-					// (issue #5269 in the old left-anchored model; preserved here for the Compare side).
-					// `useWorktree` below combines both concerns to gate only the data-shape branches.
-					const rightRefWorktreePath = await this.resolveRightRefWorktreePath(repoPath, rightRef, signal);
-					signal?.throwIfAborted();
-					const useWorktree = options?.includeWorkingTree === true && rightRefWorktreePath != null;
-
-					// Promise.allSettled per project convention — independent parallel awaits
-					// shouldn't let one failure abort the rest of the comparison. Missing pieces
-					// degrade gracefully into the partial-data path below (e.g. a diff-status
-					// failure still shows the commit counts).
-					//
-					// `mergeBase` anchors the per-side file lists in `getBranchComparisonSide`. For
-					// divergent branches, `mergeBase..rightRef` gives only the Compare side's
-					// additions and `mergeBase..leftRef` only the Base side's additions — distinct
-					// from the cumulative `leftRef..rightRef` which is shown on the All Files tab.
-					// A null result (disjoint refs) lets the side fetch fall back to 2-dot ranges.
-					const [countsResult, filesResult, mergeBaseResult] = await Promise.allSettled([
-						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-						useWorktree
-							? this.container.git
-									.getRepositoryService(rightRefWorktreePath)
-									.diff.getDiffStatus(leftRef, undefined, { includeUntracked: true })
-							: svc.diff.getDiffStatus(`${leftRef}..${rightRef}`),
-						svc.refs.getMergeBase(leftRef, rightRef),
-					]);
-					signal?.throwIfAborted();
-					const counts = getSettledValue(countsResult);
-					const files = getSettledValue(filesResult);
-					const mergeBase = getSettledValue(mergeBaseResult) ?? undefined;
-
-					// Commit-count semantics from the Compare side's perspective:
-					//  - `aheadCount` = commits the Compare branch has that Base doesn't
-					//    (`git rev-list leftRef..rightRef`, returned as `.right` from --left-right).
-					//  - `behindCount` = commits Base has that Compare doesn't
-					//    (`git rev-list rightRef..leftRef`, returned as `.left`).
-					// The "Working Changes" pseudo-commit row injected by `getBranchComparisonSide`
-					// is still visible in the Ahead-tab commit list, but doesn't inflate the badge.
-					const aheadCount = counts?.right ?? 0;
-					const behindCount = counts?.left ?? 0;
-
-					// File `repoPath` follows the worktree path ONLY when IWT is actively in use —
-					// not just because a worktree exists. With the toggle off (or no worktree), file
-					// URIs/multi-diff requests resolve against the panel's `repoPath`. The conditional
-					// is on `useWorktree` (not `rightRefWorktreePath != null`) so toggle-off state
-					// doesn't accidentally route through the worktree.
-					const filesRepoPath = useWorktree ? rightRefWorktreePath : repoPath;
-					const allFiles: BranchComparisonFile[] = (files ?? []).map(f => ({
-						repoPath: filesRepoPath,
-						path: f.path,
-						status: f.status,
-						originalPath: f.originalPath,
-						staged: false,
-						stats: f.stats,
-					}));
-
-					return {
-						aheadCount: aheadCount,
-						behindCount: behindCount,
-						allFilesCount: allFiles.length,
-						allFiles: allFiles,
-						rightRefWorktreePath: rightRefWorktreePath,
-						mergeBase: mergeBase,
-					};
-				},
-				getBranchComparisonSide: async (repoPath, leftRef, rightRef, side, options, signal) => {
-					// Phase 2: that side's commits, files fetched on demand. leftRef = Base, rightRef = Compare; the
-					// Ahead side carries Compare's new commits (+ the working-tree pseudo-commit when IWT is on), so its
-					// worktree path is resolved only for Ahead — Behind shows Base's commits and never has WT files.
-					signal?.throwIfAborted();
-					const svc = this.container.git.getRepositoryService(repoPath);
-
-					const [worktreeResult, mergeBaseResult] = await Promise.allSettled([
-						side === 'ahead' && options?.includeWorkingTree === true
-							? this.resolveRightRefWorktreePath(repoPath, rightRef, signal)
-							: Promise.resolve(undefined),
-						options?.mergeBase != null
-							? Promise.resolve(options.mergeBase)
-							: svc.refs.getMergeBase(leftRef, rightRef),
-					]);
-					signal?.throwIfAborted();
-					const rightRefWorktreePath = getSettledValue(worktreeResult);
-					const mergeBase = getSettledValue(mergeBaseResult) ?? undefined;
-
-					// Commit log uses the 2-dot range — commits reachable from one side but not the
-					// other (equivalent to merge-base-anchored for divergent branches; no need to
-					// resolve mergeBase first).
-					const commitRange = side === 'ahead' ? `${leftRef}..${rightRef}` : `${rightRef}..${leftRef}`;
-					// File diff is merge-base-anchored when available — Ahead shows `mergeBase..Compare`
-					// (only what Compare contributed since divergence), Behind shows `mergeBase..Base`
-					// (only what Base contributed). Falls back to the 2-dot symmetric form when there
-					// is no merge base.
-					const target = side === 'ahead' ? rightRef : leftRef;
-					const diffRange = mergeBase != null ? `${mergeBase}..${target}` : commitRange;
-					// Promise.allSettled per project convention — see the sibling
-					// `getBranchComparisonSummary` for rationale.
-					const limit = options?.limit ?? 100;
-					const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
-						svc.commits.getLog(commitRange, { limit: limit, includeFiles: false }, signal),
-						svc.diff.getDiffStatus(diffRange),
-						rightRefWorktreePath != null
-							? this.getBranchComparisonWorkingTreeFiles(rightRefWorktreePath, true, signal)
-							: Promise.resolve([]),
-					]);
-					signal?.throwIfAborted();
-					const log = getSettledValue(logResult);
-					const comparisonFiles = getSettledValue(comparisonFilesResult);
-					const workingTreeFiles = getSettledValue(workingTreeFilesResult) ?? [];
-					const hasMore = log?.hasMore ?? false;
-
-					const mappedFiles: BranchComparisonFile[] = [];
-					for (const f of comparisonFiles ?? []) {
-						mappedFiles.push({
-							repoPath: repoPath,
-							path: f.path,
-							status: f.status,
-							originalPath: f.originalPath,
-							staged: false,
-							stats: f.stats,
-						});
-					}
-					// Ahead-tab top-level shows the committed Ahead range only; WT files are
-					// reachable by scoping to the WIP pseudo-commit injected below.
-					const allFilesForSide = mappedFiles;
-
-					const commits: BranchComparisonCommit[] = [];
-					if (workingTreeFiles.length) {
-						commits.push({
-							sha: uncommitted,
-							shortSha: 'Working',
-							message: 'Working Changes',
-							author: '',
-							date: '',
-							files: workingTreeFiles,
-						});
-					}
-
-					for (const [sha, commit] of log?.commits ?? []) {
-						const commitStats = commit.stats;
-						const entry: BranchComparisonCommit = {
-							sha: sha,
-							shortSha: sha.substring(0, 7),
-							message: commit.message ?? '',
-							author: commit.author?.name ?? '',
-							authorEmail: commit.author?.email,
-							date: commit.author?.date != null ? String(commit.author.date) : '',
-							additions: commitStats?.additions,
-							deletions: commitStats?.deletions,
-						};
-						this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
-						// Committer identity only when the committer differs from the author (name OR email,
-						// mirroring gl-commit-author.hasDistinctCommitter).
-						const committerEmail = commit.committer?.email;
-						if (
-							(commit.committer?.name != null && commit.committer.name !== commit.author?.name) ||
-							(committerEmail != null &&
-								committerEmail.toLowerCase() !== commit.author?.email?.toLowerCase())
-						) {
-							entry.committerName = commit.committer?.name;
-							entry.committerEmail = committerEmail;
-							entry.committerDate =
-								commit.committer?.date != null ? String(commit.committer.date) : undefined;
-							this.setAvatarIfCached(entry, committerEmail, sha, repoPath, 'committerAvatarUrl');
-						}
-						commits.push(entry);
-					}
-
-					return { commits: commits, files: allFilesForSide, hasMore: hasMore };
-				},
-				getContributorsForBranchComparison: async (repoPath, leftRef, rightRef, scope, signal) => {
-					signal?.throwIfAborted();
-					const svc = this.container.git.getRepositoryService(repoPath);
-
-					// Two-dot for ahead/behind (commits only on one side); three-dot for the
-					// symmetric "all" union — matches the ranges used by `getBranchComparisonSide`.
-					// Convention: leftRef = Base, rightRef = Compare.
-					//  - Ahead = Base..Compare (commits Compare contributed)
-					//  - Behind = Compare..Base (commits Base contributed)
-					const rev =
-						scope === 'ahead'
-							? `${leftRef}..${rightRef}`
-							: scope === 'behind'
-								? `${rightRef}..${leftRef}`
-								: `${leftRef}...${rightRef}`;
-
-					const result = await svc.contributors.getContributors(rev, { stats: true }, signal);
-					signal?.throwIfAborted();
-
-					const contributors: BranchComparisonContributor[] = [];
-					for (const c of result.contributors) {
-						const stats = c.stats;
-						const entry: BranchComparisonContributor = {
-							name: c.name,
-							email: c.email,
-							avatarUrl: c.avatarUrl,
-							commits: c.contributionCount,
-							additions: stats?.additions ?? 0,
-							deletions: stats?.deletions ?? 0,
-							files: typeof stats?.files === 'number' ? stats.files : 0,
-							current: c.current || undefined,
-						};
-						if (entry.avatarUrl == null) {
-							this.setAvatarIfCached(entry, c.email, undefined, undefined);
-						}
-						contributors.push(entry);
-					}
-
-					return { contributors: contributors };
-				},
+				getBranchComparisonSummary: (repoPath, leftRef, rightRef, options, signal) =>
+					this.getBranchComparisonSummary(repoPath, leftRef, rightRef, options, signal),
+				getBranchComparisonSide: (repoPath, leftRef, rightRef, side, options, signal) =>
+					this.getBranchComparisonSide(repoPath, leftRef, rightRef, side, options, signal),
+				getContributorsForBranchComparison: (repoPath, leftRef, rightRef, scope, signal) =>
+					this.getContributorsForBranchComparison(repoPath, leftRef, rightRef, scope, signal),
 				chooseRef: async (repoPath, title, picked) => {
 					const result = await showReferencePicker2(repoPath, title, 'Choose a branch or tag', {
 						include: ['branches', 'tags'],
@@ -2445,6 +787,1766 @@ export class GraphInspectServices {
 				},
 			},
 		};
+	}
+
+	private async getBranchCommits(
+		repoPath: string,
+		options?: BranchCommitsOptions,
+		signal?: AbortSignal,
+	): Promise<BranchCommitsResult> {
+		signal?.throwIfAborted();
+		const branchCommitsPageSize = 100;
+		const limit = options?.limit ?? branchCommitsPageSize;
+		try {
+			const svc = this.container.git.getRepositoryService(repoPath);
+			const branch = await svc.branches.getBranch();
+			if (!branch) return { commits: [], hasMore: false };
+
+			const upstreamRef = branch.upstream?.name;
+			const hasUpstream = upstreamRef != null && !branch.upstream?.missing;
+			const aheadCount = hasUpstream ? (branch.upstream!.state.ahead ?? 0) : 0;
+
+			// Always compute merge base against the base branch — even when an upstream
+			// exists — so the picker can extend the scope into already-pushed commits.
+			let mergeBaseSha: string | undefined;
+			let baseBranch: string | undefined;
+			try {
+				baseBranch =
+					(await svc.branches.getBaseBranchName?.(branch.name)) ??
+					(await svc.branches.getDefaultBranchName?.());
+			} catch {
+				// APIs may not be available
+			}
+
+			const candidates = baseBranch ? [baseBranch] : ['main', 'master', 'develop'];
+			for (const candidate of candidates) {
+				if (candidate === branch.name) continue;
+
+				try {
+					const result = await svc.refs.getMergeBase(branch.ref, candidate);
+					if (result) {
+						mergeBaseSha = result;
+						break;
+					}
+				} catch (ex) {
+					Logger.debug(`getMergeBase(${branch.ref}, ${candidate}) failed: ${String(ex)}`, 'graph.compose');
+				}
+			}
+
+			// Fallback: if no base branch matched but we have an upstream, use the
+			// upstream tip — preserves prior behavior so we never regress.
+			if (mergeBaseSha == null && hasUpstream && upstreamRef != null) {
+				mergeBaseSha = upstreamRef;
+			}
+
+			// On Load more (`includePastMergeBase`) walk the full branch log so ancestor
+			// history past the merge base is brought in. Otherwise scope to the
+			// merge-base..branch range so the picker shows the branch-divergence window.
+			let logRef: string;
+			if (options?.includePastMergeBase) {
+				mergeBaseSha = undefined;
+				logRef = branch.ref;
+			} else {
+				logRef = mergeBaseSha ? `${mergeBaseSha}..${branch.ref}` : branch.ref;
+			}
+			// Request one extra so we can detect "more available" without a separate count.
+			let log = await svc.commits.getLog(logRef, { limit: limit + 1 });
+			signal?.throwIfAborted();
+
+			// Merge base equals (or is reachable from) the branch tip — no commits in
+			// scope. Fall back to a plain branch log so the picker shows a page of recent
+			// commits scoped to this branch (not HEAD, which may be a different worktree).
+			if (mergeBaseSha != null && !log?.commits?.size) {
+				mergeBaseSha = undefined;
+				logRef = branch.ref;
+				log = await svc.commits.getLog(logRef, { limit: limit + 1 });
+				signal?.throwIfAborted();
+			}
+
+			if (!log?.commits?.size) return { commits: [], hasMore: false };
+
+			const total = log.commits.size;
+			// Always offer Load more while in merge-base scope so the user can opt in to
+			// ancestor history even when the page isn't full. Once we've extended past the
+			// merge base, `hasMore` reflects the actual branch log size — when it returns
+			// false on a subsequent Load more, the button disappears.
+			const hasMore = mergeBaseSha != null || total > limit;
+
+			const entries: BranchCommitEntry[] = [];
+			let index = 0;
+			for (const [sha, commit] of log.commits) {
+				if (index >= limit) break;
+
+				const fileCount =
+					commit.stats?.files != null
+						? typeof commit.stats.files === 'number'
+							? commit.stats.files
+							: commit.stats.files.added + commit.stats.files.deleted + commit.stats.files.changed
+						: 0;
+
+				// With upstream: commits within ahead count are unpushed, rest are pushed
+				// Without upstream: all branch commits since merge base are unpushed
+				const isPushed = hasUpstream ? index >= aheadCount : false;
+
+				const entry: BranchCommitEntry = {
+					sha: sha,
+					message: commit.message ?? '',
+					author: commit.author?.name ?? '',
+					date: commit.author?.date != null ? String(commit.author.date) : '',
+					fileCount: fileCount,
+					additions: commit.stats?.additions,
+					deletions: commit.stats?.deletions,
+					pushed: isPushed,
+				};
+				entries.push(entry);
+
+				this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
+				index++;
+			}
+
+			// Resolve the merge base commit message
+			let mergeBase: BranchCommitsResult['mergeBase'];
+			if (mergeBaseSha) {
+				try {
+					const mbCommit = await svc.commits.getCommit(mergeBaseSha);
+					signal?.throwIfAborted();
+					if (mbCommit) {
+						const mbEntry: NonNullable<typeof mergeBase> = {
+							sha: mbCommit.sha,
+							message: mbCommit.message?.split('\n')[0] ?? '',
+							author: mbCommit.author?.name,
+							date: mbCommit.author?.date != null ? String(mbCommit.author.date) : undefined,
+						};
+						this.setAvatarIfCached(mbEntry, mbCommit.author?.email, mbCommit.sha, repoPath);
+						mergeBase = mbEntry;
+					}
+				} catch {
+					// If we can't resolve it, just use the SHA
+					mergeBase = { sha: mergeBaseSha, message: '' };
+				}
+			}
+
+			return { commits: entries, mergeBase: mergeBase, hasMore: hasMore };
+		} catch {
+			return { commits: [], hasMore: false };
+		}
+	}
+
+	private async getCompareDiff(
+		repoPath: string,
+		from: string,
+		to: string,
+		signal?: AbortSignal,
+	): Promise<CompareDiff | undefined> {
+		signal?.throwIfAborted();
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const comparison = `${from}..${to}`;
+		const [filesResult, countResult] = await Promise.allSettled([
+			svc.diff.getDiffStatus(comparison),
+			// The DIFF is directional (the swap button owns that), but the between-count is not:
+			// which sha lands in `from` follows the order the user clicked the two rows in, so a
+			// one-sided `from..to` count reads 0 whenever they picked the newer commit first.
+			// `--left-right` returns both sides in one call; the larger side is the ancestry
+			// distance, and it is 1 for diverged siblings — which have nothing in between.
+			svc.commits.getLeftRightCommitCount(createRevisionRange(from, to, '...'), undefined, signal),
+		]);
+		signal?.throwIfAborted();
+		const files = getSettledValue(filesResult);
+		const counts = getSettledValue(countResult);
+		let additions = 0;
+		let deletions = 0;
+		const changedFiles = { added: 0, deleted: 0, changed: 0 };
+		const mappedFiles =
+			files?.map(f => {
+				if (f.stats != null) {
+					additions += f.stats.additions;
+					deletions += f.stats.deletions;
+				}
+				switch (f.status) {
+					case 'A':
+					case '?':
+						changedFiles.added++;
+						break;
+					case 'D':
+						changedFiles.deleted++;
+						break;
+					default:
+						changedFiles.changed++;
+						break;
+				}
+				return {
+					repoPath: repoPath,
+					path: f.path,
+					status: f.status,
+					originalPath: f.originalPath,
+					staged: false,
+					stats: f.stats,
+				};
+			}) ?? [];
+		return {
+			files: mappedFiles,
+			stats: files != null ? { files: changedFiles, additions: additions, deletions: deletions } : undefined,
+			commitCount: counts != null ? Math.max(counts.left, counts.right) : undefined,
+		};
+	}
+
+	private async generateChangelogCompare(
+		repoPath: string,
+		fromRef: string,
+		toRef: string,
+		signal?: AbortSignal,
+	): Promise<void> {
+		// Call `generateChangelogAndOpenMarkdownDocument` directly rather than going
+		// through `executeCommand('gitlens.ai.generateChangelog', …)`. The command
+		// indirection breaks the await chain on the webview-side IPC — the proxy
+		// resolves before `execute()`'s inner awaits settle, clearing the webview's
+		// busy state in milliseconds even though the AI is still running. Calling the
+		// markdown-generator directly keeps the host method pinned through the full AI
+		// cycle, mirroring the `explainCompare` pattern below.
+		try {
+			signal?.throwIfAborted();
+			const svc = this.container.git.getRepositoryService(repoPath);
+			const baseRef = createReference(fromRef, repoPath, { refType: 'revision' });
+			const headRef = createReference(toRef, repoPath, { refType: 'revision' });
+			const mergeBase = await svc.refs.getMergeBase(headRef.ref, baseRef.ref);
+
+			await generateChangelogAndOpenMarkdownDocument(
+				this.container,
+				lazy(async () => {
+					const range: AIGenerateChangelogChanges['range'] = {
+						base: mergeBase
+							? {
+									ref: mergeBase,
+									label:
+										mergeBase === baseRef.ref
+											? `\`${shortenRevision(mergeBase)}\``
+											: `\`${baseRef.ref}@${shortenRevision(mergeBase)}\``,
+								}
+							: { ref: baseRef.ref, label: `\`${shortenRevision(baseRef.ref)}\`` },
+						head: {
+							ref: headRef.ref,
+							label: `\`${shortenRevision(headRef.ref)}\``,
+						},
+					};
+					const log = await svc.commits.getLog(
+						createRevisionRange(mergeBase ?? baseRef.ref, headRef.ref, '..'),
+					);
+					if (!log?.commits?.size) return { changes: [], range: range };
+					return getChangesForChangelog(this.container, range, log);
+				}),
+				{ source: 'graph', detail: 'compare' },
+				{ progress: { location: ProgressLocation.Notification } },
+			);
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'generateChangelogCompare');
+		}
+	}
+
+	private async explainCompare(
+		repoPath: string,
+		fromSha: string,
+		toSha: string,
+		prompt?: string,
+		signal?: AbortSignal,
+	): Promise<ExplainResult> {
+		try {
+			signal?.throwIfAborted();
+			const svc = this.container.git.getRepositoryService(repoPath);
+			const data = await prepareCompareDataForAIRequest(svc, toSha, fromSha);
+			if (data == null) {
+				return { error: { message: 'No changes found between the selected commits' } };
+			}
+
+			const fromShort = shortenRevision(fromSha);
+			const toShort = shortenRevision(toSha);
+			const changes = {
+				diff: data.diff,
+				message: `Changes between ${fromShort} and ${toShort}:\n\n${data.logMessages}`,
+				instructions: prompt || undefined,
+			};
+
+			const result = await this.container.ai.actions.explainChanges(
+				changes,
+				{ source: 'graph', context: { type: 'compare' } },
+				{
+					progress: {
+						location: ProgressLocation.Notification,
+						title: `Explaining changes between ${fromShort}..${toShort}...`,
+					},
+				},
+			);
+
+			if (result === 'cancelled' || result == null) {
+				return { result: { summary: '', body: '' } };
+			}
+
+			const { promise, model } = result;
+
+			openExplainDocument(
+				this.container,
+				promise,
+				`/explain/compare/${fromSha}/${toSha}`,
+				model,
+				'explain-compare',
+				{
+					header: {
+						title: 'Comparison Summary',
+						subtitle: `${fromShort}..${toShort}`,
+					},
+					command: {
+						label: 'Explain Comparison',
+						name: 'gitlens.ai.explainCommit' as const,
+						args: { repoPath: repoPath, rev: toSha, source: { source: 'graph' } },
+					},
+				},
+			);
+
+			// Keep the webview's busy state pinned for the full generation cycle —
+			// `openExplainDocument` fire-and-forgets `promise` to stream content into the
+			// already-opened placeholder doc, so without this await the busy signal would
+			// clear as soon as the placeholder doc opens (not when the AI actually
+			// finishes). Errors are already surfaced into the doc by openExplainDocument's
+			// own .then handler, so we just swallow rejections here.
+			await promise.catch(() => undefined);
+
+			return { result: { summary: '', body: '' } };
+		} catch (ex) {
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		}
+	}
+
+	private async reviewChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt?: string,
+		excludedFiles?: string[],
+		signal?: AbortSignal,
+		options?: ReviewChangesOptions,
+	): Promise<ReviewResult> {
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		try {
+			signal?.throwIfAborted();
+
+			const reviewType = this.getReviewTypeForScope(scope);
+			const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+
+			// A follow-up (refine) continues the cached conversation against the same
+			// diff; anything else — including a refine request whose conversation is no
+			// longer cached — starts fresh
+			const exchanges = options?.mode === 'refine' ? this._reviewHistoryCache.get(diffCacheKey) : undefined;
+			const followUp = exchanges?.length ? { exchanges: exchanges } : undefined;
+			if (followUp == null) {
+				this._reviewHistoryCache.delete(diffCacheKey);
+				this._graphDetailsDiffCache.delete(diffCacheKey);
+			}
+
+			const excluded = this.getNormalizedExclusions(excludedFiles);
+
+			const cachedData = followUp != null ? this._graphDetailsDiffCache.get(diffCacheKey) : undefined;
+			const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
+			if (!data) return { error: { message: 'No changes found.' } };
+
+			if (cachedData == null) {
+				// Drop anything excluded that still made it into the diff (cached entries are already
+				// filtered). `getDiffForScope` already kept excluded untracked files out of the
+				// collection, so this covers what it can't: tracked working-tree files, and
+				// commit/compare diffs.
+				if (excluded != null) {
+					data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
+					if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
+				}
+
+				this._graphDetailsDiffCache.set(diffCacheKey, {
+					diff: data.diff,
+					message: data.message,
+					context: data.context,
+				});
+			} else {
+				this._graphDetailsDiffCache.touch(diffCacheKey);
+			}
+
+			// Adaptive strategy: single-pass for small diffs, two-pass for large. The
+			// threshold is scoped to the selected model's input-context budget — a 1M-
+			// token model happily single-passes a 100KB diff that an 8k-context model
+			// couldn't. `{ silent: true }` avoids prompting the user from a background
+			// fetch; on an unset model the helper falls back to a conservative default.
+			// Pass `scope: 'review'` so the threshold matches the model that the
+			// downstream `reviewChanges` action will actually run.
+			// A follow-up keeps the conversation's original strategy — its replayed
+			// exchanges were produced under it — even if a model switch would now
+			// decide differently.
+			const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
+			signal?.throwIfAborted();
+			const useSinglePass =
+				followUp != null
+					? followUp.exchanges.at(-1)?.result.mode === 'single-pass'
+					: shouldUseSinglePass(data.diff, aiModel);
+			if (useSinglePass) {
+				const result = await this.container.ai.actions.reviewChanges(
+					{
+						diff: data.diff,
+						message: data.message,
+						context: data.context,
+						instructions: prompt || undefined,
+					},
+					{ source: 'graph', context: { type: reviewType, mode: 'single-pass' } },
+					{ cancellation: cancellation, followUp: followUp },
+				);
+
+				if (result === 'cancelled' || result == null) {
+					return { error: { message: 'Review was cancelled.' } };
+				}
+
+				const response = await result.promise;
+				if (response === 'cancelled' || response == null) {
+					return { error: { message: 'Review was cancelled.' } };
+				}
+
+				this.recordReviewExchange(diffCacheKey, prompt, response.result, followUp != null);
+				return { result: response.result };
+			}
+
+			// Two-pass: build file manifest from the (already filtered) diff
+			const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
+				() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
+			);
+			signal?.throwIfAborted();
+			// Pass 1 has nothing but this manifest to rank focus areas from — no diff content — so
+			// every field has to be what git would report: the parsed status per file (not a blanket
+			// "modified", which reads an added file as having a previous version to compare against),
+			// and changed-line counts that exclude unchanged context (see
+			// `countDiffInsertionsAndDeletions`).
+			const parsed = parseGitDiff(data.diff);
+			const parsedFiles = parsed.files.map(f => {
+				const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
+				return {
+					path: f.path,
+					status: f.status,
+					additions: insertions,
+					deletions: deletions,
+				};
+			});
+			const fileManifest = JSON.stringify(parsedFiles);
+
+			const overviewResult = await this.container.ai.actions.reviewOverview(
+				{
+					files: fileManifest,
+					message: data.message,
+					context: data.context,
+					instructions: prompt || undefined,
+				},
+				{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
+				{ cancellation: cancellation, followUp: followUp },
+			);
+
+			if (overviewResult === 'cancelled' || overviewResult == null) {
+				return { error: { message: 'Review was cancelled.' } };
+			}
+
+			const overviewResponse = await overviewResult.promise;
+			if (overviewResponse === 'cancelled' || overviewResponse == null) {
+				return { error: { message: 'Review was cancelled.' } };
+			}
+
+			this.recordReviewExchange(diffCacheKey, prompt, overviewResponse.result, followUp != null);
+			return { result: overviewResponse.result };
+		} catch (ex) {
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		} finally {
+			disposeCancellation();
+		}
+	}
+
+	private async reviewFocusArea(
+		repoPath: string,
+		scope: ScopeSelection,
+		focusAreaId: string,
+		focusAreaFiles: string[],
+		overviewContext: string,
+		prompt?: string,
+		excludedFiles?: string[],
+		signal?: AbortSignal,
+	): Promise<ReviewDetailResult> {
+		// Registry-tracked like every other AI run (see `reviewChanges`): a superseded focus-area
+		// review must stop consuming the model when the webview aborts, and `dispose()` must be
+		// able to cancel it on teardown.
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		try {
+			signal?.throwIfAborted();
+
+			const reviewType = this.getReviewTypeForScope(scope);
+			const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+			const excluded = this.getNormalizedExclusions(excludedFiles);
+
+			const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
+			const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
+			if (!data) return { error: { message: 'No changes found for this focus area.' } };
+
+			if (cachedData == null) {
+				// Exclusion-filter before caching, matching what `reviewChanges` stores under this
+				// same key. The focus-area filter below would keep excluded files out of *this*
+				// request's prompt regardless, but a cache entry that still carried them would be
+				// handed to a later `reviewChanges` refine, which trusts cached entries as filtered.
+				data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
+				this._graphDetailsDiffCache.set(diffCacheKey, data);
+			} else {
+				this._graphDetailsDiffCache.touch(diffCacheKey);
+			}
+
+			// Filter diff to only include focus area files, excluding user-excluded files. Both
+			// sides normalized — the focus-area list names diff paths, so it has to be put in the
+			// same shape as the exclusion set (see `getNormalizedExclusions`) before they can meet.
+			const { filterDiffFiles } = await loadChunk(
+				() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
+			);
+			const filteredDiff = await filterDiffFiles(data.diff, () =>
+				excluded?.size ? focusAreaFiles.filter(f => !excluded.has(normalizePath(f))) : focusAreaFiles,
+			);
+			signal?.throwIfAborted();
+
+			if (!filteredDiff?.trim()) {
+				return { error: { message: 'No diff content found for the specified files.' } };
+			}
+
+			const result = await this.container.ai.actions.reviewFocusArea(
+				{
+					diff: filteredDiff,
+					overview: overviewContext,
+					message: data.message,
+					focusArea: focusAreaFiles.join(', '),
+					context: data.context,
+					instructions: prompt || undefined,
+				},
+				focusAreaId,
+				{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
+				{ cancellation: cancellation },
+			);
+
+			if (result === 'cancelled' || result == null) {
+				return { error: { message: 'Review was cancelled.' } };
+			}
+
+			const response = await result.promise;
+			if (response === 'cancelled' || response == null) {
+				return { error: { message: 'Review was cancelled.' } };
+			}
+
+			return { result: response.result };
+		} catch (ex) {
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		} finally {
+			disposeCancellation();
+		}
+	}
+
+	private async addressReviewFindingsInChat(args: AddressReviewFindingsArgs): Promise<AddressReviewFindingsResult> {
+		try {
+			if ((await getSupportedAgents(this.container)).length === 0) {
+				void window.showWarningMessage(
+					'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
+				);
+				await env.clipboard.writeText(args.reviewMarkdown);
+				return { ok: false, reason: 'no-agents' };
+			}
+
+			// `{ silent: true }` avoids prompting from the RPC. The webview gates the
+			// "Send to agent" button on `aiModel != null`, so this is a defensive check
+			// for the race where the model was cleared between the gate and the call.
+			// `scope: 'review'` matches the model the review action used to produce the
+			// findings being forwarded to chat.
+			const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
+			if (aiModel == null) {
+				void window.showWarningMessage('An AI model must be selected before sending review findings to chat.');
+				return { ok: false, reason: 'no-ai-model' };
+			}
+
+			const { prompt } = await this.container.ai.getPrompt('address-review-findings', undefined, {
+				reviewMarkdown: args.reviewMarkdown,
+				scopeLabel: args.scopeLabel,
+				granularity: args.granularity,
+				instructions: args.instructions,
+			});
+
+			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
+
+			// Review-level is a conversational opener; area/finding-level are self-contained
+			// tasks that should auto-submit.
+			await executeCommand('gitlens.runPromptInAgent', {
+				prompt: prompt,
+				cwd: args.repoPath,
+				mode: 'agent',
+				autoExecute: args.granularity !== 'review',
+				source: 'graph',
+			} as RunPromptInAgentCommandArgs);
+			return { ok: true };
+		} catch (ex) {
+			const message = ex instanceof Error ? ex.message : String(ex);
+			void window.showWarningMessage(`Unable to send review findings to chat: ${message}`);
+			return { ok: false, reason: 'error', message: message };
+		}
+	}
+
+	private async generateCommitMessage(
+		repoPath: string,
+		currentMessage: string | undefined,
+		amend: { sha: string; all: boolean } | undefined,
+		signal?: AbortSignal,
+	): Promise<{ summary: string; body?: string } | undefined> {
+		// Pass the Repository (not a raw diff) so the AI service applies its
+		// staged-first → unstaged-fallback convention. The previous implementation
+		// always grabbed the full uncommitted diff (staged + unstaged), which produced
+		// messages that didn't match what the user was about to commit on a
+		// staging-aware repo.
+		// Omit `progress` so no VS Code notification is shown — the WIP panel drives
+		// its own inline generating UI and exposes cancel via the sparkle button.
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		// Cancellable by both the webview signal and host `dispose()` (via the registry).
+		const cancellationSignal = toAbortSignal(cancellation);
+		try {
+			const repo = this.container.git.getRepository(repoPath);
+			if (repo == null) return undefined;
+
+			// When amending, generate against what the amend will actually produce: the
+			// existing commit's content plus the changes being folded in. Diff from the
+			// amend target's parent (`sha^`) to the index (staged-only) or working tree
+			// (`all`), matching the staged-vs-all decision the commit itself makes. If
+			// that yields nothing (a message-only amend with no new changes), fall back
+			// to the existing commit's own diff so the AI still has content to describe.
+			let changesOrRepo: GlRepository | string = repo;
+			if (amend != null) {
+				const from = `${amend.sha}^`;
+				let diff = await repo.git.diff.getDiff?.(
+					amend.all ? uncommitted : uncommittedStaged,
+					from,
+					undefined,
+					cancellationSignal,
+				);
+				if (!diff?.contents) {
+					diff = await repo.git.diff.getDiff?.(amend.sha, undefined, undefined, cancellationSignal);
+				}
+				if (diff?.contents) {
+					changesOrRepo = diff.contents;
+				}
+			}
+
+			const result = await this.container.ai.actions.generateCommitMessage(
+				changesOrRepo,
+				{ source: 'graph-details' },
+				{ context: currentMessage, cancellation: cancellation },
+			);
+			if (result === 'cancelled' || result == null) return undefined;
+
+			return result.result;
+		} catch (ex) {
+			// Surface the failure instead of silently returning so regressions are visible.
+			Logger.error(ex, 'graph.generateCommitMessage');
+			return undefined;
+		} finally {
+			disposeCancellation();
+		}
+	}
+
+	private async composeChanges(
+		repoPath: string,
+		sessionKey: ComposeSessionKey,
+		scope: ScopeSelection,
+		instructions?: string,
+		excludedFiles?: string[],
+		aiExcludedFiles?: string[],
+		signal?: AbortSignal,
+		options?: ComposeChangesOptions,
+	): Promise<ComposeResult> {
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		// Hoisted so the catch block can `discardCachedPlan` if any step after the
+		// library-side plan registration throws — otherwise an exception after the
+		// `generatePlan...` cache write leaks the cached plan in the compose-tools
+		// library with no path to discard it.
+		let cacheKeyToRegister: string | undefined;
+		// Set once a refine has produced its replacement plan, which is the point the library drops
+		// the prior one. Lets the catch tell that case from a failed cold start, which drops nothing.
+		let refineSwappedPlan = false;
+		try {
+			signal?.throwIfAborted();
+
+			if (scope.type !== 'wip') {
+				return {
+					error: {
+						message: 'Compose supports working changes and commit ranges on the current branch.',
+					},
+				};
+			}
+
+			const svc = this.container.git.getRepositoryService(repoPath);
+
+			// AI simulator bypass — `compose-tools`' validators reject synthetic AI
+			// responses (they require real diff-hunk indices), so the simulator can't
+			// drive a successful compose end-to-end through the real pipeline. When the
+			// simulator is active we synthesize a `planResult` from the working tree
+			// directly and reuse the same downstream conversion + virtual session wiring.
+			// `commitCompose` is intentionally out of scope (no cache key is registered);
+			// the bypass surfaces "No active compose plan" if the user tries to commit.
+			// Gated on DEBUG so the bypass is unreachable in production builds even if a
+			// user manually flips `gitlens.ai.model` to `simulator:*` in settings.json.
+			const simulated = DEBUG && isComposeSimulatorActive();
+
+			const composeTools = simulated ? undefined : await this.getOrCreateComposeToolsForGraph();
+			if (!simulated && composeTools == null) {
+				return { error: { message: 'Compose is not available in this environment.' } };
+			}
+
+			// Refine path: chat-style continuation against the cached plan. NO git operations, NO
+			// re-analysis. Gated on the webview's key matching the plan we still hold for this
+			// session: a handle that outlived its plan (host restarted between turns, or the
+			// webview retried a cold run that already discarded it) falls through to a fresh
+			// generate rather than failing the library's cache lookup.
+			const trackedCacheKey = this._activeComposeCacheKeys.get(sessionKey);
+			const priorCacheKey = options?.priorCacheKey ?? trackedCacheKey;
+			const useRefinePath =
+				!simulated &&
+				options?.mode === 'refine' &&
+				priorCacheKey != null &&
+				priorCacheKey === trackedCacheKey &&
+				composeTools != null;
+
+			if (!useRefinePath && trackedCacheKey != null) {
+				// Starting fresh while we still hold a plan means that plan is abandoned — the user
+				// walked back and is starting over — so its conversation ends with it. Holding NO
+				// plan instead means the prior attempt errored or was cancelled, and the
+				// `getOrCreate` below reuses that conversation rather than starting a second one.
+				composeTools?.discardCachedPlan(trackedCacheKey);
+				this._activeComposeCacheKeys.delete(sessionKey);
+				this.endComposeConversation(sessionKey);
+			}
+
+			// One conversation ID per compose session — the library's validation retries and
+			// every refine of the resulting plan reuse it until the plan is applied or
+			// abandoned, so the whole session is tracked as one conversation instead of one
+			// per AI request.
+			const conversationId = this.getOrCreateComposeConversationId(sessionKey);
+
+			this._composeProgressEvent.fire({
+				phase: useRefinePath ? 'refining' : 'collecting',
+				message: useRefinePath ? 'Refining commits…' : 'Preparing changes…',
+			});
+
+			const planResult = simulated
+				? await runSimulatedComposeChanges({
+						svc: svc,
+						scope: scope,
+						signal: signal,
+						onProgress: event => {
+							this._composeProgressEvent.fire({
+								phase: event.phase,
+								message: event.message,
+							});
+						},
+					})
+				: useRefinePath
+					? await composeTools.refinePlanForGraphDetails({
+							svc: svc,
+							priorCacheKey: priorCacheKey,
+							customInstructions: instructions,
+							excludedCommitIds: options?.excludedCommitIds,
+							cancellation: cancellation,
+							conversationId: conversationId,
+							telemetrySource: { source: 'graph' },
+							onProgress: event => {
+								this._composeProgressEvent.fire({
+									phase: event.phase,
+									message: event.message,
+								});
+							},
+						})
+					: await composeTools!.generatePlanForGraphDetails({
+							svc: svc,
+							scope: scope,
+							customInstructions: instructions,
+							excludedFiles: excludedFiles,
+							aiExcludedFiles: aiExcludedFiles,
+							cancellation: cancellation,
+							conversationId: conversationId,
+							telemetrySource: { source: 'graph' },
+							onProgress: event => {
+								this._composeProgressEvent.fire({
+									phase: event.phase,
+									message: event.message,
+								});
+							},
+						});
+			signal?.throwIfAborted();
+
+			// The library cached the plan keyed by `planResult.cacheKey` once
+			// `generatePlan...` resolved — we must `discardCachedPlan(key)` if the
+			// downstream steps throw, otherwise the library-side plan leaks (the key is
+			// our only handle to it). Tracked in the hoisted `cacheKeyToRegister`
+			// until we know the full pipeline succeeded; only then do we register it
+			// for `commitCompose` to apply.
+			cacheKeyToRegister = simulated ? undefined : (planResult as { cacheKey: string }).cacheKey;
+			refineSwappedPlan = useRefinePath;
+
+			// getCommit('HEAD') is optional base metadata — tolerate its failure.
+			const headCommitPromise = svc.commits.getCommit('HEAD').catch(() => undefined);
+			const commits = this.deriveComposeCommits(repoPath, planResult);
+			signal?.throwIfAborted();
+
+			const headCommit = await headCommitPromise;
+
+			const baseAnchorSha = planResult.kind === 'wip-only' ? planResult.headSha : planResult.rewriteFromSha;
+			const baseAnchorCommit =
+				baseAnchorSha === planResult.headSha
+					? headCommit
+					: baseAnchorSha === rootSha
+						? undefined
+						: await svc.commits.getCommit(baseAnchorSha);
+			signal?.throwIfAborted();
+
+			// Register the cache key NOW that the full pipeline succeeded.
+			// Anything that threw between `generatePlan...` and here lands in the
+			// catch below, where we explicitly `discardCachedPlan` so the
+			// library doesn't leak the abandoned plan.
+			if (cacheKeyToRegister != null) {
+				this._activeComposeCacheKeys.set(sessionKey, cacheKeyToRegister);
+			}
+
+			void this.container.usage.track('action:gitlens.ai.generateCommits:happened');
+
+			return {
+				result: {
+					commits: commits.toReversed(),
+					baseCommit: {
+						sha: baseAnchorSha,
+						message: baseAnchorCommit?.message?.split('\n')[0] ?? '',
+						author: baseAnchorCommit?.author?.name,
+						date: baseAnchorCommit?.author?.date?.toISOString(),
+						rewriteFromSha: planResult.rewriteFromSha,
+						kind: planResult.kind,
+						selectedShas: planResult.selectedShas,
+					},
+					cacheKey: cacheKeyToRegister,
+				},
+			};
+		} catch (ex) {
+			// Discard the library-cached plan that `generatePlan...` registered —
+			// this throw path leaves us with no way for the user to apply it.
+			// `composeTools` is scoped to the try block; re-fetch the (cached) singleton
+			// for the discard call here.
+			if (cacheKeyToRegister != null) {
+				this._composeToolsForGraph?.discardCachedPlan(cacheKeyToRegister);
+				if (refineSwappedPlan) {
+					// The refine swapped the plan before this throw, so the key we still have registered
+					// names a plan the library has already dropped. Let go of it, or the next attempt's
+					// refine gate matches a dead key and fails the lookup instead of starting fresh. The
+					// conversation stays — the user is retrying this session, not abandoning it.
+					this._activeComposeCacheKeys.delete(sessionKey);
+				}
+			}
+			if (isCancellationError(ex) || isComposeCancelled(ex)) {
+				return { cancelled: true };
+			}
+			return {
+				error: {
+					message: ex instanceof Error ? ex.message : String(ex),
+					kind: isComposeInputError(ex) ? 'invalid-scope' : undefined,
+				},
+			};
+		} finally {
+			this._composeProgressEvent.fire(undefined);
+			disposeCancellation();
+		}
+	}
+
+	private async regenerateProposedCommitMessage(
+		sessionKey: ComposeSessionKey,
+		cacheKey: string,
+		commitId: string,
+		signal?: AbortSignal,
+	): Promise<RegenerateProposedCommitMessageResult> {
+		const composeTools = await this.getOrCreateComposeToolsForGraph();
+		if (composeTools == null) {
+			return { error: { message: 'Compose is not available in this environment.' } };
+		}
+
+		// Defend against a stale cacheKey (refine swaps keys, panel close discards):
+		// the panel must always send the active key from its workflow signal. A miss
+		// surfaces a recoverable error so the user can simply re-run compose.
+		const activeKey = this._activeComposeCacheKeys.get(sessionKey);
+		if (activeKey !== cacheKey) {
+			return {
+				error: { message: 'This compose plan is no longer active; please regenerate.' },
+			};
+		}
+
+		const cached = composeTools.getMaskedHunksForCachedCommit(cacheKey, commitId);
+		if (cached == null) {
+			return {
+				error: { message: 'Unable to find the selected commit in the current plan.' },
+			};
+		}
+
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		try {
+			const { patch } = createCombinedDiffForCommit(cached.hunks);
+			if (!patch) {
+				return { error: { message: 'Unable to build a diff for the selected commit.' } };
+			}
+
+			// Regenerating one commit's message is part of the compose the user is in, not a task of
+			// its own, so it continues that session's conversation.
+			const result = await this.container.ai.actions.generateCommitMessage(
+				patch,
+				{ source: 'graph-details', correlationId: this.host.instanceId },
+				{
+					cancellation: cancellation,
+					conversationId: this.getOrCreateComposeConversationId(sessionKey),
+				},
+			);
+
+			if (result === 'cancelled') return { cancelled: true };
+			if (result == null) {
+				return { error: { message: 'AI did not return a message. Please try again.' } };
+			}
+
+			const message = result.result.body
+				? `${result.result.summary}\n\n${result.result.body}`
+				: result.result.summary;
+
+			// Mutate the cached plan so subsequent refine sees the new message in
+			// priorPlan (used for locked-commit substitution) and apply commits it.
+			// If the cache entry was discarded between our earlier read and now (race
+			// with a parallel refine or close), the mutation just no-ops and the
+			// caller falls back to refreshing.
+			composeTools.updateCachedPlanCommitMessage(cacheKey, commitId, message);
+
+			return { result: { commitId: commitId, message: message } };
+		} catch (ex) {
+			if (isCancellationError(ex)) return { cancelled: true };
+
+			Logger.error(ex, 'graph.regenerateProposedCommitMessage');
+			return {
+				error: { message: ex instanceof Error ? ex.message : String(ex) },
+			};
+		} finally {
+			disposeCancellation();
+		}
+	}
+
+	private async resolveConflicts(
+		repoPath: string,
+		focusedFilePaths: readonly string[] | undefined,
+		instructions?: string,
+		signal?: AbortSignal,
+	): Promise<ResolveResult> {
+		const integration = await this.getOrCreateConflictToolsForGraph();
+		if (integration == null) {
+			return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+		}
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		// Conflicts can exist WITHOUT a paused operation (stash pop/apply, a `pull --rebase --autostash`
+		// re-apply, or `merge --quit`) — refs are optional enrichment, so a missing status must not block
+		// the run. The `targets.length === 0` check below handles the truly-nothing-to-resolve case.
+		const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
+
+		// `instructions` (whole-run "Refine" feedback) rides conflict-tools' first-class
+		// `ResolutionContext.userGuidance`, which 0.2.0 renders into the prompt — combined with
+		// the standing custom-instructions setting, since both are guidance for the same prompt.
+		const guidance = combineResolveGuidance(instructions);
+		const context: ResolutionContext = {
+			...(refs != null ? { refs: refs } : {}),
+			...(guidance ? { userGuidance: guidance } : {}),
+		};
+
+		const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		const resolveSignal = toAbortSignal(token);
+
+		// What the AI consulted, per file — the progress events are the only place the resolver
+		// reports it, and the line below is overwritten within milliseconds when a run has
+		// several files, so keep it for the panel's per-file rows.
+		const consultations = new Map<string, ConsultedTool[]>();
+
+		const onProgress = (event: ConflictProgressEvent) => {
+			switch (event.type) {
+				case 'conflict:found':
+					this._resolveProgressEvent.fire({
+						phase: event.type,
+						message: `Analyzing ${event.filePath}…`,
+					});
+					break;
+				case 'resolution:applied':
+					this._resolveProgressEvent.fire({
+						phase: event.type,
+						message: `Resolved ${event.filePath}.`,
+					});
+					break;
+				case 'resolution:failed':
+					this._resolveProgressEvent.fire({
+						phase: event.type,
+						message: `Couldn't resolve ${event.filePath} — skipping.`,
+					});
+					break;
+				case 'conflict:skipped':
+					this._resolveProgressEvent.fire({
+						phase: event.type,
+						message: `Skipping ${event.filePath} — no conflict markers.`,
+					});
+					break;
+				case 'resolver:tool-call':
+					recordConsultation(consultations, event);
+					this._resolveProgressEvent.fire({
+						phase: event.type,
+						message: `${event.filePath}: inspecting ${event.tool}…`,
+					});
+					break;
+			}
+		};
+
+		try {
+			this._resolveProgressEvent.fire({ phase: 'collecting', message: 'Reading conflicts…' });
+
+			// Entries carry each file's conflict reason (porcelain v2), which makes
+			// delete/modify conflicts extractable instead of appearing marker-less.
+			const entries = await integration.listUnmergedEntries(svc);
+
+			// Scope to the requested files (per-file / multi-select entry points); undefined
+			// means all conflicts. Requested files no longer unmerged just drop out.
+			const focused = focusedFilePaths != null && focusedFilePaths.length > 0;
+			const targets = focused ? entries.filter(e => focusedFilePaths.includes(e.path)) : entries;
+			if (targets.length === 0) {
+				return {
+					error: {
+						message: focused
+							? focusedFilePaths.length === 1
+								? `${focusedFilePaths[0]} is no longer conflicted.`
+								: 'The selected files are no longer conflicted.'
+							: 'No conflicted files to resolve.',
+					},
+				};
+			}
+
+			// One conversation ID per resolve session — re-runs ("Refine") and per-file
+			// retries reuse it until apply/discard, so the backend's flat per-feature fee
+			// is charged once for the whole session instead of once per AI request.
+			const conversationId = this.getOrCreateResolveConversationId(repoPath);
+
+			// Resolve the conflicted files in a bounded-concurrency pool so one file's failure
+			// is isolated (recorded in `errors`) and the rest still resolve — and they run in
+			// parallel rather than one-at-a-time.
+			const result = await integration.resolveAllParallel(
+				{
+					svc: svc,
+					entries: targets,
+					context: context,
+					signal: resolveSignal,
+					onProgress: onProgress,
+					conversationId: conversationId,
+				},
+				{
+					source: 'graph',
+					detail: focused ? (focusedFilePaths.length === 1 ? 'resolveFile' : 'resolveFiles') : 'resolveAll',
+				},
+			);
+			const resolutions: ConflictToolsResolution[] = result.resolutions;
+
+			const { errors, skipped } = await this.enrichUnresolvedFiles(
+				repoPath,
+				result.errors.map(e => ({ filePath: e.filePath, message: e.error.message })),
+				result.skipped ?? [],
+			);
+
+			if (resolveSignal?.aborted) return { cancelled: true };
+
+			// Snapshot the conflicted (working-tree) content of every resolved file BEFORE anything
+			// is applied, so "View diff" can show resolved-vs-conflicted. `applyResolutions` runs
+			// later (and may never run if the user discards), so capture now while the markers are
+			// still on disk.
+			const conflictedContents = await integration.readWorkingFiles(
+				svc,
+				resolutions.filter(r => r.strategy !== 'skipped').map(r => r.filePath),
+			);
+
+			logResolutionUsage(resolutions, 'graph.resolveConflicts');
+
+			const summaries = this.seedResolveSession(repoPath, resolutions, conflictedContents, consultations);
+
+			return {
+				result: {
+					resolutions: summaries,
+					errors: errors.length > 0 ? errors : undefined,
+					skipped: skipped.length > 0 ? skipped : undefined,
+					metrics: sumResolutionEffort(resolutions),
+				},
+			};
+		} catch (ex) {
+			if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		} finally {
+			disposeCancellation();
+			this._resolveProgressEvent.fire(undefined);
+		}
+	}
+
+	private async reresolveFile(
+		repoPath: string,
+		filePath: string,
+		feedback: string,
+		signal?: AbortSignal,
+	): Promise<ReresolveFileResult> {
+		const integration = await this.getOrCreateConflictToolsForGraph();
+		if (integration == null) {
+			return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+		}
+
+		const session = this._activeResolveSessions.get(repoPath);
+		if (session == null) {
+			return { error: { message: 'No active resolutions to retry; please re-run.' } };
+		}
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		// No paused-op requirement — see `resolveConflicts` above. Staleness is covered by the
+		// session check above and the `entry == null` check below.
+		const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
+
+		const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		const resolveSignal = toAbortSignal(token);
+		try {
+			const entries = await integration.listUnmergedEntries(svc);
+			const entry = entries.find(e => e.path === filePath);
+			if (entry == null) {
+				return { error: { message: `${filePath} is no longer conflicted.` } };
+			}
+
+			const conflict = await integration.extract({
+				svc: svc,
+				filePath: filePath,
+				reason: entry.reason,
+				signal: resolveSignal,
+			});
+			if (conflict == null) {
+				return {
+					error: {
+						message: `No conflict markers were found in ${filePath} — it needs manual resolution.`,
+					},
+				};
+			}
+
+			// A retry consults the repository the same way the original run does, so collect its
+			// evidence too — otherwise re-resolving a file would blank out the `consulted` line the
+			// row was already showing.
+			const consultations = new Map<string, ConsultedTool[]>();
+
+			// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`, combined
+			// with the standing custom-instructions setting — a retry shouldn't drop it.
+			const resolution = await integration.resolveSingle(
+				{
+					svc: svc,
+					conflict: conflict,
+					context: {
+						...(refs != null ? { refs: refs } : {}),
+						userGuidance: combineResolveGuidance(feedback),
+					},
+					signal: resolveSignal,
+					// Same conversation as the run being retried (an active session implies
+					// the ID exists; minting here is just a defensive fallback).
+					conversationId: this.getOrCreateResolveConversationId(repoPath),
+					onProgress: event => {
+						if (event.type !== 'resolver:tool-call') return;
+
+						recordConsultation(consultations, event);
+						this._resolveProgressEvent.fire({
+							phase: event.type,
+							message: `${event.filePath}: inspecting ${event.tool}…`,
+						});
+					},
+				},
+				{ source: 'graph', detail: 'resolveRetryFile' },
+			);
+			if (resolveSignal?.aborted) return { cancelled: true };
+
+			// Re-read the cached session right before writing — the `session` snapshot above was
+			// captured before the (long) resolveSingle await, so reusing it here would let a
+			// concurrent retry/take-side that completed meanwhile get clobbered. Bail if it was
+			// discarded mid-flight.
+			const latest = this._activeResolveSessions.get(repoPath);
+			if (latest == null) return { cancelled: true };
+
+			// Replace this file's resolution in the cached session (others untouched).
+			const exists = latest.resolutions.some(r => r.filePath === filePath);
+			this._activeResolveSessions.set(repoPath, {
+				...latest,
+				resolutions: exists
+					? latest.resolutions.map(r => (r.filePath === filePath ? resolution : r))
+					: [...latest.resolutions, resolution],
+			});
+
+			// Refresh the file's virtual content in place so its existing `resolved` ref re-reads
+			// the new content (the row's "View diff" stays valid — same sessionId).
+			const conflictedContents = await integration.readWorkingFiles(svc, [filePath]);
+			let virtualRef: VirtualRefShape | undefined;
+			if (resolution.strategy !== 'skipped' && conflictedContents.has(filePath)) {
+				this._resolveVirtual?.provider.updateFile(latest.sessionId, {
+					path: filePath,
+					conflictedContent: conflictedContents.get(filePath)!,
+					resolvedContent: resolution.content,
+				});
+				virtualRef = {
+					namespace: GraphResolveVirtualNamespace,
+					sessionId: latest.sessionId,
+					commitId: ResolveVirtualSide.resolved,
+				};
+			}
+
+			logResolutionUsage([resolution], 'graph.reresolveFile');
+
+			return {
+				result: {
+					filePath: resolution.filePath,
+					strategy: resolution.strategy,
+					reasoning: resolution.description,
+					confidence: resolution.confidence,
+					note: resolution.note,
+					consulted: getConsultations(consultations, resolution.filePath),
+					virtualRef: virtualRef,
+				},
+			};
+		} catch (ex) {
+			if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		} finally {
+			disposeCancellation();
+			// Clears the inspecting line this path now fires — without it a retry that consulted
+			// the repo would leave the panel stuck on its last tool call.
+			this._resolveProgressEvent.fire(undefined);
+		}
+	}
+
+	private async applyResolutions(repoPath: string, includedFilePaths?: readonly string[]): Promise<CommitResult> {
+		const integration = await this.getOrCreateConflictToolsForGraph();
+		if (integration == null) {
+			return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+		}
+
+		const session = this._activeResolveSessions.get(repoPath);
+		if (session == null) {
+			return { error: { message: 'No resolutions to apply; please re-run.' } };
+		}
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		try {
+			const included = includedFilePaths != null ? new Set(includedFilePaths) : undefined;
+			// Never apply 'skipped' files — they were intentionally left conflicted.
+			const selected = session.resolutions.filter(
+				r => r.strategy !== 'skipped' && (included == null || included.has(r.filePath)),
+			);
+			if (selected.length === 0) {
+				return { error: { message: 'No applicable resolutions were selected.' } };
+			}
+
+			// Per-file stale guard — the sole staleness defense: only apply files still unmerged.
+			// A file resolved externally (manually, via another tool, or by an op ending — abort/
+			// continue/reset all clear unmerged entries) since generation must not be clobbered
+			// with stale AI content. Deliberately NOT gated on a paused operation existing:
+			// op-less conflicts (stash pop, autostash) never have one, and `merge --quit` removes
+			// the op while the files remain genuinely conflicted. Skipped files are surfaced in
+			// the result.
+			const stillConflicted = await integration.listUnmergedPaths(svc);
+			const toApply = selected.filter(r => stillConflicted.has(r.filePath));
+			const skipped = selected.length - toApply.length;
+			if (toApply.length === 0) {
+				this.discardResolveSession(repoPath);
+				return {
+					error: { message: 'These files are no longer conflicted — nothing was applied.' },
+				};
+			}
+
+			await integration.applyBatch({ svc: svc, resolutions: toApply });
+			// `applyBatch` stages ai/merged + take-ours/theirs but not deletions (its port only
+			// unlinks). Stage every applied path once — idempotent for the rest, and it stages
+			// deletions so the merge can be completed.
+			const stagePaths = toApply.map(r => r.filePath);
+			if (stagePaths.length > 0) {
+				await svc.staging?.stageFiles?.(stagePaths);
+			}
+
+			this.discardResolveSession(repoPath);
+			void window.showInformationMessage(
+				skipped > 0
+					? `Resolved ${pluralize('file', toApply.length)} — ${skipped} skipped (no longer conflicted).`
+					: `Resolved ${pluralize('file', toApply.length)}.`,
+			);
+			return skipped > 0
+				? { success: true, warning: `${skipped} file(s) were skipped (no longer conflicted).` }
+				: { success: true };
+		} catch (ex) {
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		}
+	}
+
+	private async takeConflictSide(
+		repoPath: string,
+		filePath: string,
+		side: ConflictSide,
+	): Promise<TakeConflictSideResult> {
+		const svc = this.container.git.getRepositoryService(repoPath);
+		try {
+			// Take-side rides the same cached session + Apply/Discard lifecycle as AI resolutions,
+			// so it must not touch the working tree here — it queues a pending resolution that
+			// `applyResolutions` writes (and `discardResolutions` drops).
+
+			// Do all the IO (rename/kind classification) up front, before touching the cached
+			// session — see the atomic read-modify-write note below.
+			const infos = await getConflictFileInfos(svc);
+			const info = infos.get(filePath);
+			if (info == null) {
+				return { error: { message: `${filePath} is no longer conflicted.` } };
+			}
+
+			// 'delete' is only offered for both-deleted (DD), where either side maps to a delete.
+			const resolution: 'current' | 'incoming' = side === 'delete' ? 'current' : side;
+			const action = classifyConflictAction(info.conflictStatus, resolution);
+			if (action === 'unsupported') {
+				return { error: { message: `Can't take the ${side} side for this conflict.` } };
+			}
+
+			const strategy = action === 'delete' ? 'deleted' : action === 'take-ours' ? 'take-ours' : 'take-theirs';
+
+			// The library's `applyResolutions` applies take-ours/take-theirs/deleted via
+			// checkout/remove with no content, so a content-less Resolution is all we queue.
+			const queued: QueuedTakeSide[] = [{ filePath: filePath, strategy: strategy }];
+			// rename/rename: keeping this name makes the other side's target the loser — queue its
+			// deletion so applying resolves both and the tree isn't left carrying both names.
+			if (info.kind === 'rename-rename' && info.renamePairPath != null) {
+				queued.push({ filePath: info.renamePairPath, strategy: 'deleted' });
+			}
+
+			// Read-modify-write the cached session atomically (no `await` between the read and the
+			// `set`) so two concurrent take-side clicks on different rows can't each derive from a
+			// stale snapshot and clobber the other's queued resolution. A session always exists once
+			// the panel is in its ready state (resolveConflicts caches one even when empty).
+			const session = this._activeResolveSessions.get(repoPath);
+			if (session == null) {
+				return { error: { message: 'No active resolve session; please re-run.' } };
+			}
+
+			const queuedPaths = new Set(queued.map(q => q.filePath));
+			const resolutions: ConflictToolsResolution[] = [
+				...session.resolutions.filter(r => !queuedPaths.has(r.filePath)),
+				...queued.map(q => ({
+					filePath: q.filePath,
+					content: '',
+					strategy: q.strategy,
+					confidence: 1,
+					description: '',
+				})),
+			];
+			this._activeResolveSessions.set(repoPath, { ...session, resolutions: resolutions });
+
+			return { result: { resolved: queued } };
+		} catch (ex) {
+			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+		}
+	}
+
+	private async getSeededResolveSession(repoPath: string): Promise<ResolveResult | undefined> {
+		// The escalated session lingers if its rebase is ended outside the service (external
+		// abort, or a manual continue/finish) — nothing transitions it off `escalated`. Only
+		// adopt the one-shot handoff if that same rebase is still paused here (orig-head
+		// matches), so a stale handoff can't seed — and clobber the AI conversation of — an
+		// unrelated later resolve in this repo.
+		const session = this.container.autoRebase.getSession(repoPath);
+		if (session?.phase !== 'escalated') return undefined;
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
+		if (status?.type !== 'rebase' || !status.isPaused || status.source.ref !== session.preRun.headSha) {
+			return undefined;
+		}
+
+		const handoff = this.container.autoRebase.takeEscalationHandoff(repoPath);
+		if (handoff == null) return undefined;
+
+		// Adopt the run's AI conversation so per-file retries and Refine stay in the same
+		// billed session; flush any unrelated conversation being replaced. Mark it as the
+		// run's so Apply/discard here doesn't report usage the run will report itself.
+		const existingConversation = this._resolveConversationIds.get(repoPath);
+		if (existingConversation != null && existingConversation !== handoff.sessionId) {
+			this.endResolveConversation(existingConversation);
+		}
+		this._resolveConversationIds.set(repoPath, handoff.sessionId);
+		this._autoRebaseOwnedConversations.add(handoff.sessionId);
+
+		const summaries = this.seedResolveSession(
+			repoPath,
+			handoff.resolutions,
+			handoff.conflictedContents,
+			handoff.consultations,
+		);
+		const { errors, skipped } = await this.enrichUnresolvedFiles(repoPath, handoff.errors, handoff.skipped);
+
+		// Mark the result as mid-run so the panel offers "Apply & Resume with AI". The
+		// session stays `escalated` after the one-shot handoff, so its escalation info is
+		// still readable here.
+		const escalation = this.container.autoRebase.getSession(repoPath)?.escalation;
+
+		return {
+			result: {
+				resolutions: summaries,
+				errors: errors.length > 0 ? errors : undefined,
+				skipped: skipped.length > 0 ? skipped : undefined,
+				// The escalated step's effort, for the same reason the run path reports it —
+				// the panel doesn't report a completion for a seeded session today, so this is
+				// only for shape parity if it ever does.
+				metrics: sumResolutionEffort(handoff.resolutions),
+				autoRebase: {
+					sessionId: handoff.sessionId,
+					stepNumber: escalation?.stepNumber,
+					totalSteps: escalation?.totalSteps,
+				},
+			},
+		};
+	}
+
+	private async getAutoRebaseSummary(repoPath: string): Promise<AutoRebaseSummaryResult | undefined> {
+		const session = this.container.autoRebase.getSession(repoPath);
+		if (session == null) return undefined;
+
+		const terminalOutcomes = {
+			completed: 'completed',
+			escalated: 'escalated',
+			aborted: 'aborted',
+			failed: 'failed',
+			undone: 'undone',
+		} as const;
+		const outcome = terminalOutcomes[session.phase as keyof typeof terminalOutcomes];
+		if (outcome == null) {
+			return { error: { message: 'The Auto-Rebase is still running.' } };
+		}
+
+		const validation = await this.container.autoRebase.canUndo(repoPath);
+		// A dirty tree that's only the autostash (reapplied/left-in-stash) is still undoable —
+		// `undo()` stashes before resetting. Only genuine user changes truly block it.
+		const undoable =
+			outcome === 'completed' &&
+			(validation.ok || (validation.reason === 'dirty' && validation.recoverable === true));
+		// Whether that recoverable-dirty path applies, so the confirm can warn it'll stash first.
+		const undoWillStash = !validation.ok && validation.reason === 'dirty' && validation.recoverable === true;
+
+		// (Re-)register the per-step virtual diff sessions — the webview may not have
+		// existed when the run finished, so they're built lazily on each summary fetch
+		// (deterministic ids make a re-fetch replace rather than accumulate).
+		const { provider } = this.getOrCreateAutoRebaseVirtual(session.id);
+		const steps: AutoRebaseSummaryStep[] = session.steps.map(step => {
+			const virtualSessionId = `${session.id}:step-${step.stepNumber}`;
+			const previewable = step.files.filter(
+				f => isPreviewableText(f.conflictedContent) && isPreviewableText(f.resolvedContent),
+			);
+			if (previewable.length > 0) {
+				provider.startSession({
+					repoPath: repoPath,
+					sessionId: virtualSessionId,
+					files: previewable.map(f => ({
+						path: f.path,
+						conflictedContent: f.conflictedContent!,
+						resolvedContent: f.resolvedContent!,
+					})),
+				});
+			}
+			return {
+				step: step.stepNumber,
+				totalSteps: step.totalSteps,
+				commit: { sha: step.commit.sha, message: step.commit.message },
+				kind: step.kind,
+				files: step.files.map(f => ({
+					filePath: f.path,
+					strategy: f.strategy,
+					reasoning: f.description,
+					confidence: f.confidence,
+					note: f.note,
+					consulted: f.consulted,
+					// Only files with a registered session above get a diff affordance — offering
+					// one for content the editor can't open as text yields two "file is binary"
+					// panes.
+					virtualRef: previewable.includes(f)
+						? {
+								namespace: AutoRebaseVirtualNamespace,
+								sessionId: virtualSessionId,
+								commitId: ResolveVirtualSide.resolved,
+							}
+						: undefined,
+				})),
+			};
+		});
+
+		this.container.telemetry.sendEvent('autoRebase/summary/shown', {
+			takeover: session.mode !== 'started',
+			'steps.count': session.steps.length,
+			duration: Date.now() - session.preRun.startedAt,
+		});
+
+		return {
+			summary: {
+				sessionId: session.id,
+				branch: session.preRun.branch,
+				upstream: session.preRun.upstream,
+				preRebaseSha: session.preRun.headSha,
+				postRebaseSha: session.postRun?.headSha,
+				totalSteps: session.steps[0]?.totalSteps ?? 0,
+				outcome: outcome,
+				undoable: undoable,
+				undoWillStash: undoWillStash,
+				undoRefusal: undoable
+					? undefined
+					: outcome === 'undone'
+						? 'This rebase was already undone.'
+						: outcome !== 'completed'
+							? 'The rebase did not complete.'
+							: !validation.ok
+								? validation.message
+								: undefined,
+				autostash: session.postRun?.autostash,
+				steps: steps,
+			},
+		};
+	}
+
+	private async getBranchComparisonSummary(
+		repoPath: string,
+		leftRef: string,
+		rightRef: string,
+		options?: BranchComparisonOptions,
+		signal?: AbortSignal,
+	): Promise<BranchComparisonSummary | undefined> {
+		// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
+		// to land the user on a useful panel; per-side commits + their files are fetched
+		// on demand via `getBranchComparisonSide`.
+		//
+		// Convention: leftRef = Base (older / "from"), rightRef = Compare (newer / "to").
+		// The working tree, when included, lives on the Compare side (rightRef).
+		signal?.throwIfAborted();
+		const svc = this.container.git.getRepositoryService(repoPath);
+
+		// Always resolve rightRef's (Compare) worktree path — independent of the IWT
+		// toggle's current state. This separates two concerns the old code conflated:
+		//  (a) "does a worktree exist for rightRef?" — drives the IWT toggle's visibility.
+		//  (b) "should the diff include working-tree changes?" — drives the data shape.
+		// Conflating them caused the toggle to disappear after the user turned IWT off
+		// (issue #5269 in the old left-anchored model; preserved here for the Compare side).
+		// `useWorktree` below combines both concerns to gate only the data-shape branches.
+		const rightRefWorktreePath = await this.resolveRightRefWorktreePath(repoPath, rightRef, signal);
+		signal?.throwIfAborted();
+		const useWorktree = options?.includeWorkingTree === true && rightRefWorktreePath != null;
+
+		// Promise.allSettled per project convention — independent parallel awaits
+		// shouldn't let one failure abort the rest of the comparison. Missing pieces
+		// degrade gracefully into the partial-data path below (e.g. a diff-status
+		// failure still shows the commit counts).
+		//
+		// `mergeBase` anchors the per-side file lists in `getBranchComparisonSide`. For
+		// divergent branches, `mergeBase..rightRef` gives only the Compare side's
+		// additions and `mergeBase..leftRef` only the Base side's additions — distinct
+		// from the cumulative `leftRef..rightRef` which is shown on the All Files tab.
+		// A null result (disjoint refs) lets the side fetch fall back to 2-dot ranges.
+		const [countsResult, filesResult, mergeBaseResult] = await Promise.allSettled([
+			svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
+			useWorktree
+				? this.container.git
+						.getRepositoryService(rightRefWorktreePath)
+						.diff.getDiffStatus(leftRef, undefined, { includeUntracked: true })
+				: svc.diff.getDiffStatus(`${leftRef}..${rightRef}`),
+			svc.refs.getMergeBase(leftRef, rightRef),
+		]);
+		signal?.throwIfAborted();
+		const counts = getSettledValue(countsResult);
+		const files = getSettledValue(filesResult);
+		const mergeBase = getSettledValue(mergeBaseResult) ?? undefined;
+
+		// Commit-count semantics from the Compare side's perspective:
+		//  - `aheadCount` = commits the Compare branch has that Base doesn't
+		//    (`git rev-list leftRef..rightRef`, returned as `.right` from --left-right).
+		//  - `behindCount` = commits Base has that Compare doesn't
+		//    (`git rev-list rightRef..leftRef`, returned as `.left`).
+		// The "Working Changes" pseudo-commit row injected by `getBranchComparisonSide`
+		// is still visible in the Ahead-tab commit list, but doesn't inflate the badge.
+		const aheadCount = counts?.right ?? 0;
+		const behindCount = counts?.left ?? 0;
+
+		// File `repoPath` follows the worktree path ONLY when IWT is actively in use —
+		// not just because a worktree exists. With the toggle off (or no worktree), file
+		// URIs/multi-diff requests resolve against the panel's `repoPath`. The conditional
+		// is on `useWorktree` (not `rightRefWorktreePath != null`) so toggle-off state
+		// doesn't accidentally route through the worktree.
+		const filesRepoPath = useWorktree ? rightRefWorktreePath : repoPath;
+		const allFiles: BranchComparisonFile[] = (files ?? []).map(f => ({
+			repoPath: filesRepoPath,
+			path: f.path,
+			status: f.status,
+			originalPath: f.originalPath,
+			staged: false,
+			stats: f.stats,
+		}));
+
+		return {
+			aheadCount: aheadCount,
+			behindCount: behindCount,
+			allFilesCount: allFiles.length,
+			allFiles: allFiles,
+			rightRefWorktreePath: rightRefWorktreePath,
+			mergeBase: mergeBase,
+		};
+	}
+
+	private async getBranchComparisonSide(
+		repoPath: string,
+		leftRef: string,
+		rightRef: string,
+		side: 'ahead' | 'behind',
+		options?: BranchComparisonOptions,
+		signal?: AbortSignal,
+	): Promise<BranchComparisonSide | undefined> {
+		// Phase 2: that side's commits, files fetched on demand. leftRef = Base, rightRef = Compare; the
+		// Ahead side carries Compare's new commits (+ the working-tree pseudo-commit when IWT is on), so its
+		// worktree path is resolved only for Ahead — Behind shows Base's commits and never has WT files.
+		signal?.throwIfAborted();
+		const svc = this.container.git.getRepositoryService(repoPath);
+
+		const [worktreeResult, mergeBaseResult] = await Promise.allSettled([
+			side === 'ahead' && options?.includeWorkingTree === true
+				? this.resolveRightRefWorktreePath(repoPath, rightRef, signal)
+				: Promise.resolve(undefined),
+			options?.mergeBase != null ? Promise.resolve(options.mergeBase) : svc.refs.getMergeBase(leftRef, rightRef),
+		]);
+		signal?.throwIfAborted();
+		const rightRefWorktreePath = getSettledValue(worktreeResult);
+		const mergeBase = getSettledValue(mergeBaseResult) ?? undefined;
+
+		// Commit log uses the 2-dot range — commits reachable from one side but not the
+		// other (equivalent to merge-base-anchored for divergent branches; no need to
+		// resolve mergeBase first).
+		const commitRange = side === 'ahead' ? `${leftRef}..${rightRef}` : `${rightRef}..${leftRef}`;
+		// File diff is merge-base-anchored when available — Ahead shows `mergeBase..Compare`
+		// (only what Compare contributed since divergence), Behind shows `mergeBase..Base`
+		// (only what Base contributed). Falls back to the 2-dot symmetric form when there
+		// is no merge base.
+		const target = side === 'ahead' ? rightRef : leftRef;
+		const diffRange = mergeBase != null ? `${mergeBase}..${target}` : commitRange;
+		// Promise.allSettled per project convention — see the sibling
+		// `getBranchComparisonSummary` for rationale.
+		const limit = options?.limit ?? 100;
+		const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
+			svc.commits.getLog(commitRange, { limit: limit, includeFiles: false }, signal),
+			svc.diff.getDiffStatus(diffRange),
+			rightRefWorktreePath != null
+				? this.getBranchComparisonWorkingTreeFiles(rightRefWorktreePath, true, signal)
+				: Promise.resolve([]),
+		]);
+		signal?.throwIfAborted();
+		const log = getSettledValue(logResult);
+		const comparisonFiles = getSettledValue(comparisonFilesResult);
+		const workingTreeFiles = getSettledValue(workingTreeFilesResult) ?? [];
+		const hasMore = log?.hasMore ?? false;
+
+		const mappedFiles: BranchComparisonFile[] = [];
+		for (const f of comparisonFiles ?? []) {
+			mappedFiles.push({
+				repoPath: repoPath,
+				path: f.path,
+				status: f.status,
+				originalPath: f.originalPath,
+				staged: false,
+				stats: f.stats,
+			});
+		}
+		// Ahead-tab top-level shows the committed Ahead range only; WT files are
+		// reachable by scoping to the WIP pseudo-commit injected below.
+		const allFilesForSide = mappedFiles;
+
+		const commits: BranchComparisonCommit[] = [];
+		if (workingTreeFiles.length) {
+			commits.push({
+				sha: uncommitted,
+				shortSha: 'Working',
+				message: 'Working Changes',
+				author: '',
+				date: '',
+				files: workingTreeFiles,
+			});
+		}
+
+		for (const [sha, commit] of log?.commits ?? []) {
+			const commitStats = commit.stats;
+			const entry: BranchComparisonCommit = {
+				sha: sha,
+				shortSha: sha.substring(0, 7),
+				message: commit.message ?? '',
+				author: commit.author?.name ?? '',
+				authorEmail: commit.author?.email,
+				date: commit.author?.date != null ? String(commit.author.date) : '',
+				additions: commitStats?.additions,
+				deletions: commitStats?.deletions,
+			};
+			this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
+			// Committer identity only when the committer differs from the author (name OR email,
+			// mirroring gl-commit-author.hasDistinctCommitter).
+			const committerEmail = commit.committer?.email;
+			if (
+				(commit.committer?.name != null && commit.committer.name !== commit.author?.name) ||
+				(committerEmail != null && committerEmail.toLowerCase() !== commit.author?.email?.toLowerCase())
+			) {
+				entry.committerName = commit.committer?.name;
+				entry.committerEmail = committerEmail;
+				entry.committerDate = commit.committer?.date != null ? String(commit.committer.date) : undefined;
+				this.setAvatarIfCached(entry, committerEmail, sha, repoPath, 'committerAvatarUrl');
+			}
+			commits.push(entry);
+		}
+
+		return { commits: commits, files: allFilesForSide, hasMore: hasMore };
+	}
+
+	private async getContributorsForBranchComparison(
+		repoPath: string,
+		leftRef: string,
+		rightRef: string,
+		scope: BranchComparisonContributorsScope,
+		signal?: AbortSignal,
+	): Promise<BranchComparisonContributorsResult | undefined> {
+		signal?.throwIfAborted();
+		const svc = this.container.git.getRepositoryService(repoPath);
+
+		// Two-dot for ahead/behind (commits only on one side); three-dot for the
+		// symmetric "all" union — matches the ranges used by `getBranchComparisonSide`.
+		// Convention: leftRef = Base, rightRef = Compare.
+		//  - Ahead = Base..Compare (commits Compare contributed)
+		//  - Behind = Compare..Base (commits Base contributed)
+		const rev =
+			scope === 'ahead'
+				? `${leftRef}..${rightRef}`
+				: scope === 'behind'
+					? `${rightRef}..${leftRef}`
+					: `${leftRef}...${rightRef}`;
+
+		const result = await svc.contributors.getContributors(rev, { stats: true }, signal);
+		signal?.throwIfAborted();
+
+		const contributors: BranchComparisonContributor[] = [];
+		for (const c of result.contributors) {
+			const stats = c.stats;
+			const entry: BranchComparisonContributor = {
+				name: c.name,
+				email: c.email,
+				avatarUrl: c.avatarUrl,
+				commits: c.contributionCount,
+				additions: stats?.additions ?? 0,
+				deletions: stats?.deletions ?? 0,
+				files: typeof stats?.files === 'number' ? stats.files : 0,
+				current: c.current || undefined,
+			};
+			if (entry.avatarUrl == null) {
+				this.setAvatarIfCached(entry, c.email, undefined, undefined);
+			}
+			contributors.push(entry);
+		}
+
+		return { contributors: contributors };
 	}
 
 	/** Lazy-init the compose virtual content provider + register it with the virtual FS service. */
