@@ -1,17 +1,21 @@
 import * as assert from 'assert';
-import { keepRowUnderRefVisibility, pickRowUndoTarget } from '@gitkraken/commit-graph-ui/rows/rows.js';
-import type { GitGraphRow, GitGraphRowHead } from '@gitlens/git/models/graph.js';
+import type { CommitGraphSourceHead, CommitGraphSourceRow } from '../../contracts/rows.js';
+import { keepRowUnderRefVisibility, pickRowUndoTarget } from '../rows.js';
 
-function head(name: string, isCurrentHead = false, worktree?: GitGraphRowHead['worktree']): GitGraphRowHead {
+function head(
+	name: string,
+	isCurrentHead = false,
+	worktree?: CommitGraphSourceHead['worktree'],
+): CommitGraphSourceHead {
 	return { name: name, id: `/mock/repo|heads/${name}`, isCurrentHead: isCurrentHead, worktree: worktree };
 }
 
 function row(
 	sha: string,
-	kind: GitGraphRow['kind'],
+	kind: CommitGraphSourceRow['kind'],
 	parents: string[],
-	heads?: GitGraphRowHead[],
-): Pick<GitGraphRow, 'kind' | 'sha' | 'parents' | 'heads'> {
+	heads?: CommitGraphSourceHead[],
+): Pick<CommitGraphSourceRow, 'kind' | 'sha' | 'parents' | 'heads'> {
 	return { sha: sha, kind: kind, parents: parents, heads: heads };
 }
 

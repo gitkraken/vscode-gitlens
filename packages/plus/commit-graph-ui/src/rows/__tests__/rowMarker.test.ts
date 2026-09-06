@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import type { RowMarkerTips } from '@gitkraken/commit-graph-ui/rows/markers.js';
+import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
+import type { RowMarkerTips } from '../markers.js';
 import {
 	combineRowMarkerRoles,
 	isPrimaryWipRow,
@@ -11,8 +12,7 @@ import {
 	scopeAnchorRoles,
 	secondaryWipRoles,
 	shortRefName,
-} from '@gitkraken/commit-graph-ui/rows/markers.js';
-import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
+} from '../markers.js';
 
 const flagFor = (role: string): number => rowMarkerRoleSpecs.find(s => s.role === role)!.flag;
 

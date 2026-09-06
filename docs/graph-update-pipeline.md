@@ -152,11 +152,8 @@ span is reported back as `result.reconciled` (`{ reused, priorStart, nextStart }
 Reused rows keep the **prior object identity**, which is what lets every identity-keyed consumer
 downstream (`CommitGraphEngineSession.rebuildIndexesAndAnchors`, the render/collapse layer) splice
 its own state instead of rebuilding: content equality is provable only row-by-row, but identity
-equality is one `===`. `engine/reconcile.ts` also exports a lower-level `reconcileRowsSuffix` that
-performs the align-and-swap in one pass post-hoc; it's used directly by the lane-collapse tests
-and is documented as the semantic twin of `alignRowsSuffixByLayout`, but the production path goes
-through the layout-then-splice split above so the edge pass itself can stop early rather than
-compute-then-discard.
+equality is one `===`. Reconciliation and lane-collapse tests exercise this production path and
+compare its output against a full run.
 
 ## Layout reproducibility invariants (`engine/layout.ts`)
 

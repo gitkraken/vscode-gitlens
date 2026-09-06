@@ -3200,9 +3200,7 @@ export class GlCommitGraph extends LitElement {
 		// drives the up/down arrow). Visibility/scroll still use the displayRows-based `indexBySha`.
 		// Keyed on BOTH planes: rows identity (topology) AND commits identity (payload) — the ref
 		// indexes are payload-derived, so a payload-only swap (same rows, new commits) must rebuild.
-		// An identity-prefix append (paging — BOTH planes reuse their prefix elements, so endpoint
-		// identity proves the prefix) patches only the appended range into the same maps (consumers
-		// hold live references).
+		// Paging remaps commit payloads, so it rebuilds these indexes even when rows retain identity.
 		const priorIndexedRows = this.lastRefIndexRowsRef;
 		const priorIndexedCommits = this.lastRefIndexCommitsRef;
 		const cachedRef = this.cachedRefRowIndex;
@@ -3217,26 +3215,6 @@ export class GlCommitGraph extends LitElement {
 		) {
 			refRowIndex = cachedRef;
 			localByUpstreamId = cachedLocal;
-		} else if (
-			cachedRef != null &&
-			cachedLocal != null &&
-			priorIndexedRows != null &&
-			priorIndexedCommits != null &&
-			priorIndexedRows.length > 0 &&
-			this.processedRows.length > priorIndexedRows.length &&
-			this.processedRows[0] === priorIndexedRows[0] &&
-			this.processedRows[priorIndexedRows.length - 1] === priorIndexedRows.at(-1) &&
-			this.commits.length === this.processedRows.length &&
-			this.commits[0] === priorIndexedCommits[0] &&
-			this.commits[priorIndexedCommits.length - 1] === priorIndexedCommits.at(-1)
-		) {
-			refRowIndex = cachedRef;
-			localByUpstreamId = cachedLocal;
-			for (let i = priorIndexedRows.length; i < this.processedRows.length; i++) {
-				this.indexRowRefs(i, refRowIndex, localByUpstreamId);
-			}
-			this.lastRefIndexRowsRef = this.processedRows;
-			this.lastRefIndexCommitsRef = this.commits;
 		} else {
 			refRowIndex = new Map<string, { sha: string; index: number }>();
 			localByUpstreamId = new Map<string, { sha: string; index: number; id?: string; name?: string }>();

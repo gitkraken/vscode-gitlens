@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { processGraphRows } from '../process.js';
-import { reconcileRowsSuffix } from '../reconcile.js';
 import type { CommitKind, GraphCommit } from '../types.js';
 
 function commit(sha: string, parents: string[], kind?: CommitKind): GraphCommit {
@@ -26,13 +25,12 @@ function indexOf(rows: readonly { sha: string }[]): (sha: string) => number | un
 suite('engine/reconcile suffix identity after a prefix change', () => {
 	test('a prepended commit on the trunk reuses the untouched suffix by identity', () => {
 		const prior = processGraphRows(base).rows;
-		const next = processGraphRows([commit('N', ['A']), ...base]).rows;
-		const snapshot = JSON.parse(JSON.stringify(next));
-
-		const result = reconcileRowsSuffix(prior, next);
+		const commits = [commit('N', ['A']), ...base];
+		const snapshot = processGraphRows(commits).rows;
+		const { rows: next, reconciled: result } = processGraphRows(commits, { reconcile: { priorRows: prior } });
 
 		// Content must be untouched by the swap …
-		assert.deepStrictEqual(JSON.parse(JSON.stringify(next)), snapshot);
+		assert.deepStrictEqual(next, snapshot);
 		// … and the reused tail must be the PRIOR objects by identity.
 		assert.ok(result != null && result.reused > 0, 'expected a reusable suffix');
 		for (let k = 0; k < result.reused; k++) {
@@ -49,29 +47,38 @@ suite('engine/reconcile suffix identity after a prefix change', () => {
 		// Simulates the host reloading the SAME row count after a new commit landed: N enters at the
 		// top and E falls off the bottom.
 		const cut = [commit('N', ['A']), ...base.slice(0, -1)];
-		const next = processGraphRows(cut).rows;
 
 		// Strict bottom alignment finds nothing (bottoms differ) …
-		assert.strictEqual(reconcileRowsSuffix(prior, next), undefined);
+		assert.strictEqual(processGraphRows(cut, { reconcile: { priorRows: prior } }).reconciled, undefined);
 
 		// … but the anchor locator lines the shared region up.
-		const result = reconcileRowsSuffix(prior, processGraphRows(cut).rows, indexOf(prior));
+		const next = processGraphRows(cut, { reconcile: { priorRows: prior, priorIndexOfSha: indexOf(prior) } });
+		const result = next.reconciled;
 		assert.ok(result != null && result.reused > 0, 'expected anchored reuse');
+		assert.deepStrictEqual(next.rows, processGraphRows(cut).rows);
+		for (let k = 0; k < result.reused; k++) {
+			assert.strictEqual(next.rows[result.nextStart + k], prior[result.priorStart + k]);
+		}
 	});
 
 	test('identical runs reuse everything', () => {
 		const prior = processGraphRows(base).rows;
-		const next = processGraphRows(base).rows;
-		const result = reconcileRowsSuffix(prior, next);
+		const next = processGraphRows(base, { reconcile: { priorRows: prior } });
+		const result = next.reconciled;
 		assert.strictEqual(result?.reused, base.length);
 		assert.strictEqual(result?.priorStart, 0);
 		assert.strictEqual(result?.nextStart, 0);
+		for (let k = 0; k < prior.length; k++) {
+			assert.strictEqual(next.rows[k], prior[k]);
+		}
 	});
 
 	test('a changed bottom row prevents any reuse', () => {
 		const prior = processGraphRows(base).rows;
 		const changed = [...base.slice(0, 4), commit('E2', [])];
-		const next = processGraphRows([commit('N', ['A']), ...changed]).rows;
-		assert.strictEqual(reconcileRowsSuffix(prior, next, indexOf(prior)), undefined);
+		const commits = [commit('N', ['A']), ...changed];
+		const next = processGraphRows(commits, { reconcile: { priorRows: prior, priorIndexOfSha: indexOf(prior) } });
+		assert.strictEqual(next.reconciled, undefined);
+		assert.deepStrictEqual(next.rows, processGraphRows(commits).rows);
 	});
 });

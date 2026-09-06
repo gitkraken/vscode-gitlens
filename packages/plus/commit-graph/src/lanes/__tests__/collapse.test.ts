@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import { processGraphRows } from '../../engine/process.js';
-import { reconcileRowsSuffix } from '../../engine/reconcile.js';
 import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from '../../engine/types.js';
 import {
 	appendDroppedRows,
@@ -192,10 +191,11 @@ function assertCollapseSpliceMatchesFull(
 	// prior run had fewer bottom rows than the new one.
 	const prior = processGraphRows(growBottom > 0 ? base.slice(0, -growBottom) : base);
 	const nextCommits = [...prepended, ...base];
-	const next = processGraphRows(cutBottom > 0 ? nextCommits.slice(0, -cutBottom) : nextCommits);
-
 	const priorIdx = new Map(prior.rows.map((r, i) => [r.sha, i]));
-	const reconciled = reconcileRowsSuffix(prior.rows, next.rows, sha => priorIdx.get(sha));
+	const next = processGraphRows(cutBottom > 0 ? nextCommits.slice(0, -cutBottom) : nextCommits, {
+		reconcile: { priorRows: prior.rows, priorIndexOfSha: sha => priorIdx.get(sha) },
+	});
+	const reconciled = next.reconciled;
 	if (reconciled == null) return false;
 
 	// Freeze the collapsed set as of the PRIOR run ('all' mode) — what the renderer carries over.
