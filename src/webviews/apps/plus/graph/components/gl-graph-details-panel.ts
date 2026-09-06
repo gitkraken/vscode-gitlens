@@ -4,6 +4,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -187,6 +188,8 @@ function asRefObj(ref: string | undefined): { ref: string } | undefined {
 function sheetKindsEqual(a: readonly SheetKind[], b: readonly SheetKind[]): boolean {
 	return a.length === b.length && a.every((k, i) => k === b[i]);
 }
+
+const emptyModeExclusions: ReadonlySet<string> = new Set();
 
 /** Renders a mode-status counts snippet with leading icons — "🟢 1 commit · 📄 2 files".
  *  When `onResume` is provided, the whole snippet becomes a clickable "Resume" affordance
@@ -984,7 +987,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	/** Shared handler for `compose-cancel` / `review-cancel` — aborts the in-flight generation
-	 *  for the engaged anchor and removes its registry entry. Panel stays in ENABLED-idle so
+	 *  for the engaged anchor and returns to input while retaining its prior result. Panel stays in idle so
 	 *  the user can re-run if they want. (Only ever fired by the mode panel's in-flight Cancel
 	 *  button, which is only rendered while `status === 'loading'`.) */
 	private handleCancelMode = (): void => {
@@ -3397,7 +3400,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const fallbackFiles = this._state.wip.get()?.changes?.files;
 		const composeFiles = scopeFilesValue ?? fallbackFiles;
 
-		return html`<gl-details-compose-mode-panel
+		const content = html`<gl-details-compose-mode-panel
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			.status=${mappedComposeStatus}
@@ -3415,7 +3418,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${composeEntry?.prompt}
-			.basePrompt=${composeEntry?.basePrompt ?? seedInstructions}
+			.excludedFiles=${composeEntry?.excludedFiles ?? emptyModeExclusions}
+			.commitExcludedIds=${composeEntry?.commitExcludedIds ?? emptyModeExclusions}
+			.basePrompt=${composeEntry?.idleDraft ?? composeEntry?.basePrompt ?? seedInstructions}
 			.refineMode=${composeEntry?.refineMode ?? false}
 			.refineDraft=${composeEntry?.refineDraft}
 			.progressMessage=${this._state.composeProgressMessage.get()}
@@ -3467,6 +3472,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-unstage=${this.handleFileUnstage}
 			@change-files-layout=${this.handleChangeFilesLayout}
 		></gl-details-compose-mode-panel>`;
+		return keyed(this.engagedAnchorKey, content);
 	}
 
 	private renderCompareMode() {
@@ -3844,7 +3850,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							? 'error'
 							: 'idle';
 
-		return html`<gl-details-review-mode-panel
+		const content = html`<gl-details-review-mode-panel
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			.scope=${this._state.scope.get()}
@@ -3863,6 +3869,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.branchName=${reviewBranchName}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${reviewEntry?.prompt}
+			.excludedFiles=${reviewEntry?.excludedFiles ?? emptyModeExclusions}
+			.idleDraft=${reviewEntry?.idleDraft}
+			.refineMode=${reviewEntry?.refineMode}
+			.refineDraft=${reviewEntry?.refineDraft}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
 			.backPreview=${this._state.reviewBackPreview.get()}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
@@ -3957,6 +3967,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-open-on-remote=${this.handleFileOpenOnRemote}
 			@change-files-layout=${this.handleChangeFilesLayout}
 		></gl-details-review-mode-panel>`;
+		return keyed(this.engagedAnchorKey, content);
 	}
 
 	private renderResolveMode() {
@@ -4538,11 +4549,39 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.persistWipDraft(repoPath, { message: message, messageDirty: true, amend: existing?.amend });
 	}
 
-	/** {@link DetailsWorkflowHost.readEngagedRefineState} — read the live compose/resolve panel's
+	/** {@link DetailsWorkflowHost.readEngagedRefineState} — read the live review/compose/resolve panel's
 	 *  ready-state Refine posture + unsubmitted draft, so the controller can persist them onto the
 	 *  engaged entry on mode-leave. Returns undefined when no refine-capable panel is mounted. */
+	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined {
+		const mode = this._state.activeMode.get();
+		if (mode === 'compose') {
+			const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
+			return panel != null ? { files: panel.excludedFiles, commits: panel.commitExcludedIds } : undefined;
+		}
+		if (mode === 'review') {
+			const panel = this.findReviewModePanel();
+			return panel != null ? { files: panel.excludedFiles } : undefined;
+		}
+		return undefined;
+	}
+
+	readEngagedIdleDraft(): string | undefined {
+		const mode = this._state.activeMode.get();
+		if (mode === 'compose') {
+			return this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel')?.idleDraftLive;
+		}
+		if (mode === 'review') {
+			return this.findReviewModePanel()?.idleDraftLive;
+		}
+		return undefined;
+	}
+
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
 		const mode = this._state.activeMode.get();
+		if (mode === 'review') {
+			const panel = this.findReviewModePanel();
+			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;
+		}
 		if (mode === 'compose') {
 			const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
 			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;

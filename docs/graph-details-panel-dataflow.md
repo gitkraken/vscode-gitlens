@@ -219,8 +219,11 @@ A scope-picker change re-fetches `resources.scopeFiles` for the new `ScopeSelect
 registry entry are the source of truth; `RunningOperationExecState` (`'generating' | 'complete' |
 'backed' | 'error' | 'orphaned'`) drives which of idle/loading/results/error the review panel
 renders. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
-the AI (`_reviewBackSnapshot` on the controller); `'backed'` is the state that makes a subsequent
-Close destructive (the back-then-close gate, `destroyEngagedOperation`).
+the AI (`_reviewBackSnapshot` is the engaged projection). Before hiding, the anchor's registry
+entry captures Resume eligibility, unsubmitted instructions, selected scope and file/commit exclusions, and prior-result error
+recovery. Re-entry restores that projection; typing or changing scope invalidates Resume, and
+re-entry must not revive it. Close always hides and preserves the operation, including a backed
+result or an in-flight run. Discard explicitly destroys it via `destroyEngagedOperation`.
 
 ### What's different from WIP normal
 
@@ -248,9 +251,11 @@ via `refreshWip()` + `fetchDetails(sha, repoPath)` on the new HEAD.
 ### What's unique
 
 - `resources.compose` (a `Resource<ComposeResult, …>`); refine continuation state
-  (`composeCurrentCacheKey`, `composeRefineExcludedCommitIds`, `composeRegeneratingCommitId`);
+  (the anchor entry's `cacheKey`, `composeRefineExcludedCommitIds`, `composeRegeneratingCommitId`);
   apply/progress state (`composeProgressMessage`, `composeApplying`); error-recovery snapshot
-  (`composePreErrorValue`, `composeLastFailedAction`, `composeLastCommitAllIncludedIds`).
+  (`composePreErrorValue`, `composeLastFailedAction`, `composeLastCommitAllIncludedIds`) projected
+  from the anchor entry on re-entry. These survive Close/navigation together with the ready-state
+  Refine draft, so a failed refinement can still return to its previous plan.
 - `composeCommitAll`/`composeCommitTo` are the only operations in this doc that mutate the repo
   directly from a mode panel.
 
@@ -551,7 +556,7 @@ from `DetailsActions`' data-fetch responsibilities:
 
 - `toggleMode(mode, selection, scopeOverride?)` — enter/exit/re-target a review/compose/resolve
   mode. Toggling the same mode off on the _same_ anchor hides it (registry entry survives, run
-  keeps going) unless the entry is `'backed'`, in which case it destroys (back-then-close gate).
+  keeps going), including `'backed'` entries. Only explicit Discard destroys the operation.
   Toggling the same mode on a _different_ anchor re-targets. Switching to a different mode while
   one is active hides the outgoing one first — both kinds may coexist per anchor.
 - `hostUpdate()` (called every render) drives two triggers independent of the panel's own

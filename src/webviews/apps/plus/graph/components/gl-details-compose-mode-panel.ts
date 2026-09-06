@@ -232,13 +232,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@state() private _selectedFiles: readonly { path: string }[] = [];
 	/** Mirrors the idle curation pane's multi-selection; separate from `_selectedFiles` (ready-state tree) so selection doesn't leak across states. */
 	@state() private _idleSelectedFiles: readonly { path: string }[] = [];
-	@state() private _excludedFiles = new Set<string>();
+	@property({ attribute: false }) excludedFiles: ReadonlySet<string> = new Set();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 	/** Commit ids the user has excluded from the next "Commit" action. Independent of the
 	 *  refine-excluded set — refine-exclusion affects what the AI leaves alone during recompose,
 	 *  commit-exclusion affects what gets applied at commit time. Panel-local because it resets
 	 *  per plan (a fresh recompose result starts with all commits included). */
-	@state() private _excludedCommitIds = new Set<string>();
+	@property({ attribute: false }) commitExcludedIds: ReadonlySet<string> = new Set();
 
 	/** Panel posture: false = commit (green checkmarks pick what will be committed), true = refine
 	 *  (orange checkmarks pick what the AI may reshape). Toggled by the "Refine with AI" checkbox.
@@ -296,15 +296,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property({ attribute: false })
 	regeneratingCommitId?: string;
 
-	get excludedFiles(): ReadonlySet<string> {
-		return this._excludedFiles;
-	}
-
 	/** Picker selection IDs (within shadow root) for the orchestrator's scope-fetch flow. */
 	get selectedIds(): ReadonlySet<string> | undefined {
 		const picker = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');
 		if (picker == null) return undefined;
 		return new Set(picker.selectedIds);
+	}
+
+	/** Live unsubmitted instructions, captured before the idle input unmounts. */
+	get idleDraftLive(): string | undefined {
+		if (this.status !== 'idle') return undefined;
+		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.review-action-input')?.currentValue;
 	}
 
 	/** Live Refine posture, read by the host on mode-leave to persist onto the engaged entry. Only
@@ -326,19 +328,19 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
-			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this._excludedFiles);
+			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this.excludedFiles);
 			if (result != null) {
 				this._aiExcludedSet = result.aiExcludedSet;
 				if (result.excludedFiles != null) {
-					this._excludedFiles = result.excludedFiles;
+					this.excludedFiles = result.excludedFiles;
 				}
 			}
 		}
 
 		if (changedProperties.has('files')) {
-			const pruned = prunePathsToFiles(this._excludedFiles, this.files);
+			const pruned = prunePathsToFiles(this.excludedFiles, this.files);
 			if (pruned != null) {
-				this._excludedFiles = pruned;
+				this.excludedFiles = pruned;
 			}
 			this._idleSelectedFiles = [];
 		}
@@ -346,11 +348,11 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// Exclusions picked before the scope settled into an interior range would silently violate
 		// the whole-plan contract, so drop them the moment the range becomes interior.
 		if (this.isInteriorScope) {
-			if (this._excludedFiles.size > 0) {
-				this._excludedFiles = new Set();
+			if (this.excludedFiles.size > 0) {
+				this.excludedFiles = new Set();
 			}
-			if (this._excludedCommitIds.size > 0) {
-				this._excludedCommitIds = new Set();
+			if (this.commitExcludedIds.size > 0) {
+				this.commitExcludedIds = new Set();
 			}
 		}
 
@@ -386,11 +388,11 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// Excluded commits, in contrast, are panel-local and need to be pruned here when the
 		// plan changes — a refined plan may rename / drop commit ids, so stale entries would
 		// silently filter from a commit the user didn't intend to exclude.
-		if (changedProperties.has('commits') && this._excludedCommitIds.size > 0) {
+		if (changedProperties.has('commits') && this.commitExcludedIds.size > 0) {
 			const validIds = new Set(this.commits?.map(c => c.id));
 			let changed = false;
 			const next = new Set<string>();
-			for (const id of this._excludedCommitIds) {
+			for (const id of this.commitExcludedIds) {
 				if (validIds.has(id)) {
 					next.add(id);
 				} else {
@@ -398,13 +400,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 				}
 			}
 			if (changed) {
-				this._excludedCommitIds = next;
+				this.commitExcludedIds = next;
 			}
 		}
 	}
 
 	private getEffectiveFileCount(): number {
-		return countIncludedFiles(this.files, this._excludedFiles, this._aiExcludedSet);
+		return countIncludedFiles(this.files, this.excludedFiles, this._aiExcludedSet);
 	}
 
 	override connectedCallback(): void {
@@ -614,7 +616,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
 		for (const file of files) {
-			const checked = !this._excludedFiles.has(file.path);
+			const checked = !this.excludedFiles.has(file.path);
 			const disabled = aiExcluded?.has(file.path) ?? false;
 			if (checked || disabled) {
 				checkableStates.set(file.path, {
@@ -724,18 +726,18 @@ export class GlDetailsComposeModePanel extends LitElement {
 	};
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
-		const next = fileCheckedExclusion(e, this._excludedFiles, () => !this.isInteriorScope);
+		const next = fileCheckedExclusion(e, this.excludedFiles, () => !this.isInteriorScope);
 		if (next == null) return;
 
-		this._excludedFiles = next;
+		this.excludedFiles = next;
 		this.invalidateForward();
 	}
 
 	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
-		const next = checkAllExclusion(e, this._excludedFiles, () => !this.isInteriorScope);
+		const next = checkAllExclusion(e, this.excludedFiles, () => !this.isInteriorScope);
 		if (next == null) return;
 
-		this._excludedFiles = next;
+		this.excludedFiles = next;
 		this.invalidateForward();
 	}
 
@@ -795,12 +797,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private renderPlan() {
 		if (!this.commits?.length) return nothing;
 
-		const includedCount = this.commits.length - this._excludedCommitIds.size;
+		const includedCount = this.commits.length - this.commitExcludedIds.size;
 		// Applying or discarding the plan ends it, and a message still being written belongs to it —
 		// let that land first so the plan the user acts on is the one they can see.
 		const regenerating = this.regeneratingCommitId != null;
 		const regeneratingReason = 'Wait for the commit message to finish generating';
-		const allIncluded = this._excludedCommitIds.size === 0;
+		const allIncluded = this.commitExcludedIds.size === 0;
 		// "Change Sets" only appears with a count (a partial selection); the whole-set and disabled
 		// cases use the plain "Changes" (matching the gate), so the button never reads "0" or "All".
 		const commitButtonLabel =
@@ -930,7 +932,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const num = this.commits!.length - index;
 		const isSelected = this._selectedCommitId === commit.id;
 		const isRefineExcluded = this.excludedCommitIds.has(commit.id);
-		const isExcluded = this._excludedCommitIds.has(commit.id);
+		const isExcluded = this.commitExcludedIds.has(commit.id);
 		// One checkmark per row; posture decides which axis it edits. Checked always means "let
 		// this commit flow through" (commit it / let the AI reshape it); unchecked "holds it back".
 		// Commit-posture exclusion is unavailable for an interior range (the plan applies whole);
@@ -1228,9 +1230,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	private handleCommitAll(): void {
 		const includedCommitIds =
-			this.isInteriorScope || this._excludedCommitIds.size === 0
+			this.isInteriorScope || this.commitExcludedIds.size === 0
 				? undefined
-				: this.commits?.filter(c => !this._excludedCommitIds.has(c.id)).map(c => c.id);
+				: this.commits?.filter(c => !this.commitExcludedIds.has(c.id)).map(c => c.id);
 
 		this.dispatchEvent(
 			new CustomEvent<ComposeCommitAllDetail>('compose-commit-all', {
@@ -1580,13 +1582,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private handleToggleCommitIncluded(commitId: string): void {
 		if (this.isInteriorScope) return;
 
-		const next = new Set(this._excludedCommitIds);
+		const next = new Set(this.commitExcludedIds);
 		if (next.has(commitId)) {
 			next.delete(commitId);
 		} else {
 			next.add(commitId);
 		}
-		this._excludedCommitIds = next;
+		this.commitExcludedIds = next;
 	}
 
 	private handleToggleRefineMode(e: Event): void {

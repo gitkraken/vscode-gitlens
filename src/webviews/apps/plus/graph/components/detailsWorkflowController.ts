@@ -116,10 +116,13 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  worktree's persisted draft slot. Called by the controller from `onRunSettled` (and on
 	 *  re-engage after a disconnected settle) — never while the panel is disconnected. */
 	applyGeneratedCommitMessage(repoPath: string, message: string): void;
-	/** Reads the live compose/resolve panel's ready-state Refine posture + unsubmitted draft text, so
+	/** Reads the live review/compose/resolve panel's ready-state Refine posture + unsubmitted draft text, so
 	 *  the controller can persist them onto the engaged entry on mode-leave (see `hideMode`). Returns
-	 *  `undefined` when no refine-capable panel is mounted (e.g. review mode, or no active mode). */
+	 *  `undefined` when no ready refine-capable panel is mounted. */
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
+	/** Unsubmitted review/compose instructions; undefined unless the idle input is mounted. */
+	readEngagedIdleDraft(): string | undefined;
+	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
 }
 
 /** The mode-specific pieces handed to {@link DetailsWorkflowController.createBackForwardMachine} —
@@ -292,7 +295,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					// this trigger observes the change) and already belongs to the new repo.
 					const modeRepo = this.actions.state.activeModeRepoPath.get();
 					if (modeRepo == null || graphRepo == null || normalizePath(modeRepo) !== normalizePath(graphRepo)) {
-						this.hideMode(this.host.currentSelection(), { skipRefetch: true });
+						this.hideMode(this.host.currentSelection(), { skipRefetch: true, discard: true });
 					}
 				}
 				if (this.actions.state.comparePresentation.get() !== 'closed') {
@@ -335,10 +338,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		const state = this.actions.state;
 		const resources = this.actions.resources;
 
-		// If already active, deactivate. This is "toggle-out maintains" — just hide the panel;
-		// the registry entry + any in-flight run persist. Close-from-`'backed'` is the only path
-		// that destroys (single-click, no confirm — Restart already moved the result to a forward
-		// snapshot, so close discarding the backed entry is the user's natural follow-through).
+		// Closing only hides the panel. Discard is the explicit operation teardown.
 		if (state.activeMode.get() === mode) {
 			const engagedSelection: DetailsSelection = {
 				sha: state.activeModeSha.get(),
@@ -346,19 +346,8 @@ export class DetailsWorkflowController implements ReactiveController {
 				repoPath: state.activeModeRepoPath.get(),
 			};
 			if (anchorKey(engagedSelection) === anchorKey(selection)) {
-				// If the engaged anchor's entry is `'backed'`, this is the destroy path
-				// (Restart-then-close). Otherwise just hide.
-				const engagedEntry = this.host.crossPaneState.runningOperations
-					.get()
-					.get(anchorKey(engagedSelection))?.[mode];
-				if (engagedEntry?.execState === 'backed') {
-					this.destroyEngagedOperation(mode);
-				} else {
-					// User explicitly dismissed this mode on this anchor — forget so a return
-					// doesn't auto-restore it. The registry entry (if any) is left intact.
-					this.forgetMode(selection);
-					this.hideMode(selection);
-				}
+				this.forgetMode(selection);
+				this.hideMode(selection);
 				return;
 			}
 
@@ -384,7 +373,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Initialize mode-specific state. Resolve has no commit/diff scope — it operates on the
 		// paused op's conflicted-file set read directly from `state.wip` — so skip scope building.
 		if (mode !== 'resolve') {
-			const scope = scopeOverride ?? this.buildDefaultScope(sha, isWip, isMultiCommit, repoPath);
+			const savedScope = this.host.crossPaneState.runningOperations.get().get(anchorKey(selection))?.[
+				mode
+			]?.scope;
+			const scope = scopeOverride ?? savedScope ?? this.buildDefaultScope(sha, isWip, isMultiCommit, repoPath);
 			if (scope) {
 				state.scope.set(scope);
 				resources.scopeFiles.cancel();
@@ -740,7 +732,7 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  rebase, whose Resolve mode is a progress surface the user never opted into, so it leaves outright
 	 *  once the run is cancelled or its summary dismissed. Review/compose toggle-out goes through
 	 *  {@link hideMode} instead (run preserved); destroy goes through
-	 *  {@link destroyEngagedOperation} (Back-then-close gate). */
+	 *  {@link destroyEngagedOperation} (explicit Discard action). */
 	exitMode(selection: DetailsSelection): void {
 		const wasMode = this.actions.state.activeMode.get();
 		const wasSha = this.actions.state.activeModeSha.get();
@@ -785,20 +777,23 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  Registry entries + their AbortControllers are left intact, so the run keeps going and the
 	 *  chip overlay + WIP-row adornment stay live. Used by toggle-out, X-close (non-destructive),
 	 *  and the anchor-switch state-clear half of {@link switchAnchorWithinMode}. */
-	private hideMode(selection: DetailsSelection, options?: { skipRefetch?: boolean }): void {
+	private hideMode(selection: DetailsSelection, options?: { skipRefetch?: boolean; discard?: boolean }): void {
 		// Read the active mode BEFORE clearing it so we can scope the error-recovery invalidation
 		// to just the mode the user was in. The two kinds can have coexisting state when both
 		// are running for the same anchor (the registry supports this); clearing both kinds'
 		// recovery on a hide that only ends one of them would silently erase the other's state.
 		const exitingMode = this.actions.state.activeMode.get();
+		if (!options?.discard && (exitingMode === 'review' || exitingMode === 'compose')) {
+			this.captureEngagedModeState(exitingMode);
+		}
 
-		// Capture the compose/resolve panel's Refine posture + unsubmitted draft onto the outgoing
+		// Capture the review/compose/resolve panel's Refine posture + unsubmitted draft onto the outgoing
 		// anchor's entry BEFORE the signals + panel are torn down, so toggling the chip off/on or
 		// switching rows restores them. `currentAnchor()` + the panel DOM still reflect the outgoing
 		// anchor here. `hideMode` is the single choke point for every preserve-leave (toggle-out,
 		// mode-switch, row-switch), so one capture here covers all of them. Fresh-result / discard /
 		// destroy / repo-switch paths remove the entry, so the `entry != null` guard no-ops there.
-		if (exitingMode === 'compose' || exitingMode === 'resolve') {
+		if (!options?.discard && (exitingMode === 'review' || exitingMode === 'compose' || exitingMode === 'resolve')) {
 			this.captureEngagedRefineState(exitingMode);
 		}
 
@@ -815,21 +810,23 @@ export class DetailsWorkflowController implements ReactiveController {
 		// NEW fetch starts; without this explicit bump, a toggle-off-and-stay-off path leaves
 		// the in-flight resolution able to repopulate the signal.
 		this.actions.invalidateAiExcludedFilesFetch();
-		// Error-recovery state is engagement-scoped — it belongs to the mode the user was in
+		// Clear the engagement projection after saving it on the entry. It belongs to the mode the user was in
 		// when the error occurred. Without this clear, anchor B's mode-X error retry/Go-Back
 		// could reach for anchor A's prior session prompt/value/last-action (backFromError reads
 		// `*PreErrorValue` and `mutate`s it in). Scope to `exitingMode` so a hide that ends only
 		// one of two coexisting kinds doesn't erase the other's recovery state.
 		if (exitingMode === 'review') {
+			this.review.invalidateSnapshot();
 			this.review.invalidateErrorRecovery();
 		} else if (exitingMode === 'compose') {
-			// Error recovery is engagement-scoped, but the refine continuation is NOT dropped here.
+			// Clear the error projection after capture; retain the refine continuation.
 			// `hideMode` is the preserve-leave choke point — it leaves the registry entry intact and
 			// deliberately captures the Refine posture + draft just above so a toggle-out or row-switch can
 			// resume. Dropping the cache key too would preserve the intent to refine while destroying the
 			// ability, so the resumed plan would silently regenerate from scratch. `exitMode` and the
 			// different-selection branch of `toggleMode` still drop it — they end the engagement, though the
 			// host's session outlives them until something calls `discardCompose`.
+			this.compose.invalidateSnapshot();
 			this.compose.invalidateErrorRecovery();
 		} else if (exitingMode === 'resolve') {
 			// The focused-file scope is an input of the engagement that set it (per-file/multi-select
@@ -847,12 +844,51 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 	}
 
-	/** Persist the outgoing compose/resolve panel's live Refine posture + unsubmitted draft onto its
+	/** Save the engaged projection before hiding it. The anchor entry outlives the panel and is
+	 *  the authority for restoring drafts, valid Resume, and prior-result error recovery. */
+	private captureEngagedModeState(kind: 'review' | 'compose'): void {
+		const anchor = this.currentAnchor();
+		const bucket = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor));
+		const idleDraft = this.host.readEngagedIdleDraft();
+		const exclusions = this.host.readEngagedExclusions();
+		const state = this.actions.state;
+		if (kind === 'review') {
+			const entry = bucket?.review;
+			if (entry == null && idleDraft == null) return;
+
+			this.registerRunningOperation({
+				...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+				idleDraft: idleDraft,
+				excludedFiles: exclusions?.files,
+				scope: state.scope.get(),
+				resumeAvailable: state.reviewForwardAvailable.get(),
+				preErrorValue: state.reviewPreErrorValue.get(),
+			});
+		} else {
+			const entry = bucket?.compose;
+			if (entry == null && idleDraft == null) return;
+
+			this.registerRunningOperation({
+				...(entry ?? { kind: 'compose', anchor: anchor, execState: 'backed' }),
+				idleDraft: idleDraft,
+				excludedFiles: exclusions?.files,
+				scope: state.scope.get(),
+				resumeAvailable: state.composeForwardAvailable.get(),
+				commitExcludedIds: exclusions?.commits,
+				refineExcludedCommitIds: state.composeRefineExcludedCommitIds.get(),
+				preErrorValue: state.composePreErrorValue.get(),
+				lastFailedAction: state.composeLastFailedAction.get(),
+				lastCommitAllIncludedIds: state.composeLastCommitAllIncludedIds.get(),
+			});
+		}
+	}
+
+	/** Persist the outgoing review/compose/resolve panel's live Refine posture + unsubmitted draft onto its
 	 *  registry entry, so a later return to this anchor restores them. Reads the live panel through the
 	 *  host; no-ops when there's no entry (fresh result / discarded / destroyed / repo-switched away).
 	 *  Routed through {@link registerRunningOperation} — whose dedup guard compares the refine fields —
 	 *  so an unchanged snapshot (e.g. leaving with the gate closed) doesn't churn the registry. */
-	private captureEngagedRefineState(kind: 'compose' | 'resolve'): void {
+	private captureEngagedRefineState(kind: DetailsMode): void {
 		const snapshot = this.host.readEngagedRefineState();
 		if (snapshot == null) return;
 
@@ -861,7 +897,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		this.registerRunningOperation({
 			...entry,
-			refineMode: snapshot.refineMode || undefined,
+			refineMode: kind === 'review' ? snapshot.refineMode : snapshot.refineMode || undefined,
 			refineDraft: snapshot.refineDraft.trim() ? snapshot.refineDraft : undefined,
 		});
 	}
@@ -884,8 +920,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	/** Destroy the engaged anchor's `(kind)` operation — aborts the controller, removes the
 	 *  registry entry, clears the back-snapshot, resets the resource, untoggles the mode. This
-	 *  is the back-then-close gate's destroy step; reachable from the X close and from the
-	 *  active-toggle click when the engaged entry's `execState === 'backed'`. */
+	 *  is the explicit Discard action; closing the panel preserves the operation. */
 	private destroyEngagedOperation(kind: DetailsMode): void {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
@@ -920,7 +955,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// they can diverge (e.g. destroy via the active-toggle chip while the host's selection
 		// already moved to a different row).
 		this.forgetMode(anchor);
-		this.hideMode(this.host.currentSelection());
+		this.hideMode(this.host.currentSelection(), { discard: true });
 	}
 
 	/** Shared tail for `exitMode`/`hideMode`: re-fetch the current selection's data so the
@@ -959,22 +994,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		const nextKey = anchorKey(newSelection);
 		if (prevKey === nextKey) return;
 
-		// Back-snapshots are engagement-scoped: they belong to whatever anchor the user backed
-		// from. Carrying them across an anchor switch would let `forward()` on the new anchor
-		// restore the prior anchor's result via `resource.mutate(snapshot)`. The compose snapshot
-		// has the same risk (commits from anchor A surfacing on anchor B). Invalidating both
-		// here also clears `*ForwardAvailable` and `*BackPreview` so the new anchor's header
-		// doesn't render a stale Resume affordance. The new anchor's own back-snapshot, if any,
-		// gets rebuilt when the user clicks Back on it.
+		// Save the outgoing anchor before clearing its engagement-only projection. On return,
+		// projectEngagedAnchor restores only snapshots that were not invalidated by input edits.
+		this.hideMode(newSelection);
 		this.review.invalidateSnapshot();
 		this.compose.invalidateSnapshot();
-		// Resolve has no Resume snapshot (apply is terminal) — this is a deliberate no-op kept for
-		// uniformity so every mode's snapshot is invalidated on an anchor switch.
 		this.resolve.invalidateSnapshot();
-
-		// On row switch the mode does NOT follow — just hide. The prior anchor's `toggleMode`
-		// already called `rememberMode`, so returning to a remembered WIP anchor restores below.
-		this.hideMode(newSelection);
 
 		// Then, if the new anchor is a WIP with a remembered mode, restore it atomically in
 		// the same willUpdate cycle. The panel's `else-if` restore branch can't catch this on
@@ -1085,7 +1110,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// holds a result — an error/cancelled sentinel isn't useful to restore.
 		const currentValue = this.actions.resources.review.value.get();
 		this.actions.state.reviewPreErrorValue.set(
-			currentValue != null && 'result' in currentValue ? currentValue : undefined,
+			currentValue != null && 'result' in currentValue
+				? currentValue
+				: this.actions.state.reviewPreErrorValue.get(),
 		);
 		// Follow-up only when explicitly requested by the ready-state input AND there's a result
 		// to follow up on AND guidance to follow up with — an empty submit or a restart from idle
@@ -1272,7 +1299,14 @@ export class DetailsWorkflowController implements ReactiveController {
 				const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(engagedAnchor))?.compose;
 				if (entry == null) return;
 
-				this.registerRunningOperation({ ...entry, execState: 'error', result: resourceValue });
+				this.registerRunningOperation({
+					...entry,
+					execState: 'error',
+					result: resourceValue,
+					preErrorValue: this.actions.state.composePreErrorValue.get(),
+					lastFailedAction: this.actions.state.composeLastFailedAction.get(),
+					lastCommitAllIncludedIds: this.actions.state.composeLastCommitAllIncludedIds.get(),
+				});
 				return;
 			}
 
@@ -1608,7 +1642,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// captures a result-bearing value — an error/cancelled sentinel isn't useful to restore.
 		const currentValue = this.actions.resources.compose.value.get();
 		this.actions.state.composePreErrorValue.set(
-			currentValue != null && 'result' in currentValue ? currentValue : undefined,
+			currentValue != null && 'result' in currentValue
+				? currentValue
+				: this.actions.state.composePreErrorValue.get(),
 		);
 		this.actions.state.composeLastFailedAction.set('generate');
 		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
@@ -2065,6 +2101,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		prior?.abortController?.abort();
 
 		const controller = new AbortController();
+		const exclusions = this.host.readEngagedExclusions();
 		// Clear the engaged resource so the panel doesn't show a stale prior result while generating.
 		this.resourceFor(kind).reset();
 
@@ -2075,22 +2112,37 @@ export class DetailsWorkflowController implements ReactiveController {
 		// `prompt` on the entry from the start: subsequent `{...entry, ...}` spreads in
 		// `back()` / `backFromError()` / `onRunSettled` / `applyPlan` preserve it without each
 		// site needing to know about the field.
-		this.registerRunningOperation({
-			kind: kind,
+		const operation = {
 			anchor: anchor,
-			execState: 'generating',
+			execState: 'generating' as const,
 			abortController: controller,
 			promise: promise,
 			prompt: prompt,
 			basePrompt: basePrompt ?? prompt,
+			excludedFiles: exclusions?.files ?? prior?.excludedFiles,
+			scope: this.actions.state.scope.get(),
 			focusedFilePaths: focusedFilePaths,
-			// Carry the compose plan's cache key through the in-flight window so a refine that fails is
-			// still retryable as a refine. Read it through the same predicate that decided whether this
-			// run IS a refine, so the key is inherited only when the run continues it — a cold start (a
-			// `backed` entry, say) must not carry a key the host is about to discard, or the entry would
-			// go on naming a dead plan and later teardown calls would name it too.
-			...(kind === 'compose' ? { cacheKey: this.composeCacheKeyForAnchor(anchor) } : undefined),
-		});
+		};
+		if (kind === 'compose') {
+			this.registerRunningOperation({
+				...operation,
+				kind: kind,
+				cacheKey: this.composeCacheKeyForAnchor(anchor),
+				commitExcludedIds: exclusions?.commits,
+				refineExcludedCommitIds: this.actions.state.composeRefineExcludedCommitIds.get(),
+				preErrorValue: this.actions.state.composePreErrorValue.get(),
+				lastFailedAction: this.actions.state.composeLastFailedAction.get(),
+				lastCommitAllIncludedIds: this.actions.state.composeLastCommitAllIncludedIds.get(),
+			});
+		} else if (kind === 'review') {
+			this.registerRunningOperation({
+				...operation,
+				kind: kind,
+				preErrorValue: this.actions.state.reviewPreErrorValue.get(),
+			});
+		} else {
+			this.registerRunningOperation({ ...operation, kind: kind });
+		}
 
 		promise.then(
 			result => {
@@ -2372,11 +2424,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			back: (): void => {
 				// Snapshot a successfully-resolved value so forward() can restore it without re-running
 				// the AI. Also transition the engaged anchor's registry entry to `'backed'` — that's
-				// the state that makes Close destructive (the Back-then-close gate). The chip overlay
+				// the idle scope picker while preserving Resume. The chip overlay
 				// stays as `pass` (a result still exists, just not currently displayed).
 				// The transition + resource reset MUST be gated on a successful snapshot capture:
 				// otherwise we land on a backed entry with `forwardAvailable === false`, the panel
-				// shows idle, the chip shows pass, and the only escape is destructive Close. The
+				// shows idle, the chip shows pass, and Resume is unavailable. The
 				// outer status check guards against a non-success state; the inner gate
 				// (`canBack`) guards against the (rare) success-without-value race where the
 				// resource was reset between the status read and the value read.
@@ -2713,9 +2765,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		// of widening to all conflicts). `abortController` + `promise` are intentionally dropped: the run
 		// is settled, those fields are stale (per RunningOperationBase docs).
 		this.registerRunningOperation({
+			...current,
 			kind: kind,
 			anchor: anchor,
 			execState: execState,
+			abortController: undefined,
+			promise: undefined,
 			result: value,
 			prompt: current.prompt,
 			basePrompt: current.basePrompt,
@@ -2872,6 +2927,28 @@ export class DetailsWorkflowController implements ReactiveController {
 			resource.reset();
 			return;
 		}
+		if (entry.kind === 'review') {
+			this.actions.state.reviewPreErrorValue.set(entry.preErrorValue);
+			if (entry.execState === 'backed' && entry.resumeAvailable && entry.result != null) {
+				this.enterReviewBacked(entry.result);
+				return;
+			}
+		} else if (entry.kind === 'compose') {
+			this.actions.state.composePreErrorValue.set(entry.preErrorValue);
+			this.actions.state.composeLastFailedAction.set(entry.lastFailedAction);
+			this.actions.state.composeLastCommitAllIncludedIds.set(entry.lastCommitAllIncludedIds);
+			this.actions.state.composeRefineExcludedCommitIds.set(entry.refineExcludedCommitIds ?? new Set());
+			if (
+				entry.execState === 'backed' &&
+				entry.resumeAvailable &&
+				entry.result != null &&
+				'result' in entry.result
+			) {
+				this.enterComposeBacked(entry.result);
+				return;
+			}
+		}
+
 		if (entry.execState === 'generating' || entry.execState === 'backed') {
 			resource.reset();
 			return;
@@ -2908,6 +2985,18 @@ export class DetailsWorkflowController implements ReactiveController {
 			(existing as { result?: unknown }).result === (op as { result?: unknown }).result &&
 			existing.abortController === op.abortController &&
 			existing.promise === op.promise &&
+			existing.idleDraft === op.idleDraft &&
+			existing.scope === op.scope &&
+			existing.excludedFiles === op.excludedFiles &&
+			existing.resumeAvailable === op.resumeAvailable &&
+			(existing as { preErrorValue?: unknown }).preErrorValue ===
+				(op as { preErrorValue?: unknown }).preErrorValue &&
+			(existing.kind !== 'compose' ||
+				op.kind !== 'compose' ||
+				(existing.commitExcludedIds === op.commitExcludedIds &&
+					existing.refineExcludedCommitIds === op.refineExcludedCommitIds &&
+					existing.lastFailedAction === op.lastFailedAction &&
+					existing.lastCommitAllIncludedIds === op.lastCommitAllIncludedIds)) &&
 			// Include the captured Refine posture/draft so a refine-only update (same execState + result,
 			// written by `captureEngagedRefineState` on mode-leave) isn't dropped as a no-op.
 			existing.refineMode === op.refineMode &&

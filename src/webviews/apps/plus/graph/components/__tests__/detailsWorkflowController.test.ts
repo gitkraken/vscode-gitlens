@@ -178,6 +178,16 @@ class FakeHost implements DetailsWorkflowHost {
 
 	/** Test-controlled snapshot returned by `readEngagedRefineState` — set by the capture-on-leave
 	 *  tests to simulate the live compose/resolve panel's posture + draft. */
+	engagedExclusions: { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
+	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined {
+		return this.engagedExclusions;
+	}
+
+	engagedIdleDraft: string | undefined;
+	readEngagedIdleDraft(): string | undefined {
+		return this.engagedIdleDraft;
+	}
+
 	engagedRefineState: { refineMode: boolean; refineDraft: string } | undefined = undefined;
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
 		return this.engagedRefineState;
@@ -598,7 +608,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(restored?.prompt, 'my review prompt', 'prompt preserved through forward()');
 	});
 
-	test('toggleMode early-exit on a backed entry destroys it (Back-then-close gate)', () => {
+	test('closing a backed entry preserves its result and Resume', () => {
 		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		// User had a complete review on /A, clicked Back → execState becomes 'backed'.
 		host.crossPaneState.runningOperations.set(
@@ -612,14 +622,15 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller['_reviewBackSnapshot'] = makeReviewResult('back-snap');
 		state.reviewForwardAvailable.set(true);
 
-		// Toggle Review off while engaged on 'backed' — should destroy.
+		// Closing hides the backed result without discarding its Resume.
 		controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/A' });
 
 		assert.strictEqual(state.activeMode.get(), null);
-		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 0, 'entry destroyed');
-		assert.strictEqual(controller['_reviewBackSnapshot'], undefined, 'back snapshot cleared');
-		assert.strictEqual(state.reviewForwardAvailable.get(), false);
-		assert.strictEqual(actions.resources.review.value.get(), undefined);
+		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 1, 'entry preserved');
+		controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+		assert.strictEqual(state.reviewForwardAvailable.get(), true);
+		assert.strictEqual(controller.review.forward(), true);
+		assert.deepStrictEqual(actions.resources.review.value.get(), makeReviewResult('to-destroy'));
 	});
 
 	test('switchAnchorWithinMode invalidates the controller-level back snapshots (no cross-anchor contamination)', () => {
@@ -839,7 +850,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 	});
 
-	test('destroyEngagedOperation (Back-then-close) forgets the remembered mode', () => {
+	test('closing a backed operation forgets the remembered mode without discarding the entry', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		const result = makeReviewResult('destroy-forgets');
 		host.crossPaneState.runningOperations.set(
@@ -863,14 +874,14 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		// Same-mode click on a 'backed' entry routes through destroyEngagedOperation.
+		// Explicit Close forgets engagement but preserves the operation.
 		controller.toggleMode('review', { sha: uncommitted, shas: undefined, repoPath: '/A' });
 
-		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 0, 'entry destroyed');
+		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 1, 'entry preserved');
 		assert.strictEqual(
 			controller.getRememberedMode({ sha: uncommitted, shas: undefined, repoPath: '/A' }),
 			undefined,
-			'remembered mode forgotten on destroy',
+			'remembered mode forgotten on explicit Close',
 		);
 	});
 
@@ -1375,12 +1386,235 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 	});
 });
 
+suite('DetailsWorkflowController — Close preserves AI work', () => {
+	for (const kind of ['review', 'compose'] as const) {
+		test(`${kind}: Restart, Close, and anchor navigation preserve valid Resume`, () => {
+			const { host, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			const bucket =
+				kind === 'review'
+					? makeReviewBucket('/A', makeReviewResult('saved'), 'complete', 'instructions')
+					: makeComposeBucket('/A', makeComposeResult('saved'), 'complete', 'instructions');
+			host.crossPaneState.runningOperations.set(new Map([[wipKey('/A'), bucket]]));
+			controller.toggleMode(kind, selection);
+			controller[kind].back();
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(
+				host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind]?.result,
+				bucket[kind]?.result,
+			);
+			controller.toggleMode(kind, selection);
+			controller.switchAnchorWithinMode({ repoPath: '/A', sha: 'other-commit', shas: undefined });
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(controller[kind].forward(), true, 'Resume survives the round trip');
+			assert.strictEqual(actions.resources[kind].value.get(), bucket[kind]?.result);
+		});
+
+		test(`${kind}: input edits invalidate Resume permanently across a Close and navigation`, () => {
+			const { host, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			host.crossPaneState.runningOperations.set(
+				new Map([
+					[
+						wipKey('/A'),
+						kind === 'review'
+							? makeReviewBucket('/A', makeReviewResult('old'))
+							: makeComposeBucket('/A', makeComposeResult('old')),
+					],
+				]),
+			);
+			controller.toggleMode(kind, selection);
+			controller[kind].back();
+			controller[kind].invalidateSnapshot();
+			host.engagedIdleDraft = 'new instructions';
+			controller.toggleMode(kind, selection);
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(controller[kind].forward(), false, 'old result must not become resumable again');
+			controller.switchAnchorWithinMode({ repoPath: '/A', sha: 'other-commit', shas: undefined });
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(controller[kind].forward(), false);
+			assert.strictEqual(
+				host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind]?.idleDraft,
+				'new instructions',
+			);
+		});
+
+		test(`${kind}: unsubmitted idle input and selected scope survive Close before the first run`, () => {
+			const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			controller.toggleMode(kind, selection);
+			const scope: ScopeSelection = {
+				type: 'wip',
+				includeStaged: false,
+				includeUnstaged: false,
+				includeShas: ['chosen'],
+			};
+			state.scope.set(scope);
+			host.engagedIdleDraft = 'not submitted';
+			host.engagedExclusions = { files: new Set(['excluded.ts']), commits: new Set(['omitted']) };
+			controller.toggleMode(kind, selection);
+			controller.toggleMode(kind, selection);
+			const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind];
+			assert.strictEqual(entry?.idleDraft, 'not submitted');
+			assert.deepStrictEqual(entry?.excludedFiles, new Set(['excluded.ts']));
+			if (kind === 'compose') {
+				assert.deepStrictEqual(
+					host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose?.commitExcludedIds,
+					new Set(['omitted']),
+				);
+			}
+			assert.strictEqual(state.scope.get(), scope);
+			assert.strictEqual(controller[kind].forward(), false);
+			// Empty is an intentional draft too; it must not fall back to the old instructions.
+			host.engagedIdleDraft = '';
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind]?.idleDraft, '');
+		});
+
+		test(`${kind}: error Close preserves the prior result for Go Back and Resume`, () => {
+			const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			const reviewPrior = makeReviewResult('prior');
+			const composePrior = makeComposeResult('prior');
+			host.crossPaneState.runningOperations.set(
+				new Map([
+					[
+						wipKey('/A'),
+						kind === 'review'
+							? makeReviewBucket('/A', { error: { message: 'failed' } }, 'error', 'retry me')
+							: makeComposeBucket('/A', { error: { message: 'failed' } }, 'error', 'retry me'),
+					],
+				]),
+			);
+			controller.toggleMode(kind, selection);
+			if (kind === 'review') {
+				state.reviewPreErrorValue.set(reviewPrior);
+			} else {
+				state.composePreErrorValue.set(composePrior);
+				state.composeLastFailedAction.set('commit-all');
+				state.composeLastCommitAllIncludedIds.set(['included']);
+			}
+			controller.toggleMode(kind, selection);
+			controller.toggleMode(kind, selection);
+			if (kind === 'compose') {
+				assert.strictEqual(state.composeLastFailedAction.get(), 'commit-all');
+				assert.deepStrictEqual(state.composeLastCommitAllIncludedIds.get(), ['included']);
+			}
+			controller[kind].backFromError();
+			assert.strictEqual(controller[kind].forward(), true);
+			assert.strictEqual(actions.resources[kind].value.get(), kind === 'review' ? reviewPrior : composePrior);
+		});
+
+		test(`${kind}: closing a backed result cannot expose its Resume on another anchor`, () => {
+			const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			host.crossPaneState.runningOperations.set(
+				new Map([
+					[
+						wipKey('/A'),
+						kind === 'review'
+							? makeReviewBucket('/A', makeReviewResult('A'))
+							: makeComposeBucket('/A', makeComposeResult('A')),
+					],
+				]),
+			);
+			controller.toggleMode(kind, selection);
+			controller[kind].back();
+			controller.toggleMode(kind, selection);
+			controller.toggleMode(kind, { repoPath: '/B', sha: uncommitted, shas: undefined });
+			assert.strictEqual(controller[kind].forward(), false, 'B cannot restore A');
+			assert.strictEqual(
+				kind === 'review' ? state.reviewForwardAvailable.get() : state.composeForwardAvailable.get(),
+				false,
+			);
+			controller.switchAnchorWithinMode(selection);
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(controller[kind].forward(), true, 'A retains its own Resume');
+		});
+
+		test(`${kind}: Close keeps a generating operation alive`, () => {
+			const { host, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			const abortController = new AbortController();
+			const promise = new Promise<ReviewResult | ComposeResult>(() => {});
+			host.crossPaneState.runningOperations.set(
+				new Map([
+					[
+						wipKey('/A'),
+						{
+							[kind]: {
+								kind: kind,
+								anchor: { kind: 'wip', repoPath: '/A', sha: uncommitted },
+								execState: 'generating',
+								abortController: abortController,
+								promise: promise,
+							},
+						},
+					],
+				]),
+			);
+			controller.toggleMode(kind, selection);
+			controller.toggleMode(kind, selection);
+			assert.strictEqual(abortController.signal.aborted, false);
+			assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind]?.promise, promise);
+		});
+
+		test(`${kind}: repository teardown cannot resurrect an unsubmitted draft`, () => {
+			const { host, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			controller.toggleMode(kind, { repoPath: '/A', sha: uncommitted, shas: undefined });
+			host.engagedIdleDraft = 'belongs to A';
+			host.setGraphRepoPath('/B');
+			host.tickHostUpdate();
+			assert.strictEqual(host.crossPaneState.runningOperations.get().size, 0);
+		});
+
+		test(`${kind}: saved exclusions survive generation and an error for Retry`, async () => {
+			const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			controller.toggleMode(kind, selection);
+			host.engagedIdleDraft = 'instructions';
+			host.engagedExclusions = { files: new Set(['excluded.ts']), commits: new Set(['omit']) };
+			controller.toggleMode(kind, selection);
+			controller.toggleMode(kind, selection);
+			state.scope.set({ type: 'wip', includeStaged: false, includeUnstaged: true, includeShas: [] });
+			if (kind === 'compose') {
+				controller.runCompose('/A', 'instructions', ['excluded.ts'], undefined, 1);
+			} else {
+				controller.runReview('/A', 'instructions', ['excluded.ts'], 1);
+			}
+			assert.deepStrictEqual(
+				host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind]?.excludedFiles,
+				new Set(['excluded.ts']),
+			);
+			await flush();
+			const failed = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind];
+			assert.strictEqual(failed?.execState, 'error');
+			assert.deepStrictEqual(
+				failed?.excludedFiles,
+				new Set(['excluded.ts']),
+				'the panel keeps its exclusions for Retry',
+			);
+		});
+
+		test(`${kind}: explicit Discard cannot recreate a saved idle draft`, () => {
+			const { host, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+			const selection = { repoPath: '/A', sha: uncommitted, shas: undefined };
+			controller.toggleMode(kind, selection);
+			host.engagedIdleDraft = 'discard this';
+			controller[kind].discard();
+			assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.[kind], undefined);
+		});
+	}
+});
+
 suite('DetailsWorkflowController.compare lifecycle', () => {
 	test('open telemetry counts accepted comparisons and excludes unavailable and repeated opens', () => {
 		const { controller, actions } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		const events: string[] = [];
 		actions.sendTelemetryEvent = name => {
-			events.push(name);
+			if (name === 'graphDetails/compare/opened') {
+				events.push(name);
+			}
 		};
 		const selection = { sha: undefined, shas: undefined, repoPath: '/A' };
 		controller.openCompare(selection);

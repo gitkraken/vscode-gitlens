@@ -24,6 +24,7 @@ import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProt
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -188,7 +189,26 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property()
 	lastPrompt?: string;
 
-	@state() private _excludedFiles = new Set<string>();
+	@property() idleDraft?: string;
+	@property({ attribute: false }) refineMode?: boolean;
+	@property() refineDraft?: string;
+
+	get idleDraftLive(): string | undefined {
+		if (this.status !== 'idle') return undefined;
+		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.review-action-input')?.currentValue;
+	}
+
+	get refineModeLive(): boolean {
+		return this.status === 'ready' && this.refineOpen;
+	}
+
+	get refineDraftLive(): string {
+		return this.status === 'ready'
+			? (this.renderRoot.querySelector<GlAiInput>('#review-refine-input')?.currentValue ?? '')
+			: '';
+	}
+
+	@property({ attribute: false }) excludedFiles: ReadonlySet<string> = new Set();
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
 
@@ -205,10 +225,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 	 * resume bar. Cleared by the orchestrator in lockstep with `forwardAvailable`. */
 	@property({ type: Object, attribute: false })
 	backPreview?: { findingCount: number; fileCount: number };
-
-	get excludedFiles(): ReadonlySet<string> {
-		return this._excludedFiles;
-	}
 
 	/**
 	 * Returns the scope picker's currently-selected IDs (within this panel's shadow root).
@@ -232,19 +248,19 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
-			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this._excludedFiles);
+			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this.excludedFiles);
 			if (result != null) {
 				this._aiExcludedSet = result.aiExcludedSet;
 				if (result.excludedFiles != null) {
-					this._excludedFiles = result.excludedFiles;
+					this.excludedFiles = result.excludedFiles;
 				}
 			}
 		}
 
 		if (changedProperties.has('files')) {
-			const pruned = prunePathsToFiles(this._excludedFiles, this.files);
+			const pruned = prunePathsToFiles(this.excludedFiles, this.files);
 			if (pruned != null) {
-				this._excludedFiles = pruned;
+				this.excludedFiles = pruned;
 			}
 			this._selectedFiles = [];
 		}
@@ -284,7 +300,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private getEffectiveFileCount(): number {
-		return countIncludedFiles(this.files, this._excludedFiles, this._aiExcludedSet);
+		return countIncludedFiles(this.files, this.excludedFiles, this._aiExcludedSet);
 	}
 
 	override connectedCallback(): void {
@@ -334,7 +350,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	 *  refine has run — `lastPrompt` is set), `true`/`false` is an explicit user toggle that
 	 *  overrides the default until the next fresh result. */
 	get refineOpen(): boolean {
-		return this._refineExpanded ?? this.lastPrompt != null;
+		return this._refineExpanded ?? this.refineMode ?? this.lastPrompt != null;
 	}
 
 	private renderRefineInput() {
@@ -351,6 +367,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			event-name="review-refine"
 			placeholder='Follow up — e.g. "Also check for error handling"'
 			.recall=${this.lastPrompt}
+			.value=${this.refineDraft}
 		>
 			<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 		</gl-ai-input>`;
@@ -616,7 +633,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 			<div class="review-input-row">
 				${keyed(
-					this.lastPrompt,
+					this.idleDraft ?? this.lastPrompt,
 					html`<gl-ai-input
 						class="review-action-input"
 						multiline
@@ -626,7 +643,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 						busy-label="Reviewing changes…"
 						event-name="review-run"
 						placeholder='Instructions — e.g. "Focus on security and error handling"'
-						.value=${this.lastPrompt}
+						.value=${this.idleDraft ?? this.lastPrompt}
 						?disabled=${!hasSelectedFiles}
 						@input=${this.onAiInputType}
 					>
@@ -701,7 +718,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
 		for (const file of renderFiles) {
 			const aiDisabled = aiExcluded?.has(file.path) ?? false;
-			const checked = !this._excludedFiles.has(file.path);
+			const checked = !this.excludedFiles.has(file.path);
 			if (checked || aiDisabled) {
 				checkableStates.set(file.path, {
 					...(checked ? { state: 'checked' as const } : {}),
@@ -852,18 +869,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
-		const next = fileCheckedExclusion(e, this._excludedFiles);
+		const next = fileCheckedExclusion(e, this.excludedFiles);
 		if (next == null) return;
 
-		this._excludedFiles = next;
+		this.excludedFiles = next;
 		this.invalidateForward();
 	}
 
 	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
-		const next = checkAllExclusion(e, this._excludedFiles);
+		const next = checkAllExclusion(e, this.excludedFiles);
 		if (next == null) return;
 
-		this._excludedFiles = next;
+		this.excludedFiles = next;
 		this.invalidateForward();
 	}
 

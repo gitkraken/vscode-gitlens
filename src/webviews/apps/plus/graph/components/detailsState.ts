@@ -68,11 +68,11 @@ export interface ExplainState {
 /** Execution state of a running compose/review operation on a specific anchor.
  *  Invariants:
  *  - `'generating'` ⇒ `result == null && abortController != null && promise != null`
- *  - `'complete' | 'backed' | 'error'` ⇒ `result != null`
+ *  - `'complete' | 'error'` ⇒ `result != null`
+ *  - `'backed'` ⇒ idle input, optionally with a resumable result
  *  - `'orphaned'` ⇒ `result` may be absent (orphan can hit a still-generating entry)
- *  `'backed'` means the user clicked Back from `'complete'` — the result is preserved in the
- *  controller's `_*BackSnapshot` for `forward()`, and Close from this state destroys the entry
- *  (the Back-then-close destroy gate). Forward flips `'backed'` → `'complete'`. */
+ *  Back preserves the result for Resume; cancelling or editing the idle inputs may leave no
+ *  resumable result. Close hides every state; only Discard destroys the entry. */
 export type RunningOperationExecState = 'generating' | 'complete' | 'backed' | 'error' | 'orphaned';
 
 /** Identifies the selection a running operation is anchored to. */
@@ -105,18 +105,25 @@ interface RunningOperationBase {
 	 *  this so the idle box re-fills with the user's original compose instructions, not the
 	 *  last refine. Defaulted to `prompt` on cold-start by `dispatchOperation`. */
 	basePrompt?: string;
+	/** Unsubmitted idle instructions, including an intentionally emptied input. Captured on hide. */
+	idleDraft?: string;
+	/** User file exclusions; panels update these sets by replacement. */
+	excludedFiles?: ReadonlySet<string>;
+	/** Scope chosen before hiding; restored on re-entry instead of rebuilding the default scope. */
+	scope?: ScopeSelection;
+	/** Whether the hidden backed result can still be resumed; input edits invalidate this. */
+	resumeAvailable?: boolean;
 	/** Resolve-only: the conflict-file scope the run was dispatched with (the user-checked subset;
 	 *  undefined = all conflicts). Carried on the entry like {@link prompt} so a row-switch-and-return
 	 *  doesn't lose it — whole-run Refine / retry-after-error re-run the SAME scope instead of silently
 	 *  widening to every conflict when the engagement-scoped `resolveFocusedFilePaths` signal is cleared
 	 *  on hide. Undefined for non-resolve kinds. */
 	focusedFilePaths?: readonly string[];
-	/** Compose/resolve-only: the ready-state Refine gate posture (the "Recompose Changes" /
-	 *  "Refine Resolutions" checkbox), captured on mode-leave so toggling the mode chip off/on or
-	 *  switching rows restores it. Undefined = default (Commit / Apply). Dropped when a fresh run
+	/** Review/compose/resolve: the ready-state follow-up or Refine gate posture, captured on mode-leave so toggling the mode chip off/on or
+	 *  switching rows restores it. Undefined = the panel default. Dropped when a fresh run
 	 *  rebuilds the entry, so a completed recompose/refine lands back in the default posture. */
 	refineMode?: boolean;
-	/** Compose/resolve-only: the unsubmitted Refine-input text, captured on mode-leave alongside
+	/** Review/compose/resolve: the unsubmitted follow-up or Refine-input text, captured on mode-leave alongside
 	 *  {@link refineMode}. Undefined/empty = nothing to restore. Cleared on a fresh run (the
 	 *  submitted text becomes the run's {@link prompt}). */
 	refineDraft?: string;
@@ -133,7 +140,7 @@ export interface GenerateMessageResult {
  *  `generateMessage` is tracking-only: lives only as `'generating'`, removed on settle, carries no `result`/
  *  `prompt`/`'backed'`/`'orphaned'`. `kind` matches the bucket slot so `bucket[op.kind]` indexing holds. */
 export type RunningOperation =
-	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
+	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult; preErrorValue?: ReviewResult })
 	| (RunningOperationBase & {
 			kind: 'compose';
 			result?: ComposeResult;
@@ -141,6 +148,12 @@ export type RunningOperation =
 			 *  than being read back out of `result` so it survives the entry flipping to an error: a refine
 			 *  that fails must still be retryable as a refine, not silently restart the session. */
 			cacheKey?: string;
+			commitExcludedIds?: ReadonlySet<string>;
+			refineExcludedCommitIds?: ReadonlySet<string>;
+			/** Recovery belongs to this anchor even while another panel is engaged. */
+			preErrorValue?: ComposeResult;
+			lastFailedAction?: 'generate' | 'commit-all';
+			lastCommitAllIncludedIds?: readonly string[];
 	  })
 	| (RunningOperationBase & { kind: 'resolve'; result?: ResolveResult })
 	| (RunningOperationBase & {
