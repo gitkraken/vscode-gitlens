@@ -41,16 +41,15 @@ export function createCoachMarkSeenStore(): CoachMarkSeenStore {
 		// Not connected yet — stays in `pending`; connect() replays it
 		if (r == null) return;
 
-		const current = seen.get();
-		if (current == null) return;
+		if (pending.size === 0) return;
 
+		// Send only local additions. The host merges them with marks learned by other Graph views.
 		// Only clear what this write covers — `markSeen()` can queue more while it's in flight.
-		const persisted = new Set(current);
-		const state = { seen: Object.fromEntries(Array.from(persisted, m => [m, true as const])) };
+		const persisted = [...pending];
 		/* oxlint-disable typescript/await-thenable -- Supertalk proxy method calls are thenable at runtime */
 		void (async () => {
 			try {
-				await r.setItemState(seenStateKey, state);
+				await r.markGraphCoachMarksSeen(persisted);
 				for (const m of persisted) {
 					pending.delete(m);
 				}

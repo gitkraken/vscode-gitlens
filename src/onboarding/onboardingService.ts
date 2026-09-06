@@ -1,5 +1,6 @@
 import type { Event } from 'vscode';
 import { Disposable, EventEmitter } from 'vscode';
+import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { updateRecordValue } from '@gitlens/utils/object.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
@@ -11,6 +12,7 @@ import type { DeprecatedGlobalStorage } from '../constants.storage.js';
 import { registerCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import type { Storage, StorageChangeEvent, StorageType } from '../system/-webview/storage.js';
+import type { GraphCoachMarkType } from '../webviews/plus/graph/protocol.js';
 import type { OnboardingItem, OnboardingStorage } from './models/onboarding.js';
 import { onboardingMigrations } from './onboardingMigrations.js';
 
@@ -241,6 +243,20 @@ export class OnboardingService implements Disposable {
 	async setItemState<T extends OnboardingKeys>(key: T, state: OnboardingItemState<T>): Promise<void> {
 		const { scope, schema } = onboardingDefinitions[key];
 		await this.setItemStateCore(key, state, scope, schema);
+	}
+
+	/** Accumulates newly seen graph tips without replacing marks learned by another Graph view. */
+	@sequentialize()
+	async markGraphCoachMarksSeen(marks: readonly GraphCoachMarkType[]): Promise<void> {
+		if (marks.length === 0) return;
+
+		// Serialize the read/merge/write, including persistence, across views sharing this service.
+		const seen = { ...this.getItemState('graph:coachMarks')?.seen };
+		for (const mark of marks) {
+			seen[mark] = true;
+		}
+
+		await this.setItemState('graph:coachMarks', { seen: seen });
 	}
 
 	/** Resets a specific onboarding item */

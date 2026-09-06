@@ -1,48 +1,45 @@
 import * as assert from 'assert';
+import type { MessagePort } from 'node:worker_threads';
 import { MessageChannel } from 'node:worker_threads';
 import type { Endpoint } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
+import type { GraphCoachMarkType } from '../../../../plus/graph/protocol.js';
 import { createCoachMarkSeenStore } from '../coachMarkSeen.js';
 
 /** Node's MessagePort is an EventTarget, so it satisfies Supertalk's Endpoint directly. */
-function asEndpoint(port: import('node:worker_threads').MessagePort): Endpoint {
+function asEndpoint(port: MessagePort): Endpoint {
 	return port as unknown as Endpoint;
 }
 
 type SeenState = { seen: Partial<Record<string, true>> };
 
-const stateKey = 'graph:coachMarks';
-
 interface FakeRemote {
 	getItemState(): Promise<SeenState | undefined>;
-	setItemState(key: string, state: SeenState): Promise<void>;
+	markGraphCoachMarksSeen(marks: readonly GraphCoachMarkType[]): Promise<void>;
 }
 
 interface FakeRemoteContext {
 	remote: FakeRemote;
-	/** Every `setItemState` payload, in call order. */
-	writes: SeenState[];
-	keys: string[];
+	/** Every newly seen marks payload, in call order. */
+	writes: (readonly GraphCoachMarkType[])[];
 }
 
 function createFakeRemote(options?: {
 	stored?: SeenState;
 	getItemState?: () => Promise<SeenState | undefined>;
-	setItemState?: () => Promise<void>;
+	markGraphCoachMarksSeen?: () => Promise<void>;
 }): FakeRemoteContext {
-	const writes: SeenState[] = [];
-	const keys: string[] = [];
+	const writes: (readonly GraphCoachMarkType[])[] = [];
 
 	const remote: FakeRemote = {
 		getItemState: options?.getItemState ?? (() => Promise.resolve(options?.stored)),
-		setItemState: (key: string, state: SeenState) => {
-			keys.push(key);
-			writes.push(state);
-			return options?.setItemState?.() ?? Promise.resolve();
+		markGraphCoachMarksSeen: (marks: readonly GraphCoachMarkType[]) => {
+			writes.push(marks);
+			return options?.markGraphCoachMarksSeen?.() ?? Promise.resolve();
 		},
 	};
 
-	return { remote: remote, writes: writes, keys: keys };
+	return { remote: remote, writes: writes };
 }
 
 /** A real supertalk `Connection` pair over a `MessageChannel`; the host stays unexposed until wired. */
@@ -74,10 +71,6 @@ function wire(pair: { host: Connection; client: Connection }, remote: FakeRemote
 /** Enough time for a same-process MessageChannel round trip (or several) to complete. */
 const tick = (ms = 25) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-function seenKeys(state: SeenState | undefined): string[] {
-	return Object.keys(state?.seen ?? {}).sort();
-}
-
 suite('graph coach-mark seen store', () => {
 	test('has() stays undefined until the persisted set is known', async () => {
 		const store = createCoachMarkSeenStore();
@@ -90,14 +83,19 @@ suite('graph coach-mark seen store', () => {
 		wire({ host: host, client: client }, remote);
 		store.connect(client);
 
-		// Still unknown until the fetch resolves
-		assert.strictEqual(store.has('details'), undefined);
+		try {
+			// Still unknown until the fetch resolves
+			assert.strictEqual(store.has('details'), undefined);
 
-		await tick();
-		assert.strictEqual(store.has('details'), true);
-
-		store.dispose();
-		close();
+			// The handshake can take more than one tick when other tests are using MessageChannels.
+			for (let attempt = 0; attempt < 40 && store.has('details') === undefined; attempt++) {
+				await tick();
+			}
+			assert.strictEqual(store.has('details'), true);
+		} finally {
+			store.dispose();
+			close();
+		}
 	});
 
 	test('markSeen() accepts a ready-state mark type', async () => {
@@ -114,7 +112,7 @@ suite('graph coach-mark seen store', () => {
 
 		assert.strictEqual(store.has('composeReady'), true);
 		assert.strictEqual(store.has('resolveReady'), false);
-		assert.deepStrictEqual(seenKeys(writes[0]), ['composeReady']);
+		assert.deepStrictEqual(writes[0], ['composeReady']);
 
 		store.dispose();
 		close();
@@ -147,7 +145,7 @@ suite('graph coach-mark seen store', () => {
 		assert.strictEqual(store.has('compose'), true);
 
 		const { host, client, close } = createConnectionPair();
-		const { remote, writes, keys } = createFakeRemote({ stored: { seen: { details: true } } });
+		const { remote, writes } = createFakeRemote({ stored: { seen: { details: true } } });
 		wire({ host: host, client: client }, remote);
 		store.connect(client);
 		await tick();
@@ -155,8 +153,7 @@ suite('graph coach-mark seen store', () => {
 		assert.strictEqual(store.has('compose'), true);
 		assert.strictEqual(store.has('details'), true);
 		assert.strictEqual(writes.length, 1);
-		assert.deepStrictEqual(keys, [stateKey]);
-		assert.deepStrictEqual(seenKeys(writes[0]), ['compose', 'details']);
+		assert.deepStrictEqual(writes[0], ['compose'], 'only local additions are sent to the host');
 
 		store.dispose();
 		close();
@@ -231,7 +228,7 @@ suite('graph coach-mark seen store', () => {
 		const failingPair = createConnectionPair();
 		const failing = createFakeRemote({
 			stored: { seen: {} },
-			setItemState: () => Promise.reject(new Error('nope')),
+			markGraphCoachMarksSeen: () => Promise.reject(new Error('nope')),
 		});
 		wire(failingPair, failing.remote);
 
@@ -252,7 +249,7 @@ suite('graph coach-mark seen store', () => {
 		await tick();
 
 		assert.strictEqual(healthy.writes.length, 1);
-		assert.deepStrictEqual(seenKeys(healthy.writes[0]), ['agents']);
+		assert.deepStrictEqual(healthy.writes[0], ['agents']);
 		assert.strictEqual(store.has('agents'), true);
 
 		store.dispose();

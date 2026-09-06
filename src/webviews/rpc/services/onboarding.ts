@@ -10,6 +10,7 @@
 import type { OnboardingItemState, OnboardingKeys } from '../../../constants.onboarding.js';
 import type { Container } from '../../../container.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
+import type { GraphCoachMarkType } from '../../plus/graph/protocol.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
 import type { RpcEventSubscription } from './types.js';
@@ -51,6 +52,11 @@ export class OnboardingRpcService {
 	/** Set typed state for an item. */
 	async setItemState<T extends OnboardingKeys>(key: T, state: OnboardingItemState<T>): Promise<void> {
 		await this.#container.onboarding.setItemState(key, state);
+	}
+
+	/** Bank newly seen graph tips while preserving marks learned by other Graph views. */
+	async markGraphCoachMarksSeen(marks: readonly GraphCoachMarkType[]): Promise<void> {
+		await this.#container.onboarding.markGraphCoachMarksSeen(marks);
 	}
 
 	/** Reset a specific onboarding item. */

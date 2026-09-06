@@ -105,6 +105,73 @@ suite('OnboardingService Test Suite', () => {
 		serviceB.dispose();
 	});
 
+	test('graph seen additions preserve marks banked by another view', async () => {
+		const globalMap = new Map<string, unknown>();
+		const service = new OnboardingService(createFakeStorage(globalMap, new Map()), '19.1.0', {
+			registerCommands: false,
+		});
+		await service.ready;
+
+		try {
+			// Independent views submit only the mark each one has just shown.
+			await service.markGraphCoachMarksSeen(['details']);
+			await service.markGraphCoachMarksSeen(['compose']);
+			assert.deepStrictEqual(service.getItemState('graph:coachMarks'), {
+				seen: { details: true, compose: true },
+			});
+			assert.strictEqual(service.isDismissed('graph:coachMark:details'), false);
+
+			await service.dismiss('graph:coachMark:details');
+			await service.markGraphCoachMarksSeen(['review']);
+			assert.strictEqual(service.isDismissed('graph:coachMark:details'), true);
+
+			await service.reset('graph:coachMarks');
+			await service.markGraphCoachMarksSeen(['compare']);
+			assert.deepStrictEqual(service.getItemState('graph:coachMarks'), { seen: { compare: true } });
+		} finally {
+			service.dispose();
+		}
+	});
+
+	test('graph seen additions wait for an earlier write before reading stored marks', async () => {
+		const globalMap = new Map<string, unknown>([['onboarding:state', { items: {}, migratedVersion: '17.9.0' }]]);
+		const backing = createFakeStorage(globalMap, new Map());
+		let releaseFirstWrite!: () => void;
+		const firstWrite = new Promise<void>(resolve => {
+			releaseFirstWrite = resolve;
+		});
+		let writeCount = 0;
+		const storage = {
+			...backing,
+			// Detached reads prevent in-memory object mutation from hiding an overlapping stale write.
+			get: (key: string) => structuredClone(globalMap.get(key)),
+			store: async (key: string, value: unknown) => {
+				writeCount++;
+				if (writeCount === 1) {
+					await firstWrite;
+				}
+
+				globalMap.set(key, structuredClone(value));
+			},
+		};
+		const service = new OnboardingService(storage as unknown as Storage, '19.1.0', { registerCommands: false });
+		await service.ready;
+
+		try {
+			const details = service.markGraphCoachMarksSeen(['details']);
+			const compose = service.markGraphCoachMarksSeen(['compose']);
+			assert.strictEqual(writeCount, 1, 'the second update must wait for the first persistence');
+			releaseFirstWrite();
+			await Promise.all([details, compose]);
+			assert.deepStrictEqual(service.getItemState('graph:coachMarks'), {
+				seen: { details: true, compose: true },
+			});
+		} finally {
+			releaseFirstWrite();
+			service.dispose();
+		}
+	});
+
 	test('does not write on activation when already migrated', async () => {
 		const migratedState: OnboardingStorage = { items: {}, migratedVersion: '17.9.0' };
 		const globalMap = new Map<string, unknown>([['onboarding:state', migratedState]]);
