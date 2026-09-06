@@ -46,6 +46,7 @@ suite('GraphSubProvider rowsStatsSeed', () => {
 			rebuilt = await repo.provider.graph.getGraph(repo.path, undefined, {
 				include: { stats: true },
 				rowsStatsSeed: prior.rowsStats,
+				ancestrySeed: prior,
 			});
 			await rebuilt.rowsStatsDeferred?.promise;
 		} finally {
@@ -74,6 +75,7 @@ suite('GraphSubProvider rowsStatsSeed', () => {
 			rebuilt = await repo.provider.graph.getGraph(repo.path, undefined, {
 				include: { stats: true },
 				rowsStatsSeed: prior.rowsStats,
+				ancestrySeed: prior,
 			});
 			await rebuilt.rowsStatsDeferred?.promise;
 		} finally {
@@ -106,6 +108,7 @@ suite('GraphSubProvider rowsStatsSeed', () => {
 		const rebuilt = await repo.provider.graph.getGraph(repo.path, undefined, {
 			include: { stats: true },
 			rowsStatsSeed: fresh.rowsStats,
+			ancestrySeed: fresh,
 		});
 		await rebuilt.rowsStatsDeferred?.promise;
 

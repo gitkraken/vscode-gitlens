@@ -1,7 +1,7 @@
 import type { RepositoryChange } from '../models/repository.js';
 
 const classifyRegex =
-	/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags)|packed-refs)/;
+	/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags|replace)|packed-refs|shallow)/;
 
 /**
  * Maps a path relative to a `.git` directory to the corresponding
@@ -50,6 +50,12 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 			return ['head', 'heads'];
 
 		case 'ORIG_HEAD':
+			return ['heads'];
+
+		case 'shallow':
+		case 'refs/replace':
+			// Ancestry changes affect graph, blame/history, health, and ahead/behind consumers even
+			// when tips stay put. Reuse their shared history invalidation rather than only refreshing Graph.
 			return ['heads'];
 
 		case 'CHERRY_PICK_HEAD':

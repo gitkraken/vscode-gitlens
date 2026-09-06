@@ -167,12 +167,6 @@ export class GraphSyncPublisher {
 		this._ridersPending = this._riderSelectedRows !== undefined;
 	}
 
-	/** Force the next rowsStats emission to resend every entry — a parent-rewriting refresh
-	 *  (unshallow / replace-ref change) recomputes stats for shas the webview already holds. */
-	invalidateRowsStats(): void {
-		this._rowsStatsSent.clear();
-	}
-
 	/** Graph identity changed (repo swap / graph clear): bump the channel's epoch, force a snapshot. The
 	 *  epoch announcement and the snapshot that follows it ride the same wire in that order, so the
 	 *  receiver invalidates the old repo's in-flight deltas before the new repo's seq 0 lands. */
@@ -340,7 +334,7 @@ export class GraphSyncPublisher {
 				// sha, so an at-limit head refresh that swaps membership without growing still ships the new shas).
 				// The reducer spread-merges, so a partial map is additive. Cursor advances optimistically at build.
 				// A parent-rewriting refresh (unshallow / replace-ref change) recomputes stats for already-shipped
-				// shas — the host clears the sent-set via `invalidateRowsStats()` first so those still ship.
+				// shas — the host forces a full snapshot, replacing rows and stats together.
 				let delta: Record<string, GraphRowStats> | undefined;
 				for (const [sha, stats] of rowsStats) {
 					if (this._rowsStatsSent.has(sha)) continue;

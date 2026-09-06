@@ -203,6 +203,36 @@ describe('WatchGroup', () => {
 			assert.strictEqual(callCount(callbacksB.onRepoChanged), 0);
 		});
 
+		for (const reason of ['create', 'change', 'delete'] as const) {
+			it(`dispatches a shallow boundary ${reason} as a history change`, () => {
+				const { factory, watchers } = createMockFactory();
+				const group = new WatchGroup('/repo/.git', factory);
+				const callbacks = makeCallbacks();
+				group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+
+				watchers[0].fire({ path: '/repo/.git/shallow', reason: reason });
+
+				assert.strictEqual(callCount(callbacks.onRepoChanged), 1);
+				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads']]);
+				group.dispose();
+			});
+		}
+
+		for (const reason of ['create', 'change', 'delete'] as const) {
+			it(`dispatches a replacement ref ${reason} as a history change`, () => {
+				const { factory, watchers } = createMockFactory();
+				const group = new WatchGroup('/repo/.git', factory);
+				const callbacks = makeCallbacks();
+				group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+
+				watchers[0].fire({ path: '/repo/.git/refs/replace/0123456789abcdef', reason: reason });
+
+				assert.strictEqual(callCount(callbacks.onRepoChanged), 1);
+				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads']]);
+				group.dispose();
+			});
+		}
+
 		it('dispatches FETCH_HEAD to onFetchHeadChanged callback', () => {
 			const { factory, watchers } = createMockFactory();
 			const group = new WatchGroup('/repo/.git', factory);
@@ -287,6 +317,48 @@ describe('WatchGroup', () => {
 			assert.strictEqual(callCount(callbacksA.onRepoChanged), 1);
 			assert.strictEqual(callCount(callbacksB.onRepoChanged), 1);
 		});
+
+		for (const reason of ['create', 'change', 'delete'] as const) {
+			it(`shares a shallow boundary ${reason} with every linked worktree`, () => {
+				const { factory, watchers } = createMockFactory();
+				const group = new WatchGroup('/repo/.git', factory);
+				const callbacksA = makeCallbacks();
+				const callbacksB = makeCallbacks();
+				group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), callbacksA);
+				group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), callbacksB);
+				const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+				assert.ok(common);
+
+				common.fire({ path: '/repo/.git/shallow', reason: reason });
+
+				assert.strictEqual(callCount(callbacksA.onRepoChanged), 1);
+				assert.strictEqual(callCount(callbacksB.onRepoChanged), 1);
+				assert.deepStrictEqual(callArgs(callbacksA.onRepoChanged, 0), ['/worktrees/A', ['heads']]);
+				assert.deepStrictEqual(callArgs(callbacksB.onRepoChanged, 0), ['/worktrees/B', ['heads']]);
+				group.dispose();
+			});
+		}
+
+		for (const reason of ['create', 'change', 'delete'] as const) {
+			it(`shares a replacement ref ${reason} with every linked worktree`, () => {
+				const { factory, watchers } = createMockFactory();
+				const group = new WatchGroup('/repo/.git', factory);
+				const callbacksA = makeCallbacks();
+				const callbacksB = makeCallbacks();
+				group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), callbacksA);
+				group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), callbacksB);
+				const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+				assert.ok(common);
+
+				common.fire({ path: '/repo/.git/refs/replace/0123456789abcdef', reason: reason });
+
+				assert.strictEqual(callCount(callbacksA.onRepoChanged), 1);
+				assert.strictEqual(callCount(callbacksB.onRepoChanged), 1);
+				assert.deepStrictEqual(callArgs(callbacksA.onRepoChanged, 0), ['/worktrees/A', ['heads']]);
+				assert.deepStrictEqual(callArgs(callbacksB.onRepoChanged, 0), ['/worktrees/B', ['heads']]);
+				group.dispose();
+			});
+		}
 
 		it('dispatches info/exclude to onIgnoresChanged for all sessions', () => {
 			const { factory, watchers } = createMockFactory();

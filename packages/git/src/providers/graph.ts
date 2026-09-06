@@ -47,10 +47,12 @@ export interface GitGraphSubProvider {
 			 */
 			reachabilitySeed?: GraphReachabilityTable;
 			/**
-			 * Prior generation's per-sha stats to CONTINUE (same-repo rebuilds only). Stats are immutable per
-			 * sha, so the deferred stats query recomputes only shas absent from the seed.
+			 * Prior generation's per-sha stats to CONTINUE (same-repo rebuilds only). Reuse requires matching
+			 * ancestry supplied by `ancestrySeed` or `incrementalSeed`; otherwise stats are recomputed.
 			 */
 			rowsStatsSeed?: GitGraphRowsStats;
+			/** Ancestry under which the stats were computed, independent of incremental row eligibility. */
+			ancestrySeed?: Pick<GitGraph, 'shallowBoundary' | 'refTips'>;
 			/**
 			 * R6b incremental head-walk seed. When present (and the gate holds) the Node provider walks only the
 			 * changed head region, stitches the seed's cached tail, and re-derives flags/reachability in memory

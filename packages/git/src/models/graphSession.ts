@@ -117,8 +117,10 @@ export interface GitGraphSessionChangedChannels {
 	readonly reachability: boolean;
 	/** New commit shas were introduced whose stats will be (re)queried. */
 	readonly rowsStats: boolean;
-	/** Full fallbacks that rewrite parents (unshallow / replace-ref change) recompute stats whose
-	 *  values may differ for already-shipped shas — the host must resend, not just append. */
+	/** A refresh invalidated stats for already-shipped shas because ancestry changed
+	 *  (shallow boundary / replace refs), or asynchronous error recovery could observe different ancestry.
+	 *  The host must replace rows and stats together with a snapshot: same-sha row reuse can retain
+	 *  stale parents, and stats deduplication can retain stale values. */
 	readonly rowsStatsRecomputed?: boolean;
 	/** New avatar emails appeared in the map (value replacements ride the host's dedicated avatar path). */
 	readonly avatars: boolean;

@@ -245,9 +245,12 @@ export class GraphDataController {
 		}
 		if (changed.rowsStats) {
 			if (changed.rowsStatsRecomputed) {
-				this._graphSync.invalidateRowsStats();
+				// Ancestry changed, or recovery must allow for a concurrent change during the async walk.
+				// The splice fingerprint assumes same-sha parents are immutable; replace rows and stats together.
+				this._graphSync.requireSnapshot();
+			} else {
+				this._graphSync.mark('rowsStats');
 			}
-			this._graphSync.mark('rowsStats');
 		}
 		if (changed.downstreams) {
 			this._graphSync.mark('downstreams');

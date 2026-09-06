@@ -27,6 +27,14 @@ describe('classifyGitDirChange', () => {
 		assert.deepStrictEqual(classifyGitDirChange('HEAD'), ['head', 'heads']);
 	});
 
+	it('maps shallow boundary changes to heads even when branch tips do not move', () => {
+		assert.deepStrictEqual(classifyGitDirChange('shallow'), ['heads']);
+	});
+
+	it('maps replacement ref mutations to history changes', () => {
+		assert.deepStrictEqual(classifyGitDirChange('refs/replace/0123456789abcdef'), ['heads']);
+	});
+
 	it('maps ORIG_HEAD to heads', () => {
 		assert.deepStrictEqual(classifyGitDirChange('ORIG_HEAD'), ['heads']);
 	});

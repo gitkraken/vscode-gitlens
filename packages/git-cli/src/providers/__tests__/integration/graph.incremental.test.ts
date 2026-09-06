@@ -294,7 +294,7 @@ suite('graph incremental head-walk equivalence (R6b)', () => {
 				rowsStats: pre.rowsStats,
 				hasMore: pre.paging?.hasMore,
 				onlyFollowFirstParent: false,
-				shallow: pre.shallow,
+				shallowBoundary: pre.shallowBoundary,
 				decorationFingerprint: pre.decorationFingerprint,
 			};
 
@@ -360,7 +360,7 @@ suite('graph incremental head-walk equivalence (R6b)', () => {
 				rowsStats: pre.rowsStats,
 				hasMore: pre.paging?.hasMore,
 				onlyFollowFirstParent: false,
-				shallow: pre.shallow,
+				shallowBoundary: pre.shallowBoundary,
 				decorationFingerprint: pre.decorationFingerprint,
 			};
 
@@ -436,7 +436,7 @@ suite('graph incremental head-walk equivalence (R6b)', () => {
 			rowsStats: pre.rowsStats,
 			hasMore: pre.paging?.hasMore,
 			onlyFollowFirstParent: false,
-			shallow: pre.shallow,
+			shallowBoundary: pre.shallowBoundary,
 			decorationFingerprint: pre.decorationFingerprint,
 		};
 
@@ -565,7 +565,7 @@ suite('graph incremental head-walk paging + limit-trim (R6b)', () => {
 			rowsStats: graph.rowsStats,
 			hasMore: graph.paging?.hasMore,
 			onlyFollowFirstParent: false,
-			shallow: graph.shallow,
+			shallowBoundary: graph.shallowBoundary,
 			decorationFingerprint: graph.decorationFingerprint,
 		};
 	}

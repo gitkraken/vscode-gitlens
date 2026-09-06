@@ -85,7 +85,7 @@ export async function assertGraphEquivalence(
 		rowsStats: pre.rowsStats,
 		hasMore: pre.paging?.hasMore,
 		onlyFollowFirstParent: false,
-		shallow: pre.shallow,
+		shallowBoundary: pre.shallowBoundary,
 		decorationFingerprint: pre.decorationFingerprint,
 	};
 

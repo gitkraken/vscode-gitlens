@@ -210,15 +210,9 @@ export interface GitGraph {
 	 */
 	readonly decorationFingerprint?: string;
 
-	/**
-	 * Whether the repo was a SHALLOW clone (a `$GIT_DIR/shallow` file was present) as of this walk. Captured
-	 * so the host can seed the NEXT rebuild's {@link GraphIncrementalSeed.shallow}: an un-shallow (or
-	 * re-shallow) while the graph is closed passes every ref-tip gate — the branch tips don't move — yet
-	 * changes what history exists BELOW the loaded window, so a stale-false `hasMore` would hide the newly
-	 * deepened commits. The R6b fast path falls back on any change. The CLI provider populates it on both
-	 * paths (full walk + fast path); the GitHub provider leaves it undefined.
-	 */
-	readonly shallow?: boolean;
+	/** Canonical shallow boundary OIDs for this window. Empty means complete history; undefined means
+	 *  unknown (or unsupported by the provider), so a CLI refresh cannot reuse ancestry-dependent data. */
+	readonly shallowBoundary?: string;
 
 	/**
 	 * SHAs on the first-parent chain from HEAD up to (excluding) the first merge commit — i.e. the
@@ -329,8 +323,8 @@ export interface GraphIncrementalSeed {
 	 */
 	readonly reachability?: GraphReachabilityTable;
 	/**
-	 * Prior generation's per-sha stats (immutable per sha), so the deferred stats query recomputes only the
-	 * new shas — same role as `rowsStatsSeed`.
+	 * Prior generation's per-sha stats. With unchanged ancestry the deferred query recomputes only new
+	 * shas; shallow-boundary or replacement changes invalidate the seed — same role as `rowsStatsSeed`.
 	 */
 	readonly rowsStats?: GitGraphRowsStats;
 	/**
@@ -347,13 +341,8 @@ export interface GraphIncrementalSeed {
 	 * current config of) first-parent forces a full fallback. Absent ⇒ treated as `false`.
 	 */
 	readonly onlyFollowFirstParent?: boolean;
-	/**
-	 * Whether the repo was a SHALLOW clone when the prior rows were walked. R6b falls back to a full walk on
-	 * ANY change vs. the current state (shallow→unshallowed, unshallowed→shallow): an un-shallow deepens
-	 * history below the loaded window while every branch tip stays put, so the cached tail / stale-false
-	 * `hasMore` would hide the newly deepened commits. Absent ⇒ treated as `false` (not shallow).
-	 */
-	readonly shallow?: boolean;
+	/** The prior window's shallow boundary. Compare contents, since partial deepening stays shallow. */
+	readonly shallowBoundary?: string;
 	/**
 	 * {@link GitGraph.decorationFingerprint} of the prior walk. R6b falls back to a full walk on ANY change:
 	 * reused rows keep their embedded decorations (upstream/worktree/default/remote/user metadata), so a

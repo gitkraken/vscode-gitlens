@@ -1,5 +1,7 @@
 import * as assert from 'assert';
-import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import type { GitGraph, GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import { GraphDataController } from '../graphDataController.js';
+import type { GraphDataControllerContext } from '../graphDataController.js';
 import { GraphSyncPublisher } from '../graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from '../graphSyncPublisher.js';
 import type { GraphPaging, GraphRowsPayload, GraphRowStats } from '../protocol.js';
@@ -620,29 +622,61 @@ suite('graphSyncPublisher', () => {
 			publisher.dispose();
 		});
 
-		test('invalidateRowsStats forces a resend of recomputed values (parent-rewriting refresh)', async () => {
-			const { publisher, host, data } = createPublisher();
-			data.rows = rows(5);
-			data.rowsStats = new Map<string, GraphRowStats>([['sha0', stat(1)]]);
-			await publisher.flush(); // snapshot seeds {sha0}
-			assert.deepStrictEqual(host.last.rowsStats, { sha0: stat(1) });
+		for (const hidden of [false, true]) {
+			test(`parent-rewriting refresh replaces same-SHA rows and stats${hidden ? ' after becoming visible' : ''}`, async () => {
+				const { publisher, host, data } = createPublisher();
+				const controller = new GraphDataController({
+					getSync: () => publisher,
+					notifyDidChangeOverview: () => {},
+					replayPendingRefMetadataForGraph: () => {},
+				} as unknown as GraphDataControllerContext);
+				try {
+					// Enough unchanged SHAs to qualify for suffix reuse even when the first row's
+					// parents change (unshallow / replace-ref fallback).
+					data.rows = rows(500);
+					data.rowsStats = new Map([['sha0', stat(1)]]);
+					await publisher.flush();
+					const prior = host.last;
 
-			// The data source recomputes sha0's value (e.g. an unshallow fallback) WITHOUT invalidation —
-			// the dedupe correctly skips an already-sent sha, so the new value never ships.
-			data.rowsStats = new Map<string, GraphRowStats>([['sha0', stat(99)]]);
-			publisher.mark('rowsStats');
-			await publisher.flush();
-			assert.strictEqual(host.last.snapshot ?? false, false);
-			assert.strictEqual(host.last.rowsStats, undefined, 'documents the dedupe: sha0 not reshipped');
+					host.visible = !hidden;
+					data.rows = data.rows.map((r, i) => (i === 0 ? { ...r, parents: ['replacement-parent'] } : r));
+					data.rowsStats = new Map([['sha0', stat(99)]]);
+					controller.setGraph({ rows: data.rows } as GitGraph, {
+						rows: true,
+						reachability: true,
+						rowsStats: true,
+						rowsStatsRecomputed: true,
+						avatars: false,
+						downstreams: true,
+					});
+					await publisher.flush();
+					if (hidden) {
+						assert.strictEqual(host.sent.length, 1, 'the rebuild stays pending while hidden');
+						host.visible = true;
+						await publisher.flush();
+					}
 
-			// invalidateRowsStats() clears the sent-set — the next delta reships sha0 with the new value.
-			publisher.invalidateRowsStats();
-			publisher.mark('rowsStats');
-			await publisher.flush();
-			assert.deepStrictEqual(host.last.rowsStats, { sha0: stat(99) }, 'sha0 reshipped with the recomputed value');
+					assert.strictEqual(host.sent.length, 2);
+					const snapshot = host.last;
+					assert.strictEqual(snapshot.snapshot, true, 'rewritten ancestry requires authoritative rows');
+					assert.strictEqual(snapshot.rowsSplice, undefined);
+					assert.deepStrictEqual(snapshot.rows, data.rows);
+					assert.deepStrictEqual(snapshot.rows[0].parents, ['replacement-parent']);
+					assert.deepStrictEqual(prior.rows[0].parents, ['p-sha0'], 'the fixture preserves the old ancestry');
+					assert.deepStrictEqual(snapshot.rowsStats, { sha0: stat(99) });
 
-			publisher.dispose();
-		});
+					// Ordinary updates still splice, and the snapshot reseeds stats deduplication.
+					data.rows = [row('new'), ...data.rows];
+					controller.setGraph({ rows: data.rows } as GitGraph);
+					await publisher.flush();
+					assert.strictEqual(host.last.snapshot ?? false, false);
+					assert.strictEqual(host.last.rowsSplice?.reusedCount, 500);
+					assert.strictEqual(host.last.rowsStats, undefined);
+				} finally {
+					publisher.dispose();
+				}
+			});
+		}
 	});
 
 	suite('reachability channel', () => {

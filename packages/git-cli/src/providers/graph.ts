@@ -45,7 +45,7 @@ import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '@gitlen
 import { getTagId } from '@gitlens/git/utils/tag.utils.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { getWorktreeId, groupWorktreesByBranch } from '@gitlens/git/utils/worktree.utils.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
@@ -208,6 +208,32 @@ type GraphCommitRecord = {
 	stats?: GitGraphRowStats;
 };
 
+/** Compare the inputs that can rewrite existing commits without moving branch tips. */
+function getAncestryChange(
+	prior: Pick<GitGraph, 'shallowBoundary' | 'refTips'>,
+	current: Pick<GitGraph, 'shallowBoundary' | 'refTips'>,
+): IncrementalGraphFallbackReason | undefined {
+	if (
+		prior.shallowBoundary == null ||
+		current.shallowBoundary == null ||
+		prior.shallowBoundary !== current.shallowBoundary
+	) {
+		return 'shallow-changed';
+	}
+
+	if (prior.refTips == null || current.refTips == null) return 'replace-refs-changed';
+
+	for (const [ref, sha] of prior.refTips) {
+		if (ref.startsWith('refs/replace/') && current.refTips.get(ref) !== sha) return 'replace-refs-changed';
+	}
+
+	for (const ref of current.refTips.keys()) {
+		if (ref.startsWith('refs/replace/') && !prior.refTips.has(ref)) return 'replace-refs-changed';
+	}
+
+	return undefined;
+}
+
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(
 		private readonly context: GitServiceContext,
@@ -248,22 +274,38 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		return tips;
 	}
 
-	/**
-	 * Whether the repo is a SHALLOW clone right now (a `$GIT_DIR/shallow` file exists). `git` resolves the git
-	 * dir itself (correct in worktrees / bare / separate git-dirs), so this makes no `.git`-is-a-dir assumption.
-	 * Returned as {@link GitGraph.shallow} and diffed by the R6b fast path's gate — an un-shallow (or re-shallow)
-	 * while the graph was closed leaves every branch tip put yet changes what history exists below the window.
-	 * Errors ignored → treated as NOT shallow: a git too old for `--is-shallow-repository` degrades to no-op
-	 * detection (consistent on both the seed and the current side, so the gate can't over-fire), and a transient
-	 * read error biases toward `false`, which — when the seed was shallow — only forces a SAFE full-walk fallback.
-	 */
-	private async getShallowState(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
-		const result = await this.git.run(
-			{ cwd: repoPath, configs: gitConfigsLog, cancellation: cancellation, errors: 'ignore' },
-			'rev-parse',
-			'--is-shallow-repository',
-		);
-		return result.stdout.trim() === 'true';
+	/** Read the actual boundary from the common git directory, including linked worktrees and bare repos. */
+	private async getShallowBoundary(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
+		const scope = getScopedLogger();
+		try {
+			const result = await this.git.run(
+				{ cwd: repoPath, configs: gitConfigsLog, cancellation: cancellation, errors: 'throw' },
+				'rev-parse',
+				'--git-path',
+				'shallow',
+			);
+			const path = result.stdout.trim();
+			if (!path) return undefined;
+
+			const contents = await this.context.fs
+				.readFile(this.provider.getAbsoluteUri(path, repoPath))
+				.catch((ex: unknown) => {
+					const code = (ex as { code?: unknown }).code;
+					if (code === 'ENOENT' || code === 'FileNotFound') return undefined;
+
+					throw ex;
+				});
+			if (cancellation?.aborted) throw new CancellationError();
+
+			return contents == null ? '' : new TextDecoder().decode(contents).trim().split(/\s+/).sort().join('\n');
+		} catch (ex) {
+			if (cancellation?.aborted) throw new CancellationError();
+			if (isCancellationError(ex)) throw ex;
+
+			// Unknown must never compare equal to a prior boundary and license stale row/stat reuse.
+			scope?.warn(`Unable to read shallow boundary for '${repoPath}': ${String(ex)}`);
+			return undefined;
+		}
 	}
 
 	/** Whether `oldSha` is an ancestor of `newSha` (i.e. the ref moved fast-forward). */
@@ -337,6 +379,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			rowProcessor?: GraphRowProcessor;
 			reachabilitySeed?: GraphReachabilityTable;
 			rowsStatsSeed?: GitGraphRowsStats;
+			/** Ancestry under which the stats were computed, independent of incremental row eligibility. */
+			ancestrySeed?: Pick<GitGraph, 'shallowBoundary' | 'refTips'>;
 			// R6b incremental head-walk seed. When present (and the gate holds), walk only the new head
 			// region, stitch the seed's cached tail, and re-derive flags/reachability in memory instead of
 			// re-walking every loaded row; any structural change degrades to the full walk. See
@@ -364,9 +408,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const onlyFollowFirstParent = cfg?.graph?.onlyFollowFirstParent ?? false;
 
 		const deferStats = options?.include?.stats;
-		// `let`: cleared before the fallback walk when the fast path bailed for a parent-rewriting reason
-		// (unshallow / replace-ref change) — those alter boundary commits' true diffs, so per-sha stats
-		// carried from the prior generation may be stale and must recompute.
+		// Cleared when the ancestry proof fails, independently of incremental row eligibility.
 		let rowsStatsSeed = options?.rowsStatsSeed;
 
 		const parser = getGraphParser(options?.include?.stats && !deferStats);
@@ -432,14 +474,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		// be stale, so a move-and-revert admits a genuinely wrong fast path.
 		//
 		// Folded into the `allSettled` below rather than awaited later, so a cancellation in the gap is always
-		// observed there — `getCurrentRefTips` rethrows on cancellation, unlike every other prelude read here.
+		// observed there — ancestry reads propagate cancellation rather than treating it as missing state.
 		const refTipsPromise = this.getCurrentRefTips(repoPath, cancellation);
 
-		// Shallow state (peeled off the same prelude, off the rows-walk critical path) — stamped on the returned
-		// graph so the NEXT rebuild's seed can gate on an un-shallow/re-shallow, and reused by the R6b fast path's
-		// own shallow gate (one `rev-parse` per call whether it goes fast or full). Never rejects, so unlike
-		// `refTipsPromise` there's no unobserved-rejection hazard here — it stays a plain bare `await` below.
-		const shallowPromise = this.getShallowState(repoPath, cancellation);
+		// Read alongside refs so every walk records the ancestry its next refresh must validate.
+		const shallowBoundaryPromise = this.getShallowBoundary(repoPath, cancellation);
 
 		const [
 			shaResult,
@@ -450,6 +489,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			worktreesResult,
 			defaultBranchResult,
 			refTipsResult,
+			shallowBoundaryResult,
 		] = await Promise.allSettled([
 			!isUncommitted(rev, true)
 				? this.git.run(
@@ -475,6 +515,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			// so it's simply absent until a background networked caller resolves origin/HEAD.
 			this.provider.branches.getDefaultBranchName(repoPath, undefined, { local: true }, cancellation),
 			refTipsPromise,
+			shallowBoundaryPromise,
 		]);
 
 		const branches = getSettledValue(branchesResult)?.values;
@@ -533,8 +574,23 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			refTips = refTipsResult.value;
 		}
 
-		// Same value for the full walk's `shallow`, the fast path's shallow gate, and the fast path's `shallow`.
-		const shallow = await shallowPromise;
+		if (shallowBoundaryResult.status === 'rejected') throw shallowBoundaryResult.reason;
+
+		const shallowBoundary = shallowBoundaryResult.value;
+		const ancestrySeed =
+			options?.ancestrySeed ??
+			(options?.incrementalSeed != null
+				? { shallowBoundary: options.incrementalSeed.shallowBoundary, refTips: options.incrementalSeed.tips }
+				: undefined);
+		const ancestryChange =
+			ancestrySeed != null
+				? getAncestryChange(ancestrySeed, { shallowBoundary: shallowBoundary, refTips: refTips })
+				: undefined;
+		// Stats need the same ancestry proof even when ordering, first-parent, or a forced rebuild
+		// prevents incremental row reuse. A naked per-sha stats map carries no such proof.
+		if (ancestryChange != null || ancestrySeed == null) {
+			rowsStatsSeed = undefined;
+		}
 
 		const downstreamMap = new Map<string, string[]>();
 
@@ -947,7 +1003,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			// oxlint-disable-next-line no-async-promise-executor
 			const promise = new Promise<void>(async resolve => {
 				try {
-					// Stats are immutable per sha — only query shas the seed doesn't already cover.
+					// The seed passed the ancestry check — query only shas it does not already cover.
 					let missingStdin = '';
 					let missingStashStdin = '';
 					for (const row of rows) {
@@ -1172,7 +1228,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					reachability: reachabilityBuilder.build(),
 					refTips: refTips,
 					decorationFingerprint: decorationFingerprint,
-					shallow: shallow,
+					shallowBoundary: shallowBoundary,
 					rows: rows,
 					id: sha ?? rev,
 					rowsStats: rowStats,
@@ -1213,6 +1269,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				onResult?.({ path: 'fallback', reason: reason });
 			};
 
+			if (ancestryChange != null) {
+				fallback(ancestryChange);
+				return undefined;
+			}
+
 			// Cheap gates (no git).
 			if (rowProcessor == null || graphCtx == null) {
 				fallback('no-row-processor');
@@ -1251,44 +1312,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			// Reuse the prelude's tips (same repo state — nothing mutates between the prelude and here).
 			const currentTips = refTips;
-
-			// Shallow-state gate: an un-shallow (or re-shallow) while the graph was closed leaves every branch
-			// tip put — so it passes the tip diff below — yet changes what history exists BELOW the loaded window
-			// (a stale-false `hasMore` would hide the newly deepened commits). Any change → full walk. Checked
-			// against the prelude's already-captured `shallow` (no extra git).
-			if ((seed.shallow ?? false) !== shallow) {
-				fallback('shallow-changed');
-				return undefined;
-			}
-
-			// Replace-ref gate: `git replace` (and grafts) rewrite ancestry PRESENTATION globally, so any
-			// change to the replace-ref set (`refs/replace/*`) invalidates the cached rows' parent links even when
-			// no branch tip moved. An UNCHANGED set (including non-empty) stays fast-path-eligible — the seed rows
-			// were built under the same replacement view. Replace refs aren't `isMoveableGraphRef`s (no badge), so
-			// the tip diff below skips them; diff them here on their own.
-			let seedReplaceCount = 0;
-			for (const [refname, oldSha] of seed.tips) {
-				if (!refname.startsWith('refs/replace/')) continue;
-
-				seedReplaceCount++;
-				// Removed (gone from current) or retargeted (points at a different replacement object).
-				if (currentTips.get(refname) !== oldSha) {
-					fallback('replace-refs-changed');
-					return undefined;
-				}
-			}
-			let currentReplaceCount = 0;
-			for (const refname of currentTips.keys()) {
-				if (refname.startsWith('refs/replace/')) {
-					currentReplaceCount++;
-				}
-			}
-			// Every seed replace ref is present-and-equal in current (checked above); an unequal count means a
-			// replace ref was ADDED.
-			if (seedReplaceCount !== currentReplaceCount) {
-				fallback('replace-refs-changed');
-				return undefined;
-			}
 
 			// Ref-tip diff gate: deletions + non-fast-forward moves force a full walk.
 			// Reused rows whose ref badges / current-HEAD flag changed and must be rebuilt from raw git.
@@ -1644,7 +1667,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				reachability: reachabilityBuilder.build(),
 				refTips: refTips,
 				decorationFingerprint: decorationFingerprint,
-				shallow: shallow,
+				shallowBoundary: shallowBoundary,
 				rows: windowRows,
 				// Mirror the full walk's `id` (`sha ?? rev`, sha = the resolved rev-or-HEAD) — NOT the actual HEAD,
 				// which `currentHeadSha` now tracks separately when a rev anchor is passed.
@@ -1701,16 +1724,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				return fast;
 			}
 
-			// Parent-rewriting fallbacks change boundary commits' true diffs — an unshallowed parent or a
-			// replace-ref retarget makes previously-computed per-sha stats stale, so the fallback walk must
-			// recompute them instead of carrying the prior generation's values forward. An `error` fallback
-			// recomputes too: the throw may have preceded the replace-ref/shallow gates, so staleness can't
-			// be ruled out.
-			if (
-				incrementalFallbackReason === 'shallow-changed' ||
-				incrementalFallbackReason === 'replace-refs-changed' ||
-				incrementalFallbackReason === 'error'
-			) {
+			// External Git can change ancestry during an asynchronous walk. After a failed attempt,
+			// conservatively recompute stats for the recovery walk rather than trust its earlier seed.
+			if (incrementalFallbackReason === 'error') {
 				rowsStatsSeed = undefined;
 			}
 		}
@@ -2292,7 +2308,7 @@ class GraphSession implements GitGraphSession {
 						rowsStats: prior.rowsStats,
 						hasMore: prior.paging?.hasMore ?? false,
 						onlyFollowFirstParent: shape.onlyFollowFirstParent,
-						shallow: prior.shallow,
+						shallowBoundary: prior.shallowBoundary,
 						decorationFingerprint: prior.decorationFingerprint,
 						// Recovered from the prior graph's own `branches` map, the same way the walk itself
 						// derives it, rather than adding a new `GitGraph` field to keep in sync.
@@ -2309,9 +2325,10 @@ class GraphSession implements GitGraphSession {
 				limit: options?.limit,
 				rowProcessor: this.rowProcessor,
 				// Same-repo rebuild: continue the prior reachability generation (stable indices for retained
-				// rows) and reuse immutable per-sha stats — exactly the host's former same-repo seeds.
+				// rows). Stats reuse additionally requires the independent ancestry proof below.
 				reachabilitySeed: prior.reachability,
 				rowsStatsSeed: prior.rowsStats,
+				ancestrySeed: prior,
 				incrementalSeed: incrementalSeed,
 				onIncrementalResult: o => {
 					outcome = o;
@@ -2361,13 +2378,10 @@ class GraphSession implements GitGraphSession {
 			rows: true,
 			reachability: true,
 			rowsStats: true,
-			// Ties to the rowsStatsSeed drop above: these fallbacks recompute stats for shas already shipped
-			// (`error` included — it drops the seed too, so its recompute must be re-shipped, not dedup-skipped).
+			// Stats and same-sha parents depend on ancestry even when the full walk had no incremental
+			// seed. Error recovery also covers external ancestry changes during the asynchronous walk.
 			rowsStatsRecomputed:
-				outcome?.path === 'fallback' &&
-				(outcome.reason === 'shallow-changed' ||
-					outcome.reason === 'replace-refs-changed' ||
-					outcome.reason === 'error'),
+				getAncestryChange(prior, graph) != null || (outcome?.path === 'fallback' && outcome.reason === 'error'),
 			avatars: true,
 			downstreams: true,
 		};
