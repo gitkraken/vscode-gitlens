@@ -1253,7 +1253,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							rightRefType: 'branch' as const,
 							includeWorkingTree: true,
 						});
-			void this.withDetailsPanel(panel => panel.openCompareMode(compareParams), 'request-mode');
+			void this.withDetailsPanel(
+				panel => panel.openCompareMode(compareParams, undefined, { silent: capturedComparison != null }),
+				'request-mode',
+			);
 			return;
 		}
 

@@ -379,6 +379,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private _servicesResolved = false;
 	private _pendingCompare?: {
+		options?: { silent?: boolean };
 		params: Parameters<GlGraphDetailsPanel['openCompareMode']>[0];
 		onReady?: () => void;
 	};
@@ -856,7 +857,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  when no selection. Compare wins over the underlying selection context when its sheet is
 	 *  open since it's the topmost surface. */
 	get currentMode(): GraphDetailsMode {
-		if (this._state.compareSheetOpen.get()) return 'compare';
+		if (this._state.comparePresentation.get() === 'sheet') return 'compare';
 
 		const active = this._state.activeMode.get();
 		if (active != null) return active;
@@ -1026,9 +1027,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
 	 *  selection is left untouched; both sides of the comparison are driven by the supplied
 	 *  overrides. */
-	openCompareMode(params: CompareModeParams, onReady?: () => void): boolean {
+	openCompareMode(params: CompareModeParams, onReady?: () => void, options?: { silent?: boolean }): boolean {
 		if (this._workflow == null) {
-			this._pendingCompare = { params: params, onReady: onReady };
+			this._pendingCompare = { params: params, onReady: onReady, options: options };
 			return false;
 		}
 
@@ -1039,13 +1040,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			...this.currentSelection(),
 			repoPath: params.repoPath,
 		};
-		this._workflow.openCompare(selection, {
-			leftRef: params.leftRef,
-			leftRefType: params.leftRefType,
-			rightRef: params.rightRef,
-			rightRefType: params.rightRefType,
-			includeWorkingTree: params.includeWorkingTree,
-		});
+		this._workflow.openCompare(
+			selection,
+			{
+				leftRef: params.leftRef,
+				leftRefType: params.leftRefType,
+				rightRef: params.rightRef,
+				rightRefType: params.rightRefType,
+				includeWorkingTree: params.includeWorkingTree,
+			},
+			options,
+		);
 		return true;
 	}
 
@@ -1867,7 +1872,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
 
 	/** Stack of currently-open detail sheets — every sheet kind renders from here, via
-	 *  {@link renderSheets}. Compare's openness is projected in from `compareSheetOpen`. */
+	 *  {@link renderSheets}. Compare's openness is projected in from `comparePresentation`. */
 	@state() private _sheetStack: SheetDescriptor[] = [];
 
 	/** Parallel to {@link _sheetStack} — the element to restore focus to when the sheet at that
@@ -2116,12 +2121,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		// Projects the compare-signal's open/closed state onto the sheet stack — compare's own
-		// open/close lifecycle stays owned by `compareSheetOpen` (driven by the workflow controller),
+		// open/close lifecycle stays owned by `comparePresentation` (driven by the workflow controller),
 		// this just keeps the stack in sync with it every cycle. Selection-decoupled: reads only the
 		// signal, never selection, so it can't be affected by (or interfere with) the selection-close
 		// block above.
 		{
-			const compareOpen = this._state.compareSheetOpen.get();
+			const compareOpen = this._state.comparePresentation.get() === 'sheet';
 			const mode: 'replace' | 'push' = this._comparePushRequested ? 'push' : 'replace';
 			const projected = projectCompareSignal(this._sheetStack, compareOpen, mode);
 			if (projected !== this._sheetStack) {
@@ -2130,7 +2135,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this.openSheet({ kind: 'compare' }, { push: mode === 'push' });
 				} else {
 					// removeSheetKind, NOT popSheet/clearSheets: those call `closeCompare()`, which
-					// would stomp `compareAsPanel` back to false and break the promote-to-pinned
+					// would reset `comparePresentation` to closed and break the promote-to-pinned
 					// transition this projection is reacting to.
 					this.removeSheetKind('compare');
 				}
@@ -2751,9 +2756,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 
 		if (this._pendingCompare != null) {
-			const { params, onReady } = this._pendingCompare;
+			const { params, onReady, options } = this._pendingCompare;
 			this._pendingCompare = undefined;
-			this.openCompareMode(params, onReady);
+			this.openCompareMode(params, onReady, options);
 		}
 
 		if (this._pendingMode != null) {
@@ -2846,7 +2851,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// commit/worktree. When the current selection is merely refreshing (its own files/enrichment
 		// still streaming in), the content is correct, so it stays interactive. Implies `stale`.
 		const blockPointer = resolved != null && current == null;
-		const compareAsPanel = this._state.compareAsPanel.get();
+		const compareAsPanel = this._state.comparePresentation.get() === 'pinned';
 
 		// `.details-content` is the SCROLLING container — its content overflows and the user
 		// scrolls inside it. If we rendered the sheet as a child of `.details-content`, the
@@ -2893,7 +2898,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// `_preferredCompareOrientation`) until the user explicitly picks one; position and an
 		// explicit orientation persist via the shared signals, so unpin → re-pin restores the
 		// user's last layout.
-		const orientation = this._state.compareSplitOrientation.get() ?? this._preferredCompareOrientation;
+		const orientation = this.compareOrientation;
 		const position = this._state.compareSplitPosition.get();
 		return html`<gl-split-panel
 			class="compare-pinned-split"
@@ -3053,8 +3058,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return o === 'horizontal' ? 'vertical' : 'horizontal';
 	}
 
+	get compareOrientation(): PanelOrientation {
+		return this._state.compareSplitOrientation.get() ?? this._preferredCompareOrientation;
+	}
+
 	private handleFlipCompareOrientation = (): void => {
-		const effective = this._state.compareSplitOrientation.get() ?? this._preferredCompareOrientation;
+		const effective = this.compareOrientation;
 		this._state.compareSplitOrientation.set(this.flipOrientation(effective));
 	};
 

@@ -74,7 +74,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('an open compare (sheet or panel form) captures open-compare', () => {
 		const sheet = createDetailsState();
-		sheet.compareSheetOpen.set(true);
+		sheet.comparePresentation.set('sheet');
 		assert.deepStrictEqual(getActiveTaskAction(sheet), {
 			action: 'open-compare',
 			compare: undefined,
@@ -82,7 +82,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 		});
 
 		const panel = createDetailsState();
-		panel.compareAsPanel.set(true);
+		panel.comparePresentation.set('pinned');
 		assert.deepStrictEqual(getActiveTaskAction(panel), {
 			action: 'open-compare',
 			compare: undefined,
@@ -92,7 +92,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('an open compare carries its refs against its birth-record repo, so the restore reopens the SAME comparison', () => {
 		const state = createDetailsState();
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		state.branchCompareLeftRef.set('main');
 		state.branchCompareLeftRefType.set('branch');
 		state.branchCompareRightRef.set('feature');
@@ -118,7 +118,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('the passed selection path backs the refs only when there is no birth record', () => {
 		const state = createDetailsState();
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		state.branchCompareRightRef.set('feature');
 		state.branchCompareRightRefType.set('branch');
 
@@ -127,7 +127,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('a compare without a right ref falls back to the ref-less capture (default-shape restore)', () => {
 		const state = createDetailsState();
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		state.branchCompareLeftRef.set('main');
 
 		assert.deepStrictEqual(getActiveTaskAction(state, '/repo'), {
@@ -139,7 +139,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('a compare without a repo path cannot be restored by refs — ref-less capture', () => {
 		const state = createDetailsState();
-		state.compareAsPanel.set(true);
+		state.comparePresentation.set('pinned');
 		state.branchCompareRightRef.set('feature');
 
 		assert.deepStrictEqual(getActiveTaskAction(state), {
@@ -151,7 +151,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('an empty-string repo path counts as no repo path — ref-less capture', () => {
 		const state = createDetailsState();
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		state.branchCompareRightRef.set('feature');
 
 		assert.deepStrictEqual(getActiveTaskAction(state, ''), {
@@ -163,7 +163,7 @@ suite('getActiveTaskAction — the account-gate task capture (#5534)', () => {
 
 	test('an active mode wins over a coexisting open compare', () => {
 		const state = createDetailsState();
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		enterMode(state, 'review', 'wip', '/repo', uncommitted);
 
 		assert.strictEqual(getActiveTaskAction(state)?.action, 'enter-review');
@@ -177,7 +177,7 @@ suite('getOpenComparison — the live-comparison probe (#5671)', () => {
 
 	test('an open comparison is visible even while a mode sits on top of it', () => {
 		const state = createDetailsState();
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		state.branchCompareRightRef.set('feature');
 		state.branchCompareGraphRepoPath.set('/repo');
 		enterMode(state, 'review', 'wip', '/repo', uncommitted);

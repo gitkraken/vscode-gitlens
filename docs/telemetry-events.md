@@ -4373,6 +4373,24 @@ or
 }
 ```
 
+### graphDetails/compare/opened
+
+> Sent when a comparison opens as a sheet, including explicit retargets; excludes no-op opens
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/compare/openedInSearchAndCompare
 
 > Sent when the user opens the current comparison in the Search & Compare view
@@ -4390,6 +4408,28 @@ or
   'context.webview.type': string,
   'includeWorkingTree': boolean,
   'tab': 'ahead' | 'all' | 'behind'
+}
+```
+
+### graphDetails/compare/promoted
+
+> Sent when the user promotes a Compare sheet into the pinned split-panel presentation
+
+```typescript
+{
+  // Whether Alt-click chose an explicit orientation instead of following the panel shape
+  'altKey': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Resulting split orientation at promotion time
+  'orientation': 'horizontal' | 'vertical'
 }
 ```
 

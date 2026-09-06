@@ -37,14 +37,14 @@ architecture see `docs/architecture.md`; for the row/layout pipeline see
   - **Durable** — fetch/capability results (`commit`, `wip`, `commitFrom`/`commitTo`,
     `branchCompare*`, enrichment chips, capabilities). Survives mode transitions; cleared only when
     a fetch supersedes it or `resetRepoScoped()`/`resetDurable()` runs.
-  - **Transient** — interaction/workflow state (`activeMode`, `compareSheetOpen`, `scope`,
+  - **Transient** — interaction/workflow state (`activeMode`, `comparePresentation`, `scope`,
     commit-input form fields, forward-chip availability). `resetTransient()` returns the panel to
     its just-opened baseline without discarding fetched data.
     Every durable signal is declared as `repoScoped` or `capability` at its definition in
     `createDurableState()` — membership lives at the signal, not in a separate reset checklist.
     Ownership of writes is split, not uniform: `DetailsActions` owns the durable/fetch-result
     signals, while the mode-machine's transient signals (`activeMode`, `activeModeContext`,
-    `activeModeRepoPath`, `activeModeSha`/`Shas`, `compareSheetOpen`, `compareAsPanel`, `scope`, …)
+    `activeModeRepoPath`, `activeModeSha`/`Shas`, `comparePresentation`, `scope`, …)
     are written by `DetailsWorkflowController` (see the cross-cutting section below) —
     `DetailsState` itself is a passive signal bag with no logic of its own.
 - **Out (sub-panel → panel → action)**: events bubble (`composed: true`) from leaf components up
@@ -80,8 +80,7 @@ because it composes from uncommitted changes, resolve because it operates on the
 merge/rebase's conflicted files, which live on the WIP.
 
 **Compare is not a mode.** It has an independent lifecycle (`DetailsWorkflowController.openCompare`
-/ `closeCompare` / `openCompareAsPanel`) driven by `state.compareSheetOpen` and
-`state.compareAsPanel`, and can coexist with an active review/compose/resolve mode — the compare
+/ `closeCompare` / `openCompareAsPanel`) driven by `state.comparePresentation` (`'closed'`, `'sheet'`, or `'pinned'`), and can coexist with an active review/compose/resolve mode — the compare
 sheet sits over the panel, which stays inert but present beneath it. This is a structural change
 from a signal-per-run "mode": Compare's own state is a large `branchCompare*` slice of
 `DetailsState` (documented in its own section below).
@@ -463,14 +462,13 @@ silently re-fetching.
 
 ### Presentation forms
 
-Compare renders in one of two forms, tracked by independent booleans that are mutually exclusive
-at any instant but each togglable on their own:
+Compare renders in one of two forms, tracked by `comparePresentation`; `'closed'` hides both:
 
-- **Sheet** (`state.compareSheetOpen`) — the default; a `SheetDescriptor { kind: 'compare' }` on
+- **Sheet** (`state.comparePresentation === 'sheet'`) — the default; a `SheetDescriptor { kind: 'compare' }` on
   the panel's sheet stack (see §8). `gl-graph-compare-sheet` supplies only the chrome (title, the
   "Move Beside/Below" promote action); the panel's `renderCompareMode()` output is passed in as its
   slotted default-slot content, so the sheet wraps the same compare body the panel form uses.
-- **Panel** (`state.compareAsPanel`) — `openCompareAsPanel(orientation?)` promotes the sheet into a
+- **Panel** (`state.comparePresentation === 'pinned'`) — `openCompareAsPanel(orientation?)` promotes the sheet into a
   nested split inside the details panel itself (side-by-side or top/bottom, `compareSplitPosition`
   - `compareSplitOrientation`). Getting back to sheet form requires closing and re-opening; there is
     no demote action.
@@ -508,7 +506,7 @@ and renders only `_sheetStack.at(-1)` — sheets below the top are held but not 
 `pushSheet` (re-pushing the current top in place replaces it instead of growing the stack, via
 `sheetKey` structural-identity comparison), `replaceStack` (discards everything, starts a fresh
 single-sheet stack), `popSheet` (no-op-safe on empty), `removeKind`, and
-`projectCompareSignal(stack, open, mode)` — reconciles `state.compareSheetOpen` onto the
+`projectCompareSignal(stack, open, mode)` — reconciles `state.comparePresentation === 'sheet'` onto the
 descriptor stack every render (`mode: 'push'` stacks the compare sheet on top of whatever it was
 opened from, e.g. a pull request sheet's "Compare Changes" action, so closing returns there;
 `'replace'` is the default for any other opener).

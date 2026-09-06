@@ -509,6 +509,15 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/reachability/failed': DetailsReachabilityFailedEvent;
 	/** Sent when the user opens or diffs a file from a real (non-virtual) commit/compare in Graph Details */
 	'graphDetails/file/opened': GraphDetailsFileOpenedEvent;
+	/** Sent when a comparison opens as a sheet, including explicit retargets; excludes no-op opens */
+	'graphDetails/compare/opened': GraphContextEventData;
+	/** Sent when the user promotes a Compare sheet into the pinned split-panel presentation */
+	'graphDetails/compare/promoted': GraphContextEventData & {
+		/** Resulting split orientation at promotion time */
+		orientation: 'horizontal' | 'vertical';
+		/** Whether Alt-click chose an explicit orientation instead of following the panel shape */
+		altKey: boolean;
+	};
 	/** Sent when the user changes the base/compare ref in Graph Details compare mode */
 	'graphDetails/compare/refChanged': GraphDetailsCompareRefChangedEvent;
 	/** Sent when the user switches the Ahead/Behind/All tab in Graph Details compare mode */

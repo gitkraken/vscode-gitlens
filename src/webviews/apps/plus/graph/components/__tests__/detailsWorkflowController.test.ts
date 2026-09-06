@@ -129,6 +129,7 @@ function createServices(overrides?: {
 }
 
 class FakeHost implements DetailsWorkflowHost {
+	compareOrientation: 'horizontal' | 'vertical' = 'vertical';
 	repoPath?: string;
 	readonly crossPaneState: GraphCrossPaneState = createGraphCrossPaneState();
 	private _graphRepoPath: string | undefined;
@@ -1375,17 +1376,101 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 });
 
 suite('DetailsWorkflowController.compare lifecycle', () => {
-	test('openCompare with explicit refs flips compareSheetOpen and seeds branchCompare state', () => {
+	test('open telemetry counts accepted comparisons and excludes unavailable and repeated opens', () => {
+		const { controller, actions } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const events: string[] = [];
+		actions.sendTelemetryEvent = name => {
+			events.push(name);
+		};
+		const selection = { sha: undefined, shas: undefined, repoPath: '/A' };
+		controller.openCompare(selection);
+		assert.deepStrictEqual(events, [], 'no comparison seed means no open');
+
+		controller.openCompare(selection, { leftRef: 'main', rightRef: 'feature' });
+		controller.openCompare(selection);
+		controller.openCompareAsPanel();
+		controller.openCompare(selection);
+		assert.deepStrictEqual(events, ['graphDetails/compare/opened'], 'no-op opens in either form are excluded');
+
+		controller.openCompare(selection, { leftRef: 'main', rightRef: 'topic' });
+		controller.closeCompare();
+		controller.openCompare(selection, { leftRef: 'main', rightRef: 'topic' });
+		assert.deepStrictEqual(events, Array(3).fill('graphDetails/compare/opened'), 'retarget and reopen count');
+	});
+
+	test('restoring captured refs updates Compare without counting another open', () => {
+		const { controller, actions, state } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const events: string[] = [];
+		actions.sendTelemetryEvent = name => {
+			events.push(name);
+		};
+		const selection = { sha: undefined, shas: undefined, repoPath: '/A' };
+		const refs = { leftRef: 'main', rightRef: 'feature' };
+		controller.openCompare(selection, refs);
+		controller.closeCompare();
+		controller.openCompare(selection, refs, { silent: true });
+		assert.strictEqual(state.comparePresentation.get(), 'sheet');
+		assert.strictEqual(state.branchCompareRightRef.get(), 'feature');
+		assert.deepStrictEqual(events, ['graphDetails/compare/opened']);
+	});
+
+	test('promotion telemetry counts only sheet transitions with the effective orientation', () => {
+		const { controller, actions, host } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const events: unknown[] = [];
+		actions.sendTelemetryEvent = (name, data) => {
+			if (name === 'graphDetails/compare/promoted') {
+				events.push(data);
+			}
+		};
+		controller.openCompareAsPanel();
+		assert.deepStrictEqual(events, [], 'closed comparisons cannot promote');
+		const selection = { sha: undefined, shas: undefined, repoPath: '/A' };
+		const refs = { leftRef: 'main', rightRef: 'feature' };
+		host.compareOrientation = 'horizontal';
+		controller.openCompare(selection, refs);
+		controller.openCompareAsPanel();
+		controller.openCompareAsPanel('vertical');
+		assert.deepStrictEqual(events, [{ orientation: 'horizontal', altKey: false }]);
+		controller.closeCompare();
+		controller.openCompare(selection, refs);
+		controller.openCompareAsPanel('vertical');
+		assert.deepStrictEqual(events, [
+			{ orientation: 'horizontal', altKey: false },
+			{ orientation: 'vertical', altKey: true },
+		]);
+	});
+
+	test('closed comparisons cannot be promoted and closing resets explicit layout', () => {
 		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
-		assert.strictEqual(state.compareSheetOpen.get(), false);
-		assert.strictEqual(state.compareAsPanel.get(), false);
+		controller.openCompareAsPanel('horizontal');
+		assert.strictEqual(state.comparePresentation.get(), 'closed');
+		assert.strictEqual(state.compareSplitOrientation.get(), undefined);
+
+		controller.openCompare(
+			{ sha: undefined, shas: undefined, repoPath: '/A' },
+			{ leftRef: 'main', rightRef: 'feature' },
+		);
+		controller.openCompareAsPanel('horizontal');
+		state.compareSplitPosition.set(65);
+		assert.strictEqual(state.comparePresentation.get(), 'pinned');
+		assert.strictEqual(state.compareSplitOrientation.get(), 'horizontal');
+
+		controller.closeCompare();
+		assert.strictEqual(state.comparePresentation.get(), 'closed');
+		assert.strictEqual(state.compareSplitOrientation.get(), undefined);
+		assert.strictEqual(state.compareSplitPosition.get(), 50);
+	});
+
+	test('openCompare with explicit refs opens the sheet and seeds branchCompare state', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		assert.strictEqual(state.comparePresentation.get(), 'closed');
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
 			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
 
-		assert.strictEqual(state.compareSheetOpen.get(), true);
+		assert.strictEqual(state.comparePresentation.get(), 'sheet');
 		assert.strictEqual(state.branchCompareLeftRef.get(), 'main');
 		assert.strictEqual(state.branchCompareRightRef.get(), 'feature');
 	});
@@ -1420,7 +1505,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 		assert.strictEqual(state.branchCompareActiveTab.get(), 'behind', 'tab selection survives a no-op re-open');
 	});
 
-	test('closeCompare clears both visibility signals and all compare state', () => {
+	test('closeCompare closes the presentation and all compare state', () => {
 		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 
 		controller.openCompare(
@@ -1433,8 +1518,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.closeCompare();
 
-		assert.strictEqual(state.compareSheetOpen.get(), false);
-		assert.strictEqual(state.compareAsPanel.get(), false);
+		assert.strictEqual(state.comparePresentation.get(), 'closed');
 		assert.strictEqual(state.branchCompareLeftRef.get(), undefined);
 		assert.strictEqual(state.branchCompareRightRef.get(), undefined);
 		assert.strictEqual(state.branchCompareActiveTab.get(), 'ahead', 'active tab resets to default');
@@ -1451,8 +1535,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompareAsPanel();
 
-		assert.strictEqual(state.compareSheetOpen.get(), false);
-		assert.strictEqual(state.compareAsPanel.get(), true);
+		assert.strictEqual(state.comparePresentation.get(), 'pinned');
 		assert.strictEqual(state.branchCompareLeftRef.get(), 'main');
 		assert.strictEqual(state.branchCompareActiveTab.get(), 'behind', 'tab survives the form swap');
 	});
@@ -1474,8 +1557,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 		// Any new open (with overrides) resets the form to sheet. The user re-commits to the panel
 		// form if they want it. The only way back to sheet is close+reopen — this test exercises
 		// the override path; a no-override repeat-click is the early-return no-op covered above.
-		assert.strictEqual(state.compareAsPanel.get(), false, 'panel form is dismissed on re-open');
-		assert.strictEqual(state.compareSheetOpen.get(), true, 'fresh open is always a sheet');
+		assert.strictEqual(state.comparePresentation.get(), 'sheet', 'fresh open is always a sheet');
 		assert.strictEqual(state.branchCompareRightRef.get(), 'topic', 'refs were updated');
 	});
 
@@ -1486,12 +1568,12 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
 			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
-		assert.strictEqual(state.compareSheetOpen.get(), true);
+		assert.strictEqual(state.comparePresentation.get(), 'sheet');
 
 		host.setGraphRepoPath('/B');
 		host.tickHostUpdate();
 
-		assert.strictEqual(state.compareSheetOpen.get(), false);
+		assert.strictEqual(state.comparePresentation.get(), 'closed');
 		assert.strictEqual(state.branchCompareLeftRef.get(), undefined);
 	});
 
@@ -1507,8 +1589,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 		host.setGraphRepoPath('/B');
 		host.tickHostUpdate();
 
-		assert.strictEqual(state.compareAsPanel.get(), false);
-		assert.strictEqual(state.compareSheetOpen.get(), false);
+		assert.strictEqual(state.comparePresentation.get(), 'closed');
 	});
 });
 

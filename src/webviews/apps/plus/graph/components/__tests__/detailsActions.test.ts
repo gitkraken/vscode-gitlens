@@ -376,7 +376,7 @@ suite('DetailsActions', () => {
 		const state = createDetailsState();
 		state.branchCompareLeftRef.set('main');
 		state.branchCompareRightRef.set('feature');
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 
 		const summaryFetches: BranchComparisonOptions[] = [];
 		const resources = createResources({
@@ -848,7 +848,7 @@ suite('DetailsActions', () => {
 		// An open compare sheet is anchored to its own refs.
 		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
 		state.commit.set(commit);
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
 		actions.resetRepoScopedStateOnSwitch('/repo2');
 		assert.strictEqual(state.commit.get(), commit, 'an open compare sheet keeps its repo-scoped state');
 	});

@@ -385,22 +385,15 @@ function createTransientState() {
 	const swapped = signal(false);
 
 	// Workflow state machine — compose/review only. Compare is no longer a `mode`; it has its
-	// own lifecycle via `compareSheetOpen` + workflow `openCompare`/`closeCompare`.
+	// own lifecycle via `comparePresentation` + workflow `openCompare`/`closeCompare`.
 	const activeMode = signal<'review' | 'compose' | 'resolve' | null>(null);
 	const activeModeContext = signal<DetailsContext | null>(null);
 	const activeModeRepoPath = signal<string | undefined>(undefined);
 	const activeModeSha = signal<string | undefined>(undefined);
 	const activeModeShas = signal<string[] | undefined>(undefined);
 
-	// Compare sheet visibility. Independent of `activeMode` — compare can coexist with an
-	// active compose/review (the sheet sits over the panel, the panel is inert beneath).
-	const compareSheetOpen = signal(false);
-
-	// Compare in panel form — a dedicated nested split inside the details panel instead of the
-	// floating sheet. Mutually exclusive with `compareSheetOpen` at any given moment, but each
-	// can be flipped independently — the user can promote (sheet → panel), restore (panel →
-	// sheet), or close from either form.
-	const compareAsPanel = signal(false);
+	// Independent of activeMode: Compare can float over details or stay in a nested split.
+	const comparePresentation = signal<'closed' | 'sheet' | 'pinned'>('closed');
 	const compareSplitPosition = signal(50);
 	// undefined = auto: the pinned split follows the details panel's shape (wide → side-by-side,
 	// narrow → stacked) and re-adapts live as the panel resizes. Set only by an explicit user
@@ -542,8 +535,7 @@ function createTransientState() {
 		activeModeSha: activeModeSha,
 		activeModeShas: activeModeShas,
 
-		compareSheetOpen: compareSheetOpen,
-		compareAsPanel: compareAsPanel,
+		comparePresentation: comparePresentation,
 		compareSplitPosition: compareSplitPosition,
 		compareSplitOrientation: compareSplitOrientation,
 
@@ -659,7 +651,7 @@ export function getOpenComparison(
 	state: DetailsState,
 	compareRepoPath?: string,
 ): { compare?: CompareModeParams; graphRepoPath?: string } | undefined {
-	if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return undefined;
+	if (state.comparePresentation.get() === 'closed') return undefined;
 
 	const graphRepoPath = state.branchCompareGraphRepoPath.get();
 	const rightRef = state.branchCompareRightRef.get();

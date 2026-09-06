@@ -97,6 +97,8 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  selection event lands. Used to detect graph repo switches that haven't yet propagated
 	 *  to {@link repoPath}. */
 	graphRepoPath(): string | undefined;
+	/** Current explicit or shape-derived Compare split orientation. */
+	readonly compareOrientation: 'horizontal' | 'vertical';
 	/** Returns true when the active selection is the WIP/uncommitted sha. */
 	isWipSelection(): boolean;
 	/** Refreshes an open branch sheet's enrichment. The sheet owns its own enrichment state and
@@ -293,7 +295,7 @@ export class DetailsWorkflowController implements ReactiveController {
 						this.hideMode(this.host.currentSelection(), { skipRefetch: true });
 					}
 				}
-				if (this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get()) {
+				if (this.actions.state.comparePresentation.get() !== 'closed') {
 					this.closeCompare();
 				}
 			}
@@ -525,13 +527,17 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  once opened — the user can navigate the graph freely and the sheet's refs are unaffected.
 	 *  Re-calling `openCompare` while the sheet is already open replaces the comparison only when
 	 *  explicit overrides are provided; otherwise it's a no-op. */
-	openCompare(selection: DetailsSelection, compareOverrides?: CompareModeOverrides): void {
+	openCompare(
+		selection: DetailsSelection,
+		compareOverrides?: CompareModeOverrides,
+		options?: { silent?: boolean },
+	): void {
 		const { sha, shas, repoPath } = selection;
 		const state = this.actions.state;
 
 		// Already-open (sheet OR pinned) + no explicit overrides = no-op (re-clicking the same
 		// entry point shouldn't reset the user's in-flight comparison).
-		const alreadyOpen = state.compareSheetOpen.get() || state.compareAsPanel.get();
+		const alreadyOpen = state.comparePresentation.get() !== 'closed';
 		if (alreadyOpen && compareOverrides?.leftRef == null && compareOverrides?.rightRef == null) {
 			return;
 		}
@@ -659,8 +665,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		// panel state is dismissed: a fresh open re-establishes the lighter preview shape, and
 		// the user re-commits to the panel form if they want it. To get back to a sheet from a
 		// panel, the user closes and re-opens.
-		state.compareAsPanel.set(false);
-		state.compareSheetOpen.set(true);
+		state.comparePresentation.set('sheet');
+		// Count accepted opens, including explicit retargets; the no-op and activation guards above
+		// keep repeated clicks from inflating the baseline for compare promotions.
+		if (!options?.silent) {
+			this.actions.sendTelemetryEvent('graphDetails/compare/opened');
+		}
 	}
 
 	/** Promotes the compare sheet into a side-by-side or top/bottom panel — a nested split
@@ -671,23 +681,25 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  its current mode — auto (shape-following) unless the user already picked one. */
 	openCompareAsPanel(orientation?: 'horizontal' | 'vertical'): void {
 		const state = this.actions.state;
-		if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return;
+		if (state.comparePresentation.get() !== 'sheet') return;
 
 		if (orientation != null) {
 			state.compareSplitOrientation.set(orientation);
 		}
-		state.compareSheetOpen.set(false);
-		state.compareAsPanel.set(true);
+		state.comparePresentation.set('pinned');
+		this.actions.sendTelemetryEvent('graphDetails/compare/promoted', {
+			orientation: state.compareSplitOrientation.get() ?? this.host.compareOrientation,
+			altKey: orientation != null,
+		});
 	}
 
 	/** Closes compare entirely, regardless of which form it's currently in. Compare has no
 	 *  run state to preserve; this fully resets the branchCompare* signals back to idle. */
 	closeCompare(): void {
 		const state = this.actions.state;
-		if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return;
+		if (state.comparePresentation.get() === 'closed') return;
 
-		state.compareSheetOpen.set(false);
-		state.compareAsPanel.set(false);
+		state.comparePresentation.set('closed');
 		// Layout resets too — an explicit orientation/size choice shouldn't haunt the next compare.
 		state.compareSplitOrientation.set(undefined);
 		state.compareSplitPosition.set(50);
@@ -3179,7 +3191,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// event unless the compare sheet/panel is open AND include-working-tree is on, so an
 		// always-on watch would hold an FS-watch lease (and shorten the shared working-tree debounce
 		// for other subscribers of the repo) for a callback that can't fire.
-		const compareOpen = this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get();
+		const compareOpen = this.actions.state.comparePresentation.get() !== 'closed';
 		if (!compareOpen || !this.actions.state.branchCompareIncludeWorkingTree.get()) return undefined;
 
 		return this.actions.state.branchCompareRightRefWorktreePath.get() ?? this.host.repoPath;

@@ -484,7 +484,7 @@ export class DetailsActions {
 	 */
 	resetRepoScopedStateOnSwitch(repoPath?: string): void {
 		if (this._lastFetchedRepoPath === repoPath) return;
-		if (this.state.compareSheetOpen.get() || this.state.compareAsPanel.get()) return;
+		if (this.state.comparePresentation.get() !== 'closed') return;
 		if (this.state.activeMode.get() != null) return;
 
 		this.resetRepoScopedState(repoPath);
@@ -1955,7 +1955,7 @@ export class DetailsActions {
 	}
 
 	markBranchCompareStale(): void {
-		const compareOpen = this.state.compareSheetOpen.get() || this.state.compareAsPanel.get();
+		const compareOpen = this.state.comparePresentation.get() !== 'closed';
 		if (!compareOpen || !this.state.branchCompareIncludeWorkingTree.get()) return;
 
 		this.state.branchCompareStale.set(true);
