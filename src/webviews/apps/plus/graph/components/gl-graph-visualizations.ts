@@ -52,15 +52,7 @@ export class GlGraphVisualizations extends SignalWatcher(LitElement) {
 	private graphState!: typeof graphStateContext.__context__;
 
 	private get mode(): VisualizationMode {
-		// Route through the shared resolver so this render decision, the switcher's active tab, and
-		// the `graph/visualizations/closed` telemetry all gate identically: when the experimental
-		// flag is off it force-routes to the timeline regardless of persisted `visualizationMode`
-		// (the stored value is left untouched so re-enabling restores the user's prior choice).
-		const key = getEffectiveVisualizationKey(
-			this.graphState.visualizationMode,
-			this.graphState.treemapMode,
-			this.graphState.config?.experimentalVisualizationsEnabled === true,
-		);
+		const key = getEffectiveVisualizationKey(this.graphState.visualizationMode, this.graphState.treemapMode);
 		if (key === 'timeline') return 'timeline';
 		// Gated identically to the switcher tab: without the maintenance sub-provider there is nothing to
 		// report, so a persisted `health` choice carried onto a virtual/web/Live Share repo must fall back

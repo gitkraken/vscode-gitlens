@@ -262,20 +262,6 @@ export function registerGraphWebviewCommands<T>(
 				return;
 			}
 
-			// The whole visualizations area (Health included) is behind this flag, so without it the command
-			// would silently open the graph on the timeline with no way to reach Health and no explanation.
-			if (!configuration.get('graph.experimental.visualizations.enabled')) {
-				const enable = 'Enable Visualizations';
-				const picked = await window.showInformationMessage(
-					'Repository Health is part of the Commit Graph visualizations, which are currently turned off.',
-					enable,
-					'Cancel',
-				);
-				if (picked !== enable) return;
-
-				await configuration.updateEffective('graph.experimental.visualizations.enabled', true);
-			}
-
 			// With optimizations off, every probe in gitHealthService short-circuits, so the view would
 			// render an all-clear for a repo it never examined instead of the real report.
 			if (configuration.get('gitOptimizations.enabled') !== true) {

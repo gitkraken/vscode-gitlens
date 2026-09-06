@@ -457,11 +457,7 @@ export interface GraphConfig {
 	readonly doubleClickWorktreeAction: 'scope' | 'focus';
 	readonly editorOpeningBehavior: 'auto' | 'active';
 	readonly experimental: {
-		readonly kanban: {
-			readonly enabled: boolean;
-		};
 		readonly visualizations: {
-			readonly enabled: boolean;
 			readonly activityDecay: GraphActivityDecay;
 		};
 	};

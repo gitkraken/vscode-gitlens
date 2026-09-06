@@ -82,7 +82,6 @@ import { sheetKey } from './components/sheetStack.js';
 import { getEffectiveVisualizationKey } from './components/visualizations.utils.js';
 import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
-import { getEffectiveDisplayMode } from './displayMode.js';
 import { DragShiftHintController } from './dragShiftHintController.js';
 import type { GlGraphHeader } from './graph-header.js';
 import type { GlGraphWrapper, GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
@@ -443,18 +442,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@state()
 	private _altModeSelectedCommit?: GraphSelectedCommit;
 
-	/** Effective display mode after gating. Persisted `displayMode === 'kanban'` is downgraded
-	 *  to `'graph'` when the experimental kanban flag is off — keeps `renderGraphPaneContent`,
-	 *  `handleSelectCommit`, the mode-leave cleanup, and the host-sync IPC all making the same
-	 *  decision about which body is actually visible. Reading raw `graphState.displayMode` in
-	 *  any of those paths produces silent desync (graph rendered but kanban-branch logic runs).
-	 *  Visualizations is never gated this way — its toggle is always available.
-	 *
-	 *  Delegates to the shared {@link getEffectiveDisplayMode} helper so the header (and any
-	 *  future surface that mirrors the same decision) can compute the same value from the same
-	 *  inputs without duplicating the gating rule. */
-	private get effectiveDisplayMode(): GraphDisplayMode {
-		return getEffectiveDisplayMode(this.graphState);
+	private get displayMode(): GraphDisplayMode {
+		return this.graphState.displayMode ?? 'graph';
 	}
 
 	/** Everything the graph-level gate needs apart from the walkthrough banner. */
@@ -483,11 +472,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/** What the details-pane marks need on top of the graph-level gate; agents answers to that alone. */
 	private get detailsCoachMarksEligible(): boolean {
-		return (
-			this.coachMarksEligible &&
-			this.effectiveDisplayMode === 'graph' &&
-			(this.graphState.details?.visible ?? false)
-		);
+		return this.coachMarksEligible && this.displayMode === 'graph' && (this.graphState.details?.visible ?? false);
 	}
 
 	/** Gates a binding to graph mode only — kanban/visualizations hide the graph subtree behind
@@ -495,7 +480,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  digits, the Shift+letter toggles) must not fire there. NOTE: graph mode does NOT guarantee
 	 *  `this.graph` exists — the gated / no-repo screens replace the whole graph subtree — so run
 	 *  bodies must still null-guard it. */
-	private readonly isGraphModeShortcut = (): boolean => this.effectiveDisplayMode === 'graph';
+	private readonly isGraphModeShortcut = (): boolean => this.displayMode === 'graph';
 
 	/** The selection that drives the details panel, picked by the active `displayMode`. In
 	 *  any non-graph mode the alternate-mode slot is honored; otherwise the graph slots. */
@@ -503,7 +488,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		single: GraphSelectedCommit | undefined;
 		multi: GraphSelectedCommits | undefined;
 	} {
-		if (this.effectiveDisplayMode !== 'graph') {
+		if (this.displayMode !== 'graph') {
 			return { single: this._altModeSelectedCommit, multi: undefined };
 		}
 		return { single: this._selectedCommit, multi: this._selectedCommits };
@@ -515,7 +500,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  commit shas (WIP rows are excluded from compare); the single anchor goes through
 	 *  {@link toGraphRowSha}. */
 	private get activeAnchorShas(): readonly string[] | undefined {
-		if (this.effectiveDisplayMode !== 'graph') return undefined;
+		if (this.displayMode !== 'graph') return undefined;
 		if (this._selectedCommits != null) return this._selectedCommits.shas;
 
 		const single = this._selectedCommit;
@@ -808,7 +793,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			isVirtualRepo: () => this.isVirtualRepo,
 			activateSidebarPanel: panel => this.activateSidebarPanel(panel),
 			sidebarEnabled: () => this.graphState.config?.sidebar ?? false,
-			kanbanEnabled: () => this.graphState.config?.experimentalKanbanEnabled ?? false,
 			toggleDisplayMode: mode => this.toggleDisplayMode(mode),
 			toggleMinimap: () => this.handleToggleMinimap(),
 			toggleSidebar: () => this.handleToggleSidebar(),
@@ -1695,11 +1679,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// chart re-emits its first-paint auto-select on remount, and kanban re-resolves on the next
 		// card click. Tracked here rather than in `handleDisplayModeChange` so it covers every
 		// `displayMode` writer (sidebar toggle, `openTimelineScope`, the search-request path that
-		// forces `'graph'`, kanban close button). Use the EFFECTIVE mode (post-gating) for both the
-		// transition detection and the host notification. The raw persisted `displayMode === 'kanban'`
-		// value can survive across the experimental flag being turned off, and we don't want to tell
-		// the host we're in kanban (or fire kanban cleanup) when the body is actually rendering as graph.
-		const displayMode = this.effectiveDisplayMode;
+		// forces `'graph'`, kanban close button).
+		const displayMode = this.displayMode;
 		if (displayMode !== this._wasDisplayMode) {
 			if (this._wasDisplayMode != null && this._wasDisplayMode !== 'graph') {
 				this._altModeSelectedCommit = undefined;
@@ -1709,18 +1690,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// only the exit is recorded here, since this transition check is the single place every
 			// `displayMode` writer (sidebar rail, close buttons, search-request path) funnels through.
 			if (this._wasDisplayMode === 'visualizations') {
-				// Resolve through the shared gate (NOT raw `visualizationMode`) so the reported mode
-				// matches what was actually shown: with the experimental flag off, the wrapper
-				// force-routes to the timeline regardless of a persisted `treemap*` choice, so reading
-				// the raw value here would emit `treemap-*` for a session where only the timeline was
-				// shown — an inconsistent `timeline shown → treemap closed` funnel.
 				emitTelemetrySentEvent(this, {
 					name: 'graph/visualizations/closed',
 					data: {
 						mode: getEffectiveVisualizationKey(
 							this.graphState.visualizationMode,
 							this.graphState.treemapMode,
-							this.graphState.config?.experimentalVisualizationsEnabled === true,
 						),
 					},
 				});
@@ -1999,7 +1974,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleSelectCommit(e: CustomEvent<{ sha: string }>) {
-		const displayMode = this.effectiveDisplayMode;
+		const displayMode = this.displayMode;
 		// In alternate (non-graph) modes the graph is hidden and its selection isn't what the
 		// details panel renders — drive the alt slot directly so details-panel-internal navigations
 		// (parent SHA, autolinks) actually update the panel. Driving `selectCommits` on the hidden
@@ -2029,11 +2004,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraphPaneContent() {
-		// Use the gated effective mode (see `effectiveDisplayMode`) so the body, the sidebar
-		// toggle visibility, `handleSelectCommit` routing, and the mode-leave cleanup all agree
-		// on what's actually visible — important when the user has disabled the kanban
-		// experimental flag while persisted `displayMode === 'kanban'`.
-		const displayMode = this.effectiveDisplayMode;
+		const displayMode = this.displayMode;
 		const isGraphMode = displayMode === 'graph';
 		// Always render the graph subtree to avoid the cascade of remounts (split-panels +
 		// graph subtree) that produces a visible "smaller, then bigger"
@@ -3215,7 +3186,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	private handleJumpToWip = (): void => {
-		if (this.effectiveDisplayMode !== 'graph') return;
+		if (this.displayMode !== 'graph') return;
 
 		const scope = this.graphState.scope;
 		const { branchesVisibility, includeOnlyRefs, branch } = this.graphState;
@@ -4204,7 +4175,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (target == null) return;
 
 		this._navExpectedSha = target.sha;
-		if (this.effectiveDisplayMode !== 'graph') {
+		if (this.displayMode !== 'graph') {
 			this._altModeSelectedCommit = { sha: target.sha, repoPath: target.repoPath, commitLite: target.commitLite };
 		} else {
 			// Carry the recorded commit shell so the details panel paints from cache — including when

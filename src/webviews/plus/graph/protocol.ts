@@ -819,8 +819,6 @@ export interface GraphComponentConfig {
 	 *  `gitlens.graph.doubleClickWorktreeAction`. */
 	doubleClickWorktreeAction?: 'scope' | 'focus';
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
-	experimentalKanbanEnabled?: boolean;
-	experimentalVisualizationsEnabled?: boolean;
 	/**
 	 * Whether this repo exposes the maintenance sub-provider (`repo.git.maintenance != null`). Absent on
 	 * web builds, virtual repos, and Live Share — the Repository Health tab is omitted entirely there,

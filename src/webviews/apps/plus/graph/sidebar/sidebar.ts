@@ -365,8 +365,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	 *  `graph-app.ts`. */
 	private get railEntries(): readonly SidebarRailEntry[] {
 		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
-		const kanbanEnabled = this._state.config?.experimentalKanbanEnabled ?? false;
-		return visibleSidebarRailEntries(repo?.virtual ?? false, kanbanEnabled);
+		return visibleSidebarRailEntries(repo?.virtual ?? false);
 	}
 
 	/** The selected repo's family path (`commonPath ?? path`), for scoping the agents badge count
@@ -391,7 +390,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		return icons.filter(i => included.has(i.type));
 	}
 
-	/** Display-mode toggles included for the current gate state, in rail order. */
+	/** Display-mode toggles in rail order. */
 	private get visibleDisplayModeToggles(): readonly DisplayModeToggle[] {
 		return this.railEntries
 			.filter((e): e is Extract<SidebarRailEntry, { kind: 'displayMode' }> => e.kind === 'displayMode')

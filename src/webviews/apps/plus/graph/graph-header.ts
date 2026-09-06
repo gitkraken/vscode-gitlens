@@ -48,7 +48,6 @@ import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
 import type { GlGraphScopePopover } from './components/gl-graph-scope-popover.js';
 import { graphServicesContext, graphStateContext } from './context.js';
-import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
 import { compareGraphRefOpts, getHiddenRefLabel } from './hiddenRefs.utils.js';
 import type { SearchActions } from './search/searchActions.js';
@@ -1550,10 +1549,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// Search applies to the graph rows; any alternate display mode (visualizations, kanban)
 		// hides the graph body and shouldn't accept search input — typing would silently scroll
 		// a graph the user can't see and Prev/Next on results would jump the invisible viewport.
-		// Use the EFFECTIVE mode so a persisted `'kanban'` state that's been gated off (experimental
-		// flag toggled off after the user entered kanban) reads as `'graph'` here and the search
-		// box re-enables for the now-visible graph body.
-		const displayMode = getEffectiveDisplayMode(this.graphState);
+		const displayMode = this.graphState.displayMode ?? 'graph';
 		const isAlternateMode = displayMode !== 'graph';
 		return html`
 			<div class="titlebar__row titlebar__row--search ${rowClass}">

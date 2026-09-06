@@ -3,39 +3,26 @@ import type { TreemapNode } from '../../../../../plus/treemap/protocol.js';
 import { classifyTreemapZoom, countFileLeaves, getEffectiveVisualizationKey } from '../visualizations.utils.js';
 
 suite('getEffectiveVisualizationKey', () => {
-	test('flag off forces timeline regardless of persisted treemap state', () => {
-		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'commits', false), 'timeline');
-		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'activity', false), 'timeline');
-		assert.strictEqual(getEffectiveVisualizationKey('timeline', 'files', false), 'timeline');
+	test('returns timeline when the visualization mode is timeline', () => {
+		assert.strictEqual(getEffectiveVisualizationKey('timeline', 'commits'), 'timeline');
 	});
 
-	test('flag on returns timeline when the visualization mode is timeline', () => {
-		assert.strictEqual(getEffectiveVisualizationKey('timeline', 'commits', true), 'timeline');
-	});
-
-	test('flag on maps each treemap sub-mode to its key', () => {
-		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'files', true), 'treemap-files');
-		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'commits', true), 'treemap-commits');
-		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'activity', true), 'treemap-activity');
+	test('maps each treemap sub-mode to its key', () => {
+		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'files'), 'treemap-files');
+		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'commits'), 'treemap-commits');
+		assert.strictEqual(getEffectiveVisualizationKey('treemap', 'activity'), 'treemap-activity');
 	});
 
 	test('defaults: undefined mode is timeline; undefined treemapMode is files', () => {
-		assert.strictEqual(getEffectiveVisualizationKey(undefined, undefined, true), 'timeline');
-		assert.strictEqual(getEffectiveVisualizationKey('treemap', undefined, true), 'treemap-files');
+		assert.strictEqual(getEffectiveVisualizationKey(undefined, undefined), 'timeline');
+		assert.strictEqual(getEffectiveVisualizationKey('treemap', undefined), 'treemap-files');
 	});
 
-	test('flag on maps health across, ignoring any persisted treemap sub-mode', () => {
+	test('maps health across, ignoring any persisted treemap sub-mode', () => {
 		// Health has no sub-mode, so a stale `treemapMode` left over from a previous choice must not
 		// leak into its key.
-		assert.strictEqual(getEffectiveVisualizationKey('health', undefined, true), 'health');
-		assert.strictEqual(getEffectiveVisualizationKey('health', 'commits', true), 'health');
-	});
-
-	test('flag off forces timeline from health too, leaving the stored mode intact', () => {
-		// Health inherits the experimental gate rather than carving itself out — the setting defaults
-		// to true, and if the flag is ever retired this branch simply stops being reachable.
-		assert.strictEqual(getEffectiveVisualizationKey('health', undefined, false), 'timeline');
-		assert.strictEqual(getEffectiveVisualizationKey('health', 'files', false), 'timeline');
+		assert.strictEqual(getEffectiveVisualizationKey('health', undefined), 'health');
+		assert.strictEqual(getEffectiveVisualizationKey('health', 'commits'), 'health');
 	});
 });
 

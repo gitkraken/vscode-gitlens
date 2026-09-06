@@ -26,16 +26,13 @@ export type SidebarRailEntry =
 	| { kind: 'panel'; panel: GraphSidebarPanel }
 	| { kind: 'displayMode'; mode: Exclude<GraphDisplayMode, 'graph'> };
 
-/** Full rail order for the current repo kind and kanban gate, in render order: panels, then the
- *  kanban toggle (when enabled), then the visualizations toggle. Drives the rail's rendering
+/** Full rail order for the current repo kind, in render order: panels, then the
+ *  kanban toggle, then the visualizations toggle. Drives the rail's rendering
  *  (`sidebar.ts`); the keyboard indexes `visibleSidebarPanels` instead, since the display-mode
  *  toggles have their own letter chords. */
-export function visibleSidebarRailEntries(virtual: boolean, kanbanEnabled: boolean): readonly SidebarRailEntry[] {
+export function visibleSidebarRailEntries(virtual: boolean): readonly SidebarRailEntry[] {
 	const entries: SidebarRailEntry[] = visibleSidebarPanels(virtual).map(panel => ({ kind: 'panel', panel: panel }));
-	if (kanbanEnabled) {
-		entries.push({ kind: 'displayMode', mode: 'kanban' });
-	}
-
+	entries.push({ kind: 'displayMode', mode: 'kanban' });
 	entries.push({ kind: 'displayMode', mode: 'visualizations' });
 	return entries;
 }

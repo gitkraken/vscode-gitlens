@@ -361,8 +361,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	/**
 	 * Closes on focus-out only when `refFindAutoHide` is explicitly on. The setting defaults to `false`
 	 * and `GraphComponentConfig.refFindAutoHide` is optional, so `!== true` is the check that treats an
-	 * absent value as the documented default — the convention this component's other default-off config
-	 * fields (`experimentalKanbanEnabled`, `experimentalVisualizationsEnabled`) already follow.
+	 * absent value as the documented default.
 	 *
 	 * `relatedTarget` is retargeted to the nearest
 	 * ancestor in OUR shadow tree (e.g. `gl-button` itself, even when focus actually landed on its

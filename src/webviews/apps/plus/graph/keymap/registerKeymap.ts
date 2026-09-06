@@ -47,7 +47,6 @@ export type GraphKeymapActions = {
 	isVirtualRepo(): boolean;
 	activateSidebarPanel(panel: GraphSidebarPanel): void;
 	sidebarEnabled(): boolean;
-	kanbanEnabled(): boolean;
 	toggleDisplayMode(mode: Exclude<GraphDisplayMode, 'graph'>): void;
 	toggleMinimap(): void;
 	toggleSidebar(): void;
@@ -230,8 +229,6 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			scope: 'webviewGlobal',
 			sheet: { group: 'panels', label: 'Toggle Agent Kanban', order: 2, keysOverride: ['alt+KeyK'] },
 			run: () => {
-				if (!actions.kanbanEnabled()) return false;
-
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleDisplayMode('kanban');
 				return true;

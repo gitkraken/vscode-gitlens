@@ -8,20 +8,11 @@ import type { TreemapMode, TreemapNode } from '../../../../plus/treemap/protocol
 // visualizations identically and can't drift.
 export type { GraphVisualizationKey };
 
-/** Resolves the effective visualization key, gating non-timeline modes behind the experimental
- *  flag exactly as `gl-graph-visualizations` routes: when the flag is off, force `timeline`
- *  regardless of the persisted `visualizationMode`/`treemapMode` (the stored values are preserved
- *  so re-enabling restores the user's prior choice). Single source of truth for the wrapper's
- *  render routing, the switcher's active tab, and the `graph/visualizations/closed` telemetry mode
- *  — so a `timeline shown → treemap closed` mismatch can't arise when the flag is toggled off after
- *  a treemap was picked. */
+/** Maps visualization mode and treemap sub-mode to the shared routing and telemetry key. */
 export function getEffectiveVisualizationKey(
 	visualizationMode: VisualizationMode | undefined,
 	treemapMode: TreemapMode | undefined,
-	visualizationsEnabled: boolean,
 ): GraphVisualizationKey {
-	if (!visualizationsEnabled) return 'timeline';
-
 	const mode = visualizationMode ?? 'timeline';
 	if (mode === 'timeline') return 'timeline';
 	// Health has no sub-mode to collapse, so it maps straight across.

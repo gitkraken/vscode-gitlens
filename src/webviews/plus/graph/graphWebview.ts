@@ -521,7 +521,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
-	private _treemapInvalidateSubscription: Disposable | undefined;
 	private _agentStatusSubscriptions: Disposable[] | undefined;
 
 	// The state-notify coalescer (pending notify/op, last-sent watermark, freshness retry timer, dirty flag)
@@ -723,16 +722,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					this._repositoryEventsDisposable = undefined;
 				},
 			},
-			// Forward treemap aggregator invalidations to the webview so it drops its cached
-			// treemap data and re-requests on next mode/scope read. The subscription is gated
-			// behind `graph.experimental.visualizations.enabled` so we avoid both lazy-constructing
-			// the aggregator service and firing IPC notifications when the treemap will never mount.
-			{
-				dispose: () => {
-					this._treemapInvalidateSubscription?.dispose();
-					this._treemapInvalidateSubscription = undefined;
-				},
-			},
+			// Drop cached treemap data after invalidation; aggregates rebuild on the next data request.
+			this.container.treemapAggregator.onDidInvalidate(repoPath => {
+				this._treemapInvalidatedEvent.fire({ repoPath: repoPath });
+			}),
 			this.container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionChanged, this),
 			{
 				dispose: () => {
@@ -745,7 +738,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.onDidChangeAgentStatus(() => this.subscribeToAgentStatus(), this),
 		);
 
-		this.subscribeToTreemapInvalidations();
 		this.subscribeToAgentStatus();
 	}
 
@@ -766,19 +758,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.container.agentStatus.onDidChangeSessions(this.onAgentSessionsChanged, this),
 			];
 		}
-	}
-
-	private subscribeToTreemapInvalidations(): void {
-		this._treemapInvalidateSubscription?.dispose();
-		this._treemapInvalidateSubscription = undefined;
-
-		// Avoid even constructing the aggregator service (its getter is lazy) when the experimental
-		// flag is off — and skip the IPC notify path entirely since the treemap will never mount.
-		if (configuration.get('graph.experimental.visualizations.enabled') !== true) return;
-
-		this._treemapInvalidateSubscription = this.container.treemapAggregator.onDidInvalidate(repoPath => {
-			this._treemapInvalidatedEvent.fire({ repoPath: repoPath });
-		});
 	}
 
 	// `save-last`: a superseded invalidation is stale relative to whatever refetch the newest one
@@ -2552,10 +2531,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// here we only need to re-arm the auto-fetch loop when the toggle flips.
 		if (configuration.changed(e, 'graph.autoFetch.enabled')) {
 			void this.ensureAutoFetch();
-		}
-
-		if (configuration.changed(e, 'graph.experimental.visualizations.enabled')) {
-			this.subscribeToTreemapInvalidations();
 		}
 
 		if (configuration.changed(e, 'graph.showWorkingTreeBadge')) {
@@ -5160,8 +5135,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			doubleClickWorktreeAction: configuration.get('graph.doubleClickWorktreeAction') ?? 'scope',
 			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
-			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
-			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
 			// Per-repo capability AND the master switch. The sub-provider is absent on web builds, virtual
 			// repos, and Live Share; and with `gitOptimizations.enabled` off every probe short-circuits, so
 			// the view would render an all-clear for a repository it never actually examined.

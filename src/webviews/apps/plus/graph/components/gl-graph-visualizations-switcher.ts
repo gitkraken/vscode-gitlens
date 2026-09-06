@@ -148,14 +148,9 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	}
 
 	/** Map current `(mode, treemapMode)` state to the active switcher key via the shared resolver, so
-	 *  the pressed button, the wrapper's routing, and the `closed` telemetry can't drift. The switcher
-	 *  renders only when the flag is on (see `render`), so the gate is always satisfied here. */
+	 *  the pressed button, the wrapper's routing, and the `closed` telemetry can't drift. */
 	private get activeKey(): VisualizationKey {
-		const key = getEffectiveVisualizationKey(
-			this.mode,
-			this.treemapMode,
-			this.graphState.config?.experimentalVisualizationsEnabled === true,
-		);
+		const key = getEffectiveVisualizationKey(this.mode, this.treemapMode);
 		// `health` is omitted where the capability is absent, so fall back to the button the router lands
 		// on instead. This also keeps exactly one rendered button pressed.
 		if (key === 'health' && this.graphState.config?.gitHealthAvailable !== true) return 'timeline';
@@ -221,11 +216,6 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	}
 
 	override render(): unknown {
-		// Gate the entire switcher behind the experimental Visualizations flag — when disabled,
-		// only the Visual History (timeline) is offered to the user, so showing the multi-tab
-		// switcher would just dangle dead options.
-		if (this.graphState.config?.experimentalVisualizationsEnabled !== true) return nothing;
-
 		const active = this.activeKey;
 		const commitsUnavailable = this.commitsUnavailable;
 
