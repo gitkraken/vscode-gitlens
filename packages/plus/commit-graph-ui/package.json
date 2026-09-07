@@ -82,7 +82,7 @@
 		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus *.tgz",
 		"lint:css": "stylelint \"src/**/*.{css,scss,ts}\"",
 		"prepack": "pnpm run build",
-		"test": "mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'",
 		"verify:package": "node scripts/verify-package.mjs"
 	},
 	"dependencies": {
