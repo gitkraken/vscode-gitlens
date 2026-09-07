@@ -404,9 +404,23 @@ export interface IntegrationManager {
 	 */
 	searchPullRequestsPage(options: {
 		providerId: IntegrationIds;
-		/** Repository descriptors that bound the search; ids cannot name provider search qualifiers. */
+		/**
+		 * Repository descriptors that bound the search; ids cannot name provider search qualifiers.
+		 *
+		 * Both halves of a descriptor must reach the provider unchanged — see `org` — since a search names a
+		 * repository by its `namespace/name` path.
+		 */
 		repos?: ProviderRepositoriesInput;
-		/** Organization/account that bounds the search. */
+		/**
+		 * Organization/account that bounds the search.
+		 *
+		 * Held to a STRICTER rule than the free-form `criteria.text`, which is sanitized: a scope name carrying a
+		 * quote, or an inner space or control character, is REFUSED (warning + `fetchFailed`), and the refusal
+		 * names the value. Leading and trailing whitespace and control characters are stripped and accepted,
+		 * since removing them cannot change which scope the query names. Sanitizing a scope would answer the wrong question — the sanitized value may name a real but
+		 * DIFFERENT organization, whose result looks entirely normal. Pass the name exactly as the provider spells
+		 * it; `''` means "no org supplied" and falls through to the other scopes.
+		 */
 		org?: string;
 		criteria?: PullRequestSearchCriteria;
 		/** Cursor-only: without a cursor, reaching page N costs O(N) upstream requests. */
@@ -513,9 +527,23 @@ export interface IntegrationManager {
 	 */
 	searchIssuesPage(options: {
 		providerId: IntegrationIds;
-		/** Repositories to search. Combines with `org`; both constrain the same query. */
+		/**
+		 * Repositories to search. Combines with `org`; both constrain the same query.
+		 *
+		 * Both halves of a descriptor must reach the provider unchanged — see `org` — since a search names a
+		 * repository by its `namespace/name` path.
+		 */
 		repos?: ProviderRepositoriesInput;
-		/** Organization/account to search. Combines with `repos`. */
+		/**
+		 * Organization/account to search. Combines with `repos`.
+		 *
+		 * Held to a STRICTER rule than the free-form criteria, which are sanitized: a scope name carrying a quote,
+		 * or an inner space or control character, is REFUSED (warning + `fetchFailed`), and the refusal names the
+		 * value. Leading and trailing whitespace and control characters are stripped and accepted, since removing
+		 * them cannot change which scope the query names.
+		 * The sanitized value may name a real but DIFFERENT org, whose result looks entirely normal. `''` means
+		 * "no org supplied" and falls through to the other scopes.
+		 */
 		org?: string;
 		criteria?: IssueSearchCriteria;
 		/**

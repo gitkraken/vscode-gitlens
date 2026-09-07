@@ -972,30 +972,42 @@ suite('broaden issues fan-out (#5438)', () => {
 		manager.dispose();
 	});
 
-	// An org name that carries nothing is DROPPED by the provider's scope translation rather than rejected
+	// A name the provider's scope translation cannot carry is DROPPED rather than rejected
 	// (`toGitHubIssueSearchScopeQualifiers` emits no bare `org:`, which GitHub rejects), so an unguarded search
-	// of one emits NO scope qualifier and matches every issue on the host — measured at 52 million. A bare
-	// `length > 0` check does not catch it: whitespace and quotes are exactly what a name pasted from a config
-	// or a URL degrades to, and they sanitize away to nothing.
-	for (const name of ['', '   ', '"', '""', '\t\n']) {
-		test(`broadenIssues does not search an org named ${JSON.stringify(name)}, which would search the whole host`, async () => {
+	// of one emits NO scope qualifier and matches every issue on the host — measured at 52 million.
+	//
+	// Declining the search is not enough on its own, either: falling through to the repository drain passes the
+	// SAME name to the org repository read, which matches nothing and reports `nothingToRead` — an org that
+	// reads as EMPTY, with no warning and no `fetchFailed`, after up to 100 requests. Indistinguishable from an
+	// org that genuinely has no issues, so the name is refused before either engine is chosen. `''` is in the
+	// table deliberately: it rejects as `unscoped` rather than `unusable-scope`, and it reaches the drain by the
+	// same route with the same outcome, so it must be refused too.
+	for (const name of ['', '   ', '"', '""', '\t\n', 'my org', 'git"kraken']) {
+		test(`broadenIssues refuses an org named ${JSON.stringify(name)} instead of reading it as empty`, async () => {
 			const runtime = createFakeRuntime();
 			const { manager, gh } = await connectedGitHub(runtime);
 
 			let searches = 0;
+			let repoReads = 0;
 			stubIssueSearch(gh, () => {
 				searches++;
 				return Promise.resolve({ value: searchPage() });
 			});
-			stubOrgRepos(gh, () => Promise.resolve({ value: { values: [] } }));
+			stubOrgRepos(gh, () => {
+				repoReads++;
+				return Promise.resolve({ value: { values: [] } });
+			});
 
 			const result = await manager.broadenIssues({
 				orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: name }],
 				page: 1,
 			});
 
-			assert.equal(searches, 0, 'an unscopable org never reaches the search');
 			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true, 'an unreadable org is a failure, not an empty org');
+			assert.match(result.warnings[0].message, /cannot be used as given|must name an organization/);
+			assert.equal(searches, 0, 'neither engine is given the unusable name');
+			assert.equal(repoReads, 0, 'and the 100-request drain is not paid for it either');
 
 			manager.dispose();
 		});

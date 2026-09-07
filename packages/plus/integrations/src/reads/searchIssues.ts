@@ -25,6 +25,7 @@ import {
 	otherWarning,
 	truncationWarning,
 	unsupportedIssueSearchCriteriaWarning,
+	unusableSearchScopeMessage,
 } from './warnings.js';
 
 /**
@@ -117,8 +118,18 @@ export async function searchIssuesPage(
 		return refused(issuesUnsupportedWarning(options.providerId, domain, options.connectionId));
 	}
 
+	const resolved = resolveIssueSearchCriteria(options.providerId, options.criteria);
+	if (resolved.rejection != null) {
+		return refused(
+			unsupportedIssueSearchCriteriaWarning(options.providerId, domain, options.connectionId, resolved.rejection),
+		);
+	}
+
+	// AFTER the criteria check, which is what reports a provider with no filtered issue search at all: that is
+	// the more fundamental refusal, and answering "your scope name is malformed" to a caller whose provider has
+	// no such search names the wrong defect. Matches the pull-request twin, which probes existence first.
 	const scope = resolveIssueSearchScope(options.repos, options.org, options.criteria);
-	switch (scope.rejection) {
+	switch (scope.rejection?.reason) {
 		case 'unscoped':
 			return refused(
 				otherWarning(
@@ -140,13 +151,16 @@ export async function searchIssuesPage(
 					'A filtered issue search cannot be scoped by repository id; pass repository descriptors (namespace + name) instead.',
 				),
 			);
-	}
-
-	const resolved = resolveIssueSearchCriteria(options.providerId, options.criteria);
-	if (resolved.rejection != null) {
-		return refused(
-			unsupportedIssueSearchCriteriaWarning(options.providerId, domain, options.connectionId, resolved.rejection),
-		);
+		// A scope the query cannot spell, refused rather than sanitized — see `isUsableSearchScopeName`.
+		case 'unusable-scope':
+			return refused(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					unusableSearchScopeMessage('issue search scopes', scope.rejection.scopes),
+				),
+			);
 	}
 
 	const readPage = (cursor: string | undefined) =>

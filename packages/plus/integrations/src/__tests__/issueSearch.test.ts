@@ -11,71 +11,21 @@ import type { IntegrationIds } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
+import type { SearchPageResponse } from './issueSearchHelpers.js';
+import { primarySession, stubGitHubApi } from './issueSearchHelpers.js';
 
 /**
- * `searchIssuesPage` and `countIssues` are the two reads Kepler's filtered issue explorer needs, and both make
- * promises the result shape alone can't show: a scope-less search is refused rather than answered with the whole
- * host, a criterion the provider can't express refuses the whole read rather than serving a wider set, and at the
- * provider's result ceiling the read SUCCEEDS while reporting how many matches were withheld.
+ * `searchIssuesPage` makes promises the result shape alone can't show: a scope-less search is refused rather than
+ * answered with the whole host, a scope name the provider query cannot carry AS GIVEN is refused rather than
+ * sanitized into a different scope, a criterion the provider can't express refuses the whole read rather than
+ * serving a wider set, and at the provider's result ceiling the read SUCCEEDS while reporting how many matches
+ * were withheld.
  *
- * These cover the facade half of that contract — the refusals, the paging position, the cap omission, and the
- * per-scope isolation of the count probe. The query-string half (which criterion becomes which qualifier, and that
- * user input can't inject one) is asserted in `@gitlens/git-github`'s own tests, against the emitted request.
+ * These cover the facade half of that contract — the refusals, the paging position and the cap omission. The
+ * count probe's own half lives in `issueCounts.test.ts`; the query-string half (which criterion becomes which
+ * qualifier, and that user input can't inject one) is asserted in `@gitlens/git-github`'s own tests, against the
+ * emitted request.
  */
-
-function primarySession(token: string, domain = 'github.com'): ProviderAuthenticationSession {
-	return {
-		id: 'primary',
-		accessToken: token,
-		account: { id: 'me', label: 'me' },
-		scopes: ['repo'],
-		cloud: true,
-		type: 'oauth',
-		domain: domain,
-	};
-}
-
-type SearchPageResponse = {
-	values: IssueShape[];
-	truncated: boolean;
-	hasMore: boolean;
-	page: number;
-	cursor?: string;
-	totalCount?: number;
-};
-
-/** Stubs the GitHub API client's two new methods, recording what the facade asked it for. */
-async function stubGitHubApi(
-	manager: ReturnType<typeof createIntegrationManager>,
-	stubs: {
-		searchIssuesPage?: (options: Record<string, unknown>) => SearchPageResponse | undefined;
-		countIssues?: (scopes: readonly Record<string, unknown>[]) => (number | undefined)[] | undefined;
-	},
-): Promise<{ searchCalls: Record<string, unknown>[]; countCalls: readonly Record<string, unknown>[][] }> {
-	const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
-	assert.ok(gh != null);
-	(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
-
-	const githubApi = await (
-		gh as unknown as {
-			authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
-		}
-	).authenticationService.apis.github;
-	assert.ok(githubApi);
-
-	const searchCalls: Record<string, unknown>[] = [];
-	const countCalls: Record<string, unknown>[][] = [];
-	githubApi.searchIssuesPage = (_provider: unknown, _token: unknown, options: Record<string, unknown>) => {
-		searchCalls.push(options);
-		return Promise.resolve(stubs.searchIssuesPage?.(options));
-	};
-	githubApi.countIssues = (_provider: unknown, _token: unknown, scopes: Record<string, unknown>[]) => {
-		countCalls.push(scopes);
-		return Promise.resolve(stubs.countIssues?.(scopes));
-	};
-
-	return { searchCalls: searchCalls, countCalls: countCalls };
-}
 
 function emptyPage(overrides?: Partial<SearchPageResponse>): SearchPageResponse {
 	return { values: [], truncated: false, hasMore: false, page: 1, ...overrides };
@@ -100,12 +50,19 @@ suite('IntegrationManager.searchIssuesPage', () => {
 			}
 		});
 
-		// A scope name is validated for what SURVIVES SANITIZING, not for being non-empty. The provider query
-		// DROPS a value that sanitizes away (a bare `org:` is rejected by GitHub), so accepting one would emit no
-		// scope qualifier at all and search the entire host — measured at 52 million issues. Whitespace and quotes
-		// are what a name pasted from a config or a URL degrades to, so this needs no adversarial input.
-		for (const org of ['   ', '"', '""', '\t\n', '" "']) {
-			test(`refuses an org named ${JSON.stringify(org)}, which sanitizes away to no scope at all`, async () => {
+		// A scope name is validated for reaching the provider UNCHANGED, not for being non-empty: the boundary is
+		// checked against the value as supplied while the query is built from the value AFTER sanitizing, so any
+		// gap between the two is a read that is no longer the read that was authorized. Three outcomes, all of
+		// which looked like success:
+		// - only quotes/whitespace/control characters emits no `org:` qualifier at all, leaving a search of the
+		//   entire host — measured at 52 million issues across unrelated accounts.
+		// - a quote inside a real name sanitizes to the REAL and DIFFERENT org, whose answer looks normal.
+		// - whitespace splits the value into two tokens (`org:my org`): a search of `my` filtered by the free
+		//   text `org`, i.e. a wrong NARROWING rather than a widening.
+		// Whitespace and quotes are what a name pasted from a config or a URL degrades to, so this needs no
+		// adversarial input.
+		for (const org of ['   ', '"', '""', '\t\n', '" "', 'git"kraken', 'my org', 'a\nb']) {
+			test(`refuses an org named ${JSON.stringify(org)}, which a query cannot carry as given`, async () => {
 				const manager = createIntegrationManager(createFakeRuntime());
 				try {
 					const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
@@ -117,13 +74,211 @@ suite('IntegrationManager.searchIssuesPage', () => {
 
 					assert.deepEqual(result.items, []);
 					assert.equal(result.fetchFailed, true);
-					assert.match(result.warnings[0].message, /must be scoped/);
-					assert.equal(searchCalls.length, 0, 'no unscoped search reaches the provider');
+					assert.match(result.warnings[0].message, /cannot be used as given/);
+					assert.equal(searchCalls.length, 0, 'no wrongly-scoped search reaches the provider');
 				} finally {
 					manager.dispose();
 				}
 			});
 		}
+
+		// EDGE whitespace and control characters are what a sanitizer removes WITHOUT changing which scope the
+		// query names: it maps a control character to a space, then collapses and trims, so `'gitkraken\n'` and
+		// `'gitkraken\u0000'` alike emit `org:gitkraken` — the scope that was asked for. Refusing either would
+		// reject a name the provider would have resolved correctly, and staying no stricter than the provider's
+		// own sanitizing is the invariant that makes this refusal safe to add. Note `String.trim()` alone does
+		// NOT cover the control-character half, which is why the predicate strips a wider edge class.
+		for (const org of [
+			'gitkraken ',
+			' gitkraken',
+			'gitkraken\n',
+			'\tgitkraken\t',
+			'gitkraken\u0000',
+			'\u0000gitkraken',
+			'gitkraken\u007f',
+			'gitkraken \u0000',
+		]) {
+			test(`accepts an org named ${JSON.stringify(org)}, whose edges a sanitizer merely trims`, async () => {
+				const manager = createIntegrationManager(createFakeRuntime());
+				try {
+					const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+					const result = await manager.searchIssuesPage({
+						providerId: GitCloudHostIntegrationId.GitHub,
+						org: org,
+					});
+
+					assert.equal(result.fetchFailed, undefined);
+					assert.deepEqual(result.warnings, []);
+					assert.equal(searchCalls.length, 1, 'the scope is usable, so the search runs');
+					// Not just "a search ran": the org has to reach the provider, or accepting the value would be
+					// indistinguishable from accepting it and losing it.
+					assert.equal(searchCalls[0].org, org);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		// A `repo:` qualifier names the JOINED `namespace/name` path, so the COMPOSITE is what has to be usable.
+		// Testing the halves separately is weaker in the direction that matters: edge characters are stripped
+		// from a scope value because a sanitizer removes them, but an edge of a HALF is an INTERIOR character of
+		// the path, which a sanitizer collapses rather than removes — `{ namespace: 'git ', name: 'kraken' }`
+		// would pass both halves and emit `repo:git /kraken`, i.e. `repo:git` plus the free text `/kraken`. That
+		// is the split this rule exists to prevent, and the edge relaxation is exactly what could reopen it.
+		for (const repo of [
+			{ namespace: 'git ', name: 'kraken' },
+			{ namespace: 'git', name: ' kraken' },
+			{ namespace: 'git\u0000', name: 'kraken' },
+		]) {
+			test(`refuses ${JSON.stringify(repo)}, whose halves join into a split path`, async () => {
+				const manager = createIntegrationManager(createFakeRuntime());
+				try {
+					const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+					const result = await manager.searchIssuesPage({
+						providerId: GitCloudHostIntegrationId.GitHub,
+						repos: [repo],
+					});
+
+					assert.deepEqual(result.items, []);
+					assert.equal(result.fetchFailed, true);
+					assert.match(result.warnings[0].message, /cannot be used as given/);
+					assert.equal(searchCalls.length, 0);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		// The composite catches every character-level offender but cannot see an EMPTY half — `'/a'` is a
+		// perfectly spellable qualifier that simply names no repository, and GitHub answers it as free text.
+		// A BLANK half is the same case and the trap the edge-stripping sets: `' /a'` strips to `'/a'`, so the
+		// composite alone accepts it. Each half is therefore measured after the same stripping.
+		for (const repo of [
+			{ namespace: '', name: 'a' },
+			{ namespace: 'o', name: '' },
+			{ namespace: ' ', name: 'a' },
+			{ namespace: 'o', name: ' ' },
+			{ namespace: '\n', name: 'a' },
+			{ namespace: '\u0000', name: 'a' },
+		]) {
+			test(`refuses ${JSON.stringify(repo)}, which names no repository`, async () => {
+				const manager = createIntegrationManager(createFakeRuntime());
+				try {
+					const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+					const result = await manager.searchIssuesPage({
+						providerId: GitCloudHostIntegrationId.GitHub,
+						repos: [repo],
+					});
+
+					assert.equal(result.fetchFailed, true);
+					assert.match(result.warnings[0].message, /cannot be used as given/);
+					assert.equal(searchCalls.length, 0);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		// Edge characters on the COMPOSITE are still accepted, since a sanitizer trims them off the joined value
+		// without changing which repository is named — the same invariant the org cases pin.
+		test('accepts a repository whose joined path merely has edges to trim', async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+				const result = await manager.searchIssuesPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					repos: [{ namespace: ' gitkraken', name: 'vscode-gitlens ' }],
+				});
+
+				assert.equal(result.fetchFailed, undefined);
+				assert.deepEqual(result.warnings, []);
+				assert.equal(searchCalls.length, 1);
+				// Same reason the org twin asserts the value reaches the provider: accepting the descriptor and
+				// then dropping or rewriting it would be indistinguishable from accepting it.
+				assert.deepEqual(searchCalls[0].repos, [' gitkraken/vscode-gitlens ']);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		// The descriptor form is narrowed out of a union by an element-type check, which passes a half-built
+		// descriptor through. It must refuse rather than throw: this facade reports refusals as warnings, and an
+		// exception out of it is not a shape any consumer handles.
+		test('refuses a half-built repository descriptor rather than throwing', async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+				const result = await manager.searchIssuesPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					repos: [{ name: 'a' } as unknown as { namespace: string; name: string }],
+				});
+
+				assert.deepEqual(result.items, []);
+				assert.equal(result.fetchFailed, true);
+				assert.match(result.warnings[0].message, /cannot be used as given/);
+				assert.equal(searchCalls.length, 0);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		// The wider edge strip must not reach INSIDE the name: an inner control character sanitizes to a space,
+		// which splits the value into two tokens exactly as an inner space does — a search of the first word
+		// filtered by the rest as free text. Pins that relaxing the edges did not relax the rule.
+		for (const org of ['git\u0000kraken', 'a\u0000b']) {
+			test(`still refuses an org named ${JSON.stringify(org)}, whose inner control character splits it`, async () => {
+				const manager = createIntegrationManager(createFakeRuntime());
+				try {
+					const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+					const result = await manager.searchIssuesPage({
+						providerId: GitCloudHostIntegrationId.GitHub,
+						org: org,
+					});
+
+					assert.deepEqual(result.items, []);
+					assert.equal(result.fetchFailed, true);
+					assert.match(result.warnings[0].message, /cannot be used as given/);
+					assert.equal(searchCalls.length, 0);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		// A `repo:` qualifier names a repository by its `namespace/name` PATH, so both halves have to survive.
+		// Dropping the unusable one would widen the read to every other repository in scope and report it as if
+		// both had been searched.
+		test('refuses a repository whose namespace or name a query cannot carry, rather than dropping it', async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const { searchCalls } = await stubGitHubApi(manager, { searchIssuesPage: () => emptyPage() });
+
+				const result = await manager.searchIssuesPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					repos: [
+						{ namespace: 'gitkraken', name: 'vscode-gitlens' },
+						{ namespace: 'o', name: '"' },
+					],
+				});
+
+				assert.deepEqual(result.items, []);
+				assert.equal(result.fetchFailed, true);
+				assert.match(result.warnings[0].message, /cannot be used as given/);
+				assert.ok(
+					result.warnings[0].message.includes(JSON.stringify('o/"')),
+					'the refusal names the offending repository',
+				);
+				assert.equal(searchCalls.length, 0, 'the usable repository is not searched as if both had been');
+			} finally {
+				manager.dispose();
+			}
+		});
 
 		// `unassigned` and `any-assignee` read like constraints but describe the ISSUE, not the caller, so neither
 		// reduces the search to anyone's own world: unscoped, `no:assignee` matches tens of millions of issues.
@@ -246,6 +401,30 @@ suite('IntegrationManager.searchIssuesPage', () => {
 					assert.deepEqual(result.items, []);
 					assert.equal(result.fetchFailed, true);
 					assert.equal(result.warnings.length, 1);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		// "This provider has no filtered issue search" is the more fundamental refusal than "your scope name is
+		// malformed", so the criteria/existence check runs FIRST. Telling an Azure DevOps caller its project name
+		// is unusable — by a rule derived from GitHub's query language, for a provider that declares no search at
+		// all — names the wrong defect, and Azure project names legitimately contain spaces.
+		for (const providerId of unsupported) {
+			test(`reports no filtered issue search for '${providerId}' even when the scope is also unusable`, async () => {
+				const manager = createIntegrationManager(createFakeRuntime());
+				try {
+					const result = await manager.searchIssuesPage({ providerId: providerId, org: 'my org' });
+
+					assert.deepEqual(result.items, []);
+					assert.equal(result.fetchFailed, true);
+					assert.equal(result.warnings.length, 1);
+					assert.doesNotMatch(
+						result.warnings[0].message,
+						/cannot be used as given/,
+						'the scope refusal must not pre-empt the unsupported-search one',
+					);
 				} finally {
 					manager.dispose();
 				}
@@ -478,305 +657,6 @@ suite('IntegrationManager.searchIssuesPage', () => {
 			const result = await manager.searchIssuesPage({
 				providerId: GitCloudHostIntegrationId.GitHub,
 				repos: [{ namespace: 'o', name: 'a' }],
-			});
-
-			assert.deepEqual(result.items, []);
-			assert.equal(result.fetchFailed, true);
-			assert.equal(result.warnings.length, 1);
-		} finally {
-			manager.dispose();
-		}
-	});
-});
-
-suite('IntegrationManager.countIssues', () => {
-	test('echoes each count under the caller’s own key', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			const { countCalls } = await stubGitHubApi(manager, {
-				countIssues: scopes => scopes.map((_, i) => 10 + i),
-			});
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [
-					{
-						key: 'unassigned',
-						repos: [{ namespace: 'o', name: 'a' }],
-						criteria: { relationships: ['unassigned'] },
-					},
-					{ key: 'recent', repos: [{ namespace: 'o', name: 'a' }], criteria: { updatedAfter: '2026-05-05' } },
-				],
-			});
-
-			assert.deepEqual(
-				result.items.map(i => ({ key: i.key, count: i.count })),
-				[
-					{ key: 'unassigned', count: 10 },
-					{ key: 'recent', count: 11 },
-				],
-			);
-			assert.equal(result.fetchFailed, undefined);
-			assert.equal(countCalls.length, 1, 'both scopes share one request');
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	test('an empty scope list is an empty success, not a refusal', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			const { countCalls } = await stubGitHubApi(manager, { countIssues: () => [] });
-
-			const result = await manager.countIssues({ providerId: GitCloudHostIntegrationId.GitHub, scopes: [] });
-
-			assert.deepEqual(result.items, []);
-			assert.deepEqual(result.warnings, [], 'nothing was asked for, so nothing is missing');
-			assert.equal(result.fetchFailed, undefined);
-			assert.equal(countCalls.length, 0);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	// `key` exists so the caller can match results without positional bookkeeping. Two results under one key make
-	// that ambiguous for EVERY scope, not just the repeated one, so the whole call is refused rather than deduped.
-	test('refuses the whole call on a duplicate key', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			const { countCalls } = await stubGitHubApi(manager, { countIssues: scopes => scopes.map(() => 1) });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [
-					{ key: 'same', repos: [{ namespace: 'o', name: 'a' }] },
-					{ key: 'same', repos: [{ namespace: 'o', name: 'b' }] },
-				],
-			});
-
-			assert.deepEqual(result.items, []);
-			assert.equal(result.fetchFailed, true);
-			assert.match(result.warnings[0].message, /Duplicate/);
-			assert.equal(countCalls.length, 0);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	test('isolates a refused scope, still counting its siblings', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			const { countCalls } = await stubGitHubApi(manager, { countIssues: scopes => scopes.map(() => 5) });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [
-					{ key: 'ok', repos: [{ namespace: 'o', name: 'a' }] },
-					// Unscoped: meaningless on its own, but it must not cost the sibling its count.
-					{ key: 'unscoped', criteria: { relationships: ['unassigned'] } },
-				],
-			});
-
-			assert.deepEqual(
-				result.items.map(i => i.key),
-				['ok'],
-			);
-			assert.equal(result.fetchFailed, true, 'part of what was asked for is missing');
-			assert.equal(result.warnings.length, 1);
-			assert.match(result.warnings[0].message, /unscoped/);
-			assert.deepEqual(countCalls[0].length, 1, 'the refused scope never reaches the provider');
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	// A relationship set is OR-ed across searches. One count could only sum them (double-counting anything that
-	// matches two) or take the max (under-reporting), so it refuses instead: a missing number beats a wrong one.
-	test('refuses a scope requesting several relationships', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			await stubGitHubApi(manager, { countIssues: scopes => scopes.map(() => 1) });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [
-					{
-						key: 'both',
-						repos: [{ namespace: 'o', name: 'a' }],
-						criteria: { relationships: ['authored', 'assigned'] },
-					},
-				],
-			});
-
-			assert.deepEqual(result.items, []);
-			assert.equal(result.fetchFailed, true);
-			assert.match(result.warnings[0].message, /one scope per relationship/);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	test('flags a count past the provider’s ceiling, so a caller can warn before fetching', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			await stubGitHubApi(manager, { countIssues: () => [19240] });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [{ key: 'all', repos: [{ namespace: 'o', name: 'a' }] }],
-			});
-
-			assert.equal(result.items[0].count, 19240);
-			assert.equal(result.items[0].exceedsProviderLimit, true);
-			assert.equal(result.items[0].providerLimit, 1000);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	// `undefined` means "not reported" and must never be rendered as 0 — that would tell the user a filter matches
-	// nothing when it may match thousands.
-	test('an unreported count is undefined and is not flagged against the ceiling', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			await stubGitHubApi(manager, { countIssues: () => [undefined] });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [{ key: 'unknown', repos: [{ namespace: 'o', name: 'a' }] }],
-			});
-
-			assert.equal(result.items[0].count, undefined);
-			assert.equal(result.items[0].exceedsProviderLimit, false, 'unknown-vs-limit is not a comparison');
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	// The batches are independent requests, so they run concurrently — sequentially they would spend exactly the
-	// resource the probe exists to conserve (measured ~2s per batch, so 10 batches would be ~20s instead of ~4s).
-	test('runs its batches concurrently rather than one after another', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			let inFlight = 0;
-			let maxInFlight = 0;
-			const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
-			assert.ok(gh != null);
-			(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
-			const githubApi = await (
-				gh as unknown as {
-					authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
-				}
-			).authenticationService.apis.github;
-			assert.ok(githubApi);
-			githubApi.countIssues = async (_p: unknown, _t: unknown, scopes: Record<string, unknown>[]) => {
-				inFlight++;
-				maxInFlight = Math.max(maxInFlight, inFlight);
-				await Promise.resolve();
-				inFlight--;
-				return scopes.map(() => 1);
-			};
-
-			// 75 scopes ⇒ 3 batches of 25.
-			await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: Array.from({ length: 75 }, (_, i) => ({
-					key: `k${i}`,
-					repos: [{ namespace: 'o', name: `r${i}` }],
-				})),
-			});
-
-			assert.ok(maxInFlight > 1, `expected overlapping requests, saw at most ${maxInFlight} in flight`);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	test('batches beyond the chunk size into several requests', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			const { countCalls } = await stubGitHubApi(manager, { countIssues: scopes => scopes.map(() => 1) });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: Array.from({ length: 26 }, (_, i) => ({
-					key: `k${i}`,
-					repos: [{ namespace: 'o', name: `r${i}` }],
-				})),
-			});
-
-			assert.equal(result.items.length, 26, 'every scope is answered');
-			assert.deepEqual(
-				countCalls.map(c => c.length),
-				[25, 1],
-				'chunked at 25, so a 26th scope starts a second request',
-			);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	// The riskiest consequence of batching concurrently: results come back per batch and are matched to scopes by
-	// POSITION WITHIN the batch. If a middle batch fails, the surviving batches must still map to their own scopes
-	// — a mis-alignment here would report one filter's count under another filter's name, which is worse than a
-	// missing number because it looks authoritative.
-	test('keeps every surviving batch aligned to its own scopes when a middle batch fails', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
-			assert.ok(gh != null);
-			(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
-			const githubApi = await (
-				gh as unknown as {
-					authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
-				}
-			).authenticationService.apis.github;
-			assert.ok(githubApi);
-
-			// Each scope's count encodes the repo it belongs to, so a mis-alignment is visible rather than plausible.
-			githubApi.countIssues = (_p: unknown, _t: unknown, scopes: { repos?: string[] }[]) => {
-				// The second batch (scopes 26-50) fails outright.
-				if (scopes[0]?.repos?.[0] === 'o/r25') return Promise.reject(new Error('batch boom'));
-
-				return Promise.resolve(scopes.map(s => Number(/\d+/.exec(s.repos?.[0] ?? '0')?.[0] ?? 0)));
-			};
-
-			// 75 scopes ⇒ 3 batches of 25; the middle one fails.
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: Array.from({ length: 75 }, (_, i) => ({
-					key: `k${i}`,
-					repos: [{ namespace: 'o', name: `r${i}` }],
-				})),
-			});
-
-			assert.equal(result.fetchFailed, true, 'the failed batch is reported');
-			assert.equal(result.items.length, 50, 'the other two batches survive in full');
-			for (const item of result.items) {
-				assert.equal(
-					item.count,
-					Number(item.key.slice(1)),
-					`${item.key} must carry its OWN count, not a neighbour's`,
-				);
-			}
-			// And the gap is exactly the failed batch, not an off-by-one slice of it.
-			assert.deepEqual(
-				result.items.map(i => i.key).filter(k => Number(k.slice(1)) >= 25 && Number(k.slice(1)) < 50),
-				[],
-			);
-		} finally {
-			manager.dispose();
-		}
-	});
-
-	test('a provider with no count support refuses rather than reporting zeros', async () => {
-		const manager = createIntegrationManager(createFakeRuntime());
-		try {
-			await stubGitHubApi(manager, { countIssues: () => undefined });
-
-			const result = await manager.countIssues({
-				providerId: GitCloudHostIntegrationId.GitHub,
-				scopes: [{ key: 'a', repos: [{ namespace: 'o', name: 'a' }] }],
 			});
 
 			assert.deepEqual(result.items, []);
