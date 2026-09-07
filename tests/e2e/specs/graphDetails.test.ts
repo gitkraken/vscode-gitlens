@@ -167,14 +167,24 @@ async function selectWip(graphWebview: FrameLocator): Promise<void> {
 		return;
 	}
 
-	// Match the visible WIP row label, not the hidden tooltip-content span that also carries the
-	// "Working Changes" text (a plain .first() picks the hidden tooltip span).
+	// Identify the row by its ROLE, not by its visible text. The row reads "Working Changes" only while
+	// that fits: under width pressure the renderer swaps in the short `WIP` form (`wipDisplayLabel`, the
+	// first rung of `computeWipRowFit`'s ladder in the commit-graph package), and a text gate then matches
+	// nothing — which is how this spec timed out on Windsurf while passing on VS Code with the identical
+	// bundle. The swap is visual only: the row's aria-label is built from `commit.message`, so the
+	// accessible name keeps the long form at any width. It also sidesteps the hidden tooltip-content span
+	// carrying the same text, which is why the old gate needed the visibility filter.
 	const wipRow = graphWebview
-		.getByText(/Working (Changes|Tree)/)
+		.getByRole('treeitem', { name: /Working (Changes|Tree)/ })
 		.filter({ visible: true })
 		.first();
 	await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
-	await wipRow.click();
+	// Click the message ELEMENT, not the row box. `getByText` used to resolve to this very span, so this
+	// keeps the gesture the row-selection behaviour was proven with while dropping the text dependency.
+	// The row box is the wrong target: it also carries the inline branch pill, and a click resolved to a
+	// ref routes to the ref action instead of selecting the row. The pill renders OUTSIDE
+	// `.gl-graph__message`, so the message span cannot resolve to a ref.
+	await wipRow.locator('.gl-graph__message-subject').first().click();
 	await ensureDetailsPanelOpen(graphWebview);
 }
 

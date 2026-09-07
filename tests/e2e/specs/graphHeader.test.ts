@@ -67,12 +67,24 @@ async function openHeaderMenu(webview: FrameLocator, label: string, commandInsid
 /** Select the WIP row and wait for its details (which host the commit box + signing indicator). */
 async function selectWipDetails(webview: FrameLocator): Promise<void> {
 	await ensureGraphDetailsPanelOpen(webview, MaxTimeout);
+	// Identify the row by its ROLE, not by its visible text — the text gate failed here two ways. The
+	// details panel this helper just opened renders its own WIP title (`.graph-details-header__wip-title-text`)
+	// carrying the same string, so `.first()` could resolve to the PANEL instead of the row; a click there
+	// is intercepted by the pane overlays and burns the full timeout. And under width pressure the row's
+	// visible label degrades to the short `WIP` form (`wipDisplayLabel`, the first rung of
+	// `computeWipRowFit`'s ladder), matching nothing at all. The row's aria-label is built from
+	// `commit.message` and never sees that swap, so the accessible name identifies the row at any width.
 	const wipRow = webview
-		.getByText(/Working (Changes|Tree)/)
+		.getByRole('treeitem', { name: /Working (Changes|Tree)/ })
 		.filter({ visible: true })
 		.first();
 	await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
-	await wipRow.click();
+	// Click the message ELEMENT, not the row box. `getByText` used to resolve to this very span, so this
+	// keeps the gesture the row-selection behaviour was proven with while dropping the text dependency.
+	// The row box is the wrong target: it also carries the inline branch pill, and a click resolved to a
+	// ref routes to the ref action instead of selecting the row. The pill renders OUTSIDE
+	// `.gl-graph__message`, so the message span cannot resolve to a ref.
+	await wipRow.locator('.gl-graph__message-subject').first().click();
 	await ensureGraphDetailsPanelOpen(webview, MaxTimeout);
 	await expect(graphDetailsRegion(webview, 'wip')).toBeVisible({
 		timeout: 30000,
