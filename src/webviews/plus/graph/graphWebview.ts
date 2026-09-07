@@ -5717,7 +5717,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
 
 			if (branch.upstream != null) {
-				branchState.upstream = branch.upstream.name;
+				// A gone upstream reads as "no upstream" so the header offers Publish instead of nothing
+				if (!branch.upstream.missing) {
+					branchState.upstream = branch.upstream.name;
+				}
 
 				const branchStateCancellation = this.createCancellation('branchState');
 

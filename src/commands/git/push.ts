@@ -292,7 +292,7 @@ export class PushGitCommand extends QuickCommand<State> {
 				} else {
 					const branch = await repo.git.branches.getBranch(state.reference.name);
 
-					if (branch != null && branch?.upstream == null) {
+					if (branch != null && (branch.upstream == null || branch.upstream.missing)) {
 						items.push(...(await buildPublishItems(repo, state.flags, branch, branch.name, '')));
 
 						if (items.length) {
@@ -411,7 +411,7 @@ export class PushGitCommand extends QuickCommand<State> {
 				};
 
 				if (status?.upstream?.state.ahead === 0) {
-					if (!isBranchReference(state.reference) && status.upstream == null) {
+					if (!isBranchReference(state.reference) && (status.upstream == null || status.upstream.missing)) {
 						let pushDetails;
 
 						if (state.reference != null) {
@@ -441,7 +441,7 @@ export class PushGitCommand extends QuickCommand<State> {
 									undefined,
 									{ placeholder: 'Confirm Publish' },
 								);
-					} else if (status.upstream == null) {
+					} else if (status.upstream == null || status.upstream.missing) {
 						step = this.createConfirmStep(
 							appendReposToTitle('Publish', state, context),
 							[],

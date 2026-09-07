@@ -167,7 +167,8 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		cancel?: DirectiveQuickPickItem,
 		options: Partial<QuickPickStep<T>> = {},
 	): QuickPickStep<T> {
-		if (!this.canSkipConfirm || !this.supportsSkipConfirmToggle) {
+		// A notice-only step (no confirmation rows) has nothing to skip
+		if (!this.canSkipConfirm || !this.supportsSkipConfirmToggle || confirmations.length === 0) {
 			return createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
 		}
 
