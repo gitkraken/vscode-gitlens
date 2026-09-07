@@ -285,14 +285,22 @@ export async function openGraphSidebarPanel(vscode: VSCodeInstance, panel: 'work
 /**
  * Double-click a worktree's WIP row — the gesture `graph.doubleClickWorktreeAction` governs.
  *
- * Targets the row's "Working Changes" text rather than the row box: the row also carries an inline
- * branch pill, and a double-click resolved to a ref routes to the ref action (checkout) instead of the
- * row gesture (`surface.ts`'s `onDblClick`).
+ * Targets the row's message ELEMENT rather than the row box: the row also carries an inline branch
+ * pill, and a double-click resolved to a ref routes to the ref action (checkout) instead of the row
+ * gesture (`surface.ts`'s `onDblClick`). The pill renders OUTSIDE `.gl-graph__message`, so the message
+ * span cannot resolve to a ref.
+ *
+ * Deliberately NOT the text "Working Changes": that is the row's visible label, and under width
+ * pressure the renderer swaps it for the short `WIP` form (`wipDisplayLabel`, the first rung of
+ * `computeWipRowFit`'s ladder in the commit-graph package). The swap is visual only — `commit.message`
+ * and the row's aria-label keep the long form — so a text gate holds on a wide host and silently stops
+ * matching on a narrower one, which is how the four scoping specs failed on Windsurf while passing on
+ * VS Code with the identical bundle.
  */
 export async function doubleClickWipRow(webview: FrameLocator, worktreePath: string): Promise<void> {
 	const row = graphWipRow(webview, worktreePath);
 	await expect(row).toBeVisible({ timeout: 30000 });
-	await row.getByText('Working Changes').first().dblclick();
+	await row.locator('.gl-graph__message-subject').first().dblclick();
 }
 
 /** The inline "Undo Commit" action on a commit row (hover-revealed, like every gated row action). */
