@@ -662,7 +662,13 @@ suite('GitHubApi direct pull request lookups', () => {
 		});
 		const api = new GitHubApi(config);
 
-		const pr = await api.getPullRequestForCommit(provider, token, 'octo', 'repo', 'deadbeef');
+		const pr = await api.getPullRequestForCommit(
+			provider,
+			token,
+			'octo',
+			'repo',
+			'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+		);
 
 		assert.match(getQuery(), /\bbody\b/);
 		assert.strictEqual(pr?.body, 'Body 3');
