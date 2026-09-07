@@ -17,6 +17,10 @@
 		// GitLens's own host tsconfigs point this same specifier at source; the published .d.ts still
 		// names `@gitkraken/commit-graph` because tsdown keeps it external. No `baseUrl` needed — `paths`
 		// works without one under `moduleResolution: Bundler`.
+		// The `test` script depends on this mapping too: tsx picks this file up from the package cwd, so
+		// that script deliberately skips the shared `scripts/tsxTsconfig.cjs` shim -- forcing the base
+		// config there would drop the mapping and resolve the specifier through `@gitkraken/commit-graph`'s
+		// `exports` into a `dist/` that only exists after a build.
 		"paths": {
 			"@gitkraken/commit-graph/*": ["../commit-graph/src/*"]
 		}
