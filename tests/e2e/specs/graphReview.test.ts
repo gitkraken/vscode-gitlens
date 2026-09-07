@@ -173,8 +173,14 @@ test.describe('Review & Compose Sub-Panels', () => {
 			graphWebview.locator('gl-details-wip-header gl-details-header gl-action-chip[icon="checklist"]'),
 		).not.toBeVisible();
 
-		// WIP details and commit bottom should be hidden
-		await expect(graphDetailsRegion(graphWebview, 'wip')).not.toBeVisible();
+		// WIP details and commit bottom should be hidden. Asserted on the WIP panel element rather than
+		// on the details REGION: entering a mode locks the panel to the context it was entered from
+		// (`resolveContent` returns `resolveByContext(activeModeContext)`), so a mode entered from the
+		// WIP header keeps the region's `Working changes details` name and the region stays visible by
+		// design — it is the container the mode's own panel renders into. What has to be gone is the WIP
+		// BODY, and `renderWip` renders `gl-details-wip-panel` only while no mode is active, so counting
+		// it is both exact and free of the layout-box caveat on `graphDetailsRegion`.
+		await expect(graphWebview.locator('gl-details-wip-panel')).toHaveCount(0);
 		const commitBottom = graphWebview.locator('.commit-panel__bottom');
 		await expect(commitBottom).not.toBeVisible();
 	});
