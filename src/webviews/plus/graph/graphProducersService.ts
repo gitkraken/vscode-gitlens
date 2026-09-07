@@ -100,6 +100,9 @@ export class GraphProducersService {
 	// hosting-connected context handler only resets refsMetadata when this flips, so a no-op re-publish
 	// (a fresh-but-identical array; see `isRepoHostingIntegrationConnected`) can't blank the pills.
 	private _lastHostingIntegrationConnected: boolean | undefined;
+	// True once a batch has written `pullRequest`/`issue` as `null` only because no integration was
+	// available at the time (see `enrichRefsMetadata`); the next batch that finds one re-arms them.
+	private _hasGateLatchedEntries = false;
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	/** Most recent branchState we sent to the webview, so async PR resolution can merge into the freshest values. */
 	private _lastSentBranchState: BranchState | undefined;
@@ -226,6 +229,18 @@ export class GraphProducersService {
 		}
 	}
 
+	/** Whether the graph's repo is in the `gitlens:repos:withHostingIntegrationsConnected` context — by
+	 *  the session's own path, falling back to the bound repository's path (a scoped session can run
+	 *  under a worktree path that is not itself a registered repo). Shared by the batch gate and both
+	 *  context handlers so they can never disagree about what "connected" means. */
+	private isHostingIntegrationConnected(repoPath?: string): boolean {
+		const connected = getContext('gitlens:repos:withHostingIntegrationsConnected');
+		return (
+			isRepoHostingIntegrationConnected(connected, this._graphSession?.repoPath ?? repoPath) ||
+			isRepoHostingIntegrationConnected(connected, this.repository?.path ?? repoPath)
+		);
+	}
+
 	/** Resolves the asked refs into `_refsMetadata` (copy-on-write per entry). Publishes nothing —
 	 *  callers either return the entries ({@link getMissingRefsMetadata}) or fire a reset snapshot. */
 	private async enrichRefsMetadata(metadata: GraphMissingRefsMetadata, signal?: AbortSignal): Promise<void> {
@@ -235,14 +250,25 @@ export class GraphProducersService {
 		// PR/issue enrichment needs a connected integration; upstream (ahead/behind) is local-git data and
 		// doesn't. Resolve integration availability up front so we can still satisfy upstream requests when
 		// nothing is connected (the per-type loop nulls PR/issue in that case) instead of bailing entirely.
-		const hasHostingIntegration =
-			getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(this._graphSession.repoPath) ??
-			false;
+		const hasHostingIntegration = this.isHostingIntegrationConnected();
 		const hasIntegration =
 			hasHostingIntegration ||
 			(this._issueIntegrationConnectionState !== 'not-checked'
 				? this._issueIntegrationConnectionState === 'connected'
 				: await this.checkIssueIntegrations());
+
+		// The context-flip handler compares against what a batch actually observed, not the baseline
+		// seeded at subscription time — that seed can run after the context already lists the repo,
+		// leaving a batch that ran before the publish (and nulled everything) with no flip to heal it.
+		this._lastHostingIntegrationConnected = hasHostingIntegration;
+
+		// Re-arm the entries an earlier closed-gate batch nulled, now that an integration is available.
+		// Before the branch work below so a bail (degraded enumeration) still heals; the strip fires its
+		// own reset, and this batch's response merges on top of it.
+		if (hasIntegration && this._hasGateLatchedEntries) {
+			this._hasGateLatchedEntries = false;
+			this.updateRefsMetadataForIntegrationChange(['pullRequest', 'issue']);
+		}
 
 		const repoPath = this._graphSession.repoPath;
 		// Resolved once for the whole batch: a pull request's pill is requested for the head branch AND for
@@ -488,10 +514,13 @@ export class GraphProducersService {
 					continue;
 				}
 
-				// PR/issue enrichment requires a connected integration; without one, resolve them as
-				// "none" so the webview stops re-requesting them, while still resolving upstream below.
+				// PR/issue enrichment requires a connected integration; without one, answer "none" so the
+				// webview stops re-requesting, while still resolving upstream below. Provisional: the
+				// connected-repos context can publish moments after the graph loads, so the null is
+				// flagged and re-armed by the next batch that finds an integration.
 				if (!hasIntegration && type !== 'upstream') {
 					write({ [type]: null });
+					this._hasGateLatchedEntries = true;
 
 					continue;
 				}
@@ -660,10 +689,9 @@ export class GraphProducersService {
 	private get isRefsMetadataEnabled(): boolean {
 		// Membership-scoped to THIS repo — the context is repo-agnostic (any connected repo would
 		// otherwise wrongly enable metadata here).
-		const repoPath = this._graphSession?.repoPath ?? this.repository?.path;
 		return (
 			configuration.get('graph.showUpstreamStatus') ||
-			isRepoHostingIntegrationConnected(getContext('gitlens:repos:withHostingIntegrationsConnected'), repoPath) ||
+			this.isHostingIntegrationConnected() ||
 			this._issueIntegrationConnectionState !== 'not-connected'
 		);
 	}
@@ -672,6 +700,7 @@ export class GraphProducersService {
 	 *  re-anchors on the wipe (`null` marks the feature off, which stops it requesting at all). */
 	resetRefsMetadata(): null | undefined {
 		this._refsMetadata = this.isRefsMetadataEnabled ? undefined : null;
+		this._hasGateLatchedEntries = false;
 		return this._refsMetadata;
 	}
 
@@ -695,6 +724,9 @@ export class GraphProducersService {
 	private updateRefsMetadataForIntegrationChange(drop: readonly GraphRefMetadataType[]): void {
 		if (this.isRefsMetadataEnabled && this._refsMetadata != null) {
 			this._refsMetadata = stripRefsMetadataTypes(this._refsMetadata, drop);
+			if (drop.includes('pullRequest')) {
+				this._hasGateLatchedEntries = false;
+			}
 		} else {
 			// The feature is off (→ `null`) or on-but-unpopulated (→ `undefined`): full wipe.
 			this.resetRefsMetadata();
@@ -770,10 +802,7 @@ export class GraphProducersService {
 	/** Seed the membership baseline (on repo-subscription wiring) so the first genuine flip
 	 *  (connect/disconnect) is detected, and a no-op re-publish of the context is a no-op here. */
 	seedHostingIntegrationConnected(repoPath: string): void {
-		this._lastHostingIntegrationConnected = isRepoHostingIntegrationConnected(
-			getContext('gitlens:repos:withHostingIntegrationsConnected'),
-			repoPath,
-		);
+		this._lastHostingIntegrationConnected = this.isHostingIntegrationConnected(repoPath);
 	}
 
 	/** Handler body for the `gitlens:repos:withHostingIntegrationsConnected` context change (the
@@ -786,10 +815,7 @@ export class GraphProducersService {
 		// and blank every ref pill's (integration-independent) ahead/behind until it re-fetches — the
 		// "upstream stats flicker in and out" bug. PR/issue enrichment only needs to re-resolve when
 		// this repo's hosting-integration connection actually changed, which is exactly this flip.
-		const connected = isRepoHostingIntegrationConnected(
-			getContext('gitlens:repos:withHostingIntegrationsConnected'),
-			repoPath,
-		);
+		const connected = this.isHostingIntegrationConnected(repoPath);
 		if (connected === this._lastHostingIntegrationConnected) return;
 
 		this._lastHostingIntegrationConnected = connected;
