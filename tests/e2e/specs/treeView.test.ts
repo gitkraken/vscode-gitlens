@@ -11,6 +11,7 @@ import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import {
+	ensureGraphDetailsPanelOpen,
 	graphDetailsRegion,
 	scrollDetailsToFileTree,
 	waitForGraphRowsRendered,
@@ -126,7 +127,12 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
-	await expect(graphDetailsRegion(graphWebview)).toBeVisible({ timeout: 30000 });
+	// The panel starts CLOSED — `graph-app` reads `graphState.details?.visible ?? false`, and the graph
+	// header labels its toggle `Show Details Panel` on a fresh profile — so the details region is mounted
+	// with content but has no visible box, and waiting for it to appear on its own can only time out.
+	// Expand it first (the shared helper retries the toggle, which the header can replace mid-reconcile),
+	// which then gates on the same region this function used to wait for.
+	await ensureGraphDetailsPanelOpen(graphWebview, 30000);
 }
 
 async function waitForTreeItems(graphWebview: FrameLocator): Promise<void> {
